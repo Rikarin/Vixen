@@ -471,9 +471,49 @@ content: ["Assets/**/*.vxml", "Assets/**/*.cs"]
 `inline`), flex/grid properties, `gap`, spacing (`p`/`m`/`space`), sizing (`w`/`h`/`min`/`max`),
 position/`inset`/`z`, typography (`text`, `font`, `leading`, `tracking`, `truncate`, `whitespace`,
 `align`), colours (`bg`, `text`, `border`, `ring`, `fill`, `stroke`), borders/`rounded`/`divide`,
-effects (`shadow`, `opacity`, `blur`, `mix-blend`), transforms (`translate`, `scale`, `rotate`,
-`origin`), transitions/`duration`/`ease`, interactivity (`cursor`, `select`, `pointer-events`,
-`overflow`, `scroll`), and `aspect`.
+effects (`shadow`, `opacity`, `blur`), transforms (`translate`, `scale`, `rotate`),
+transitions/`duration`/`ease`, interactivity (`cursor`, `select`, `pointer-events`, `overflow`), and
+`aspect`.
+
+⚠ **Three names were struck from that list rather than built, and the strikings are the point of the
+entry.** It said `mix-blend`, `origin` and `scroll` as well, and each is a family whose property
+*nothing in this engine reads* — measured by `UtilityConsumptionProbe.Channels`, over all twelve of
+its scenes and at every value the family could emit, not inferred. Writing them would have produced
+classes that resolve, compute a value, and change nothing a person can see, which is the failure mode
+[doc 43](43-web-styling-parity.md) exists to end and is strictly worse than the honest absence:
+
+- **`mix-blend-*`** — eighteen keywords onto `mix-blend-mode`. A blend mode is a compositing operation
+  and `DrawCommand` has no blend channel to carry one; there is no offscreen target to blend *into*
+  either, which is the same missing compositor `rotate` and `scale` are already filed against (`#23`).
+  Blending would have to land in the renderer first, and the family the day after.
+- **`origin-*`** — nine keywords onto `transform-origin`, and this one is inert for a reason no scene
+  can fix. `transform-origin` moves the fixed point of a transform, so it says something only where
+  there *is* one — and the only transform this engine implements is `translate`, which is
+  origin-independent by definition. `scale` and `rotate`, the two that would notice, are refused
+  (`#23`): a rotated box is not a rectangle and a scaled one holds glyphs shaped at the wrong size.
+  So `origin-*` cannot be observed here even in principle, and the probe's `translated` scene — added
+  for exactly this class of property — confirms it: zero channels, at every value.
+- **`scroll-*`** — v4's `scroll-m-*`, `scroll-p-*` and `scroll-behavior`, 32 roots with `snap-*` and
+  `overscroll-*`. Deferred rather than refused, and **re-homed**: scrolling in this engine is
+  `ScrollView`, a control that owns its bars and offsets its content, not a property on a box, and
+  `scroll-margin` means something only to a scroll container that honours it. Per-axis `overflow` and
+  `overflow: auto` landed recently, and what they do is *clip* — a clip is not a scrollbar, and
+  `overflow-y-auto` cuts the content off with nothing offering to scroll it. So the behaviour comes
+  first (doc 43 A18) and the utilities become properties `ScrollView` reads. See doc 43 Part 8 § 3.
+
+**`space` and `divide` are built**, and they were the two worth building: every longhand they emit is
+already read. Both are unlike every other family in the table — Tailwind implements them as a rule
+over *children*, `& > :not(:last-child)`, setting a margin or a border on all but one — so they
+needed the generator to emit a compound selector rather than a bare class. It does, through
+`Family.Scope`; the selector engine needed nothing, having compiled child combinators, `:not()` and
+`:last-child` all along. Two divergences from v4, both deliberate and both recorded in
+`ChildScopedFamilyTests`: `space-y-*` emits the physical `margin-bottom` where v4 emits
+`margin-block-end`, because the block pair is interned by nobody and this engine has no writing mode
+for them to differ in; and the scope is not wrapped in `:where()`, which v4 uses to keep the rule at
+one class of specificity, because `SelectorCompiler` charges a class for `:where()` as it does for
+`:is()`. The second is v3's behaviour and shipped for four major versions. `space-x-reverse`,
+`divide-*-reverse` and the `divide-<style>` keywords are absent: the first pair needs `calc()`, which
+`StyleValueParser` does not have, and the second needs a reader for `border-style`, which nothing is.
 
 **Why build this rather than hand-write CSS.** The editor has ~200 distinct visual components. A
 utility system means the design-token change ("accent is now teal") is one file, and the styling of a
@@ -506,8 +546,12 @@ carries a chain now. See doc 43 A15 and § D3; the same paragraph is what had `@
 a prerequisite that already existed.
 
 ⚠️ **[Doc 43](43-web-styling-parity.md) reopens the family list above and measures it.** The ✅ on this
-section is true of the *machinery* and not of the *coverage*: five of the families this section names
-for 1.0 — `space`, `divide`, `mix-blend`, `origin`, `scroll` — were never written, and against
+section is true of the *machinery* and not of the *coverage*: ~~five of the families this section names
+for 1.0 — `space`, `divide`, `mix-blend`, `origin`, `scroll` — were never written~~ — **settled, and
+in three different ways.** `space` and `divide` are written, and the list above no longer names the
+other three: `mix-blend` and `origin` emit properties nothing in this engine reads and were refused
+with the measurement written down, `scroll` is re-homed against `ScrollView` under A18. The list is a
+statement about the code again rather than a wish. Against
 Tailwind v4.3.3's own registry only 51 of 328 utility roots work end to end. Doc 43 also corrects the
 first of the two "limits" above: the `text-` overload is Tailwind's own design and costs there exactly
 what it costs here, while a genuine defect sits next to it — the longest-prefix split has no fallback,

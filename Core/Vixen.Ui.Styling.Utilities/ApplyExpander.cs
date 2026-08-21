@@ -95,6 +95,19 @@ public sealed class ApplyExpander {
                 continue;
             }
 
+            // ⚠ A scoped family is refused for exactly the reason a variant is, and it is the same
+            // sentence one relationship over. `space-x-4` means `> :not(:last-child) { … }`, so
+            // expanding it in place would put a margin on the block's own element — every child
+            // spacing turned into one trailing margin on the container, silently, which is worse
+            // than the "not a utility Vixen knows" a misspelling gets.
+            if (UtilityFamilies.ScopeOf(parsed.Name) is { } scope) {
+                diagnostics.Add(
+                    $"'{name}' is a rule over '{scope.Trim()}', and @apply can only add declarations to the block it is in"
+                );
+
+                continue;
+            }
+
             if (!UtilityFamilies.TryResolve(parsed, tokens, declarations)) {
                 diagnostics.Add($"'{name}' is not a utility Vixen knows");
                 continue;

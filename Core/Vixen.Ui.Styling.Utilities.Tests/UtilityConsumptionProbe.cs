@@ -516,11 +516,34 @@ static class UtilityConsumptionProbe {
     /// <summary>Every property/value pair the whole family table can put on an element.</summary>
     /// <returns>Pairs of property and value, each with the utilities that emit it.</returns>
     /// <remarks>
-    ///     ⚠ <b>Through the generator and the loader rather than through
-    ///     <c>UtilityFamilies.TryResolve</c> directly</b>, so that the answer is what a project's real
-    ///     generated sheet would put in the cascade: escaped selectors, <c>@layer utilities</c>, and
-    ///     ExCSS's shorthand expansion all included. Resolving the declarations by hand would measure
-    ///     the registry's intentions, and the registry's intentions are not what a consumer interns.
+    ///     <para>
+    ///         ⚠ <b>Through the generator and the loader rather than through
+    ///         <c>UtilityFamilies.TryResolve</c> directly</b>, so that the answer is what a project's
+    ///         real generated sheet would put in the cascade: escaped selectors,
+    ///         <c>@layer utilities</c>, and ExCSS's shorthand expansion all included. Resolving the
+    ///         declarations by hand would measure the registry's intentions, and the registry's
+    ///         intentions are not what a consumer interns.
+    /// </para>
+    ///     <para>
+    ///         ⚠ <b>The probe has children, and a family that styles them would otherwise be invisible
+    ///         to this gate entirely — which is worse than being reported inert.</b>
+    ///         <c>space-x-4</c> and <c>divide-y</c> emit
+    ///         <c>&gt; :not(:last-child) { … }</c>: nothing at all lands on the element carrying the
+    ///         class, so an element-only reading returns no properties for them, they never enter
+    ///         <c>Emitted</c>, and they are neither <c>Consumers</c> nor <c>Inert</c> nor
+    ///         <c>Composed</c> — unclassified, in a file whose whole claim is that nothing escapes
+    ///         classification. Reading the first child closes it, and closes it for the next scoped
+    ///         family too rather than for these two.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two children, and the baseline has two as well.</b> Two because
+    ///         <c>:not(:last-child)</c> matches nothing under a single child, so a one-child probe
+    ///         would report a scoped family as emitting nothing and be exactly as blind as no child at
+    ///         all. And the bare element needs the same shape because the child <i>inherits</i> —
+    ///         <c>text-probe</c> puts a <c>font-size</c> on the probe and its children read it — so a
+    ///         childless baseline would attribute every inherited property to the child as though the
+    ///         family had set it there.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyList<(string Property, string Value, string Utility)> Emissions() {
         var tokens = ThemeTokens.Parse(ProbeTheme);
@@ -532,20 +555,40 @@ static class UtilityConsumptionProbe {
             document.Load(generator.Generate([utility]), StyleOrigin.Author);
 
             var probe = document.Create("div", document.Root, null, utility);
+            var child = document.Create("div", probe);
+            document.Create("div", probe);
+
             var bare = document.Create("div", document.Root);
+            var bareChild = document.Create("div", bare);
+            document.Create("div", bare);
 
             document.Update();
 
             var names = document.Styles.Properties;
             var values = document.Styles.Values;
+
+            Collect(emissions, names, values, probe, bare, utility);
+            Collect(emissions, names, values, child, bareChild, utility);
+        }
+
+        return emissions;
+
+        static void Collect(
+            List<(string, string, string)> emissions,
+            NameTable names,
+            NameTable values,
+            UiElement measured,
+            UiElement against,
+            string utility
+        ) {
             var baseline = new HashSet<int>();
 
-            foreach (var id in bare.Style.Properties) {
+            foreach (var id in against.Style.Properties) {
                 baseline.Add(id);
             }
 
-            var properties = probe.Style.Properties;
-            var held = probe.Style.Values;
+            var properties = measured.Style.Properties;
+            var held = measured.Style.Values;
 
             for (var i = 0; i < properties.Length; i++) {
                 if (!baseline.Contains(properties[i])) {
@@ -553,8 +596,6 @@ static class UtilityConsumptionProbe {
                 }
             }
         }
-
-        return emissions;
     }
 
     /// <summary>The whole measurement: what is emitted, what is read, and by what.</summary>

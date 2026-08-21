@@ -101,10 +101,16 @@ does not change the conclusion; the number does need to be right before it is us
 ### The composition mechanism
 
 **Landed.** `Core/Vixen.Ui.Styling.Utilities/UtilityComposition.cs`, with `from-*`, `via-*`, `to-*` and
-`bg-linear-*` as the worked consumer. Three of the twelve `composed` roots are now emitted; the other
-nine — `space-x/y-*`, `divide-*`, `mask-radial-*`, `ring-offset-*` and the static set — are more
-surface on the same mechanism rather than more mechanism. It is written up in
-[the guide](../guide/ui/utility-composition.md).
+`bg-linear-*` as the worked consumer. Three of the twelve `composed` roots are now emitted; the others
+— `mask-radial-*`, `ring-offset-*` and the static set — are more surface on the same mechanism rather
+than more mechanism. It is written up in [the guide](../guide/ui/utility-composition.md).
+
+⚠ **Two of those twelve turned out not to be composition at all, and the survey had them in the wrong
+column.** `space-x/y-*` and `divide-*` were counted `composed` because v4 sets a `--tw-*-reverse` on
+them, but the fragment is only how v4 spells the `*-reverse` *variant*; the families themselves are a
+rule over children — `& > :not(:last-child)` — which is a selector problem and not a value one. They
+are emitted now, without any fragment, through `Family.Scope`; the reverse spellings stay absent
+because they need `calc()` and `StyleValueParser` has none. See F9.
 
 **Two designs, and the argument that settled it.** (a) the utilities really set custom properties and
 the cascade resolves the `var()` references at use time; (b) the generator folds the fragments into
@@ -517,12 +523,75 @@ Vixen has already committed to `rounded` and reports the class as unknown. Every
 the table is an instance. That is one function's worth of work — try the next-longest prefix on
 failure — and it is what makes adding the per-corner and per-axis families safe.
 
-### F9 · Doc 09's own 1.0 family list was never finished
+### F9 · Doc 09's own 1.0 family list was never finished ✅ *settled — two written, three struck*
 
 Doc 09 § *The utility preprocessor* names the families for 1.0 and the document is marked ✅ built.
-Five of the names in that list have no family: **`space`**, **`divide`**, **`mix-blend`**,
-**`origin`**, **`scroll`**. This is not a Tailwind-parity gap; it is doc 09 disagreeing with the code,
-which is the thing `docs/overview.md` exists to catch and did not.
+Five of the names in that list had no family: **`space`**, **`divide`**, **`mix-blend`**,
+**`origin`**, **`scroll`**. This was not a Tailwind-parity gap; it was doc 09 disagreeing with the
+code, which is the thing `docs/overview.md` exists to catch and did not.
+
+**Settled per family, with the reason, which is what C6 asked for.** Two were written and three were
+struck from doc 09's list, and the split is not a matter of effort — it is whether any consumer reads
+the property. Each of the three was *measured* inert through `UtilityConsumptionProbe.Channels`, over
+all twelve scenes and at every value the family could emit, rather than argued from a grep.
+
+| root | verdict | why |
+| --- | --- | --- |
+| `space-x/y-*` | **written** | `margin-inline-end` and `margin-bottom` are read; the family needed a compound selector, not a reader |
+| `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
+| `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
+| `origin-*` | **refused** | `transform-origin` moves no channel, and cannot: it needs a transform whose fixed point matters, and `translate` — the one transform the engine implements — is origin-independent. `scale` and `rotate` are refused under **#23** |
+| `scroll-*` | **deferred, re-homed** | Part 8 § 3. Scrolling is `ScrollView`, not a property on a box; the behaviour lands in **A18** and the 32 roots follow it |
+
+⚠ **The `origin-*` refusal is the one worth reading, because a scene cannot fix it.** Every other
+inert verdict this document has recorded turned out at least *possibly* to be a missing arrangement —
+`grid-template-columns`, `vertical-align` and `transition-property` were each inert because the probe
+had no scene for them, three times, and the `translated` scene exists precisely so that the next
+`transform-origin`-shaped property would have somewhere to be seen. It does not help here. A
+translation moves every point of a box by the same vector, so its result is independent of the origin
+by definition; the two transforms that would notice are refused at the draw list and will stay refused
+until a compositor lands. So `transform-origin` is not unobserved, it is *unobservable*, and the
+`translated` scene reports zero channels at every value as a confirmation rather than as a gap.
+
+**Two divergences from v4 in what did land, both deliberate and both pinned in
+`ChildScopedFamilyTests`.** `space-y-*` emits the physical `margin-bottom` where v4 emits
+`margin-block-end`: `LayoutStyleBuilder.EdgeNames` interns `-left`, `-top`, `-right`, `-bottom`,
+`-inline-start` and `-inline-end` and no block pair, so v4's spelling measures inert — and it is not
+an approximation to substitute the physical one, because `Vixen.Ui.Layout` has no writing mode for the
+two to differ in. And the scope is emitted bare rather than inside `:where()`: v4 wraps it to keep the
+rule at one class of specificity so a child's own `mb-0` still wins, and `SelectorCompiler` charges a
+class for `:where()` exactly as it does for `:is()`, so no spelling available here reaches zero. The
+rule lands at `(0,2,0)` and beats a child's single-class utility — which is what v3 did for four major
+versions. Closing it is three lines in `SelectorCompiler`, and the test that pins the current
+behaviour fails the day they land.
+
+**What is absent inside the two families, and why.** `space-x-reverse`, `space-y-reverse`,
+`divide-x-reverse` and `divide-y-reverse` need `calc()` to multiply an edge by a `--tw-*-reverse`
+flag, and `StyleValueParser` has none; the flag would be a custom property nobody reads. The five
+`divide-<style>` keywords need a reader for `border-style`, and there is not one — measured, like the
+rest. Registering either set would add exactly the inert roots Part 8 § 3 declines to add for
+`scroll-*`.
+
+⚠ **The consumption gate had to grow eyes for this shape of family before any of it could be
+trusted, and the blindness was total rather than partial.** `UtilityConsumptionProbe.Emissions`
+measured what the family table puts on *the element carrying the class*, and a scoped family puts
+nothing there — so `space-x-4` and `divide-y` returned no properties, entered neither `Consumers` nor
+`Inert` nor `Composed`, and were unclassified in a file whose whole claim is that nothing escapes
+classification. That is worse than the six times the scene list has been the thing missing: an inert
+verdict is at least a verdict. The probe's element has two children now — two, because
+`:not(:last-child)` matches nothing under one — and the bare baseline has two as well, or every
+property the child *inherits* would be credited to the family. No new scene was needed: every
+longhand these families emit was already emitted and already read by a `m*`/`border-*` family, which
+is exactly why they were worth writing and exactly why the gate alone could not have told anyone
+whether the selector matched. `ChildScopedFamilyTests` is what asserts that half, in a real cascade
+and a real frame.
+
+⛔ **Owed, and named rather than left**: exit criterion 3 wants a row per root in
+`Editor/Vixen.Editor.Ui.Tests/UtilityFamilySupportTests`, and the five new roots have none. Its
+`Supported` theory puts the class on the element it then reads, which is the one arrangement a scoped
+family is invisible in, so they need a `Fact` of their own there rather than five table rows. The
+equivalent assertion exists — `ChildScopedFamilyTests`, against a `UiDocument` and a laid-out
+frame — so this is a hole in one inventory and not in the coverage.
 
 ### F10 · Nothing ever builds an `Animator`, so no CSS transition has ever run ✅ *closed by A20*
 
@@ -1633,7 +1702,7 @@ mixed-content paragraph sit behind it.
 | C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
 | C4 ✅ | Cross-assembly token sharing, shape C (Part 3) — `VixenStyleTokens` names another project's `@theme`; `Vixen.Editor.Ui.Styling.targets` makes joining the editor's theme one `Import`; guarded by `SharedThemeTests`, which is cross-assembly because no per-project suite can be | 0.3 |
 | C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
-| C6 🟢 | Doc 09's five missing families — `space`, `divide`, `mix-blend`, `origin`, `scroll` | 0.25 |
+| C6 ✅ | Doc 09's five missing families — `space` and `divide` written (a new `Family.Scope`, so the generator can emit `& > :not(:last-child)`); `mix-blend` and `origin` refused as measured-inert and struck from doc 09's list; `scroll` deferred to A18 per Part 8 § 3. See F9 | 0.25 |
 | C7 🟢 | The ~120 families that are a table line each, once A and B land | 0.75 |
 | C8 🟡 | The families that are their own small feature: `mask-*`, gradients, `animate-*` | 0.75 |
 | | **C total** | **3.2** |
@@ -1754,8 +1823,8 @@ inventory with an unexplained hole in it is how a subset gets rationalised the n
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
    rather than `CheckArchitecture`, for the reason Part 5 gives, and "acts on" rather than "interns"
-   for the reason Part 0 measured at seven properties. Today: **11 properties, 11 allow-listed**, and
-   the allow-list expires on its condition.
+   for the reason Part 0 measured at seven properties. Today: **6 properties, 6 allow-listed** out of
+   108 emitted, with 91 acted on and 11 composed — and the allow-list expires on its condition.
 3. **`UtilityFamilySupportTests` has a row per root, resolved against a real element**, and its
    `Inert` table is empty or every entry names its task. It is the only artefact in this survey built
    by resolving elements rather than by reading source, and it is where a finding goes to become a

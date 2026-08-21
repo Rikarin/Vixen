@@ -17,7 +17,7 @@ every component is in the same repository as every token.
 |---|---|
 | `ThemeTokens` | An `@theme { --color-*: … }` block → colours, spacing, radii, type scale, weights, font stacks, shadows, breakpoints. Layered over the shipped default. |
 | `UtilityParser` | `[-]?[variant:]*utility[-value][/opacity][!]`, bracket-aware throughout. |
-| `UtilityFamilies` | What each family emits. Table-driven. |
+| `UtilityFamilies` | What each family emits. Table-driven. `Family.Scope` is what a rule is *about* — `space-*` and `divide-*` are about the children. |
 | `UtilityComposition` | The `--tw-*` fragments, and what each is worth unset. `from-*`/`via-*`/`to-*` + `bg-linear-*` is the worked case; the guide is [ui/utility-composition](../../docs/guide/ui/utility-composition.md). |
 | `Variants` | `hover:`, `md:`, `dark:`, `ltr:`/`rtl:`, `group-*`, `peer-*`, `data-*`, `aria-*`, `[&>*]`. |
 | `UtilityGenerator` | The stylesheet, into `@layer utilities`. |
@@ -387,6 +387,16 @@ immediately before the element, where the subsequent-sibling combinator and the 
 same thing — so replacing `~` with `+` left it green. One filler sibling between them is the whole
 difference. *A combinator test needs a scene the weaker combinator fails.*
 
+**A gate that would have been blind to a whole family, rather than wrong about one.** The consumption
+probe measured what the family table puts on *the element carrying the class*, and `space-x-4` puts
+nothing there — it is `> :not(:last-child) { … }`. So a scoped family emitted no properties by that
+reading, entered neither the consumer column nor the inert one nor the composed one, and was
+unclassified in a file whose entire claim is that nothing escapes classification. The probe's element
+has two children now, and the baseline has two as well because the child *inherits* — a childless
+baseline would have credited the family with every inherited property. Two children rather than one
+because `:not(:last-child)` matches nothing under a single child, which is the same blindness one step
+further in. *An instrument that measures the wrong element reports zero and looks like a pass.*
+
 ## Deliberate limits
 
 `text-` means alignment, then font size, then colour, resolved in that order — so a colour named
@@ -413,7 +423,36 @@ class today, and the two occurrences in generated sheets are the English word ou
 
 An arbitrary value on a border edge is read by its shape: `border-[#f00]` is a colour and
 `border-[3px]` is a width, and `border-[var(--x)]` is a width because there is genuinely no way to
-tell and a width is the commoner one.
+tell and a width is the commoner one. The shape test is `#`, `rgb` or `hsl` and not a named-colour
+table, so `border-[red]` and `divide-x-[red]` are widths — `IsPlausibleValue`'s remark is the argument
+for keeping the escape hatch a token-shape test rather than a value parser.
+
+⚠ **`space-*` and `divide-*` are two classes of specificity, where Tailwind v4's are one.** They are
+the only families whose rule is about the *children* — `.space-y-4 > :not(:last-child)` — and v4 wraps
+that scope in `:where()` so the rule stays at one class and a child's own `mb-0` still wins.
+`SelectorCompiler` charges a class for `:where()` exactly as it does for `:is()`, so no spelling
+available here reaches zero: the emitted rule is `(0,2,0)` and it beats a child's single-class
+utility. **That is v3's behaviour, and it shipped for four major versions** — the escape is v3's too:
+put the exception on the container, or do not reach for `space-*` on a list whose items set their own
+margins. Closing it is a change in `Vixen.Ui.Styling`, and
+`ChildScopedFamilyTests.A_child_margin_utility_loses_to_the_containers_space_and_that_is_the_v3_behaviour`
+fails the day it lands.
+
+⚠ **`space-y-*` emits `margin-bottom` where v4 emits `margin-block-end`, and it is not a shortcut.**
+`LayoutStyleBuilder.EdgeNames` interns `-left`, `-top`, `-right`, `-bottom`, `-inline-start` and
+`-inline-end` — no block pair — so v4's spelling resolves, computes, and moves nothing, which is the
+inert family the gate exists to keep out. Nor is the physical pair an approximation of it:
+`Vixen.Ui.Layout` has no writing mode, so the block axis *is* top-to-bottom in every configuration the
+engine can be in. `space-x-*` keeps v4's logical `margin-inline-end`, because that one is read and
+mirrors under `direction: rtl`, which is the whole point of it.
+
+⚠ **`space-x-reverse`, `divide-*-reverse` and the `divide-<style>` keywords are absent.** The reverse
+spellings are how v4 flips which edge of the pair carries the width, and they need `calc()` to
+multiply an edge by a `--tw-*-reverse` flag; `StyleValueParser` has none, so the flag would be a
+custom property nobody reads. The style keywords need a reader for `border-style`, and there is not
+one — measured through the consumption probe, not assumed. `@apply` refuses a scoped family for the
+same reason it refuses a variant: it is a rule with a selector of its own, not declarations to drop
+into the block it was written in.
 
 `ltr:` and `rtl:` match a `dir` attribute on an *ancestor*, the same shape `dark:` has under the class
 strategy. `direction` is a CSS property here, so there is nothing else in the tree for a selector to
