@@ -11,6 +11,8 @@ using Vixen.Rendering.Terrain;
 using Vixen.Rendering.Water;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Physics.Characters;
+using Vixen.Physics.Ecs;
 using Vixen.Water.Physics;
 
 namespace Vixen.Editor.App;
@@ -64,6 +66,16 @@ static class MaterialIcons {
 
     /// <summary>Geometry, as distinct from the light falling on it.</summary>
     public static Color4 Geometry { get; } = Hue(0xAB47BC);
+
+    /// <summary>Mass and motion: bodies, colliders, the velocities they carry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Steel, and the only desaturated family here on purpose.</b> A body is a property of
+    ///     a thing rather than a thing itself — it sits in an inspector <em>beside</em> the mesh and
+    ///     the material rather than instead of them — so a physics row that shouted would make every
+    ///     object look like a physics object. It is a hue and not a grey, because grey reads as
+    ///     disabled.
+    /// </remarks>
+    public static Color4 Physics { get; } = Hue(0x78909C);
 
     /// <summary>Terrain, foliage and the splines that place them.</summary>
     public static Color4 Terrain { get; } = Hue(0x66BB6A);
@@ -179,6 +191,9 @@ static class MaterialIcons {
 
     /// <summary>An arrow bent round. Rotation.</summary>
     const string Rotate = "M12 4.4V1.6l4.4 3.6L12 8.8V6.4a5.8 5.8 0 1 0 5.8 5.8h2A7.8 7.8 0 1 1 12 4.4z";
+
+    /// <summary>A shaft and a head. A direction something is going, rather than one it faces.</summary>
+    const string Arrow = "M3.6 12h13.2M12.6 7.4 17.6 12l-5 4.6";
 
     /// <summary>A link. A reference to something that lives elsewhere.</summary>
     const string Link = "M9.4 12.9h5.2v-1.8H9.4zM7.6 7.6h3.6v1.9H7.6a2.5 2.5 0 0 0 0 5h3.6v1.9H7.6a4.4 4.4 0 0 1 0-8.8z"
@@ -377,6 +392,19 @@ static class MaterialIcons {
         // A box on a line: the whole content of the claim is that this one does not move, which is
         // what lets the sun's cascades keep its shadow between frames.
         new(typeof(StaticShadowCaster), Struck(Cube, Ground, Geometry)),
+
+        // Mass and motion. ⚠ These arrived in the editor's own set only when `Vixen.Editor.App`
+        // came to reference `Vixen.Physics` for play mode — the components are years older, and the
+        // icon test is what noticed the day they started shipping.
+        new(typeof(RigidBody), Filled(Cube, Physics)),
+        new(typeof(Collider), Line(Bounds, Physics)),
+        new(typeof(LinearVelocity), Line(Arrow, Physics)),
+        new(typeof(AngularVelocity), Line(Rotate, Physics)),
+
+        // A person with a direction, in the physics family rather than the player's: a character
+        // controller is a body that resolves against the world, and a game may drive one with no
+        // player behind it at all.
+        new(typeof(CharacterMovement), Struck(Person, Arrow, Physics)),
 
         // Terrain and what grows on it.
         new(typeof(TerrainComponent), Filled(Mountains, Terrain)),
