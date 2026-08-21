@@ -329,14 +329,31 @@ accept both**. Cheap to know before the property system is written; expensive to
 
 Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
 selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
-`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()`/`:where()`, pseudo-elements `::before`/`::after`,
+`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()`/`:where()`,
 custom properties (`--x`) with `var()` and fallbacks, `@media` (width/height/orientation/
 prefers-color-scheme/dpi), `@supports`, `@keyframes`, `@font-face`, `@import`, `@layer` (cascade
 layers — worth having, it is how the utility system and component styles coexist cleanly).
 
 Not supported, and documented: floats, tables, `position: fixed` relative to viewport (there is no
 viewport in a game overlay), CSS filters beyond a curated set, `calc()` beyond `+ - * /` on
-compatible units, container queries (P2), `:has()` (P2 — expensive to match incrementally).
+compatible units, container queries (P2), `:has()` (P2 — expensive to match incrementally),
+pseudo-elements.
+
+⚠ **`::before` and `::after` were in the supported list above and were never supported — corrected
+here rather than left standing.** This is [doc 43](43-web-styling-parity.md)'s finding **F6**, and
+what the code did was worse than nothing: `SelectorCompiler` interned the pseudo-element's name onto
+the compiled `Selector`, compiled the rest of the compound as though it were absent, and *nothing
+anywhere read the field*. So `p::before { content: "→"; color: red }` matched the paragraph and
+turned **the paragraph** red — a rule that looked like it worked, with this document vouching for
+it. The compiler now refuses the selector with a diagnostic, which reaches the log through
+`UiDocument`'s drain.
+
+A pseudo-element is a **generated box**: a box in the layout tree with no element behind it. That
+collides head-on with the one-node-one-box invariant `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`
+records as the thing blocking anonymous boxes and inline fragmentation — a `LayoutResult` holds one
+position and one rectangle, and the rounding pass, the absolute walk and hit testing all assume it.
+Materialising pseudo-elements is therefore the same body of work as anonymous boxes and is planned as
+doc 43's **A12**, not as a fix to the cascade.
 
 ### Cascade and matching
 

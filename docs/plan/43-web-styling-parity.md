@@ -487,16 +487,50 @@ resolves an element and finds both of the other two absent. Nothing in `Vixen.Ui
 `text-overflow`, so the name promises an ellipsis the engine cannot draw, and the wrapping the third
 would have suppressed still happens. `line-clamp-*` is absent for the same reason one level up.
 
-### F6 · Pseudo-element selectors compile and nothing consumes them ⚠
+### F6 · Pseudo-element selectors compile and nothing consumes them ✅ *closed — refused, not built*
 
-`SelectorCompiler` parses `::before`/`::after`, interns the name and stores it on `Selector`. A
+`SelectorCompiler` parsed `::before`/`::after`, interned the name and stored it on `Selector`. A
 **NUL-safe** search (`rg --text`, after the `ShorthandExpansion` lesson above) for a reader of
-`Selector.PseudoElement` across `Core/` and `Editor/` returns four hits: the compiler that writes it,
+`Selector.PseudoElement` across `Core/` and `Editor/` returned four hits: the compiler that wrote it,
 the record declaration, and two assertions in `SelectorMatchingTests` that it *was* written. Nothing
-in `SelectorMatcher`, `StyleRuleSet` or `StyleResolver` filters on it. So a rule written for `p::before` is
-matched and applied **to the `p`**, and doc 09's supported-selector list, which names `::before` and
-`::after`, is ahead of the code. Seven Tailwind variants (`before`, `after`, `marker`, `placeholder`,
+in `SelectorMatcher`, `StyleRuleSet` or `StyleResolver` filtered on it. So a rule written for `p::before` was
+matched and applied **to the `p`**, and doc 09's supported-selector list, which named `::before` and
+`::after`, was ahead of the code. Seven Tailwind variants (`before`, `after`, `marker`, `placeholder`,
 `selection`, `file`, `backdrop`) depend on this, and it needs a test before anything is built on it.
+
+**Confirmed, then closed by refusing it.** The survey's reading held up: the matcher's `Matches`
+never touches the field, and a sabotage run — putting the old case back and running the new test —
+shows `p::before { color: red } p { color: rgb(0, 255, 0) }` resolving the paragraph to `(1, 0, 0, 1)`.
+Two further checks: no `.cs` under `Core/Vixen.Ui*` carries a NUL byte, so grep was not blind here,
+and no `.vcss`, `.vxml` or `.css` anywhere in the repository uses a pseudo-element — nothing depended
+on the wrong behaviour and **no visual baseline moves**.
+
+**Option (1) — materialise the boxes — was refused for today and is A12's, not this finding's.** A
+pseudo-element is a box in the layout tree with no element behind it, which is the one-node-one-box
+invariant `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` names as the blocker for anonymous boxes
+and inline fragmentation: a `LayoutResult` holds one position and one rectangle, and the rounding
+pass, the absolute walk and hit testing all assume it. Generated boxes need that machinery, so A12's
+0.5 is an underestimate while the invariant stands, and the anonymous-box work is its real
+precondition.
+
+**Option (3) — match and contribute nothing — was refused for the reason `SelectorCompiler`'s own
+remarks already give.** A selector that compiles, matches and does nothing is this document's
+recurring defect shape, and it leaves the author with no output and no message. The compiler's
+contract has said "dropped with a diagnostic rather than approximated" since it was written; the
+pseudo-element was the one thing breaking it.
+
+**What landed.** The `PseudoElementSelector` case refuses with the reason *"a pseudo-element generates
+a box of its own, and Vixen has no box without an element behind it"*, naming the fragment the author
+wrote (`::before`) the way the `:has()` refusal does. `Selector.PseudoElement` is **deleted** rather
+than left always-absent — it was `PublicAPI.Unshipped`, so nothing outside broke, and a field that can
+only hold a sentinel is the same defect one step removed. The diagnostic reaches the log through
+`UiDocument`'s existing drain (event 7004), proven by
+`StyleDiagnosticDrainTests.A_pseudo_element_rule_does_not_colour_the_element_it_was_written_against`,
+which asserts the **colour** rather than the compiler's output. Doc 09's list is corrected there.
+`A_refused_pseudo_element_leaves_the_rules_around_it_matching_and_weighed_the_same` covers the
+specificity/renumbering hazard: a refusal after `:is()` has already written into the shared
+`SelectorTable` leaves entries nothing points at, which is waste and not corruption because every
+offset is captured at write time.
 
 ### F7 · Arbitrary *properties* are not supported, and arbitrary *values* are ⚠
 

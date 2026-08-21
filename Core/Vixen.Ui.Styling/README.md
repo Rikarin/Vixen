@@ -414,6 +414,20 @@ match at all. Anything else Vixen does not understand is dropped with a diagnost
 selector, never approximated. A rule that silently matches more than it says produces a UI that is
 wrong everywhere nobody looked; a rule that does not load produces a message.
 
+⚠ **Pseudo-elements — `::before`, `::after` and the rest — are refused, and this is the one place the
+paragraph above was not true.** `SelectorCompiler` used to intern the pseudo-element's name onto the
+compiled `Selector` and compile the rest of the compound as though it were absent. Nothing read the
+field, so `p::before { content: "→"; color: red }` matched the paragraph and turned **the paragraph**
+red: not a partial implementation, a rule quietly meaning something else, and
+[doc 43](../../docs/plan/43-web-styling-parity.md)'s F6 calls it the worst of the three states a
+half-built feature can be in.
+
+The blocker is not the cascade. A pseudo-element is a **generated box** — a box in the layout tree
+with no element behind it — and `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` records
+*one node produces one box* as the invariant that makes the layout store five parallel arrays, and as
+the thing blocking anonymous boxes and inline fragmentation. Generated boxes need that same
+machinery, so they are doc 43's A12 and not a change here. Until then the author gets the message.
+
 Licensed under Apache-2.0.
 
 ## Reloading a stylesheet

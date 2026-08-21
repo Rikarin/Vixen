@@ -241,17 +241,87 @@ public class SelectorMatchingTests {
         Assert.False(fixture.Matches(":is(.row, .column):not(.selected)", selected));
     }
 
+    /// <summary>A pseudo-element is refused, because the alternative was matching the wrong thing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test is an inversion, and the thing it used to assert is the defect.</b> It
+    ///         was called <c>A_pseudo_element_says_which_box_a_rule_targets_rather_than_filtering_the_element</c>
+    ///         and it asserted that <c>.tooltip::before</c> matched a <c>.tooltip</c> and that the
+    ///         name <c>before</c> had been interned onto the compiled selector. Both were true. The
+    ///         part nobody asserted is that <i>nothing read the field</i> — not
+    ///         <see cref="SelectorMatcher" />, not <c>StyleRuleSet</c>, not <c>StyleResolver</c> — so
+    ///         the only observable behaviour of <c>p::before { color: red }</c> was a red paragraph.
+    ///         Doc 43 records it as F6 and calls it the worst of the three possible states, because
+    ///         the rule looked like it worked.
+    ///     </para>
+    ///     <para>
+    ///         <b>Refused rather than matched-and-inert.</b> A selector that matches and contributes
+    ///         nothing is this codebase's recurring defect, and it would leave an author staring at a
+    ///         rule with no output and no message. The compiler's own contract — see its remarks —
+    ///         already says an unsupported selector is dropped with a diagnostic; until this change
+    ///         the pseudo-element was the one thing that broke it.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_pseudo_element_says_which_box_a_rule_targets_rather_than_filtering_the_element() {
+    public void A_pseudo_element_selector_is_refused_rather_than_applied_to_the_element_behind_it() {
         var fixture = new StyleFixture();
-        var element = fixture.Tree.CreateElement("div", classNames: ["tooltip"]);
+        var element = fixture.Tree.CreateElement("p", classNames: ["tooltip"]);
 
-        var withPseudo = fixture.Compile(".tooltip::before");
-        var withoutPseudo = fixture.Compile(".tooltip");
+        var compiled = fixture.Load("p::before { color: red } .tooltip::after { color: blue } p { color: green }");
 
-        Assert.True(fixture.Matcher.Matches(fixture.Tree, element, withPseudo));
-        Assert.Equal(fixture.Names.Lookup("before"), withPseudo.PseudoElement);
-        Assert.Equal(NameTable.None, withoutPseudo.PseudoElement);
+        // Only the rule with no pseudo-element survived, and it is the one that matches.
+        var survivor = Assert.Single(compiled);
+        Assert.True(fixture.Matcher.Matches(fixture.Tree, element, survivor));
+
+        Assert.Equal(2, fixture.Compiler.Diagnostics.Count);
+
+        // Naming what the author wrote, not what ExCSS calls it — the `:has()` lesson, and the
+        // reason two refusals in one sheet stay tellable apart.
+        Assert.Equal("::before", fixture.Compiler.Diagnostics[0].Text);
+        Assert.Equal("::after", fixture.Compiler.Diagnostics[1].Text);
+
+        Assert.Contains("generates a box", fixture.Compiler.Diagnostics[0].Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("Selector", fixture.Compiler.Diagnostics[0].Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>Refusing a pseudo-element does not renumber the selectors around it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The hazard in dropping a selector late.</b> <c>Selector.Start</c> and
+    ///     <c>CompoundSelector.Start</c> are absolute offsets into one shared
+    ///     <see cref="SelectorTable" /> that grows for the whole sheet. A refusal that had already
+    ///     written into that table — and <c>:is()</c> writes its nested parts on the way past, before
+    ///     the compound holding it is known to be doomed — leaves entries nothing points at. Those
+    ///     are waste, not corruption, precisely because every offset is captured at write time rather
+    ///     than derived from a count. This asserts that: the rule before and the rule after both still
+    ///     match, and their specificities are the ones they would have had on their own.
+    /// </remarks>
+    [Fact]
+    public void A_refused_pseudo_element_leaves_the_rules_around_it_matching_and_weighed_the_same() {
+        var fixture = new StyleFixture();
+        var row = fixture.Tree.CreateElement("div", classNames: ["row"]);
+        var cell = fixture.Tree.CreateElement("span", classNames: ["cell"], parent: row);
+
+        var alone = new StyleFixture();
+        var expected = alone.Compile("div.row > span.cell").Specificity;
+
+        var compiled = fixture.Load(
+            "div.row > span.cell { color: red }"
+                + " p:is(.x, .y)::before { color: blue }"
+                + " .row .cell { color: green }"
+        );
+
+        Assert.Equal(2, compiled.Count);
+        Assert.Single(fixture.Compiler.Diagnostics);
+
+        Assert.Equal(expected, compiled[0].Specificity);
+        Assert.Equal(new Specificity(0, 2, 0), compiled[1].Specificity);
+
+        Assert.True(fixture.Matcher.Matches(fixture.Tree, cell, compiled[0]));
+        Assert.True(fixture.Matcher.Matches(fixture.Tree, cell, compiled[1]));
+
+        // And through the index, which is the path a document actually takes.
+        Assert.Equal([0, 1], fixture.MatchIndexed(cell));
+        Assert.Equal(fixture.MatchBruteForce(cell), fixture.MatchIndexed(cell));
     }
 
     [Fact]
@@ -264,7 +334,6 @@ public class SelectorMatchingTests {
         Assert.Equal(new Specificity(1, 1, 1), fixture.Compile("div#app.row").Specificity);
         Assert.Equal(new Specificity(0, 1, 0), fixture.Compile("[data-x]").Specificity);
         Assert.Equal(new Specificity(0, 1, 0), fixture.Compile(":hover").Specificity);
-        Assert.Equal(new Specificity(0, 0, 2), fixture.Compile("div::before").Specificity);
         Assert.Equal(new Specificity(0, 0, 3), fixture.Compile("div span p").Specificity);
 
         Assert.True(fixture.Compile("#app").Specificity > fixture.Compile(".a.b.c.d").Specificity);
