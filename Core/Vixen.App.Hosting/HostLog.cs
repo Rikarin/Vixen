@@ -319,4 +319,27 @@ static partial class HostLog {
         Message = "Unpacked content: chunks read from the artefact store at {Root}, with nothing bundled."
     )]
     public static partial void UnpackedContent(ILogger logger, VirtualPath root);
+
+    /// <summary>
+    ///     What the project's <c>[GameSystem]</c> declarations added, said because a frame's contents
+    ///     should be readable from a log rather than only from the source.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13031,
+        Level = LogLevel.Information,
+        Message = "Declared systems: {Count} added — {Systems}."
+    )]
+    public static partial void DeclaredSystems(ILogger logger, int count, string systems);
+
+    /// <summary>
+    ///     ⚠ <b>A warning, and it has to be.</b> A declared system whose service nothing registered
+    ///     does not run, and nothing else in the log would say so — the symptom is a game rule that
+    ///     silently never happens, which is indistinguishable from the system being broken.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13032,
+        Level = LogLevel.Warning,
+        Message = "Declared systems not running: {Systems}. Register the service before OnInitialise returns."
+    )]
+    public static partial void UndeclaredServices(ILogger logger, string systems);
 }

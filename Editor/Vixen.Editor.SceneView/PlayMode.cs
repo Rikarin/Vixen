@@ -141,6 +141,27 @@ public sealed class PlayModeController : IDisposable {
     /// </remarks>
     public IReadOnlyList<string> Refused { get; private set; } = [];
 
+    /// <summary>What the project's own declared systems did when this session started.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half of the frame the editor could previously only name.</b> A project's
+    ///         systems used to exist solely as the imperative body of its <c>Game.OnInitialise</c>,
+    ///         so an editor could list them by reflection and could not run one. A
+    ///         <c>[GameSystem]</c> declaration is read out of <c>GameSystemRegistry</c> — which
+    ///         <c>ProjectAssemblies.Load</c> fills by running the project assembly's module
+    ///         initialiser, without running any of the game's boot path — and resolved against
+    ///         <see cref="Session" />, so a system whose service an <see cref="IPlaySystems" />
+    ///         contribution owns now runs in the editor exactly as it does in the game.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Missing</c> is not empty in the ordinary case and must be shown.</b> A project
+    ///         system taking a service nothing in the editor provides — a game's own network client,
+    ///         a save file — is a genuine difference between this frame and the game's, and doc 11's
+    ///         rule is that a difference is said out loud rather than left to read as a gameplay bug.
+    ///     </para>
+    /// </remarks>
+    public FrameActivation Declared { get; private set; } = new([], []);
+
     /// <summary>Behaviours on the world that this session could not take over, by type name.</summary>
     /// <remarks>
     ///     ⚠ <b>Empty is the normal answer, and a non-empty one must be shown rather than
@@ -421,6 +442,16 @@ public sealed class PlayModeController : IDisposable {
         }
 
         Refused = refused;
+
+        // ⚠ Last, and that ordering is the whole design. A contribution `Provide`s the service it
+        // owns — a `PhysicsScene`, a terrain scene — and a project's declared systems are resolved
+        // against what the session holds *after* all of them have run. Doing this first would make
+        // every project system that wants physics unsatisfiable for no reason but sequence.
+        Declared = running.AddDeclaredSystems(session);
+
+        foreach (var name in Declared.Running) {
+            session.Runs(name);
+        }
     }
 
     /// <summary>Undoes everything this session's contributions did.</summary>

@@ -669,6 +669,25 @@ Vixen.Engine.Frames.FixedStepAccumulator.Reset() -> void
 Vixen.Engine.Frames.FixedStepAccumulator.Step.get -> System.TimeSpan
 Vixen.Engine.Frames.FixedStepAccumulator.StepTime(Vixen.Core.GameTime frame) -> Vixen.Core.GameTime
 Vixen.Engine.Frames.FixedStepAccumulator.TotalSteps.get -> long
+Vixen.Engine.Frames.FrameActivation -> readonly struct
+Vixen.Engine.Frames.FrameActivation : System.IEquatable<Vixen.Engine.Frames.FrameActivation>
+Vixen.Engine.Frames.FrameActivation.FrameActivation() -> void
+Vixen.Engine.Frames.FrameActivation.FrameActivation(System.Collections.Generic.IReadOnlyList<string> Running, System.Collections.Generic.IReadOnlyList<string> Missing) -> void
+Vixen.Engine.Frames.FrameActivation.Missing.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Frames.FrameActivation.Missing.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Frames.FrameActivation.Running.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Frames.FrameActivation.Running.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Frames.GameSystemAttribute -> sealed class
+Vixen.Engine.Frames.GameSystemAttribute : System.Attribute
+Vixen.Engine.Frames.GameSystemAttribute.GameSystemAttribute() -> void
+Vixen.Engine.Frames.GameSystemDeclaration -> sealed class
+Vixen.Engine.Frames.GameSystemDeclaration.GameSystemDeclaration(System.Type systemType, System.Type[] requires, System.Func<object[], Vixen.Ecs.Systems.ISystem> factory) -> void
+Vixen.Engine.Frames.GameSystemDeclaration.Name.get -> string
+Vixen.Engine.Frames.GameSystemDeclaration.Requires.get -> System.Collections.Generic.IReadOnlyList<System.Type>
+Vixen.Engine.Frames.GameSystemDeclaration.SystemType.get -> System.Type
+Vixen.Engine.Frames.GameSystemDeclaration.TryCreate(System.IServiceProvider services, out Vixen.Ecs.Systems.ISystem? system, out System.Type? missing) -> bool
+Vixen.Engine.Frames.GameSystemRegistry -> static class
+Vixen.Engine.Frames.GameSystems -> static class
 Vixen.Engine.Input.InputUpdateSystem -> sealed class
 Vixen.Engine.Input.InputUpdateSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Engine.Input.InputUpdateSystem.InputUpdateSystem(Vixen.Input.InputService input) -> void
@@ -1060,6 +1079,10 @@ static Vixen.Engine.Diagnostics.DebugFont.SegmentCount(System.ReadOnlySpan<char>
 static Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Contribute(System.Action<Vixen.Engine.Diagnostics.Overlays.ConsoleCommands> register) -> void
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Default.get -> Vixen.Engine.Diagnostics.Overlays.OverlayTheme
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Fade(Vixen.Core.Mathematics.Color4 colour, float alpha) -> Vixen.Core.Mathematics.Color4
+static Vixen.Engine.Frames.GameSystemRegistry.Declare(System.Type systemType, System.Type[] requires, System.Func<object[], Vixen.Ecs.Systems.ISystem> factory) -> void
+static Vixen.Engine.Frames.GameSystemRegistry.Declared.get -> System.Collections.Generic.IReadOnlyList<Vixen.Engine.Frames.GameSystemDeclaration>
+static Vixen.Engine.Frames.GameSystemRegistry.Evict(System.Reflection.Assembly assembly) -> int
+static Vixen.Engine.Frames.GameSystems.AddDeclaredSystems(this Vixen.Engine.Frames.EngineLoop loop, System.IServiceProvider services, System.Func<Vixen.Engine.Frames.GameSystemDeclaration, bool>? where = null) -> Vixen.Engine.Frames.FrameActivation
 static Vixen.Engine.Players.ControlRotation.Default.get -> Vixen.Engine.Players.ControlRotation
 static Vixen.Engine.Players.Player.BindCamera(Vixen.Ecs.World world, Vixen.Core.Entity controller, Vixen.Core.Entity shot) -> void
 static Vixen.Engine.Players.Player.ControllerOf(Vixen.Ecs.World world, Vixen.Core.Entity pawn) -> Vixen.Core.Entity

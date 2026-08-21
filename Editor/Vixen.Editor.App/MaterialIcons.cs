@@ -6,13 +6,13 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Players;
+using Vixen.Physics.Characters;
+using Vixen.Physics.Ecs;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
 using Vixen.Rendering.Water;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Physics.Characters;
-using Vixen.Physics.Ecs;
 using Vixen.Water.Physics;
 
 namespace Vixen.Editor.App;

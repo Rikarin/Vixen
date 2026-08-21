@@ -71,6 +71,41 @@ The catch-up clamp is the part that matters. A frame that took a second owes six
 all of them makes the next frame take a second too, which owes sixty more. Clamping discards the
 debt, and `DroppedSteps` says so out loud.
 
+## Declaring a frame
+
+```csharp
+[GameSystem]
+public sealed class RestockSystem(Warehouse warehouse) : SystemBase { … }
+
+// In OnInitialise: the service, not the system.
+Services.Registry.Add(new Warehouse());
+```
+
+**`[GameSystem]` is a project saying which systems its frame is made of**, and the only new thing it
+has to write. `GameSystemGenerator` collects them and emits a `[ModuleInitializer]` per assembly
+calling `GameSystemRegistry.Declare` — so the set is readable without running a line of the game's
+boot path, which is how the editor's Play mode runs a project's own systems.
+
+**The host calls `AddDeclaredSystems`**, in a game (`VixenApplication.Initialise`, right after
+`OnInitialise` returns) and in the editor (`PlayModeController.Contribute`, after every `IPlaySystems`
+contribution has provided its services). That symmetry is the point: a declaration that ran in play
+mode and quietly did not run in the shipped game would be worse than no declaration at all.
+
+**The constructor is the service list.** `Requires` is the parameter types, keyed on the static type,
+which is what `ServiceRegistry.Add<T>` and `PlaySession.Provide<T>` already key on. The factory is
+*emitted*, not reflected — `ConstructorInfo.Invoke` would make this a small DI container, which is
+what `ServiceRegistry`'s remarks refuse on NativeAOT grounds.
+
+⚠ **A declared system whose service nobody registered is named, not skipped.** `AddDeclaredSystems`
+returns a `FrameActivation` with a readable line per one that could not be built, including one whose
+constructor threw. Dropping that list turns an unregistered service into a bug that presents as a
+script that stopped working.
+
+⚠ **Additive, and nothing dedupes.** A declared system and a hand-constructed one are the same thing
+to `SystemGraph`; a system that is both marked and passed to `loop.Add` runs twice. The engine's own
+systems carry no attribute, because whatever builds the service they run against is the only thing
+that knows its lifetime. See [the guide](../../docs/guide/engine/declaring-a-frame.md).
+
 ## Behaviours
 
 ```csharp

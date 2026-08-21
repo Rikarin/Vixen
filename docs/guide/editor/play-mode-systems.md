@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.SceneView.IPlaySystems, T:Vixen.Editor.SceneView.PlaySessio
 tags: [editor, play-mode, systems, physics, terrain, collision]
 since: 0.1
 status: preview
-related: [editor/modes, editor/writing-a-plugin, editor/terrain-mode, editor/terrain-sculpt-collision, engine/terrain-collision]
+related: [editor/modes, editor/writing-a-plugin, editor/terrain-mode, editor/terrain-sculpt-collision, engine/terrain-collision, engine/declaring-a-frame]
 ---
 
 ## What it is
@@ -145,8 +145,17 @@ in its per-frame follow and keeps the first answer, and `PluginServices` has no 
 per-session adapter published there would leave the sculpt tools holding a disposed Jolt world for
 every stroke after the first Stop. The service is a switch; what it points at is the session's.
 
+⚠ **What a contribution `Provide`s is also what a project's declared systems are resolved against.**
+`PlaySession` is an `IServiceProvider`, and `PlayModeController.Contribute` builds the project's
+`[GameSystem]` declarations *after* every contribution has attached — so a project system that takes
+a `PhysicsScene` finds the one `PlayPhysics` made. Neither side knows about the other; they agree
+because `Provide<T>` and a constructor parameter are both keyed on the static type. See
+[declaring a project's frame](../engine/declaring-a-frame.md) for the other half.
+
 ## See also
 
+- [Declaring a project's frame](../engine/declaring-a-frame.md) — the project side of the same seam:
+  how a system says it belongs to the frame, and what happens when its service is not there.
 - [Collision under the sculpt brush](terrain-sculpt-collision.md) — the adapter behind the seam, and
   the counter that says the wiring is wrong.
 - [Terrain mode](terrain-mode.md) — the tools that push the strokes.

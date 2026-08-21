@@ -9,6 +9,7 @@ using Vixen.Core.Serialization;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Engine.Behaviors;
+using Vixen.Engine.Frames;
 using Vixen.Engine.Scenes;
 
 namespace Vixen.Editor.App;
@@ -119,14 +120,17 @@ public sealed class ProjectAssemblies {
             return false;
         }
 
-        // ⚠ All four, and the two below are the ones that bite first. A scene registry left behind
-        // offers a dead type in a menu; a *serializer* left behind makes the rebuilt assembly fail to
-        // register at all, because its type claims an alias its own predecessor still holds — an
-        // error naming one type twice, which reads like nonsense until you notice the two contexts.
+        // ⚠ All five, and the two in the middle are the ones that bite first. A scene registry left
+        // behind offers a dead type in a menu; a *serializer* left behind makes the rebuilt assembly
+        // fail to register at all, because its type claims an alias its own predecessor still holds —
+        // an error naming one type twice, which reads like nonsense until you notice the two
+        // contexts. The system registry holds a *delegate* over a type in the old context, which is
+        // the strongest hold of the five: the next Play would build the previous build's system.
         SceneComponentRegistry.Evict(assembly);
         SceneBehaviorRegistry.Evict(assembly);
         SerializerRegistry.Evict(assembly);
         TypeRegistry.Evict(assembly);
+        GameSystemRegistry.Evict(assembly);
 
         context.Unload();
 

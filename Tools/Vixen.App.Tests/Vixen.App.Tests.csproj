@@ -24,6 +24,15 @@
         <!-- The content tests write a real bundle and a real catalog, so they need the serializer
              generated for their own [DataContract] asset. Analyzers do not flow through a
              ProjectReference. -->
+        <!--
+            `HostedFrame` below is a [GameSystem], and what `HostedDeclaredSystemTests` is about is
+            whether a *compiled* declaration reaches the host — so it has to be collected by the
+            generator here rather than declared by hand.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
         <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
