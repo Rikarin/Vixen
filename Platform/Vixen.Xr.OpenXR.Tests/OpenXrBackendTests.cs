@@ -36,9 +36,11 @@ public sealed class OpenXrBackendTests {
     public void AnUnavailableBackendRefusesWorkWithTheReasonRatherThanACrash() {
         using var backend = new OpenXrBackend();
 
-        if (backend.IsAvailable) {
-            return;
-        }
+        // The skip runs the other way round from its neighbours, and is a skip for the same reason:
+        // this case is about the refusal, so a machine that *has* a runtime has nothing to say
+        // about it. A bare `return` here reported a pass on exactly those machines — green without
+        // having exercised the path the test is named for.
+        Assert.SkipWhen(backend.IsAvailable, "An OpenXR runtime is installed, so there is no refusal to observe.");
 
         var thrown = Assert.Throws<InvalidOperationException>(() => backend.GetVulkanRequirements());
 

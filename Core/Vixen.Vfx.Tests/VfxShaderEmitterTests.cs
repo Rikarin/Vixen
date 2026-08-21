@@ -96,7 +96,35 @@ public class VfxShaderEmitterTests {
     }
 
     /// <summary>
-    ///     Hands a generated unit to the reference tool for its target, if that tool is installed.
+    ///     The reference tool for a target, or a skip that names it and how to install it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Hoisted out of the callers' <see cref="Assert.All{T}(IEnumerable{T},Action{T})" />
+    ///     deliberately.</b> <c>Assert.All</c> collects whatever its body throws and reports the
+    ///     batch as one failure, so a skip raised inside the lambda would arrive as a red test
+    ///     rather than a skipped one. The precondition is asked once, before the loop.
+    ///     ⚠ It used to be neither: <c>Validate</c> returned early when the tool was missing, which
+    ///     xUnit records as a pass. <c>Every_opcode_survives_both_reference_tools</c> asserts
+    ///     nothing else at all, so on a machine with neither tool it was green having run neither
+    ///     front end — the same defect as Raven's differential oracle, task #313.
+    /// </remarks>
+    static string RequireTool(string target) {
+        var spirv = target == "spirv";
+        var tool = spirv ? "spirv-val" : "glslangValidator";
+        var executable = FindTool(tool);
+
+        Assert.SkipUnless(
+            executable is not null,
+            $"{tool} is not on PATH (brew install {(spirv ? "spirv-tools" : "glslang")}, apt-get "
+            + $"install {(spirv ? "spirv-tools" : "glslang-tools")}), so the generated shaders were "
+            + "not put through a reference front end."
+        );
+
+        return executable!;
+    }
+
+    /// <summary>
+    ///     Hands a generated unit to the reference tool for its target.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -111,13 +139,9 @@ public class VfxShaderEmitterTests {
     ///         backend bug in one of them.
     ///     </para>
     /// </remarks>
-    static void Validate(GeneratedSource unit, string target) {
+    static void Validate(GeneratedSource unit, string target, string executable) {
         var spirv = target == "spirv";
         var tool = spirv ? "spirv-val" : "glslangValidator";
-
-        if (FindTool(tool) is not { } executable) {
-            return;
-        }
 
         var path = Path.Combine(Path.GetTempPath(), $"vfx_{Guid.NewGuid():n}{(spirv ? ".spv" : ".comp")}");
 
@@ -567,7 +591,6 @@ public class VfxShaderEmitterTests {
         Assert.True(shader.HasReap);
         Assert.Equal(3, generated.Count);
         Assert.All(generated, unit => Assert.Equal(ShaderStage.Compute, unit.Stage));
-        Assert.All(generated, unit => Validate(unit, "glsl"));
 
         // The names the shader promises are the names that came out. They are spelled in two places
         // — the emitter and the accessors a host dispatches through — and nothing else would notice
@@ -575,6 +598,14 @@ public class VfxShaderEmitterTests {
         Assert.Single(generated, unit => unit.Name.StartsWith(shader.InitializeShader, StringComparison.Ordinal));
         Assert.Single(generated, unit => unit.Name.StartsWith(shader.UpdateShader, StringComparison.Ordinal));
         Assert.Single(generated, unit => unit.Name.StartsWith(shader.ReapShader, StringComparison.Ordinal));
+
+        // ⚠ Last, and that ordering is load-bearing. A skip ends the method, so everything this test
+        // can check without a front end is checked before the front end is asked for — otherwise
+        // gating the tool would quietly take the shape and naming assertions down with it on every
+        // machine that has no glslang.
+        var glslang = RequireTool("glsl");
+
+        Assert.All(generated, unit => Validate(unit, "glsl", glslang));
     }
 
     /// <summary>And SPIR-V, which is the one a device would be handed.</summary>
@@ -584,7 +615,10 @@ public class VfxShaderEmitterTests {
 
         Assert.Equal(3, generated.Count);
         Assert.All(generated, unit => Assert.NotNull(unit.Binary));
-        Assert.All(generated, unit => Validate(unit, "spirv"));
+
+        var validator = RequireTool("spirv");
+
+        Assert.All(generated, unit => Validate(unit, "spirv", validator));
     }
 
     /// <summary>
@@ -633,11 +667,57 @@ public class VfxShaderEmitterTests {
     ///     And so does every opcode, which is where the reference tools earn their place: the
     ///     compiler's own diagnostics are a weaker statement than a front end that has to load it.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>One test per front end, and not one test asking for both.</b> A skip is all-or-
+    ///     nothing, so a single case gated on both tools would stand the SPIR-V half aside on every
+    ///     machine that merely lacks glslang — which is two of the three CI legs, and is precisely
+    ///     the coverage this sweep exists to stop losing quietly. Split, each half runs wherever its
+    ///     own tool is.
+    /// </remarks>
     [Fact]
-    public void Every_opcode_survives_both_reference_tools() {
+    public void Every_opcode_survives_the_glsl_front_end() {
         var source = VfxShaderEmitter.Emit(Everything(), "Everything").Source;
+        var generated = Generate(source, "glsl");
+        var glslang = RequireTool("glsl");
 
-        Assert.All(Generate(source, "glsl"), unit => Validate(unit, "glsl"));
-        Assert.All(Generate(source, "spirv"), unit => Validate(unit, "spirv"));
+        Assert.All(generated, unit => Validate(unit, "glsl", glslang));
     }
+
+    /// <summary>And the same for SPIR-V, which is the one a device would be handed.</summary>
+    [Fact]
+    public void Every_opcode_survives_the_spirv_validator() {
+        var source = VfxShaderEmitter.Emit(Everything(), "Everything").Source;
+        var generated = Generate(source, "spirv");
+        var validator = RequireTool("spirv");
+
+        Assert.All(generated, unit => Validate(unit, "spirv", validator));
+    }
+
+    /// <summary>
+    ///     <c>spirv-val</c> is installed, so the validating tests above mean something.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The skips those tests raise are honest but quiet, and a suite that skips its own
+    ///         subject is a green build asserting nothing. This is the one place that says so out
+    ///         loud, in the precedent of
+    ///         <c>SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>spirv-val</c> only, and not <c>glslangValidator</c>.</b> All three CI legs
+    ///         install SPIR-V Tools — Linux and macOS by package, Windows with the Vulkan SDK — so
+    ///         demanding it here is a claim the workflow already keeps. No leg installs glslang,
+    ///         so the GLSL half stays a skip: a guard test with no install step behind it only
+    ///         trades a false green for a false red. Adding <c>glslang-tools</c> (Linux) and
+    ///         <c>glslang</c> (macOS) to the workflow is what would earn its own guard.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_validator_is_installed_so_these_tests_mean_something() =>
+        Assert.True(
+            FindTool("spirv-val") is not null,
+            "spirv-val was not found. Install SPIR-V Tools (brew install spirv-tools, apt-get "
+            + "install spirv-tools) — without it the emitter tests check the listing, not whether "
+            + "any front end would load the module."
+        );
 }
