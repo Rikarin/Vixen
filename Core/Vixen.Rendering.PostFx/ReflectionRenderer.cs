@@ -213,7 +213,14 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                pass.Kind = PassKind.Compute;
+                // ⚠ **A dispatch that declares Graphics, and the two things it writes are why.**
+                // The output is imported and then bracketed by this body's own barriers rather than
+                // declared, so the graph is not told the pass produces it; and Pyramid is host-owned
+                // and may be the same chain the probe gather marches, which is a second pass reading
+                // something this one wrote with nothing in the graph joining them. Either alone
+                // makes this unhoistable — a compute segment nothing waits for — and on one queue
+                // both are ordered by declaration order, which is what this node was built on.
+                pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
                 // Both reads order this pass after whatever drew the frame — without them the

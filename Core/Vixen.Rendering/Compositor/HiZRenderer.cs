@@ -31,6 +31,12 @@ namespace Vixen.Rendering.Compositor;
 ///         transient the graph aliased would be somebody else's pixels by the time the culler
 ///         sampled it. See <see cref="HiZPyramid" />.
 ///     </para>
+///     <para>
+///         ⚠ <b>Which is also why the pass declares <see cref="PassKind.Graphics" /> and not
+///         <see cref="PassKind.Compute" />, dispatch though it is.</b> Undeclared production means
+///         nothing in the frame can be made to wait for it, and a pass nothing waits for is a pass
+///         that must not leave the queue whose declaration order already orders it.
+///     </para>
 /// </remarks>
 public sealed class HiZRenderer : SceneRenderer {
     /// <summary>The name of the depth texture to reduce.</summary>
@@ -59,13 +65,20 @@ public sealed class HiZRenderer : SceneRenderer {
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                pass.Kind = PassKind.Compute;
+                // ⚠ **Graphics, though the body is a dispatch, and for the same reason the side
+                // effect is declared.** What it writes is not a graph resource, so as far as the
+                // graph can see this pass produces nothing and is dead. Saying so is the price of
+                // the pyramid outliving the frame — and it is the honest way round: a transient the
+                // graph could track would be aliased away before the next frame's culler ever
+                // sampled it.
+                //
+                // The same fact decides the kind. A pass with no declared production is a pass no
+                // wait edge can point at, so hoisting it onto a compute queue would let the late
+                // cull — and next frame's — sample a pyramid still being reduced. The declared read
+                // of depth would carry an edge *in* and none *out*, which is the worse half of a
+                // handover rather than none of one.
+                pass.Kind = PassKind.Graphics;
                 pass.Reads(depth);
-
-                // What it writes is not a graph resource, so as far as the graph can see this pass
-                // produces nothing and is dead. Saying so is the price of the pyramid outliving the
-                // frame — and it is the honest way round: a transient the graph could track would be
-                // aliased away before the next frame's culler ever sampled it.
                 pass.SideEffect();
 
                 pass.Execute(context => Pyramid.Build(context.CommandList, context.View(depth), size));

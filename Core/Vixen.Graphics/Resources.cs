@@ -163,6 +163,44 @@ public readonly record struct AccelerationStructureHandle(Handle<GpuAcceleration
     public bool IsValid => Value != Handle<GpuAccelerationStructure>.Null;
 }
 
+/// <summary>Whether a resource belongs to one queue family at a time, or to several at once.</summary>
+/// <remarks>
+///     <para>
+///         Only ever a question on a device with more than one queue family, and only ever asked by
+///         a frame that puts work on more than one of them — <c>QueueScheduling.Async</c>, in this
+///         engine. Everywhere else both values describe the same resource.
+///     </para>
+///     <para>
+///         ⚠ <b>Neither value is free, and the trade is not the obvious one.</b> Exclusive is the
+///         faster resource and the slower frame: the driver may compress it, and every queue that
+///         wants it has to be <em>handed</em> it, which is two barriers and an edge that stops the
+///         two queues overlapping. Concurrent is the slower resource and the faster frame:
+///         several families may use it at once with no handover at all, and some hardware answers
+///         by turning off the colour compression it would otherwise have applied.
+///     </para>
+///     <para>
+///         So the rule this engine follows is to ask for <see cref="Concurrent" /> exactly where
+///         <see cref="Exclusive" /> would serialise two queues that only wanted to read — and
+///         nowhere else. See <c>docs/guide/rendering/async-compute.md</c>.
+///     </para>
+/// </remarks>
+public enum ResourceSharing : byte {
+    /// <summary>
+    ///     One queue family owns it, and moving it takes a release and an acquire. The default.
+    /// </summary>
+    Exclusive = 0,
+
+    /// <summary>
+    ///     Every queue family the device has may use it, with no ownership transfer at all.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Ownership is the only thing this drops. A read that must see an earlier write still
+    ///     needs the two ordered — by a barrier within one queue, or by a semaphore across two —
+    ///     and concurrent sharing says nothing whatever about that.
+    /// </remarks>
+    Concurrent = 1
+}
+
 /// <summary>What to create a buffer as.</summary>
 /// <param name="Size">Its size in bytes.</param>
 /// <param name="Usage">Everything it will be used for.</param>
@@ -172,11 +210,13 @@ public readonly record struct AccelerationStructureHandle(Handle<GpuAcceleration
 ///     capture full of <c>VkBuffer 0x7f…</c> is a capture nobody can read, and naming resources is
 ///     the difference between a five-minute investigation and an afternoon.
 /// </param>
+/// <param name="Sharing">Whether one queue family owns it at a time, or several may use it at once.</param>
 public readonly record struct BufferDescription(
     long Size,
     BufferUsage Usage,
     MemoryAccess Access = MemoryAccess.DeviceLocal,
-    string Name = ""
+    string Name = "",
+    ResourceSharing Sharing = ResourceSharing.Exclusive
 ) {
     /// <summary>Checks the description is one a backend could satisfy.</summary>
     /// <exception cref="ArgumentException">It is not, with a message naming what is wrong.</exception>
@@ -219,6 +259,7 @@ public readonly record struct BufferDescription(
 /// <param name="SampleCount">How many samples per texel.</param>
 /// <param name="Dimension">Its shape.</param>
 /// <param name="Name">A name for the debugger and the validation layers.</param>
+/// <param name="Sharing">Whether one queue family owns it at a time, or several may use it at once.</param>
 public readonly record struct TextureDescription(
     PixelFormat Format,
     int Width,
@@ -229,7 +270,8 @@ public readonly record struct TextureDescription(
     int ArrayLayers = 1,
     int SampleCount = 1,
     TextureDimension Dimension = TextureDimension.Texture2D,
-    string Name = ""
+    string Name = "",
+    ResourceSharing Sharing = ResourceSharing.Exclusive
 ) {
     /// <summary>The mip level count, with <c>0</c> resolved to a full chain.</summary>
     public int EffectiveMipLevels =>

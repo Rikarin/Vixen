@@ -34,14 +34,41 @@ public readonly record struct GraphBuffer(int Index, int Generation) {
 }
 
 /// <summary>Which queue a pass's work belongs on.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A claim about scheduling, not a description of the body.</b> Saying
+///         <see cref="Compute" /> is saying "this may leave the graphics queue", and that is only
+///         true of a pass whose every input and output the graph can see — because a wait edge is
+///         derived from a declared read or write and from nothing else. A dispatch that writes a
+///         pyramid, an atlas, a page table or a draw-argument buffer the graph was never told about
+///         is a dispatch nothing can be made to wait for, and it declares <see cref="Graphics" />:
+///         on one queue, declaration order is execution order, which is the ordering such a pass
+///         was always relying on.
+///     </para>
+///     <para>
+///         Seven of this tree's nodes are that shape and say so at their declaration. See
+///         <c>docs/guide/rendering/async-compute.md</c> for the audit and the list.
+///     </para>
+/// </remarks>
 public enum PassKind : byte {
-    /// <summary>Draws. The default, and the only kind that may have attachments.</summary>
+    /// <summary>
+    ///     Draws — and anything the graph cannot see the whole of. The default, and the only kind
+    ///     that may have attachments.
+    /// </summary>
     Graphics = 0,
 
-    /// <summary>Dispatches.</summary>
+    /// <summary>Dispatches, every resource of which is declared.</summary>
     Compute = 1,
 
-    /// <summary>Copies.</summary>
+    /// <summary>
+    ///     Copies, and nothing else at all.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ A Vulkan transfer family accepts copies and refuses everything else — including a
+    ///     barrier naming a shader stage, which is what any transition to or from
+    ///     <see cref="ResourceState.ShaderRead" /> is. A pass that copies into a texture and then
+    ///     hands it to a shader is doing two things, and only one of them is a transfer.
+    /// </remarks>
     Transfer = 2
 }
 
@@ -120,9 +147,9 @@ sealed class GraphResource {
     /// <summary>Whether it came from outside the graph and outlives it.</summary>
     public required bool IsImported { get; init; }
 
-    public TextureDescription TextureDescription { get; init; }
+    public TextureDescription TextureDescription { get; set; }
 
-    public BufferDescription BufferDescription { get; init; }
+    public BufferDescription BufferDescription { get; set; }
 
     /// <summary>The imported resource, when there is one.</summary>
     public TextureHandle ImportedTexture { get; init; }
@@ -158,6 +185,26 @@ sealed class GraphResource {
 
     /// <summary>Whether any surviving pass writes it.</summary>
     public bool IsWritten { get; set; }
+
+    /// <summary>Whether one queue owns it at a time, or several may use it at once.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Decided by <c>PlanSharing</c> for a transient, because the graph is what creates one
+    ///         and is therefore the only thing that can ask for a different resource. Taken from the
+    ///         importer's own description for an import, because the graph did not make it and
+    ///         cannot change what it was made as — asking for a handover-free read of a resource
+    ///         created <see cref="ResourceSharing.Exclusive" /> would be reading memory nobody
+    ///         handed over.
+    ///     </para>
+    /// </remarks>
+    public ResourceSharing Sharing { get; set; }
+
+    /// <summary>The distinct queues that read it, as a set of two bits.</summary>
+    /// <remarks>Filled by <c>PlanSharing</c> from the queues the schedule assigned.</remarks>
+    public int ReaderQueues { get; set; }
+
+    /// <summary>The distinct queues that write it.</summary>
+    public int WriterQueues { get; set; }
 
     /// <summary>What it is being used as, as the barrier plan walks the passes.</summary>
     public ResourceState CurrentState { get; set; }

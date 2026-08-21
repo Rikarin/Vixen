@@ -122,6 +122,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     readonly SurfaceKHR surface;
 
     readonly VulkanQueue[] queues;
+    readonly uint[] sharedFamilies;
     readonly VulkanQueue graphics;
     readonly VulkanQueue compute;
     readonly VulkanQueue transfer;
@@ -230,6 +231,13 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         compute.Kind = compute == graphics ? QueueKind.Graphics : QueueKind.Compute;
         transfer.Kind = transfer == graphics ? QueueKind.Graphics : QueueKind.Transfer;
         queues = [.. byFamily.Values];
+
+        // ⚠ Every family the device was created with, and only used when a description asks for
+        // ResourceSharing.Concurrent. A concurrent resource has to name *at least two* families —
+        // one is invalid usage — so on a device whose three kinds share a family this stays a single
+        // entry and the create call falls back to Exclusive, which is the same resource the engine
+        // has always made there.
+        sharedFamilies = [.. byFamily.Keys];
 
         retiring = new List<Action>[FramesInFlight];
 
@@ -831,6 +839,17 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             return default;
         }
     }
+
+    /// <summary>The families a concurrently-shared resource has to name, or none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty means "make it exclusive", not "make it concurrent over nothing".</b> Vulkan
+    ///     requires a concurrent resource to name at least two families, so on a device whose queue
+    ///     kinds all landed on one family there is nothing to share it between — and the resource
+    ///     asking is asking for something the hardware already gives it. That is the case on every
+    ///     device this engine has been developed on.
+    /// </remarks>
+    internal ReadOnlySpan<uint> FamiliesToShareBetween(ResourceSharing sharing) =>
+        sharing == ResourceSharing.Concurrent && sharedFamilies.Length > 1 ? sharedFamilies : [];
 
     internal VulkanQueue QueueFor(QueueKind kind) => kind switch {
         QueueKind.Compute => compute,

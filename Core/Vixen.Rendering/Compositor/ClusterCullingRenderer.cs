@@ -93,7 +93,14 @@ public sealed class ClusterCullingRenderer : SceneRenderer {
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                pass.Kind = PassKind.Compute;
+                // ⚠ **Graphics, and it is a dispatch — see GpuCullingRenderer for the same call.**
+                // Every one of the four things recorded below writes something the graph cannot see:
+                // the page pool's own buffers, the traversal's visibility bits, and the two argument
+                // buffers the raster and the software path dispatch from. Their readers are later
+                // passes' draws and dispatches, bound by descriptor rather than declared — so the
+                // scheduler has nothing to build a wait edge out of and would hoist this into a
+                // segment nothing waits for.
+                pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
                 pass.Execute(

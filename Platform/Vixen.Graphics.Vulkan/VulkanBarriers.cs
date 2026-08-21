@@ -146,6 +146,87 @@ static class VulkanBarriers {
         return access;
     }
 
+    /// <summary>The pipeline stages a queue of this kind is allowed to name in a barrier.</summary>
+    /// <param name="kind">Which queue the list being recorded belongs to.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A barrier may not name a stage its queue family does not support</b>, and a
+    ///         <c>ResourceState</c> says nothing about which queue it will be recorded on.
+    ///         <see cref="ToStage" /> turns <see cref="ResourceState.ShaderRead" /> into the vertex,
+    ///         fragment <i>and</i> compute stages — correct on a graphics queue and invalid usage on
+    ///         a compute one, which has no vertex or fragment stage to order against. Every hoisted
+    ///         compute pass that reads a texture produces exactly that barrier, so without this the
+    ///         async scheduler could not record a validation-clean frame on any device with a
+    ///         compute family of its own — which is no device this engine has been developed on, and
+    ///         is why nothing caught it.
+    ///     </para>
+    ///     <para>
+    ///         Narrowing a stage mask is safe here and only here: the stages being dropped are ones
+    ///         that <em>cannot execute on this queue</em>, so there is no work on this queue in them
+    ///         to order against. The stages that matter to the other queue are ordered by the
+    ///         handover and its wait edge instead, which is the thing a barrier could never have
+    ///         done.
+    ///     </para>
+    ///     <para>
+    ///         Keyed on <see cref="QueueKind" /> rather than on the family's flags because
+    ///         <c>VulkanDevice</c> already collapses a kind that shares the graphics family down to
+    ///         <see cref="QueueKind.Graphics" />, and <c>QueueFamilySelection</c> only ever picks a
+    ///         <see cref="QueueKind.Compute" /> family that does not advertise graphics or a
+    ///         <see cref="QueueKind.Transfer" /> family that advertises neither. So the kind is the
+    ///         capability, and on a one-family device every list is Graphics and nothing is dropped
+    ///         — which is what keeps a scheduled frame byte-identical to an unscheduled one there.
+    ///     </para>
+    /// </remarks>
+    public static PipelineStageFlags SupportedStages(QueueKind kind) => kind switch {
+        // vkCmdDispatchIndirect is a compute-queue command, so DrawIndirect is supported despite the
+        // name. Transfer is implied by both graphics and compute capability.
+        QueueKind.Compute => PipelineStageFlags.TopOfPipeBit
+            | PipelineStageFlags.DrawIndirectBit
+            | PipelineStageFlags.ComputeShaderBit
+            | PipelineStageFlags.TransferBit
+            | PipelineStageFlags.HostBit
+            | PipelineStageFlags.AllCommandsBit
+            | PipelineStageFlags.BottomOfPipeBit,
+
+        QueueKind.Transfer => PipelineStageFlags.TopOfPipeBit
+            | PipelineStageFlags.TransferBit
+            | PipelineStageFlags.HostBit
+            | PipelineStageFlags.AllCommandsBit
+            | PipelineStageFlags.BottomOfPipeBit,
+
+        _ => unchecked((PipelineStageFlags)~0u)
+    };
+
+    /// <summary>The accesses a queue of this kind is allowed to name in a barrier.</summary>
+    /// <param name="kind">Which queue the list being recorded belongs to.</param>
+    /// <remarks>
+    ///     The other half of <see cref="SupportedStages" />, and needed for the same reason: an
+    ///     access flag has to be one the stages in the mask can perform, so dropping
+    ///     <c>ColorAttachmentOutput</c> from the stages without dropping
+    ///     <c>ColorAttachmentWrite</c> from the accesses trades one validation error for another.
+    /// </remarks>
+    public static AccessFlags SupportedAccess(QueueKind kind) => kind switch {
+        QueueKind.Compute => AccessFlags.IndirectCommandReadBit
+            | AccessFlags.UniformReadBit
+            | AccessFlags.ShaderReadBit
+            | AccessFlags.ShaderWriteBit
+            | AccessFlags.TransferReadBit
+            | AccessFlags.TransferWriteBit
+            | AccessFlags.HostReadBit
+            | AccessFlags.HostWriteBit
+            | AccessFlags.MemoryReadBit
+            | AccessFlags.MemoryWriteBit,
+
+        QueueKind.Transfer => AccessFlags.TransferReadBit
+            | AccessFlags.TransferWriteBit
+            | AccessFlags.HostReadBit
+            | AccessFlags.HostWriteBit
+            | AccessFlags.MemoryReadBit
+            | AccessFlags.MemoryWriteBit,
+
+        _ => unchecked((AccessFlags)~0u)
+    };
+
     /// <summary>Which layout an image in this state has to be in.</summary>
     /// <param name="state">What it is being used for.</param>
     /// <remarks>

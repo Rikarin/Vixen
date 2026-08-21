@@ -35,15 +35,22 @@ public sealed unsafe partial class VulkanDevice {
             usage |= BufferUsageFlags.TransferDstBit;
         }
 
-        var create = new BufferCreateInfo {
-            SType = StructureType.BufferCreateInfo,
-            Size = (ulong)description.Size,
-            Usage = usage,
-            SharingMode = SharingMode.Exclusive
-        };
+        var shared = FamiliesToShareBetween(description.Sharing);
 
         VkBuffer handle;
-        Check(Api.CreateBuffer(device, &create, null, &handle), "vkCreateBuffer");
+
+        fixed (uint* families = shared) {
+            var create = new BufferCreateInfo {
+                SType = StructureType.BufferCreateInfo,
+                Size = (ulong)description.Size,
+                Usage = usage,
+                SharingMode = shared.IsEmpty ? SharingMode.Exclusive : SharingMode.Concurrent,
+                QueueFamilyIndexCount = (uint)shared.Length,
+                PQueueFamilyIndices = families
+            };
+
+            Check(Api.CreateBuffer(device, &create, null, &handle), "vkCreateBuffer");
+        }
 
         MemoryRequirements requirements;
         Api.GetBufferMemoryRequirements(device, handle, &requirements);
@@ -84,28 +91,40 @@ public sealed unsafe partial class VulkanDevice {
             );
         }
 
-        var create = new ImageCreateInfo {
-            SType = StructureType.ImageCreateInfo,
-            ImageType = VulkanEnums.ToImageType(description.Dimension),
-            Format = format,
-            Extent = new((uint)description.Width, (uint)description.Height, (uint)description.Depth),
-            MipLevels = (uint)description.EffectiveMipLevels,
-            ArrayLayers = (uint)description.ArrayLayers,
-            Samples = VulkanFormats.ToSampleCount(description.SampleCount),
-            Tiling = ImageTiling.Optimal,
-            Usage = VulkanEnums.ToVulkan(description.Usage),
-            SharingMode = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined,
-
-            // Without this a cube view of the image is invalid, and the failure is at view creation
-            // rather than here — which reads as a bug in the view.
-            Flags = description.Dimension == TextureDimension.TextureCube
-                ? ImageCreateFlags.CreateCubeCompatibleBit
-                : ImageCreateFlags.None
-        };
+        var shared = FamiliesToShareBetween(description.Sharing);
 
         Image handle;
-        Check(Api.CreateImage(device, &create, null, &handle), "vkCreateImage");
+
+        fixed (uint* families = shared) {
+            var create = new ImageCreateInfo {
+                SType = StructureType.ImageCreateInfo,
+                ImageType = VulkanEnums.ToImageType(description.Dimension),
+                Format = format,
+                Extent = new((uint)description.Width, (uint)description.Height, (uint)description.Depth),
+                MipLevels = (uint)description.EffectiveMipLevels,
+                ArrayLayers = (uint)description.ArrayLayers,
+                Samples = VulkanFormats.ToSampleCount(description.SampleCount),
+                Tiling = ImageTiling.Optimal,
+                Usage = VulkanEnums.ToVulkan(description.Usage),
+
+                // ⚠ Concurrent only where the graph asked and the device has more than one family to
+                // share between. It is not free — some hardware answers a concurrent image by not
+                // compressing it — which is why the graph asks for exactly the resources that would
+                // otherwise make two queues take turns to read.
+                SharingMode = shared.IsEmpty ? SharingMode.Exclusive : SharingMode.Concurrent,
+                QueueFamilyIndexCount = (uint)shared.Length,
+                PQueueFamilyIndices = families,
+                InitialLayout = ImageLayout.Undefined,
+
+                // Without this a cube view of the image is invalid, and the failure is at view creation
+                // rather than here — which reads as a bug in the view.
+                Flags = description.Dimension == TextureDimension.TextureCube
+                    ? ImageCreateFlags.CreateCubeCompatibleBit
+                    : ImageCreateFlags.None
+            };
+
+            Check(Api.CreateImage(device, &create, null, &handle), "vkCreateImage");
+        }
 
         MemoryRequirements requirements;
         Api.GetImageMemoryRequirements(device, handle, &requirements);
