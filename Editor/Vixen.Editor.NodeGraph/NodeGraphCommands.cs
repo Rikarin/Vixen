@@ -397,12 +397,18 @@ public sealed class MoveNodesCommand : NodeGraphCommand {
 }
 
 /// <summary>Typing a number into an unconnected input.</summary>
+/// <remarks>
+///     ⚠ <b>One command for the whole selection rather than one per node.</b> Setting a port with
+///     three nodes selected is one edit and undoing it is one keystroke — the rule
+///     <c>SetValuesCommand</c> states for the pipeline's own members, and the reason a composite of
+///     three was not the answer: a composite undoes correctly and fills the history with entries
+///     nobody can read, and it does not merge, so a drag would leave one entry per frame per node.
+/// </remarks>
 public sealed class SetPortValueCommand : NodeGraphCommand {
-    readonly NodeId node;
+    readonly NodeId[] nodes;
     readonly string port;
     readonly float[] value;
-    readonly float[]? previous;
-    readonly bool had;
+    readonly float[]?[] previous;
 
     /// <summary>Describes setting an inline value.</summary>
     /// <param name="graph">The graph.</param>
@@ -417,59 +423,85 @@ public sealed class SetPortValueCommand : NodeGraphCommand {
         string port,
         float[] value,
         EditorDocument? document = null
+    ) : this(graph, [node], port, value, document) { }
+
+    /// <summary>Describes setting one input to one value across several nodes.</summary>
+    /// <param name="graph">The graph.</param>
+    /// <param name="nodes">The nodes, which must all have the port.</param>
+    /// <param name="port">Which of their inputs.</param>
+    /// <param name="value">The lanes it takes.</param>
+    /// <param name="document">The document, if the graph belongs to one.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="nodes" /> or <paramref name="value" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The "before" is per node, and it has to be.</b> The whole point of setting a port
+    ///     across a selection is that the nodes disagreed, so undo puts each one back to what it held
+    ///     rather than to a shared value — and, for a node that held nothing at all, back to holding
+    ///     nothing.
+    /// </remarks>
+    public SetPortValueCommand(
+        NodeGraphModel graph,
+        IReadOnlyList<NodeId> nodes,
+        string port,
+        float[] value,
+        EditorDocument? document = null
     ) : base(graph, document) {
+        ArgumentNullException.ThrowIfNull(nodes);
         ArgumentException.ThrowIfNullOrEmpty(port);
         ArgumentNullException.ThrowIfNull(value);
 
-        this.node = node;
+        this.nodes = [.. nodes];
         this.port = port;
         this.value = [.. value];
+        previous = new float[]?[this.nodes.Length];
 
         // ⚠ Whether there *was* one, not only what it was. A port that never had an inline value
         // takes its type's default, and an undo that wrote a zero back would silently pin it to a
         // number the node type is free to change.
-        float[]? held = null;
-
-        had = graph.TryGet(node, out var target) && target.Values.TryGetValue(port, out held);
-        previous = held is null ? null : [.. held];
+        for (var index = 0; index < this.nodes.Length; index++) {
+            if (graph.TryGet(this.nodes[index], out var target) && target.Values.TryGetValue(port, out var held)) {
+                previous[index] = [.. held];
+            }
+        }
     }
 
     SetPortValueCommand(
         NodeGraphModel graph,
-        NodeId node,
+        NodeId[] nodes,
         string port,
         float[] value,
-        float[]? previous,
-        bool had,
+        float[]?[] previous,
         EditorDocument? document
     ) : base(graph, document) {
-        this.node = node;
+        this.nodes = nodes;
         this.port = port;
         this.value = value;
         this.previous = previous;
-        this.had = had;
     }
 
     /// <inheritdoc />
-    public override string Name => $"Set {port}";
+    public override string Name => nodes.Length > 1 ? $"Set {port} ({nodes.Length})" : $"Set {port}";
 
     /// <inheritdoc />
     protected override void Apply() {
-        if (Graph.TryGet(node, out var target)) {
-            target.SetValue(port, value);
+        foreach (var id in nodes) {
+            if (Graph.TryGet(id, out var target)) {
+                target.SetValue(port, value);
+            }
         }
     }
 
     /// <inheritdoc />
     protected override void Revert() {
-        if (!Graph.TryGet(node, out var target)) {
-            return;
-        }
+        for (var index = 0; index < nodes.Length; index++) {
+            if (!Graph.TryGet(nodes[index], out var target)) {
+                continue;
+            }
 
-        if (had && previous is not null) {
-            target.SetValue(port, previous);
-        } else {
-            target.ClearValue(port);
+            if (previous[index] is { } held) {
+                target.SetValue(port, held);
+            } else {
+                target.ClearValue(port);
+            }
         }
     }
 
@@ -485,12 +517,12 @@ public sealed class SetPortValueCommand : NodeGraphCommand {
 
         if (previous is not SetPortValueCommand earlier
             || !ReferenceEquals(earlier.Graph, Graph)
-            || earlier.node != node
+            || !earlier.nodes.AsSpan().SequenceEqual(nodes)
             || !string.Equals(earlier.port, port, StringComparison.Ordinal)) {
             return false;
         }
 
-        merged = new SetPortValueCommand(Graph, node, port, value, earlier.previous, earlier.had, Document);
+        merged = new SetPortValueCommand(Graph, nodes, port, value, earlier.previous, Document);
 
         return true;
     }

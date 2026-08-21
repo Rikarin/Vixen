@@ -31,6 +31,18 @@
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
         <!--
+          The rows a port's value is edited in. `NodePortEditProvider` describes a node's ports as
+          `InspectorMember`s, which is what puts them in the ordinary inspector panel instead of the
+          hand-written one `NodeInspector` used to be — see doc 36 § P1.
+
+          ⚠ The direction is the one the other toolsets already take: Terrain and Water both
+          reference this assembly, and Vixen.Editor.Inspector references neither of them. The
+          narrow `IEditMember` contract would have avoided the reference and would also have avoided
+          getting a port a drawer, a reset button or a row, which is the whole point.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
+
+        <!--
           NodeCanvas, NodeMinimap and the wire layer: doc 09 built them for exactly this consumer.
           Vixen.Ui and Vixen.Ui.Controls arrive with it.
 

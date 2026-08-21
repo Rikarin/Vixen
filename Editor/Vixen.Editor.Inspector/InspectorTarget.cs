@@ -41,15 +41,28 @@ public sealed class InspectorTarget : EditTarget {
     /// <param name="provider">
     ///     How members are reached, or <see langword="null" /> for <see cref="InspectorEditProvider.Default" />.
     /// </param>
+    /// <param name="descriptor">
+    ///     What the fields are built against, or <see langword="null" /> to look the common type up in
+    ///     <see cref="InspectorRegistry" />.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>A caller that hands over a provider usually has to hand over a descriptor too.</b>
+    ///     The two answer different questions — one reaches the members, the other supplies the
+    ///     defaults a reset button needs and the identity a field is built against — and the registry
+    ///     can only answer the second for a type the generator described. A provider for something it
+    ///     did not, a graph node's ports being the case this was added for, would otherwise get plain
+    ///     <c>EditProperty</c>s and no rows.
+    /// </remarks>
     public InspectorTarget(
         IReadOnlyList<object> objects,
         EditorDocument? document = null,
         IPrefabSource? prefab = null,
-        IEditProvider? provider = null
+        IEditProvider? provider = null,
+        InspectorDescriptor? descriptor = null
     ) : base(objects, provider ?? InspectorEditProvider.Default, document) {
         this.prefab = prefab;
 
-        descriptor = CommonType is { } type ? InspectorRegistry.Find(type) : null;
+        this.descriptor = descriptor ?? (CommonType is { } type ? InspectorRegistry.Find(type) : null);
     }
 
     /// <summary>The description the fields are built against, if the type has one.</summary>

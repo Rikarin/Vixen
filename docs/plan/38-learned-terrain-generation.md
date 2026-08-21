@@ -261,7 +261,9 @@ Three reasons, in descending order of how much they would hurt to get wrong:
 
 ⚠️ **What doc 36 already settled, and what it has not.** Since doc 36, importers *are* contributable
 (`ImporterContributions` through `PluginServices`), tools and overlays and gizmos have contribution
-records, and terrain is one of the four `IEditProvider`s — so **undo and dirty already work** for
+records, and terrain's settings are `[Inspector]` classes `InspectorEditProvider` already describes
+(this line used to call terrain one of four owed providers; it never needed one) — so **undo and
+dirty already work** for
 what this writes. What 36 lists as owed and this plugin would like: `AddSettingsPage` is unbuilt,
 which is one more reason [D5](#d5-the-download-button-is-the-panels-empty-state-not-a-settings-row)
 puts the download control on the panel; and a contributed importer *"does not reach an out-of-process

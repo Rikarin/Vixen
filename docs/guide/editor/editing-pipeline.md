@@ -22,7 +22,8 @@ Underneath, `IEditMember` is the narrow contract a provider hands back: a name, 
 write, and the command that makes the write undoable. `SetValuesCommand` is that command for anyone
 who has no typed accessors to offer, so an implementation gets merging and per-object old values
 without writing either. `InspectorEditProvider` is the first real provider, over the descriptors the
-inspector's generator emits.
+inspector's generator emits; `NodePortEditProvider` is the second, over a graph node's ports — see
+[editing a node's ports](node-port-editing.md).
 
 `GizmoDrag` and `GizmoEdit` are the same idea at the other end of the editor: a finished drag, and
 the entry it turns into together with the history that entry belongs on.
@@ -39,8 +40,10 @@ repository builds an `EditTarget` over whatever it is showing and writes through
 on the same stack as the inspector's and the viewport's, in the order they happened, and Ctrl+Z takes
 them back in the same order.
 
-It is also what markup will bind against. A `.vxml` attribute naming a member has to resolve against
-*something* that is not a C# type — `EditTarget.Find` is that something.
+It is also what markup binds against. A `.vxml` attribute naming a member has to resolve against
+*something* that is not a C# type — `EditTarget.Find` is that something, and a graph node's ports are
+the case that proves it: they are members of nothing, and a `<PropertyField Path="Base Colour" />`
+reaches one anyway.
 
 You do not want it for state that is not an edit. A camera's position in a viewport, a panel's scroll
 offset and which foldouts are open are not things anybody expects Ctrl+Z to touch.
@@ -84,6 +87,11 @@ using (roughness.Refreshing()) {
 
 **Describing your own type.** Implement `IEditMember` per member and `IEditProvider` over the set;
 `SetValuesCommand` supplies the command, so undo, merging and mixed-value editing come with it.
+
+⚠ **Derive from `InspectorMember` instead when the members are to be *drawn*.** The narrow contract
+below is enough to read and write; it is not enough to get a row, a drawer or a reset button, because
+those are the inspector's own vocabulary. `NodePortMember` is the worked example — see
+[editing a node's ports](node-port-editing.md).
 
 ```csharp no-compile="a member of a type this guide does not have — the accessors are yours"
 sealed class PortMember(NodePort port) : IEditMember {

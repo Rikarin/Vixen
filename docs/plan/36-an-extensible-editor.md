@@ -371,9 +371,18 @@ than reimplementing it, and `SetMembersCommand` survives as what an `InspectorMe
 `IEditMember.CreateSetCommand` — the typed accessors are the reason it exists and the pipeline does
 not need them boxed away. `Records` is gone.
 
-⚠ **`InspectorEditProvider` is still the only `IEditProvider`**, which is the whole of why the last
-paragraph says one surface of five. Four are owed: terrain/foliage, node graphs, blockout, and
-transforms — see [what is owed](#part-6--what-is-owed).
+**Two providers now.** `NodePortEditProvider` describes a graph node's inline port values as
+`InspectorMember`s, so `InspectorView` draws them and `NodeInspector` is a host rather than a panel
+of its own. It is the seam's first user outside the inspector, and the case that could not have been
+solved any other way: a node's members are decided by the node *type* a saved graph names by string,
+not by the CLR type every node shares, so no registry keyed by `Type` can hold them.
+
+⚠ **The count of what is owed was wrong, and the audit is worth recording.** Terrain and foliage were
+already on the pipeline — every one of their settings objects is a plain `[Inspector]` class that
+`InspectorEditProvider` describes and `InspectorView` draws, `TerrainBrushInspector.vxml` included.
+Blockout's settings are records in `Core/Vixen.Geometry.*` with no annotation, and nothing in the
+editor draws them at all; a provider would not have changed that. What is actually left is
+**transforms** — see [what is owed](#part-6--what-is-owed).
 
 ### D2 — One registry, populated three ways
 
@@ -644,8 +653,10 @@ calling the hook.
 
 ⚠ **Marked 🟡 rather than ✅, and the correction is worth stating plainly.** The exit criteria above
 were met and the phase was recorded as done — but they test the *mechanism*, not its reach, and the
-document then read as though the invariant had landed. It has not: **the pipeline is used by the
-inspector and by nothing else.** `InspectorEditProvider` is the only `IEditProvider` in the tree.
+document then read as though the invariant had landed. It had not: for a long while the pipeline was
+used by the inspector and by nothing else. `NodePortEditProvider` is the second provider and the
+first outside it, asserted by `NodePortProviderTests` — which drives `EditTarget`, `InspectorView`
+and `MarkupBinding` over a node's ports and builds no control of its own.
 
 ⚠ **The gizmo does not go through it either, which an earlier revision of this document got wrong.**
 `EntityGizmoTarget.Record` builds a `TransformTargetsCommand` and pushes it onto `Document.Stack`.
@@ -653,11 +664,14 @@ That is one recording path where there were two — a real improvement, and the 
 die — but it is not the gizmo writing through `EditProperty`. Counting it as migrated made the
 remaining work look half its actual size.
 
-⚠ **What the other four surfaces have and have not.** Terrain strokes, foliage strokes, node-graph
-edits and blockout keep their own commands, and D1 only ever asked them to *declare* to one stack,
-which they do — they are `IEditorCommand`s on the document's `CommandStack`, so undo ordering and
-dirty-tracking are right. What they lack is an `IEditProvider`, and the cost of that is now four
-things rather than one: no multi-object edit, no mixed state, no `Changed`, and no markup binding.
+⚠ **What the other surfaces have and have not.** Terrain strokes, foliage strokes, node-graph edits
+and blockout keep their own commands, and D1 only ever asked them to *declare* to one stack, which
+they do — they are `IEditorCommand`s on the document's `CommandStack`, so undo ordering and
+dirty-tracking are right. A stroke stays that way and should: a brush dab is not a member somebody
+binds by name. What their *panels* lacked was a provider, and only the node graph's turned out to
+lack one — the terrain and foliage panels are `InspectorView`s over `[Inspector]` classes and have
+been all along. The node graph's is fixed; the cost it was paying was the whole list: no multi-node
+edit, no mixed state, no `Changed`, no drawer, no reset and no markup binding.
 
 ⚠ **`EditProperty` and `EditorProperty{T}` are one letter apart and are different things**, which is
 a hazard this phase created and documented rather than renamed away from: the doc named `EditProperty`
@@ -992,8 +1006,10 @@ Deliberately open, and named so the first project that needs one does not fork.
 * **`IEditorRegistry`** — the shell reads it; three producers write it. A fourth (a remote plugin
   store, a scripted DSL) is a new producer and not a new shell.
 * **`IEditProvider`** — how an `EditTarget` reaches its data. Entities, assets, graph nodes and a
-  project settings file are four implementations, not four pipelines. ⚠ **One exists**
-  (`InspectorEditProvider`); the seam is open in the sense that nobody else has walked through it.
+  project settings file are four implementations, not four pipelines. ⚠ **Two exist** —
+  `InspectorEditProvider` over the generator's descriptors, and `NodePortEditProvider` over a graph
+  node's ports, which is the one that proves the seam takes weight: its members belong to no CLR
+  type and the ordinary inspector panel draws them anyway. A settings file is still owed.
 * **`IToolContext`** — what a scene-view tool is handed. Terrain's brushes and blockout's handles
   should be two implementations of the same thing; today they are two subsystems. ⚠ **This type does
   not exist**, in any form — it is a proposal, not a seam something is already using.
@@ -1009,15 +1025,31 @@ Deliberately open, and named so the first project that needs one does not fork.
 
 Measured against the tree, not against the phase list. Ordered by what a person would notice.
 
-### The editing pipeline reaches one surface of five
+### The editing pipeline reaches three surfaces of four
 
-**Four `IEditProvider`s.** Terrain/foliage, node graphs, blockout, and transforms. Each gets its
-surface multi-object editing, mixed state, `Changed`, the override mark, and — the one that grew
-teeth after P4 — the ability to be authored in `.vxml`. Undo and dirty already work for all four;
-this is the other five rows of [the invariant](#what-the-invariant-bought-and-what-it-did-not).
+**Transforms.** `EntityGizmoTarget.Record` still builds a `TransformTargetsCommand` and pushes it
+onto `Document.Stack` rather than writing through an `EditProperty`. That is the last of the four
+this section used to list, and the audit that closed the other three is worth keeping:
 
-⚠ **This is the largest single item in the document and it was recorded as done.** P1's exit criteria
-were met and are still met; they test the mechanism.
+* **Terrain and foliage** never needed one. Their settings are `[Inspector]` classes,
+  `InspectorEditProvider` describes them, `InspectorView` draws them, and
+  `TerrainBrushInspector.vxml` is already markup over one. This section counted them as owed on the
+  strength of their *strokes* keeping their own commands — which they should: a brush dab is not a
+  member anybody binds by name.
+* **Node graphs** did need one, and it is `NodePortEditProvider`. A port's value lives on the graph
+  keyed by name, so it is a member of nothing; describing it as an `InspectorMember` is what put the
+  ordinary inspector panel behind the shader and VFX graphs' side panels.
+* **Blockout** needs a panel rather than a provider. `UvSettings`, `PackSettings` and
+  `RemeshSettings` are unannotated records in `Core/Vixen.Geometry.*` and nothing in the editor
+  draws them at all; annotating them is what would put them on the pipeline, in one line each.
+
+⚠ **This was recorded as done once, and then over-counted when the correction was written.** Both
+mistakes have the same shape — the section was measured against the phase list rather than the tree.
+
+⚠ **Still owed inside the node graph itself:** the port fields drawn *on* the node in
+`NodeGraphView` are built by hand and are now the only place in that assembly that constructs an
+editor for a port. They are a different surface with a different constraint — a row has to fit inside
+a node that clips its own contents — so they are their own task rather than an oversight.
 
 ### P3's three exit criteria, none met
 

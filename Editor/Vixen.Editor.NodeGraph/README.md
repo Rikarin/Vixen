@@ -34,7 +34,8 @@ graph.Connect(new(uv.Id, "UV"), new(sample.Id, "UV"));
 | `NodeDiagnostic` | Something to say, about a node and a port an author can see. |
 | `SubGraphs`, `SubGraphLibrary` | A graph inside a graph: the boundary nodes, inlining, and extraction. |
 | `NodeGraphView`, `NodeCommentView` | The model on a `NodeCanvas`, with every gesture arriving as a command. |
-| `NodeInspector` | The selected node's values as rows beside the canvas, for what will not fit on it. |
+| `NodeInspector` | The selected nodes' values as rows beside the canvas, for what will not fit on it. A host around `InspectorView`, not a panel of its own. |
+| `NodePortEditProvider`, `NodePortMember` | A node type's inline port values, described for the editing pipeline. See below. |
 | `NodeSearchPopup`, `NodeSearch`, `PortFilter` | Search-to-create, and the ranking behind it. |
 | `NodePreviewLayer`, `INodePreviewSource` | The swatch under a node that asked for one. |
 | `NodeGraphLayout`, `NodeLayoutOptions` | Laying a graph out left to right, in columns. |
@@ -182,6 +183,41 @@ where removal is final, a rebuild per frame is elements that accumulate for as l
 *does* rebuild when the node's wiring changed, which it tells apart by comparing a signature of the
 selected node's ports and which of them a wire arrives at: connecting something turns a row from a
 field into "from a connection", and no amount of re-reading numbers will do that.
+
+## The panel beside the canvas is the ordinary inspector
+
+`NodeInspector` used to build its own controls: a row per port, a `NumericInput` per lane, a
+`CheckBox` for a boolean, and its own write path. It does not any more. `NodePortEditProvider`
+describes a node type's ports as `InspectorMember`s and `InspectorView` draws them — which is doc 36
+§ P1's `IEditProvider` seam, and the second thing in the tree to walk through it.
+
+**Why a port could not be described before.** A node's numbers live on the *graph*, in
+`GraphNode.Values` keyed by port name, because that is what survives a save and an undo. They are
+therefore members of no type: no generator describes them, and `InspectorEditProvider` — which
+answers from a registry keyed by `Type` — answers nothing for a `GraphNode`. An `IEditProvider` is
+exactly the seam for "described by something other than a C# type".
+
+**⚠ One provider per node type, not one per process.** `EditTarget` resolves members by CLR type and
+every node is a `GraphNode`, so a provider answering for `GraphNode` in general would have to answer
+with *some* node type's ports and be wrong for the rest. `NodePortEditProvider.For` builds one
+against the definition actually selected, and `Describes` is the check `EditTarget` cannot make —
+that the selection is all one node type, wired the same way. Only the graph knows that.
+
+**What it bought, none of which this assembly implements.** A drawer chosen by the port's type
+(three boxes for a `Float3` because it is a `Vector3`, not because anybody counted lanes), a reset
+button against the port's declared default, a tooltip from the port's summary, editing several nodes
+of one type as one undo entry with a "before" per node, the mixed state when they disagree, and
+`<PropertyField Path="Base Colour" />` in a `.vxml`.
+
+**⚠ The write is still `SetPortValueCommand`.** The member hands the pipeline the graph's own
+command rather than the boxed `SetValuesCommand` fallback, because that command knows something the
+fallback cannot: whether a port *had* an inline value at all, so an undo restores its absence rather
+than pinning it to a number the node type is free to change. It was widened to take a list of nodes
+for the same reason — one entry per selection, and it still merges, so a drag is one undo step.
+
+**⚠ The port fields drawn on the node are still hand-built.** They are a different surface with a
+constraint the panel does not have: a node clips its own contents, so a row wider than 240 units is a
+box that cannot be typed into. Putting them on the provider is a task, not an oversight.
 
 ## The compiler does the parts that are the same everywhere
 
