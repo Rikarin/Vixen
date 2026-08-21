@@ -39,14 +39,22 @@ public sealed class BehaviorStore {
     readonly Dictionary<Type, IBehaviorBucket> buckets = [];
     readonly List<IBehaviorBucket> ordered = [];
 
-    readonly List<Behavior> pendingAwake = [];
-    readonly List<Behavior> awakening = [];
-    readonly List<Behavior> startQueued = [];
-    readonly List<Behavior> startReady = [];
-    readonly List<Behavior> pendingEnable = [];
-    readonly List<Behavior> pendingDisable = [];
-    readonly List<Behavior> pendingDestroy = [];
+    // ⚠ Nullable, because a slot is how a queue lets go of a behaviour a drain is walking past.
+    // See `Drain`.
+    readonly List<Behavior?> pendingAwake = [];
+    readonly List<Behavior?> awakening = [];
+    readonly List<Behavior?> startQueued = [];
+    readonly List<Behavior?> startReady = [];
+    readonly List<Behavior?> pendingEnable = [];
+    readonly List<Behavior?> pendingDisable = [];
+    readonly List<Behavior?> pendingDestroy = [];
+
+    // Scratch for `Reap`, not a queue: filled and emptied inside one call.
     readonly List<Behavior> reaped = [];
+
+    // How many `RunLifecycle` calls are on the stack. Zero — the editor's authored store, always —
+    // means no loop holds an index into a queue and a removal may compact it.
+    int draining;
 
     /// <summary>The world the behaviours' entities live in.</summary>
     public World World => world;
@@ -207,6 +215,17 @@ public sealed class BehaviorStore {
     ///         destroyed instead made a redo re-attach an object the store then refused to hand back:
     ///         the behaviour was on the entity and invisible to everything that asks for one.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the queues let go of it here, which is a leak and not a correctness bug.</b>
+    ///         Every drain already asks <see cref="Owns" /> before acting on a queue entry, so a
+    ///         stale one does nothing — but doing nothing is not the same as being gone. The store
+    ///         that never drains is exactly the one that detaches: an editor holding authored
+    ///         behaviours makes a <c>pendingAwake</c> entry per add and never reaches the drain that
+    ///         would clear it, so every undone "add script" is a behaviour kept for ever. That keeps
+    ///         its type, the type keeps its assembly and the assembly keeps the collectible
+    ///         <c>PluginLoadContext</c> it was compiled into — one uncollectable assembly per script
+    ///         reload, for as long as the editor is open.
+    ///     </para>
     /// </remarks>
     public bool Remove(Behavior behavior) {
         ArgumentNullException.ThrowIfNull(behavior);
@@ -218,9 +237,50 @@ public sealed class BehaviorStore {
         }
 
         Detach(behavior);
+        Drain(behavior);
         behavior.Store = null;
 
         return true;
+    }
+
+    /// <summary>Takes a behaviour out of every lifecycle queue it is sitting in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Compacted when nothing is draining, nulled when something is.</b> This is reachable
+    ///     from inside a behaviour's own callback — an <c>OnDestroy</c> that detaches a sibling — and
+    ///     the drains below walk their queues by index. Shortening one under a running loop skips the
+    ///     element after the hole, silently; the same edit against a <c>foreach</c> throws. Nulling
+    ///     the slot releases the reference, which is the whole point, and leaves the indices alone;
+    ///     every drain skips a null, and clears or compacts its queue on the way out, so the holes do
+    ///     not accumulate. When <see cref="draining" /> is zero — the editor's store, always — there
+    ///     is no loop to disturb and the entry is simply removed, so a detach-heavy session does not
+    ///     grow a queue of nothing.
+    /// </remarks>
+    void Drain(Behavior behavior) {
+        // ⚠ Every queue, written out, including `pendingDestroy` — which cannot hold it, because
+        // `Remove` refuses a destroyed behaviour and that is the only way in. A queue left off this
+        // list is the defect this method exists to fix, and it fails by leaking rather than by
+        // breaking, so the list is exhaustive by construction rather than by which ones matter.
+        Drain(pendingAwake, behavior);
+        Drain(awakening, behavior);
+        Drain(startQueued, behavior);
+        Drain(startReady, behavior);
+        Drain(pendingEnable, behavior);
+        Drain(pendingDisable, behavior);
+        Drain(pendingDestroy, behavior);
+    }
+
+    void Drain(List<Behavior?> queue, Behavior behavior) {
+        for (var index = queue.Count - 1; index >= 0; index--) {
+            if (!ReferenceEquals(queue[index], behavior)) {
+                continue;
+            }
+
+            if (draining > 0) {
+                queue[index] = null;
+            } else {
+                queue.RemoveAt(index);
+            }
+        }
     }
 
     /// <summary>Whether this store is the one the behaviour is attached to.</summary>
@@ -248,6 +308,19 @@ public sealed class BehaviorStore {
     ///     sibling created in the same frame and find it fully constructed.
     /// </remarks>
     public void RunLifecycle() {
+        // The counter, not a bool: a callback may drive a nested drain, and the inner one's exit
+        // must not tell `Drain` that the outer loop's indices are free to move. `finally`, because
+        // a callback that throws leaves the store usable rather than permanently mid-drain.
+        draining++;
+
+        try {
+            RunLifecycleCore();
+        } finally {
+            draining--;
+        }
+    }
+
+    void RunLifecycleCore() {
         Reap();
 
         // Everything queued in an earlier drain becomes eligible now; anything queued during this
@@ -274,15 +347,20 @@ public sealed class BehaviorStore {
         // editor's authored store does exactly that, on every detach — and it is neither destroyed
         // nor this store's any more. Waking it would `Activate` a slot in a bucket that no longer
         // holds it, which raises `enabled` past `Count` and makes the next `Update` walk a null.
-        foreach (var behavior in awakening) {
-            if (!behavior.IsDestroyed && Owns(behavior)) {
-                behavior.InvokeAwake();
-                behavior.IsAwake = true;
+        //
+        // ⚠ Index loops, not `foreach`. An `Awake` that detaches something is `Drain` nulling a slot
+        // in this very list, and `List<T>`'s indexer bumps the version a `foreach` checks.
+        for (var index = 0; index < awakening.Count; index++) {
+            if (awakening[index] is not { IsDestroyed: false } behavior || !Owns(behavior)) {
+                continue;
             }
+
+            behavior.InvokeAwake();
+            behavior.IsAwake = true;
         }
 
-        foreach (var behavior in awakening) {
-            if (!Owns(behavior)) {
+        for (var index = 0; index < awakening.Count; index++) {
+            if (awakening[index] is not { } behavior || !Owns(behavior)) {
                 continue;
             }
 
@@ -295,6 +373,10 @@ public sealed class BehaviorStore {
                 startQueued.Add(behavior);
             }
         }
+
+        // Held only for the two loops above; anything left is a reference this store has no further
+        // use for, and the editor's store is one that will not be back for another drain.
+        awakening.Clear();
 
         Flush(pendingEnable, behavior => {
                 if (behavior is { IsDestroyed: false, Enabled: true, IsAwake: true } && Owns(behavior)) {
@@ -313,9 +395,8 @@ public sealed class BehaviorStore {
         );
 
         for (var index = 0; index < startReady.Count; index++) {
-            var behavior = startReady[index];
-
-            if (behavior.IsDestroyed || !Owns(behavior)) {
+            // A null is a slot `Drain` emptied under a running loop; the queue is compacted here.
+            if (startReady[index] is not { } behavior || behavior.IsDestroyed || !Owns(behavior)) {
                 startReady.RemoveAt(index--);
                 continue;
             }
@@ -367,9 +448,13 @@ public sealed class BehaviorStore {
         foreach (var behavior in reaped) {
             Destroy(behavior);
         }
+
+        // Emptied on the way out as well as on the way in: this is scratch, and holding last drain's
+        // orphans until the next one is a store keeping behaviours it has already finished with.
+        reaped.Clear();
     }
 
-    static void Flush(List<Behavior> queue, Action<Behavior> action) {
+    static void Flush(List<Behavior?> queue, Action<Behavior> action) {
         if (queue.Count == 0) {
             return;
         }
@@ -380,7 +465,13 @@ public sealed class BehaviorStore {
         queue.Clear();
 
         foreach (var behavior in pending) {
-            action(behavior);
+            // A slot `Drain` emptied while an outer drain was walking this queue. A detach from
+            // inside one of these callbacks is not covered here — the copy was taken before it —
+            // and does not need to be: the enable and disable actions ask `Owns` themselves, and
+            // the destroy action cannot see one, because `Remove` refuses a destroyed behaviour.
+            if (behavior is not null) {
+                action(behavior);
+            }
         }
     }
 

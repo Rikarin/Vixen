@@ -284,10 +284,14 @@ Honestly bounded:
   block and asserts the stride, and both reference tools read the result — so the std140 round-up to 16
   is checked against two full front ends rather than only against the spec as literals. What is still
   uncovered is `std430`, which nothing produces until there is a storage buffer to produce it.
-- **The tools are found on PATH, not restored.** `glslc` (brew install shaderc) and `spirv-dis`
-  (brew install spirv-tools); the CLI tools rather than `Silk.NET.Shaderc`, so shaderc's native
-  binaries never enter the restore graph of a project that must not ship them. Absence is reported
-  through the test output rather than silently passing — the same treatment `spirv-val` already had.
+- **The tools are found on PATH, not restored.** `glslc` (brew install shaderc, apt-get install
+  glslc) and `spirv-dis` (brew install spirv-tools); the CLI tools rather than `Silk.NET.Shaderc`,
+  so shaderc's native binaries never enter the restore graph of a project that must not ship them.
+  ⚠ That is the whole of the `Silk.NET.Shaderc` row in doc 01's register: the package is **declined**,
+  not owed. An absent tool skips the case, and `The_oracle_is_installed_so_this_file_means_something`
+  fails outright — the same treatment `spirv-val` already had, and now for the same reason, because
+  for as long as the oracle merely *reported* its absence it was passing thirteen cases it had never
+  run on two of the three CI legs. `ci.yml` installs both on all three.
 
 The weaker half is asserted separately, so a failure reads as *"the GLSL does not compile"* rather
 than *"the interfaces differ"*: `glslc` accepting Raven's output at all is a full GLSL front end

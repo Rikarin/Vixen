@@ -14,14 +14,18 @@ namespace Tests;
 ///     <para>
 ///         <c>glslc</c> (from shaderc) compiles Raven's GLSL back to SPIR-V, and
 ///         <c>spirv-dis</c> disassembles both that and Raven's own module so the two can be
-///         compared. Neither is a build dependency: they are found on PATH and their absence
-///         is reported rather than silently passing.
+///         compared. Neither is a build dependency: they are found on PATH, a case that cannot
+///         run is <em>skipped</em>, and their absence is a failure of its own
+///         (<c>SpirvDifferentialTests.The_oracle_is_installed_so_this_file_means_something</c>).
+///         ⚠ It used to be neither — a missing tool made every case return early and report a
+///         pass, and two of the three CI legs never installed shaderc, so the only differential
+///         check on Raven's SPIR-V emitter was green on both without ever running.
 ///     </para>
 ///     <para>
-///         The command-line tools rather than <c>Silk.NET.Shaderc</c>, deliberately. The oracle
-///         is a test-time thing, and a native NuGet asset would put shaderc's binaries in the
-///         restore graph of a project that must never ship them — docs/plan/01 lists shaderc as
-///         a test oracle only.
+///         The command-line tools rather than <c>Silk.NET.Shaderc</c>, deliberately, and that
+///         package is <em>declined</em> rather than owed. The oracle is a test-time thing, and a
+///         native NuGet asset would put shaderc's binaries in the restore graph of a project that
+///         must never ship them — see docs/plan/01's register row and docs/plan/07 § C.
 ///     </para>
 /// </remarks>
 public static class ReferenceCompiler {
@@ -33,8 +37,9 @@ public static class ReferenceCompiler {
 
     /// <summary>What to tell the reader when the oracle cannot run.</summary>
     public const string HowToInstall =
-        "glslc (brew install shaderc) and spirv-dis (brew install spirv-tools) are needed to run the "
-        + "differential oracle. Neither is a build dependency, so this check was skipped.";
+        "glslc (brew install shaderc, apt-get install glslc) and spirv-dis (brew install "
+        + "spirv-tools, apt-get install spirv-tools) are needed to run the differential oracle. "
+        + "Neither is a build dependency, so this check was skipped.";
 
     /// <summary>True when both tools are present, so the oracle can run.</summary>
     public static bool Available => Glslc is not null && SpirvDis is not null;

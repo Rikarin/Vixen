@@ -480,9 +480,7 @@ public class BindlessTextureTests {
     /// </remarks>
     [Fact]
     public void A_reference_compiler_accepts_the_glsl() {
-        if (ReferenceCompiler.Glslc is null) {
-            return;
-        }
+        Assert.SkipUnless(ReferenceCompiler.Glslc is not null, ReferenceCompiler.HowToInstall);
 
         var unit = CodeGenTestBase.GenerateClean(Source).Single();
         Assert.NotEmpty(ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage));
