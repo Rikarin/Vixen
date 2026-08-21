@@ -360,6 +360,20 @@ Four things are worth knowing before reading the files:
 - **The snap is to a whole page.** A cascade snaps to a texel so the grid does not slide; this snaps to a
   page so a page's world footprint is *bit-identical* between frames, which is what lets a drawn page
   stay drawn. That is the whole caching story, and a texel snap would quietly remove it.
+- **A page's address is toroidal, and that is what makes the snap worth anything.** A window is
+  thirty-two pages across and re-centres on the camera in whole pages, so a camera walking one page —
+  a third of a metre at level zero — slides the window by one and leaves thirty-one of its thirty-two
+  columns over the same world. Addressing a page by its *cell* renames all 1 024 of them to say that one
+  arrived; `VirtualShadowMap.ToroidalOf` adds `VirtualShadowLevel.Origin` and wraps, so only the arriving
+  column's addresses mean somewhere new and `Fit` invalidates thirty-two pages instead of a level.
+  ⚠ **The origin negates `y`** against `ClipmapCell`'s `Up`, because the page grid's rows run *down* the
+  map — an origin that did not would rotate the addresses along y at twice the rate and be worse than no
+  scheme at all, while still rendering. ⚠ And `GridOf` is the half no shader does: a page owed a draw is
+  known by its address, and the *window* is what says where to draw it from. Measured on Samples/13
+  under `VIXEN_WALK` (task #317, and task #124's lateral half): pages absent at the table upload
+  10.45 → 2.12 a frame, pages invalidated 49.4 → 2.3, page draws 14.6 → 2.4, allocations over the walk
+  1 074 → 495, and frames failing on more than a tenth of what they asked for 18.1 % → 2.9 %. The refit
+  *cadence* is untouched at 0.340 levels a frame in both — what changed is only what a refit costs.
 - **A page is published when it is drawn.** `VirtualShadowPages.Table` is what a shading pass reads and
   `TryGetAllocation` is what a draw reads, and they are the same number a frame apart. A slot just handed
   over holds the last page's depths, and publishing it early is a shadow of something that is not there.

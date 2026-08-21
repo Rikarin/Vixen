@@ -155,7 +155,7 @@
                 "IsStruct": true
               },
               "Offset": 0,
-              "Size": 80,
+              "Size": 96,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
@@ -239,9 +239,57 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
+            },
+            {
+              "Name": "levels.origin",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 80,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "levels.padding0",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 88,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "levels.padding1",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 92,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
-          "Size": 80,
+          "Size": 96,
           "IsWritable": false
         },
         {
@@ -492,6 +540,60 @@
       "Set": 2,
       "Binding": 2,
       "Offset": 76,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "levels.origin",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 2,
+      "Offset": 80,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "levels.padding0",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 2,
+      "Offset": 88,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "levels.padding1",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 2,
+      "Offset": 92,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

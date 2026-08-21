@@ -44,6 +44,18 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     readonly List<(int Page, int Slot, Matrix4x4 Projection)> owed = [];
     readonly List<Matrix4x4> fitted = [];
 
+    // What Fit needs to tell a slide from a move. The matrices alone cannot: two matrices that differ
+    // say only *that* the level moved, and the whole of task #317 is that a level which slid laterally
+    // has kept every page's world footprint while a level whose near plane stepped has kept none.
+    readonly List<Int2> fittedOrigins = [];
+    readonly List<int> fittedDepthCells = [];
+    readonly List<int> depthCells = [];
+
+    Vector3 fittedLight = new(float.NaN);
+    float fittedExtent = float.NaN;
+    float fittedDepth = float.NaN;
+    int fittedClipmap = -1;
+
     /// <summary>The stage that draws depth-only casters.</summary>
     public required RenderStage CasterStage { get; init; }
 
@@ -200,12 +212,21 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
 
     /// <summary>How many pages <see cref="Fit" /> invalidated this frame, and over how many levels.</summary>
     /// <remarks>
-    ///     <b>What a refit costs, stated rather than inferred.</b> A level whose projection moved has
-    ///     every one of its resident pages unpublished at once, and the budget redraws
-    ///     <see cref="DrawsPerFrame" /> of them a frame — so a scene where this is non-zero on most
-    ///     frames is a scene whose map is structurally unable to answer, however healthy
-    ///     <see cref="DrawnPages" /> looks. <see cref="LightSnapDegrees" /> and the clipmap's page snap
-    ///     exist to keep it at zero, and whether they do is a question about the scene's own rates.
+    ///     <para>
+    ///         <b>What a refit costs, stated rather than inferred.</b> The budget redraws
+    ///         <see cref="DrawsPerFrame" /> pages a frame, so a scene where this stands above that on
+    ///         most frames is a scene whose map is structurally unable to answer, however healthy
+    ///         <see cref="DrawnPages" /> looks. <see cref="LightSnapDegrees" />, the clipmap's page
+    ///         snap and <see cref="VirtualShadowMap.DepthStep" /> exist to keep it low, and whether
+    ///         they do is a question about the scene's own rates.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="RefitLevels" /> is not a share of this, and after task #317 the two
+    ///         come apart.</b> A level that slid laterally is a refit that invalidates the thirty-two
+    ///         pages of one column rather than all thousand and twenty-four, because a page is
+    ///         addressed toroidally — so a walking camera now refits as often as it ever did and
+    ///         throws away a fraction as much.
+    ///     </para>
     /// </remarks>
     public int InvalidatedPages { get; private set; }
 
@@ -222,10 +243,13 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The levels are refitted before the marks are serviced, and a level that moved
-    ///         invalidates its pages.</b> A page's identity is its position in a level's grid, so a
-    ///         level whose projection changed has pages whose depths are about somewhere else — and the
-    ///         page snap is what makes that rare rather than constant: a camera that moved less than a
-    ///         page leaves every footprint bit-identical.
+    ///         invalidates its pages.</b> Which of them depends on <em>how</em> it moved: a page's
+    ///         identity is its <see cref="VirtualShadowMap.ToroidalOf" /> address, which a lateral
+    ///         slide leaves alone except on the column and row that wrapped, and which every other
+    ///         kind of move — the sun's snap stepping, the near plane stepping along the light —
+    ///         invalidates wholesale because every stored depth in the level shifted. The page snap is
+    ///         what makes even the slide rare: a camera that moved less than a page leaves every
+    ///         footprint bit-identical and nothing is invalidated at all.
     ///     </para>
     /// </remarks>
     protected internal override void Collect(GraphicsCompositor compositor) {
@@ -263,7 +287,19 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
             }
 
             var within = page - (level * VirtualShadowMap.PagesPerMap);
-            var grid = new Int2(within % VirtualShadowMap.PagesPerSide, within / VirtualShadowMap.PagesPerSide);
+
+            // ⚠ **The address back to a window cell, which is the half of the toroidal scheme no
+            // shader does.** A page is owed a draw by its address, and PageProjection wants the
+            // rectangle of the level's clip space it occupies — which is where the *window* puts it,
+            // not where the address does. Skipping the inverse draws every page of a level that has
+            // ever slid out of the wrong part of the world: real geometry, plausible depths, in the
+            // wrong place, and no counter here would say so.
+            var toroidal = new Int2(
+                within % VirtualShadowMap.PagesPerSide,
+                within / VirtualShadowMap.PagesPerSide
+            );
+
+            var grid = VirtualShadowMap.GridOf(toroidal, records[level].Origin);
             var projection = VirtualShadowMap.PageProjection(records[level].ViewProjection, grid);
 
             owed.Add((page, slot, projection));
@@ -314,10 +350,15 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
         var previous = records.Count;
 
         records.Clear();
+        depthCells.Clear();
 
         var levels = Math.Clamp(ClipmapLevels, 0, VirtualShadowMap.MaxLevels - SpotProjections.Count);
 
         for (var level = 0; level < levels; level++) {
+            var cell = VirtualShadowMap.ClipmapCell(level, FirstExtent, camera.Position, light, Depthrange);
+
+            depthCells.Add(cell.Light);
+
             records.Add(
                 new() {
                     ViewProjection = VirtualShadowMap.ClipmapProjection(
@@ -330,7 +371,18 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
                     First = (uint)(records.Count * VirtualShadowMap.PagesPerMap),
                     Kind = (uint)VirtualShadowKind.Clipmap,
                     TexelWorldSize = VirtualShadowMap.TexelOf(level, FirstExtent),
-                    Light = 0u
+                    Light = 0u,
+
+                    // Asked for rather than built from `cell` here, because the y negation that makes
+                    // the toroidal arithmetic work on both axes is a fact about the page grid's
+                    // handedness and belongs in exactly one place — see VirtualShadowLevel.Origin.
+                    Origin = VirtualShadowMap.ClipmapOrigin(
+                        level,
+                        FirstExtent,
+                        camera.Position,
+                        light,
+                        Depthrange
+                    )
                 }
             );
         }
@@ -360,7 +412,22 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
         InvalidatedPages = 0;
         RefitLevels = 0;
 
-        if (previous != records.Count) {
+        // ⚠ **A slide is not a move, and telling them apart is task #317.** Every level's projection
+        // is a function of the light, the extent, the depth range and the camera's cell — so when the
+        // first three are what they were, any matrix that changed changed because the camera's cell
+        // did, and a cell that changed *laterally* slid the window without touching a single page's
+        // world footprint. Anything else — the sun stepping its half-degree, a level count that moved
+        // the page ranges, the near plane stepping along the light — moves every stored depth in the
+        // level and is stale wholesale.
+        var comparable = previous == records.Count && fitted.Count == records.Count;
+
+        var slidOnly = comparable
+            && fittedClipmap == levels
+            && fittedLight == light
+            && fittedExtent.Equals(FirstExtent)
+            && fittedDepth.Equals(Depthrange);
+
+        if (!comparable) {
             // The structure changed — levels appeared, vanished, or spots shifted the mapping from
             // page range to record — and a page range that changed meaning is stale wholesale.
             InvalidatedPages = atlas.Pages.InvalidateAll();
@@ -374,26 +441,80 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
                 RefitLevels++;
 
                 var first = level * VirtualShadowMap.PagesPerMap;
+                var slid = slidOnly && level < levels && depthCells[level] == fittedDepthCells[level];
 
-                for (var page = first; page < first + VirtualShadowMap.PagesPerMap; page++) {
-                    if (atlas.Pages.Invalidate(page)) {
-                        InvalidatedPages++;
+                if (slid) {
+                    Slide(atlas, first, fittedOrigins[level], records[level].Origin);
+                } else {
+                    for (var page = first; page < first + VirtualShadowMap.PagesPerMap; page++) {
+                        if (atlas.Pages.Invalidate(page)) {
+                            InvalidatedPages++;
+                        }
                     }
                 }
             }
         }
 
         fitted.Clear();
+        fittedOrigins.Clear();
+        fittedDepthCells.Clear();
 
         for (var level = 0; level < records.Count; level++) {
             fitted.Add(records[level].ViewProjection);
+            fittedOrigins.Add(records[level].Origin);
         }
+
+        fittedDepthCells.AddRange(depthCells);
+        fittedClipmap = levels;
+        fittedLight = light;
+        fittedExtent = FirstExtent;
+        fittedDepth = Depthrange;
 
         atlas.Begin(
             System.Runtime.InteropServices.CollectionsMarshal.AsSpan(records),
             Math.Min(levels, records.Count),
             VirtualShadowMap.TexelOf(0, FirstExtent)
         );
+    }
+
+    /// <summary>Invalidates only the pages a lateral slide handed to a different part of the world.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of what toroidal addressing buys, spent here.</b> A window that slid one
+    ///         page has thirty-one of its thirty-two columns over the same world as before; under the
+    ///         window-cell addressing this replaced, every one of the thousand and twenty-four pages
+    ///         changed its name and <c>Fit</c> threw the level away to say that one column arrived.
+    ///         Now the arriving column is the only one whose address means somewhere new, and the
+    ///         thirty-two pages of it are the whole cost.
+    ///     </para>
+    ///     <para>
+    ///         Asked per axis and per address rather than derived from the difference, because the
+    ///         difference has four cases — either sign, wrapped or not — and
+    ///         <see cref="VirtualShadowMap.PageSurvives" /> answers all four by construction. A slide
+    ///         of a whole window or more survives nothing, which falls out of the same test rather
+    ///         than needing a guard.
+    ///     </para>
+    /// </remarks>
+    void Slide(VirtualShadowAtlas atlas, int first, Int2 before, Int2 after) {
+        Span<bool> columns = stackalloc bool[VirtualShadowMap.PagesPerSide];
+        Span<bool> rows = stackalloc bool[VirtualShadowMap.PagesPerSide];
+
+        for (var index = 0; index < VirtualShadowMap.PagesPerSide; index++) {
+            columns[index] = !VirtualShadowMap.PageSurvives(index, before.X, after.X);
+            rows[index] = !VirtualShadowMap.PageSurvives(index, before.Y, after.Y);
+        }
+
+        for (var y = 0; y < VirtualShadowMap.PagesPerSide; y++) {
+            for (var x = 0; x < VirtualShadowMap.PagesPerSide; x++) {
+                if (!columns[x] && !rows[y]) {
+                    continue;
+                }
+
+                if (atlas.Pages.Invalidate(first + (y * VirtualShadowMap.PagesPerSide) + x)) {
+                    InvalidatedPages++;
+                }
+            }
+        }
     }
 
     /// <inheritdoc />

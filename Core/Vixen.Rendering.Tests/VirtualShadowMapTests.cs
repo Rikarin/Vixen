@@ -126,6 +126,152 @@ public class VirtualShadowMapTests {
         Assert.NotEqual(reference, Level(0, origin + (right * page * 1.5f)));
     }
 
+    // --- The toroidal address ------------------------------------------------
+
+    /// <summary>
+    ///     A page keeps its address while the level slides sideways under it — task #317's blink.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole claim of toroidal addressing, and the only test that can make it.</b> A
+    ///         level's window is thirty-two pages across and re-centres on the camera in whole pages,
+    ///         so a camera that walks one page slides the window by one — and the <em>cell</em> a fixed
+    ///         piece of world lands in slides with it. Under the window-cell addressing this replaced,
+    ///         a slide of one page renamed all one thousand and twenty-four pages in order to say that
+    ///         one column had arrived, and <c>VirtualShadowRenderer.Fit</c> threw the level away for a
+    ///         third of a metre of walking. Task #124 fixed the same wholesale invalidation on the
+    ///         depth axis and left this one; 8.8 % of frames were still failing on a tenth of what they
+    ///         were asked for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The y axis is where this is easy to get wrong, and getting it wrong is invisible.</b>
+    ///         A page grid's rows run <em>down</em> the map, because <c>Transform.NdcToUv</c> negates y
+    ///         — so a camera rising by one page moves a world row's cell <em>up</em> by one where a
+    ///         camera moving right moves its column <em>down</em> by one. An origin that did not negate
+    ///         one of them would keep addresses stable along x and rotate them along y at twice the
+    ///         rate, which is a level that invalidates <em>more</em> than the wholesale version it
+    ///         replaced and still renders a plausible frame. Both axes are walked here, and diagonally,
+    ///         for exactly that reason.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_page_keeps_its_address_while_the_level_slides_under_it() {
+        var (right, up, _) = VirtualShadowMap.Basis(Sun);
+
+        for (var level = 0; level < 4; level++) {
+            var page = VirtualShadowMap.ExtentOf(level, FirstExtent) / VirtualShadowMap.PagesPerSide;
+
+            // Off the lattice by an arbitrary fraction of a page on both axes, so the point is not
+            // sitting on a seam where either side is a defensible answer.
+            var anchor = (right * 5.5f * page) + (up * -3.5f * page) + (Sun * 2.5f * page);
+            var world = anchor + (right * 0.37f * page) + (up * -1.63f * page);
+
+            foreach (var (alongRight, alongUp) in ((int, int)[])[(1, 0), (0, 1), (1, 1), (1, -1)]) {
+                var addresses = new HashSet<int>();
+
+                // Six pages either way, which is a fifth of the window — enough that a naive
+                // addressing has renamed the page many times over, and little enough that the point
+                // stays well inside a window thirty-two pages across.
+                for (var step = -6; step <= 6; step++) {
+                    var camera = anchor + (right * (step * alongRight * page)) + (up * (step * alongUp * page));
+                    var projection = VirtualShadowMap.ClipmapProjection(level, FirstExtent, camera, Sun, Depth);
+                    var origin = VirtualShadowMap.ClipmapOrigin(level, FirstExtent, camera, Sun, Depth);
+
+                    Assert.True(
+                        VirtualShadowMap.PageOf(projection, world, out var cell),
+                        $"level {level} lost the point at step {step}"
+                    );
+
+                    addresses.Add(VirtualShadowMap.IndexOf(0u, VirtualShadowMap.ToroidalOf(cell, origin)));
+                }
+
+                Assert.True(
+                    addresses.Count == 1,
+                    $"level {level} gave one point {addresses.Count} addresses over thirteen pages of "
+                    + $"sliding along ({alongRight}, {alongUp})"
+                );
+            }
+        }
+    }
+
+    /// <summary>An address names a window cell again, and the same one it came from.</summary>
+    /// <remarks>
+    ///     <b>The half no shader does, and the half a page <em>draw</em> is.</b> A page owed a draw is
+    ///     known by its address, and <c>VirtualShadowMap.PageProjection</c> wants the rectangle of the
+    ///     level's clip space it occupies — which is where the window puts it. A node that skipped the
+    ///     inverse would draw every page of a level that has ever slid out of the wrong part of the
+    ///     world: real geometry, at plausible depths, in the wrong place, with every counter reporting
+    ///     a page drawn on time.
+    /// </remarks>
+    [Fact]
+    public void A_toroidal_address_names_the_window_cell_it_came_from() {
+        foreach (var origin in (Int2[])[new(0, 0), new(1, 0), new(0, 1), new(31, 17), new(-1, -1), new(-97, 4192)]) {
+            var seen = new HashSet<Int2>();
+
+            for (var y = 0; y < VirtualShadowMap.PagesPerSide; y++) {
+                for (var x = 0; x < VirtualShadowMap.PagesPerSide; x++) {
+                    var cell = new Int2(x, y);
+                    var address = VirtualShadowMap.ToroidalOf(cell, origin);
+
+                    Assert.InRange(address.X, 0, VirtualShadowMap.PagesPerSide - 1);
+                    Assert.InRange(address.Y, 0, VirtualShadowMap.PagesPerSide - 1);
+
+                    // A bijection, or two cells of one window share a page and one of them is drawn
+                    // over the other every frame.
+                    Assert.True(seen.Add(address), $"origin {origin} maps two cells onto {address}");
+                    Assert.Equal(cell, VirtualShadowMap.GridOf(address, origin));
+                }
+            }
+        }
+    }
+
+    /// <summary>A slide retires one address per page it moved, and no more.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What the scheme is worth, as a number.</b> A window that slid one page has
+    ///         thirty-one of its thirty-two columns over the same world as before, so exactly one
+    ///         column's addresses have been handed to world that has just arrived from the far side.
+    ///         Thirty-two pages, against the thousand and twenty-four a whole-level invalidation costs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Swept past a whole window in both directions, because the wrap is where an
+    ///         off-by-one lives and a slide of exactly <c>PagesPerSide</c> is the trap: every address's
+    ///         remainder is untouched and every address's world is different. An origin reduced modulo
+    ///         the window could not tell that from standing still, which is a whole level of stale
+    ///         depths published as fresh.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_slide_retires_one_address_for_every_page_it_moved() {
+        for (var before = -40; before <= 40; before += 7) {
+            for (var slide = -40; slide <= 40; slide++) {
+                var retired = 0;
+
+                for (var address = 0; address < VirtualShadowMap.PagesPerSide; address++) {
+                    if (!VirtualShadowMap.PageSurvives(address, before, before + slide)) {
+                        retired++;
+                    }
+                }
+
+                Assert.Equal(Math.Min(Math.Abs(slide), VirtualShadowMap.PagesPerSide), retired);
+            }
+        }
+    }
+
+    /// <summary>The record is ninety-six bytes, which is what the device's stride is.</summary>
+    /// <remarks>
+    ///     <c>CullView</c>'s lesson: the matrix aligns the record to sixteen, so the device rounds the
+    ///     stride up to it whether or not the host does. A host that let the compiler decide reads
+    ///     level one out of the middle of level zero — every page of every level addressed into another
+    ///     level's world, which renders and renders plausibly.
+    /// </remarks>
+    [Fact]
+    public void The_level_record_is_the_stride_the_device_reads() {
+        Assert.Equal(96, System.Runtime.InteropServices.Marshal.SizeOf<VirtualShadowLevel>());
+        Assert.Equal(96, System.Runtime.CompilerServices.Unsafe.SizeOf<VirtualShadowLevel>());
+        Assert.Equal(0, System.Runtime.CompilerServices.Unsafe.SizeOf<VirtualShadowLevel>() % 16);
+    }
+
     /// <summary>
     ///     Walking along the light does not refit a level once per lateral page — task #124's blink.
     /// </summary>
@@ -488,6 +634,33 @@ public class VirtualShadowMapTests {
 
         // The sky is skipped, or the coarsest level of the clipmap is allocated for every pixel of it.
         Assert.Contains("if (depth <= 0f) {", mark, StringComparison.Ordinal);
+
+        // ⚠ **And the toroidal address, at both call sites.** A page's identity survives a level
+        // sliding only because the window cell is turned into an address before it is turned into an
+        // index — and there is no arithmetic on either side that can notice a call site which stopped
+        // doing it. A marking pass that asked for the cell while the lookup read the address, or the
+        // reverse, is every pixel reading a page fitted somewhere else in the same level: real
+        // geometry, at plausible depths, in the wrong place. Both lines are asserted whole rather than
+        // by the function's name for that reason.
+        Assert.Contains("static func Toroidal(origin: int2, page: int3): int3", shared, StringComparison.Ordinal);
+        Assert.Contains("var origin: int2", shared, StringComparison.Ordinal);
+
+        Assert.Contains(
+            "Vsm.IndexOf(record.first, Vsm.Toroidal(record.origin, page))",
+            shared,
+            StringComparison.Ordinal
+        );
+
+        Assert.Contains(
+            "Vsm.IndexOf(level.first, Vsm.Toroidal(level.origin, page))",
+            mark,
+            StringComparison.Ordinal
+        );
+
+        // The record is ninety-six bytes on both sides, and the tail is what makes it so — see
+        // The_level_record_is_the_stride_the_device_reads for what a disagreement reads as.
+        Assert.Contains("var padding0: int", shared, StringComparison.Ordinal);
+        Assert.Contains("var padding1: int", shared, StringComparison.Ordinal);
     }
 
     /// <summary>
