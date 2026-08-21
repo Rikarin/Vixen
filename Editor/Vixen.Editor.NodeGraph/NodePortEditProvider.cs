@@ -211,6 +211,100 @@ public sealed class NodePortMember : InspectorMember {
     }
 }
 
+/// <summary>One of a node's settings, as a member the editing pipeline can bind.</summary>
+/// <remarks>
+///     <para>
+///         <b><see cref="NodePortMember" />'s twin, for the things made of names.</b> A setting lives
+///         in <see cref="GraphNode.Texts" /> rather than in <see cref="GraphNode.Values" />, is a
+///         <see langword="string" /> rather than lanes of float, and is written by a
+///         <see cref="SetPortTextCommand" /> — and everything else about it is the same argument the
+///         port member makes, which is why it derives from the same descriptor type and gets the same
+///         row, reset button, tooltip and multi-node edit.
+///     </para>
+///     <para>
+///         ⚠ <b>There is no "connected" case.</b> A setting has no socket and no edge, so unlike a
+///         port it is always a row — see <see cref="SettingAttribute" />.
+///     </para>
+/// </remarks>
+public sealed class NodeSettingMember : InspectorMember {
+    readonly NodeGraphModel graph;
+
+    /// <summary>The setting this stands for.</summary>
+    public SettingDefinition Setting { get; }
+
+    /// <inheritdoc />
+    public override Type MemberType => typeof(string);
+
+    /// <inheritdoc />
+    public override Type OwnerType => typeof(GraphNode);
+
+    /// <inheritdoc />
+    public override bool CanWrite => true;
+
+    /// <summary>Describes one setting of a node type.</summary>
+    /// <param name="graph">The graph the nodes belong to, which is what an edit is recorded against.</param>
+    /// <param name="setting">The setting.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="graph" /> or <paramref name="setting" /> is null.</exception>
+    public NodeSettingMember(NodeGraphModel graph, SettingDefinition setting)
+        : base(Named(setting), Named(setting)) {
+        ArgumentNullException.ThrowIfNull(graph);
+
+        this.graph = graph;
+        Setting = setting;
+
+        if (setting.Summary.Length > 0) {
+            Tooltip = setting.Summary;
+        }
+    }
+
+    /// <inheritdoc />
+    public override object? GetBoxed(object owner) {
+        ArgumentNullException.ThrowIfNull(owner);
+
+        var node = (GraphNode) owner;
+
+        // ⚠ The declared default when the node has never been given one, which is what makes the
+        // descriptor's detached node read back as the default and so what makes the reset button
+        // appear exactly when the author has changed something.
+        return node.Texts.TryGetValue(Setting.Name, out var written) ? written : Setting.Default;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The un-undoable path, taken only for a target with no document — see
+    ///     <see cref="NodePortMember.SetBoxed" />.
+    /// </remarks>
+    public override void SetBoxed(object owner, object? value) {
+        ArgumentNullException.ThrowIfNull(owner);
+
+        ((GraphNode) owner).SetText(Setting.Name, value as string ?? "");
+        graph.Touch();
+    }
+
+    /// <inheritdoc />
+    public override IEditorCommand CreateSetCommand(
+        IReadOnlyList<object> targets,
+        object? value,
+        EditorDocument? document
+    ) {
+        ArgumentNullException.ThrowIfNull(targets);
+
+        var nodes = new NodeId[targets.Count];
+
+        for (var index = 0; index < targets.Count; index++) {
+            nodes[index] = ((GraphNode) targets[index]).Id;
+        }
+
+        return new SetPortTextCommand(graph, nodes, Setting.Name, value as string ?? "", document);
+    }
+
+    static string Named(SettingDefinition setting) {
+        ArgumentNullException.ThrowIfNull(setting);
+
+        return setting.Name;
+    }
+}
+
 /// <summary>How the editing pipeline reaches a node's inline port values.</summary>
 /// <remarks>
 ///     <para>
@@ -307,6 +401,13 @@ public sealed class NodePortEditProvider : IEditProvider {
             }
 
             members.Add(new NodePortMember(graph, port) { IsReadOnly = readOnly });
+        }
+
+        // After the ports, and always: a setting has no socket, so there is no wiring that could take
+        // its row away. Declaration order within each group, which is what the generator ordered them
+        // by and what a create menu draws.
+        foreach (var setting in definition.Settings) {
+            members.Add(new NodeSettingMember(graph, setting) { IsReadOnly = readOnly });
         }
 
         var descriptor = new InspectorDescriptor(

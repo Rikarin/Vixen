@@ -4,7 +4,7 @@ slug: editor/vfx-graph
 kind: guide
 area: Editor
 summary: The node library a .vxvfx is authored against — spawners, initializers, updaters and outputs — and the compiler that turns one graph into both an effect the CPU runs and a shader a device runs.
-api: [T:Vixen.Editor.VfxGraph.VfxGraphCompiler, T:Vixen.Editor.VfxGraph.VfxGraphArtefact, T:Vixen.Editor.VfxGraph.VfxGraphBuilder, T:Vixen.Editor.VfxGraph.VfxNode, T:Vixen.Editor.VfxGraph.VfxNodeLibrary, T:Vixen.Editor.VfxGraph.NodeTypes, T:Vixen.Editor.VfxGraph.Nodes.VfxBlockNode, T:Vixen.Editor.VfxGraph.Nodes.EffectNode, T:Vixen.Editor.VfxGraph.Nodes.BurstNode, T:Vixen.Editor.VfxGraph.Nodes.RateNode, T:Vixen.Editor.VfxGraph.Nodes.PositionInBoxNode, T:Vixen.Editor.VfxGraph.Nodes.PositionInSphereNode, T:Vixen.Editor.VfxGraph.Nodes.RandomVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.SetVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.LifetimeNode, T:Vixen.Editor.VfxGraph.Nodes.SizeNode, T:Vixen.Editor.VfxGraph.Nodes.ColourNode, T:Vixen.Editor.VfxGraph.Nodes.GravityNode, T:Vixen.Editor.VfxGraph.Nodes.DragNode, T:Vixen.Editor.VfxGraph.Nodes.IntegrateNode, T:Vixen.Editor.VfxGraph.Nodes.AttractNode, T:Vixen.Editor.VfxGraph.Nodes.VortexNode, T:Vixen.Editor.VfxGraph.Nodes.TurbulenceNode, T:Vixen.Editor.VfxGraph.Nodes.CollidePlaneNode, T:Vixen.Editor.VfxGraph.Nodes.CollideSphereNode, T:Vixen.Editor.VfxGraph.Nodes.SizeOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.ColourOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.BillboardOutputNode, T:Vixen.Editor.VfxGraph.Nodes.MeshOutputNode, T:Vixen.Editor.VfxGraph.Nodes.RibbonOutputNode, T:Vixen.Editor.VfxGraph.Nodes.LightOutputNode]
+api: [T:Vixen.Editor.VfxGraph.VfxGraphCompiler, T:Vixen.Editor.VfxGraph.VfxGraphArtefact, T:Vixen.Editor.VfxGraph.VfxGraphBuilder, T:Vixen.Editor.VfxGraph.VfxNode, T:Vixen.Editor.VfxGraph.VfxNodeLibrary, T:Vixen.Editor.VfxGraph.NodeTypes, T:Vixen.Editor.VfxGraph.Nodes.VfxBlockNode, T:Vixen.Editor.VfxGraph.Nodes.EffectNode, T:Vixen.Editor.VfxGraph.Nodes.BurstNode, T:Vixen.Editor.VfxGraph.Nodes.RateNode, T:Vixen.Editor.VfxGraph.Nodes.PositionInBoxNode, T:Vixen.Editor.VfxGraph.Nodes.PositionInSphereNode, T:Vixen.Editor.VfxGraph.Nodes.RandomVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.SetVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.LifetimeNode, T:Vixen.Editor.VfxGraph.Nodes.SizeNode, T:Vixen.Editor.VfxGraph.Nodes.ColourNode, T:Vixen.Editor.VfxGraph.Nodes.GravityNode, T:Vixen.Editor.VfxGraph.Nodes.DragNode, T:Vixen.Editor.VfxGraph.Nodes.IntegrateNode, T:Vixen.Editor.VfxGraph.Nodes.AttractNode, T:Vixen.Editor.VfxGraph.Nodes.VortexNode, T:Vixen.Editor.VfxGraph.Nodes.TurbulenceNode, T:Vixen.Editor.VfxGraph.Nodes.CollidePlaneNode, T:Vixen.Editor.VfxGraph.Nodes.CollideSphereNode, T:Vixen.Editor.VfxGraph.Nodes.SizeOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.ColourOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.VfxCustomNode, T:Vixen.Editor.VfxGraph.Nodes.SetCustomNode, T:Vixen.Editor.VfxGraph.Nodes.RandomCustomNode, T:Vixen.Editor.VfxGraph.Nodes.CustomOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.BillboardOutputNode, T:Vixen.Editor.VfxGraph.Nodes.MeshOutputNode, T:Vixen.Editor.VfxGraph.Nodes.RibbonOutputNode, T:Vixen.Editor.VfxGraph.Nodes.LightOutputNode]
 tags: [editor, vfx, particles, node-graph]
 since: 0.1
 status: preview
@@ -35,8 +35,8 @@ to it every step, and what it is drawn as. Four categories, and the menu path is
 |---|---|
 | `Vfx/Effect` | the capacity and the renderer, as one node per graph |
 | `Vfx/Spawn/…` | `Burst`, `Rate` — what makes particles |
-| `Vfx/Initialize/…` | `Position in Box`, `Position in Sphere`, `Random Velocity`, `Set Velocity`, `Lifetime`, `Size`, `Colour` |
-| `Vfx/Update/…` | `Gravity`, `Drag`, `Integrate`, `Attract`, `Vortex`, `Turbulence`, `Collide Plane`, `Collide Sphere`, `Size over Life`, `Colour over Life` |
+| `Vfx/Initialize/…` | `Position in Box`, `Position in Sphere`, `Random Velocity`, `Set Velocity`, `Lifetime`, `Size`, `Colour`, `Set Custom`, `Random Custom` |
+| `Vfx/Update/…` | `Gravity`, `Drag`, `Integrate`, `Attract`, `Vortex`, `Turbulence`, `Collide Plane`, `Collide Sphere`, `Size over Life`, `Colour over Life`, `Custom over Life` |
 | `Vfx/Output/…` | `Billboard`, `Mesh`, `Ribbon`, `Light` — one of these decides the renderer |
 
 It is **not** for saying which shader draws the particles or which texture they use. There is no
@@ -54,7 +54,7 @@ if no updater would have.
 |---|---|---|
 | `Billboard` | a camera-facing quad per particle | nothing but position, size and colour |
 | `Mesh` | an instance of a mesh per particle | `VfxEmitter.Mesh` on the entity |
-| `Ribbon` | a strip through the particles sharing a custom slot | a custom attribute holding the strip id |
+| `Ribbon` | a strip through the particles sharing a custom attribute | a block that writes the attribute it names |
 | `Light` | a point light per particle, and no geometry at all | a host that collects them |
 
 ⚠ **A graph with two output nodes in it is not an error and the last one wins.** `Contribute`
@@ -72,6 +72,39 @@ an attribute no initializer writes comes back as diagnostic `VG0003` rather than
 ⚠ **A field reads where the particle is.** `Attract`, `Vortex` and `Turbulence` all declare a read of
 position, so a graph whose initializers never place its particles is refused: a field acting on
 particles that are all at the origin accelerates every one of them identically.
+
+### Custom attributes
+
+A graph may keep per-particle quantities of its own. `Set Custom`, `Random Custom` and
+`Custom over Life` each hold an **`Attribute` setting** — a name, typed in the panel beside the
+canvas, not a port — and a `Lanes` port saying whether it is a float, a float3 or a float4.
+
+⚠ **An attribute exists because something writes it.** There is no declaration node and no list to
+keep in step: the first block to name one declares it, and its slot is where it landed. That is the
+rule the built-in attributes already follow — storage is derived from what the operations touch.
+
+⚠ **One name is one slot, and one slot is one width.** Two blocks naming `glow` share it; two
+naming it at different `Lanes` are refused rather than quietly widened, because promoting one would
+change what every other operation on it reads.
+
+⚠ **`Vfx/Output/Ribbon` names its attribute; it does not number it.** A slot is a *position* in the
+declaration list and that position moves the moment a block is added above, so a number would have
+silently pointed at something else. The name is resolved after every block has contributed, which is
+also why an output dropped on the canvas before its writer still compiles. An attribute nothing
+writes is refused — unwritten storage is zero for every particle, so every particle would be in one
+strip.
+
+⚠ **The name becomes an identifier in the emitted shader**, so it has to be one, has to be unique,
+and cannot be something the emitter already declares — `seed`, `age`, `identifierOut`, `Noise` and
+the rest are refused by name rather than as a parse error in generated source nobody wrote.
+
+Everything a block finds wrong here comes back as `VG0004`, against the graph. A block is handed a
+builder and not a diagnostic sink, so it leaves what it found for `Finish` to say — which is what
+lets a graph with three mistakes in it report three.
+
+⚠ **Two lanes is refused, not rounded.** `VfxAttributeType` has no `Float2`: the shader declares one
+buffer element type per attribute, and a node that accepted two would store one lane of what was
+typed and never say which.
 
 ⚠ **`Vfx/Output/Light`'s `Range` is per *unit* size**, so it is multiplied by each particle's own
 size. Two-centimetre embers at the default of four reach four centimetres and light nothing at all.
@@ -121,8 +154,29 @@ graph.Add("Vfx/Output/Mesh").SetValue("Align to Velocity", 1f);
 per document. A registry nobody registered against reports every node in a saved file as unknown,
 which is a long way from the mistake.
 
+**A trail of ribbons, keyed on an attribute the graph writes itself.**
+
+```csharp no-compile="a library and a graph, as the compiler tests build one"
+var graph = new NodeGraphModel { Name = "Trail" };
+
+graph.Add("Vfx/Spawn/Rate");
+graph.Add("Vfx/Initialize/Position in Sphere");
+graph.Add("Vfx/Initialize/Lifetime");
+
+// Four strips, chosen at birth and never changed. The name is a setting, not a port.
+var strip = graph.Add("Vfx/Initialize/Random Custom");
+
+strip.SetText("Attribute", "strip");
+strip.SetValue("Maximum", 4f, 0f, 0f, 0f);
+
+graph.Add("Vfx/Update/Integrate");
+graph.Add("Vfx/Output/Ribbon").SetText("Attribute", "strip");
+```
+
 ## See also
 
+- [Editing a node's ports](node-port-editing.md) — `[Setting]`, and the panel the `Attribute` above
+  is typed into.
 - [Drawing particles](../rendering/particles.md) — the component, the bridge, the feature and the
   two materials the outputs above are drawn with.
 - [Viewport modes](modes.md) — where an effect document sits among the editor's other surfaces.

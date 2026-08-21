@@ -528,25 +528,24 @@ public sealed class SetPortValueCommand : NodeGraphCommand {
     }
 }
 
-/// <summary>Setting the inline text on one of a node's inputs.</summary>
+/// <summary>Setting the inline text on one of a node's settings.</summary>
 /// <remarks>
-///     <see cref="SetPortValueCommand" />'s twin, for the ports made of names rather than of lanes —
-///     see <see cref="GraphNode.Texts" /> for why those exist. Everything about it is the same
+///     <see cref="SetPortValueCommand" />'s twin, for the things made of names rather than of lanes —
+///     see <see cref="SettingAttribute" /> for why those exist. Everything about it is the same
 ///     argument: whether there <i>was</i> a text is recorded as well as what it was, and a merge
 ///     keeps the earlier one's, so typing a resource name is one undo entry rather than one a
 ///     keystroke.
 /// </remarks>
 public sealed class SetPortTextCommand : NodeGraphCommand {
-    readonly NodeId node;
+    readonly NodeId[] nodes;
     readonly string port;
     readonly string value;
-    readonly string? previous;
-    readonly bool had;
+    readonly string?[] previous;
 
-    /// <summary>Describes setting an inline text.</summary>
+    /// <summary>Describes setting an inline text on one node.</summary>
     /// <param name="graph">The graph.</param>
     /// <param name="node">The node.</param>
-    /// <param name="port">Which of its inputs.</param>
+    /// <param name="port">Which of its settings.</param>
     /// <param name="value">What it says.</param>
     /// <param name="document">The document, if the graph belongs to one.</param>
     public SetPortTextCommand(
@@ -555,56 +554,85 @@ public sealed class SetPortTextCommand : NodeGraphCommand {
         string port,
         string value,
         EditorDocument? document = null
+    ) : this(graph, [node], port, value, document) { }
+
+    /// <summary>Describes setting the same inline text on several nodes.</summary>
+    /// <param name="graph">The graph.</param>
+    /// <param name="nodes">The nodes.</param>
+    /// <param name="port">Which of their settings.</param>
+    /// <param name="value">What it says.</param>
+    /// <param name="document">The document, if the graph belongs to one.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="nodes" /> or <paramref name="value" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Several, because the inspector edits a selection.</b> A name typed into a panel with
+    ///     four nodes of one type selected is one edit to four nodes and has to be one undo entry —
+    ///     the same reason <see cref="SetPortValueCommand" /> takes a list, and the reason this one
+    ///     records a "before" per node rather than one for the lot.
+    /// </remarks>
+    public SetPortTextCommand(
+        NodeGraphModel graph,
+        IReadOnlyList<NodeId> nodes,
+        string port,
+        string value,
+        EditorDocument? document = null
     ) : base(graph, document) {
+        ArgumentNullException.ThrowIfNull(nodes);
         ArgumentException.ThrowIfNullOrEmpty(port);
         ArgumentNullException.ThrowIfNull(value);
 
-        this.node = node;
+        this.nodes = [.. nodes];
         this.port = port;
         this.value = value;
+        previous = new string?[this.nodes.Length];
 
-        string? held = null;
-
-        had = graph.TryGet(node, out var target) && target.Texts.TryGetValue(port, out held);
-        previous = held;
+        // ⚠ Whether there *was* one, not only what it was. A setting that was never typed into takes
+        // its type's declared default, and an undo that wrote an empty string back would pin it to
+        // nothing — which is a different node from the one that was there.
+        for (var index = 0; index < this.nodes.Length; index++) {
+            if (graph.TryGet(this.nodes[index], out var target) && target.Texts.TryGetValue(port, out var held)) {
+                previous[index] = held;
+            }
+        }
     }
 
     SetPortTextCommand(
         NodeGraphModel graph,
-        NodeId node,
+        NodeId[] nodes,
         string port,
         string value,
-        string? previous,
-        bool had,
+        string?[] previous,
         EditorDocument? document
     ) : base(graph, document) {
-        this.node = node;
+        this.nodes = nodes;
         this.port = port;
         this.value = value;
         this.previous = previous;
-        this.had = had;
     }
 
     /// <inheritdoc />
-    public override string Name => $"Set {port}";
+    public override string Name => nodes.Length > 1 ? $"Set {port} ({nodes.Length})" : $"Set {port}";
 
     /// <inheritdoc />
     protected override void Apply() {
-        if (Graph.TryGet(node, out var target)) {
-            target.SetText(port, value);
+        foreach (var id in nodes) {
+            if (Graph.TryGet(id, out var target)) {
+                target.SetText(port, value);
+            }
         }
     }
 
     /// <inheritdoc />
     protected override void Revert() {
-        if (!Graph.TryGet(node, out var target)) {
-            return;
-        }
+        for (var index = 0; index < nodes.Length; index++) {
+            if (!Graph.TryGet(nodes[index], out var target)) {
+                continue;
+            }
 
-        if (had && previous is not null) {
-            target.SetText(port, previous);
-        } else {
-            target.ClearText(port);
+            if (previous[index] is { } held) {
+                target.SetText(port, held);
+            } else {
+                target.ClearText(port);
+            }
         }
     }
 
@@ -615,12 +643,12 @@ public sealed class SetPortTextCommand : NodeGraphCommand {
 
         if (previous is not SetPortTextCommand earlier
             || !ReferenceEquals(earlier.Graph, Graph)
-            || earlier.node != node
+            || !earlier.nodes.AsSpan().SequenceEqual(nodes)
             || !string.Equals(earlier.port, port, StringComparison.Ordinal)) {
             return false;
         }
 
-        merged = new SetPortTextCommand(Graph, node, port, value, earlier.previous, earlier.had, Document);
+        merged = new SetPortTextCommand(Graph, nodes, port, value, earlier.previous, Document);
 
         return true;
     }
@@ -912,6 +940,10 @@ public sealed class PasteCommand : NodeGraphCommand {
 
             foreach (var (port, value) in entry.Values) {
                 node.SetValue(port, [.. value]);
+            }
+
+            foreach (var (port, text) in entry.Texts) {
+                node.SetText(port, text);
             }
         }
     }

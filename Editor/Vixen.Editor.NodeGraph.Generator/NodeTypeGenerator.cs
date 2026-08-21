@@ -38,6 +38,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
     const string NodeAttribute = "Vixen.Editor.NodeGraph.NodeAttribute";
     const string InputAttribute = "Vixen.Editor.NodeGraph.InputAttribute";
     const string OutputAttribute = "Vixen.Editor.NodeGraph.OutputAttribute";
+    const string SettingAttribute = "Vixen.Editor.NodeGraph.SettingAttribute";
 
     static readonly DiagnosticDescriptor MustBePartial = new(
         "VXN0101",
@@ -60,6 +61,15 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
     static readonly DiagnosticDescriptor MustDeriveFromNode = new(
         "VXN0103",
         "A [Node] class has to derive from Node",
+        "{0}",
+        "Vixen.NodeGraph",
+        DiagnosticSeverity.Error,
+        true
+    );
+
+    static readonly DiagnosticDescriptor SettingMustBeString = new(
+        "VXN0104",
+        "A [Setting] field has to be a string",
         "{0}",
         "Vixen.NodeGraph",
         DiagnosticSeverity.Error,
@@ -107,9 +117,36 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         var preview = Named(attribute, "Preview") is bool flag && flag;
 
         var ports = ImmutableArray.CreateBuilder<PortModel>();
+        var settings = ImmutableArray.CreateBuilder<SettingModel>();
 
         foreach (var member in Fields(type)) {
             if (member is not IFieldSymbol field) {
+                continue;
+            }
+
+            if (Attribute(field, SettingAttribute) is { } setting) {
+                if (field.Type.SpecialType != SpecialType.System_String) {
+                    problems.Add(Problem(
+                        SettingMustBeString.Id,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "'{0}' is marked as a setting and is a {1}. A setting holds a name the author typed, so its field has to be a string. If it is a number, mark it [Input] instead and it becomes a port that can also be wired.",
+                            field.Name,
+                            field.Type.Name
+                        ),
+                        field.Locations.Length > 0 ? field.Locations[0] : location
+                    ));
+
+                    continue;
+                }
+
+                settings.Add(new(
+                    field.Name,
+                    Named(setting, "Name") as string is { Length: > 0 } called ? called : field.Name,
+                    Text(setting, field, syntax.SemanticModel),
+                    Named(setting, "Summary") as string ?? ""
+                ));
+
                 continue;
             }
 
@@ -161,6 +198,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             summary,
             preview,
             ordered,
+            settings.ToImmutable(),
             problems.ToImmutable()
         );
     }
@@ -211,7 +249,19 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         text.AppendLine("        ],")
             .AppendLine($"        static () => new {model.TypeName}(),")
             .AppendLine($"        {Quote(model.Summary)},")
-            .AppendLine($"        {(model.Preview ? "true" : "false")}")
+            .AppendLine($"        {(model.Preview ? "true" : "false")},")
+            .AppendLine("        [");
+
+        for (var index = 0; index < model.Settings.Length; index++) {
+            var setting = model.Settings[index];
+            var comma = index == model.Settings.Length - 1 ? "" : ",";
+
+            text.AppendLine(
+                $"            new({Quote(setting.Name)}, {Quote(setting.Default)}, {Quote(setting.Summary)}){comma}"
+            );
+        }
+
+        text.AppendLine("        ]")
             .AppendLine("    );")
             .AppendLine()
             .AppendLine("    /// <inheritdoc />")
@@ -221,6 +271,13 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             var side = port.IsInput ? "Input" : "Output";
 
             text.AppendLine($"        {port.Field} = new {port.Type}(binding.{side}({Quote(port.Name)}));");
+        }
+
+        foreach (var setting in model.Settings) {
+            // A setting is read off the node rather than resolved through an edge, and `Text` answers
+            // for one the node has never been given — the compiler seeds it with the declared default
+            // — so there is no missing-key path here of the sort `Input` has.
+            text.AppendLine($"        {setting.Field} = binding.Text({Quote(setting.Name)});");
         }
 
         text.AppendLine("    }")
@@ -273,6 +330,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
     static DiagnosticDescriptor Descriptor(string id) => id switch {
         "VXN0101" => MustBePartial,
         "VXN0102" => NotAPortType,
+        "VXN0104" => SettingMustBeString,
         _ => MustDeriveFromNode
     };
 
@@ -390,6 +448,33 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         }
 
         return [];
+    }
+
+    /// <summary>A setting's default: the attribute's if it has one, else the field's initializer.</summary>
+    /// <remarks>
+    ///     The same arrangement <see cref="Default" /> has and for the same two reasons — the
+    ///     initializer is how a person writes it, and a partial class may declare the field in a tree
+    ///     this semantic model cannot answer about, which is what the attribute is the escape from.
+    /// </remarks>
+    static string Text(AttributeData marker, IFieldSymbol field, SemanticModel model) {
+        if (Named(marker, "Default") is string declared && declared.Length > 0) {
+            return declared;
+        }
+
+        foreach (var reference in field.DeclaringSyntaxReferences) {
+            if (reference.GetSyntax() is not VariableDeclaratorSyntax { Initializer.Value: { } expression }
+                || expression.SyntaxTree != model.SyntaxTree) {
+                continue;
+            }
+
+            var constant = model.GetConstantValue(expression);
+
+            if (constant.HasValue && constant.Value is string value) {
+                return value;
+            }
+        }
+
+        return "";
     }
 
     static string? KindOf(ITypeSymbol type) => type.ToDisplayString() switch {

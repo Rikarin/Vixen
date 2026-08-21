@@ -249,6 +249,37 @@ public class SubGraphTests {
         Assert.Equal(PortKind.Texture, port.Kind);
     }
 
+    /// <summary>Extraction and inlining both carry the names a node was given.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Neither did.</b> Both copies took <c>Values</c> and left <c>Texts</c> behind, so
+    ///     lifting a compositor pass into a sub-graph and dropping it back produced the same node with
+    ///     every setting blanked — a silent change to what the graph renders, with the file's diff
+    ///     showing only the surgery it was asked for.
+    /// </remarks>
+    [Fact]
+    public void Extraction_and_inlining_carry_the_names_a_node_was_given() {
+        var graph = new NodeGraphModel();
+        var named = graph.Add("Test/Named Thing");
+
+        named.SetText("Label", "glow");
+
+        var extraction = SubGraphs.Extract(graph, [named.Id], "Inner", Library());
+
+        Assert.Equal("glow", extraction.Graph.Nodes.Single(node => node.Id == named.Id).TextOf("Label"));
+
+        var library = new SubGraphLibrary();
+        library.Add("Sub-graphs/Inner", extraction.Graph);
+
+        var host = new NodeGraphModel();
+
+        host.Add("Sub-graphs/Inner");
+
+        var flat = SubGraphs.Flatten(host, library, out var diagnostics);
+
+        Assert.Empty(diagnostics);
+        Assert.Equal("glow", Assert.Single(flat.Nodes).TextOf("Label"));
+    }
+
     [Fact]
     public void An_extracted_graph_inlines_back_to_what_it_came_from() {
         var graph = new NodeGraphModel();

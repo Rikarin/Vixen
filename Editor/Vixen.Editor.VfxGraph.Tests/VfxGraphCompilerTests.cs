@@ -294,27 +294,203 @@ public class VfxGraphCompilerTests {
         }
     }
 
-    /// <summary>The ribbon output carries the custom slot its strips are keyed on.</summary>
+    /// <summary>The ribbon output resolves the attribute it names to the slot that attribute got.</summary>
     /// <remarks>
     ///     ⚠ And is sorted by age whatever anything else says, because that is the ribbon's own order
     ///     rather than a drawing preference.
     /// </remarks>
     [Fact]
-    public void The_ribbon_output_carries_its_slot() {
+    public void The_ribbon_output_resolves_the_attribute_it_names() {
         var graph = new NodeGraphModel { Name = "Trail" };
 
         graph.Add("Vfx/Spawn/Burst");
-        graph.Add("Vfx/Output/Ribbon").SetValue("Slot", 2f);
+        graph.Add("Vfx/Initialize/Lifetime");
+
+        // Two attributes, so that the one the ribbon names is not the one a zero would have found.
+        var seed = graph.Add("Vfx/Initialize/Random Custom");
+        var strip = graph.Add("Vfx/Initialize/Random Custom");
+
+        seed.SetText("Attribute", "spark");
+        strip.SetText("Attribute", "strip");
+        strip.SetValue("Maximum", 4f, 0f, 0f, 0f);
+
+        graph.Add("Vfx/Output/Ribbon").SetText("Attribute", "strip");
+
+        // Wired, so the two Random Custom blocks are declared in a decided order rather than in
+        // whatever order the graph happens to enumerate.
+        graph.Connect(new(seed.Id, "Out"), new(strip.Id, "In"));
 
         var compiled = new VfxGraphCompiler(Library()).Compile(graph).Value.Graph;
 
         Assert.NotNull(compiled.Renderer);
         Assert.Equal(VfxRendererKind.Ribbon, compiled.Renderer.Value.Kind);
-        Assert.Equal(2, compiled.Renderer.Value.RibbonSlot);
+        Assert.Equal(1, compiled.Renderer.Value.RibbonSlot);
+        Assert.Equal(1, compiled.SlotOf("strip"));
 
         // A ribbon is ordered by its particles' ages, so drawing one is what makes the graph keep
         // them — the renderer declaring its reads, arriving through the node.
         Assert.True(compiled.Attributes.HasFlag(VfxAttribute.Age));
+    }
+
+    /// <summary>A ribbon naming an attribute nothing writes is refused, not drawn as one strip.</summary>
+    /// <remarks>
+    ///     The failure this replaces had no symptom: unwritten storage is zero for every particle, so
+    ///     every particle shares a strip and the effect is a tangle with nothing to search for.
+    /// </remarks>
+    [Fact]
+    public void A_ribbon_naming_an_attribute_nothing_writes_is_refused() {
+        var graph = new NodeGraphModel { Name = "Tangle" };
+
+        graph.Add("Vfx/Spawn/Burst");
+        graph.Add("Vfx/Output/Ribbon").SetText("Attribute", "strip");
+
+        var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("strip", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     The three custom-attribute blocks reach their opcodes, and share one slot per name.
+    /// </summary>
+    /// <remarks>
+    ///     The gap these close is not a missing opcode — <c>SetCustom</c>, <c>RandomCustom</c> and
+    ///     <c>CustomOverLife</c> all shipped — but a missing <i>name</i>: a port is lanes of float and
+    ///     an attribute is an identifier, so until a node could hold a string these were reachable
+    ///     only from a graph built in code.
+    /// </remarks>
+    [Fact]
+    public void The_custom_attribute_blocks_share_a_slot_per_name() {
+        var graph = new NodeGraphModel { Name = "Custom" };
+
+        graph.Add("Vfx/Spawn/Burst");
+        graph.Add("Vfx/Initialize/Lifetime");
+
+        var set = graph.Add("Vfx/Initialize/Set Custom");
+        var random = graph.Add("Vfx/Initialize/Random Custom");
+        var fade = graph.Add("Vfx/Update/Custom over Life");
+
+        set.SetText("Attribute", "glow");
+        set.SetValue("Lanes", 3f);
+        set.SetValue("Value", 0.25f, 0.5f, 0.75f, 0f);
+
+        random.SetText("Attribute", "spark");
+
+        fade.SetText("Attribute", "glow");
+        fade.SetValue("Lanes", 3f);
+
+        graph.Connect(new(set.Id, "Out"), new(random.Id, "In"));
+        graph.Connect(new(random.Id, "Out"), new(fade.Id, "In"));
+
+        var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+        Assert.True(result.Succeeded, string.Join("\n", result.Diagnostics));
+
+        var compiled = result.Value.Graph;
+
+        Assert.Equal(["glow", "spark"], compiled.Customs.Select(custom => custom.Name));
+        Assert.Equal(VfxAttributeType.Float3, compiled.Customs[0].Type);
+        Assert.Equal(VfxAttributeType.Float, compiled.Customs[1].Type);
+
+        var written = Assert.Single(compiled.Initializers, entry => entry.Opcode == VfxOpcode.SetCustom);
+
+        Assert.Equal(0, written.Slot);
+        Assert.Equal(0.5f, written.A.Y);
+
+        Assert.Equal(1, Assert.Single(compiled.Initializers, entry => entry.Opcode == VfxOpcode.RandomCustom).Slot);
+
+        // The updater names the same attribute the initializer did, so it writes the slot that one
+        // declared rather than declaring a second of its own.
+        Assert.Equal(0, Assert.Single(compiled.Updaters, entry => entry.Opcode == VfxOpcode.CustomOverLife).Slot);
+
+        // And the shader half, which declares one buffer per slot in that order.
+        Compiles(result.Value.Shader.Source);
+    }
+
+    /// <summary>One name used at two widths is a problem rather than a quiet widening.</summary>
+    [Fact]
+    public void One_name_at_two_widths_is_refused() {
+        var graph = new NodeGraphModel { Name = "Conflict" };
+
+        graph.Add("Vfx/Spawn/Burst");
+
+        var narrow = graph.Add("Vfx/Initialize/Set Custom");
+        var wide = graph.Add("Vfx/Initialize/Random Custom");
+
+        narrow.SetText("Attribute", "glow");
+        wide.SetText("Attribute", "glow");
+        wide.SetValue("Lanes", 4f);
+
+        graph.Connect(new(narrow.Id, "Out"), new(wide.Id, "In"));
+
+        var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("Float4", StringComparison.Ordinal));
+    }
+
+    /// <summary>Two lanes is refused rather than rounded down to one.</summary>
+    /// <remarks>
+    ///     <c>VfxAttributeType</c> has no <c>Float2</c>, and <c>VfxAttributes.Lanes</c> answers one for
+    ///     anything it does not know — so a node that accepted two would store half of what was typed
+    ///     and never say which half.
+    /// </remarks>
+    [Fact]
+    public void A_custom_attribute_cannot_have_two_lanes() {
+        var graph = new NodeGraphModel { Name = "Pair" };
+
+        graph.Add("Vfx/Spawn/Burst");
+
+        var node = graph.Add("Vfx/Initialize/Set Custom");
+
+        node.SetText("Attribute", "uv");
+        node.SetValue("Lanes", 2f);
+
+        var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("lanes", StringComparison.Ordinal));
+    }
+
+    /// <summary>A name the emitted shader already uses is refused, against the name that was typed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A defect that only became reachable when a graph could name an attribute at all.</b>
+    ///     A custom attribute's name is a buffer in the emitted source, in the same scope as the push
+    ///     constants — so <c>seed</c> produced a shader whose second declaration of <c>seed</c> did
+    ///     not parse, reported against generated text nobody wrote.
+    /// </remarks>
+    [Theory]
+    [InlineData("seed")]
+    [InlineData("age")]
+    [InlineData("identifierOut")]
+    [InlineData("Noise")]
+    public void A_name_the_shader_already_uses_is_refused(string name) {
+        var graph = new NodeGraphModel { Name = "Collision" };
+
+        graph.Add("Vfx/Spawn/Burst");
+
+        var node = graph.Add("Vfx/Initialize/Set Custom");
+
+        node.SetText("Attribute", name);
+
+        var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains(name, StringComparison.Ordinal));
+    }
+
+    /// <summary>And an attribute nobody named at all is refused before it reaches the shader.</summary>
+    [Fact]
+    public void A_custom_attribute_needs_a_name() {
+        var graph = new NodeGraphModel { Name = "Nameless" };
+
+        graph.Add("Vfx/Spawn/Burst");
+        graph.Add("Vfx/Initialize/Set Custom");
+
+        var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("needs a name", StringComparison.Ordinal));
     }
 
     /// <summary>The two field and collider nodes the library was missing reach their opcodes.</summary>
@@ -377,7 +553,15 @@ public class VfxGraphCompilerTests {
                 continue;
             }
 
-            graph.Add(path);
+            var node = graph.Add(path);
+
+            // ⚠ The custom-attribute blocks and the ribbon hold a *name*, and a name has no useful
+            // default — an attribute called nothing cannot be a binding in the emitted shader, which
+            // is why the compiler refuses one rather than inventing it. One name for all four, so
+            // they share a slot and the ribbon's lookup finds what the blocks declared.
+            if (node.Type.Contains("Custom", StringComparison.Ordinal) || node.Type.EndsWith("Ribbon", StringComparison.Ordinal)) {
+                node.SetText("Attribute", "strip");
+            }
         }
 
         var result = new VfxGraphCompiler(Library()).Compile(graph);

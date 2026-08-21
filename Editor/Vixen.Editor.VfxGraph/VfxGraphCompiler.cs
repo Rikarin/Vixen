@@ -81,6 +81,26 @@ public sealed class VfxGraphCompiler : NodeGraphCompiler<VfxGraphArtefact> {
             return null;
         }
 
+        // ⚠ Checked before the ribbon is resolved as well as after, because a name that could not be
+        // declared is also a name the ribbon will not find — and a graph told about both would be
+        // told twice about one mistake.
+        if (Complained()) {
+            return null;
+        }
+
+        // A ribbon names its strip attribute and every block that writes one has now been walked, so
+        // this is where the name becomes a slot — see VfxGraphBuilder.RibbonAttribute for why it
+        // could not have been done as the node contributed.
+        if (builder.Renderer is { Kind: VfxRendererKind.Ribbon }) {
+            var slot = builder.SlotOf(builder.RibbonAttribute);
+
+            if (Complained()) {
+                return null;
+            }
+
+            builder.Renderer = VfxRenderer.Ribbon(slot);
+        }
+
         // Compile is what refuses a graph that reads an attribute nothing writes, and it says so in a
         // sentence. Turning that into a diagnostic against the graph is better than letting an
         // exception out of a compiler whose whole job is to report problems.
@@ -100,6 +120,26 @@ public sealed class VfxGraphCompiler : NodeGraphCompiler<VfxGraphArtefact> {
 
             return null;
         }
+    }
+
+    /// <summary>Reports whatever the nodes found wrong, and says whether there was any of it.</summary>
+    /// <returns><see langword="true" /> if the graph cannot be compiled.</returns>
+    /// <remarks>
+    ///     <c>Contribute</c> is handed a builder and not a diagnostic sink, so a node leaves what it
+    ///     found in <see cref="VfxGraphBuilder.Problems" /> rather than throwing — the walk reports
+    ///     everything it can see, which is the whole reason <c>NodeGraphCompiler</c> keeps going after
+    ///     an error. This is where that list becomes diagnostics.
+    /// </remarks>
+    bool Complained() {
+        if (builder.Problems.Count == 0) {
+            return false;
+        }
+
+        foreach (var problem in builder.Problems) {
+            Report(new("VG0004", problem, NodeId.None));
+        }
+
+        return true;
     }
 
     /// <inheritdoc />

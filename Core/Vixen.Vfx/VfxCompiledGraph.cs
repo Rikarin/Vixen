@@ -264,6 +264,19 @@ public sealed class VfxCompiledGraph {
                 );
             }
 
+            // ⚠ Reachable only since a graph could name one from the editor. The name becomes a
+            // buffer in the emitted shader, in the same scope as the push constants and the helpers,
+            // so `seed` or `age` produces source that does not parse — reported here, against the name
+            // that was typed, rather than as a parse error in generated text nobody wrote.
+            if (VfxShaderEmitter.IsReserved(name)) {
+                throw new ArgumentException(
+                    $"`{name}` cannot name a custom attribute: the emitted shader already declares something by that "
+                    + "name. Pick another — the emitter's own names are its push constants, its built-in particle "
+                    + "buffers and their compaction twins, and its helper functions.",
+                    nameof(customs)
+                );
+            }
+
             if (declared[slot].Type == VfxAttributeType.UInt) {
                 throw new ArgumentException(
                     $"`{name}` cannot be a UInt. Custom attributes are float lanes: the one unsigned quantity here is "
@@ -277,6 +290,18 @@ public sealed class VfxCompiledGraph {
                     throw new ArgumentException(
                         $"`{name}` is declared twice, as slot {other} and slot {slot}. A name has to answer for one "
                         + "slot or nothing can look it up.",
+                        nameof(customs)
+                    );
+                }
+
+                // ⚠ And `glow` beside `glowOut`, which are two names here and one buffer in the
+                // shader: every particle buffer gets a compaction twin called `{name}Out`.
+                if (string.Equals(declared[other].Name + "Out", name, StringComparison.Ordinal)
+                    || string.Equals(name + "Out", declared[other].Name, StringComparison.Ordinal)) {
+                    throw new ArgumentException(
+                        $"`{name}` and `{declared[other].Name}` cannot both be custom attributes: the emitted shader "
+                        + "gives every particle buffer a compaction twin called `{name}Out`, so one of these two would "
+                        + "be declared twice.",
                         nameof(customs)
                     );
                 }

@@ -279,6 +279,33 @@ public class CommandTests : IDisposable {
         Assert.Equal(2, graph.Edges.Count);
     }
 
+    /// <summary>A copy carries the names as well as the numbers.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It did not, and nothing said so.</b> <c>Copy</c> took <c>Values</c> and left
+    ///     <c>Texts</c> behind, so a copied compositor pass came back with no name, no targets and no
+    ///     depth attachment — a node that looks like the one that was copied and renders nothing. The
+    ///     same omission was in the sub-graph surgery; see <c>SubGraphTests</c>.
+    /// </remarks>
+    [Fact]
+    public void A_copy_carries_the_names_a_node_was_given() {
+        var node = graph.Add("Test/Named Thing");
+
+        node.SetText("Label", "glow");
+        node.SetValue("Weight", 0.75f);
+
+        var fragment = NodeGraphClipboard.Copy(graph, [node.Id]);
+
+        Assert.NotNull(fragment);
+        Assert.Equal("glow", fragment.Nodes[0].Texts["Label"]);
+
+        Stack.Execute(new PasteCommand(graph, fragment, new(50f, 50f), document));
+
+        var pasted = graph.Nodes.Single(entry => entry.Id != node.Id);
+
+        Assert.Equal("glow", pasted.TextOf("Label"));
+        Assert.Equal([0.75f], pasted.Values["Weight"]);
+    }
+
     [Fact]
     public void A_copy_carries_only_the_wires_with_both_ends_in_the_selection() {
         var outside = graph.Add("Test/Colour");

@@ -92,3 +92,28 @@ public sealed partial class TestNamedNode : Node {
     [Output(Name = "Out")]
     public Float3 Out;
 }
+
+/// <summary>A node made of names as well as numbers, which is what <c>[Setting]</c> is for.</summary>
+/// <remarks>
+///     A setting has no socket and no edge — see <c>SettingAttribute</c> — so what it exercises is the
+///     half of the framework that has nothing to do with wiring: the declaration, the default, the
+///     binding, and the inspector row.
+/// </remarks>
+[Node("Test/Named Thing", Summary = "A name, a renamed name, and a number beside them.")]
+public sealed partial class TestSettingNode : Node {
+    /// <summary>A setting whose default comes from its initializer.</summary>
+    [Setting(Summary = "What the thing is called.")]
+    public string Label = "unnamed";
+
+    /// <summary>A setting stored under a name that is not its field's, and with no default.</summary>
+    [Setting(Name = "Target Name")]
+    public string Target = "";
+
+    /// <summary>An ordinary port beside them, so the two orderings can be told apart.</summary>
+    [Input(Name = "Weight", Default = [0.5f])]
+    public Scalar Weight;
+
+    /// <summary>The result.</summary>
+    [Output(Name = "Out")]
+    public Scalar Out;
+}

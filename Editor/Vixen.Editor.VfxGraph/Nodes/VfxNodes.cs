@@ -523,9 +523,17 @@ public sealed partial class MeshOutputNode : VfxNode {
 ///         particles happen to sit in the buffer is a tangle.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A slot nothing writes is a graph that draws one ribbon.</b> Until the library has a
-///         node that writes a custom attribute, the slot's value is reachable only from a graph built
-///         in code — which is a real gap and not this node's to close.
+///         ⚠ <b>It names the attribute rather than numbering it.</b> A slot is where a name landed in
+///         the graph's declaration list, and that position moves the moment somebody adds a block
+///         above — so a number typed here would have silently pointed at a different attribute. The
+///         name is resolved to a slot after every block has contributed, which is also why an output
+///         dropped on the canvas before the block that writes its attribute still compiles.
+///     </para>
+///     <para>
+///         ⚠ <b>An attribute nothing writes is refused.</b> Storage nothing has written is zero for
+///         every particle, so every particle would be in one strip — one tangle rather than the many
+///         ribbons that were drawn, and no error to search for. <c>VfxGraphBuilder.SlotOf</c> says so
+///         instead.
 ///     </para>
 /// </remarks>
 [Node("Vfx/Output/Ribbon", Summary = "A strip through the particles that share a custom attribute.")]
@@ -535,10 +543,103 @@ public sealed partial class RibbonOutputNode : VfxNode {
     public Flow In;
 
     /// <summary>Which custom attribute holds the strip identifier.</summary>
-    [Input(Name = "Slot", Default = [0f])]
-    public Scalar Slot;
+    [Setting(Name = "Attribute", Summary = "The custom attribute holding the strip. Particles sharing a value are one ribbon.")]
+    public string Attribute = "";
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        // The slot is not looked up here: see VfxGraphBuilder.RibbonAttribute.
+        builder.RibbonAttribute = Text("Attribute");
+        builder.Renderer = VfxRenderer.Ribbon(0);
+    }
+}
+
+/// <summary>The block every custom-attribute node shares: a name and a width.</summary>
+/// <remarks>
+///     <para>
+///         <b>The name is a <c>[Setting]</c>, not a port, and that is the gap this closes.</b> A port
+///         is lanes of float and a custom attribute is a <i>name</i> — it names a binding in the
+///         emitted shader and a host binds by it — so until the node graph could describe a
+///         string-valued field, <c>SetCustom</c>, <c>RandomCustom</c> and <c>CustomOverLife</c> were
+///         reachable only from a graph built in code.
+///     </para>
+///     <para>
+///         ⚠ <b>An attribute exists because something writes it.</b> There is no declaration node and
+///         no list to keep in step: the first block to name one declares it, and its slot is where it
+///         landed. That is the rule the built-in attributes already follow — see
+///         <c>VfxCompiledGraph</c>, whose storage is derived from what the operations touch rather
+///         than from a declaration an author has to remember.
+///     </para>
+///     <para>
+///         ⚠ <b>Lanes is one, three or four.</b> A custom attribute is a float, a float3 or a float4;
+///         two is refused rather than rounded, because <c>VfxAttributes.Lanes</c> would silently make
+///         it one.
+///     </para>
+/// </remarks>
+public abstract class VfxCustomNode : VfxBlockNode {
+    /// <summary>What the attribute is called. An identifier, because the shader binds by it.</summary>
+    [Setting(Name = "Attribute", Summary = "The attribute's name. An identifier — the emitted shader binds by it.")]
+    public string Attribute = "";
+
+    /// <summary>How wide it is: one, three or four floats.</summary>
+    [Input(Name = "Lanes", Default = [1f])]
+    public Int Lanes;
+}
+
+/// <summary>A custom attribute set to one value for every particle.</summary>
+[Node("Vfx/Initialize/Set Custom", Summary = "A custom attribute, the same for every particle.")]
+public sealed partial class SetCustomNode : VfxCustomNode {
+    /// <summary>The value. Only the first <c>Lanes</c> of it are stored.</summary>
+    [Input(Name = "Value", Default = [0f, 0f, 0f, 0f])]
+    public Float4 Value;
 
     /// <inheritdoc />
     protected internal override void Contribute(VfxGraphBuilder builder) =>
-        builder.Renderer = VfxRenderer.Ribbon((int)Number("Slot"));
+        builder.Initializers.Add(new(VfxOpcode.SetCustom, 0u, Vector("Value"), Vector4.Zero, Custom(builder)));
+}
+
+/// <summary>A custom attribute drawn uniformly between two values, lane by lane.</summary>
+/// <remarks>
+///     What a ribbon wants for its strip identifier — a handful of strips, chosen at birth and never
+///     changed — and what a per-particle seed for anything else looks like.
+/// </remarks>
+[Node("Vfx/Initialize/Random Custom", Summary = "A custom attribute, uniform between two values.")]
+public sealed partial class RandomCustomNode : VfxCustomNode {
+    /// <summary>The low end.</summary>
+    [Input(Name = "Minimum", Default = [0f, 0f, 0f, 0f])]
+    public Float4 Minimum;
+
+    /// <summary>The high end.</summary>
+    [Input(Name = "Maximum", Default = [1f, 1f, 1f, 1f])]
+    public Float4 Maximum;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) =>
+        builder.Initializers.Add(
+            new(VfxOpcode.RandomCustom, 0u, Vector("Minimum"), Vector("Maximum"), Custom(builder))
+        );
+}
+
+/// <summary>A custom attribute following age, from one value at birth to another at death.</summary>
+/// <remarks>
+///     ⚠ <b>An updater, so it needs a lifetime to count against.</b> A graph with no
+///     <c>Vfx/Initialize/Lifetime</c> block has immortal particles and no age to interpolate, and
+///     <c>VfxCompiledGraph.Compile</c> refuses it in a sentence rather than producing an effect that
+///     sits at its birth value forever.
+/// </remarks>
+[Node("Vfx/Update/Custom over Life", Summary = "A custom attribute, from one value at birth to another at death.")]
+public sealed partial class CustomOverLifeNode : VfxCustomNode {
+    /// <summary>The value at birth.</summary>
+    [Input(Name = "Start", Default = [0f, 0f, 0f, 0f])]
+    public Float4 Start;
+
+    /// <summary>The value at death.</summary>
+    [Input(Name = "End", Default = [1f, 1f, 1f, 1f])]
+    public Float4 End;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) =>
+        builder.Updaters.Add(new(VfxOpcode.CustomOverLife, 0u, Vector("Start"), Vector("End"), Custom(builder)));
 }
