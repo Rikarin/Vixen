@@ -283,11 +283,21 @@ public static class ShorthandExpansion {
     ///         is the one place this differs from <see cref="Border" /> above and the difference is
     ///         not a preference. A shorthand resets every longhand it covers, and here that reset is
     ///         expressible: <c>auto</c> is the initial value, <c>GridPlacement.TryParse</c> reads the
-    ///         word, and CSS Grid §8.4 says in as many words that a missing second value is
-    ///         <c>auto</c>. Omitting it would let a <c>grid-column-end: 4</c> from a weaker rule
-    ///         survive a later <c>grid-column: 1</c> — the same silent-precedence bug one property
-    ///         over. <c>border</c> leaves its missing components off only because <c>medium</c> and
+    ///         word, and omitting it would let a <c>grid-column-end: 4</c> from a weaker rule survive
+    ///         a later <c>grid-column: 1</c> — the same silent-precedence bug one property over.
+    ///         <c>border</c> leaves its missing components off only because <c>medium</c> and
     ///         <c>currentcolor</c> are words this framework's value parsers cannot read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>auto</c> is only <i>half</i> of what CSS Grid §8.4 says, and the other half is
+    ///         unreachable rather than handled.</b> The rule is that an omitted second value repeats
+    ///         the first <i>when the first is a</i> <c>&lt;custom-ident&gt;</c>, and is <c>auto</c>
+    ///         otherwise — so <c>grid-column: sidebar</c> should mean <c>sidebar / sidebar</c>, not
+    ///         <c>sidebar / auto</c>. It cannot mean anything here yet: <c>GridPlacement.TryParse</c>
+    ///         refuses a named line outright because there is nowhere in the store to put one, so the
+    ///         declaration is refused whichever edge it lands on. ⚠ <b>Whoever adds named lines has to
+    ///         add the duplication here in the same change</b>, or the feature arrives with this
+    ///         already wrong and no test able to see it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A <c>var()</c> with no slash beside it is refused</b>, because the slash may be
