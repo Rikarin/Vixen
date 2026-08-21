@@ -50,6 +50,14 @@ namespace Vixen.Editor.Terrain;
 ///         anybody has pressed play has no physics world, and a mode that refused to work without one
 ///         would be a mode that cannot be used until the game runs.
 ///     </para>
+///     <para>
+///         ⚠ <b>And what the shipped editor publishes is a <em>switch</em> rather than a rebuilder,
+///         because the two ends have different lifetimes.</b> <c>BindColliders</c> below resolves the
+///         service once and keeps the answer; the physics world it would rebuild in exists only while
+///         a play session does. <c>Vixen.Editor.Terrain.Physics</c>' module publishes one long-lived
+///         implementation that forwards to whatever is simulating and counts the strokes that arrived
+///         when nothing was — which is the paragraph above, with a number attached.
+///     </para>
 /// </remarks>
 public interface ITerrainColliders {
     /// <summary>Rebuilds one tile's collision shape.</summary>

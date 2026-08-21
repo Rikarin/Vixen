@@ -823,11 +823,14 @@ five test files and nowhere else in the tree, so every existing assertion about 
 right tiles was one double talking to another. `TerrainModule` now takes an `ITerrainColliders` from
 `PluginServices`, resolved in its per-frame follow.
 
-⚠ **The editor Vixen ships still rebuilds no collision, and the reason is not this seam.**
-`EditorApplication` holds no `PhysicsScene` and nothing under `Editor/` even references
-`Vixen.Physics` — play mode steps a system graph, but not one with physics in it — so there is no
-simulation for a stroke to keep in step with. An editor with physics is a separate piece of work; when it exists, it publishes
-the service and the toolset is already wired for it.
+✅ **The editor Vixen ships rebuilds collision (2026-08-21), and the whole chain is joined.**
+`EditorApplication` publishes an `IPlaySystems` contribution that builds a `PhysicsScene` over the
+world being edited when Play is pressed and disposes it when Stop is; `TerrainPhysicsModule` — the
+third assembly, which until now was referenced by nothing but its own tests — is named in
+`EditorModules.Standard`, publishes the `ITerrainColliders` the toolset resolves, and contributes the
+`TerrainColliderSystem` that runs over that scene. `TerrainSessionTests.Playing_gives_the_ground_collision_and_a_stroke_rebuilds_it`
+is the end of the chain asserted against the editor the product starts: press Play, and the ground has
+bodies under it; sculpt, and `Missed` stays zero.
 
 ⚠ **And the gap was a tier deeper than "no physics scene" (2026-08-20), which is now closed
 (2026-08-21).** The question was put as a choice — either the editor gains a physics scene for this,
@@ -838,14 +841,22 @@ loop advances this frame, had **no caller outside its own tests**, so a `Physics
 bodies created, never simulated — a `TileCount` that reads correct beside ground that does nothing,
 which is this document's own favourite failure wearing the opposite mask. Play mode now steps a real
 `EngineLoop` and `PlayModeController.Loop` is the seam a physics system is added to —
-[11 § Play mode runs a system graph](11-editor.md#play-mode-runs-a-system-graph). **What is left is
-the original choice, narrowed rather than blocked**: nothing under `Editor/` references
-`Vixen.Physics`, and no project can *declare* which systems its scene wants, so the shipped editor
-still constructs no scene and an embedding host is what adds the four systems and calls
-`plugins.Add<ITerrainColliders>(new TerrainColliders(system))` beside them — which is what
-`BindColliders` resolving per frame was built to accept. The precedent for the shape already exists: `Vixen.Editor.App` references
-`Core/Vixen.Water.Physics` for `BuoyancyBody`'s icon and its Add Component entry — the editor knowing
-a physics component type, not the editor running physics.
+[11 § Play mode runs a system graph](11-editor.md#play-mode-runs-a-system-graph). ✅ **And the
+narrowed remainder is closed (2026-08-21) by a general mechanism rather than by a hard-coded
+system.** `IPlaySystems` is a contribution to `IEditorRegistry` — the same typed multimap gizmos and
+inspectors come through — read by `PlayModeController` at every `Play`, and `PlaySession` is what it
+is handed: the loop, the world, `Owns`/`OnStop` for the teardown, `Provide`/`TryGet` so one
+contribution's service reaches the next, and `Runs` so the person is told what this session's frame
+is made of. That was built rather than the hard-coded alternative because there is no place to
+hard-code it: `Vixen.Editor.App` may not reference `Editor/Vixen.Editor.Terrain`, so it cannot publish
+an `ITerrainColliders`, and the terrain toolset may not link physics — so the join has to be a module,
+and a module has to be able to say what a *session* runs rather than what the editor holds.
+
+⚠ **What that does not close is a project declaring its frame, and the distinction is the honest
+one.** A project's own systems are constructed by that project's `OnInitialise` against services it
+builds; the editor lists them by reflection and says it is not running them. What `IPlaySystems`
+closes is the other half — a system whose service the *editor* can own no longer needs an embedding
+host to add it by hand.
 
 ⚠ **One real bug was found under the seam and fixed (2026-08-20), and it was not the discarded
 `bool`.** That one was already answered by `TerrainColliders.Missed`. What was not: `Rebuild(terrain,

@@ -148,6 +148,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Water.Physics\Vixen.Water.Physics.csproj" />
 
         <!--
+            ⚠ And physics itself, which is the reference docs/plan/31 § D10 spent two years saying
+            nothing under Editor/ had. It is here for the opposite reason to the one above: not a
+            component type the Add ▸ menu needs to know exists, but the four fixed-step passes an
+            in-editor *play session* runs — `PlayPhysics` builds a `PhysicsScene` over the world being
+            edited when Play is pressed and disposes it when Stop is. Nothing simulates while the
+            editor is editing, which is the whole shape of that class.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Physics\Vixen.Physics.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own — which SceneEntity does — has to name the generator.
         -->

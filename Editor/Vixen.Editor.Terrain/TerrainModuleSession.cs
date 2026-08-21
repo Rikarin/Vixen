@@ -156,6 +156,13 @@ public sealed partial class TerrainModule {
     ///         <c>Colliders</c> a host or a test set directly, which is the assignment
     ///         <c>TerrainMode.Editing</c> being public exists to allow.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is exactly why the editor publishes a switch and not a session's
+    ///         rebuilder.</b> The physics world lives for one play session; this binding lives for the
+    ///         document. A host that published a per-session adapter would leave the tools holding a
+    ///         disposed Jolt world for every stroke after the first Stop — and this line would be
+    ///         where it was picked up.
+    ///     </para>
     /// </remarks>
     void BindColliders() {
         if (terrain.Editing.Colliders is null && services.TryGet<ITerrainColliders>(out var colliders)) {

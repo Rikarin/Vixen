@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Ecs;
+using Vixen.Editor.Core;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Frames;
 
@@ -76,6 +77,7 @@ public sealed class PlayModeController : IDisposable {
 
     readonly World world;
     readonly BehaviorStore? authored;
+    readonly IEditorRegistry? extensions;
 
     WorldSnapshot? snapshot;
     Dictionary<string, int> before = [];
@@ -123,13 +125,33 @@ public sealed class PlayModeController : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Exposed so a caller can add to it, and every addition is that caller's
-    ///         claim.</b> Nothing is added here, because everything a game adds takes a host service
-    ///         — a <c>PhysicsScene</c>, an <c>AudioEngine</c>, an <c>InputService</c>, a
+    ///         claim.</b> Nothing is added <em>here</em>, because everything a game adds takes a host
+    ///         service — a <c>PhysicsScene</c>, an <c>AudioEngine</c>, an <c>InputService</c>, a
     ///         <c>RenderView</c> — and a controller that invented one would be running a frame
-    ///         nothing else in the process agrees with.
+    ///         nothing else in the process agrees with. What owns such a service says so through an
+    ///         <see cref="IPlaySystems" /> contribution instead; see <see cref="Session" />.
     ///     </para>
     /// </remarks>
     public EngineLoop? Loop { get; private set; }
+
+    /// <summary>This session's contributions and their teardown, or null when nothing is running.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The answer to "what is this frame actually made of", and it is per session on
+    ///     purpose.</b> A contribution's systems are added when Play is pressed and undone when Stop
+    ///     is — physics belongs to play, not to editing — so the objects they own have exactly the
+    ///     lifetime of the snapshot that will be restored over them.
+    /// </remarks>
+    public PlaySession? Session { get; private set; }
+
+    /// <summary>The contributions that threw while attaching, by type name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty is the normal answer, and a non-empty one must be shown rather than logged.</b>
+    ///     A contribution that could not stand its systems up is a part of the frame that is not
+    ///     running — a session with no physics, say — and doc 11's rule for this feature is that a
+    ///     thing which does not happen must be visibly not happening. Failing the whole session
+    ///     instead would make a machine without Jolt's native library a machine where Play is broken.
+    /// </remarks>
+    public IReadOnlyList<string> Refused { get; private set; } = [];
 
     /// <summary>Behaviours on the world that this session could not take over, by type name.</summary>
     /// <remarks>
@@ -156,11 +178,18 @@ public sealed class PlayModeController : IDisposable {
     ///     behaviours on it plays identically either way — but an editor that has one and does not
     ///     pass it gets a Play button that runs the graph and none of the scripts.
     /// </param>
-    public PlayModeController(World world, BehaviorStore? authored = null) {
+    /// <param name="extensions">
+    ///     Where the <see cref="IPlaySystems" /> contributions are, or <see langword="null" /> for a
+    ///     session that runs nothing beyond the loop's default graph. Read at every
+    ///     <see cref="Play" /> rather than kept as a list, so a module or a plugin that registers one
+    ///     after this controller was built still reaches the next session.
+    /// </param>
+    public PlayModeController(World world, BehaviorStore? authored = null, IEditorRegistry? extensions = null) {
         ArgumentNullException.ThrowIfNull(world);
 
         this.world = world;
         this.authored = authored;
+        this.extensions = extensions;
     }
 
     /// <summary>Enters play mode, taking a snapshot first.</summary>
@@ -206,6 +235,8 @@ public sealed class PlayModeController : IDisposable {
                 binder.AttachTo(Loop.Behaviors, entity, binder.Restore(state));
             }
         }
+
+        Contribute();
 
         Leaks = [];
 
@@ -264,6 +295,15 @@ public sealed class PlayModeController : IDisposable {
         // would report every one of them as a leak of this session's own making.
         if (Loop is { } running) {
             Teardown(running.Behaviors);
+
+            // ⚠ After the behaviours and before the restore. After, because a script's `OnDestroy` is
+            // entitled to ask the simulation a last question — a body's velocity, what it was resting
+            // on — and a physics world torn down first would answer that with a native crash. Before,
+            // because a contribution's bodies live on entities in *this* world, and `Restore` clears
+            // it: releasing afterwards would be asking a scene to destroy bodies whose entities have
+            // just stopped existing.
+            Release();
+
             running.Dispose();
             Loop = null;
         }
@@ -353,11 +393,56 @@ public sealed class PlayModeController : IDisposable {
 
         disposed = true;
 
+        // ⚠ Before the loop, for `Stop`'s reason: a contribution's native world outlives a managed
+        // one that is merely collected, so an editor closed mid-session with no release here leaks a
+        // Jolt world per play-through — the exact thing `Leaks` is there to make visible, escaping
+        // through the one path that never runs the comparison.
+        Release();
+
         Loop?.Dispose();
         Loop = null;
 
         snapshot?.Dispose();
         snapshot = null;
+    }
+
+    /// <summary>Builds the session and lets every contribution add its systems to it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One that throws is named and skipped rather than allowed to fail the session.</b>
+    ///     Standing systems up takes native libraries, devices and files, and any of them can be
+    ///     missing on a particular machine; a Play button that refuses to work at all because audio
+    ///     could not open a device would be a worse editor than one that plays without sound and says
+    ///     so. See <see cref="Refused" /> for what says so.
+    /// </remarks>
+    void Contribute() {
+        if (Loop is not { } running) {
+            return;
+        }
+
+        var session = new PlaySession(running, world);
+        List<string> refused = [];
+
+        Session = session;
+
+        foreach (var contribution in extensions?.All<IPlaySystems>() ?? []) {
+            try {
+                contribution.Attach(session);
+            } catch (Exception failure) {
+                refused.Add($"{contribution.GetType().Name} ({failure.Message})");
+            }
+        }
+
+        Refused = refused;
+    }
+
+    /// <summary>Undoes everything this session's contributions did.</summary>
+    void Release() {
+        if (Session is not { } session) {
+            return;
+        }
+
+        Session = null;
+        session.Release();
     }
 
     /// <summary>Takes every authored behaviour off the world, keeping what was in it.</summary>

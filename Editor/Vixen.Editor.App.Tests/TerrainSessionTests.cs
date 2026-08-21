@@ -3,8 +3,10 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Terrain;
+using Vixen.Editor.Terrain.Physics;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
+using Vixen.Physics.Ecs;
 using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
 using Vixen.Ui;
@@ -274,19 +276,7 @@ public class TerrainSessionTests {
         Assert.Equal(0.25f, entry.Radius, 5);
     }
 
-    /// <summary>A collider rebuilder that only remembers which tiles it was named for.</summary>
-    /// <remarks>
-    ///     Building a Jolt height field is <c>Vixen.Editor.Terrain.Physics</c>' job and has its own
-    ///     tests, which drop a body onto the result. What is asserted here is the half those cannot
-    ///     see: that a running editor <em>reaches</em> whatever the host published.
-    /// </remarks>
-    sealed class RecordingColliders : ITerrainColliders {
-        public List<(int X, int Z)> Rebuilt { get; } = [];
-
-        public void Rebuild(TerrainMap terrain, int tileX, int tileZ) => Rebuilt.Add((tileX, tileZ));
-    }
-
-    /// <summary>A stroke in a live editor reaches the collision rebuilder the host published.</summary>
+    /// <summary>A stroke in a live editor reaches the collision rebuilder the editor publishes.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The defect this test exists for is an interface nothing implements <em>and</em>
@@ -296,19 +286,18 @@ public class TerrainSessionTests {
     ///         the editor the product actually starts.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Published after the module activated, deliberately.</b> A host acquires a physics
-    ///         world when it has a reason to — not necessarily before the terrain toolset loaded —
-    ///         and a binding that only ran in <c>Activate</c> would silently never happen. That is why
-    ///         <c>TerrainModule.BindColliders</c> resolves in the per-frame follow rather than once.
+    ///         ⚠ <b>And the thing published is a switch, not a rebuilder.</b>
+    ///         <c>TerrainModule.BindColliders</c> resolves the service in its per-frame follow and
+    ///         keeps the first answer, so the object it binds has to outlive every play session — a
+    ///         per-session adapter would leave the sculpt tools holding a disposed Jolt world for
+    ///         every stroke after the first Stop. <see cref="PlayColliders.Idle" /> is what the
+    ///         editing half of that costs: a stroke that reached the seam and had no simulation to
+    ///         rebuild in.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_stroke_reaches_the_colliders_the_host_published() {
+    public void A_stroke_reaches_the_colliders_the_editor_publishes() {
         using var fixture = EditorSession.Start();
-
-        var colliders = new RecordingColliders();
-
-        fixture.Plugins.Services.Add<ITerrainColliders>(colliders);
 
         Write(fixture, "Terrain/Hill.vxterrain", Built());
 
@@ -325,7 +314,8 @@ public class TerrainSessionTests {
         var mode = Mode(fixture);
 
         Assert.True(mode.HasTerrain);
-        Assert.Same(colliders, mode.Editing.Colliders);
+
+        var published = Assert.IsType<PlayColliders>(mode.Editing.Colliders);
 
         mode.Editing.Brush.Radius = 4f;
         mode.Editing.Brush.Strength = 1f;
@@ -335,19 +325,33 @@ public class TerrainSessionTests {
         Assert.True(mode.Editing.Begin(new(12f, 12f)));
         Assert.NotNull(mode.Editing.Commit());
 
-        Assert.Equal([(0, 0)], colliders.Rebuilt);
+        // ⚠ Nothing is playing, so there is no physics world and the stroke rebuilds nothing — which
+        // is `ITerrainColliders`' own "a terrain with no collision, not an error", and is also the
+        // shape of "physics belongs to play, not to editing". The count is the proof the call
+        // arrived; a seam nothing reaches is indistinguishable from one that had nothing to do.
+        Assert.Equal(1, published.Idle);
+        Assert.Equal(0, published.Missed);
     }
 
-    /// <summary>And a host with no physics world sculpts perfectly well, rebuilding nothing.</summary>
+    /// <summary>Pressing Play builds the ground's collision, and a stroke rebuilds the tile it moved.</summary>
     /// <remarks>
-    ///     ⚠ <b>The negative control, and it is also the shipped editor.</b>
-    ///     <c>EditorApplication</c> publishes no <c>ITerrainColliders</c> because it holds no
-    ///     <c>PhysicsScene</c> — there is not one anywhere under <c>Editor/</c> — so this is what a
-    ///     sculpt stroke does in the product today: it moves the ground and rebuilds no collision,
-    ///     because there is none to rebuild.
+    ///     <para>
+    ///         ⚠ <b>This is the end of <c>docs/plan/31</c> § D10's chain, and every earlier link was
+    ///         built and unreachable.</b> <c>TerrainColliderSystem</c> had tests that dropped a body
+    ///         onto a height field; <c>TerrainColliders</c> had tests that sculpted one. Neither could
+    ///         see the thing that was actually wrong, which is that the editor constructed no physics
+    ///         world at all — so this asserts about the *editor*: press Play, and the ground it draws
+    ///         has bodies under it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="TerrainColliderSystem.Rebuilds" /> and not <c>TileCount</c> alone.</b>
+    ///         A tile count says the first build happened, which the poll would have done on the next
+    ///         frame anyway. What the seam adds is *when* — the frame the artist let go of the mouse —
+    ///         and a rebuild counted between two ticks is the only way to see that.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void A_host_that_published_none_sculpts_with_no_colliders_at_all() {
+    public void Playing_gives_the_ground_collision_and_a_stroke_rebuilds_it() {
         using var fixture = EditorSession.Start();
 
         Write(fixture, "Terrain/Hill.vxterrain", Built());
@@ -365,13 +369,52 @@ public class TerrainSessionTests {
         var mode = Mode(fixture);
 
         Assert.True(mode.HasTerrain);
-        Assert.Null(mode.Editing.Colliders);
+
+        fixture.Run("play.play");
+        fixture.Frames(2);
+
+        var session = fixture.Editor.PlayMode.Session;
+
+        Assert.NotNull(session);
+        Assert.Empty(fixture.Editor.PlayMode.Refused);
+        Assert.Equal(["physics", "terrain collision"], session.Running);
+
+        // The simulation the terrain's bodies were created in, provided by the application rather
+        // than stood up a second time by the terrain module.
+        Assert.True(session.TryGet<PhysicsScene>(out var scene));
+        Assert.NotNull(scene);
+
+        var colliders = Assert.IsType<PlayColliders>(mode.Editing.Colliders);
 
         mode.Editing.Brush.Radius = 4f;
+        mode.Editing.Brush.Strength = 1f;
         mode.Editing.Tools.Metres = 5f;
 
         Assert.True(mode.Editing.Begin(new(12f, 12f)));
         Assert.NotNull(mode.Editing.Commit());
+
+        // ⚠ Zero, and it is the number that says the wiring is right. `Missed` climbs when a stroke
+        // names a terrain the collider system has never heard of — which is what an
+        // `ITerrainPlacements` that does not list the ground being sculpted looks like, and it has no
+        // other symptom.
+        Assert.Equal(0, colliders.Missed);
+        Assert.Equal(0, colliders.Idle);
+
+        // Four tiles of ground, with bodies under them, in the world the person is looking at.
+        Assert.True(scene.BodyCount >= 4, $"the terrain has {scene.BodyCount} bodies under it");
+
+        fixture.Run("play.stop");
+        fixture.Frames(2);
+
+        // ⚠ And stopping takes all of it away: the simulation is disposed, the tile entities went
+        // with the snapshot's restore, and the seam the tools hold is pointed at nothing again. A
+        // physics world that survived here would be one simulating under the next gizmo drag.
+        Assert.Null(fixture.Editor.PlayMode.Session);
+        Assert.True(scene.IsDisposed);
+
+        Assert.True(mode.Editing.Begin(new(12f, 12f)));
+        Assert.NotNull(mode.Editing.Commit());
+        Assert.Equal(1, colliders.Idle);
     }
 
     static TerrainMode Mode(EditorSession fixture) =>

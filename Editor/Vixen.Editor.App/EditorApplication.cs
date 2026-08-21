@@ -55,6 +55,14 @@ namespace Vixen.Editor.App;
 ///         <c>EngineLoop</c> over this world and <see cref="Update" /> is where it is called.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And it owns a simulation for exactly as long as a session lasts.</b>
+///         <see cref="PlayPhysics" /> is this application's <c>IPlaySystems</c> contribution: a
+///         <c>PhysicsScene</c> over the world above, built when Play is pressed and disposed when
+///         Stop is. Nothing simulates while the editor is editing — a body falling under a gizmo drag
+///         is a scene that edits itself — and a scene that outlived the session would be a native
+///         world handed to every later reader of a bag that has no removal.
+///     </para>
+///     <para>
 ///         ⚠ <b>Every selection is polled once a frame rather than subscribed to.</b>
 ///         <c>Selection&lt;T&gt;</c> is signal-backed, and an <c>Effect</c> over it would be the
 ///         better wiring — but nothing in this loop flushes the reactive scheduler, and adding one
@@ -493,7 +501,14 @@ sealed partial class EditorApplication : IDisposable {
         // exists to remove, in its quietest form. The store is the first document's: the controller
         // names anything it cannot take over, which is how a behaviour authored into an additively
         // opened scene stops being a script that silently does not run.
-        play = new PlayModeController(world, scene.Behaviors);
+        play = new PlayModeController(world, scene.Behaviors, Extensions);
+
+        // ⚠ The editor's own contribution to the frame a session runs, and the one service this
+        // application can honestly own. Doc 31 § D10 said an embedding host would have to add the
+        // four physics passes by hand; it does not, because `IPlaySystems` is read at every Play and
+        // this is registered before any module activates — which is also what lets the terrain
+        // module's collider contribution find the scene this one provides.
+        contributions.Add(Extensions.Add<IPlaySystems>(new PlayPhysics()));
 
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
         // document's name and stable-id tables — both keyed by handle — name nothing at all
@@ -768,6 +783,15 @@ sealed partial class EditorApplication : IDisposable {
     ///     replaces the built-in rather than fighting it.
     /// </remarks>
     internal ITerrainScene? TerrainScene => Extensions.All<ITerrainScene>() is [.., var scene] ? scene : null;
+
+    /// <summary>Play, pause, step and stop — and what this session's frame is made of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal for the tests that assert about the <em>frame</em> rather than the
+    ///     button.</b> Every commands-level assertion goes through <c>play.play</c> and its
+    ///     neighbours; what needs the object is the question "did physics actually attach", whose
+    ///     honest answer is <c>PlayModeController.Session</c> and not a notification's wording.
+    /// </remarks>
+    internal PlayModeController PlayMode => play;
 
     /// <summary>What the viewport draws the painted foliage from, if a module contributed one.</summary>
     /// <remarks><see cref="TerrainScene" />'s arrangement exactly, and the last contribution wins.</remarks>
