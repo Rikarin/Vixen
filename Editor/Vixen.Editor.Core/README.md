@@ -197,6 +197,40 @@ machine's disk.
 two machines scanning one checkout, and directory enumeration order is not a promise any filesystem
 makes.
 
+### Freshness is per entry, so a miss costs what changed
+
+`Library/GuidIndex` records, beside each entry, the **size and write time of the sidecar it was read
+from**. A scan over a loaded index opens only the sidecars whose stamp has moved, so a cold start
+after one file changed reads one file. It used to be that freshness was asked once about the whole
+database — a `.meta` count and a newest write time — and the answer was a single yes or no, so any
+change at all cost a full rebuild of the index. Measured on a ten-thousand-asset project, that case
+went from roughly 460–900 ms to 110–160 ms; what remains is one directory walk, which at that size is
+about 70 ms and is the floor.
+
+**A size and a write time, because the honest answer costs a read** and the read is the thing being
+avoided. Hashing the sidecar would never be wrong and would mean opening every file in the project on
+every launch. A size alone is far too weak: a sidecar is mostly fixed-width fields, so most edits
+leave it exactly as long.
+
+⚠ **What that gets wrong, and in which direction.** An edit that changes neither size nor write time
+is invisible — hand-editing a GUID is the realistic one, since a GUID is fixed-width. A checkout or a
+copy stamps the files it touches with the time it ran, so it reads as *changed* and costs a re-read it
+did not strictly need. That is the direction to be wrong in: a false "stale" wastes a scan, a false
+"fresh" loses an asset. For the same reason a scan does not trust a stamp whose write time is not
+strictly older than the moment that scan began — a filesystem with one-second write-time resolution
+cannot tell an edit that landed during the walk from one that landed before it, so those files are
+read once more.
+
+⚠ **A partial rescan cannot leave the index wrong**, which is the case a crash makes real. The index
+is written beside itself and renamed over, and it ends with a terminator naming its own entry count,
+so a torn file is refused outright rather than read as a short but plausible index. And every reuse is
+checked against the disk rather than believed: an entry whose stamp does not match is read, and an
+entry with no asset under it is dropped. Both failures land on "rescan".
+
+`ScanReport.Reused` and `ScanReport.Rescanned` are what make the cost legible, and `Rescanned` is what
+the tests assert — how many sidecars a scan opened is a property of the algorithm and is the same on
+every machine, where a wall-clock threshold under a parallel test run measures the machine.
+
 ### Nothing is silently tolerant
 
 Every one of these is a thing that happens to real projects weekly, and silent tolerance is how

@@ -32,9 +32,38 @@ public sealed class EditorProjectTests {
 
         var report = new EditorProject(fixture.Paths).Open();
 
-        // Nothing was scanned, which is what an editor launching against a hundred thousand assets
-        // needs to be true.
-        Assert.Equal(0, report.Assets);
+        // Every asset is in the report — the second open knows the project just as well as the first
+        // did — and not one of their sidecars was opened, which is what an editor launching against a
+        // hundred thousand assets needs to be true.
+        Assert.Equal(1, report.Assets);
+        Assert.Equal(0, report.Rescanned);
+    }
+
+    /// <summary>
+    ///     The case the whole-database freshness check could not do: one file changed, so one file is
+    ///     read. It used to be that any change at all cost a rebuild of the entire index.
+    /// </summary>
+    [Fact]
+    public void OpeningItAfterOneFileChangedRereadsOnlyThatFile() {
+        using var fixture = new ProjectFixture();
+        fixture.Add("Assets/a.png");
+        fixture.Add("Assets/b.png");
+        var changed = fixture.Add("Assets/c.png");
+
+        new EditorProject(fixture.Paths).Open();
+
+        var minted = AssetId.New();
+        fixture.WriteMetaFor("Assets/c.png", minted, importer: "AudioImporter");
+
+        var project = new EditorProject(fixture.Paths);
+        var report = project.Open();
+
+        Assert.Equal(3, report.Assets);
+        Assert.Equal(1, report.Rescanned);
+        Assert.True(project.Assets.TryGetByPath("Assets/c.png", out var entry));
+        Assert.Equal(minted, entry.Guid);
+        Assert.Equal("AudioImporter", entry.ImporterTag);
+        Assert.False(project.Assets.TryGetByGuid(changed, out _));
     }
 
     [Fact]

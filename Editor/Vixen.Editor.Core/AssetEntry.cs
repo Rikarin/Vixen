@@ -52,7 +52,20 @@ public sealed record AssetIssue(AssetIssueKind Kind, string Path, string Message
 /// <param name="Assets">How many assets are in the index.</param>
 /// <param name="Elapsed">How long it took.</param>
 /// <param name="Issues">Everything worth telling somebody about.</param>
-public sealed record ScanReport(int Assets, TimeSpan Elapsed, IReadOnlyList<AssetIssue> Issues);
+/// <param name="Reused">
+///     How many of those assets kept the entry the index already held, because their sidecar is the
+///     size and age it was when it was indexed, so the file was never opened.
+/// </param>
+/// <remarks>
+///     <see cref="Reused" /> is what makes a scan's cost legible: it is the difference between "this
+///     project was already in order" and "this project was read from scratch", which are the same
+///     number of assets and two very different amounts of work. <see cref="Rescanned" /> is the half
+///     that was paid for.
+/// </remarks>
+public sealed record ScanReport(int Assets, TimeSpan Elapsed, IReadOnlyList<AssetIssue> Issues, int Reused = 0) {
+    /// <summary>How many assets had their sidecar actually read.</summary>
+    public int Rescanned => Assets - Reused;
+}
 
 /// <summary>How a scan should behave when it finds something wrong.</summary>
 /// <param name="CreateMissingMeta">Whether a file with no sidecar gets one.</param>

@@ -113,18 +113,39 @@ public sealed class EditorProject {
 
     /// <summary>Reads the project: the GUID index, repaired if it needs it, and the reference index.</summary>
     /// <param name="options">What to repair, or <see langword="null" /> to repair everything.</param>
-    /// <returns>What the scan did, or an empty report if the cached index was good enough to use.</returns>
+    /// <returns>What the scan did, including how much of the cached index it was able to keep.</returns>
     /// <remarks>
-    ///     The cached index is used when it loads and is not stale, because rescanning a
-    ///     hundred-thousand-asset project on every launch is the cost that makes an editor feel slow
-    ///     to start. The reference index is rebuilt either way: it is not persisted, since it is a
-    ///     grep over content that the working tree may have changed while the editor was closed.
+    ///     <para>
+    ///         The cached index is loaded first and then scanned <em>through</em>, not instead of:
+    ///         the scan keeps every asset whose sidecar is still the size and age the index recorded
+    ///         and reads the rest, so a launch after one file changed costs one directory walk and
+    ///         one file rather than a hundred thousand. Rescanning everything on every launch is the
+    ///         cost that makes an editor feel slow to start, and a whole-database freshness check
+    ///         only moved that cost to every launch where anything at all had changed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The index is written back only when it differs from what was loaded</b> — a
+    ///         launch that changed nothing does no disk write at all, and a launch that changed one
+    ///         asset rewrites the file, because the index is small and a partial rewrite of it is a
+    ///         far worse thing to have to reason about than a full one.
+    ///     </para>
+    ///     <para>
+    ///         The reference index is rebuilt either way: it is not persisted, since it is a grep
+    ///         over content that the working tree may have changed while the editor was closed.
+    ///     </para>
     /// </remarks>
     public ScanReport Open(ScanOptions? options = null) {
-        var report = new ScanReport(0, TimeSpan.Zero, []);
+        var loaded = Assets.TryLoad() ? Assets.Count : -1;
+        var report = Assets.Scan(options);
 
-        if (!Assets.TryLoad() || Assets.IsStale()) {
-            report = Assets.Scan(options);
+        // Everything reused and the same number of them as were loaded means the file on disk already
+        // says exactly this. Anything else — an asset added, removed, or changed — and it does not. A
+        // count that matches while the set does not still leaves the newcomer unreused.
+        //
+        // ⚠ And any issue at all, because a repair changes the index without reading anything: two
+        // reused entries can be found to claim one GUID, and the re-GUID that settles it leaves a
+        // report saying nothing was rescanned over an index that no longer matches the disk.
+        if (loaded != report.Assets || report.Rescanned != 0 || report.Issues.Count != 0) {
             Assets.Save();
         }
 
