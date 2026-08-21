@@ -814,6 +814,20 @@ public sealed class LayoutStyleBuilder {
             LayoutNodeId node,
             [NotNullWhen(false)] out string? refusal
         ) {
+            // ⚠ <b><c>none</c> is read here rather than in the grammar, for the reason the empty case
+            // below is: the two callers disagree.</b> §7.2 puts <c>none</c> in a <c>&lt;track-list&gt;</c>
+            // and *not* in the <c>&lt;auto-track-list&gt;</c> the two implicit properties take, so
+            // <c>grid-auto-rows: none</c> is genuinely invalid while <c>grid-template-rows: none</c> is
+            // the property's initial value written out. The grammar refuses both and names the token —
+            // which is right for it and wrong here, because `grid-rows-none` is a Tailwind class an
+            // author will write and a refusal would log a diagnostic on a declaration that is correct.
+            if (value.AsSpan().Trim().Equals("none", StringComparison.Ordinal)
+                && slot is GridTrackSlot.Columns or GridTrackSlot.Rows) {
+                Reset(tree, node);
+                refusal = null;
+                return true;
+            }
+
             if (!GridTrackList.TryParse(value, scratch, out var repeat, out refusal)) {
                 return false;
             }

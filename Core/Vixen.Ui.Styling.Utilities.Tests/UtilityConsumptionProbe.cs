@@ -319,6 +319,55 @@ static class UtilityConsumptionProbe {
             """
         ),
 
+        // ⚠ <b>Placed, and every one of the five properties it exists for measured inert with
+        // `gridded` already present.</b> That is the point worth keeping: `gridded` is a grid at both
+        // ends and still could not see `grid-auto-columns`, `grid-column-end`, `grid-row`,
+        // `grid-row-end` or `justify-self`. A scene being *about* a feature does not make it able to
+        // observe the feature, and the gate said so the first time the families were registered.
+        //
+        // Four arrangements, each answering one of them, and none of them arbitrary:
+        //
+        // ⚠ <b>The probe starts on the last track, not the first.</b> An auto-placed item occupies
+        // one track and therefore already ends on the line after it — so `grid-column-end: 2` on an
+        // item in column 1 is the position it was in anyway, and both `-end` families measured inert
+        // for that reason alone. Starting at line 3 means the emitted end line is somewhere the item
+        // is not, and §8.3's rule that a reversed pair swaps is what carries it there.
+        //
+        // ⚠ <b>The probe is smaller than its cell.</b> `justify-self` distributes free space, and
+        // `gridded`'s probe is exactly its column's width — so every value of it resolved to the same
+        // rectangle. A definite size narrower than the track is what leaves the property something to
+        // move, and it is also the honest case: an item that fills its cell is one nobody writes
+        // `justify-self` on.
+        //
+        // ⚠ <b>The row position is written as the `grid-row` shorthand and the column position as a
+        // longhand, and that asymmetry is load-bearing — do not tidy it.</b> `ApplyPlacements` applies
+        // the shorthand first and then overwrites it from the longhands whenever they are present, so
+        // a longhand beats a shorthand *whatever order they were declared in*. With `grid-row-start: 3`
+        // here, every `grid-row` this gate injected was silently discarded and the property measured
+        // inert while the engine read it perfectly. Declaring the row through the shorthand is what
+        // leaves the injected shorthand something to replace.
+        //
+        // That ordering is a real defect and not only a fact about this scene — `grid-row: 1 / -1` is
+        // dropped on any element some other rule gave a `grid-row-start` — but it is filed rather than
+        // fixed here, because changing the bridge's precedence is not a change to a test fixture.
+        //
+        // ⚠ <b>The probe flows in columns, where every other scene flows in rows.</b>
+        // `grid-auto-columns` sizes implicit *columns*, and a container with explicit columns and
+        // `grid-auto-flow: row` never creates one however many children it has. `grid-auto-rows` is
+        // read in `gridded` for the mirror-image reason, which is why only one of the pair was inert.
+        new(
+            "placed",
+            """
+            #host  { display: grid; grid-template-columns: 70px 70px 70px;
+                     grid-template-rows: 44px 44px 44px; width: 210px; height: 132px; }
+            #probe { display: grid; grid-template-rows: 14px 14px; grid-auto-flow: column;
+                     grid-column-start: 3; grid-row: 3 / 4;
+                     width: 40px; height: 30px;
+                     background-color: #204080; color: #e0e0e0; }
+            #after { width: 20px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         // ⚠ <b>Inlined, and it is the only scene in which a line box exists at all.</b> The same
         // lesson the `gridded` scene records, arriving for the third time and by now predictable:
         // `vertical-align` sat in `InertProperties.txt` with a task number against it, and the day
