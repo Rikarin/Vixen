@@ -1039,9 +1039,22 @@ this section used to list, and the audit that closed the other three is worth ke
 * **Node graphs** did need one, and it is `NodePortEditProvider`. A port's value lives on the graph
   keyed by name, so it is a member of nothing; describing it as an `InspectorMember` is what put the
   ordinary inspector panel behind the shader and VFX graphs' side panels.
-* **Blockout** needs a panel rather than a provider. `UvSettings`, `PackSettings` and
-  `RemeshSettings` are unannotated records in `Core/Vixen.Geometry.*` and nothing in the editor
-  draws them at all; annotating them is what would put them on the pipeline, in one line each.
+* **Blockout** needed a panel rather than a provider, and now has one — ✅ `BlockoutMode.Panel` names
+  a **Blockout** panel of three `InspectorView`s over `BlockoutRetopologySettings`,
+  `BlockoutChartSettings` and `BlockoutPackSettings`, drawn by `InspectorEditProvider` like every
+  other settings object in the editor. `BlockoutSettingsTests` asserts it by asking
+  `ReflectedDescriptor` about *whatever the mode holds*, so a regression to the records fails it.
+
+  ⚠ **"Annotating them, in one line each" was wrong three times over, and the correction is the
+  point.** `UvSettings`, `PackSettings` and `RemeshSettings` are `init`-only records in
+  `Core/Vixen.Geometry.*`, and each of these alone rules the one-liner out: the inspector's generator
+  treats `init` as writable and emits `owner.Property = value`, which is a compiler error in
+  generated code nobody sees; a `Core/` assembly cannot reference an editor one, which
+  `ReflectedDescriptor`'s own remarks state as *"no runtime type carries `[Inspector]`, and none
+  should"*; and a panel binds to an object that survives being edited, which a record replaced
+  wholesale by every `with` expression is not. What the annotation goes on is the editable class
+  beside each record — the arrangement `ModelImportEdits` already used, and the one a parity test
+  keeps honest.
 
 ⚠ **This was recorded as done once, and then over-counted when the correction was written.** Both
 mistakes have the same shape — the section was measured against the phase list rather than the tree.

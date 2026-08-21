@@ -39,6 +39,23 @@ what says so rather than a convention.
 doc 24's geometry verbs below the camera bookmarks the day it stopped being compiled in — a visible
 change to somebody's editor caused by a refactor they cannot see.
 
+## The settings panel
+
+⚠ **`BlockoutMode.Panel` names one, and doc 36 § P1's last blockout row is why it exists.**
+The retopology and UV dials the verbs read were `Core/` records held on the mode, and
+nothing in the editor drew them at all — `Retopologize` was a verb whose every parameter was a
+compile-time constant a designer could not reach. The panel is three `InspectorView`s over
+`BlockoutRetopologySettings`, `BlockoutChartSettings` and `BlockoutPackSettings`, and nothing in
+`BlockoutModulePanels.cs` builds a row.
+
+⚠ **Those three are classes beside the records rather than annotations on them, and there are three
+separate reasons — any one of them decisive.** `RemeshSettings`, `UvSettings` and `PackSettings` are
+`init`-only, so the inspector's generator emits a setter that will not compile; they live in
+`Core/Vixen.Geometry.*`, which must not reference an editor assembly; and a panel binds to an object
+that survives being edited, which a record replaced wholesale by every `with` expression is not. The
+model importer reached the same conclusion first, in `ModelImportEdits`, and `BlockoutSettingsTests`
+keeps the mirror honest member by member.
+
 ## What it owns
 
 | | |
