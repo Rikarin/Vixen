@@ -463,6 +463,49 @@ only the one column or row that wrapped rather than the whole level. It costs an
 `VirtualShadowLevel`, which is a GPU struct — so it wants the device goldens, which do not run on
 macOS.
 
+### ✅ The sun's cache, and the two defects the split found
+
+`VIXEN_SUNTRACE=<file>` writes one row a frame beside the two above: `tiles` is what the cascades
+rasterised, `rebuilds` is cumulative, and `refits` against `invalidations` says which of the two
+causes a rebuild had. The three switches this level turns on are `staticStage: ShadowStatic` and
+`slack: 0.25` on the `!ShadowMap` node, `GraphicsOptions.StaticCasterStages` in `OnConfigure`, and
+`Arena.MarkTheLevel` putting `!StaticShadowCaster` on the 60 drawables the level file placed.
+
+```
+VIXEN_SPAWN=-3,0.2,24,0 VIXEN_WALK=20 VIXEN_SUNTRACE=./sun.csv \
+dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+    --vixen-headless --vixen-frames 256 --vixen-frame-limit 0 \
+    --vixen-variant Development --vixen-capture ./shots
+```
+
+**What it is worth, walking into the arena for 256 frames.** 1 624.5 draws recorded a frame with the
+cache off against 1 407.0 with it on, and 24 rebuilds in 256 frames — the level's 60 casters through
+the caster pass on 24 frames instead of 256, which is 240 × 232/256 = 217.5 draws a frame, exactly the
+difference. Cascade tiles a frame go 4.00 → 4.38, because a rebuilt frame rasterises eight. The
+punctual atlas is untouched: 10.88 tiles redrawn a frame in both. And the picture is the same one —
+0.0001/255 mean absolute channel at an identical camera pose, against a 0.0071 floor between two runs
+of one binary.
+
+⚠ **Neither of the two things that went wrong was the cache.** The first was a segfault inside
+`vkQueueSubmit` with nothing in the log: a shader variant was keyed on `(material, flags, shader)`
+with the imposing stage recorded but not part of its identity, so the first of two caster stages to
+reach a material decided which `RenderStage.Parameters` every stage drew with — and this file filled
+`Shadow` alone, so the level's variant was created by `ShadowStatic`, wrote no per-material set at
+all, and every caster draw bound a pipeline with set 2 empty. `MaterialRenderFeature.UnboundCount`
+and `Unbound` name the shader and the stage now. ⚠ It presented as a fault rather than as
+`uses set 2 but that set is not bound` only because the validation layer would not load; Homebrew's
+manifest names the library by bare filename, so
+`DYLD_LIBRARY_PATH=/opt/homebrew/lib` is what turns it on — the host says so in a warning at
+start-up, and it is worth reading.
+
+⚠ **The second was quieter and left no error at all.** The `!VirtualShadow` node drew `stage: Shadow`
+too, and it *outranks* the cascades wherever it has a drawn page — so once the casters were split it
+had only the movers, and the level stopped casting a sun shadow over most of the screen while the
+cascades behind it stayed perfectly correct and every counter read healthy. Both it and
+`!PunctualShadows` take `stage: ShadowAll` now, which is the stage named for what is in it rather
+than for whichever node wanted it first. The measurement that found it was the A/B: 7.97/255 mean
+absolute channel between two frames that should have been identical.
+
 ## The picture, and what is in the way
 
 ⚠ **`WorldRenderer`'s mesh path had never drawn on a device, and this project is the first thing to

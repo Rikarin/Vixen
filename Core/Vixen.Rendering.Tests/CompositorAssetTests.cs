@@ -1966,4 +1966,76 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal("lights", cull.Descriptors.Bindings[0].Name);
         Assert.Same(allocator, cull.Descriptors.Allocator);
     }
+
+    // --- The sun's static cache ---------------------------------------------
+
+    /// <summary>
+    ///     A document turns the sun's static cache on: the stage, the slack and a device to keep it in.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="ShadowMapRenderer.StaticCasterStage" /> has been complete since doc 06 and
+    ///         nothing but a test ever reached it — there was no field on the asset and no arm in the
+    ///         builder, so a <c>.vxcompositor</c> could not turn it on at all.
+    ///     </para>
+    ///     <para>
+    ///         All three arrive together because any one alone is a slower frame. The stage without
+    ///         <see cref="ShadowMapRenderer.Slack" /> re-fits the moment the camera moves, which
+    ///         invalidates the cache every frame and leaves the frame paying for a whole-atlas copy it
+    ///         gets nothing for; and the node with no device has nowhere to keep depth that outlives a
+    ///         frame, because every <c>!Resource</c> a document can declare is transient.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_document_turns_the_suns_static_cache_on() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            stages:
+              - name: ShadowCaster
+              - name: ShadowStatic
+            game: !Sequence
+              name: Frame
+              children:
+                - !ShadowMap
+                  name: Sun
+                  stage: ShadowCaster
+                  staticStage: ShadowStatic
+                  slack: 0.25
+                  atlas: ShadowAtlas
+            """
+        );
+
+        using var h = Build();
+
+        h.Builder.Device = device;
+
+        var compositor = h.Builder.Build(asset);
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var sun = Assert.IsType<ShadowMapRenderer>(sequence.Children[0]);
+
+        Assert.Same(h.Builder.Stages["ShadowStatic"], sun.StaticCasterStage);
+        Assert.Equal(0.25f, sun.Slack);
+        Assert.Same(device, sun.Device);
+
+        // Empty, which is what says the node owns the texture rather than resolving one the document
+        // declared. A document cannot declare one: the graph's pool exists to recycle exactly the
+        // memory a cache has to keep.
+        Assert.Equal(string.Empty, sun.StaticAtlas);
+    }
+
+    /// <summary>A document that names no static stage is the uncached node it always was.</summary>
+    [Fact]
+    public void A_document_with_no_static_stage_leaves_the_cache_off() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+
+        using var h = Build();
+
+        var compositor = h.Builder.Build(asset);
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var sun = Assert.IsType<ShadowMapRenderer>(sequence.Children[0]);
+
+        Assert.Null(sun.StaticCasterStage);
+        Assert.Equal(0f, sun.Slack);
+    }
 }

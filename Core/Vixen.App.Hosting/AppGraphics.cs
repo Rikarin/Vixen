@@ -293,6 +293,26 @@ public sealed class AppGraphics : IDisposable {
 
             Stages = extracted;
             View.Stages = stage.Mask;
+
+            // ⚠ The camera's stage and the *static* caster stages — a replacement for `extracted`
+            // rather than an addition to it. An entity in both caster stages is drawn into the cached
+            // atlas and then again on top of it every frame, which is the level rasterised twice per
+            // cascade and a cache that costs instead of paying. Left empty when the project names no
+            // static stage, which is what makes the claim ignored rather than obeyed with a mask of
+            // none — see MeshExtractionSystem.StaticStages.
+            if (options.StaticCasterStages.Count > 0) {
+                var still = stage.Mask;
+
+                foreach (var caster in options.StaticCasterStages) {
+                    if (Renderer.Host.Builder.Stages.TryGetValue(caster, out var casting)) {
+                        still |= casting.Mask;
+                    } else {
+                        HostLog.NoStage(logger, caster);
+                    }
+                }
+
+                StaticStages = still;
+            }
         } else {
             HostLog.NoStage(logger, options.Stage);
         }
@@ -362,7 +382,7 @@ public sealed class AppGraphics : IDisposable {
             engine.Add(WaterClock);
 
             engine.Add(Volumes);
-            Renderer.Register(engine, Stages, ParticleStages);
+            Renderer.Register(engine, Stages, ParticleStages, StaticStages);
 
             // ⚠ The overlay system and *not* DebugDrawSystem beside it. This one is a PreRender
             // reader that draws panels into the accumulator, which is exactly where doc 13 puts it:
@@ -479,6 +499,14 @@ public sealed class AppGraphics : IDisposable {
 
     /// <summary>Which stages the world's drawables are extracted into.</summary>
     public RenderStageMask Stages { get; }
+
+    /// <summary>Which stages a drawable claiming to be static goes into instead, or none.</summary>
+    /// <remarks>
+    ///     <c>GraphicsOptions.StaticCasterStages</c> resolved against the document's stages. None is a
+    ///     project that named none, and leaves <c>StaticShadowCaster</c> ignored — which is the frame
+    ///     every project that has not opted into a cached sun shadow already has.
+    /// </remarks>
+    public RenderStageMask StaticStages { get; }
 
     /// <summary>Which stage the scene's particle emitters are drawn in, or none.</summary>
     /// <remarks>

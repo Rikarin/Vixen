@@ -1353,6 +1353,33 @@ nothing can check.
 without saying so gets a shadow where the object used to be, which is the bargain the word already
 implied.
 
+**A `.vxcompositor` turns it on, and nothing but a test could until 2026-08-21.** The node was
+complete and unreachable: no field on `ShadowMapAsset`, no arm in `CompositorBuilder`, no sample.
+`staticStage:` and `slack:` are the document's half; `GraphicsOptions.StaticCasterStages` is the
+host's, naming the stages an entity carrying `Vixen.Rendering.Ecs.StaticShadowCaster` is extracted
+into *instead* of the ordinary caster ones; and the tag itself is the scene's. The cache atlas is the
+node's own texture, made from `CompositorBuilder`'s device, because every `!Resource` a document can
+declare is transient and the graph's pool exists to recycle precisely the memory a cache must keep —
+what the document must remember is `CopyDestination` in the working atlas's usage.
+
+`TilesDrawn` is `CascadeCount` on a kept frame and twice that on a rebuilt one, and `StaticRefits`
+against `StaticInvalidations` says which of the two causes a rebuild had. Measured on Samples/13
+under `VIXEN_WALK`, 256 frames walking into the arena: 1 624.5 draws recorded a frame uncached
+against 1 407.0 cached, 24 rebuilds in 256 frames — the level's 60 casters through the caster pass on
+24 frames instead of 256, which is exactly the 217.5 draws a frame the difference shows. The frame is
+the same picture: 0.0001/255 mean absolute channel at an identical camera pose.
+
+⚠ **Two things the split broke that had nothing to do with the cache**, both found by measuring
+rather than by reading. A variant used to be keyed on `(material, flags, shader)` with the imposing
+stage recorded but *not* part of its identity, so the first of two caster stages to reach a material
+decided which `RenderStage.Parameters` every stage drew with — and a stage nobody filled writes no
+per-material set at all, which is a draw with set 2 empty and a GPU fault inside the submit. The
+stage is part of the key now, and `MaterialRenderFeature.UnboundCount`/`Unbound` name the shader and
+the stage rather than passing over it. And a frame with a `!VirtualShadow` node must give that node
+*every* caster too: it outranks the cascades wherever it has a drawn page, so a level missing from
+its pages stops casting a sun shadow over most of the screen while the cascades behind it stay
+perfectly correct.
+
 ### The lamps cache differently, and the geometry is the reason
 
 `PunctualShadowRenderer.Cached` keeps a lamp's tile whole rather than keeping its static half.

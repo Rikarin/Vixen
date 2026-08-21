@@ -815,6 +815,49 @@ public sealed record ShadowMapAsset : ISceneRendererAsset {
     ///     shadows are correct for a view that does not exist and absent from the one that does.
     /// </remarks>
     public string View { get; init; } = string.Empty;
+
+    /// <summary>
+    ///     The stage holding casters that never move, or empty to redraw everything every frame.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Appended, on <see cref="PunctualShadowAsset.Cached" />'s terms — a
+    ///         <c>[DataContract]</c> is serialised in declaration order, so a new field goes at the
+    ///         end.
+    ///     </para>
+    ///     <para>
+    ///         <strong>A stage is the filter, which is why turning the cache on is one name.</strong>
+    ///         "Which objects, in what order" is exactly what a stage is, so a host extracts level
+    ///         geometry into this one and everything that moves into <see cref="Stage" />; the node
+    ///         then draws this one into a cache only when something invalidates it and copies the
+    ///         cache into the working atlas every frame. Empty is the path this node always had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Naming it without also giving <see cref="Slack" /> makes the frame slower and
+    ///         nothing else.</b> A tightly fitted cascade re-fits as soon as the camera moves, a re-fit
+    ///         invalidates the cache, and the frame is then everything the uncached one drew plus a
+    ///         whole-atlas copy. The node reports that through <c>Degraded</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The working atlas must be declared <see cref="TextureUsage.CopyDestination" />.</b>
+    ///         The cache is copied into it every frame, and the cache texture itself is the node's own
+    ///         — a document cannot declare one, because every <c>!Resource</c> is transient and the
+    ///         graph's pool exists to recycle exactly the memory a cache must keep.
+    ///     </para>
+    /// </remarks>
+    public string StaticStage { get; init; } = string.Empty;
+
+    /// <summary>
+    ///     How much wider than its slice each cascade is cut, as a fraction.
+    /// </summary>
+    /// <remarks>
+    ///     What buys the cache anything at all: a cascade cut wider than the slice it has to cover is
+    ///     kept while it still covers one, so the projection stops moving and the cached depth stays
+    ///     meaningful. It is paid for in resolution — the same texels over <c>(1 + slack)²</c> of the
+    ///     area, so 1.5625× at 0.25 — which is why it is zero by default and named here rather than
+    ///     implied by <see cref="StaticStage" />.
+    /// </remarks>
+    public float Slack { get; init; }
 }
 
 /// <summary>The sun's shadow as a virtual map: doc 22 phase 7.</summary>

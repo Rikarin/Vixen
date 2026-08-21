@@ -543,4 +543,51 @@ public sealed class MeshExtractionTests : IDisposable {
 
         return entity;
     }
+
+    // ------------------------------------------------------ the static caster split
+
+    /// <summary>
+    ///     An entity claiming to be static is stamped with the other mask, and its neighbours are not.
+    /// </summary>
+    /// <remarks>
+    ///     The whole mechanism behind <c>ShadowMapRenderer.StaticCasterStage</c>: that node caches one
+    ///     stage and redraws another, and the only thing it needs from the world is the level's casters
+    ///     in one and the movers in the other. A stage is exactly that split, so no filtering machinery
+    ///     was needed — only a way for an entity to say which side it is on.
+    /// </remarks>
+    [Fact]
+    public void AStaticShadowCasterIsStampedWithTheStaticMask() {
+        var still = system.AddStage(new("ShadowStatic"));
+
+        extraction.StaticStages = still.Mask;
+
+        using var world = new World();
+        var level = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+        var mover = Shaped(world, PrimitiveKind.Cube, Vector3.UnitX);
+
+        world.Add<StaticShadowCaster>(level);
+        extraction.Extract(world);
+
+        Assert.Equal(still.Mask, system.Objects[world.Read<RenderHandle>(level).Object].Stages);
+        Assert.Equal(opaque.Mask, system.Objects[world.Read<RenderHandle>(mover).Object].Stages);
+    }
+
+    /// <summary>
+    ///     With no static mask the claim is ignored, rather than obeyed with a mask of none.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The difference between the two is a level that casts no shadows at all. A project that has
+    ///     not opted into a cached sun draws one caster stage with everything in it, and a scene of
+    ///     somebody else's that happens to carry the tag must not silently lose its geometry from it.
+    /// </remarks>
+    [Fact]
+    public void WithNoStaticMaskTheClaimIsIgnored() {
+        using var world = new World();
+        var level = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+
+        world.Add<StaticShadowCaster>(level);
+        extraction.Extract(world);
+
+        Assert.Equal(opaque.Mask, system.Objects[world.Read<RenderHandle>(level).Object].Stages);
+    }
 }

@@ -130,6 +130,33 @@ public sealed class GraphicsOptions {
     public IList<string> CasterStages { get; } = [];
 
     /// <summary>
+    ///     Which caster stages an entity claiming to be static goes into instead.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The host's half of <c>ShadowMapRenderer.StaticCasterStage</c>, and it does nothing
+    ///         on its own.</b> Three things have to agree before a frame caches its sun shadow: the
+    ///         document's <c>!ShadowMap</c> names a <c>staticStage:</c> and a non-zero <c>slack:</c>,
+    ///         this names the same stage, and the scene puts
+    ///         <c>Vixen.Rendering.Ecs.StaticShadowCaster</c> on the geometry that never moves. Any one
+    ///         of the three missing is a frame that draws correctly and caches nothing.
+    ///     </para>
+    ///     <para>
+    ///         The names here <em>replace</em> <see cref="CasterStages" /> for a tagged entity rather
+    ///         than adding to it — an object in both stages is drawn into the cache and then again on
+    ///         top of it, which is the whole level rasterised twice per cascade and a cache that costs
+    ///         rather than pays. <see cref="Stage" /> is still in both, because the camera has to see
+    ///         the level whichever caster stage it casts from.
+    ///     </para>
+    ///     <para>
+    ///         Empty leaves the claim ignored, which is what every project that has not opted in
+    ///         wants: one caster stage with everything in it. See
+    ///         <c>MeshExtractionSystem.StaticStages</c> for why the default is not a mask of none.
+    ///     </para>
+    /// </remarks>
+    public IList<string> StaticCasterStages { get; } = [];
+
+    /// <summary>
     ///     The name of the stage particle emitters are drawn in, or empty for a frame with none.
     /// </summary>
     /// <remarks>

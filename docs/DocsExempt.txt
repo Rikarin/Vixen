@@ -3825,3 +3825,4 @@ T:Vixen.Xr.XrViewport sweep-pending
 T:Vixen.Xr.XrVulkanBinding sweep-pending
 T:Vixen.Xr.XrVulkanRequirements sweep-pending
 L:14074 sample-log
+L:14075 sample-log

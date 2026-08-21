@@ -1033,13 +1033,18 @@ Vixen.Rendering.Compositor.ShadowMapAsset.Resolution.init -> int
 Vixen.Rendering.Compositor.ShadowMapAsset.ShadowDistance.get -> float
 Vixen.Rendering.Compositor.ShadowMapAsset.ShadowDistance.init -> float
 Vixen.Rendering.Compositor.ShadowMapAsset.ShadowMapAsset() -> void
+Vixen.Rendering.Compositor.ShadowMapAsset.Slack.get -> float
+Vixen.Rendering.Compositor.ShadowMapAsset.Slack.init -> float
 Vixen.Rendering.Compositor.ShadowMapAsset.SplitLambda.get -> float
 Vixen.Rendering.Compositor.ShadowMapAsset.SplitLambda.init -> float
 Vixen.Rendering.Compositor.ShadowMapAsset.Stage.get -> string
 Vixen.Rendering.Compositor.ShadowMapAsset.Stage.init -> string
+Vixen.Rendering.Compositor.ShadowMapAsset.StaticStage.get -> string
+Vixen.Rendering.Compositor.ShadowMapAsset.StaticStage.init -> string
 Vixen.Rendering.Compositor.ShadowMapAsset.View.get -> string
 Vixen.Rendering.Compositor.ShadowMapAsset.View.init -> string
 Vixen.Rendering.Compositor.ShadowMapRenderer -> sealed class
+Vixen.Rendering.Compositor.ShadowMapRenderer : System.IDisposable
 Vixen.Rendering.Compositor.ShadowMapRenderer : Vixen.Rendering.Compositor.SceneRenderer
 Vixen.Rendering.Compositor.ShadowMapRenderer.AspectRatio.get -> float
 Vixen.Rendering.Compositor.ShadowMapRenderer.AspectRatio.set -> float
@@ -1055,6 +1060,9 @@ Vixen.Rendering.Compositor.ShadowMapRenderer.ConstantBias.get -> float
 Vixen.Rendering.Compositor.ShadowMapRenderer.ConstantBias.set -> float
 Vixen.Rendering.Compositor.ShadowMapRenderer.Constants.get -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.ShadowMapRenderer.Constants.set -> Vixen.Rendering.ViewConstants?
+Vixen.Rendering.Compositor.ShadowMapRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.ShadowMapRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.ShadowMapRenderer.Dispose() -> void
 Vixen.Rendering.Compositor.ShadowMapRenderer.Extrusion.get -> float
 Vixen.Rendering.Compositor.ShadowMapRenderer.Extrusion.set -> float
 Vixen.Rendering.Compositor.ShadowMapRenderer.Eye.get -> Vixen.Core.Mathematics.Vector3
@@ -1091,11 +1099,14 @@ Vixen.Rendering.Compositor.ShadowMapRenderer.StaticAtlas.get -> string
 Vixen.Rendering.Compositor.ShadowMapRenderer.StaticAtlas.set -> string
 Vixen.Rendering.Compositor.ShadowMapRenderer.StaticCasterStage.get -> Vixen.Rendering.RenderStage?
 Vixen.Rendering.Compositor.ShadowMapRenderer.StaticCasterStage.set -> Vixen.Rendering.RenderStage?
+Vixen.Rendering.Compositor.ShadowMapRenderer.StaticInvalidations.get -> int
 Vixen.Rendering.Compositor.ShadowMapRenderer.StaticRebuilds.get -> int
+Vixen.Rendering.Compositor.ShadowMapRenderer.StaticRefits.get -> int
 Vixen.Rendering.Compositor.ShadowMapRenderer.StaticVersion.get -> int
 Vixen.Rendering.Compositor.ShadowMapRenderer.StaticVersion.set -> int
 Vixen.Rendering.Compositor.ShadowMapRenderer.Sun.get -> Vixen.Rendering.ISunSource?
 Vixen.Rendering.Compositor.ShadowMapRenderer.Sun.set -> Vixen.Rendering.ISunSource?
+Vixen.Rendering.Compositor.ShadowMapRenderer.TilesDrawn.get -> int
 Vixen.Rendering.Compositor.ShadowMapRenderer.Up.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Compositor.ShadowMapRenderer.Up.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Compositor.ShadowMapRenderer.Views.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.RenderView>
@@ -1523,6 +1534,8 @@ Vixen.Rendering.Ecs.MeshExtractionSystem.ObjectCount.get -> int
 Vixen.Rendering.Ecs.MeshExtractionSystem.ResolveMaterials.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.ResolveMaterial>
 Vixen.Rendering.Ecs.MeshExtractionSystem.Stages.get -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.Ecs.MeshExtractionSystem.Stages.set -> Vixen.Rendering.RenderStageMask
+Vixen.Rendering.Ecs.MeshExtractionSystem.StaticStages.get -> Vixen.Rendering.RenderStageMask
+Vixen.Rendering.Ecs.MeshExtractionSystem.StaticStages.set -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.Ecs.MeshExtractionSystem.Virtualized.get -> Vixen.Rendering.Features.VirtualGeometryRenderFeature?
 Vixen.Rendering.Ecs.MeshExtractionSystem.Virtualized.set -> Vixen.Rendering.Features.VirtualGeometryRenderFeature?
 Vixen.Rendering.Ecs.MeshExtractionSystem.VirtualizedCount.get -> int
@@ -1612,6 +1625,9 @@ Vixen.Rendering.Ecs.SpherePostProcessShape.Contains(Vixen.Core.Mathematics.Vecto
 Vixen.Rendering.Ecs.SpherePostProcessShape.Radii.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape() -> void
 Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Vector3 radii) -> void
+Vixen.Rendering.Ecs.StaticShadowCaster -> struct
+Vixen.Rendering.Ecs.StaticShadowCaster : Vixen.Ecs.ITagComponent
+Vixen.Rendering.Ecs.StaticShadowCaster.StaticShadowCaster() -> void
 Vixen.Rendering.Ecs.VfxEmitter -> struct
 Vixen.Rendering.Ecs.VfxEmitter : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.VfxEmitter>
 Vixen.Rendering.Ecs.VfxEmitter.Effect -> Vixen.Core.AssetReference
@@ -1851,6 +1867,8 @@ Vixen.Rendering.Features.MaterialRenderFeature.SortGroupOf(Vixen.Rendering.Rende
 Vixen.Rendering.Features.MaterialRenderFeature.TextureIndices.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.ParameterKey<uint>, Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>>
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.get -> Vixen.Graphics.BindlessTable?
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.set -> Vixen.Graphics.BindlessTable?
+Vixen.Rendering.Features.MaterialRenderFeature.Unbound.get -> (string Shader, string? Stage)?
+Vixen.Rendering.Features.MaterialRenderFeature.UnboundCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UnresolvedTextureCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UploadCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UploadedRecordCount.get -> int

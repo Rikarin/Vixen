@@ -263,7 +263,7 @@ Vixen.Engine.Renderer.WorldRenderer.ParticleMaterial.get -> Vixen.Rendering.Mate
 Vixen.Engine.Renderer.WorldRenderer.ParticleMaterial.set -> Vixen.Rendering.Material
 Vixen.Engine.Renderer.WorldRenderer.ParticleMaterials.get -> Vixen.Rendering.Features.MaterialRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Particles.get -> Vixen.Rendering.Features.ParticleRenderFeature
-Vixen.Engine.Renderer.WorldRenderer.Register(Vixen.Engine.Frames.EngineLoop loop, Vixen.Rendering.RenderStageMask stages, Vixen.Rendering.RenderStageMask particleStages = default(Vixen.Rendering.RenderStageMask)) -> void
+Vixen.Engine.Renderer.WorldRenderer.Register(Vixen.Engine.Frames.EngineLoop loop, Vixen.Rendering.RenderStageMask stages, Vixen.Rendering.RenderStageMask particleStages = default(Vixen.Rendering.RenderStageMask), Vixen.Rendering.RenderStageMask staticStages = default(Vixen.Rendering.RenderStageMask)) -> void
 Vixen.Engine.Renderer.WorldRenderer.Residency.get -> Vixen.Rendering.Ecs.GeometryResidency
 Vixen.Engine.Renderer.WorldRenderer.Samplers.get -> Vixen.Rendering.SamplerCache
 Vixen.Engine.Renderer.WorldRenderer.SceneBlock.get -> Vixen.Rendering.SceneConstants

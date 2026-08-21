@@ -43,9 +43,16 @@ resources:
   # on the camera-fitted cascade centres, so the resulting shadows slid and reshaped as the camera
   # turned. The node refuses a mismatched extent by name now; keep this in step with
   # cascadeCount/resolution below.
+  #
+  # ⚠ `CopyDestination` is the `staticStage:` line on the !ShadowMap node below. With the cache on,
+  # every frame copies the cached half of the atlas into this one and then draws the movers on top —
+  # so this texture is a copy target as well as a depth target. Missing the usage is a validation
+  # error on a debug driver and undefined behaviour without the layer. The cache's *own* texture is
+  # not declared here and cannot be: every `!Resource` is transient, and the graph's pool exists to
+  # recycle precisely the memory a cache has to keep, so the node owns that one.
   - name: ShadowAtlas
     format: Depth32Float
-    usage: DepthStencilTarget, Sampled
+    usage: DepthStencilTarget, Sampled, CopyDestination
     width: 4096
     height: 4096
 
@@ -200,6 +207,48 @@ stages:
     #
     # ⚠ If acne returns, raise `SlopeBias` on the node rather than these. Raising these is what put
     # the sun inside the building.
+    depthBias: 0.0
+    depthBiasSlope: 0.0
+    depthClamp: true
+
+  # ── the cascades' other half ───────────────────────────────────────────────────────────────────
+  # The level's own geometry, drawn into the sun's cache rather than into its working atlas — see
+  # `staticStage:` on the !ShadowMap node below, and `StaticCasterStages` in ThirdPersonShooterGame,
+  # which is what puts an entity's bit here instead of in `Shadow`.
+  #
+  # ⚠ **Every setting has to match `Shadow` exactly**, and not because it is tidy: the two stages are
+  # rasterised into the *same* atlas — one through the cache and a copy, one directly — and a fragment
+  # shadowed by a wall recorded with one bias and a crate recorded with another is a shadow term with
+  # a seam down it wherever the two meet. They are two stages only so that a node can draw one of them
+  # less often.
+  #
+  # ⚠ **An object must be in this stage or in `Shadow`, never both.** In both, the level is rasterised
+  # into the cache and then again on top of it every frame — which is the uncached frame plus a
+  # whole-atlas copy, the exact trade this arrangement exists to avoid making.
+  - name: ShadowStatic
+    shader: ShadowCaster
+    cull: Back
+    depthBias: 0.0
+    depthBiasSlope: 0.0
+    depthClamp: true
+
+  # ── every caster, for the two atlases that are not split ───────────────────────────────────────
+  # Movers and level alike. It exists because the cascades' casters are now split in two and the
+  # other two shadow consumers must not be: a lamp's tile is cached whole — `cached: true` on
+  # !PunctualShadows — and a virtual shadow page is a page of the *world* rather than of a frame, so
+  # neither has a static and a dynamic half to keep apart.
+  #
+  # ⚠ **Both of them, and forgetting the second is a picture rather than an error.** !PunctualShadows
+  # drawing half the level lights the other half through its own walls. !VirtualShadow drawing half
+  # the level is worse and much quieter: `ClusteredShading.Shadow` takes the map's answer wherever it
+  # has a drawn page and falls through to the cascades only where it does not — so a level missing
+  # from the pages is a level that stops casting a sun shadow over most of the screen, while the
+  # cascades behind it stay perfectly correct and every counter reads healthy. That is what naming
+  # `Shadow` here cost while the cascades were being split, and it is why this stage is named for
+  # what is in it rather than for whichever node happened to want it first.
+  - name: ShadowAll
+    shader: ShadowCaster
+    cull: Back
     depthBias: 0.0
     depthBiasSlope: 0.0
     depthClamp: true
@@ -390,6 +439,28 @@ game: !Sequence
       shadowDistance: 90.0
       splitLambda: 0.85
 
+      # ⚠ **The static cache, and the two lines are one switch — either alone is a slower frame.**
+      # `staticStage:` says which stage holds the casters that never move: the node draws it into a
+      # cache of its own and copies the cache into ShadowAtlas every frame, so this level's walls,
+      # crates and lamp posts are rasterised into four cascades once instead of four times a frame.
+      # `slack:` is what makes that worth anything — a cascade cut exactly to its slice re-fits the
+      # moment the camera moves a texel, and a re-fit invalidates the whole cache, so the frame would
+      # be everything the uncached one drew plus a 64 MB copy. Cut 25% wider, a cascade is kept while
+      # it still covers its slice.
+      #
+      # ⚠ The price is resolution, and it is stated rather than free: the same 2048² texels now cover
+      # 1.5625× the area, so the nearest cascade's texel goes from about 3 cm to about 3.7 cm at this
+      # shadow distance. That is the trade — a slightly softer contact shadow for the level's geometry
+      # leaving the caster pass. Raise `resolution` rather than dropping `slack` if it shows.
+      #
+      # ⚠ **The scene has to agree, and nothing here can check that it does.** An entity reaches
+      # ShadowStatic only by carrying `!StaticShadowCaster`, and "static" is a claim the scene makes:
+      # an entity that carries it and then moves keeps the shadow it was first drawn with. Arena.cs
+      # puts it on everything the level file placed, because in this sample everything that moves is
+      # spawned in code afterwards.
+      staticStage: ShadowStatic
+      slack: 0.25
+
     # ── the lamps' shadows ──────────────────────────────────────────────────────────────────────
     # The node this document has had all along, now with somebody to give its atlas to.
     #
@@ -418,9 +489,12 @@ game: !Sequence
     # whose lifetime ends inside one. The declaration stays because that is where an extent is
     # written down and the node still checks it — see the resource's own note — but what a shading
     # pass resolves under this name is the node's texture.
+    # ⚠ `stage: ShadowAll` rather than `Shadow`, and the reason is the cascades' cache one node up:
+    # their casters are now split into the level's and the movers', and a lamp's atlas needs both.
+    # Naming either half here shadows a lamp with half the level and leaks light through the rest.
     - !PunctualShadows
       name: Lamps
-      stage: Shadow
+      stage: ShadowAll
       atlas: PunctualShadowAtlas
       resolution: 256
       tilesPerSide: 11
@@ -740,9 +814,13 @@ game: !Sequence
     # eight values written for nobody. The other half is Arena.Paint composing VirtualShadowLookup
     # behind ForwardPlus.directionalShadow — the slot without the passes line is a set written
     # short, the passes line without the slot is a map rendered for nobody.
+    # ⚠ `stage: ShadowAll`, on the lamps' terms and for a louder reason: a page is a page of the
+    # world, and this map *outranks* the cascades wherever it has a drawn page — so naming the
+    # movers' half here deletes the level's sun shadow from most of the screen while the cascades
+    # behind it stay correct. See the stage's own note; that is a measured mistake, not a worry.
     - !VirtualShadow
       name: SunPages
-      stage: Shadow
+      stage: ShadowAll
       depth: SceneDepth
       view: Camera
       levels: 8

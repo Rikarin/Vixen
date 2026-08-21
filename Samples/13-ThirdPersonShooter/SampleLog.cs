@@ -39,6 +39,22 @@ static partial class SampleLog {
     )]
     public static partial void CollisionBuilt(ILogger logger, int colliders, int shapes);
 
+    /// <summary>
+    ///     ⚠ Said at load, because a level with none of these looks exactly like a level with all of
+    ///     them. The sun's cache is a stage split — the geometry in <c>ShadowStatic</c> is rasterised
+    ///     once instead of every frame — and if nothing carries the claim, the stage is empty, the
+    ///     cache is drawn once with nothing in it, the copy still runs and the frame is strictly
+    ///     slower than leaving the whole thing off.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14075,
+        Level = LogLevel.Information,
+        Message = "Claimed {Casters} of the level's drawable(s) as static shadow casters, so the sun's cache "
+            + "keeps them. Zero with a staticStage: in the document is a cache that costs a copy and "
+            + "saves nothing."
+    )]
+    public static partial void LevelMarkedStatic(ILogger logger, int casters);
+
     [LoggerMessage(
         EventId = 14052,
         Level = LogLevel.Information,
