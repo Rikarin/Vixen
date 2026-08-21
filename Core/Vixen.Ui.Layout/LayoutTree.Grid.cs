@@ -193,6 +193,11 @@ public sealed partial class LayoutTree {
             item.ResolvedInlineSize = AreaSize(in columnAxis, item.ColumnStart, item.ColumnSpan);
         }
 
+        // ── §11.8, and it has to happen here ────────────────────────────────────────────────────
+        // The shim is an input to §12 rather than an output of it, so it is resolved after the
+        // columns (an item's baseline depends on the inline size it was given) and before the rows.
+        ResolveBaselineShims(index, placement.ItemsAt, placement.ItemCount, direction, ownerWidth, ownerHeight, currentDepth);
+
         // ── The block axis ──────────────────────────────────────────────────────────────────────
         var rowsAt = BuildGridTracks(
             in styles[index].GridTemplateRows,
@@ -258,6 +263,138 @@ public sealed partial class LayoutTree {
             );
         }
     }
+
+    /// <summary>CSS Grid §11.8: how far each baseline-aligned item drops to meet its row's baseline.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A baseline-sharing group is a row, and the shim is a contribution rather than an
+    ///         offset.</b> §12.5 step 1 folds the distance from an item's own baseline to its group's
+    ///         into the size it contributes to its track, so a 20-point item whose baseline is 10
+    ///         points down, sharing a row with a 50-point item whose baseline is at its bottom edge,
+    ///         asks its row for 40 + 20 rather than for 20. Sizing the rows first and shifting the
+    ///         items afterwards gets the second number right and the first one wrong, which is a
+    ///         row that is too short by exactly the shim.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The probe lays the item out for real, and it has to.</b> An item's baseline is
+    ///         either its own bottom edge or a descendant's, and
+    ///         <see cref="CalculateBaseline" />'s descent reads
+    ///         <c>Position[Edge.Top]</c> — which a measurement pass never writes. So this is the one
+    ///         place in grid sizing that asks for <c>performLayout: true</c>. It costs a layout of
+    ///         each baseline-aligned item, which is why the whole pass is skipped unless one exists;
+    ///         the result is thrown away and recomputed against the real area in
+    ///         <see cref="PlaceGridItemBoxes" />, and the two calls differ in their arguments, so the
+    ///         layout cache does not confuse them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Only items with a row span of exactly 1 join a group. §11.8 says so, and the reason
+    ///         is the same circularity §6.6 avoids: an item spanning two rows has no single row to
+    ///         push against, and letting it set a shared baseline would make a row's size depend on a
+    ///         row that depends on it. A spanning item is aligned as though it said <c>start</c>.
+    ///     </para>
+    /// </remarks>
+    void ResolveBaselineShims(
+        int index,
+        int itemsAt,
+        int itemCount,
+        Direction direction,
+        float ownerWidth,
+        float ownerHeight,
+        int currentDepth
+    ) {
+        var participants = 0;
+
+        for (var at = 0; at < itemCount; at++) {
+            var itemAt = itemsAt + at;
+
+            // ⚠ Never a `ref` held across the layout call below: the item store grows when a nested
+            // grid asks for room, and the reference would point into the array that was replaced.
+            // See the remarks on GridScratch.
+            Scratch.Item(itemAt).BaselineShim = 0f;
+            Scratch.Item(itemAt).OwnBaseline = float.NaN;
+
+            var child = Scratch.Item(itemAt).Node;
+            if (Scratch.Item(itemAt).RowSpan != 1 || GridItemAlign(index, child) != Align.Baseline) {
+                continue;
+            }
+
+            var inlineSize = Scratch.Item(itemAt).ResolvedInlineSize;
+            var marginRow = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, ownerWidth);
+            var marginColumn = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, ownerWidth);
+
+            // ⚠ <b>The stated height has to be resolved here for the same reason
+            // <see cref="MeasureGridItem" /> resolves it</b>: a childless box answers a max-content
+            // block request with its padding and border and nothing else, so an empty
+            // <c>height: 20px</c> item measures zero tall — and a synthesised baseline <i>is</i> the
+            // bottom edge, so every plain item in the group would report a baseline of zero and the
+            // shims would come out inverted. That is not a hypothetical; it is what the first
+            // version of this pass did.
+            var statedHeight = StyleResolution.ProcessedDimension(in styles[child], Dimension.Height).Unit == LayoutUnit.Point
+                ? ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction)
+                : float.NaN;
+
+            if (!float.IsNaN(statedHeight)) {
+                statedHeight = BoundAxisWithinMinAndMax(child, direction, FlexDirection.Column, statedHeight, ownerHeight, ownerWidth);
+            }
+
+            CalculateLayoutInternal(
+                child,
+                inlineSize,
+                float.IsNaN(statedHeight) ? float.NaN : statedHeight + marginColumn,
+                direction,
+                float.IsNaN(inlineSize) ? SizingMode.MaxContent : SizingMode.StretchFit,
+                float.IsNaN(statedHeight) ? SizingMode.MaxContent : SizingMode.StretchFit,
+                float.IsNaN(inlineSize) ? ownerWidth : MathF.Max(0f, inlineSize - marginRow),
+                ownerHeight,
+                performLayout: true,
+                currentDepth
+            );
+
+            // The baseline of the item's *outer* box, because the shim shifts the outer box and the
+            // row is sized in outer sizes.
+            var marginTop = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, ownerWidth);
+
+            Scratch.Item(itemAt).OwnBaseline = marginTop.OrZero() + CalculateBaseline(child);
+            participants++;
+        }
+
+        if (participants == 0) {
+            return;
+        }
+
+        // Each group's deepest baseline is the one the others drop to. Quadratic over the items of
+        // one container, which is what the alternative — a per-row array out of the scratch — would
+        // cost to allocate for the handful of items a grid holds.
+        for (var at = 0; at < itemCount; at++) {
+            var own = Scratch.Item(itemsAt + at).OwnBaseline;
+            if (float.IsNaN(own)) {
+                continue;
+            }
+
+            var row = Scratch.Item(itemsAt + at).RowStart;
+            var deepest = own;
+
+            for (var other = 0; other < itemCount; other++) {
+                var candidate = Scratch.Item(itemsAt + other).OwnBaseline;
+                if (!float.IsNaN(candidate) && Scratch.Item(itemsAt + other).RowStart == row) {
+                    deepest = MathF.Max(deepest, candidate);
+                }
+            }
+
+            Scratch.Item(itemsAt + at).BaselineShim = deepest - own;
+        }
+    }
+
+    /// <summary>The block-axis alignment one grid item ends up with.</summary>
+    /// <remarks>
+    ///     ⚠ Not <see cref="ResolveChildAlignment" />: that one degrades <c>baseline</c> to
+    ///     <c>flex-start</c> whenever the container's <c>flex-direction</c> is a column, which is a
+    ///     flex rule reached through a property a grid container does not use. This store's default
+    ///     <c>FlexDirection</c> is <c>Column</c>, so borrowing it would turn baseline alignment off
+    ///     for every grid that did not happen to say <c>flex-direction: row</c>.
+    /// </remarks>
+    Align GridItemAlign(int index, int child) =>
+        styles[child].AlignSelf == Align.Auto ? styles[index].AlignItems : styles[child].AlignSelf;
 
     /// <summary>A node's own stated size on an axis, clamped, or NaN when it has none.</summary>
     float ResolvedBoundedDimension(int index, Dimension dimension, Direction direction, float ownerWidth, float ownerHeight) {
@@ -453,7 +590,9 @@ public sealed partial class LayoutTree {
         }
 
         for (var at = 0; at < columnAxis.ItemCount; at++) {
-            ref var item = ref Scratch.Item(columnAxis.ItemsAt + at);
+            // ⚠ Read out, not held: `CalculateLayoutInternal` below may grow the item store, and a
+            // `ref` taken here would point into the array it replaced. See GridScratch's remarks.
+            var item = Scratch.Item(columnAxis.ItemsAt + at);
             var child = item.Node;
 
             var areaX = Scratch.Track(columnAxis.TracksAt + item.ColumnStart).Offset;
@@ -529,6 +668,11 @@ public sealed partial class LayoutTree {
 
             var offsetX = AlignInArea(areaWidth, usedWidth, marginStart, marginEnd, startIsAuto, endIsAuto, justify, out var usedStart, out var usedEnd);
             var offsetY = AlignInArea(areaHeight, usedHeight, marginTop, marginBottom, topIsAuto, bottomIsAuto, align, out var usedTop, out var usedBottom);
+
+            // §11.8: a baseline-aligned item starts where its group's baseline puts it. `AlignInArea`
+            // has already placed it at the area's start — the shim is the rest of the answer, and the
+            // row was sized to hold it by `MeasureGridItem`.
+            offsetY += item.BaselineShim;
 
             // ⚠ <b>The inline axis is mirrored for RTL here and nowhere else.</b> §12 has no opinion
             // about direction — it lays tracks out from the content box's start at offset zero — and
@@ -731,12 +875,14 @@ public sealed partial class LayoutTree {
                 measured = results[child].MeasuredDimensions[(int) Dimension.Height];
             }
 
-            var height = MathF.Max(0f, measured) + marginColumn;
+            // §12.5 step 1: a baseline-aligned item contributes the shim that carries it down to its
+            // group's baseline as well as its own outer size. See ResolveBaselineShims.
+            var height = MathF.Max(0f, measured) + marginColumn + item.BaselineShim;
 
             // §6.6 applies to the block axis too: an item spanning several tracks, one of which is
             // flexible, has an automatic minimum of zero however tall its contents are.
             var blockMinimum = automaticMinimumIsZero && float.IsNaN(statedHeight) && !styles[child].MinDimensions[(int) Dimension.Height].IsDefined
-                ? marginColumn
+                ? marginColumn + item.BaselineShim
                 : height;
 
             return new GridContribution(blockMinimum, height, height);
