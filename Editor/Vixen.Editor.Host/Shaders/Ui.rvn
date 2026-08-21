@@ -468,12 +468,21 @@ shader UiImage {
     func Fragment(): float4 {
         val sampled = source.Sample(sourceSampler, uv)
 
-        // ⚠ The sampled texture is straight alpha and the target is premultiplied, which is what the
-        // other three pipelines write and therefore what the blend state expects. Multiplying the
-        // tint's alpha in as well is what makes a faded-out image fade rather than turn into a dark
-        // rectangle.
+        // ⚠ The target is premultiplied — that is what the other three pipelines write and what the
+        // blend state expects — and the *source* is premultiplied on exactly one of the two paths
+        // through here. A texture a host uploaded holds straight alpha, so its colour has to be
+        // multiplied by its own coverage on the way out; a composited group's surface was written by
+        // these same pipelines and already has been. Doing it twice darkens every partly covered
+        // texel, which reads as a dark fringe around everything inside the group.
         val alpha = sampled.a * colour.a
 
-        return float4(sampled.rgb * colour.rgb * alpha, alpha)
+        // ⚠ `shape.x` is what says which, and zero is the straight-alpha case every image quad
+        // already carries — see `UiGeometryBuilder.Layer`, which is the only thing that emits a one.
+        // The out alpha is the same either way: premultiplied is `sampled.a * colour.a` too, because
+        // `sampled.a` *is* the coverage in both encodings. Only the colour's factor differs, so this
+        // is one interpolation rather than two branches.
+        val scale = lerp(alpha, colour.a, shape.x)
+
+        return float4(sampled.rgb * colour.rgb * scale, alpha)
     }
 }

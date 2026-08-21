@@ -173,6 +173,72 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     BufferHandle imageBoxes;
 
+    /// <summary>What a composited group's surface is rendered into and sampled back through.</summary>
+    /// <param name="Texture">The surface, the size of the whole viewport.</param>
+    /// <param name="View">What the composite's descriptor set points at.</param>
+    /// <param name="Image">The number the composite draw names it by, from <c>UiGeometryBuilder</c>.</param>
+    sealed record LayerSurface(TextureHandle Texture, TextureViewHandle View, ulong Image) {
+        /// <summary>What the last barrier left it in.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Per surface and not one flag for all of them</b>, for the reason
+        ///     <c>UploadAtlas</c> gives: the state a barrier claims a texture was in has to be the
+        ///     state it was in, and a surface allocated because this frame has one group more than
+        ///     the last has never been written. A shared flag would say <c>ShaderRead</c> of it and
+        ///     be a validation error on exactly the frame a group was added.
+        /// </remarks>
+        public ResourceState State { get; set; } = ResourceState.Undefined;
+    }
+
+    /// <summary>One surface per composited group, keyed by the number its composite draw names it by.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Keyed by <see cref="UiLayer.Image" /> and <i>not</i> by the group's position in
+    ///         <see cref="UiGeometry.Layers" />, which are not the same number and look like they
+    ///         are.</b> The list is sorted in pre-order — outermost group first — while the number is
+    ///         handed out by a counter that ticks when a group <i>closes</i>, and groups close
+    ///         innermost first. So in a frame with a group inside a group, the outer one is
+    ///         <c>Layers[0]</c> and carries <c>LayerImage(1)</c>. Indexing the surfaces by position
+    ///         hands each group the other one's texture, and what the device says about it is a layout
+    ///         error rather than anything about compositing — the surface being sampled is the one
+    ///         still open as a colour attachment.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Kept between frames rather than allocated per frame, and <i>one</i> each rather
+    ///         than one per frame in flight.</b> A viewport-sized colour target is the most expensive
+    ///         thing this renderer owns, so a ring of them would multiply the cost of a translucent
+    ///         group by <see cref="slots" /> to solve a hazard a barrier already solves: the
+    ///         transition back to <see cref="ResourceState.ColourTarget" /> at the top of
+    ///         <see cref="Compose" /> names the shader stages as its source, which orders the previous
+    ///         frame's sampling of this surface before this frame's writing of it. That is an
+    ///         execution dependency across submissions on one queue, which is exactly what a
+    ///         write-after-read needs and all it needs — the glyph atlas is a single texture
+    ///         re-uploaded every frame on the same argument.
+    ///     </para>
+    /// </remarks>
+    readonly Dictionary<ulong, LayerSurface> layerSurfaces = [];
+
+    /// <summary>The format a layer surface is, which is the format the pipelines were built for.</summary>
+    /// <remarks>
+    ///     ⚠ A surface in another format is a pipeline the device will not let the pass use. It is
+    ///     read off the output rather than fixed, because the whole point of the surface is that the
+    ///     same four pipelines draw into it as into the frame.
+    /// </remarks>
+    readonly PixelFormat layerFormat;
+
+    int layerWidth;
+    int layerHeight;
+
+    /// <summary>How many of this frame's groups <see cref="Compose" /> actually rendered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero is the honest answer and not a failure, which is what keeps a host that never
+    ///     calls <see cref="Compose" /> drawing what it drew before.</b> <see cref="Record" /> skips a
+    ///     group's own draws only when its surface exists; with none, the walk is the flat one over
+    ///     every draw in order that this renderer has always done, the composite quads are skipped for
+    ///     want of a registered texture, and the frame is the un-isolated approximation
+    ///     <c>DrawListBuilder.Compositing</c> being off produces anyway.
+    /// </remarks>
+    int composed;
+
     BufferHandle atlasStaging;
     int atlasWidth;
     int atlasHeight;
@@ -257,6 +323,8 @@ public sealed class UiRenderer : IDisposable {
         if (shaders.Image.IsValid) {
             imagePipeline = Pipeline(shaders.Image, output, "ui image");
         }
+
+        layerFormat = output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm;
     }
 
     /// <summary>How many draws the last <see cref="Record" /> submitted.</summary>
@@ -265,6 +333,17 @@ public sealed class UiRenderer : IDisposable {
     ///     costs that cannot be measured is one nobody can check.
     /// </remarks>
     public int Draws { get; private set; }
+
+    /// <summary>How many groups the last <see cref="Compose" /> rendered a surface for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only observer the whole arrangement has, and a test that does not read it can
+    ///     pass without a single group having been composited.</b> A frame whose groups were left
+    ///     uncomposed still draws — it draws the un-isolated approximation, which on anything opaque
+    ///     is the same picture. So "the two renderers agree" is a claim about nothing unless this is
+    ///     also non-zero. It is the count of surfaces and so also the count of extra render passes
+    ///     the frame cost, which is the other thing worth being able to check.
+    /// </remarks>
+    public int Composited => composed;
 
     /// <summary>How many descriptor sets registering images has ever allocated.</summary>
     /// <remarks>
@@ -362,6 +441,149 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
+        var bound = default(Bindings);
+        Submit(commands, geometry, self: -1, surface, scale, ref bound);
+    }
+
+    /// <summary>
+    ///     Renders this frame's composited groups into surfaces of their own. Called outside a render
+    ///     pass, after <see cref="Upload" /> and before <see cref="Record" />.
+    /// </summary>
+    /// <param name="commands">A list that is not inside a pass, because each group opens one.</param>
+    /// <param name="geometry">The frame's geometry, already uploaded.</param>
+    /// <param name="surface">The size of the target, in the geometry's own units. As <see cref="Record" />.</param>
+    /// <param name="scale">How many framebuffer pixels one of those units is. As <see cref="Record" />.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An entry point of its own, in the shape of <see cref="Upload" />, because a render
+    ///         pass cannot be opened inside one.</b> A group is a pass — it clears a surface, draws a
+    ///         subtree into it and stores the result — and <see cref="Record" /> is called by a host
+    ///         that has already begun the frame's pass. Recursing there would be
+    ///         <c>"'…' began while '…' already had a pass open. Passes do not nest."</c> from the
+    ///         Vulkan backend, or the same rule unenforced and undefined on a backend that does not
+    ///         check. So the passes are recorded first, before the caller's own begins, and
+    ///         <see cref="Record" /> meets their results as ordinary registered textures.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Optional, and a host that never calls it draws what it drew before.</b> See
+    ///         <see cref="composed" />: the skip in <c>Submit</c> is conditional on a surface
+    ///         existing, so the flat walk is still what a frame with no composited group gets — and
+    ///         still what a frame with one gets from a host that has not adopted this. Nothing throws
+    ///         and no picture is left half-drawn.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Innermost first, which is what reverse pre-order buys.</b>
+    ///         <see cref="UiGeometry.Layers" /> is sorted so that a group comes before every group
+    ///         nested in it; walking it backwards therefore renders every group's children before the
+    ///         group itself, which is the order the dependency runs in — an outer group's pass
+    ///         <i>samples</i> its children's surfaces.
+    ///     </para>
+    /// </remarks>
+    public void Compose(ICommandList commands, in UiGeometry geometry, Int2 surface, float scale = 1f) {
+        ArgumentNullException.ThrowIfNull(commands);
+
+        composed = 0;
+
+        if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
+            return;
+        }
+
+        if (surface.X <= 0 || surface.Y <= 0 || scale <= 0f || !imagePipeline.IsValid) {
+            // ⚠ No image pipeline means no shader to composite a surface back with, so rendering the
+            // surfaces would cost a pass each and put nothing on screen. Left uncomposed, which draws
+            // the groups' contents in place — see `composed`.
+            return;
+        }
+
+        var width = (int) MathF.Ceiling(surface.X * scale);
+        var height = (int) MathF.Ceiling(surface.Y * scale);
+
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+
+        EnsureSurfaces(geometry, width, height);
+        composed = geometry.Layers.Count;
+
+        for (var index = geometry.Layers.Count - 1; index >= 0; index--) {
+            var target = layerSurfaces[geometry.Layers[index].Image];
+
+            // ⚠ The source half names the shader stages, and that is what makes one surface per group
+            // enough rather than one per frame in flight. See `layerSurfaces`: the hazard is this
+            // frame's colour writes overtaking the *previous* frame's sampling of the same texture,
+            // and an execution dependency from the shader stages to the colour-attachment stage is
+            // exactly the ordering a write-after-read wants. `Undefined` on the first frame, because a
+            // texture nothing has written has no contents to preserve and claiming otherwise is a
+            // validation error on exactly one frame.
+            commands.Barrier(new([], [new(target.Texture, target.State, ResourceState.ColourTarget)]));
+
+            // Transparent black, not the frame's background: a group composites *over* whatever is
+            // already on the target, so starting its surface from that would blend it in twice.
+            commands.BeginRenderPass(
+                new(
+                    [new(target.View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 0f))],
+                    name: "ui layer " + index.ToString(CultureInfo.InvariantCulture)
+                )
+            );
+
+            // ⚠ Nothing carries over a pass boundary — not the pipeline, not the descriptor set, not
+            // the push constants — so each group's pass starts from an empty binding state. Sharing
+            // one across the passes is the optimisation that looks free and is a frame drawn with
+            // whatever the last pass left bound.
+            var bound = default(Bindings);
+            Submit(commands, geometry, index, surface, scale, ref bound);
+
+            commands.EndRenderPass();
+
+            commands.Barrier(
+                new([], [new(target.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
+            );
+
+            target.State = ResourceState.ShaderRead;
+        }
+    }
+
+    /// <summary>What is bound within one pass, so that a run of draws rebinds only what changes.</summary>
+    struct Bindings {
+        public PipelineHandle Pipeline;
+        public DescriptorSetHandle Set;
+        public bool Pushed;
+        public bool Geometry;
+    }
+
+    /// <summary>Submits one group's draws, or the whole frame's when <paramref name="self" /> is -1.</summary>
+    /// <param name="commands">Where to record. Already inside the pass these draws belong to.</param>
+    /// <param name="geometry">The frame's geometry.</param>
+    /// <param name="self">Which layer's range to submit, or -1 for the frame's top level.</param>
+    /// <param name="surface">The target size in geometry units.</param>
+    /// <param name="scale">Framebuffer pixels per geometry unit.</param>
+    /// <param name="bound">What this pass has bound so far.</param>
+    /// <remarks>
+    ///     ⚠ <b>A group already rendered into a surface contributes its <i>composite</i> and not its
+    ///     contents, and drawing both is the failure this walk exists to prevent.</b> The composite
+    ///     quad sits immediately after the group's own draws — see <c>UiGeometryBuilder.Layer</c> — so
+    ///     jumping to the end of the range puts the group on screen exactly once. Drawing the contents
+    ///     as well would paint the subtree twice, at full opacity underneath and faded on top, which
+    ///     is a picture that looks nearly right on anything opaque and obviously wrong on text.
+    /// </remarks>
+    void Submit(
+        ICommandList commands,
+        in UiGeometry geometry,
+        int self,
+        Int2 surface,
+        float scale,
+        ref Bindings bound
+    ) {
+        var layers = geometry.Layers;
+        var from = self < 0 ? 0 : layers[self].First;
+        var to = self < 0 ? geometry.Draws.Count : layers[self].First + layers[self].Count;
+
+        // ⚠ Clamped rather than trusted, because <see cref="composed" /> is a count taken from the
+        // *last* geometry <see cref="Compose" /> saw. A host that composed one frame and recorded a
+        // different one is misusing the pair — the contract is that they are called together — but
+        // the shape of that mistake should be a group drawn uncomposited, not an index out of range.
+        var groups = Math.Min(composed, layers.Count);
+
         // Document pixels to clip space, and ⚠ <b>y is flipped</b> — which is the opposite of what
         // the reasoning "the interface's y runs down and so does Vulkan's" arrives at, and that
         // reasoning was written into this file before the picture was looked at. Vulkan's raw clip
@@ -370,75 +592,164 @@ public sealed class UiRenderer : IDisposable {
         // everywhere (Core/Vixen.Core.Mathematics/Conventions.md). A frame that agreed with the API
         // instead of with the engine draws upside down, and every unit test in `Vixen.Ui` passes
         // while it does.
+        //
+        // ⚠ The same numbers in a group's pass as in the frame's, and that is the whole of why a
+        // layer surface is the size of the viewport rather than of the group. See `UiLayer`: there is
+        // no origin to subtract, so the two paths cannot subtract it differently.
         Span<float> projection = [2f / surface.X, -2f / surface.Y, -1f, 1f];
 
-        // ⚠ At this frame's region. The indices stay zero-based because the vertex binding moves
-        // with them — an index is relative to the bound vertex offset, which is exactly why the ring
-        // costs nothing downstream.
-        commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
-        commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
+        var draw = from;
 
-        var bound = default(PipelineHandle);
-        var boundSet = default(DescriptorSetHandle);
-        var pushed = false;
+        // The first group nested inside this one, in pre-order. -1 + 1 is zero, which is the frame's
+        // first group, so the top level needs no special case.
+        var child = self + 1;
 
-        foreach (var draw in geometry.Draws) {
-            var pipeline = PipelineFor(draw.Kind);
+        while (draw < to) {
+            if (child < groups && layers[child].First == draw) {
+                draw = layers[child].First + layers[child].Count;
 
-            if (!pipeline.IsValid) {
-                // An image with no image shader. Skipped rather than drawn with another pipeline,
-                // which would put the font atlas in the hole and read as a rendering fault.
+                // Past the skipped group's own descendants, which lie inside the range just jumped
+                // over. Without this the grandchildren would be skipped again against the composite
+                // draws that follow.
+                while (child < groups && layers[child].First < draw) {
+                    child++;
+                }
+
                 continue;
             }
 
-            if (pipeline != bound) {
-                commands.BindPipeline(pipeline);
-                bound = pipeline;
-            }
-
-            if (!pushed) {
-                // ⚠ After the first pipeline and then never again. It is written through the bound
-                // pipeline's layout, so there is nothing to write it through until one is bound — and
-                // because every pipeline shares one layout, a later pipeline change cannot disturb it.
-                commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
-                pushed = true;
-            }
-
-            // ⚠ Per draw rather than once, now that a draw can carry its own texture. The set is the
-            // atlas for everything except an image, so a frame with no images binds exactly once —
-            // the comparison is what keeps the old behaviour rather than a flag that used to.
-            var registered = draw.Kind == BatchKind.Image
-                ? imageDescriptors.TryGetValue(draw.Image, out var found) ? found.Sets[slot] : default
-                : atlasDescriptors[slot];
-
-            if (!registered.IsValid) {
-                // An image nobody registered. Drawing it would sample the atlas through the image
-                // shader, which is a rectangle of scrambled glyphs where the picture should be.
-                continue;
-            }
-
-            var set = registered;
-
-            if (set != boundSet) {
-                commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, set);
-                boundSet = set;
-            }
-
-            var scissor = Scissor(draw.Clip, surface, scale);
-
-            if (scissor.Width <= 0 || scissor.Height <= 0) {
-                // ⚠ Wholly clipped away — a panel scrolled off the edge, a tooltip for a window that
-                // moved. Skipped, and the honest claim for the skip is that it saves a draw call and
-                // not that it prevents anything: a zero-extent scissor is legal and draws nothing, so
-                // submitting it would produce the same picture. `Draws` is what makes the saving
-                // visible, because nothing else can be.
-                continue;
-            }
-
-            commands.SetScissor(scissor);
-            commands.DrawIndexed(draw.Count, firstIndex: draw.First);
-            Draws++;
+            SubmitDraw(commands, geometry.Draws[draw], surface, scale, projection, ref bound);
+            draw++;
         }
+    }
+
+    /// <summary>Submits one draw, binding whatever it needs that is not bound.</summary>
+    void SubmitDraw(
+        ICommandList commands,
+        in UiDraw draw,
+        Int2 surface,
+        float scale,
+        ReadOnlySpan<float> projection,
+        ref Bindings bound
+    ) {
+        var pipeline = PipelineFor(draw.Kind);
+
+        if (!pipeline.IsValid) {
+            // An image with no image shader. Skipped rather than drawn with another pipeline,
+            // which would put the font atlas in the hole and read as a rendering fault.
+            return;
+        }
+
+        if (!bound.Geometry) {
+            // ⚠ At this frame's region, and once per pass. The indices stay zero-based because the
+            // vertex binding moves with them — an index is relative to the bound vertex offset, which
+            // is exactly why the ring costs nothing downstream.
+            commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
+            commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
+            bound.Geometry = true;
+        }
+
+        if (pipeline != bound.Pipeline) {
+            commands.BindPipeline(pipeline);
+            bound.Pipeline = pipeline;
+        }
+
+        if (!bound.Pushed) {
+            // ⚠ After the first pipeline and then never again. It is written through the bound
+            // pipeline's layout, so there is nothing to write it through until one is bound — and
+            // because every pipeline shares one layout, a later pipeline change cannot disturb it.
+            commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
+            bound.Pushed = true;
+        }
+
+        // ⚠ Per draw rather than once, now that a draw can carry its own texture. The set is the
+        // atlas for everything except an image, so a frame with no images binds exactly once —
+        // the comparison is what keeps the old behaviour rather than a flag that used to.
+        var registered = draw.Kind == BatchKind.Image
+            ? imageDescriptors.TryGetValue(draw.Image, out var found) ? found.Sets[slot] : default
+            : atlasDescriptors.Length > slot ? atlasDescriptors[slot] : default;
+
+        if (!registered.IsValid) {
+            // An image nobody registered. Drawing it would sample the atlas through the image
+            // shader, which is a rectangle of scrambled glyphs where the picture should be.
+            return;
+        }
+
+        if (registered != bound.Set) {
+            commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, registered);
+            bound.Set = registered;
+        }
+
+        var scissor = Scissor(draw.Clip, surface, scale);
+
+        if (scissor.Width <= 0 || scissor.Height <= 0) {
+            // ⚠ Wholly clipped away — a panel scrolled off the edge, a tooltip for a window that
+            // moved. Skipped, and the honest claim for the skip is that it saves a draw call and
+            // not that it prevents anything: a zero-extent scissor is legal and draws nothing, so
+            // submitting it would produce the same picture. `Draws` is what makes the saving
+            // visible, because nothing else can be.
+            return;
+        }
+
+        commands.SetScissor(scissor);
+        commands.DrawIndexed(draw.Count, firstIndex: draw.First);
+        Draws++;
+    }
+
+    /// <summary>Makes sure there is a surface per group, at the size the frame is being drawn at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Recreating one re-registers its number, and this frame's set is written here rather
+    ///     than left for the next.</b> <see cref="RegisterImage" /> marks every frame's set stale and
+    ///     leaves the writing to <see cref="UploadGeometry" />, because a host registers <i>between</i>
+    ///     frames — before <see cref="slot" /> has advanced — and writing the set the just-submitted
+    ///     frame is reading is the hazard the ring exists to avoid. Here the opposite holds:
+    ///     <see cref="Compose" /> runs after <see cref="Upload" />, so <see cref="slot" /> already
+    ///     names the frame about to draw and its set is the one nobody is reading. Leaving it for the
+    ///     next frame would bind a set pointing at the view this one just destroyed.
+    /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>A size change destroys the old surfaces immediately, and a frame in flight may still
+    ///     be sampling them.</b> That is the same hazard <c>DestroyAtlas</c> takes when the glyph
+    ///     atlas is repacked to a new size, and it is taken here for the same reason: the alternative
+    ///     is a deferred-destruction queue for a case that happens when a window is resized, which is
+    ///     already the frame every other resource in the host is being rebuilt on. It is written down
+    ///     rather than argued away — a caller that resizes without letting the device drain is relying
+    ///     on it, and it is not free.
+    /// </remarks>
+    void EnsureSurfaces(in UiGeometry geometry, int width, int height) {
+        if (width != layerWidth || height != layerHeight) {
+            DestroySurfaces();
+            layerWidth = width;
+            layerHeight = height;
+        }
+
+        foreach (var layer in geometry.Layers) {
+            if (layerSurfaces.ContainsKey(layer.Image)) {
+                continue;
+            }
+
+            var name = "ui layer " + layerSurfaces.Count.ToString(CultureInfo.InvariantCulture);
+
+            var texture = device.CreateTexture(
+                new(layerFormat, width, height, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: name)
+            );
+
+            var surface = new LayerSurface(texture, device.CreateTextureView(texture), layer.Image);
+            layerSurfaces[layer.Image] = surface;
+
+            RegisterImage(surface.Image, surface.View);
+            RebindImage(imageDescriptors[surface.Image], slot);
+        }
+    }
+
+    void DestroySurfaces() {
+        foreach (var surface in layerSurfaces.Values) {
+            UnregisterImage(surface.Image);
+            device.Destroy(surface.View);
+            device.Destroy(surface.Texture);
+        }
+
+        layerSurfaces.Clear();
     }
 
     /// <summary>Names a texture, so a draw list can ask for it.</summary>
@@ -567,6 +878,10 @@ public sealed class UiRenderer : IDisposable {
 
     /// <inheritdoc />
     public void Dispose() {
+        // ⚠ Before the sets are swept, because this unregisters each surface's number — and after it
+        // the sweep below has nothing of theirs left to destroy twice.
+        DestroySurfaces();
+
         foreach (var set in imageDescriptors.Values.SelectMany(entry => entry.Sets)) {
             device.Destroy(set);
         }
