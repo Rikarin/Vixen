@@ -11,13 +11,22 @@ namespace Vixen.Graphics.RenderGraph.Tests;
 /// <param name="Before">What the graph claimed it was.</param>
 /// <param name="After">What the graph moved it to.</param>
 /// <param name="Group">Which <see cref="BarrierGroup" /> it arrived in, from 0.</param>
+/// <param name="SourceQueue">Which queue the graph said owned it.</param>
+/// <param name="DestinationQueue">Which queue the graph said was to own it.</param>
+/// <param name="RecordedOn">Which queue's list it was recorded into.</param>
 public readonly record struct ObservedBarrier(
     TextureHandle Texture,
     BufferHandle Buffer,
     ResourceState Before,
     ResourceState After,
-    int Group
-);
+    int Group,
+    QueueKind SourceQueue = QueueKind.Graphics,
+    QueueKind DestinationQueue = QueueKind.Graphics,
+    QueueKind RecordedOn = QueueKind.Graphics
+) {
+    /// <summary>Whether it hands the resource between queues.</summary>
+    public bool TransfersOwnership => SourceQueue != DestinationQueue;
+}
 
 /// <summary>A render pass, as the graph actually began it.</summary>
 /// <param name="Name">Its name.</param>
@@ -73,8 +82,12 @@ public sealed class TrackingCommandList : ICommandList {
     /// <summary>A readable trace: barrier groups and passes, interleaved.</summary>
     public IReadOnlyList<string> Order => order;
 
+    /// <summary>Creates one for a queue.</summary>
+    /// <param name="kind">Which queue it claims to belong to.</param>
+    public TrackingCommandList(QueueKind kind = QueueKind.Graphics) => Kind = kind;
+
     /// <inheritdoc />
-    public QueueKind Kind => QueueKind.Graphics;
+    public QueueKind Kind { get; }
 
     /// <inheritdoc />
     public bool IsRecorded { get; private set; }
@@ -98,11 +111,33 @@ public sealed class TrackingCommandList : ICommandList {
         }
 
         foreach (var barrier in barriers.Buffers) {
-            observed.Add(new(default, barrier.Buffer, barrier.Before, barrier.After, BarrierGroups));
+            observed.Add(
+                new(
+                    default,
+                    barrier.Buffer,
+                    barrier.Before,
+                    barrier.After,
+                    BarrierGroups,
+                    barrier.SourceQueue,
+                    barrier.DestinationQueue,
+                    Kind
+                )
+            );
         }
 
         foreach (var barrier in barriers.Textures) {
-            observed.Add(new(barrier.Texture, default, barrier.Before, barrier.After, BarrierGroups));
+            observed.Add(
+                new(
+                    barrier.Texture,
+                    default,
+                    barrier.Before,
+                    barrier.After,
+                    BarrierGroups,
+                    barrier.SourceQueue,
+                    barrier.DestinationQueue,
+                    Kind
+                )
+            );
         }
 
         order.Add($"barrier x{barriers.Buffers.Length + barriers.Textures.Length}");

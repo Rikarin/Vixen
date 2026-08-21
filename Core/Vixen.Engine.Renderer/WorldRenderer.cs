@@ -823,7 +823,7 @@ public sealed class WorldRenderer : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
     /// <remarks>
     ///     ⚠ <b>The texture copies go on the list before anything samples them</b>, which is the whole
-    ///     reason this exists rather than callers reaching for <see cref="SceneRenderHost.Draw" />
+    ///     reason this exists rather than callers reaching for <see cref="SceneRenderHost.Draw(Vixen.Graphics.ICommandList)" />
     ///     directly: a host that draws without this leaves every textured material sampling the table's
     ///     fallback for ever, which is a picture rather than a failure and reads as "all my materials
     ///     are the same flat colour".

@@ -190,7 +190,18 @@ This is the row ADR-001 calls the highest-risk place for Vulkan-only drift, and 
 | `ColourTarget` → `ShaderRead` | = a barrier | = a barrier | **nothing** | nothing | implicit | = |
 | `ShaderWrite` → anything | = a barrier | = a barrier | = `glMemoryBarrier` | = (ES 3.1+) | implicit | = |
 | Timeline semaphores | = | = fences are counters | ✗ | ✗ | ✗ | = |
-| Queue ownership transfer | = | ≈ | n/a — one queue | n/a | n/a | = |
+| Queue ownership transfer | = `src`/`dstQueueFamilyIndex`, **built** | ≈ | n/a — one queue | n/a | n/a | = |
+| Two `QueueKind`s on one family | = `VK_QUEUE_FAMILY_IGNORED`, never the index twice | ≈ | n/a | n/a | n/a | = |
+
+**Ownership is on the barrier, and equal queues mean no transfer.** `BufferBarrier` and
+`TextureBarrier` carry `SourceQueue` and `DestinationQueue`, both defaulting to `Graphics`, and a
+backend collapses two kinds that land on one hardware family to "ignored" rather than writing the same
+index twice. That collapse is what makes an async-scheduled frame and a single-queue frame the same
+frame on the hardware this engine is developed on — MoltenVK on Apple silicon exposes one universal
+family, so every `QueueKind` resolves to it. A transfer is **two** barriers, the release on the source
+queue's list and the acquire on the destination's; the Vulkan and Null backends refuse a list that is
+at neither end, because no API reports that mistake and its symptom is a resource holding whatever the
+memory held.
 
 **Why `ResourceState` is a flags enum, vindicated.** GL's execution model orders every command against
 every command before it, for every access *except* the ones it calls incoherent — shader storage

@@ -1869,7 +1869,6 @@ T:Vixen.Graphics.QueueKind sweep-pending
 T:Vixen.Graphics.RasterizerState sweep-pending
 T:Vixen.Graphics.RenderGraph.GraphBuffer sweep-pending
 T:Vixen.Graphics.RenderGraph.GraphTexture sweep-pending
-T:Vixen.Graphics.RenderGraph.PassKind sweep-pending
 T:Vixen.Graphics.RenderGraph.RenderGraph sweep-pending
 T:Vixen.Graphics.RenderGraph.RenderGraphContext sweep-pending
 T:Vixen.Graphics.RenderGraph.RenderGraphException sweep-pending

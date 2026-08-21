@@ -253,9 +253,19 @@ public interface ICommandList : IDisposable {
     /// <summary>States that resources are changing what they are used for.</summary>
     /// <param name="barriers">Everything changing at this point.</param>
     /// <remarks>
-    ///     Grouped, because a driver given ten barriers together inserts one stall and given them
-    ///     one at a time inserts ten — and the backend cannot batch them for us, since by the time
-    ///     it sees the second the first has been recorded.
+    ///     <para>
+    ///         Grouped, because a driver given ten barriers together inserts one stall and given them
+    ///         one at a time inserts ten — and the backend cannot batch them for us, since by the time
+    ///         it sees the second the first has been recorded.
+    ///     </para>
+    ///     <para>
+    ///         <b>A barrier naming two different queues is half of an ownership transfer</b>, and this
+    ///         list has to be one of the two ends: recorded on the source queue it is the release,
+    ///         recorded on the destination queue it is the acquire, and a backend refuses a list that
+    ///         is neither. The two halves carry identical states and ranges — a release and an acquire
+    ///         that disagree are undefined rather than an error, which is why the values are stated
+    ///         once and recorded twice.
+    ///     </para>
     /// </remarks>
     void Barrier(in BarrierGroup barriers);
 

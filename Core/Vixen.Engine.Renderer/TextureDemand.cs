@@ -41,7 +41,7 @@ namespace Vixen.Engine.Renderer;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>One frame stale, and deliberately.</b> This reads <c>RenderSystem.Visibility</c>,
-///         which the compositor fills during <see cref="SceneRenderHost.Draw" /> — so what it sees at
+///         which the compositor fills during <see cref="SceneRenderHost.Draw(Vixen.Graphics.ICommandList)" /> — so what it sees at
 ///         the top of <see cref="WorldRenderer.Draw" /> is the previous frame's cull. A page takes
 ///         many frames to arrive, so a signal one frame behind the camera is exact enough; the
 ///         alternative is running this after the frame is recorded, where the wants it produced could

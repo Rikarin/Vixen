@@ -45,6 +45,27 @@ public enum PassKind : byte {
     Transfer = 2
 }
 
+/// <summary>One transition the graph decided a pass needs, before any of it is recorded.</summary>
+/// <param name="Resource">Which resource, as an index into the graph's table from 0.</param>
+/// <param name="Before">What it is being used as.</param>
+/// <param name="After">What it is about to be used as.</param>
+/// <param name="From">Which queue owns it. Equal to <paramref name="To" /> for most barriers.</param>
+/// <param name="To">Which queue is to own it.</param>
+/// <remarks>
+///     A handover is planned as one of these and recorded as two — the release at the end of the
+///     owning segment and the acquire in front of the pass that needs it — with identical states, as
+///     Vulkan requires. Storing it once is what makes the two halves agree by construction.
+/// </remarks>
+readonly record struct PlannedBarrier(
+    int Resource,
+    ResourceState Before,
+    ResourceState After,
+    QueueKind From,
+    QueueKind To
+) {
+    public bool TransfersOwnership => From != To;
+}
+
 /// <summary>How a pass touches a resource.</summary>
 /// <param name="Texture">The texture, when it is one.</param>
 /// <param name="Buffer">The buffer, when it is one.</param>
@@ -138,8 +159,31 @@ sealed class GraphResource {
     /// <summary>Whether any surviving pass writes it.</summary>
     public bool IsWritten { get; set; }
 
-    /// <summary>What it is being used as, as execution walks the passes.</summary>
+    /// <summary>What it is being used as, as the barrier plan walks the passes.</summary>
     public ResourceState CurrentState { get; set; }
+
+    /// <summary>Which queue owns it, as the barrier plan walks the passes.</summary>
+    /// <remarks>
+    ///     Graphics at the start of every frame, which is a claim about the caller as much as about
+    ///     the graph: whatever handed an import in did so from the graphics queue, and the graph
+    ///     hands every import back to it before the frame ends so that next frame's claim is true
+    ///     again.
+    /// </remarks>
+    public QueueKind CurrentQueue { get; set; }
+
+    /// <summary>Which segment last touched it, so a release knows which list it belongs at the end of.</summary>
+    public int CurrentSegment { get; set; }
+
+    /// <summary>The last segment to write it, and the segments that have read it since.</summary>
+    /// <remarks>
+    ///     What the cross-queue waits are derived from. A read after a write on another queue, a write
+    ///     after a read on another queue, and a write after a write on another queue are all hazards a
+    ///     barrier cannot fix on its own — a barrier orders one queue against itself, and two queues
+    ///     need something that spans them.
+    /// </remarks>
+    public int LastWriteSegment { get; set; } = -1;
+
+    public List<int> ReaderSegments { get; } = [];
 
     /// <summary>The physical texture it was given, for a realised transient or an import.</summary>
     public TextureHandle Texture { get; set; }
