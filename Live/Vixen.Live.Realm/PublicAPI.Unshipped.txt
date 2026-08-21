@@ -93,6 +93,7 @@ Vixen.Live.Realms.RealmHost.Drain() -> void
 Vixen.Live.Realms.RealmHost.Finished -> System.Action<Vixen.Live.Transfer.SourceTransfer>?
 Vixen.Live.Realms.RealmHost.Heartbeat.get -> Vixen.Live.Realms.RealmHeartbeat
 Vixen.Live.Realms.RealmHost.Map.get -> Vixen.Live.Realms.MapLifetime
+Vixen.Live.Realms.RealmHost.Metrics.get -> Vixen.Net.Diagnostics.NetworkMetrics
 Vixen.Live.Realms.RealmHost.PlayerAdmitted -> System.Action<Vixen.Live.Realms.RealmPlayer>?
 Vixen.Live.Realms.RealmHost.PlayerReleased -> System.Action<Vixen.Live.Realms.RealmPlayer>?
 Vixen.Live.Realms.RealmHost.Population.get -> int
@@ -115,6 +116,8 @@ Vixen.Live.Realms.RealmHostOptions.HeartbeatInterval.get -> System.TimeSpan
 Vixen.Live.Realms.RealmHostOptions.HeartbeatInterval.init -> System.TimeSpan
 Vixen.Live.Realms.RealmHostOptions.IdleGrace.get -> System.TimeSpan
 Vixen.Live.Realms.RealmHostOptions.IdleGrace.init -> System.TimeSpan
+Vixen.Live.Realms.RealmHostOptions.Metrics.get -> Vixen.Net.Diagnostics.NetworkMetrics?
+Vixen.Live.Realms.RealmHostOptions.Metrics.init -> Vixen.Net.Diagnostics.NetworkMetrics?
 Vixen.Live.Realms.RealmHostOptions.Now.get -> System.Func<System.DateTimeOffset>
 Vixen.Live.Realms.RealmHostOptions.Now.init -> System.Func<System.DateTimeOffset>
 Vixen.Live.Realms.RealmHostOptions.Output.get -> System.Action<string>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Net.Diagnostics;
 using Vixen.Net.Sessions;
 using Vixen.Net.Transport;
 using Vixen.Net.Transport.Local;
@@ -54,7 +55,8 @@ sealed class RealmFixture : IDisposable {
         ShardCapacity? capacity = null,
         TimeSpan? idleGrace = null,
         NetworkSimulationProfile? wire = null,
-        ulong seed = 20260805
+        ulong seed = 20260805,
+        NetworkMetrics? metrics = null
     ) {
         Wire = wire ?? NetworkSimulationProfile.Perfect;
         Seed = seed;
@@ -78,7 +80,8 @@ sealed class RealmFixture : IDisposable {
                 Output = Output.Add,
                 Now = () => Now,
                 IdleGrace = idleGrace ?? TimeSpan.FromSeconds(10),
-                HeartbeatInterval = TimeSpan.FromMilliseconds(64)
+                HeartbeatInterval = TimeSpan.FromMilliseconds(64),
+                Metrics = metrics
             }
         );
 

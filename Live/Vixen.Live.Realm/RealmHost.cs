@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using Vixen.Engine.Scenes;
 using Vixen.Live.Transfer;
+using Vixen.Net.Diagnostics;
 using Vixen.Net.Sessions;
 
 namespace Vixen.Live.Realms;
@@ -42,6 +43,18 @@ public sealed record RealmHostOptions {
     ///     megabytes. Cutting it short turns a slow connection into a failed map change.
     /// </remarks>
     public TransferDeadlines Transfers { get; init; } = new();
+
+    /// <summary>The meter the realm publishes into, or null for one of its own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Supplied by a host that already has one, because two meters is the failure this
+    ///     avoids.</b> <c>NetworkTelemetry.Start</c> builds a <see cref="NetworkMetrics" /> and the
+    ///     exporter's provider around it — it has to, because an observable instrument registered
+    ///     after the provider was built is one the provider never collects — so a realm that created
+    ///     a second one would publish every number twice under one meter name and export neither
+    ///     half. A shard with an OTLP pipeline passes <c>telemetry.Metrics</c> here; a shard with no
+    ///     exporter leaves this null and gets instruments anything in-process can still read.
+    /// </remarks>
+    public NetworkMetrics? Metrics { get; init; }
 }
 
 /// <summary>A shard, as the process carrying it sees itself.</summary>
@@ -71,6 +84,7 @@ public sealed class RealmHost : IDisposable {
     readonly RealmHostOptions options;
     readonly TransferTicketSigner signer;
     readonly bool ownsSigner;
+    readonly bool ownsMetrics;
 
     TimeSpan emptyFor;
     bool disposed;
@@ -95,6 +109,40 @@ public sealed class RealmHost : IDisposable {
 
     /// <summary>The health sampler.</summary>
     public RealmHeartbeat Heartbeat { get; }
+
+    /// <summary>What this shard reports about its link, published where any collector can read it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The realm is what makes <see cref="RealmHeartbeat" />'s claim true.</b> That
+    ///         type's remarks say every number in a health sample "is already an instrument in
+    ///         <c>Vixen.Net.Telemetry</c>", so that a shard's health and its traces cannot disagree
+    ///         about what its tick cost — and until something attached a session to a
+    ///         <see cref="NetworkMetrics" /> and sampled it, no shard published a single one of them.
+    ///         Every instrument was registered, tested and read by nothing.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="NetworkMetrics.Session" /> and <see cref="NetworkMetrics.Transport" />
+    ///         are attached here and the other three are not</b>, and that split is this class's own
+    ///         rule rather than an omission: a realm owns the session and the socket under it, and
+    ///         <i>does not own the game</i> — replication, RPC and the bandwidth ledger belong to the
+    ///         realm's systems, so a realm that reached for them would be reaching past the boundary
+    ///         its remarks draw. A game attaches those three itself:
+    ///     </para>
+    ///     <code>
+    ///     host.Metrics.Replication = replication;
+    ///     host.Metrics.Rpc = router;
+    ///     host.Metrics.Ledger = ledger;
+    ///     </code>
+    ///     <para>
+    ///         ⚠ <b>Sampled once per <see cref="Update" />, which is the only place all of it is
+    ///         known to be still.</b> The instruments are observable and are called back on the
+    ///         collector's thread; <c>NetworkMetrics.Sample</c> copies the session's players into
+    ///         plain fields on the realm's own thread so that a scrape landing mid-join does not walk
+    ///         a list that is being written. Calling it anywhere else would put a background thread
+    ///         inside the player list.
+    ///     </para>
+    /// </remarks>
+    public NetworkMetrics Metrics { get; }
 
     /// <summary>Every transfer this realm is part of, leaving and arriving.</summary>
     /// <remarks>
@@ -192,6 +240,16 @@ public sealed class RealmHost : IDisposable {
         Session = session(Admission)
             ?? throw new ArgumentNullException(nameof(session), "The session factory returned null.");
 
+        ownsMetrics = this.options.Metrics is null;
+        Metrics = this.options.Metrics ?? new NetworkMetrics(spec.Key.Version.Build);
+
+        // ⚠ The two the realm owns, and the transport is taken off the session rather than asked for
+        // separately. A session holds the transport it runs on, so a shard on UDP gets the four loss
+        // counters for nothing and a shard on Transport.Local leaves them at zero — which is what
+        // `NetworkMetrics.Transport`'s remarks say a dashboard has to read beside the send count.
+        Metrics.Session = Session;
+        Metrics.Transport = Session.Transport;
+
         Session.PlayerJoined += OnPlayerJoined;
         Session.PlayerLeft += OnPlayerLeft;
     }
@@ -282,8 +340,19 @@ public sealed class RealmHost : IDisposable {
             }
         }
 
-        // 6. Then health, over a tick that has actually happened.
+        // 6. Then health, over a tick that has actually happened — into both of the things that
+        //    report it. The heartbeat is what placement reads and the meter is what a collector
+        //    scrapes, and RealmHeartbeat's own remarks say the two must not be able to disagree
+        //    about what a tick cost, which is only true while they are given the same number here.
+        //
+        //    ⚠ Sampled every tick rather than on the heartbeat's interval. The heartbeat is a
+        //    decision the fleet acts on and is deliberately slow; the meter is read by whatever the
+        //    collector's schedule is, and a reading taken every two seconds would be up to two
+        //    seconds stale on every scrape. It is a few dozen bytes of copying, which is the trade
+        //    `NetworkMetrics.Sample` was written for.
         Heartbeat.Observe(elapsed);
+        Metrics.RecordTick(elapsed);
+        Metrics.Sample();
 
         if (Heartbeat.IsDue(elapsed)) {
             Sampled?.Invoke(
@@ -356,6 +425,13 @@ public sealed class RealmHost : IDisposable {
 
         if (ownsSigner) {
             signer.Dispose();
+        }
+
+        // Only the one this host made. A meter handed in by `NetworkTelemetry` is closed by the
+        // pipeline that owns the exporter, and closing it here would stop a fleet's numbers at the
+        // moment one shard drained.
+        if (ownsMetrics) {
+            Metrics.Dispose();
         }
     }
 
