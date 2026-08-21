@@ -752,6 +752,7 @@ static Vixen.Rendering.Water.WaterTiles.Index(Vixen.Core.Mathematics.Int2 tile, 
 static Vixen.Rendering.Water.WaterTiles.Total(Vixen.Core.Mathematics.Int2 count) -> int
 static Vixen.Rendering.Water.WaterTiles.Unindex(int index, Vixen.Core.Mathematics.Int2 count) -> Vixen.Core.Mathematics.Int2
 static Vixen.Rendering.Water.WaterZoneComponent.Default.get -> Vixen.Rendering.Water.WaterZoneComponent
+static Vixen.Rendering.Water.WaterZoneSystem.BodyOf(in Vixen.Rendering.Water.WaterBodyComponent component, Vixen.Core.Mathematics.Spline spline) -> Vixen.Water.WaterBody?
 static readonly Vixen.Shaders.Generated.RipplesKeys.Compute -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.RipplesKeys.Damping -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.RipplesKeys.DeltaTime -> Vixen.Shaders.ParameterKey<float>

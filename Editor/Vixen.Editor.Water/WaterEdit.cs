@@ -102,11 +102,35 @@ public sealed class WaterEdit {
 
     /// <summary>Whether the carve's contribution is being shown.</summary>
     /// <remarks>
-    ///     § "Preview the carve". A toggle rather than a tool that does something, because what it
-    ///     changes is whether the reserved layer is composited — the ground with the water's cut in it
-    ///     against the ground an author sculpted.
+    ///     <para>
+    ///         § "Preview the carve". A toggle rather than a tool that does something, because what it
+    ///         changes is whether the reserved layer is composited — the ground with the water's cut in it
+    ///         against the ground an author sculpted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It raises <see cref="CarvePreviewChanged" /> rather than being read once.</b> What
+    ///         acts on it is <c>TerrainEditLayer.IsVisible</c> on a terrain this assembly cannot name
+    ///         — <c>WaterModule</c>'s half of the toggle — and a flag polled by nobody is exactly what
+    ///         this one was for its first two phases: set by a command, checked by a menu tick, read
+    ///         by nothing.
+    ///     </para>
     /// </remarks>
-    public bool CarvePreview { get; set; } = true;
+    public bool CarvePreview {
+        get => carvePreview;
+        set {
+            if (carvePreview == value) {
+                return;
+            }
+
+            carvePreview = value;
+            CarvePreviewChanged?.Invoke(value);
+        }
+    }
+
+    /// <summary>Raised when <see cref="CarvePreview" /> changes, with its new value.</summary>
+    public event Action<bool>? CarvePreviewChanged;
+
+    bool carvePreview = true;
 
     /// <summary>How near the first point a click has to be to close the curve, in metres.</summary>
     /// <remarks>
@@ -273,8 +297,33 @@ public sealed class WaterEdit {
         ArgumentNullException.ThrowIfNull(body);
 
         var t = Math.Clamp(index, 0, body.Spline.Points.Length - 1);
-        var profile = body.ProfileAt(t);
-        var frame = body.Spline.FrameAt(t, Vector3.UnitY);
+
+        return HandlesOf(body.Spline, body.ProfileAt(t), index);
+    }
+
+    /// <summary>The same three handles, from a curve and a profile rather than from a body.</summary>
+    /// <param name="spline">The curve, in world space.</param>
+    /// <param name="profile">What the body is like at <paramref name="index" />.</param>
+    /// <param name="index">Which control point.</param>
+    /// <returns>The left width handle, the right one, and the depth handle.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="spline" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>What the viewport aims at, and why it does not go through <see cref="WaterBody" />.</b>
+    ///     Constructing one refuses a closed kind over an open curve by throwing, and a curve halfway
+    ///     through being repaired is precisely when somebody reaches for the handles — a hit test that
+    ///     threw would take the pane down on a pointer move. A scene component carries one profile for
+    ///     the whole body, so there is nothing per control point for a body to interpolate here
+    ///     either.
+    /// </remarks>
+    public static (Vector3 Left, Vector3 Right, Vector3 Depth) HandlesOf(
+        Spline spline,
+        in WaterProfilePoint profile,
+        int index
+    ) {
+        ArgumentNullException.ThrowIfNull(spline);
+
+        var t = Math.Clamp(index, 0, spline.Points.Length - 1);
+        var frame = spline.FrameAt(t, Vector3.UnitY);
 
         var tangent = new Vector3(frame.Tangent.X, 0f, frame.Tangent.Z);
         var length = tangent.Length();
@@ -293,5 +342,88 @@ public sealed class WaterEdit {
             centre + (side * profile.HalfWidth),
             centre - new Vector3(0f, profile.Depth, 0f)
         );
+    }
+
+    /// <summary>Which way "right of the curve" points at a control point, in world space.</summary>
+    /// <param name="spline">The curve.</param>
+    /// <param name="index">Which control point.</param>
+    /// <returns>The unit side vector, horizontal, or +X where the curve has no direction.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="spline" /> is null.</exception>
+    /// <remarks>
+    ///     <see cref="HandlesOf(Spline, in WaterProfilePoint, int)" />'s own arithmetic, exposed
+    ///     because a drag has to be measured along the axis the handle was drawn on — measuring it
+    ///     along anything else is a width that grows when the pointer moves the wrong way.
+    /// </remarks>
+    public static Vector3 SideAt(Spline spline, int index) {
+        ArgumentNullException.ThrowIfNull(spline);
+
+        var t = Math.Clamp(index, 0, spline.Points.Length - 1);
+        var frame = spline.FrameAt(t, Vector3.UnitY);
+        var tangent = new Vector3(frame.Tangent.X, 0f, frame.Tangent.Z);
+        var length = tangent.Length();
+
+        return length > 0f ? Vector3.Cross(Vector3.UnitY, tangent / length) : Vector3.UnitX;
+    }
+
+    /// <summary>Which way a handle moves when it is dragged, in world space.</summary>
+    /// <param name="handle">Which handle.</param>
+    /// <param name="side">Which way is right of the curve there — <see cref="SideAt" />.</param>
+    /// <returns>The unit axis, or zero for <see cref="WaterHandle.None" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Both width handles answer <em>the same</em> axis, and that is what makes
+    ///     <see cref="Drag" />'s two cases differ only in sign.</b> The metres a drag is worth are
+    ///     measured along +side and +Y for all three, so a left handle pulled outward is a negative
+    ///     number and <c>HalfWidth − metres</c> widens the channel. Answering −side here would negate
+    ///     it twice and a left bank would drag the wrong way.
+    /// </remarks>
+    public static Vector3 AxisOf(WaterHandle handle, Vector3 side) =>
+        handle switch {
+            WaterHandle.WidthLeft or WaterHandle.WidthRight => side,
+            WaterHandle.Depth => Vector3.UnitY,
+            _ => Vector3.Zero
+        };
+
+    /// <summary>Where a pointer ray puts a handle that may only slide along its own axis.</summary>
+    /// <param name="ray">The pointer's ray, in world space.</param>
+    /// <param name="handle">Where the handle was when the drag began.</param>
+    /// <param name="axis">Which way it may slide. Expected to be unit length.</param>
+    /// <returns>The point on the axis nearest the ray, which is the handle at rest again.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The closest point between a line and a ray</b>, which is what an axis-constrained
+    ///         drag is everywhere in this editor — <c>TransformGizmo</c>'s arms are the same
+    ///         arithmetic. Not shared with it because that copy is private to a class in another
+    ///         assembly and eleven lines of vector algebra is a cheaper thing to state twice than a
+    ///         public seam on a gizmo.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A camera looking straight down the axis has no answer, and the handle holds
+    ///         still rather than being flung.</b> The denominator goes to zero as the two directions
+    ///         line up, and an unchecked divide there is a width that jumps to a kilometre on the one
+    ///         frame the author orbited past.
+    ///     </para>
+    /// </remarks>
+    public static Vector3 OnAxis(in Ray ray, Vector3 handle, Vector3 axis) {
+        var along = Vector3.Normalize(ray.Direction);
+
+        if (along.IsZero || axis.IsZero) {
+            return handle;
+        }
+
+        // ⚠ From the ray's origin *to* the handle, not the other way round. Reversing it negates the
+        // parameter, so the handle tracks the pointer's mirror image — which reads as an inverted
+        // bank rather than as a sign error, and only from some angles.
+        var w = handle - ray.Origin;
+        var b = Vector3.Dot(axis, along);
+        var denominator = 1f - (b * b);
+
+        if (MathF.Abs(denominator) < 1e-5f) {
+            return handle;
+        }
+
+        var d = Vector3.Dot(axis, w);
+        var e = Vector3.Dot(along, w);
+
+        return handle + (axis * (((b * e) - d) / denominator));
     }
 }

@@ -641,21 +641,30 @@ public sealed class WaterZoneSystem(RenderView view)
         return created;
     }
 
-    WaterBody? Build(in WaterBodyComponent component, in WorldTransform placement) {
-        // ⚠ A zeroed component's spline is null — a chunk's column is zeroed memory, not constructed
-        // values — and null is not a name a source can be asked for. It counts as unresolved, the
-        // same number a spline that has not loaded counts into.
-        if (component.Spline is not { Length: > 0 } name) {
-            return null;
-        }
+    /// <summary>The body a scene component and its resolved curve describe.</summary>
+    /// <param name="component">What the scene says about the body.</param>
+    /// <param name="spline">The curve it names, already in world space.</param>
+    /// <returns>The body, or <see langword="null" /> if the two cannot make one.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="spline" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Public because the fold is not the only thing that has to turn a component into a
+    ///         body.</b> The editor's carve reads the same components and needs the same objects, and
+    ///         a second copy of these six lines is a second opinion about what a zeroed
+    ///         <see cref="WaterBodyComponent.ShoreFalloff" /> means — which is the seam
+    ///         [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)
+    ///         exists to keep single.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null rather than an exception for a closed kind over an open curve.</b> That is an
+    ///         authoring mistake and <see cref="WaterBody" />'s constructor refuses it by throwing,
+    ///         which is right at the point of construction and wrong in a per-frame fold. Here it is a
+    ///         body that does not resolve, which is a number an author can be shown.
+    ///     </para>
+    /// </remarks>
+    public static WaterBody? BodyOf(in WaterBodyComponent component, Spline spline) {
+        ArgumentNullException.ThrowIfNull(spline);
 
-        if (Splines?.SplineFor(name, placement.Value) is not { } spline) {
-            return null;
-        }
-
-        // ⚠ A closed kind over an open curve is an authoring mistake, and the kernel refuses it by
-        // throwing — which is right at the point of construction and wrong in a per-frame fold. Here
-        // it counts as unresolved, which is a number an author can see.
         if (component.Kind != WaterBodyKind.River && !spline.IsClosed) {
             return null;
         }
@@ -668,6 +677,21 @@ public sealed class WaterZoneSystem(RenderView view)
             ShoreFalloff = component.ShoreFalloff == 0f ? WaterBodyComponent.Default.ShoreFalloff : component.ShoreFalloff,
             BedRamp = component.BedRamp
         };
+    }
+
+    WaterBody? Build(in WaterBodyComponent component, in WorldTransform placement) {
+        // ⚠ A zeroed component's spline is null — a chunk's column is zeroed memory, not constructed
+        // values — and null is not a name a source can be asked for. It counts as unresolved, the
+        // same number a spline that has not loaded counts into.
+        if (component.Spline is not { Length: > 0 } name) {
+            return null;
+        }
+
+        if (Splines?.SplineFor(name, placement.Value) is not { } spline) {
+            return null;
+        }
+
+        return BodyOf(component, spline);
     }
 
     /// <summary>Whether a zone's window at a centre reaches any part of a body.</summary>

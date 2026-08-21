@@ -82,12 +82,41 @@ public sealed class WaterCarveCommand(
     /// <inheritdoc />
     public string Name => "Carve Water";
 
+    /// <summary>Which of the two lists the layer is standing at right now.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the next carve passes as its <c>before</c>, and the reason it is here rather than
+    ///     in a field on the toolset.</b> A regeneration is wholesale, so the <em>forward</em> half of
+    ///     a carve is right whatever it is handed; it is the undo that has to name the list the layer
+    ///     actually holds. A module that remembered "the last list I sent" would be wrong the moment
+    ///     somebody pressed Ctrl-Z, and would then undo a later carve back to a state that never
+    ///     existed.
+    /// </remarks>
+    public IReadOnlyList<(WaterBody Body, WaterCarveProfile Profile)> Current => applied ?? before;
+
+    /// <summary>What the last regeneration laid down, or null before there has been one.</summary>
+    /// <remarks>
+    ///     Nullable rather than initialised to <c>before</c>: a primary-constructor parameter may be
+    ///     captured by a member or used to initialise a field, and not both — CS9124.
+    /// </remarks>
+    IReadOnlyList<(WaterBody Body, WaterCarveProfile Profile)>? applied;
+
     /// <inheritdoc />
     public void Do(EditorContext context) => Regenerate(after);
 
     /// <inheritdoc />
     public void Undo(EditorContext context) => Regenerate(before);
 
-    void Regenerate(IReadOnlyList<(WaterBody Body, WaterCarveProfile Profile)> bodies) =>
+    /// <remarks>
+    ///     ⚠ <b><c>Resolve</c> as well as <c>Regenerate</c>.</b> The kernel invalidates the tiles it
+    ///     touched and stops there — dirtiness is a flag rather than a recompute, so that a stroke
+    ///     marks the same tiles forty times and pays once. Nothing else in this toolset resolves, so a
+    ///     carve without this is a layer full of deltas and a viewport still drawing the ground the
+    ///     author sculpted: the feature looks like it did nothing.
+    /// </remarks>
+    void Regenerate(IReadOnlyList<(WaterBody Body, WaterCarveProfile Profile)> bodies) {
         WaterCarve.Regenerate(terrain, WaterCarve.LayerOf(terrain), bodies);
+        terrain.Resolve();
+
+        applied = bodies;
+    }
 }

@@ -69,6 +69,20 @@ twenty vertically, and a three-dimensional test would accept them.
 
 ### The profile handles
 
+**Select the body, press `2`, and the handles appear on it.** Three per control point: a cross on each
+bank and one below the curve for the bed. Press one, drag, let go — the surface follows the pointer as
+you drag, and the release is one undo entry called *Edit Water Profile*. Escape mid-drag puts the
+profile back.
+
+⚠ **The selection is what says which body**, because a body *is* an entity and the editor already
+selects entities. There is no second picking path here, and a mode that had one would disagree with
+the outliner the first time somebody used it.
+
+⚠ **A press that is not on a handle is not taken.** It is how you select the body you are about to
+edit, so a Profile tool that swallowed it would be a tool you have to leave in order to choose what it
+works on. The tolerance is in *render pixels* — `WaterMode.HandlePixels`, fourteen — because the same
+half-width is forty pixels across on a canal and one on an ocean.
+
 Both width handles edit the **same** number, and the sign is the difference — a river's channel is
 symmetric about its centreline, so two handles is two grips on one value. Two independent half-widths
 would be a second number to author and a river whose centreline is not its centre.
@@ -79,6 +93,47 @@ direction — which is what makes a viewport handle worse than a number field.
 
 ⚠ **A width cannot be dragged below zero.** A negative half-width inverts the containment test, so
 the body covers everywhere *except* itself: the whole zone floods, and it reads as a renderer bug.
+
+⚠ **A handle seen edge-on holds still rather than being flung.** An axis-constrained drag is the
+closest point between a line and the pointer's ray, and that has no answer when the camera looks
+straight down the axis — an unchecked divide there is a half-width that jumps to a kilometre on the
+one frame the author orbited past. Orbit a few degrees and the handle answers again.
+
+### Carving the ground, and previewing the carve
+
+Water cuts its bed into the terrain's reserved **Water** layer, non-destructively: the layer is
+deltas, the ground beneath it is untouched, and the whole layer is regenerated whenever anything
+changes. **Carve terrain** on the water panel is what runs it, over every body in the scene and every
+terrain in it, as one undo entry.
+
+| Verb | What it does |
+|---|---|
+| **Carve terrain** (`water.carve`) | Empties the reserved layer and lays every body's bed down again, then resolves the terrain |
+| **Preview carve** (`water.preview-carve`) | Shows or hides that layer's contribution — the ground with the water's cut in it, against the ground you sculpted |
+
+⚠ **Regenerated wholesale rather than carved one body at a time.** Moving a river restores the bank it
+left and cuts the one it arrived at in *one* operation, because the layer is emptied first. Carving a
+single body into a layer that already holds the others leaves the old bed exactly where the author
+will look for it to be gone.
+
+⚠ **Preview is a state, not a gesture, and it takes no pointer events at all.** Looking at what the
+water did to the ground means flying around while the ground is there, so the tool deliberately leaves
+navigation, selection and the transform gizmo alone.
+
+⚠ **Leaving the water mode puts the preview back on.** `TerrainEditLayer.IsVisible` is *saved* with
+the terrain, so an author who left with the preview off would reopen the project to ground with no
+riverbeds in it and nothing anywhere saying why — a view state that outlives its view is
+indistinguishable from data loss.
+
+⚠ **Carve terrain is greyed out in a project with no terrain plugin loaded**, and the panel's
+*Terrains to carve* row is what says so. The two toolsets are independent plugins: what the water
+module references is `ITerrainScene`, the contract a terrain toolset contributes its heightfields
+through, and not `Vixen.Editor.Terrain` itself.
+
+⚠ **Every body carves at the same strength**, which is the draw settings' `CarveStrength` and
+`BedLayer`. `WaterBodyComponent` carries no carve fields — doc 35 § The body inspector asks for them
+and the component predates the ask — and putting them on it is a component *layout* change, which is a
+scene-compatibility decision rather than a wiring one.
 
 ### The zone panel
 
@@ -238,7 +293,27 @@ mode.CreateZone();
 
 **A handle drag, as one undo entry.** `WaterProfileCommand` holds the value before and the value after
 rather than a delta — a delta applied twice is a profile that drifts, and an undo stack is replayed in
-both directions.
+both directions. What the pointer does to reach it:
+
+```csharp no-compile="what the pointer does, not a compiling editor"
+mode.Tool = WaterTool.Profile;
+
+// Where the right bank's handle is, which is what the pane draws a cross at.
+var (left, right, depth) = WaterEdit.HandlesOf(curve, body.Profile, index: 0);
+
+// A press within HandlePixels of it grabs it; a move slides it along the curve's own side
+// vector; the release pushes one WaterProfileCommand onto the document's stack.
+mode.Pointer(pane, new PointerEvent { Action = PointerAction.Pressed, Button = PointerButton.Primary, … });
+```
+
+**The carve, and the ground back again.**
+
+```csharp no-compile="the panel's two buttons, as calls"
+module.Carve();                          // one undo entry over every terrain in the scene
+
+mode.Editing.CarvePreview = false;       // the ground the author sculpted, with the deltas kept
+mode.Editing.CarvePreview = true;        // and the bed back
+```
 
 ## See also
 

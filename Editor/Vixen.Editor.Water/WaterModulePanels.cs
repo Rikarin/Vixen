@@ -75,7 +75,14 @@ public sealed partial class WaterModule {
 
                 Section(panel, "Terrain");
 
-                Verbs(panel, ("Preview carve", WaterMode.PreviewCarveCommand));
+                // ⚠ Carve first and Preview second, which is the order they mean something in: there
+                // is nothing to preview until a body has been cut into the ground, and a Preview
+                // toggle offered on its own is what made this flag look wired for two phases.
+                Verbs(
+                    panel,
+                    ("Carve terrain", CarveTerrainCommand),
+                    ("Preview carve", WaterMode.PreviewCarveCommand)
+                );
 
                 waterFacts = panel.Add("water-facts");
                 notice = panel.Add("water-notice");
@@ -115,6 +122,10 @@ public sealed partial class WaterModule {
 
             Fact(facts, "Bodies drawn", BodiesCreated.ToString());
             Fact(facts, "Points laid", Mode.Editing.Points.Count.ToString());
+
+            // ⚠ The number that answers "why did Carve terrain do nothing". A verb greyed out with no
+            // reason beside it is a verb an author decides is broken — doc 20's first bar.
+            Fact(facts, "Terrains to carve", CarvableTerrains.ToString());
         }
 
         if (notice is { } shown) {
