@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Transforms;
@@ -254,6 +256,175 @@ public sealed class BehaviorTests {
         Assert.Equal(100, log.Count(entry => entry.EndsWith("Update", StringComparison.Ordinal)));
     }
 
+    // ---------------------------------------------------------------- detaching lets go
+
+    /// <summary>
+    ///     ⚠ The editor's authored store never drains, so a queue entry it makes is for ever. A
+    ///     behaviour added and detached again — every undo of an "add script", every reload — stayed
+    ///     in <c>pendingAwake</c>, and with it the type, and with the type the collectible
+    ///     <c>PluginLoadContext</c> the type was compiled into. A project that reloads its scripts
+    ///     twenty times has twenty assemblies it can never collect.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The assertion is on the instance, not on the load context, and that is deliberate.</b>
+    ///     The end of the chain — emit a behaviour into a collectible context, detach it, unload, and
+    ///     watch a <see cref="WeakReference" /> to the context die — was written and does show the
+    ///     defect: it fails against the store as it was and passes against the store as it is. It is
+    ///     not here because it is not stable enough to gate on. An in-process context unload wants a
+    ///     quiet process, and a full test run is not one: with the rest of this assembly's classes
+    ///     running in parallel it failed about half the time on a fix that is demonstrably correct,
+    ///     which is a test that reports the machine's load rather than the code. The instance is the
+    ///     first link of the same chain and its collection is deterministic, so that is what is
+    ///     asserted; nothing can pin the type if nothing holds an instance of it.
+    /// </remarks>
+    [Fact]
+    public void RemovingABehaviourBeforeItHasWokenLetsGoOfIt() {
+        using var world = new World();
+        var store = new BehaviorStore(world);
+        var weak = AddAndRemove(store, world.Create());
+
+        Collect();
+
+        Assert.False(weak.IsAlive, "the store still holds a detached behaviour");
+    }
+
+    /// <summary>The same, one drain later, where the entry is in the <c>Start</c> queue instead.</summary>
+    [Fact]
+    public void RemovingAWokenBehaviourLetsGoOfIt() {
+        using var world = new World();
+        var store = new BehaviorStore(world);
+        var entity = world.Create();
+        var weak = AddWakeAndRemove(store, entity);
+
+        Collect();
+
+        Assert.False(weak.IsAlive, "the store still holds a detached behaviour");
+    }
+
+    /// <summary>And with an enable queued but not yet drained.</summary>
+    [Fact]
+    public void RemovingABehaviourWithAQueuedEnableChangeLetsGoOfIt() {
+        using var world = new World();
+        var store = new BehaviorStore(world);
+        var entity = world.Create();
+        var weak = AddToggleAndRemove(store, entity);
+
+        Collect();
+
+        Assert.False(weak.IsAlive, "the store still holds a detached behaviour");
+    }
+
+    /// <summary>
+    ///     Attaches and detaches in a frame that returns, so the only reference left when the caller
+    ///     collects is one the store kept. Inlining this would leave the behaviour in a live stack
+    ///     slot and the test would pass whether or not the queues let go.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference AddAndRemove(BehaviorStore store, Entity entity) {
+        var behavior = store.Add(entity, new Detachable());
+
+        Assert.True(store.Remove(behavior));
+        return new(behavior);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference AddWakeAndRemove(BehaviorStore store, Entity entity) {
+        var behavior = store.Add(entity, new Detachable());
+
+        store.RunLifecycle();
+        Assert.True(store.Remove(behavior));
+
+        return new(behavior);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference AddToggleAndRemove(BehaviorStore store, Entity entity) {
+        var behavior = store.Add(entity, new Detachable());
+
+        store.RunLifecycle();
+        behavior.Enabled = false;
+        behavior.Enabled = true;
+        Assert.True(store.Remove(behavior));
+
+        return new(behavior);
+    }
+
+    /// <summary>
+    ///     ⚠ The index-shift hazard, written down. The drain walks <c>awakening</c> by index; a
+    ///     detach from inside an <c>Awake</c> that shortened the list would move everything after the
+    ///     hole down one, and the element immediately after the cursor would never get its callback —
+    ///     silently, with nothing to see but a behaviour that did not wake. Ordered here so the
+    ///     victim is <i>before</i> the detacher, which is the arrangement that skips.
+    /// </summary>
+    [Fact]
+    public void DetachingASiblingFromInsideAwakeSkipsNobodyElse() {
+        var log = new List<string>();
+        using var world = new World();
+        var store = new BehaviorStore(world);
+
+        store.Add(world.Create(), new Recorder("first", log));
+
+        var victim = store.Add(world.Create(), new Recorder("victim", log));
+
+        store.Add(world.Create(), new Detacher(store, victim, log, true));
+        store.Add(world.Create(), new Recorder("last", log));
+
+        store.RunLifecycle();
+
+        // ⚠ `last` is the assertion. It sits after the detacher, and a queue that shortened itself
+        // when the victim came out would have moved it under the cursor and never called it.
+        Assert.Equal(["first.Awake", "victim.Awake", "detacher.Awake", "last.Awake"], log.Where(IsAwake));
+
+        // And the survivors are whole: still this store's, still on their way to Start.
+        log.Clear();
+        store.RunLifecycle();
+
+        Assert.Contains("first.Start", log);
+        Assert.Contains("last.Start", log);
+        Assert.DoesNotContain("victim.Awake", log);
+        Assert.Equal(3, store.Count);
+    }
+
+    /// <summary>
+    ///     The same from a <c>Flush</c> — <c>OnDestroy</c> is the callback most likely to take
+    ///     something else off, and the queue it is being drained from was copied out before it ran.
+    /// </summary>
+    [Fact]
+    public void DetachingASiblingFromInsideOnDestroyIsNotADoubleDetach() {
+        var log = new List<string>();
+        using var world = new World();
+        var store = new BehaviorStore(world);
+        var victim = store.Add(world.Create(), new Recorder("victim", log));
+        var detacher = store.Add(world.Create(), new Detacher(store, victim, log, false));
+
+        store.RunLifecycle();
+        store.RunLifecycle();
+        Assert.Equal(2, store.Count);
+
+        log.Clear();
+        Assert.True(store.Destroy(detacher));
+        store.RunLifecycle();
+
+        // The detacher went out through `Destroy` and the victim through `Remove`, from inside the
+        // former's `OnDestroy` — so one gets its callback and the other, being merely detached,
+        // does not. Neither is left in the store, and neither drains twice.
+        Assert.Contains("detacher.OnDestroy", log);
+        Assert.DoesNotContain("victim.OnDestroy", log);
+        Assert.Equal(0, store.Count);
+        Assert.Null(store.Get<Recorder>(victim.Entity));
+
+        // The drain after, which is where a queue entry nobody drained would have surfaced.
+        store.RunLifecycle();
+    }
+
+    static bool IsAwake(string entry) => entry.EndsWith(".Awake", StringComparison.Ordinal);
+
+    static void Collect() {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+    }
+
     // ---------------------------------------------------------------- the transform façade
 
     [Fact]
@@ -268,6 +439,28 @@ public sealed class BehaviorTests {
         Assert.Equal(new Vector3(2, 2, 3), loop.World.Read<LocalTransform>(entity).Position);
         Assert.Equal(new Vector3(2, 2, 3), loop.World.Read<WorldTransform>(entity).Position);
         Assert.Equal(1, mover.Moves);
+    }
+
+    /// <summary>A behaviour with no callbacks at all, so nothing but the store can be holding it.</summary>
+    sealed class Detachable : Behavior;
+
+    /// <summary>Takes another behaviour off from inside one of its own callbacks.</summary>
+    sealed class Detacher(BehaviorStore store, Behavior target, List<string> log, bool whenAwake) : Behavior {
+        protected override void Awake() {
+            log.Add("detacher.Awake");
+
+            if (whenAwake) {
+                store.Remove(target);
+            }
+        }
+
+        protected override void OnDestroy() {
+            log.Add("detacher.OnDestroy");
+
+            if (!whenAwake) {
+                store.Remove(target);
+            }
+        }
     }
 
     sealed class Recorder(string name, List<string> log) : Behavior {
