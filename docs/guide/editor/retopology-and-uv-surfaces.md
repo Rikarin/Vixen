@@ -4,7 +4,7 @@ slug: editor/retopology-and-uv-surfaces
 kind: guide
 area: Editor
 summary: Where a quad remesh and an unwrap are actually invoked from — the model importer, three command-line verbs, and the blockout mode's own verb and UV panel.
-api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Editor.Assets.Models.ModelGeometry, T:Vixen.Editor.Assets.Models.ModelWriter, T:Vixen.Editor.Assets.Models.PolygonMesh, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView]
+api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Editor.Assets.Models.ModelGeometry, T:Vixen.Editor.Assets.Models.ModelWriter, T:Vixen.Editor.Assets.Models.PolygonMesh, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings]
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
@@ -166,6 +166,32 @@ collapsed first, or the next refresh would quietly put the triangle soup back.
 
 ⚠ **A refusal leaves the mesh alone and pushes nothing.** An undo step that undoes nothing is worse
 than a verb that visibly did not fire.
+
+### The settings the block-out mode's verbs read
+
+`BlockoutMode` holds three settings objects — `Retopology`, `Charting` and `Packing` — and the
+**Blockout** panel draws all three. The panel opens with the mode and closes with it, because
+`BlockoutMode.Panel` names it.
+
+```csharp no-compile="needs an editor shell"
+mode.Retopology.TargetQuads = 4000;
+mode.Packing.Resolution = 2048;
+
+BlockoutRetopology.Run(document, mode.Retopology.ToRemeshSettings());
+```
+
+⚠ **These are classes beside the records rather than the records themselves, and there are three
+separate reasons — any one of them decisive.** `RemeshSettings`, `UvSettings` and `PackSettings` are
+`init`-only, so the inspector's generator cannot emit a setter for them; they live in `Core/`, which
+must not reference an editor assembly — `ReflectedDescriptor`'s own remarks put it as *"no runtime
+type carries `[Inspector]`, and none should"*; and a panel needs an object that survives being
+edited, which a record replaced wholesale by every `with` expression is not. The model importer
+reached the same conclusion first, in `ModelImportEdits`.
+
+⚠ **Not every member of each record is drawn, and the absences are named.** Guide curves, a density
+mask and a symmetry plane are per-run data or a gizmo's business rather than numbers somebody types;
+`UvSettings.Decomposition` is a plug point, not a dial. Each `To…Settings()` leaves those at the
+record's own defaults, so a caller that has one passes it *beside* the panel's values.
 
 ### The UV panel
 
