@@ -510,11 +510,63 @@ statistic could not find it.
 pages are drawn — deliberately, so a slot just handed over is never sampled holding the last page's
 depths — so frame 2170 is absent in both runs. What the budget buys is the four frames after it.
 
-**Owed: toroidal page addressing.** Index a level's pages by their absolute cell modulo
-`PagesPerSide` instead of by their offset from the level's current centre, and a slide invalidates
-only the one column or row that wrapped rather than the whole level. It costs an origin on
-`VirtualShadowLevel`, which is a GPU struct — so it wants the device goldens, which do not run on
-macOS.
+### ✅ The lateral half: toroidal page addressing
+
+A level's pages are now indexed by their cell **plus the level's own origin, modulo `PagesPerSide`**
+rather than by their offset from the window's current centre — `VirtualShadowMap.ToroidalOf`, against
+the `VirtualShadowLevel.Origin` the fit publishes. A page's identity is then a fact about the world, so
+a slide retires only the column and row whose addresses wrapped around: thirty-two pages per page of
+walking, against a level's thousand and twenty-four. The other half of the scheme is
+`VirtualShadowMap.GridOf`, which the *draw* needs — a page owed a draw is known by its address, and the
+window is what says which rectangle of the level to draw it from.
+
+⚠ **Measured windowed on an Apple M1 Max at 3200×1800, not headless.** On this Mac
+`--vixen-headless` selects the **Null device** — "Graphics on Vixen Null Device (Software)" in the
+start-up log — so no compute runs, the marking pass fills nothing, and every VSM counter reads zero
+for 2 400 frames on master and on the fix alike. The table below is therefore *not* comparable to the
+8.8 % above, which was measured at 1600×900: this frame marks 90 pages against that run's smaller
+demand. It is a same-machine, same-binary-shape A/B — the route is the closed circle above and both
+runs report the player covering 21.624828 m — and the demand column is what makes it one.
+
+```
+VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK="40:1:0:9" VIXEN_VSMTRACE=./vsm.csv \
+dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+    --vixen-frames 2400 --vixen-variant Development --vixen-capture ./shots
+```
+
+| Per frame over 2 400 frames | Before | After |
+|---|---|---|
+| Pages marked (the demand) | 90.5 | 90.6 |
+| **Pages absent at the table upload** | **10.45** | **2.12** |
+| Pages invalidated by the refit | 49.39 | 2.27 |
+| Pages drawn | 14.55 | 2.42 |
+| Levels refitted | 0.340 | 0.340 |
+| Allocations over the whole walk | 1 074 | 495 |
+| Frames failing on >10 % of demand | 434 (18.1 %) | 69 (2.9 %) |
+
+Per five seconds of walking, frames failing on more than a tenth of what they asked for:
+
+| | 0–5 s | 5–10 s | 10–15 s | 15–20 s | 20–25 s | 25–30 s | 30–35 s | 35–40 s |
+|---|---|---|---|---|---|---|---|---|
+| Before | 167 | 74 | 36 | 17 | 32 | 49 | 21 | 38 |
+| After | 24 | 0 | 9 | 5 | 6 | 6 | 5 | 14 |
+
+⚠ **The refit column is the one that proves what changed.** Levels refitted is 0.340 a frame in both
+runs, to three decimal places: the clipmap moves exactly as often as it did. What moved is the *price*
+of a move — 49.4 pages thrown away a frame down to 2.3 — and the allocation count halving is the same
+statement from the pool's side, because a page that keeps its address is never re-requested.
+
+⚠ **The residual 2.9 % is the structural floor and not more to win here.** A refit costs one frame of
+absence at any budget, because the table is uploaded before that frame's pages are drawn — see above.
+
+⚠ **No picture was taken of either run.** `--vixen-capture` writes nothing in a windowed run, and a
+headless run on this machine has the Null device, so the visual A/B this section does above was not
+available. What stands in for it is
+`VirtualShadowRendererTests.A_page_owed_a_draw_after_a_slide_is_drawn_where_the_window_puts_it`: the
+marking pass and the lookup share one line, so an address they both got wrong the same way answers
+anyway and every counter in the table improves while the atlas fills from the wrong part of the world.
+That test asserts against the world instead — the page under the camera is drawn, and the camera's own
+position has to land inside that page's viewport.
 
 ### ✅ The sun's cache, and the two defects the split found
 

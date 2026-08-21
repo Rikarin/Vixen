@@ -54,6 +54,51 @@ public struct VirtualShadowLevel {
 
     /// <summary>Which light this map belongs to, for a host that wants to attribute a page.</summary>
     public uint Light;
+
+    /// <summary>Where this map's page grid sits in the light's own endless page grid.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes a page's identity survive the level sliding under it</b>, and the whole of
+    ///         task #317. A level's window is <see cref="VirtualShadowMap.PagesPerSide" /> pages across
+    ///         and its cell in the light's grid is <see cref="VirtualShadowMap.ClipmapCell" />; a camera
+    ///         that walks one page moves the window by one, so the page that was the window's second
+    ///         column is now its first. Addressing a page by its column <em>renames</em> a thousand and
+    ///         twenty-three pages to say that one left and one arrived — which is
+    ///         <see cref="Compositor.VirtualShadowRenderer.Fit" /> throwing a whole level away for a
+    ///         third of a metre of walking.
+    ///     </para>
+    ///     <para>
+    ///         So a page is addressed by its position <em>modulo the window</em> instead:
+    ///         <see cref="VirtualShadowMap.ToroidalOf" /> adds this and wraps, which is a mapping a
+    ///         slide leaves alone except on the columns that actually wrapped around. A slide of one
+    ///         page then costs the thirty-two pages of one column rather than all thousand and
+    ///         twenty-four.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Y</c> is negated against <see cref="VirtualShadowMap.ClipmapCell" />'s
+    ///         <c>Up</c>, and that is not a slip.</b> A page grid's rows run <em>down</em> the map —
+    ///         <see cref="VirtualShadowMap.PageOf" /> negates y for the engine's UV convention — so a
+    ///         camera rising by one page moves a world row's grid coordinate <em>up</em> by one where
+    ///         a camera moving right moves its column down by one. Only a negated origin makes the
+    ///         same <c>origin + grid</c> arithmetic stable on both axes, which is what lets the two
+    ///         shaders share one line.
+    ///     </para>
+    ///     <para>
+    ///         Zero for a spot, whose map does not move at all: at the origin the toroidal address and
+    ///         the grid coordinate are the same number, which is what the whole spot path was written
+    ///         against.
+    ///     </para>
+    /// </remarks>
+    public Int2 Origin;
+
+    /// <summary>Eight bytes of tail padding the shader declares and never reads.</summary>
+    /// <remarks>
+    ///     Declared rather than left to the compiler, for <c>CullInstance.Padding</c>'s reason: the
+    ///     matrix aligns this record to sixteen, so the device's array stride is the size rounded up to
+    ///     it — and a stride the two sides disagree about reads level one out of the middle of level
+    ///     zero, which is every page of every level addressed into another level's world.
+    /// </remarks>
+    public Int2 Padding;
 }
 
 /// <summary>
@@ -340,6 +385,93 @@ public static class VirtualShadowMap {
         );
     }
 
+    /// <summary>Where a clipmap level's window sits in the light's own endless page grid.</summary>
+    /// <param name="level">Which level.</param>
+    /// <param name="firstExtent">How wide level zero is.</param>
+    /// <param name="camera">Where the camera is.</param>
+    /// <param name="lightDirection">The direction light travels, toward the scene.</param>
+    /// <param name="depthRange">How deep the level's box is along the light.</param>
+    /// <remarks>
+    ///     <see cref="VirtualShadowLevel.Origin" />, which is where the y negation is argued. The value
+    ///     is the raw cell and deliberately not reduced modulo <see cref="PagesPerSide" />: the
+    ///     wrapping is the shader's business, and a host that only kept the remainder could not tell a
+    ///     slide of a whole window from no slide at all — which is <see cref="PageSurvives" />'
+    ///     question.
+    /// </remarks>
+    public static Int2 ClipmapOrigin(
+        int level,
+        float firstExtent,
+        Vector3 camera,
+        Vector3 lightDirection,
+        float depthRange
+    ) {
+        var cell = ClipmapCell(level, firstExtent, camera, lightDirection, depthRange);
+
+        return new(cell.Right, -cell.Up);
+    }
+
+    /// <summary>Which toroidal address a window cell holds, for a map with this origin.</summary>
+    /// <param name="page">The cell, in the window's own grid coordinates.</param>
+    /// <param name="origin">The map's <see cref="VirtualShadowLevel.Origin" />.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The line the two shaders share, and the one thing that makes a page's identity a fact
+    ///         about the world rather than about the window.</b> A window cell is where a point lands
+    ///         <em>in the picture</em>, so it changes whenever the picture slides; the sum of it and
+    ///         the origin does not, because the origin slides by exactly as much in the other
+    ///         direction. Reducing the sum modulo the window is what keeps the address space finite,
+    ///         and the price of that is the one column per page of slide whose address is handed to a
+    ///         cell that has just arrived from the other side — which
+    ///         <see cref="PageSurvives" /> names and <c>VirtualShadowRenderer.Fit</c> invalidates.
+    ///     </para>
+    ///     <para>
+    ///         An <c>and</c> rather than a remainder because <see cref="PagesPerSide" /> is a power of
+    ///         two and the sum may be negative, where <c>%</c> in both C# and GLSL would answer with
+    ///         the sign of the dividend and address the page from the far side of the map.
+    ///     </para>
+    /// </remarks>
+    public static Int2 ToroidalOf(Int2 page, Int2 origin) =>
+        new((page.X + origin.X) & (PagesPerSide - 1), (page.Y + origin.Y) & (PagesPerSide - 1));
+
+    /// <summary><see cref="ToroidalOf" /> backwards: which window cell an address names.</summary>
+    /// <param name="toroidal">The address, as <see cref="ToroidalOf" /> answered it.</param>
+    /// <param name="origin">The map's <see cref="VirtualShadowLevel.Origin" />.</param>
+    /// <remarks>
+    ///     What a page <em>draw</em> needs, and the half a shader never does: a page owed a draw is
+    ///     known by its address, and <see cref="PageProjection" /> wants the rectangle of the window it
+    ///     occupies. Skipping this leaves every page drawn into the atlas from somewhere else in the
+    ///     level — a shadow of real geometry, at a plausible depth, in the wrong place.
+    /// </remarks>
+    public static Int2 GridOf(Int2 toroidal, Int2 origin) =>
+        new((toroidal.X - origin.X) & (PagesPerSide - 1), (toroidal.Y - origin.Y) & (PagesPerSide - 1));
+
+    /// <summary>Whether one axis of a toroidal address still means the same world after a slide.</summary>
+    /// <param name="toroidal">The address's coordinate on that axis, 0 to <see cref="PagesPerSide" />.</param>
+    /// <param name="before">That axis of the origin the map was fitted with.</param>
+    /// <param name="after">That axis of the origin it has been refitted with.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a slide actually costs, counted rather than assumed.</b> A window covers the
+    ///         unwrapped coordinates <c>[origin, origin + PagesPerSide)</c>, and exactly one of them
+    ///         carries each address; the address survives when the coordinate it named before the slide
+    ///         is still inside the window after it. A slide of <c>d</c> pages therefore kills
+    ///         <c>min(|d|, PagesPerSide)</c> of the thirty-two, whichever way it went and however the
+    ///         wrap fell.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ This is why <see cref="ClipmapOrigin" /> keeps the raw cell. A slide of exactly
+    ///         <see cref="PagesPerSide" /> pages leaves every address's remainder untouched and every
+    ///         address's world different, so an origin reduced modulo the window would report a whole
+    ///         level of stale pages as fresh — which is the corrupt-atlas failure
+    ///         <see cref="PageAbsent" /> exists to keep out of the table.
+    ///     </para>
+    /// </remarks>
+    public static bool PageSurvives(int toroidal, int before, int after) {
+        var unwrapped = before + ((toroidal - before) & (PagesPerSide - 1));
+
+        return unwrapped >= after && unwrapped < after + PagesPerSide;
+    }
+
     /// <summary>
     ///     One clipmap level's orthographic projection, snapped to its own page grid.
     /// </summary>
@@ -498,7 +630,13 @@ public static class VirtualShadowMap {
 
     /// <summary>A virtual page's index in the global numbering.</summary>
     /// <param name="first">The map's <see cref="VirtualShadowLevel.First" />.</param>
-    /// <param name="page">Its page, in grid coordinates.</param>
+    /// <param name="page">Its page, as a <see cref="ToroidalOf" /> address.</param>
+    /// <remarks>
+    ///     ⚠ <b>The toroidal address and not the window cell <see cref="PageOf" /> answers.</b> The two
+    ///     are the same number only for a map whose origin is zero — every spot, and a clipmap level
+    ///     that has never moved — so a caller that skips <see cref="ToroidalOf" /> is right until the
+    ///     camera walks one page and then addresses somebody else's page for the rest of the session.
+    /// </remarks>
     public static int IndexOf(uint first, Int2 page) =>
         (int)first + (page.Y * PagesPerSide) + page.X;
 

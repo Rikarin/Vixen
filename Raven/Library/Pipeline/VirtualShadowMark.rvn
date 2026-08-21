@@ -190,7 +190,10 @@ shader VirtualShadowMark {
             return -1
         }
 
-        val bit = Vsm.IndexOf(level.first, page)
+        // The address and not the window cell — see `Vsm.Toroidal`. The lookup takes the same step on
+        // the same record, and a pass that asked for one page while the lookup read another is a
+        // shadow of real geometry drawn in the wrong place.
+        val bit = Vsm.IndexOf(level.first, Vsm.Toroidal(level.origin, page))
 
         if (bit < 0 || bit >= marks.Length * 32) {
             return -1

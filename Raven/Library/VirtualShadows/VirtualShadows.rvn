@@ -161,7 +161,33 @@ struct Vsm {
     }
 
     /// A virtual page's index in the global numbering.
+    ///
+    /// ⚠ **The toroidal address and not the window cell `PageOf` answers.** The two are the same
+    /// number only for a map whose origin is zero — every spot, and a clipmap level that has never
+    /// moved — so a caller that skips `Toroidal` is right until the camera walks one page and then
+    /// reads somebody else's page for the rest of the session.
     static func IndexOf(first: uint, page: int3): int => int(first) + page.y * PagesPerSide + page.x
+
+    /// Which toroidal address a window cell holds, for a map with this origin.
+    ///
+    /// **The one line that makes a page's identity a fact about the world rather than about the
+    /// window**, and the whole of task #317. A clipmap level's window is `PagesPerSide` pages across
+    /// and it is re-centred on the camera in whole pages, so a camera that walks one page slides the
+    /// window by one — and the cell a fixed piece of world lands in slides with it. Addressing a page
+    /// by its cell therefore *renames* a thousand and twenty-three pages in order to say that one
+    /// arrived, and the host's refit threw the level away for a third of a metre of walking.
+    ///
+    /// The origin slides by exactly as much in the other direction, so the sum does not move; reducing
+    /// it modulo the window is what keeps the address space finite. The price is the one column per
+    /// page of slide whose address is handed to a cell that has just come in from the far side, which
+    /// the host invalidates and nothing here has to know about.
+    ///
+    /// An `and` rather than a remainder, because `PagesPerSide` is a power of two and the sum may be
+    /// negative — where `%` answers with the sign of the dividend and would address the page from the
+    /// opposite edge of the map.
+    static func Toroidal(origin: int2, page: int3): int3 {
+        return int3((page.x + origin.x) & (PagesPerSide - 1), (page.y + origin.y) & (PagesPerSide - 1), page.z)
+    }
 }
 
 /// One virtual map: a projection, where its pages start, and how coarse its texels are.
@@ -185,6 +211,28 @@ struct VirtualShadowLevel {
 
     /// Which light this map belongs to.
     var light: uint
+
+    /// Where this map's page grid sits in the light's own endless page grid — see `Vsm.Toroidal`.
+    ///
+    /// ⚠ **`y` is negated against the host's own `Up` cell, and that is not a slip.** A page grid's
+    /// rows run *down* the map, because `Transform.NdcToUv` negates y — so a camera rising by one page
+    /// moves a world row's cell *up* by one where a camera moving right moves its column *down* by
+    /// one. Only a negated origin makes the same `origin + cell` arithmetic stable on both axes, which
+    /// is what lets the marking pass and the lookup share one line.
+    ///
+    /// Zero for a spot, whose map does not move at all: at the origin the toroidal address and the
+    /// window cell are the same number, which is what the whole spot path was written against.
+    var origin: int2
+
+    /// Two words of tail padding, so the record is ninety-six bytes on both sides.
+    ///
+    /// `CullView`'s padding makes the argument at length: the matrix aligns this record to sixteen, so
+    /// the device's array stride is the size rounded up to it — and a stride the host and the device
+    /// disagree about reads level one out of the middle of level zero, which is every page of every
+    /// level addressed into another level's world.
+    var padding0: int
+
+    var padding1: int
 }
 
 /// What a lookup answers: how much light reaches the point, and whether it knew.
@@ -363,8 +411,11 @@ shader VirtualShadowLookup : IDirectionalShadowSource {
             return result
         }
 
+        // The window cell, which is where the point is *in the picture* — and then the address, which
+        // is what the page is called. `within` below stays on the cell: where inside a page a point
+        // sits is the same fraction whatever the page is named.
         val page = int3(int(uv.x * float(Vsm.PagesPerSide)), int(uv.y * float(Vsm.PagesPerSide)), 1)
-        val index = Vsm.IndexOf(record.first, page)
+        val index = Vsm.IndexOf(record.first, Vsm.Toroidal(record.origin, page))
 
         if (index < 0 || index >= shadowPageTable.Length) {
             return result

@@ -125,7 +125,23 @@ public class VirtualShadowRendererTests : IDisposable {
     ///     what this file is about starts after the marks were read.
     /// </remarks>
     static void Allocate(Harness h, int count) {
+        var pages = new int[count];
+
         for (var page = 0; page < count; page++) {
+            pages[page] = page;
+        }
+
+        Allocate(h, pages);
+    }
+
+    /// <summary>The same, for named pages rather than a prefix of the address space.</summary>
+    /// <remarks>
+    ///     What a test about <em>addressing</em> needs: once a level has slid, the page a piece of
+    ///     world is under is a toroidal address and not a low number, so "the first n pages" is no
+    ///     longer a way to name the page a camera is standing on.
+    /// </remarks>
+    static void Allocate(Harness h, int[] pages) {
+        foreach (var page in pages) {
             h.Atlas.Residency.Request(new(VirtualShadowPages.Source, page));
         }
 
@@ -341,6 +357,196 @@ public class VirtualShadowRendererTests : IDisposable {
         // Standing still afterwards costs nothing again.
         Frame(h);
         Assert.Equal(0, h.Node.DrawnPages);
+    }
+
+    // --- A level that slid keeps the pages it still covers -------------------
+
+    /// <summary>A camera walking one page costs one column of pages, not a level — task #317.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The lateral half of the blink, and the number is the whole test.</b> A level's window
+    ///         is thirty-two pages across and re-centres on the camera in whole pages, so a camera that
+    ///         walks one page of level zero — a third of a metre at the shipped extent — slides that
+    ///         window by one and leaves thirty-one of its thirty-two columns over the same world. Under
+    ///         the window-cell addressing this replaced, every page of the level was renamed by that
+    ///         slide and <see cref="VirtualShadowRenderer.Fit" /> unpublished all thousand and
+    ///         twenty-four of them; against a budget that redraws sixteen, a walking camera's map could
+    ///         not converge. Now the arriving column is the only address that means somewhere new.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read as a column and not as a count</b>, because a count of two would also be what
+    ///         an addressing that happened to retire two scattered pages produced. The two pages that
+    ///         went are asserted to share a column and to be on different rows, which is the shape a
+    ///         slide along <c>right</c> has and the shape nothing else has.
+    ///     </para>
+    ///     <para>
+    ///         The budget is taken to zero for the moving frame on purpose: the node redraws what it
+    ///         invalidated inside the very same <c>Collect</c>, so a frame with a budget republishes
+    ///         the retired pages before anything can look. That is correct behaviour and it is exactly
+    ///         what would hide this.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_level_that_slid_one_page_keeps_every_column_but_the_one_that_arrived() {
+        using var h = Build(drawsPerFrame: 64);
+
+        Anchor(h);
+
+        // Two whole rows of level zero's grid, so a column that retires takes one page from each and
+        // a level that is thrown away takes both rows entirely.
+        const int Pages = 2 * VirtualShadowMap.PagesPerSide;
+
+        var (right, up, _) = VirtualShadowMap.Basis(h.Sun.Sun!.Value.Direction);
+        var light = Vector3.Normalize(h.Sun.Sun!.Value.Direction);
+        var page = VirtualShadowMap.ExtentOf(0, h.Node.FirstExtent) / VirtualShadowMap.PagesPerSide;
+
+        // ⚠ **Held off the other two axes' cell boundaries, and this is not decoration.** A camera at
+        // `right * k` has an `up` and a `light` component of zero only to within a rounding error, and
+        // `ClipmapCell` floors — so the two positions below would land in cell 0 or cell −1 on those
+        // axes depending on which way the last bit of a dot product fell, and every level would refit
+        // for reasons that have nothing to do with a slide. A third of a page up and half a depth step
+        // along the light puts both comfortably inside one cell, for every level at once.
+        var off = (up * 0.3f * page) + (light * VirtualShadowMap.DepthStep(0, h.Node.FirstExtent, h.Node.Depthrange) * 0.5f);
+
+        // At the middle of a cell of level zero's own grid, and stepping to the middle of the next —
+        // odd multiples of a half page, so no coarser level's boundary is crossed. Level one snaps
+        // every two of these pages, so a step over an even multiple would slide two levels at once
+        // and this would be measuring the pair.
+        h.Node.Camera!.Position = (right * 4.5f * page) + off;
+
+        Allocate(h, Pages);
+        Frame(h);
+        Assert.Equal(Pages, Published(h));
+
+        var before = new HashSet<int>(Resident(h));
+
+        // One page along `right`, which is perpendicular to the light — so the depth cell does not
+        // move and this is a slide and nothing else.
+        h.Node.Camera!.Position = (right * 5.5f * page) + off;
+        h.Node.DrawsPerFrame = 0;
+
+        Frame(h);
+
+        Assert.Equal(1, h.Node.RefitLevels);
+        Assert.Equal(2, h.Node.InvalidatedPages);
+
+        var retired = before.Except(Resident(h)).Order().ToArray();
+
+        Assert.Equal(2, retired.Length);
+
+        // One column of the level, one page from each row: same x, different y.
+        Assert.Equal(
+            retired[0] % VirtualShadowMap.PagesPerSide,
+            retired[1] % VirtualShadowMap.PagesPerSide
+        );
+
+        Assert.NotEqual(
+            retired[0] / VirtualShadowMap.PagesPerSide,
+            retired[1] / VirtualShadowMap.PagesPerSide
+        );
+
+        // And the budget puts the column back on the next frame, drawn against the window as it
+        // stands now — the same drain any other invalidation gets.
+        h.Node.DrawsPerFrame = 64;
+        Frame(h);
+        Assert.Equal(Pages, Published(h));
+    }
+
+    /// <summary>A page drawn after a slide is drawn from where the window puts it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>⚠ The half of toroidal addressing that no counter can see, and the one that renders
+    ///         plausibly when it is wrong.</b> The marking pass and the lookup share one line, so an
+    ///         address they both got wrong the same way still answers: <c>absent</c> falls, every
+    ///         counter in the trace improves, and the atlas fills with real geometry at plausible
+    ///         depths taken from <em>somewhere else in the level</em>. What decides where a page is
+    ///         drawn from is the host's own inverse — <see cref="VirtualShadowMap.GridOf" /> in
+    ///         <c>Collect</c> — and a node that handed the address straight to
+    ///         <see cref="VirtualShadowMap.PageProjection" /> would be right for exactly as long as
+    ///         every origin was zero, which is until the camera walks one page.
+    ///     </para>
+    ///     <para>
+    ///         Asserted against the world rather than against the arithmetic: the page under the
+    ///         camera is drawn, and the camera's own position has to land inside that page's
+    ///         viewport. Seven pages along, the address and the window cell differ by seven — which is
+    ///         fourteen units of a two-unit clip space, so the bug does not merely blur the assertion,
+    ///         it puts the point off the map. That difference is asserted too, or a run where they
+    ///         happened to agree would pass without testing anything.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_page_owed_a_draw_after_a_slide_is_drawn_where_the_window_puts_it() {
+        using var h = Build(drawsPerFrame: 1);
+
+        Anchor(h);
+
+        // The same function on the same input, so the fit under test and the expectation here share
+        // a direction bit for bit rather than to within a snap.
+        var light = VirtualShadowMap.SnapDirection(h.Sun.Sun!.Value.Direction, h.Node.LightSnapDegrees);
+        var (right, up, _) = VirtualShadowMap.Basis(light);
+        var page = VirtualShadowMap.ExtentOf(0, h.Node.FirstExtent) / VirtualShadowMap.PagesPerSide;
+
+        // Off the other two axes' cell boundaries — see the slide test above for why that matters.
+        var off = (up * 0.3f * page)
+            + (light * VirtualShadowMap.DepthStep(0, h.Node.FirstExtent, h.Node.Depthrange) * 0.5f);
+
+        h.Node.Camera!.Position = (right * 7.5f * page) + off;
+
+        var projection = VirtualShadowMap.ClipmapProjection(
+            0,
+            h.Node.FirstExtent,
+            h.Node.Camera!.Position,
+            light,
+            h.Node.Depthrange
+        );
+
+        var origin = VirtualShadowMap.ClipmapOrigin(
+            0,
+            h.Node.FirstExtent,
+            h.Node.Camera!.Position,
+            light,
+            h.Node.Depthrange
+        );
+
+        Assert.True(VirtualShadowMap.PageOf(projection, h.Node.Camera!.Position, out var cell));
+
+        var address = VirtualShadowMap.ToroidalOf(cell, origin);
+
+        // The premise: seven pages of walking, so the two are not the same page and the assertion
+        // below is about which of them the draw used.
+        Assert.NotEqual(cell, address);
+
+        Allocate(h, [VirtualShadowMap.IndexOf(0u, address)]);
+        Frame(h);
+
+        // Owed again, so it is the one page a budget of one draws next frame and the one view the
+        // node registers is unambiguously its.
+        Assert.True(h.Atlas.Pages.Invalidate(VirtualShadowMap.IndexOf(0u, address)));
+        Frame(h);
+
+        var view = Assert.Single(h.System.Views, candidate => candidate.Name == $"{h.Node}.Page0");
+        var clip = Matrix4x4.TransformVector4(new(h.Node.Camera!.Position, 1f), view.ViewProjection);
+
+        Assert.True(clip.W > 0f, "the page's projection put the camera behind its own near plane");
+
+        var ndc = new Vector2(clip.X / clip.W, clip.Y / clip.W);
+
+        Assert.InRange(ndc.X, -1f, 1f);
+        Assert.InRange(ndc.Y, -1f, 1f);
+    }
+
+    /// <summary>Which virtual pages the table currently answers.</summary>
+    static List<int> Resident(Harness h) {
+        var table = h.Atlas.Pages.Table;
+        var answered = new List<int>();
+
+        for (var page = 0; page < table.Length; page++) {
+            if (table[page] != VirtualShadowMap.PageAbsent) {
+                answered.Add(page);
+            }
+        }
+
+        return answered;
     }
 
     // --- The marking dispatch covers the screen ------------------------------
