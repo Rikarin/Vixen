@@ -24,14 +24,17 @@ namespace Vixen.Ui.Controls.Tests;
 ///     </para>
 /// </remarks>
 public class GroupOpacityTests {
-    /// <summary>A harness whose documents composite, which is not yet the default.</summary>
+    /// <summary>A harness whose documents composite, which is now also the default.</summary>
     /// <remarks>
-    ///     ⚠ <b>Opted into per test rather than switched on globally, because the renderer that ships
-    ///     cannot composite yet.</b> See <see cref="DrawListBuilder.Compositing" />: turning it on for
-    ///     everything would put the visual baselines — which render on the CPU, where compositing
-    ///     works — ahead of <c>Vixen.Ui.Renderer</c>, and the committed screenshots would then be
-    ///     pictures of something the editor does not draw. That is precisely the divergence this whole
-    ///     design is built to avoid, so it is not worth introducing to save a line per test.
+    ///     ⚠ <b><s>Opted into per test rather than switched on globally, because the renderer that
+    ///     ships cannot composite yet.</s> It ships and it composites, so this is no longer an opt-in
+    ///     — and it is kept anyway.</b> See <see cref="DrawListBuilder.Compositing" />: the fear was
+    ///     that switching it on globally would put the visual baselines, which render on the CPU where
+    ///     compositing always worked, ahead of <c>Vixen.Ui.Renderer</c>, so the committed screenshots
+    ///     would be pictures of something the editor does not draw. What closed that gap was
+    ///     <c>UiRenderer.Compose</c> and the hosts calling it, not this line. It stays because these
+    ///     tests are about the compositing model itself and would silently become tests of the
+    ///     multiplier if the default ever moved back.
     /// </remarks>
     static UiTest Compositing(float width, float height) {
         var ui = UiTest.Create(width, height);

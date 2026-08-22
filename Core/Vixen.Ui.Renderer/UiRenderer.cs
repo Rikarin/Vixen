@@ -230,12 +230,26 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many of this frame's groups <see cref="Compose" /> actually rendered.</summary>
     /// <remarks>
-    ///     ⚠ <b>Zero is the honest answer and not a failure, which is what keeps a host that never
-    ///     calls <see cref="Compose" /> drawing what it drew before.</b> <see cref="Record" /> skips a
-    ///     group's own draws only when its surface exists; with none, the walk is the flat one over
-    ///     every draw in order that this renderer has always done, the composite quads are skipped for
-    ///     want of a registered texture, and the frame is the un-isolated approximation
-    ///     <c>DrawListBuilder.Compositing</c> being off produces anyway.
+    ///     ⚠ <b>Zero is the honest answer and not a failure, and it is what keeps a host that never
+    ///     calls <see cref="Compose" /> from throwing or half-drawing.</b> <see cref="Record" /> skips
+    ///     a group's own draws only when its surface exists; with none, the walk is the flat one over
+    ///     every draw in order that this renderer has always done, and the composite quads are skipped
+    ///     for want of a registered texture.
+    ///     <para>
+    ///         ⚠ <b><s>and the frame is the un-isolated approximation
+    ///         <c>DrawListBuilder.Compositing</c> being off produces anyway.</s> It is not, and that
+    ///         sentence was the reason turning the gate on looked like one change.</b> The
+    ///         approximation fades each of a group's children by the group's alpha; what this produces
+    ///         instead is those children at <i>full</i> strength, because the builder emits a group's
+    ///         contents with alpha one precisely so the surface can carry the fade — see
+    ///         <c>DrawListBuilder.Emit</c>, and
+    ///         <c>DrawListTests.Opacity_brackets_a_group_rather_than_multiplying_down_the_tree</c>,
+    ///         which asserts the one. So a host that leaves this at zero with the gate on does not
+    ///         approximate a faded panel, it draws an opaque one. That is worse than either model and
+    ///         is why <c>Compose</c> is not optional, and why an absent <c>UiShaders.Image</c> — which
+    ///         makes <c>Compose</c> return having done nothing — is the same fault wearing a different
+    ///         hat.
+    ///     </para>
     /// </remarks>
     int composed;
 

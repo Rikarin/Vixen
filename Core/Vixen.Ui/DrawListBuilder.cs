@@ -133,20 +133,31 @@ public sealed class DrawListBuilder {
     /// <summary>Whether a translucent subtree is isolated into a group, or faded element by element.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Off by default, and the default is about the <i>consumer</i> rather than about which
-    ///         answer is right.</b> Isolating is what CSS Compositing 1 § 3 specifies and
-    ///         <see cref="DrawCommandKind.LayerPush" /> is how this asks for it; fading each element is
-    ///         the approximation this file carried for years. But a group only becomes a picture if
-    ///         whoever executes the draw list can render an offscreen surface — and a consumer that
-    ///         ignores <c>UiGeometry.Layers</c> does something worse than approximate: it draws the
-    ///         group's contents inline at <i>full</i> strength and skips the composite, so a faded panel
-    ///         comes out opaque.
+    ///         ⚠ <b>On by default since both executors landed, and the default is about the
+    ///         <i>consumer</i> rather than about which answer is right.</b> Isolating is what CSS
+    ///         Compositing 1 § 3 specifies and <see cref="DrawCommandKind.LayerPush" /> is how this asks
+    ///         for it; fading each element is the approximation this file carried for years. But a group
+    ///         only becomes a picture if whoever executes the draw list can render an offscreen surface
+    ///         — and a consumer that ignores <c>UiGeometry.Layers</c> does something worse than
+    ///         approximate: it draws the group's contents inline at <i>full</i> strength and skips the
+    ///         composite, so a faded panel comes out opaque.
     ///     </para>
     ///     <para>
-    ///         <c>SoftwareUiRasterizer</c> composites and <c>Vixen.Ui.Renderer</c> does not yet, so this
-    ///         stays off until the second one lands and then becomes the default. It is a switch rather
-    ///         than a capability the renderer reports because the decision has to be made while the
-    ///         <i>draw list</i> is built, which is upstream of anything that knows what a texture is.
+    ///         ⚠ <b>So turning this on is not a property of this file, and setting it back to true after
+    ///         someone turns it off is not the whole of restoring it.</b> Both executors composite now —
+    ///         <c>SoftwareUiRasterizer</c> always did, <c>UiRenderer.Compose</c> does as of the GPU half
+    ///         — but a renderer that <i>can</i> composite still does not unless its host calls
+    ///         <c>Compose</c> once a frame, and <c>Compose</c> itself returns having done nothing when
+    ///         the host handed over no <c>UiShaders.Image</c>, because that is the stage a surface is
+    ///         composited back with. A host missing either is in the opaque-panel state above, not in
+    ///         the approximation. <c>EditorHost</c> and the <c>vixen-app</c> template do both; a host
+    ///         written against neither has to be checked.
+    ///     </para>
+    ///     <para>
+    ///         It is a switch rather than a capability the renderer reports because the decision has to
+    ///         be made while the <i>draw list</i> is built, which is upstream of anything that knows what
+    ///         a texture is. It stays a switch now that it is on, because that is what a host with a
+    ///         consumer of its own has to reach for.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The two settings must not be mixed within one application.</b> The whole hazard the
@@ -155,7 +166,7 @@ public sealed class DrawListBuilder {
     ///         test suite turned it on would have built that hazard deliberately.
     ///     </para>
     /// </remarks>
-    public bool Compositing { get; set; }
+    public bool Compositing { get; set; } = true;
 
     /// <summary>Walks a document and fills a draw list.</summary>
     /// <param name="document">The document, already updated.</param>

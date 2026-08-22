@@ -201,6 +201,24 @@ sealed class AppHost : IDisposable {
             // either — which is why `UiRenderer` splits `Upload` from `Record` at all.
             renderer!.Upload(commands, frame, glyphs.Atlas);
 
+            // ⚠ <b>After `Upload` and outside the pass, for both of the reasons above and one more.</b>
+            // A translucent subtree that draws more than one thing is rendered into a surface of its
+            // own and blended once — CSS Compositing 1 § 3 — and this is what renders those surfaces.
+            // It opens a render pass per group, so it cannot be inside one; and it draws from the
+            // vertices `Upload` just wrote, so it cannot be before it. Recording it onto `commands`
+            // here puts it ahead of `graph.Execute` on the same list, which is the order the
+            // dependency runs in: the interface's pass samples what this wrote.
+            //
+            // ⚠ The same surface and scale as `Record` below. A group's surface is viewport-sized and
+            // drawn with the frame's own projection, so a different number here would place the
+            // subtree somewhere its composite quad does not look for it.
+            renderer.Compose(
+                commands,
+                frame,
+                new Int2((int) MathF.Round(surface.Width), (int) MathF.Round(surface.Height)),
+                scale
+            );
+
             graph.AddPass("ui", pass => {
                 pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
                 pass.SideEffect();
@@ -307,7 +325,17 @@ sealed class AppHost : IDisposable {
                 device.CreateShader(ShaderStage.Fragment, Module("ui-box.frag.spv"), "ui box"),
                 device.CreateShader(ShaderStage.Fragment, Module("ui-text.frag.spv"), "ui text"),
                 device.CreateShader(ShaderStage.Fragment, Module("ui-solid.frag.spv"), "ui solid")
-            ),
+            ) {
+                // ⚠ <b>Not only for drawing images, which is what its name suggests and why it was
+                // left out.</b> This is also the stage `UiRenderer.Compose` composites a group's
+                // surface back with, and an `opacity` on anything that draws more than one thing
+                // makes a group — `ControlTheme.vcss` puts one on every disabled control. Without
+                // this shader `Compose` has nothing to composite with and returns having done
+                // nothing, and the group's contents are then drawn in place at *full* strength: a
+                // disabled button comes out opaque rather than faded. So it ships whether or not the
+                // application ever draws an image.
+                Image = device.CreateShader(ShaderStage.Fragment, Module("ui-image.frag.spv"), "ui image")
+            },
             new Vixen.Rendering.RenderOutput([swapChain.Format])
         );
 
