@@ -321,6 +321,11 @@ every section beside the one before it.
     previous time, because an event is a moment rather than a state. What it moves, it restores.
   - **Audio mixer** (`Audio/`) — a panel over `Vixen.Audio`'s own `MixerAsset`, validated by running
     the real `MixerBuilder` against a real `AudioMixer` rather than by a second set of rules.
+    ⚠ **The one `.vxml` in this folder, and the panel `change:` and `refs` were built for**: a
+    strip's fader handler reads *its own* mute and its mute handler reads *its own* fader, which is
+    one member and many rows for a `ref` (`VXML2010`). The port is held to a whole-tree rectangle
+    dump that is byte-identical to the C# it replaced — see the [panel
+    ledger](../Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be).
   - **Input actions** (`Input/`) — over `Vixen.Input`'s reader and writer, so the file this editor
     writes and the file the source generator reads are the same file by construction.
   - **Font** (`Fonts/`) — `.vxfont`, a document beside the `.ttf` because a fallback chain is a

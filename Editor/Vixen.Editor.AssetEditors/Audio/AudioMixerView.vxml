@@ -1,0 +1,653 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 — the panel the ledger called the one file in the editor that was unportable for a
+    reason the engine could fix, and the reason `change:` and `refs` exist.
+
+    ⚠ **What was impossible, in one sentence.** Every strip holds a fader, a mute and a solo; the
+    fader's handler reads *its own* mute and the mute's handler reads *its own* fader. Markup could
+    not subscribe to a value change at all, and the `ref` workaround the other panels use is
+    `VXML2010` inside a `@for` — one member, one assignment, many rows. `change:Value` is the first
+    half and `refs="@Faders"` is the second: a handle filed under the identity `BuildContext.For`
+    reconciled the row on, so `Mutes[column]` in a fader's handler is that strip's mute whatever the
+    bus list has done since.
+
+    ⚠ **The key is the three things whose change is a different strip, and emphatically not the
+    gain.** A `@for` key that carried the gain would tear down and rebuild the fader's region on
+    every step of a drag — the element under the pointer, mid-gesture. `MixerColumn` is name, parent
+    and master-ness; the gain, the mute and the selection reach the screen through bindings inside
+    the body, which is exactly what a surviving key leaves running. See the `@for` key rule.
+
+    ⚠ **Nothing in a loop body may read the loop variable for a value that changes**, for the same
+    rule read the other way: a surviving key never re-runs its body, so a binding that closed over a
+    gain captured at build time would show the gain the strip had when it first appeared. Every
+    binding here goes back through a signal — `Gain(column)`, `Muted(column)` — and takes the column
+    only as a name to look up.
+
+    ⚠ **The bounds are literals and the value is a binding, and the order is load-bearing.** A
+    literal attribute is assigned as the tag is built; a `@`-expression is an effect that runs at the
+    next flush. `Slider.Value` coerces into `[Minimum, Maximum]`, so a fader whose bounds arrived as
+    effects could be handed −3.5 dB while it still believed in the default 0–1 range and keep the 0.
+    `MixerBoundsMatchTheConstants` is the test that stops the two numbers drifting from
+    `MinimumDb`/`MaximumDb`.
+
+    ⚠ **Nine one-line element types, because markup cannot write an intrinsic tag's own `Text`.**
+    That is the ledger's shape 5, and `<mixer-strip-name>@column.Name</mixer-strip-name>` is not the
+    same tree — it is a `text` child inside the caption instead of the caption's own text, which is a
+    box where there was none. `AudioMixerView.cs` holds the subclasses and the argument.
+
+    ⚠ **The two dropdowns are still fed from C#, and that is the ledger's build-list item 4.** A
+    `Select`'s options live in a popover off the document root rather than among its children, so
+    `AddOption` is a method with no markup spelling. `OptionCell` turns the list into a *property*, so
+    binding it is an ordinary effect — which is also what makes it survive the side panel being
+    rebuilt under it, the crash `AddingASendSurvivesTheSidePanelBeingRebuiltUnderIt` is named after.
+-->
+@component AudioMixerView
+@namespace Vixen.Editor.AssetEditors.Audio
+@inherits Vixen.Ui.Controls.Control
+@tag mixer-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Audio.Assets
+@using Vixen.Ui
+@using Vixen.Ui.Composition
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<mixer-bar>
+    <Button ref="@AddBus" Label="Add Bus" Size="Small" Variant="Subtle" on:click.stop="@Grow" />
+    <Button ref="@RemoveBus" Label="Remove Bus" Size="Small" Variant="Subtle" on:click.stop="@Drop" />
+    <Button ref="@AddSnapshot" Label="Add Snapshot" Size="Small" Variant="Subtle" on:click.stop="@Capture" />
+</mixer-bar>
+
+<mixer-body>
+    <mixer-strips ref="@Strips">
+        @for (var column in Columns) {
+            <mixer-strip key="@column" class="@Chosen(column)" on:pointerdown="@(() => Pick(column))">
+                <MixerStripName Text="@column.Name" />
+
+                @if (column.Parent.Length > 0) {
+                    <MixerStripParent Text="@("→ " + column.Parent)" />
+                }
+
+                <Slider refs="@Faders"
+                        Orientation="Vertical"
+                        Minimum="-60"
+                        Maximum="12"
+                        Value="@Gain(column)"
+                        Disabled="@column.Master"
+                        change:Value="@(gain => WriteGain(column, gain))" />
+
+                <MixerStripGain Text="@GainText(column)" />
+
+                <mixer-strip-buttons>
+                    <ToggleButton refs="@Mutes"
+                                  Label="M"
+                                  IsChecked="@Muted(column)"
+                                  Disabled="@column.Master"
+                                  change:IsChecked="@(on => WriteMute(column, on))" />
+
+                    <ToggleButton Label="S"
+                                  IsChecked="@Soloed(column)"
+                                  Disabled="@column.Master"
+                                  change:IsChecked="@(on => Solo(column, on))" />
+                </mixer-strip-buttons>
+            </mixer-strip>
+        }
+    </mixer-strips>
+
+    <mixer-side ref="@Side">
+        <mixer-fields ref="@Fields">
+            @if (Bus is null) {
+                @("Select a bus.")
+            } else {
+                <MixerTitle Text="@BusName" />
+
+                <fact-row>
+                    <FactName Text="Name" />
+                    <fact-value>
+                        <TextBox Value="@BusName" change:Value="@(text => Rename(text))" />
+                    </fact-value>
+                </fact-row>
+
+                <fact-row>
+                    <FactName Text="Parent" />
+                    <fact-value>
+                        <TextBox Value="@BusParent" change:Value="@(text => Reparent(text))" />
+                    </fact-value>
+                </fact-row>
+
+                <fact-row>
+                    <FactName Text="Sidechain" />
+                    <fact-value>
+                        <TextBox Value="@BusSidechain" change:Value="@(text => Key(text))" />
+                    </fact-value>
+                </fact-row>
+
+                <MixerTitle Text="Sends" />
+
+                @for (var send in Sends) {
+                    <fact-row key="@send">
+                        <FactName Text="@(send.Target.Length > 0 ? send.Target : "(nowhere)")" />
+                        <fact-value>
+                            <NumericInput Decimals="1"
+                                          Number="@LevelOf(send)"
+                                          change:Number="@(level => WriteLevel(send, level))" />
+                        </fact-value>
+                    </fact-row>
+                }
+
+                <fact-row>
+                    <OptionCell Placeholder="Send to…" Choices="@Targets" Chosen="@AddSend" />
+                </fact-row>
+
+                <MixerTitle Text="Inserts" />
+
+                @for (var insert in Inserts) {
+                    <fact-row key="@insert">
+                        <FactName Text="@insert.Name" />
+                        <fact-value>
+                            <Button Label="Remove"
+                                    Size="Small"
+                                    Variant="Subtle"
+                                    on:click="@(() => RemoveInsert(insert))" />
+                        </fact-value>
+                    </fact-row>
+                }
+
+                <fact-row>
+                    <OptionCell Placeholder="Add insert…" Choices="@InsertNames" Chosen="@AddInsert" />
+                </fact-row>
+            }
+        </mixer-fields>
+
+        <mixer-snapshots ref="@Snapshots">
+            <MixerTitle Text="Snapshots" />
+
+            <MixerSnapshotRow Text="Authored mix"
+                              class="@Chosen(string.Empty)"
+                              on:pointerdown="@(() => Choose(string.Empty))" />
+
+            @for (var line in Takes) {
+                <MixerSnapshotRow key="@line"
+                                  Text="@line.Caption"
+                                  class="@Chosen(line.Name)"
+                                  on:pointerdown="@(() => Choose(line.Name))" />
+            }
+        </mixer-snapshots>
+
+        <analysis-list ref="@Problems">
+            @for (var note in Notes) {
+                <analysis-row key="@note">
+                    <AnalysisStage Text="@note.Stage" />
+                    <AnalysisMessage Text="@note.Message" />
+                </analysis-row>
+            }
+        </analysis-list>
+    </mixer-side>
+</mixer-body>
+
+@code {
+    /// <summary>The quietest a fader goes, in decibels.</summary>
+    /// <remarks>
+    ///     ⚠ Written into the markup as a literal as well, because a literal attribute is assigned
+    ///     while the tag is built and a <c>@</c>-expression is an effect that is not. See the file's
+    ///     header, and <c>MixerBoundsMatchTheConstants</c>, which is what keeps the two agreeing.
+    /// </remarks>
+    public const float MinimumDb = -60f;
+
+    /// <summary>And the loudest.</summary>
+    /// <inheritdoc cref="MinimumDb" />
+    public const float MaximumDb = 12f;
+
+    /// <summary>The mixer being edited, as the markup reads it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One signal for the whole asset, and a reference comparer over it.</b>
+    ///     <see cref="MixerAsset" /> and everything under it are immutable records — an edit is a
+    ///     replacement, which is <c>AudioMixerDocument.Replace</c>'s whole design — so the document
+    ///     handing over a new instance <i>is</i> the notification, and every list the panel draws is
+    ///     a projection of it. Splitting it into a signal per thing on screen would be several
+    ///     answers to a question the document already answers once.
+    ///     <para>
+    ///         Reference rather than record equality because the record's own <c>Equals</c> would
+    ///         walk four levels of arrays to reach the same answer: <c>Replace</c> never hands back
+    ///         an instance that is already current, and undo restores the instance it kept.
+    ///     </para>
+    /// </remarks>
+    readonly Signal<MixerAsset> asset = new(new(), SignalComparer.Reference<MixerAsset>());
+
+    /// <summary>Which bus is selected, or empty.</summary>
+    readonly Signal<string> chosenBus = new(string.Empty);
+
+    /// <summary>Which snapshot the strips are showing, or empty for the authored mix.</summary>
+    readonly Signal<string> chosenSnapshot = new(string.Empty);
+
+    /// <summary>Which buses are soloed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Editor state, so it is a signal here rather than a field of the asset.</b> Solo is a
+    ///     thing you do while listening and never a thing you ship. An immutable set because a
+    ///     <c>HashSet</c> mutated in place is a value change no signal can see — which is the shape
+    ///     a revision counter is usually invented to paper over.
+    /// </remarks>
+    readonly Signal<ImmutableHashSet<string>> solos = new(ImmutableHashSet.Create<string>(StringComparer.Ordinal));
+
+    /// <summary>What building the mixer said, as one line each.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A signal rather than a property, unlike every other list here, because reading it
+    ///     costs a build.</b> <see cref="AudioMixerDocument.Validate" /> constructs a real
+    ///     <c>AudioMixer</c> and runs <c>MixerBuilder</c> over the document; a <c>@for</c> source
+    ///     that did that would run the whole builder on every flush that touched anything. It is
+    ///     written where the panel it replaces wrote it: once per reload.
+    /// </remarks>
+    readonly Signal<ImmutableArray<MixerNote>> notes = new([]);
+
+    AudioMixerDocument? document;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Each strip's fader, by the strip the loop reconciled it on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The pair of handles is the whole reason <c>refs</c> exists.</b> A mute's handler has
+    ///     to write the gain its own fader is showing and a fader's handler has to write its own
+    ///     mute, and neither can be read off the model: the model is what they are both about to
+    ///     write to.
+    /// </remarks>
+    public ElementRefs<Slider> Faders { get; } = new();
+
+    /// <inheritdoc cref="Faders" />
+    public ElementRefs<ToggleButton> Mutes { get; } = new();
+
+    /// <summary>The strips.</summary>
+    public UiElement Strips { get; private set; } = null!;
+
+    /// <summary>The column beside them.</summary>
+    public UiElement Side { get; private set; } = null!;
+
+    /// <summary>The selected bus's inserts and sends.</summary>
+    public UiElement Fields { get; private set; } = null!;
+
+    /// <summary>The snapshots.</summary>
+    public UiElement Snapshots { get; private set; } = null!;
+
+    /// <summary>What building the mixer said.</summary>
+    public UiElement Problems { get; private set; } = null!;
+
+    /// <summary>Adds a bus under the selected one.</summary>
+    public Button AddBus { get; private set; } = null!;
+
+    /// <summary>Removes the selected bus.</summary>
+    public Button RemoveBus { get; private set; } = null!;
+
+    /// <summary>Adds a snapshot.</summary>
+    public Button AddSnapshot { get; private set; } = null!;
+
+    /// <summary>Which bus is selected, or empty.</summary>
+    public string Selected => chosenBus.Value;
+
+    /// <summary>Which snapshot the strips are showing, or empty for the authored mix.</summary>
+    public string Snapshot => chosenSnapshot.Value;
+
+    /// <summary>Shows a mixer.</summary>
+    /// <param name="mixer">The document.</param>
+    public void Show(AudioMixerDocument mixer) {
+        ArgumentNullException.ThrowIfNull(mixer);
+
+        if (document is { } previous) {
+            previous.Changed -= Reload;
+        }
+
+        document = mixer;
+        mixer.Changed += Reload;
+
+        Reload(mixer);
+    }
+
+    /// <summary>Re-reads the document.</summary>
+    /// <param name="mixer">The document.</param>
+    /// <remarks>
+    ///     ⚠ <b>Two assignments where there used to be a rebuild of every element.</b> What the
+    ///     strips, the side panel and the analysis list draw is a projection of the asset, so
+    ///     handing the asset over is the whole notification — and a strip whose bus is unchanged
+    ///     keeps its region, its fader and the drag in progress on it.
+    /// </remarks>
+    public void Reload(AudioMixerDocument mixer) {
+        ArgumentNullException.ThrowIfNull(mixer);
+
+        asset.Value = mixer.Mixer;
+        notes.Value = Read(mixer);
+    }
+
+    /// <summary>
+    ///     ⚠ Lets go of the document, which the panel this replaces never did. A handler left on
+    ///     <c>Changed</c> writes signals into a view that has been removed, and holds it — and every
+    ///     element under it — alive for as long as the document lives.
+    /// </summary>
+    partial void OnUnmounted() {
+        if (document is { } mixer) {
+            mixer.Changed -= Reload;
+            document = null;
+        }
+    }
+
+    // ================================================================== What the markup reads
+
+    /// <summary>The strips, master first and then the buses, parents before children.</summary>
+    ImmutableArray<MixerColumn> Columns {
+        get {
+            var columns = ImmutableArray.CreateBuilder<MixerColumn>();
+
+            // ⚠ The master strip is drawn and is not in the file. `AudioMixer` makes one; a document
+            // that declared it would be a second declaration of a bus that always exists, and
+            // deleting it from a file would produce a mixer that still has one.
+            columns.Add(new("Master", string.Empty, true));
+
+            foreach (var bus in Ordered(asset.Value)) {
+                columns.Add(new(bus.Name, bus.Parent, false));
+            }
+
+            return columns.ToImmutable();
+        }
+    }
+
+    /// <summary>The snapshot rows, not counting the authored mix, which is not one of them.</summary>
+    ImmutableArray<MixerSnapshotLine> Takes =>
+        [.. asset.Value.Snapshots.Select(
+            entry => new MixerSnapshotLine(entry.Name, $"{entry.Name}  ·  {entry.Buses.Length} bus(es)")
+        )];
+
+    /// <summary>What the analysis list says.</summary>
+    ImmutableArray<MixerNote> Notes => notes.Value;
+
+    /// <summary>The selected bus, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Looked up by name on every read, and that is what makes renaming a bus deselect
+    ///     it</b> — which is what the panel this replaces did, because <c>Restate</c> searched for
+    ///     the old name and found nothing. Written down rather than fixed: it is a change to what
+    ///     the editor does and belongs in a commit that says so.
+    /// </remarks>
+    MixerBusAsset? Bus =>
+        asset.Value.Buses.FirstOrDefault(bus => string.Equals(bus.Name, chosenBus.Value, StringComparison.Ordinal));
+
+    string BusName => Bus?.Name ?? string.Empty;
+
+    string BusParent => Bus?.Parent ?? string.Empty;
+
+    string BusSidechain => Bus?.Sidechain ?? string.Empty;
+
+    /// <summary>The selected bus's sends, as the rows key on them.</summary>
+    ImmutableArray<MixerSend> Sends =>
+        Bus is { } bus ? [.. bus.Sends.Select((send, slot) => new MixerSend(slot, send.Target))] : [];
+
+    /// <summary>And its inserts.</summary>
+    ImmutableArray<MixerInsert> Inserts =>
+        Bus is { } bus
+            ? [.. bus.Effects.Select(
+                (effect, slot) => new MixerInsert(
+                    slot,
+                    effect.GetType().Name.Replace("Asset", string.Empty, StringComparison.Ordinal)
+                )
+            )]
+            : [];
+
+    /// <summary>Where a new send may go: every bus but the one it would leave.</summary>
+    /// <remarks>File order rather than <see cref="Ordered" />'s, which is what the menu has always shown.</remarks>
+    ImmutableArray<string> Targets =>
+        Bus is { } bus
+            ? [.. asset.Value.Buses
+                .Where(candidate => !string.Equals(candidate.Name, bus.Name, StringComparison.Ordinal))
+                .Select(candidate => candidate.Name)]
+            : [];
+
+    /// <summary>What the insert menu offers.</summary>
+    ImmutableArray<string> InsertNames { get; } = [.. Effects.Keys];
+
+    /// <summary>What one strip's fader reads.</summary>
+    float Gain(MixerColumn column) => Effective(column.Name, Authored(column));
+
+    /// <summary>And what the number under it says.</summary>
+    string GainText(MixerColumn column) =>
+        string.Create(CultureInfo.InvariantCulture, $"{Gain(column):0.0} dB");
+
+    /// <summary>Whether a strip's mute is down.</summary>
+    /// <remarks>
+    ///     The authored flag rather than the snapshot's, which is what the panel this replaces
+    ///     showed: <c>Effective</c> is about the gain and there has never been a per-snapshot mute
+    ///     on screen, even though <c>SetSnapshotBus</c> writes one.
+    /// </remarks>
+    bool Muted(MixerColumn column) => Find(column)?.Muted ?? false;
+
+    /// <summary>Whether it is soloed.</summary>
+    bool Soloed(MixerColumn column) => solos.Value.Contains(column.Name);
+
+    /// <summary>The class a selected strip carries, as the <c>class</c> attribute wants it.</summary>
+    string Chosen(MixerColumn column) =>
+        string.Equals(chosenBus.Value, column.Name, StringComparison.Ordinal) ? "selected" : string.Empty;
+
+    /// <summary>The same, for a snapshot row.</summary>
+    string Chosen(string snapshot) =>
+        string.Equals(chosenSnapshot.Value, snapshot, StringComparison.Ordinal) ? "selected" : string.Empty;
+
+    /// <summary>What a send row's field reads.</summary>
+    double LevelOf(MixerSend send) =>
+        Bus?.Sends.ElementAtOrDefault(send.Slot)?.LevelDb ?? 0d;
+
+    // ================================================================== What the markup writes
+
+    /// <remarks>
+    ///     ⚠ <c>Mutes[column]</c> rather than the model's flag, and this is the line <c>refs</c> was
+    ///     built for. Reading the model would be reading the thing this write is about to replace.
+    /// </remarks>
+    void WriteGain(MixerColumn column, float gain) {
+        if (!column.Master) {
+            Write(column.Name, gain, Mutes[column].IsChecked);
+        }
+    }
+
+    /// <inheritdoc cref="WriteGain" />
+    void WriteMute(MixerColumn column, bool muted) {
+        if (!column.Master) {
+            Write(column.Name, Faders[column].Value, muted);
+        }
+    }
+
+    void Solo(MixerColumn column, bool on) {
+        if (column.Master) {
+            return;
+        }
+
+        solos.Value = on ? solos.Value.Add(column.Name) : solos.Value.Remove(column.Name);
+    }
+
+    /// <remarks>⚠ The master strip is not selectable, exactly as before: it has no bus to show.</remarks>
+    void Pick(MixerColumn column) {
+        if (!column.Master) {
+            chosenBus.Value = column.Name;
+        }
+    }
+
+    void Choose(string snapshot) => chosenSnapshot.Value = snapshot;
+
+    void Grow() => document?.AddBus("New Bus", chosenBus.Value);
+
+    void Drop() {
+        if (document is { } mixer && chosenBus.Value.Length > 0) {
+            mixer.RemoveBus(chosenBus.Value);
+            chosenBus.Value = string.Empty;
+        }
+    }
+
+    void Capture() => document?.AddSnapshot("New Snapshot");
+
+    void Rename(string? name) => Edit("Rename Bus", bus => bus with { Name = name ?? string.Empty });
+
+    void Reparent(string? parent) => Edit("Reparent Bus", bus => bus with { Parent = parent ?? string.Empty });
+
+    void Key(string? sidechain) => Edit("Set Sidechain", bus => bus with { Sidechain = sidechain ?? string.Empty });
+
+    void WriteLevel(MixerSend send, double level) => Edit(
+        "Set Send Level",
+        bus => bus with {
+            Sends = [.. bus.Sends.Select((entry, slot) =>
+                slot == send.Slot ? entry with { LevelDb = (float) level } : entry)]
+        }
+    );
+
+    void AddSend(string? target) {
+        if (document is { } mixer && Bus is { } bus && target is { Length: > 0 } named) {
+            mixer.AddSend(bus.Name, named);
+        }
+    }
+
+    void AddInsert(string? effect) {
+        if (document is { } mixer && Bus is { } bus
+            && effect is { Length: > 0 } chosen && Effects.TryGetValue(chosen, out var make)) {
+            mixer.AddEffect(bus.Name, make());
+        }
+    }
+
+    void RemoveInsert(MixerInsert insert) {
+        if (document is { } mixer && Bus is { } bus) {
+            mixer.RemoveEffect(bus.Name, insert.Slot);
+        }
+    }
+
+    void Edit(string name, Func<MixerBusAsset, MixerBusAsset> change) {
+        if (document is { } mixer && Bus is { } bus) {
+            mixer.EditBus(name, bus.Name, change);
+        }
+    }
+
+    /// <summary>Writes a fader and a mute, into the snapshot when one is being edited.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Which of the two a drag writes to is the whole of what "editing a snapshot"
+    ///     means.</b> With no snapshot chosen a fader changes the authored mix; with one chosen it
+    ///     records a line in that snapshot and leaves the authored mix alone — which is what stops a
+    ///     sound designer flattening their base mix while auditioning the underwater one.
+    /// </remarks>
+    void Write(string bus, float gainDb, bool muted) {
+        if (document is not { } mixer) {
+            return;
+        }
+
+        if (chosenSnapshot.Value.Length > 0) {
+            mixer.SetSnapshotBus(chosenSnapshot.Value, bus, gainDb, muted);
+
+            return;
+        }
+
+        mixer.EditBus("Set Bus Gain", bus, found => found with { GainDb = gainDb, Muted = muted });
+    }
+
+    // ================================================================== Reading the document
+
+    MixerBusAsset? Find(MixerColumn column) =>
+        column.Master
+            ? null
+            : asset.Value.Buses.FirstOrDefault(
+                bus => string.Equals(bus.Name, column.Name, StringComparison.Ordinal)
+            );
+
+    float Authored(MixerColumn column) => Find(column)?.GainDb ?? 0f;
+
+    /// <summary>What a bus's fader reads, allowing for the snapshot being edited.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A bus a snapshot does not mention shows the authored gain, not zero.</b> That is what
+    ///     the snapshot means — it changes what it names and leaves the rest — so a strip that read
+    ///     zero would be telling the designer their mix had been flattened by choosing a snapshot.
+    /// </remarks>
+    float Effective(string bus, float authored) {
+        if (chosenSnapshot.Value.Length == 0) {
+            return authored;
+        }
+
+        var line = asset.Value.Snapshots
+            .FirstOrDefault(entry => string.Equals(entry.Name, chosenSnapshot.Value, StringComparison.Ordinal))
+            ?.Buses.FirstOrDefault(entry => string.Equals(entry.Bus, bus, StringComparison.Ordinal));
+
+        return line?.GainDb ?? authored;
+    }
+
+    /// <summary>The buses, parents before children, so the strips read left to right as the tree.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The file is deliberately unordered</b> — <see cref="MixerAsset.Buses" /> says a bus may
+    ///     name a parent declared after it — so the order the strips are drawn in is this view's and
+    ///     has to be derived rather than taken. A cycle, which the builder reports, is drawn in file
+    ///     order rather than dropped: a strip nobody can see is a bus nobody can fix.
+    /// </remarks>
+    static List<MixerBusAsset> Ordered(MixerAsset mixer) {
+        List<MixerBusAsset> ordered = [];
+        HashSet<string> placed = new(StringComparer.Ordinal);
+
+        var remaining = mixer.Buses.ToList();
+
+        while (remaining.Count > 0) {
+            var before = remaining.Count;
+
+            for (var index = remaining.Count - 1; index >= 0; index--) {
+                var bus = remaining[index];
+
+                if (bus.Parent.Length != 0 && !placed.Contains(bus.Parent)) {
+                    continue;
+                }
+
+                ordered.Add(bus);
+                placed.Add(bus.Name);
+                remaining.RemoveAt(index);
+            }
+
+            if (remaining.Count == before) {
+                ordered.AddRange(remaining);
+
+                break;
+            }
+        }
+
+        return ordered;
+    }
+
+    /// <summary>Runs the real builder over the document and writes down what it said.</summary>
+    static ImmutableArray<MixerNote> Read(AudioMixerDocument mixer) {
+        var lines = ImmutableArray.CreateBuilder<MixerNote>();
+
+        if (mixer.LoadError is { } error) {
+            lines.Add(new(lines.Count, "read", error));
+        }
+
+        foreach (var problem in mixer.Validate()) {
+            lines.Add(new(lines.Count, "mixer", problem));
+        }
+
+        // Said on success too, for the compositor's reason: an empty list cannot be told apart from
+        // one that never ran.
+        if (mixer.Problems.Count == 0 && mixer.LoadError is null) {
+            lines.Add(
+                new(
+                    lines.Count,
+                    "mixer",
+                    $"{mixer.Mixer.Buses.Length} bus(es), {mixer.Mixer.Snapshots.Length} snapshot(s). Builds."
+                )
+            );
+        }
+
+        return lines.ToImmutable();
+    }
+
+    /// <summary>The inserts this editor offers, by the name a menu shows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A table rather than a reflection scan over <see cref="IAudioEffectAsset" />.</b> The
+    ///     same argument <c>AssetEditorRegistry</c> makes about being told rather than discovering:
+    ///     a scan makes "which effects does this build have" a question with a different answer in a
+    ///     trimmed publish, and a plugin's effect would appear in the menu with no way to configure it.
+    /// </remarks>
+    static Dictionary<string, Func<IAudioEffectAsset>> Effects { get; } = new(StringComparer.Ordinal) {
+        ["Filter"] = static () => new FilterEffectAsset(),
+        ["Equalizer"] = static () => new EqualizerEffectAsset(),
+        ["Reverb"] = static () => new ReverbEffectAsset(),
+        ["Delay"] = static () => new DelayEffectAsset(),
+        ["Compressor"] = static () => new CompressorEffectAsset(),
+        ["Gate"] = static () => new GateEffectAsset(),
+        ["Limiter"] = static () => new LimiterEffectAsset()
+    };
+}
