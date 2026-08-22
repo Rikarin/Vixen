@@ -61,7 +61,41 @@ public sealed class HotReloadHost {
     public T Mount<T>(UiElement parent) where T : Component, new() {
         ArgumentNullException.ThrowIfNull(parent);
 
-        var component = new T();
+        return (T) Track(new T(), parent);
+    }
+
+    /// <summary>Builds a component whose type is only known at run time, and keeps track of it.</summary>
+    /// <param name="type">The component type, which needs a public parameterless constructor.</param>
+    /// <param name="parent">Where it hangs.</param>
+    /// <returns>The component.</returns>
+    /// <exception cref="ArgumentException">
+    ///     The type is not a <see cref="Component" />, or cannot be constructed without arguments.
+    /// </exception>
+    /// <remarks>
+    ///     ⚠ <b>For a caller that cannot name the type, which is not the same as not knowing it.</b>
+    ///     A component compiled from a <c>.vxml</c> is <c>internal</c> to the assembly the markup
+    ///     lives in, so the application that owns the reload host frequently cannot write
+    ///     <c>Mount&lt;T&gt;</c> for a panel in a library it references — and the library, which can,
+    ///     is the one that must not reference a development-only assembly to say so. This is the seam
+    ///     between the two: the library asks for its own type and the application supplies the
+    ///     tracking. See <c>EditorShell.RemountTaskCenter</c>, which is the case it was added for.
+    /// </remarks>
+    public Component Mount(Type type, UiElement parent) {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(parent);
+
+        if (!typeof(Component).IsAssignableFrom(type)) {
+            throw new ArgumentException($"'{type}' is not a {nameof(Component)}.", nameof(type));
+        }
+
+        if (Activator.CreateInstance(type) is not Component component) {
+            throw new ArgumentException($"'{type}' cannot be created without arguments.", nameof(type));
+        }
+
+        return Track(component, parent);
+    }
+
+    Component Track(Component component, UiElement parent) {
         var context = BuildContext.BuildInto(component, Document, parent);
         entries.Add(new(component, context, parent));
         return component;
@@ -163,26 +197,132 @@ public sealed class HotReloadHost {
 
     /// <summary>Re-runs <c>Build</c> for every tracked component.</summary>
     /// <returns>What happened.</returns>
-    public ReloadReport ReloadComponents() {
+    /// <remarks>
+    ///     Rebuild only. A component whose <c>Build</c> throws is left empty and reported — see the
+    ///     overload for the one case where throwing away the instance is the right answer.
+    /// </remarks>
+    public ReloadReport ReloadComponents() => ReloadComponents(null);
+
+    /// <summary>
+    ///     Re-runs <c>Build</c> for every tracked component, replacing the instances the runtime has
+    ///     just moved out from under.
+    /// </summary>
+    /// <param name="updated">
+    ///     The types the runtime says it changed, as <c>MetadataUpdateHandler</c> was given them, or
+    ///     <see langword="null" /> when it does not know — in which case nothing is replaced.
+    /// </param>
+    /// <returns>What happened, including how many instances had to be replaced.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Rebuild first, always.</b> Re-running <c>Build</c> on the same object is what keeps
+    ///         a panel's signals, and it is the answer for almost every edit: a changed method body
+    ///         does not change what an instance holds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this adds is the case where rebuilding <i>cannot</i> work, and it is a real
+    ///         one rather than a hypothetical.</b> The runtime can add an instance field to a live
+    ///         type, and the field initialisers that would have filled it do not run on an object
+    ///         that already exists — so a component holding a <c>Signal&lt;T&gt;</c> field the edit
+    ///         introduced holds <see langword="null" /> there, and the new <c>Build</c> dereferences
+    ///         it. Rebuilding again next time fails the same way for ever. A fresh instance runs its
+    ///         own initialisers, and <see cref="HotReloadStateAttribute" /> is how anything worth
+    ///         keeping crosses over. This is what that attribute has always been for and it is where
+    ///         <see cref="Replace" /> is reached from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only for a type the runtime named, and only after a throw.</b> Both halves guard
+    ///         the same thing: state preservation is the whole point of this channel, and replacing
+    ///         an instance discards everything not marked. A <c>Build</c> that throws for any other
+    ///         reason — a null the developer just introduced, a bad index — is a component whose
+    ///         type nobody edited, and it keeps its fields and its error. A <c>.vxml</c> with a typo
+    ///         in it does not compile, so no update arrives at all; a <c>Build</c> that throws
+    ///         <i>after</i> a successful compile of its own type is exactly the stale-instance shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a replacement that also throws is reported as the original failure.</b> The
+    ///         first exception is the one that describes the edit; "and then the new instance did it
+    ///         too" is the same news twice.
+    ///     </para>
+    /// </remarks>
+    public ReloadReport ReloadComponents(IReadOnlyCollection<Type>? updated) {
         Prune();
 
         var focus = CaptureFocus();
         var errors = ImmutableArray.CreateBuilder<string>();
+        var replaced = 0;
 
-        foreach (var entry in entries) {
-            try {
-                entry.Context.Rebuild(entry.Component);
-            } catch (Exception exception) when (exception is not OutOfMemoryException) {
-                // ⚠ Its subtree is already gone by the time Build throws — clear-then-build has no
-                // snapshot to fall back to. Reported rather than swallowed, and the component is
-                // left empty rather than half-built.
-                errors.Add($"{entry.Component.GetType().Name}: {exception.Message}");
+        // ⚠ By index rather than by enumerator, because a replacement writes `entries[i]` and the
+        // list is walked while that happens.
+        for (var i = 0; i < entries.Count; i++) {
+            var component = entries[i].Component;
+
+            if (Rebuild(i) is not { } failure) {
+                continue;
+            }
+
+            // A type the runtime did not name is a component nobody edited, so its instance is not
+            // the thing that is wrong with it.
+            if (updated is null || !updated.Contains(component.GetType())) {
+                errors.Add(failure);
+                continue;
+            }
+
+            if (Recreate(i)) {
+                replaced++;
+            } else {
+                errors.Add(failure);
             }
         }
 
         return Report(
-            new(ReloadChannel.Markup, entries.Count, RestoreFocus(focus), errors.ToImmutable())
+            new(ReloadChannel.Markup, entries.Count, RestoreFocus(focus), errors.ToImmutable()) {
+                Replaced = replaced
+            }
         );
+    }
+
+    /// <summary>Re-runs one entry's <c>Build</c>.</summary>
+    /// <returns>What went wrong, or null.</returns>
+    string? Rebuild(int index) {
+        var entry = entries[index];
+
+        try {
+            entry.Context.Rebuild(entry.Component);
+            return null;
+        } catch (Exception exception) when (exception is not OutOfMemoryException) {
+            // ⚠ Its subtree is already gone by the time Build throws — clear-then-build has no
+            // snapshot to fall back to. Reported rather than swallowed, and the component is
+            // left empty rather than half-built.
+            return $"{entry.Component.GetType().Name}: {exception.Message}";
+        }
+    }
+
+    /// <summary>
+    ///     Swaps an entry's component for a fresh instance of the same type, carrying its marked
+    ///     state.
+    /// </summary>
+    /// <returns>Whether a fresh instance was made and built.</returns>
+    /// <remarks>
+    ///     ⚠ A type with no public parameterless constructor cannot be recreated from here — the
+    ///     caller supplied the old instance and this has nothing to supply the new one's arguments
+    ///     from. Answered <see langword="false" /> so the original failure is what gets reported,
+    ///     rather than a second exception about reflection that says nothing about the edit. The same
+    ///     goes for a replacement whose own <c>Build</c> throws: the first exception is the one that
+    ///     describes the edit.
+    /// </remarks>
+    bool Recreate(int index) {
+        var type = entries[index].Component.GetType();
+
+        try {
+            if (Activator.CreateInstance(type) is not Component replacement) {
+                return false;
+            }
+
+            ReplaceAt(index, replacement);
+            return true;
+        } catch (Exception exception) when (exception is not OutOfMemoryException) {
+            return false;
+        }
     }
 
     /// <summary>Replaces a component with a fresh instance, carrying its marked state over.</summary>
@@ -190,6 +330,14 @@ public sealed class HotReloadHost {
     /// <param name="create">Makes the replacement.</param>
     /// <returns>What happened.</returns>
     /// <exception cref="ArgumentException">The component is not one of this host's.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Reached from <see cref="ReloadComponents(IReadOnlyCollection{Type})" /> as well as
+    ///     by hand.</b> The runtime hands the metadata-update handler the types it changed, and an
+    ///     instance of one of them that can no longer run its own <c>Build</c> is exactly what this
+    ///     is for — see that overload for why rebuilding cannot cover that case. The explicit form
+    ///     stays because the factory is the half a caller may need: a component that is not
+    ///     default-constructible has no other way through.
+    /// </remarks>
     public ReloadReport Replace(Component component, Func<Component> create) {
         ArgumentNullException.ThrowIfNull(component);
         ArgumentNullException.ThrowIfNull(create);
@@ -199,12 +347,23 @@ public sealed class HotReloadHost {
             throw new ArgumentException("that component is not mounted here.", nameof(component));
         }
 
-        var entry = entries[index];
         var focus = CaptureFocus();
-        var carried = Capture(component);
 
-        var replacement = create();
-        Restore(replacement, carried);
+        ReplaceAt(index, create());
+
+        return Report(new(ReloadChannel.Component, 1, RestoreFocus(focus), []) { Replaced = 1 });
+    }
+
+    /// <summary>Swaps one entry's component for an already-created replacement, and builds it.</summary>
+    /// <remarks>
+    ///     The state is carried before the build rather than after it, because a <c>Build</c> reads
+    ///     the signals it is about to bind to and a value arriving afterwards would be a value the
+    ///     first frame did not have.
+    /// </remarks>
+    void ReplaceAt(int index, Component replacement) {
+        var entry = entries[index];
+
+        Restore(replacement, Capture(entry.Component));
 
         // The old host element goes with the old component; the new one is built in its place.
         var position = entry.Component.Root.IndexInParent;
@@ -213,8 +372,6 @@ public sealed class HotReloadHost {
         var context = BuildContext.BuildInto(replacement, Document, entry.Parent);
         Document.Move(replacement.Root, position);
         entries[index] = new(replacement, context, entry.Parent);
-
-        return Report(new(ReloadChannel.Component, 1, RestoreFocus(focus), []));
     }
 
     // ================================================================== State

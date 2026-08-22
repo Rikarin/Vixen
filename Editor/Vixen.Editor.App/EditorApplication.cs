@@ -336,6 +336,13 @@ sealed partial class EditorApplication : IDisposable {
     ///         markup compiled to.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And "mounted through it" is a thing every markup panel has to actually be.</b>
+    ///         The shell's task centre was built before this field existed — it could not be
+    ///         otherwise, since the shell's constructor is what makes the document this is built over
+    ///         — so the editor's one <c>.vxml</c> panel was the one panel outside the channel.
+    ///         <c>EditorShell.RemountTaskCenter</c> is the second step, taken below.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Registered with <c>MetadataUpdate</c>, which holds it weakly.</b> The runtime's
     ///         callback is static and has no idea when a window closes; a strong list would be a leak
     ///         with a development-only cause and a production-shaped consequence.
@@ -352,15 +359,16 @@ sealed partial class EditorApplication : IDisposable {
     ///         cannot use.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It can now be pointed at the editor's own chrome, and the limit that remains is a
-    ///         cascade question rather than a plumbing one.</b> <c>Theming/EditorTheme.vcss</c> is a
-    ///         real file since doc 43's <c>@theme</c> work — before it there was no <c>.vcss</c> in
-    ///         the tree at all and this channel had nothing to watch. But what is found here loads at
-    ///         <c>Author</c> origin and the shipped copy is at <c>UserAgent</c>, so an edit
-    ///         <i>layers over</i> the sheet rather than replacing it: changed values are live, and a
-    ///         <b>deleted</b> rule does not disappear, because the copy underneath still has it.
-    ///         Replacing in place wants <c>UiDocument.Replace</c> against the index
-    ///         <c>EditorTheme.Install</c> hands back, which nothing calls.
+    ///         ⚠ <b>It can be pointed at the editor's own chrome, and an edit there now
+    ///         <i>replaces</i> the shipped sheet rather than layering over it.</b>
+    ///         <c>Theming/EditorTheme.vcss</c> is a real file since doc 43's <c>@theme</c> work —
+    ///         before it there was no <c>.vcss</c> in the tree at all and this channel had nothing to
+    ///         watch. What it used to do with one was load it again at <c>Author</c> origin on top of
+    ///         the <c>UserAgent</c> copy embedded from the same file, which made changed values live
+    ///         and a <b>deleted</b> rule immortal: the copy underneath still had it. The watcher
+    ///         recognises a file the document already holds and binds it to that sheet instead — see
+    ///         <c>HotReloadWatcher.Load</c>. A file that matches nothing is still an overlay, because
+    ///         an overlay is what a scratch directory of overrides is.
     ///     </para>
     ///     <para>
     ///         A published editor still carries the sheet in its assembly and has no file to watch,
@@ -675,6 +683,14 @@ sealed partial class EditorApplication : IDisposable {
         // and gets whatever this field held when the services were built.
         hotReload = new HotReloadHost(Shell.Document);
         MetadataUpdate.Register(hotReload);
+
+        // ⚠ And the shell's own `.vxml` panel, which is the one the host could not have had.
+        // `EditorShell` builds the task centre in its constructor and the host is built over the
+        // document that constructor makes, so the only order that exists is: shell, host, and then
+        // this. Without it the editor's single markup-authored panel is the single panel a
+        // `dotnet watch` cannot reach — a declarative authoring path with a hole in it exactly where
+        // the shipped example is. See `EditorShell.RemountTaskCenter`.
+        Shell.RemountTaskCenter(hotReload.Mount);
 
         plugins = new PluginHost(Shell, PluginPoints());
 
@@ -1442,10 +1458,31 @@ sealed partial class EditorApplication : IDisposable {
     ///         its focus, its scroll offset and its animation state. Nothing is rebuilt.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Last, and at <c>Author</c> origin.</b> The five sheets the editor ships are
-    ///         <c>UserAgent</c>, which loses to <c>Author</c> for every normal declaration — so a
-    ///         rule written here beats the shipped one without having to out-specify it, which is
-    ///         what makes the directory usable for iterating on the editor's own chrome.
+    ///         ⚠ <b>Last, and at <c>Author</c> origin — for a sheet the document does not already
+    ///         have.</b> The sheets the editor ships are <c>UserAgent</c>, which loses to
+    ///         <c>Author</c> for every normal declaration, so a rule written in a scratch directory
+    ///         beats the shipped one without having to out-specify it. That is what an overlay is
+    ///         for and it is still what an unrecognised file gets.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A file that <i>is</i> one of the shipped sheets replaces it in place instead,
+    ///         at its own origin.</b> Every theme in the editor is a <c>.vcss</c> beside its loader
+    ///         and embedded from it, so pointing this at the source tree finds the same text twice —
+    ///         and loading it twice is the difference between iterating on values and iterating on
+    ///         which rules exist. See <c>HotReloadWatcher.Load</c> for how the two copies are
+    ///         recognised as one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One name is skipped, and it is not a cascade sheet at all.</b>
+    ///         <c>vixen.ui.vcss</c> is the <c>@theme</c> token source the utility generator reads at
+    ///         <i>build</i> time — the name is the build's own, globbed as <c>**/vixen.ui.vcss</c> by
+    ///         <c>Vixen.Ui.Styling.Utilities.targets</c>, one per project. Nothing loads it into a
+    ///         document, so handing it to the cascade only reaches ExCSS as an at-rule nothing knows
+    ///         and produces a diagnostic. That used to be harmless because nothing read the
+    ///         diagnostics; they drain to the log now — see <c>StyleDiagnostics</c> — so it is a
+    ///         warning on start-up and on every save of every other sheet in the folder, for a file
+    ///         that could never have done anything. The README's advice was to point at a copy of the
+    ///         directory instead, which is a workaround for a file the editor can recognise itself.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Zero is reported rather than swallowed.</b> A watcher over a directory with no
@@ -1469,15 +1506,32 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         var found = 0;
+        var replaced = 0;
 
         // ⚠ Ordered, because two sheets that declare the same rule are decided by which was loaded
         // second — and a load order that came from the filesystem's enumeration would put the
         // editor's look at the mercy of the order a directory happens to hand its entries back in.
         foreach (var file in Directory.EnumerateFiles(directory, "*.vcss", SearchOption.AllDirectories)
                      .Order(StringComparer.Ordinal)) {
+            // The `@theme` token source, which is a build input and not a stylesheet. See the
+            // remarks: loading it can only produce a diagnostic, and the diagnostics are read now.
+            if (string.Equals(Path.GetFileName(file), TokenSource, StringComparison.OrdinalIgnoreCase)) {
+                log.Write(
+                    LogLevel.Information,
+                    $"Not watching '{file}': a {TokenSource} is the utility generator's @theme source, "
+                    + "read at build time, and is not a sheet the cascade can load."
+                );
+
+                continue;
+            }
+
             try {
                 styleWatcher.Load(file);
                 found++;
+
+                if (styleWatcher.Replaces(file)) {
+                    replaced++;
+                }
             } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
                 log.Write(LogLevel.Warning, $"Could not read '{file}'. {exception.Message}");
             }
@@ -1495,15 +1549,29 @@ sealed partial class EditorApplication : IDisposable {
             log.Write(LogLevel.Warning, $"Stylesheet not reloaded: {string.Join("; ", report.Errors)}");
         };
 
+        // ⚠ The two numbers are separate because they mean different things to the person reading
+        // them: a replaced sheet iterates on which rules exist, and an added one can only iterate on
+        // values. Somebody who pointed this at the wrong copy of the tree sees `0 replace` and knows
+        // why deleting a rule is doing nothing.
         log.Write(
             LogLevel.Information,
             found == 0
                 ? $"Watching '{directory}' for stylesheets, and there are none in it yet."
-                : $"Watching '{directory}': {found} stylesheet(s) reload on save."
+                : $"Watching '{directory}': {found} stylesheet(s) reload on save, "
+                + $"{replaced} of them replacing a sheet the editor ships."
         );
 
         return found;
     }
+
+    /// <summary>The file name the utility generator's <c>@theme</c> block goes in, by convention.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The build's own name for it, not one invented here.</b>
+    ///     <c>Vixen.Ui.Styling.Utilities.targets</c> globs <c>**/vixen.ui.vcss</c> and errors on a
+    ///     project with two, so this is the one thing in a source tree that is spelled <c>.vcss</c>
+    ///     and is not a stylesheet.
+    /// </remarks>
+    const string TokenSource = "vixen.ui.vcss";
 
     /// <summary>Rescans when something outside the editor has changed the assets.</summary>
     /// <remarks>

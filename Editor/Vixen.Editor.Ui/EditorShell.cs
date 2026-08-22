@@ -58,8 +58,12 @@ public sealed class EditorShell : IDisposable {
     /// <remarks>
     ///     Held for <see cref="Show" />'s sake and nothing else. Keeping a mounted component alive
     ///     is <see cref="UiDocument.ComponentAt" />'s job now, not the caller's.
+    ///     <para>
+    ///         Not <c>readonly</c>, because <see cref="RemountTaskCenter" /> replaces it. See there
+    ///         for why that has to be a second step rather than an argument to this constructor.
+    ///     </para>
     /// </remarks>
-    readonly TaskCenter taskCenter;
+    TaskCenter taskCenter;
 
     readonly double[] frames = new double[FrameWindow];
 
@@ -162,6 +166,11 @@ public sealed class EditorShell : IDisposable {
         // The one panel written in VXML rather than in C#. `Build` is what mounts a component into
         // a document; everything below the popover's content element is the `.vxml` beside this
         // file, compiled by the markup generator into the same assembly.
+        //
+        // ⚠ Built directly, and therefore *not* reloadable until somebody says otherwise. A reload
+        // host is built over a document and this constructor is what makes the document, so there
+        // cannot be one to mount through yet. `RemountTaskCenter` is the second step, and
+        // `Vixen.Editor.App` takes it.
         taskCenter = BuildContext.Build<TaskCenter>(Document, taskPopover.Content);
         taskCenter.Show(Tasks);
 
@@ -268,6 +277,60 @@ public sealed class EditorShell : IDisposable {
                 Closed = () => Messages = null
             }
         );
+    }
+
+    /// <summary>Builds the task centre again through something that can reload it.</summary>
+    /// <param name="mount">
+    ///     Builds the component type it is handed into the element it is handed, and keeps track of
+    ///     it. A hot-reload host's <c>Mount(Type, UiElement)</c>, in the one application that has a
+    ///     host.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="mount" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">
+    ///     The delegate did not build a task centre. It is handed the type it is to build.
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An ordering problem rather than a markup one, and this is the second step it
+    ///         needs.</b> The task centre is the shell's one <c>.vxml</c> panel and it was the one
+    ///         panel a <c>dotnet watch</c> could not reach: only a component mounted through a
+    ///         reload host is rebuilt when the runtime replaces its <c>Build</c>, and the host is
+    ///         built over a document that this class's constructor is what creates. So the shell
+    ///         builds it plainly, and a caller that has a host swaps it for a tracked one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A delegate rather than the host itself, deliberately.</b> This assembly is
+    ///         chrome — see the note in its <c>.csproj</c> about not referencing
+    ///         <c>Vixen.Editor.Core</c> — and <c>Vixen.Ui.HotReload</c> is a development tool that
+    ///         is neither trimmable nor AOT-compatible. Naming it here would put both properties on
+    ///         every application that hosts a shell, to say something a <c>Func</c> already says.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the type travels as a <see cref="Type" /> because it cannot travel any other
+    ///         way.</b> A component compiled from a <c>.vxml</c> is <c>internal</c> to the assembly
+    ///         the markup is in, so <c>Vixen.Editor.App</c> cannot write the name <c>TaskCenter</c>
+    ///         at all — the caller supplies the tracking and this supplies the type, which is the
+    ///         only division of labour the accessibility allows.
+    ///     </para>
+    ///     <para>
+    ///         The old component's elements are taken out of the document first, so the popover holds
+    ///         one task centre rather than two — and <see cref="Show" />'s wiring is re-made here,
+    ///         because it belongs to the instance and the instance is new.
+    ///     </para>
+    /// </remarks>
+    public void RemountTaskCenter(Func<Type, UiElement, Component> mount) {
+        ArgumentNullException.ThrowIfNull(mount);
+
+        Document.Remove(taskCenter.Root);
+
+        if (mount(typeof(TaskCenter), taskPopover.Content) is not TaskCenter remounted) {
+            throw new InvalidOperationException(
+                $"the mount delegate built something other than a {nameof(TaskCenter)}."
+            );
+        }
+
+        taskCenter = remounted;
+        taskCenter.Show(Tasks);
     }
 
     /// <summary>What the keybinding editor's panel is called in an arrangement.</summary>

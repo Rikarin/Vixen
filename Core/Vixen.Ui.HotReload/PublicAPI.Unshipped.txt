@@ -3,8 +3,10 @@ Vixen.Ui.HotReload.HotReloadHost -> sealed class
 Vixen.Ui.HotReload.HotReloadHost.Components.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Composition.Component>
 Vixen.Ui.HotReload.HotReloadHost.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.HotReload.HotReloadHost.HotReloadHost(Vixen.Ui.UiDocument document) -> void
+Vixen.Ui.HotReload.HotReloadHost.Mount(System.Type type, Vixen.Ui.UiElement parent) -> Vixen.Ui.Composition.Component
 Vixen.Ui.HotReload.HotReloadHost.Mount<T>(Vixen.Ui.UiElement parent) -> T
 Vixen.Ui.HotReload.HotReloadHost.ReloadComponents() -> Vixen.Ui.HotReload.ReloadReport
+Vixen.Ui.HotReload.HotReloadHost.ReloadComponents(System.Collections.Generic.IReadOnlyCollection<System.Type>? updated) -> Vixen.Ui.HotReload.ReloadReport
 Vixen.Ui.HotReload.HotReloadHost.ReloadStyles(int sheet, string css) -> Vixen.Ui.HotReload.ReloadReport
 Vixen.Ui.HotReload.HotReloadHost.Reloaded -> System.Action<Vixen.Ui.HotReload.ReloadReport>?
 Vixen.Ui.HotReload.HotReloadHost.Replace(Vixen.Ui.Composition.Component component, System.Func<Vixen.Ui.Composition.Component> create) -> Vixen.Ui.HotReload.ReloadReport
@@ -18,6 +20,7 @@ Vixen.Ui.HotReload.HotReloadWatcher.HotReloadWatcher(Vixen.Ui.HotReload.HotReloa
 Vixen.Ui.HotReload.HotReloadWatcher.Load(string path) -> int
 Vixen.Ui.HotReload.HotReloadWatcher.Poll() -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.HotReload.ReloadReport>
 Vixen.Ui.HotReload.HotReloadWatcher.Reloaded -> System.Action<Vixen.Ui.HotReload.ReloadReport>?
+Vixen.Ui.HotReload.HotReloadWatcher.Replaces(string path) -> bool
 Vixen.Ui.HotReload.MetadataUpdate -> static class
 Vixen.Ui.HotReload.ReloadChannel -> enum : byte
 Vixen.Ui.HotReload.ReloadChannel.Component = 2 -> Vixen.Ui.HotReload.ReloadChannel
@@ -36,6 +39,8 @@ Vixen.Ui.HotReload.ReloadReport.FocusRestored.get -> bool
 Vixen.Ui.HotReload.ReloadReport.FocusRestored.init -> bool
 Vixen.Ui.HotReload.ReloadReport.ReloadReport() -> void
 Vixen.Ui.HotReload.ReloadReport.ReloadReport(Vixen.Ui.HotReload.ReloadChannel Channel, int Components, bool FocusRestored, System.Collections.Immutable.ImmutableArray<string> Errors) -> void
+Vixen.Ui.HotReload.ReloadReport.Replaced.get -> int
+Vixen.Ui.HotReload.ReloadReport.Replaced.init -> int
 Vixen.Ui.HotReload.ReloadReport.Succeeded.get -> bool
 static Vixen.Ui.HotReload.MetadataUpdate.ClearCache(System.Type[]? types) -> void
 static Vixen.Ui.HotReload.MetadataUpdate.Register(Vixen.Ui.HotReload.HotReloadHost host) -> void

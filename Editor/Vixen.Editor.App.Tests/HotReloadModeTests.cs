@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Testing;
+using Vixen.Editor.Ui;
 using Vixen.Ui;
+using Vixen.Ui.HotReload;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -10,11 +12,17 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>What <c>--hot-reload</c> turns on, and what it deliberately does not.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The style channel, wired to a directory the developer names.</b> The editor's own five
-///         sheets are C# string constants — there is no <c>.vcss</c> on disk to watch, and a
-///         published editor would have none even if the source tree did — so what this watches is a
-///         folder of the developer's own rules, loaded at <c>Author</c> origin so they beat the
-///         shipped <c>UserAgent</c> ones without out-specifying them.
+///         <b>The style channel, wired to a directory the developer names.</b> A folder of the
+///         developer's own rules is loaded at <c>Author</c> origin so it beats the shipped
+///         <c>UserAgent</c> sheets without out-specifying them.
+///     </para>
+///     <para>
+///         ⚠ <b>Every editor sheet is a real <c>.vcss</c> now, which the tests below are mostly
+///         about.</b> They used to be C# string constants — there was nothing on disk to point at —
+///         and now the same file is both the source of the shipped sheet and the one a developer
+///         edits. So the directory can be the editor's own <c>Theming/</c>, and the question stops
+///         being "does a save arrive" and becomes "does it <i>replace</i>": an edit that adds a
+///         second copy on top makes a deleted rule immortal.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The markup channel is not tested here and cannot be.</b> A <c>.vxml</c> becomes a
@@ -134,6 +142,107 @@ public class HotReloadModeTests {
         }
 
         Assert.Equal(33f, probe.Width);
+    }
+
+    // ---------------------------------------- The editor's own sheets, replaced
+
+    /// <summary>
+    ///     ⚠ <b>The whole point, asserted on a resolved value after an edit rather than on an
+    ///     event.</b> <c>EditorTheme.vcss</c> is embedded from the same file the developer edits, so
+    ///     a watcher that loads it again leaves two copies in the cascade — and every value the new
+    ///     text states still wins, which is why a test that changed a number would pass against both
+    ///     behaviours. What only a replacement can do is make a <b>deleted</b> rule stop applying,
+    ///     and the status bar's height is a rule this file is the only source of.
+    /// </summary>
+    [Fact]
+    public async Task A_rule_deleted_from_the_editor_s_own_theme_stops_applying() {
+        using var styles = new Folder();
+        using var fixture = EditorSession.Start();
+
+        var sheets = fixture.Document.Styles.SheetCount;
+        var file = styles.Write("EditorTheme.vcss", EditorTheme.Css);
+
+        Assert.Equal(1, fixture.Editor.WatchStyles(styles.Path));
+
+        // Adopted rather than added: the document holds the sheet it already had, at its own origin.
+        Assert.Equal(sheets, fixture.Document.Styles.SheetCount);
+
+        fixture.Frame();
+        Assert.Equal(24f, fixture.Shell.StatusBar.Height);
+
+        // The edit, at its bluntest: a sheet with none of the old rules left in it.
+        await File.WriteAllTextAsync(
+            file,
+            "hot-reload-probe { width: 33px; }",
+            TestContext.Current.CancellationToken
+        );
+
+        // Polled rather than slept once: a filesystem notification has no deadline.
+        for (var attempt = 0; attempt < 100 && fixture.Shell.StatusBar.Height == 24f; attempt++) {
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+            fixture.Frame();
+        }
+
+        Assert.NotEqual(24f, fixture.Shell.StatusBar.Height);
+        Assert.Equal(sheets, fixture.Document.Styles.SheetCount);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>One <c>.vcss</c> in that folder is not a stylesheet, and handing it to the cascade
+    ///     can only produce a diagnostic.</b> <c>vixen.ui.vcss</c> is the <c>@theme</c> token source
+    ///     the utility generator reads at build time — the name is the build's own glob. Loading it
+    ///     used to be harmless because nothing read the diagnostics; they drain to the log now, so it
+    ///     was a warning on start-up and on every save of every other sheet beside it.
+    /// </summary>
+    [Fact]
+    public void The_theme_token_source_beside_a_sheet_is_not_watched() {
+        using var styles = new Folder();
+        using var fixture = EditorSession.Start();
+
+        var sheets = fixture.Document.Styles.SheetCount;
+
+        styles.Write("vixen.ui.vcss", "@theme {\n  --spacing: 4px;\n}\n");
+        styles.Write("dev.vcss", "hot-reload-probe { width: 33px; }");
+
+        // One of the two, and it is the one that can do something.
+        Assert.Equal(1, fixture.Editor.WatchStyles(styles.Path));
+        Assert.Equal(sheets + 1, fixture.Document.Styles.SheetCount);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The shell's one markup panel is mounted through the reload host, which is an
+    ///     ordering fix rather than a markup one.</b> Only a component the host tracks is rebuilt
+    ///     when the runtime replaces its <c>Build</c>, and <c>EditorShell</c> builds the task centre
+    ///     inside the constructor that makes the document the host is built over — so it could not
+    ///     have been tracked at the time, and nothing came back for it afterwards. The editor's only
+    ///     <c>.vxml</c> panel was the only panel a <c>dotnet watch</c> could not reach.
+    /// </summary>
+    [Fact]
+    public void The_task_centre_is_mounted_through_the_reload_host() {
+        using var fixture = EditorSession.Start();
+
+        Assert.True(fixture.Plugins.Services.TryGet<HotReloadHost>(out var host));
+        Assert.Contains(
+            host.Components,
+            component => component.GetType().Name == "TaskCenter"
+        );
+    }
+
+    /// <summary>
+    ///     And exactly one of them, because a remount that left the first build in the popover would
+    ///     be two task centres over one manager rather than a reloadable one.
+    /// </summary>
+    [Fact]
+    public void And_the_popover_holds_one_of_them() {
+        using var fixture = EditorSession.Start();
+
+        Assert.True(fixture.Plugins.Services.TryGet<HotReloadHost>(out var host));
+
+        var centres = host.Components.Where(component => component.GetType().Name == "TaskCenter").ToList();
+        var roots = Assert.Single(centres).Root.Parent;
+
+        Assert.NotNull(roots);
+        Assert.Single(roots.Children);
     }
 
     /// <summary>An editor nobody asked to watch anything opens no watcher and polls nothing.</summary>

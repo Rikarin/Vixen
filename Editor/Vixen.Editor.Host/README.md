@@ -97,14 +97,15 @@ assembly. So this channel finally has something to point at:
 dotnet watch run --project Editor/Vixen.Editor.Host -- --hot-reload Editor/Vixen.Editor.Ui/Theming
 ```
 
-⚠ **What that does and does not give you, stated exactly, because the difference is a cascade
-question rather than a plumbing one.** The watcher loads what it finds at `Author` origin, and the
-copy already inside the assembly is at `UserAgent` — so an edit to `EditorTheme.vcss` *layers over*
-the shipped one rather than replacing it. Every normal declaration in the edited copy wins, which is
-what you want; a declaration you **delete** does not disappear, because the `UserAgent` copy still
-has it. Iterating on values is live and true; iterating on which rules exist is not. Replacing the
-shipped sheet in place needs `UiDocument.Replace` against the index `EditorTheme.Install` returns,
-which nothing calls yet.
+⚠ **And an edit there replaces the shipped sheet rather than layering over it, which it did not
+used to.** The watcher loaded what it found at `Author` origin while the copy inside the assembly sat
+at `UserAgent`, so every normal declaration in the edited copy won — which is what you want — and a
+declaration you **deleted** did not disappear, because the `UserAgent` copy still had it. Iterating
+on values was live and true; iterating on which rules exist was not. `HotReloadWatcher.Load` now
+recognises a file whose text the document already holds and binds it to *that* sheet, so a save
+replaces it at its own origin. A file that matches nothing is still loaded on top at `Author`,
+because that is what a scratch directory of overrides is for; the start-up line in the console says
+how many of the two you got.
 
 ⚠ **What is fixed for good is the way back.** It used to be "paste the result into a `const string`",
 and the constant was not a way round the restart either: editing CSS inside `const string Sheet =
@@ -112,19 +113,24 @@ and the constant was not a way round the restart either: editing CSS inside `con
 kill the process, because a const's value is baked into metadata and into every use site. The file
 you edit is now the source, so there is nothing to paste.
 
-⚠ **One file in that directory is not for the cascade.** `Theming/vixen.ui.vcss` is the `@theme`
-block the utility generator reads at build time, and the watcher's glob is `*.vcss` recursively — so
-pointing at the folder sweeps it up, `@theme` reaches ExCSS as an at-rule nothing knows, and
-`StyleSheetLoader` drops it with a diagnostic. Harmless and noisy. Point at a copy of
-`EditorTheme.vcss` in a scratch directory to avoid it.
+⚠ **One file in that directory is not for the cascade, and the editor now knows it.**
+`Theming/vixen.ui.vcss` is the `@theme` block the utility generator reads at build time; the
+watcher's glob is `*.vcss` recursively, so pointing at the folder used to sweep it up, `@theme`
+reached ExCSS as an at-rule nothing knows, and `StyleSheetLoader` dropped it with a diagnostic. That
+was harmless while nothing read the diagnostics. They drain to the log now — see
+`Core/Vixen.Ui/StyleDiagnostics.cs` — which made it a warning on start-up *and on every save of every
+other sheet beside it*, because a reload replays all of them. `WatchStyles` skips the name and says
+so once. The name is the build's own: `Vixen.Ui.Styling.Utilities.targets` globs `**/vixen.ui.vcss`
+and errors on a project with two, so it is the one thing in a source tree spelled `.vcss` that is not
+a stylesheet.
 
 ⚠ **There is now more than one file to point at, which there was not when this was written.**
 `ControlTheme`, `AdvancedTheme`, `AssetEditorTheme`, `InspectorTheme`, `BrowserTheme`,
 `ProfilerTheme`, `DebuggerTheme`, `NodeGraphTheme` and `WorldTheme` are all `.vcss` files beside
 their loaders now, so the watcher's `*.vcss` glob finds ten sheets across nine projects rather than
-the one it used to. **The `Author`/`UserAgent` mismatch above applies to every one of them
-identically** — extraction gave the watcher more to see and changed nothing about what it does with
-what it sees.
+the one it used to. **Each of them is recognised on the same terms** — the text is what identifies a
+sheet, so nothing had to be plumbed per theme and a tenth one added tomorrow is covered by having
+been embedded from its own file.
 
 ⚠ **The directory is named and has no default.** A watcher over a folder with nothing in it is a
 channel that looks wired and does nothing; a mistyped path says so in the console rather than looking
@@ -153,19 +159,28 @@ two replays of every sheet nobody asked for. The coalescing is a set of paths, a
 the operating system chooses to deliver is not the class's contract, and a machine that coalesced at
 the kernel would pass a filesystem-driven version of that test however broken the set was.
 
-## Owed
+## What closed, and how
 
-- **`TaskCenter` is not reloadable**, because `EditorShell` builds it and the shell is constructed
-  before `EditorApplication` makes the host. Closing it means the shell taking a host, or the
-  application re-mounting the popover's contents after construction.
-- **Replacing rather than layering.** The sheets are all files now, so the remaining gap is entirely
-  the origin mismatch: the watcher loads at `Author`, the shipped copy sits at `UserAgent`, and a
-  deleted rule therefore does not disappear. Closing it means `UiDocument.Replace` against the index
-  each `Install` returns, which nothing calls yet. A published editor still has no source tree to
-  watch either way, so the reload has to be pointed at one.
+- **`TaskCenter` is reloadable.** It was an ordering problem rather than a markup one: only a
+  component mounted through the host is rebuilt on a metadata update, and `EditorShell` builds the
+  task centre inside the constructor that *creates the document the host is built over*, so there
+  was no host to mount through yet and nothing came back for it afterwards. The application takes the
+  second step now — `EditorShell.RemountTaskCenter`, called immediately after the host exists. The
+  type travels as a `Type` because a component compiled from a `.vxml` is `internal` to the assembly
+  its markup is in, so `Vixen.Editor.App` cannot write the name `TaskCenter` at all; the shell
+  supplies the type and the application supplies the tracking. The shell does not reference
+  `Vixen.Ui.HotReload` and should not — it is a development-only assembly that is neither trimmable
+  nor AOT-compatible, and a `Func` says everything the reference would have.
+- **Replacing rather than layering**, above.
 - **`node-search-port:empty` in `NodeGraphTheme` is a rule that never matches** — the selector
   compiler does not implement `:empty`, and says so. Harmless in itself and it is why the style
   channel silently did nothing until `HotReloadHost.ReloadStyles` learned to compare against the
   diagnostics the document already had.
+
+## Owed
+
+A published editor still has no source tree to watch, so the reload has to be pointed at one. That is
+the switch's whole reason for naming a directory and defaulting to nothing, and it is not going to
+change.
 
 Licensed under Apache-2.0.

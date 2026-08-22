@@ -3,6 +3,7 @@
 
 using Vixen.Ui;
 using Vixen.Ui.Composition;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.HotReload.Tests;
@@ -290,6 +291,111 @@ public sealed class HotReloadWatcherTests : IDisposable {
 
         Assert.Same(box, component.Root.Children[0]);
         Assert.Equal(40f, box.Width);
+    }
+
+    // ------------------------------------------------------------ Replacing rather than layering
+
+    /// <summary>
+    ///     ⚠ <b>The assertion is a deleted rule's effect going away, because that is the only thing
+    ///     an overlay cannot do.</b> A watcher that loads the file again puts an <c>Author</c> copy
+    ///     on top of the shipped <c>UserAgent</c> one: every value the new text states wins, so a
+    ///     test that changed a number would pass against both the overlay and the replacement and
+    ///     prove nothing. Deleting the rule is what separates them — the copy underneath still has
+    ///     it, and the element keeps a width nothing in the file says any more.
+    /// </summary>
+    [Fact]
+    public void A_rule_deleted_from_a_shipped_sheet_stops_applying() {
+        using var document = new UiDocument(200f, 200f);
+
+        // The shipped sheet: embedded from the file the developer is about to edit, and installed at
+        // the origin every theme in this repository is installed at.
+        const string Shipped = "box { width: 10px; }\nbox { height: 20px; }\n";
+        document.Load(Shipped, StyleOrigin.UserAgent);
+
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Boxes>(document.Root);
+
+        var path = Write("EditorTheme.vcss", Shipped);
+
+        using var watcher = new HotReloadWatcher(host, directory);
+        var sheet = watcher.Load(path);
+        document.Update();
+
+        Assert.Equal(0, sheet);
+        Assert.True(watcher.Replaces(path));
+        Assert.Equal(1, document.Styles.SheetCount);
+        Assert.Equal(20f, component.Root.Children[0].Height);
+
+        // The edit: the height rule is gone.
+        File.WriteAllText(path, "box { width: 40px; }\n");
+        watcher.Notify(path);
+
+        Assert.True(Assert.Single(watcher.Poll()).Succeeded);
+        document.Update();
+
+        Assert.Equal(40f, component.Root.Children[0].Width);
+        Assert.NotEqual(20f, component.Root.Children[0].Height);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a file the document does not already hold is loaded exactly as it always was.</b>
+    ///     A scratch directory of overrides is an overlay on purpose — it is written to beat the
+    ///     shipped sheets without out-specifying them — so recognising one sheet must not turn every
+    ///     other one into a replacement of whatever it happened to resemble.
+    /// </summary>
+    [Fact]
+    public void A_file_the_document_does_not_have_is_added_on_top_as_before() {
+        using var document = new UiDocument(200f, 200f);
+        document.Load("box { width: 10px; }", StyleOrigin.UserAgent);
+
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Boxes>(document.Root);
+
+        var path = Write("overrides.vcss", "box { width: 33px; }");
+
+        using var watcher = new HotReloadWatcher(host, directory);
+        var sheet = watcher.Load(path);
+        document.Update();
+
+        Assert.Equal(1, sheet);
+        Assert.False(watcher.Replaces(path));
+        Assert.Equal(2, document.Styles.SheetCount);
+        Assert.Equal(33f, component.Root.Children[0].Width);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A failed save on an adopted sheet has to put the <i>shipped</i> text back</b>, which
+    ///     is the rollback working at the origin it was adopted at rather than one the watcher chose.
+    /// </summary>
+    [Fact]
+    public void A_broken_save_restores_the_sheet_that_was_adopted() {
+        using var document = new UiDocument(200f, 200f);
+
+        const string Shipped = "box { width: 10px; }";
+        document.Load(Shipped, StyleOrigin.UserAgent);
+
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Boxes>(document.Root);
+
+        var path = Write("EditorTheme.vcss", Shipped);
+
+        using var watcher = new HotReloadWatcher(host, directory);
+        var sheet = watcher.Load(path);
+        document.Update();
+
+        Assert.Equal(0, sheet);
+        Assert.Equal(1, document.Styles.SheetCount);
+
+        File.WriteAllText(path, "box:nonsense-pseudo { width: 99px; }");
+        watcher.Notify(path);
+
+        Assert.False(Assert.Single(watcher.Poll()).Succeeded);
+        document.Update();
+
+        // The shipped sheet, at the index it was adopted at, holding the text it shipped with.
+        Assert.Equal(10f, component.Root.Children[0].Width);
+        Assert.Equal(Shipped, document.Styles.SheetText(0));
+        Assert.Equal(1, document.Styles.SheetCount);
     }
 
     // ------------------------------------------------------------ Reporting

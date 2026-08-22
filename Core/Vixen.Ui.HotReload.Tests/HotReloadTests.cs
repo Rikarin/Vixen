@@ -268,6 +268,122 @@ public class HotReloadTests {
         Assert.Throws<ArgumentException>(() => host.Replace(new Boxes(), static () => new Boxes()));
     }
 
+    // ------------------------------------------- Replacement the runtime asks for
+
+    /// <summary>
+    ///     ⚠ <b>The case that gives <see cref="HotReloadHost.Replace" /> a caller, and it is the one
+    ///     rebuilding cannot cover.</b> The runtime can add an instance field to a live type, and the
+    ///     initialiser that would fill it does not run on an object that already exists — so the new
+    ///     <c>Build</c> dereferences a null the old instance has no way to acquire, and rebuilding
+    ///     again fails identically for ever. <see cref="Stale" /> is that shape in miniature: it
+    ///     throws while it is the instance it was mounted as and builds happily once it is a fresh
+    ///     one.
+    /// </summary>
+    [Fact]
+    public void An_instance_that_cannot_rebuild_is_replaced_when_the_runtime_named_its_type() {
+        using var document = new UiDocument(200f, 200f);
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Stale>(document.Root);
+
+        component.Missing = null;
+
+        var report = host.ReloadComponents([typeof(Stale)]);
+        var replacement = Assert.Single(host.Components);
+
+        Assert.True(report.Succeeded);
+        Assert.Equal(1, report.Replaced);
+        Assert.NotSame(component, replacement);
+        Assert.Single(replacement.Root.Children);
+        Assert.Single(document.Root.Children);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a component whose type the runtime did not name keeps its instance, its fields
+    ///     and its error.</b> Replacing on any failure would make an ordinary mistake — a null the
+    ///     developer just introduced, a bad index — cost every signal in the panel, which is the one
+    ///     thing this channel exists to protect. A <c>.vxml</c> with a typo does not compile, so no
+    ///     update arrives for it at all; a throw from a type nobody edited is not a stale instance.
+    /// </summary>
+    [Fact]
+    public void An_instance_of_a_type_the_runtime_did_not_name_is_left_alone() {
+        using var document = new UiDocument(200f, 200f);
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Stale>(document.Root);
+
+        component.Missing = null;
+
+        var report = host.ReloadComponents([typeof(Boxes)]);
+
+        Assert.False(report.Succeeded);
+        Assert.Equal(0, report.Replaced);
+        Assert.Same(component, Assert.Single(host.Components));
+    }
+
+    /// <summary>
+    ///     A runtime that does not know which types it changed is the <see langword="null" /> case,
+    ///     and it replaces nothing — the same reason as above, with no list to be on.
+    /// </summary>
+    [Fact]
+    public void A_runtime_that_names_no_types_replaces_nothing() {
+        using var document = new UiDocument(200f, 200f);
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Stale>(document.Root);
+
+        component.Missing = null;
+
+        var report = host.ReloadComponents(null);
+
+        Assert.False(report.Succeeded);
+        Assert.Equal(0, report.Replaced);
+        Assert.Same(component, Assert.Single(host.Components));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A replacement carries what a replacement always carries</b> — the marked members and
+    ///     nothing else — because this path is <see cref="HotReloadHost.Replace" /> with the factory
+    ///     supplied rather than a second implementation of it.
+    /// </summary>
+    [Fact]
+    public void A_replacement_the_runtime_asked_for_carries_the_state_it_marked() {
+        using var document = new UiDocument(200f, 200f);
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Stale>(document.Root);
+
+        component.Kept.Value = 7;
+        component.Dropped = "changed";
+        component.Missing = null;
+
+        _ = host.ReloadComponents([typeof(Stale)]);
+        var replacement = (Stale) Assert.Single(host.Components);
+
+        Assert.Equal(7, replacement.Kept.Value);
+        Assert.Equal("initial", replacement.Dropped);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The runtime's types reach the host rather than being dropped on the doorstep.</b>
+    ///     <c>UpdateApplication</c> ignored its argument, which made the whole component channel
+    ///     unreachable from the one thing that calls it.
+    /// </summary>
+    [Fact]
+    public void The_metadata_handler_passes_the_runtime_s_types_through() {
+        using var document = new UiDocument(200f, 200f);
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Stale>(document.Root);
+
+        component.Missing = null;
+
+        MetadataUpdate.Register(host);
+
+        try {
+            MetadataUpdate.UpdateApplication([typeof(Stale)]);
+        } finally {
+            Assert.True(MetadataUpdate.Unregister(host));
+        }
+
+        Assert.NotSame(component, Assert.Single(host.Components));
+    }
+
     // ------------------------------------------------------------ Registration
 
     [Fact]
@@ -333,6 +449,28 @@ public class HotReloadTests {
         public string Dropped { get; set; } = "initial";
 
         protected override void Build(BuildContext ctx) => ctx.Element(null, "box");
+    }
+
+    /// <summary>
+    ///     A component that cannot rebuild as the instance it is, and can as a fresh one.
+    /// </summary>
+    /// <remarks>
+    ///     What the runtime does when it adds a field to a live type, written as something a test can
+    ///     cause: <see cref="Missing" /> stands for the field the edit introduced, and clearing it
+    ///     stands for the initialiser that never ran on an object that already existed. A fresh
+    ///     instance runs its own initialisers and is therefore fine.
+    /// </remarks>
+    sealed class Stale : Component {
+        public object? Missing { get; set; } = new();
+
+        [HotReloadState] public Signal<int> Kept { get; } = new(0);
+
+        public string Dropped { get; set; } = "initial";
+
+        protected override void Build(BuildContext ctx) {
+            ArgumentNullException.ThrowIfNull(Missing);
+            ctx.Element(null, "box");
+        }
     }
 
     sealed class Projecting : Component {
