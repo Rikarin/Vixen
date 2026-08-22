@@ -284,6 +284,89 @@ public class InlineFragmentationTests {
         Assert.Equal(40f, secondWidth, Tolerance);
     }
 
+    /// <summary>A span inside an anonymous block box still fragments across its lines.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The two features meet here, and the assertion is about <i>boxes</i> rather than about
+    ///     either mechanism firing.</b> An anonymous block box (§9.2.1.1) is a line walk over a
+    ///     sub-range of a mixed container's children; a fragmenting span (Display §2.2) is one node
+    ///     producing several boxes on that walk. Nothing had to be taught about the combination — the
+    ///     run is flowed by the same <c>WalkInlineLines</c>, so the span's fragments come out in the
+    ///     container's coordinates and are rebased onto the span exactly as they are without a block
+    ///     sibling. What this test would catch is the run being flowed from the container's top inset
+    ///     instead of from the anonymous box's, which every fragment's <c>Top</c> would show.
+    /// </remarks>
+    [Fact]
+    public void A_span_inside_an_anonymous_block_box_still_fragments() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+
+        var head = BlockBox(tree, root, width: 100f, height: 10f);
+        var span = Span(tree, root);
+
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(0f, tree.GetTop(head), Tolerance);
+
+        // Two of the three fit on a hundred-point line, so the span is two boxes — and the anonymous
+        // box holding it starts ten points down, under the block-level sibling.
+        Assert.Equal(2, tree.GetFragmentCount(span));
+        Assert.Equal(10f, tree.GetTop(span), Tolerance);
+        Assert.Equal(40f, tree.GetHeight(span), Tolerance);
+
+        var (firstLeft, firstTop, firstWidth, firstHeight, firstEnds) = tree.GetFragment(span, 0);
+        Assert.Equal((0f, 0f, 80f, 20f), (firstLeft, firstTop, firstWidth, firstHeight));
+        Assert.Equal(LayoutFragmentEnds.Start, firstEnds);
+
+        var (secondLeft, secondTop, secondWidth, secondHeight, secondEnds) = tree.GetFragment(span, 1);
+        Assert.Equal((0f, 20f, 40f, 20f), (secondLeft, secondTop, secondWidth, secondHeight));
+        Assert.Equal(LayoutFragmentEnds.End, secondEnds);
+
+        Assert.Equal(50f, tree.GetHeight(root), Tolerance);
+    }
+
+    /// <summary>
+    ///     Re-laying a mixed container every frame allocates nothing either.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An anonymous block box is one more caller of the watermarked stream, and a second
+    ///     caller is exactly how a watermark gets broken.</b> A mixed container calls
+    ///     <c>WalkInlineLines</c> once per run rather than once per container, so a restore that
+    ///     rewound to the wrong base — or a run that abandoned an open box without committing its
+    ///     fragments — would show up as an arena growing a little on every frame rather than as a
+    ///     wrong number anywhere. This tree has two runs with a block-level box between them and a
+    ///     span fragmenting inside each, which is the shape that exercises both watermarks.
+    /// </remarks>
+    [Fact]
+    public void A_mixed_container_re_laid_every_frame_allocates_nothing() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+
+        var leading = Span(tree, root);
+        BlockBox(tree, root, width: 100f, height: 10f);
+        var trailing = Span(tree, root);
+
+        for (var i = 0; i < 5; i++) {
+            Item(tree, leading, 40f, 20f);
+            Item(tree, trailing, 40f, 20f);
+        }
+
+        var toggle = tree.GetChild(leading, 0);
+        var frame = 0;
+
+        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
+
+        return;
+
+        void Layout() {
+            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(20f + (frame++ % 3)));
+            tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+        }
+    }
+
     /// <summary>
     ///     Re-laying a tree with a fragmenting span in it every frame allocates nothing.
     /// </summary>
@@ -328,7 +411,9 @@ public class InlineFragmentationTests {
     ///     union. Written as an assertion rather than a comment so that the entry in
     ///     <c>InlineKnownGaps.txt</c> has something holding it honest — when nesting lands, this test
     ///     goes red and gets inverted, exactly as
-    ///     <c>Mixed_content_stacks_because_there_are_no_anonymous_boxes</c> is meant to.
+    ///     <c>Mixed_content_stacks_because_there_are_no_anonymous_boxes</c> did when anonymous boxes
+    ///     landed and became
+    ///     <c>InlineFormattingTests.Mixed_content_wraps_each_inline_run_in_an_anonymous_block_box</c>.
     /// </remarks>
     [Fact]
     public void A_span_inside_a_span_is_still_atomic() {
@@ -484,6 +569,17 @@ public class InlineFragmentationTests {
     static LayoutNodeId Span(LayoutTree tree, LayoutNodeId parent) {
         var node = tree.CreateNode();
         tree.SetDisplay(node, Display.Inline);
+        tree.AddChild(parent, node);
+
+        return node;
+    }
+
+    /// <summary>A block-level sibling — what makes a container's content <i>mixed</i>.</summary>
+    static LayoutNodeId BlockBox(LayoutTree tree, LayoutNodeId parent, float width, float height) {
+        var node = tree.CreateNode();
+        tree.SetDisplay(node, Display.Block);
+        tree.SetDimension(node, Dimension.Width, StyleLength.Points(width));
+        tree.SetDimension(node, Dimension.Height, StyleLength.Points(height));
         tree.AddChild(parent, node);
 
         return node;

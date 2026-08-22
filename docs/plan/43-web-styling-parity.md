@@ -618,9 +618,17 @@ precondition.
 fragment arena relaxed *one node produces many boxes*; a generated box is the other direction — a
 box with **no node** — and is not served by it, because a fragment takes its style from the node it
 belongs to and a pseudo-element has a style of its own. The sentence above is right that
-anonymous-box work is A12's real precondition, and that is *still* owed. What has changed is only
-that "the invariant stands" is no longer the reason: see `InlineKnownGaps.txt`, which now costs
-fragmentation, anonymous boxes and generated boxes as three separate things rather than one.
+anonymous-box work is A12's real precondition. See `InlineKnownGaps.txt`, which costs fragmentation,
+anonymous boxes and generated boxes as three separate things rather than one.
+
+⚠ **That precondition is now met, and A12's estimate should still not be revised upward from it.**
+Anonymous block boxes landed after the fragment arena and cost less than this file's own estimate
+implied — they take initial values for every non-inherited property, so they are never painted or
+hit-tested and need **no stored rectangle at all**, only a line walk over a sub-range of a
+container's children. Nothing was added to `LayoutResult`. What that means for A12 is that it is
+*reachable* rather than *cheaper*: the sub-range machinery serves a run of **real** children, and the
+half A12 was always going to have to build itself — a second **style** slot for a box that is not one
+of them — is untouched by it.
 
 **Option (3) — match and contribute nothing — was refused for the reason `SelectorCompiler`'s own
 remarks already give.** A selector that compiles, matches and does nothing is this document's

@@ -407,13 +407,16 @@ nothing. Individual boxes are there for whoever needs them — `GetFragmentCount
 the latter reporting which of the box's *real* ends each fragment carries so a painter knows which
 vertical border to stroke and which break to leave open.
 
-⚠ **What the store still cannot do is the other direction: a box with *no* node.** An anonymous
-block box (§9.2.1.1) and a generated box (`::before`, doc 43's A12) are not fragments and are not
-served by any of this — storing one against a nearby node would give it that node's style. The two
-are also not the same as each other: an anonymous block box takes initial values for every
-non-inherited property, so it is never painted and never hit-tested and needs no stored rectangle at
-all, only a line walk over a sub-range of children. A generated box needs a style slot. See
-`InlineKnownGaps.txt`, which now costs them separately.
+⚠ **The other direction — a box with *no* node — is not served by any of this, and half of it has
+landed anyway.** An anonymous block box (§9.2.1.1) and a generated box (`::before`, doc 43's A12)
+are not fragments: storing one against a nearby node would give it that node's style. The two are
+also not the same as each other, and that is what let one of them through. An anonymous block box
+takes initial values for every non-inherited property, so it is never painted and never hit-tested
+and **needs no stored rectangle at all** — only a line walk over a sub-range of a container's
+children, which is what `WalkInlineLines` now takes and what `WalkBlockChildren` hands it for each
+run of inline-level children in a mixed container. Nothing was added to `LayoutResult` for it.
+A generated box still needs a style slot, which is a different problem and is still open. See
+`InlineKnownGaps.txt`, which costs them separately.
 
 ⚠ **The claim that a line box allocates nothing survived, and it was the thing most at risk.** A
 line used to be a *contiguous range of the existing child span*, exactly as a flex line is, and
@@ -570,8 +573,9 @@ alignment and §9's containing block for an out-of-flow child — both landed: t
 out of the finished tracks and handed to `LayoutTree.Absolute` as a per-child rectangle, which is
 what closed 96 `grid_absolute_*` fixtures.
 
-**Non-atomic inline fragmentation, anonymous block boxes, the strut, and `text-align`** — the parts
-of inline formatting that survived § B3. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
+**The strut, `text-align`, and generated boxes** — the parts of inline formatting still open. Two
+of the four this line used to name have closed: non-atomic inline fragmentation, and anonymous block
+boxes for mixed content. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
 and `Taffy/../InlineKnownGaps.txt`.
 
 **Floats.** See the block section above for where they attach; 84 fixtures wait on them.

@@ -348,12 +348,17 @@ turned **the paragraph** red — a rule that looked like it worked, with this do
 it. The compiler now refuses the selector with a diagnostic, which reaches the log through
 `UiDocument`'s drain.
 
-A pseudo-element is a **generated box**: a box in the layout tree with no element behind it. That
-collides head-on with the one-node-one-box invariant `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`
-records as the thing blocking anonymous boxes and inline fragmentation — a `LayoutResult` holds one
-position and one rectangle, and the rounding pass, the absolute walk and hit testing all assume it.
-Materialising pseudo-elements is therefore the same body of work as anonymous boxes and is planned as
-doc 43's **A12**, not as a fix to the cascade.
+A pseudo-element is a **generated box**: a box in the layout tree with no element behind it.
+Materialising one is planned as doc 43's **A12**, not as a fix to the cascade.
+
+⚠ **It is no longer the one-node-one-box invariant that blocks it, which is what this said.** Both
+of the things named alongside it have landed: inline fragmentation relaxed the invariant so that a
+node may have *more* boxes than one, and anonymous block boxes needed *no* stored box at all — they
+take initial values for every non-inherited property, so they are never painted or hit-tested and
+are a line walk over a sub-range of a container's children.
+`Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` records both. What A12 is left with is the half
+that was always its own: a generated box carries a **style** of its own, so it needs a second style
+slot rather than a second rectangle.
 
 ### Cascade and matching
 

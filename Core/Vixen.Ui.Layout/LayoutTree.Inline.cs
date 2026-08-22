@@ -82,15 +82,22 @@ public sealed partial class LayoutTree {
     ///         what is in it, which is why this is a walk and not a field.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Mixed content is refused and falls back to stacking, and that is a listed gap
-    ///         rather than a reading of the spec.</b> §9.2.1.1 says a block container with both kinds
-    ///         of child wraps every run of inline-level boxes in an <i>anonymous block box</i>. An
-    ///         anonymous box is a box with no node — no id, no style, no entry in the child arena —
-    ///         and inventing one means either allocating nodes during layout or teaching the walk to
-    ///         address something that is not a node. Both are real changes to the store rather than to
-    ///         this file, so mixed content stacks: every child gets its own line, which is what the
-    ///         engine did before this algorithm existed and is wrong in the same direction rather than
-    ///         in a new one.
+    ///         ⚠ <b>Mixed content is <i>not</i> this, and it is no longer refused either.</b> A
+    ///         container with both kinds of child answers <c>false</c> here and goes to
+    ///         <c>CalculateBlockLayoutImpl</c>, which wraps each run of inline-level children in CSS
+    ///         2.1 §9.2.1.1's <i>anonymous block box</i> and flows it through
+    ///         <see cref="WalkInlineLines" /> over that run's sub-range. So this predicate still means
+    ///         exactly what it says — "is this container's <i>whole</i> content one inline formatting
+    ///         context" — and the mixed case is a block container holding a mixture of real boxes and
+    ///         anonymous ones, which is what the spec says it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The blocker that used to be recorded here was overstated.</b> It said inventing an
+    ///         anonymous box meant either allocating nodes during layout or teaching the walk to
+    ///         address something that is not a node. Neither was needed: an anonymous block box takes
+    ///         initial values for every non-inherited property, so it is never painted and never hit
+    ///         tested and has <i>no stored rectangle at all</i> — it is a line walk over a sub-range,
+    ///         and that is a parameter rather than a store change.
     ///     </para>
     /// </remarks>
     bool EstablishesInlineFormattingContext(int index) {
@@ -151,6 +158,8 @@ public sealed partial class LayoutTree {
             var probeWidth = float.IsNaN(availableWidth) ? float.NaN : availableWidth - marginAxisRow - insetRow;
             var contentWidth = DetermineInlineContentWidth(
                 index,
+                0,
+                links[index].ChildCount,
                 direction,
                 widthSizingMode,
                 probeWidth,
@@ -173,6 +182,8 @@ public sealed partial class LayoutTree {
         // ── The block axis: one pass, breaking into lines ───────────────────────────────────────
         var walk = WalkInlineLines(
             index,
+            0,
+            links[index].ChildCount,
             direction,
             outerWidth,
             innerWidth,
@@ -254,16 +265,43 @@ public sealed partial class LayoutTree {
     ///         guard turns a single over-wide item into an infinite loop, which is the reason it is a
     ///         guard rather than a clamp.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The range is over the container's <i>children</i>, and that is what an anonymous
+    ///         block box is.</b> A container whose every in-flow child is inline-level passes its
+    ///         whole child list; a <i>mixed</i> container passes one run at a time from
+    ///         <c>WalkBlockChildren</c>, and each such call is CSS 2.1 §9.2.1.1's anonymous block box
+    ///         in its entirety. Nothing is stored for it because there is nothing to store: it takes
+    ///         initial values for every non-inherited property, so it has no border, no padding and no
+    ///         margin, its content box is its margin box, and the boxes it lays out are already
+    ///         expressed as offsets from the container that really is their parent.
+    ///     </para>
     /// </remarks>
+    /// <param name="index">The container whose children are being flowed.</param>
+    /// <param name="childStart">The first child position to flow, inclusive.</param>
+    /// <param name="childEnd">The last child position to flow, exclusive.</param>
+    /// <param name="direction">The inline direction.</param>
+    /// <param name="outerWidth">The container's border-box width.</param>
+    /// <param name="innerWidth">The container's content-box width, which lines break against.</param>
+    /// <param name="innerHeightForPercentages">What a percentage height resolves against, or NaN.</param>
+    /// <param name="insetLeft">The container's left padding and border.</param>
+    /// <param name="insetRight">The container's right padding and border.</param>
+    /// <param name="contentTop">
+    ///     Where the first line box's top edge goes, in the container's coordinates. The container's
+    ///     own top inset for a whole-container walk; the anonymous block box's top edge for a run.
+    /// </param>
+    /// <param name="performLayout">Whether to position anything, or only to size it.</param>
+    /// <param name="currentDepth">The recursion guard's depth.</param>
     InlineWalk WalkInlineLines(
         int index,
+        int childStart,
+        int childEnd,
         Direction direction,
         float outerWidth,
         float innerWidth,
         float innerHeightForPercentages,
         float insetLeft,
         float insetRight,
-        float insetTop,
+        float contentTop,
         bool performLayout,
         int currentDepth
     ) {
@@ -272,7 +310,7 @@ public sealed partial class LayoutTree {
         // inline box puts its *children* on the line and only its two edges.
         var streamBase = inlineItemTop;
         var fragmentBase = fragmentScratchTop;
-        BuildInlineItems(index, nested: false);
+        BuildInlineItems(index, childStart, childEnd, nested: false);
         var streamEnd = inlineItemTop;
 
         try {
@@ -282,7 +320,7 @@ public sealed partial class LayoutTree {
             // resolves against the containing block, not against the remaining space — and it is also
             // what makes the result independent of the order lines happen to break in, so the measure
             // cache can serve the second and third readings below.
-            HideAndPositionOutOfFlow(index, direction, outerWidth, insetLeft, insetRight, insetTop, performLayout);
+            HideAndPositionOutOfFlow(index, childStart, childEnd, direction, outerWidth, insetLeft, insetRight, contentTop, performLayout);
 
             for (var i = streamBase; i < streamEnd; i++) {
                 // ⚠ Read fresh every iteration. Sizing an item runs a whole nested layout, which may
@@ -296,13 +334,13 @@ public sealed partial class LayoutTree {
 
                     case InlineItemKind.Open:
                         ResolveInlineBoxMetrics(item.Node, direction, innerWidth);
-                        HideAndPositionOutOfFlow(item.Node, direction, outerWidth, insetLeft, insetRight, insetTop, performLayout);
+                        HideAndPositionOutOfFlow(item.Node, direction, outerWidth, insetLeft, insetRight, contentTop, performLayout);
                         break;
                 }
             }
 
             // ── Breaking and alignment ──────────────────────────────────────────────────────────
-            var y = insetTop;
+            var y = contentTop;
             var lastBaseline = float.NaN;
             var cursor = streamBase;
             var open = OpenInlineBox.None;
@@ -394,10 +432,46 @@ public sealed partial class LayoutTree {
         float outerWidth,
         float insetLeft,
         float insetRight,
-        float insetTop,
+        float contentTop,
+        bool performLayout
+    ) =>
+        HideAndPositionOutOfFlow(
+            index,
+            0,
+            links[index].ChildCount,
+            direction,
+            outerWidth,
+            insetLeft,
+            insetRight,
+            contentTop,
+            performLayout
+        );
+
+    /// <summary>The same, over one anonymous block box's run of the child list.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>display: none</c> or out-of-flow child inside a run stays inside it rather than
+    ///     ending it</b>, so this is where both are dealt with for a mixed container's inline runs —
+    ///     and an out-of-flow child's static position becomes the anonymous box's own top edge, which
+    ///     is where the box it replaced would have gone. Leaving it to the block walk instead would
+    ///     record the cursor from <i>before</i> the run, because the run's height is not known until
+    ///     the run has been flowed.
+    /// </remarks>
+    void HideAndPositionOutOfFlow(
+        int index,
+        int childStart,
+        int childEnd,
+        Direction direction,
+        float outerWidth,
+        float insetLeft,
+        float insetRight,
+        float contentTop,
         bool performLayout
     ) {
-        foreach (var child in ChildIds(index)) {
+        var childIds = ChildIds(index);
+
+        for (var i = childStart; i < childEnd; i++) {
+            var child = childIds[i];
+
             if (styles[child].Display == Display.None) {
                 if (performLayout) {
                     ZeroOutLayoutRecursively(child);
@@ -407,7 +481,7 @@ public sealed partial class LayoutTree {
             }
 
             if (styles[child].PositionType == PositionType.Absolute) {
-                results[child].BlockStaticTop = insetTop;
+                results[child].BlockStaticTop = contentTop;
                 results[child].BlockStaticLeft = direction == Direction.Ltr ? insetLeft : outerWidth - insetRight;
             }
         }
@@ -780,9 +854,20 @@ public sealed partial class LayoutTree {
     ///     minimum</i> is the widest single one, because an atomic inline is by definition the thing
     ///     that cannot be broken up. Getting the minimum wrong as the sum makes every inline container
     ///     refuse to wrap; getting it wrong as zero makes one narrow enough to overflow on every line.
+    ///     <para>
+    ///         ⚠ <b>An anonymous block box needs this too, and taking the container's block-level
+    ///         answer instead is the mistake that is easy to miss.</b> A mixed container asked for its
+    ///         own width would otherwise report the widest <i>single</i> inline-level child — which is
+    ///         the run's <i>minimum</i> — because the block probe takes a maximum over children and
+    ///         has no way to know that a run of them shares a line. That is not a rounding error: a
+    ///         shrink-to-fit container holding three 20-point boxes beside a block sibling would come
+    ///         out 20 wide and then wrap the run onto three lines.
+    ///     </para>
     /// </remarks>
     float DetermineInlineContentWidth(
         int index,
+        int childStart,
+        int childEnd,
         Direction direction,
         SizingMode widthSizingMode,
         float availableInnerWidth,
@@ -794,7 +879,7 @@ public sealed partial class LayoutTree {
         var minimum = 0f;
 
         var streamBase = inlineItemTop;
-        BuildInlineItems(index, nested: false);
+        BuildInlineItems(index, childStart, childEnd, nested: false);
         var streamEnd = inlineItemTop;
 
         try {

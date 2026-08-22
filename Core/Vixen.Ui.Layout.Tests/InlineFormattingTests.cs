@@ -331,22 +331,27 @@ public class InlineFormattingTests {
         Assert.Equal(20f, tree.GetTop(neighbour), Tolerance);
     }
 
-    /// <summary>Mixed block-level and inline-level children fall back to stacking.</summary>
+    /// <summary>
+    ///     A run of inline-level children beside a block-level sibling shares one line, because
+    ///     §9.2.1.1 wraps it in an anonymous block box.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A listed gap pinned as a test, which is the only way a documented approximation stays
-    ///     honest.</b> §9.2.1.1 says a block container holding both kinds of child wraps each run of
-    ///     inline-level boxes in an <i>anonymous block box</i> — a box with no node, no style and no
-    ///     entry in the child arena. This store has nowhere to put one, so mixed content stacks and
-    ///     the two inline-level boxes below get a line each rather than sharing one.
+    ///     ⚠ <b>This test used to assert the opposite, and inverting it is what closing the gap looks
+    ///     like.</b> It was written as
+    ///     <c>Mixed_content_stacks_because_there_are_no_anonymous_boxes</c> and it said the two boxes
+    ///     below get a line each — which is what this store did while a block container could only
+    ///     stack. §9.2.1.1 wraps each run of inline-level children in an <i>anonymous block box</i>,
+    ///     and the two of them now share a line at y = 10 exactly as a browser puts them.
     ///     <para>
-    ///         The assertion is written against the behaviour Vixen actually has rather than against
-    ///         CSS, and it says so. If anonymous boxes ever land, this test should fail and be
-    ///         inverted — which is the point of writing it down rather than leaving the case
-    ///         untested.
+    ///         ⚠ The assertion is deliberately about <b>where the boxes are</b> and not about whether
+    ///         a run was detected. A rule that resolves and then draws nothing is this codebase's
+    ///         recurring defect, and the only test that catches it is one that reads geometry back
+    ///         out: <c>secondInline</c> is at x = 20 <i>on the same line</i>, which is a number that
+    ///         cannot come out of stacking.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void Mixed_content_stacks_because_there_are_no_anonymous_boxes() {
+    public void Mixed_content_wraps_each_inline_run_in_an_anonymous_block_box() {
         using var tree = new LayoutTree();
         var root = Root(tree, 300f);
 
@@ -358,9 +363,241 @@ public class InlineFormattingTests {
 
         Assert.Equal(0f, tree.GetTop(blockLevel), Tolerance);
 
-        // In a browser these two would share a line at y = 10. Here they stack.
         Assert.Equal(10f, tree.GetTop(firstInline), Tolerance);
-        Assert.Equal(20f, tree.GetTop(secondInline), Tolerance);
+        Assert.Equal(0f, tree.GetLeft(firstInline), Tolerance);
+
+        Assert.Equal(10f, tree.GetTop(secondInline), Tolerance);
+        Assert.Equal(20f, tree.GetLeft(secondInline), Tolerance);
+
+        // Ten for the block-level box and ten for the one line the run needed, rather than thirty.
+        Assert.Equal(20f, tree.GetHeight(root), Tolerance);
+    }
+
+    /// <summary>
+    ///     <c>&lt;div&gt;text&lt;p&gt;para&lt;/p&gt;more text&lt;/div&gt;</c> — two anonymous block
+    ///     boxes with a real one between them.
+    /// </summary>
+    /// <remarks>
+    ///     The case §9.2.1.1 is actually written for, and the one the old stacking answer got most
+    ///     visibly wrong. There are three block-level boxes in the container and only one of them has
+    ///     a node: the run before the paragraph, the paragraph, and the run after it.
+    /// </remarks>
+    [Fact]
+    public void An_inline_run_on_either_side_of_a_block_sibling_is_two_anonymous_boxes() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 300f);
+
+        var leadIn = Item(tree, root, Display.InlineBlock, 20f, 30f);
+        var alsoLeadIn = Item(tree, root, Display.InlineBlock, 20f, 30f);
+        var paragraph = Item(tree, root, Display.Block, 10f, 20f);
+        var tail = Item(tree, root, Display.InlineBlock, 15f, 30f);
+
+        tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
+
+        // First anonymous box: one line, twenty tall.
+        Assert.Equal(0f, tree.GetTop(leadIn), Tolerance);
+        Assert.Equal(0f, tree.GetLeft(leadIn), Tolerance);
+        Assert.Equal(0f, tree.GetTop(alsoLeadIn), Tolerance);
+        Assert.Equal(30f, tree.GetLeft(alsoLeadIn), Tolerance);
+
+        // The real block-level box stacks after it, and the second run stacks after that.
+        Assert.Equal(20f, tree.GetTop(paragraph), Tolerance);
+        Assert.Equal(30f, tree.GetTop(tail), Tolerance);
+        Assert.Equal(0f, tree.GetLeft(tail), Tolerance);
+
+        Assert.Equal(45f, tree.GetHeight(root), Tolerance);
+    }
+
+    /// <summary>An anonymous block box breaks its run onto as many lines as the run needs.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The height of an anonymous block box is the only thing about it that anything else can
+    ///     see</b>, so this is the assertion that matters most: the block-level box <i>after</i> the
+    ///     run has to move down by three line boxes and not by one. A run that flowed correctly and
+    ///     then reported a single line's height would place every box in this test right and the
+    ///     container's own height wrong.
+    /// </remarks>
+    [Fact]
+    public void An_anonymous_block_box_is_as_tall_as_the_lines_its_run_broke_onto() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 100f);
+
+        var head = Item(tree, root, Display.Block, 10f, 100f);
+        var first = Item(tree, root, Display.InlineBlock, 20f, 60f);
+        var second = Item(tree, root, Display.InlineBlock, 20f, 60f);
+        var third = Item(tree, root, Display.InlineBlock, 20f, 60f);
+        var tail = Item(tree, root, Display.Block, 10f, 100f);
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(0f, tree.GetTop(head), Tolerance);
+
+        // Sixty apiece against a hundred-point line, so one to a line.
+        Assert.Equal(10f, tree.GetTop(first), Tolerance);
+        Assert.Equal(30f, tree.GetTop(second), Tolerance);
+        Assert.Equal(50f, tree.GetTop(third), Tolerance);
+
+        Assert.Equal(70f, tree.GetTop(tail), Tolerance);
+        Assert.Equal(80f, tree.GetHeight(root), Tolerance);
+    }
+
+    /// <summary>
+    ///     An anonymous block box has no margins of its own, and is a barrier all the same.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves are load-bearing and they pull in opposite directions.</b> An anonymous
+    ///     block box takes initial values for every non-inherited property, so its own margins are
+    ///     zero and it never adds to an adjoining set — but it is not <i>transparent</i>: it holds a
+    ///     line box by construction, which is precisely what §8.3.1 means by something separating a
+    ///     box's two margins. So the twenty above it and the thirty below it are spent separately and
+    ///     do not meet. Get the second half wrong and the run's neighbours collapse through it, which
+    ///     puts the trailing block box at y = 40 instead of y = 70.
+    /// </remarks>
+    [Fact]
+    public void An_anonymous_block_box_separates_the_margins_on_either_side_of_it() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 300f);
+
+        var head = Item(tree, root, Display.Block, 10f, 20f);
+        tree.SetMargin(head, Edge.Bottom, StyleLength.Points(20f));
+
+        var run = Item(tree, root, Display.InlineBlock, 10f, 20f);
+
+        var tail = Item(tree, root, Display.Block, 10f, 20f);
+        tree.SetMargin(tail, Edge.Top, StyleLength.Points(30f));
+
+        tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(0f, tree.GetTop(head), Tolerance);
+        Assert.Equal(30f, tree.GetTop(run), Tolerance);
+        Assert.Equal(70f, tree.GetTop(tail), Tolerance);
+        Assert.Equal(80f, tree.GetHeight(root), Tolerance);
+    }
+
+    /// <summary>A <c>display: none</c> child does not split a run in two.</summary>
+    /// <remarks>
+    ///     §9.2.1.1 breaks a run at <i>block-level</i> content, and a box that generates no box at all
+    ///     is not that. Splitting on one would put the two inline-level boxes below on separate lines
+    ///     for a sibling that is not there.
+    /// </remarks>
+    [Fact]
+    public void A_hidden_child_does_not_split_an_anonymous_block_box() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 300f);
+
+        Item(tree, root, Display.Block, 10f, 20f);
+
+        var before = Item(tree, root, Display.InlineBlock, 10f, 20f);
+        Item(tree, root, Display.None, 10f, 20f);
+        var after = Item(tree, root, Display.InlineBlock, 10f, 20f);
+
+        tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(10f, tree.GetTop(before), Tolerance);
+        Assert.Equal(10f, tree.GetTop(after), Tolerance);
+        Assert.Equal(20f, tree.GetLeft(after), Tolerance);
+    }
+
+    /// <summary>An anonymous block box runs from the right edge in a right-to-left container.</summary>
+    /// <remarks>
+    ///     The anonymous box's content box is the container's, so the line walk's inline-start edge is
+    ///     the container's right one — the same mirroring <c>PlaceLine</c> applies for a pure inline
+    ///     formatting context, reached over a sub-range this time.
+    /// </remarks>
+    [Fact]
+    public void A_right_to_left_anonymous_block_box_starts_at_the_right_edge() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 100f);
+
+        var head = Item(tree, root, Display.Block, 10f, 20f);
+        var first = Item(tree, root, Display.InlineBlock, 10f, 30f);
+        var second = Item(tree, root, Display.InlineBlock, 10f, 30f);
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Rtl);
+
+        Assert.Equal(80f, tree.GetLeft(head), Tolerance);
+
+        Assert.Equal(10f, tree.GetTop(first), Tolerance);
+        Assert.Equal(70f, tree.GetLeft(first), Tolerance);
+        Assert.Equal(10f, tree.GetTop(second), Tolerance);
+        Assert.Equal(40f, tree.GetLeft(second), Tolerance);
+    }
+
+    /// <summary>
+    ///     A shrink-to-fit mixed container is as wide as its widest anonymous block box, not as wide
+    ///     as its widest single child.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The intrinsic-size half, and the one that is easy to leave out because nothing looks
+    ///     broken until a container has to size itself.</b> A block container's content width is a
+    ///     <i>maximum</i> over its children, which is the right operator over block-level boxes and
+    ///     the wrong one over a run that shares a line: it answers the run's <i>minimum</i>. Here the
+    ///     three 25-point boxes want 75 between them; taking the maximum instead gives 25, and the run
+    ///     then wraps onto three lines inside a container it fits on one line of.
+    /// </remarks>
+    [Fact]
+    public void A_shrink_to_fit_mixed_container_is_as_wide_as_its_run_wants() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 300f);
+
+        // Inline-level, so the root asks it for its own width rather than imposing one.
+        var host = Item(tree, root, Display.InlineBlock, float.NaN, float.NaN);
+
+        Item(tree, host, Display.Block, 10f, 20f);
+        var first = Item(tree, host, Display.InlineBlock, 10f, 25f);
+        Item(tree, host, Display.InlineBlock, 10f, 25f);
+        var last = Item(tree, host, Display.InlineBlock, 10f, 25f);
+
+        tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(75f, tree.GetWidth(host), Tolerance);
+
+        // …and having asked for 75 it uses all of it: one line, not three.
+        Assert.Equal(10f, tree.GetTop(first), Tolerance);
+        Assert.Equal(10f, tree.GetTop(last), Tolerance);
+        Assert.Equal(50f, tree.GetLeft(last), Tolerance);
+        Assert.Equal(20f, tree.GetHeight(host), Tolerance);
+    }
+
+    /// <summary>
+    ///     A mixed container whose last content is a run hangs from that run's last line box.
+    /// </summary>
+    /// <remarks>
+    ///     §10.8.1 puts a flow container's baseline on its last line box in normal flow, and a mixed
+    ///     container has line boxes now. The run below is deliberately one whose baseline is
+    ///     <i>not</i> its bottom edge — a <c>vertical-align: top</c> box grows the line downwards
+    ///     without moving the baseline — so synthesising from the bottom margin edge instead, which is
+    ///     what a block container without line boxes must do, gives a different answer and this test
+    ///     sees it.
+    ///     <para>
+    ///         ⚠ Only when the run is <i>last</i>. After a real block-level child the last line box in
+    ///         normal flow is somewhere inside that child, and nothing here can reach it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_mixed_container_ending_in_a_run_hangs_from_that_run_s_baseline() {
+        using var tree = new LayoutTree();
+        var root = Root(tree, 300f);
+
+        var subject = Item(tree, root, Display.InlineBlock, float.NaN, float.NaN);
+        Item(tree, subject, Display.Block, 20f, 10f);
+        Item(tree, subject, Display.InlineBlock, 10f, 10f);
+
+        var pinnedTop = Item(tree, subject, Display.InlineBlock, 30f, 10f);
+        tree.SetVerticalAlign(pinnedTop, VerticalAlign.Top);
+
+        var neighbour = Item(tree, root, Display.InlineBlock, 40f, 10f);
+
+        tree.CalculateLayout(root, 300f, float.NaN, Direction.Ltr);
+
+        // Twenty for the block child plus a thirty-tall line box, whose baseline is only ten below
+        // its own top because the tall box on it is anchored to the line's top edge.
+        Assert.Equal(50f, tree.GetHeight(subject), Tolerance);
+
+        // So the subject's baseline is at 30 and the neighbour's at 40: the deeper of the two fixes
+        // the line, and the subject drops ten. Reading the bottom margin edge instead would make the
+        // subject the deeper one and swap these two numbers.
+        Assert.Equal(0f, tree.GetTop(neighbour), Tolerance);
+        Assert.Equal(10f, tree.GetTop(subject), Tolerance);
     }
 
     /// <summary>A line runs from the right in a right-to-left container.</summary>

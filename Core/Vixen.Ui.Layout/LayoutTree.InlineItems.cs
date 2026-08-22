@@ -113,10 +113,30 @@ public sealed partial class LayoutTree {
 
     /// <summary>Flattens a container's children into the stream a line walk consumes.</summary>
     /// <returns>Where this container's range starts; it runs to <c>inlineItemTop</c>.</returns>
-    int BuildInlineItems(int index, bool nested) {
-        var start = inlineItemTop;
+    int BuildInlineItems(int index, bool nested) => BuildInlineItems(index, 0, links[index].ChildCount, nested);
 
-        foreach (var child in ChildIds(index)) {
+    /// <summary>Flattens a <i>sub-range</i> of a container's children into that same stream.</summary>
+    /// <param name="index">The container.</param>
+    /// <param name="childStart">The first child position to take, inclusive.</param>
+    /// <param name="childEnd">The last child position to take, exclusive.</param>
+    /// <param name="nested">Whether this call is already inside a non-atomic inline box.</param>
+    /// <returns>Where this range starts in the stream; it runs to <c>inlineItemTop</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The sub-range is the whole of what CSS 2.1 §9.2.1.1's anonymous block box costs.</b>
+    ///     An anonymous block box wraps one <i>run</i> of a mixed container's inline-level children,
+    ///     and it takes initial values for every non-inherited property — no background, no border, no
+    ///     padding, no margin, no event target — so it is never painted and never hit-tested and needs
+    ///     no stored rectangle. What it needs is exactly this: the ability to point the line walk at
+    ///     part of a child list rather than all of it. Everything downstream — <c>MeasureLine</c>,
+    ///     <c>PlaceLine</c>, the fragment scratch — already worked on a range and did not move.
+    /// </remarks>
+    int BuildInlineItems(int index, int childStart, int childEnd, bool nested) {
+        var start = inlineItemTop;
+        var childIds = ChildIds(index);
+
+        for (var i = childStart; i < childEnd; i++) {
+            var child = childIds[i];
+
             if (!ParticipatesInLine(child)) {
                 continue;
             }

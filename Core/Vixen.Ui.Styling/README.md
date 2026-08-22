@@ -435,10 +435,14 @@ red: not a partial implementation, a rule quietly meaning something else, and
 half-built feature can be in.
 
 The blocker is not the cascade. A pseudo-element is a **generated box** — a box in the layout tree
-with no element behind it — and `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` records
-*one node produces one box* as the invariant that makes the layout store five parallel arrays, and as
-the thing blocking anonymous boxes and inline fragmentation. Generated boxes need that same
-machinery, so they are doc 43's A12 and not a change here. Until then the author gets the message.
+with no element behind it — and that is doc 43's A12 rather than a change here.
+
+⚠ **It is not blocked on the one-node-one-box invariant, which is what this used to say.** That
+invariant has moved twice since: inline fragmentation gave a node *more* boxes, and anonymous block
+boxes turned out to need *no* box stored at all. Neither reached this feature.
+`Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` now records what is actually left, and it is the
+half that was always A12's own — a generated box carries a **style** of its own, so it needs a second
+style slot rather than a second rectangle. Until then the author gets the message.
 
 Licensed under Apache-2.0.
 

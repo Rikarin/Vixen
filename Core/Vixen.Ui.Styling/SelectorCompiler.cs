@@ -257,10 +257,13 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // it, and the rule then matched — and applied — to the ORIGINATING element. So
             // `p::before { color: red }` turned the paragraph red. Nothing anywhere read the field,
             // so that was not a partial implementation; it was the rule quietly meaning something
-            // else. Generating the box it asks for needs a box with no node behind it, which is the
-            // one-node-one-box invariant `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` records as
-            // the thing blocking anonymous boxes and inline fragmentation. Until that moves (doc 43
-            // A12), the author gets a message instead of a surprise.
+            // else. Generating the box it asks for needs a box with no node behind it.
+            // ⚠ Both of the things that used to be named here as sharing that blocker have since
+            // landed and neither unblocked this: inline fragmentation gave a node MORE boxes, and an
+            // anonymous block box needs no box stored at all. `InlineKnownGaps.txt` now says what is
+            // actually left, and it is the half that was always this feature's own — a generated box
+            // carries a STYLE of its own, so it needs a second style slot rather than a second
+            // rectangle. Until doc 43's A12, the author gets a message instead of a surprise.
             case PseudoElementSelector:
                 diagnostics.Add(
                     new SelectorDiagnostic(

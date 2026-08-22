@@ -1,5 +1,5 @@
-# Inline formatting — what doc 43 § B3 landed, what fragmentation landed after it, and what neither
-# did.
+# Inline formatting — what doc 43 § B3 landed, what fragmentation and anonymous block boxes landed
+# after it, and what none of the three did.
 #
 # ⚠ THIS FILE IS NOT SHAPED LIKE ITS THREE SIBLINGS, AND THE REASON IS THE WHOLE STORY.
 #
@@ -44,6 +44,13 @@ inline-block baseline             the LAST line box's baseline, not the first
 formatting-context barrier        an inline-level box is a flow root: nothing collapses through it
 right-to-left lines               the first item on a line is the rightmost one
 inner display is independent      `inline-flex` runs the flex algorithm; `inline-block` runs block
+anonymous block boxes (§9.2.1.1)  a block container holding both kinds of child wraps each run of
+                                  the inline-level ones in an anonymous block box, so
+                                  `<div>text<p/>more</div>` stacks three block-level boxes and the
+                                  text no longer gets a line per word-box. Its height, its margin
+                                  behaviour, its intrinsic width, its RTL mirroring and a span
+                                  fragmenting inside one are each a test; see the next section for
+                                  what it cost, which was less than this file used to say.
 
 
 # ══ FRAGMENTATION — LANDED, and the invariant it broke is worth keeping written down ════════════
@@ -95,36 +102,70 @@ the strut's effect on a fragment  a fragment is exactly as tall as its line box,
                                   padding and border do not affect line height is implemented, and
                                   is the one place that rule is visible.
 
+# ══ ANONYMOUS BOXES — LANDED, and the estimate that was right is worth keeping written down ═════
+#
+# ⚠ THIS SECTION USED TO BE UNDER "DELIBERATELY ABSENT", and the reason it moved is that the
+# blocker recorded here was overstated and somebody said so before building anything. The old text
+# said inventing an anonymous box means "either allocating nodes during layout or teaching the walk
+# to address something that is not a node", as though both were structural. The correction, written
+# down by the agent that built `FragmentArena` and CONFIRMED before this was implemented, was:
+#
+#   An anonymous block box takes INITIAL VALUES for every non-inherited property, so it has no
+#   background, no border, no padding, no margin and no event target. It is never painted and never
+#   hit-tested. It therefore needs NO STORED RECTANGLE AT ALL — only the ability to run a line walk
+#   over a SUB-RANGE of a container's children and report a height, which `MeasureLine` and
+#   `PlaceLine` already take.
+#
+# ⚠ THAT HELD EXACTLY, AND THE MEASURED PRICE WAS FOUR PARAMETERS AND NO STORE CHANGE. `LayoutResult`
+# did not grow a field, `FragmentArena` was not touched, `GetLeft`, the rounding pass and the
+# absolute walk were not touched, and nothing in `Vixen.Ui` was told anything. What changed:
+#
+#   · `BuildInlineItems`, `HideAndPositionOutOfFlow`, `WalkInlineLines` and
+#     `DetermineInlineContentWidth` each take a child sub-range instead of a whole child list.
+#   · `WalkInlineLines`'s `insetTop` became `contentTop` — the anonymous box's top edge, which for a
+#     whole-container walk is still the container's top inset.
+#   · `WalkBlockChildren` and `DetermineBlockContentWidth` detect a run and hand it over.
+#
+# ⚠ AND IT IS ONE DIRECTION FROM FRAGMENTATION RATHER THAN THE SAME ONE. Fragmentation is one node
+# to many boxes; an anonymous box is a box with NO node. The fragment arena did not help and was
+# never going to: storing an anonymous box as a fragment of some nearby node would give it that
+# node's style, which is wrong. The two are independent and they compose — a span fragmenting inside
+# an anonymous block box needed no code, and `A_span_inside_an_anonymous_block_box_still_fragments`
+# is the assertion that says so.
+#
+# Three things that were decisions rather than derivations, so that the next reader can disagree
+# with them on purpose:
+#
+#   · A `display: none` or out-of-flow child does NOT split a run — neither is block-level content,
+#     which is what §9.2.1.1 breaks a run at. A run's END is trimmed back past them, so that a
+#     trailing absolute sibling gets the static position AFTER the run rather than the run's own top.
+#   · An anonymous block box is NEVER a collapse-through box, however short it comes out, because by
+#     construction it holds at least one line box — and §8.3.1's collapse-through is exactly "nothing
+#     separates this box's two margins". Its own margins are zero, so it adds to no adjoining set.
+#   · A mixed container reports the LAST run's baseline as its own, and only when that run is its
+#     last in-flow content. §10.8.1 wants the last line box in normal flow; after a real block-level
+#     child that line box is somewhere inside the child and nothing here can reach it, so the answer
+#     falls back to CSS Align §9.3's synthesis, which is what a block container already did.
+#
+# Covered by `InlineFormattingTests` (seven tests, headed by
+# `Mixed_content_wraps_each_inline_run_in_an_anonymous_block_box`, which is
+# `Mixed_content_stacks_because_there_are_no_anonymous_boxes` inverted) and by two in
+# `InlineFragmentationTests`.
+
+generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET AND ITS OWN BLOCKER IS
+                                  NOT — worth stating plainly, because the row above moving makes
+                                  this look closer than it is. A12 was never blocked on
+                                  fragmentation; it was blocked on anonymous boxes, and those have
+                                  landed. What is left is the half that was always A12's own: a
+                                  generated box has a STYLE of its own, so it needs a second style
+                                  slot rather than a second rectangle, and the sub-range machinery
+                                  above serves a run of REAL children and has nothing to say about
+                                  a box that is not one of them. So this is reachable now, and it
+                                  is not started. A12's estimate should be re-read against this
+                                  section rather than revised on the strength of it.
+
+
 # ══ DELIBERATELY ABSENT — the store still cannot represent it ═══════════════════════════════════
-
-# ⚠ ANONYMOUS BOXES — AND THE FRAGMENT ARENA DOES NOT HELP, WHICH IS WORTH SAYING BECAUSE IT LOOKS
-# LIKE IT SHOULD. §9.2.1.1 says a block container holding both block-level and inline-level children
-# wraps each run of the inline ones in an anonymous block box. That is the OTHER direction from
-# fragmentation: fragmentation is one node to many boxes, an anonymous box is a box with NO node.
-# Storing one as a fragment of some nearby node would give it that node's style, which is wrong.
-#
-# ⚠ BUT THE BLOCKER RECORDED HERE WAS OVERSTATED, AND THE OVERSTATEMENT IS THE USEFUL PART. This
-# file used to say inventing an anonymous box means "either allocating nodes during layout or
-# teaching the walk to address something that is not a node", as though both were structural. The
-# second is neither structural nor expensive: an anonymous block box takes INITIAL VALUES for every
-# non-inherited property, so it has no background, no border, no padding, no margin and no event
-# target. It is never painted and never hit-tested. It therefore needs NO STORED RECTANGLE AT ALL —
-# only the ability to run a line walk over a SUB-RANGE of a container's children and report a
-# height, which `MeasureLine` and `PlaceLine` already take. Whoever picks this up should cost it as
-# a range-walk change and not as a store change.
-#
-# Mixed content still stacks today. Pinned by `Mixed_content_stacks_because_there_are_no_anonymous_boxes`,
-# which should FAIL and be inverted when anonymous boxes land.
-
-anonymous block boxes             mixed block-level and inline-level children stack
-generated boxes (::before/after)  doc 43's A12, and NOT unblocked by the fragment arena — same
-                                  reason as the row above, plus one more: a generated box has a
-                                  STYLE of its own, so it needs a second style slot rather than a
-                                  second rectangle. ⚠ A12's estimate was recorded as an
-                                  underestimate "while this invariant stands". The invariant has
-                                  now moved, and the estimate should NOT be revised on that basis
-                                  — A12 was never blocked on fragmentation, it is blocked on
-                                  anonymous boxes, and that is the row above.
 
 # ⚠ THE STRUT. §10.8 begins every line box with an imaginary zero-width inline box carrying the
 # block container's own font and line height. It is why an empty line is still a line tall, why a

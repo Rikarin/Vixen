@@ -183,7 +183,9 @@ public readonly record struct Specificity(int Ids, int Classes, int Types) : ICo
 ///     <i>it</i>. A field written and never read is not a partial feature; it is a rule that means
 ///     something else. <see cref="SelectorCompiler" /> now refuses the selector with a diagnostic,
 ///     and the field is gone so that nothing can be built on top of a value that is always absent.
-///     Doc 43's A12 is where generated boxes are planned, and it is blocked on the same
-///     one-node-one-box invariant as anonymous boxes.
+///     Doc 43's A12 is where generated boxes are planned. ⚠ It is <i>not</i> blocked on the
+///     one-node-one-box invariant, which is what this used to say: that invariant has moved twice
+///     since — inline fragmentation, then anonymous block boxes — and neither move reached this.
+///     What A12 needs is a second <i>style</i> slot, not a second rectangle.
 /// </remarks>
 public readonly record struct Selector(int Start, int Count, Specificity Specificity);
