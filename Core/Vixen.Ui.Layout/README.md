@@ -11,8 +11,8 @@ algorithm is the valuable part.
 ## State
 
 **Flexbox is complete and the conformance suite is green: 534 of Yoga's fixtures, all passing, and
-3 320 of Taffy's judged per fixture across three categories.** Of Taffy's flex and leaf, 2 162 pass,
-152 ask for a property this store has no field for, and 94 are known gaps listed with a diagnosis
+3 320 of Taffy's judged per fixture across three categories.** Of Taffy's flex and leaf, 2 242 pass,
+152 ask for a property this store has no field for, and 14 are known gaps listed with a diagnosis
 each — see [the corpus README](../Vixen.Ui.Layout.Tests/Taffy/README.md).
 
 **Block layout landed with doc 43 § B1 and is the store's second algorithm.** 788 of the 912
@@ -21,8 +21,8 @@ and **none fail** — `Taffy/BlockKnownGaps.txt` is down to its refusal list, an
 count is zero, so the next block regression names itself. See
 [the block section](#block-layout-and-what-a-second-algorithm-cost) below.
 
-**Grid landed with doc 43 § B2 and is the third.** 1 896 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 132 are refused, and 92 fail in the buckets `Taffy/GridKnownGaps.txt`
+**Grid landed with doc 43 § B2 and is the third.** 1 974 of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, 132 are refused, and 14 fail in the buckets `Taffy/GridKnownGaps.txt`
 names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
 sizing (§12), §11.8's baseline alignment and CSS Grid §9's containing block for an out-of-flow
 child are done, and `grid-template-areas` is **not implemented at all** — see
@@ -91,10 +91,10 @@ Chrome-for-Testing — and they exist here for block and grid, which have no ora
 them first on purpose: it is the one mode where the answer is already known, so a wrong harness would
 be visibly wrong there rather than invisibly wrong inside grid later.
 
-**2 190 of the 2 256 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
+**2 242 of the 2 256 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
 Thirteen of the original failures were the bridge and were fixed — `start` is not a spelling of
 `flex-start`, and `self-start` resolves against the item's own direction. Of the 206 that were
-Vixen's, **140 are closed** and 66 remain, catalogued in `Taffy/KnownGaps.txt`.
+Vixen's, **192 are closed** and 14 remain, catalogued in `Taffy/KnownGaps.txt`.
 
 The largest bucket was **the paragraph above, one level further out**, and it turned on a
 distinction CSS Sizing §5.2.2 draws and this store did not: a box's min-content **size** and its

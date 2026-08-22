@@ -185,11 +185,13 @@ public class TaffyTrackListParserTests {
     [Theory]
     [InlineData("repeat(9000, 0px)", 9000)]
     [InlineData("repeat(10000, 0px)", 10000)]
-    [InlineData("repeat(10001, 0px)", 10000)]
-    [InlineData("repeat(40000, 10px 10px)", 10000)]
-    [InlineData("repeat(32768, fit-content(512px)) fit-content(100%)", 10000)]
+    [InlineData("repeat(10001, 0px)", 10001)]
+    [InlineData("repeat(32768, fit-content(512px)) fit-content(100%)", 32769)]
+    [InlineData("repeat(65535, 0px)", 65535)]
+    [InlineData("repeat(65536, 0px)", 65535)]
+    [InlineData("repeat(40000, 10px 10px)", 65535)]
     public void Expansion_stops_at_the_track_limit(string value, int expected) {
-        Assert.Equal(10_000, LayoutLimits.MaximumGridTracks);
+        Assert.Equal(65_535, LayoutLimits.MaximumGridTracks);
         Assert.Equal(expected, TaffyTrackListParser.Parse("grid-template-columns", value).Tracks.Count);
     }
 
@@ -199,17 +201,42 @@ public class TaffyTrackListParserTests {
     /// <remarks>
     ///     ⚠ Half a repetition is not a smaller grid, it is a different declaration — and an
     ///     <c>AutoRepeatCount</c> that runs past the end of the tracks it was handed is a buffer
-    ///     overrun waiting for §7.2.3.2 to read it. Both corpus lists that hit this
-    ///     (<c>repeat(9990, 0px) repeat(auto-fill, …20 tracks)</c> and its <c>auto-fit</c> twin) land
-    ///     here.
+    ///     overrun waiting for §7.2.3.2 to read it.
+    ///     ⚠ <b>No corpus list reaches this any more, and that is the point of the change that
+    ///     raised the ceiling.</b> The two that used to — <c>repeat(9990, 0px) repeat(auto-fill,
+    ///     …20 tracks)</c> and its <c>auto-fit</c> twin — need 10 010 tracks, which the store now
+    ///     allocates, and both of their fixtures went green when it did. The rule still has to hold
+    ///     at whatever the ceiling is, so it is exercised against the ceiling rather than against a
+    ///     number the corpus happens to write.
     /// </remarks>
     [Fact]
     public void An_automatic_repetition_that_does_not_fit_is_dropped_rather_than_truncated() {
+        var fixedTracks = LayoutLimits.MaximumGridTracks - 5;
+        var value = $"repeat({fixedTracks}, 0px) repeat(auto-fill, " + string.Join(' ', Enumerable.Repeat("0px", 10)) + ")";
+        var (tracks, kind, index, count) = TaffyTrackListParser.Parse("grid-template-columns", value);
+
+        Assert.Equal(fixedTracks, tracks.Count);
+        Assert.Equal((GridAutoRepeat.None, -1, 0), (kind, index, count));
+    }
+
+    /// <summary>
+    ///     An automatic repetition that DOES fit is written out whole, at the new ceiling.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The companion to the test above, and the one that pins what changed.
+    ///     <c>grid_overlarge_fixed_tracks_plus_auto_fill_repetition_over_limit</c> is exactly this
+    ///     list: at a ceiling of 10 000 the repetition was dropped, the item at line 10 010 landed in
+    ///     an implicit <c>auto</c> track and took a size the explicit <c>0px</c> track it named would
+    ///     never have had. Chrome puts it at x=0 with every other track, because every track in the
+    ///     list is zero.
+    /// </remarks>
+    [Fact]
+    public void An_automatic_repetition_that_fits_is_written_out_whole() {
         var value = "repeat(9990, 0px) repeat(auto-fill, " + string.Join(' ', Enumerable.Repeat("0px", 20)) + ")";
         var (tracks, kind, index, count) = TaffyTrackListParser.Parse("grid-template-columns", value);
 
-        Assert.Equal(9990, tracks.Count);
-        Assert.Equal((GridAutoRepeat.None, -1, 0), (kind, index, count));
+        Assert.Equal(10_010, tracks.Count);
+        Assert.Equal((GridAutoRepeat.AutoFill, 9990, 20), (kind, index, count));
     }
 
     // ── Refusals ────────────────────────────────────────────────────────────────────────────────

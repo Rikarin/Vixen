@@ -47,8 +47,8 @@ public class TaffyGridConformanceTests {
 
     // ⚠ Committed counts, not lower bounds — see the identical comment in the flex and block suites.
     // A gap that closes has to be taken off GridKnownGaps.txt in the same commit as it closes.
-    const int ExpectedPassing = 1954;
-    const int ExpectedFailing = 34;
+    const int ExpectedPassing = 1974;
+    const int ExpectedFailing = 14;
     const int ExpectedUnsupported = 132;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();

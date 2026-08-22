@@ -300,9 +300,10 @@ public sealed partial class LayoutTree {
         var childWidthSizingMode = SizingMode.MaxContent;
         var childHeightSizingMode = SizingMode.MaxContent;
 
+        var processedFlexBasis = StyleResolution.ProcessedFlexBasis(in styles[child]);
         var resolvedFlexBasis = StyleResolution.WithBoxSizing(
             in styles[child],
-            StyleResolution.ProcessedFlexBasis(in styles[child]).Resolve(mainAxisOwnerSize),
+            processedFlexBasis.Resolve(mainAxisOwnerSize),
             FlexAxis.DimensionOf(mainAxis),
             ownerWidth,
             direction
@@ -315,7 +316,38 @@ public sealed partial class LayoutTree {
         // LayoutResult.FlexBasisFromContent — it is what caps §4.5's automatic minimum.
         results[child].FlexBasisFromContent = false;
 
-        if (!float.IsNaN(resolvedFlexBasis) && !float.IsNaN(mainAxisSize)) {
+        // ⚠ <b>An indefinite main size means two different things on the two axes, and
+        // `flex_basis_unconstraint_row` and `flex_basis_unconstraint_column` are the same
+        // declaration answered two different ways because of it.</b> Both are `flex-basis: 50px` on
+        // the only child of a container with no main size of its own. Chrome makes the column 50
+        // tall and the row 0 wide.
+        //
+        // The row is being sized under a max-content constraint, so §9.9.3's CONTRIBUTION rules
+        // decide it: an item's max-content contribution is its own outer max-content size — zero,
+        // for an empty box — clamped from ABOVE by its flex base size when the item is not growable.
+        // Not floored by it. `flex-basis: 50px` is a ceiling there, not a size, and falling through
+        // to the content branch below is how this store arrives at Chrome's zero.
+        //
+        // The column has no such rule to apply. §9.9 is about a flex container's INTRINSIC main
+        // size, which is a question about the inline axis; a column container with an indefinite
+        // height simply runs §9.3–§9.7 with indefinite free space, every item freezes at its
+        // hypothetical main size, and the container is their sum. So the declaration IS the size,
+        // and `mainAxisSize` being NaN is not a reason to go and measure an empty box instead.
+        //
+        // ⚠ Requiring a definite `mainAxisSize` on BOTH axes is Yoga's guard, ported with the rest
+        // of the order of operations, and it is right for exactly one of them. Relaxing it for both
+        // measures as +12 and −6: it closes this fixture, `taffy_issue_696_min_height` and
+        // `absolute_child_with_max_height_larger_shrinkable_grandchild`, and it opens
+        // `flex_basis_unconstraint_row` and both content-box halves of
+        // `padding_border_overrides_size_flex_basis_0_growable`, whose `flex-basis: 0px` row items
+        // stop being measured and start being believed. The regression is the rule.
+        //
+        // ⚠ The percentage half of the guard stays on both axes, and it is the half that was always
+        // load-bearing: §5.2.1 makes a percentage against an indefinite main size behave as
+        // `content`. It is belt and braces here — `Resolve(NaN)` is already NaN — but the two are
+        // different reasons and only one of them is being relaxed.
+        if (!float.IsNaN(resolvedFlexBasis)
+            && (!float.IsNaN(mainAxisSize) || (!isMainAxisRow && processedFlexBasis.Unit != LayoutUnit.Percent))) {
             if (float.IsNaN(results[child].ComputedFlexBasis)) {
                 var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth);
                 results[child].ComputedFlexBasis = MathF.Max(resolvedFlexBasis, paddingAndBorder);
@@ -403,6 +435,14 @@ public sealed partial class LayoutTree {
 
             ConstrainMaxSizeForMode(child, direction, FlexDirection.Row, ownerWidth, ownerWidth, ref childWidthSizingMode, ref childWidth);
             ConstrainMaxSizeForMode(child, direction, FlexDirection.Column, ownerHeight, ownerWidth, ref childHeightSizingMode, ref childHeight);
+
+            // ⚠ …and the minimum, which §5.1 clamps by just as hard. See ConstrainMinSizeForMode:
+            // the other axis is measured off this one, so both of the item's own clamps have to be
+            // applied to the offer before the measurement rather than to the answer after it. After
+            // the maxima on purpose — §5.1 orders the two clamps max-then-min, so a minimum above a
+            // maximum wins, which is the rule BoundAxisWithinMinAndMax already implements.
+            ConstrainMinSizeForMode(child, direction, FlexDirection.Row, ownerWidth, ownerWidth, childWidthSizingMode, ref childWidth);
+            ConstrainMinSizeForMode(child, direction, FlexDirection.Column, ownerHeight, ownerWidth, childHeightSizingMode, ref childHeight);
 
             CalculateLayoutInternal(
                 child,
@@ -794,7 +834,24 @@ public sealed partial class LayoutTree {
                 }
 
                 var baseMainSize = childFlexBasis + (line.RemainingFreeSpace / line.TotalFlexGrowFactors * growFactor);
-                var boundMainSize = BoundAxis(child, mainAxis, direction, baseMainSize, availableInnerMainDim, availableInnerWidth);
+
+                // ⚠ <b>§9.7 step 4b clamps by the USED minimum, and for a flex item `min-width: auto`
+                // resolves to §4.5's automatic one — when GROWING as well as when shrinking.</b> The
+                // two branches of this pass had drifted apart: the shrink half already asked
+                // BoundAxisWithAutoMin, the grow half asked BoundAxis and saw stated bounds only. So
+                // a growing item whose content floors it above its share never registered as a
+                // MIN VIOLATION, was never frozen by step 4c, and the space its floor consumed was
+                // never taken back off the pool — the second pass then applied the floor to the item
+                // anyway, and the line overflowed by exactly the difference. The clamp was being
+                // charged to the item and not to the pool, which is the same mistake InitialFreeSpace
+                // was written to fix from the other side.
+                //
+                // `flex_basis_smaller_then_content_with_flex_grow_large_size` is the arithmetic in
+                // four numbers: two `flex-grow: 1; flex-basis: 0` items in a 100-point row, wrapping
+                // a 70-point box and a 20-point one. The pool splits 50/50, the first violates its
+                // 70-point floor, and Chrome freezes it there and gives the whole remaining 30 to its
+                // sibling. Detecting the violation is what makes the second item 30 rather than 50.
+                var boundMainSize = BoundAxisWithAutoMin(child, mainAxis, direction, baseMainSize, availableInnerMainDim, availableInnerWidth);
 
                 if (!float.IsNaN(baseMainSize) && !float.IsNaN(boundMainSize) && baseMainSize != boundMainSize) {
                     deltaFreeSpace += boundMainSize - childFlexBasis;
@@ -896,7 +953,22 @@ public sealed partial class LayoutTree {
             } else if (!float.IsNaN(availableInnerCrossDim)
                 && !HasDefiniteLength(child, crossDimension, availableInnerCrossDim)
                 && sizingModeCrossDim == SizingMode.StretchFit
-                && !(isNodeFlexWrap && mainAxisOverflows)
+                // ⚠ <b>An item in a MULTI-LINE container is stretched to its LINE, and its line has
+                // not been measured yet.</b> §9.4 step 7 is the rule that hands a stretched item the
+                // container's inner cross size, and it says "if the flex container is single-line" —
+                // step 8 sizes a multi-line container's lines from the largest HYPOTHETICAL cross
+                // size on each, which is the unstretched one. Stretching here instead answers the
+                // question the line is about to ask with the number the line was supposed to
+                // produce. This used to read `!(isNodeFlexWrap && mainAxisOverflows)`, which is
+                // Yoga's guard and only declines to stretch when the line already overflowed.
+                //
+                // `align_content_stretch_row_wrap` is one line in a `flex-wrap: wrap` box, which is
+                // multi-line whether or not anything wrapped: a 150-point-tall grandchild in a
+                // 100-point container. Chrome's line is 150 and the item overflows; pre-stretching
+                // measured the item at the container's 100, the line took 100 from it, and
+                // `align-content: stretch` then had nothing to stretch. The item is stretched to the
+                // line in LayoutTree.Align, which is where it always belonged.
+                && !isNodeFlexWrap
                 && ResolveChildAlignment(index, child) == Align.Stretch
                 && !StyleResolution.FlexStartMarginIsAuto(in styles[child], crossAxis, direction)
                 && !StyleResolution.FlexEndMarginIsAuto(in styles[child], crossAxis, direction)) {
