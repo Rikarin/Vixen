@@ -499,10 +499,39 @@ directions are, because the keyword table is what `bg-linear` resolves against a
 keyword — `bg-linear-45` is reported unknown rather than emitted wrong. The fragments are already
 shared, so adding them is a value kind and three keywords.
 
-⚠ **Arbitrary *values* work and arbitrary *properties* do not.** `w-[37px]` is the escape hatch this
-system is proud of; `[mask-type:luminance]` — Tailwind's other one — parses to an arbitrary value with
-an empty utility name and `UtilityParser.TryParse` rejects it. So does v4's CSS-variable shorthand
-`bg-(--brand)`, because the parser looks for `[` and nothing else.
+**Three escape hatches, and all three work.** `w-[37px]` is the arbitrary *value* — a registered
+family given something the theme does not hold. `[mask-type:luminance]` is the arbitrary *property*,
+for a property that has no family at all: it parses to an empty utility name with the property in
+`UtilityCandidate.Property`, and it is the one candidate `UtilityFamilies.TryResolve` answers without
+consulting the registry. And `bg-(--brand)` is v4's CSS-variable shorthand, rewritten in the parser
+into the `bg-[var(--brand)]` it stands for so that nothing downstream knows there were two spellings.
+The last two were missing until [doc 43](../../docs/plan/43-web-styling-parity.md) F7; both were
+silent, which is the same as a typo from the outside.
+
+⚠ **An arbitrary property is exempt from the consumption gate, and no code makes it exempt.** Nothing
+validates what `[mask-type:luminance]` emits — there is no family to say what it means, which is the
+entire point — so it collides with the rule that a change may not emit a property nothing acts on.
+It needs no exemption clause: `UtilityConsumptionProbe` enumerates `UtilityFamilies.Surface`, which is
+computed from the registry, and an arbitrary property is never registered. It is not on the surface,
+contributes nothing to `Emitted`, and can appear in neither `Inert` nor `InertProperties.txt`. **A
+branch saying "skip the gate for this" would be the hole** — the gate is strong because its domain is
+defined positively, by what the registry holds, rather than negatively by a list of escapes. Nor can
+the hatch launder a family's debt, which is the real test: registering a `--tw-*` fragment *was* a way
+to move a property out of `Inert`, and needed an explicit guard, but writing an arbitrary property in
+a `.vxml` changes `Surface` by nothing, and the only way off the surface is deleting a registration —
+which stops every use of that family generating, loudly. What the gate protects is a *promise*, and
+an arbitrary property makes none: the author typed the property name themselves, and "dropped by the
+cascade if no consumer interns it" is the documented behaviour of the hatch. The structural claim is
+pinned by `ArbitraryPropertyTests`, so a probe rewritten to scan generated sheets fails there rather
+than quietly widening the gate.
+
+⚠ **Both new hatches are shape-tested on both halves, and a malformed one produces no rule at all.**
+`UtilityParser.IsPropertyName` refuses `[1..:red]` and `[mask type:red]`; `IsPlausibleValue` refuses
+the value half exactly as it does for `w-[1..]`. The `text[1..]` defect above had two more ways in and
+both are closed. A negated `-[color:red]` and an opacity-suffixed `[color:red]/50` are refused rather
+than emitted with the sign or the opacity silently dropped. And the variable shorthand takes only a
+custom property — `bg-(brand)` and `Foo(bar)` are left alone — because the scanner is over-inclusive
+and hands the parser every `f(x)` in every C# file.
 
 ⚠ **The build step is per-project, so a utility written in another assembly resolves to nothing.**
 `build/Vixen.Ui.Styling.Utilities.targets` finds `**/vixen.ui.vcss` inside the consuming project and

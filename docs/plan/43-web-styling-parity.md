@@ -583,14 +583,55 @@ specificity/renumbering hazard: a refusal after `:is()` has already written into
 `SelectorTable` leaves entries nothing points at, which is waste and not corruption because every
 offset is captured at write time.
 
-### F7 · Arbitrary *properties* are not supported, and arbitrary *values* are ⚠ *re-measured 2026-08-21, still open*
+### F7 · Arbitrary *properties* are not supported, and arbitrary *values* are ✅ *closed 2026-08-22*
 
 `w-[37px]` works and is well tested. `[mask-type:luminance]` — Tailwind's arbitrary-property escape
-hatch — parses to an arbitrary value with an empty utility name, and `UtilityParser.TryParse` returns
-false on the empty name. The class is silently unknown. The utilities README lists the escape hatches
-and does not mention this one is missing. v4's CSS-variable shorthand `bg-(--brand)` is likewise
-unsupported: the parser looks for `[` and nothing else, so `bg-(--brand)` reaches the colour lookup as
-the literal text `(--brand)` and is dropped.
+hatch — parsed to an arbitrary value with an empty utility name, and `UtilityParser.TryParse` returned
+false on the empty name. The class was silently unknown. v4's CSS-variable shorthand `bg-(--brand)` was
+likewise unsupported: the parser looked for `[` and nothing else, so `bg-(--brand)` reached the colour
+lookup as the literal text `(--brand)` and was dropped.
+
+✅ **Both are implemented.** An arbitrary property parses to an empty `Name` with the property in a new
+`UtilityCandidate.Property`, and `UtilityFamilies.TryResolve` answers it before consulting the registry
+— the one candidate that must not be looked up, because having no family is what it *is*. The variable
+shorthand is rewritten in the parser into the `bg-[var(--brand)]` it stands for, so one arbitrary-value
+path serves both spellings and they cannot drift.
+
+⚠ **One clause of the finding was wrong.** It said the utilities README "lists the escape hatches and
+does not mention this one is missing". The README documented both gaps explicitly. The documentation
+half of F7 did not exist; the README now describes all three hatches as working.
+
+⚠ **The scanner hazard was checked and is not real.** `CandidateScanner.ScanStyleSheet` skips from an
+identifier-then-colon to the statement terminator, and an arbitrary property is *made of* that colon —
+so the narrowing looked likely to eat it in a `.vcss`. It does not, structurally rather than by luck:
+`IsDeclaration` requires the colon to follow identifier characters back to the statement's first
+non-blank character, and an arbitrary property always begins with `[`, which is not one. Inside an
+`@apply` the statement begins with `@`, which is not one either, so even `hover:[color:red]` — whose
+first colon *does* follow a bare identifier — is safe wherever it can legitimately appear. C# and
+`.vxml` input go through the unnarrowed `Scan` and were never at risk. Both paths are now tested.
+
+**How an arbitrary property is exempt from the consumption gate without a hole in it.** Nothing
+validates what the hatch emits — there is no family to say what it means — which collides with
+exit criterion 2. **No exemption code was written and none is needed.** `UtilityConsumptionProbe`
+enumerates `UtilityFamilies.Surface`, computed from the registry; an arbitrary property is never
+registered, so it is not on the surface, contributes nothing to `Emitted`, and can appear in neither
+`Inert` nor `InertProperties.txt`. A branch saying "skip the gate for this" would be the actual hole —
+the gate is strong because its domain is defined *positively*, by what the registry holds, rather than
+negatively by a list of escapes. Nor can the hatch launder a family's debt, which is the real test:
+registering a `--tw-*` fragment *was* a way to move a property out of `Inert` and needed an explicit
+guard, but writing an arbitrary property in a `.vxml` changes `Surface` by nothing — it never reads a
+source file — and the only way off the surface is deleting a registration, which stops every use of
+that family generating anywhere, loudly. What the gate protects is a *promise*: the registry saying
+`p-4` exists promises that `p-4` does something, so a `p-4` that does nothing is a lie only a hand
+survey catches. An arbitrary property promises nothing. The author typed the property name themselves,
+and "emitted, and dropped by the cascade if no consumer interns it" is the hatch's documented
+behaviour rather than a defect in it. `ArbitraryPropertyTests` pins the structural claim, so a probe
+rewritten to scan generated sheets instead of the registry fails there rather than widening the gate.
+
+**Malformed input produces no rule at all**, on both halves of the colon: `UtilityParser.IsPropertyName`
+refuses `[1..:red]` and `[mask type:red]`, and `IsPlausibleValue` refuses the value half exactly as it
+does for `w-[1..]`. A negated `-[color:red]` and an opacity-suffixed `[color:red]/50` are refused
+rather than emitted with the sign or the opacity silently dropped.
 
 ### F8 · The overloads are Tailwind's, not Vixen's ⚠ *correcting the brief*
 
@@ -827,8 +868,8 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | Registered variant keys | 88 | 25 | 28 % |
 | Arbitrary variant `[&>*]:` | ✅ | ✅ | |
 | Arbitrary value `w-[37px]` | ✅ | ✅ | |
-| Arbitrary property `[mask-type:luminance]` | ✅ | ⛔ | F7 |
-| CSS-variable shorthand `bg-(--brand)` | ✅ | ⛔ | F7 |
+| Arbitrary property `[mask-type:luminance]` | ✅ | ✅ | F7 *closed* |
+| CSS-variable shorthand `bg-(--brand)` | ✅ | ✅ | F7 *closed* |
 | `/opacity` modifier | ✅ `color-mix` | 🟡 hex only | Part 2 |
 | `!important` | **suffix** `bg-red-500!` | ✅ suffix | *matches v4, not v3* |
 | Negative values `-mt-4` | ✅ | ✅ | |

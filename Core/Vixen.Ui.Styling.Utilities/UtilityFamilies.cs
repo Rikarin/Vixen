@@ -886,6 +886,17 @@ public static class UtilityFamilies {
 
         declarations.Clear();
 
+        // ⚠ <b>An arbitrary property is resolved before the registry is consulted, because it has no
+        // entry there and is not supposed to.</b> `[mask-type:luminance]` is the escape hatch for a
+        // property this table has never heard of, so there is nothing to validate the declaration
+        // against and nothing should be: it emits `mask-type: luminance` and the cascade refuses it
+        // downstream if nothing reads it. That is the whole point of the hatch and it is also why the
+        // two halves are shape-tested on the way in — see `UtilityParser.IsPropertyName` for the
+        // name and `IsPlausibleValue` below for the value.
+        if (candidate.Property is { } property) {
+            return TryArbitraryProperty(candidate, property, declarations);
+        }
+
         if (!Registry.TryGetValue(candidate.Name, out var family)) {
             return false;
         }
@@ -905,6 +916,64 @@ public static class UtilityFamilies {
         if (family.Alongside is not null) {
             declarations.AddRange(family.Alongside);
         }
+
+        return true;
+    }
+
+    /// <summary>Emits the one declaration an arbitrary property names, if both halves are sound.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is exempt from the consumption gate, it needs no code to be exempt, and the
+    ///         absence of that code is the point.</b> <c>UtilityConsumptionGateTests</c> asks that no
+    ///         utility <i>family</i> emit a property nothing acts on, and it asks it of
+    ///         <see cref="Surface" /> — an enumeration of the registry. An arbitrary property is never
+    ///         registered, so it is not on the surface, contributes nothing to the gate's `Emitted`
+    ///         set, and can appear in neither `Inert` nor an allow-list. No branch anywhere says "skip
+    ///         the gate for this", and a branch that did would be the hole: the gate is strong because
+    ///         its domain is defined positively, by what the registry holds, rather than negatively by
+    ///         a list of things that get out of it.
+    ///     </para>
+    ///     <para>
+    ///         <b>Nor can the hatch launder a family's debt, which is the test of whether an exemption
+    ///         is really a hole.</b> Registering a <see cref="UtilityComposition" /> fragment
+    ///         <i>was</i> a way to move a property out of `Inert`, which is why that mechanism needed
+    ///         an explicit guard holding the assembler accountable. There is no matching move here.
+    ///         Writing <c>[mask-type:luminance]</c> in a <c>.vxml</c> changes
+    ///         <see cref="Surface" /> by nothing at all — it never reads a source file — and the only
+    ///         way to take a family off the surface is to delete its registration, which stops every
+    ///         use of it generating anywhere in the tree. That is a loud change, not a silent one.
+    ///     </para>
+    ///     <para>
+    ///         <b>What the author is owed instead is the truth, and the truth is that nothing checked.</b>
+    ///         A family is a promise — the registry says <c>p-4</c> will do something, so a <c>p-4</c>
+    ///         that does nothing is a lie the gate exists to catch. An arbitrary property promises
+    ///         nothing: the author typed the property name themselves, no table told them it would
+    ///         work, and "the cascade drops it if no consumer interns it" is the documented outcome
+    ///         rather than a defect. <c>Vixen.Ui.Styling.Utilities.Tests.ArbitraryPropertyTests</c>
+    ///         pins the structural claim, so a future <see cref="Surface" /> that started reading
+    ///         generated sheets would fail there rather than quietly widening the gate.
+    ///     </para>
+    /// </remarks>
+    static bool TryArbitraryProperty(
+        UtilityCandidate candidate,
+        string property,
+        List<UtilityDeclaration> declarations
+    ) {
+        if (candidate.Arbitrary is not { } value || !IsPlausibleValue(value)) {
+            return false;
+        }
+
+        // ⚠ Both of these would be silently dropped rather than honoured, and a dropped half of a
+        // class is the failure this file refuses everywhere else. `-[color:red]` has no sign to flip
+        // — negation is arithmetic on a resolved number and there is no number here — and
+        // `[color:red]/50` has nowhere to put the opacity, because that is a family's reading of a
+        // slash and this candidate has no family. Refusing means no rule, and the caller reports the
+        // class unrecognised.
+        if (candidate.Negative || candidate.SlashSuffix is not null) {
+            return false;
+        }
+
+        declarations.Add(new UtilityDeclaration(property, value));
 
         return true;
     }
