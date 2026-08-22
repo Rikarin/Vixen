@@ -332,6 +332,30 @@ public sealed partial class LayoutTree {
             StyleResolution.PaddingAndBorderForAxis(in styles[index], axis, direction, widthSize)
         );
 
+    /// <summary>CSS Flexbox §9.2 step 9: a flex base size clamped by the item's USED min and max.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The used minimum of a <c>min-width: auto</c> flex item is §4.5's automatic one</b>,
+    ///         which is the whole difference between this and <see cref="BoundAxisWithinMinAndMax" />.
+    ///         Everything that consumes a hypothetical main size has to consume the same one: §9.3
+    ///         breaks lines by it, <see cref="FlexLine.SizeConsumed" /> accumulates it, and the two
+    ///         distribution passes measure their deltas from it. Applying the floor at any one of
+    ///         those and not the others makes the free space disagree with the sizes it was derived
+    ///         from — measured, not assumed: flooring only the non-flexing path of
+    ///         <see cref="DistributeFreeSpaceSecondPass" /> closes four families and breaks two.
+    ///     </para>
+    ///     <para>
+    ///         Deliberately not routed through <see cref="BoundAxis" />: the padding-and-border floor
+    ///         that adds is not part of §9.2's clamp, and every caller here previously used the
+    ///         unfloored <see cref="BoundAxisWithinMinAndMax" />.
+    ///     </para>
+    /// </remarks>
+    float HypotheticalMainSize(int index, Direction direction, FlexDirection mainAxis, float flexBasis, float mainAxisOwnerSize, float ownerWidth) {
+        var bounded = BoundAxisWithinMinAndMax(index, direction, mainAxis, flexBasis, mainAxisOwnerSize, ownerWidth);
+        var autoMin = results[index].ComputedAutoMinMainSize;
+        return !float.IsNaN(autoMin) && bounded < autoMin ? autoMin : bounded;
+    }
+
     /// <summary>As <see cref="BoundAxis" />, plus the automatic minimum from CSS Flexbox §4.5.</summary>
     float BoundAxisWithAutoMin(int index, FlexDirection axis, Direction direction, float value, float axisSize, float widthSize) {
         var bounded = BoundAxis(index, axis, direction, value, axisSize, widthSize);
@@ -448,6 +472,27 @@ public sealed partial class LayoutTree {
             floor = max;
         }
 
+        // ⚠ A FLOOR ABOVE A CONTENT-MEASURED BASIS IS THE PROBE BEING WRONG. A box's min-content size
+        // cannot exceed the size its own contents were measured at, so when ComputedFlexBasis came
+        // from that measurement rather than from a declaration, it caps the floor. Two live defects
+        // in ComputeMinContentSize are why the cap earns its place rather than being a tautology, and
+        // both were found by turning the floor on:
+        //
+        //   · It reads a GRID container as a flex row. gridflex_row_integration is four 20-wide
+        //     items in a 2x2 grid: 40 wide in Chrome, and the probe sums all four to 80.
+        //   · It resolves a descendant's percentage padding and margin against the box the probe was
+        //     entered from where an intervening box is the real containing block. ProbeContentWidth
+        //     fixes the case that had a definite width; a `width: 50%` box still contributes zero.
+        //
+        // Neither is this rule's to fix — the first is grid's intrinsic sizing and the second is a
+        // cycle CSS Sizing §5.2.1 resolves by treating the percentage as auto — and until they are,
+        // an over-reported floor must not be allowed to inflate a real box.
+        if (results[index].FlexBasisFromContent
+            && !float.IsNaN(results[index].ComputedFlexBasis)
+            && floor > results[index].ComputedFlexBasis) {
+            floor = results[index].ComputedFlexBasis;
+        }
+
         return float.IsNaN(floor) || floor < 0f ? 0f : floor;
     }
 
@@ -540,6 +585,45 @@ public sealed partial class LayoutTree {
         return computed;
     }
 
+    /// <summary>
+    ///     The content-box width a descendant's percentages are a fraction of, during an intrinsic
+    ///     probe.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero when this box's own width is not a length</b>, and that is CSS Sizing §5.2.1
+    ///     rather than a shortcut: a percentage against a containing block whose size is still being
+    ///     computed behaves as <c>auto</c>, and a probe asking "how small may this be" is exactly
+    ///     that situation. A <c>width: 50%</c> box is included — the percentage makes it indefinite
+    ///     here even though it will have a used width later, which is the same rule
+    ///     <see cref="MinContentContribution" /> applies to a preferred size.
+    /// </remarks>
+    float ProbeContentWidth(int index, Direction direction, float ownerWidth) {
+        if (StyleResolution.ProcessedDimension(in styles[index], Dimension.Width).Unit != LayoutUnit.Point) {
+            return 0f;
+        }
+
+        var width = ResolvedDimension(index, Dimension.Width, ownerWidth, ownerWidth, direction);
+        if (float.IsNaN(width)) {
+            return 0f;
+        }
+
+        return MathF.Max(0f, width - StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth));
+    }
+
+    /// <summary>As <see cref="ProbeContentWidth" />, for the block axis.</summary>
+    float ProbeContentHeight(int index, Direction direction, float ownerWidth, float ownerHeight) {
+        if (StyleResolution.ProcessedDimension(in styles[index], Dimension.Height).Unit != LayoutUnit.Point) {
+            return 0f;
+        }
+
+        var height = ResolvedDimension(index, Dimension.Height, ownerHeight, ownerWidth, direction);
+        if (float.IsNaN(height)) {
+            return 0f;
+        }
+
+        return MathF.Max(0f, height - StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth));
+    }
+
     float ComputeMinContentSizeUncached(int index, FlexDirection requestedAxis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
 
@@ -597,15 +681,25 @@ public sealed partial class LayoutTree {
         var mainTotal = 0f;
         var crossMax = 0f;
 
+        // ⚠ A DESCENDANT'S PERCENTAGES ARE A FRACTION OF THIS BOX, not of whatever this probe was
+        // entered from. The recursion used to hand `ownerWidth` straight down, so a grandchild's
+        // `margin: 5%` inside a `width: 50%` box was read as 5% of the outer container.
+        // percentage_moderate_complexity is the arithmetic: 5% of 194 is 9.7 where 5% of the 85.36
+        // it is really inside is 4.268, and the two margins put the answer 10.86 over a true content
+        // height of 26.176. That was invisible while nothing consumed the number; §4.5's floor
+        // consumes it, and an inflated floor becomes a real box.
+        var innerWidth = ProbeContentWidth(index, direction, ownerWidth);
+        var innerHeight = ProbeContentHeight(index, direction, ownerWidth, ownerHeight);
+
         foreach (var child in ChildIds(index)) {
             if (!IsInFlow(child)) {
                 continue;
             }
 
-            var childMain = MinContentContribution(child, nodeMainAxis, direction, ownerWidth, ownerHeight)
-                + StyleResolution.MarginForAxis(in styles[child], nodeMainAxis, ownerWidth);
-            var childCross = MinContentContribution(child, nodeCrossAxis, direction, ownerWidth, ownerHeight)
-                + StyleResolution.MarginForAxis(in styles[child], nodeCrossAxis, ownerWidth);
+            var childMain = MinContentContribution(child, nodeMainAxis, direction, innerWidth, innerHeight)
+                + StyleResolution.MarginForAxis(in styles[child], nodeMainAxis, innerWidth);
+            var childCross = MinContentContribution(child, nodeCrossAxis, direction, innerWidth, innerHeight)
+                + StyleResolution.MarginForAxis(in styles[child], nodeCrossAxis, innerWidth);
 
             mainTotal = wraps ? MathF.Max(mainTotal, childMain) : mainTotal + childMain;
             crossMax = MathF.Max(crossMax, childCross);

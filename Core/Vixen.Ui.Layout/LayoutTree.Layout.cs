@@ -502,6 +502,20 @@ public sealed partial class LayoutTree {
             sizingModeMainDim = SizingMode.StretchFit;
         }
 
+        // ⚠ CSS Flexbox §9.2 step 9: an item's HYPOTHETICAL main size is its flex base size clamped
+        // by its used min and max — and for `min-width: auto` the used minimum is §4.5's automatic
+        // one. §9.3 then collects items into lines by that hypothetical size, so the floor has to
+        // exist before the first line is measured, not after. It used to be computed inside
+        // ResolveFlexibleLength, which runs per line and only when something actually flexes; an
+        // item that never flexed therefore never saw its own floor, and line breaking never saw it
+        // at all. Both are one number, so both are computed here, once, for the whole node.
+        foreach (var child in ChildIds(index)) {
+            if (IsInFlow(child)) {
+                results[child].ComputedAutoMinMainSize =
+                    ComputeAutoMinMainSize(child, mainAxis, direction, mainAxisOwnerSize, availableInnerWidth, availableInnerHeight);
+            }
+        }
+
         // STEP 4: COLLECT FLEX ITEMS INTO FLEX LINES
         var startOfLine = 0;
         var lineCount = 0;
@@ -551,8 +565,21 @@ public sealed partial class LayoutTree {
                 }
             }
 
+            // ⚠ §9.7 step 1 picks the factor from the sum of the HYPOTHETICAL main sizes, and step 3
+            // then builds the pool out of flex base sizes instead. Both are needed and they are
+            // different numbers — see InitialFreeSpace.
+            line.UseGrow = line.HypotheticalSizeConsumed < availableInnerMainDim;
+
             if (!sizeBasedOnContent && !float.IsNaN(availableInnerMainDim)) {
-                line.RemainingFreeSpace = availableInnerMainDim - line.SizeConsumed;
+                line.RemainingFreeSpace = InitialFreeSpace(
+                    index,
+                    ref line,
+                    direction,
+                    mainAxis,
+                    ownerWidth,
+                    mainAxisOwnerSize,
+                    availableInnerMainDim
+                );
             } else if (line.SizeConsumed < 0f) {
                 line.RemainingFreeSpace = -line.SizeConsumed;
             }

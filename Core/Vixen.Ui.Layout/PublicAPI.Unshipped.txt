@@ -184,6 +184,7 @@ Vixen.Ui.Layout.LayoutResult.ComputedFlexBasis -> float
 Vixen.Ui.Layout.LayoutResult.ComputedFlexBasisGeneration -> uint
 Vixen.Ui.Layout.LayoutResult.Dimensions -> Vixen.Ui.Layout.DimensionValues
 Vixen.Ui.Layout.LayoutResult.Direction -> Vixen.Ui.Layout.Direction
+Vixen.Ui.Layout.LayoutResult.FlexBasisFromContent -> bool
 Vixen.Ui.Layout.LayoutResult.GenerationCount -> uint
 Vixen.Ui.Layout.LayoutResult.HadOverflow -> bool
 Vixen.Ui.Layout.LayoutResult.ImplGeneration -> uint

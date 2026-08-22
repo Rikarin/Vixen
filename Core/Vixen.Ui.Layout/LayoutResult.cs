@@ -71,6 +71,20 @@ public struct LayoutResult {
     public uint ComputedFlexBasisGeneration;
 
     /// <summary>
+    ///     Whether <see cref="ComputedFlexBasis" /> was MEASURED from the node's contents rather than
+    ///     read off a definite <c>flex-basis</c> or main-axis size.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>It is what caps CSS Flexbox §4.5's automatic minimum</b>, and the justification is an
+    ///     inequality rather than a heuristic: a box's min-content size is by definition no larger
+    ///     than the content-derived size it was measured at, so a §4.5 floor that comes out ABOVE
+    ///     such a basis is the probe being wrong, not the item needing room. A definite basis carries
+    ///     no such guarantee — <c>flex-basis: 50px</c> on a box wrapping a 100px child is exactly the
+    ///     case §4.5 exists for — so the cap applies only here.
+    /// </remarks>
+    public bool FlexBasisFromContent;
+
+    /// <summary>
     ///     The automatic minimum main size from CSS Flexbox §4.5, or NaN when none applies.
     /// </summary>
     public float ComputedAutoMinMainSize;

@@ -88,10 +88,10 @@ Chrome-for-Testing — and they exist here for block and grid, which have no ora
 them first on purpose: it is the one mode where the answer is already known, so a wrong harness would
 be visibly wrong there rather than invisibly wrong inside grid later.
 
-**2 162 of the 2 256 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
+**2 178 of the 2 256 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
 Thirteen of the original failures were the bridge and were fixed — `start` is not a spelling of
 `flex-start`, and `self-start` resolves against the item's own direction. Of the 206 that were
-Vixen's, **112 are closed** and 94 remain, catalogued in `Taffy/KnownGaps.txt`.
+Vixen's, **128 are closed** and 78 remain, catalogued in `Taffy/KnownGaps.txt`.
 
 The largest bucket was **the paragraph above, one level further out**, and it turned on a
 distinction CSS Sizing §5.2.2 draws and this store did not: a box's min-content **size** and its
@@ -117,16 +117,34 @@ inspector pushed off the side — while 2 742 browser-derived fixtures reported 
 five hand-written cases in `AutomaticMinimumSizeTests` exist so that none of the four is ever again
 resting on an oracle that cannot see it.
 
-After that come §9.7's min/max violation loop, `aspect-ratio` against a clamped cross size, and
-baseline alignment past the simple case. Min-larger-than-max precedence is also closed: CSS Sizing
-§5.1 makes it the *order* of two clamps rather than a special case, and `BoundAxisWithinMinAndMax`
-was returning the moment the maximum bit, so the minimum below it was never read.
+After that come `aspect-ratio` against a clamped cross size and baseline alignment past the simple
+case. Min-larger-than-max precedence is also closed: CSS Sizing §5.1 makes it the *order* of two
+clamps rather than a special case, and `BoundAxisWithinMinAndMax` was returning the moment the
+maximum bit, so the minimum below it was never read.
 
-⚠ **One thing the §4.5 work exposed and did not fix**, because the fix belongs with §9.7: §9.2 step
-9 says the *hypothetical* main size is the flex base size clamped by the used min — and §4.5's
-automatic minimum is the used min. Vixen consults it only inside the two distribution passes, so an
-item that neither grows nor shrinks never sees its own floor even when that floor is now computed
-correctly. `flex_basis_smaller_than_content_row` is the clean case.
+### §9.7's free space is not the line's size
+
+⚠ **The bucket here was recorded as a missing re-distribution loop, and that diagnosis was wrong.**
+The loop is present and correct. What it was handed was a pool that had already paid for the clamp.
+
+§9.3 collects items into lines by each item's outer **hypothetical** main size — its flex base
+clamped by the used min and max. §9.7 step 3 builds the free space out of a **different** sum: the
+frozen items' target sizes and the unfrozen items' *unclamped* flex base sizes. One field served
+both, so a clamp was charged twice — once by shrinking the pool it came out of, and again by the
+pass that re-applied it to the item. `FlexLine` now carries the two sums separately and says on each
+which question it answers.
+
+Step 2 came with it, and it is where the §4.5 leftovers went: an item with no usable flex factor is
+**frozen at its hypothetical main size**, which is where §4.5's automatic minimum already lived, so
+an item that neither grows nor shrinks finally sees its own floor with nothing new applied anywhere.
+Freezing also removes the item's flex *factor*, not just its size — leaving the factor in was a
+latent divide-by-zero that surfaced as a `NaN` width the moment step 2 arrived.
+
+⚠ **What is still open is one sentence, and it is not in this algorithm.** `ComputedFlexBasis` is
+read back out of a trial layout that has already clamped it, so it is not a flex base size: an empty
+`min-width: 60px` box reports 60 where §9.2 says its base is 0, the item is never frozen, and
+`min_width` still answers 80 and 20 where Chrome says 60 and 40. Recording the unclamped measurement
+is the fix and it touches all three formatting contexts, so it wants its own pass.
 
 ⚠ **And the new corpus has its own blind spot, which the old one covers.** Taffy's fixtures set
 `direction` on every one of their 22 776 nodes, so `Direction.Inherit` is never stored: breaking

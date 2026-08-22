@@ -314,6 +314,10 @@ public sealed partial class LayoutTree {
         var isRowStyleDimDefined = HasDefiniteLength(child, Dimension.Width, ownerWidth);
         var isColumnStyleDimDefined = HasDefiniteLength(child, Dimension.Height, ownerHeight);
 
+        // Whether the basis about to be written was read off a declaration or measured. See
+        // LayoutResult.FlexBasisFromContent — it is what caps §4.5's automatic minimum.
+        results[child].FlexBasisFromContent = false;
+
         if (!float.IsNaN(resolvedFlexBasis) && !float.IsNaN(mainAxisSize)) {
             if (float.IsNaN(results[child].ComputedFlexBasis)) {
                 var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth);
@@ -328,6 +332,8 @@ public sealed partial class LayoutTree {
             results[child].ComputedFlexBasis =
                 MathF.Max(ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction), paddingAndBorder);
         } else {
+            results[child].FlexBasisFromContent = true;
+
             var marginRow = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, ownerWidth);
             var marginColumn = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, ownerWidth);
 
@@ -464,7 +470,20 @@ public sealed partial class LayoutTree {
 
             var childMarginMainAxis = StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth);
             var childLeadingGap = firstElementSeen ? gap : 0f;
-            var flexBasisWithConstraints = BoundAxisWithinMinAndMax(
+            // §9.3 collects items into lines by their OUTER HYPOTHETICAL MAIN SIZE, which is the
+            // flex base size clamped by the used min — §4.5's automatic one included. The stated
+            // clamp is accumulated separately for the container's own content size; see
+            // FlexLine.SizeConsumed for why the automatic minimum is kept out of that one.
+            var flexBasisWithConstraints = HypotheticalMainSize(
+                child,
+                direction,
+                mainAxis,
+                results[child].ComputedFlexBasis,
+                mainAxisOwnerSize,
+                ownerWidth
+            );
+
+            var statedFlexBasis = BoundAxisWithinMinAndMax(
                 child,
                 direction,
                 mainAxis,
@@ -484,7 +503,9 @@ public sealed partial class LayoutTree {
 
             firstElementSeen = true;
             sizeConsumedIncludingMinConstraint += flexBasisWithConstraints + childMarginMainAxis + childLeadingGap;
-            line.SizeConsumed += flexBasisWithConstraints + childMarginMainAxis + childLeadingGap;
+            line.HypotheticalSizeConsumed += flexBasisWithConstraints + childMarginMainAxis + childLeadingGap;
+            line.SizeConsumed += statedFlexBasis + childMarginMainAxis + childLeadingGap;
+            line.MarginAndGapConsumed += childMarginMainAxis + childLeadingGap;
 
             if (IsNodeFlexible(child)) {
                 var isRoot = links[child].Parent < 0;
@@ -508,6 +529,152 @@ public sealed partial class LayoutTree {
         }
 
         return line;
+    }
+
+    /// <summary>CSS Flexbox §9.7 step 3: the free space the distribution passes start from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is a different sum from <see cref="FlexLine.SizeConsumed" /> and the
+    ///         difference is the whole of the §9.7 bucket.</b> §9.3 breaks lines by each item's outer
+    ///         HYPOTHETICAL main size — its flex base clamped by its used min and max. §9.7 step 3
+    ///         subtracts the FROZEN items' target sizes and the unfrozen items' <i>flex base</i>
+    ///         sizes, unclamped. Vixen used the §9.3 sum for both, so a clamp was charged twice: once
+    ///         by shrinking the pool it came out of, and again by the distribution pass that
+    ///         re-applied it to the item.
+    ///     </para>
+    ///     <para>
+    ///         <c>min_width</c> is the arithmetic in four numbers. Two <c>flex-grow: 1</c> items in a
+    ///         100px row, <c>min-width: 60px</c> on the first, both flex base sizes 0. The pool was
+    ///         100 − 60 = 40, split evenly to 20 each, and then the 60 clamped back on top — 80 and
+    ///         20, and the line overflows its own container by 20. The pool is 100: the first pass
+    ///         finds the first item violating its minimum, freezes it at 60 and takes it out of the
+    ///         pool, and the 40 that is left all goes to its sibling. 60 and 40, which is Chrome's
+    ///         answer. ⚠ <b>The heading this bucket carried blamed a missing re-distribution loop.
+    ///         That loop is present and correct</b> — <see cref="DistributeFreeSpaceFirstPass" /> is
+    ///         exactly it. What it was given was a pool that had already paid for the clamp.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Step 1 picks grow or shrink from the HYPOTHETICAL sum, not from this one, which is
+    ///         why the direction is decided before the sum is taken rather than from its sign. An
+    ///         item whose maximum clamps it far below its base can make the two disagree.
+    ///     </para>
+    ///     <para>
+    ///         Takes the line by reference because step 2 also removes the frozen items' flex factors
+    ///         from the totals the pool is divided by.
+    ///     </para>
+    /// </remarks>
+    float InitialFreeSpace(
+        int index,
+        ref FlexLine line,
+        Direction direction,
+        FlexDirection mainAxis,
+        float ownerWidth,
+        float mainAxisOwnerSize,
+        float availableInnerMainDim
+    ) {
+        var useGrow = line.UseGrow;
+        var children = ChildIds(index);
+        var consumed = line.MarginAndGapConsumed;
+
+        for (var i = line.StartChild; i < line.EndChild; i++) {
+            var child = children[i];
+            if (!IsInFlow(child)) {
+                continue;
+            }
+
+            var isRoot = links[child].Parent < 0;
+            consumed += DistributionStartSize(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, useGrow);
+
+            // ⚠ A FROZEN ITEM IS OUT OF THE POOL AND OUT OF THE DIVISOR, and leaving it in the
+            // divisor is the half of step 2 that is easy to miss. Yoga's Child_min_max_width_flexing
+            // is a 120px row holding a `flex-basis: 0; min-width: 60px` item and a
+            // `flex-basis: 50%; max-width: 20px` one. The second freezes at 20 immediately, so the
+            // whole 100 that is left belongs to the first and it ends up 100 wide. Counting the
+            // frozen item's grow factor as well splits that 100 two ways, the first item's 50
+            // violates its own 60 minimum, and BOTH items end up frozen — which leaves the second
+            // pass dividing by a total of zero and handing back a NaN.
+            if (!IsFrozenByInflexibility(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, useGrow)) {
+                continue;
+            }
+
+            if (!IsNodeFlexible(child)) {
+                continue;
+            }
+
+            if (useGrow) {
+                line.TotalFlexGrowFactors -= StyleResolution.ResolveFlexGrow(in styles[child], isRoot);
+            } else {
+                line.TotalFlexShrinkScaledFactors -=
+                    -StyleResolution.ResolveFlexShrink(in styles[child], isRoot) * results[child].ComputedFlexBasis;
+            }
+        }
+
+        // The same floor CalculateFlexLine applies, re-applied because the totals just moved.
+        if (line.TotalFlexGrowFactors is > 0f and < 1f) {
+            line.TotalFlexGrowFactors = 1f;
+        }
+
+        if (line.TotalFlexShrinkScaledFactors is > 0f and < 1f) {
+            line.TotalFlexShrinkScaledFactors = 1f;
+        }
+
+        return availableInnerMainDim - consumed;
+    }
+
+    /// <summary>
+    ///     What CSS Flexbox §9.7 step 3 counts an item as, and what the distribution passes start it
+    ///     from: its flex base size while it can still flex, its hypothetical main size once frozen.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Step 2's "size inflexible items" is the reason the §4.5 leftovers close here rather
+    ///     than in a line of their own.</b> An item with no usable flex factor in the direction being
+    ///     resolved is frozen at its HYPOTHETICAL main size, and that size has §4.5's automatic
+    ///     minimum in it. <c>flex_basis_smaller_than_content_row</c> is <c>flex-basis: 50px</c> on a
+    ///     column wrapping a 100px box with nothing to grow and nothing to shrink: it freezes at 100,
+    ///     where it used to stay at 50 because the non-flexing path handed back the base untouched.
+    ///     Applying the floor there alone was measured and does not work — the pool and the item have
+    ///     to be counting the same number, which is what routing both through here guarantees.
+    /// </remarks>
+    float DistributionStartSize(
+        int child,
+        Direction direction,
+        FlexDirection mainAxis,
+        float ownerWidth,
+        float mainAxisOwnerSize,
+        bool useGrow
+    ) =>
+        IsFrozenByInflexibility(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, useGrow)
+            ? HypotheticalMainSize(child, direction, mainAxis, results[child].ComputedFlexBasis, mainAxisOwnerSize, ownerWidth)
+            : results[child].ComputedFlexBasis;
+
+    /// <summary>CSS Flexbox §9.7 step 2: whether an item cannot flex in the direction being used.</summary>
+    /// <remarks>
+    ///     Frozen at its hypothetical main size, out of the free-space pool and out of the divisor
+    ///     the pool is shared by. Deterministic in the item's own style and measurements, so the two
+    ///     distribution passes can re-ask it rather than carrying a per-item flag.
+    /// </remarks>
+    bool IsFrozenByInflexibility(
+        int child,
+        Direction direction,
+        FlexDirection mainAxis,
+        float ownerWidth,
+        float mainAxisOwnerSize,
+        bool useGrow
+    ) {
+        var isRoot = links[child].Parent < 0;
+        var factor = useGrow
+            ? StyleResolution.ResolveFlexGrow(in styles[child], isRoot)
+            : StyleResolution.ResolveFlexShrink(in styles[child], isRoot);
+
+        if (float.IsNaN(factor) || factor == 0f) {
+            return true;
+        }
+
+        // A base already on the far side of the hypothetical size means the clamp has spoken and
+        // the item cannot flex away from it.
+        var flexBase = results[child].ComputedFlexBasis;
+        var hypothetical = HypotheticalMainSize(child, direction, mainAxis, flexBase, mainAxisOwnerSize, ownerWidth);
+        return useGrow ? flexBase > hypothetical : flexBase < hypothetical;
     }
 
     /// <summary>Hands out the free space along a line's main axis, in two passes.</summary>
@@ -538,18 +705,10 @@ public sealed partial class LayoutTree {
         var originalFreeSpace = line.RemainingFreeSpace;
         var children = ChildIds(index);
 
-        // CSS Flexbox §4.5: an item with no explicit minimum still has an automatic one, so that
-        // shrinking a row of text cannot squeeze a word to nothing.
-        for (var i = line.StartChild; i < line.EndChild; i++) {
-            var child = children[i];
-            if (!IsInFlow(child)) {
-                continue;
-            }
-
-            results[child].ComputedAutoMinMainSize =
-                ComputeAutoMinMainSize(child, mainAxis, direction, mainAxisOwnerSize, availableInnerWidth, availableInnerHeight);
-        }
-
+        // ⚠ CSS Flexbox §4.5's automatic minimum is NOT computed here any more. It is the used
+        // minimum in §9.2's hypothetical main size, which §9.3 needs before it can break lines, so
+        // it is computed once per node in STEP 4's caller instead. Computing it here made it
+        // invisible to line breaking and to any item that never flexed.
         DistributeFreeSpaceFirstPass(index, ref line, direction, mainAxis, ownerWidth, mainAxisOwnerSize, availableInnerMainDim, availableInnerWidth);
 
         var distributed = DistributeFreeSpaceSecondPass(
@@ -594,14 +753,17 @@ public sealed partial class LayoutTree {
             }
 
             var isRoot = links[child].Parent < 0;
-            var childFlexBasis = BoundAxisWithinMinAndMax(
-                child,
-                direction,
-                mainAxis,
-                results[child].ComputedFlexBasis,
-                mainAxisOwnerSize,
-                ownerWidth
-            );
+
+            // Already frozen by §9.7 step 2, and InitialFreeSpace has taken both its size and its
+            // factor out. Handing it a share here would spend space that is not in the pool.
+            if (IsFrozenByInflexibility(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, line.UseGrow)) {
+                continue;
+            }
+
+            // ⚠ The same number InitialFreeSpace counted this item as. If the two disagree the pool
+            // and the sizes drawn from it are measured from different baselines, and the line
+            // silently over- or under-fills; see DistributionStartSize.
+            var childFlexBasis = DistributionStartSize(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, line.UseGrow);
 
             if (line.RemainingFreeSpace < 0f) {
                 var shrinkScaled = -StyleResolution.ResolveFlexShrink(in styles[child], isRoot) * childFlexBasis;
@@ -670,18 +832,21 @@ public sealed partial class LayoutTree {
             }
 
             var isRoot = links[child].Parent < 0;
-            var childFlexBasis = BoundAxisWithinMinAndMax(
-                child,
-                direction,
-                mainAxis,
-                results[child].ComputedFlexBasis,
-                mainAxisOwnerSize,
-                ownerWidth
-            );
+            // ⚠ The same number InitialFreeSpace counted this item as. If the two disagree the pool
+            // and the sizes drawn from it are measured from different baselines, and the line
+            // silently over- or under-fills; see DistributionStartSize.
+            var childFlexBasis = DistributionStartSize(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, line.UseGrow);
 
+            // ⚠ A frozen item's size IS its hypothetical main size, and this is where §4.5's
+            // automatic minimum finally reaches an item that never flexes. It used to be handed back
+            // its flex base size untouched, which is why flex_basis_smaller_than_content_row stayed
+            // 50 wide around a 100px box.
+            var frozen = IsFrozenByInflexibility(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, line.UseGrow);
             var updatedMainSize = childFlexBasis;
 
-            if (!float.IsNaN(line.RemainingFreeSpace) && line.RemainingFreeSpace < 0f) {
+            if (frozen) {
+                // Nothing to distribute to it; its size was decided by step 2.
+            } else if (!float.IsNaN(line.RemainingFreeSpace) && line.RemainingFreeSpace < 0f) {
                 var shrinkScaled = -StyleResolution.ResolveFlexShrink(in styles[child], isRoot) * childFlexBasis;
                 if (shrinkScaled != 0f) {
                     var childSize = line.TotalFlexShrinkScaledFactors == 0f
