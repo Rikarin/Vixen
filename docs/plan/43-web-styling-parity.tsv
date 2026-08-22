@@ -2,10 +2,10 @@ category	root	kind	example	css	vixen_family	vixen_emits	engine_reads	inherit_onl
 Layout	inset-*	functional	inset-0	inset	inset	bottom,left,right,top	bottom,left,right,top		works				inset-auto inset-full inset-px
 Layout	inset-x-*	functional	inset-x-0	inset-inline	inset-x	left,right	left,right		partial		Tailwind sets inset-inline; Vixen emits the physical edges (left,right) — identical in LTR, wrong in RTL	Vixen emits physical edges where Tailwind v4 emits flow-relative ones	inset-x-auto inset-x-full inset-x-px
 Layout	inset-y-*	functional	inset-y-0	inset-block	inset-y	bottom,top	bottom,top		partial		Tailwind sets inset-block; Vixen emits the physical edges (bottom,top) — identical in LTR, wrong in RTL	Vixen emits physical edges where Tailwind v4 emits flow-relative ones	inset-y-auto inset-y-full inset-y-px
-Layout	inset-s-*	functional	inset-s-0	inset-inline-start					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	inset-s-auto inset-s-full inset-s-px start-auto start-full start-px
-Layout	inset-e-*	functional	inset-e-0	inset-inline-end					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	inset-e-auto inset-e-full inset-e-px end-auto end-full end-px
-Layout	inset-bs-*	functional	inset-bs-0	inset-block-start					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	inset-bs-auto inset-bs-full inset-bs-px
-Layout	inset-be-*	functional	inset-be-0	inset-block-end					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	inset-be-auto inset-be-full inset-be-px
+Layout	inset-s-*	functional	inset-s-0	inset-inline-start	inset-s	inset-inline-start	inset-inline-start		works			registered as the family `inset-s`, which emits `inset-inline-start` — read by `LayoutStyleBuilder.EdgeNames.ForInset` and mirrored under `direction: rtl`. This is v4's documented spelling; `start-*` is the same declaration under the name v4 keeps only in `compat/legacy-utilities.ts`, and both are registered.	inset-s-auto inset-s-full inset-s-px start-auto start-full start-px
+Layout	inset-e-*	functional	inset-e-0	inset-inline-end	inset-e	inset-inline-end	inset-inline-end		works			registered as the family `inset-e`, which emits `inset-inline-end` — read, and mirrored under `direction: rtl`. v4's documented spelling of what `end-*` is the compatibility name for.	inset-e-auto inset-e-full inset-e-px end-auto end-full end-px
+Layout	inset-bs-*	functional	inset-bs-0	inset-block-start	inset-bs	top	top		works			registered as the family `inset-bs`, which emits the physical `top` and not `inset-block-start`. Nothing interns the logical block longhands and both measure inert on every scene; `Vixen.Ui.Layout` has no writing mode, so the block axis is top-to-bottom in every configuration the engine can be in and the two are the same declaration. Same argument, same measurement, as `space-y-*`.	inset-bs-auto inset-bs-full inset-bs-px
+Layout	inset-be-*	functional	inset-be-0	inset-block-end	inset-be	bottom	bottom		works			registered as the family `inset-be`, which emits the physical `bottom` for the reason `inset-bs-*` emits `top`: the logical block pair is interned by nobody and the block axis never mirrors.	inset-be-auto inset-be-full inset-be-px
 Layout	top-*	functional	top-0	top	top	top	top		works				top-auto top-full top-px
 Layout	right-*	functional	right-0	right	right	right	right		works				right-auto right-full right-px
 Layout	bottom-*	functional	bottom-0	bottom	bottom	bottom	bottom		works				bottom-auto bottom-full bottom-px
@@ -50,9 +50,9 @@ Sizing	max-block-*	functional	max-block-0	max-block-size					absent				max-block
 Flexbox and Grid	shrink-*	functional	shrink-0	flex-shrink	shrink	flex-shrink	flex-shrink		works				
 Flexbox and Grid	grow-*	functional	grow-0	flex-grow	grow	flex-grow	flex-grow		works				
 Flexbox and Grid	basis-*	functional	basis-0	flex-basis	basis	flex-basis	flex-basis		works				basis-auto basis-full basis-px
-Borders	border-spacing-*	functional	border-spacing-0	border-spacing					absent	border		swallowed by the family `border`; the value does not resolve, so nothing is emitted	border-spacing-px border-spacing-x-px border-spacing-y-px
-Borders	border-spacing-x-*	functional	border-spacing-x-0	border-spacing					absent	border		swallowed by the family `border`; the value does not resolve, so nothing is emitted	
-Borders	border-spacing-y-*	functional	border-spacing-y-0	border-spacing					absent	border		swallowed by the family `border`; the value does not resolve, so nothing is emitted	
+Borders	border-spacing-*	functional	border-spacing-0	border-spacing					absent	border		refused, measured: `border-spacing: 4px` moves no channel in any scene, and there is no table layout in `Vixen.Ui.Layout` for a reader to live in. Registering it would be an inert class and the gate would go red with nothing to point the debt at.	border-spacing-px border-spacing-x-px border-spacing-y-px
+Borders	border-spacing-x-*	functional	border-spacing-x-0	border-spacing					absent	border		refused with `border-spacing-*`: same property, same measurement, and v4 spells the two axes as one longhand with two lengths.	
+Borders	border-spacing-y-*	functional	border-spacing-y-0	border-spacing					absent	border		refused with `border-spacing-*`: same property, same measurement.	
 Transforms	origin-*	functional	origin-bottom	transform-origin					absent				
 Transforms	perspective-origin-*	functional	perspective-origin-bottom	perspective-origin					absent				
 Transforms	perspective-*	functional	perspective-distant	perspective					absent				
@@ -61,13 +61,13 @@ Transforms	translate-x-*	functional	translate-x-0	translate	translate-x	--tw-tra
 Transforms	translate-y-*	functional	translate-y-0	translate	translate-y	--tw-translate-y,translate	translate		works			composed: a --tw-* fragment per axis assembled into one `translate`, read in UiDocument.Accumulate	
 Transforms	translate-z-*	functional	translate-z-0	translate					absent				
 Transforms	scale-*	functional	scale-0	scale	scale	scale			inert			emits real CSS; nothing reads it — InertProperties.txt #23, a rotated/scaled box is not a rectangle and neither is its clip	scale-none scale-3d
-Transforms	scale-x-*	functional	scale-x-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
-Transforms	scale-y-*	functional	scale-y-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
-Transforms	scale-z-*	functional	scale-z-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
+Transforms	scale-x-*	functional	scale-x-0	scale					absent	scale		refused: shadowed by `scale`, which is itself inert and carries the `#23` line in `InertProperties.txt` — the draw list is an axis-aligned rectangle and a scaled subtree needs re-shaping, not four multiplications. A per-axis family over a refused property is inert by construction, and the compositing raster that landed this week did not change that.	
+Transforms	scale-y-*	functional	scale-y-0	scale					absent	scale		refused with `scale-x-*`: same property, same `#23` refusal.	
+Transforms	scale-z-*	functional	scale-z-0	scale					absent	scale		refused with `scale-x-*`, and further out: there is no third axis anywhere in the draw list, and `perspective: 100px` measures inert too.	
 Transforms	rotate-*	functional	rotate-0	rotate	rotate	rotate			inert			emits real CSS; nothing reads it — InertProperties.txt #23, a rotated box is not a rectangle and neither is its clip	rotate-none
-Transforms	rotate-x-*	functional	rotate-x-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	
-Transforms	rotate-y-*	functional	rotate-y-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	
-Transforms	rotate-z-*	functional	rotate-z-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	
+Transforms	rotate-x-*	functional	rotate-x-0	transform					absent	rotate		refused: shadowed by `rotate`, which is inert under the same `#23` line — a rotated box is not a rectangle and a rotated clip is not one either. `transform: rotateX(45deg)` and `perspective` both measure inert as well, so the 3D form is two features away rather than one.	
+Transforms	rotate-y-*	functional	rotate-y-0	transform					absent	rotate		refused with `rotate-x-*`: same property, same refusal.	
+Transforms	rotate-z-*	functional	rotate-z-0	transform					absent	rotate		refused with `rotate-x-*`. `rotate-z-*` is the 2D rotation spelled per-axis, so it is exactly `rotate` and exactly as refused.	
 Transforms	skew-*	functional	skew-0	transform					absent				
 Transforms	skew-x-*	functional	skew-x-0	transform					absent				
 Transforms	skew-y-*	functional	skew-y-0	transform					absent				
@@ -115,16 +115,16 @@ Interactivity	scrollbar-thumb-*	functional	scrollbar-thumb-amber-50	scrollbar-co
 Interactivity	scrollbar-track-*	functional	scrollbar-track-amber-50	scrollbar-color					absent				
 Typography	tab-*	functional	tab-2	tab-size					absent				
 Borders	rounded-*	functional	rounded-2xl	border-radius	rounded	border-bottom-left-radius,border-bottom-right-radius,border-top-left-radius,border-top-right-radius	border-bottom-left-radius,border-bottom-right-radius,border-top-left-radius,border-top-right-radius		works				
-Borders	rounded-s-*	functional	rounded-s-2xl	border-end-start-radius,border-start-start-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-e-*	functional	rounded-e-2xl	border-end-end-radius,border-start-end-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
+Borders	rounded-s-*	functional	rounded-s-2xl	border-end-start-radius,border-start-start-radius					absent	rounded		refused, and NOT for the reason `inset-bs-*` was rescued. The four logical radius longhands are interned by nothing and all measure inert — but a radius corner is named on the *inline* axis, which this engine really does mirror, so a physical fallback would be right only under `direction: ltr`. Right half the time is worse than absent; closing it needs the box style's corner resolution to learn `direction`.	
+Borders	rounded-e-*	functional	rounded-e-2xl	border-end-end-radius,border-start-end-radius					absent	rounded		refused with `rounded-s-*`: logical radii are inert, and the physical corners do not mirror.	
 Borders	rounded-t-*	functional	rounded-t-2xl	border-top-left-radius,border-top-right-radius	rounded-t	border-top-left-radius,border-top-right-radius	border-top-left-radius,border-top-right-radius		works				
 Borders	rounded-r-*	functional	rounded-r-2xl	border-bottom-right-radius,border-top-right-radius	rounded-r	border-bottom-right-radius,border-top-right-radius	border-bottom-right-radius,border-top-right-radius		works				
 Borders	rounded-b-*	functional	rounded-b-2xl	border-bottom-left-radius,border-bottom-right-radius	rounded-b	border-bottom-left-radius,border-bottom-right-radius	border-bottom-left-radius,border-bottom-right-radius		works				
 Borders	rounded-l-*	functional	rounded-l-2xl	border-bottom-left-radius,border-top-left-radius	rounded-l	border-bottom-left-radius,border-top-left-radius	border-bottom-left-radius,border-top-left-radius		works				
-Borders	rounded-ss-*	functional	rounded-ss-2xl	border-start-start-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-se-*	functional	rounded-se-2xl	border-start-end-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-ee-*	functional	rounded-ee-2xl	border-end-end-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-es-*	functional	rounded-es-2xl	border-end-start-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
+Borders	rounded-ss-*	functional	rounded-ss-2xl	border-start-start-radius					absent	rounded		refused with `rounded-s-*`: `border-start-start-radius` measures inert, and mapping it to `border-top-left-radius` would be wrong under `direction: rtl`.	
+Borders	rounded-se-*	functional	rounded-se-2xl	border-start-end-radius					absent	rounded		refused with `rounded-s-*`: same measurement, same mirroring problem.	
+Borders	rounded-ee-*	functional	rounded-ee-2xl	border-end-end-radius					absent	rounded		refused with `rounded-s-*`: same measurement, same mirroring problem.	
+Borders	rounded-es-*	functional	rounded-es-2xl	border-end-start-radius					absent	rounded		refused with `rounded-s-*`: same measurement, same mirroring problem.	
 Borders	rounded-tl-*	functional	rounded-tl-2xl	border-top-left-radius	rounded-tl	border-top-left-radius	border-top-left-radius		works				
 Borders	rounded-tr-*	functional	rounded-tr-2xl	border-top-right-radius	rounded-tr	border-top-right-radius	border-top-right-radius		works				
 Borders	rounded-br-*	functional	rounded-br-2xl	border-bottom-right-radius	rounded-br	border-bottom-right-radius	border-bottom-right-radius		works				
@@ -134,8 +134,8 @@ Borders	border-x-*	functional	border-x-0	border-inline-style,border-inline-width
 Borders	border-y-*	functional	border-y-0	border-block-style,border-block-width	border-y	border-bottom-color,border-bottom-width,border-top-color,border-top-width	border-bottom-color,border-bottom-width,border-top-color,border-top-width		partial		Tailwind sets border-block-style,border-block-width; Vixen emits the physical edges (border-bottom-color,border-bottom-width,border-top-color,border-top-width) — identical in LTR, wrong in RTL		
 Borders	border-s-*	functional	border-s-0	border-inline-start-style,border-inline-start-width	border-s	border-inline-start-color,border-inline-start-width	border-inline-start-width		partial		Tailwind sets border-inline-start-style; Vixen emits the physical edges (border-inline-start-color,border-inline-start-width) — identical in LTR, wrong in RTL	the width is read; the logical colour is not — InertProperties.txt #21	
 Borders	border-e-*	functional	border-e-0	border-inline-end-style,border-inline-end-width	border-e	border-inline-end-color,border-inline-end-width	border-inline-end-width		partial		Tailwind sets border-inline-end-style; Vixen emits the physical edges (border-inline-end-color,border-inline-end-width) — identical in LTR, wrong in RTL	the width is read; the logical colour is not — InertProperties.txt #21	
-Borders	border-bs-*	functional	border-bs-0	border-block-start-style,border-block-start-width					absent	border		swallowed by the family `border`; the value does not resolve, so nothing is emitted	
-Borders	border-be-*	functional	border-be-0	border-block-end-style,border-block-end-width					absent	border		swallowed by the family `border`; the value does not resolve, so nothing is emitted	
+Borders	border-bs-*	functional	border-bs-0	border-block-start-style,border-block-start-width	border-bs	border-top-color,border-top-width	border-top-color,border-top-width		works			registered as the family `border-bs`, which emits the physical `border-top-width` and `border-top-color` — both read — rather than `border-block-start-*`, which nothing interns. No style longhand: v4 emits `border-block-start-style` alongside the width and `border-style` is read by nothing here, so following `border-t` is what keeps this from being one inert longhand out of two.	
+Borders	border-be-*	functional	border-be-0	border-block-end-style,border-block-end-width	border-be	border-bottom-color,border-bottom-width	border-bottom-color,border-bottom-width		works			registered as the family `border-be`, emitting the physical `border-bottom-width` and `border-bottom-color` for the reason `border-bs-*` emits the top pair.	
 Borders	border-t-*	functional	border-t-0	border-top-style,border-top-width	border-t	border-top-color,border-top-width	border-top-color,border-top-width		works				
 Borders	border-r-*	functional	border-r-0	border-right-style,border-right-width	border-r	border-right-color,border-right-width	border-right-color,border-right-width		works				
 Borders	border-b-*	functional	border-b-0	border-bottom-style,border-bottom-width	border-b	border-bottom-color,border-bottom-width	border-bottom-color,border-bottom-width		works				
@@ -188,7 +188,7 @@ Spacing	pl-*	functional	pl-0	padding-left	pl	padding-left	padding-left		works			
 Typography	indent-*	functional	indent-0	text-indent				text-indent	absent				indent-px
 Typography	align-*	functional	align-baseline	vertical-align	align	vertical-align	vertical-align		partial			4 of 8 listed keywords resolve: missing align-text-top align-text-bottom align-sub align-super	align-baseline align-top align-middle align-bottom align-text-top align-text-bottom align-sub align-super
 Typography	font-*	functional	font-black	font-weight	font	font-weight	font-weight		works				
-Typography	font-stretch-*	functional	font-stretch-50%	font-stretch				font-stretch	absent	font		swallowed by the family `font`; the value does not resolve, so nothing is emitted	font-stretch-normal font-stretch-ultra-condensed font-stretch-extra-condensed font-stretch-condensed font-stretch-semi-condensed font-stretch-semi-expanded font-stretch-expanded font-stretch-extra-expanded
+Typography	font-stretch-*	functional	font-stretch-50%	font-stretch				font-stretch	absent	font		refused, measured: `font-stretch` moves no channel at `50%` or at `condensed`. It is interned by `InheritedProperties` purely so the cascade knows it inherits, which is the exact interned-is-not-acted-on case `UtilityConsumptionGateTests` keeps a control for. Closing it is width-variable shaping in `Vixen.Ui.Text`, which is A19.	font-stretch-normal font-stretch-ultra-condensed font-stretch-extra-condensed font-stretch-condensed font-stretch-semi-condensed font-stretch-semi-expanded font-stretch-expanded font-stretch-extra-expanded
 Typography	placeholder-*	functional	placeholder-amber-50	color					absent				
 Typography	decoration-*	functional	decoration-0	text-decoration-thickness					absent				decoration-auto decoration-from-font
 Transitions and Animation	animate-*	functional	animate-bounce	animation					absent				
@@ -224,16 +224,16 @@ Borders	outline-offset-*	functional	outline-offset-0	outline-offset					absent
 Effects	opacity-*	functional	opacity-0	opacity	opacity	opacity	opacity		works				
 Typography	underline-offset-*	functional	underline-offset-0	text-underline-offset					absent				
 Typography	text-*	functional	text-2xl	font-size,line-height	text	color,font-size,line-height,text-align,text-overflow	color,font-size,line-height,text-align,text-overflow		partial		font-size and line-height work; the colour reading works; text-<n>/<leading> does not		
-Typography	text-shadow-*	functional	text-shadow-2xs	text-shadow					absent	text		swallowed by the family `text`; the value does not resolve, so nothing is emitted	
+Typography	text-shadow-*	functional	text-shadow-2xs	text-shadow					absent	text		refused, measured: `text-shadow` moves no channel and no consumer interns it — the draw list has no glyph-shadow path at all. A registration would be an inert class with no reader to name in `InertProperties.txt`.	
 Effects	shadow-*	functional	shadow-2xl	box-shadow	shadow	box-shadow	box-shadow		works				
-Effects	inset-shadow-*	functional	inset-shadow-2xs	box-shadow					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	
+Effects	inset-shadow-*	functional	inset-shadow-2xs	box-shadow					absent	inset		refused, and this is the shape the consumption gate CANNOT catch. `box-shadow` is read, so a registration would leave every test green — but `DrawListBuilder.EmitShadow` refuses the `inset` keyword outright and says why, and the measurement agrees: `box-shadow: inset 0 2px 4px #000` moves nothing where `box-shadow: 0 2px 4px #000` moves paint. Closing it needs a second distance field, not a family.	
 Effects	ring-*	functional	ring-0	box-shadow	ring	--tw-ring-color,--tw-ring-width,box-shadow	box-shadow		works			composed: --tw-ring-width and --tw-ring-color are assembled into a box-shadow the draw list paints, matching Tailwind v4. The v3 outline-color spelling is gone.	
-Effects	inset-ring-*	functional	inset-ring-0	box-shadow					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	
-Layout	ring-offset-*	functional	ring-offset-0						absent	ring		Tailwind spells this as a --tw-* fragment; Vixen registers no family for it at all	
+Effects	inset-ring-*	functional	inset-ring-0	box-shadow					absent	inset		refused with `inset-shadow-*`: an inner ring is `box-shadow: inset …`, refused at the same place and invisible to the gate for the same reason.	
+Layout	ring-offset-*	functional	ring-offset-0						absent	ring		refused, and worse than inert. An offset ring is a two-shadow list — the offset ring in the surface colour, then the ring outside it — and `EmitShadow` refuses a list deliberately, on the argument that painting the first and dropping the rest looks like it worked. So a `ring-offset-2` written beside a `ring-2` would stop the ring painting at all.	
 Layout	@container-*	functional	@container-normal	container-type					absent				
 Layout	start-*	functional	start-full	inset-inline-start	start	inset-inline-start	inset-inline-start		works				
 Layout	end-*	functional	end-full	inset-inline-end	end	inset-inline-end	inset-inline-end		works				
-Sizing	max-w-screen-*	functional	max-w-screen-md	max-width					absent	max-w		swallowed by the family `max-w`; the value does not resolve, so nothing is emitted	
+Sizing	max-w-screen-*	functional	max-w-screen-md	max-width					absent	max-w		refused on policy rather than on measurement, and the distinction matters: `max-width` is read and this would have registered cleanly and passed everything. § D5 lists `max-w-screen` among the utilities v4 keeps only in `compat/legacy-utilities.ts` — registered, undocumented, superseded by the sizing scale — and the rule that section states is to implement the documented name and not the compatibility one.	
 Backgrounds	bg-size-*	functional	bg-size-[auto]	background-size					absent			not shadowed: `UtilityParser` decides the arbitrary value before `SplitName` is consulted, so this parses to the unregistered name `bg-size`	
 Backgrounds	bg-position-*	functional	bg-position-[center]	background-position					absent			not shadowed: `UtilityParser` decides the arbitrary value before `SplitName` is consulted, so this parses to the unregistered name `bg-position`	
 Backgrounds	bg-radial-*	functional	bg-radial-[at_50%]	background-image	bg-radial	background-image	background-image		works				
@@ -242,8 +242,8 @@ Effects	mask-position-*	functional	mask-position-[center]	mask-position					abse
 Typography	font-features-*	functional	font-features-[normal]	font-feature-settings					absent			not shadowed: `UtilityParser` decides the arbitrary value before `SplitName` is consulted, so this parses to the unregistered name `font-features`	
 Filters	filter-*	functional	filter-none	filter					absent				
 Filters	backdrop-filter-*	functional	backdrop-filter-none	backdrop-filter					absent				
-Flexbox and Grid	flex-shrink-*	functional	flex-shrink-0	flex-shrink					absent	flex		swallowed by the family `flex`; the value does not resolve, so nothing is emitted	
-Flexbox and Grid	flex-grow-*	functional	flex-grow-0	flex-grow					absent	flex		swallowed by the family `flex`; the value does not resolve, so nothing is emitted	
+Flexbox and Grid	flex-shrink-*	functional	flex-shrink-0	flex-shrink					absent	flex		refused on policy: `flex-shrink` is read and `shrink-*` already emits it. § D5 lists `flex-shrink-*` among v4's `compat/legacy-utilities.ts` set, superseded by `shrink-*`.	
+Flexbox and Grid	flex-grow-*	functional	flex-grow-0	flex-grow					absent	flex		refused on policy: `flex-grow` is read and `grow-*` already emits it. § D5 lists `flex-grow-*` among v4's compatibility utilities, superseded by `grow-*`.	
 Spacing	sr-only	static	sr-only	border-width,clip-path,height,margin,overflow,padding,position,white-space,width					absent				sr-only
 Spacing	not-sr-only	static	not-sr-only	clip-path,height,margin,overflow,padding,position,white-space,width					absent				not-sr-only
 Interactivity	pointer-events	static	pointer-events-none	pointer-events	pointer-events	pointer-events	pointer-events		works				pointer-events-none pointer-events-auto
@@ -303,17 +303,17 @@ Typography	break-normal	static	break-normal	overflow-wrap,word-break				word-bre
 Typography	word-break	static	break-all	word-break				word-break	absent				break-all break-keep
 Typography	overflow-wrap	static	wrap-anywhere	overflow-wrap					absent				wrap-anywhere wrap-break-word wrap-normal break-words
 Backgrounds	bg	static	bg-auto	background-size					absent				bg-auto bg-cover bg-contain
-Backgrounds	bg (keywords)	static	bg-repeat	background-repeat					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	bg-repeat bg-no-repeat bg-repeat-x bg-repeat-y bg-repeat-round bg-repeat-space
+Backgrounds	bg (keywords)	static	bg-repeat	background-repeat					absent	bg		refused, measured: `background-repeat: no-repeat` moves no channel. A background here is a colour or a gradient painted to the box, so there is no tile to repeat and no reader to add short of an image-backed background.	bg-repeat bg-no-repeat bg-repeat-x bg-repeat-y bg-repeat-round bg-repeat-space
 Effects	mask	static	mask-alpha	mask-mode					absent				mask-alpha mask-luminance mask-match
 Effects	mask-type	static	mask-type-alpha	mask-type					absent				mask-type-alpha mask-type-luminance
 Effects	mask (keywords)	static	mask-clip-border	mask-clip					absent				mask-clip-border mask-clip-padding mask-clip-content mask-clip-fill mask-clip-stroke mask-clip-view mask-no-clip
 Effects	mask-origin	static	mask-origin-border	mask-origin					absent				mask-origin-border mask-origin-padding mask-origin-content mask-origin-fill mask-origin-stroke mask-origin-view
 Layout	box-decoration-break	static	box-decoration-slice	-webkit-box-decoration-break,box-decoration-break					absent				box-decoration-slice box-decoration-clone decoration-slice decoration-clone
-Backgrounds	bg-clip	static	bg-clip-text	background-clip					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	bg-clip-text bg-clip-border bg-clip-padding bg-clip-content
-Backgrounds	bg-origin	static	bg-origin-border	background-origin					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	bg-origin-border bg-origin-padding bg-origin-content
-Backgrounds	bg-blend	static	bg-blend-normal	background-blend-mode					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	bg-blend-normal bg-blend-multiply bg-blend-screen bg-blend-overlay bg-blend-darken bg-blend-lighten bg-blend-color-dodge bg-blend-color-burn
+Backgrounds	bg-clip	static	bg-clip-text	background-clip					absent	bg		refused, measured: `background-clip` moves no channel. `bg-clip-text` is the one anybody wants and it needs the background sampled through a glyph mask — an offscreen pass, argued in Part 0 § Gradient text needs an offscreen pass.	bg-clip-text bg-clip-border bg-clip-padding bg-clip-content
+Backgrounds	bg-origin	static	bg-origin-border	background-origin					absent	bg		refused, measured: `background-origin` moves no channel; the painted background is the border box and nothing reads a second origin.	bg-origin-border bg-origin-padding bg-origin-content
+Backgrounds	bg-blend	static	bg-blend-normal	background-blend-mode					absent	bg		refused, measured: `background-blend-mode` moves no channel, and there is one background layer for it to blend.	bg-blend-normal bg-blend-multiply bg-blend-screen bg-blend-overlay bg-blend-darken bg-blend-lighten bg-blend-color-dodge bg-blend-color-burn
 Effects	mix-blend	static	mix-blend-normal	mix-blend-mode					absent				mix-blend-normal mix-blend-multiply mix-blend-screen mix-blend-overlay mix-blend-darken mix-blend-lighten mix-blend-color-dodge mix-blend-color-burn
-SVG	stroke-none	static	stroke-none	stroke					absent	stroke		swallowed by the family `stroke`; the value does not resolve, so nothing is emitted	stroke-none
+SVG	stroke-none	static	stroke-none	stroke					absent	stroke		refused, same invisible shape as `inset-shadow-*`: `stroke` is read, but only as a colour. `Icon.Resolve` asks `ColorOf` for the slot and falls back to the foreground when the answer is not a colour, so `stroke: none` measures inert while `stroke: #3366cc` moves paint — and a registration would keep the gate green over a class that changes nothing.	stroke-none
 Layout	object	static	object-contain	object-fit					absent				object-contain object-cover object-fill object-none object-scale-down
 Typography	text (keywords)	static	text-left	text-align	text	color,font-size,line-height,text-align,text-overflow	color,font-size,line-height,text-align,text-overflow		works				text-left text-center text-right text-justify text-start text-end
 Typography	text-transform	static	uppercase	text-transform				text-transform	absent				uppercase lowercase capitalize normal-case
@@ -321,7 +321,7 @@ Typography	font-style	static	italic	font-style					absent				italic not-italic
 Typography	text-decoration-line	static	underline	text-decoration-line					absent				underline overline line-through no-underline
 Typography	decoration	static	decoration-solid	text-decoration-style					absent				decoration-solid decoration-double decoration-dotted decoration-dashed decoration-wavy
 Transitions and Animation	transition	static	transition-discrete	transition-behavior					absent				transition-discrete transition-normal
-Typography	content-none	static	content-none	content					absent	content		swallowed by the family `content`; the value does not resolve, so nothing is emitted	content-none
+Typography	content-none	static	content-none	content					absent	content		refused, measured: `content` moves no channel, and there is nothing for it to apply to. F6 refused pseudo-element selectors rather than building them, so there is no `before:` or `after:` variant, and CSS `content` on an ordinary element does nothing either.	content-none
 Accessibility	forced-color-adjust	static	forced-color-adjust-none	forced-color-adjust					absent				forced-color-adjust-none forced-color-adjust-auto
 Typography	font-smoothing	static	antialiased	-moz-osx-font-smoothing,-webkit-font-smoothing					absent				antialiased subpixel-antialiased
 Typography	font-variant-numeric	static	normal-nums	font-variant-numeric					absent				normal-nums ordinal slashed-zero lining-nums oldstyle-nums proportional-nums tabular-nums diagonal-fractions

@@ -156,6 +156,17 @@ public class UtilityFamilySupportTests {
         { "top-0", "top", "0" },
         { "inset-x-1", "left", "4px" },
         { "start-2", "inset-inline-start", "8px" },
+
+        // ⚠ <b>v4's four logical insets, and the pair of them is here because the two halves emit
+        // different <i>kinds</i> of longhand on purpose.</b> `inset-s-*` keeps CSS's logical spelling
+        // because the layout reads it and mirrors it under `direction: rtl`; `inset-bs-*` emits the
+        // physical `top`, because `inset-block-start` is interned by nobody and `Vixen.Ui.Layout` has
+        // no writing mode for the block axis to be anything but top-to-bottom. Asserting the
+        // *property* rather than only the value is what makes these two rows worth having: a later
+        // hand "correcting" the second to Tailwind's spelling would leave a class that cascades
+        // perfectly and moves no box.
+        { "inset-s-2", "inset-inline-start", "8px" },
+        { "inset-bs-2", "top", "8px" },
         { "z-10", "z-index", "10" },
         { "box-border", "box-sizing", "border-box" },
 
@@ -201,6 +212,15 @@ public class UtilityFamilySupportTests {
         { "border-l-accent", "border-left-color", "#2f6ecd" },
         { "border-x-accent", "border-right-color", "#2f6ecd" },
         { "border-y-accent", "border-top-color", "#2f6ecd" },
+
+        // The logical block edges, physical for the reason `inset-bs-*` is: nothing interns
+        // `border-block-start-width`, the block axis never mirrors, and `border-top-*` is what the
+        // draw list and the layout both read. Unlike `border-s-*`/`border-e-*` — the table's one
+        // genuinely partial pair, whose widths are read and whose colours are not — these are read
+        // on both longhands, so a colour row belongs here beside the width one.
+        { "border-bs-2", "border-top-width", "2px" },
+        { "border-be-2", "border-bottom-width", "2px" },
+        { "border-be-accent", "border-bottom-color", "#2f6ecd" },
 
         // ⚠ <b>The arbitrary form was the only form here, and it is not any more.</b> This block used
         // to carry a note saying the editor's tokens defined no `radius` scale at all: the three

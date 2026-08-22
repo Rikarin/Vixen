@@ -115,15 +115,25 @@ disagrees with that ledger is this page being stale, not the ledger being wrong.
 | `grow`, `shrink`, `basis-`, `order-`, `grid-cols-`, `col-span-`, **`grid-rows-`**, **`row-span-`**, **`col-start-`/`-end-`**, **`row-start-`/`-end-`**, **`auto-cols-`**, **`auto-rows-`**, **`grid-flow-`**, **`justify-items-`**, **`justify-self-`** | |
 | `gap-`, `gap-x-`, `gap-y-`, `p*`, `m*` including the logical `ps`/`pe`/`ms`/`me`, **`space-x-`**, **`space-y-`** | `space-x-reverse`, `space-y-reverse` — not registered; they need `calc()`, which `StyleValueParser` has not got |
 | `w-`, `h-`, `size-`, `min-w-`, `min-h-`, `max-w-`, `max-h-` | |
-| `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, `z-`, `box-border`/`box-content` | |
+| `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, **`inset-s`/`-e`/`-bs`/`-be`**, `z-`, `box-border`/`box-content` | |
 | `text-<align>`, `text-<size>`, `text-<colour>`, `font-`, `leading-`, `tracking-`, `whitespace-`, **`align-`** | `align-middle`/`-text-top`/`-text-bottom`/`-sub`/`-super` — the property is read, those five values are refused at the bridge for want of a font strut |
 | `bg-`, `opacity-`, `shadow-`, `ring-`, `fill-`, `stroke-`, **`translate-x/y-`** | `blur-`, `scale-`, `rotate-` |
 | `rounded-`, and the per-corner `rounded-t`/`-r`/`-b`/`-l`/`-tl`/`-tr`/`-br`/`-bl` | |
-| `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`, both widths and colours; `border-s`/`-e` widths | `border-s-<colour>` and `border-e-<colour>` — the logical pair never reached the draw list |
+| `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`, both widths and colours; **`border-bs`/`-be`**, both; `border-s`/`-e` widths | `border-s-<colour>` and `border-e-<colour>` — the *inline* logical pair never reached the draw list |
 | **`divide-x-`**, **`divide-y-`**, **`divide-<colour>`** | `divide-solid`/`-dashed`/`-dotted`/`-double`, `divide-x-reverse`, `divide-y-reverse` — not registered; nothing reads `border-style`, and the reverse pair needs `calc()` |
 | `overflow-hidden`, `overflow-scroll`, `overflow-auto`, **`overflow-x-*`**, **`overflow-y-*`**, `truncate` | |
 | `cursor-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
 | **`bg-linear-*`**, **`bg-radial`**, **`bg-conic`** with `from-`/`via-`/`to-` and stop positions | |
+
+⚠ **v4's logical families divide into two halves here, and the halves emit different spellings.**
+`inset-s-*`/`inset-e-*` and `ps`/`pe`/`ms`/`me` keep CSS's logical longhands, because the layout
+interns `-inline-start`/`-inline-end` and mirrors them under `direction: rtl` — which is the whole
+point of writing them. `inset-bs-*`/`inset-be-*` and `border-bs-*`/`border-be-*` emit the *physical*
+`top`, `bottom`, `border-top-*` and `border-bottom-*`, because nothing interns the block longhands
+and `Vixen.Ui.Layout` has no writing mode for the block axis to be anything but top-to-bottom. Same
+trade as `space-y-*`. ⚠ The six logical **radii** — `rounded-ss-*` and friends — are absent rather
+than mapped, and that is the same reasoning reaching the opposite answer: a radius corner is named on
+the inline axis, so a physical corner would be right only under `direction: ltr`.
 
 ⚠ **`space-*` and `divide-*` are the only families whose rule is about the children**, and the two
 things worth knowing before reaching for them are both divergences from Tailwind v4. The rule is
