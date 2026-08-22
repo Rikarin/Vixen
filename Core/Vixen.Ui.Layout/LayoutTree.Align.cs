@@ -264,7 +264,15 @@ public sealed partial class LayoutTree {
 
                 switch (ResolveChildAlignment(index, child)) {
                     case Align.FlexStart:
+                        // ⚠ THE ITEM'S LEADING CROSS MARGIN, which this case alone used to drop. The
+                        // line's height is measured with the margins in it a few lines up, and
+                        // Align.Stretch below adds it, and Align.FlexEnd subtracts the trailing one —
+                        // only flex-start placed the item hard against the line's edge. bevy_issue_8082
+                        // is four 50px boxes with `margin: 10px` wrapped two-by-two under
+                        // `align-items: flex-start`: Chrome puts the first row at y=10 and the second
+                        // at y=80, and every one of them came out exactly 10 high.
                         results[child].Position[crossStartEdge] = currentLead
+                            + StyleResolution.FlexStartMargin(in styles[child], crossAxis, direction, availableInnerWidth)
                             + StyleResolution.FlexStartPosition(in styles[child], crossAxis, direction, availableInnerWidth);
                         break;
 

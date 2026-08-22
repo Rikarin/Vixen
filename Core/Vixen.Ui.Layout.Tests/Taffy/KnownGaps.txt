@@ -15,17 +15,21 @@
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
 #
-# 206 at the corpus's first run; 94 now. Three rules closed the 112: CSS Sizing §5.2.2's distinction
-# between a min-content size and a min-content contribution, §5.1's min-over-max precedence, and
-# §4.1's transfer of a minimum or a maximum ACROSS the aspect ratio into the other axis.
-# A closed bucket keeps its heading with the diagnosis that closed it, because the next person to
-# read this file is more likely to be looking for how one of these was found than for a to-do list.
+# 206 at the corpus's first run; 78 now. Four rules closed the 128: CSS Sizing §5.2.2's distinction
+# between a min-content size and a min-content contribution, §5.1's min-over-max precedence,
+# §4.1's transfer of a minimum or a maximum ACROSS the aspect ratio into the other axis, and
+# CSS Flexbox §9.7's distinction between the sum lines are BROKEN by and the sum free space is
+# COMPUTED from. A closed bucket keeps its heading with the diagnosis that closed it, because the
+# next person to read this file is more likely to be looking for how one of these was found than for
+# a to-do list.
 
 # ── CSS Flexbox §4.5, the automatic minimum size, when the content size comes from a DESCENDANT ──
 #
-# ⚠ MOSTLY CLOSED. This was the biggest bucket — seventeen families — and nine of them are gone,
-# along with absolute_minmax_*, bevy_issue_10343_flex, and the two below that were only ever the
-# same bug seen from a different side. 206 → 158.
+# ⚠ MOSTLY CLOSED, IN TWO GOES. Seventeen families at the start, six left. The first nine went with
+# the min-content contribution rule below, along with absolute_minmax_*, bevy_issue_10343_flex and
+# two more that were the same bug from another side: 206 → 158. Two of the eight that remained went
+# with §9.7's freeze rule, which is written up at the bottom of this heading and is where the last
+# six will be argued out too: 94 → 86.
 #
 # The rule was there; what was missing was the distinction CSS Sizing §5.2.2 draws between a box's
 # min-content *size* and its min-content *contribution*. The contribution of a box whose preferred
@@ -50,25 +54,46 @@
 #     without the rule the shell laid out 2 385 points wide inside a 1 100-point window with the
 #     inspector off the side. Three oracles, three different findings, no overlap.
 #
-# ⚠ What is left in this bucket is a DIFFERENT bug that was hiding behind the first one, and it is
-# worth stating precisely because the floor is now right and these still fail. §9.2 step 9 says the
-# HYPOTHETICAL main size is the flex base size clamped by the used min and max — and §4.5's
-# automatic minimum *is* the used min. Vixen only ever consults it inside the two distribution
-# passes, so an item that does not flex never sees its own floor. flex_basis_smaller_than_content_row
-# is the clean case: `flex-basis: 50px` on a column wrapping a 100px box, no grow and nothing to
-# shrink, so neither pass touches it and it stays 50 where Chrome says 100 — even though
-# ComputeAutoMinMainSize now returns exactly 100 for it. The fix belongs with the §9.7 work below,
-# because moving the floor up to the hypothetical size also changes what line breaking consumes.
+# ⚠ THE SECOND HALF IS ALSO CLOSED, and the heading it used to carry was RIGHT about the mechanism
+# and WRONG about where to apply it. §9.2 step 9 says the HYPOTHETICAL main size is the flex base
+# size clamped by the used min and max, and §4.5's automatic minimum *is* the used min; Vixen only
+# consulted it inside the two distribution passes, so an item that does not flex never saw its own
+# floor. That much was correct. What the heading then predicted — that the fix was to move the floor
+# into line breaking so the two "move together" — was measured and does not work on its own: it
+# closes three families and breaks percentage_moderate_complexity and
+# percentage_multiple_nested_with_padding_margin_and_percentage_values, exactly as the old note
+# warned. The note's conclusion, "do not re-try the one-liner", was sound. Its diagnosis was not.
 #
-# ⚠ That last sentence was MEASURED, not assumed, and the measurement is worth keeping. Applying the
-# floor at the obvious narrow place — the non-flexing path of DistributeFreeSpaceSecondPass, one
-# line — closes four of the eight above and takes the corpus to 154. It also breaks two families
-# that currently pass, percentage_moderate_complexity and
-# percentage_multiple_nested_with_padding_margin_and_percentage_values, the second of which is a
-# YOGA fixture as well. A floor applied after line breaking disagrees with the size line breaking
-# already consumed, so the two have to move together. Do not re-try the one-liner.
-flex_basis_smaller_than_content_column
-flex_basis_smaller_than_content_row
+# ⚠ The floor reaches a non-flexing item through §9.7 STEP 2, not through line breaking. An item
+# with no usable flex factor is FROZEN AT ITS HYPOTHETICAL MAIN SIZE, which is where §4.5's minimum
+# has always been; nothing new has to be applied anywhere. flex_basis_smaller_than_content_row is
+# `flex-basis: 50px` on a column wrapping a 100px box with nothing to grow into and nothing to
+# shrink, and it freezes at 100. See DistributionStartSize and IsFrozenByInflexibility.
+#
+# ⚠ AND THE TWO PERCENTAGE FIXTURES WERE THE LARGER FIND, because they are not this rule's failure —
+# they are ComputeMinContentSize being wrong and nothing having consumed it before. The probe
+# answered 31.04 for a box whose true content height is 26.176, for two independent reasons:
+#
+#   1. It resolved a grandchild's `margin: 5%` against the box the probe was ENTERED from rather than
+#      against the box the grandchild is actually inside — 5% of 194 where the containing block is
+#      85.36. Fixed for the case where the intervening box has a definite width: see
+#      ProbeContentWidth. A `width: 50%` box still contributes zero, which is CSS Sizing §5.2.1's
+#      answer to the cycle rather than a stopgap.
+#   2. A CHILDLESS box returns zero without its own padding and border, where the leaf-with-measure
+#      branch and the clipping branch beside it both add theirs. Still true and still wrong; it
+#      happens to under-report, so nothing observes it yet.
+#
+#   A third, in the same probe: it reads a GRID container as a flex row and sums all of its items
+#   along one axis. gridflex_row_integration is four 20-wide boxes in a 2x2 grid — 40 in Chrome, 80
+#   from the probe.
+#
+# ⚠ Because two of those three are still open, the §4.5 floor is CAPPED at the item's own flex basis
+# whenever that basis was MEASURED rather than declared — LayoutResult.FlexBasisFromContent. The
+# justification is an inequality, not a heuristic: a box's min-content size cannot exceed the size
+# its own contents were just measured at, so a floor that comes out above such a basis is the probe
+# being wrong. A DECLARED basis carries no such guarantee, which is why flex_basis_smaller_than_
+# content_row is untouched by the cap. Remove the cap when the probe is fixed, and expect nothing to
+# move; keep it until then, or an over-reported floor becomes a real box.
 flex_basis_smaller_then_content_with_flex_grow_large_size
 flex_basis_unconstraint_column
 padding_border_overrides_size_flex_basis_0_growable
@@ -76,15 +101,38 @@ percentage_flex_basis_cross_min_height
 measure_child_with_min_size_greater_than_available_space
 absolute_child_with_max_height_larger_shrinkable_grandchild
 
-# ── CSS Flexbox §9.7, resolving flexible lengths: min/max violations are frozen and redistributed ──
+# ── CSS Flexbox §9.7, resolving flexible lengths: the free space is not the line's size ──
 #
-# `min_width` is two flex-grow:1 children in a 100px row, one with min-width:60. Chrome freezes the
-# violating item at 60 and gives the whole remaining 40 to its sibling. Vixen raises the item's
-# basis to 60 and then splits the leftover evenly — 80 and 20. The loop that re-runs distribution
-# after clamping is what is missing, not the clamp.
+# ⚠ THE HEADING THIS BUCKET CARRIED WAS WRONG, and refuting it is what closed most of the file. It
+# said "the loop that re-runs distribution after clamping is what is missing, not the clamp." That
+# loop was never missing — DistributeFreeSpaceFirstPass is exactly it, and it is correct. What it
+# was handed was a pool that had already paid for the clamp.
+#
+# §9.3 breaks lines by each item's outer HYPOTHETICAL main size: the flex base clamped by its used
+# min and max. §9.7 step 3 builds the free space out of a DIFFERENT sum — the frozen items' target
+# sizes and the unfrozen items' unclamped FLEX BASE sizes. Vixen had one field, FlexLine.SizeConsumed,
+# serving both, so every clamp was charged twice: once by shrinking the pool it came out of, and
+# again by the pass that re-applied it to the item. There are now three sums, and the comments on
+# FlexLine say which question each answers. InitialFreeSpace also implements step 2 properly, which
+# removes a frozen item's flex FACTOR as well as its size — leaving the factor in was a latent
+# divide-by-zero that Yoga's Child_min_max_width_flexing hit as a NaN the moment step 2 arrived.
+#
+# ⚠ WHAT IS LEFT IS ONE THING AND IT IS NOT IN THIS ALGORITHM. `min_width` is two flex-grow:1
+# children in a 100px row, one with min-width:60; Chrome freezes it at 60 and gives the whole
+# remaining 40 to its sibling, and Vixen still answers 80 and 20. The arithmetic above is right and
+# would produce 60 and 40 — from a pool of 100, because both flex BASE sizes are zero. It gets a pool
+# of 40, because `results[child].ComputedFlexBasis` IS NOT A FLEX BASE SIZE: it is read back out of a
+# trial layout that has already clamped it, so the empty div with `min-width: 60px` reports 60 where
+# §9.2 says its base is 0. With base == hypothetical the item is never frozen, and no amount of
+# redistribution can recover the difference.
+#
+# ⚠ Recording the UNCLAMPED main measurement is the fix, and it was scoped and refused rather than
+# attempted: MeasuredDimensions is written through BoundAxis at about ten sites across
+# LayoutTree.Layout, LayoutTree.Steps, LayoutTree.Block and LayoutTree.Grid, so it is a change to all
+# three formatting contexts and wants its own measurement pass over all three corpora. Three
+# families here; bevy_issue_9530 below is the same rule on the shrink side.
 min_width
 min_height
-flex_grow_0_min_size
 taffy_issue_696_min_height
 
 # ── aspect-ratio against min/max and stretch ──
@@ -154,14 +202,38 @@ align_content_stretch_row_wrap
 # Yoga behaves as Vixen does. Degenerate, but it is a real disagreement with the browser.
 display_none_only_node
 
-# ── Taffy's own regression fixtures, from downstream bug reports. Cause not yet diagnosed. ──
+# ── Taffy's own regression fixtures, from downstream bug reports. NOW DIAGNOSED. ──
 #
-# Listed separately and honestly: these were not investigated individually, only observed to fail.
-# They are the ones most likely to collapse into the buckets above once one of those is fixed.
+# ⚠ THE PREDICTION THIS HEADING MADE WAS RIGHT TWICE OVER: "the ones most likely to collapse into
+# the buckets above once one of those is fixed." bevy_issue_10343_flex went with the §4.5 descendant
+# rule. bevy_issue_9530 belongs to §9.7 and is waiting on the same unclamped flex base as `min_width`.
+# Two of the remaining three are diagnosed below and one of them was a bug of its own, which is the
+# argument for reading downstream regression fixtures rather than filing them: they are the ones
+# nobody wrote a spec-shaped test for.
 #
-# ⚠ And one did, exactly as predicted: bevy_issue_10343_flex was the §4.5 descendant bug and went
-# green with it, with nothing written for it specifically. The four below did not.
+# ⚠ bevy_issue_8082 IS CLOSED and was nothing to do with any bucket here. `align-items: flex-start`
+# placed an item at its line's cross edge WITHOUT its own leading cross margin. The line's height is
+# measured with the margins in it, Align.Stretch beside it adds the margin and Align.FlexEnd
+# subtracts the trailing one — flex-start alone added only the relative inset. Four 50px boxes with
+# `margin: 10px` came out exactly 10 too high, each. One line in LayoutTree.Align, and
+# FlexibleLengthResolutionTests has it written out where no fixture is needed to see it.
+#
+# ⚠ bevy_issue_9530 is §9.7 ON THE SHRINK SIDE. A 300pt column holding a 20pt box and a flex-grow
+# box whose text needs 420: Chrome freezes the text box at its §4.5 minimum, sends the whole 200pt
+# overflow to the 20pt box, and lets the container overflow. Vixen shrinks both proportionally —
+# every height in the tree comes out near half — because the text box's floor never freezes it. Same
+# missing unclamped flex base as `min_width`; it will close with it.
+#
+# ⚠ bevy_issue_7976_{3,4}_level ARE A PERCENTAGE CYCLE IN THE FLEX-BASIS TRIAL LAYOUT, and they are
+# the one thing here that is not §9.7. A `min-width: 40px` item wrapping a `width: 100%` child should
+# be 40 wide: during the item's own intrinsic measurement its width is not yet known, so CSS Sizing
+# §5.2.1 makes the child's percentage behave as `auto` and the content comes to nothing. Vixen lays
+# the item out at the space it was OFFERED — 190 — so the child takes 100% of 190 and the item
+# reports 190 as its content width. MinContentContribution already implements exactly this rule for
+# the probe and says so in its own comment; ComputeFlexBasisForChild's trial layout does not. The
+# fix is to stop a FitContent/MaxContent measurement handing a definite size down for percentages to
+# resolve against, which is a change to how availability propagates and wants its own pass.
+# bevy_issue_7976_reduced passes, and the only difference is that it has no percentage child.
 bevy_issue_7976_3_level
 bevy_issue_7976_4_level
-bevy_issue_8082
 bevy_issue_9530
