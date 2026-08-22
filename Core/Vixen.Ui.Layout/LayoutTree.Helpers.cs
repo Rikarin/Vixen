@@ -332,6 +332,41 @@ public sealed partial class LayoutTree {
             StyleResolution.PaddingAndBorderForAxis(in styles[index], axis, direction, widthSize)
         );
 
+    /// <summary>Records a node's size on an axis, clamped and unclamped, from one raw measurement.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The pair is written together so that it cannot come apart.</b>
+    ///     <see cref="LayoutResult.UnclampedMeasuredDimensions" /> exists because CSS Flexbox §9.2's
+    ///     flex base size is the measurement <i>before</i> the item's own min and max, and a site
+    ///     that updated <see cref="LayoutResult.MeasuredDimensions" /> alone would leave a stale
+    ///     unclamped value standing beside a fresh clamped one.
+    /// </remarks>
+    void SetMeasuredDimension(
+        int index,
+        FlexDirection axis,
+        Direction direction,
+        float value,
+        float axisSize,
+        float widthSize,
+        bool axisSizeIsImposed = false
+    ) {
+        var dimension = (int) FlexAxis.DimensionOf(axis);
+        results[index].MeasuredDimensions[dimension] = BoundAxis(index, axis, direction, value, axisSize, widthSize, axisSizeIsImposed);
+        results[index].UnclampedMeasuredDimensions[dimension] =
+            MathF.Max(value, StyleResolution.PaddingAndBorderForAxis(in styles[index], axis, direction, widthSize));
+    }
+
+    /// <summary>Records a size on an axis whose two answers the caller already has.</summary>
+    /// <remarks>
+    ///     For the paths that do their own clamping — a block, grid or inline container's outer
+    ///     size, a scroll container's capped fit-content size, an inline span's union. Where no min
+    ///     or max was applied at all the two arguments are the same value, which is what those sites
+    ///     meant implicitly before the unclamped measurement existed.
+    /// </remarks>
+    void SetMeasuredDimension(int index, Dimension dimension, float bounded, float unbounded) {
+        results[index].MeasuredDimensions[(int) dimension] = bounded;
+        results[index].UnclampedMeasuredDimensions[(int) dimension] = unbounded;
+    }
+
     /// <summary>CSS Flexbox §9.2 step 9: a flex base size clamped by the item's USED min and max.</summary>
     /// <remarks>
     ///     <para>

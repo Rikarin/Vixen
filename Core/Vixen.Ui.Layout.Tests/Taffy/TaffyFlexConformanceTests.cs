@@ -26,7 +26,7 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         rather than written down. The largest bucket was the CSS Flexbox §4.5 automatic minimum
 ///         size for items that are containers, which is precisely the hole the layout README
 ///         predicted the Yoga corpus was leaving; it and the <c>aspect-ratio</c> bucket after it are
-///         closed, and <b>78 remain</b>.
+///         closed, and <b>66 remain</b>.
 ///     </para>
 /// </remarks>
 public class TaffyFlexConformanceTests {
@@ -59,8 +59,16 @@ public class TaffyFlexConformanceTests {
     // above this one IS the flex algorithm: CSS Flexbox §9.7's free space is built from the items'
     // flex base sizes while §9.3 breaks lines by their hypothetical ones, and one field was serving
     // both. 2 162 → 2 178. Nothing moved the other way, in this corpus or in Yoga's 534.
-    const int ExpectedPassing = 2178;
-    const int ExpectedFailing = 78;
+    //
+    // ⚠ Twelve more on agent/flex-basis-and-root, and it is the SAME SHAPE OF MISTAKE one level down:
+    // §9.2 makes the flex BASE size and the HYPOTHETICAL main size two numbers, and ComputedFlexBasis
+    // was read back out of an already-clamped measurement, so it was the second wearing the first's
+    // name. LayoutResult.UnclampedMeasuredDimensions separates them. 2 178 → 2 190. Nothing moved the
+    // other way here, in Yoga's 534, or in the block and grid corpora — but only after the same field
+    // was taken out of STEP 3's overflow test, which is §9.3's sum and not §9.7's; leaving it there
+    // cost four fixtures and one Yoga fixture. See KnownGaps.txt's §9.7 heading.
+    const int ExpectedPassing = 2190;
+    const int ExpectedFailing = 66;
     const int ExpectedUnsupported = 152;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();

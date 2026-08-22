@@ -117,4 +117,76 @@ public class FlexibleLengthResolutionTests {
         Assert.Equal(10f, tree.GetTop(tree.GetChild(root, 0)), Tolerance);
         Assert.Equal(10f, tree.GetTop(tree.GetChild(root, 1)), Tolerance);
     }
+
+    [Fact]
+    public void A_minimum_floors_the_hypothetical_size_and_leaves_the_flex_base_at_zero() {
+        // Taffy's `min_width`. Two `flex-grow: 1` items in a 100pt row, `min-width: 60px` on the
+        // first. Both flex BASE sizes are zero — §9.2 step 3E sizes the item under a max-content
+        // constraint and an empty div wants nothing — so the pool is the whole 100. The first pass
+        // splits it evenly, the first item violates its 60 minimum and freezes there, and the 40 that
+        // is left all goes to its sibling.
+        //
+        // ⚠ The base used to be read back out of the trial layout's MeasuredDimensions, which had
+        // already been through BoundAxis, so it came back as 60. With base == hypothetical §9.7
+        // step 2 can never freeze the item, and 80 and 20 is what no amount of redistribution can
+        // recover from. See LayoutResult.UnclampedMeasuredDimensions.
+        using var tree = new LayoutTree();
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(100f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(100f));
+
+        var floored = tree.CreateNode();
+        tree.SetFlexGrow(floored, 1f);
+        tree.SetMinDimension(floored, Dimension.Width, StyleLength.Points(60f));
+        tree.AddChild(root, floored);
+
+        var free = tree.CreateNode();
+        tree.SetFlexGrow(free, 1f);
+        tree.AddChild(root, free);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(60f, tree.GetWidth(floored), Tolerance);
+        Assert.Equal(40f, tree.GetWidth(free), Tolerance);
+    }
+
+    [Fact]
+    public void Whether_the_main_axis_overflows_is_asked_of_the_hypothetical_sizes_not_the_bases() {
+        // Taffy's `gap_column_gap_wrap_align_stretch` and Yoga's Column_gap_wrap_align_stretch. Five
+        // `flex-grow: 1; min-width: 60px` items in a 300pt wrapping row with a 5pt column gap: four
+        // fit on the first line and the fifth wraps, and `align-content: stretch` halves the 300pt
+        // height between the two lines.
+        //
+        // ⚠ THIS IS THE OTHER HALF OF THE TEST ABOVE and it fails in the opposite direction. STEP 3
+        // decides whether the main axis overflows, and it used to add up the items' flex BASES. That
+        // is §9.3's question and §9.3 asks it of the outer HYPOTHETICAL sizes; the two agreed only
+        // while the base was the clamped measurement. With real bases the sum is 20pt of gap, nothing
+        // appears to overflow, every item is stretched to the container's full height, and both lines
+        // come out 300 tall inside a 300pt box.
+        using var tree = new LayoutTree();
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetFlexWrap(root, Wrap.Wrap);
+        tree.SetAlignContent(root, Align.Stretch);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(300f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(300f));
+        tree.SetGap(root, Gutter.Column, StyleLength.Points(5f));
+
+        for (var i = 0; i < 5; i++) {
+            var item = tree.CreateNode();
+            tree.SetFlexGrow(item, 1f);
+            tree.SetMinDimension(item, Dimension.Width, StyleLength.Points(60f));
+            tree.AddChild(root, item);
+        }
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        for (var i = 0; i < 4; i++) {
+            Assert.Equal(150f, tree.GetHeight(tree.GetChild(root, i)), Tolerance);
+        }
+
+        Assert.Equal(150f, tree.GetTop(tree.GetChild(root, 4)), Tolerance);
+        Assert.Equal(300f, tree.GetWidth(tree.GetChild(root, 4)), Tolerance);
+    }
 }

@@ -49,6 +49,30 @@ public struct LayoutResult {
     /// <summary>The size the algorithm settled on, before it was written to <see cref="Dimensions" />.</summary>
     public DimensionValues MeasuredDimensions;
 
+    /// <summary>
+    ///     The same measurement, taken before the node's own <c>min-*</c> and <c>max-*</c> were
+    ///     applied to it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>CSS Flexbox §9.2 makes the flex base size and the hypothetical main size two
+    ///     different numbers, and only this one is the base.</b> Step 3E sizes the item under a
+    ///     max-content constraint and takes the result as the flex base size; step 4 then clamps
+    ///     that by the used min and max to get the hypothetical main size. Reading the base back out
+    ///     of <see cref="MeasuredDimensions" /> collapses the two, because that value has already
+    ///     been through <c>BoundAxis</c> — so an empty <c>min-width: 60px</c> item reports a base of
+    ///     60 where §9.2 says 0, its base and its hypothetical size agree, and §9.7 step 2 therefore
+    ///     never freezes it. Taffy's <c>min_width</c> is the arithmetic: two <c>flex-grow: 1</c>
+    ///     items in a 100pt row answered 80 and 20 rather than Chrome's 60 and 40.
+    ///     <para>
+    ///         ⚠ It carries the same padding-and-border floor <c>BoundAxis</c> applies and nothing
+    ///         else — a box cannot be smaller than its own edges, and that floor is not part of
+    ///         §9.2's clamp. Every write of <see cref="MeasuredDimensions" /> writes this beside it;
+    ///         a site that wrote one and not the other would hand the next flex basis a measurement
+    ///         from some earlier pass, which is worse than the clamped value it replaced.
+    ///     </para>
+    /// </remarks>
+    public DimensionValues UnclampedMeasuredDimensions;
+
     /// <summary>The resolved margin.</summary>
     public EdgeValues Margin;
 
@@ -270,6 +294,19 @@ public struct CachedMeasurement {
 
     /// <summary>The height that came back.</summary>
     public float ComputedHeight;
+
+    /// <summary>The width that came back, before this node's own min and max clamped it.</summary>
+    /// <remarks>
+    ///     Replayed for the reason the four below it are. See
+    ///     <see cref="LayoutResult.UnclampedMeasuredDimensions" />: a cache hit that restored only
+    ///     the clamped pair would leave the next flex basis reading whichever unclamped measurement
+    ///     the node's last full run happened to leave behind, which is a wrong answer that appears
+    ///     only incrementally.
+    /// </remarks>
+    public float UnclampedComputedWidth;
+
+    /// <inheritdoc cref="UnclampedComputedWidth" />
+    public float UnclampedComputedHeight;
 
     /// <summary>Whether this entry holds anything.</summary>
     public bool IsPopulated;

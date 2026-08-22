@@ -135,6 +135,32 @@ grid_align_items_baseline_child_margin_percent
 # Left here rather than deleted because the names begin with `grid`, but the fix is in
 # `LayoutTree.Layout`'s root entry and it is shared with block and flex. Whoever takes it should
 # expect to re-measure all four corpora, not this one.
+#
+# ── ⚠ THE CONFLICT THIS HEADING NAMES IS NOT THE CONFLICT. MEASURED ON agent/flex-basis-and-root. ──
+#
+# The premise was "that is Yoga's rule and what the 534 Yoga fixtures are written against", i.e. that
+# satisfying Chrome here costs Yoga's corpus. IT DOES NOT. Switching the root's indefinite-width
+# branch from `SizingMode.StretchFit` to `SizingMode.FitContent` — one line in `CalculateLayout` —
+# leaves **all 534 Yoga fixtures green**, leaves flex at 2 190 / 66 / 152 and block at 788 / 0 / 124
+# untouched, and moves grid 1 896 → 1 898. Not one fixture in any of the four corpora moves the wrong
+# way. Only 20 grid fixtures and no flex or block fixture give the root a definite viewport width at
+# all, which is why the corpora have so little to say about it.
+#
+# ⚠ WHAT IT COSTS IS VIXEN'S OWN SURFACE CONTRACT, and that is a product decision rather than a layout
+# one. Six tests in `Core/Vixen.Ui.Tests` fail, headed by
+# `UiDocumentTests.The_root_is_laid_out_against_the_surface_rather_than_against_nothing`: `UiDocument`
+# calls `CalculateLayout(surface.Root, surface.Width, surface.Height, …)`, and a surface root with no
+# stated width would stop filling its window and shrink to its content. That is the question — does a
+# Vixen surface root behave like a browser's shrink-to-fit box or like Yoga's stretched one — and it
+# is not a question a layout fix gets to answer on its own.
+#
+# ⚠ AND THE ONE LINE IS NOT THE WHOLE FIX EVEN IF THE ANSWER IS "CHROME". It closes 2 of these 8
+# fixtures, and the other 6 need two rules this heading never named:
+#   · `_smaller_than_min_content` stays at 60. `SizingMode.FitContent` caps at the available space
+#     and does not FLOOR at min-content, which is the other half of CSS Sizing §5.1's fit-content.
+#   · Both RTL halves then fail on placement instead of size: a shrink-to-fit root in a 400pt owner
+#     box is expected at x=240, and the root entry puts every root at x=0. A root narrower than its
+#     owner has a leftover to distribute, and in RTL it goes on the left.
 grid_available_space_greater_than_max_content
 grid_available_space_smaller_than_min_content
 
