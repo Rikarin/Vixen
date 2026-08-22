@@ -21,8 +21,8 @@ and **none fail** — `Taffy/BlockKnownGaps.txt` is down to its refusal list, an
 count is zero, so the next block regression names itself. See
 [the block section](#block-layout-and-what-a-second-algorithm-cost) below.
 
-**Grid landed with doc 43 § B2 and is the third.** 1 664 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 132 are refused, and 324 fail in the buckets `Taffy/GridKnownGaps.txt`
+**Grid landed with doc 43 § B2 and is the third.** 1 896 of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, 132 are refused, and 92 fail in the buckets `Taffy/GridKnownGaps.txt`
 names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
 sizing (§12), §11.8's baseline alignment and CSS Grid §9's containing block for an out-of-flow
 child are done, and `grid-template-areas` is **not implemented at all** — see
