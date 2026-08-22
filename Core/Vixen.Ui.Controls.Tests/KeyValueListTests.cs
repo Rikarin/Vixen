@@ -217,11 +217,18 @@ public class KeyValueListTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A key too long for its column is clipped, and there is no ellipsis to be had.</b>
-    ///     This renderer implements no <c>text-overflow</c> — the property resolves to nothing — so
-    ///     the defined behaviour is <c>overflow: hidden</c> cutting the glyphs at the column's edge.
+    ///     ⚠ <b>A key too long for its column is clipped, and this theme asks for no ellipsis.</b>
     ///     What the theme has to prevent is the other outcome: text that <i>wraps</i>, which turns
-    ///     one row of a uniform list into seven lines of one.
+    ///     one row of a uniform list into seven lines of one. <c>overflow: hidden</c> cutting the
+    ///     glyphs at the column's edge is the defined behaviour here.
+    ///     <para>
+    ///         ⚠ <b>The reason the assertion below is <c>Null</c> changed under it, and the wording
+    ///         used to say the engine had no <c>text-overflow</c> at all.</b> It has one now — doc
+    ///         43's F5 — so this row is clipped because <c>KeyValueList</c>'s theme does not set the
+    ///         property, which is a choice, and not because setting it would do nothing, which was a
+    ///         gap. Adding <c>text-overflow: ellipsis</c> to the key part would now give this list
+    ///         ellipsised keys; whether it should is a design question this test does not answer.
+    ///     </para>
     /// </summary>
     [Fact]
     public void A_long_key_is_clipped_rather_than_wrapped() {

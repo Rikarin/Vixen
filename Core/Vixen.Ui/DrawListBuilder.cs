@@ -576,10 +576,6 @@ public sealed class DrawListBuilder {
     ///     </para>
     /// </remarks>
     void EmitText(UiDocument document, UiElement element, DrawList into, float alpha) {
-        if (element.Block() is not { } block) {
-            return;
-        }
-
         var borderLeft = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Left);
         var paddingLeft = document.Layout.GetComputedPadding(element.LayoutNode, Edge.Left);
         var left = element.AbsoluteLeft + borderLeft + paddingLeft;
@@ -596,6 +592,15 @@ public sealed class DrawListBuilder {
             - paddingLeft
             - document.Layout.GetComputedBorder(element.LayoutNode, Edge.Right)
             - document.Layout.GetComputedPadding(element.LayoutNode, Edge.Right);
+
+        // ⚠ The drawn block, not `Block()`. Under `text-overflow: ellipsis` a line too wide for the
+        // content box comes back ending in one — and the content box is only known here, because
+        // `truncate` sets `white-space: nowrap` and the wrap pass is therefore given an infinite
+        // width on purpose. Everything else — the caret, hit testing, the measure function — goes on
+        // reading the untruncated `Block()`, which is what those want.
+        if (element.Ellipsized(content) is not { } block) {
+            return;
+        }
 
         var color = Fade(Color(element, textColor) ?? Color4.Black, alpha);
 

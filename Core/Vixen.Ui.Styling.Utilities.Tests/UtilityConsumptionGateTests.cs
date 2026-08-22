@@ -381,6 +381,30 @@ public class UtilityConsumptionGateTests {
     public void The_transition_scenes_can_observe_a_running_animation(string property, string value) =>
         Assert.Contains("paint", UtilityConsumptionProbe.Channels(property, value), StringComparer.Ordinal);
 
+    /// <summary>The <c>clipped</c> scene can see an ellipsis, which is the fifth of these controls.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Written before the <c>truncate</c> family was widened to emit the property, and
+    ///         that order is the point.</b> F5's whole finding is that the class name promises an
+    ///         ellipsis the engine cannot draw; emitting <c>text-overflow</c> first would have moved
+    ///         the promise from the class to the gate without moving it any closer to the screen. So
+    ///         the scene and the reader landed first, this test proved the arrangement observes them,
+    ///         and only then did the family change.
+    ///     </para>
+    ///     <para>
+    ///         <c>paint</c> and not <c>layout</c>, and the distinction is exactly the design: the line
+    ///         is truncated when it is <i>drawn</i>, not when it is measured, because
+    ///         <c>white-space: nowrap</c> hands the wrap pass an infinite width and the box only
+    ///         learns its real one after its parent has shrunk it. A <c>layout</c> assertion here
+    ///         would be asserting that the ellipsis changed the element's size, which would mean
+    ///         truncation had leaked into measurement and a truncated box had stopped reporting the
+    ///         width that made it get truncated.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_clipped_scene_can_observe_an_ellipsis() =>
+        Assert.Contains("paint", UtilityConsumptionProbe.Channels("text-overflow", "ellipsis"), StringComparer.Ordinal);
+
     /// <summary>What the run measured, printed whether it passed or not.</summary>
     /// <remarks>
     ///     ⚠ <b>The allow-list is only a deterrent if somebody sees it.</b> A silent pass is how a list
