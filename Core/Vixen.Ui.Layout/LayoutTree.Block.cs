@@ -43,9 +43,16 @@ namespace Vixen.Ui.Layout;
 ///         container's children are <i>not</i> all inline-level.</b> The dispatch asks
 ///         <c>EstablishesInlineFormattingContext</c> first: a block container whose every in-flow
 ///         child is inline-level flows them onto line boxes in <c>LayoutTree.Inline</c> instead.
-///         Everything else stacks here — including <b>mixed</b> content, which CSS 2.1 §9.2.1.1 would
-///         wrap in anonymous block boxes this store has nowhere to put. A text leaf inside a block
-///         container is still one block-level box the height of its measured text.
+///     </para>
+///     <para>
+///         ⚠ <b>And <i>mixed</i> content is this file's business, which it did not use to be.</b> CSS
+///         2.1 §9.2.1.1 wraps each run of a block container's inline-level children in an
+///         <i>anonymous block box</i>, so <c>&lt;div&gt;text&lt;p/&gt;more&lt;/div&gt;</c> stacks three
+///         block-level boxes of which two have no node behind them. That used to be recorded as needing
+///         somewhere to <i>put</i> a box, and it does not: an anonymous block box takes initial values
+///         for every non-inherited property, so it is never painted and never hit-tested and has no
+///         stored rectangle at all. <see cref="WalkBlockChildren" /> flows each run through the same
+///         <c>WalkInlineLines</c> the pure case uses, over a sub-range of the child list.
 ///     </para>
 /// </remarks>
 public sealed partial class LayoutTree {
@@ -249,6 +256,16 @@ public sealed partial class LayoutTree {
         results[index].BottomCollapsibleMargin = collapseWithLastChild ? walk.LastChildBottomMargin : ownBottomMargin;
         results[index].MarginsCollapseThrough = !preventedFromCollapsingThrough && walk.AllChildrenCollapseThrough;
 
+        // ⚠ A mixed container can have a line box of its own now, and §10.8.1 makes that its
+        // baseline. Only when the last in-flow thing in it was an anonymous block box, though: after
+        // a real block-level child the last line box in normal flow is somewhere inside that child,
+        // and this store has no way to reach it that is better than CSS Align §9.3's synthesis. NaN
+        // is the honest "I have no line boxes" that `CalculateBaseline` already knows how to read,
+        // and it is what `CalculateLayoutImpl` wrote on the way in.
+        if (!float.IsNaN(walk.TrailingLineBaseline)) {
+            results[index].InlineBaseline = walk.TrailingLineBaseline;
+        }
+
         if (!performLayout) {
             return;
         }
@@ -276,13 +293,55 @@ public sealed partial class LayoutTree {
     /// <param name="LastChildBottomMargin">The margin set still hanging off the bottom edge.</param>
     /// <param name="AllChildrenCollapseThrough">Whether nothing in flow was a barrier.</param>
     /// <param name="InFlowCount">How many children took part in the flow.</param>
+    /// <param name="TrailingLineBaseline">
+    ///     The baseline of the last line box in normal flow, when the container's last in-flow content
+    ///     was an anonymous block box; NaN otherwise.
+    /// </param>
     readonly record struct BlockWalk(
         float ContentHeight,
         CollapsibleMargin FirstChildTopMargin,
         CollapsibleMargin LastChildBottomMargin,
         bool AllChildrenCollapseThrough,
-        int InFlowCount
+        int InFlowCount,
+        float TrailingLineBaseline
     );
+
+    /// <summary>
+    ///     How far a run of inline-level children reaches, per CSS 2.1 §9.2.1.1.
+    /// </summary>
+    /// <param name="childIds">The container's children, in order-modified document order.</param>
+    /// <param name="start">The position of the run's first inline-level child.</param>
+    /// <returns>One past the run's last inline-level child.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A <c>display: none</c> or out-of-flow child does not end a run, and a run does not end
+    ///     <i>on</i> one either.</b> Neither is block-level content, so neither is what §9.2.1.1 breaks
+    ///     a run at — two inline-level boxes with a hidden sibling between them still share a line, and
+    ///     browsers agree. But a run that swallowed a trailing hidden box would also hand it the
+    ///     anonymous box's static position rather than the position after it, so the end is trimmed
+    ///     back to the last child that actually goes on a line.
+    /// </remarks>
+    int AnonymousRunEnd(ReadOnlySpan<int> childIds, int start) {
+        var end = start + 1;
+
+        for (var i = start + 1; i < childIds.Length; i++) {
+            var child = childIds[i];
+
+            if (!ParticipatesInLine(child)) {
+                continue;
+            }
+
+            if (!IsInlineLevel(styles[child].Display)) {
+                break;
+            }
+
+            end = i + 1;
+        }
+
+        return end;
+    }
+
+    /// <summary>Whether this child begins a run that §9.2.1.1 wraps in an anonymous block box.</summary>
+    bool StartsAnonymousRun(int child) => ParticipatesInLine(child) && IsInlineLevel(styles[child].Display);
 
     /// <summary>
     ///     Stacks the in-flow children down the block axis, collapsing margins as it goes.
@@ -302,6 +361,28 @@ public sealed partial class LayoutTree {
     ///         siblings at the *same* y — but the cursor the next child measures from stays where the
     ///         last real box ended. Advancing it is the mistake that makes
     ///         <c>margin_y_collapse_through_positive</c> come out 10 points too tall.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A run of inline-level children is one <i>anonymous block box</i> here, and it is
+    ///         the only box in this walk with no node behind it.</b> CSS 2.1 §9.2.1.1: a block
+    ///         container holding both kinds of child wraps each maximal run of the inline-level ones
+    ///         in an anonymous block box, so <c>&lt;div&gt;text&lt;p/&gt;more&lt;/div&gt;</c> is three
+    ///         block-level boxes and not three stacked children. What that costs here is a range
+    ///         rather than a store: an anonymous block box takes initial values for every
+    ///         non-inherited property, so it has no background, no border, no padding, no margin and
+    ///         no event target, is never painted and never hit-tested, and <b>needs no stored
+    ///         rectangle</b>. Its geometry is entirely "where the run starts" and "how tall the run
+    ///         came out", and the boxes it flows are written as offsets from the container that
+    ///         really is their parent — which is where <see cref="WalkInlineLines" /> already put
+    ///         them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And its zero margins are why margin collapsing needed nothing.</b> A box whose top
+    ///         and bottom margins are both zero contributes nothing to any adjoining set, so the run
+    ///         resolves whatever was running, advances by its own height, and starts a fresh empty
+    ///         set. It is never a collapse-<i>through</i> box either, however short it comes out: by
+    ///         construction it holds at least one line box, which is exactly what §8.3.1 means by
+    ///         something separating a box's two margins.
     ///     </para>
     /// </remarks>
     BlockWalk WalkBlockChildren(
@@ -326,8 +407,51 @@ public sealed partial class LayoutTree {
         var stillCollapsingWithFirst = true;
         var allCollapseThrough = true;
         var inFlowCount = 0;
+        var trailingLineBaseline = float.NaN;
 
-        foreach (var child in ChildIds(index)) {
+        var childIds = ChildIds(index);
+
+        for (var position = 0; position < childIds.Length; position++) {
+            var child = childIds[position];
+
+            // ── §9.2.1.1: one anonymous block box per run of inline-level children ──────────────
+            if (StartsAnonymousRun(child)) {
+                var runEnd = AnonymousRunEnd(childIds, position);
+
+                inFlowCount++;
+
+                // Its own margins are zero, so the only thing to spend is whatever was already
+                // running — and nothing of it escapes past the container's top edge either, which is
+                // what leaves `firstChildTopMargin` alone below.
+                var runAdvance = stillCollapsingWithFirst && collapseWithFirstChild ? 0f : active.Resolve();
+
+                var run = WalkInlineLines(
+                    index,
+                    position,
+                    runEnd,
+                    direction,
+                    outerWidth,
+                    innerWidth,
+                    innerHeightForPercentages,
+                    insetLeft,
+                    insetRight,
+                    committed + runAdvance,
+                    performLayout,
+                    currentDepth
+                );
+
+                allCollapseThrough = false;
+                stillCollapsingWithFirst = false;
+                committed = run.ContentHeight;
+                active = CollapsibleMargin.Zero;
+                staticPositionY = committed;
+                trailingLineBaseline = run.LastBaseline;
+
+                position = runEnd - 1;
+
+                continue;
+            }
+
             if (styles[child].Display == Display.None) {
                 if (performLayout) {
                     ZeroOutLayoutRecursively(child);
@@ -345,6 +469,10 @@ public sealed partial class LayoutTree {
             }
 
             inFlowCount++;
+
+            // A real block-level box after a run means the run's last line box is no longer the
+            // container's last one, and this store cannot see into the child to find the new one.
+            trailingLineBaseline = float.NaN;
 
             // Inline-relative, so one branch covers both directions; the physical mapping happens
             // once, where the position is written.
@@ -497,7 +625,14 @@ public sealed partial class LayoutTree {
         var trailing = collapseWithLastChild ? 0f : lastChildBottomMargin.Resolve();
         var contentHeight = MathF.Max(0f, committed + trailing + insetBottom);
 
-        return new BlockWalk(contentHeight, firstChildTopMargin, lastChildBottomMargin, allCollapseThrough, inFlowCount);
+        return new BlockWalk(
+            contentHeight,
+            firstChildTopMargin,
+            lastChildBottomMargin,
+            allCollapseThrough,
+            inFlowCount,
+            trailingLineBaseline
+        );
     }
 
     /// <summary>A block child's six specified lengths, after <c>aspect-ratio</c> has had its say.</summary>
@@ -593,6 +728,13 @@ public sealed partial class LayoutTree {
     ///     ⚠ Absolutely positioned children are skipped: they are out of flow, so they contribute
     ///     nothing to their container's intrinsic size (CSS Sizing §5.2.2). A child's own padding and
     ///     border floor its contribution even when its measured width came out smaller.
+    ///     <para>
+    ///         ⚠ <b>An anonymous block box contributes as one box and not as its members.</b> The
+    ///         maximum below is the right operator over block-level children and the wrong one over a
+    ///         run that shares a line: three 20-point boxes beside a block sibling want 60 and this
+    ///         loop would say 20, which is the run's <i>minimum</i> rather than its preferred width.
+    ///         So a run is handed to the inline probe, which is where §10.3.9's three numbers live.
+    ///     </para>
     /// </remarks>
     float DetermineBlockContentWidth(
         int index,
@@ -604,8 +746,34 @@ public sealed partial class LayoutTree {
         int currentDepth
     ) {
         var widest = 0f;
+        var childIds = ChildIds(index);
 
-        foreach (var child in ChildIds(index)) {
+        for (var position = 0; position < childIds.Length; position++) {
+            var child = childIds[position];
+
+            if (StartsAnonymousRun(child)) {
+                var runEnd = AnonymousRunEnd(childIds, position);
+
+                widest = MathF.Max(
+                    widest,
+                    DetermineInlineContentWidth(
+                        index,
+                        position,
+                        runEnd,
+                        direction,
+                        widthSizingMode,
+                        availableInnerWidth,
+                        ownerWidth,
+                        ownerHeight,
+                        currentDepth
+                    )
+                );
+
+                position = runEnd - 1;
+
+                continue;
+            }
+
             if (styles[child].Display == Display.None || styles[child].PositionType == PositionType.Absolute) {
                 continue;
             }

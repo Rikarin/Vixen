@@ -50,7 +50,14 @@ to boxes.
 
 ⚠ **A container flows rather than stacks when *every* one of its in-flow children is inline-level.**
 It is a question about the children, not about the container: the same `display: block` box stacks or
-flows depending entirely on what is in it. Mixed content stacks — see [Limits](#limits).
+flows depending entirely on what is in it.
+
+⚠ **Mixed content is not an exception to that, it is CSS 2.1 §9.2.1.1.** A container holding both
+kinds of child stacks — but each *run* of its inline-level children is wrapped in an **anonymous
+block box** and flowed onto lines inside it, so `text`, `<p>`, `more text` is three block-level
+boxes and the two runs each get their lines. An anonymous block box has no node and takes initial
+values for everything, so nothing is painted for it and nothing addresses it; all you see is that
+the boxes in a run share a line and the container is as tall as the runs made it.
 
 ## Using it
 
@@ -158,11 +165,12 @@ Fragmentation is one level deep: a `span` **inside** another `span` is still lai
 and so is one with an out-of-flow child. Both are limits of the walk rather than of the
 representation, and both are written up in `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
 
-Also absent, each with its reason in the same file: anonymous block boxes (so mixed content stacks),
-generated `::before`/`::after` boxes, the strut, `text-align`, `white-space`,
-`text-overflow: ellipsis`, `line-clamp` and bidirectional reordering. ⚠ The first two are the
-*opposite* direction from fragmentation — a box with no node behind it — and the fragment arena does
-not help with either.
+Also absent, each with its reason in the same file: generated `::before`/`::after` boxes, the strut,
+`text-align`, `white-space`, `text-overflow: ellipsis`, `line-clamp` and bidirectional reordering.
+⚠ A generated box is the *opposite* direction from fragmentation — a box with no node behind it —
+and the fragment arena does not help. Anonymous block boxes were the other half of that direction
+and have landed; what a generated box still needs is a **style** of its own, which is a second style
+slot rather than a second rectangle.
 
 ⚠ **Text is not re-wrapped here.** `Vixen.Ui`'s `TextLayout` already breaks a string into lines across
 a font-fallback chain and reaches the store the way every leaf does — as a measure function. This

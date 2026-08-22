@@ -20,11 +20,14 @@ namespace Vixen.Ui.Layout;
 ///         Fragmentation is one node to many boxes and lives here. An <b>anonymous</b> block box
 ///         (§9.2.1.1) and a <b>generated</b> box (<c>::before</c>, doc 43's A12) are the other
 ///         direction — a box with no node behind it — and neither is served by this file. The
-///         difference is not pedantry: an anonymous block box takes initial values for every
-///         non-inherited property, so it has no background, no border and no event target and never
-///         needs to be stored at all; a generated box has a style of its own, which is a second style
-///         slot rather than a second rectangle. Storing them as fragments of their originating node
-///         would give them that node's style, which is wrong for both. See <c>InlineKnownGaps.txt</c>.
+///         difference is not pedantry, and it is what let one of the two land without touching this
+///         arena at all: an anonymous block box takes initial values for every non-inherited
+///         property, so it has no background, no border and no event target and never needs to be
+///         stored — it is a line walk over a sub-range of a container's children, and it lives in
+///         <c>LayoutTree.Block</c> and <c>LayoutTree.Inline</c>. A generated box has a style of its
+///         own, which is a second style slot rather than a second rectangle, and is still open.
+///         Storing either as a fragment of its originating node would give it that node's style,
+///         which is wrong for both. See <c>InlineKnownGaps.txt</c>.
 ///     </para>
 /// </remarks>
 public sealed partial class LayoutTree {
