@@ -1,0 +1,94 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 — the first of the shared panel parts the panel ledger asks for. `Fact` was
+    hand-written six times (`TerrainModule`, `WaterModule`, `EditorWorlds`, `FontView`,
+    `TextureImportView`, `CompiledSceneView`), each of them four lines of element building, and two
+    of the six disagreed about where the value's text goes. This is the four lines, once.
+
+    ⚠ **A `UiElement` rather than a `Component`, so `into.Add<FactRow>()` is the C# spelling.** The
+    panels that build rows today build them into an element they are holding, and they are not
+    markup yet; a `Component` would have made this reachable only from a `.vxml`, which is the
+    "built but never fed" trade. `@inherits` costs nothing and lets the same type be
+    `<FactRow Name="…" Value="…" />` in a `@for` the day a panel is ported.
+
+    ⚠ **`ref` on both cells rather than an interpolation, and this is the whole reason the part had
+    to exist before the ports could.** `<fact-name>@Name</fact-name>` does not set `fact-name`'s
+    `Text`; it appends a `text` *child*, because a markup interpolation is `BuildContext.Text` and
+    there is no other spelling. An intrinsic tag's attributes are not property assignments either —
+    `BuildContext.Attribute` special-cases `class` and `style` and sends everything else to
+    `StyleTree.SetAttribute`, which is a selector attribute and not `UiElement.Text`. So markup on
+    its own cannot reproduce `row.Add("fact-name").Text = label`, and the row's own `ref` is the
+    only escape that survives being used inside a caller's `@for` (a `ref` in the loop body itself
+    is `VXML2010`).
+
+    ⚠ **`fact-value` keeps its `text` child and `fact-name` does not, because that is what the four
+    callers this replaces already do.** The asymmetry is not tidy and is deliberately preserved: a
+    `text` child is a box of its own and the parent's `Text` is not, so moving either one is a
+    layout change wearing a refactor's clothes.
+
+    ⚠ **The rules are still `AssetEditorTheme`'s**, which is a layering wrinkle rather than an
+    oversight: `fact-row`, `fact-name` and `fact-value` are declared there and overridden by
+    `frame-editor fact-name` in the same sheet, and moving them into `EditorTheme` would move them
+    up the load order and change which declaration wins. The tag names are the contract; the sheet
+    that styles them is `Vixen.Editor.App`'s composition, which installs both.
+-->
+@component FactRow
+@namespace Vixen.Editor.Ui
+@inherits Vixen.Ui.UiElement
+@tag fact-row
+@using Vixen.Ui
+
+<fact-name ref="@NameCell" />
+
+<fact-value>
+    <text ref="@ValueText" />
+</fact-value>
+
+@code {
+    string label = string.Empty;
+    string reading = string.Empty;
+
+    /// <summary>The cell holding the row's name.</summary>
+    public UiElement NameCell { get; private set; } = null!;
+
+    /// <summary>The text node inside the cell holding the row's value.</summary>
+    public UiElement ValueText { get; private set; } = null!;
+
+    /// <summary>What the row is called.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept in a field as well as on the element</b>, because a caller may assign it before
+    ///     the row is in a document. <c>Add&lt;FactRow&gt;()</c> cannot produce that order — the
+    ///     build runs from <c>OnCreated</c>, which <c>UiDocument.Adopt</c> has already called by the
+    ///     time <c>Add</c> returns — but <c>new FactRow()</c> can, and an assignment that threw
+    ///     there would be a trap for the one caller who wrote the two lines the other way round.
+    /// </remarks>
+    public string Name {
+        get => label;
+        set {
+            label = value;
+
+            if (NameCell is not null) {
+                NameCell.Text = value;
+            }
+        }
+    }
+
+    /// <summary>What it says.</summary>
+    public string Value {
+        get => reading;
+        set {
+            reading = value;
+
+            if (ValueText is not null) {
+                ValueText.Text = value;
+            }
+        }
+    }
+
+    partial void OnComposed() {
+        NameCell.Text = label;
+        ValueText.Text = reading;
+    }
+}
