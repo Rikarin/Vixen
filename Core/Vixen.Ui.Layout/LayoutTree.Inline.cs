@@ -18,36 +18,35 @@ namespace Vixen.Ui.Layout;
 ///         of adding a field.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The wall is that a <see cref="LayoutResult" /> holds exactly one rectangle, and a
-///         non-atomic inline box needs several.</b> Every algorithm here has so far preserved one
-///         invariant without ever having to say so: <b>one node produces one box</b>. A flex item is
-///         one rectangle, a block-level child is one rectangle, a grid item is one rectangle — so a
+///         ⚠ <b>The wall was that a <see cref="LayoutResult" /> holds exactly one rectangle, and a
+///         non-atomic inline box needs several.</b> Every algorithm here preserved one invariant
+///         without ever having to say so: <b>one node produces one box</b>. A flex item is one
+///         rectangle, a block-level child is one rectangle, a grid item is one rectangle — so a
 ///         node's geometry is four floats at a known offset, which is what makes the store five
 ///         parallel arrays and a hundred thousand nodes four allocations. CSS Display §2.2's
 ///         non-replaced <c>inline</c> box breaks it: a <c>span</c> crossing a line break is
-///         <i>fragmented</i> into one box per line, each with its own rectangle, with the horizontal
-///         border and padding drawn at the two real ends and not at the breaks. There is nowhere in
-///         this store to put the second fragment, and nowhere in <c>GetLeft</c>/<c>GetWidth</c> to
-///         return it from.
+///         <i>fragmented</i> into one box per line, with the horizontal border and padding drawn at
+///         the two real ends and not at the breaks.
 ///     </para>
 ///     <para>
-///         So this implements the half that fits the invariant and says where the line is:
-///         <b>atomic inlines</b>. An <c>inline-block</c>, an <c>inline-flex</c> and — for the case
-///         that dominates a user interface, a leaf holding text — an <c>inline</c> box are each
-///         <i>one</i> box that happens to sit on a line beside its siblings rather than taking one to
-///         itself. That is the whole of what the store can represent honestly, and it is also the
-///         whole of what doc 43 § F4 said was missing: the reason those keywords were left unmapped
-///         was that aliasing <c>inline-block</c> onto <see cref="Display.Block" /> gives it the whole
-///         line. It no longer does. See <c>InlineKnownGaps.txt</c> for the rest, one rule at a time.
+///         ⚠ <b>It is no longer a wall, and what moved is smaller than the invariant it relaxed.</b>
+///         <see cref="FragmentArena" /> is variable-length <i>output</i>, the same shape
+///         <see cref="TrackArena" /> is on the input side, and <see cref="LayoutResult" /> carries a
+///         handle into it. A count of zero still means "one box, and it is
+///         <see cref="LayoutResult.Position" />", so <c>GetLeft</c>, the rounding pass and the
+///         absolute walk were not touched — and when the count is non-zero, the node's own rectangle
+///         is the <b>union</b> of its fragments, which is precisely CSS 2.1 §10.1's containing block
+///         for an absolutely positioned descendant of an inline box. See
+///         <c>LayoutTree.Fragments.cs</c>, and <c>InlineKnownGaps.txt</c> for what is still scope.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What it did <i>not</i> cost is worth as much as what it did.</b> Grid needed a second
-///         arena because a track list is arbitrary-length input. A line box is not: a line is a
-///         <i>contiguous range of the existing child span</i>, exactly as a flex line is, and every
-///         item's size is already on the item. So the whole algorithm reads
-///         <c>results[child].MeasuredDimensions</c> as many times as it likes and allocates nothing —
-///         no arena, no scratch, no watermark. The one thing a line box needs that a flex line does
-///         not is a <i>baseline</i>, and that is the output above.
+///         ⚠ <b>The claim that a line box allocates nothing survived, and it was the thing most at
+///         risk.</b> A line used to be a <i>contiguous range of the existing child span</i>, exactly
+///         as a flex line is. It is now a contiguous range of a flattened stream, because a span is
+///         not <i>on</i> a line — its children are, and it contributes only its two edges. The
+///         stream and the fragment scratch are watermarked buffers reused across passes, so the
+///         steady state still allocates nothing with a span re-fragmenting every frame. See
+///         <c>LayoutTree.InlineItems.cs</c>.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>There is no second text wrapper here, deliberately.</b> <c>Vixen.Ui</c>'s
@@ -268,12 +267,136 @@ public sealed partial class LayoutTree {
         bool performLayout,
         int currentDepth
     ) {
-        // ── Sizing pass ─────────────────────────────────────────────────────────────────────────
-        // Every in-flow item is measured once, against the *container's* inner width rather than
-        // against whatever is left on its line. That is §10.3.9 as written — shrink-to-fit resolves
-        // against the containing block, not against the remaining space — and it is also what makes
-        // the result independent of the order lines happen to break in, so the measure cache can
-        // serve the second and third readings below.
+        // ⚠ The stream, and the watermark that makes it free. See LayoutTree.InlineItems.cs: a line
+        // is still a contiguous range, of this rather than of the child list, because a non-atomic
+        // inline box puts its *children* on the line and only its two edges.
+        var streamBase = inlineItemTop;
+        var fragmentBase = fragmentScratchTop;
+        BuildInlineItems(index, nested: false);
+        var streamEnd = inlineItemTop;
+
+        try {
+            // ── Sizing pass ─────────────────────────────────────────────────────────────────────
+            // Every in-flow item is measured once, against the *container's* inner width rather than
+            // against whatever is left on its line. That is §10.3.9 as written — shrink-to-fit
+            // resolves against the containing block, not against the remaining space — and it is also
+            // what makes the result independent of the order lines happen to break in, so the measure
+            // cache can serve the second and third readings below.
+            HideAndPositionOutOfFlow(index, direction, outerWidth, insetLeft, insetRight, insetTop, performLayout);
+
+            for (var i = streamBase; i < streamEnd; i++) {
+                // ⚠ Read fresh every iteration. Sizing an item runs a whole nested layout, which may
+                // build a stream of its own and grow the buffer out from under a cached span.
+                var item = inlineItems[i];
+
+                switch (item.Kind) {
+                    case InlineItemKind.Atomic:
+                        LayoutInlineItem(item.Node, direction, innerWidth, innerHeightForPercentages, performLayout, currentDepth);
+                        break;
+
+                    case InlineItemKind.Open:
+                        ResolveInlineBoxMetrics(item.Node, direction, innerWidth);
+                        HideAndPositionOutOfFlow(item.Node, direction, outerWidth, insetLeft, insetRight, insetTop, performLayout);
+                        break;
+                }
+            }
+
+            // ── Breaking and alignment ──────────────────────────────────────────────────────────
+            var y = insetTop;
+            var lastBaseline = float.NaN;
+            var cursor = streamBase;
+            var open = OpenInlineBox.None;
+
+            while (cursor < streamEnd) {
+                // Which items this line holds, and how wide it is.
+                var lineStart = cursor;
+                var lineWidth = 0f;
+                var placed = 0;
+
+                while (cursor < streamEnd) {
+                    var item = inlineItems[cursor];
+
+                    if (item.Kind != InlineItemKind.Atomic) {
+                        // An inline box's edge is not a break opportunity and cannot start a line on
+                        // its own; it just costs its border, padding and margin wherever it falls.
+                        lineWidth += item.Kind == InlineItemKind.Open
+                            ? InlineBoxStartEdge(item.Node, direction, innerWidth)
+                            : InlineBoxEndEdge(item.Node, direction, innerWidth);
+                        cursor++;
+
+                        continue;
+                    }
+
+                    var advance = InlineOuterWidth(item.Node, direction, innerWidth);
+
+                    // ⚠ A tolerance rather than a bare `>`, because the widths being compared are
+                    // sums of resolved percentages and a line that fits exactly is the commonest case
+                    // in a hand-written layout. Breaking `width: 50%` twice into two lines because the
+                    // two halves add to 100.00001 is the failure this prevents.
+                    if (placed > 0 && lineWidth + advance > innerWidth + 0.0001f) {
+                        break;
+                    }
+
+                    lineWidth += advance;
+                    placed++;
+                    cursor++;
+                }
+
+                if (placed == 0) {
+                    break;
+                }
+
+                var metrics = MeasureLine(lineStart, cursor, direction, innerWidth);
+
+                if (performLayout) {
+                    PlaceLine(
+                        lineStart,
+                        cursor,
+                        direction,
+                        outerWidth,
+                        innerWidth,
+                        insetLeft,
+                        insetRight,
+                        y,
+                        in metrics,
+                        ref open
+                    );
+                }
+
+                lastBaseline = y + metrics.Ascent;
+                y += metrics.Height;
+            }
+
+            return new InlineWalk(y, lastBaseline);
+        } finally {
+            // ⚠ Both watermarks, and the second one is belt and braces rather than reachable today:
+            // every Open in a well-formed stream has a Close that commits its fragments and rewinds
+            // the scratch. Restoring anyway costs an assignment and means a future producer that
+            // learns to abandon a box cannot turn that into an arena that grows every frame — which
+            // would surface as the zero-allocation gate going red a long way from the cause.
+            inlineItemTop = streamBase;
+            fragmentScratchTop = fragmentBase;
+        }
+    }
+
+    /// <summary>
+    ///     Clears what <c>display: none</c> left behind and records where an out-of-flow child would
+    ///     have sat.
+    /// </summary>
+    /// <remarks>
+    ///     Run for the container and again for every non-atomic inline box in it, because a flattened
+    ///     box's own children never reach the container's loop and a hidden grandchild that keeps last
+    ///     frame's rectangle is a box that goes on being painted after it was hidden.
+    /// </remarks>
+    void HideAndPositionOutOfFlow(
+        int index,
+        Direction direction,
+        float outerWidth,
+        float insetLeft,
+        float insetRight,
+        float insetTop,
+        bool performLayout
+    ) {
         foreach (var child in ChildIds(index)) {
             if (styles[child].Display == Display.None) {
                 if (performLayout) {
@@ -286,66 +409,8 @@ public sealed partial class LayoutTree {
             if (styles[child].PositionType == PositionType.Absolute) {
                 results[child].BlockStaticTop = insetTop;
                 results[child].BlockStaticLeft = direction == Direction.Ltr ? insetLeft : outerWidth - insetRight;
-                continue;
             }
-
-            LayoutInlineItem(child, direction, innerWidth, innerHeightForPercentages, performLayout, currentDepth);
         }
-
-        // ── Breaking and alignment ──────────────────────────────────────────────────────────────
-        var y = insetTop;
-        var lastBaseline = float.NaN;
-        var cursor = 0;
-
-        while (true) {
-            var children = ChildIds(index);
-            if (cursor >= children.Length) {
-                break;
-            }
-
-            // Which items this line holds, and how wide it is.
-            var lineStart = cursor;
-            var lineWidth = 0f;
-            var placed = 0;
-
-            while (cursor < children.Length) {
-                var child = children[cursor];
-
-                if (!ParticipatesInLine(child)) {
-                    cursor++;
-                    continue;
-                }
-
-                var advance = InlineOuterWidth(child, direction, innerWidth);
-
-                // ⚠ A tolerance rather than a bare `>`, because the widths being compared are sums of
-                // resolved percentages and a line that fits exactly is the commonest case in a
-                // hand-written layout. Breaking `width: 50%` twice into two lines because the two
-                // halves add to 100.00001 is the failure this prevents.
-                if (placed > 0 && lineWidth + advance > innerWidth + 0.0001f) {
-                    break;
-                }
-
-                lineWidth += advance;
-                placed++;
-                cursor++;
-            }
-
-            if (placed == 0) {
-                break;
-            }
-
-            var metrics = MeasureLine(index, lineStart, cursor, direction, innerWidth);
-
-            if (performLayout) {
-                PlaceLine(index, lineStart, cursor, direction, outerWidth, innerWidth, insetLeft, insetRight, y, in metrics);
-            }
-
-            lastBaseline = y + metrics.Ascent;
-            y += metrics.Height;
-        }
-
-        return new InlineWalk(y, lastBaseline);
     }
 
     /// <summary>Whether a child takes part in the line-breaking walk at all.</summary>
@@ -445,18 +510,21 @@ public sealed partial class LayoutTree {
     ///         as the boxes on it. See <c>InlineKnownGaps.txt</c>.
     ///     </para>
     /// </remarks>
-    LineMetrics MeasureLine(int index, int lineStart, int lineEnd, Direction direction, float innerWidth) {
+    LineMetrics MeasureLine(int lineStart, int lineEnd, Direction direction, float innerWidth) {
         var ascent = 0f;
         var descent = 0f;
 
-        // Round one: the baseline-aligned boxes fix where the baseline is.
-        var children = ChildIds(index);
+        // ⚠ Only the atomic entries. An inline box's own edges are horizontal — border, padding and
+        // margin on the left and right — and CSS 2.1 §10.8 is explicit that a non-replaced inline
+        // box's vertical padding and border do not affect the height of the line box it is on. So an
+        // Open or a Close contributes nothing here, which is the one place that rule shows up.
         for (var i = lineStart; i < lineEnd; i++) {
-            var child = children[i];
-            if (!ParticipatesInLine(child) || EffectiveVerticalAlign(child) != VerticalAlign.Baseline) {
+            var item = inlineItems[i];
+            if (item.Kind != InlineItemKind.Atomic || EffectiveVerticalAlign(item.Node) != VerticalAlign.Baseline) {
                 continue;
             }
 
+            var child = item.Node;
             var (top, bottom) = InlineVerticalMargins(child, direction, innerWidth);
             var height = results[child].MeasuredDimensions[(int) Dimension.Height];
             var baseline = InlineItemBaseline(child);
@@ -466,13 +534,13 @@ public sealed partial class LayoutTree {
         }
 
         // Round two: an edge-aligned box can only grow the side it is anchored to.
-        children = ChildIds(index);
         for (var i = lineStart; i < lineEnd; i++) {
-            var child = children[i];
-            if (!ParticipatesInLine(child)) {
+            var item = inlineItems[i];
+            if (item.Kind != InlineItemKind.Atomic) {
                 continue;
             }
 
+            var child = item.Node;
             var alignment = EffectiveVerticalAlign(child);
             if (alignment == VerticalAlign.Baseline) {
                 continue;
@@ -496,9 +564,24 @@ public sealed partial class LayoutTree {
         return new LineMetrics(ascent, ascent + descent);
     }
 
-    /// <summary>Positions every item on one line box.</summary>
+    /// <summary>Which non-atomic inline box the walk is currently inside, and where it started.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It outlives a line, which is the whole point of it.</b> A span that crosses a break is
+    ///     open at the end of one line and still open at the start of the next, and the two rectangles
+    ///     that come out of that are exactly the fragmentation this file exists to produce. One box at
+    ///     a time is enough because flattening is one level deep; see <c>IsNonAtomicInline</c>.
+    /// </remarks>
+    struct OpenInlineBox {
+        public int Node;
+        public float Start;
+        public int ScratchBase;
+        public bool IsFirstFragment;
+
+        public static OpenInlineBox None => new() { Node = -1 };
+    }
+
+    /// <summary>Positions every item on one line box, and closes off any fragment it ends.</summary>
     void PlaceLine(
-        int index,
         int lineStart,
         int lineEnd,
         Direction direction,
@@ -507,17 +590,45 @@ public sealed partial class LayoutTree {
         float insetLeft,
         float insetRight,
         float lineTop,
-        in LineMetrics metrics
+        in LineMetrics metrics,
+        ref OpenInlineBox open
     ) {
         var x = 0f;
-        var children = ChildIds(index);
 
         for (var i = lineStart; i < lineEnd; i++) {
-            var child = children[i];
-            if (!ParticipatesInLine(child)) {
+            var item = inlineItems[i];
+
+            if (item.Kind == InlineItemKind.Open) {
+                open.Node = item.Node;
+                open.Start = x;
+                open.ScratchBase = fragmentScratchTop;
+                open.IsFirstFragment = true;
+                x += InlineBoxStartEdge(item.Node, direction, innerWidth);
+
                 continue;
             }
 
+            if (item.Kind == InlineItemKind.Close) {
+                x += InlineBoxEndEdge(item.Node, direction, innerWidth);
+                EmitInlineBoxFragment(
+                    ref open,
+                    direction,
+                    outerWidth,
+                    insetLeft,
+                    insetRight,
+                    lineTop,
+                    metrics.Height,
+                    x,
+                    LayoutFragmentEnds.End
+                );
+
+                CommitInlineBoxFragments(item.Node, open.ScratchBase, direction, innerWidth);
+                open.Node = -1;
+
+                continue;
+            }
+
+            var child = item.Node;
             var (marginTop, marginBottom) = InlineVerticalMargins(child, direction, innerWidth);
             var marginStart = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
             var marginEnd = StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
@@ -548,6 +659,59 @@ public sealed partial class LayoutTree {
 
             x += width + marginStart + marginEnd;
         }
+
+        // ⚠ A box still open when the line ends is the fragmentation case itself: it gets a fragment
+        // that carries neither real end unless this was also its first, and it reopens at the content
+        // start of the next line. Nothing else in this store produces a second rectangle for a node.
+        if (open.Node >= 0) {
+            EmitInlineBoxFragment(
+                ref open,
+                direction,
+                outerWidth,
+                insetLeft,
+                insetRight,
+                lineTop,
+                metrics.Height,
+                x,
+                LayoutFragmentEnds.None
+            );
+
+            open.Start = 0f;
+            open.IsFirstFragment = false;
+        }
+    }
+
+    /// <summary>Records one fragment of the box currently open, in the container's coordinates.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Physical, and mirrored rather than negated, for the same reason the item placement
+    ///     above is.</b> The logical span the fragment covers is <c>[open.Start, xEnd)</c> measured
+    ///     from the line's start edge; in RTL the start edge is the right one, so the physical left is
+    ///     the container's right inset minus the far end of the span. Getting this by negating an
+    ///     offset instead puts a right-to-left span's background off the left of the container, which
+    ///     is a bug that only ever shows up in a locale nobody is testing in.
+    /// </remarks>
+    void EmitInlineBoxFragment(
+        ref OpenInlineBox open,
+        Direction direction,
+        float outerWidth,
+        float insetLeft,
+        float insetRight,
+        float lineTop,
+        float lineHeight,
+        float xEnd,
+        LayoutFragmentEnds closing
+    ) {
+        var ends = closing | (open.IsFirstFragment ? LayoutFragmentEnds.Start : LayoutFragmentEnds.None);
+
+        AppendFragmentScratch(
+            new LayoutFragment {
+                Left = direction == Direction.Ltr ? insetLeft + open.Start : outerWidth - insetRight - xEnd,
+                Top = lineTop,
+                Width = xEnd - open.Start,
+                Height = lineHeight,
+                Ends = ends
+            }
+        );
     }
 
     /// <summary>An item's resolved vertical margins.</summary>
@@ -629,47 +793,40 @@ public sealed partial class LayoutTree {
         var preferred = 0f;
         var minimum = 0f;
 
-        foreach (var child in ChildIds(index)) {
-            if (!ParticipatesInLine(child)) {
-                continue;
-            }
+        var streamBase = inlineItemTop;
+        BuildInlineItems(index, nested: false);
+        var streamEnd = inlineItemTop;
 
-            var margin = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, availableInnerWidth.OrZero());
+        try {
+            for (var i = streamBase; i < streamEnd; i++) {
+                var item = inlineItems[i];
 
-            // ⚠ A definitely-sized box contributes its own width and its contents are never consulted
-            // — CSS Sizing §5.2.2's distinction between a min-content *size* and a min-content
-            // *contribution*, which this engine learned late and expensively on the flex side. Asking
-            // an empty `width: 400px` box to measure itself under an undefined available width
-            // answers zero, because a box with no contents needs no room for them.
-            float width;
-            if (HasDefiniteLength(child, Dimension.Width, availableInnerWidth)) {
-                width = BoundAxis(
-                    child,
-                    FlexDirection.Row,
+                // ⚠ An inline box's horizontal edges are content width — a padded span is wider than
+                // what is in it — but they are not a *minimum*, because they cannot be alone on a
+                // line. Charging them to `preferred` and not to `minimum` is what keeps a heavily
+                // padded span from refusing to wrap.
+                if (item.Kind != InlineItemKind.Atomic) {
+                    preferred += item.Kind == InlineItemKind.Open
+                        ? InlineBoxStartEdge(item.Node, direction, availableInnerWidth.OrZero())
+                        : InlineBoxEndEdge(item.Node, direction, availableInnerWidth.OrZero());
+
+                    continue;
+                }
+
+                var width = InlineItemContentWidth(
+                    item.Node,
                     direction,
-                    ResolvedDimension(child, Dimension.Width, availableInnerWidth, availableInnerWidth, direction),
                     availableInnerWidth,
-                    availableInnerWidth
-                ) + margin;
-            } else {
-                CalculateLayoutInternal(
-                    child,
-                    float.NaN,
-                    float.NaN,
-                    direction,
-                    SizingMode.MaxContent,
-                    SizingMode.MaxContent,
                     ownerWidth,
                     ownerHeight,
-                    performLayout: false,
                     currentDepth
                 );
 
-                width = results[child].MeasuredDimensions[(int) Dimension.Width] + margin;
+                preferred += width;
+                minimum = MathF.Max(minimum, width);
             }
-
-            preferred += width;
-            minimum = MathF.Max(minimum, width);
+        } finally {
+            inlineItemTop = streamBase;
         }
 
         if (widthSizingMode == SizingMode.MaxContent || float.IsNaN(availableInnerWidth)) {
@@ -677,5 +834,48 @@ public sealed partial class LayoutTree {
         }
 
         return MathF.Max(minimum, MathF.Min(preferred, availableInnerWidth));
+    }
+
+    /// <summary>How wide one atomic item wants to be, for the container's shrink-to-fit.</summary>
+    float InlineItemContentWidth(
+        int child,
+        Direction direction,
+        float availableInnerWidth,
+        float ownerWidth,
+        float ownerHeight,
+        int currentDepth
+    ) {
+        var margin = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, availableInnerWidth.OrZero());
+
+        // ⚠ A definitely-sized box contributes its own width and its contents are never consulted
+        // — CSS Sizing §5.2.2's distinction between a min-content *size* and a min-content
+        // *contribution*, which this engine learned late and expensively on the flex side. Asking
+        // an empty `width: 400px` box to measure itself under an undefined available width
+        // answers zero, because a box with no contents needs no room for them.
+        if (HasDefiniteLength(child, Dimension.Width, availableInnerWidth)) {
+            return BoundAxis(
+                child,
+                FlexDirection.Row,
+                direction,
+                ResolvedDimension(child, Dimension.Width, availableInnerWidth, availableInnerWidth, direction),
+                availableInnerWidth,
+                availableInnerWidth
+            ) + margin;
+        }
+
+        CalculateLayoutInternal(
+            child,
+            float.NaN,
+            float.NaN,
+            direction,
+            SizingMode.MaxContent,
+            SizingMode.MaxContent,
+            ownerWidth,
+            ownerHeight,
+            performLayout: false,
+            currentDepth
+        );
+
+        return results[child].MeasuredDimensions[(int) Dimension.Width] + margin;
     }
 }

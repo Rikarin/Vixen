@@ -55,6 +55,11 @@ public sealed partial class LayoutTree : IDisposable {
     // template properties are handles into here. A tree with no grid in it never touches it.
     readonly TrackArena tracks = new();
 
+    // ⚠ The third arena, and the only one on the *output* side. A non-atomic inline box that crosses
+    // a line produces one box per line, which is the first time in this store that a node's geometry
+    // has not been a fixed four floats at a known offset. A tree with no such box never touches it.
+    readonly FragmentArena fragments = new();
+
     int capacity;
     int nodeCount;
     int[] freeSlots = [];
@@ -101,6 +106,12 @@ public sealed partial class LayoutTree : IDisposable {
         results[index].MinContentSizes[0] = float.NaN;
         results[index].MinContentSizes[1] = float.NaN;
         results[index].LastOwnerDirection = Direction.Inherit;
+
+        // ⚠ `default` above zeroed this, and zero is a perfectly valid arena offset. -1 is the "no
+        // block" sentinel every other handle in this store uses; a reused slot that kept the zero
+        // would read whichever fragments the previous occupant left behind.
+        results[index].FragmentOffset = -1;
+
         links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
         flags[index] = LayoutNodeState.Live | LayoutNodeState.Dirty | LayoutNodeState.HasNewLayout;
 
@@ -138,6 +149,7 @@ public sealed partial class LayoutTree : IDisposable {
         children.Free(links[index].ChildOffset, links[index].ChildCapacity);
         ReleaseGridTemplates(index);
         ReleaseOrderedBlock(index);
+        ReleaseFragments(index);
         links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
         flags[index] = LayoutNodeState.None;
 

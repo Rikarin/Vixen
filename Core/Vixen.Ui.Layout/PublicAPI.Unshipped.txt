@@ -151,6 +151,12 @@ Vixen.Ui.Layout.Justify.Justify() -> void
 Vixen.Ui.Layout.Justify.SpaceAround = 4 -> Vixen.Ui.Layout.Justify
 Vixen.Ui.Layout.Justify.SpaceBetween = 3 -> Vixen.Ui.Layout.Justify
 Vixen.Ui.Layout.Justify.SpaceEvenly = 5 -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.LayoutFragmentEnds -> enum : byte
+Vixen.Ui.Layout.LayoutFragmentEnds.Both = Vixen.Ui.Layout.LayoutFragmentEnds.Start | Vixen.Ui.Layout.LayoutFragmentEnds.End -> Vixen.Ui.Layout.LayoutFragmentEnds
+Vixen.Ui.Layout.LayoutFragmentEnds.End = 2 -> Vixen.Ui.Layout.LayoutFragmentEnds
+Vixen.Ui.Layout.LayoutFragmentEnds.LayoutFragmentEnds() -> void
+Vixen.Ui.Layout.LayoutFragmentEnds.None = 0 -> Vixen.Ui.Layout.LayoutFragmentEnds
+Vixen.Ui.Layout.LayoutFragmentEnds.Start = 1 -> Vixen.Ui.Layout.LayoutFragmentEnds
 Vixen.Ui.Layout.LayoutLimits -> static class
 Vixen.Ui.Layout.LayoutLinks -> struct
 Vixen.Ui.Layout.LayoutLinks.ChildCapacity -> int
@@ -263,6 +269,8 @@ Vixen.Ui.Layout.LayoutTree.GetComputedDirection(Vixen.Ui.Layout.LayoutNodeId nod
 Vixen.Ui.Layout.LayoutTree.GetComputedMargin(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
 Vixen.Ui.Layout.LayoutTree.GetComputedPadding(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
 Vixen.Ui.Layout.LayoutTree.GetContext(Vixen.Ui.Layout.LayoutNodeId node) -> object?
+Vixen.Ui.Layout.LayoutTree.GetFragment(Vixen.Ui.Layout.LayoutNodeId node, int fragment) -> (float Left, float Top, float Width, float Height, Vixen.Ui.Layout.LayoutFragmentEnds Ends)
+Vixen.Ui.Layout.LayoutTree.GetFragmentCount(Vixen.Ui.Layout.LayoutNodeId node) -> int
 Vixen.Ui.Layout.LayoutTree.GetGridAutoColumns(Vixen.Ui.Layout.LayoutNodeId node) -> System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize>
 Vixen.Ui.Layout.LayoutTree.GetGridAutoRows(Vixen.Ui.Layout.LayoutNodeId node) -> System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize>
 Vixen.Ui.Layout.LayoutTree.GetGridTemplateColumns(Vixen.Ui.Layout.LayoutNodeId node) -> System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize>
