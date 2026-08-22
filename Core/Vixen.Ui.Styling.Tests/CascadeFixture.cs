@@ -21,6 +21,36 @@ sealed class CascadeFixture {
     public void Load(string css, StyleOrigin origin = StyleOrigin.Author, MediaContext media = default) =>
         Engine.Load(css, origin, media);
 
+    /// <summary>Makes an element a query container of a given size, as a layout pass would.</summary>
+    /// <param name="element">The element that has the <c>container-type</c>.</param>
+    /// <param name="width">Its measured inline size.</param>
+    /// <param name="height">Its measured block size.</param>
+    /// <param name="name">Its <c>container-name</c>, or empty.</param>
+    /// <param name="kind">Which axes it may be asked about.</param>
+    /// <remarks>
+    ///     ⚠ <b>This is the wiring doc 43 § D3 still owes, written out by hand.</b> Nothing in
+    ///     <c>UiDocument</c> calls <see cref="ContainerScopes.Enter" /> yet, so a test that built a
+    ///     document and expected <c>@container</c> to answer would be asserting against a feature no
+    ///     layout feeds — and would pass for the wrong reason the day somebody wired it up wrongly.
+    ///     Driving the sizes here asserts the cascade half on its own terms: given a box of this size,
+    ///     does the query resolve to this value.
+    /// </remarks>
+    public void Contain(
+        StyleNodeId element,
+        float width,
+        float height = 0f,
+        string name = "",
+        ContainerKind kind = ContainerKind.InlineSize
+    ) {
+        var scope = Engine.ContainerScopes.Enter(
+            Tree.GetContainerScope(element),
+            name,
+            new ContainerBox(width, height, kind)
+        );
+
+        Tree.SetContainerScope(element, scope);
+    }
+
     /// <summary>Resolves an element and returns one property's value as text.</summary>
     /// <param name="element">The element.</param>
     /// <param name="property">The property name.</param>

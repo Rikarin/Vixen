@@ -354,7 +354,7 @@ public class PerSurfaceMediaTests {
         var rules = document.Styles.Rules;
         var scopes = document.Styles.Scopes;
 
-        Assert.True(rules.SharingIsSound(scopes.VerdictsOf(narrow.Scope)));
-        Assert.False(rules.SharingIsSound(scopes.VerdictsOf(wide.Scope)));
+        Assert.True(rules.SharingIsSound(scopes.VerdictsOf(narrow.Scope), default));
+        Assert.False(rules.SharingIsSound(scopes.VerdictsOf(wide.Scope), default));
     }
 }

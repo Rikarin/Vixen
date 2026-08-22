@@ -41,9 +41,19 @@ public class StyleDiagnosticDrainTests {
     /// <summary>The sabotage test: an at-rule nothing understands must not pass in silence.</summary>
     /// <remarks>
     ///     ⚠ <b><c>@apply</c> is one member of this class and the cheapest one to reason about.</b>
-    ///     The others are every at-rule anyone will ever mistype — <c>@suports</c>, <c>@meida</c>,
-    ///     a <c>@container</c> query Vixen has not implemented — and all of them used to be dropped
-    ///     by <c>StyleSheetLoader.LoadUnknown</c> with a well-worded diagnostic that reached nobody.
+    ///     The others are every at-rule anyone will ever mistype — <c>@suports</c>, <c>@meida</c> —
+    ///     and all of them used to be dropped by <c>StyleSheetLoader.LoadUnknown</c> with a
+    ///     well-worded diagnostic that reached nobody.
+    ///     <para>
+    ///         ⚠ <b>This list used to name <c>@container</c> and that was wrong, in the direction this
+    ///         whole file exists to catch.</b> ExCSS 4.3.2 <i>does</i> know <c>@container</c> — it
+    ///         hands back a <c>ContainerRule</c> with the name and condition already split out, not a
+    ///         <c>RuleType.Unknown</c> — so it never went through <c>LoadUnknown</c>, never produced
+    ///         the diagnostic this remark credited it with, and fell out of the loader's <c>switch</c>
+    ///         through <c>default</c> in silence. It is implemented now
+    ///         (<c>Vixen.Ui.Styling.Tests.ContainerQueryTests</c>); the point worth keeping is that a
+    ///         remark naming a case no test covered was wrong for a release.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void An_at_rule_vixen_does_not_understand_reaches_the_log() {

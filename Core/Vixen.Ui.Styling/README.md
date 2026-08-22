@@ -418,12 +418,48 @@ as `rgb(255, 0, 0)`; `color: var(--c)` with `--c: red` reaches it as `red`, beca
 containing a `var()` is left verbatim. Both are correct and they are not the same string, so every
 value parser downstream has to accept both forms. Cheap to know now.
 
+## Container queries
+
+`@container` loads, nests, and answers per element. A rule inside one carries a
+`ContainerConditions` group id alongside its `@media` group, and the cascade tests both — one integer
+each, before the matcher, next to each other.
+
+```css
+@container card (min-width: 400px) { .row { flex-direction: row } }
+```
+
+The three pieces: **`ContainerConditions`** is the conjunction tree, the same shape as
+`MediaConditions` but carrying a **name** as well as a condition, because the name selects *which
+box* the condition is asked of. **`ContainerScopes`** holds the chains and caches a verdict vector per
+chain. **`ContainerQuery`** evaluates the size features — `width`, `height`, `inline-size`,
+`block-size`, `aspect-ratio`, `orientation`, with `min-`/`max-` — and **refuses everything else**:
+`@container (prefers-color-scheme: dark)` is a diagnostic, not a query silently answered off whatever
+surface the element is on.
+
+Two rules that are easy to get wrong and are each pinned by a test:
+
+- **A container does not answer its own query.** CSS Containment 3 § 5.1 scopes the query to the
+  elements *inside* the box, so `StyleTree` carries two slots — what an element asks, and what it
+  offers its children. Merging them makes a query match slightly too often, which is invisible to
+  every test of the ordinary case.
+- **A named query does not fall back to an unnamed container.** `@container card (…)` with no `card`
+  above it matches nothing. Relaxing this was the one sabotage the first version of the test file did
+  not catch.
+
+⚠ **The cascade answers; nothing measures yet.** No caller outside the tests enters a scope, so in a
+live document every element sits at `ContainerScopes.Root`, where no query has an eligible container
+and all of them are false. The wiring — reading `container-type`, entering a scope per container from
+its measured box after `Arrange()`, re-assigning the subtree — is owed, and so are the `@sm:`
+variants, which are deliberately unregistered until something can observe them. See
+[doc 43](../../docs/plan/43-web-styling-parity.md) § D3, which also records why containment is free
+for a normal-flow block and is not free for a box sized by its contents.
+
 ## Deliberately not supported
 
-`:has()` and container queries — [doc 09](../../docs/plan/09-ui-framework.md) marks both P2 and gives
-the reason: both are expensive to match *incrementally*, which is the only way a UI can afford to
-match at all. Anything else Vixen does not understand is dropped with a diagnostic naming the
-selector, never approximated. A rule that silently matches more than it says produces a UI that is
+`:has()` — [doc 09](../../docs/plan/09-ui-framework.md) marks it P2 and gives the reason: it is
+expensive to match *incrementally*, which is the only way a UI can afford to match at all. (Doc 09
+lists container queries beside it; that entry is now stale — see the section above.) Anything else
+Vixen does not understand is dropped with a diagnostic naming the selector, never approximated. A rule that silently matches more than it says produces a UI that is
 wrong everywhere nobody looked; a rule that does not load produces a message.
 
 ⚠ **Pseudo-elements — `::before`, `::after` and the rest — are refused, and this is the one place the

@@ -67,21 +67,25 @@ public sealed class StyleSheetLoader {
     /// <param name="keyframes">The table <c>@keyframes</c> rules load into.</param>
     /// <param name="compiler">The selector compiler.</param>
     /// <param name="conditions">The table <c>@media</c> groups are registered in.</param>
+    /// <param name="containers">The table <c>@container</c> groups are registered in.</param>
     public StyleSheetLoader(
         StyleRuleSet rules,
         KeyframesTable keyframes,
         SelectorCompiler compiler,
-        MediaConditions conditions
+        MediaConditions conditions,
+        ContainerConditions containers
     ) {
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(keyframes);
         ArgumentNullException.ThrowIfNull(compiler);
         ArgumentNullException.ThrowIfNull(conditions);
+        ArgumentNullException.ThrowIfNull(containers);
 
         this.rules = rules;
         this.keyframes = keyframes;
         this.compiler = compiler;
         Conditions = conditions;
+        Containers = containers;
     }
 
     /// <summary>Everything that could not be loaded, and why.</summary>
@@ -95,6 +99,10 @@ public sealed class StyleSheetLoader {
     ///     it on every reload.
     /// </remarks>
     public MediaConditions Conditions { get; }
+
+    /// <summary>The <c>@container</c> groups this loader has registered.</summary>
+    /// <remarks>Owned by <see cref="StyleEngine" /> for the reason <see cref="Conditions" /> is.</remarks>
+    public ContainerConditions Containers { get; }
 
     /// <summary>Loads a stylesheet.</summary>
     /// <param name="css">Its text.</param>
@@ -110,26 +118,50 @@ public sealed class StyleSheetLoader {
     /// </param>
     public void Load(string css, StyleOrigin origin, MediaContext? media) {
         ArgumentNullException.ThrowIfNull(css);
-        LoadInto(Parser.Parse(css), origin, media, CascadeLayers.Unlayered, MediaConditions.Unconditional);
+        LoadInto(
+            Parser.Parse(css),
+            origin,
+            media,
+            CascadeLayers.Unlayered,
+            MediaConditions.Unconditional,
+            ContainerConditions.Unconditional
+        );
     }
 
-    void LoadInto(IStylesheetNode node, StyleOrigin origin, MediaContext? media, int layer, int conditions) {
+    void LoadInto(
+        IStylesheetNode node,
+        StyleOrigin origin,
+        MediaContext? media,
+        int layer,
+        int conditions,
+        int containers
+    ) {
         foreach (var child in node.Children) {
             switch (child) {
                 case IStyleRule style:
-                    AddRule(style, origin, layer, conditions);
+                    AddRule(style, origin, layer, conditions, containers);
                     break;
 
                 case IMediaRule query:
-                    LoadMedia(query, origin, media, layer, conditions);
+                    LoadMedia(query, origin, media, layer, conditions, containers);
                     break;
 
                 case IKeyframesRule frames:
                     LoadKeyframes(frames);
                     break;
 
+                // ⚠ Before the `Unknown` arm and by rule type rather than by text, because ExCSS
+                // 4.3.2 does know this one. `@container` arrives as a first-class `ContainerRule`
+                // with its name and condition already split out — so it never reached `LoadUnknown`,
+                // never produced the "Vixen does not understand this rule" diagnostic that
+                // `StyleDiagnosticDrainTests` and the stylesheet-diagnostics guide both said it
+                // produced, and fell through this switch's `default` arm in complete silence.
+                case IContainerRule container:
+                    LoadContainer(container, origin, media, layer, conditions, containers);
+                    break;
+
                 case IRule rule when rule.Type == RuleType.Unknown:
-                    LoadUnknown(rule, origin, media, layer, conditions);
+                    LoadUnknown(rule, origin, media, layer, conditions, containers);
                     break;
 
                 default:
@@ -163,7 +195,14 @@ public sealed class StyleSheetLoader {
         }
     }
 
-    void LoadMedia(IMediaRule query, StyleOrigin origin, MediaContext? media, int layer, int conditions) {
+    void LoadMedia(
+        IMediaRule query,
+        StyleOrigin origin,
+        MediaContext? media,
+        int layer,
+        int conditions,
+        int containers
+    ) {
         // ⚠ Readability is decided here whichever mode this is in, and it is decided against the
         // *text*. Every refusal `MediaQuery.TryEvaluate` can produce names a feature, a value or a
         // length it could not parse; not one of them reads the context it was handed. So a condition
@@ -179,7 +218,7 @@ public sealed class StyleSheetLoader {
             // The fixed-context form: one surface was named, so the question has one answer and the
             // block is kept or dropped here exactly as it always was.
             if (applies) {
-                LoadInto(query, origin, media, layer, conditions);
+                LoadInto(query, origin, media, layer, conditions, containers);
             }
 
             return;
@@ -189,10 +228,73 @@ public sealed class StyleSheetLoader {
         // group: `@layer x { @media … { … } }` and `@media … { @layer x { … } }` mean the same thing
         // and both have to reach the same place, and a nested `@media` conjoins with this one by
         // registering inside it.
-        LoadInto(query, origin, media, layer, Conditions.Register(conditions, query.ConditionText));
+        LoadInto(
+            query,
+            origin,
+            media,
+            layer,
+            Conditions.Register(conditions, query.ConditionText),
+            containers
+        );
     }
 
-    void LoadUnknown(IRule rule, StyleOrigin origin, MediaContext? media, int layer, int conditions) {
+    /// <summary>Loads a <c>@container</c> block, registering the group its rules are inside.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Always loaded, whatever any container currently measures, and for a stronger
+    ///         reason than <c>@media</c>'s.</b> A media verdict is at least constant across a
+    ///         document at one instant; a container verdict differs between two panels showing the
+    ///         same rules at the same moment, so there is no size at which the block could be decided
+    ///         at load even in principle. The rules carry their group and the cascade asks per
+    ///         element.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The condition is checked for readability here and against no box.</b> Every
+    ///         refusal <see cref="ContainerQuery.TryEvaluate" /> can produce names a feature or a
+    ///         length it could not parse and none of them reads the box — so an unreadable condition
+    ///         is unreadable everywhere, and the diagnostic belongs at load rather than once per
+    ///         container per frame in a list nothing drains.
+    ///     </para>
+    ///     <para>
+    ///         Nesting is free and it nests through <c>@media</c> in either order: the two tables are
+    ///         independent, so this carries the media group past untouched exactly as
+    ///         <see cref="LoadMedia" /> carries the container group.
+    ///     </para>
+    /// </remarks>
+    void LoadContainer(
+        IContainerRule rule,
+        StyleOrigin origin,
+        MediaContext? media,
+        int layer,
+        int conditions,
+        int containers
+    ) {
+        var name = rule.Name ?? string.Empty;
+        var label = name.Length == 0 ? "@container" : $"@container {name}";
+
+        if (!ContainerQuery.TryEvaluate(rule.ConditionText, default, out _, out var reason)) {
+            diagnostics.Add(new SelectorDiagnostic($"{label} {rule.ConditionText}", reason!));
+            return;
+        }
+
+        LoadInto(
+            rule,
+            origin,
+            media,
+            layer,
+            conditions,
+            Containers.Register(containers, name, rule.ConditionText)
+        );
+    }
+
+    void LoadUnknown(
+        IRule rule,
+        StyleOrigin origin,
+        MediaContext? media,
+        int layer,
+        int conditions,
+        int containers
+    ) {
         var text = rule.StylesheetText?.Text ?? rule.ToCss();
 
         if (!LayerRuleParser.IsLayerRule(text)) {
@@ -228,13 +330,13 @@ public sealed class StyleSheetLoader {
             ? rules.Layers.Declare(Qualify(parsed.Names[0], layer))
             : rules.Layers.Declare($"\0anonymous-{rules.Layers.Count}");
 
-        LoadInto(Parser.Parse(parsed.Body), origin, media, inner, conditions);
+        LoadInto(Parser.Parse(parsed.Body), origin, media, inner, conditions, containers);
     }
 
     string Qualify(string name, int outer) =>
         outer == CascadeLayers.Unlayered ? name : $"{rules.Layers.NameOf(outer)}.{name}";
 
-    void AddRule(IStyleRule style, StyleOrigin origin, int layer, int conditions) {
+    void AddRule(IStyleRule style, StyleOrigin origin, int layer, int conditions, int containers) {
         selectorScratch.Clear();
         compiler.Compile(style.Selector, selectorScratch);
 
@@ -252,7 +354,14 @@ public sealed class StyleSheetLoader {
         // the cascade has to see them as several: `#a, .b { … }` beats `.c` for one element and
         // loses to it for another.
         foreach (var selector in selectorScratch) {
-            rules.Add(selector, CollectionsMarshal.AsSpan(declarationScratch), origin, layer, conditions);
+            rules.Add(
+                selector,
+                CollectionsMarshal.AsSpan(declarationScratch),
+                origin,
+                layer,
+                conditions,
+                containers
+            );
         }
     }
 

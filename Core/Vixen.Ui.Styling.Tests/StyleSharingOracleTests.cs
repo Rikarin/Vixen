@@ -50,7 +50,12 @@ public class StyleSharingOracleTests {
                 // Without this the property is vacuous: one position-dependent rule anywhere in the
                 // generated stylesheet turns sharing off, and then both sides are the same code
                 // path agreeing with itself.
-                Assert.True(shared.Engine.Rules.SharingIsSound(shared.Engine.Scopes.VerdictsOf(MediaScopes.Document)));
+                Assert.True(
+                    shared.Engine.Rules.SharingIsSound(
+                        shared.Engine.Scopes.VerdictsOf(MediaScopes.Document),
+                        shared.Engine.ContainerScopes.VerdictsOf(ContainerScopes.Root)
+                    )
+                );
                 Interlocked.Add(ref hits, shared.Engine.Resolver.SharingHits);
 
                 for (var i = 0; i < withSharing.Length; i++) {
@@ -81,13 +86,24 @@ public class StyleSharingOracleTests {
             var fixture = new CascadeFixture();
             fixture.Load(css);
 
-            Assert.False(fixture.Engine.Rules.SharingIsSound(fixture.Engine.Scopes.VerdictsOf(MediaScopes.Document)), css);
+            Assert.False(
+                fixture.Engine.Rules.SharingIsSound(
+                    fixture.Engine.Scopes.VerdictsOf(MediaScopes.Document),
+                    fixture.Engine.ContainerScopes.VerdictsOf(ContainerScopes.Root)
+                ),
+                css
+            );
         }
 
         var ordinary = new CascadeFixture();
         ordinary.Load(".a .b > .c { color: fine } #x:hover { color: also-fine }");
 
-        Assert.True(ordinary.Engine.Rules.SharingIsSound(ordinary.Engine.Scopes.VerdictsOf(MediaScopes.Document)));
+        Assert.True(
+            ordinary.Engine.Rules.SharingIsSound(
+                ordinary.Engine.Scopes.VerdictsOf(MediaScopes.Document),
+                ordinary.Engine.ContainerScopes.VerdictsOf(ContainerScopes.Root)
+            )
+        );
     }
 
     [Fact]

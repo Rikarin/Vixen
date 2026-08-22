@@ -50,6 +50,7 @@ public sealed class StyleEngine {
         // reload for the same reason `Tree` does: a scope id is written on an element, and the
         // surface it names is still that window after a hot edit of a stylesheet.
         Scopes = new MediaScopes(Conditions);
+        ContainerScopes = new ContainerScopes(Containers);
         Build();
     }
 
@@ -130,6 +131,22 @@ public sealed class StyleEngine {
     ///     it is in.
     /// </remarks>
     public MediaScopes Scopes { get; }
+
+    /// <summary>The <c>@container</c> groups the loaded sheets declared.</summary>
+    /// <remarks>Owned here for the reason <see cref="Conditions" /> is, and cleared by a reload.</remarks>
+    public ContainerConditions Containers { get; } = new();
+
+    /// <summary>Every container chain the document has, and what <c>@container</c> answers in each.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of container queries that is built, and it answers nothing until something
+    ///     measures a box and calls <see cref="ContainerScopes.Enter" />.</b> The cascade reads an
+    ///     element's container scope the way it reads its surface scope, and a document whose layout
+    ///     has never entered a container leaves every element at <see cref="ContainerScopes.Root" /> —
+    ///     where no query has an eligible container and every one of them is therefore false. That is
+    ///     the conservative answer rather than a silent one only because the wiring is named: see
+    ///     doc 43 § D3.
+    /// </remarks>
+    public ContainerScopes ContainerScopes { get; }
 
     /// <summary>What <c>@media</c> is evaluated against for sheets that did not name a context.</summary>
     /// <remarks>
@@ -327,8 +344,14 @@ public sealed class StyleEngine {
         // the revision counter is what tells a cached verdict vector it is looking at a new one.
         Conditions.Reset();
 
-        Loader = new StyleSheetLoader(Rules, Keyframes, Compiler, Conditions);
-        Resolver = new StyleResolver(Rules, InlineStyles, Matcher, Interning, Scopes);
+        // ⚠ The groups only, never `ContainerScopes`. A scope id is written on an element the way a
+        // surface's is, and a hot edit of a stylesheet does not move the box an element is inside —
+        // so resetting the scopes here would leave every element pointing at a chain that no longer
+        // exists and quietly answering every query false until the next layout pass.
+        Containers.Reset();
+
+        Loader = new StyleSheetLoader(Rules, Keyframes, Compiler, Conditions, Containers);
+        Resolver = new StyleResolver(Rules, InlineStyles, Matcher, Interning, Scopes, ContainerScopes);
 
         // After `Keyframes`, which it holds — see the remarks on `Animations` for why it is rebuilt
         // here rather than kept. `Names` is the keyword table `StyleValueParser` interns identifiers

@@ -112,6 +112,54 @@ Vixen.Ui.Styling.ComputedStyleCache.ComputedStyleCache() -> void
 Vixen.Ui.Styling.ComputedStyleCache.Count.get -> int
 Vixen.Ui.Styling.ComputedStyleCache.Hits.get -> int
 Vixen.Ui.Styling.ComputedStyleCache.Intern(Vixen.Ui.Styling.ComputedStyle style) -> Vixen.Ui.Styling.ComputedStyle
+Vixen.Ui.Styling.ContainerBox -> readonly struct
+Vixen.Ui.Styling.ContainerBox : System.IEquatable<Vixen.Ui.Styling.ContainerBox>
+Vixen.Ui.Styling.ContainerBox.ContainerBox() -> void
+Vixen.Ui.Styling.ContainerBox.ContainerBox(float Width, float Height, Vixen.Ui.Styling.ContainerKind Kind) -> void
+Vixen.Ui.Styling.ContainerBox.Height.get -> float
+Vixen.Ui.Styling.ContainerBox.Height.init -> float
+Vixen.Ui.Styling.ContainerBox.Kind.get -> Vixen.Ui.Styling.ContainerKind
+Vixen.Ui.Styling.ContainerBox.Kind.init -> Vixen.Ui.Styling.ContainerKind
+Vixen.Ui.Styling.ContainerBox.Width.get -> float
+Vixen.Ui.Styling.ContainerBox.Width.init -> float
+Vixen.Ui.Styling.ContainerConditions -> sealed class
+Vixen.Ui.Styling.ContainerConditions.ConditionOf(int group) -> string
+Vixen.Ui.Styling.ContainerConditions.ContainerConditions() -> void
+Vixen.Ui.Styling.ContainerConditions.Count.get -> int
+Vixen.Ui.Styling.ContainerConditions.EnclosingOf(int group) -> int
+Vixen.Ui.Styling.ContainerConditions.Evaluate(System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.ContainerScope> chain) -> Vixen.Ui.Styling.ContainerVerdicts
+Vixen.Ui.Styling.ContainerConditions.NameOf(int group) -> string
+Vixen.Ui.Styling.ContainerConditions.Register(int within, string? name, string? condition) -> int
+Vixen.Ui.Styling.ContainerConditions.Reset() -> void
+Vixen.Ui.Styling.ContainerConditions.Revision.get -> int
+Vixen.Ui.Styling.ContainerKind -> enum : byte
+Vixen.Ui.Styling.ContainerKind.ContainerKind() -> void
+Vixen.Ui.Styling.ContainerKind.InlineSize = 1 -> Vixen.Ui.Styling.ContainerKind
+Vixen.Ui.Styling.ContainerKind.Normal = 0 -> Vixen.Ui.Styling.ContainerKind
+Vixen.Ui.Styling.ContainerKind.Size = 2 -> Vixen.Ui.Styling.ContainerKind
+Vixen.Ui.Styling.ContainerQuery -> static class
+Vixen.Ui.Styling.ContainerScope -> readonly struct
+Vixen.Ui.Styling.ContainerScope : System.IEquatable<Vixen.Ui.Styling.ContainerScope>
+Vixen.Ui.Styling.ContainerScope.Box.get -> Vixen.Ui.Styling.ContainerBox
+Vixen.Ui.Styling.ContainerScope.Box.init -> Vixen.Ui.Styling.ContainerBox
+Vixen.Ui.Styling.ContainerScope.ContainerScope() -> void
+Vixen.Ui.Styling.ContainerScope.ContainerScope(string Name, Vixen.Ui.Styling.ContainerBox Box) -> void
+Vixen.Ui.Styling.ContainerScope.Name.get -> string
+Vixen.Ui.Styling.ContainerScope.Name.init -> string
+Vixen.Ui.Styling.ContainerScopes -> sealed class
+Vixen.Ui.Styling.ContainerScopes.ContainerScopes(Vixen.Ui.Styling.ContainerConditions conditions) -> void
+Vixen.Ui.Styling.ContainerScopes.Count.get -> int
+Vixen.Ui.Styling.ContainerScopes.Enter(int parent, string? name, Vixen.Ui.Styling.ContainerBox box) -> int
+Vixen.Ui.Styling.ContainerScopes.InnermostOf(int scope) -> Vixen.Ui.Styling.ContainerScope
+Vixen.Ui.Styling.ContainerScopes.Refresh() -> bool
+Vixen.Ui.Styling.ContainerScopes.Reset() -> void
+Vixen.Ui.Styling.ContainerScopes.VerdictsOf(int scope) -> Vixen.Ui.Styling.ContainerVerdicts
+Vixen.Ui.Styling.ContainerVerdicts -> readonly struct
+Vixen.Ui.Styling.ContainerVerdicts : System.IEquatable<Vixen.Ui.Styling.ContainerVerdicts>
+Vixen.Ui.Styling.ContainerVerdicts.ContainerVerdicts() -> void
+Vixen.Ui.Styling.ContainerVerdicts.Equals(Vixen.Ui.Styling.ContainerVerdicts other) -> bool
+Vixen.Ui.Styling.ContainerVerdicts.Holds(int group) -> bool
+Vixen.Ui.Styling.ContainerVerdicts.Revision.get -> int
 Vixen.Ui.Styling.Declaration -> readonly struct
 Vixen.Ui.Styling.Declaration : System.IEquatable<Vixen.Ui.Styling.Declaration>
 Vixen.Ui.Styling.Declaration.Declaration() -> void
@@ -337,6 +385,8 @@ Vixen.Ui.Styling.StyleEngine.AddInlineStyle(System.ReadOnlySpan<Vixen.Ui.Styling
 Vixen.Ui.Styling.StyleEngine.Animations.get -> Vixen.Ui.Styling.Animator
 Vixen.Ui.Styling.StyleEngine.Compiler.get -> Vixen.Ui.Styling.SelectorCompiler
 Vixen.Ui.Styling.StyleEngine.Conditions.get -> Vixen.Ui.Styling.MediaConditions
+Vixen.Ui.Styling.StyleEngine.ContainerScopes.get -> Vixen.Ui.Styling.ContainerScopes
+Vixen.Ui.Styling.StyleEngine.Containers.get -> Vixen.Ui.Styling.ContainerConditions
 Vixen.Ui.Styling.StyleEngine.InlineStyles.get -> Vixen.Ui.Styling.InlineStyleStore
 Vixen.Ui.Styling.StyleEngine.Interning.get -> Vixen.Ui.Styling.ComputedStyleCache
 Vixen.Ui.Styling.StyleEngine.Keyframes.get -> Vixen.Ui.Styling.KeyframesTable
@@ -388,13 +438,15 @@ Vixen.Ui.Styling.StyleResolver.Cascades.get -> int
 Vixen.Ui.Styling.StyleResolver.Inherited.get -> Vixen.Ui.Styling.InheritedProperties
 Vixen.Ui.Styling.StyleResolver.Resolve(Vixen.Ui.Styling.StyleTree tree, Vixen.Ui.Styling.StyleNodeId element, Vixen.Ui.Styling.ComputedStyle? parent = null, Vixen.Ui.Styling.InlineStyleId? inline = null) -> Vixen.Ui.Styling.ComputedStyle
 Vixen.Ui.Styling.StyleResolver.SharingHits.get -> int
-Vixen.Ui.Styling.StyleResolver.StyleResolver(Vixen.Ui.Styling.StyleRuleSet rules, Vixen.Ui.Styling.InlineStyleStore inlineStyles, Vixen.Ui.Styling.SelectorMatcher matcher, Vixen.Ui.Styling.ComputedStyleCache interning, Vixen.Ui.Styling.MediaScopes scopes) -> void
+Vixen.Ui.Styling.StyleResolver.StyleResolver(Vixen.Ui.Styling.StyleRuleSet rules, Vixen.Ui.Styling.InlineStyleStore inlineStyles, Vixen.Ui.Styling.SelectorMatcher matcher, Vixen.Ui.Styling.ComputedStyleCache interning, Vixen.Ui.Styling.MediaScopes scopes, Vixen.Ui.Styling.ContainerScopes containers) -> void
 Vixen.Ui.Styling.StyleRule -> readonly struct
 Vixen.Ui.Styling.StyleRule : System.IEquatable<Vixen.Ui.Styling.StyleRule>
 Vixen.Ui.Styling.StyleRule.BlocksSharing.get -> bool
 Vixen.Ui.Styling.StyleRule.BlocksSharing.init -> bool
 Vixen.Ui.Styling.StyleRule.Conditions.get -> int
 Vixen.Ui.Styling.StyleRule.Conditions.init -> int
+Vixen.Ui.Styling.StyleRule.Containers.get -> int
+Vixen.Ui.Styling.StyleRule.Containers.init -> int
 Vixen.Ui.Styling.StyleRule.Declarations.get -> Vixen.Ui.Styling.DeclarationRange
 Vixen.Ui.Styling.StyleRule.Declarations.init -> Vixen.Ui.Styling.DeclarationRange
 Vixen.Ui.Styling.StyleRule.Layer.get -> int
@@ -406,16 +458,16 @@ Vixen.Ui.Styling.StyleRule.Origin.init -> Vixen.Ui.Styling.StyleOrigin
 Vixen.Ui.Styling.StyleRule.Selector.get -> Vixen.Ui.Styling.Selector
 Vixen.Ui.Styling.StyleRule.Selector.init -> Vixen.Ui.Styling.Selector
 Vixen.Ui.Styling.StyleRule.StyleRule() -> void
-Vixen.Ui.Styling.StyleRule.StyleRule(Vixen.Ui.Styling.Selector Selector, Vixen.Ui.Styling.DeclarationRange Declarations, Vixen.Ui.Styling.StyleOrigin Origin, int Layer, int Order, bool BlocksSharing, int Conditions) -> void
+Vixen.Ui.Styling.StyleRule.StyleRule(Vixen.Ui.Styling.Selector Selector, Vixen.Ui.Styling.DeclarationRange Declarations, Vixen.Ui.Styling.StyleOrigin Origin, int Layer, int Order, bool BlocksSharing, int Conditions, int Containers) -> void
 Vixen.Ui.Styling.StyleRuleSet -> sealed class
-Vixen.Ui.Styling.StyleRuleSet.Add(Vixen.Ui.Styling.Selector selector, System.ReadOnlySpan<Vixen.Ui.Styling.Declaration> block, Vixen.Ui.Styling.StyleOrigin origin, int layer, int conditions = 0) -> int
+Vixen.Ui.Styling.StyleRuleSet.Add(Vixen.Ui.Styling.Selector selector, System.ReadOnlySpan<Vixen.Ui.Styling.Declaration> block, Vixen.Ui.Styling.StyleOrigin origin, int layer, int conditions = 0, int containers = 0) -> int
 Vixen.Ui.Styling.StyleRuleSet.Count.get -> int
 Vixen.Ui.Styling.StyleRuleSet.DeclarationsOf(Vixen.Ui.Styling.DeclarationRange range) -> System.ReadOnlySpan<Vixen.Ui.Styling.Declaration>
 Vixen.Ui.Styling.StyleRuleSet.Index.get -> Vixen.Ui.Styling.RuleIndex
 Vixen.Ui.Styling.StyleRuleSet.Layers.get -> Vixen.Ui.Styling.CascadeLayers
 Vixen.Ui.Styling.StyleRuleSet.Names.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleRuleSet.Properties.get -> Vixen.Ui.Styling.NameTable
-Vixen.Ui.Styling.StyleRuleSet.SharingIsSound(Vixen.Ui.Styling.MediaVerdicts verdicts) -> bool
+Vixen.Ui.Styling.StyleRuleSet.SharingIsSound(Vixen.Ui.Styling.MediaVerdicts verdicts, Vixen.Ui.Styling.ContainerVerdicts containers) -> bool
 Vixen.Ui.Styling.StyleRuleSet.StyleRuleSet(Vixen.Ui.Styling.SelectorTable table, Vixen.Ui.Styling.NameTable names, Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values) -> void
 Vixen.Ui.Styling.StyleRuleSet.Values.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleRuleSet.this[int rule].get -> Vixen.Ui.Styling.StyleRule
@@ -425,6 +477,8 @@ Vixen.Ui.Styling.StyleSharingKey.ClassCount.get -> int
 Vixen.Ui.Styling.StyleSharingKey.ClassCount.init -> int
 Vixen.Ui.Styling.StyleSharingKey.ClassHash.get -> int
 Vixen.Ui.Styling.StyleSharingKey.ClassHash.init -> int
+Vixen.Ui.Styling.StyleSharingKey.Container.get -> int
+Vixen.Ui.Styling.StyleSharingKey.Container.init -> int
 Vixen.Ui.Styling.StyleSharingKey.Id.get -> int
 Vixen.Ui.Styling.StyleSharingKey.Id.init -> int
 Vixen.Ui.Styling.StyleSharingKey.Inline.get -> Vixen.Ui.Styling.InlineStyleId?
@@ -436,19 +490,21 @@ Vixen.Ui.Styling.StyleSharingKey.Scope.init -> int
 Vixen.Ui.Styling.StyleSharingKey.State.get -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.StyleSharingKey.State.init -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.StyleSharingKey.StyleSharingKey() -> void
-Vixen.Ui.Styling.StyleSharingKey.StyleSharingKey(Vixen.Ui.Styling.StyleNodeId Parent, int Tag, int Id, int ClassHash, int ClassCount, Vixen.Ui.Styling.ElementState State, Vixen.Ui.Styling.InlineStyleId? Inline, int Scope) -> void
+Vixen.Ui.Styling.StyleSharingKey.StyleSharingKey(Vixen.Ui.Styling.StyleNodeId Parent, int Tag, int Id, int ClassHash, int ClassCount, Vixen.Ui.Styling.ElementState State, Vixen.Ui.Styling.InlineStyleId? Inline, int Scope, int Container) -> void
 Vixen.Ui.Styling.StyleSharingKey.Tag.get -> int
 Vixen.Ui.Styling.StyleSharingKey.Tag.init -> int
 Vixen.Ui.Styling.StyleSheetLoader -> sealed class
 Vixen.Ui.Styling.StyleSheetLoader.Conditions.get -> Vixen.Ui.Styling.MediaConditions
+Vixen.Ui.Styling.StyleSheetLoader.Containers.get -> Vixen.Ui.Styling.ContainerConditions
 Vixen.Ui.Styling.StyleSheetLoader.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.Styling.StyleSheetLoader.Load(string css, Vixen.Ui.Styling.StyleOrigin origin, Vixen.Ui.Styling.MediaContext? media) -> void
 Vixen.Ui.Styling.StyleSheetLoader.ReadDeclarations(string css, System.Collections.Generic.List<Vixen.Ui.Styling.InlineDeclaration> into) -> void
-Vixen.Ui.Styling.StyleSheetLoader.StyleSheetLoader(Vixen.Ui.Styling.StyleRuleSet rules, Vixen.Ui.Styling.KeyframesTable keyframes, Vixen.Ui.Styling.SelectorCompiler compiler, Vixen.Ui.Styling.MediaConditions conditions) -> void
+Vixen.Ui.Styling.StyleSheetLoader.StyleSheetLoader(Vixen.Ui.Styling.StyleRuleSet rules, Vixen.Ui.Styling.KeyframesTable keyframes, Vixen.Ui.Styling.SelectorCompiler compiler, Vixen.Ui.Styling.MediaConditions conditions, Vixen.Ui.Styling.ContainerConditions containers) -> void
 Vixen.Ui.Styling.StyleTree -> sealed class
 Vixen.Ui.Styling.StyleTree.AddClass(Vixen.Ui.Styling.StyleNodeId element, string className) -> bool
 Vixen.Ui.Styling.StyleTree.ChildArenaLength.get -> int
 Vixen.Ui.Styling.StyleTree.Compact(System.Span<int> remap) -> int
+Vixen.Ui.Styling.StyleTree.ContainerAt(int index) -> int
 Vixen.Ui.Styling.StyleTree.Count.get -> int
 Vixen.Ui.Styling.StyleTree.CreateElement(string tag, Vixen.Ui.Styling.StyleNodeId? parent = null, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.Styling.StyleNodeId
 Vixen.Ui.Styling.StyleTree.DeadCount.get -> int
@@ -457,9 +513,11 @@ Vixen.Ui.Styling.StyleTree.GetAttributes(Vixen.Ui.Styling.StyleNodeId element) -
 Vixen.Ui.Styling.StyleTree.GetChild(Vixen.Ui.Styling.StyleNodeId element, int index) -> Vixen.Ui.Styling.StyleNodeId
 Vixen.Ui.Styling.StyleTree.GetChildCount(Vixen.Ui.Styling.StyleNodeId element) -> int
 Vixen.Ui.Styling.StyleTree.GetClassNames(Vixen.Ui.Styling.StyleNodeId element) -> string[]
+Vixen.Ui.Styling.StyleTree.GetContainerScope(Vixen.Ui.Styling.StyleNodeId element) -> int
 Vixen.Ui.Styling.StyleTree.GetId(Vixen.Ui.Styling.StyleNodeId element) -> string?
 Vixen.Ui.Styling.StyleTree.GetInlineStyle(Vixen.Ui.Styling.StyleNodeId element) -> Vixen.Ui.Styling.InlineStyleId?
 Vixen.Ui.Styling.StyleTree.GetParent(Vixen.Ui.Styling.StyleNodeId element) -> Vixen.Ui.Styling.StyleNodeId
+Vixen.Ui.Styling.StyleTree.GetProvidedContainerScope(Vixen.Ui.Styling.StyleNodeId element) -> int
 Vixen.Ui.Styling.StyleTree.GetScope(Vixen.Ui.Styling.StyleNodeId element) -> int
 Vixen.Ui.Styling.StyleTree.GetState(Vixen.Ui.Styling.StyleNodeId element) -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.StyleTree.GetTagName(Vixen.Ui.Styling.StyleNodeId element) -> string
@@ -474,6 +532,8 @@ Vixen.Ui.Styling.StyleTree.Remove(Vixen.Ui.Styling.StyleNodeId element) -> void
 Vixen.Ui.Styling.StyleTree.RemoveClass(Vixen.Ui.Styling.StyleNodeId element, string className) -> bool
 Vixen.Ui.Styling.StyleTree.ScopeAt(int index) -> int
 Vixen.Ui.Styling.StyleTree.SetAttribute(Vixen.Ui.Styling.StyleNodeId element, string name, string value) -> void
+Vixen.Ui.Styling.StyleTree.SetContainedIn(Vixen.Ui.Styling.StyleNodeId element, int scope) -> void
+Vixen.Ui.Styling.StyleTree.SetContainerScope(Vixen.Ui.Styling.StyleNodeId element, int scope) -> void
 Vixen.Ui.Styling.StyleTree.SetHasText(Vixen.Ui.Styling.StyleNodeId element, bool hasText) -> void
 Vixen.Ui.Styling.StyleTree.SetInlineStyle(Vixen.Ui.Styling.StyleNodeId element, Vixen.Ui.Styling.InlineStyleId? style) -> void
 Vixen.Ui.Styling.StyleTree.SetScope(Vixen.Ui.Styling.StyleNodeId element, int scope) -> void
@@ -574,6 +634,8 @@ const Vixen.Ui.Styling.CascadeRanks.NormalInline = 40 -> int
 const Vixen.Ui.Styling.CascadeRanks.NormalUser = 20 -> int
 const Vixen.Ui.Styling.CascadeRanks.NormalUserAgent = 10 -> int
 const Vixen.Ui.Styling.CascadeRanks.Transition = 100 -> int
+const Vixen.Ui.Styling.ContainerConditions.Unconditional = 0 -> int
+const Vixen.Ui.Styling.ContainerScopes.Root = 0 -> int
 const Vixen.Ui.Styling.MediaConditions.Unconditional = 0 -> int
 const Vixen.Ui.Styling.MediaScopes.Document = 0 -> int
 const Vixen.Ui.Styling.NameTable.None = -1 -> int
@@ -582,6 +644,8 @@ override Vixen.Ui.Styling.CascadePrecedence.ToString() -> string
 override Vixen.Ui.Styling.ComputedStyle.Equals(object? obj) -> bool
 override Vixen.Ui.Styling.ComputedStyle.GetHashCode() -> int
 override Vixen.Ui.Styling.ComputedStyle.ToString() -> string
+override Vixen.Ui.Styling.ContainerVerdicts.Equals(object? obj) -> bool
+override Vixen.Ui.Styling.ContainerVerdicts.GetHashCode() -> int
 override Vixen.Ui.Styling.InlineStyleId.ToString() -> string
 override Vixen.Ui.Styling.MediaVerdicts.Equals(object? obj) -> bool
 override Vixen.Ui.Styling.MediaVerdicts.GetHashCode() -> int
@@ -598,6 +662,9 @@ static Vixen.Ui.Styling.CascadePrecedence.operator >=(Vixen.Ui.Styling.CascadePr
 static Vixen.Ui.Styling.CascadeRanks.Of(Vixen.Ui.Styling.StyleOrigin origin, bool important) -> int
 static Vixen.Ui.Styling.CascadeRanks.OfInline(bool important) -> int
 static Vixen.Ui.Styling.ComputedStyle.Create(System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, int>> pairs, Vixen.Ui.Styling.ComputedStyle? inheritedFrom = null) -> Vixen.Ui.Styling.ComputedStyle
+static Vixen.Ui.Styling.ContainerQuery.TryEvaluate(string? condition, Vixen.Ui.Styling.ContainerBox box, out bool matches, out string? reason) -> bool
+static Vixen.Ui.Styling.ContainerVerdicts.operator !=(Vixen.Ui.Styling.ContainerVerdicts left, Vixen.Ui.Styling.ContainerVerdicts right) -> bool
+static Vixen.Ui.Styling.ContainerVerdicts.operator ==(Vixen.Ui.Styling.ContainerVerdicts left, Vixen.Ui.Styling.ContainerVerdicts right) -> bool
 static Vixen.Ui.Styling.InheritedProperties.IsCustomProperty(string name) -> bool
 static Vixen.Ui.Styling.KeyframesTable.TryParseOffset(System.ReadOnlySpan<char> text, out float offset) -> bool
 static Vixen.Ui.Styling.LayerRuleParser.IsLayerRule(string? text) -> bool

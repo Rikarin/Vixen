@@ -92,6 +92,30 @@ public sealed class StyleTree {
     ///     </para>
     /// </remarks>
     int[] scopes = new int[64];
+
+    /// <summary>Which container chain each element's <c>@container</c> answers are about.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two arrays and not one, because a query container is not inside itself.</b> CSS
+    ///         Containment 3 § 5.1 scopes a container query to the elements <i>within</i> the
+    ///         container, so an element with <c>container-type: inline-size</c> still answers
+    ///         <c>@container</c> against whatever is above <i>it</i>. This array is what an element
+    ///         asks; <see cref="providedContainers" /> is what it offers its children, and for
+    ///         everything that is not a container the two are equal.
+    ///     </para>
+    ///     <para>
+    ///         Collapsing them to one array is the obvious saving and it is wrong in the direction
+    ///         that hides: a container answering its own query matches slightly too often rather than
+    ///         never, so every test written against the common case passes.
+    ///     </para>
+    ///     <para>
+    ///         Inherited at creation exactly as <see cref="scopes" /> is, and
+    ///         <see cref="ContainerScopes.Root" /> for a root — which is every element of a document
+    ///         that has no <c>container-type</c> anywhere in it.
+    ///     </para>
+    /// </remarks>
+    int[] containers = new int[64];
+    int[] providedContainers = new int[64];
     bool[] alive = new bool[64];
     int count;
     int dead;
@@ -179,6 +203,11 @@ public sealed class StyleTree {
         // inheriting here means a window's contents are in the window's scope by construction. See
         // the remarks on `scopes`.
         scopes[index] = parentIndex >= 0 ? scopes[parentIndex] : MediaScopes.Document;
+
+        // ⚠ The *provided* scope of the parent, not its own. A child of a container is inside that
+        // container; the container is not. See the remarks on `containers`.
+        containers[index] = parentIndex >= 0 ? providedContainers[parentIndex] : ContainerScopes.Root;
+        providedContainers[index] = containers[index];
 
         if (parentIndex >= 0) {
             AppendChild(parentIndex, index);
@@ -305,6 +334,8 @@ public sealed class StyleTree {
             blooms[to] = blooms[i];
             inlines[to] = inlines[i];
             scopes[to] = scopes[i];
+            containers[to] = containers[i];
+            providedContainers[to] = providedContainers[i];
             hasText[to] = hasText[i];
             alive[to] = true;
 
@@ -590,6 +621,53 @@ public sealed class StyleTree {
     /// <returns>Its scope.</returns>
     /// <remarks>By slot for the reason <see cref="InlineAt" /> is: the cascade walks slots.</remarks>
     public int ScopeAt(int index) => scopes[index];
+
+    /// <summary>Makes an element a query container, putting everything under it in a container scope.</summary>
+    /// <param name="element">The element that has a <c>container-type</c>.</param>
+    /// <param name="scope">The scope its descendants are in, from <see cref="ContainerScopes.Enter" />.</param>
+    /// <remarks>
+    ///     ⚠ <b>It changes what the element <i>provides</i> and never what it asks</b>, so a rule
+    ///     inside <c>@container (min-width: 400px)</c> cannot match the very box whose width it is
+    ///     asking about. Children created afterwards inherit through <see cref="CreateElement" />;
+    ///     children that already exist do not, which is why the caller re-assigns a subtree after a
+    ///     pass rather than relying on creation order alone.
+    /// </remarks>
+    public void SetContainerScope(StyleNodeId element, int scope) {
+        ArgumentOutOfRangeException.ThrowIfNegative(scope);
+        providedContainers[Validate(element)] = scope;
+    }
+
+    /// <summary>Puts an element itself into a container scope, as re-assigning a subtree does.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="scope">The scope it is inside.</param>
+    /// <remarks>
+    ///     Sets both what it asks and, for anything that is not itself a container, what it provides —
+    ///     so a walk that assigns a subtree top-down and calls <see cref="SetContainerScope" /> on the
+    ///     containers it passes leaves every slot consistent.
+    /// </remarks>
+    public void SetContainedIn(StyleNodeId element, int scope) {
+        ArgumentOutOfRangeException.ThrowIfNegative(scope);
+
+        var index = Validate(element);
+        containers[index] = scope;
+        providedContainers[index] = scope;
+    }
+
+    /// <summary>Which container chain an element's <c>@container</c> answers are about.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>Its container scope.</returns>
+    public int GetContainerScope(StyleNodeId element) => containers[Validate(element)];
+
+    /// <summary>The container scope an element offers its children.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>Its own scope, unless it is a container.</returns>
+    public int GetProvidedContainerScope(StyleNodeId element) => providedContainers[Validate(element)];
+
+    /// <summary>An element's container scope by slot, for the resolve pass.</summary>
+    /// <param name="index">The slot.</param>
+    /// <returns>Its container scope.</returns>
+    /// <remarks>By slot for the reason <see cref="ScopeAt" /> is: the cascade walks slots.</remarks>
+    public int ContainerAt(int index) => containers[index];
 
     /// <summary>Adds a class to an element.</summary>
     /// <param name="element">The element.</param>
@@ -1005,6 +1083,8 @@ public sealed class StyleTree {
         Array.Resize(ref blooms, next);
         Array.Resize(ref inlines, next);
         Array.Resize(ref scopes, next);
+        Array.Resize(ref containers, next);
+        Array.Resize(ref providedContainers, next);
         Array.Resize(ref hasText, next);
         Array.Resize(ref alive, next);
     }

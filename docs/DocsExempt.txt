@@ -3552,6 +3552,13 @@ T:Vixen.Ui.Styling.Combinator sweep-pending
 T:Vixen.Ui.Styling.CompoundSelector sweep-pending
 T:Vixen.Ui.Styling.ComputedStyle sweep-pending
 T:Vixen.Ui.Styling.ComputedStyleCache sweep-pending
+T:Vixen.Ui.Styling.ContainerBox sweep-pending
+T:Vixen.Ui.Styling.ContainerConditions sweep-pending
+T:Vixen.Ui.Styling.ContainerKind sweep-pending
+T:Vixen.Ui.Styling.ContainerQuery sweep-pending
+T:Vixen.Ui.Styling.ContainerScope sweep-pending
+T:Vixen.Ui.Styling.ContainerScopes sweep-pending
+T:Vixen.Ui.Styling.ContainerVerdicts sweep-pending
 T:Vixen.Ui.Styling.Declaration sweep-pending
 T:Vixen.Ui.Styling.DeclarationRange sweep-pending
 T:Vixen.Ui.Styling.ElementState sweep-pending
