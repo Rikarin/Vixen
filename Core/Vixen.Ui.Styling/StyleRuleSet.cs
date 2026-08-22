@@ -25,6 +25,18 @@ namespace Vixen.Ui.Styling;
 ///         asked of the primary window. See <see cref="MediaConditions" />.
 ///     </para>
 /// </param>
+/// <param name="Containers">
+///     The <c>@container</c> group it was written inside, or
+///     <see cref="ContainerConditions.Unconditional" />.
+///     <para>
+///         ⚠ <b>A second, independent id rather than another value in <paramref name="Conditions" />,
+///         because the two conditions are about different subjects and both have to hold.</b>
+///         <c>@media (min-width: 900px) { @container (min-width: 400px) { … } }</c> asks one question
+///         of the window and one of a box; a single tagged chain would have to interleave two
+///         verdict tables to answer it, and each table is already a conjunction that evaluates in one
+///         ascending pass on its own.
+///     </para>
+/// </param>
 public readonly record struct StyleRule(
     Selector Selector,
     DeclarationRange Declarations,
@@ -32,7 +44,8 @@ public readonly record struct StyleRule(
     int Layer,
     int Order,
     bool BlocksSharing,
-    int Conditions
+    int Conditions,
+    int Containers
 );
 
 /// <summary>Every rule that has been loaded, indexed and ready to cascade.</summary>
@@ -93,7 +106,6 @@ public sealed class StyleRuleSet {
     /// <summary>
     ///     Whether the style-sharing cache may be used at all with this rule set, on one surface.
     /// </summary>
-    /// <param name="verdicts">Which conditional groups hold there.</param>
     /// <returns>Whether sharing is sound.</returns>
     /// <remarks>
     ///     <para>
@@ -134,17 +146,25 @@ public sealed class StyleRuleSet {
     ///         at — a permanent, invisible cost paid by a document for a rule that never matches
     ///         anything.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And per container chain, which is why a blocker is a <i>pair</i>.</b> A rule
+    ///         sealed inside both a <c>@media</c> and a <c>@container</c> only reaches an element when
+    ///         both hold, so testing either alone would turn sharing off for a surface, or for a box,
+    ///         that the rule cannot actually reach.
+    ///     </para>
     /// </remarks>
-    public bool SharingIsSound(MediaVerdicts verdicts) {
+    /// <param name="verdicts">Which <c>@media</c> groups hold on the element's surface.</param>
+    /// <param name="containers">Which <c>@container</c> groups hold for the element's container chain.</param>
+    public bool SharingIsSound(MediaVerdicts verdicts, ContainerVerdicts containers) {
         if (!unconditionalSharingIsSound) {
             return false;
         }
 
-        // Empty for every stylesheet this repository ships, and empty for any sheet whose `@media`
-        // blocks hold nothing positional. A `foreach` over nothing is what this costs in the case
-        // that matters.
-        foreach (var group in conditionalBlockers) {
-            if (verdicts.Holds(group)) {
+        // Empty for every stylesheet this repository ships, and empty for any sheet whose conditional
+        // blocks hold nothing positional. A `foreach` over nothing is what this costs in the case that
+        // matters.
+        foreach (var (group, container) in conditionalBlockers) {
+            if (verdicts.Holds(group) && containers.Holds(container)) {
                 return false;
             }
         }
@@ -154,7 +174,7 @@ public sealed class StyleRuleSet {
 
     bool unconditionalSharingIsSound = true;
 
-    readonly HashSet<int> conditionalBlockers = [];
+    readonly HashSet<(int Conditions, int Containers)> conditionalBlockers = [];
 
     /// <summary>A rule.</summary>
     /// <param name="rule">Its index.</param>
@@ -175,13 +195,17 @@ public sealed class StyleRuleSet {
     /// <param name="conditions">
     ///     The <c>@media</c> group it is inside, or <see cref="MediaConditions.Unconditional" />.
     /// </param>
+    /// <param name="containers">
+    ///     The <c>@container</c> group it is inside, or <see cref="ContainerConditions.Unconditional" />.
+    /// </param>
     /// <returns>The rule's index.</returns>
     public int Add(
         Selector selector,
         ReadOnlySpan<Declaration> block,
         StyleOrigin origin,
         int layer,
-        int conditions = MediaConditions.Unconditional
+        int conditions = MediaConditions.Unconditional,
+        int containers = ContainerConditions.Unconditional
     ) {
         var start = declarations.Count;
         foreach (var declaration in block) {
@@ -196,10 +220,10 @@ public sealed class StyleRuleSet {
             // window is at would otherwise turn the sharing cache off for the whole document, for
             // ever — a silent halving of the restyle rate that no test could see, since sharing is an
             // optimisation and every style it skips is still correct.
-            if (conditions == MediaConditions.Unconditional) {
+            if (conditions == MediaConditions.Unconditional && containers == ContainerConditions.Unconditional) {
                 unconditionalSharingIsSound = false;
             } else {
-                conditionalBlockers.Add(conditions);
+                conditionalBlockers.Add((conditions, containers));
             }
         }
 
@@ -212,7 +236,8 @@ public sealed class StyleRuleSet {
                 layer,
                 order,
                 blocksSharing,
-                conditions
+                conditions,
+                containers
             )
         );
 

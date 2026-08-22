@@ -101,7 +101,12 @@ public class IncrementalRestyleOracleTests {
                 live.Load(css);
                 BuildTree(live, seed, depth, breadth);
 
-                Assert.True(live.Engine.Rules.SharingIsSound(live.Engine.Scopes.VerdictsOf(MediaScopes.Document)));
+                Assert.True(
+                    live.Engine.Rules.SharingIsSound(
+                        live.Engine.Scopes.VerdictsOf(MediaScopes.Document),
+                        live.Engine.ContainerScopes.VerdictsOf(ContainerScopes.Root)
+                    )
+                );
 
                 var updater = new StyleUpdater(live.Engine);
                 updater.ResolveAll();

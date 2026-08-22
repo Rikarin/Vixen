@@ -218,10 +218,10 @@ public class SelectorMatchingTests {
         var rules = new StyleRuleSet(fixture.Table, fixture.Names, new NameTable(), new NameTable());
 
         rules.Add(fixture.Compile("node-port-lane"), [], StyleOrigin.Author, CascadeLayers.Unlayered);
-        Assert.True(rules.SharingIsSound(default));
+        Assert.True(rules.SharingIsSound(default, default));
 
         rules.Add(fixture.Compile("node-port-lane:empty"), [], StyleOrigin.Author, CascadeLayers.Unlayered);
-        Assert.False(rules.SharingIsSound(default));
+        Assert.False(rules.SharingIsSound(default, default));
     }
 
     [Fact]

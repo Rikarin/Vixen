@@ -238,7 +238,13 @@ public static class MediaQuery {
         return true;
     }
 
-    static bool TryLength(ReadOnlySpan<char> text, out float value) {
+    /// <summary>Reads a length, shared with <see cref="ContainerQuery" />.</summary>
+    /// <remarks>
+    ///     Internal rather than duplicated, because <c>@container (min-width: 20rem)</c> and
+    ///     <c>@media (min-width: 20rem)</c> mean the same length and a second copy is a second unit
+    ///     table to forget to extend.
+    /// </remarks>
+    internal static bool TryLength(ReadOnlySpan<char> text, out float value) {
         var scale = 1f;
 
         foreach (var (unit, factor) in Units) {

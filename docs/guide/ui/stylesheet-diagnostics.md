@@ -43,8 +43,14 @@ answer to "why is this rule doing nothing" existed, in memory, and no one could 
 which means a name it cannot resolve costs you declarations rather than a rule — and a block silently
 missing three of its eight declarations is much harder to spot than a block missing entirely.
 
-**Every mistyped at-rule is the cheap member.** `@suports`, `@meida`, a `@container` query Vixen has
-not implemented: all of them take the same path, and all of them used to vanish.
+**Every mistyped at-rule is the cheap member.** `@suports`, `@meida`: all of them take the same path,
+and all of them used to vanish.
+
+> ⚠ This list used to include "a `@container` query Vixen has not implemented", and that was wrong
+> twice over. ExCSS knows `@container` and hands it back as a parsed rule rather than an unknown one,
+> so it never took this path and never produced a warning — it was dropped in silence. `@container`
+> is implemented now; an unreadable *condition* inside one (`@container (prefers-color-scheme: dark)`)
+> is refused at load with a diagnostic that does reach here.
 
 ## Using it
 

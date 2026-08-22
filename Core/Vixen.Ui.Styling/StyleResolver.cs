@@ -25,6 +25,7 @@ public sealed class StyleResolver {
     readonly InheritedProperties inherited;
     readonly ComputedStyleCache interning;
     readonly MediaScopes scopes;
+    readonly ContainerScopes containers;
     readonly Dictionary<StyleSharingKey, ComputedStyle> shared = [];
     readonly Dictionary<int, Winner> winners = [];
     readonly List<int> candidates = [];
@@ -45,24 +46,35 @@ public sealed class StyleResolver {
     ///         the element, held next to its classes, and the cascade looks it up the same way.
     ///     </para>
     /// </param>
+    /// <param name="containers">
+    ///     Which <c>@container</c> groups hold for each container chain the document has.
+    ///     <para>
+    ///         Read off the element's own container scope, for the same reason the media scope is:
+    ///         which box an element is inside is a fact about the element, and a parameter is a
+    ///         parameter a caller can forget.
+    ///     </para>
+    /// </param>
     public StyleResolver(
         StyleRuleSet rules,
         InlineStyleStore inlineStyles,
         SelectorMatcher matcher,
         ComputedStyleCache interning,
-        MediaScopes scopes
+        MediaScopes scopes,
+        ContainerScopes containers
     ) {
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(inlineStyles);
         ArgumentNullException.ThrowIfNull(matcher);
         ArgumentNullException.ThrowIfNull(interning);
         ArgumentNullException.ThrowIfNull(scopes);
+        ArgumentNullException.ThrowIfNull(containers);
 
         this.rules = rules;
         this.inlineStyles = inlineStyles;
         this.matcher = matcher;
         this.interning = interning;
         this.scopes = scopes;
+        this.containers = containers;
         inherited = new InheritedProperties(rules.Properties);
     }
 
@@ -115,7 +127,12 @@ public sealed class StyleResolver {
     ) {
         ArgumentNullException.ThrowIfNull(tree);
 
-        if (!rules.SharingIsSound(scopes.VerdictsOf(tree.ScopeAt(tree.Validate(element))))) {
+        var slot = tree.Validate(element);
+
+        if (!rules.SharingIsSound(
+                scopes.VerdictsOf(tree.ScopeAt(slot)),
+                containers.VerdictsOf(tree.ContainerAt(slot))
+            )) {
             return Cascade(tree, element, parent, inline);
         }
 
@@ -156,7 +173,12 @@ public sealed class StyleResolver {
         // The surface this element is shown in, which is what its `@media` blocks are about. One
         // lookup per element rather than per candidate: every rule in the loop below is asked about
         // the same surface.
-        var verdicts = scopes.VerdictsOf(tree.ScopeAt(tree.Validate(element)));
+        var slot = tree.Validate(element);
+        var verdicts = scopes.VerdictsOf(tree.ScopeAt(slot));
+
+        // ⚠ The container chain this element is inside, which is a different subject from the
+        // surface and answers a different table. One lookup per element for the same reason.
+        var contained = containers.VerdictsOf(tree.ContainerAt(slot));
 
         foreach (var rule in candidates) {
             var candidate = rules[rule];
@@ -166,6 +188,14 @@ public sealed class StyleResolver {
             // first inside `Holds`, and is what every rule in every stylesheet this repository ships
             // carries — so the common case is one comparison against zero.
             if (!verdicts.Holds(candidate.Conditions)) {
+                continue;
+            }
+
+            // ⚠ Also before the matcher, and it is the same integer compare — `Unconditional` is
+            // checked first inside `Holds` and is what every rule in every stylesheet this repository
+            // ships carries, so a document with no `@container` in it pays one comparison against
+            // zero per candidate and never walks a chain.
+            if (!contained.Holds(candidate.Containers)) {
                 continue;
             }
 
@@ -322,7 +352,8 @@ public sealed class StyleResolver {
             tree.ClassCountOf(index),
             tree.StateOf(index),
             inline,
-            tree.ScopeAt(index)
+            tree.ScopeAt(index),
+            tree.ContainerAt(index)
         );
     }
 

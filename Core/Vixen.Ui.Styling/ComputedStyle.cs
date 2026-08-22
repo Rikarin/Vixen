@@ -231,6 +231,17 @@ public sealed class ComputedStyleCache {
 ///     </para>
 /// </remarks>
 /// <param name="Scope">Which surface's <c>@media</c> answers it reads.</param>
+/// <param name="Container">
+///     Which container chain's <c>@container</c> answers it reads.
+///     <para>
+///         ⚠ <b>Not redundant with the parent, and the case is the ordinary one rather than an edge
+///         case.</b> Two siblings are in the same container by construction — but a scope is interned
+///         on the chain's <i>boxes</i> (see <see cref="ContainerScopes" />), so two rows of a list
+///         that happen to be the same width get the same id and share, and the moment one of them
+///         holds a container that has resized they do not. Leaving it out would let a row keep the
+///         style it computed at the other width.
+///     </para>
+/// </param>
 public readonly record struct StyleSharingKey(
     StyleNodeId Parent,
     int Tag,
@@ -239,5 +250,6 @@ public readonly record struct StyleSharingKey(
     int ClassCount,
     ElementState State,
     InlineStyleId? Inline,
-    int Scope
+    int Scope,
+    int Container
 );

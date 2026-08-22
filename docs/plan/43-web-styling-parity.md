@@ -1260,7 +1260,7 @@ sizing above did not know, all of them checked rather than reasoned about:
   saying it did not work. Every colour in `Editor/Vixen.Editor.Ui/Theming/vixen.ui.yaml` is a
   `var()`, so the whole editor palette was in the silently-dropped class. The warning is gone.
 
-### D3. Container queries are a feature, not a variant ⚠
+### D3. Container queries are a feature, not a variant 🟡 *cascade half landed — the wiring and the variants are owed, and the containment question has an answer*
 
 v4 builds container queries in: `@container` marks the container, and `@sm:`…`@7xl:`, `@max-*`,
 `@min-[…]`, named `@container/main` + `@sm/main`, and stacked ranges `@sm:@max-md:` are variants over
@@ -1274,44 +1274,148 @@ That paragraph is an argument *for* container queries, written by someone who ha
 reason this is not optional for an editor: a panel that must lay out differently at 300 px and 900 px
 is the normal case, and the mechanism that answers it is `@container`, not `@media`.
 
-⚠ **It needs engine work, and the size is set by a constraint two levels down.** Doc 09 lists
-container queries as P2 and unsupported.
+**The shape the survey described was right and three of its four cost estimates were wrong**, two of
+them cheap and one of them in the other direction. What follows is what the build established, then
+what is left.
 
-⚠ ~~Worse, Vixen's `@media` **does not nest**~~ — **this was wrong, and A15 established that it was
-wrong before spending anything on it.** `StyleSheetLoader.LoadMedia` recurses into the rule it has just
-matched, so a conditional group rule inside another has always loaded and always conjoined, in either
-order with `@layer`. The 0.5 EM budgeted for "a conditional-group rule model in the cascade" bought a
-`List<string>` in `UtilityGenerator` and a trie in its emitter, because **the cascade never carried one
-condition per rule at all** — `@media` is evaluated at load and discarded, so a `StyleRule` has nowhere
-for a condition to live and needed none. The prerequisite existed; what did not exist was a test, and
-the belief survived because nothing had ever written a nested query.
+#### ⚠ It parsed all along, and the loader dropped it in silence
 
-**So what is left for `@container` is only `@container`,** and the shape is genuinely different from
-`@media`'s in the one way that matters: `@media` is answered **once per document** at load, and
-`@container` must be answered **per element**, because the same rule applies to one panel and not to
-its neighbour. That is the whole cost, and it is not a parsing cost:
+The survey assumed `@container` would need the treatment `@layer` got — a hand-written reader over
+text ExCSS hands back unparsed. **It does not.** ExCSS 4.3.2 has a first-class `ContainerRule` with
+`RuleType.Container`, and it splits the prelude for you: `Name` is `card`, `ConditionText` is
+`(min-width: 400px)`, and the block's children arrive as ordinary `IStyleRule`s. `container-type`,
+`container-name` and the `container` shorthand likewise come through as ordinary declarations. So the
+parsing cost was zero, and item 4's grammar work is smaller than it looked.
 
-1. **`container-type` / `container-name` as real properties**, read by the layout, plus the
-   containment they imply — `size` containment means the container's own size must not depend on its
-   contents, which is a constraint the layout has to *enforce* and not merely record, or the query is
-   circular.
-2. **The resolution walk**: nearest ancestor with a matching `container-type`/`container-name`, whose
-   size the layout has already computed. Cheap in itself.
-3. **The load-time/match-time split has to move.** Everything else in this cascade is decided at load
-   because it is a property of the document; a container query is a property of an *element's
-   ancestry*, so either the rule carries its condition to match time — which is the `StyleRule` change
-   A15 turned out not to need — or the cascade runs a second pass over the subtree whose containing
-   block changed. The second is the same shape as the invalidation the cascade already does and is
-   probably right, but it is a real ordering problem: layout depends on style, and a container query
-   makes style depend on layout. That cycle is the risk, not the syntax.
-4. **The variant table and the `@sm/name` grammar** — `@sm:`…`@7xl:`, `@max-*`, `@min-[…]`, named
-   `@container/main`, and stacked ranges `@sm:@max-md:`. Stacking is free now: it is the same at-rule
-   chain `sm:md:` uses, and the emitter does not care that a link in the chain is `@container`.
+**And that is exactly why it was broken.** Because a `ContainerRule` is not `RuleType.Unknown`, it
+never reached `StyleSheetLoader.LoadUnknown` — it fell out of `LoadInto`'s `switch` through
+`default:`, contributing nothing, **with no diagnostic at all**. Two places said otherwise in prose:
+`StyleDiagnosticDrainTests`' remark listed "a `@container` query Vixen has not implemented" among the
+at-rules that reach the log, and `docs/guide/ui/stylesheet-diagnostics.md` repeated it. Neither had a
+test — the drain test asserts on `@nonsense` — so a rule that vanished without a word was documented
+as one that warned. Both are corrected.
 
-**Size: 0.75 EM**, down from 1.25 — the 0.5 for nested conditional groups is spent and was nearly free.
-0.5 for `container-type`/`container-name`, the containment constraint and the resolution walk; 0.25 for
-the variant table and the grammar. ⚠ The risk moved rather than shrank: it is now concentrated in item
-3, the style↔layout cycle, which is the item this document cannot size from the outside.
+This is the section's own hazard arriving in the section: not a query that never matches, but a
+*whole at-rule* that never loaded, with documentation asserting it was handled.
+
+#### ⚠ The containment question, which is the one item that could not be sized from outside
+
+The survey's item 1 said `size` containment "is a constraint the layout has to *enforce* and not
+merely record, or the query is circular", and item 3 called the style↔layout cycle the concentrated
+risk. Both are answerable now, and the answer is better than feared for the case the editor has and
+worse than feared for the general one.
+
+**The independence already exists and is already the default.** Vixen's layout is Yoga-derived, and
+the sizing mode it resolves per axis is `SizingMode` (`Core/Vixen.Ui.Layout/FlexAxis.cs:109`):
+`StretchFit`, `MaxContent`, `FitContent`. For a normal-flow block, `CalculateBlockLayoutImpl` takes
+this branch (`Core/Vixen.Ui.Layout/LayoutTree.Block.cs:144-161`):
+
+```csharp
+if (widthSizingMode == SizingMode.StretchFit) {
+    rawWidth = availableWidth - marginAxisRow;   // the parent's, with no child consulted
+} else {
+    ... DetermineBlockContentWidth(...)          // probes children
+}
+```
+
+`width: auto` on a normal-flow block is **not** shrink-to-fit — the code says so in a comment at 138.
+So a panel in a dock, a block filling its parent, a grid item in a fixed track: their inline size is
+*already* a pure function of the parent's available size, and `container-type: inline-size` on one of
+them is an assertion that is already true. **For the editor's actual containers there is no cycle and
+nothing to enforce.**
+
+The cycle is real for everything that escapes that branch: anything reaching
+`DetermineBlockContentWidth` (`LayoutTree.Block.cs:746`), a flex item sized by its basis, a grid item
+in an intrinsic track, `width: max-content` / `fit-content`. For those, `container-type` must either
+coerce the axis to `StretchFit` or be refused. **Coercion cannot be expressed from outside
+`Vixen.Ui.Layout`**: `LayoutUnit.Stretch` looks like the way to say it and is an *unimplemented enum
+member* — `StyleLength.Resolve` handles only `Point` and `Percent`, and nothing in the tree references
+`LayoutUnit.Stretch` at all. So the coercion is a change to the layout project, and refusal with a
+diagnostic is the cheaper interim.
+
+**The ordering problem is already solved and already bounded.** `UiDocument.Update()` runs
+`Restyle(); Arrange();` and then `Settle()`, which re-runs both up to `SettlePasses = 3` times while
+handlers keep dirtying the document, and reports non-convergence on `Settled`
+(`Core/Vixen.Ui/UiDocument.cs:1020`). A container-query re-cascade is that loop's existing shape, not
+a new one — and where containment does hold, one extra pass is provably enough, because a contained
+container's size cannot move in response to its descendants' styles.
+
+#### ⚠ A scope per container element would have destroyed the sharing cache, silently
+
+Not in the survey, and it decides the data structure. `StyleSharingKey` carries the media scope, and a
+container scope has to join it or two rows in differently-sized containers share a computed style. The
+obvious design — a scope per container *element*, which is what `MediaScopes` does — gives every row
+of a thousand-row list a distinct scope id, so **no two rows ever share**: a document using one
+container query would lose the sharing cache entirely, and only the documents big enough to need it
+would notice. `ContainerScopes` therefore interns on the chain **by value** (`parent`, `name`, `box`),
+which collapses a thousand identical rows to one scope and keeps sharing exactly as good as it was.
+The cost is churn while a box is moving, and `Reset()` is the whole eviction policy today — see below.
+
+#### What landed
+
+All of it in `Core/Vixen.Ui.Styling`, which is the half that can be tested without a layout:
+
+- **`ContainerConditions`** — the conjunction tree, the same shape as `MediaConditions`, with a
+  **name** alongside the condition because the name selects *which box* the condition is asked of.
+- **`ContainerScopes`** — the chains, interned by value, verdicts cached against `Revision`.
+- **`ContainerQuery`** — `width`/`height`/`inline-size`/`block-size`/`aspect-ratio`/`orientation`, with
+  `min-`/`max-`, and a **refusal** for every media-only feature. `@container (prefers-color-scheme:
+  dark)` is a diagnostic, not a query answered off whatever surface the element happens to be on.
+- **`StyleRule.Containers`** — a second, independent group id. `@media` and `@container` nest through
+  each other in either order and both must hold; one tagged chain would have had to interleave two
+  verdict tables.
+- **Two slots on `StyleTree`**, not one: what an element *asks* and what it *provides*. A container is
+  not inside itself (CSS Containment 3 § 5.1), and collapsing them is wrong in the direction that
+  hides — a container answering its own query matches slightly too often, so every test of the common
+  case still passes.
+- **One integer test in the cascade**, before the matcher, next to the media one.
+
+`ContainerQueryTests` is 34 cases, every one asserting a **resolved computed value** and none
+asserting that a rule parsed — the distinction this section exists to make, since `@container` parsed
+throughout the period it did nothing. Nearly all of them assert positively *and* negatively against
+the same rule in a differently-sized box.
+
+⚠ **Verified by sabotage, and the fifth one found a real gap.** Five deliberate breaks: the cascade's
+verdict test removed (9 failures), a container made to answer its own query (1, the test that names
+it), `inline-size` allowed to answer block-axis queries (2), the loader's `@container` arm made
+unreachable (12) — and **relaxing the name test so a named query falls back to an *unnamed* container
+was caught by nothing.** `@container card (…)` answering off whatever box is nearest is the worst
+failure of the set, because it is right until somebody adds a wrapper.
+`A_named_query_does_not_fall_back_to_an_unnamed_container` closes it and was re-checked against the
+same sabotage.
+
+#### What is owed, and what it costs
+
+**1. The wiring — ~0.2 EM, and it is what makes the feature real.** Nothing calls
+`ContainerScopes.Enter` outside tests, so in a live document every element sits at
+`ContainerScopes.Root`, where no query has an eligible container and all of them are false. The
+cascade half is a finished consumer nothing feeds, which is this repository's commonest shape of
+"missing feature" — recorded here rather than left to be rediscovered. It needs: `container-type` and
+`container-name` read in `UiDocument.Apply`; after `Arrange()`, a walk that enters a scope per
+container from its measured box and re-assigns the subtree; and `Forget()` when a verdict moved, which
+`Settle()` then reconverges. It was **deliberately not built here** because it lands in `Vixen.Ui`
+alongside two other agents' work.
+
+**2. The containment coercion — ~0.15 EM, in `Vixen.Ui.Layout`.** Force `SizingMode.StretchFit` on a
+`container-type: inline-size` node that would otherwise consult its contents, or refuse it with a
+diagnostic. Until then a container sized by its contents can oscillate — and `Settled` already reports
+that, so the failure is visible rather than silent, which is why the interim is tolerable.
+
+**3. The variants — ~0.25 EM, and they are gated on 1 and 2, deliberately.** `@sm:`…`@7xl:`, `@max-*`,
+`@min-[…]`, `@container/main`, `@sm/main`, stacked ranges. The emitter needs nothing: `BuildSelector`
+already carries a `List<string>` of at-rules and the trie already shares prefixes, so
+`@container (min-width: …)` slots in beside `@media` unchanged. They are **not registered yet on
+purpose** — the consumption gate judges a new utility family by an arrangement that observes it, and
+until the wiring lands nothing can observe one. Registering them first would ship a family that emits
+correct CSS and never matches, which is the defect this document keeps finding.
+
+**4. `cqw`/`cqi`/`cqb` units and `style()` queries** — not started, not costed, and not needed by the
+editor's case.
+
+**Size: 0.6 EM remaining**, from 0.75. The parsing and the grammar came in under estimate; the
+containment turned out to be free for the normal-flow case and a small layout change for the rest; the
+risk the survey concentrated in item 3 was already carried by a bounded settle loop that existed
+before the question was asked.
 
 ### D6. The variants had almost no end-to-end coverage, and that was worth more than A15 ✅ *closed — and it has now found a second bug*
 
@@ -2048,7 +2152,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
 | A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
 conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |
-| A16 🟡 | Container queries: `container-type` and its containment constraint, the resolution walk, the `@` variants. ⚠ **Re-sized from 0.75 by A15**: nested conditional groups are done and the at-rule chain does not care that a link is `@container`, so the remaining risk is one item — a container query makes style depend on layout, and layout already depends on style. See § D3 | cascade + layout | — | 0.75 |
+| A16 🟡 | Container queries. ⚠ **The cascade half landed** — `ContainerConditions`, `ContainerScopes`, `ContainerQuery`, a second group id on `StyleRule`, two scope slots on `StyleTree`, one integer test in the cascade, 34 computed-value tests. ⚠ **And it closed a silent drop**: ExCSS parses `@container` into a `ContainerRule`, so it never reached `LoadUnknown` and was discarded with no diagnostic, while two docs said it warned. **Owed**: the `UiDocument` wiring (nothing calls `ContainerScopes.Enter`, so every query is false in a live document), the layout coercion for containers sized by their contents, and the `@sm:` variants — gated on the first two so the consumption gate has something that observes them. Containment is *free* for a normal-flow block, whose inline size is already `SizingMode.StretchFit`. See § D3 | cascade + layout | 0.15 | 0.6 |
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
 | A18 🟢 | Scroll properties as `ScrollView` inputs rather than CSS | `Vixen.Ui.Controls` | — | 0.3 |
 | A19 🟢 | `text-decoration`, `text-transform`, `font-variant-numeric`, `font-stretch` | `Vixen.Ui.Text` | — | 0.4 |
