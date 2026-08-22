@@ -1144,9 +1144,16 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
   do](#what-this-document-does-not-do).
 * **`IToolContext`** does not exist; terrain's brushes and blockout's handles are still two subsystems.
 * **No incremental compilation for project scripts**, and **no cross-assembly editor-only check**.
-* **F7's number.** Three `.vxml` files against ~120,000 lines of hand-written editor C#. The path is
-  walked, not adopted; nothing here proposes a sweep, and pretending three is a trend would be the
-  same error this section exists to remove.
+* **F7's number.** Seventeen `.vxml` files against **34 registered panels** — the denominator this
+  row used to give, ~120,000 lines of editor C#, was the wrong one, and so was "three". The path is
+  walked and now also *surveyed*: [the panel
+  ledger](../../Editor/Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be)
+  goes through every panel once and says which are ready, which are half-portable and which never
+  will be. ⚠ **About a third of what looked like the backlog is not panels at all** — presenters
+  that build into a caller's element, services with no fixed tree, and registration wiring — and a
+  further group is correctly imperative because its content reaches the screen through a control
+  rather than the tree. Nothing here proposes a sweep; what changed is that a wave can now pick its
+  work instead of discovering it.
 
 ### What is *not* owed, so it stops being re-raised
 

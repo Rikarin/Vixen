@@ -5,6 +5,7 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Debugger;
 using Vixen.Editor.Testing;
+using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -286,5 +287,74 @@ public class BuildSettingsTests {
         Assert.Equal(DeviceStatus.Deploying, devices.Selected?.Status);
 
         Assert.False(devices.Mark("phone", DeviceStatus.Running));
+    }
+
+    /// <summary>
+    ///     Doc 36 § F7 wave 2: the panel is <c>BuildSettingsView.vxml</c>, and this is what the port
+    ///     had to leave alone.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The order is the assertion.</b> A markup port's one real risk is a tree that is the
+    ///     same set of elements in a different arrangement — every property test above would still
+    ///     pass and the panel would be laid out wrongly, because <c>EditorTheme.vcss</c> styles these
+    ///     by tag and <c>build-actions</c>'s top border only reads as a footer while it is last but
+    ///     one. The seven tags in this order are the file.
+    /// </remarks>
+    [Fact]
+    public void The_panel_is_the_seven_parts_the_markup_declares_in_the_order_it_declares_them() {
+        using var session = EditorSession.Start();
+
+        var view = session.Control<BuildSettingsView>("build-settings");
+
+        Assert.Equal(
+            ["build-form", "build-note", "build-heading", "build-scene-bar", "data-grid", "build-actions", "build-status"],
+            view.Children.Select(child => child.Tag)
+        );
+
+        // Each `ref` in the file names one of them, and a `ref` that never got assigned is a null
+        // the panel would only fault on when somebody pressed something.
+        Assert.Same(view.Children[0], view.Form);
+        Assert.Same(view.Children[1], view.Note);
+        Assert.Same(view.Children[2], view.Heading);
+        Assert.Same(view.Children[4], view.Scenes);
+        Assert.Same(view.Children[6], view.Status);
+
+        // ⚠ The labelled rows are the helper the port deleted: `Field<T>` built a `build-row`, put a
+        // `TextBlock` in it and returned the editor. Written as tags that shape is the file, so what
+        // is worth pinning is that it is still the shape.
+        var row = Assert.IsType<UiElement>(view.Form.Children[0], exactMatch: false);
+
+        Assert.Equal("build-row", row.Tag);
+        Assert.Equal("Target", row.Children[0].Text);
+        Assert.Same(view.TargetPicker, row.Children[1]);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Why nothing on this panel is bound</b>, pinned so that a later wave reaching for a
+    ///     <c>Signal&lt;T&gt;</c> here fails rather than quietly regressing.
+    /// </summary>
+    /// <remarks>
+    ///     An effect runs at the frame's flush and not at the write — <c>EffectScheduler</c>'s whole
+    ///     argument — so a bound <c>Disabled</c> is right on the next frame. This panel is read back
+    ///     on the line after the call, with no frame in between, which is the shape a binding cannot
+    ///     have.
+    /// </remarks>
+    [Fact]
+    public void The_buttons_are_right_on_the_line_after_Rebuild_rather_than_on_the_next_frame() {
+        using var session = EditorSession.Start();
+
+        var view = session.Control<BuildSettingsView>("build-settings");
+        var settings = session.Project.Settings.Get<PlayerBuildSettings>();
+
+        Assert.True(view.RemoveScene.Disabled);
+
+        settings.Scenes.Add("Assets/Scenes/Main.vxscene");
+        view.Rebuild();
+        view.Scenes.Select(0);
+
+        // No `session.Frames(...)` here, deliberately: that is the whole point of the assertion.
+        Assert.False(view.RemoveScene.Disabled);
+        Assert.True(view.MoveUp.Disabled);
+        Assert.True(view.MoveDown.Disabled);
     }
 }

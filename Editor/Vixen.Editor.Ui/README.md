@@ -423,6 +423,156 @@ the UI thread, is what the button reads.
 cared, because none of its selectors reach past the part — but a rule written as `task-title` and
 meaning "the thing with the words in it" would.
 
+## The panel ledger — what is markup, what is next, and what never will be
+
+Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-written editor C#", and
+the honest version of that ratio has never been written down. This is it: **every panel in the
+editor, surveyed once, so that a wave picks its work instead of discovering it.**
+
+**Where it stands.** Seventeen `.vxml` files across six assemblies, against **62 files and ~31,700
+lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
+turn out not to be panels at all, which is the first finding. There are 25 `RegisterPanel` call
+sites and 34 `editor.panel.*` ids, so **34 is the denominator**, not 62 and not 120,000 lines.
+
+⚠ **[`docs/overview.md`](../../docs/overview.md) and doc 36 § "F7's number" had both gone stale** —
+they said eleven and three — and are corrected in the same commit as this section. A count nobody
+can re-derive goes stale again: it is `find Editor -name '*.vxml'`.
+
+### The four shapes that decide a port
+
+Wave 1b found one reason a panel should be left alone. There are four, and only the first was known.
+
+**1. The content reaches the screen through a control, not the tree.** `PluginHost`, `KeyMap` and
+`CommandRegistry` were left alone because every value they show goes through a `DataGrid` column
+projection — a `Func<object, object?>` run by `Grid.Refresh()` — which no markup attribute can bind.
+⚠ **That shape is not unique to `DataGrid`, and naming its four other spellings is the most useful
+thing in this section**: `TreeView` (rows are `TreeNode` *data*, painted by `Refresh()`),
+`VirtualizingPanel`/`VirtualizingGrid` (`CreateRow`/`BindRow`, a pool indexed by *viewport position*,
+so a keyed `@for` cannot stand in — item 40 000 has no element), `Timeline` and `NodeCanvas`
+(`AddTrack`/`AddSpan`, `Canvas.Graph = …`, plus their own culled element pools), and
+`IPropertyDrawer` (the tree's *shape* is a function of a reflected descriptor). A panel built out of
+any of them is correctly imperative, and signal-backing its model moves no pixel.
+
+**2. Markup can bind a gesture but not a value change.** `BuildContext.Subscriptions` holds ten
+names — `tap`, `click`, `dblclick`, `longpress`, the three pointer verbs, and the three drag verbs —
+and its entries are `Action<UiElement, Action<UiEvent>, RoutingStrategy>`: a *routed* handler. Every
+value-change event in the control library is `Action<TControl, TValue>` — `Slider.ValueChanged`,
+`TextField.ValueChanged`, `NumericInput.NumberChanged`, `ToggleBase.CheckedChanged`,
+`Select.SelectionChanged` — so no entry in that table could carry one, and `on:change` is not a name
+somebody forgot but a shape the table cannot hold. The workaround is `ref` plus a subscription in
+`OnComposed`, which `PluginManagerView` and `KeyBindingsView` both use and both explain.
+
+⚠ **The workaround fails inside `@for`, and that is what makes it a blocker rather than a wart.**
+`ref` in a loop body is `VXML2010`: the body runs once per item and there is one member to assign.
+So a panel whose *rows* contain value-editing controls cannot be expressed at all — not awkwardly,
+not through `OnComposed`. `AudioMixerView` is the pure case (every strip is a fader, a mute and a
+solo, and the handlers read each other), and it is the one panel in the whole editor that is
+unportable for a reason the engine could fix.
+
+**3. A bound value is right on the next frame, not this one.** `EffectScheduler`'s contract is that
+writing a signal *only ever queues*, and `Flush` drains it once per frame, after input and before
+layout, because an effect running at the write would mutate the tree while the renderer walked it
+(ADR-007). ⚠ **This one is invisible from the panel's own source — only from its callers.**
+`BuildSettingsView` reads `BuildButton.Disabled` on the line after `Rebuild()`, with no frame
+between, and that is the assertion, not an accident: the panel has to be right the instant it is
+asked. **Before signal-backing anything, grep for callers that read it back synchronously.**
+
+**4. It is not a panel.** Roughly a third of the "UI" files are presenters that build into a
+caller's element (`ProjectBrowser`, `ViewportLayout`, `SceneHierarchyView`, `ToolbarPresenter`,
+`MenuPresenter`), services with no fixed tree (`DialogService`, `AssetPicker`), registration wiring
+(`EditorSettingsPanels`), or scanners with no UI at all (`DeclaredContributions`,
+`EditorDiagnostics`, `FoliageMode`, `BlockoutUvPanel`). ⚠ `MenuPresenter` and `ToolbarPresenter` are
+worth their own line: their menus and popovers hang off the **document root**, so the bar is not an
+ancestor of its own items. There is no tree for markup to describe.
+
+### Two recorded gaps are stale, and were verified closed
+
+⚠ **`class=` on a control tag no longer clobbers.** `BuildContext.Attribute`'s remark reads as if it
+still does; it is describing the bug in the past tense. `SetClasses` takes back only the names the
+attribute itself last wrote, so `<Button class="row" Variant="Subtle" />` keeps `variant-default`
+and `size-md`. The `OnComposed` workarounds in `ImportSettingsView` and `UndoHistory` are no longer
+needed.
+
+⚠ **Inline `display` was never refused.** There is no property allowlist in `SetInlineStyle` and no
+`display` diagnostic anywhere in `Vixen.Ui.Markup`; the only refused character is `}`. The guide's
+"a `display` toggle is a class" is *advice about taste*, and taste is right — but a port blocked on
+it was blocked on nothing.
+
+Both had been carried forward as blockers in wave notes. **Verify a gap before you design around it.**
+
+### The ledger
+
+Sizes are the wave-1b unit: four panels, ~1,130 lines of C# removed, ~1,370 of `.vxml` added, one
+model signal-backed. ⚠ **"Signal-backed? no" is the answer for every row**, which is itself the
+finding — outside `Vixen.Editor.Core` (`EditorDocument`, `Selection`, `EditorProperty`,
+`EditorProject`) and the four models wave 1b touched, nothing in the editor holds a signal. So no
+port in this table starts from a reactive model, and each one has to decide between a snapshot
+record, an additive signal-backing, and shapes 1–3 above saying leave it alone.
+
+| Panel | Model | Signal-backed? | Verdict | Size |
+|---|---|---|---|---|
+| `BuildSettingsView` | snapshot | no, and cannot be — shape 3 | **done, wave 2** | M |
+| `FlameChartView` | snapshot | no | **port next.** `GpuTimelineView.vxml` names it: it still pools, and a keyed `@for` is that pool | S/M |
+| `CompiledSceneView` | snapshot | no | **port.** Purest snapshot in the tree; 6 tests, all on the view | M |
+| `VariationHarnessView` | snapshot | no | **port.** Read-only text and classes, *zero* value-change subscriptions | S |
+| `SettingsView` | live (view-local) | no | **port — the exclusion is lifted.** See below | M |
+| `TextureImportView` | snapshot | no | **port.** The direct `<Tabs>`/`<TabItem>` + `<ImportSettingsView>` case those two features were built for | M |
+| Blockout settings · Water zone · Water body · Terrain grass/growth/splines | snapshot | no | **port, six small ones.** `TerrainBrushInspector.vxml` is the model; splines has a literal duplicated fact block a `@for` deletes | S each |
+| `QueryView` · `GoapDomainView` · `AgentDebuggerView` | snapshot | no | port; leave `CurveEditor`/`NodeCanvas` behind a `ref` | S/M |
+| `CodeEditorView` · `VfxGraphView` · `ShaderGraphView` · `CompositorView` | live | no | port the chrome; the editor/canvas/`KeyValueList` rows stay | S–M |
+| `NodeInspector` · `NodeSearchPopup` · `CommandPalette` · `AddComponentMenu` | snapshot | no | port; each deletes a hand-rolled element pool or reconciler | M |
+| `RemoteInspectorView` | **live** | no | port; signal-back `RemoteInspectorClient` additively, per `DeviceManager` | M |
+| `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | port the readouts, keep the field rows (shape 2) | M |
+| `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output | M |
+| `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | **defer.** Each is half unportable; `AnimationGraphView` has no tests at all | L–XL |
+| `AudioMixerView` | snapshot | no | **no** — per-row value controls, shape 2's blocking form | XL |
+| `AnimationClipView` | snapshot | no | **no** — `Timeline.AddTrack`/`AddSpan` + `CurveEditor` is the whole panel | L |
+| `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
+| `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
+| `InspectorView` + the four drawers · `TargetOverrideMatrix` | — | — | **no** — a drawer *is* a factory, and markup cannot be one | — |
+| `ProjectBrowser` · `SceneHierarchyView` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `DialogService` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` | — | — | **not panels** — shape 4 | — |
+
+⚠ **`ViewportChrome` is a "no" for a positive reason**, not an absence: it throttles its stats to
+every fifteenth frame on purpose, to keep the window's draw list re-usable, and a binding would
+remove exactly that.
+
+⚠ **`BlockoutUvPanel` is a "no" that is really a "not yet written"** — 317 lines of headless model
+with an immutable `Views` snapshot and no view at all. Doc 42 § D13 asks for one. Written fresh it
+is `GpuTimelineView` almost line for line, and it is the best *new*-panel candidate in the tree.
+
+### The two earlier exclusions, re-checked
+
+**`MessageLogView` — still excluded, but the reason is narrower than recorded.** There is no tag
+registry to add `VirtualizingPanel` to: the emitter writes `ctx.Child<Tag>(…)` for any capitalised
+tag and lets C# overload resolution settle it, so `<VirtualizingPanel ref="@List" />` is already
+legal. What markup cannot express is the **row template and its per-index binder** — `CreateRow`,
+`BindRow`, and a pool indexed by scroll position. `ConsoleView` is the same panel with five columns
+instead of four, and is the least suitable file in the editor.
+
+**`SettingsView` — no longer excluded.** `SettingsCategory.Build` is still an `Action<UiElement>`,
+invoked at one site (`Reload()`), from seven callers in `EditorSettingsPanels`. But the factory never
+had to be *invoked from* the `.vxml` — it needs a host element to be invoked *into*, and `ref` gives
+one. `PrefabView.vxml` is the proof: `<TabItem ref="@HierarchyTab" Label="Hierarchy" />` has no
+content and `Show` builds the tree against `HierarchyTab.Panel`. `<settings-pane ref="@Pane" />` is
+the same pattern and simpler — an element owned by no region, so `Reload()`'s clear-and-refill is safe.
+
+### What to build, in order of leverage
+
+1. **A value-change subscription markup can name.** It is what blocks every field list in the
+   editor, and unlike shape 1 it is a nameable feature rather than an inherent limit. It needs a
+   routed value-change event, or a second table whose entries are not `Action<UiEvent>`.
+2. **A per-iteration handle** — either `ref` inside `@for`, or a `@for` body that is a nested
+   component so its `ref`s are its own. With (1) this turns one XL "never" and four L "halves" into
+   ordinary Ms.
+3. **A row template for `VirtualizingPanel`.** Frees `ConsoleView`, `MessageLogView` and `AssetGrid`,
+   which are three of the most-looked-at surfaces in the editor.
+4. **A `Select` whose options come from markup.** `AddOption` is a method, and combined with
+   `VXML2010` an enum dropdown inside a `@for` is inexpressible.
+5. **Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.** `Fact` is hand-written seven
+   times and `Section`/`Verbs`/`Clear` four times each. Every small terrain, water and blockout panel
+   collapses to a short file once these exist — the cheapest item on this list and the one that makes
+   six of the S-sized ports nearly free.
+
 ## Localisation
 
 Every user-visible string is a `StringId` — an id and the English text it says — so
