@@ -15,18 +15,24 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1 768 of the 2 120 grid, blockgrid and gridflex fixtures pass, 220 fail and 132 are refused.
+# 1 896 of the 2 120 grid, blockgrid and gridflex fixtures pass, 92 fail and 132 are refused.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
-# with every one of its failures outside block formatting. Grid has not — but the two features this
-# file named as its largest have both since landed, in the same afternoon and from different
-# branches: §11.8's baseline alignment and §9's containing block for an out-of-flow child. What
-# remains is arithmetic rather than whole features. Complete: placement (§8), the bulk of track
-# sizing (§12), §11.8 baseline alignment and §9's containing block — every `grid_placement_*`,
-# `grid_auto_flow_*`, `grid_repeat_*`, `grid_gap_*`, `grid_span_*` non-indefinite,
-# `grid_relayout_*`, `grid_align_items_baseline_*` and `grid_absolute_*` family is green, and so is
-# every one of the 548 `grid_flex_track_*` fixtures, which are the ones that exercise §12.5 and
-# §12.7 hardest.
+# with every one of its failures outside block formatting. Grid has not — but the features this
+# file named as its largest have all since landed, from different branches: §11.8's baseline
+# alignment, §9's containing block for an out-of-flow child, §4.4's overflow alignment, and the
+# definite second pass §12 takes once an intrinsically-measured container has a width. What remains
+# is arithmetic rather than whole features. Complete: placement (§8), the bulk of track sizing
+# (§12), §11.8 baseline alignment, §9's containing block and §4.4 overflow alignment — every
+# `grid_placement_*`, `grid_auto_flow_*`, `grid_repeat_*`, `grid_gap_*`, `grid_span_*`,
+# `grid_relayout_*`, `grid_align_items_baseline_*`, `grid_align_*`, `grid_justify_*` and
+# `grid_absolute_*` family is green, and so is every one of the 548 `grid_flex_track_*` fixtures,
+# which are the ones that exercise §12.5 and §12.7 hardest.
+#
+# ⚠ <b>Two of the remaining families are not grid's, and the file should stop implying they are.</b>
+# `grid_min_content_flex_column` is in the shared min-content helper, and the two
+# `grid_available_space_*` fixtures are about how the ROOT node is sized — see their heading. Both
+# are named here because the fixture names begin with `grid`, not because grid is where the fix is.
 
 # ── BASELINE ALIGNMENT (§11.8) ── CLOSED ──
 #
@@ -76,25 +82,59 @@
 # rather than a margin-resolution one, and nothing else in the corpus exercises it.
 grid_align_items_baseline_child_margin_percent
 
-# ── A SPANNING ITEM AGAINST AN INDEFINITE CONTAINER ──
+# ── A SPANNING ITEM AGAINST AN INDEFINITE CONTAINER ── CLOSED, and two that were never this ──
 #
-# Every one of these sizes a grid whose own inline size is being asked for while an item spans two
-# or more intrinsic tracks. The container is measured under a max-content constraint, so §12.5 step
-# 3.3 runs over the `auto` tracks as well as the `max-content` ones — correctly — but the result is
-# then used as the container's size without re-sizing the tracks against it. CSS Sizing
-# §5.1's fit-content is a min/max clamp of a max-content size, and where the clamp bites the tracks
-# want a second pass; `LayOutGrid` only takes one for the inline axis and only when the clamp
-# actually narrowed the box.
-grid_span_2_max_content_auto_indefinite
-grid_span_2_max_content_fit_content_10px_indefinite
-grid_span_2_max_content_fit_content_80px_indefinite
-grid_span_2_min_content_fit_content_10px_indefinite
-grid_span_2_min_content_fit_content_30px_indefinite
-grid_span_6_all_non_flex_indefinite
-grid_span_8_all_track_types_indefinite
-grid_span_13_most_non_flex_with_minmax_indefinite
-grid_max_content_single_item_span_2_gap_percent_definite
-grid_max_content_single_item_span_2_gap_percent_indefinite
+# The heading was right about where to look and it took three separate fixes to pay out, each of
+# which the previous one exposed.
+#
+# ⚠ <b>The intrinsic pass measures; a definite pass lays out.</b> §12.5 step 3.3 opens "if the grid
+# container is being sized under a max-content constraint", and under that constraint an `auto`
+# track absorbs a spanning item's max-content contribution alongside the `max-content` ones. That is
+# the right answer to "how wide would this grid like to be" and the wrong answer to "how wide is
+# it" — and once the first pass produces a width, the second question has a definite answer.
+# `LayOutGrid` took its second pass only when a fit-content clamp had narrowed the box; it now takes
+# one whenever the first pass ran under an intrinsic constraint. `max-content auto` spanned by one
+# item is 60 + 20 once the 80 is known, and 40 + 40 if the max-content pass is left standing.
+#
+# ⚠ <b>§12.5 step 3.3 is two rounds, not one round with a widened membership.</b> Its first sentence
+# spends the LIMITED max-content contribution over `auto` and `max-content` minimums; its last
+# spends the full one over `max-content` minimums alone. Two memberships, two contributions, and
+# they are crossed — the wider set gets the smaller number. The fused reading handed the wider set
+# the larger number, so a `fit-content()` track spanned under a max-content constraint grew straight
+# past its own argument. ⚠ Splitting the round alone changed NOTHING measurable, and that is the
+# instructive part: the growth was arriving through the GROWTH LIMIT, not the base size, and §12.6
+# then raises every base to its growth limit because free space is infinite under a max-content
+# constraint. `fit-content()`'s clamp was applied for an item in exactly one track and nowhere else.
+# Both halves together, and only both, are worth eight fixtures.
+#
+# ⚠ <b>A percentage gutter is a fraction of this grid's content box, not of its owner's.</b> CSS Box
+# Alignment §8, and `LayOutGrid` was passing `ownerWidth`. The definite case is simply wrong and now
+# resolves up front; the indefinite case cannot resolve until the max-content pass has produced a
+# number, and then re-sizes the tracks around the gutter without re-measuring the box — so
+# `column-gap: 20%` on a grid that measures 100 wide is 20 points of gutter and the tracks overflow
+# to 120, which is what Chrome draws.
+#
+# Ten families here, plus six from the cyclic-percentage bucket, three of the `_with_padding_border`
+# family and `grid_overflow_rows` — 76 fixtures for a heading that claimed 48.
+
+# ── HOW THE ROOT NODE IS SIZED, WHICH IS NOT A GRID QUESTION ──
+#
+# ⚠ These two sat under the spanning-item heading above and are not that: NEITHER HAS A SPANNING
+# ITEM. Both are `auto auto` with one text per track, and in both the tracks come out exactly right
+# — 80 + 80 in the first, 40 + 40 in the second. The only number that disagrees is the container's
+# own width, and it disagrees with the available space rather than with the content.
+#
+# `CalculateLayout` sizes a root with no stated width as StretchFit whenever it is handed a definite
+# owner size, which is Yoga's rule and what the 534 Yoga fixtures are written against. Chrome
+# shrink-to-fits it: fit-content, floored at min-content. So a grid whose max-content size is 160 in
+# a 400-point viewport is 160 and not 400, and one whose min-content size is 80 in a 60-point
+# viewport is 80 and not 60. The two fixtures are the two sides of that one clamp, and no
+# grid-side change can satisfy both — the first needs the box to shrink below the available space
+# and the second needs it to grow past it.
+#
+# Left here rather than deleted because the names begin with `grid`, but the fix is in
+# `LayoutTree.Layout`'s root entry and it is shared with block and flex. Whoever takes it should
+# expect to re-measure all four corpora, not this one.
 grid_available_space_greater_than_max_content
 grid_available_space_smaller_than_min_content
 
@@ -113,17 +153,19 @@ grid_available_space_smaller_than_min_content
 # ⚠ Two families left this bucket without a second pass being written, so the bucket was wider than
 # the rule it names: `grid_percent_items_width_and_margin` and its `_2_col` twin were a percentage
 # resolved against the wrong box rather than against an unknown one. See the closed heading above.
+#
+# ⚠ Six more have now left it the same way, and the bucket has been wrong about its own membership
+# more often than it has been right. `grid_margins_percent_center` and `_end` were the §4.4
+# overflow-alignment bug — no percentage was ever mis-resolved in them; the item was simply bigger
+# than its area. `grid_minmax_auto_percent_indefinite`, `grid_minmax_min_content_percent_indefinite`
+# and the two `grid_fit_content_percent_indefinite_*` were the missing definite second pass, which
+# IS "Chrome takes a second bite" — it was just already written for one branch and not the others.
+# What is left is the genuine article: a percentage inside a nested item, and a percentage TRACK.
 grid_percent_items_nested_moderate
 grid_percent_items_nested_with_margin
 grid_percent_items_nested_with_padding_margin
 grid_percent_tracks_indefinite_with_content_overflow
 grid_percent_tracks_indefinite_with_content_underflow
-grid_margins_percent_center
-grid_margins_percent_end
-grid_minmax_auto_percent_indefinite
-grid_minmax_min_content_percent_indefinite
-grid_fit_content_percent_indefinite_argument
-grid_fit_content_percent_indefinite_min_content
 
 # ── AN ITEM'S SIZE AGAINST ITS OWN PADDING AND BORDER ──
 #
@@ -131,35 +173,44 @@ grid_fit_content_percent_indefinite_min_content
 # that moves which box the stated size names. The item is given its grid area and lays itself out
 # correctly; what is wrong is the floor this implementation applies before handing the size down,
 # which takes the stated minimum rather than the larger of it and the item's own edges.
+#
+# ⚠ <b>Every `_width_` member of this bucket has left it without that floor being touched, and only
+# the `_height_` ones remain.</b> They were the missing definite second pass — see the spanning-item
+# heading above. That the split is exactly along the axis is the tell, and it is worth reading twice
+# before trusting what is left: the second pass is taken for the INLINE axis only, so a heading that
+# survives on its height fixtures alone is as likely to be describing the missing block-axis pass as
+# it is to be describing a floor. Confirm which before implementing either.
 grid_min_height_with_padding_border
 grid_min_height_with_padding_border_box_sizing
-grid_min_width_with_padding_border
-grid_min_width_with_padding_border_box_sizing
 grid_fr_tracks_min_height_with_padding_border
-grid_fr_tracks_min_width_with_padding_border
 grid_padding_border_overrides_size
 grid_size_child_fixed_tracks
 
-# ── ALIGNMENT OF AN ITEM THAT IS BIGGER THAN ITS AREA ──
+# ── ALIGNMENT OF AN ITEM THAT IS BIGGER THAN ITS AREA (§4.4) ── CLOSED ──
 #
-# CSS Box Alignment §4.4: an alignment subject that overflows its container falls back to start
-# alignment, so that the beginning of the overflow stays reachable. `PositionTracks` applies that to
-# the TRACKS — negative free space is clamped to zero there — but `AlignInArea` applies the same
-# clamp to the ITEM, and for an item the rule is subtler: `unsafe` alignment is the default and it
-# is supposed to overflow in the aligned direction rather than fall back. The two `unsafe_` fixtures
-# say so directly; the `_sized_` ones are the same rule reached through a definite item size.
-grid_align_items_sized_center
-grid_align_items_sized_end
-grid_align_self_sized_all
-grid_justify_items_sized_center
-grid_justify_items_sized_end
-grid_justify_self_sized_all
-grid_unsafe_align_self_end_overflow
-grid_unsafe_justify_content_end_overflow
-grid_align_content_center_negative_space_gap
-grid_align_content_end_negative_space_gap
-grid_justify_content_center_negative_space_gap
-grid_justify_content_end_negative_space_gap
+# ⚠ The heading this bucket carried was half right, and the wrong half was the confident half. It
+# said `AlignInArea`'s clamp on negative free space was the bug and `PositionTracks`' identical
+# clamp was correct — the tracks falling back to start, the item overflowing. In fact BOTH clamps
+# were wrong, and the bucket's own contents said so: `grid_unsafe_justify_content_end_overflow` is a
+# CONTENT alignment fixture, so it goes through `PositionTracks`, and it expects x = −20. So do the
+# four `_negative_space_gap` families, which are `align-content` and `justify-content` throughout.
+#
+# CSS Box Alignment §4.4 gives each alignment an overflow behaviour, and the default is `unsafe`:
+# `center` and `end` overflow in the direction they align rather than falling back to start. `safe`
+# is the keyword that asks for the fallback — and `TaffyStyleMap` REFUSES `safe X` outright while
+# stripping `unsafe X`, on the stated grounds that unsafe is what every keyword in this store means.
+# Both clamps contradicted the store's own vocabulary, and the two-line fix was to delete them.
+#
+# ⚠ Deleting `PositionTracks`' clamp outright cost four families, and that regression is what named
+# the real criterion. §4.2's DISTRIBUTED alignments each declare a fallback for when there is
+# nothing left to distribute: `space-between` becomes `start`, and `space-around` and `space-evenly`
+# become `safe center` — and the `safe` there is load-bearing, because a bare `center` would
+# overflow by half. All three arrive at start. Mapping the latter two to a plain `Center` put every
+# track half the overflow to the left, which `grid_justify_content_space_around_negative_space_gap`
+# and its `space_evenly` twin caught. So: positional alignments honour negative free space,
+# distributed ones step aside for it.
+#
+# Twelve families, 48 fixtures, and two more that were misfiled under cyclic percentages below.
 
 # ── ASPECT RATIO AGAINST A GRID AREA, AND AGAINST A FULL SET OF INSETS ──
 #
@@ -218,11 +269,13 @@ grid_placement_auto_negative
 #   ComputeMinContentSizeUncached has no grid branch — it sums children along `FlexDirection` as
 #   though every container were a flex one — so a grid's min-content size is its items' sum rather
 #   than its tracks'. This is the one gap that is in the SHARED helper rather than in grid.
-# `grid_overflow_rows`: a scroll container's fit-content height, one level down from the rule
-#   LayoutTree.Block already implements for itself.
 # `chrome_issue_325928327`: Chrome's own regression fixture; unclassified.
+#
+# ⚠ `grid_overflow_rows` was here as "a scroll container's fit-content height, one level down from
+#   the rule LayoutTree.Block already implements for itself", and it was not that at all — it closed
+#   with the definite second pass and never involved a scroll container's height. A singleton is the
+#   easiest kind of entry to guess wrong about, because nothing else in the bucket contradicts it.
 grid_auto_columns
 grid_auto_rows
 grid_min_content_flex_column
-grid_overflow_rows
 chrome_issue_325928327

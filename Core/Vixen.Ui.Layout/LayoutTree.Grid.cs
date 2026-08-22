@@ -122,6 +122,17 @@ public sealed partial class LayoutTree {
         var innerWidth = float.IsNaN(definiteWidth) ? float.NaN : MathF.Max(0f, definiteWidth - insetRow);
         var innerHeight = float.IsNaN(definiteHeight) ? float.NaN : MathF.Max(0f, definiteHeight - insetColumn);
 
+        // ⚠ <b>A grid that already knows its own inline size resolves its percentage column gutter
+        // against that, and not against its owner.</b> CSS Box Alignment §8 measures the gutter
+        // against the content box of the element the gutter belongs to — so a `column-gap: 20%` on a
+        // 100-point grid is 20 whatever the owner happens to be, and reading the owner's size makes
+        // the same declaration mean different things in the same box. The owner is still the basis
+        // while this grid's size is unknown, because at that point there is nothing better; the
+        // second pass below revisits it once the max-content pass has produced a number.
+        if (!float.IsNaN(innerWidth)) {
+            columnGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Row, innerWidth);
+        }
+
         // ── §7.2.3.2, then §8 ───────────────────────────────────────────────────────────────────
         var explicitColumns = ExplicitTrackCount(in styles[index].GridTemplateColumns, innerWidth, columnGap);
         var explicitRows = ExplicitTrackCount(in styles[index].GridTemplateRows, innerHeight, rowGap);
@@ -166,20 +177,50 @@ public sealed partial class LayoutTree {
             // must not.</b> CSS Sizing §5.1 makes fit-content the max-content size clamped to the
             // available space, so the first pass has to be a max-content one — but once the clamp
             // bites, the tracks were sized against a width the container does not have, and an
-            // `1fr` column would keep the width it wanted rather than shrinking. Re-running only in
-            // that branch is what keeps a grid inside a flex item honest without paying for a second
-            // pass on every grid.
+            // `1fr` column would keep the width it wanted rather than shrinking.
             var clamped = widthSizingMode == SizingMode.FitContent && !float.IsNaN(availableWidth)
                 ? MathF.Min(outerWidth, MathF.Max(availableWidth - marginAxisRow, insetRow))
                 : outerWidth;
 
-            if (clamped < outerWidth - 1e-4f || !float.IsNaN(definiteWidth)) {
+            // ⚠ <b>A container sized under an intrinsic constraint re-sizes its tracks too, and for
+            // a reason the clamp never reaches: the constraint itself is an input to §12.5.</b> Step
+            // 3.3 opens "if the grid container is being sized under a max-content constraint", and
+            // under that constraint an `auto` track absorbs a spanning item's max-content
+            // contribution alongside the `max-content` ones — see <see cref="IsAffectedBy" />. That
+            // is the right answer to the question the first pass asks, which is "how wide would this
+            // grid like to be". It is the wrong answer to the question the boxes are drawn from,
+            // which is "how wide is it" — and by the time the width falls out of the first pass, that
+            // second question has a definite answer. `max-content auto` spanned by one item wants
+            // 60 + 20 once the 80 is known, and reports 40 + 40 if the max-content pass is left
+            // standing: the `auto` track keeps a share it was only ever lent while the width was
+            // unknown. So the intrinsic pass measures, and a definite pass lays out.
+            var measuredIntrinsically = columnAxis.Constraint != GridSizingConstraint.Definite;
+
+            if (clamped < outerWidth - 1e-4f || !float.IsNaN(definiteWidth) || measuredIntrinsically) {
                 outerWidth = float.IsNaN(definiteWidth) ? clamped : definiteWidth;
                 innerWidth = MathF.Max(0f, outerWidth - insetRow);
 
                 ResetTracks(columnsAt, placement.Columns);
 
-                columnAxis = columnAxis with { AvailableSpace = innerWidth, Constraint = GridSizingConstraint.Definite };
+                // ⚠ <b>A percentage gutter is a fraction of THIS grid's content box, not of its
+                // owner's.</b> CSS Box Alignment §8: `column-gap` percentages resolve against the
+                // inline size of the content box of the element the gutter belongs to. That size is
+                // the one number the first pass does not have — which is why the first pass resolves
+                // the percentage to nothing and this one, holding the answer, resolves it for real.
+                // `column-gap: 20%` on a grid that measures 100 wide is 20 points of gutter, and the
+                // tracks it separates are re-sized around it: a `max-content` pair spanned by a
+                // 60-point item is 20 + 20 with the gutter and 30 + 30 without.
+                //
+                // ⚠ The container does NOT then re-measure. Its width was settled by the max-content
+                // pass, and a gutter that widens the tracks past it overflows rather than growing the
+                // box — which is exactly what Chrome draws, tracks ending at 120 inside a 100-point
+                // grid. Feeding the new content width back would make the percentage chase itself.
+                columnAxis = columnAxis with {
+                    AvailableSpace = innerWidth,
+                    Gap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Row, innerWidth),
+                    Constraint = GridSizingConstraint.Definite
+                };
+
                 SizeGridTracks(in columnAxis, direction, ownerWidth, ownerHeight, currentDepth);
             }
         }
@@ -550,11 +591,26 @@ public sealed partial class LayoutTree {
 
         var free = float.IsNaN(axis.AvailableSpace) ? 0f : axis.AvailableSpace - UsedTrackSpace(in axis);
 
-        // ⚠ Negative free space is never distributed. CSS Box Alignment §4.4: an overflowing
-        // alignment container falls back to start alignment, because centring an overflow hides the
-        // beginning of it behind the container's own edge and there is no scrolling back to it.
+        // ⚠ <b>Negative free space is honoured, and only the distributed alignments step aside for
+        // it.</b> CSS Box Alignment §4.4 gives every alignment an overflow behaviour, and the
+        // default one is <c>unsafe</c>: `center` and `end` overflow in the direction they align,
+        // rather than falling back to start. That is not a detail — `TaffyStyleMap` refuses
+        // `safe X` outright and strips `unsafe X` precisely because unsafe is what every keyword in
+        // this store already means, so clamping here contradicted the store's own vocabulary.
+        //
+        // What negative free space does change is §4.2's distributed alignments, each of which
+        // names its own fallback when there is nothing left to distribute: `space-between` becomes
+        // `start`, and `space-around` and `space-evenly` become `safe center`. ⚠ <b>The `safe` in
+        // that fallback is the whole point of it</b> — a bare `center` would overflow by half, and
+        // `safe` is exactly the keyword that says to fall back to start instead. So all three
+        // arrive at start, and negative free space is spent on none of them. Mapping the last two
+        // to a plain `Center` puts every track half the overflow to the left, which is what
+        // `grid_justify_content_space_around_negative_space_gap` and its `space_evenly` twin catch.
         if (free < 0f) {
-            free = 0f;
+            distribution = distribution switch {
+                Justify.SpaceBetween or Justify.SpaceAround or Justify.SpaceEvenly => Justify.FlexStart,
+                _ => distribution
+            };
         }
 
         var (leading, between) = distribution switch {
@@ -932,10 +988,12 @@ public sealed partial class LayoutTree {
         usedStart = startMargin.OrZero();
         usedEnd = endMargin.OrZero();
 
-        if (free < 0f) {
-            free = 0f;
-        }
-
+        // ⚠ <b>An item bigger than its area overflows in the direction it aligns, and is not sent
+        // back to the start.</b> CSS Box Alignment §4.4's `safe` keyword is the one that falls back
+        // to start on overflow; the default is `unsafe`, which honours the alignment whatever the
+        // relative sizes. So `align-self: end` on a 60-point item in a 40-point row puts it 20
+        // points ABOVE the row, and `center` puts it 10 above — negative offsets that a clamp here
+        // rounded to zero, which reads as an item that simply ignores its own alignment.
         return usedStart + alignment switch {
             Align.Center => free / 2f,
             Align.FlexEnd => free,
