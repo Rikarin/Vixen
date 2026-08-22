@@ -44,6 +44,17 @@ public sealed partial class LayoutTree {
 
         generation++;
 
+        // ⚠ <b>`display: none` generates no box, and that is true of the box the caller handed us
+        // as well.</b> Every container in this store already skips a `display: none` CHILD and
+        // blanks its subtree; the root was the one box nobody was skipping, so a hidden tree still
+        // reported the size its style asked for. `display_none_only_node` is a 100×100 div with
+        // `display: none` and Chrome answers 0×0. Yoga lays it out regardless, which is where this
+        // behaviour came from — but Yoga's own corpus never asks, and no Yoga fixture moves.
+        if (styles[index].Display == Display.None) {
+            ZeroOutLayoutRecursively(index);
+            return;
+        }
+
         ref var style = ref styles[index];
         var direction = StyleResolution.ResolveDirection(in style, ownerDirection);
 
@@ -552,7 +563,15 @@ public sealed partial class LayoutTree {
         var crossAxisGap = StyleResolution.GapForAxis(in styles[index], crossAxis, availableInnerCrossDim);
         var maxLineMainDim = 0f;
 
+        // ⚠ <b>A percentage main-axis gutter on a content-sized box is cyclic, and the box's size is
+        // decided WITHOUT it.</b> Stays NaN unless one is found; see the cyclic-gutter note below.
+        var contentMainDimBeforeCyclicGap = float.NaN;
+
         while (startOfLine < childCount) {
+            // What CalculateFlexLine is about to resolve this line's gutter against. Under a
+            // content-based main size it is NaN, which is what makes a percentage gutter zero.
+            var gapBasis = availableInnerMainDim;
+
             var line = CalculateFlexLine(
                 index,
                 ownerDirection,
@@ -592,6 +611,46 @@ public sealed partial class LayoutTree {
 
                     sizeBasedOnContent = true;
                 }
+            }
+
+            // ── The cyclic percentage gutter ────────────────────────────────────────────────────
+            // ⚠ <b>A percentage main-axis gap on a box whose main size comes from its content
+            // depends on the size it helps decide, and CSS Sizing §5.2.1 breaks the cycle by
+            // resolving it as ZERO for the purpose of deciding that size.</b> CalculateFlexLine
+            // already did exactly that, by accident of having been handed NaN — so the box's
+            // content size, which the branch above has just taken out of `line.SizeConsumed`, is a
+            // gapless one and is the right answer. What was wrong is everything after it: the
+            // gutter became resolvable the moment that size existed, JustifyMainAxis re-resolved it
+            // and laid the items out with it, and `line.MainDim` — the box's own measured size —
+            // GREW to hold a gutter the box had already been sized without.
+            //
+            // `column-gap: 20%` on a shrink-to-fit row of three 20-point items is Chrome's clean
+            // reading: the box is 60, the gutter is 20% of 60 = 12, and the line therefore needs 84
+            // in a 60-point box. The items shrink into it and come out 12 apiece. Growing the box to
+            // 84 instead makes the gutter self-fulfilling and nothing ever shrinks, which is what
+            // this store did for all three of the cyclic fixtures.
+            //
+            // So: the gutter is charged to the LINE, which is what §9.7 distributes over, and not to
+            // the BOX, whose size was already decided. The two are different numbers whenever the
+            // items cannot absorb the difference — `_unshrinkable` is 60 wide with its last item
+            // ending at 84 — and that overflow is what Chrome draws.
+            var cyclicGap = StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim)
+                - StyleResolution.GapForAxis(in styles[index], mainAxis, gapBasis);
+            var cyclicGutter = cyclicGap * int.Max(0, line.ItemCount - 1);
+
+            if (cyclicGutter > 0f) {
+                var gapless = availableInnerMainDim + paddingAndBorderAxisMain;
+                contentMainDimBeforeCyclicGap = float.IsNaN(contentMainDimBeforeCyclicGap)
+                    ? gapless
+                    : MathF.Max(contentMainDimBeforeCyclicGap, gapless);
+
+                // ⚠ NOT `SizeConsumed`: that field is documented as what the container's own
+                // content-based main size is made of, and the whole rule here is that the gutter is
+                // not part of it. The pool §9.7 divides is built from MarginAndGapConsumed, and
+                // step 1 picks its direction from the hypothetical sum, so those are the two.
+                line.MarginAndGapConsumed += cyclicGutter;
+                line.HypotheticalSizeConsumed += cyclicGutter;
+                sizeBasedOnContent = false;
             }
 
             // ⚠ §9.7 step 1 picks the factor from the sum of the HYPOTHETICAL main sizes, and step 3
@@ -828,7 +887,15 @@ public sealed partial class LayoutTree {
 
         if (sizingModeMainDim == SizingMode.MaxContent
             || (mainOverflow != Overflow.Scroll && sizingModeMainDim == SizingMode.FitContent)) {
-            SetMeasuredDimension(index, mainAxis, direction, maxLineMainDim, mainAxisOwnerSize, ownerWidth);
+            // ⚠ The line may have been laid out wider than the box that was sized to hold it, and
+            // when a cyclic percentage gutter is what widened it that is not the box's size — see
+            // the cyclic-gutter note in STEP 5. `maxLineMainDim` is where the box would otherwise
+            // grow to hold a gutter that only exists because the box is that size.
+            var measuredMainDim = float.IsNaN(contentMainDimBeforeCyclicGap)
+                ? maxLineMainDim
+                : contentMainDimBeforeCyclicGap;
+
+            SetMeasuredDimension(index, mainAxis, direction, measuredMainDim, mainAxisOwnerSize, ownerWidth);
         } else if (sizingModeMainDim == SizingMode.FitContent && mainOverflow == Overflow.Scroll) {
             var scrolledMain = MathF.Max(
                 MathF.Min(

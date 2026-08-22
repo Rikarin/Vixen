@@ -67,8 +67,8 @@ public class TaffyFlexConformanceTests {
     // other way here, in Yoga's 534, or in the block and grid corpora — but only after the same field
     // was taken out of STEP 3's overflow test, which is §9.3's sum and not §9.7's; leaving it there
     // cost four fixtures and one Yoga fixture. See KnownGaps.txt's §9.7 heading.
-    const int ExpectedPassing = 2194;
-    const int ExpectedFailing = 62;
+    const int ExpectedPassing = 2242;
+    const int ExpectedFailing = 14;
     const int ExpectedUnsupported = 152;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();

@@ -453,7 +453,16 @@ public sealed partial class LayoutTree {
         }
 
         var itemAlign = ResolveChildAlignment(parent, child);
-        if (styles[parent].FlexWrap == Wrap.WrapReverse) {
+
+        // ⚠ <b>`wrap-reverse` swaps the FLOW-relative keywords, and `baseline`'s fallback is not one
+        // of them.</b> An out-of-flow child is in no line, so it participates in no baseline group;
+        // CSS Align §9.3 then aligns it by its fallback alignment, and the fallback for
+        // `first baseline` is `start` — the WRITING-MODE-relative keyword, not `flex-start`. Only
+        // the flow-relative pair is reversed by the wrap direction, so the item stays at the top.
+        // `absolute_layout_align_self_baseline_wrap_reverse` is the whole rule in one box: Chrome
+        // puts it at y=0, and folding `baseline` into the `else` arm below sent it to y=80 along
+        // with `flex-start` and `stretch`, which are flow-relative and do belong there.
+        if (styles[parent].FlexWrap == Wrap.WrapReverse && itemAlign != Align.Baseline) {
             itemAlign = itemAlign == Align.FlexEnd ? Align.FlexStart : itemAlign != Align.Center ? Align.FlexEnd : itemAlign;
         }
 

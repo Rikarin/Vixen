@@ -405,7 +405,7 @@ Vixen.Ui.Layout.Wrap.Wrap = 1 -> Vixen.Ui.Layout.Wrap
 Vixen.Ui.Layout.Wrap.Wrap() -> void
 Vixen.Ui.Layout.Wrap.WrapReverse = 2 -> Vixen.Ui.Layout.Wrap
 const Vixen.Ui.Layout.LayoutLimits.MaximumCachedMeasurements = 8 -> int
-const Vixen.Ui.Layout.LayoutLimits.MaximumGridTracks = 10000 -> int
+const Vixen.Ui.Layout.LayoutLimits.MaximumGridTracks = 65535 -> int
 const Vixen.Ui.Layout.LayoutLimits.MaximumLayoutDepth = 60 -> int
 override Vixen.Ui.Layout.GridPlacement.ToString() -> string
 override Vixen.Ui.Layout.GridSizingFunction.ToString() -> string

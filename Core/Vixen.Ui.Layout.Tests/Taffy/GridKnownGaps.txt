@@ -15,7 +15,7 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1 954 of the 2 120 grid, blockgrid and gridflex fixtures pass, 34 fail and 132 are refused.
+# 1 974 of the 2 120 grid, blockgrid and gridflex fixtures pass, 14 fail and 132 are refused.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
 # with every one of its failures outside block formatting. Grid has not — but the features this
@@ -318,7 +318,7 @@ grid_available_space_smaller_than_min_content
 # `absolute_aspect_ratio_*` families under flex and block. One rule in LayoutTree.Absolute for all
 # three absolute paths, as predicted.
 
-# ── A GRID THIS STORE WILL NOT ALLOCATE ── two were never this, and the premise is wrong for two more ──
+# ── A GRID THIS STORE WILL NOT ALLOCATE ── CLOSED, and every claim this heading made was wrong ──
 #
 # ⚠ <b>TWO OF THE SEVEN HAD NOTHING TO DO WITH ANY CAP, and the reason they were filed here is a
 # lesson about this corpus: a fixture with a big number in it reads as a big-number fixture.</b>
@@ -343,19 +343,38 @@ grid_available_space_smaller_than_min_content
 # `LayoutLimits.MaximumGridTracks` truncates at 10 000 and pulls both items into the same track,
 # which is why the widths come back halved rather than merely rounded.
 #
-# ⚠ So the work here is NOT reverse-engineering a cap. It is representing a sparse implicit grid —
-# materialising the occupied tracks and the runs between them rather than one entry per line — after
-# which the arithmetic already in §12 gives Chrome's answer without a limit being consulted at all.
-# That is a change to `TrackArena` and `PlaceGridItems`, not to a constant, and it is the honest
-# reason these are still here: this store's grid is dense by construction. The three
-# `_over_limit` / `over_u16` fixtures may well still need a cap on top; nobody has got far enough to
-# say, and they should not be assumed to share a cause with the two above just because they share a
-# prefix. That assumption is what put the first two entries in this bucket.
-grid_overlarge_auto_repeat_track_list_over_u16
-grid_overlarge_extreme_line_numbers
-grid_overlarge_fixed_tracks_plus_auto_fill_repetition_over_limit
-grid_overlarge_fixed_tracks_plus_auto_fit_repetition_over_limit
-grid_overlarge_negative_line_with_explicit_tracks
+# ⚠ <b>AND THEN THE CONCLUSION THIS HEADING DREW FROM ITS OWN CORRECT DIAGNOSIS WAS WRONG, WHICH IS
+# THE MORE USEFUL HALF.</b> It read: "the work here is NOT reverse-engineering a cap. It is
+# representing a sparse implicit grid — materialising the occupied tracks and the runs between them
+# rather than one entry per line… That is a change to `TrackArena` and `PlaceGridItems`, not to a
+# constant." It was measured. **It is a constant.** Raising
+# `LayoutLimits.MaximumGridTracks` from 10 000 to 65 535 closes all five of the fixtures that were
+# listed here, all twenty of their variants, with no regression in any of the four corpora and no
+# measurable change in how long the 2 120 fixtures take to run. Nothing sparse was written.
+#
+# ⚠ The reason the diagnosis was right and the conclusion was not is that DENSE IS NOT THE PROBLEM;
+# SATURATION IS. `PlaceGridItems` clamps an over-large grid with
+# `item.ColumnStart = int.Clamp(item.ColumnStart, 0, columns - 1)`, so two items far apart both land
+# on the LAST track and merge into one cell. That is what halved the widths, and it is a property of
+# the clamp rather than of the representation: a grid big enough that the two items do not collide
+# gives Chrome's answer through the arithmetic already in §12, exactly as the heading said it would.
+# 65 535 is big enough because the widest grid a document can NAME is the i16 line range the corpus
+# writes — ±32 767, which Taffy's own fixture names call `over_u16`.
+#
+# ⚠ AND THE JUSTIFICATION THE CONSTANT USED TO CARRY WAS FALSE, which is why nobody had questioned
+# its value. `LayoutLimits.MaximumGridTracks` said Chrome's cap "is what the corpus recorded:
+# `repeat(10000, 0px)`, `repeat(32768, …)` and `repeat(40000, 10px 10px)` are all in there
+# specifically to pin the clamped answer". Not one of those three pins anything: every track in them
+# is zero-sized or the item under test is in the first track, so all three give the same answer with
+# a cap of 10 000, of 65 535 and of none at all. They were never evidence for the number.
+#
+# ⚠ WHAT IS STILL TRUE is that a cap is a memory bound and this one costs more than it did: a
+# `GridTrackState` is ~48 bytes, so a document that really does write `grid-column-start: 32767` now
+# makes one axis's arena ~3 MB instead of ~0.5 MB. Bounded either way, paid only by a document that
+# asks, and the arena is a stack that hands the run back. The remaining honest work — and it is not
+# owed by any fixture in this corpus — is to make the clamp COLLAPSE the empty runs between occupied
+# tracks instead of saturating positions onto the last one, after which the ceiling stops deciding
+# whether two items share a cell and becomes a pure allocation bound.
 
 # ── SINGLETONS, EACH ITS OWN STORY ── three of four closed ──
 #

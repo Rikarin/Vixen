@@ -328,12 +328,46 @@ public sealed partial class LayoutTree {
                         break;
                     }
 
-                    case Align.Baseline:
+                    case Align.Baseline: {
+                        // ⚠ <b>§8.3 measures the offset from the item's baseline to its CROSS-START
+                        // margin edge, and `wrap-reverse` moves that edge to the bottom.</b> The item
+                        // with the largest such distance is placed flush against the line's
+                        // cross-start; the rest hang off the baseline it establishes. Above the
+                        // fold that distance is the ascent, and this store computes it as one.
+                        //
+                        // ⚠ Under wrap-reverse it is the DESCENT, and no amount of mirroring
+                        // afterwards produces that. STEP 9 reflects each child's box — `newTop =
+                        // container − oldTop − height` — which turns "tops offset by the ascent
+                        // difference" into "bottoms offset by the ascent difference", and a set of
+                        // boxes whose bottoms are spread apart is precisely a set whose baselines are
+                        // not aligned. `align_baseline_wrap_reverse` is four childless boxes, so
+                        // every synthesised baseline is a bottom edge and every descent is zero:
+                        // Chrome puts all four bottoms on their line's bottom edge, and the mirror
+                        // put the short ones 20 and 20 points above it. The reflection is right for
+                        // the tallest item in each line and wrong for every other one, which is what
+                        // made this read as an off-by-one in align-content rather than as the axis
+                        // question it is.
+                        //
+                        // Written in the UNFLIPPED frame, because STEP 9 has not run yet: an offset
+                        // of `maxDescent - descent` from the line's top reflects into an offset of
+                        // `maxDescent - descent` from its bottom, which is the rule.
+                        var offset = maxAscent - CalculateBaseline(child);
+
+                        if (styles[index].FlexWrap == Wrap.WrapReverse) {
+                            var ascent = CalculateBaseline(child)
+                                + StyleResolution.FlexStartMargin(in styles[child], FlexDirection.Column, direction, availableInnerWidth);
+                            var descent = results[child].MeasuredDimensions[(int) Dimension.Height]
+                                + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, availableInnerWidth)
+                                - ascent;
+
+                            offset = maxDescent - descent;
+                        }
+
                         results[child].Position[(int) Edge.Top] = currentLead
-                            + maxAscent
-                            - CalculateBaseline(child)
+                            + offset
                             + StyleResolution.FlexStartPosition(in styles[child], FlexDirection.Column, direction, availableInnerCrossDim);
                         break;
+                    }
 
                     default:
                         break;

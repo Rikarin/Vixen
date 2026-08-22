@@ -369,13 +369,35 @@ public static class LayoutLimits {
 
     /// <summary>How many tracks one axis of one grid may have.</summary>
     /// <remarks>
-    ///     ⚠ <b>A clamp rather than a limit, and CSS says so.</b> CSS Grid §7.2.3 lets an
-    ///     implementation cap the number of tracks a <c>repeat()</c> generates, and Chrome's cap is
-    ///     what the corpus recorded: <c>repeat(10000, 0px)</c>, <c>repeat(32768, …)</c> and
-    ///     <c>repeat(40000, 10px 10px)</c> are all in there specifically to pin the clamped answer,
-    ///     alongside line numbers as large as ±32 768. An implementation with no cap does not fail
-    ///     those fixtures, it allocates until it dies — which is the actual reason the spec permits
-    ///     one.
+    ///     <para>
+    ///         ⚠ <b>A MEMORY BOUND, and nothing about Chrome.</b> CSS Grid §7.2.3 lets an
+    ///         implementation cap the number of tracks a <c>repeat()</c> generates, and an
+    ///         implementation with no cap at all does not fail a fixture, it allocates until it dies
+    ///         — which is the actual reason the spec permits one. That is the whole justification.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to claim the corpus had recorded Chrome's own cap, and cited
+    ///         <c>repeat(10000, 0px)</c>, <c>repeat(32768, …)</c> and <c>repeat(40000, 10px 10px)</c>
+    ///         as "in there specifically to pin the clamped answer". None of the three pins
+    ///         anything.</b> Every track in them is zero-sized, or the item under test sits in the
+    ///         first track, so all three give the same answer at a cap of 10 000, at 65 535 and at
+    ///         none. The claim was plausible, it was never checked, and it is why the value went
+    ///         unexamined while five <c>grid_overlarge_*</c> families sat in GridKnownGaps.txt.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>65 535 is the widest grid a document can NAME.</b> Grid line numbers run to
+    ///         ±32 767 — the range Taffy's corpus writes, and what its <c>over_u16</c> fixture names
+    ///         refer to — so an implicit grid spanning the whole of it is 65 535 tracks. Below that,
+    ///         the clamp in <c>PlaceGridItems</c> does not merely truncate: it SATURATES, pulling
+    ///         every item past the end onto the last track, so two items thirty thousand lines apart
+    ///         share a cell and their two tracks come back as one. Twenty fixtures turned on that and
+    ///         on nothing else. See the closed bucket in GridKnownGaps.txt for the measurement.
+    ///     </para>
+    ///     <para>
+    ///         The cost is linear and is paid only by a document that asks for it: a
+    ///         <c>GridTrackState</c> is about 48 bytes, so one axis of one pathological grid holds
+    ///         ~3 MB of arena rather than ~0.5 MB, and the arena is a stack that takes the run back.
+    ///     </para>
     /// </remarks>
-    public const int MaximumGridTracks = 10_000;
+    public const int MaximumGridTracks = 65_535;
 }

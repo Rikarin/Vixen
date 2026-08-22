@@ -430,6 +430,55 @@ public sealed partial class LayoutTree {
         }
     }
 
+    /// <summary>The mirror of <see cref="ConstrainMaxSizeForMode" />: a stated minimum widens it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A box's BLOCK size is a function of the INLINE size it is actually given, and the
+    ///         size it is actually given has been through both of its own clamps.</b> CSS Sizing §5.1
+    ///         clamps the used size by the minimum as well as the maximum; measuring the other axis
+    ///         off the unclamped available space asks the box a question about a width it will never
+    ///         have. The maximum half of this has been here all along and is why
+    ///         <see cref="ConstrainMaxSizeForMode" /> exists at all — the minimum half was simply
+    ///         never written, and it is the same sentence of the same section.
+    ///     </para>
+    ///     <para>
+    ///         <c>measure_child_with_min_size_greater_than_available_space</c> is the whole rule in
+    ///         one box: sixteen Ahem characters with <c>min-width: 200px</c> in a 100-point column.
+    ///         Measured at the offered 100 the text takes two lines and the item is 20 tall; measured
+    ///         at the 200 it is going to be given it takes one and is 10, which is Chrome's answer.
+    ///         The used inline size does not move — it was always going to be clamped up to 200 on
+    ///         the way out — so only the other axis changes, which is why this reads as a
+    ///         line-breaking bug and is an ordering one. Grid found the same rule from the other end
+    ///         and wrote it up under <c>grid_size_child_fixed_tracks</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A <see cref="SizingMode.MaxContent" /> request is deliberately left alone. A minimum
+    ///         does not bound an unbounded question, and raising the offer under max-content would
+    ///         hand a percentage child a definite size to resolve against that the box has not got.
+    ///     </para>
+    /// </remarks>
+    void ConstrainMinSizeForMode(
+        int index,
+        Direction direction,
+        FlexDirection axis,
+        float ownerAxisSize,
+        float ownerWidth,
+        SizingMode mode,
+        ref float size
+    ) {
+        if (mode is not (SizingMode.StretchFit or SizingMode.FitContent) || float.IsNaN(size)) {
+            return;
+        }
+
+        var min = StyleResolution.ResolvedMinDimension(in styles[index], FlexAxis.DimensionOf(axis), ownerAxisSize, ownerWidth, direction);
+        if (float.IsNaN(min)) {
+            return;
+        }
+
+        min += StyleResolution.MarginForAxis(in styles[index], axis, ownerWidth);
+        size = size > min ? size : min;
+    }
+
     /// <summary>A node's <c>overflow</c> along one axis.</summary>
     /// <remarks>
     ///     ⚠ <b>Every rule in the algorithm that reads <c>overflow</c> is about one axis</b>, and each
