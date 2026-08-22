@@ -469,6 +469,20 @@ not through `OnComposed`. `AudioMixerView` is the pure case (every strip is a fa
 solo, and the handlers read each other), and it is the one panel in the whole editor that is
 unportable for a reason the engine could fix.
 
+✅ **Both were fixed (2026-08-22), and the diagnosis above is right about `on:` and wrong about what
+follows from it.** No entry in the `Subscribe` table can carry a value — that part stands — but a
+value change was never an event to begin with. Every one of those four notifications is a
+`[UiProperty]` underneath, and `UiElement.PropertyChanged` already carries all of them, which is what
+`bind:` has always ridden. So `change:Value` is `bind:`'s write-back leg with a handler instead of an
+assignment: no new table, nothing registered per control, and it hears more than the control's own
+event does. Read `change:X` as "whatever `bind:X` could have bound, but *run* this".
+
+And `refs="@Faders"` gives a row its own handle, keyed on the identity `BuildContext.For` reconciled
+it on — so `Faders[bus]` inside a strip's handler is that strip's fader whatever the list has done
+since. `VXML2013` refuses it outside a loop, the mirror of `VXML2010`. Both are documented in
+`Core/Vixen.Ui.Markup/README.md`; the ledger below is updated, and the two remedies at the end of it
+are struck.
+
 **3. A bound value is right on the next frame, not this one.** `EffectScheduler`'s contract is that
 writing a signal *only ever queues*, and `Flush` drains it once per frame, after input and before
 layout, because an effect running at the write would mutate the tree while the renderer walked it
@@ -524,8 +538,8 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `RemoteInspectorView` | **live** | no | port; signal-back `RemoteInspectorClient` additively, per `DeviceManager` | M |
 | `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | port the readouts, keep the field rows (shape 2) | M |
 | `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output | M |
-| `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | **defer.** Each is half unportable; `AnimationGraphView` has no tests at all | L–XL |
-| `AudioMixerView` | snapshot | no | **no** — per-row value controls, shape 2's blocking form | XL |
+| `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | ~~**defer.**~~ The half that was unportable was the field rows, which `change:` now expresses; `AnimationGraphView` still has no tests at all and still goes last | ~~L–XL~~ M–L |
+| `AudioMixerView` | snapshot | no | ~~**no**~~ **port.** `change:` + `refs` landed 2026-08-22: each strip is `refs="@Faders"`/`refs="@Mutes"` and two `change:` handlers that reach their own row by key | ~~XL~~ M |
 | `AnimationClipView` | snapshot | no | **no** — `Timeline.AddTrack`/`AddSpan` + `CurveEditor` is the whole panel | L |
 | `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
 | `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
@@ -558,16 +572,18 @@ the same pattern and simpler — an element owned by no region, so `Reload()`'s 
 
 ### What to build, in order of leverage
 
-1. **A value-change subscription markup can name.** It is what blocks every field list in the
-   editor, and unlike shape 1 it is a nameable feature rather than an inherent limit. It needs a
-   routed value-change event, or a second table whose entries are not `Action<UiEvent>`.
-2. **A per-iteration handle** — either `ref` inside `@for`, or a `@for` body that is a nested
-   component so its `ref`s are its own. With (1) this turns one XL "never" and four L "halves" into
-   ordinary Ms.
+1. ~~**A value-change subscription markup can name.**~~ Built 2026-08-22 as `change:X`, and it
+   needed neither of the two things guessed at here: not a routed value-change event, and not a
+   second table. It is `bind:`'s property lookup with a handler instead of an assignment, because a
+   value change was a `[UiProperty]` change all along.
+2. ~~**A per-iteration handle.**~~ Built as `refs` into an `ElementRefs<T>`, keyed on the loop's own
+   identity — *not* `ref` in a loop, which is still `VXML2010` and still wrong for the reason it
+   always was, and not a nested component either.
 3. **A row template for `VirtualizingPanel`.** Frees `ConsoleView`, `MessageLogView` and `AssetGrid`,
    which are three of the most-looked-at surfaces in the editor.
 4. **A `Select` whose options come from markup.** `AddOption` is a method, and combined with
-   `VXML2010` an enum dropdown inside a `@for` is inexpressible.
+   `refs` an enum dropdown inside a `@for` can now be reached and subscribed to, but its options
+   still have to be added from C#.
 5. **Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.** `Fact` is hand-written seven
    times and `Section`/`Verbs`/`Clear` four times each. Every small terrain, water and blockout panel
    collapses to a short file once these exist — the cheapest item on this list and the one that makes

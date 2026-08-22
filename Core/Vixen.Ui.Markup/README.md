@@ -176,7 +176,8 @@ Four questions it has to answer, and the answers are in the language rather than
 - **What about `@for`?** `VXML2010`, an error, at every depth of the body. The body runs once per
   item and there is one member; keeping the last is a trap, and a list would be worse — a surviving
   key's body is not re-run at all, so the list would be a history of first appearances. What the
-  author wants is the element the loop is *inside*.
+  author wants is [`refs`](#refs-is-the-loops-answer-and-it-is-keyed-not-listed), or the element the
+  loop is *inside*.
 - **What about `@if`?** Allowed. A `ref` in an arm that is not live is simply not assigned, because
   the arm built no element; when the arm becomes live the assignment runs. When it leaves, the member
   points at a removed element rather than at null — clearing it would mean the region knowing the
@@ -205,6 +206,72 @@ diagnostic.
 ⚠ **And a misspelt enum member is a run-time failure**, because nothing on this side knows the
 member names either. `Literals.Of` says what they were; `@ControlVariant.Subtle` is still accepted
 and is still checked by the compiler, for anyone who would rather have the error at build time.
+
+## `refs` is the loop's answer, and it is keyed, not listed
+
+`ref` refuses to be inside a `@for`, and until this existed that refusal was the end of the road: a
+list of controls could not be reached from C# at all, which is what made `AudioMixerView` — whose
+every strip's fader handler reads *its own* mute — unportable rather than merely awkward.
+
+```xml
+@code {
+    public ElementRefs<Slider> Faders { get; } = new();
+}
+
+@for (var bus in Buses.Value) {
+    <Slider key="@bus" refs="@Faders" change:Value="@(v => Write(bus, v))" />
+}
+```
+
+⚠ **The handle is keyed on the iteration, not filled by the body**, and that is the whole
+correctness argument. A `List<T>` the body appended to would be appended to once per key *ever* —
+`BuildContext.For` reuses a surviving key's region and does not re-run its body — so after a filter
+or a reorder `rows[2]` is a different control from the third row, silently. `refs` files the element
+under the identity the reconciler matched on, taken from the loop rather than recomputed at the tag,
+and drops the entry with the row's region. So the key you look up with is the expression you wrote in
+`key=`, and it is the item itself when the loop declares none.
+
+`refs` outside a `@for` is `VXML2013`, the mirror of `VXML2010`: there is no key out there to file
+under. One element held once is what `ref` is for.
+
+⚠ **A handle is filled by an effect, so it is empty until the next flush** — the one asymmetry with
+`ref`, which is assigned in the straight-line body. `ElementRefs<T>`'s indexer throws and says so
+rather than answering null, because a null would arrive as a `NullReferenceException` somewhere
+else; `TryGet` is the quiet form. In the use that matters this cannot bite: a row's handler runs long
+after its own row was built.
+
+## `change:` is a value binding, and `on:change` could not have been one
+
+`on:` maps a name through a table of `Action<UiElement, Action<UiEvent>, RoutingStrategy>` — a routed
+gesture. **No entry in it can hand a handler a value**, so `on:change` was never a missing
+registration. Six controls do also raise a routed `ValueChangedEvent<T>`, but they are six of about
+thirty and name a different `T` each, so one name could not have subscribed to them either.
+
+So `change:Value="@(v => …)"` is not an event at all. It names a `[UiProperty]` — the same thing
+`bind:Value` names, resolved the same way — and rides `UiElement.PropertyChanged`, which fires for a
+drag, a key, an access key and the panel's own code alike. Nothing is registered per control and
+nothing is reflected over. The emitter writes
+
+```csharp
+ctx.Changed(n3, "Value", () => n3.Value,
+    v => Write(bus, v));
+```
+
+⚠ **The property is read back as well as named, and the reader is what types the handler.**
+`Changed<T>` can infer nothing from `v => …`, so `() => n3.Value` fixes `T` first — the same
+two-lambda shape `bind:` emits, buying the same three things: the property must exist, it must be
+readable, and no cast or box appears in the delivery path. It is the tag object rather than
+`BuildContext.Host(…)`, unlike `bind:`, because a `Component` has no `[UiProperty]` and so has to
+fail — which it does, as "cannot convert", on the attribute's own characters.
+
+⚠ **A change made while the document's effects are draining is not reported**, and that is the one
+rule `change:` does not share with `bind:`. Such a write came *from* a binding, which means it came
+from the model. It is not merely redundant to send it back: the forward binding of
+`<Slider Value="@bus.Gain" change:Value="…" />` first writes one flush *after* the subscription
+exists, so without the rule every mixer would post an undo entry for a gain nobody touched, on open.
+The hand-written C# this replaces cannot have that bug, because there the value is assigned before
+the `+=`. What it costs is a change the control makes to itself *during* a binding's write — a
+coerce that clamps — which the model is not told about.
 
 ## The binder has no semantic model, and that is the design
 

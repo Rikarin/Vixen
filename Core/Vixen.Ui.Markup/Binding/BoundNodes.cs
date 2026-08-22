@@ -41,7 +41,28 @@ public enum BoundAttributeKind {
     ///     <c>Build</c> body and nothing else — so it needs its own arm in the emitter rather than a
     ///     name on a list.
     /// </remarks>
-    Ref
+    Ref,
+
+    /// <summary>A value-change handler, from <c>change:Value</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not an <see cref="Event" /> with a different name, and the distinction is the reason
+    ///     <c>on:change</c> does not exist.</b> An event is a routed gesture: the runtime's table maps
+    ///     a name to <c>Action&lt;UiElement, Action&lt;UiEvent&gt;, RoutingStrategy&gt;</c>, and no
+    ///     entry in it can hand a handler a value. A change names a <c>[UiProperty]</c> instead — the
+    ///     same thing <see cref="Bind" /> names, resolved the same way — and is delivered by
+    ///     <c>UiElement.PropertyChanged</c>.
+    /// </remarks>
+    Changed,
+
+    /// <summary>An <c>@for</c> row's element, registered into a keyed handle, from <c>refs</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Ref" />'s answer to the question <see cref="Ref" /> cannot answer, rather
+    ///     than a relaxation of it.</b> A <c>ref</c> is an assignment and a loop has many rows;
+    ///     this is a registration under the key the loop reconciles on, which is the only identity a
+    ///     row has that survives a reorder. The two are exclusive by position: <c>VXML2010</c> refuses
+    ///     <c>ref</c> inside a loop and <c>VXML2013</c> refuses <c>refs</c> outside one.
+    /// </remarks>
+    Refs
 }
 
 /// <summary>One piece of an attribute's value.</summary>

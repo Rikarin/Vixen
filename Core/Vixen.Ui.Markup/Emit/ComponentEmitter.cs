@@ -449,6 +449,16 @@ public sealed class ComponentEmitter {
                 Indented(() => MappedText(member.Position, string.Empty, name, ";"));
                 break;
 
+            case BoundAttributeKind.Refs when attribute.Expression is { } handle:
+                // ⚠ The whole element, for `ref`'s reason, and the key is *not* written here. The
+                // iteration's identity is the one `BuildContext.For` reconciled the row on, and the
+                // runtime takes it from the loop; re-emitting the key expression at the tag would be
+                // a second evaluation that agrees with the reconciler only until somebody writes a
+                // key that is not pure.
+                Mapped(handle, $"{context}.Refs(", ",");
+                Indented(() => MappedText(handle.Position, string.Empty, name, ");"));
+                break;
+
             case BoundAttributeKind.Event when attribute.Expression is { } handler: {
                 var modifiers = string.Concat(attribute.Modifiers.Select(m => $", {Quote(m)}"));
                 Mapped(handler, $"{context}.On({Target(element, name)}, {Quote(attribute.Name)}, ", $"{modifiers});");
@@ -461,6 +471,25 @@ public sealed class ComponentEmitter {
                 Mapped(bound, $"{context}.TwoWay({Target(element, name)}, {Quote(attribute.Name)}, () => ", ",");
                 Indented(() => Mapped(bound, "__v => ", " = __v);"));
                 break;
+
+            case BoundAttributeKind.Changed when attribute.Expression is { } handler: {
+                // ⚠ The property is read back as well as named, and the reader is what types the
+                // handler. `Changed<T>` cannot infer `T` from `v => …` alone — an implicitly typed
+                // lambda gives inference nothing — so the `() => n3.Value` argument fixes `T` first
+                // and the handler's parameter follows from it. That is the same two-lambda shape
+                // `bind:` emits, and it buys the same three things: the property must exist, it must
+                // be readable, and no cast or box appears in the delivery path.
+                //
+                // ⚠ And the tag object rather than `Target(element, name)`, unlike `bind:`. A
+                // `change:` names a `[UiProperty]`, which a `Component` does not have — so a
+                // component tag has to fail, and it fails here as "cannot convert", on the
+                // attribute's own characters.
+                var named = new BoundExpression(attribute.Name, attribute.NamePosition);
+
+                Mapped(named, $"{context}.Changed({name}, {Quote(attribute.Name)}, () => {name}.", ",");
+                Indented(() => Mapped(handler, string.Empty, ");"));
+                break;
+            }
 
             // `class` is universal. It names style classes, which a component's root element has
             // exactly as much as a `<div>` does — and it is a C# keyword, so treating it as a

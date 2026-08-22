@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Ui.Styling;
 using Xunit;
 
@@ -180,6 +181,35 @@ public class UiPropertyTests {
         Assert.Equal(7, key.GetValue(new Untouched()));
     }
 
+    /// <summary>
+    ///     ⚠ <b>And findable <i>on an instance</i>, which is the half the test above cannot see.</b>
+    ///     <see cref="UiPropertyRegistry.TryFind(Type, string, out UiPropertyKey)" /> forces the
+    ///     class constructor and so proves nothing about the path every binding actually uses:
+    ///     <see cref="UiPropertyRegistry.TryFindFor" /> takes an element and, by design, forces
+    ///     nothing. Its premise was that constructing an element had already run the initialisers —
+    ///     and that was false, because a class whose only static members are field initialisers is
+    ///     <c>beforefieldinit</c> and the CLR may defer them until a static field of that exact type
+    ///     is read. Making an instance is not that. So <c>bind:Value</c> on a freshly built
+    ///     <c>&lt;Slider /&gt;</c> threw "'slider' has no property called 'Value'", or did not,
+    ///     depending on what else the application had run first.
+    /// </summary>
+    /// <remarks>
+    ///     The generator now emits an empty static constructor, which is what makes the premise
+    ///     true. The second assertion is the one that cannot pass by accident: whether some earlier
+    ///     test warmed this type is a matter of ordering, and whether the type is
+    ///     <c>beforefieldinit</c> is not.
+    /// </remarks>
+    [Fact]
+    public void A_property_is_findable_on_an_instance_nothing_else_has_touched() {
+        Assert.True(UiPropertyRegistry.TryFindFor(new Unvisited(), "Weight", out var key));
+        Assert.Equal(7, key.GetValue(new Unvisited()));
+
+        Assert.False(
+            typeof(Unvisited).Attributes.HasFlag(TypeAttributes.BeforeFieldInit),
+            "a generated property class must declare a static constructor, or its registrations may not have run"
+        );
+    }
+
     [Fact]
     public void An_element_that_is_not_in_a_document_says_so_rather_than_pretending() {
         var panel = new Panel();
@@ -193,6 +223,17 @@ public class UiPropertyTests {
 
 /// <summary>Declared here and mentioned nowhere else, so its class constructor has not run.</summary>
 public partial class Untouched : UiElement {
+    /// <summary>Its only property.</summary>
+    [UiProperty(Default = 7)]
+    public partial int Weight { get; set; }
+}
+
+/// <summary>
+///     The same, and named apart so that the test above cannot warm it. What is on trial is whether
+///     an <i>instance</i> is enough, and a type some other test has already asked about by name
+///     would answer yes either way.
+/// </summary>
+public partial class Unvisited : UiElement {
     /// <summary>Its only property.</summary>
     [UiProperty(Default = 7)]
     public partial int Weight { get; set; }

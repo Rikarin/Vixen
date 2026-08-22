@@ -453,7 +453,7 @@ public sealed class Binder {
         // An event, a binding, a key or a ref is a reference to something, so a string cannot be one.
         // Saying so here rather than letting Roslyn say it means the message can name the fix.
         if (kind is BoundAttributeKind.Event or BoundAttributeKind.Bind or BoundAttributeKind.Key
-                or BoundAttributeKind.Ref
+                or BoundAttributeKind.Ref or BoundAttributeKind.Refs or BoundAttributeKind.Changed
             && value is not [BoundExpressionPart]) {
             Report(MarkupDiagnostics.ExpectedExpressionValue, attribute.Name.Span, written);
             return null;
@@ -464,6 +464,13 @@ public sealed class Binder {
         // because a surviving key's body is not re-run at all.
         if (kind == BoundAttributeKind.Ref && loops > 0) {
             Report(MarkupDiagnostics.RefInLoop, attribute.Name.Span);
+            return null;
+        }
+
+        // ⚠ And the mirror. `refs` is keyed on the loop's identity, so outside a loop there is no
+        // key to file the element under — see `MarkupDiagnostics.RefsOutsideLoop`.
+        if (kind == BoundAttributeKind.Refs && loops == 0) {
+            Report(MarkupDiagnostics.RefsOutsideLoop, attribute.Name.Span);
             return null;
         }
 
@@ -569,6 +576,13 @@ public sealed class Binder {
             return (BoundAttributeKind.Ref, written, []);
         }
 
+        // An expression for `ref`'s reason exactly, and the same freedom: `refs="@Faders"` and
+        // `refs="@_row.Faders"` both work, and a member that is not an `ElementRefs<T>` of the right
+        // element type is Roslyn's error on the characters between the quotes.
+        if (string.Equals(written, "refs", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Refs, written, []);
+        }
+
         var colon = written.IndexOf(':', StringComparison.Ordinal);
 
         if (colon < 0) {
@@ -583,6 +597,15 @@ public sealed class Binder {
 
         if (string.Equals(prefix, "bind", StringComparison.Ordinal)) {
             return (BoundAttributeKind.Bind, rest, []);
+        }
+
+        // ⚠ A directive of its own rather than `on:change`, because it is not an event. `on:` maps a
+        // name through a table whose entries are `Action<UiElement, Action<UiEvent>, RoutingStrategy>`
+        // — a routed gesture, which cannot carry a value — and what follows `change:` is the name of
+        // a `[UiProperty]`, resolved exactly the way `bind:` resolves one. Naming the property rather
+        // than saying "change" is also what makes it unambiguous on a control that has two.
+        if (string.Equals(prefix, "change", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Changed, rest, []);
         }
 
         if (!string.Equals(prefix, "on", StringComparison.Ordinal)) {

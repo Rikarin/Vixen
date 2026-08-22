@@ -19,10 +19,12 @@ Vixen.Ui.Markup.Binding.BoundAttribute.Value.init -> System.Collections.Immutabl
 Vixen.Ui.Markup.Binding.BoundAttributeKind -> enum : int
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Bind = 2 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.BoundAttributeKind() -> void
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Changed = 5 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Event = 1 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Key = 3 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Parameter = 0 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Ref = 4 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Refs = 6 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundBranch -> sealed record
 Vixen.Ui.Markup.Binding.BoundBranch : System.IEquatable<Vixen.Ui.Markup.Binding.BoundBranch>
 Vixen.Ui.Markup.Binding.BoundBranch.Body.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
@@ -583,6 +585,7 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingKey -> Vixe
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.NamedSlotOnElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ProjectedKey -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.RefInLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.RefsOutsideLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.SyntaxError -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnbalancedDelimiter -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnclosedElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

@@ -125,6 +125,16 @@ public sealed class BuildContext {
     /// <summary>Where subscriptions go, so that clearing a branch stops everything inside it.</summary>
     Region building;
 
+    /// <summary>The key of the <c>@for</c> row being built, for <see cref="Refs{TElement}" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Taken from the loop rather than recomputed at the tag, and that is the whole
+    ///     correctness argument for <c>refs</c>.</b> A handle keyed on anything but the identity
+    ///     <see cref="For{T}" /> reconciled on is a handle that disagrees with the reconciler the
+    ///     first time a key expression is not what somebody assumed — and disagrees silently,
+    ///     because both sides still answer.
+    /// </remarks>
+    object? iteration;
+
     /// <summary>The component whose <c>Build</c> is running, so a <c>&lt;slot&gt;</c> knows whose it is.</summary>
     Component? owner;
 
@@ -705,10 +715,7 @@ public sealed class BuildContext {
         ArgumentNullException.ThrowIfNull(get);
         ArgumentNullException.ThrowIfNull(set);
 
-        if (!UiPropertyRegistry.TryFindFor(target, name, out var key)) {
-            throw new ArgumentException($"'{target.Tag}' has no property called '{name}'.", nameof(name));
-        }
-
+        var key = KeyOf(target, name);
         var writing = false;
 
         Bind(() => {
@@ -720,16 +727,115 @@ public sealed class BuildContext {
             }
         });
 
-        void Changed(UiElement _, UiPropertyKey changed) {
-            if (writing || !ReferenceEquals(changed, key)) {
-                return;
-            }
+        Watch(target, key, () => !writing, () => set((T)key.GetValue(target)!));
+    }
 
-            set((T)key.GetValue(target)!);
+    /// <summary>Calls a handler whenever a property changes, other than because a binding wrote it.</summary>
+    /// <typeparam name="T">The property's type.</typeparam>
+    /// <param name="target">The element.</param>
+    /// <param name="name">The property's name.</param>
+    /// <param name="read">Reads the property. Its return type is what <typeparamref name="T" /> is.</param>
+    /// <param name="handler">What to run, given the new value.</param>
+    /// <exception cref="ArgumentException">The element has no such property.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is <c>on:change</c>, and it is not an event.</b> A control's value-change
+    ///         notification is <c>Action&lt;TControl, TValue&gt;</c> — <c>Slider.ValueChanged</c>,
+    ///         <c>ToggleBase.CheckedChanged</c>, <c>NumericInput.NumberChanged</c>,
+    ///         <c>Select.SelectionChanged</c> — and the <see cref="Subscribe" /> table holds
+    ///         <c>Action&lt;UiElement, Action&lt;UiEvent&gt;, RoutingStrategy&gt;</c>, which is a
+    ///         routed gesture. No entry in that table can carry a value, and the six controls that
+    ///         also raise a routed <c>ValueChangedEvent&lt;T&gt;</c> are six of about thirty and name
+    ///         a different <c>T</c> each, so one name could not subscribe to them either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the mechanism is <see cref="TwoWay{T}" />'s write-back leg, on its own.</b>
+    ///         Every <c>[UiProperty]</c> raises <see cref="UiElement.PropertyChanged" /> when its
+    ///         value actually changes, whatever changed it — a drag, a key, an access key, or the
+    ///         panel's own code — which is strictly more than any one control's event hears, and it
+    ///         is already the thing <c>bind:</c> trusts. Nothing new has to be registered per control
+    ///         and nothing is reflected over: the key is looked up once here and the value is read
+    ///         through <paramref name="read" />, so the type is the property's own and no cast or box
+    ///         is involved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Changes made while the document's effects are draining are not reported, and
+    ///         that is the one rule this does not share with <c>bind:</c>.</b> A write during a flush
+    ///         came <i>from</i> a binding, which means it came from the model — so handing it to a
+    ///         handler whose job is to put values into the model is at best a write of what is
+    ///         already there. It is not always harmless: the forward binding of
+    ///         <c>&lt;Slider Value="@bus.Gain" change:Value="…" /&gt;</c> runs one flush <i>after</i>
+    ///         the subscription is made, so without this the panel would post an undo entry for a
+    ///         gain nobody touched, every time it was opened. The hand-written C# it replaces cannot
+    ///         have that bug, because there the value is assigned before the <c>+=</c>.
+    ///     </para>
+    ///     <para>
+    ///         The cost is a change a control makes to itself <i>during</i> a binding's write — a
+    ///         coerce that clamps, <c>RangeBase.OnBoundsChanged</c> re-snapping a value — which the
+    ///         model is not told about. That is a real divergence and the honest statement is that it
+    ///         is the lesser one.
+    ///     </para>
+    /// </remarks>
+    public void Changed<T>(UiElement target, string name, Func<T> read, Action<T> handler) {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(read);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        var key = KeyOf(target, name);
+        Watch(target, key, () => !Document.Effects.IsFlushing, () => handler(read()));
+    }
+
+    /// <summary>Registers an <c>@for</c> row's element under the key the loop reconciles it on.</summary>
+    /// <typeparam name="TElement">What the tag made.</typeparam>
+    /// <param name="refs">The handle to register into.</param>
+    /// <param name="element">The element.</param>
+    /// <exception cref="InvalidOperationException">No <c>@for</c> row is being built.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The entry is tracked on the row's region, so it goes when the row does.</b> A handle
+    ///     that only ever gained entries would answer for rows that had left the document, and would
+    ///     hold them — and every element under them — alive for as long as the panel lived.
+    /// </remarks>
+    public void Refs<TElement>(ElementRefs<TElement> refs, TElement element) where TElement : UiElement {
+        ArgumentNullException.ThrowIfNull(refs);
+        ArgumentNullException.ThrowIfNull(element);
+
+        if (iteration is not { } key) {
+            // The markup compiler refuses this (`VXML2013`) so nothing generated reaches here. Code
+            // calling the runtime directly can, and an entry under a key nobody can name would be a
+            // handle that silently answers nothing.
+            throw new InvalidOperationException(
+                "'refs' is only meaningful inside an @for: its key is the loop's. Outside one, hold "
+                + "the element in a member of its own — which is what 'ref' does."
+            );
         }
 
-        target.PropertyChanged += Changed;
-        building.Track(new Unsubscribe(() => target.PropertyChanged -= Changed));
+        refs.Add(key, element);
+        building.Track(new Unsubscribe(() => refs.Remove(key, element)));
+    }
+
+    /// <summary>The registered property one of these bindings names, or an error saying it is not one.</summary>
+    static UiPropertyKey KeyOf(UiElement target, string name) {
+        ArgumentNullException.ThrowIfNull(name);
+
+        return UiPropertyRegistry.TryFindFor(target, name, out var key)
+            ? key
+            : throw new ArgumentException($"'{target.Tag}' has no property called '{name}'.", nameof(name));
+    }
+
+    /// <summary>Runs something when one property changes, for as long as the region lives.</summary>
+    /// <param name="target">The element.</param>
+    /// <param name="key">The property to listen for.</param>
+    /// <param name="wanted">Whether this change is one to report.</param>
+    /// <param name="react">What to do about it.</param>
+    void Watch(UiElement target, UiPropertyKey key, Func<bool> wanted, Action react) {
+        void Notified(UiElement _, UiPropertyKey changed) {
+            if (ReferenceEquals(changed, key) && wanted()) {
+                react();
+            }
+        }
+
+        target.PropertyChanged += Notified;
+        building.Track(new Unsubscribe(() => target.PropertyChanged -= Notified));
     }
 
     /// <summary>Declares where a caller's children go.</summary>
@@ -840,7 +946,18 @@ public sealed class BuildContext {
 
                 var created = new Region(target, null, region);
                 var captured = item;
-                In(target, created, () => build(this, target, captured));
+                var outer = iteration;
+
+                // ⚠ Saved and restored rather than set and cleared: an `@for` inside an `@for` body
+                // builds while the outer row is still the one a `refs` on an outer element belongs
+                // to, and a nested loop that cleared this on the way out would give the rest of the
+                // outer row no iteration at all.
+                iteration = identity;
+                try {
+                    In(target, created, () => build(this, target, captured));
+                } finally {
+                    iteration = outer;
+                }
 
                 kept[identity] = created;
                 wanted.Add(created);

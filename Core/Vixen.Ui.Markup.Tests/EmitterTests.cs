@@ -1252,6 +1252,110 @@ public class EmitterTests {
     static Microsoft.CodeAnalysis.SyntaxTree Parse(string text, string path) =>
         CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Latest), path);
 
+    // ================================================================== change: and refs
+
+    /// <summary>
+    ///     A loop whose rows carry both new directives, in the shape <c>AudioMixerView</c> needs:
+    ///     each row hands its control to a keyed handle and reports its own value changes.
+    /// </summary>
+    const string Strips = """
+                          @component Greeter
+                          @using System.Collections.Generic
+                          @using Vixen.Ui.Composition
+                          @using Vixen.Ui.Reactive
+
+                          @code {
+                              public Signal<string[]> Rows { get; } = new([]);
+                              public ElementRefs<Fader> Faders { get; } = new();
+                              public List<string> Written { get; } = [];
+
+                              void Record(string row, int level) => Written.Add(row + level);
+                          }
+
+                          <div>
+                              @for (var row in Rows.Value) {
+                                  <Fader key="@row" refs="@Faders" change:Level="@(v => Record(row, v))" />
+                              }
+                          </div>
+                          """;
+
+    /// <summary>
+    ///     ⚠ <b>The end of the chain for both halves at once, and the only test that can fail if the
+    ///     emitter writes the right call with the wrong argument.</b> Markup to C# to IL to a
+    ///     document, then a value is changed on one row's control and the panel is asked what it
+    ///     heard — which is the question a test asserting that a subscription was registered cannot
+    ///     ask.
+    /// </summary>
+    [Fact]
+    public void A_loop_row_reports_its_own_value_through_a_handle_the_key_found() {
+        var (component, instance, document) = Run(Strips);
+
+        using var owned = document;
+        var rows = Property(instance, "Rows");
+        var faders = Member(instance, "Faders")!;
+        var written = (System.Collections.IEnumerable)Property(instance, "Written");
+
+        rows.GetType().GetProperty("Value")!.SetValue(rows, new[] { "kick", "snare" });
+        document.Effects.Flush();
+
+        var snare = (UiElement)faders.GetType().GetProperty("Item")!.GetValue(faders, ["snare"])!;
+        var kick = (UiElement)faders.GetType().GetProperty("Item")!.GetValue(faders, ["kick"])!;
+
+        Assert.NotSame(kick, snare);
+        Assert.Empty(written.Cast<string>());
+
+        snare.GetType().GetProperty("Level")!.SetValue(snare, 3);
+
+        // The row's own name, so the handler closed over its own iteration — and the value, which
+        // is what no `on:` handler could have been given.
+        Assert.Equal(["snare3"], written.Cast<string>());
+    }
+
+    /// <summary>
+    ///     <c>change:</c> names a property, so a name that is not one is Roslyn's error on the
+    ///     characters of the attribute name — the same bargain every other directive is emitted
+    ///     under, and the reason the binder resolves no types.
+    /// </summary>
+    [Fact]
+    public void An_unknown_property_in_a_change_is_reported_at_the_attribute_name() {
+        const string Source = """
+                              @component Counter
+                              <Fader change:Missing="@(v => v.ToString())" />
+                              """;
+
+        var error = Assert.Single(Errors(Compile(Emit(Source))));
+        var span = error.Location.GetMappedLineSpan();
+
+        Assert.Equal(Path, span.Path);
+        Assert.Equal(1, span.StartLinePosition.Line);
+        Assert.Equal(7, span.StartLinePosition.Character);
+    }
+
+    /// <summary>
+    ///     And a <c>refs</c> whose handle holds another element type is wrong at the member, for
+    ///     <c>ref</c>'s reason: a failed conversion is reported at the value, so the value's span is
+    ///     mapped back to the characters between the quotes.
+    /// </summary>
+    [Fact]
+    public void A_refs_handle_of_the_wrong_element_type_is_reported_at_the_member() {
+        const string Source = """
+                              @component Counter
+                              @using Vixen.Ui.Composition
+                              @code { public ElementRefs<Dial> Handles { get; } = new(); }
+                              @for (var row in new[] { "a" }) {
+                                  <Fader key="@row" refs="@Handles" />
+                              }
+                              """;
+
+        var errors = Errors(Compile(Emit(Source)));
+        Assert.NotEmpty(errors);
+
+        foreach (var span in errors.Select(error => error.Location.GetMappedLineSpan())) {
+            Assert.Equal(Path, span.Path);
+            Assert.Equal(4, span.StartLinePosition.Line);
+        }
+    }
+
     static ImmutableArray<Diagnostic> Errors(Compilation compilation) =>
         [.. compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error)];
 

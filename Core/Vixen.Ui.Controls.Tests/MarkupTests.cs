@@ -3,6 +3,7 @@
 
 using Vixen.Input;
 using Vixen.Ui.Composition;
+using Vixen.Ui.Reactive;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -72,6 +73,214 @@ public class MarkupTests {
         component.Root.Children[0].Raise(new TapEvent { Count = 1 });
 
         Assert.Equal(1, component.Clicks);
+    }
+
+
+
+
+
+    // ================================================================== change: and refs
+
+    /// <summary>
+    ///     ⚠ <b>The thing <c>on:</c> cannot do, on the controls that made it matter.</b> A drag moves
+    ///     a real <see cref="Slider" /> and the panel is told the number — which no entry in the
+    ///     <c>Subscribe</c> table could deliver, because its handlers take a routed
+    ///     <c>UiEvent</c> and a value is not one.
+    /// </summary>
+    /// <remarks>
+    ///     Dragged rather than assigned, for <c>RangeInteractionTests</c>' reason: assigning
+    ///     <c>Value</c> tests the property, and what is on trial here is whether a binding hears the
+    ///     control at all.
+    /// </remarks>
+    [Fact]
+    public void A_change_binding_hears_a_real_drag_and_is_given_the_value() {
+        using var fixture = new ControlFixture(css: "slider { width: 200px; height: 24px; }");
+        var mixer = BuildContext.Build<Mixer>(fixture.Document, fixture.Document.Root);
+
+        fixture.Update();
+        fixture.Document.Effects.Flush();
+        fixture.Update();
+
+        Drag(fixture, mixer.Faders["sfx"], 0.75f);
+
+        // Every step of the drag, not only the release — a panel that wrote once at the end would
+        // be a mixer whose meters do not move while a fader does.
+        Assert.True(mixer.Writes.Count > 1, $"expected the drag to report continuously, got {mixer.Writes.Count}");
+        Assert.All(mixer.Writes, write => Assert.Equal("sfx", write.Bus));
+        Assert.True(mixer.Writes[^1].Gain > 0.6f, $"expected the dragged value, got {mixer.Writes[^1].Gain}");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>What a per-iteration handle is for, and it is not reaching a row from outside.</b>
+    ///     A mixer strip's fader handler has to read <i>its own</i> mute — <c>AudioMixerView</c>
+    ///     lines 234-235 — and a loop body's <c>ref</c> is one member for every row, so the answer
+    ///     would be whichever strip was built last.
+    /// </summary>
+    [Fact]
+    public void A_rows_handler_reads_that_rows_other_control_and_not_the_last_ones() {
+        using var fixture = new ControlFixture(css: "slider { width: 200px; height: 24px; }");
+        var mixer = BuildContext.Build<Mixer>(fixture.Document, fixture.Document.Root);
+
+        fixture.Update();
+        fixture.Document.Effects.Flush();
+        fixture.Update();
+
+        // Only music is muted, so a handler that read the wrong row's toggle would say so.
+        mixer.Mutes["music"].IsChecked = true;
+        mixer.Writes.Clear();
+
+        Drag(fixture, mixer.Faders["sfx"], 0.75f);
+        Assert.NotEmpty(mixer.Writes);
+        Assert.All(mixer.Writes, write => Assert.False(write.Muted, "the sfx strip read the music strip's mute"));
+
+        mixer.Writes.Clear();
+        Drag(fixture, mixer.Faders["music"], 0.25f);
+        Assert.NotEmpty(mixer.Writes);
+        Assert.All(mixer.Writes, write => Assert.True(write.Muted, "the music strip read another strip's mute"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A reorder keeps every row's element, which is what a list-valued handle could not
+    ///     do.</b> The entry is filed under the identity <c>BuildContext.For</c> reconciled on, so
+    ///     position is not what is being asked and moving a row cannot answer with its neighbour.
+    /// </summary>
+    [Fact]
+    public void A_reordered_sequence_still_hands_back_each_rows_own_controls() {
+        using var fixture = new ControlFixture(css: "slider { width: 200px; height: 24px; }");
+        var mixer = BuildContext.Build<Mixer>(fixture.Document, fixture.Document.Root);
+
+        fixture.Update();
+        fixture.Document.Effects.Flush();
+
+        var music = mixer.Faders["music"];
+        var sfx = mixer.Faders["sfx"];
+
+        mixer.Buses.Value = ["sfx", "music"];
+        fixture.Document.Effects.Flush();
+
+        Assert.Same(music, mixer.Faders["music"]);
+        Assert.Same(sfx, mixer.Faders["sfx"]);
+    }
+
+    /// <summary>
+    ///     And a row that leaves takes its entry with it — a handle that only gained would answer
+    ///     for strips that had left the document, and hold them alive to do it.
+    /// </summary>
+    [Fact]
+    public void A_row_that_leaves_the_sequence_takes_its_entry_with_it() {
+        using var fixture = new ControlFixture(css: "slider { width: 200px; height: 24px; }");
+        var mixer = BuildContext.Build<Mixer>(fixture.Document, fixture.Document.Root);
+
+        fixture.Update();
+        fixture.Document.Effects.Flush();
+        Assert.Equal(2, mixer.Faders.Count);
+
+        mixer.Buses.Value = ["music"];
+        fixture.Document.Effects.Flush();
+
+        Assert.Equal(1, mixer.Faders.Count);
+        Assert.False(mixer.Faders.Contains("sfx"));
+        Assert.False(mixer.Mutes.Contains("sfx"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The asymmetry a ported panel meets first, said out loud instead of answered with
+    ///     null.</b> A sequence change is applied by an effect, so the handle is not filled on the
+    ///     line that changed it — and the panel this replaces filled its member on that line. A
+    ///     lookup that answered null would surface as a <c>NullReferenceException</c> somewhere else
+    ///     entirely.
+    /// </summary>
+    [Fact]
+    public void A_handle_read_before_the_flush_says_which_frame_it_is_waiting_for() {
+        using var fixture = new ControlFixture(css: "slider { width: 200px; height: 24px; }");
+        var mixer = BuildContext.Build<Mixer>(fixture.Document, fixture.Document.Root);
+
+        var thrown = Assert.Throws<KeyNotFoundException>(() => mixer.Faders["music"]);
+        Assert.Contains("flushed", thrown.Message, StringComparison.Ordinal);
+
+        fixture.Document.Effects.Flush();
+
+        // And once it has run, a key the loop never produced is a different mistake with a
+        // different message — not the frame one, which would send a reader looking for a frame.
+        Assert.DoesNotContain("flushed", Assert.Throws<KeyNotFoundException>(() => mixer.Faders["reverb"]).Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A forward binding's own write is not a change to report, and this is the one rule
+    ///     <c>change:</c> does not share with <c>bind:</c>.</b> The subscription is made while the
+    ///     panel builds and the forward binding first writes one flush later, so without the rule
+    ///     every mixer would post an undo entry for a gain nobody touched, on open. The C# it
+    ///     replaces cannot have that bug: there the value is assigned before the <c>+=</c>.
+    /// </summary>
+    [Fact]
+    public void A_value_arriving_from_the_model_is_not_reported_as_a_change() {
+        using var fixture = new ControlFixture(css: "slider { width: 200px; height: 24px; }");
+        var mixer = BuildContext.Build<Mixer>(fixture.Document, fixture.Document.Root);
+
+        mixer.Gain.Value = 0.4f;
+        fixture.Document.Effects.Flush();
+
+        Assert.Equal(0.4f, mixer.Faders["music"].Value);
+        Assert.Empty(mixer.Writes);
+    }
+
+    /// <summary>Drags a slider's thumb to a fraction of its width, with a real pointer.</summary>
+    static void Drag(ControlFixture fixture, Slider slider, float fraction) {
+        var bounds = slider.Bounds;
+        var y = bounds.Y + (bounds.Height * 0.5f);
+
+        fixture.Press(bounds.X + (bounds.Width * 0.5f), y);
+        fixture.MovePointer(bounds.X + (bounds.Width * fraction), y);
+        fixture.Release(bounds.X + (bounds.Width * fraction), y);
+    }
+
+    /// <summary>What the panel wrote, so a test can say which row said it.</summary>
+    readonly record struct Written(string Bus, float Gain, bool Muted);
+
+    /// <summary>
+    ///     <c>AudioMixerView</c>'s shape, reduced to the two things that made it unportable: a
+    ///     value-change subscription, and a row whose handler reads its own sibling control.
+    /// </summary>
+    /// <remarks>
+    ///     Written against <c>BuildContext</c> rather than as a <c>.vxml</c>, for this file's
+    ///     reason: these are the calls
+    ///     <c>&lt;Slider refs="@Faders" change:Value="…" /&gt;</c> compiles to, and this assembly
+    ///     cannot reference the compiler that would produce them. That the compiler produces exactly
+    ///     these is <c>Vixen.Ui.Markup.Tests</c>' question.
+    /// </remarks>
+    sealed class Mixer : Component {
+        public Signal<string[]> Buses { get; } = new(["music", "sfx"]);
+
+        public Signal<float> Gain { get; } = new(0f);
+
+        public ElementRefs<Slider> Faders { get; } = new();
+
+        public ElementRefs<ToggleButton> Mutes { get; } = new();
+
+        public List<Written> Writes { get; } = [];
+
+        protected override void Build(BuildContext ctx) =>
+            ctx.For(
+                null,
+                () => (IEnumerable<string>) Buses.Value,
+                static bus => bus,
+                (row, parent, bus) => {
+                    var strip = row.Element(parent, "strip");
+
+                    var fader = row.Child<Slider>(strip);
+                    row.Refs(Faders, fader);
+
+                    var mute = row.Child<ToggleButton>(strip);
+                    row.Refs(Mutes, mute);
+
+                    // The forward binding, which is what makes the "not reported" rule load-bearing:
+                    // it first writes one flush after this subscription exists.
+                    row.Bind(() => fader.Value = Gain.Value);
+
+                    row.Changed(fader, "Value", () => fader.Value, value => Writes.Add(new(bus, value, Mutes[bus].IsChecked)));
+                    row.Changed(mute, "IsChecked", () => mute.IsChecked, on => Writes.Add(new(bus, Faders[bus].Value, on)));
+                }
+            );
     }
 
     sealed class Bar : Component {

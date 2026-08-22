@@ -178,11 +178,31 @@ public static class UiPropertyRegistry {
     /// <param name="key">Receives the key.</param>
     /// <returns>Whether it was found.</returns>
     /// <remarks>
-    ///     ⚠ <b>No <c>DynamicallyAccessedMembers</c> annotation, and none is needed.</b>
-    ///     <see cref="Of" /> carries one because it forces static constructors to run — a type may
-    ///     never have been touched. An element that exists has already run its own and its bases',
-    ///     because constructing it did, so this walks <c>BaseType</c> and reads the table and
-    ///     touches no metadata a trimmer could remove.
+    ///     <para>
+    ///         ⚠ <b>Constructing an element does <i>not</i> register its properties, which is the
+    ///         opposite of what this used to assume.</b> The generator puts each key in a
+    ///         <c>static readonly</c> field initialiser and adds no static constructor, so the class
+    ///         is <c>beforefieldinit</c> — and the CLR is then free to defer the initialiser until
+    ///         something reads a static field of that exact type. Making an instance is not that. So
+    ///         a freshly built <c>&lt;Slider /&gt;</c> had no <c>Value</c> at all until some unrelated
+    ///         code happened to touch <c>Slider.ValueProperty</c> first, and
+    ///         <see cref="Vixen.Ui.Composition.BuildContext.TwoWay{T}" /> threw "'slider' has no
+    ///         property called 'Value'" — a <c>bind:</c> that worked or did not depending on what the
+    ///         rest of the application had already run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Fixed in the generator, which now emits an empty static constructor, and not
+    ///         here.</b> A class with one is no longer <c>beforefieldinit</c>, so the CLR must run
+    ///         the initialisers before the first instance exists — which makes the premise below
+    ///         true rather than merely assumed. The repair cannot be made on this side:
+    ///         <see cref="Of" /> can call <see cref="RuntimeHelpers.RunClassConstructor" /> because
+    ///         its parameter is an annotated <see cref="Type" />, and the type here comes from
+    ///         <c>GetType()</c>, which the trimmer refuses to accept for that call (IL2059).
+    ///     </para>
+    ///     <para>
+    ///         So this walks <c>BaseType</c> and reads the table and touches no metadata a trimmer
+    ///         could remove, and needs no <c>DynamicallyAccessedMembers</c> annotation.
+    ///     </para>
     /// </remarks>
     public static bool TryFindFor(UiElement element, string name, [NotNullWhen(true)] out UiPropertyKey? key) {
         ArgumentNullException.ThrowIfNull(element);

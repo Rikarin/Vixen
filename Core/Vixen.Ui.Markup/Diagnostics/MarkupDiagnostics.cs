@@ -132,7 +132,7 @@ public static class MarkupDiagnostics {
     public static readonly DiagnosticDescriptor UnknownAttributeDirective = new(
         "VXML2006",
         "Unknown attribute directive",
-        "'{0}' is not a directive. VXML defines 'on:' and 'bind:'.",
+        "'{0}' is not a directive. VXML defines 'on:', 'bind:' and 'change:'.",
         BindingCategory,
         DiagnosticSeverity.Error
     );
@@ -181,16 +181,24 @@ public static class MarkupDiagnostics {
     ///         defect and a longer explanation.
     ///     </para>
     ///     <para>
-    ///         What the author wants instead is either the loop's own container — put the <c>ref</c>
-    ///         on the element the <c>@for</c> is inside — or a model keyed the way the rows are, which
-    ///         is what they already have.
+    ///         ⚠ <b>And a list-valued <c>ref</c> has the same defect, which is why <c>refs</c> is not
+    ///         one.</b> The body appends once per key <i>ever</i>, so after a filter or a reorder the
+    ///         list is in an order nothing corresponds to and <c>rows[2]</c> is a different control
+    ///         from the third row — silently, because both still answer. <c>refs</c> registers under
+    ///         the key the reconciler matched on instead, and drops the entry with the row's region.
+    ///     </para>
+    ///     <para>
+    ///         So what the author wants is <c>refs</c> into an <c>ElementRefs&lt;T&gt;</c>; failing
+    ///         that, the loop's own container — put the <c>ref</c> on the element the <c>@for</c> is
+    ///         inside — or a model keyed the way the rows are, which is what they already have.
     ///     </para>
     /// </remarks>
     public static readonly DiagnosticDescriptor RefInLoop = new(
         "VXML2010",
         "'ref' inside @for",
         "'ref' cannot be inside an @for: the body runs once per item and there is one member to "
-        + "assign. Put it on the element the loop is inside.",
+        + "assign. Write 'refs' into an ElementRefs<T>, or put the 'ref' on the element the loop "
+        + "is inside.",
         BindingCategory,
         DiagnosticSeverity.Error
     );
@@ -239,6 +247,22 @@ public static class MarkupDiagnostics {
         "Named slot in an @inherits component",
         "'{0}' is a named slot, and an @inherits component has only one: a UiElement projects "
         + "content through 'ContentHost'. Write '<slot />'.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>refs</c> was written outside an <c>@for</c> body.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The mirror of <see cref="RefInLoop" />, and refused for the mirror reason.</b> A
+    ///     <c>refs</c> handle is keyed on the identity <c>BuildContext.For</c> reconciled the row on,
+    ///     and outside a loop there is no such identity — so there is no key to file the element
+    ///     under and no key a reader could ask for. One element held once is what <c>ref</c> is for.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor RefsOutsideLoop = new(
+        "VXML2013",
+        "'refs' outside @for",
+        "'refs' is only inside an @for: its key is the loop's, and outside one there is none. "
+        + "Write 'ref' instead.",
         BindingCategory,
         DiagnosticSeverity.Error
     );
