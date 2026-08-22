@@ -40,6 +40,7 @@ public sealed partial class UiDocument {
     ///     </para>
     /// </remarks>
     public void Reparent(UiElement element, UiElement parent, int index = -1) {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(parent);
 
@@ -74,11 +75,25 @@ public sealed partial class UiDocument {
 
         var old = element.StyleNode;
 
+        // ⚠ Read before the element tree is touched, because it counts the surface roots ahead of
+        // `target` and `Insert` is about to change what is ahead of it. See `LayoutIndexOf`: a parent
+        // that owns a surface root has more element children than layout ones, and the element index
+        // used raw overshoots the layout child list by one per surface — which is what made docking a
+        // floating window's panels back into their old home throw.
+        var layoutTarget = LayoutIndexOf(parent, target);
+
         previous.Detach(element);
         Layout.RemoveChild(previous.LayoutNode, element.LayoutNode);
 
         parent.Insert(element, target);
-        Layout.InsertChild(parent.LayoutNode, element.LayoutNode, target);
+
+        // ⚠ And a surface root goes back into no layout child list at all. It was taken out of one in
+        // `CreateSurface` because a second window is not a flex item of the first, and putting it
+        // into its new parent's would lay the window out inside the panel that owns it.
+        if (element.SurfaceRoot is null) {
+            Layout.InsertChild(parent.LayoutNode, element.LayoutNode, layoutTarget);
+        }
+
         element.Adopt(parent);
 
         Restyle(element, parent.StyleNode);
