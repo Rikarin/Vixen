@@ -55,6 +55,8 @@ public class BinderTests {
     [InlineData("onkeydown", BoundAttributeKind.Event, "keydown")]
     [InlineData("online", BoundAttributeKind.Parameter, "online")]
     [InlineData("bind:value", BoundAttributeKind.Bind, "value")]
+    [InlineData("change:Value", BoundAttributeKind.Changed, "Value")]
+    [InlineData("changed", BoundAttributeKind.Parameter, "changed")]
     [InlineData("key", BoundAttributeKind.Key, "key")]
     [InlineData("title", BoundAttributeKind.Parameter, "title")]
     public void An_attribute_name_resolves_to_what_it_means(string written, BoundAttributeKind kind, string name) {
@@ -222,6 +224,64 @@ public class BinderTests {
     public void A_ref_outside_a_loop_is_fine_including_under_an_if() {
         Assert.Empty(Ids("@component A\n<div ref=\"@Panel\" />"));
         Assert.Empty(Ids("@component A\n@if (x) { <div ref=\"@Panel\" /> }"));
+    }
+
+    /// <summary>
+    ///     <c>refs</c> is an expression for <c>ref</c>'s reason, and it is what <c>VXML2010</c> now
+    ///     points a reader at.
+    /// </summary>
+    [Fact]
+    public void A_refs_is_an_expression_and_a_quoted_name_is_refused() {
+        var loop = Assert.IsType<BoundFor>(
+            Assert.Single(BindClean("@component A\n@for (var i in xs) { <p key=\"@i\" refs=\"@Rows\" /> }").Content)
+        );
+
+        var row = Assert.Single(loop.Body.OfType<BoundElement>());
+        var attribute = Assert.Single(row.Attributes.Where(a => a.Kind == BoundAttributeKind.Refs));
+
+        Assert.Equal("refs", attribute.Name);
+        Assert.Equal("Rows", attribute.Expression!.Text);
+        Assert.Contains("VXML2003", Ids("@component A\n@for (var i in xs) { <p key=\"@i\" refs=\"Rows\" /> }"));
+    }
+
+    /// <summary>
+    ///     ⚠ The mirror of <c>VXML2010</c>, and refused at every depth for the mirror reason: a
+    ///     <c>refs</c> handle is keyed on the loop's identity, and outside a loop there is none.
+    /// </summary>
+    [Theory]
+    [InlineData("@component A\n<div refs=\"@Rows\" />")]
+    [InlineData("@component A\n@if (x) { <div refs=\"@Rows\" /> }")]
+    public void A_refs_outside_a_loop_is_refused(string source) => Assert.Contains("VXML2013", Ids(source));
+
+    /// <summary>Accepted at every depth of a loop body, which is where <c>ref</c> is refused.</summary>
+    [Theory]
+    [InlineData("@component A\n@for (var i in xs) { <p key=\"@i\" refs=\"@Rows\" /> }")]
+    [InlineData("@component A\n@for (var i in xs) { <p key=\"@i\"><span refs=\"@Rows\" /></p> }")]
+    [InlineData("@component A\n@for (var i in xs) { <p key=\"@i\">@if (i > 0) { <b refs=\"@Rows\" /> }</p> }")]
+    public void A_refs_inside_a_loop_is_fine(string source) => Assert.Empty(Ids(source));
+
+    /// <summary>
+    ///     A <c>change:</c> names a property and takes an expression, and — unlike <c>on:</c> — has
+    ///     no modifier list, because there is no route to stop and no leg to listen on.
+    /// </summary>
+    [Fact]
+    public void A_change_is_an_expression_naming_a_property() {
+        var attribute = Assert.Single(FirstElement("@component A\n<Dial change:Ratio=\"@Set\" />").Attributes);
+
+        Assert.Equal(BoundAttributeKind.Changed, attribute.Kind);
+        Assert.Equal("Ratio", attribute.Name);
+        Assert.Equal("Set", attribute.Expression!.Text);
+        Assert.Empty(attribute.Modifiers);
+        Assert.Contains("VXML2003", Ids("@component A\n<Dial change:Ratio=\"Set\" />"));
+    }
+
+    /// <summary>An unknown directive still names the ones there are, all three of them.</summary>
+    [Fact]
+    public void An_unknown_directive_is_refused_and_names_the_three_that_exist() {
+        _ = Binder.Bind(Vxml.Parse("@component A\n<div when:x=\"@y\" />"), out var diagnostics);
+
+        var reported = Assert.Single(diagnostics.Where(d => d.Descriptor.Id == "VXML2006")).ToString();
+        Assert.Contains("'on:', 'bind:' and 'change:'", reported, StringComparison.Ordinal);
     }
 
     /// <summary>

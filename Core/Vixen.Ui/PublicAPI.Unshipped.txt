@@ -40,6 +40,7 @@ Vixen.Ui.Composition.BuildContext.Anchor.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Attribute(Vixen.Ui.UiElement target, string name, string value) -> void
 Vixen.Ui.Composition.BuildContext.Bind(System.Action assign) -> void
 Vixen.Ui.Composition.BuildContext.Bind(Vixen.Ui.UiElement target, string name, System.Func<object?> value) -> void
+Vixen.Ui.Composition.BuildContext.Changed<T>(Vixen.Ui.UiElement target, string name, System.Func<T> read, System.Action<T> handler) -> void
 Vixen.Ui.Composition.BuildContext.Child<T>(Vixen.Ui.UiElement? parent) -> T
 Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
@@ -48,6 +49,7 @@ Vixen.Ui.Composition.BuildContext.Mount.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.On(Vixen.Ui.UiElement target, string name, System.Action handler, params string[] modifiers) -> void
 Vixen.Ui.Composition.BuildContext.On<TEvent>(Vixen.Ui.UiElement target, string name, System.Action<TEvent> handler, params string[] modifiers) -> void
 Vixen.Ui.Composition.BuildContext.Rebuild(Vixen.Ui.Composition.Component component) -> void
+Vixen.Ui.Composition.BuildContext.Refs<TElement>(Vixen.Ui.Composition.ElementRefs<TElement> refs, TElement element) -> void
 Vixen.Ui.Composition.BuildContext.Slot(Vixen.Ui.UiElement? parent, string name) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Switch(Vixen.Ui.UiElement? parent, System.Func<int> arm, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, int> build) -> void
 Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, System.Func<object?> text) -> Vixen.Ui.UiElement
@@ -58,6 +60,12 @@ Vixen.Ui.Composition.Component : Vixen.Ui.Composition.IComposable
 Vixen.Ui.Composition.Component.Component() -> void
 Vixen.Ui.Composition.Component.Content.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.Component.Root.get -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.ElementRefs<TElement> -> sealed class
+Vixen.Ui.Composition.ElementRefs<TElement>.Contains(object key) -> bool
+Vixen.Ui.Composition.ElementRefs<TElement>.Count.get -> int
+Vixen.Ui.Composition.ElementRefs<TElement>.ElementRefs() -> void
+Vixen.Ui.Composition.ElementRefs<TElement>.TryGet(object key, out TElement? element) -> bool
+Vixen.Ui.Composition.ElementRefs<TElement>.this[object key].get -> TElement
 Vixen.Ui.Composition.IComposable -> interface
 Vixen.Ui.Composition.Literals -> static class
 Vixen.Ui.Composition.ScopedStyles -> static class

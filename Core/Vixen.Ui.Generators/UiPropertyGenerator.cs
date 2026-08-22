@@ -307,12 +307,35 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
 
         builder.Append("partial class ").Append(owner.OwnerName).Append(" {\n");
 
+        // ⚠ Empty, and the whole point of it is that it exists. Without a static constructor the
+        // class is `beforefieldinit`, which lets the CLR defer the field initialisers below until
+        // something reads a static field of this exact type — and making an instance is not that.
+        // So a freshly constructed control had registered none of its properties:
+        // `UiPropertyRegistry.TryFindFor` found nothing, and `bind:Value` on a `<Slider />` threw
+        // "'slider' has no property called 'Value'" unless some unrelated code had already touched
+        // `Slider.ValueProperty`. Declaring one makes the initialiser run before the first instance
+        // exists, which is the guarantee every lookup on an element was already assuming.
+        //
+        // ⚠ Here rather than a `RunClassConstructor` in the registry, which cannot be written: the
+        // type there comes from `element.GetType()`, and the trimmer refuses a class constructor it
+        // cannot name (IL2059).
+        builder.Append("    /// <summary>Registers this type's properties before an instance of it can exist.</summary>\n");
+        builder.Append("    /// <remarks>See the generator: without it the class is beforefieldinit and the\n");
+        builder.Append("    ///     registrations below may not have run when something looks one up by name.</remarks>\n");
+        builder.Append("    static ").Append(Bare(owner.OwnerName)).Append("() {\n    }\n");
+
         foreach (var property in properties) {
             RenderProperty(builder, property);
         }
 
         builder.Append("}\n");
         return builder.ToString();
+    }
+
+    /// <summary>A class name without its type parameters, which a constructor's name may not carry.</summary>
+    static string Bare(string name) {
+        var angle = name.IndexOf('<');
+        return angle < 0 ? name : name.Substring(0, angle);
     }
 
     static void RenderProperty(StringBuilder builder, PropertyModel property) {

@@ -97,6 +97,49 @@ static class RuntimeContract {
                                          }
                                      }
 
+                                     // What a control is, in the one respect a `change:` binding
+                                     // cares about: a property the registry knows by name, which
+                                     // raises `PropertyChanged` when it actually changes. That is
+                                     // all `bind:` and `change:` ever ask of a control, and it is
+                                     // why neither needs an entry per control anywhere.
+                                     //
+                                     // ⚠ Hand-written because this source is compiled without the
+                                     // [UiProperty] generator, and written to match what that
+                                     // generator emits — the empty static constructor included.
+                                     // Without one the class is beforefieldinit and the CLR may
+                                     // defer the registration below past the first instance, which
+                                     // is exactly the bug `UiPropertyTests` now guards.
+                                     public class Fader : UiElement {
+                                         protected override string TagName => "fader";
+
+                                         public static readonly UiPropertyKey LevelProperty =
+                                             UiPropertyRegistry.Register(
+                                                 "Level",
+                                                 typeof(Fader),
+                                                 typeof(int),
+                                                 false,
+                                                 static element => ((Fader) element).Level,
+                                                 static (element, value) => ((Fader) element).Level = (int) value!
+                                             );
+
+                                         static Fader() {
+                                         }
+
+                                         int level;
+
+                                         public int Level {
+                                             get => level;
+                                             set {
+                                                 var previous = level;
+                                                 level = value;
+
+                                                 if (previous != value) {
+                                                     RaisePropertyChanged(LevelProperty);
+                                                 }
+                                             }
+                                         }
+                                     }
+
                                      public class Label : Component {
                                          public string Title { get; set; } = "";
                                          public int Step { get; set; }

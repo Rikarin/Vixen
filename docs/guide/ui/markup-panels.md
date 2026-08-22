@@ -3,8 +3,8 @@ title: Panels in markup
 slug: ui/markup-panels
 kind: guide
 area: Core
-summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref for the parts they read, and the @for key rule that decides whether a row updates at all.
-api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow]
+summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref and refs for the parts they read, change: for the values they edit, and the @for key rule that decides whether a row updates at all.
+api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1]
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
@@ -138,7 +138,48 @@ without calling `RemoveTab`.
 |---|---|
 | On an element or a component | Yes. On a capitalised tag it hands back the *component*, not the element it drew — `BuildContext.Host` is how you get that. |
 | Inside `@if` | Yes. Null until the arm is live; stale, not cleared, when the arm leaves — ask `UiElement.IsRemoved`. |
-| Inside `@for` | **No** — `VXML2010`. The body runs once per item and there is one member to assign. Put the `ref` on the element the loop is inside. |
+| Inside `@for` | **No** — `VXML2010`. The body runs once per item and there is one member to assign. Write `refs` instead, or put the `ref` on the element the loop is inside. |
+
+### `refs`, for a row of a `@for`
+
+```xml
+@code { public ElementRefs<Slider> Faders { get; } = new(); }
+
+@for (var bus in Buses.Value) {
+    <Slider key="@bus" refs="@Faders" change:Value="@(v => Write(bus, v))" />
+}
+```
+
+`Faders[bus]` is that row's control, keyed on the loop's own key — so a reorder cannot hand back a
+neighbour, and a row that leaves takes its entry with it. Look it up with the expression you wrote in
+`key=`; when the loop declares none, that is the item itself.
+
+⚠ **A handle is filled by an effect, so it is empty until the next flush.** That is the difference
+from `ref`, which is assigned in the straight-line body — a test that changes the sequence and reads
+the handle on the next line needs a frame between. The indexer throws and says so; `TryGet` is for
+code to which an absent key is an answer.
+
+`refs` outside a `@for` is `VXML2013`.
+
+### `change:`, for a control's value
+
+```xml
+<Slider change:Value="@(v => model.Gain = v)" />
+<CheckBox change:IsChecked="@(on => model.Muted = on)" />
+<NumericInput change:Number="@(n => model.Count = (int) n)" />
+<Select change:Value="@(name => model.Choose(name))" />
+```
+
+`on:change` does not exist and could not: `on:` binds routed events, whose handlers take a `UiEvent`,
+and a value is not one. `change:` names a `[UiProperty]` — whatever `bind:` can bind, `change:` can
+watch — and the handler is given that property's own type, with no cast.
+
+Use `bind:X` when the change is an assignment to somewhere, and `change:X` when it has to *run*
+something: a method call, an undo entry, a write that touches two fields.
+
+⚠ **A value arriving from the model does not fire it.** A change made while effects are draining came
+from a binding, so reporting it would be an undo entry for something the user never did. A change
+made by input, or by the panel's own code, does fire it.
 
 ### The `@for` key rule
 
