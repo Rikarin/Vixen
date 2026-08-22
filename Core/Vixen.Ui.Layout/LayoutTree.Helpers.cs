@@ -492,6 +492,35 @@ public sealed partial class LayoutTree {
 
         var floor = ComputeMinContentSize(index, mainAxis, direction, ownerWidth, ownerHeight);
 
+        // ⚠ <b>§4.5's CONTENT SIZE SUGGESTION is itself clamped through the ratio, and that is a
+        // different clamp from the transferred size suggestion below.</b> The specification: "the
+        // content size suggestion is the min-content size in the main axis, clamped, if it has an
+        // aspect ratio, by any definite min and max cross size properties converted through the
+        // aspect ratio". The transferred suggestion needs a definite cross SIZE; this one needs only
+        // a cross BOUND, so an item with `max-width: 40px; aspect-ratio: 2` and no width of its own
+        // reaches this and not that.
+        //
+        // ⚠ It earns its place because of the measurement above rather than on its own. While the
+        // block-axis probe answered one line, the floor was small enough that nothing noticed the
+        // missing clamp; measuring at the real inline size made the floor three lines tall and it
+        // overruled a ratio that says the item is 20 points high.
+        // `aspect_ratio_flex_column_stretch_fill_max_height` is the fixture, and it went red on the
+        // measurement change alone — the two halves are one change and neither is worth landing by
+        // itself.
+        if (!float.IsNaN(floor) && !float.IsNaN(aspectRatio) && aspectRatio > 0f) {
+            var bounds = ResolveAspectBounds(index, direction, ownerWidth, isMainAxisRow ? ownerHeight : ownerMainAxisSize);
+            var ratioMax = isMainAxisRow ? bounds.MaxWidth : bounds.MaxHeight;
+            var ratioMin = isMainAxisRow ? bounds.MinWidth : bounds.MinHeight;
+
+            if (!float.IsNaN(ratioMax) && ratioMax >= 0f && floor > ratioMax) {
+                floor = ratioMax;
+            }
+
+            if (!float.IsNaN(ratioMin) && ratioMin >= 0f && floor < ratioMin) {
+                floor = ratioMin;
+            }
+        }
+
         if (!float.IsNaN(specified)) {
             if (float.IsNaN(floor) || specified < floor) {
                 floor = specified;
@@ -680,10 +709,23 @@ public sealed partial class LayoutTree {
         }
 
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
+            // ⚠ <b>A leaf's min-content size in the BLOCK axis is the height its content takes at the
+            // inline size it has, not at an unbounded one.</b> There is no such thing as the
+            // min-content height of a paragraph on its own: CSS Sizing makes the block-axis intrinsic
+            // sizes a function of the used inline size, which is the one asymmetry between the axes
+            // that this probe has to carry. Measuring with the width undefined puts the whole text on
+            // one line and reports a single line's height, so §4.5's floor for a column flex item was
+            // one line tall however many lines the item really needs — and the items then shrank
+            // below their own content. `grid_min_content_flex_column` is three two-line texts in a
+            // 40-point row that Chrome overflows and this store squeezed to 13.3 each.
+            //
+            // ⚠ `ownerWidth` is the containing block's inline size rather than the node's own used
+            // width, which for a stretched item in a column are the same number. Where they are not,
+            // this is still nearer than infinity.
             var size = Measure(
                 index,
-                wantRow ? 0f : float.NaN,
-                wantRow ? MeasureMode.AtMost : MeasureMode.Undefined,
+                wantRow ? 0f : ownerWidth,
+                wantRow ? MeasureMode.AtMost : float.IsNaN(ownerWidth) ? MeasureMode.Undefined : MeasureMode.AtMost,
                 wantRow ? float.NaN : 0f,
                 wantRow ? MeasureMode.Undefined : MeasureMode.AtMost
             );
