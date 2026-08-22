@@ -697,21 +697,14 @@ the same pattern and simpler — an element owned by no region, so `Reload()`'s 
 3. **A row template for `VirtualizingPanel`.** Frees `ConsoleView`, `MessageLogView` and `AssetGrid`,
    which are three of the most-looked-at surfaces in the editor.
 4. **A `Select` whose options come from markup.** `AddOption` is a method, and combined with
-<<<<<<< HEAD
-   `VXML2010` an enum dropdown inside a `@for` is inexpressible.
-5. ~~**Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.**~~ **`FactRow` is built** and has
-   four callers; `Section` is blocked on the `World-title` casing bug and `VerbRow` earns nothing
-   yet. See "The shared parts" above. What the exercise proved is worth more than the row: a part is
-   the *only* way markup can write an intrinsic element's own text inside a loop, which promotes
-   item 2 from a convenience to the thing everything else is waiting on.
-=======
    `refs` an enum dropdown inside a `@for` can now be reached and subscribed to, but its options
    still have to be added from C#.
-5. **Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.** `Fact` is hand-written seven
-   times and `Section`/`Verbs`/`Clear` four times each. Every small terrain, water and blockout panel
-   collapses to a short file once these exist — the cheapest item on this list and the one that makes
-   six of the S-sized ports nearly free.
->>>>>>> agent/value-binding
+5. ~~**Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.**~~ **`FactRow` is built** and has
+   four callers. `VerbRow` earns nothing yet — `verb-row` has no rule in any sheet. `Section` was
+   blocked on the `World-title` casing bug, which is fixed, so it is now merely unbuilt. What the
+   exercise proved is worth more than the row: a part is the *only* way markup can write an intrinsic
+   element's own text inside a loop, which promotes item 2 from a convenience to the thing everything
+   else is waiting on.
 
 ## Localisation
 
