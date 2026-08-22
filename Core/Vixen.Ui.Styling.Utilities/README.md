@@ -385,6 +385,15 @@ were found by sabotage — the exception deleted, the suite red on two tests, th
 and the fix in both cases is that a declaration's colon comes straight after an identifier. *A rule
 about delimiters still has to be a rule about the delimiters the language actually has.*
 
+**An ARIA state treated as a presence flag.** `aria-expanded:` shared `data-`'s shorthand and emitted
+`[aria-expanded]`, so it matched a collapsed disclosure — which carries `aria-expanded="false"` rather
+than no attribute — exactly as it matched an expanded one. The coverage that existed asserted `"true"`
+matches and *absent* does not, and both of those hold under the broken implementation as well as the
+fixed one; the discriminating case is `"false"`, and nothing asserted it. It emits
+`[aria-<state>="true"]` now, per WAI-ARIA 1.2 § 6.3, and the arbitrary form stays verbatim. *A negative
+assertion is only worth what it excludes: "absent" and "false" are one negative in a boolean attribute
+and two different ones in a tri-state, and picking the wrong one buys nothing.*
+
 **A `~` that a test could not tell from a `+`.** The first version of `peer-*`'s coverage put the peer
 immediately before the element, where the subsequent-sibling combinator and the adjacent one select the
 same thing — so replacing `~` with `+` left it green. One filler sibling between them is the whole

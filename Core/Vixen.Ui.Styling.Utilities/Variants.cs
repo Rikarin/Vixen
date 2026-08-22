@@ -126,7 +126,19 @@ public static class Variants {
         }
 
         if (variant.StartsWith("aria-", StringComparison.Ordinal)) {
-            effect = new VariantEffect(AttributeSelector("aria-", variant["aria-".Length..]), string.Empty, null);
+            // ⚠ `="true"` and not presence, which is the one place `aria-` must not follow `data-`.
+            // An ARIA state is a tri-state whose *false* is spelled out: a collapsed disclosure
+            // carries `aria-expanded="false"`, it does not drop the attribute. So `[aria-expanded]`
+            // — what the shorthand used to emit — is true of the collapsed element as well as the
+            // expanded one, and `aria-expanded:` styled both. WAI-ARIA 1.2 § 6.3 and Tailwind's own
+            // eight built-ins agree on `="true"`; a non-boolean state such as `aria-sort` has no
+            // shorthand in either and wants the arbitrary form.
+            effect = new VariantEffect(
+                AttributeSelector("aria-", variant["aria-".Length..], shorthand: "true"),
+                string.Empty,
+                null
+            );
+
             return true;
         }
 
@@ -147,12 +159,16 @@ public static class Variants {
     public static bool IsArbitrary(VariantEffect effect) =>
         effect.SelectorSuffix.Contains('&', StringComparison.Ordinal);
 
-    static string AttributeSelector(string prefix, string rest) {
-        // `data-[state=open]:` and the shorthand `data-open:`, which means the attribute is present.
+    static string AttributeSelector(string prefix, string rest, string? shorthand = null) {
+        // `data-[state=open]:` — the arbitrary form is verbatim whatever the family, because the
+        // author has written the comparison out.
         if (rest.Length > 1 && rest[0] == '[' && rest[^1] == ']') {
             return $"[{prefix}{rest[1..^1].Replace('_', ' ')}]";
         }
 
-        return $"[{prefix}{rest}]";
+        // The shorthand `data-open:`, which means the attribute is present — and `aria-expanded:`,
+        // which means it is present *and* `"true"`. See the `aria-` branch above for why the two
+        // differ.
+        return shorthand is null ? $"[{prefix}{rest}]" : $"[{prefix}{rest}=\"{shorthand}\"]";
     }
 }
