@@ -20,8 +20,14 @@ namespace Vixen.Ui.Tests;
 ///     <para>
 ///         ⚠ <b>Every test here asserts on a <i>box</i>, not on the presence of a rule.</b> "The
 ///         stylesheet parsed" and "the block applies" are the two questions this whole area keeps
-///         conflating — a dropped <c>@media</c> block is syntactically perfect CSS that simply never
-///         reaches an element — so the only assertion worth making is one an element can fail.
+///         conflating — a <c>@media</c> block that never matches is syntactically perfect CSS that
+///         simply never reaches an element — so the only assertion worth making is one an element can
+///         fail. That is more load-bearing now than it was: the rules of a block that does not apply
+///         are in the rule set, so anything counting rules would see them and pass.
+///     </para>
+///     <para>
+///         <see cref="PerSurfaceMediaTests" /> is the other half — the same questions asked of a
+///         document showing itself in two windows at once.
 ///     </para>
 /// </remarks>
 public class MediaContextTests {
@@ -56,11 +62,11 @@ public class MediaContextTests {
     ///     ⚠ <b>And it is re-decided when the window changes size, in both directions.</b>
     /// </summary>
     /// <remarks>
-    ///     <c>@media</c> is evaluated at load rather than at match — <c>StyleSheetLoader</c> says so
-    ///     and gives the reason — which makes re-asking the question somebody's job. It was nobody's.
-    ///     Growing and shrinking are asserted separately because a loader that recorded only the
-    ///     conditions that <i>matched</i> would get the first right and the second wrong: there would
-    ///     be nothing left to replay once the block had been dropped.
+    ///     Re-asking the question on a resize was nobody's job for two phases. Growing and shrinking
+    ///     are asserted separately because the first fix — replaying the conditions the loader had
+    ///     recorded — got the first right and the second wrong if it recorded only the ones that
+    ///     <i>matched</i>: there was nothing left to replay once a block had been dropped. Nothing is
+    ///     dropped now, so both directions are the same code, and both are still worth asserting.
     /// </remarks>
     [Fact]
     public void A_resize_re_decides_every_breakpoint() {
@@ -163,27 +169,26 @@ public class MediaContextTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A resize that could not have changed an answer must not reload the stylesheets.</b>
+    ///     ⚠ <b>A resize that could not have changed an answer must not disturb anything.</b>
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         The naive fix is to reload on every resize, and it is not affordable: a reload is a full
-    ///         ExCSS parse of every sheet, a window drag is sixty of them a second, and a generated
-    ///         utility sheet is not small. So <c>StyleEngine.SetMedia</c> replays the conditions the
-    ///         loader actually saw and reloads only where one of them changed its mind. Every
-    ///         stylesheet this repository ships contains no <c>@media</c> at all, so for all of them
-    ///         the answer is never.
+    ///         The naive fix is to forget every computed style on every resize, and it is not
+    ///         affordable: a window drag is sixty of them a second over a whole document's worth of
+    ///         elements. So <c>StyleEngine.SetMedia</c> evaluates the groups the loader registered and
+    ///         says whether one of them changed its mind, and only then does the document forget.
+    ///         Every stylesheet this repository ships contains no <c>@media</c> at all, so for all of
+    ///         them the answer is never.
     ///     </para>
     ///     <para>
-    ///         Asserted through <c>Styles.Animations</c>, which is the cheapest thing a reload
-    ///         destroys and the one whose destruction is visible: everything derived from the rules is
-    ///         rebuilt, so a resize that reloaded would restart every fade in the window. That is the
-    ///         user-facing consequence of getting this wrong, and it is what the identity check is
-    ///         standing in for.
+    ///         Asserted on the engine's own answer rather than on a proxy for it, because the proxy
+    ///         this used to have — <c>Styles.Animations</c> being replaced by the reload — is a thing
+    ///         a resize no longer does at all, and an assertion about a mechanism that has been
+    ///         removed passes for ever whatever the code does.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_resize_with_nothing_to_re_decide_keeps_the_rules_it_had() {
+    public void A_resize_with_nothing_to_re_decide_changes_no_verdict() {
         using var document = new UiDocument(400f, 200f);
 
         Box(
@@ -194,29 +199,44 @@ public class MediaContextTests {
             """
         );
 
-        var animations = document.Styles.Animations;
-
         document.Resize(900f, 200f);
-        document.Update();
 
-        Assert.Same(animations, document.Styles.Animations);
+        Assert.False(document.Styles.SetMedia(document.Media));
     }
 
     /// <summary>
-    ///     ⚠ <b>The counterpart, so the test above is not passing because nothing ever reloads.</b>
+    ///     ⚠ <b>Crossing a breakpoint no longer re-parses the stylesheets, and a fade survives it.</b>
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This asserted the opposite until <c>@media</c> stopped being decided at load. It had
+    ///         to: the verdict lived in the rule set, so the only way to re-ask the question was
+    ///         <c>StyleEngine.Reload</c> — a full ExCSS parse of every sheet, measured at 42 ms for
+    ///         the editor's twelve, on a frame of a window drag — and everything derived from the
+    ///         rules went with it, <c>Animations</c> included. Dragging a window across 640 px
+    ///         restarted every transition in it.
+    ///     </para>
+    ///     <para>
+    ///         Both halves, and the second is what stops the first being vacuous. The animator being
+    ///         the same object would also be true of an engine that had simply stopped answering
+    ///         <c>@media</c> at all, which is this subsystem's recurring failure — so the width is
+    ///         asserted in the same test, and it is the width that says the query still matches.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_resize_that_crosses_a_breakpoint_does_reload() {
+    public void A_resize_that_crosses_a_breakpoint_keeps_what_was_in_flight() {
         using var document = new UiDocument(400f, 200f);
-
-        Box(document, Responsive);
+        var box = Box(document, Responsive);
 
         var animations = document.Styles.Animations;
+        var rules = document.Styles.Rules;
 
         document.Resize(900f, 200f);
         document.Update();
 
-        Assert.NotSame(animations, document.Styles.Animations);
+        Assert.Equal(300f, box.Width);
+        Assert.Same(animations, document.Styles.Animations);
+        Assert.Same(rules, document.Styles.Rules);
     }
 
     /// <summary>A conditional group rule inside another one, which is what <c>sm:md:</c> emits.</summary>

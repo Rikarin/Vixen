@@ -15,13 +15,24 @@ namespace Vixen.Ui.Styling;
 ///     Whether matching it can depend on something a <see cref="StyleSharingKey" /> does not carry.
 ///     See <see cref="StyleRuleSet.SharingIsSound" />.
 /// </param>
+/// <param name="Conditions">
+///     The <c>@media</c> group it was written inside, or <see cref="MediaConditions.Unconditional" />.
+///     <para>
+///         ⚠ <b>On the rule rather than resolved away at load, which is what lets two windows of one
+///         document answer <c>max-width</c> differently.</b> The loader used to evaluate the
+///         condition and either emit the rules or drop them, which put the answer in the rule set —
+///         and the rule set is shared by every surface, so the question could be asked once and was
+///         asked of the primary window. See <see cref="MediaConditions" />.
+///     </para>
+/// </param>
 public readonly record struct StyleRule(
     Selector Selector,
     DeclarationRange Declarations,
     StyleOrigin Origin,
     int Layer,
     int Order,
-    bool BlocksSharing
+    bool BlocksSharing,
+    int Conditions
 );
 
 /// <summary>Every rule that has been loaded, indexed and ready to cascade.</summary>
@@ -80,8 +91,10 @@ public sealed class StyleRuleSet {
     public int Count => rules.Count;
 
     /// <summary>
-    ///     Whether the style-sharing cache may be used at all with this rule set.
+    ///     Whether the style-sharing cache may be used at all with this rule set, on one surface.
     /// </summary>
+    /// <param name="verdicts">Which conditional groups hold there.</param>
+    /// <returns>Whether sharing is sound.</returns>
     /// <remarks>
     ///     <para>
     ///         A <see cref="StyleSharingKey" /> says what an element <i>is</i>: its parent, tag, id,
@@ -114,8 +127,34 @@ public sealed class StyleRuleSet {
     ///         is interning: identical elements still resolve to the same
     ///         <see cref="ComputedStyle" /> reference, they just each pay a cascade to get there.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per rule set <i>and</i> per surface, which the verdicts are for.</b> A rule inside
+    ///         a <c>@media</c> block is loaded whether or not the block applies, so the answer would
+    ///         otherwise be dragged down by a positional rule sealed behind a breakpoint no window is
+    ///         at — a permanent, invisible cost paid by a document for a rule that never matches
+    ///         anything.
+    ///     </para>
     /// </remarks>
-    public bool SharingIsSound { get; private set; } = true;
+    public bool SharingIsSound(MediaVerdicts verdicts) {
+        if (!unconditionalSharingIsSound) {
+            return false;
+        }
+
+        // Empty for every stylesheet this repository ships, and empty for any sheet whose `@media`
+        // blocks hold nothing positional. A `foreach` over nothing is what this costs in the case
+        // that matters.
+        foreach (var group in conditionalBlockers) {
+            if (verdicts.Holds(group)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool unconditionalSharingIsSound = true;
+
+    readonly HashSet<int> conditionalBlockers = [];
 
     /// <summary>A rule.</summary>
     /// <param name="rule">Its index.</param>
@@ -133,16 +172,35 @@ public sealed class StyleRuleSet {
     /// <param name="block">Its declarations.</param>
     /// <param name="origin">Who it came from.</param>
     /// <param name="layer">Its layer, or <see cref="CascadeLayers.Unlayered" />.</param>
+    /// <param name="conditions">
+    ///     The <c>@media</c> group it is inside, or <see cref="MediaConditions.Unconditional" />.
+    /// </param>
     /// <returns>The rule's index.</returns>
-    public int Add(Selector selector, ReadOnlySpan<Declaration> block, StyleOrigin origin, int layer) {
+    public int Add(
+        Selector selector,
+        ReadOnlySpan<Declaration> block,
+        StyleOrigin origin,
+        int layer,
+        int conditions = MediaConditions.Unconditional
+    ) {
         var start = declarations.Count;
         foreach (var declaration in block) {
             declarations.Add(declaration);
         }
 
         var blocksSharing = BlocksSharing(selector);
+
         if (blocksSharing) {
-            SharingIsSound = false;
+            // ⚠ Per group and not one flag, because a rule inside a `@media` is now loaded whether or
+            // not the block applies anywhere. One `li:nth-child(2n)` sealed inside a breakpoint no
+            // window is at would otherwise turn the sharing cache off for the whole document, for
+            // ever — a silent halving of the restyle rate that no test could see, since sharing is an
+            // optimisation and every style it skips is still correct.
+            if (conditions == MediaConditions.Unconditional) {
+                unconditionalSharingIsSound = false;
+            } else {
+                conditionalBlockers.Add(conditions);
+            }
         }
 
         var order = Index.Add(selector);
@@ -153,7 +211,8 @@ public sealed class StyleRuleSet {
                 origin,
                 layer,
                 order,
-                blocksSharing
+                blocksSharing,
+                conditions
             )
         );
 

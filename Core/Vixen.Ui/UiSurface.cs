@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Ui.Styling;
+
 namespace Vixen.Ui;
 
 /// <summary>One rectangle a document is laid out into, drawn onto and clicked in.</summary>
@@ -31,9 +34,31 @@ namespace Vixen.Ui;
 ///         snapped to, so that a one-pixel border on a 2× display is one physical pixel rather than
 ///         one and a half.
 ///     </para>
+///     <para>
+///         ⚠ <b>And <see cref="Media" /> is per surface for the same reason, which took longer to
+///         arrive.</b> <c>50vw</c> in a torn-off inspector has always meant half of <i>that</i>
+///         window, while <c>@media (min-width: 640px)</c> meant the main one — the size was read off
+///         the surface and the breakpoint was read off the document. The inconsistency was not an
+///         oversight but a consequence: <c>@media</c> was decided at load, so its verdict lived in
+///         the rule set, and a rule set is shared by every surface. The verdict is a
+///         <see cref="MediaScopes" /> entry now, and the two questions finally answer about the same
+///         rectangle.
+///     </para>
 /// </remarks>
 public sealed class UiSurface {
-    internal UiSurface(UiDocument document, int id, UiElement root, float width, float height, float dpiScale, DrawList drawing) {
+    ColorGamut gamut = ColorGamut.Srgb;
+    ColorSchemePreference colorScheme = ColorSchemePreference.NoPreference;
+
+    internal UiSurface(
+        UiDocument document,
+        int id,
+        UiElement root,
+        float width,
+        float height,
+        float dpiScale,
+        DrawList drawing,
+        ColorSchemePreference colorScheme
+    ) {
         Document = document;
         Id = id;
         Root = root;
@@ -42,6 +67,7 @@ public sealed class UiSurface {
         Width = width;
         Height = height;
         DpiScale = dpiScale;
+        this.colorScheme = colorScheme;
     }
 
     /// <summary>What tells the surfaces of one document apart.</summary>
@@ -88,6 +114,65 @@ public sealed class UiSurface {
     ///     the main window would size a 400-pixel palette against a 3840-pixel display.
     /// </remarks>
     public LengthContext Metrics { get; private set; }
+
+    /// <summary>What this surface can actually show, which decides <c>@media (color-gamut: …)</c> here.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The swapchain's <i>granted</i> gamut for <i>this</i> window, read back from
+    ///     <c>ISwapChain.Gamut</c>.</b> A surface that offered no wide colour space with enough
+    ///     precision behind it stays in sRGB whatever was requested, and a stylesheet told otherwise
+    ///     picks colours that the presentation maps away again — so this is the same field
+    ///     <c>UiGeometryBuilder.Gamut</c> is set from, on the same pane, at the same two moments:
+    ///     when the swapchain is created and when it is recreated.
+    ///     <para>
+    ///         Per surface, and that is the point. An editor with a palette dragged onto a wide
+    ///         display and its main window on an ordinary one now gets a different answer in each,
+    ///         where before the primary window's answer was the whole document's — and answering
+    ///         from whichever pane recreated its swapchain last would have been worse than that.
+    ///     </para>
+    /// </remarks>
+    public ColorGamut Gamut {
+        get => gamut;
+        set {
+            if (gamut == value) {
+                return;
+            }
+
+            gamut = value;
+            Document.Remedia(this);
+        }
+    }
+
+    /// <summary>Whether the platform's appearance is light or dark for this window.</summary>
+    /// <remarks>
+    ///     What <c>@media (prefers-color-scheme: …)</c> asks here, and therefore what <c>dark:</c>
+    ///     asks under a theme whose <c>--dark-mode</c> is <c>media</c>. A new surface starts from the
+    ///     primary's, because appearance is a platform-wide setting rather than a negotiation per
+    ///     window — unlike <see cref="Gamut" />, which starts at sRGB and waits to be told.
+    /// </remarks>
+    public ColorSchemePreference ColorScheme {
+        get => colorScheme;
+        set {
+            if (colorScheme == value) {
+                return;
+            }
+
+            colorScheme = value;
+            Document.Remedia(this);
+        }
+    }
+
+    /// <summary>What <c>@media</c> is answered against in this window.</summary>
+    public MediaContext Media => new(Width, Height, DpiScale, ColorScheme, Gamut);
+
+    /// <summary>Its entry in the document's <see cref="MediaScopes" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not the same number as <see cref="Id" /> and deliberately not derived from it.</b> A
+    ///     scope is allocated by the style engine and written on every element created under
+    ///     <see cref="Root" />; an id is the host's handle on a window. Tying them together would
+    ///     mean an engine shared between two documents — which nothing does today and nothing should
+    ///     be prevented from doing by an accident of numbering.
+    /// </remarks>
+    internal int Scope { get; init; }
 
     internal void Measure(float width, float height, float dpiScale, float rootFontSize) {
         Width = width;

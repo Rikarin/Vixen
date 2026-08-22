@@ -21,9 +21,30 @@ namespace Vixen.Ui.Styling;
 ///         ExCSS, so the gap stops at this file.
 ///     </para>
 ///     <para>
-///         <b><c>@media</c>.</b> Evaluated at load, not at match. A game's UI surface changes size
-///         far less often than it restyles, so re-loading on a resize is cheaper than carrying a
-///         condition on every rule and testing it on every match.
+///         <b><c>@media</c>.</b> A block's rules are loaded whether or not it applies, each tagged
+///         with the <see cref="MediaConditions" /> group it came from, and the verdict is a surface's
+///         rather than the rule set's — which is what lets two windows of one document answer
+///         <c>max-width</c> differently. It was decided at load and thrown away until then, and the
+///         cost of that was not the trade it looked like: a resize that crossed a breakpoint had to
+///         re-parse every sheet with ExCSS (42 ms for the editor's twelve), and it restarted every
+///         fade in the window while doing it.
+///     </para>
+///     <para>
+///         ⚠ <b>A sheet loaded with a <i>fixed</i> context keeps the old behaviour, and that is not
+///         an inconsistency.</b> <c>StyleEngine.Load</c>'s <c>media</c> argument means "this sheet is
+///         about a 320-pixel surface", which is a fixed question, so it gets a fixed answer decided
+///         here and no group. A sheet that named no context is about whatever surface it is being
+///         shown on, and there is more than one of those.
+///     </para>
+///     <para>
+///         ⚠ <b>Only style rules are conditional. <c>@keyframes</c> and <c>@layer</c> inside a
+///         <c>@media</c> load unconditionally</b>, because both are document-global by construction —
+///         one <see cref="KeyframesTable" /> and one layer order per rule set, shared by every
+///         surface exactly as the rules are. Neither does anything on its own: a keyframes definition
+///         is inert until an <c>animation-name</c> names it, and that declaration is in a rule and is
+///         gated; a layer with no rules in it only fixes an order. So loading them regardless is
+///         invisible rather than merely convenient, and the alternative — a keyframes table per
+///         surface — would be a much larger change for no case anybody has.
 ///     </para>
 ///     <para>
 ///         <b>Anything unsupported.</b> Dropped with a diagnostic naming what was written, never
@@ -45,54 +66,62 @@ public sealed class StyleSheetLoader {
     /// <param name="rules">The set to load into.</param>
     /// <param name="keyframes">The table <c>@keyframes</c> rules load into.</param>
     /// <param name="compiler">The selector compiler.</param>
-    public StyleSheetLoader(StyleRuleSet rules, KeyframesTable keyframes, SelectorCompiler compiler) {
+    /// <param name="conditions">The table <c>@media</c> groups are registered in.</param>
+    public StyleSheetLoader(
+        StyleRuleSet rules,
+        KeyframesTable keyframes,
+        SelectorCompiler compiler,
+        MediaConditions conditions
+    ) {
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(keyframes);
         ArgumentNullException.ThrowIfNull(compiler);
+        ArgumentNullException.ThrowIfNull(conditions);
 
         this.rules = rules;
         this.keyframes = keyframes;
         this.compiler = compiler;
+        Conditions = conditions;
     }
 
     /// <summary>Everything that could not be loaded, and why.</summary>
     /// <remarks>The selector compiler's own diagnostics are separate and equally worth reading.</remarks>
     public IReadOnlyList<SelectorDiagnostic> Diagnostics => diagnostics;
 
-    /// <summary>Every distinct <c>@media</c> condition this loader has been asked to evaluate.</summary>
+    /// <summary>The conditional groups this loader has registered.</summary>
     /// <remarks>
-    ///     ⚠ <b>What makes "the surface changed, does anything care" answerable without reloading to
-    ///     find out.</b> Conditions are decided at load and then thrown away, so an engine handed a new
-    ///     <see cref="MediaContext" /> had no way to tell a resize that flips a breakpoint from one
-    ///     that moves a window by a pixel — and the cheap answer, reload always, is a full ExCSS parse
-    ///     of every sheet on every frame of a window drag. See <see cref="StyleEngine.SetMedia" />.
-    ///
-    ///     A set rather than a list: one generated utility sheet repeats <c>(min-width: 768px)</c>
-    ///     once per <c>md:</c> class in the project, and replaying a hundred copies of one question is
-    ///     a hundred times the work for the same answer.
+    ///     Owned by <see cref="StyleEngine" /> rather than by this, because a group id is carried by
+    ///     a rule and read by a surface, and both of those outlive the loader — <c>Build</c> replaces
+    ///     it on every reload.
     /// </remarks>
-    public IReadOnlyCollection<string> MediaConditions => conditions;
-
-    readonly HashSet<string> conditions = new(StringComparer.OrdinalIgnoreCase);
+    public MediaConditions Conditions { get; }
 
     /// <summary>Loads a stylesheet.</summary>
     /// <param name="css">Its text.</param>
     /// <param name="origin">Who it came from.</param>
-    /// <param name="media">What to evaluate <c>@media</c> against.</param>
-    public void Load(string css, StyleOrigin origin, MediaContext media) {
+    /// <param name="media">
+    ///     A fixed context to decide <c>@media</c> against, or <c>null</c> to register a conditional
+    ///     group per block and let each surface decide.
+    ///     <para>
+    ///         ⚠ <b>Nullable, and the two states are "this sheet is about a 320-pixel surface" and
+    ///         "this sheet is about whatever surface it is shown on".</b> Only the second can have
+    ///         more than one answer at a time, so only the second registers groups.
+    ///     </para>
+    /// </param>
+    public void Load(string css, StyleOrigin origin, MediaContext? media) {
         ArgumentNullException.ThrowIfNull(css);
-        LoadInto(Parser.Parse(css), origin, media, CascadeLayers.Unlayered);
+        LoadInto(Parser.Parse(css), origin, media, CascadeLayers.Unlayered, MediaConditions.Unconditional);
     }
 
-    void LoadInto(IStylesheetNode node, StyleOrigin origin, MediaContext media, int layer) {
+    void LoadInto(IStylesheetNode node, StyleOrigin origin, MediaContext? media, int layer, int conditions) {
         foreach (var child in node.Children) {
             switch (child) {
                 case IStyleRule style:
-                    AddRule(style, origin, layer);
+                    AddRule(style, origin, layer, conditions);
                     break;
 
                 case IMediaRule query:
-                    LoadMedia(query, origin, media, layer);
+                    LoadMedia(query, origin, media, layer, conditions);
                     break;
 
                 case IKeyframesRule frames:
@@ -100,7 +129,7 @@ public sealed class StyleSheetLoader {
                     break;
 
                 case IRule rule when rule.Type == RuleType.Unknown:
-                    LoadUnknown(rule, origin, media, layer);
+                    LoadUnknown(rule, origin, media, layer, conditions);
                     break;
 
                 default:
@@ -134,26 +163,36 @@ public sealed class StyleSheetLoader {
         }
     }
 
-    void LoadMedia(IMediaRule query, StyleOrigin origin, MediaContext media, int layer) {
-        // ⚠ Recorded before the verdict and whether or not the condition could be read, because what
-        // needs it is `StyleEngine.SetMedia` deciding whether a resize could have changed any answer
-        // — and a block that is currently dropped is exactly a block a wider window might keep.
-        // Recording only the ones that matched would make growing a window work and shrinking it not.
-        conditions.Add(query.ConditionText ?? string.Empty);
-
-        if (!MediaQuery.TryEvaluate(query.ConditionText, media, out var applies, out var reason)) {
+    void LoadMedia(IMediaRule query, StyleOrigin origin, MediaContext? media, int layer, int conditions) {
+        // ⚠ Readability is decided here whichever mode this is in, and it is decided against the
+        // *text*. Every refusal `MediaQuery.TryEvaluate` can produce names a feature, a value or a
+        // length it could not parse; not one of them reads the context it was handed. So a condition
+        // that cannot be read cannot be read on any surface, and the diagnostic belongs at load —
+        // where `UiDocument` already drains it — rather than once per surface per evaluation, in a
+        // list nothing reads.
+        if (!MediaQuery.TryEvaluate(query.ConditionText, media ?? default, out var applies, out var reason)) {
             diagnostics.Add(new SelectorDiagnostic($"@media {query.ConditionText}", reason!));
             return;
         }
 
-        if (applies) {
-            // Straight through, carrying the layer: `@layer x { @media … { … } }` and
-            // `@media … { @layer x { … } }` mean the same thing and both have to reach the same place.
-            LoadInto(query, origin, media, layer);
+        if (media is not null) {
+            // The fixed-context form: one surface was named, so the question has one answer and the
+            // block is kept or dropped here exactly as it always was.
+            if (applies) {
+                LoadInto(query, origin, media, layer, conditions);
+            }
+
+            return;
         }
+
+        // Straight through whether or not it currently applies, carrying both the layer and the
+        // group: `@layer x { @media … { … } }` and `@media … { @layer x { … } }` mean the same thing
+        // and both have to reach the same place, and a nested `@media` conjoins with this one by
+        // registering inside it.
+        LoadInto(query, origin, media, layer, Conditions.Register(conditions, query.ConditionText));
     }
 
-    void LoadUnknown(IRule rule, StyleOrigin origin, MediaContext media, int layer) {
+    void LoadUnknown(IRule rule, StyleOrigin origin, MediaContext? media, int layer, int conditions) {
         var text = rule.StylesheetText?.Text ?? rule.ToCss();
 
         if (!LayerRuleParser.IsLayerRule(text)) {
@@ -189,13 +228,13 @@ public sealed class StyleSheetLoader {
             ? rules.Layers.Declare(Qualify(parsed.Names[0], layer))
             : rules.Layers.Declare($"\0anonymous-{rules.Layers.Count}");
 
-        LoadInto(Parser.Parse(parsed.Body), origin, media, inner);
+        LoadInto(Parser.Parse(parsed.Body), origin, media, inner, conditions);
     }
 
     string Qualify(string name, int outer) =>
         outer == CascadeLayers.Unlayered ? name : $"{rules.Layers.NameOf(outer)}.{name}";
 
-    void AddRule(IStyleRule style, StyleOrigin origin, int layer) {
+    void AddRule(IStyleRule style, StyleOrigin origin, int layer, int conditions) {
         selectorScratch.Clear();
         compiler.Compile(style.Selector, selectorScratch);
 
@@ -213,7 +252,7 @@ public sealed class StyleSheetLoader {
         // the cascade has to see them as several: `#a, .b { … }` beats `.c` for one element and
         // loses to it for another.
         foreach (var selector in selectorScratch) {
-            rules.Add(selector, CollectionsMarshal.AsSpan(declarationScratch), origin, layer);
+            rules.Add(selector, CollectionsMarshal.AsSpan(declarationScratch), origin, layer, conditions);
         }
     }
 

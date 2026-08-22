@@ -74,6 +74,24 @@ public sealed class StyleTree {
     ///     to say so.
     /// </remarks>
     int[] inlines = new int[64];
+
+    /// <summary>Which surface's <c>@media</c> answers each element reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Inherited from the parent at creation, and that is the whole of the propagation
+    ///         story.</b> A document's surfaces share one rule set, so a rule's conditional group is
+    ///         answered per <i>scope</i> rather than per rule set — and the scope an element is in is
+    ///         the scope of the surface it is shown in. Every element under a surface root is created
+    ///         after it, and <c>UiDocument.Reparent</c> rebuilds a moved subtree's slots in pre-order
+    ///         under its new parent rather than moving them, so a panel dragged into another window
+    ///         picks that window's breakpoints up without anything walking the subtree to tell it.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="MediaScopes.Document" /> for a root, which is the answer for every element
+    ///         of a document that has never opened a second window.
+    ///     </para>
+    /// </remarks>
+    int[] scopes = new int[64];
     bool[] alive = new bool[64];
     int count;
     int dead;
@@ -155,6 +173,12 @@ public sealed class StyleTree {
             ChildOffset = -1,
             IndexInParent = parentIndex >= 0 ? links[parentIndex].ChildCount : 0
         };
+
+        // ⚠ From the parent rather than from a default, and before the element is handed back. This
+        // is the only propagation `@media` scoping has: a subtree is only ever built downwards, so
+        // inheriting here means a window's contents are in the window's scope by construction. See
+        // the remarks on `scopes`.
+        scopes[index] = parentIndex >= 0 ? scopes[parentIndex] : MediaScopes.Document;
 
         if (parentIndex >= 0) {
             AppendChild(parentIndex, index);
@@ -280,6 +304,7 @@ public sealed class StyleTree {
             states[to] = states[i];
             blooms[to] = blooms[i];
             inlines[to] = inlines[i];
+            scopes[to] = scopes[i];
             hasText[to] = hasText[i];
             alive[to] = true;
 
@@ -537,6 +562,34 @@ public sealed class StyleTree {
     /// </remarks>
     public InlineStyleId? InlineAt(int index) =>
         inlines[index] < 0 ? null : new InlineStyleId(inlines[index]);
+
+    /// <summary>Puts an element, and everything created under it afterwards, in a media scope.</summary>
+    /// <param name="element">The element, which is a surface root in every current caller.</param>
+    /// <param name="scope">The scope, from <see cref="MediaScopes.Create" />.</param>
+    /// <remarks>
+    ///     ⚠ <b>This element only, and it is deliberately not a subtree walk.</b> A surface root is
+    ///     given its scope when the surface is created, which is before it can have any children —
+    ///     and everything put inside it afterwards inherits through
+    ///     <see cref="CreateElement" />, including a whole panel reparented in, because
+    ///     <c>UiDocument.Reparent</c> rebuilds a moved subtree's slots rather than moving them. A
+    ///     walk here would be work for a case that does not arise and a second answer to a question
+    ///     that already has one.
+    /// </remarks>
+    public void SetScope(StyleNodeId element, int scope) {
+        ArgumentOutOfRangeException.ThrowIfNegative(scope);
+        scopes[Validate(element)] = scope;
+    }
+
+    /// <summary>Which media scope an element is in.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>Its scope.</returns>
+    public int GetScope(StyleNodeId element) => scopes[Validate(element)];
+
+    /// <summary>An element's media scope by slot, for the resolve pass.</summary>
+    /// <param name="index">The slot.</param>
+    /// <returns>Its scope.</returns>
+    /// <remarks>By slot for the reason <see cref="InlineAt" /> is: the cascade walks slots.</remarks>
+    public int ScopeAt(int index) => scopes[index];
 
     /// <summary>Adds a class to an element.</summary>
     /// <param name="element">The element.</param>
@@ -951,6 +1004,7 @@ public sealed class StyleTree {
         Array.Resize(ref links, next);
         Array.Resize(ref blooms, next);
         Array.Resize(ref inlines, next);
+        Array.Resize(ref scopes, next);
         Array.Resize(ref hasText, next);
         Array.Resize(ref alive, next);
     }

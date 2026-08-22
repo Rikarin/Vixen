@@ -15,7 +15,9 @@ before anything was built on it is
 | `SelectorCompiler` | ExCSS's selector tree → the flat form the matcher runs. A visitor, not a parser. |
 | `SelectorMatcher` | Right-to-left matching with backtracking, and the bloom in front of every descendant combinator. |
 | `RuleIndex` | Bucketing by the rightmost compound's most selective part. |
-| `StyleSheetLoader` | Rules, `@layer` (Vixen's own — ExCSS does not parse it), `@media` evaluated at load, and the conditions it saw kept so a resize can re-ask them. |
+| `StyleSheetLoader` | Rules, `@layer` (Vixen's own — ExCSS does not parse it), and `@media` blocks loaded whatever the verdict, each tagged with the group it came from. |
+| `MediaConditions` | The conditional groups a sheet declared, as a tree of conjunctions. |
+| `MediaScopes` | One `MediaContext` and one verdict vector per surface the rules are shown on. |
 | `CascadePrecedence` | Origin, importance, layer, specificity, source order — as one comparable key. |
 | `ComputedStyle` | Immutable, interned, reference-compared. |
 | `StyleResolver` | The cascade, inheritance, `var()`, and the style-sharing cache. |
@@ -50,19 +52,29 @@ for the component directly passes with the wiring deleted. See doc 43 F10 and F1
 the rule it has just matched, so `@media A { @media B { … } }` loads and the two conditions conjoin —
 CSS Conditional 5 § 3 — and the same is true through `@layer` in either order. That is worth stating
 because doc 43 § D3 recorded the opposite and sized a cascade change against the belief; the thing that
-could not nest was `UtilityGenerator`, one layer up, which is why `sm:md:p-4` was dropped. **Nesting
-cost the rule representation nothing**: a `StyleRule` still carries no condition, because `@media` is
-still evaluated at load and never at match.
+could not nest was `UtilityGenerator`, one layer up, which is why `sm:md:p-4` was dropped.
 
-⚠ **What nesting does touch is `SetMedia`'s guard, and it stays correct for a reason worth writing
-down.** `StyleSheetLoader.MediaConditions` records each condition *individually* rather than recording
-the conjunction, and only records the ones the loader actually reached. Both halves matter. Individual
-recording means a drag that flips only an inner condition still reloads — the outer one holds at both
-ends and would report no change. Recording only what was reached means a condition sealed behind a
-false outer one costs nothing, because the block could not have applied either way. The pair is
-asserted in `Vixen.Ui.Tests.MediaContextTests`, one test each; the second is the one that fails if the
-guard is replaced by "reload on every resize", which the pre-existing no-`@media` test structurally
-cannot catch.
+⚠ **`@media` answers per surface, and it is a verdict per window rather than a rule set per
+window.** A document's surfaces share a rule set — that is what keeps one theme across a torn-off
+panel — so while the condition was decided at *load* the answer lived in the rule set and there could
+only be one of it: a 400-pixel inspector got the main window's breakpoints. Compiling the sheets
+again per surface is the obvious fix and is unaffordable, at 42 ms a reload for the editor's twelve.
+So a block's rules are loaded whatever the verdict, tagged with a `MediaConditions` group; a surface
+carries a `MediaVerdicts` vector; an element carries its surface's scope on its `StyleTree` slot,
+inherited from its parent at creation; and the cascade tests one integer before the matcher runs.
+Crossing a breakpoint costs 0.04 ms rather than 50 ms, and stopped restarting every fade in the
+window. Two things this cost that are worth knowing about:
+
+- **`StyleRuleSet.SharingIsSound` takes the verdicts**, because a `:nth-child` sealed behind a
+  breakpoint nobody has reached is now a rule in the set, and one flag would have turned the sharing
+  cache off document-wide for ever with every style still correct.
+- **`@keyframes` and `@layer` inside a `@media` load unconditionally.** Both are document-global by
+  construction and neither does anything alone — a keyframes definition is inert until an
+  `animation-name` in a rule names it, and that rule *is* gated.
+
+The proof lives in `Vixen.Ui.Tests.PerSurfaceMediaTests`, not here, for the reason the paragraphs
+above give: every assertion is on a box or a colour in one of two windows, because a test that
+counted rules would now pass whatever the verdict.
 
 ## The three ideas
 
