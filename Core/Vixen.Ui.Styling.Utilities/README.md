@@ -165,8 +165,11 @@ it is bigger than `p-sm` by a little or a lot.
 > the wrong way round. The requirement is Tailwind-equivalent utilities, so **Tailwind's index is the
 > specification and the renderer is what has to grow** — a family that emits a property no consumer
 > reads names a hole in the engine, and the answer is a task against the engine, not a shorter table.
-> [doc 43](../../docs/plan/43-web-styling-parity.md) measures the distance: **328 Tailwind v4 roots,
-> of which 51 work, 29 half work, 13 are inert and 223 are absent.**
+> [doc 43](../../docs/plan/43-web-styling-parity.md) measures the distance across **328 Tailwind v4
+> roots**. ⚠ The distribution is deliberately not copied here — it was, and it was a week out of date
+> within a week. It is generated from the consumption probe on every test run and lives in
+> [doc 43's Part 0](../../docs/plan/43-web-styling-parity.md#the-six-states-and-why-the-four-in-the-brief-were-not-enough),
+> which `ParityLedgerTests` asserts against the table beside it.
 
 What the family set *is* chosen against is order of work. The border edges, the logical edges,
 `flex-1` and `box-sizing` came first because the engine already read every longhand they emit, which

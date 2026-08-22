@@ -66,5 +66,15 @@
         -->
         <Content Include="InertProperties.txt" CopyToOutputDirectory="PreserveNewest" />
         <Content Include="..\..\docs\plan\43-web-styling-parity.md" Link="43-web-styling-parity.md" CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+            ⚠ The parity ledger is NOT copied, and that is the difference between the two files above
+            it. `ParityLedgerTests` has to be able to *write* this one under VIXEN_REGENERATE=1, and a
+            copy in `bin` would take the edit and leave the tree unchanged — the regenerate would look
+            like it worked and the drift would still be there on the next run. It is found by walking
+            up from `AppContext.BaseDirectory` to the repository root instead. Listed here with no
+            copy so that it appears in the IDE beside the tests that own it.
+        -->
+        <None Include="..\..\docs\plan\43-web-styling-parity.tsv" Link="43-web-styling-parity.tsv" />
     </ItemGroup>
 </Project>

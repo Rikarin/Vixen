@@ -1,7 +1,7 @@
 category	root	kind	example	css	vixen_family	vixen_emits	engine_reads	inherit_only	state	shadowed_by	value_gap	note	classes
-Layout	inset-*	functional	inset-0	inset	inset	bottom,left,right,top	inset		works				inset-auto inset-full inset-px
-Layout	inset-x-*	functional	inset-x-0	inset-inline	inset-x	left,right	inset-inline		partial			Vixen emits physical edges where Tailwind v4 emits flow-relative ones	inset-x-auto inset-x-full inset-x-px
-Layout	inset-y-*	functional	inset-y-0	inset-block	inset-y	bottom,top	inset-block		partial			Vixen emits physical edges where Tailwind v4 emits flow-relative ones	inset-y-auto inset-y-full inset-y-px
+Layout	inset-*	functional	inset-0	inset	inset	bottom,left,right,top	bottom,left,right,top		works				inset-auto inset-full inset-px
+Layout	inset-x-*	functional	inset-x-0	inset-inline	inset-x	left,right	left,right		partial		Tailwind sets inset-inline; Vixen emits the physical edges (left,right) — identical in LTR, wrong in RTL	Vixen emits physical edges where Tailwind v4 emits flow-relative ones	inset-x-auto inset-x-full inset-x-px
+Layout	inset-y-*	functional	inset-y-0	inset-block	inset-y	bottom,top	bottom,top		partial		Tailwind sets inset-block; Vixen emits the physical edges (bottom,top) — identical in LTR, wrong in RTL	Vixen emits physical edges where Tailwind v4 emits flow-relative ones	inset-y-auto inset-y-full inset-y-px
 Layout	inset-s-*	functional	inset-s-0	inset-inline-start					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	inset-s-auto inset-s-full inset-s-px start-auto start-full start-px
 Layout	inset-e-*	functional	inset-e-0	inset-inline-end					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	inset-e-auto inset-e-full inset-e-px end-auto end-full end-px
 Layout	inset-bs-*	functional	inset-bs-0	inset-block-start					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	inset-bs-auto inset-bs-full inset-bs-px
@@ -11,18 +11,18 @@ Layout	right-*	functional	right-0	right	right	right	right		works				right-auto r
 Layout	bottom-*	functional	bottom-0	bottom	bottom	bottom	bottom		works				bottom-auto bottom-full bottom-px
 Layout	left-*	functional	left-0	left	left	left	left		works				left-auto left-full left-px
 Layout	z-*	functional	z-0	z-index	z	z-index	z-index		works				
-Flexbox and Grid	order-*	functional	order-1	order	order	order			inert				order-none
+Flexbox and Grid	order-*	functional	order-1	order	order	order	order		partial			0 of 1 listed keywords resolve: missing order-none	order-none
 Flexbox and Grid	col-*	functional	col-end-1	grid-column					absent				
-Flexbox and Grid	col-span-*	functional	col-span-1	grid-column	col-span	grid-column	grid-column		works			the family emitted the bare count until B2's bridge landed; `grid-column: 2` is a line number, not Tailwind's span	
-Flexbox and Grid	col-start-*	functional	col-start-1	grid-column-start					absent				
-Flexbox and Grid	col-end-*	functional	col-end-1	grid-column-end					absent				
+Flexbox and Grid	col-span-*	functional	col-span-1	grid-column	col-span	grid-column-end,grid-column-start	grid-column-end,grid-column-start		works			the family emitted the bare count until B2's bridge landed; `grid-column: 2` is a line number, not Tailwind's span	
+Flexbox and Grid	col-start-*	functional	col-start-1	grid-column-start	col-start	grid-column-start	grid-column-start		works				
+Flexbox and Grid	col-end-*	functional	col-end-1	grid-column-end	col-end	grid-column-end	grid-column-end		works				
 Flexbox and Grid	row-*	functional	row-end-1	grid-row					absent				
-Flexbox and Grid	row-span-*	functional	row-span-1	grid-row					absent				
-Flexbox and Grid	row-start-*	functional	row-start-1	grid-row-start					absent				
-Flexbox and Grid	row-end-*	functional	row-end-1	grid-row-end					absent				
-Spacing	m-*	functional	m-0	margin	m	margin	margin		works				m-auto m-px
-Spacing	mx-*	functional	mx-0	margin-inline	mx	margin-left,margin-right	margin-inline		partial			Vixen emits physical edges where Tailwind v4 emits flow-relative ones	mx-auto mx-px
-Spacing	my-*	functional	my-0	margin-block	my	margin-bottom,margin-top	margin-block		partial			Vixen emits physical edges where Tailwind v4 emits flow-relative ones	my-auto my-px
+Flexbox and Grid	row-span-*	functional	row-span-1	grid-row	row-span	grid-row-end,grid-row-start	grid-row-end,grid-row-start		works				
+Flexbox and Grid	row-start-*	functional	row-start-1	grid-row-start	row-start	grid-row-start	grid-row-start		works				
+Flexbox and Grid	row-end-*	functional	row-end-1	grid-row-end	row-end	grid-row-end	grid-row-end		works				
+Spacing	m-*	functional	m-0	margin	m	margin-bottom,margin-left,margin-right,margin-top	margin-bottom,margin-left,margin-right,margin-top		works				m-auto m-px
+Spacing	mx-*	functional	mx-0	margin-inline	mx	margin-left,margin-right	margin-left,margin-right		partial		Tailwind sets margin-inline; Vixen emits the physical edges (margin-left,margin-right) — identical in LTR, wrong in RTL	Vixen emits physical edges where Tailwind v4 emits flow-relative ones	mx-auto mx-px
+Spacing	my-*	functional	my-0	margin-block	my	margin-bottom,margin-top	margin-bottom,margin-top		partial		Tailwind sets margin-block; Vixen emits the physical edges (margin-bottom,margin-top) — identical in LTR, wrong in RTL	Vixen emits physical edges where Tailwind v4 emits flow-relative ones	my-auto my-px
 Spacing	ms-*	functional	ms-0	margin-inline-start	ms	margin-inline-start	margin-inline-start		works				ms-auto ms-px
 Spacing	me-*	functional	me-0	margin-inline-end	me	margin-inline-end	margin-inline-end		works				me-auto me-px
 Spacing	mbs-*	functional	mbs-0	margin-block-start					absent				mbs-auto mbs-px
@@ -32,17 +32,17 @@ Spacing	mr-*	functional	mr-0	margin-right	mr	margin-right	margin-right		works			
 Spacing	mb-*	functional	mb-0	margin-bottom	mb	margin-bottom	margin-bottom		works				mb-auto mb-px
 Spacing	ml-*	functional	ml-0	margin-left	ml	margin-left	margin-left		works				ml-auto ml-px
 Typography	line-clamp-*	functional	line-clamp-1	-webkit-box-orient,-webkit-line-clamp,display,overflow					absent				
-Sizing	block-*	functional	block-0	block-size	block	display			absent			family name collides; the property it sets is a different one	block-full block-min block-max block-fit block-svh block-lvh block-dvh block-auto
-Sizing	inline-*	functional	inline-0	inline-size	inline	display			absent			family name collides; the property it sets is a different one	inline-full inline-min inline-max inline-fit inline-svw inline-lvw inline-dvw inline-auto
-Flexbox and Grid	flex-*	functional	flex-1	flex	flex	display,flex,flex-direction,flex-wrap	flex		works				flex-auto flex-initial flex-none
+Sizing	block-*	functional	block-0	block-size					absent			family name collides; the property it sets is a different one	block-full block-min block-max block-fit block-svh block-lvh block-dvh block-auto
+Sizing	inline-*	functional	inline-0	inline-size					absent			family name collides; the property it sets is a different one	inline-full inline-min inline-max inline-fit inline-svw inline-lvw inline-dvw inline-auto
+Flexbox and Grid	flex-*	functional	flex-1	flex	flex	display,flex-basis,flex-direction,flex-grow,flex-shrink,flex-wrap	display,flex-basis,flex-direction,flex-grow,flex-shrink,flex-wrap		works				flex-auto flex-initial flex-none
 Layout	aspect-*	functional	aspect-auto	aspect-ratio	aspect	aspect-ratio	aspect-ratio		partial		aspect-ratio is read, but the utility cannot express aspect-16/9 - the parser takes a top-level slash as an opacity		
-Sizing	size-*	functional	size-0	height,width	size	height,width	height,width		works				size-full size-svw size-lvw size-dvw size-svh size-lvh size-dvh size-min
-Sizing	w-*	functional	w-0	width	w	width	width		works				w-full w-svw w-lvw w-dvw w-svh w-lvh w-dvh w-min
-Sizing	min-w-*	functional	min-w-0	min-width	min-w	min-width	min-width		works				min-w-full min-w-svw min-w-lvw min-w-dvw min-w-svh min-w-lvh min-w-dvh min-w-min
-Sizing	max-w-*	functional	max-w-0	max-width	max-w	max-width	max-width		works				max-w-full max-w-svw max-w-lvw max-w-dvw max-w-svh max-w-lvh max-w-dvh max-w-min
-Sizing	h-*	functional	h-0	height	h	height	height		works				h-full h-svw h-lvw h-dvw h-svh h-lvh h-dvh h-min
-Sizing	min-h-*	functional	min-h-0	min-height	min-h	min-height	min-height		works				min-h-full min-h-svw min-h-lvw min-h-dvw min-h-svh min-h-lvh min-h-dvh min-h-min
-Sizing	max-h-*	functional	max-h-0	max-height	max-h	max-height	max-height		works				max-h-full max-h-svw max-h-lvw max-h-dvw max-h-svh max-h-lvh max-h-dvh max-h-min
+Sizing	size-*	functional	size-0	height,width	size	height,width	height,width		partial			2 of 8 listed keywords resolve: missing size-svw size-lvw size-dvw size-svh size-lvh size-dvh	size-full size-svw size-lvw size-dvw size-svh size-lvh size-dvh size-min
+Sizing	w-*	functional	w-0	width	w	width	width		partial			2 of 8 listed keywords resolve: missing w-svw w-lvw w-dvw w-svh w-lvh w-dvh	w-full w-svw w-lvw w-dvw w-svh w-lvh w-dvh w-min
+Sizing	min-w-*	functional	min-w-0	min-width	min-w	min-width	min-width		partial			2 of 8 listed keywords resolve: missing min-w-svw min-w-lvw min-w-dvw min-w-svh min-w-lvh min-w-dvh	min-w-full min-w-svw min-w-lvw min-w-dvw min-w-svh min-w-lvh min-w-dvh min-w-min
+Sizing	max-w-*	functional	max-w-0	max-width	max-w	max-width	max-width		partial			2 of 8 listed keywords resolve: missing max-w-svw max-w-lvw max-w-dvw max-w-svh max-w-lvh max-w-dvh	max-w-full max-w-svw max-w-lvw max-w-dvw max-w-svh max-w-lvh max-w-dvh max-w-min
+Sizing	h-*	functional	h-0	height	h	height	height		partial			2 of 8 listed keywords resolve: missing h-svw h-lvw h-dvw h-svh h-lvh h-dvh	h-full h-svw h-lvw h-dvw h-svh h-lvh h-dvh h-min
+Sizing	min-h-*	functional	min-h-0	min-height	min-h	min-height	min-height		partial			2 of 8 listed keywords resolve: missing min-h-svw min-h-lvw min-h-dvw min-h-svh min-h-lvh min-h-dvh	min-h-full min-h-svw min-h-lvw min-h-dvw min-h-svh min-h-lvh min-h-dvh min-h-min
+Sizing	max-h-*	functional	max-h-0	max-height	max-h	max-height	max-height		partial			2 of 8 listed keywords resolve: missing max-h-svw max-h-lvw max-h-dvw max-h-svh max-h-lvh max-h-dvh	max-h-full max-h-svw max-h-lvw max-h-dvw max-h-svh max-h-lvh max-h-dvh max-h-min
 Sizing	min-inline-*	functional	min-inline-0	min-inline-size					absent				min-inline-full min-inline-min min-inline-max min-inline-fit min-inline-svw min-inline-lvw min-inline-dvw min-inline-auto
 Sizing	max-inline-*	functional	max-inline-0	max-inline-size					absent				max-inline-full max-inline-min max-inline-max max-inline-fit max-inline-svw max-inline-lvw max-inline-dvw max-inline-screen
 Sizing	min-block-*	functional	min-block-0	min-block-size					absent				min-block-full min-block-min min-block-max min-block-fit min-block-svh min-block-lvh min-block-dvh min-block-auto
@@ -57,14 +57,14 @@ Transforms	origin-*	functional	origin-bottom	transform-origin					absent
 Transforms	perspective-origin-*	functional	perspective-origin-bottom	perspective-origin					absent				
 Transforms	perspective-*	functional	perspective-distant	perspective					absent				
 Transforms	translate-*	functional	translate-0	translate					absent				translate-none translate-full translate-px translate-x-full translate-x-px translate-y-full translate-y-px translate-z-px
-Transforms	translate-x-*	functional	translate-x-0	translate	translate-x	--tw-translate-x;translate	translate		works			composed: a --tw-* fragment per axis assembled into one `translate`, read in UiDocument.Accumulate	
-Transforms	translate-y-*	functional	translate-y-0	translate	translate-y	--tw-translate-y;translate	translate		works			composed: a --tw-* fragment per axis assembled into one `translate`, read in UiDocument.Accumulate	
+Transforms	translate-x-*	functional	translate-x-0	translate	translate-x	--tw-translate-x,translate	translate		works			composed: a --tw-* fragment per axis assembled into one `translate`, read in UiDocument.Accumulate	
+Transforms	translate-y-*	functional	translate-y-0	translate	translate-y	--tw-translate-y,translate	translate		works			composed: a --tw-* fragment per axis assembled into one `translate`, read in UiDocument.Accumulate	
 Transforms	translate-z-*	functional	translate-z-0	translate					absent				
-Transforms	scale-*	functional	scale-0	scale	scale	scale			inert			emits real CSS now; refused because a DrawCommand is an axis-aligned rectangle (A7)	scale-none scale-3d
+Transforms	scale-*	functional	scale-0	scale	scale	scale			inert			emits real CSS; nothing reads it — InertProperties.txt #23, a rotated/scaled box is not a rectangle and neither is its clip	scale-none scale-3d
 Transforms	scale-x-*	functional	scale-x-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
 Transforms	scale-y-*	functional	scale-y-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
 Transforms	scale-z-*	functional	scale-z-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
-Transforms	rotate-*	functional	rotate-0	rotate	rotate	rotate			inert			emits real CSS now; refused because a DrawCommand is an axis-aligned rectangle (A7)	rotate-none
+Transforms	rotate-*	functional	rotate-0	rotate	rotate	rotate			inert			emits real CSS; nothing reads it — InertProperties.txt #23, a rotated box is not a rectangle and neither is its clip	rotate-none
 Transforms	rotate-x-*	functional	rotate-x-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	
 Transforms	rotate-y-*	functional	rotate-y-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	
 Transforms	rotate-z-*	functional	rotate-z-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	
@@ -73,7 +73,7 @@ Transforms	skew-x-*	functional	skew-x-0	transform					absent
 Transforms	skew-y-*	functional	skew-y-0	transform					absent				
 Transforms	transform-*	functional	transform-3d	transform-style					absent				transform-flat transform-3d
 Transforms	zoom-*	functional	zoom-50	zoom					absent				
-Interactivity	cursor-*	functional	cursor-alias	cursor	cursor	cursor	cursor		works				cursor-auto cursor-default cursor-pointer cursor-wait cursor-text cursor-move cursor-help cursor-not-allowed
+Interactivity	cursor-*	functional	cursor-alias	cursor	cursor	cursor	cursor		partial			7 of 8 listed keywords resolve: missing cursor-help	cursor-auto cursor-default cursor-pointer cursor-wait cursor-text cursor-move cursor-help cursor-not-allowed
 Interactivity	scroll-m-*	functional	scroll-m-0	scroll-margin					absent				scroll-m-px
 Interactivity	scroll-mx-*	functional	scroll-mx-0	scroll-margin-inline					absent				scroll-mx-px
 Interactivity	scroll-my-*	functional	scroll-my-0	scroll-margin-block					absent				scroll-my-px
@@ -99,55 +99,55 @@ Interactivity	scroll-pl-*	functional	scroll-pl-0	scroll-padding-left					absent	
 Typography	list-*	functional	list-decimal	list-style-type					absent				
 Typography	list-image-*	functional	list-image-none	list-style-image					absent				
 Layout	columns-*	functional	columns-1	columns					absent				
-Flexbox and Grid	auto-cols-*	functional	auto-cols-auto	grid-auto-columns					absent				
-Flexbox and Grid	auto-rows-*	functional	auto-rows-auto	grid-auto-rows					absent				
+Flexbox and Grid	auto-cols-*	functional	auto-cols-auto	grid-auto-columns	auto-cols	grid-auto-columns	grid-auto-columns		works				
+Flexbox and Grid	auto-rows-*	functional	auto-rows-auto	grid-auto-rows	auto-rows	grid-auto-rows	grid-auto-rows		works				
 Flexbox and Grid	grid-cols-*	functional	grid-cols-1	grid-template-columns	grid-cols	grid-template-columns	grid-template-columns		works			the family emitted `grid-template-columns: 3`, which is not a track list, until B2's bridge landed	
-Flexbox and Grid	grid-rows-*	functional	grid-rows-1	grid-template-rows					absent	grid		swallowed by the family `grid`; the value does not resolve, so nothing is emitted	
-Flexbox and Grid	gap-*	functional	gap-0	gap	gap	gap	gap		works				gap-px
+Flexbox and Grid	grid-rows-*	functional	grid-rows-1	grid-template-rows	grid-rows	grid-template-rows	grid-template-rows		works				
+Flexbox and Grid	gap-*	functional	gap-0	gap	gap	column-gap,row-gap	column-gap,row-gap		works				gap-px
 Flexbox and Grid	gap-x-*	functional	gap-x-0	column-gap	gap-x	column-gap	column-gap		works				gap-x-px
 Flexbox and Grid	gap-y-*	functional	gap-y-0	row-gap	gap-y	row-gap	row-gap		works				gap-y-px
-Layout	space-x-*	functional	space-x-0						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
-Layout	space-y-*	functional	space-y-0						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
+Layout	space-x-*	functional	space-x-0		space-x	margin-inline-end	margin-inline-end		works			child-scoped: emits margin-inline-end on `> :not(:last-child)`, not a --tw-* fragment. Read.	
+Layout	space-y-*	functional	space-y-0		space-y	margin-bottom	margin-bottom		works			child-scoped: emits margin-bottom on `> :not(:last-child)`, not a --tw-* fragment. Read.	
 Interactivity	accent-*	functional	accent-amber-50	accent-color					absent				accent-auto
 Interactivity	caret-*	functional	caret-amber-50	caret-color					absent				
-Layout	divide-*	functional	divide-amber-50						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
+Layout	divide-*	functional	divide-amber-50		divide	border-bottom-color,border-left-color,border-right-color,border-top-color	border-bottom-color,border-left-color,border-right-color,border-top-color		works			child-scoped: emits the four border colours on `> :not(:last-child)`, not a --tw-* fragment. Read.	
 Interactivity	scrollbar-thumb-*	functional	scrollbar-thumb-amber-50	scrollbar-color					absent				
 Interactivity	scrollbar-track-*	functional	scrollbar-track-amber-50	scrollbar-color					absent				
 Typography	tab-*	functional	tab-2	tab-size					absent				
-Borders	rounded-*	functional	rounded-2xl	border-radius	rounded	border-radius	border-radius		works				
+Borders	rounded-*	functional	rounded-2xl	border-radius	rounded	border-bottom-left-radius,border-bottom-right-radius,border-top-left-radius,border-top-right-radius	border-bottom-left-radius,border-bottom-right-radius,border-top-left-radius,border-top-right-radius		works				
 Borders	rounded-s-*	functional	rounded-s-2xl	border-end-start-radius,border-start-start-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
 Borders	rounded-e-*	functional	rounded-e-2xl	border-end-end-radius,border-start-end-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-t-*	functional	rounded-t-2xl	border-top-left-radius,border-top-right-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-r-*	functional	rounded-r-2xl	border-bottom-right-radius,border-top-right-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-b-*	functional	rounded-b-2xl	border-bottom-left-radius,border-bottom-right-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-l-*	functional	rounded-l-2xl	border-bottom-left-radius,border-top-left-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
+Borders	rounded-t-*	functional	rounded-t-2xl	border-top-left-radius,border-top-right-radius	rounded-t	border-top-left-radius,border-top-right-radius	border-top-left-radius,border-top-right-radius		works				
+Borders	rounded-r-*	functional	rounded-r-2xl	border-bottom-right-radius,border-top-right-radius	rounded-r	border-bottom-right-radius,border-top-right-radius	border-bottom-right-radius,border-top-right-radius		works				
+Borders	rounded-b-*	functional	rounded-b-2xl	border-bottom-left-radius,border-bottom-right-radius	rounded-b	border-bottom-left-radius,border-bottom-right-radius	border-bottom-left-radius,border-bottom-right-radius		works				
+Borders	rounded-l-*	functional	rounded-l-2xl	border-bottom-left-radius,border-top-left-radius	rounded-l	border-bottom-left-radius,border-top-left-radius	border-bottom-left-radius,border-top-left-radius		works				
 Borders	rounded-ss-*	functional	rounded-ss-2xl	border-start-start-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
 Borders	rounded-se-*	functional	rounded-se-2xl	border-start-end-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
 Borders	rounded-ee-*	functional	rounded-ee-2xl	border-end-end-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
 Borders	rounded-es-*	functional	rounded-es-2xl	border-end-start-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-tl-*	functional	rounded-tl-2xl	border-top-left-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-tr-*	functional	rounded-tr-2xl	border-top-right-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-br-*	functional	rounded-br-2xl	border-bottom-right-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	rounded-bl-*	functional	rounded-bl-2xl	border-bottom-left-radius					absent	rounded		swallowed by the family `rounded`; the value does not resolve, so nothing is emitted	
-Borders	border-*	functional	border-0	border-style,border-width	border	border-color,border-width	border-width		partial				border-solid border-dashed border-dotted border-double border-hidden border-none
-Borders	border-x-*	functional	border-x-0	border-inline-style,border-inline-width	border-x	border-left-color,border-left-width,border-right-color,border-right-width	border-inline-width		partial				
-Borders	border-y-*	functional	border-y-0	border-block-style,border-block-width	border-y	border-bottom-color,border-bottom-width,border-top-color,border-top-width	border-block-width		partial				
-Borders	border-s-*	functional	border-s-0	border-inline-start-style,border-inline-start-width	border-s	border-inline-start-color,border-inline-start-width	border-inline-start-width		partial				
-Borders	border-e-*	functional	border-e-0	border-inline-end-style,border-inline-end-width	border-e	border-inline-end-color,border-inline-end-width	border-inline-end-width		partial				
+Borders	rounded-tl-*	functional	rounded-tl-2xl	border-top-left-radius	rounded-tl	border-top-left-radius	border-top-left-radius		works				
+Borders	rounded-tr-*	functional	rounded-tr-2xl	border-top-right-radius	rounded-tr	border-top-right-radius	border-top-right-radius		works				
+Borders	rounded-br-*	functional	rounded-br-2xl	border-bottom-right-radius	rounded-br	border-bottom-right-radius	border-bottom-right-radius		works				
+Borders	rounded-bl-*	functional	rounded-bl-2xl	border-bottom-left-radius	rounded-bl	border-bottom-left-radius	border-bottom-left-radius		works				
+Borders	border-*	functional	border-0	border-style,border-width	border	border-bottom-color,border-bottom-width,border-left-color,border-left-width,border-right-color,border-right-width,border-top-color,border-top-width	border-bottom-color,border-bottom-width,border-left-color,border-left-width,border-right-color,border-right-width,border-top-color,border-top-width		partial			0 of 6 listed keywords resolve: missing border-solid border-dashed border-dotted border-double border-hidden border-none	border-solid border-dashed border-dotted border-double border-hidden border-none
+Borders	border-x-*	functional	border-x-0	border-inline-style,border-inline-width	border-x	border-left-color,border-left-width,border-right-color,border-right-width	border-left-color,border-left-width,border-right-color,border-right-width		partial		Tailwind sets border-inline-style,border-inline-width; Vixen emits the physical edges (border-left-color,border-left-width,border-right-color,border-right-width) — identical in LTR, wrong in RTL		
+Borders	border-y-*	functional	border-y-0	border-block-style,border-block-width	border-y	border-bottom-color,border-bottom-width,border-top-color,border-top-width	border-bottom-color,border-bottom-width,border-top-color,border-top-width		partial		Tailwind sets border-block-style,border-block-width; Vixen emits the physical edges (border-bottom-color,border-bottom-width,border-top-color,border-top-width) — identical in LTR, wrong in RTL		
+Borders	border-s-*	functional	border-s-0	border-inline-start-style,border-inline-start-width	border-s	border-inline-start-color,border-inline-start-width	border-inline-start-width		partial		Tailwind sets border-inline-start-style; Vixen emits the physical edges (border-inline-start-color,border-inline-start-width) — identical in LTR, wrong in RTL	the width is read; the logical colour is not — InertProperties.txt #21	
+Borders	border-e-*	functional	border-e-0	border-inline-end-style,border-inline-end-width	border-e	border-inline-end-color,border-inline-end-width	border-inline-end-width		partial		Tailwind sets border-inline-end-style; Vixen emits the physical edges (border-inline-end-color,border-inline-end-width) — identical in LTR, wrong in RTL	the width is read; the logical colour is not — InertProperties.txt #21	
 Borders	border-bs-*	functional	border-bs-0	border-block-start-style,border-block-start-width					absent	border		swallowed by the family `border`; the value does not resolve, so nothing is emitted	
 Borders	border-be-*	functional	border-be-0	border-block-end-style,border-block-end-width					absent	border		swallowed by the family `border`; the value does not resolve, so nothing is emitted	
-Borders	border-t-*	functional	border-t-0	border-top-style,border-top-width	border-t	border-top-color,border-top-width	border-top-width		partial				
-Borders	border-r-*	functional	border-r-0	border-right-style,border-right-width	border-r	border-right-color,border-right-width	border-right-width		partial				
-Borders	border-b-*	functional	border-b-0	border-bottom-style,border-bottom-width	border-b	border-bottom-color,border-bottom-width	border-bottom-width		partial				
-Borders	border-l-*	functional	border-l-0	border-left-style,border-left-width	border-l	border-left-color,border-left-width	border-left-width		partial				
-Layout	divide-x-*	functional	divide-x-0						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
-Layout	divide-y-*	functional	divide-y-0						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
-Backgrounds	bg-linear-*	functional	bg-linear-0	background-image					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	
-Backgrounds	bg-conic-*	functional	bg-conic-0	background-image					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	
-Backgrounds	bg-*	functional	bg-conic-0	background-color,background-image	bg	background-color	background-color		partial		background-color only; background-image, gradients and bg-position/size are absent		bg-none bg-gradient-to-t bg-gradient-to-tr bg-gradient-to-r bg-gradient-to-br bg-gradient-to-b bg-gradient-to-bl bg-gradient-to-l
-Layout	from-*	functional	from-0%						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
-Layout	via-*	functional	via-0%						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
-Layout	to-*	functional	to-0%						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
+Borders	border-t-*	functional	border-t-0	border-top-style,border-top-width	border-t	border-top-color,border-top-width	border-top-color,border-top-width		works				
+Borders	border-r-*	functional	border-r-0	border-right-style,border-right-width	border-r	border-right-color,border-right-width	border-right-color,border-right-width		works				
+Borders	border-b-*	functional	border-b-0	border-bottom-style,border-bottom-width	border-b	border-bottom-color,border-bottom-width	border-bottom-color,border-bottom-width		works				
+Borders	border-l-*	functional	border-l-0	border-left-style,border-left-width	border-l	border-left-color,border-left-width	border-left-color,border-left-width		works				
+Layout	divide-x-*	functional	divide-x-0		divide-x	border-inline-end-width	border-inline-end-width		works			child-scoped: emits border-inline-end-width on `> :not(:last-child)`, not a --tw-* fragment. Read.	
+Layout	divide-y-*	functional	divide-y-0		divide-y	border-bottom-width	border-bottom-width		works			child-scoped: emits border-bottom-width on `> :not(:last-child)`, not a --tw-* fragment. Read.	
+Backgrounds	bg-linear-*	functional	bg-linear-0	background-image	bg-linear	background-image	background-image		works				
+Backgrounds	bg-conic-*	functional	bg-conic-0	background-image	bg-conic	background-image	background-image		works				
+Backgrounds	bg-*	functional	bg-conic-0	background-color,background-image	bg	background-color	background-color		partial		background-color only; bg-position/size absent. Gradients landed under their own roots (bg-linear-*, bg-radial-*, bg-conic-*)	0 of 8 listed keywords resolve: missing bg-none bg-gradient-to-t bg-gradient-to-tr bg-gradient-to-r bg-gradient-to-br bg-gradient-to-b bg-gradient-to-bl bg-gradient-to-l	bg-none bg-gradient-to-t bg-gradient-to-tr bg-gradient-to-r bg-gradient-to-br bg-gradient-to-b bg-gradient-to-bl bg-gradient-to-l
+Layout	from-*	functional	from-0%		from	--tw-gradient-from,--tw-gradient-from-position			composed			composed: a --tw-* fragment assembled into background-image, which the draw list paints. Judged through its assembler.	
+Layout	via-*	functional	via-0%		via	--tw-gradient-stops,--tw-gradient-via,--tw-gradient-via-position			composed			composed: a --tw-* fragment assembled into background-image, which the draw list paints. Judged through its assembler.	
+Layout	to-*	functional	to-0%		to	--tw-gradient-to,--tw-gradient-to-position			composed			composed: a --tw-* fragment assembled into background-image, which the draw list paints. Judged through its assembler.	
 Effects	mask-*	functional	mask-conic-0	mask-composite,mask-image					absent				mask-none mask-add mask-subtract mask-intersect mask-exclude
 Effects	mask-x-from-*	functional	mask-x-from-0	mask-composite,mask-image					absent				
 Effects	mask-x-to-*	functional	mask-x-to-0	mask-composite,mask-image					absent				
@@ -164,19 +164,19 @@ Effects	mask-l-to-*	functional	mask-l-to-0	mask-composite,mask-image					absent
 Effects	mask-linear-*	functional	mask-linear-0	mask-composite,mask-image					absent				
 Effects	mask-linear-from-*	functional	mask-linear-from-0	mask-composite,mask-image					absent				
 Effects	mask-linear-to-*	functional	mask-linear-to-0	mask-composite,mask-image					absent				
-Layout	mask-radial-at-*	functional	mask-radial-at-bottom						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
-Layout	mask-radial-*	functional	mask-radial-at-bottom						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
+Layout	mask-radial-at-*	functional	mask-radial-at-bottom						absent			Tailwind spells this as a --tw-* fragment; Vixen registers no family for it at all	
+Layout	mask-radial-*	functional	mask-radial-at-bottom						absent			Tailwind spells this as a --tw-* fragment; Vixen registers no family for it at all	
 Effects	mask-radial-from-*	functional	mask-radial-from-0	mask-composite,mask-image					absent				
 Effects	mask-radial-to-*	functional	mask-radial-to-0	mask-composite,mask-image					absent				
 Effects	mask-conic-*	functional	mask-conic-0	mask-composite,mask-image					absent				
 Effects	mask-conic-from-*	functional	mask-conic-from-0	mask-composite,mask-image					absent				
 Effects	mask-conic-to-*	functional	mask-conic-to-0	mask-composite,mask-image					absent				
-SVG	fill-*	functional	fill-amber-50	fill	fill	fill			inert				fill-none
-SVG	stroke-*	functional	stroke-0	stroke,stroke-width	stroke	stroke			inert				
+SVG	fill-*	functional	fill-amber-50	fill	fill	fill	fill		partial			0 of 1 listed keywords resolve: missing fill-none	fill-none
+SVG	stroke-*	functional	stroke-0	stroke,stroke-width	stroke	stroke	stroke		works				
 Layout	object-*	functional	object-bottom	object-position					absent				object-left-top object-right-top object-left-bottom object-right-bottom
-Spacing	p-*	functional	p-0	padding	p	padding	padding		works				p-px
-Spacing	px-*	functional	px-0	padding-inline	px	padding-left,padding-right	padding-inline		partial			Vixen emits physical edges where Tailwind v4 emits flow-relative ones	px-px
-Spacing	py-*	functional	py-0	padding-block	py	padding-bottom,padding-top	padding-block		partial			Vixen emits physical edges where Tailwind v4 emits flow-relative ones	py-px
+Spacing	p-*	functional	p-0	padding	p	padding-bottom,padding-left,padding-right,padding-top	padding-bottom,padding-left,padding-right,padding-top		works				p-px
+Spacing	px-*	functional	px-0	padding-inline	px	padding-left,padding-right	padding-left,padding-right		partial		Tailwind sets padding-inline; Vixen emits the physical edges (padding-left,padding-right) — identical in LTR, wrong in RTL	Vixen emits physical edges where Tailwind v4 emits flow-relative ones	px-px
+Spacing	py-*	functional	py-0	padding-block	py	padding-bottom,padding-top	padding-bottom,padding-top		partial		Tailwind sets padding-block; Vixen emits the physical edges (padding-bottom,padding-top) — identical in LTR, wrong in RTL	Vixen emits physical edges where Tailwind v4 emits flow-relative ones	py-px
 Spacing	ps-*	functional	ps-0	padding-inline-start	ps	padding-inline-start	padding-inline-start		works				ps-px
 Spacing	pe-*	functional	pe-0	padding-inline-end	pe	padding-inline-end	padding-inline-end		works				pe-px
 Spacing	pbs-*	functional	pbs-0	padding-block-start					absent				pbs-px
@@ -186,13 +186,13 @@ Spacing	pr-*	functional	pr-0	padding-right	pr	padding-right	padding-right		works
 Spacing	pb-*	functional	pb-0	padding-bottom	pb	padding-bottom	padding-bottom		works				pb-px
 Spacing	pl-*	functional	pl-0	padding-left	pl	padding-left	padding-left		works				pl-px
 Typography	indent-*	functional	indent-0	text-indent				text-indent	absent				indent-px
-Typography	align-*	functional	align-baseline	vertical-align	align	vertical-align			inert				align-baseline align-top align-middle align-bottom align-text-top align-text-bottom align-sub align-super
+Typography	align-*	functional	align-baseline	vertical-align	align	vertical-align	vertical-align		partial			4 of 8 listed keywords resolve: missing align-text-top align-text-bottom align-sub align-super	align-baseline align-top align-middle align-bottom align-text-top align-text-bottom align-sub align-super
 Typography	font-*	functional	font-black	font-weight	font	font-weight	font-weight		works				
 Typography	font-stretch-*	functional	font-stretch-50%	font-stretch				font-stretch	absent	font		swallowed by the family `font`; the value does not resolve, so nothing is emitted	font-stretch-normal font-stretch-ultra-condensed font-stretch-extra-condensed font-stretch-condensed font-stretch-semi-condensed font-stretch-semi-expanded font-stretch-expanded font-stretch-extra-expanded
 Typography	placeholder-*	functional	placeholder-amber-50	color					absent				
 Typography	decoration-*	functional	decoration-0	text-decoration-thickness					absent				decoration-auto decoration-from-font
 Transitions and Animation	animate-*	functional	animate-bounce	animation					absent				
-Filters	blur-*	functional	blur-2xl	filter	blur	--blur			inert			emits a placeholder custom property nothing consumes	
+Filters	blur-*	functional	blur-2xl	filter	blur	--blur			inert			emits the placeholder --blur; nothing reads it — InertProperties.txt #28	
 Filters	backdrop-blur-*	functional	backdrop-blur-2xl	-webkit-backdrop-filter,backdrop-filter					absent				
 Filters	brightness-*	functional	brightness-0	filter					absent				
 Filters	backdrop-brightness-*	functional	backdrop-brightness-0	-webkit-backdrop-filter,backdrop-filter					absent				
@@ -215,7 +215,7 @@ Transitions and Animation	delay-*	functional	delay-75	transition-delay					absen
 Transitions and Animation	duration-*	functional	duration-75	transition-duration	duration	transition-duration	transition-duration		works				
 Transitions and Animation	ease-*	functional	ease-in	transition-timing-function	ease	transition-timing-function	transition-timing-function		works				
 Interactivity	will-change-*	functional	will-change-auto	will-change					absent				will-change-auto will-change-scroll will-change-contents will-change-transform
-Flexbox and Grid	content-*	functional	content-around	align-content	content	align-content	align-content		works				content-normal content-center content-start content-end content-center-safe content-end-safe content-between content-around
+Flexbox and Grid	content-*	functional	content-around	align-content	content	align-content	align-content		partial			5 of 8 listed keywords resolve: missing content-normal content-center-safe content-end-safe	content-normal content-center content-start content-end content-center-safe content-end-safe content-between content-around
 Layout	contain-*	functional	contain-content	contain					absent				contain-none contain-content contain-strict contain-size contain-inline-size contain-layout contain-paint contain-style
 Typography	leading-*	functional	leading-0	line-height	leading	line-height	line-height		works				leading-px
 Typography	tracking-*	functional	tracking-normal	letter-spacing	tracking	letter-spacing	letter-spacing		works				
@@ -223,20 +223,20 @@ Borders	outline-*	functional	outline-offset-0	outline-color,outline-style,outlin
 Borders	outline-offset-*	functional	outline-offset-0	outline-offset					absent				
 Effects	opacity-*	functional	opacity-0	opacity	opacity	opacity	opacity		works				
 Typography	underline-offset-*	functional	underline-offset-0	text-underline-offset					absent				
-Typography	text-*	functional	text-2xl	font-size,line-height	text	color,font-size,line-height,text-align	font-size,line-height		partial		font-size and line-height work; the colour reading works; text-<n>/<leading> does not		
+Typography	text-*	functional	text-2xl	font-size,line-height	text	color,font-size,line-height,text-align	color,font-size,line-height,text-align		partial		font-size and line-height work; the colour reading works; text-<n>/<leading> does not		
 Typography	text-shadow-*	functional	text-shadow-2xs	text-shadow					absent	text		swallowed by the family `text`; the value does not resolve, so nothing is emitted	
 Effects	shadow-*	functional	shadow-2xl	box-shadow	shadow	box-shadow	box-shadow		works				
 Effects	inset-shadow-*	functional	inset-shadow-2xs	box-shadow					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	
-Effects	ring-*	functional	ring-0	box-shadow	ring	outline-color			inert		Vixen `ring` is v3 ring-color (outline-color); Tailwind v4 `ring-*` is a box-shadow	emits a placeholder custom property nothing consumes	
+Effects	ring-*	functional	ring-0	box-shadow	ring	--tw-ring-color,--tw-ring-width,box-shadow	box-shadow		works			composed: --tw-ring-width and --tw-ring-color are assembled into a box-shadow the draw list paints, matching Tailwind v4. The v3 outline-color spelling is gone.	
 Effects	inset-ring-*	functional	inset-ring-0	box-shadow					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	
-Layout	ring-offset-*	functional	ring-offset-0						composed	ring		sets a --tw-* custom property that another utility assembles; emits no declaration of its own	
+Layout	ring-offset-*	functional	ring-offset-0						absent	ring		Tailwind spells this as a --tw-* fragment; Vixen registers no family for it at all	
 Layout	@container-*	functional	@container-normal	container-type					absent				
 Layout	start-*	functional	start-full	inset-inline-start	start	inset-inline-start	inset-inline-start		works				
 Layout	end-*	functional	end-full	inset-inline-end	end	inset-inline-end	inset-inline-end		works				
 Sizing	max-w-screen-*	functional	max-w-screen-md	max-width					absent	max-w		swallowed by the family `max-w`; the value does not resolve, so nothing is emitted	
 Backgrounds	bg-size-*	functional	bg-size-[auto]	background-size					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	
 Backgrounds	bg-position-*	functional	bg-position-[center]	background-position					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	
-Backgrounds	bg-radial-*	functional	bg-radial-[at_50%]	background-image					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	
+Backgrounds	bg-radial-*	functional	bg-radial-[at_50%]	background-image	bg-radial	background-image	background-image		works				
 Effects	mask-size-*	functional	mask-size-[auto]	mask-size					absent				
 Effects	mask-position-*	functional	mask-position-[center]	mask-position					absent				
 Typography	font-features-*	functional	font-features-[normal]	font-feature-settings					absent	font		swallowed by the family `font`; the value does not resolve, so nothing is emitted	
@@ -248,12 +248,12 @@ Spacing	sr-only	static	sr-only	border-width,clip-path,height,margin,overflow,pad
 Spacing	not-sr-only	static	not-sr-only	clip-path,height,margin,overflow,padding,position,white-space,width					absent				not-sr-only
 Interactivity	pointer-events	static	pointer-events-none	pointer-events	pointer-events	pointer-events	pointer-events		works				pointer-events-none pointer-events-auto
 Layout	visibility	static	visible	visibility					absent				visible invisible collapse
-Layout	position	static	static	position	static	position	position		partial	static		3 of 5 keywords: missing fixed sticky	static fixed absolute relative sticky
+Layout	position	static	static	position	absolute,relative,static	position	position		partial			3 of 5 keywords: missing fixed sticky; 3 of 5 listed keywords resolve: missing fixed sticky	static fixed absolute relative sticky
 Layout	isolation	static	isolate	isolation					absent				isolate isolation-auto
 Layout	float	static	float-start	float					absent				float-start float-end float-right float-left float-none
 Layout	clear	static	clear-start	clear					absent				clear-start clear-end clear-right clear-left clear-both clear-none
-Layout	box-sizing	static	box-border	box-sizing	box-border	box-sizing	box-sizing		works	box-border			box-border box-content
-Layout	display	static	block	display	block	display	display		partial	block	LayoutEnums.Display is {Flex, None, Block, Grid}: block (B1) and grid (B2) lay out; inline, inline-block and inline-flex compute and change nothing (B3)	7 of 21 keywords: missing table inline-table table-caption table-cell table-column table-column-group	block inline-block inline hidden inline-flex table inline-table table-caption
+Layout	box-sizing	static	box-border	box-sizing	box-border,box-content	box-sizing	box-sizing		works				box-border box-content
+Layout	display	static	block	display	block,grid,hidden,inline,inline-block,inline-flex	display	display		partial		LayoutEnums.Display carries block, flex, grid, none, inline, inline-block and inline-flex, and all seven move layout, paint and hit (B1/B2/B3 closed). What is missing is the table set	7 of 21 keywords: missing table inline-table table-caption table-cell table-column table-column-group; 5 of 8 listed keywords resolve: missing table inline-table table-caption	block inline-block inline hidden inline-flex table inline-table table-caption
 Interactivity	field-sizing	static	field-sizing-content	field-sizing					absent				field-sizing-content field-sizing-fixed
 Sizing	container (max-w+w)	static	container	max-width,width					absent				container
 Tables	table-layout	static	table-auto	table-layout					absent				table-auto table-fixed
@@ -263,10 +263,10 @@ Transforms	transform	static	transform-cpu	transform					absent				transform-cpu 
 Transforms	transform (keywords)	static	transform-content	transform-box					absent				transform-content transform-border transform-fill transform-stroke transform-view
 Transforms	backface	static	backface-visible	backface-visibility					absent				backface-visible backface-hidden
 Interactivity	touch	static	touch-auto	touch-action					absent				touch-auto touch-none touch-manipulation touch-pan-x touch-pan-left touch-pan-right touch-pan-y touch-pan-up
-Interactivity	select	static	select-none	-webkit-user-select,user-select	select	user-select			inert				select-none select-text select-all select-auto
+Interactivity	select	static	select-none	-webkit-user-select,user-select	select	user-select			inert			emits user-select; nothing reads it — InertProperties.txt #24. ⚠ the consumption probe could not construct an observation either: none of its four channels (layout, paint, cursor, hit) can see a text selection, so this verdict rests on there being no reader in the tree rather than on the differential	select-none select-text select-all select-auto
 Interactivity	resize	static	resize-none	resize					absent				resize-none resize-x resize-y resize
 Interactivity	snap	static	snap-none	scroll-snap-type					absent				snap-none snap-x snap-y snap-both
-Layout	composed (--tw-* only)	static	snap-mandatory						composed			sets a --tw-* custom property that another utility assembles; emits no declaration of its own	snap-mandatory snap-proximity space-x-px space-y-px space-x-reverse space-y-reverse divide-x-reverse divide-y-reverse
+Layout	composed (--tw-* only)	static	snap-mandatory						unknown			⚠ not a Tailwind root: an aggregate of eight unrelated static classes left over from the original script. No single state describes it — space-x-px and space-y-px resolve and are read, the other six resolve to nothing. Split it or drop it.	snap-mandatory snap-proximity space-x-px space-y-px space-x-reverse space-y-reverse divide-x-reverse divide-y-reverse
 Interactivity	snap (keywords)	static	snap-normal	scroll-snap-stop					absent				snap-normal snap-always
 Typography	list-style-position	static	list-inside	list-style-position					absent				list-inside list-outside
 Interactivity	appearance	static	appearance-none	appearance					absent				appearance-none appearance-auto
@@ -274,20 +274,20 @@ Typography	scheme	static	scheme-normal	color-scheme					absent				scheme-normal 
 Layout	break-before	static	break-before-auto	break-before					absent				break-before-auto break-before-avoid break-before-all break-before-avoid-page break-before-page break-before-left break-before-right break-before-column
 Layout	break-inside	static	break-inside-auto	break-inside					absent				break-inside-auto break-inside-avoid break-inside-avoid-page break-inside-avoid-column
 Layout	break-after	static	break-after-auto	break-after					absent				break-after-auto break-after-avoid break-after-all break-after-avoid-page break-after-page break-after-left break-after-right break-after-column
-Flexbox and Grid	grid-flow	static	grid-flow-row	grid-auto-flow					absent	grid		swallowed by the family `grid`; the value does not resolve, so nothing is emitted	grid-flow-row grid-flow-col grid-flow-dense grid-flow-row-dense grid-flow-col-dense
-Flexbox and Grid	flex	static	flex-row	flex-direction	flex	flex-direction	flex-direction		works				flex-row flex-row-reverse flex-col flex-col-reverse
-Flexbox and Grid	flex (keywords)	static	flex-wrap	flex-wrap	flex	flex-wrap	flex-wrap		works	flex			flex-wrap flex-nowrap flex-wrap-reverse
+Flexbox and Grid	grid-flow	static	grid-flow-row	grid-auto-flow	grid-flow	grid-auto-flow	grid-auto-flow		works				grid-flow-row grid-flow-col grid-flow-dense grid-flow-row-dense grid-flow-col-dense
+Flexbox and Grid	flex	static	flex-row	flex-direction	flex	display,flex-basis,flex-direction,flex-grow,flex-shrink,flex-wrap	display,flex-basis,flex-direction,flex-grow,flex-shrink,flex-wrap		works				flex-row flex-row-reverse flex-col flex-col-reverse
+Flexbox and Grid	flex (keywords)	static	flex-wrap	flex-wrap	flex	display,flex-basis,flex-direction,flex-grow,flex-shrink,flex-wrap	display,flex-basis,flex-direction,flex-grow,flex-shrink,flex-wrap		works				flex-wrap flex-nowrap flex-wrap-reverse
 Flexbox and Grid	place-content	static	place-content-center	place-content					absent				place-content-center place-content-start place-content-end place-content-center-safe place-content-end-safe place-content-between place-content-around place-content-evenly
 Flexbox and Grid	place-items	static	place-items-center	place-items					absent				place-items-center place-items-start place-items-end place-items-center-safe place-items-end-safe place-items-baseline place-items-stretch
-Flexbox and Grid	items	static	items-center	align-items	items	align-items	align-items		partial			5 of 8 keywords: missing items-center-safe items-end-safe items-baseline-last	items-center items-start items-end items-center-safe items-end-safe items-baseline items-baseline-last items-stretch
-Flexbox and Grid	justify	static	justify-normal	justify-content	justify	justify-content	justify-content		partial			6 of 11 keywords: missing justify-normal justify-center-safe justify-end-safe justify-baseline justify-stretch	justify-normal justify-center justify-start justify-end justify-center-safe justify-end-safe justify-between justify-around
-Flexbox and Grid	justify-items	static	justify-items-normal	justify-items					absent	justify		swallowed by the family `justify`; the value does not resolve, so nothing is emitted	justify-items-normal justify-items-center justify-items-start justify-items-end justify-items-center-safe justify-items-end-safe justify-items-stretch
+Flexbox and Grid	items	static	items-center	align-items	items	align-items	align-items		partial			5 of 8 keywords: missing items-center-safe items-end-safe items-baseline-last; 5 of 8 listed keywords resolve: missing items-center-safe items-end-safe items-baseline-last	items-center items-start items-end items-center-safe items-end-safe items-baseline items-baseline-last items-stretch
+Flexbox and Grid	justify	static	justify-normal	justify-content	justify	justify-content	justify-content		partial			6 of 11 keywords: missing justify-normal justify-center-safe justify-end-safe justify-baseline justify-stretch; 5 of 8 listed keywords resolve: missing justify-normal justify-center-safe justify-end-safe	justify-normal justify-center justify-start justify-end justify-center-safe justify-end-safe justify-between justify-around
+Flexbox and Grid	justify-items	static	justify-items-normal	justify-items	justify-items	justify-items	justify-items		partial				justify-items-normal justify-items-center justify-items-start justify-items-end justify-items-center-safe justify-items-end-safe justify-items-stretch
 Flexbox and Grid	place-self	static	place-self-auto	place-self					absent				place-self-auto place-self-start place-self-end place-self-center place-self-end-safe place-self-center-safe place-self-stretch
-Flexbox and Grid	self	static	self-auto	align-self	self	align-self	align-self		partial			6 of 9 keywords: missing self-end-safe self-center-safe self-baseline-last	self-auto self-start self-end self-center self-end-safe self-center-safe self-stretch self-baseline
-Flexbox and Grid	justify-self	static	justify-self-auto	justify-self					absent	justify		swallowed by the family `justify`; the value does not resolve, so nothing is emitted	justify-self-auto justify-self-start justify-self-end justify-self-center justify-self-end-safe justify-self-center-safe justify-self-stretch
-Layout	overflow	static	overflow-auto	overflow	overflow	overflow	overflow		partial			4 of 5 keywords: missing overflow-clip	overflow-auto overflow-hidden overflow-clip overflow-visible overflow-scroll
-Layout	overflow-x	static	overflow-x-auto	overflow-x	overflow-x	overflow-x	overflow-x		partial			4 of 5 keywords: missing overflow-x-clip	overflow-x-auto overflow-x-hidden overflow-x-clip overflow-x-visible overflow-x-scroll
-Layout	overflow-y	static	overflow-y-auto	overflow-y	overflow-y	overflow-y	overflow-y		partial			4 of 5 keywords: missing overflow-y-clip	overflow-y-auto overflow-y-hidden overflow-y-clip overflow-y-visible overflow-y-scroll
+Flexbox and Grid	self	static	self-auto	align-self	self	align-self	align-self		partial			6 of 9 keywords: missing self-end-safe self-center-safe self-baseline-last; 6 of 8 listed keywords resolve: missing self-end-safe self-center-safe	self-auto self-start self-end self-center self-end-safe self-center-safe self-stretch self-baseline
+Flexbox and Grid	justify-self	static	justify-self-auto	justify-self	justify-self	justify-self	justify-self		partial				justify-self-auto justify-self-start justify-self-end justify-self-center justify-self-end-safe justify-self-center-safe justify-self-stretch
+Layout	overflow	static	overflow-auto	overflow	overflow	overflow	overflow		partial			4 of 5 keywords: missing overflow-clip; 4 of 5 listed keywords resolve: missing overflow-clip	overflow-auto overflow-hidden overflow-clip overflow-visible overflow-scroll
+Layout	overflow-x	static	overflow-x-auto	overflow-x	overflow-x	overflow-x	overflow-x		partial			4 of 5 keywords: missing overflow-x-clip; 4 of 5 listed keywords resolve: missing overflow-x-clip	overflow-x-auto overflow-x-hidden overflow-x-clip overflow-x-visible overflow-x-scroll
+Layout	overflow-y	static	overflow-y-auto	overflow-y	overflow-y	overflow-y	overflow-y		partial			4 of 5 keywords: missing overflow-y-clip; 4 of 5 listed keywords resolve: missing overflow-y-clip	overflow-y-auto overflow-y-hidden overflow-y-clip overflow-y-visible overflow-y-scroll
 Layout	overscroll	static	overscroll-auto	overscroll-behavior					absent				overscroll-auto overscroll-contain overscroll-none
 Layout	overscroll-x	static	overscroll-x-auto	overscroll-behavior-x					absent				overscroll-x-auto overscroll-x-contain overscroll-x-none
 Layout	overscroll-y	static	overscroll-y-auto	overscroll-behavior-y					absent				overscroll-y-auto overscroll-y-contain overscroll-y-none
@@ -297,7 +297,7 @@ Interactivity	scrollbar-gutter	static	scrollbar-gutter-auto	scrollbar-gutter				
 Typography	truncate	static	truncate	overflow,text-overflow,white-space	truncate	overflow	overflow		partial		Vixen emits overflow:hidden only; text-overflow and white-space are not emitted, so nothing is actually truncated		truncate
 Typography	text-overflow	static	text-ellipsis	text-overflow					absent	text		swallowed by the family `text`; the value does not resolve, so nothing is emitted	text-ellipsis text-clip overflow-ellipsis
 Typography	hyphens	static	hyphens-none	-webkit-hyphens,hyphens					absent				hyphens-none hyphens-manual hyphens-auto
-Typography	whitespace	static	whitespace-normal	white-space	whitespace	white-space	white-space		partial			4 of 6 keywords: missing whitespace-pre-line whitespace-break-spaces	whitespace-normal whitespace-nowrap whitespace-pre whitespace-pre-line whitespace-pre-wrap whitespace-break-spaces
+Typography	whitespace	static	whitespace-normal	white-space	whitespace	white-space	white-space		partial			4 of 6 keywords: missing whitespace-pre-line whitespace-break-spaces; 4 of 6 listed keywords resolve: missing whitespace-pre-line whitespace-break-spaces	whitespace-normal whitespace-nowrap whitespace-pre whitespace-pre-line whitespace-pre-wrap whitespace-break-spaces
 Typography	text	static	text-wrap	text-wrap					absent				text-wrap text-nowrap text-balance text-pretty
 Typography	break-normal	static	break-normal	overflow-wrap,word-break				word-break	absent				break-normal
 Typography	word-break	static	break-all	word-break				word-break	absent				break-all break-keep
@@ -315,7 +315,7 @@ Backgrounds	bg-blend	static	bg-blend-normal	background-blend-mode					absent	bg	
 Effects	mix-blend	static	mix-blend-normal	mix-blend-mode					absent				mix-blend-normal mix-blend-multiply mix-blend-screen mix-blend-overlay mix-blend-darken mix-blend-lighten mix-blend-color-dodge mix-blend-color-burn
 SVG	stroke-none	static	stroke-none	stroke					absent	stroke		swallowed by the family `stroke`; the value does not resolve, so nothing is emitted	stroke-none
 Layout	object	static	object-contain	object-fit					absent				object-contain object-cover object-fill object-none object-scale-down
-Typography	text (keywords)	static	text-left	text-align	text	text-align	text-align		works	text			text-left text-center text-right text-justify text-start text-end
+Typography	text (keywords)	static	text-left	text-align	text	color,font-size,line-height,text-align	color,font-size,line-height,text-align		works				text-left text-center text-right text-justify text-start text-end
 Typography	text-transform	static	uppercase	text-transform				text-transform	absent				uppercase lowercase capitalize normal-case
 Typography	font-style	static	italic	font-style					absent				italic not-italic
 Typography	text-decoration-line	static	underline	text-decoration-line					absent				underline overline line-through no-underline
