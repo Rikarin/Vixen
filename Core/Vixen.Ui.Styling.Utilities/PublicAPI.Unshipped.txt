@@ -48,10 +48,12 @@ Vixen.Ui.Styling.Utilities.UtilityCandidate.Opacity.get -> float?
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Opacity.init -> float?
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Original.get -> string
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Original.init -> string
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Property.get -> string?
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Property.init -> string?
 Vixen.Ui.Styling.Utilities.UtilityCandidate.SlashSuffix.get -> string?
 Vixen.Ui.Styling.Utilities.UtilityCandidate.SlashSuffix.init -> string?
 Vixen.Ui.Styling.Utilities.UtilityCandidate.UtilityCandidate() -> void
-Vixen.Ui.Styling.Utilities.UtilityCandidate.UtilityCandidate(string Original, System.Collections.Generic.IReadOnlyList<string> Variants, string Name, string Value, bool Negative, string? Arbitrary, float? Opacity, string? SlashSuffix, bool Important) -> void
+Vixen.Ui.Styling.Utilities.UtilityCandidate.UtilityCandidate(string Original, System.Collections.Generic.IReadOnlyList<string> Variants, string Name, string Value, bool Negative, string? Arbitrary, float? Opacity, string? SlashSuffix, bool Important, string? Property = null) -> void
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Value.get -> string
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Value.init -> string
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Variants.get -> System.Collections.Generic.IReadOnlyList<string>
