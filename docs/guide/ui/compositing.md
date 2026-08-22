@@ -157,8 +157,49 @@ was expected to be worse: the obvious reading of "a separable blur needs a secon
 second surface *per blurred group*, which at twelve would have been 190 MiB rather than 103 MiB.
 
 The honest summary is that **blur is not the expensive part of this design and the surfaces are.**
-Sizing a layer surface to its group's bounds instead of to the viewport is the change that would pay,
-and `UiLayer`'s own remarks explain why it was not made and what it would cost in correctness.
+
+### Confining the passes to the group's bounds
+
+Half of that first row has since been taken back, and **not** by shrinking the surfaces. Each
+group's pass is given a **render area** of `UiLayer.Bounds` — `UiRenderer.Confine` — so the clear and
+the store touch the three hundred by four hundred pixels the panel occupies instead of the whole
+attachment. The allocation is untouched and still viewport-sized, so every correctness argument in
+`UiLayer`'s remarks survives word for word: there is still no origin to translate, and both executors
+still composite through the same rectangle.
+
+⚠ **A render area and not a scissor.** A scissor confines draws; the clear happens when the pass
+begins, before any draw, and obeys the render area alone. The same distinction cost the virtual
+shadow atlas every page but the last drawn.
+
+Measured the same way as the table above — `GpuProfiler` around `Compose` alone at 1920 × 1080,
+MoltenVK on an Apple M-series GPU — but reported as the **10th percentile of forty-eight frames**
+rather than the best of ten, because a scope absorbs a queue stall and the upper half of the
+distribution is machine state rather than work. Two runs of each build, and the first configuration
+in a process is discarded: it pays the clock ramp and reads fifty to a hundred per cent high.
+
+| Frame | Before | After | |
+|---|--:|--:|--:|
+| 6 groups, none blurred | 0.45 ms | 0.25 ms | **−45 %** |
+| 12 groups, none blurred | 1.00 ms | 0.53 ms | **−47 %** |
+| 24 groups, none blurred | 2.07 ms | 1.09 ms | **−47 %** |
+| 12 groups, all blurred at σ = 4 | 5.45 ms | 4.90 ms | **−10 %** |
+
+⚠ **"Almost all of it is clear-and-store bandwidth" was the premise, and it is an overstatement — the
+lever is worth about half, not about all.** The same twelve passes over a **480 × 270** attachment
+cost 0.42 ms before the change and 0.42 ms after it: at that size there is no bandwidth left to save
+and what remains is fixed per-pass cost — the encoder, the two barriers, the bindings — at roughly
+**34 µs a pass**. Twelve of those is 0.41 ms, which is the floor the 0.53 ms above is sitting on.
+Content makes almost no difference either way: twenty-four rows per panel instead of one costs 0.10 ms
+more, before and after alike, which is what says the cost is per-target and not per-draw.
+
+A blurred group gains far less because its two sweeps were never viewport-wide to begin with — the
+composite quad already bounded them — so all the render area removes there is the group's own content
+pass, about 0.04 ms out of 0.45.
+
+**The 95 MiB is untouched and is the harder half.** It needs bounds-*sized* surfaces, which is the
+change `UiLayer` argues against, and it cannot be pooled away: every group's surface is still live
+when the frame's own pass samples it. What has changed is the *case* for making it — the time
+argument is now mostly spent, so what is left to buy is memory alone.
 
 ### What a group does not change
 

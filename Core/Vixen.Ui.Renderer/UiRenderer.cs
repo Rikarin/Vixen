@@ -620,12 +620,22 @@ public sealed class UiRenderer : IDisposable {
             // validation error on exactly one frame.
             commands.Barrier(new([], [new(target.Texture, target.State, ResourceState.ColourTarget)]));
 
+            // ⚠ The reach is computed here rather than inside `BlurSurface`, because it widens the
+            // region *this* pass has to leave defined — see `Confine`. `BlurSurface` derives it again
+            // from the same method, so the two cannot drift.
+            var reach = layer.Blur > 0f && blurPipeline.IsValid
+                ? UiLayer.KernelRadius(layer.Blur, scale)
+                : 0;
+
+            var region = Confine(layer.Bounds, surface, scale, reach);
+
             // Transparent black, not the frame's background: a group composites *over* whatever is
             // already on the target, so starting its surface from that would blend it in twice.
             commands.BeginRenderPass(
                 new(
                     [new(target.View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 0f))],
-                    name: "ui layer " + index.ToString(CultureInfo.InvariantCulture)
+                    name: "ui layer " + index.ToString(CultureInfo.InvariantCulture),
+                    renderArea: region
                 )
             );
 
@@ -649,7 +659,7 @@ public sealed class UiRenderer : IDisposable {
             if (layer.Blur > 0f
                 && blurPipeline.IsValid
                 && Scratch(width, height) is { } through
-                && BlurSurface(commands, geometry, layer, target, through, surface, scale)) {
+                && BlurSurface(commands, geometry, layer, target, through, surface, scale, region)) {
                 blurred++;
             }
 
@@ -670,6 +680,10 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="through">The scratch the first axis lands in.</param>
     /// <param name="surface">The target size in geometry units.</param>
     /// <param name="scale">Framebuffer pixels per geometry unit.</param>
+    /// <param name="region">
+    ///     The part of both targets these passes are confined to — <see cref="Confine" />'s answer for
+    ///     this group, already widened by the kernel.
+    /// </param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The quad is the group's own composite quad, drawn twice with a different
@@ -703,7 +717,8 @@ public sealed class UiRenderer : IDisposable {
         LayerSurface target,
         LayerSurface through,
         Int2 surface,
-        float scale
+        float scale,
+        ScissorRect region
     ) {
         // The composite quad sits immediately after the group's own draws — the same fact
         // `Submit` skips a composited group's contents on. A geometry that has been truncated
@@ -747,7 +762,7 @@ public sealed class UiRenderer : IDisposable {
             )
         );
 
-        Sweep(commands, through, quad, scissor, source, surface, 1f / layerWidth, 0f, sigma, reach);
+        Sweep(commands, through, quad, scissor, region, source, surface, 1f / layerWidth, 0f, sigma, reach);
 
         // And back down, into the surface. The two textures swap roles, which is why the scratch
         // cannot simply stay a colour target: this is the pass that samples it.
@@ -763,7 +778,7 @@ public sealed class UiRenderer : IDisposable {
 
         through.State = ResourceState.ShaderRead;
 
-        Sweep(commands, target, quad, scissor, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
+        Sweep(commands, target, quad, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
 
         return true;
     }
@@ -774,6 +789,7 @@ public sealed class UiRenderer : IDisposable {
         LayerSurface into,
         in UiDraw quad,
         ScissorRect scissor,
+        ScissorRect region,
         DescriptorSetHandle source,
         Int2 surface,
         float stepX,
@@ -784,7 +800,8 @@ public sealed class UiRenderer : IDisposable {
         commands.BeginRenderPass(
             new(
                 [new(into.View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 0f))],
-                name: "ui blur"
+                name: "ui blur",
+                renderArea: region
             )
         );
 
@@ -1524,6 +1541,93 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>What a region's offset is rounded up to.</summary>
     const int Alignment = 256;
+
+    /// <summary>The part of a group's surface its passes are confined to, in framebuffer pixels.</summary>
+    /// <param name="bounds">The group's <see cref="UiLayer.Bounds" />, in geometry units.</param>
+    /// <param name="surface">The geometry's extent, in its own units.</param>
+    /// <param name="scale">How many framebuffer pixels one of those units is.</param>
+    /// <param name="reach">The blur's kernel radius in texels, or zero for an unblurred group.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A render area and not a scissor, and the difference is the whole point.</b> A
+    ///         scissor confines <i>draws</i>; the clear happens when the pass begins, before any draw,
+    ///         and obeys the render area alone. Confining the surfaces with a scissor would leave
+    ///         twelve viewport-sized clears exactly where they were and buy nothing — which is not a
+    ///         hypothetical, it is what the virtual shadow atlas did before it lost every page but the
+    ///         last drawn. See <see cref="RenderPassDescription.RenderArea" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <i>allocation</i> is untouched and stays viewport-sized.</b> This confines
+    ///         what a frame clears and stores, not what it reserves — so <see cref="UiLayer" />'s
+    ///         argument survives intact: a group's contents are still drawn at exactly the
+    ///         coordinates they would have had, there is still no origin to translate, and the two
+    ///         executors still composite through the same rectangle. What changes is only how much of
+    ///         a target the passes touch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Everything outside this rectangle is left holding the <i>previous</i> frame's
+    ///         pixels, not transparent black — so it has to be a superset of everything anything
+    ///         samples.</b> Three readers, and the widest of them decides:
+    ///         <list type="bullet">
+    ///             <item>
+    ///                 the composite quad, which covers <paramref name="bounds" /> exactly — plus one
+    ///                 texel, because the shared sampler is linear and a fractional
+    ///                 <paramref name="scale" /> puts a fragment centre between texels;
+    ///             </item>
+    ///             <item>
+    ///                 the first blur axis, which reads the group's own surface
+    ///                 <paramref name="reach" /> texels each side along x;
+    ///             </item>
+    ///             <item>
+    ///                 the second, which reads the scratch <paramref name="reach" /> texels each side
+    ///                 along y.
+    ///             </item>
+    ///         </list>
+    ///         One rectangle outset by <c>reach + 1</c> covers all three, which is why the group's
+    ///         three passes are handed the same one rather than a rectangle each. Getting it too
+    ///         small does not draw black: it draws whatever that group's surface held last frame,
+    ///         which on a still frame is the right answer and on a moving one is a ghost.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which half of that outset is policed, checked by breaking each.</b> Unlike the
+    ///         bounds outset — which <c>UiCompositingTests</c> provably cannot see, because both
+    ///         executors composite through the same <see cref="UiLayer.Bounds" /> — a render area is
+    ///         a device-side concept the software path has no counterpart for, so it <i>is</i> visible
+    ///         there: dropping <paramref name="reach" /> from this margin makes the two frames differ
+    ///         on 8.1% of pixels by up to 48 levels. The <c>+ 1</c> is <i>not</i> covered, and cannot
+    ///         be by that fixture: it draws at a scale of one, where the composite quad's fragment
+    ///         centres land on texel centres and the linear sampler never reaches a neighbour. It is
+    ///         kept for the fractional scale a DPI-scaled window draws at, where they do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><paramref name="reach" /> is recomputed at <paramref name="scale" /> rather than
+    ///         read off the bounds.</b> <c>UiGeometryBuilder.Layer</c> outsets the bounds by the
+    ///         kernel at a scale of one, in document pixels; the executor's kernel is
+    ///         <see cref="UiLayer.KernelRadius" /> at the scale it is drawing at. Those are the same
+    ///         number only at 1:1, and the halo is the thing that goes missing when they are not.
+    ///     </para>
+    /// </remarks>
+    static ScissorRect Confine(Rectangle bounds, Int2 surface, float scale, int reach) {
+        var width = (int)MathF.Ceiling(surface.X * scale);
+        var height = (int)MathF.Ceiling(surface.Y * scale);
+
+        var area = Scissor(bounds, surface, scale);
+        var margin = reach + 1;
+
+        var left = Math.Clamp(area.X - margin, 0, width);
+        var top = Math.Clamp(area.Y - margin, 0, height);
+        var right = Math.Clamp(area.X + area.Width + margin, 0, width);
+        var bottom = Math.Clamp(area.Y + area.Height + margin, 0, height);
+
+        // ⚠ The whole attachment rather than nothing. An empty render area is a pass that clears
+        // nothing and draws nothing, and the composite would then sample a surface no frame has ever
+        // written — so a degenerate rectangle falls back to the behaviour this method replaced
+        // instead of to a hole. `UiGeometryBuilder.Layer` drops an empty group before it becomes a
+        // layer, so this is a guard and not a case.
+        return right > left && bottom > top
+            ? new(left, top, right - left, bottom - top)
+            : new(0, 0, width, height);
+    }
 
     /// <summary>A clip rectangle as a scissor, clamped to the surface.</summary>
     /// <remarks>
