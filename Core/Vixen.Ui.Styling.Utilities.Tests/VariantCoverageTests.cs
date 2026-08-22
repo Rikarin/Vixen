@@ -255,9 +255,25 @@ public class VariantCoverageTests {
 
         Assert.Null(fixture.Computed(["aria-expanded:p-4"], "padding-left"));
 
+        // ⚠ <b>The row that found the bug, and the reason the two above could not.</b> An ARIA state
+        // spells its false out — a collapsed disclosure carries `aria-expanded="false"` rather than
+        // no attribute — so the *absent* negative above is not the negative that matters, and the
+        // shorthand's original `[aria-expanded]` passed both assertions above while styling the
+        // collapsed element exactly like the expanded one.
+        Assert.Null(
+            fixture.Computed(["aria-expanded:p-4"], "padding-left", attributes: [("aria-expanded", "false")])
+        );
+
         Assert.Equal(
             "16px",
             fixture.Computed(["aria-[sort=ascending]:p-4"], "padding-left", attributes: [("aria-sort", "ascending")])
+        );
+
+        // The arbitrary form stays verbatim rather than picking up the shorthand's `="true"`, and a
+        // value that is not the one asked for must not match — `data-`'s equality form has had this
+        // row since it was written and `aria-`'s had not.
+        Assert.Null(
+            fixture.Computed(["aria-[sort=ascending]:p-4"], "padding-left", attributes: [("aria-sort", "descending")])
         );
     }
 

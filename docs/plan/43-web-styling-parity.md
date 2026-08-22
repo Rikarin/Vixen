@@ -1313,7 +1313,7 @@ its neighbour. That is the whole cost, and it is not a parsing cost:
 the variant table and the grammar. ⚠ The risk moved rather than shrank: it is now concentrated in item
 3, the style↔layout cycle, which is the item this document cannot size from the outside.
 
-### D6. The variants had almost no end-to-end coverage, and that was worth more than A15 ⚠
+### D6. The variants had almost no end-to-end coverage, and that was worth more than A15 ✅ *closed — and it has now found a second bug*
 
 A15's scope note asked whether the utility system's variants had *any* proof that an element under a
 variant computes a different value in a real document — as opposed to a generator test proving the
@@ -1343,6 +1343,35 @@ tested, and it was not the one whose shape differed.
 without a scene fails the build and a scene for a variant that no longer exists fails it too. Every
 case asserts a computed value positively **and** negatively, because a rule that applied
 unconditionally passes every positive assertion ever written about it.
+
+✅ **The audit above is spent — every family in it now has a computed-value scene, stacked chains
+included** (`sm:md:`, `dark:md:` and `md:hover:focus:` all resolve against the cascade, not against
+their text). Re-verified on the post-per-surface-media tree by sabotage rather than by reading:
+nine deliberate breaks, each caught, each by the test that names it — a fourteenth entry added to
+`Variants.States` (the enumeration gate), `:nth-child(2n)` → `:nth-child(2n+1)`, `peer`'s `~` → `+`,
+`group`'s and `[dir=…]`'s trailing descendant combinator, `.dark `'s prefix, `aria-`'s attribute
+family, and the leading-digit escape reverted to a backslash — which the breakpoint gate catches, so
+`2xl:` cannot silently die a second time.
+
+⚠ **And the coverage found a second live bug, which is the argument for D6 restated.** `aria-expanded:`
+emitted `[aria-expanded]` — presence — by sharing `data-`'s shorthand. An ARIA state is not a
+presence flag: its false is **spelled out**, so a collapsed disclosure carries `aria-expanded="false"`
+and is styled identically to an expanded one. The two assertions the file already had could not see it
+— `"true"` matched and *absent* did not match under both the right implementation and the wrong one,
+and the negative that discriminates is `"false"`, which nothing asserted. The shorthand emits
+`[aria-<state>="true"]` now, matching WAI-ARIA 1.2 § 6.3 and Tailwind's eight built-ins; the arbitrary
+form `aria-[sort=ascending]:` stays verbatim, since a non-boolean state has no shorthand in either
+system. Fixed in its own commit rather than inside the coverage change. Nothing in the tree authored an
+`aria-*:` utility yet, so the blast radius was future authors only — which is exactly how long an
+untested variant stays harmless.
+
+⚠ **One residual, recorded rather than closed.** `group-*` and `peer-*` are proved to compose over the
+state table for one entry each rather than for all thirteen. That is deliberate: both are the same
+`States.TryGetValue` on the suffix behind the same prefix template, so the other twenty-four rows would
+exercise one line twenty-four times. The real limit is the *fixture's* — the ancestor it builds is a
+root, so `group-first:` and friends have no well-defined sibling position to be first among, and
+`peer-last:`/`peer-only:` are unsatisfiable by construction because a peer precedes the element. Worth
+knowing before anyone reads the one-each coverage as an oversight.
 
 ### D4. oklch, and what it costs
 
