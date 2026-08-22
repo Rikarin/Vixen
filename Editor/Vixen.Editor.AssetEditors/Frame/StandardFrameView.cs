@@ -467,7 +467,7 @@ public sealed class StandardFrameView : Control {
         $"{point.X:0.##}, {point.Y:0.##}, {point.Z:0.##}"
     );
 
-    static void Title(UiElement parent, string text) => parent.Add("World-title").Text = text;
+    static void Title(UiElement parent, string text) => parent.Add("world-title").Text = text;
 
     static void Line(UiElement into, string stage, string message, string? kind = null) {
         var row = into.Add("analysis-row");

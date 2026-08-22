@@ -717,7 +717,7 @@ public sealed partial class TerrainModule {
     }
 
     /// <summary>A section heading, which is what separates one panel's four parts.</summary>
-    static void Section(DockPanel panel, string title) => panel.Add("World-title").Text = title;
+    static void Section(DockPanel panel, string title) => panel.Add("world-title").Text = title;
 
     /// <summary>A row of verbs, each running a registered command.</summary>
     /// <remarks>
