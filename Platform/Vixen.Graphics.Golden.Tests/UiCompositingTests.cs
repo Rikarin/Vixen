@@ -46,6 +46,17 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         perfectly and this file would be checking nothing. That is the failure mode
 ///         <c>verify the instrument first</c> is about.
 ///     </para>
+///     <para>
+///         ⚠ <b>What this file <i>cannot</i> police, checked by breaking it rather than assumed.</b>
+///         Anything the two executors read out of the <i>same</i> plan is invisible here, because a
+///         wrong answer is wrong identically on both sides. The bounds outset a blur needs is the
+///         live example: deleting it entirely still leaves the device frame and the software frame
+///         matching to the pixel, since both composite through <c>UiLayer.Bounds</c> and both
+///         therefore clip the halo in the same place. So the <i>shape</i> of a blur is asserted in
+///         <c>Vixen.Ui.Controls.Tests.FilterBlurTests</c>, against arithmetic, and only the agreement
+///         is asserted here. Deleting the blur from one executor <i>is</i> caught — that was checked
+///         too, and it comes out at 12.65% of pixels differing by up to 57 levels.
+///     </para>
 /// </remarks>
 [Collection("Vulkan")]
 public sealed class UiCompositingTests {
@@ -109,7 +120,8 @@ public sealed class UiCompositingTests {
                 owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
             ) {
-                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+                Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment)
             },
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
@@ -136,6 +148,13 @@ public sealed class UiCompositingTests {
 
         // The instrument, before the measurement. See the class remarks.
         Assert.Equal(2, renderer.Composited);
+
+        // ⚠ <b>And the second instrument, because a blur has three separate ways of not happening
+        // and all of them draw a correct sharp picture.</b> No blur stage handed over, no
+        // `UiLayer.Blur` on the geometry, a `KernelRadius` that came out zero — each leaves
+        // `Composited` at two and the comparison below passing, since the software renderer would
+        // then be being compared against a device that agreed with it about doing nothing.
+        Assert.Equal(1, renderer.Blurred);
 
         var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
 
@@ -251,6 +270,7 @@ public sealed class UiCompositingTests {
 
         const float Outer = 0.6f;
         const float Inner = 0.5f;
+        const float InnerBlur = 3f;
 
         Push(list, isolate, 8, 24, 112, 96, Outer);
 
@@ -264,7 +284,18 @@ public sealed class UiCompositingTests {
         // glyph is partial coverage, and at full coverage the bug is arithmetically invisible.
         Text(list, font, "AB", 16, 66, Fade(Color4.White, isolate, Outer));
 
-        Push(list, isolate, 44, 56, 72, 60, Inner);
+        // ⚠ <b>The blur is on the <i>inner</i> group, so what the outer group's surface receives is a
+        // blurred composite rather than a sharp one.</b> On the device that is a pass writing into a
+        // surface that a later pass samples and blurs again; in the software renderer it is a
+        // convolved buffer being sampled by the recursion one level up. Those are the two orderings
+        // the reverse-pre-order walk exists to keep straight, and a blur on the outermost group would
+        // exercise neither.
+        //
+        // ⚠ Three, not thirty. `UiLayer.KernelRadius` is three sigma, so this is a nine-pixel outset
+        // and a nineteen-tap kernel on a hundred-and-twenty-eight-pixel fixture — wide enough that the
+        // halo lands well outside the group's unblurred silhouette, and short of the truncation at
+        // `UiLayer.MaximumKernel`, which is a case worth having somewhere and not here.
+        Push(list, isolate, 44, 56, 72, 60, Inner, InnerBlur);
 
         // The nested group's own overlapping pair, offset from the outer one's so that the two
         // groups' ink is not the same rectangle — a surface sized from the wrong group's bounds
@@ -284,9 +315,22 @@ public sealed class UiCompositingTests {
     }
 
     /// <summary>Opens a group, or does nothing when the fixture is being flattened.</summary>
-    static void Push(DrawList list, bool isolate, float x, float y, float width, float height, float alpha) {
+    static void Push(
+        DrawList list,
+        bool isolate,
+        float x,
+        float y,
+        float width,
+        float height,
+        float alpha,
+        float blur = 0f
+    ) {
         if (isolate) {
-            list.Add(new(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, alpha), 0, 0));
+            list.Add(
+                new DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, alpha), 0, 0) {
+                    Blur = blur
+                }
+            );
         }
     }
 

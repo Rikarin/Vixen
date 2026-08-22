@@ -52,8 +52,23 @@
 rotate                       #23  a rotated box is not a rectangle, and neither is its clip
 scale                        #23  the box scales in four multiplications; the glyphs in it do not
 
-# ── Filters — A8. Same shape one family over: `blur-2` writes a number into a name nothing reads.
---blur                       #28  `filter`/`backdrop-filter` in the UI renderer, blur first
+# ── Filters — A8. CLOSED for blur, and it was the same shape as the transforms above: `blur-2` wrote
+# a number into `--blur`, a name of this engine's own invention that no assembler and no engine — this
+# one or a browser — was ever going to look at.
+#
+# `filter: blur()` is read now. `blur-*` sets a `--tw-blur` fragment and assembles it into a real
+# `filter` declaration; `DrawListBuilder` opens a composited group for it, `UiGeometryBuilder` outsets
+# the group's bounds by three sigma, and both executors convolve the finished surface — the device
+# with two passes and a shared scratch target, `SoftwareUiRasterizer` with the same kernel from the
+# same method. See `Vixen.Ui.Controls.Tests.FilterBlurTests` for the shape and
+# `Vixen.Graphics.Golden.Tests.UiCompositingTests` for the two paths agreeing. The fragment carries no
+# line here, like the gradient stops and the two translations.
+#
+# ⚠ What is *not* closed and is deliberately absent from this list: the rest of `filter`, and
+# `backdrop-filter`. Neither has a family emitting anything, so neither is a debt this file can
+# record — a property nothing emits is exactly the mistake the `--blur` line was. `brightness-*`,
+# `contrast-*` and the rest are absent roots in docs/plan/43's ledger, which is where an absence
+# belongs; `backdrop-filter` needs the frame *under* a group, which the compositor does not keep.
 
 # ── Borders — A1. The physical four are painted now; the two logical edges are not, so `border-s-*`
 # and `border-e-*` still colour nothing. The widths *are* read, which is why only the colours are here

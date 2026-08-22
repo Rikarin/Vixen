@@ -46,10 +46,19 @@ property.** `translate-x-2 translate-y-4` is two classes and one `translate: 8px
 `translate-x-2` on its own works. Tailwind v3 required a separate `transform` class the gradient way
 and dropped it in v4, because a forgotten assembler is indistinguishable from a broken utility.
 
-⚠ **`--blur`, `--rotate` and `--scale` are this shape built with the second half missing.** They are
-custom properties nothing assembles, so `blur-2` resolves, computes a value and turns nothing. They
-are deliberately *not* registered as fragments, which is why the parity gate goes on calling them
-inert and `InertProperties.txt` goes on recording what is owed.
+**The blur is the third, and it is the one that shows what the mechanism buys before there is
+anything to compose with.** `blur-2` sets `--tw-blur` and assembles `filter: blur(var(--tw-blur, 0px))`
+beside it. There is exactly one function in that list today, so a plain `filter: blur(8px)` would have
+been shorter — and would have to be unpicked the moment a second filter family arrives, because CSS's
+`filter` is an *ordered list* and two families each writing the whole declaration is the cascade
+picking one and silently dropping the other. That is precisely the failure the translations had. The
+fragment's initial is `0px` rather than empty for the same reason `--tw-gradient-stops` has one: a
+zero-width blur is the identity, where an empty string is not a filter at all.
+
+⚠ **`--rotate` and `--scale` were this shape built with the second half missing, and `--blur` was the
+third of them until #28.** They are custom properties nothing assembles, so `rotate-45` resolves,
+computes a value and turns nothing. They are deliberately *not* registered as fragments, which is why
+the parity gate goes on calling them inert and `InertProperties.txt` goes on recording what is owed.
 
 ⚠ **And two of those five were worse than unassembled: they were unspellable.** `--scale` and
 `--rotate` are not CSS properties, so no engine anywhere — this one or a browser — would ever have

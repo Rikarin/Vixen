@@ -132,6 +132,27 @@ public sealed class StyleValueParser {
             return ParsePredefined(arguments);
         }
 
+        // ⚠ <b>The one non-colour function this parser knows, and it is spelt as a keyword and a
+        // length rather than given a <c>StyleValueKind</c> of its own.</b> A filter is a *list* of
+        // functions — <c>filter: blur(4px) brightness(.5)</c> — so whatever a single one parses to
+        // has to survive being an item of the list `Parse` already builds by splitting on
+        // whitespace. A two-item list does; a new kind carrying a name would have meant a field on
+        // `StyleValue` that only filters ever set, on a struct every declaration in the cascade is
+        // one of.
+        //
+        // ⚠ The <i>argument</i> is refused rather than defaulted when it is not a length. CSS says
+        // <c>blur()</c> with no argument is zero, which is a filter that does nothing and is
+        // therefore indistinguishable from the declaration having been rejected — so accepting it
+        // would buy a caller nothing and cost the reader the ability to tell a typo from a no-op.
+        if (name.Equals("blur", StringComparison.OrdinalIgnoreCase)) {
+            var radius = ParseOne(arguments);
+
+            return radius.Kind is StyleValueKind.Length
+                || (radius.Kind == StyleValueKind.Number && radius.Number == 0f)
+                    ? StyleValue.FromList([StyleValue.FromKeyword(keywords.Intern("blur")), radius])
+                    : StyleValue.Unknown;
+        }
+
         // `rgb()` and `rgba()` are the same function in CSS Color 4, and ExCSS emits the first for
         // an opaque colour and the second when there is alpha.
         var isRgb = name.Equals("rgb", StringComparison.OrdinalIgnoreCase)

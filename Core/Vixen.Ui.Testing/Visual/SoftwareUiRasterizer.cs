@@ -625,6 +625,16 @@ public static class SoftwareUiRasterizer {
                     var surface = new float[width * height * 4];
 
                     Run(surface, layer.First, layer.First + layer.Count);
+
+                    // ⚠ <b>Here and nowhere else: the one moment a group's surface is finished and
+                    // nothing has sampled it.</b> Everything downstream — the composite draw,
+                    // `Composite`, `SampleSurface` — is indifferent to how the surface got its
+                    // contents, which is exactly why the filter belongs at the seam rather than in
+                    // any of them.
+                    if (layer.Blur > 0f) {
+                        surface = Blurred(surface, layer.Blur);
+                    }
+
                     surfaces[layer.Image] = surface;
 
                     // The composite draw sits immediately after the group's own draws and is an
@@ -635,6 +645,115 @@ public static class SoftwareUiRasterizer {
 
                 Execute(target, geometry.Draws[draw]);
                 draw++;
+            }
+        }
+
+        /// <summary>A separable Gaussian over a finished layer surface.</summary>
+        /// <param name="surface">The group's contents, premultiplied.</param>
+        /// <param name="blur">The standard deviation, in pixels — this path draws at 1:1.</param>
+        /// <returns>A new surface. The one handed in is left alone.</returns>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>Two one-dimensional passes and not one two-dimensional kernel, and the
+        ///         reason is agreement rather than speed.</b> A Gaussian is separable exactly, so the
+        ///         two give the same answer in real arithmetic — but not in <c>float</c>, and the
+        ///         device has no choice: it cannot read and write one attachment, so it is separable
+        ///         there whatever this does. Summing the square here would put a rounding difference
+        ///         between the two executors that grows with the kernel, on the one test whose whole
+        ///         job is that they agree.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Premultiplied straight through, with no un-premultiply.</b> The surface holds
+        ///         premultiplied colour — see <see cref="Composite" /> — and a weighted sum of
+        ///         premultiplied samples is the premultiplied weighted sum, which is the whole reason
+        ///         compositing works in that encoding. Dividing out the alpha to blur "the colour"
+        ///         and multiplying it back is the classic version of this that produces a halo of the
+        ///         wrong hue wherever the group's edge meets transparent black, because the colour
+        ///         under a zero alpha is not a colour.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>The weights are normalised over the <i>whole</i> kernel and not over the taps
+        ///         that landed inside the surface, and the difference is a bright rim.</b>
+        ///         Renormalising per pixel is what a clamp-to-edge sampler amounts to — it makes the
+        ///         edge row stand in for everything past it — and near a group that runs to the
+        ///         viewport edge that lifts the result towards the edge's own colour instead of
+        ///         letting it fade. Dividing by the full sum makes a tap outside the surface
+        ///         contribute exactly the transparent black that is there, which is also what the
+        ///         shader does, by the same test in UV space. The normalisation *does* absorb the
+        ///         truncation at <see cref="UiLayer.MaximumKernel" />, because that tail is inside the
+        ///         surface and simply not summed.
+        ///     </para>
+        /// </remarks>
+        float[] Blurred(float[] surface, float blur) {
+            // The same number the shader arrives at, from the same method, because a kernel that is
+            // one tap wider on one path is a difference `UiCompositingTests` would report as a
+            // disagreement about compositing.
+            var reach = UiLayer.KernelRadius(blur, 1f);
+
+            if (reach <= 0) {
+                return surface;
+            }
+
+            var weights = new float[reach + 1];
+            var total = 0f;
+
+            for (var i = 0; i <= reach; i++) {
+                weights[i] = MathF.Exp(-(i * i) / (2f * blur * blur));
+                total += i == 0 ? weights[i] : 2f * weights[i];
+            }
+
+            // ⚠ Folded into the weights rather than divided out per pixel, and the shader does the
+            // same. Two executors that normalise at different points in the sum are two executors
+            // rounding differently, which is the only kind of disagreement this whole file exists to
+            // rule out.
+            for (var i = 0; i <= reach; i++) {
+                weights[i] /= total;
+            }
+
+            var scratch = new float[surface.Length];
+
+            Sweep(surface, scratch, reach, weights, horizontal: true);
+
+            var result = new float[surface.Length];
+
+            Sweep(scratch, result, reach, weights, horizontal: false);
+
+            return result;
+        }
+
+        /// <summary>One axis of the separable pass.</summary>
+        void Sweep(float[] from, float[] into, int reach, float[] weights, bool horizontal) {
+            for (var y = 0; y < height; y++) {
+                for (var x = 0; x < width; x++) {
+                    var sum = Vector4.Zero;
+
+                    for (var i = -reach; i <= reach; i++) {
+                        var sampleX = horizontal ? x + i : x;
+                        var sampleY = horizontal ? y : y + i;
+
+                        // ⚠ Outside the surface contributes nothing rather than clamping to the edge,
+                        // which is where this parts company with `Pixel` a few methods down.
+                        // Clamp-to-edge is right for an atlas, whose texels all hold ink; a layer
+                        // surface's outside is transparent black, and smearing its edge row outwards
+                        // would invent coverage the group never drew — visible only on a group that
+                        // runs to the viewport edge, which is most panels.
+                        if (sampleX < 0 || sampleX >= width || sampleY < 0 || sampleY >= height) {
+                            continue;
+                        }
+
+                        var weight = weights[Math.Abs(i)];
+                        var offset = ((sampleY * width) + sampleX) * 4;
+
+                        sum += new Vector4(from[offset], from[offset + 1], from[offset + 2], from[offset + 3]) * weight;
+                    }
+
+                    var destination = ((y * width) + x) * 4;
+
+                    into[destination] = sum.X;
+                    into[destination + 1] = sum.Y;
+                    into[destination + 2] = sum.Z;
+                    into[destination + 3] = sum.W;
+                }
             }
         }
 

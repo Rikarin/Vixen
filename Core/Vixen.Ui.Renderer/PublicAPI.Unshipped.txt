@@ -21,6 +21,7 @@ Vixen.Ui.Renderer.UiRenderFeature.UiRenderFeature() -> void
 Vixen.Ui.Renderer.UiRenderer -> sealed class
 Vixen.Ui.Renderer.UiRenderer : System.IDisposable
 Vixen.Ui.Renderer.UiRenderer.AtlasUploads.get -> int
+Vixen.Ui.Renderer.UiRenderer.Blurred.get -> int
 Vixen.Ui.Renderer.UiRenderer.Compose(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Core.Mathematics.Int2 surface, float scale = 1) -> void
 Vixen.Ui.Renderer.UiRenderer.Composited.get -> int
 Vixen.Ui.Renderer.UiRenderer.Dispose() -> void
@@ -35,6 +36,8 @@ Vixen.Ui.Renderer.UiRenderer.UnregisterImage(ulong image) -> bool
 Vixen.Ui.Renderer.UiRenderer.Upload(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas) -> void
 Vixen.Ui.Renderer.UiShaders -> readonly struct
 Vixen.Ui.Renderer.UiShaders : System.IEquatable<Vixen.Ui.Renderer.UiShaders>
+Vixen.Ui.Renderer.UiShaders.Blur.get -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Blur.init -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Box.get -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Box.init -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Image.get -> Vixen.Graphics.ShaderHandle

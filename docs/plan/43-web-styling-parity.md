@@ -92,9 +92,9 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **79** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **80** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **38** |
-| **inert** | resolves, computes a value, and nothing in the engine looks at it | **4** |
+| **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
 | **absent** | not emitted at all | **203** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
@@ -161,7 +161,9 @@ to a mechanism that works without them, so neither is a prerequisite task.
 `--rotate`, `--scale`, `--translate-x`, `--translate-y` — were this shape built without the second
 half: a fragment nothing assembles.
 
-**Two of the five are gone.** `translate-x-*` and `translate-y-*` are composed now — a
+**Three of the five are gone.** `--blur` joined them: `blur-*` sets a `--tw-blur` and assembles it
+into a real `filter` declaration, which `DrawListBuilder` reads (A8 / #28, below).
+`translate-x-*` and `translate-y-*` are composed now — a
 `--tw-translate-x`/`--tw-translate-y` fragment each, assembled into one `translate` — and the engine
 reads the assembly. ⚠ Their shape differs from the gradient's in a way worth carrying forward: **both
 axes are assemblers**, each emitting the `translate` declaration beside its own fragment, so
@@ -362,18 +364,18 @@ undone rather than approximated, and the cost of that decision has been zero.
 | Effects | 33 | 3 | 0 | 0 | 30 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
-| Filters | 20 | 0 | 0 | 1 | 19 | 0 | 0 |
+| Filters | 20 | 1 | 0 | 0 | 19 | 0 | 0 |
 | Sizing | 15 | 0 | 7 | 0 | 8 | 0 | 0 |
 | Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
 | Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **79** | **38** | **4** | **203** | **3** | **1** |
+| **Total** | **328** | **80** | **38** | **3** | **203** | **3** | **1** |
 
 Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
-Layout follow it. Tables, Filters and Accessibility still have **no working root at all**, and
-Interactivity is 1 of 39.
+Layout follow it. Tables and Accessibility still have **no working root at all**; Filters has
+exactly one — `blur-*`, closed by A8 — and Interactivity is 1 of 39.
 
 ⚠ **Sizing reads worse than it was and the roots did not move: the rule did.** It was `7 works, 0
 partial`; it is `0 works, 7 partial`, and nothing regressed. Every one of `w-*`, `h-*`, `size-*`,
@@ -392,9 +394,11 @@ superseded them for the inert set only. Both were true and both rotted. The whol
 section are asserted against that table by the same suite**, so prose and data cannot drift apart
 either.
 
-The live count is **6 properties emitted with no consumer** — `rotate`, `scale`, `user-select`,
-`--blur`, `border-inline-start-color` and `border-inline-end-color` — every one of them on the
-expiring allow-list in `InertProperties.txt` with the task that closes it.
+The live count is **5 properties emitted with no consumer** — `rotate`, `scale`, `user-select`,
+`border-inline-start-color` and `border-inline-end-color` — every one of them on the expiring
+allow-list in `InertProperties.txt` with the task that closes it. ⚠ It was six; `--blur` left the
+list by being *replaced* rather than by gaining a reader, which is the same exit `--scale` and
+`--rotate` are still waiting for and the reason the count can fall without a consumer being written.
 
 ### The columns
 
@@ -1837,7 +1841,7 @@ exists as a family and emits `grid-template-columns` because a family is a line 
 grid algorithm is a subsystem — so the cheap half was done and the class name has been available, and
 inert, ever since. The same is true of `blur-*`, `fill-*`, `ring-*` and
 `select-none`. **Eighteen of the 90 properties the utilities emit reach no consumer after ExCSS
-expansion**, and each one is a class somebody can write today that does nothing:
+expansion** (`blur-*` has since left that list), and each one is a class somebody can write today that does nothing:
 
 ```
 --blur  --rotate  --scale  --translate-x  --translate-y
@@ -1847,9 +1851,9 @@ outline-color  user-select  vertical-align
 transition-property  transition-duration  transition-timing-function
 ```
 
-⚠ **That list is the survey's, kept as written.** Eight of the eighteen have since been retired —
-`grid-column`, `grid-template-columns`, `vertical-align`, the three `transition-*` and the two
-translations — and two more changed their names rather than their state, because `--scale` and
+⚠ **That list is the survey's, kept as written.** Nine of the eighteen have since been retired —
+`grid-column`, `grid-template-columns`, `vertical-align`, the three `transition-*`, the two
+translations and `--blur` — and two more changed their names rather than their state, because `--scale` and
 `--rotate` were never properties any engine would read. `InertProperties.txt` is the live version; this
 is what the survey found.
 
@@ -1897,7 +1901,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A5 ✅ | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | `OverflowReader`, `LayoutStyleBuilder` | done | — |
 | A6 🟡 | **Three of the four landed, in three different ways, and the fourth is refused.** `fill`/`stroke` were the honest case: the emission was already v4's and the renderer had had the channel all along — `IconPath` carries a fill paint and a stroke paint and `IconPaintKind.Foreground` is SVG's `currentColor` marker — so it was two `ColorOf` reads in `Icon.Resolve`, plus the two names in `InheritedProperties` without which the class only works written on the icon itself. `outline` is **gone rather than done**: `ring-*` emitted `outline-color`, a property no Tailwind has ever emitted for it (see § D5, corrected), and under v4's box-shadow shape the existing spread path paints it with no new rendering. That needed `currentcolor` in `EmitShadow`. ⚠ **`user-select` stays inert and is not waiting for a reader.** A selection model exists — `TextField` has `CaretIndex`/`SelectionAnchor`/`SelectWord` and drag-to-select, `CodeEditor` has its own — but both are per-control: each captures the pointer for its own drag and hit-tests only its own `TextLayout`. The *document-wide* selection `user-select` governs does not exist, so `select-none` on a button, which is what the class is for, has nothing to suppress. Teaching `TextField` to honour it would expire the allow-list line and leave that promise unkept. ⚠ Also owed: `overflow-clip`. ⚠ And the parity gate could not see `fill`/`stroke` until `UtilityConsumptionProbe` could build an `Icon` — `grid-cols-3`'s missing grid again | `Icon`, `DrawListBuilder`, `InheritedProperties` | **#24** | 0.05 of 0.25 |
 | A7 🟢 | **Transforms — the translation is done and the other two are refused, on purpose.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **Owed: `scale` and `rotate`, and neither is waiting for a reader.** A `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box — and a rotated clip — cannot be represented at all, and a bounding-box approximation would draw a 45-point square where a 32-point one was asked for. Scale can scale the box and not the picture: glyph advances are shaped at `run.Size` during *layout*, so a scaled subtree needs re-shaping, which is the one thing §3 forbids. Both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes | `TranslationReader`, `UiDocument` | **#23** | 0.35 |
-| A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
+| A8 🟢 | **`filter: blur()` is done and the rest of A8 is not.** `blur-*` emits a `--tw-blur` fragment assembled into a real `filter`, closing the `--blur` placeholder the same way the translations closed theirs; `DrawListBuilder` opens a composited group for it — *and never collapses one*, since the single-command peephole is an identity for opacity and nonsense for a filter — `UiGeometryBuilder` outsets the group's bounds by three sigma before the clip narrows them, and both executors convolve the finished surface with the same kernel from `UiLayer.KernelRadius`. On the device that is two extra passes and **one** shared scratch target for the whole frame, not one per blurred group. Measured at 1920×1080: the twelve composited groups an editor frame already had cost **1.10 ms**, and a blurred group adds 0.17 ms at σ=4 — ⚠ **the surfaces are the expensive part of this design and the blur is not**, which is the finding worth carrying into any future work here. ⚠ **Owed:** the rest of `filter` (`brightness`, `contrast`, `saturate`, `grayscale`, …), all of which are *absent* roots rather than inert ones and each of which is a constant, an initial and a slot in `UtilityComposition.Filter`; `backdrop-filter`, which needs the frame *under* a group and the compositor does not keep it; and `Vixen.Editor.Host`, which supplies no blur stage because Raven's `[PushConstant]` cannot place a block at a byte offset — see `Vixen.Ui.Renderer/README.md` | `DrawListBuilder`, `UiGeometryBuilder`, `UiRenderer`, `SoftwareUiRasterizer` | **#28** | 0.35 of 0.75 |
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
 | A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |

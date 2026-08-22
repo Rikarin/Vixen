@@ -3,9 +3,9 @@ title: Compositing groups
 slug: ui/compositing
 kind: guide
 area: Core
-summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, why a group is not the same as fading each element, when the pass is skipped as an exact identity, and what a filter, a transform and gradient text would each still need on top of it.
+summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity` and `filter: blur()`, why a group is not the same as fading each element, when the pass is skipped as an exact identity, what the surfaces cost, and what a transform and gradient text would each still need on top of it.
 api: [T:Vixen.Ui.Rendering.UiLayer]
-tags: [ui, rendering, opacity, compositing, offscreen, filters]
+tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters]
 since: 0.2
 status: preview
 related: [ui/gradients, ui/utility-composition]
@@ -17,9 +17,12 @@ A **composited group** is a subtree of the interface that is drawn into a surfac
 blended back into the frame as a single image. `UiLayer` is the record that describes one: which
 draws belong to it, how big its surface has to be, and what it is faded by.
 
-Today exactly one thing opens a group: an element whose `opacity` is below one. The machinery is
-deliberately larger than that one use, because three other features need the same surface and
-[none of them can be built without it](#see-also).
+Two things open a group: an element whose `opacity` is below one, and an element with a
+`filter: blur()`. The difference between them is worth stating up front, because it is why the
+second one could not be approximated while the compositor was being built. An opacity *can* be
+faded element by element — badly, but visibly — whereas a blur is a function of the rasterised
+subtree, so with no surface there is nothing to convolve and the only honest answer is the
+unblurred picture.
 
 The pieces, top to bottom:
 
@@ -27,7 +30,8 @@ The pieces, top to bottom:
 |---|---|
 | `DrawListBuilder` | Brackets a translucent element's subtree with `LayerPush` / `LayerPop` |
 | `DrawBatcher` | Gives each bracket a `BatchKind.Layer` batch of its own, never merged |
-| `UiGeometryBuilder` | Resolves the brackets into `UiGeometry.Layers` and emits the compositing quad |
+| `UiGeometryBuilder` | Resolves the brackets into `UiGeometry.Layers`, outsets the bounds by a blur, and emits the compositing quad |
+| `UiRenderer.Compose` | Renders each group's pass on the device, and sweeps a blur over the ones that ask |
 | `SoftwareUiRasterizer` | Executes the plan on the CPU, which is where the visual baselines render |
 
 ## What it is for
@@ -92,6 +96,70 @@ back from the vertices the group emitted — the only complete account of what i
 *outward* to whole pixels, because a group's edge is antialiased and a bound rounded to the nearest
 pixel would clip a hairline off whichever side the fraction fell the wrong way.
 
+### `filter: blur()`
+
+`blur-2`, or the CSS it assembles into, puts a Gaussian over the group's finished surface:
+
+```css
+.panel { filter: blur(4px); }
+```
+
+The length is the Gaussian's **standard deviation**, which is what Filter Effects 1 § 8.4 says and
+*not* what `box-shadow`'s third length means — that one is the total distance an edge fades over and
+is halved on the way to the shader. Three things follow from putting the filter on the surface
+rather than on each primitive:
+
+- **The group's bounds grow by three sigma before the clip narrows them.** A blur moves coverage to
+  pixels no vertex of the group ever touched, so the compositing quad has to be wider than the ink or
+  the halo is cut off flush with the unblurred silhouette — a soft edge with a hard line across it.
+  The outset happens first and the clip second, because an ancestor's `overflow: hidden` clips the
+  *filtered* result.
+- **A blurred group is never collapsed.** The single-command peephole above is an identity for
+  opacity and nonsense for a filter, and a `blur-*` on a bare panel is exactly one background
+  rectangle — the common case, not a corner of one.
+- **On the device it is two more render passes and one shared scratch target.** A separable blur
+  cannot read and write one attachment, so the surface is swept across into a scratch and back down
+  into itself. The scratch is borrowed and handed back between the group's own pass and its
+  `ShaderRead` barrier, so *one* is enough for the whole frame however many groups are blurred.
+
+`UiRenderer.Blurred` is what says it happened. A blur has three ways of quietly not happening — no
+`UiShaders.Blur` handed over, no `UiLayer.Blur` on the geometry, a kernel radius that came out zero —
+and all three produce a correct, composited, sharp picture.
+
+⚠ **Only a lone `blur()` is read, and anything else in a `filter` refuses the whole declaration.**
+`filter: brightness(.5) blur(4px)` draws unfiltered rather than blurred-at-the-wrong-exposure, which
+is the rule `box-shadow` already keeps. The rest of `filter` and all of `backdrop-filter` are absent
+roots in `docs/plan/43`; `backdrop-filter` in particular needs the frame *under* a group, which the
+compositor does not keep.
+
+### What the surfaces cost
+
+Measured rather than argued, because nothing had measured it. A `UiRenderer` at **1920 × 1080** on an
+Apple M-series GPU through MoltenVK, timed with `GpuProfiler` around `Compose` alone, best of ten
+frames:
+
+| Frame | Extra passes | `Compose` |
+|---|--:|--:|
+| 12 groups, none blurred | 12 | **1.10 ms** |
+| 12 groups, one blurred at σ = 4 | 14 | 1.27 ms |
+| 12 groups, one blurred at σ = 16 | 14 | 1.64 ms |
+| 12 groups, all blurred at σ = 4 | 36 | 2.30 ms |
+| 12 groups, all blurred at σ = 16 | 36 | 5.88 ms |
+
+Twelve groups is the editor's opening frame. ⚠ **The first row is the number worth looking at**: a
+seventh of a 60 Hz frame, spent almost entirely clearing and storing twelve viewport-sized targets
+that each hold one panel — and it was there before blur was. Memory is the same story: twelve
+`Rgba8UNorm` targets at this size are **95 MiB**, kept between frames.
+
+What the blur adds on top of that is a **shared scratch target — one, 7.9 MiB** — and roughly
+**0.17 ms per blurred group at σ = 4, 0.40 ms at σ = 16**. The one-per-frame scratch is the part that
+was expected to be worse: the obvious reading of "a separable blur needs a second surface" is a
+second surface *per blurred group*, which at twelve would have been 190 MiB rather than 103 MiB.
+
+The honest summary is that **blur is not the expensive part of this design and the surfaces are.**
+Sizing a layer surface to its group's bounds instead of to the viewport is the change that would pay,
+and `UiLayer`'s own remarks explain why it was not made and what it would cost in correctness.
+
 ### What a group does not change
 
 **Positions.** `UiDocument.Accumulate` is where the draw list, hit testing and arrow navigation agree
@@ -130,11 +198,26 @@ Nested groups multiply, because each is its own surface and each is blended once
 
 - [Gradients](gradients.md) — `BoxStyle` and the shader record a box carries.
 - [Utility composition](utility-composition.md) — where `opacity-50` comes from.
-- **The three features this pass was built for, none of which is implemented yet.**
-  `filter: blur()` needs a *second* pass over a finished layer, with a separable kernel and a bounds
-  expansion by the blur radius — the existing blur is the shadow path, which blurs a solid rather
-  than rendered content. `bg-clip-text` needs the layer to be used as a *mask* rather than as
-  colour, which means glyphs rendered to coverage instead of drawn directly. `scale-*` and
-  `rotate-*` remain refused: a scaled subtree needs re-shaping because glyph advances are shaped at
-  layout time, and a rotated clip cannot be the axis-aligned rectangle the clip stack requires — a
-  surface makes the *raster* transformable but changes neither of those two facts.
+- **The three features this pass was built for. <s>None of which is implemented yet.</s> One of them
+  is.**
+  `filter: blur()` <s>needs</s> **needed** a second pass over a finished layer, with a separable
+  kernel and a bounds expansion by the blur radius — and that is what it now is, above. The scoping
+  was right except in one detail, which is worth recording because it was the detail that decided
+  the memory cost: a blurred group needs a second *target*, not a second *surface per group*. The
+  two sweeps finish inside one group's turn in `Compose`, so a single scratch serves the whole frame.
+
+  `bg-clip-text` ⚠ **is further away than "use the layer as a mask" makes it sound, and the layer is
+  the wrong thing to sample.** A layer surface holds the group's *rendered colour* — glyphs already
+  multiplied by their run colour — and Tailwind draws gradient text as `bg-clip-text` plus
+  `text-transparent`, so the surface a mask path would sample is the one where the glyphs were drawn
+  invisible. What the feature needs is the glyph **coverage** rendered to a target of its own, which
+  is a second way of drawing text rather than a second way of reading a layer. There is also no
+  entry point to it: `bg-clip` is not a registered family, `background-clip` is not a property
+  anything parses, and `bg-clip-text` is this repository's standing *example* of a class that does
+  not resolve — `ShadowedFamilyTests`, `StyleGenTests` and `docs/guide/ui/stylesheet-diagnostics.md`
+  all assert it as a refusal. It is not on `InertProperties.txt` and could not be: nothing emits it.
+
+  `scale-*` and `rotate-*` remain refused: a scaled subtree needs re-shaping because glyph advances
+  are shaped at layout time, and a rotated clip cannot be the axis-aligned rectangle the clip stack
+  requires — a surface makes the *raster* transformable but changes neither of those two facts, and
+  a second surface existing changes neither of them either.

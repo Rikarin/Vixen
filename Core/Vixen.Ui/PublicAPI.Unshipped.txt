@@ -119,6 +119,8 @@ Vixen.Ui.DrawBatch.Kind.init -> Vixen.Ui.BatchKind
 Vixen.Ui.DrawBatcher -> static class
 Vixen.Ui.DrawCommand -> readonly struct
 Vixen.Ui.DrawCommand : System.IEquatable<Vixen.Ui.DrawCommand>
+Vixen.Ui.DrawCommand.Blur.get -> float
+Vixen.Ui.DrawCommand.Blur.init -> float
 Vixen.Ui.DrawCommand.Cap.get -> Vixen.Ui.LineCap
 Vixen.Ui.DrawCommand.Cap.init -> Vixen.Ui.LineCap
 Vixen.Ui.DrawCommand.Color.get -> Vixen.Core.Mathematics.Color4
@@ -579,6 +581,8 @@ Vixen.Ui.Rendering.UiLayer -> readonly struct
 Vixen.Ui.Rendering.UiLayer : System.IEquatable<Vixen.Ui.Rendering.UiLayer>
 Vixen.Ui.Rendering.UiLayer.Alpha.get -> float
 Vixen.Ui.Rendering.UiLayer.Alpha.init -> float
+Vixen.Ui.Rendering.UiLayer.Blur.get -> float
+Vixen.Ui.Rendering.UiLayer.Blur.init -> float
 Vixen.Ui.Rendering.UiLayer.Bounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiLayer.Bounds.init -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiLayer.Count.get -> int
@@ -978,6 +982,7 @@ const Vixen.Ui.FontRegistry.BoldWeight = 700 -> int
 const Vixen.Ui.FontRegistry.RegularWeight = 400 -> int
 const Vixen.Ui.LengthContext.InitialFontSize = 16 -> float
 const Vixen.Ui.Rendering.PathTessellator.DefaultMiterLimit = 4 -> float
+const Vixen.Ui.Rendering.UiLayer.MaximumKernel = 64 -> int
 const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
 override Vixen.Ui.UiPropertyKey.ToString() -> string
 static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string
@@ -1018,6 +1023,7 @@ static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadO
 static Vixen.Ui.Rendering.PathTessellator.FillFringe(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, float width, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.Stroke(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, float width, Vixen.Ui.LineJoin join, Vixen.Ui.LineCap cap, float tolerance, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles, float miterLimit = 4, float fringe = 0) -> void
 static Vixen.Ui.Rendering.UiGeometryBuilder.LayerImage(int index) -> ulong
+static Vixen.Ui.Rendering.UiLayer.KernelRadius(float blur, float scale) -> int
 static Vixen.Ui.SvgPath.Parse(string data) -> Vixen.Ui.PathBuilder
 static Vixen.Ui.SvgPath.TryParse(string? data) -> Vixen.Ui.PathBuilder?
 static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize

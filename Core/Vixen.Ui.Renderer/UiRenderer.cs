@@ -38,6 +38,25 @@ public readonly record struct UiShaders(
     /// </remarks>
     public ShaderHandle Image { get; init; }
 
+    /// <summary>One axis of the separable Gaussian a group's <c>filter: blur()</c> is made of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Optional on the same terms as <see cref="Image" />, and the consequence of
+    ///         leaving it out is a picture rather than a failure.</b> A host with no blur stage
+    ///         composites every group unblurred: the surfaces are still rendered, the opacities are
+    ///         still right, and a <c>filter: blur()</c> in a stylesheet draws sharp. That is the
+    ///         honest behaviour, and it is a materially better one than <see cref="Image" />'s
+    ///         absence gives — a missing image stage makes <c>Compose</c> do nothing at all, which
+    ///         turns a faded panel opaque.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One stage run twice, not two.</b> The axis is a push constant, so the horizontal
+    ///         and vertical sweeps are the same module with a different kernel — which is what keeps
+    ///         a host's shader table at five names and stops the two directions from drifting apart.
+    ///     </para>
+    /// </remarks>
+    public ShaderHandle Blur { get; init; }
+
     /// <summary>
     ///     Where the vertex stage reads <c>UiVertex</c>'s four attributes: position, texture,
     ///     colour, then shape.
@@ -217,6 +236,37 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     readonly Dictionary<ulong, LayerSurface> layerSurfaces = [];
 
+    readonly PipelineHandle blurPipeline;
+
+    /// <summary>Where the first axis of a blur lands, on its way back into the group's own surface.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One for the whole frame, and not one per blurred group — which is the cost this
+    ///         arrangement was expected to have and does not.</b> A separable blur cannot read and
+    ///         write one attachment, so a blurred group does need a second target; but it needs it
+    ///         only for the two passes between its own pass ending and its <c>ShaderRead</c> barrier,
+    ///         and those are finished before the next group's begin. So the scratch is borrowed and
+    ///         handed back, and a frame with twelve blurred groups costs thirteen viewport-sized
+    ///         targets rather than twenty-four.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Allocated only when a frame actually asks for a blur.</b> It is the same size as
+    ///         a layer surface, so paying for it on every frame that merely has a translucent panel
+    ///         would be a whole extra viewport of memory for nothing — and <c>Composited</c> being
+    ///         non-zero is much commoner than <see cref="Blurred" /> being non-zero.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its descriptor set is written once and never rewritten</b>, which is why one set
+    ///         is enough where a registered image needs <see cref="slots" />. The ring exists to stop
+    ///         a set being <i>updated</i> while a submitted frame reads it; nothing updates this one.
+    ///         The view behind it changes only when the viewport is resized, and that path destroys
+    ///         the set along with the texture.
+    ///     </para>
+    /// </remarks>
+    LayerSurface? scratch;
+
+    DescriptorSetHandle scratchSet;
+
     /// <summary>The format a layer surface is, which is the format the pipelines were built for.</summary>
     /// <remarks>
     ///     ⚠ A surface in another format is a pipeline the device will not let the pass use. It is
@@ -252,6 +302,9 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     /// </remarks>
     int composed;
+
+    /// <summary>How many of those groups <see cref="Compose" /> also ran a blur over.</summary>
+    int blurred;
 
     BufferHandle atlasStaging;
     int atlasWidth;
@@ -317,8 +370,16 @@ public sealed class UiRenderer : IDisposable {
         // binding, so a golden image cannot see it. Making the layouts identical makes the question
         // not arise: the set is bound once a frame and no pipeline change can disturb it. Declaring a
         // binding a shader ignores costs nothing.
+        // ⚠ <b>A second range, for the fragment stage, that only the blur pipeline's shader
+        // declares.</b> A pipeline layout may promise more push constants than a shader reads —
+        // the reverse is the error — so the four pipelines that never look at it are unaffected,
+        // and the alternative is a layout of its own for the blur, which is the very thing the
+        // paragraph above refuses: two layouts in one pass is a descriptor set disturbed at the
+        // first slot they disagree about. Disjoint offsets rather than one range spanning both
+        // stages, so that `ui.vert`'s block stays exactly the sixteen bytes it declares today and
+        // no committed module has to be recompiled to keep matching it.
         layout = device.CreatePipelineLayout(
-            new([atlasLayout], [new(ShaderStage.Vertex, 0, 16)], "ui")
+            new([atlasLayout], [new(ShaderStage.Vertex, 0, 16), new(ShaderStage.Fragment, 16, 16)], "ui")
         );
 
         // ⚠ Linear filtering and clamped, and never an sRGB view. The atlas holds distances, not
@@ -336,6 +397,12 @@ public sealed class UiRenderer : IDisposable {
         // construction — see UiShaders.Image.
         if (shaders.Image.IsValid) {
             imagePipeline = Pipeline(shaders.Image, output, "ui image");
+        }
+
+        // The same bargain one line up: a host that hands over no blur stage draws its groups sharp
+        // rather than throwing here — see `UiShaders.Blur`.
+        if (shaders.Blur.IsValid) {
+            blurPipeline = Pipeline(shaders.Blur, output, "ui blur");
         }
 
         layerFormat = output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm;
@@ -356,8 +423,28 @@ public sealed class UiRenderer : IDisposable {
     ///     is the same picture. So "the two renderers agree" is a claim about nothing unless this is
     ///     also non-zero. It is the count of surfaces and so also the count of extra render passes
     ///     the frame cost, which is the other thing worth being able to check.
+    ///     <para>
+    ///         ⚠ <b><s>It is the count of surfaces and so also the count of extra render passes.</s>
+    ///         It is the count of surfaces and no longer the count of passes</b>, because a blurred
+    ///         group costs two more of the second and none of the first — see <see cref="Blurred" />,
+    ///         which is the other half of the arithmetic. The whole frame's extra passes are
+    ///         <c>Composited + 2 × Blurred</c>; its extra viewport-sized targets are
+    ///         <c>Composited + (Blurred &gt; 0 ? 1 : 0)</c>.
+    ///     </para>
     /// </remarks>
     public int Composited => composed;
+
+    /// <summary>How many of those groups the last <see cref="Compose" /> also ran a blur over.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The observer a silently-skipped blur has, and there are three ways to skip one.</b> A
+    ///     host that handed over no <c>UiShaders.Blur</c>, a geometry whose groups carry no
+    ///     <c>UiLayer.Blur</c>, and a builder that collapsed the group away before it ever became a
+    ///     layer all produce the same frame: composited, correct, and sharp. None of them is an error
+    ///     and none of them says anything, so a test that asserts a blurred picture without asserting
+    ///     this is a test that passes when the blur does not run — the same hole
+    ///     <see cref="Composited" /> exists to plug one level up.
+    /// </remarks>
+    public int Blurred => blurred;
 
     /// <summary>How many descriptor sets registering images has ever allocated.</summary>
     /// <remarks>
@@ -497,6 +584,7 @@ public sealed class UiRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(commands);
 
         composed = 0;
+        blurred = 0;
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
             return;
@@ -520,7 +608,8 @@ public sealed class UiRenderer : IDisposable {
         composed = geometry.Layers.Count;
 
         for (var index = geometry.Layers.Count - 1; index >= 0; index--) {
-            var target = layerSurfaces[geometry.Layers[index].Image];
+            var layer = geometry.Layers[index];
+            var target = layerSurfaces[layer.Image];
 
             // ⚠ The source half names the shader stages, and that is what makes one surface per group
             // enough rather than one per frame in flight. See `layerSurfaces`: the hazard is this
@@ -549,12 +638,171 @@ public sealed class UiRenderer : IDisposable {
 
             commands.EndRenderPass();
 
+            // ⚠ <b>Between the group's pass and its <c>ShaderRead</c> barrier, which is the only
+            // window where the surface is finished and nothing downstream has been told it is
+            // readable yet.</b> Two more passes go in here and the surface comes back out in
+            // <c>ColourTarget</c>, so the barrier below is the same barrier either way — the blur is
+            // an interpolation into this loop rather than a second shape of it.
+            // ⚠ The count comes back from the work rather than being incremented beside it, because
+            // every early return in `BlurSurface` is a blur that did not happen — and `Blurred`
+            // exists precisely so that a blur which did not happen cannot look like one that did.
+            if (layer.Blur > 0f
+                && blurPipeline.IsValid
+                && Scratch(width, height) is { } through
+                && BlurSurface(commands, geometry, layer, target, through, surface, scale)) {
+                blurred++;
+            }
+
             commands.Barrier(
                 new([], [new(target.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
             );
 
             target.State = ResourceState.ShaderRead;
         }
+    }
+
+    /// <summary>Runs the two axes of a group's blur, and leaves its surface a colour target again.</summary>
+    /// <returns>Whether the blur ran. False leaves every resource in the state it was handed.</returns>
+    /// <param name="commands">A list that is not inside a pass. Each axis opens one.</param>
+    /// <param name="geometry">The frame's geometry, for the quad to draw.</param>
+    /// <param name="layer">The group.</param>
+    /// <param name="target">Its surface, holding its finished contents and about to hold the blur.</param>
+    /// <param name="through">The scratch the first axis lands in.</param>
+    /// <param name="surface">The target size in geometry units.</param>
+    /// <param name="scale">Framebuffer pixels per geometry unit.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The quad is the group's own composite quad, drawn twice with a different
+    ///         pipeline.</b> It already covers exactly the rectangle the blur has to fill — that is
+    ///         what <c>UiGeometryBuilder.Layer</c>'s outset is for — and its texture coordinates
+    ///         already map that rectangle onto the viewport-sized surface. Emitting a quad here
+    ///         instead would mean a vertex buffer of this renderer's own, uploaded outside the one
+    ///         upload a frame is supposed to be, to describe geometry that is already in the one that
+    ///         was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both axes clear rather than load, and that is what makes a pass <i>replace</i>
+    ///         instead of blending over what was there.</b> The second axis writes back into the
+    ///         surface the group's unblurred contents are still sitting in; premultiplied source-over
+    ///         onto a cleared attachment is the identity, so the clear is the whole of the
+    ///         difference between a blurred group and a blurred group composited over a sharp copy of
+    ///         itself. The first axis clears for a different reason: the scratch is shared, so
+    ///         whatever the previous blurred group left outside this one's bounds would otherwise be
+    ///         read by this one's vertical taps.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is bound across the two passes.</b> A pass boundary drops the pipeline,
+    ///         the set and the push constants, which is the same rule <see cref="Compose" />'s own
+    ///         loop opens a fresh <c>Bindings</c> for.
+    ///     </para>
+    /// </remarks>
+    bool BlurSurface(
+        ICommandList commands,
+        in UiGeometry geometry,
+        in UiLayer layer,
+        LayerSurface target,
+        LayerSurface through,
+        Int2 surface,
+        float scale
+    ) {
+        // The composite quad sits immediately after the group's own draws — the same fact
+        // `Submit` skips a composited group's contents on. A geometry that has been truncated
+        // between being built and being composed would index past the end here rather than draw the
+        // wrong thing, so it is checked.
+        var composite = layer.First + layer.Count;
+
+        if (composite >= geometry.Draws.Count) {
+            return false;
+        }
+
+        var quad = geometry.Draws[composite];
+        var scissor = Scissor(quad.Clip, surface, scale);
+
+        if (scissor.Width <= 0 || scissor.Height <= 0) {
+            return false;
+        }
+
+        var reach = UiLayer.KernelRadius(layer.Blur, scale);
+
+        if (reach <= 0) {
+            return false;
+        }
+
+        var sigma = layer.Blur * scale;
+        var source = imageDescriptors.TryGetValue(layer.Image, out var registered) ? registered.Sets[slot] : default;
+
+        if (!source.IsValid || !scratchSet.IsValid) {
+            return false;
+        }
+
+        // Across, into the scratch: the surface is read, so it has to stop being a colour target
+        // first, and the scratch has to start being one.
+        commands.Barrier(
+            new(
+                [],
+                [
+                    new(target.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead),
+                    new(through.Texture, through.State, ResourceState.ColourTarget)
+                ]
+            )
+        );
+
+        Sweep(commands, through, quad, scissor, source, surface, 1f / layerWidth, 0f, sigma, reach);
+
+        // And back down, into the surface. The two textures swap roles, which is why the scratch
+        // cannot simply stay a colour target: this is the pass that samples it.
+        commands.Barrier(
+            new(
+                [],
+                [
+                    new(through.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead),
+                    new(target.Texture, ResourceState.ShaderRead, ResourceState.ColourTarget)
+                ]
+            )
+        );
+
+        through.State = ResourceState.ShaderRead;
+
+        Sweep(commands, target, quad, scissor, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
+
+        return true;
+    }
+
+    /// <summary>One axis: a pass, the composite quad, and the kernel in a push constant.</summary>
+    void Sweep(
+        ICommandList commands,
+        LayerSurface into,
+        in UiDraw quad,
+        ScissorRect scissor,
+        DescriptorSetHandle source,
+        Int2 surface,
+        float stepX,
+        float stepY,
+        float sigma,
+        int reach
+    ) {
+        commands.BeginRenderPass(
+            new(
+                [new(into.View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 0f))],
+                name: "ui blur"
+            )
+        );
+
+        commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
+        commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
+        commands.BindPipeline(blurPipeline);
+
+        Span<float> projection = [2f / surface.X, -2f / surface.Y, -1f, 1f];
+        commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
+
+        Span<float> kernel = [stepX, stepY, sigma, reach];
+        commands.PushConstants(ShaderStage.Fragment, 16, MemoryMarshal.AsBytes(kernel));
+
+        commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, source);
+        commands.SetScissor(scissor);
+        commands.DrawIndexed(quad.Count, firstIndex: quad.First);
+
+        commands.EndRenderPass();
     }
 
     /// <summary>What is bound within one pass, so that a run of draws rebinds only what changes.</summary>
@@ -756,6 +1004,42 @@ public sealed class UiRenderer : IDisposable {
         }
     }
 
+    /// <summary>The shared blur scratch, made on the first frame that asks for one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not registered through <see cref="RegisterImage" />, and deliberately outside the
+    ///     number space <c>UiGeometryBuilder.LayerImage</c> hands out.</b> That space is counted down
+    ///     from the top and this would have to be given a number in it that no frame could ever reach
+    ///     — an argument about how many groups a frame can have, in place of no argument at all. It is
+    ///     never named by a draw, only bound by <see cref="BlurSurface" />, so it needs a set and not
+    ///     a name.
+    /// </remarks>
+    LayerSurface? Scratch(int width, int height) {
+        if (scratch is not null) {
+            return scratch;
+        }
+
+        var texture = device.CreateTexture(
+            new(layerFormat, width, height, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: "ui blur scratch")
+        );
+
+        scratch = new LayerSurface(texture, device.CreateTextureView(texture), Image: 0);
+
+        // The storage binding the shared layout declares and the blur shader ignores — see `Write`,
+        // and `imageBoxes` for why it is a buffer of its own. Made here as well as in
+        // `RegisterImage`, because "a layer was registered first" is true today and is not a thing
+        // this method should have to know.
+        if (!imageBoxes.IsValid) {
+            imageBoxes = device.CreateBuffer(
+                new(ShapeBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "ui image boxes")
+            );
+        }
+
+        scratchSet = device.CreateDescriptorSet(atlasLayout, "ui blur scratch");
+        Write(scratchSet, scratch.View);
+
+        return scratch;
+    }
+
     void DestroySurfaces() {
         foreach (var surface in layerSurfaces.Values) {
             UnregisterImage(surface.Image);
@@ -764,6 +1048,22 @@ public sealed class UiRenderer : IDisposable {
         }
 
         layerSurfaces.Clear();
+
+        if (scratch is null) {
+            return;
+        }
+
+        // ⚠ Its set goes with it, which is the whole of why one set is enough: the only thing that
+        // can invalidate the view behind it destroys the set in the same breath, so there is never a
+        // set pointing at a replaced view for a later frame to have to notice.
+        if (scratchSet.IsValid) {
+            device.Destroy(scratchSet);
+            scratchSet = default;
+        }
+
+        device.Destroy(scratch.View);
+        device.Destroy(scratch.Texture);
+        scratch = null;
     }
 
     /// <summary>Names a texture, so a draw list can ask for it.</summary>
@@ -904,6 +1204,10 @@ public sealed class UiRenderer : IDisposable {
 
         if (imagePipeline.IsValid) {
             device.Destroy(imagePipeline);
+        }
+
+        if (blurPipeline.IsValid) {
+            device.Destroy(blurPipeline);
         }
 
         device.Destroy(boxPipeline);

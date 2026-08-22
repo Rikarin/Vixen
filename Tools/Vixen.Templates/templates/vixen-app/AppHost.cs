@@ -334,7 +334,14 @@ sealed class AppHost : IDisposable {
                 // nothing, and the group's contents are then drawn in place at *full* strength: a
                 // disabled button comes out opaque rather than faded. So it ships whether or not the
                 // application ever draws an image.
-                Image = device.CreateShader(ShaderStage.Fragment, Module("ui-image.frag.spv"), "ui image")
+                Image = device.CreateShader(ShaderStage.Fragment, Module("ui-image.frag.spv"), "ui image"),
+
+                // ⚠ <b>The other half of the same story, one step further along.</b> This is what
+                // `Compose` runs over a group whose stylesheet asked for `filter: blur()`. Leaving it
+                // out is milder than leaving out the image stage — the group still composites, at the
+                // right opacity, merely sharp — but the symptom is the same shape: a class that
+                // resolves, cascades, and appears not to work.
+                Blur = device.CreateShader(ShaderStage.Fragment, Module("ui-blur.frag.spv"), "ui blur")
             },
             new Vixen.Rendering.RenderOutput([swapChain.Format])
         );

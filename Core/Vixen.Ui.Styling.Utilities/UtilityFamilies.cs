@@ -605,7 +605,16 @@ public static class UtilityFamilies {
         // `opacity-50` is half, not fifty. CSS's `opacity` runs 0 to 1 and the utility scale runs
         // 0 to 100, because nobody writes `opacity-0.5`.
         Register(new Family("opacity", ValueKind.Fraction, ["opacity"]));
-        Spacing("blur", "--blur");
+        // ⚠ <b>Composed, not <c>Spacing("blur", "--blur")</c>, and the change is what closed #28's
+        // half of A8.</b> `--blur` was a name of this engine's own invention that nothing assembled
+        // and nothing could read; the fragment and the assembler put the length inside a real
+        // `filter` declaration, which `DrawListBuilder` now reads. See `UtilityComposition.Filter`.
+        Register(new Family(
+            "blur",
+            ValueKind.Spacing,
+            [UtilityComposition.Blur],
+            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+        ));
 
         // A token names a whole declaration rather than a number, because a shadow is a designed
         // thing: its offset, blur and alpha are chosen together to read as one height above the

@@ -51,6 +51,8 @@ public sealed class DrawListBuilder {
     readonly int visibility;
     readonly int hidden;
     readonly int opacity;
+    readonly int filter;
+    readonly int blurFunction;
     readonly int textAlign;
     readonly int direction;
     readonly int boxShadow;
@@ -113,6 +115,11 @@ public sealed class DrawListBuilder {
         visibility = properties.Intern("visibility");
         this.hidden = values.Intern("hidden");
         opacity = properties.Intern("opacity");
+        filter = properties.Intern("filter");
+
+        // ⚠ The keywords table, for the reason `currentColor` below says: a function name arrives
+        // from `StyleValueParser` as an identifier, and an identifier is interned there.
+        blurFunction = keywords.Intern("blur");
 
         textAlign = properties.Intern("text-align");
         direction = properties.Intern("direction");
@@ -261,12 +268,20 @@ public sealed class DrawListBuilder {
             return;
         }
 
+        // ⚠ <b>The second reason to open a group, and the first one that is not <i>optional</i>.</b>
+        // An opacity can always be approximated by fading each element — that is what this file did
+        // for years and what `Compositing` off still does. A blur cannot: it is a function of the
+        // rasterised subtree, so with no surface there is nothing to convolve and the honest answer
+        // is the unblurred picture. Read before the group is decided because it is half of that
+        // decision.
+        var blur = Blur(document, element);
+
         // ⚠ <b>A group is opened for the element's <i>own</i> opacity only.</b> What it inherited is
         // already being carried by a surface further up, or by the multiplier — either way it is not
         // this element's to isolate a second time. CSS agrees: each translucent element forms one
         // stacking context, and nesting two of them composites twice, which is what the product of
         // the two alphas means.
-        var group = Compositing && own < 1f ? into.Count : -1;
+        var group = Compositing && (own < 1f || blur > 0f) ? into.Count : -1;
 
         if (group >= 0) {
             into.Add(
@@ -279,7 +294,9 @@ public sealed class DrawListBuilder {
                     new Color4(0f, 0f, 0f, own),
                     0f,
                     0f
-                )
+                ) {
+                    Blur = blur
+                }
             );
         }
 
@@ -301,11 +318,22 @@ public sealed class DrawListBuilder {
         var drawn = into.Count - group - 1;
 
         if (drawn == 0) {
+            // ⚠ Discarded even when there is a blur, and that is not the same exception the collapse
+            // needs. Blurring nothing gives nothing however wide the kernel is, so the surface would
+            // cost two render passes to convolve a cleared target — the group is genuinely empty, not
+            // merely small.
             into.Discard(group);
             return;
         }
 
-        if (drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
+        // ⚠ <b>The peephole is an identity for opacity and a lie for a blur, so a blurred group is
+        // never collapsed.</b> `Collapse` throws the bracket away and multiplies the one command's
+        // alpha instead — exactly right when the surface's only job was to carry a fade, and exactly
+        // wrong here: a blurred rectangle is not a fainter rectangle, and the picture that came out
+        // would be sharp at whatever opacity the filter had nothing to do with. The single-command
+        // case is not rare enough to leave to chance either, since a `blur-*` on a bare panel is one
+        // background rectangle and nothing else, which is precisely the shape this branch catches.
+        if (blur <= 0f && drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
             into.Collapse(group, inherited * own);
             return;
         }
@@ -320,7 +348,9 @@ public sealed class DrawListBuilder {
                 new Color4(0f, 0f, 0f, own),
                 0f,
                 0f
-            )
+            ) {
+                Blur = blur
+            }
         );
     }
 
@@ -859,6 +889,67 @@ public sealed class DrawListBuilder {
         // an element with no `text-align` at all sits.
         var mirrored = element.Style.TryGet(direction, out var flow) && flow == rtl;
         return mirrored != (alignment == alignedEnd) ? slack : 0f;
+    }
+
+    /// <summary>The standard deviation of an element's <c>filter: blur()</c>, in document pixels.</summary>
+    /// <param name="document">The document, for the length context relative units resolve against.</param>
+    /// <param name="element">The element.</param>
+    /// <returns>Zero when there is no blur, which is every element that says nothing.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole declaration is refused rather than partly applied, which is the rule
+    ///         <see cref="EmitShadow" /> already keeps and the one that matters most here.</b>
+    ///         <c>filter</c> is an ordered list of functions and this reads exactly one of them; a
+    ///         <c>filter: brightness(2) blur(4px)</c> that quietly dropped the brightness would draw a
+    ///         blurred element at the wrong exposure and look like a blur bug. So anything that is not
+    ///         a lone <c>blur()</c> — a second function, an unknown one, <c>none</c> — is nothing at
+    ///         all, and the element draws as it would have without the property. ⚠ The rest of
+    ///         <c>filter</c> is <i>not</i> on <c>InertProperties.txt</c> and could not be: no family
+    ///         emits <c>brightness()</c> or <c>saturate()</c>, so they are absent roots in
+    ///         <c>docs/plan/43</c> rather than debts that file can record — which is exactly the
+    ///         distinction the <c>--blur</c> line got wrong for as long as it existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The CSS length is the standard deviation and is not halved.</b> The shadow path a
+    ///         few methods up halves its third length, because <c>box-shadow</c>'s blur is the total
+    ///         fade distance and the box shader wants the half-extent. Filter Effects 1 § 8.4 says
+    ///         <c>blur(r)</c> is a Gaussian of σ = r. The two conventions live in one file and only
+    ///         one of them applies here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Negative is refused rather than clamped: <c>blur(-4px)</c> is invalid CSS, and a
+    ///         clamp to zero would spend a surface and two render passes on a declaration a browser
+    ///         would have thrown away at parse time.
+    ///     </para>
+    /// </remarks>
+    float Blur(UiDocument document, UiElement element) {
+        if (!element.Style.TryGet(filter, out var id)) {
+            return 0f;
+        }
+
+        var value = parser.Parse(id);
+
+        // A lone `blur()` is the keyword and its length, and nothing else this reads is two items —
+        // see `StyleValueParser.ParseFunction`, which is where that shape is decided.
+        if (value.Kind != StyleValueKind.List || value.Items.Length != 2) {
+            return 0f;
+        }
+
+        var function = value.Items[0];
+        var radius = value.Items[1];
+
+        if (function.Kind != StyleValueKind.Keyword || function.Keyword != blurFunction) {
+            return 0f;
+        }
+
+        var pixels = radius.Kind switch {
+            StyleValueKind.Length => radius.Number
+                * document.Viewport.WithFontSize(element.FontSize).PixelsPer(radius.Unit),
+            StyleValueKind.Number when radius.Number == 0f => 0f,
+            _ => 0f
+        };
+
+        return pixels > 0f && float.IsFinite(pixels) ? pixels : 0f;
     }
 
     /// <summary>An element's own <c>opacity</c>, before anything above it is multiplied in.</summary>

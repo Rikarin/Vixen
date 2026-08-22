@@ -39,7 +39,11 @@
             Dropping it does not disable images, it makes every faded subtree render opaque — see
             AppHost's remark where the shaders are built.
 
-            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the four
+            ⚠ `ui-blur.frag` is the second axis of the same argument: it is what `Compose` runs over
+            a group whose stylesheet asked for `filter: blur()`. Dropping it does not fail — the
+            group composites unblurred — so its absence looks like the filter not working.
+
+            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the five
             fragment stages.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />

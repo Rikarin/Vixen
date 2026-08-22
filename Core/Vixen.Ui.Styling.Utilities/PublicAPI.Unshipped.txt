@@ -104,6 +104,7 @@ Vixen.Ui.Styling.Utilities.VariantEffect.VariantEffect(string SelectorSuffix, st
 Vixen.Ui.Styling.Utilities.Variants -> static class
 const Vixen.Ui.Styling.Utilities.ThemeTokens.DefaultKey = "DEFAULT" -> string
 const Vixen.Ui.Styling.Utilities.ThemeTokens.PixelsPerRem = 16 -> float
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Blur = "--tw-blur" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFrom = "--tw-gradient-from" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFromPosition = "--tw-gradient-from-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientStops = "--tw-gradient-stops" -> string
@@ -121,6 +122,7 @@ static Vixen.Ui.Styling.Utilities.CandidateScanner.ScanStyleSheet(string text, S
 static Vixen.Ui.Styling.Utilities.ThemeTokens.CreateDefault() -> Vixen.Ui.Styling.Utilities.ThemeTokens
 static Vixen.Ui.Styling.Utilities.ThemeTokens.Parse(string css) -> Vixen.Ui.Styling.Utilities.ThemeTokens
 static Vixen.Ui.Styling.Utilities.ThemeTokens.Strip(string css) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.Filter() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Fragments.get -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Styling.Utilities.UtilityComposition.InitialValueOf(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.IsFragment(string property) -> bool

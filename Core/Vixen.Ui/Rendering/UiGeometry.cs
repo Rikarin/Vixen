@@ -57,7 +57,8 @@ public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int F
 /// <param name="Count">How many draws it covers. Its composite draw is the one after them.</param>
 /// <param name="Bounds">
 ///     The part of the surface it actually inks, in document pixels, already rounded out to whole
-///     ones and already narrowed by the clip that was in force where it opened.
+///     ones, already widened by <see cref="UiLayer.Blur" /> where there is one, and already narrowed
+///     by the clip that was in force where it opened.
 /// </param>
 /// <param name="Alpha">What the composite is faded by.</param>
 /// <remarks>
@@ -93,6 +94,58 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///     answer by construction rather than by both having been written carefully.
     /// </remarks>
     public ulong Image { get; init; }
+
+    /// <summary>The standard deviation of the Gaussian its surface is blurred by, in document pixels.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The standard deviation, and <i>not</i> the half-extent the shadow path calls a
+    ///         blur.</b> Filter Effects 1 § 8.4 defines <c>blur(r)</c> as a Gaussian with σ equal to
+    ///         <c>r</c>, so the length in the stylesheet arrives here unchanged. <c>box-shadow</c>'s
+    ///         third length is the <i>total</i> distance an edge fades over and
+    ///         <c>DrawListBuilder.EmitShadow</c> halves it on the way to the shader — copying that
+    ///         halving here would make <c>filter: blur(8px)</c> half the blur CSS asks for, on a
+    ///         picture nobody can check against a number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero is the ordinary case and the only value that changes nothing.</b> A group
+    ///         with a blur costs two more render passes than one without — see
+    ///         <c>UiRenderer.Compose</c> — so a consumer that ignores this draws the group unblurred
+    ///         rather than incorrectly, which is the same bargain <see cref="Image" /> makes with a
+    ///         consumer that ignores layers entirely.
+    ///     </para>
+    /// </remarks>
+    public float Blur { get; init; }
+
+    /// <summary>The widest kernel either executor will run, in texels each side of the centre.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A cap and not a limit on what may be asked for, and the two executors truncate
+    ///     identically because they both come here for the number.</b> Three sigma each side is 385
+    ///     taps at <c>blur-16</c>, twice, over a viewport-sized target; past this the tail being
+    ///     dropped is under a thousandth of the kernel's mass and the weights are renormalised over
+    ///     the taps actually taken, so the picture dims by nothing. What it is <i>not</i> is a
+    ///     silent divergence: a software path that summed the whole kernel and a shader that stopped
+    ///     at sixty-four would disagree by more than <c>UiCompositingTests</c> allows, which is how
+    ///     this constant came to be shared rather than written twice.
+    /// </remarks>
+    public const int MaximumKernel = 64;
+
+    /// <summary>How many texels each side of the centre a blur of this width reads.</summary>
+    /// <param name="blur">The standard deviation, in document pixels.</param>
+    /// <param name="scale">How many target texels one document pixel is.</param>
+    /// <returns>Zero when there is no blur, and never more than <see cref="MaximumKernel" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Three sigma, and the ceiling is taken after the scale rather than before.</b> The
+    ///     builder outsets <see cref="Bounds" /> by this at a scale of one, in document pixels, and an
+    ///     executor asks for it again at the scale it is drawing at — so the outset is always at least
+    ///     the kernel, because rounding a document pixel up and then multiplying can only overshoot
+    ///     multiplying and then rounding up. A halo clipped by its own bounds is the failure this
+    ///     asymmetry exists to make impossible, and it looks like a soft edge with a hard line across
+    ///     it.
+    /// </remarks>
+    public static int KernelRadius(float blur, float scale) =>
+        blur <= 0f || scale <= 0f || !float.IsFinite(blur) || !float.IsFinite(scale)
+            ? 0
+            : Math.Min(MaximumKernel, (int) MathF.Ceiling(3f * blur * scale));
 }
 
 /// <summary>A frame's worth of interface geometry.</summary>

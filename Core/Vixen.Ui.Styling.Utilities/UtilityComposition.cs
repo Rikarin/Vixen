@@ -161,6 +161,33 @@ public static class UtilityComposition {
     /// </remarks>
     public const string RingColor = Prefix + "ring-color";
 
+    // ── The filter ──────────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>One fragment and one property, which looks like it did not need the mechanism at all —
+    // and the reason it does is <i>the next</i> filter function rather than this one.</b> CSS's
+    // `filter` is an ordered list, so `blur-2 brightness-50` has to come out as one declaration
+    // holding both functions in the right order; two families each emitting a whole `filter` would
+    // let the cascade pick one and drop the other, silently, which is exactly the failure
+    // `translate-x`/`translate-y` had. Building it as a fragment now means the second function is a
+    // constant and a slot in `Filter()`, not a rewrite of the first.
+    //
+    // ⚠ <b>And it is the fix for `--blur`.</b> That name was this engine's own invention — not CSS,
+    // not a fragment, assembled by nothing — so `blur-2` resolved, cascaded, and parked a length
+    // where no engine would ever look for it. `InertProperties.txt` recorded the debt against #28 and
+    // could not say *that*, because a property nothing emits and a property nothing reads are
+    // indistinguishable from the gate's side. The same shape as `--scale`, `--rotate` and
+    // `grid-cols-3`, and closed the same way the translation was: give it a prefix and an assembler.
+
+    /// <summary>How far a <c>filter: blur()</c> spreads, as a Gaussian standard deviation.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>0px</c> and not <c>0</c>, for the reason <see cref="TranslateX" />'s initial gives
+    ///     at length</b> — legibility rather than interpolation. It matters slightly more here,
+    ///     because the initial is substituted <i>inside</i> a function: a bare zero would generate
+    ///     <c>filter: blur(0)</c>, which is valid CSS and reads like a length somebody forgot the unit
+    ///     on.
+    /// </remarks>
+    public const string Blur = Prefix + "blur";
+
     static readonly Dictionary<string, string> Initials = new(StringComparer.Ordinal) {
         [GradientFrom] = "transparent",
         [GradientVia] = "transparent",
@@ -190,7 +217,8 @@ public static class UtilityComposition {
         // reached differently, and the alternative — a non-zero default width — would make a bare
         // `ring-accent` draw a ring nobody asked for.
         [RingWidth] = "0px",
-        [RingColor] = "currentcolor"
+        [RingColor] = "currentcolor",
+        [Blur] = "0px"
     };
 
     static readonly List<string> Names;
@@ -307,4 +335,26 @@ public static class UtilityComposition {
     ///     </para>
     /// </remarks>
     public static string Ring() => $"0 0 0 {Reference(RingWidth)} {Reference(RingColor)}";
+
+    /// <summary>The <c>filter</c> declaration a <c>blur-*</c> assembles into.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The function is written here and only the length is a fragment</b>, which is the
+    ///         opposite way round from the ring, where the whole <c>0 0 0 w c</c> shape lives in the
+    ///         assembler. It has to be: <c>filter</c>'s items are function calls, and a fragment
+    ///         holding <c>blur(4px)</c> whole could not have an initial value that composes — the
+    ///         empty string is not a filter, and <c>none</c> in the middle of a list is invalid. A
+    ///         zero-length blur is the identity, so the initial can be a plain <c>0px</c> and an
+    ///         unset fragment costs the list one function that does nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does <i>not</i> yet compose with is the rest of <c>filter</c>.</b> There
+    ///         is one function in the list because there is one function the engine reads — see
+    ///         <c>DrawListBuilder.Blur</c>, which refuses a <c>filter</c> carrying anything else
+    ///         rather than honouring the part it understands. A second family adds a constant, an
+    ///         initial and a slot in this string; it does not change the shape.
+    ///     </para>
+    /// </remarks>
+    public static string Filter() => $"blur({Reference(Blur)})";
 }
