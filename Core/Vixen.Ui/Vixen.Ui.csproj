@@ -14,7 +14,30 @@
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
-        <None Include="build\Vixen.Ui.targets" Pack="true" PackagePath="build\" />
+
+        <!--
+            ⚠ **`buildTransitive/` and not `build/`, and the difference is the whole on-ramp.** NuGet
+            imports `build/<id>.targets` only for a *direct* PackageReference; `buildTransitive/` is
+            imported for a direct one **and** for one reached through another package. Nobody
+            references `Vixen.Ui` by name — an application references `Vixen.Ui.Controls`, which
+            depends on it — so under `build/` this file was imported by nothing a real project does,
+            and a `.vxml` beside a `Program.cs` was silently not compiled: no `AdditionalFiles` item,
+            no generator input, no error, a build that succeeds and an interface that does not exist.
+
+            Measured rather than argued. A project referencing the packed `Vixen.Ui.Controls` and
+            holding one `.vxml` compiled with the markup generator *loaded* — analyzers do flow
+            transitively — and with no `/additionalfile:` on the compiler's command line at all.
+            That is the shape of failure this repository's own projects never met, because every one
+            of them names the file by hand.
+        -->
+        <!--
+            ⚠ A forward slash, and it is load-bearing rather than a style choice. `PackagePath` is a
+            package path and not a file-system one: `buildTransitive\` produces the entry
+            `buildTransitive//Vixen.Ui.targets`, which NU5129 then reports as a `buildTransitive/`
+            folder that does not contain `buildTransitive/Vixen.Ui.targets` — true, and the error
+            names the file it is looking at.
+        -->
+        <None Include="build\Vixen.Ui.targets" Pack="true" PackagePath="buildTransitive/" />
     </ItemGroup>
 
     <!--

@@ -28,8 +28,9 @@ every component is in the same repository as every token.
 
 ## The build step
 
-`build/Vixen.Ui.Styling.Utilities.targets` is imported by a `PackageReference` to this assembly, and
-that is the whole of what a project has to do. Before `CoreCompile` it finds the project's
+`build/Vixen.Ui.Styling.Utilities.targets` is packed into `buildTransitive/` and imported by a
+`PackageReference` to this assembly **or to anything that depends on it**, and that is the whole of
+what a project has to do. Before `CoreCompile` it finds the project's
 `vixen.ui.vcss`, scans **every source file and every `.vxml`** for class names, and writes the sheet
 into `obj/` twice: as a `const string` added to `@(Compile)`, and as a `.vcss` file for the tools.
 `Tools/Vixen.StyleGen/README.md` is the detail.
@@ -48,9 +49,17 @@ no YamlDotNet: a token is a custom property and the reader is a text scan over t
 code, so the whole dependency argument is gone and this assembly has no package references left.
 Making the step a generator is a separate change and a real one; the blocker is what has lifted.
 
-⚠ **`Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` has deliberately not been converted.** It is the
-hundred and thirty lines the step replaces, kept as the reference for what a project used to have to
-write. Converting it is three deletions and two lines of MSBuild, and it belongs in its own change.
+**`Samples/14-Mmo/Mmo.Ui` was the last project doing it by hand, and it is converted.**
+`Theme/MmoStyles.cs` was a hundred and thirty-five lines — embed the markup, walk the manifest, run
+the scanner, run the generator — and it is deleted. What replaced it is `<VixenUi>true</VixenUi>`,
+one `VixenStyleBase` naming `hud.vcss`, and the fifteen `VixenStyleSafelist` items that used to be a
+`static readonly ImmutableArray<string>`. The generated class keeps the name `MmoStyles`, so the only
+edit outside the project file was `Compile()` becoming `Css`.
+
+⚠ **Outside this repository not even that line is needed.** This package's `.targets` ships in
+`buildTransitive/`, so a `PackageReference` to `Vixen.Ui.Controls` — which reaches `Vixen.Ui`, which
+reaches this — imports the step. It used to ship in `build/`, which NuGet imports only for a *direct*
+reference, and nobody references this assembly directly.
 
 ## `@theme`, and the palette that ships with it
 

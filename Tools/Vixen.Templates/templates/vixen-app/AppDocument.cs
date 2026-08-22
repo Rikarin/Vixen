@@ -1,57 +1,51 @@
-using System.Globalization;
 using Vixen.Ui;
+using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
 
 namespace VixenApp1;
 
-/// <summary>The interface. No platform, no device, no window.</summary>
+/// <summary>The document, and the three sheets that style it. No platform, no device, no window.</summary>
 /// <remarks>
 ///     <para>
-///         This file constructs a <see cref="UiDocument" /> and nothing else, which is worth keeping
-///         as the application grows: the interface stays testable without any of the machinery that
-///         eventually puts it on a screen. <c>AppHost</c> is the half that needs a GPU, and the two
-///         share exactly one type.
+///         This file builds a <see cref="UiDocument" /> and mounts <c>AppShell.vxml</c> into it,
+///         which is worth keeping as the application grows: the interface stays testable without any
+///         of the machinery that eventually puts it on a screen. <c>AppHost</c> is the half that
+///         needs a GPU, and the two share exactly one type.
 ///     </para>
 ///     <para>
-///         Start here. Replace the card below with the application you are actually writing.
+///         ⚠ <b>Start in <c>AppShell.vxml</c>, not here.</b> The interface is markup and a
+///         stylesheet; this file is the seam between them and the frame loop, and most applications
+///         never need to change it.
 ///     </para>
 /// </remarks>
-sealed class AppShell : IDisposable {
-    readonly TextBlock count;
-
-    int clicks;
-
+sealed class AppDocument : IDisposable {
     /// <summary>Builds the interface into a new document.</summary>
     /// <param name="width">The surface's width in device-independent pixels.</param>
     /// <param name="height">Its height.</param>
-    public AppShell(float width, float height) {
+    public AppDocument(float width, float height) {
         Document = new UiDocument(width, height);
 
-        // The control set's theme, as a user-agent stylesheet. Everything below out-specifies it
-        // simply by being an author sheet, which is the arrangement the whole theme is designed
-        // around — a plain `card { … }` here beats the theme's rule because of where it came from.
+        // The control set's theme, as a user-agent stylesheet. Everything loaded after it out-
+        // specifies it simply by being an author sheet, which is the arrangement the whole theme is
+        // designed around.
         ControlTheme.Install(Document);
-        Document.Load(Style);
 
-        var shell = Document.Root.Add<Panel>();
-        shell.AddClass("shell");
+        // ⚠ **The generated sheet, and there is no code behind that name.** `Theme/vixen.ui.vcss` is
+        // the tokens; every `.vxml` and every `.cs` in this project is scanned for class names at
+        // build time; the rules for the ones actually used are compiled into `VixenUtilityStyles`
+        // before the compiler runs. Nothing here walks a manifest or runs a scanner.
+        //
+        // ⚠ It is the cheapest check that the wiring is there at all: a project whose build step did
+        // not run compiles perfectly and produces an empty sheet, and every class in the markup then
+        // quietly does nothing. `VixenUtilityStyles.RuleCount` is how many rules came out.
+        Document.Load(VixenUtilityStyles.Css);
 
-        var card = shell.Add<Card>();
-        card.Header.Add<TextBlock>().Text = "VixenApp1";
+        // The root is the one element no markup owns, so its two classes are set here. Everything
+        // else this application looks like is a class name in AppShell.vxml.
+        Document.Root.AddClass("p-0");
+        Document.Root.AddClass("bg-slate-900");
 
-        card.Body.Add<TextBlock>().Text = "A Vixen application: Vixen.Ui, a window, and no engine.";
-
-        count = card.Body.Add<TextBlock>();
-
-        var button = card.Body.Add<Button>();
-        button.Label = "Click me";
-        button.Variant = ControlVariant.Primary;
-        button.Clicked += _ => {
-            clicks++;
-            Refresh();
-        };
-
-        Refresh();
+        BuildContext.BuildInto(new AppShell(), Document, Document.Root);
     }
 
     /// <summary>The document the host lays out, draws and dispatches into.</summary>
@@ -89,23 +83,4 @@ sealed class AppShell : IDisposable {
 
     /// <inheritdoc />
     public void Dispose() => Document.Dispose();
-
-    void Refresh() =>
-        count.Text = string.Create(CultureInfo.CurrentCulture, $"Clicked {clicks} times.");
-
-    /// <summary>The application's own stylesheet, over the one the controls bring.</summary>
-    const string Style = """
-        root { padding: 0px; background-color: var(--surface-sunken); }
-
-        .shell {
-            flex-direction: column;
-            flex-grow: 1;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-        }
-
-        card { width: 420px; }
-        card-body { gap: 8px; }
-        """;
 }

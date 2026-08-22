@@ -45,9 +45,9 @@ internal sealed record StyleGenResult(
 ///         <b>This is the thing the utility system's README listed as ⏳.</b> Before it, every project
 ///         wanting utilities wrote its own startup bootstrap — embed the markup as resources, walk
 ///         the manifest, run the scanner, run the generator — which
-///         <c>Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs</c> still does and whose own remarks admit it
-///         is standing in for this. A second copy of that in the editor would have made the bootstrap
-///         the pattern rather than the placeholder.
+///         <c>Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs</c> was the last copy of, and whose own
+///         remarks admitted it was standing in for this. That file is deleted; the sample declares
+///         <c>VixenUi</c> and the generated class keeps its name.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Out of process, and the reason it had to be has expired.</b> The obvious shape for

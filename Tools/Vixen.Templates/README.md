@@ -115,6 +115,24 @@ It carries four SPIR-V modules, byte for byte the ones `Samples/02-HelloUi` and 
 fixtures use. That is the state of the world rather than a design: turning shader source into modules
 belongs to Raven, and until that path is wired a caller hands the renderer whatever it has.
 
+### The interface is markup, and the project file says nothing about it
+
+⚠ **`AppShell.vxml` and `Theme/vixen.ui.vcss` are what a new application starts from**, because
+`.vxml`, `.vcss` and the utility classes are the intended way to write a Vixen interface and a
+template that shipped three hand-written C# files taught the opposite. `AppDocument.cs` is what is
+left of the C#: it makes the document, loads the generated sheet and mounts the component.
+
+⚠ **`Painter.csproj` gained nothing for any of it.** The VXML compiler, the two item types and the
+utility stylesheet step all arrive with `<PackageReference Include="Vixen.Ui.Controls" />`, because
+`Vixen.Ui` and `Vixen.Ui.Styling.Utilities` ship their MSBuild logic in `buildTransitive/`. Adding a
+second `.vxml`, a second `.vcss` or a folder of them is not a project-file change, and
+`TheApplicationTemplateIsWrittenInMarkup` asserts the project file stays empty of them — a glob or an
+`Import` appearing there is the visible symptom of that packaging regressing.
+
+`WhatEachTemplateWritesCompiles` runs the real VXML generator over the markup, so a `.vxml` that does
+not compile fails with the line and column *in the `.vxml`* rather than as a missing type in the C#
+that mounts it.
+
 ## `vixen-lib`
 
 A plain `Microsoft.NET.Sdk` library. **No `Vixen.Sdk`**: a library has no assets to import and no

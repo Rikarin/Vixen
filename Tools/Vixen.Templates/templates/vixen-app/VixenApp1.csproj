@@ -19,6 +19,13 @@
             import and no content to build, so the SDK would add two no-op build steps and a tool
             dependency for nothing. Add it — `<Project Sdk="Vixen.Sdk/x.y.z">` — the day this
             application starts shipping content.
+
+            ⚠ **And there is nothing here for `AppShell.vxml` or `Theme/vixen.ui.vcss` either, which
+            is the point rather than an omission.** `Vixen.Ui.Controls` depends on `Vixen.Ui`, whose
+            package carries its MSBuild logic in `buildTransitive/` — so the VXML compiler, the
+            `.vxml` and `.vcss` item types and the utility stylesheet step all arrive with the
+            reference above. Adding a second `.vxml`, a second `.vcss` or a whole folder of them is
+            not a project-file change.
         -->
         <PackageReference Include="Vixen.Ui.Controls" Version="VIXEN_PACKAGE_VERSION" />
         <PackageReference Include="Vixen.Ui.Renderer" Version="VIXEN_PACKAGE_VERSION" />

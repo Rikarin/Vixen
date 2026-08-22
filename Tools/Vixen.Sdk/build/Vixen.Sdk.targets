@@ -3,6 +3,11 @@
     SPDX-License-Identifier: Apache-2.0
 
     What makes `dotnet build` do a content build. Doc 08 § Vixen.Sdk.
+
+    ⚠ **And deliberately nothing about `.vxml` or `.vcss`.** Those item types belong to `Vixen.Ui`,
+    which ships them in `buildTransitive/` — so any project that references the UI at all, including
+    through `Vixen.Ui.Controls`, already has them, and declaring them here would give a project using
+    both an item declared twice. README.md § "What it deliberately does not do" is the long version.
 -->
 <Project>
 

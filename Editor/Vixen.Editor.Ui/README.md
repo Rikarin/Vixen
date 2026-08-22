@@ -245,9 +245,10 @@ after the hand-written sheet, so one call still installs everything.
 
 That is a build step and not a startup scan, and the difference is not only start-up time.
 `Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` is what this looked like before it — a hundred and thirty
-lines that embed the markup as resources, walk the manifest and run the scanner — and it could only
-ever see *markup*. Most of this assembly's chrome is built in C# with `AddClass("…")`, so every
-utility a code-built panel asked for was silently missing. The step scans `@(Compile)` too.
+lines that embedded the markup as resources, walked the manifest and ran the scanner — and it could
+only ever see *markup*. Most of this assembly's chrome is built in C# with `AddClass("…")`, so every
+utility a code-built panel asked for was silently missing. The step scans `@(Compile)` too. (That
+file is gone: the sample declares `VixenUi` and the build writes its sheet like everybody else's.)
 
 **The `@theme` block declares no colours of its own.** Every one is a `var(--…)` reference to a token
 `EditorTheme` already puts on the root — so `bg-surface` and `background: var(--surface)` are the

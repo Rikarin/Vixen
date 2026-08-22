@@ -39,6 +39,43 @@ ordering right now is what makes that a scheduling detail later rather than a re
 **The content build runs after the assembly exists**, so a compile error is reported before a content
 build nobody can use yet, and the content can be copied beside the binary it belongs to.
 
+## What it deliberately does not do: `.vxml` and `.vcss`
+
+⚠ **There is no markup or stylesheet item type in this package, and adding one would break the
+projects that work.** A project with an interface in it references `Vixen.Ui` — directly, or through
+`Vixen.Ui.Controls`, which is what an application actually writes — and that package ships its own
+`buildTransitive/Vixen.Ui.targets`, which declares the `**/*.vxml` and `**/*.vcss` globs and the two
+properties the VXML generator asks MSBuild for. `Vixen.Ui.Styling.Utilities`, reached the same way,
+brings the utility stylesheet step and the tool that runs it. Declaring the same globs here would
+give any project using both an item declared twice, which the SDK refuses by name.
+
+So the on-ramp is already flat, and it is flat with or without this package:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Vixen.Ui.Controls" Version="0.1.0" />
+  </ItemGroup>
+</Project>
+```
+
+A `.vxml` beside that file compiles; a `vixen.ui.vcss` beside it becomes the project's palette; every
+class name in the markup and in the C# resolves against it. `Tools/Vixen.Templates/templates/vixen-app`
+is that project, and it names `Microsoft.NET.Sdk` rather than this one because an application with no
+`Assets/` has nothing to import.
+
+⚠ **This was not always true, and the failure was silent.** Both files used to be packed under
+`build/`, which NuGet imports only for a *direct* `PackageReference` — and nobody references
+`Vixen.Ui` directly. A project referencing `Vixen.Ui.Controls` therefore loaded the markup generator
+(analyzers *do* flow transitively) and handed it nothing: no `AdditionalFiles` item, no error, a build
+that succeeded with no interface in it. Found by extracting a produced `.nupkg` and building against
+it, which had never been done.
+
+⚠ **Inside this repository there are no packages**, so `Directory.Build.targets` stands in for the
+reference: `<VixenUi>true</VixenUi>` in a project's `PropertyGroup` names the two generators, imports
+the same two `.targets` the packages import, and orders the build against `Tools/Vixen.StyleGen`.
+`Samples/14-Mmo/Mmo.Ui` is the worked example.
+
 **One build imports once.** The content build is passed `--no-import` because `VixenImport` has
 already run — on a ten-thousand-asset project the second one would be a full scan and ten thousand
 decisions for nothing. The flag follows the same condition as the target: a project that turns the

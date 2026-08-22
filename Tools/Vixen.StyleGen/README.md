@@ -6,15 +6,23 @@ of its own — no scanner call, no manifest walk, no reflection — and a `vixen
 
 Nobody runs it by hand. `Core/Vixen.Ui.Styling.Utilities/build/Vixen.Ui.Styling.Utilities.targets`
 does, before `CoreCompile`, and that file is imported automatically by a `PackageReference` to
-`Vixen.Ui.Styling.Utilities`.
+`Vixen.Ui.Styling.Utilities` or to anything that depends on it — it is packed into
+`buildTransitive/`, which is what makes a reference to `Vixen.Ui.Controls` enough.
+
+⚠ **This tool travels inside that package's `tools/`, and it travels with its whole dependency
+closure.** It used to be one assembly and a `runtimeconfig.json`, which is an entry point with
+nothing behind it: the first line of `Main` touches `Vixen.Ui.Styling.Utilities`, and every package
+produced before this shipped a `tools/` that threw `FileNotFoundException` out of an `Exec` on the
+first build of the first project that used it. A framework-dependent build is flat, so what is packed
+is the output directory's `*.dll` plus the `.deps.json` and the `.runtimeconfig.json` beside them.
 
 ## What it replaced
 
-A startup bootstrap, written once per project. `Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` is the copy
-that still exists: a hundred and thirty lines that embed the markup as resources, walk the manifest,
-run the scanner, run the generator and cache the answer — and whose own remarks say it is standing in
-for a build step that had not been written. It has been written. The sample is deliberately left
-alone as the reference for what the step replaced.
+A startup bootstrap, written once per project — a hundred and thirty-five lines that embedded the
+markup as resources, walked the manifest, ran the scanner, ran the generator and cached the answer.
+`Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` was the last copy of it; that file is deleted and the
+sample's whole share of the step is now `<VixenUi>true</VixenUi>` and two item declarations.
+`git log` is the reference for what it looked like.
 
 Three things were wrong with the bootstrap beyond its being repeated.
 

@@ -293,6 +293,53 @@ public class TemplateTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>The template teaches the path the engine is built around: markup, a stylesheet and
+    ///     utility classes.</b> It shipped three hand-written C# files and no <c>.vxml</c> at all, so
+    ///     every project started from it started on the path a week of work argued against.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The absence of plumbing is half the assertion, and the more important half.</b>
+    ///         A <c>PackageReference</c> to <c>Vixen.Ui.Controls</c> brings the VXML compiler, the
+    ///         two item types and the utility build step, because <c>Vixen.Ui</c> ships its MSBuild
+    ///         logic in <c>buildTransitive/</c>. If that ever regresses to <c>build/</c> the markup
+    ///         is silently not compiled — no item, no generator input, no error — so a project file
+    ///         that had grown a glob or an <c>Import</c> to compensate is the visible symptom, and
+    ///         this is what fails first.
+    ///     </para>
+    ///     <para>
+    ///         That the markup <em>compiles</em> is <see cref="WhatEachTemplateWritesCompiles" />:
+    ///         <c>AppDocument.cs</c> mounts the component the <c>.vxml</c> produces, and
+    ///         <see cref="TemplateCompiler" /> runs the generator over it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheApplicationTemplateIsWrittenInMarkup() {
+        var app = Template("vixen-app");
+        var files = app.Instantiate("Painter", "1.2.3").Select(file => file.Path).ToList();
+
+        Assert.Contains("AppShell.vxml", files);
+        Assert.Contains("Theme/vixen.ui.vcss", files);
+
+        var shell = TextOf(app, "Painter", "AppShell.vxml");
+
+        // The tree, the utility vocabulary and a signal read: the three things the declarative path
+        // is, one assertion each.
+        Assert.Contains("@component AppShell", shell, StringComparison.Ordinal);
+        Assert.Contains("class=\"flex flex-col", shell, StringComparison.Ordinal);
+        Assert.Contains("@clicks.Value", shell, StringComparison.Ordinal);
+
+        // And nothing in the project file to make any of it work.
+        var project = TextOf(app, "Painter", "Painter.csproj");
+
+        Assert.DoesNotContain("*.vxml", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("*.vcss", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AdditionalFiles", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("<Import", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("OutputItemType", project, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     An application with no assets has nothing to import and no content to build, so the SDK
     ///     would add two no-op build steps and a tool dependency for nothing.
     /// </summary>

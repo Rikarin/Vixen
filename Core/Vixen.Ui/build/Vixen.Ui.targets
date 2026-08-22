@@ -9,6 +9,18 @@
 <Project>
 
     <!--
+        ⚠ **A flag saying this file has been imported, and the repository's `Directory.Build.targets`
+        is what reads it.** Inside this tree there are no packages, so that file stands in for the
+        `PackageReference` — and it is imported *after* everything a project writes, including an
+        explicit `Import` of this file at the bottom of a `.csproj`. A project that already names
+        this file therefore sets the flag first, and the automatic wiring stays out of its way rather
+        than declaring the two globs below a second time and failing on a duplicate item.
+    -->
+    <PropertyGroup>
+        <VixenUiBuildImported>true</VixenUiBuildImported>
+    </PropertyGroup>
+
+    <!--
         A .targets rather than a .props, and for the same reason the Vixen.Sdk pair records: this is
         imported *after* the consuming project's body, which is when DefaultItemExcludes finally
         holds the project's own additions to it. Globbed in a .props, a .vxml copied into bin/ by a

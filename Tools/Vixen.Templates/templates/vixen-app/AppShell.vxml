@@ -1,0 +1,52 @@
+<!--
+    The interface. Start here.
+
+    ⚠ **This file is the point of the template.** `.vxml` for the tree, `.vcss` for the tokens and
+    the utility classes for everything a class name can say are how a Vixen interface is written —
+    the same three files a web project has, and nothing here is a special case for being a template.
+    A `<Button>` is the control library's `Button`; `class="flex flex-col gap-2"` is the Tailwind
+    vocabulary; `@clicks.Value` is a signal read, and the element that reads it is the only element
+    that updates when it changes.
+
+    ⚠ **Nothing in `VixenApp1.csproj` makes this compile.** A `PackageReference` to
+    `Vixen.Ui.Controls` brings the VXML compiler, the `.vxml` and `.vcss` item types and the utility
+    stylesheet step with it. Add a second `.vxml` beside this one and it compiles too.
+-->
+@component AppShell
+@namespace VixenApp1
+@tag app-shell
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<app-panel class="flex flex-col grow items-center justify-center p-6">
+    <app-card class="flex flex-col gap-2 w-96 p-4 rounded-lg bg-slate-800">
+        <app-title class="text-xl font-semibold text-slate-100">VixenApp1</app-title>
+
+        <app-lead class="text-sm text-slate-400">
+            A Vixen application: Vixen.Ui, a window, and no engine.
+        </app-lead>
+
+        <!--
+            `text-brand` is the one colour this application declares, in `Theme/vixen.ui.vcss`.
+            Everything else on this page is out of the palette the engine ships, which is Tailwind
+            v4's own — so `bg-slate-800` works in a project that wrote no theme at all.
+        -->
+        <app-count class="text-sm text-brand">Clicked @clicks.Value times.</app-count>
+
+        <Button Variant="Primary" Label="Click me" on:click="@Count" />
+    </app-card>
+</app-panel>
+
+@code {
+    /// <summary>How many times the button has been pressed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A signal rather than an <c>int</c>, and the difference is what redraws.</b> The
+    ///     element above reads it while the tree is being built, which is what records the
+    ///     dependency; assigning to it afterwards re-runs that one read and nothing else. A plain
+    ///     field would need something to notice it had changed and something to rebuild, which is
+    ///     the loop this model exists instead of.
+    /// </remarks>
+    readonly Signal<int> clicks = new(0);
+
+    void Count() => clicks.Value++;
+}
