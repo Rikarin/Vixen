@@ -1002,10 +1002,37 @@ public sealed partial class LayoutTree {
             var height = MathF.Max(0f, measured) + marginColumn + item.BaselineShim;
 
             // §6.6 applies to the block axis too: an item spanning several tracks, one of which is
-            // flexible, has an automatic minimum of zero however tall its contents are.
-            var blockMinimum = automaticMinimumIsZero && float.IsNaN(statedHeight) && !styles[child].MinDimensions[(int) Dimension.Height].IsDefined
-                ? marginColumn + item.BaselineShim
-                : height;
+            // flexible, has an automatic minimum of zero however tall its contents are. That
+            // zeroing is of the CONTENT-BASED minimum, which is the only part of the answer §6.6
+            // is about — a stated height is not automatic and survives it.
+            var contentBasedBlockMinimum = automaticMinimumIsZero && float.IsNaN(statedHeight)
+                ? 0f
+                : MathF.Max(0f, measured);
+
+            // §6.6: an item whose tracks all state a fixed maximum cannot floor them past it.
+            var blockCeiling = FixedMaximumAcross(in axis, in item);
+
+            if (!float.IsNaN(blockCeiling)) {
+                contentBasedBlockMinimum = MathF.Min(contentBasedBlockMinimum, MathF.Max(0f, blockCeiling - marginColumn));
+            }
+
+            // ⚠ <b>A stated `min-height` is the minimum contribution, and reading the measured
+            // height instead is the block axis's version of the bug this method's summary warns
+            // about for the inline one.</b> CSS Sizing §5: where the preferred size behaves as
+            // `auto`, an item contributes its USED MINIMUM SIZE, so a 100-point-tall box with
+            // `min-height: 50px` floors its row at 50 and not at 100. The inline axis has always
+            // gone through `MinimumContribution` for this; the block axis only asked whether a
+            // minimum was DEFINED — using it to switch §6.6's zeroing off — and then contributed
+            // the full content height anyway, which is the whole `_003_fixedmin_` family: every
+            // one of its failures was a height and not one of them was a width.
+            var blockMinimum = MinimumContribution(
+                child,
+                Dimension.Height,
+                direction,
+                contentBasedBlockMinimum,
+                ownerWidth,
+                ownerHeight
+            ) + marginColumn + item.BaselineShim;
 
             return new GridContribution(blockMinimum, height, height);
         }
@@ -1037,12 +1064,23 @@ public sealed partial class LayoutTree {
 
         var maxContent = results[child].MeasuredDimensions[(int) Dimension.Width] + margin;
 
+        var contentBasedInlineMinimum = AutomaticMinimumIsZero(in axis, in item, child, Dimension.Width)
+            ? 0f
+            : minContent - margin;
+
+        // §6.6: an item whose tracks all state a fixed maximum cannot floor them past it.
+        var inlineCeiling = FixedMaximumAcross(in axis, in item);
+
+        if (!float.IsNaN(inlineCeiling)) {
+            contentBasedInlineMinimum = MathF.Min(contentBasedInlineMinimum, MathF.Max(0f, inlineCeiling - margin));
+        }
+
         return new GridContribution(
             MinimumContribution(
                 child,
                 Dimension.Width,
                 direction,
-                AutomaticMinimumIsZero(in axis, in item, child, Dimension.Width) ? 0f : minContent - margin,
+                contentBasedInlineMinimum,
                 ownerWidth,
                 ownerHeight
             ) + margin,
@@ -1094,6 +1132,51 @@ public sealed partial class LayoutTree {
         }
 
         return !spansAutoMinimum || (span > 1 && spansFlexible);
+    }
+
+    /// <summary>
+    ///     CSS Grid §6.6's ceiling on a content-based automatic minimum: the space the item's own
+    ///     tracks can ever offer it, or NaN when they are not all fixed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>§6.6 has a second paragraph, and it is the one that stops a track from being
+    ///         dragged past a ceiling it stated.</b> After granting a content-based minimum, the rule
+    ///         adds that <i>if the item spans only tracks that have a fixed max track sizing
+    ///         function</i>, its content size suggestion is further clamped to the stretch fit into
+    ///         the area's maximum size — the sum of those maxima plus any intervening fixed gutters.
+    ///         Without it a <c>minmax(auto, 10px)</c> column holding 20 points of text is 20 wide,
+    ///         because the automatic minimum floors the base size and §7.2.2 then lifts the growth
+    ///         limit to meet it. Chrome makes it 10, which is what the author asked for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ This clamps the CONTENT-based suggestion only. A stated <c>min-width</c> is not an
+    ///         automatic minimum and §6.6 never reaches it, which is why the callers apply this to the
+    ///         value they hand <see cref="MinimumContribution" /> rather than to its answer.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="GridSizingFunction.Resolve" /> answering NaN <i>is</i> the "not a fixed max
+    ///         track sizing function" test: a <c>fr</c>, an <c>auto</c>, a <c>max-content</c>, a
+    ///         <c>fit-content()</c> and a percentage against an indefinite container all return NaN,
+    ///         and each of them is a maximum the track's content can still move.
+    ///     </para>
+    /// </remarks>
+    float FixedMaximumAcross(in GridAxis axis, in GridItem item) {
+        var start = item.StartOn(axis.Inline);
+        var span = item.SpanOn(axis.Inline);
+        var total = axis.Gap * (span - 1);
+
+        for (var at = start; at < start + span; at++) {
+            var resolved = Scratch.Track(axis.TracksAt + at).Size.Max.Resolve(axis.AvailableSpace);
+
+            if (float.IsNaN(resolved)) {
+                return float.NaN;
+            }
+
+            total += resolved;
+        }
+
+        return total;
     }
 
     /// <summary>CSS Sizing's minimum contribution: the smallest outer size an item can have.</summary>

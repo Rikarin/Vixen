@@ -568,22 +568,24 @@ public sealed partial class LayoutTree {
             }
         }
 
-        // ⚠ §12.5.1's last clause: space that nobody could take because every affected track hit its
-        // growth limit still has to go somewhere, and it goes to the tracks whose growth limit was
-        // infinite — or, failing that, back to all of them. Dropping it makes a spanning item
-        // overflow its own tracks.
+        // ⚠ §12.5.1's "distribute space beyond limits": space that nobody could take because every
+        // affected track hit its growth limit still has to go somewhere, and it goes to a NAMED
+        // subset of the affected tracks — or, failing that, back to all of them. Dropping the clause
+        // makes a spanning item overflow its own tracks.
         if (remaining > 1e-6f) {
-            var unbounded = 0;
+            var recipients = 0;
 
             for (var at = start; at < start + span; at++) {
                 ref var track = ref Scratch.Track(axis.TracksAt + at);
 
-                if (!track.IsCollapsed && IsAffectedBy(in track, round, axis.AvailableSpace, axis.Constraint) && float.IsPositiveInfinity(track.GrowthLimit)) {
-                    unbounded++;
+                if (!track.IsCollapsed
+                    && IsAffectedBy(in track, round, axis.AvailableSpace, axis.Constraint)
+                    && TakesSpaceBeyondLimits(in track, round, axis.AvailableSpace)) {
+                    recipients++;
                 }
             }
 
-            var share = remaining / (unbounded > 0 ? unbounded : affected);
+            var share = remaining / (recipients > 0 ? recipients : affected);
 
             for (var at = start; at < start + span; at++) {
                 ref var track = ref Scratch.Track(axis.TracksAt + at);
@@ -592,7 +594,7 @@ public sealed partial class LayoutTree {
                     continue;
                 }
 
-                if (unbounded == 0 || float.IsPositiveInfinity(track.GrowthLimit)) {
+                if (recipients == 0 || TakesSpaceBeyondLimits(in track, round, axis.AvailableSpace)) {
                     track.ItemIncurredIncrease += share;
                 }
             }
@@ -609,6 +611,43 @@ public sealed partial class LayoutTree {
         }
     }
 
+    /// <summary>
+    ///     Whether this track is one of the ones §12.5.1 hands the leftover to, once every affected
+    ///     track has frozen at its growth limit.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The subset is named by the track's MAX sizing function, and "its growth limit is
+    ///         still infinite" is not the same test.</b> §12.5.1's "distribute space beyond limits"
+    ///         gives the leftover to any affected track that <i>also</i> has an intrinsic max track
+    ///         sizing function when a minimum or a min-content contribution is being accommodated, or
+    ///         a max-content max track sizing function when a max-content one is — and only if there
+    ///         are none of those does it fall back to every affected track.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ An infinite growth limit was the proxy here, and it is wrong in one direction that a
+    ///         corpus fixture catches: a <c>max-content</c> track that a NON-spanning item already
+    ///         sized has an intrinsic max sizing function and a <i>finite</i> growth limit, because
+    ///         §12.5 step 2 set it. Under the proxy such a track was skipped, the "no such tracks"
+    ///         fallback fired, and the leftover went to every affected track including a
+    ///         <c>minmax(max-content, 20px)</c> one whose whole point is that it stops at 20 —
+    ///         `grid_content_sized_columns_max_content_and_max_content_fixed_and_max_content` splits
+    ///         140 points 64/32/44 that way instead of Chrome's 70/20/50.
+    ///     </para>
+    ///     <para>
+    ///         The growth-limit rounds take the third bullet, "all affected tracks", which is also
+    ///         moot: those rounds grow towards infinity, so nothing freezes and no space is ever left.
+    ///     </para>
+    /// </remarks>
+    static bool TakesSpaceBeyondLimits(in GridTrackState track, GridDistribution round, float availableSpace) =>
+        round switch {
+            GridDistribution.IntrinsicMinimum or GridDistribution.ContentBasedMinimum =>
+                track.Size.Max.IsIntrinsic(availableSpace),
+            GridDistribution.MaxContentMinimum =>
+                track.Size.Max.Kind is GridSizingKind.MaxContent or GridSizingKind.Auto or GridSizingKind.FitContent,
+            _ => true
+        };
+
     /// <summary>Whether one round of §12.5.1 is allowed to grow this track.</summary>
     /// <remarks>
     ///     <para>
@@ -621,12 +660,23 @@ public sealed partial class LayoutTree {
     ///         and undoes §6.6 entirely.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The max-content round only runs under a max-content constraint.</b> §12.5 step
+    ///         ⚠ <b>The max-content constraint gates <c>auto</c> and only <c>auto</c>.</b> §12.5 step
     ///         3.3 opens with "if the grid container is being sized under a max-content constraint",
-    ///         so a container with a definite size never reaches it. Running it unconditionally makes
-    ///         every <c>auto</c> track as wide as its widest item's max-content size even when the
-    ///         container had a fixed width to divide up, which is the difference between a grid that
-    ///         fits and one that overflows.
+    ///         and reading that as the whole step is the trap — the step ends with a second sentence,
+    ///         "<i>in all cases</i>, continue to increase the base size of tracks with a min track
+    ///         sizing function of <c>max-content</c> by distributing extra space as needed to account
+    ///         for these items' max-content contributions". So a track that literally says
+    ///         <c>max-content</c> accommodates a spanning item's max-content contribution however the
+    ///         container is being sized, exactly as step 2 already does for a non-spanning one — see
+    ///         <see cref="ApplyNonSpanningContribution" />, which has always read the two the same
+    ///         way. Gating both kinds left `minmax(max-content, 6px)` a min-content track the moment
+    ///         something spanned it, and the same track alone was right.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>auto</c> keeps its gate, and that is the half the opening sentence is about:
+    ///         running it unconditionally makes every <c>auto</c> track as wide as its widest item's
+    ///         max-content size even when the container had a fixed width to divide up, which is the
+    ///         difference between a grid that fits and one that overflows.
     ///     </para>
     /// </remarks>
     static bool IsAffectedBy(in GridTrackState track, GridDistribution round, float availableSpace, GridSizingConstraint constraint) =>
@@ -635,8 +685,8 @@ public sealed partial class LayoutTree {
             GridDistribution.ContentBasedMinimum =>
                 track.Size.Min.Kind is GridSizingKind.MinContent or GridSizingKind.MaxContent,
             GridDistribution.MaxContentMinimum =>
-                constraint == GridSizingConstraint.MaxContent
-                && track.Size.Min.Kind is GridSizingKind.MaxContent or GridSizingKind.Auto,
+                track.Size.Min.Kind == GridSizingKind.MaxContent
+                || (constraint == GridSizingConstraint.MaxContent && track.Size.Min.Kind == GridSizingKind.Auto),
             GridDistribution.IntrinsicMaximum => track.Size.Max.IsIntrinsic(availableSpace),
             GridDistribution.MaxContentMaximum =>
                 track.Size.Max.Kind is GridSizingKind.MaxContent or GridSizingKind.Auto or GridSizingKind.FitContent,

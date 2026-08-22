@@ -15,7 +15,7 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1 648 of the 2 120 grid, blockgrid and gridflex fixtures pass, 340 fail and 132 are refused.
+# 1 752 of the 2 120 grid, blockgrid and gridflex fixtures pass, 236 fail and 132 are refused.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
 # with every one of its failures outside block formatting. Grid has not — but the two features this
@@ -24,9 +24,9 @@
 # remains is arithmetic rather than whole features. Complete: placement (§8), the bulk of track
 # sizing (§12), §11.8 baseline alignment and §9's containing block — every `grid_placement_*`,
 # `grid_auto_flow_*`, `grid_repeat_*`, `grid_gap_*`, `grid_span_*` non-indefinite,
-# `grid_relayout_*`, `grid_align_items_baseline_*` and `grid_absolute_*` family is green, and so
-# are 472 of the 548
-# `grid_flex_track_*` fixtures, which are the ones that exercise §12.5 and §12.7 hardest.
+# `grid_relayout_*`, `grid_align_items_baseline_*` and `grid_absolute_*` family is green, and so is
+# every one of the 548 `grid_flex_track_*` fixtures, which are the ones that exercise §12.5 and
+# §12.7 hardest.
 
 # ── BASELINE ALIGNMENT (§11.8) ── CLOSED ──
 #
@@ -76,46 +76,12 @@
 # rather than a margin-resolution one, and nothing else in the corpus exercises it.
 grid_align_items_baseline_child_margin_percent
 
-# ── §12.5.1's SECOND HALF: A FIXED MINIMUM UNDER A FLEXIBLE MAXIMUM, SPANNED ──
-#
-# ⚠ The `_003_fixedmin_` family is what is left of the largest bucket in the corpus, and naming what
-# already works is the useful half: the `_001_` and `_003_automin_` families are green, so §12.5
-# step 4's proportional distribution, its intersection with each round's own affected-track filter,
-# and CSS Grid §6.6's zeroing of the automatic minimum over a spanned flexible track are all right.
-#
-# What `fixedmin` adds is a track whose minimum is a stated length AND whose maximum is flexible —
-# `minmax(25px, 1fr)` and friends — with an item spanning it. Such a track is excluded from step 4
-# (its minimum is not intrinsic) and its base size therefore comes only from §12.4's initialisation,
-# but Chrome also lets §12.7's flex fraction see the item's contribution through
-# `find-the-size-of-an-fr` over the ITEM's spanned tracks rather than over all of them. This
-# implementation only runs that per-item term when the container is indefinite; §12.7 wants it for
-# the definite case too, bounded by the item's max-content contribution.
-grid_flex_track_intrinsic_sizes_003_fixedmin_span1_0fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span1_1fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span1_2fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_0fr_0fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_0fr_0fr_1fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_0fr_1fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_0fr_auto
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_0fr_min_content
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_0fr_minmax_0_0fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_0fr_minmax_0_1fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_0point5fr_auto
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_1fr_0fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_1fr_1fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_1fr_3fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_1fr_auto
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_1fr_max_content
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_1fr_min_content
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_1fr_minmax_0_1fr
-grid_flex_track_intrinsic_sizes_003_fixedmin_span2_1fr_minmax_25px_1fr
-
 # ── A SPANNING ITEM AGAINST AN INDEFINITE CONTAINER ──
 #
 # Every one of these sizes a grid whose own inline size is being asked for while an item spans two
 # or more intrinsic tracks. The container is measured under a max-content constraint, so §12.5 step
-# 3.3 runs — correctly, and gated on the constraint, which is a fix this commit made — but the
-# result is then used as the container's size without re-sizing the tracks against it. CSS Sizing
+# 3.3 runs over the `auto` tracks as well as the `max-content` ones — correctly — but the result is
+# then used as the container's size without re-sizing the tracks against it. CSS Sizing
 # §5.1's fit-content is a min/max clamp of a max-content size, and where the clamp bites the tracks
 # want a second pass; `LayOutGrid` only takes one for the inline axis and only when the clamp
 # actually narrowed the box.
@@ -132,22 +98,6 @@ grid_max_content_single_item_span_2_gap_percent_indefinite
 grid_available_space_greater_than_max_content
 grid_available_space_smaller_than_min_content
 
-# ── A GROWTH LIMIT BELOW ITS OWN BASE, SPANNED ──
-#
-# `minmax(auto, 10px)` and `minmax(max-content, 6px)` are tracks whose maximum is smaller than the
-# minimum their content implies. §7.2.2 floors the maximum by the minimum, which this does at
-# initialisation — but when such a track is SPANNED, §12.5.1's "distribute space up to limits" is
-# supposed to treat the frozen growth limit as a ceiling for the base-size rounds and then hand the
-# leftover to the tracks whose limit was infinite. The leftover currently goes to every affected
-# track rather than only to the unbounded ones when at least one is unbounded, so a spanned pair of
-# clamped tracks ends up wider than Chrome makes it.
-grid_intrinsic_track_sizes_001_span1_minmax_auto_10px
-grid_intrinsic_track_sizes_001_span2_20px_minmax_max_content_30px
-grid_intrinsic_track_sizes_001_span2_20px_minmax_max_content_6px
-grid_intrinsic_track_sizes_001_span2_minmax_auto_10px_minmax_auto_10px
-grid_intrinsic_track_sizes_001_span2_minmax_auto_4px_minmax_auto_4px
-grid_intrinsic_track_sizes_001_span2_minmax_max_content_10px_minmax_max_content_10px
-grid_minmax_auto_fixed_10px
 
 # ── CYCLIC PERCENTAGES: A PERCENTAGE THAT RESOLVES AGAINST WHAT IT HELPED DECIDE ──
 #
