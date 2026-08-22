@@ -65,6 +65,32 @@ struct GridItem {
     /// <summary>The inline size the item was given once its columns were sized.</summary>
     public float ResolvedInlineSize;
 
+    /// <summary>
+    ///     CSS Grid §11.8's shim: how far this item's start edge sits below its row's shared baseline.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is part of the item's block-axis contribution, not a positioning offset applied
+    ///     afterwards.</b> §12.5 step 1 says a baseline-aligned item contributes the distance from its
+    ///     own baseline to the group's, <i>plus</i> its outer size — so a row holding a tall item and a
+    ///     short one whose baseline is high is taller than either, and the row has to be sized knowing
+    ///     that. Zero for every item that does not participate: one that is not baseline-aligned, one
+    ///     whose row span is not exactly 1 (§11.8 admits only span-1 items to a baseline-sharing
+    ///     group), and the one item in each group whose baseline is already the lowest.
+    /// </remarks>
+    public float BaselineShim;
+
+    /// <summary>
+    ///     Where this item's own baseline sits below its outer start edge, or NaN if it is not in a
+    ///     baseline-sharing group. Scratch for <c>ResolveBaselineShims</c>' second pass.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Kept apart from <see cref="BaselineShim" /> rather than converted in place. The second
+    ///     pass reads every member of a group to find the deepest baseline, so overwriting the first
+    ///     item's answer with its shim leaves the rest of the group comparing against a number that is
+    ///     no longer a baseline — which reads as a group that is one item smaller each time round.
+    /// </remarks>
+    public float OwnBaseline;
+
     /// <summary>One past the last column.</summary>
     public readonly int ColumnEnd => ColumnStart + ColumnSpan;
 

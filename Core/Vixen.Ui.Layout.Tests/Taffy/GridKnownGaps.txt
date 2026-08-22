@@ -15,32 +15,64 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1526 of the 2 120 grid, blockgrid and gridflex fixtures pass, 462 fail and 132 are refused.
+# 1552 of the 2 120 grid, blockgrid and gridflex fixtures pass, 436 fail and 132 are refused.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
 # with every one of its 42 failures outside block formatting. Grid has not: the buckets below are
-# real grid gaps, and the two largest — baseline alignment and CSS Grid §9's containing block — are
-# whole features rather than arithmetic slips. What IS complete is placement (§8) and the bulk of
-# track sizing (§12): every `grid_placement_*`, `grid_auto_flow_*`, `grid_repeat_*`, `grid_gap_*`,
-# `grid_span_*` non-indefinite and `grid_relayout_*` family is green, and so are 472 of the 548
+# real grid gaps, and the largest of them — CSS Grid §9's containing block for an out-of-flow child
+# — is a whole feature rather than an arithmetic slip. What IS complete is placement (§8), the bulk
+# of track sizing (§12) and now §11.8's baseline alignment: every `grid_placement_*`,
+# `grid_auto_flow_*`, `grid_repeat_*`, `grid_gap_*`, `grid_span_*` non-indefinite,
+# `grid_relayout_*` and `grid_align_items_baseline_*` family is green, and so are 472 of the 548
 # `grid_flex_track_*` fixtures, which are the ones that exercise §12.5 and §12.7 hardest.
 
-# ── BASELINE ALIGNMENT IS NOT IMPLEMENTED (§11.8) ──
+# ── BASELINE ALIGNMENT (§11.8) ── CLOSED ──
 #
-# `align-items: baseline` on a grid container aligns items by the baseline of their first line box,
-# which means shimming each item's intrinsic contribution by the distance from its own baseline to
-# its start edge BEFORE §12 sizes the rows — §12.5 step 1 says so in as many words. This store has a
-# baseline function and the flex path uses it; grid does not call it at all, so a baseline-aligned
-# item is placed as though it said `start`.
+# ⚠ Sixteen fixtures, four families, and the estimate this heading used to carry — "additive: a
+# per-item offset folded into MeasureGridItem's block-axis answer, plus a second pass over each
+# baseline-sharing group" — turned out to be exactly right. No restructuring of §12 was needed.
+# 462 → 446. See LayoutTree.Grid's ResolveBaselineShims.
 #
-# 64 of the corpus's 80 `align-items` occurrences are `baseline`, so this is the single largest
-# named feature missing. It is additive: the shim is a per-item offset folded into
-# MeasureGridItem's block-axis answer, plus a second pass over each baseline-sharing group.
+# The shim really is an INPUT to §12 and not a nudge applied afterwards, which is what decided where
+# the pass goes: after the columns, because an item's baseline depends on the inline size it was
+# given, and before the rows, because §12.5 step 1 sizes a row from contributions that already
+# include it. `grid_align_items_baseline_multiline` is the fixture that tells the two apart — its
+# first row is 60 tall because a 20-point item sits 40 points down, and a positioning-only fix makes
+# it 50 and puts the whole second row in the wrong place.
+#
+# ⚠ Two things learned writing it, both of which produced a green-looking pass that was wrong:
+#   · The baseline probe must lay the item out with `performLayout: true`. A baseline is either the
+#     box's own bottom edge or a descendant's, and the descent reads `Position[Edge.Top]`, which a
+#     measurement pass never writes. This is the only place in grid sizing that asks for a layout.
+#   · …and it must resolve the item's stated height first, for the reason MeasureGridItem already
+#     documents: a childless box answers a max-content block request with its padding and border and
+#     nothing else. A synthesised baseline IS the bottom edge, so every plain item reported a
+#     baseline of zero, and the shims came out INVERTED — the tall item dropped and the short one
+#     did not. It looked like a sign error and was not.
+#
+# What is NOT here: only items with a row span of exactly 1 join a baseline-sharing group, per
+# §11.8. A spanning item is aligned as though it said `start`, and no corpus fixture disagrees.
+
+# ── AN ITEM'S PERCENTAGE MARGINS DURING TRACK SIZING ── CLOSED, and one RTL remainder ──
+#
+# ⚠ Filed under baseline alignment until the baseline work closed the other four families and left
+# this one standing, which is what made it legible: it was never a baseline bug. The two items are in
+# one column, so each is alone in its baseline-sharing group and every shim is zero; the disagreement
+# was that the first row came out 65 rather than 70.
+#
+# CSS Grid §9 makes an item's grid area its containing block, so a percentage margin on the item is a
+# fraction of the AREA's inline size. `PlaceGridItemBoxes` got that right and said so; MeasureGridItem
+# resolved the same margins against the grid's own owner width, which for a max-content container is
+# NaN — so a `margin: 5%` item contributed its border box alone to the row and the row was short by
+# both margins. Ten fixtures, three lines: this family's LTR pair, and both
+# `grid_percent_items_width_and_margin` families, which were sitting in the cyclic-percentage bucket
+# below and are not cyclic — they are this. 446 → 436.
+#
+# ⚠ The line stays because its two RTL variants do not. Those disagree about the *inner* child
+# (`root.1.0.x`: Chrome 0, this −1), which is a half-point margin mirrored against a box that
+# overflows its area and then rounded — a rounding question in `PlaceGridItemBoxes`' RTL mirror
+# rather than a margin-resolution one, and nothing else in the corpus exercises it.
 grid_align_items_baseline_child_margin_percent
-grid_align_items_baseline_complex
-grid_align_items_baseline_multiline
-grid_align_items_baseline_multiline_column
-grid_align_items_baseline_multiline_row_and_column
 
 # ── AN ABSOLUTELY POSITIONED CHILD'S CONTAINING BLOCK IS NOT ITS GRID AREA (§9) ──
 #
@@ -170,11 +202,13 @@ grid_minmax_auto_fixed_10px
 # re-resolves the percentage against it. `grid_percent_items_nested_moderate` is the clean case, and
 # the numbers are close rather than wild (42.15625 against 51.44), which is what a missing second
 # pass looks like rather than a missing rule.
+#
+# ⚠ Two families left this bucket without a second pass being written, so the bucket was wider than
+# the rule it names: `grid_percent_items_width_and_margin` and its `_2_col` twin were a percentage
+# resolved against the wrong box rather than against an unknown one. See the closed heading above.
 grid_percent_items_nested_moderate
 grid_percent_items_nested_with_margin
 grid_percent_items_nested_with_padding_margin
-grid_percent_items_width_and_margin
-grid_percent_items_width_and_margin_2_col
 grid_percent_tracks_indefinite_with_content_overflow
 grid_percent_tracks_indefinite_with_content_underflow
 grid_margins_percent_center

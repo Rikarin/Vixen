@@ -21,11 +21,12 @@ and 42 fail — every one of them in the *absolute* path, in two buckets that pr
 that a flex parent hits identically. See [the block section](#block-layout-and-what-a-second-algorithm-cost)
 below and `Taffy/BlockKnownGaps.txt`.
 
-**Grid landed with doc 43 § B2 and is the third.** 1 526 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 132 are refused, and 462 fail in the buckets `Taffy/GridKnownGaps.txt`
-names one at a time. It is **partial and says which part**: placement (§8) and the bulk of track
-sizing (§12) are done, baseline alignment and CSS Grid §9's containing block are not, and
-`grid-template-areas` is **not implemented at all** — see [the grid section](#grid-and-the-part-with-no-oracle).
+**Grid landed with doc 43 § B2 and is the third.** 1 552 of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, 132 are refused, and 436 fail in the buckets `Taffy/GridKnownGaps.txt`
+names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
+sizing (§12) and §11.8's baseline alignment are done, CSS Grid §9's containing block for an
+out-of-flow child is not, and `grid-template-areas` is **not implemented at all** — see
+[the grid section](#grid-and-the-part-with-no-oracle).
 
 **Inline formatting landed with doc 43 § B3 and is the fourth**, and it is the first mode to arrive
 with **no corpus at all**: not one of the 6 058 fixtures sets `display: inline*` or `vertical-align`,
@@ -263,7 +264,7 @@ declaration and the corpus contains it, so fixed repetitions are expanded once o
 only text parsing here, and the exception is argued rather than accidental. It is the inverse of
 `GridTrackSize.ToString`, which already emits `minmax(0,1fr)`; and it is what lets the conformance
 corpus and the CSS bridge read a track list with the same lines. That matters more than the layering
-does: every one of the 1 526 passing grid fixtures arrives through `TaffyStyleMap` and never touches
+does: every one of the 1 552 passing grid fixtures arrives through `TaffyStyleMap` and never touches
 CSS, so a grammar written only for stylesheets would have had no adversarial coverage at all.
 `TaffyTrackListParser` is now an adapter between its returned refusal and the corpus's thrown one.
 
@@ -506,8 +507,9 @@ It reports every fixture it could not translate and why. Nine are skipped today,
 oracle in either corpus. See the grid section above for why writing them against expectations of our
 own devising was the wrong trade.
 
-**Grid's baseline alignment and §9 containing block**, both listed per fixture in
-`Taffy/GridKnownGaps.txt`.
+**Grid's §9 containing block** for an out-of-flow child, listed per fixture in
+`Taffy/GridKnownGaps.txt`. Baseline alignment used to be named here beside it and no longer is:
+§11.8 landed, and the bucket keeps its heading with the diagnosis that closed it.
 
 **Non-atomic inline fragmentation, anonymous block boxes, the strut, and `text-align`** — the parts
 of inline formatting that survived § B3. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
