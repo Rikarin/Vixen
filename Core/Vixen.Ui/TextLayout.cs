@@ -125,6 +125,34 @@ public sealed class TextLayout {
     ///         question gets the same answer, and a different available width is a different
     ///         question.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The answer is a whole number of device pixels, and rounding it <i>here</i> rather
+    ///         than at the end of the layout is what makes the two ways of writing the same paragraph
+    ///         agree.</b> A block of four lines at 27.875 each is 111.5 pixels tall. Reported as
+    ///         111.5, it reaches <c>LayoutTree.RoundToPixelGrid</c>, where a node that measured itself
+    ///         is ceiled to 112 and a node that merely <i>contains</i> the measured one is rounded to
+    ///         nearest — 111. An element's own <c>Text</c> is the first case; the <c>text</c> child a
+    ///         markup interpolation emits is the second, so the same string in the same box measured
+    ///         112 one way and 111 the other, and the container came out a pixel shorter than the
+    ///         child inside it with the last line's descenders clipped. Every <c>.vxml</c> panel uses
+    ///         the child form, so the difference showed up as a panel changing height purely by being
+    ///         ported.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ceiled, not rounded, and the reason is the same one the pixel grid gives.</b> A
+    ///         line that needs 111.5 pixels does not fit in 111; the half pixel that is lost is the
+    ///         bottom of the descenders. Where the fraction is large — .625, .75, .875 — ceiling and
+    ///         rounding agree and the bug was invisible, which is why it looked intermittent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Fixing it in the pixel grid instead was tried and is the wrong shape.</b> Teaching
+    ///         a box to ceil because it holds text makes its near edge floor to match, and a box that
+    ///         floors its top and ceils its bottom grows by a pixel whenever it sits at a fractional
+    ///         offset — so the rows of a uniform list came out 32 and 33 pixels tall depending on
+    ///         where they landed. Making the measurement itself integral leaves every rule in that
+    ///         pass exactly as it was: there is no longer a fraction for the two rules to disagree
+    ///         about.
+    ///     </para>
     /// </remarks>
     public static LayoutSize Measure(in MeasureRequest request) {
         if (request.Context is not UiElement element) {
@@ -136,6 +164,44 @@ public sealed class TextLayout {
         // decided anything, and sabotaging it failed no test. One condition, one meaning.
         var width = request.WidthMode == MeasureMode.Undefined ? float.PositiveInfinity : request.AvailableWidth;
 
-        return element.Block(width) is { } block ? new LayoutSize(block.Width, block.Height) : new LayoutSize(0f, 0f);
+        if (element.Block(width) is not { } block) {
+            return new LayoutSize(0f, 0f);
+        }
+
+        var scale = request.Tree.PointScaleFactor;
+        return new LayoutSize(WholePixels(block.Width, scale), WholePixels(block.Height, scale));
     }
+
+    /// <summary>Rounds a measured length up to the next whole device pixel.</summary>
+    /// <param name="value">The length, in layout pixels.</param>
+    /// <param name="scale">How many device pixels one layout pixel is.</param>
+    /// <returns>The length, no smaller, landing on the device grid.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <i>device</i> grid and not the layout one, because the two differ wherever the
+    ///         surface is not at 1×.</b> At 2× a block of 111.5 already covers exactly 223 device
+    ///         pixels and needs nothing; ceiling it to 112 layout pixels would hand it half a device
+    ///         pixel it has no use for, on every paragraph in the interface.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The tolerance is not decoration.</b> A line height is a sum of per-line floats, so
+    ///         a block that is exactly eight pixels tall arrives as 8.0000005 about as often as as 8,
+    ///         and a bare <c>Ceiling</c> would answer nine — a whole pixel of drift, on the case that
+    ///         needed no rounding at all. The bound matches <c>LayoutTree</c>'s own comparison
+    ///         tolerance, which is what decides the same question one pass later.
+    ///     </para>
+    /// </remarks>
+    static float WholePixels(float value, float scale) {
+        if (!float.IsFinite(value) || !float.IsFinite(scale) || scale <= 0f) {
+            return value;
+        }
+
+        var scaled = value * scale;
+        var whole = MathF.Ceiling(scaled - Tolerance);
+
+        return MathF.Max(whole, 0f) / scale;
+    }
+
+    /// <summary>How near an integer counts as being one. <c>LayoutTree.ComparisonTolerance</c>.</summary>
+    const float Tolerance = 0.0001f;
 }

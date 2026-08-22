@@ -230,17 +230,24 @@ public sealed class UiCompositingTests {
     ///         rounded corner.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The fraction is for something else entirely, and it is <i>not</i> caused by
-    ///         compositing — which is worth writing down here so that the next person to widen it
-    ///         knows what they are widening.</b> <c>ui-box.frag</c>'s antialiased corner and
-    ///         <c>SoftwareUiRasterizer</c>'s transcription of it disagree by up to seventeen levels on
-    ///         a handful of pixels along a rounded corner's arc, on a plain frame with no group in it
-    ///         at all: a two-box fixture drawn both ways differs on fifteen pixels of sixteen
-    ///         thousand, worst at the corner nearest the origin. It was measured that way rather than
-    ///         assumed. Nothing above notices, because this suite's committed pictures are compared
-    ///         against a <i>reference</i> rather than against the software renderer — this file is the
-    ///         first thing to put the two side by side. The seventeen pixels this fixture exceeds the
-    ///         channel bound on are all of them, and the fraction is set at roughly twice that.
+    ///         ⚠ <b>The fraction used to be twelve times this, and what it was absorbing was a
+    ///         defect rather than a property of the target.</b> <c>SoftwareUiRasterizer</c> took
+    ///         <c>fwidth</c> as a forward difference to the next pixel, which is not what a GPU
+    ///         computes — a derivative belongs to the 2×2 quad, so half the fragments get a
+    ///         *backward* difference — and around a rounded corner, where the distance field is
+    ///         curved, the two straddle the arc in opposite directions. That was worth up to
+    ///         seventeen levels of 255 on the corner arcs of a frame with no group in it at all, and
+    ///         seventeen pixels of this fixture over the channel bound. Emulating the quad closed it:
+    ///         <b>one</b> pixel of 16384 now exceeds the bound, and that one is the 8-bit store the
+    ///         paragraph above describes. See the derivative in <c>SoftwareUiRasterizer.Box</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So why not zero.</b> <c>fwidth</c> is implementation-defined between a fine and a
+    ///         coarse derivative, and the emulation is of the fine one because that is what this
+    ///         device does. A driver reporting coarse derivatives would put ten pixels of this
+    ///         fixture back over the bound — measured, by running the coarse emulation against the
+    ///         device — so the fraction is sized to clear that with room and no more. Anything above
+    ///         sixteen pixels is a real divergence and not a driver's choice of derivative.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Tighter than <c>Tolerance.Edges</c>, which this suite's committed pictures
@@ -252,7 +259,7 @@ public sealed class UiCompositingTests {
     ///         to 164. Both were checked by breaking it.
     ///     </para>
     /// </remarks>
-    static ImageTolerance Agreement => new(4, 0.002);
+    static ImageTolerance Agreement => new(4, 0.001);
 
     /// <summary>The fixture: two translucent groups, one inside the other, each with overlap in it.</summary>
     /// <param name="isolate">
