@@ -271,8 +271,15 @@ public class TextWrapTests {
 
             var size = TextLayout.Measure(request);
 
-            Assert.Equal(unwrapped.Width, size.Width, Tolerance);
-            Assert.Equal(unwrapped.Height, size.Height, Tolerance);
+            // ⚠ <b>The block's own size rounded up, because a measurement is reported in whole
+            // device pixels and a block is not.</b> The measure ceils so that the same paragraph
+            // comes out the same height whether an element holds it in its own `Text` or in a
+            // `text` child — see <c>TextLayout.Measure</c>. This document is at 1×, so the ceiling
+            // is the plain one. What is being asserted here is still that nothing <i>wrapped</i>:
+            // a measure that had wrapped would be shorter across and several lines taller, neither
+            // of which a pixel of rounding could account for.
+            Assert.Equal(MathF.Ceiling(unwrapped.Width), size.Width, Tolerance);
+            Assert.Equal(MathF.Ceiling(unwrapped.Height), size.Height, Tolerance);
         }
 
         // And a width that *is* offered is used, or the condition above would be a way of never
@@ -325,4 +332,103 @@ public class TextWrapTests {
         // selection past the bottom of a paragraph has to do.
         Assert.True(block.CaretIndexAt(0f, block.Height + 100f) >= block.Lines[^1].Start);
     }
+
+    /// <summary>
+    ///     ⚠ The same paragraph in the same box is the same height whether the element holds it or a
+    ///     <c>text</c> child does, at every width and at every scale.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The two forms are the imperative one and the markup one.</b> Setting
+    ///         <c>UiElement.Text</c> puts the measure function on the element itself; a
+    ///         <c>.vxml</c> interpolation emits <c>BuildContext.Text</c>, which is a child element
+    ///         tagged <c>text</c> with the string on it. Every markup panel takes the second path, so
+    ///         a disagreement between them is a panel changing height purely by being ported —
+    ///         indistinguishable, in a visual diff, from a real regression.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A sweep and not a width, because at most widths the bug is invisible.</b> The
+    ///         difference was a fraction of a line being ceiled on one path and rounded on the other,
+    ///         so it only showed where the fraction fell below a half: at two, three, eight and nine
+    ///         lines the two agreed and a single-width test would have passed throughout. Both scales
+    ///         are swept for the same reason — the rounding is on the <i>device</i> grid, so 111.5
+    ///         layout pixels is a fraction at 1× and a whole number at 2×.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two instrument checks, because this assertion passes on a broken engine in two
+    ///         different ways.</b> Without a real font every glyph is zero-wide, nothing wraps and
+    ///         both paths report nothing; without a fractional line height there is no rounding to
+    ///         disagree about. So the sweep is required to have produced a genuinely fractional block
+    ///         and a genuinely multi-line one before its agreement counts for anything.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(1f)]
+    [InlineData(2f)]
+    public void A_paragraph_measures_the_same_as_a_child_as_it_does_as_the_parents_own_text(float scale) {
+        var sawFraction = false;
+        var sawWrapping = false;
+
+        for (var width = 80; width <= 400; width += 4) {
+            var own = Measured(scale, width, child: false, out _, out var block);
+            var viaChild = Measured(scale, width, child: true, out var inner, out _);
+
+            sawFraction |= !Inexact(block.Height, MathF.Round(block.Height));
+            sawWrapping |= block.Lines.Length > 1;
+
+            Assert.Equal(own, viaChild, Tolerance);
+
+            // ⚠ And the container is never shorter than the thing inside it, which is the half of
+            // this that is not a matter of taste. A box a pixel shorter than its own text child
+            // clips the last line's descenders, and that was the state of the child path: the
+            // measured leaf ceiled to 767 while the box around it rounded to 766.
+            Assert.True(
+                viaChild + Tolerance >= inner,
+                $"at width {width} the box is {viaChild} tall and the text child inside it is "
+                + $"{inner}, so the last line is clipped"
+            );
+        }
+
+        Assert.True(sawFraction, "no width produced a fractional block, so there was no rounding to disagree about");
+        Assert.True(sawWrapping, "nothing wrapped, so the sweep never built the multi-line block this is about");
+    }
+
+    /// <summary>Lays the paragraph out one of the two ways and reports the outer element's height.</summary>
+    /// <param name="scale">The device scale to round against.</param>
+    /// <param name="width">How wide the box is.</param>
+    /// <param name="child">Whether the string goes on a <c>text</c> child rather than on the box.</param>
+    /// <param name="inner">The height of the element the string is actually on.</param>
+    /// <param name="block">The wrapped block, for the instrument checks.</param>
+    /// <returns>The outer element's height, as a consumer reads it.</returns>
+    static float Measured(float scale, int width, bool child, out float inner, out TextLayout block) {
+        const string Paragraph =
+            "the quick brown fox jumps over the lazy dog and then keeps running through the field "
+            + "until it reaches the far hedge where it stops to look back at the sleeping hound";
+
+        using var document = new UiDocument(600f, 600f);
+        document.Fonts.Register("Test", Font);
+        document.Layout.PointScaleFactor = scale;
+
+        document.Load(
+            "root { width: 600px; height: 600px; align-items: flex-start; } "
+            + $"para {{ width: {width}px; font-size: 22px; }} text {{ font-size: 22px; }}"
+        );
+
+        var element = document.Root.Add("para");
+        var holder = child ? element.Add("text") : element;
+
+        holder.Text = Paragraph;
+        document.Update();
+
+        block = holder.Block()!;
+
+        // ⚠ The font has to be doing something. A missing face measures every glyph at zero, which
+        // wraps to nothing and makes every assertion above trivially true.
+        Assert.True(block.Width > 0f, "the paragraph measured no width, so the test font did not load");
+
+        inner = holder.Height;
+        return element.Height;
+    }
+
+    static bool Inexact(float left, float right) => MathF.Abs(left - right) < 0.0001f;
 }

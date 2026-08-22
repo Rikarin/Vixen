@@ -213,7 +213,7 @@ public static class SoftwareUiRasterizer {
                 var shape = (a.Shape.X * w0) + (b.Shape.X * w1) + (c.Shape.X * w2);
 
                 var fragment = kind switch {
-                    BatchKind.Geometry => Box(texture, colour, shapes, (int)(shape + 0.5f)),
+                    BatchKind.Geometry => Box(texture, colour, shapes, (int)(shape + 0.5f), x, y),
                     BatchKind.Text => Text(texture, colour, shape, atlas),
 
                     // ⚠ Only an image whose texture is a composited group, which is the one image this
@@ -232,7 +232,17 @@ public static class SoftwareUiRasterizer {
     }
 
     /// <summary>A rounded box or its border, as <c>ui-box.frag</c> evaluates it.</summary>
-    static Color4 Box(Vector2 texture, Color4 colour, IReadOnlyList<UiShape> shapes, int index) {
+    /// <param name="texture">The offset from the box's centre, in pixels.</param>
+    /// <param name="colour">The interpolated vertex colour.</param>
+    /// <param name="shapes">The frame's shape records.</param>
+    /// <param name="index">Which record this fragment reads.</param>
+    /// <param name="px">
+    ///     The fragment's column. ⚠ Needed for its <i>parity</i> alone, and only because
+    ///     <c>fwidth</c> is a property of the 2×2 quad rather than of the fragment — see the
+    ///     derivative below. Nothing else in this method depends on where the pixel is.
+    /// </param>
+    /// <param name="py">The fragment's row, for the same reason.</param>
+    static Color4 Box(Vector2 texture, Color4 colour, IReadOnlyList<UiShape> shapes, int index, int px, int py) {
         if (index < 0 || index >= shapes.Count) {
             return default;
         }
@@ -242,13 +252,38 @@ public static class SoftwareUiRasterizer {
         var radius = CornerRadius(shape, texture);
         var distance = BoxDistance(texture, half, radius);
 
-        // ⚠ fwidth, computed exactly rather than by sampling neighbours. The texture coordinate of a
-        // box *is* the offset from its centre in pixels, so its screen-space derivative is exactly
-        // one along each axis — which means the neighbouring pixel's distance is the distance at
-        // point + (1,0), with no interpolation to reconstruct and no 2×2 quad to emulate.
+        // ⚠ <b><c>fwidth</c>, and the 2×2 quad has to be emulated rather than reasoned away.</b> The
+        // texture coordinate of a box *is* the offset from its centre in pixels, so its screen-space
+        // derivative is exactly one along each axis and there is no interpolation to reconstruct —
+        // which is what used to justify taking a plain forward difference to `point + (1, 0)`. It
+        // does not follow. A GPU does not difference against the *next* fragment; it differences
+        // across the quad the fragment sits in, so the pixel on the odd side of a quad gets a
+        // *backward* difference, and both fragments of the pair get a difference taken over the same
+        // two samples. For a straight edge the distance is affine and every one of those is the same
+        // number. Around a corner it is not: the arc's curvature is second order, the forward and
+        // backward differences straddle it in opposite directions, and the two disagree by roughly
+        // the second derivative — up to a twentieth of a pixel of coverage on a ten-pixel radius.
+        //
+        // ⚠ That was worth up to <b>seventeen levels of 255</b> on the corner arcs, on a frame with
+        // nothing composited in it at all, and nothing could see it: the golden suite compares each
+        // renderer against a committed *picture*, never against the other one, so the two drifted
+        // inside their separate tolerances until <c>UiCompositingTests</c> put them side by side.
+        // Emulating the quad takes the two-box fixture from a worst channel of nine to a worst of
+        // one, which is the 8-bit store and nothing else.
+        //
+        // ⚠ <b>Fine and not coarse, established by measuring both.</b> <c>fwidth</c> is
+        // implementation-defined between the two: <i>fine</i> differences each row and column
+        // separately, <i>coarse</i> gives all four fragments the quad's top-left difference. This is
+        // the fine one, because that is what the device does — the coarse variant was tried and left
+        // ten pixels of the compositing fixture over the channel bound where this leaves one. A
+        // driver that reported coarse derivatives would cost those ten back, which is what the
+        // headroom in <c>UiCompositingTests.Agreement</c> is sized for.
+        var sx = (px & 1) == 0 ? 1f : -1f;
+        var sy = (py & 1) == 0 ? 1f : -1f;
+
         var width = MathF.Max(
-            MathF.Abs(BoxDistance(texture + new Vector2(1f, 0f), half, radius) - distance)
-            + MathF.Abs(BoxDistance(texture + new Vector2(0f, 1f), half, radius) - distance),
+            MathF.Abs(BoxDistance(texture + new Vector2(sx, 0f), half, radius) - distance)
+            + MathF.Abs(BoxDistance(texture + new Vector2(0f, sy), half, radius) - distance),
             1e-4f
         );
 
