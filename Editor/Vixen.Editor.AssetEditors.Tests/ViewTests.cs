@@ -430,4 +430,207 @@ public class AudioMixerViewTests {
 
         Assert.Single(document.Mixer.Buses.First(bus => bus.Name == "Music").Effects);
     }
+
+    // ================================================================== The markup port
+
+    /// <summary>One strip's key, which is what a <c>refs</c> handle files its controls under.</summary>
+    static MixerColumn Column(string bus, string parent = "") => new(bus, parent, false);
+
+    /// <summary>
+    ///     ⚠ <b>The bounds are literals in the markup and constants in C#, and this is what stops
+    ///     them drifting.</b> They have to be literals: an attribute written as <c>@MinimumDb</c> is
+    ///     an effect, and <c>Slider.Value</c>'s coerce would have clamped a −3.5 dB fader into the
+    ///     default 0–1 range before the bounds effect ever ran.
+    /// </summary>
+    [Fact]
+    public void TheFaderBoundsAreTheConstantsTheMarkupWroteOut() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out _);
+        var faders = Descendants(view.Strips).OfType<Slider>().ToList();
+
+        Assert.NotEmpty(faders);
+        Assert.All(faders, fader => Assert.Equal(AudioMixerView.MinimumDb, fader.Minimum));
+        Assert.All(faders, fader => Assert.Equal(AudioMixerView.MaximumDb, fader.Maximum));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A strip's fader handler reads <i>its own</i> mute, which is the line <c>refs</c> was
+    ///     built for.</b> A <c>ref</c> in a loop body is one member for every row (<c>VXML2010</c>),
+    ///     so the answer would have been whichever strip was built last — and this asserts it with
+    ///     one strip muted and another not, so a handle that answered with the wrong row would say
+    ///     so.
+    /// </summary>
+    /// <remarks>
+    ///     Assigned rather than dragged, unlike <c>MarkupTests</c>. What is on trial there is whether
+    ///     a binding hears a real gesture at all; here it is which row's controls the handler reaches,
+    ///     and <c>change:</c> rides <c>PropertyChanged</c>, so an assignment is reported exactly as a
+    ///     drag is.
+    /// </remarks>
+    [Fact]
+    public void AFadersHandlerReadsItsOwnStripsMuteAndNotAnotherStripsOne() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        view.Mutes[Column("Music")].IsChecked = true;
+        harness.Ui.Frame();
+
+        view.Faders[Column("SFX")].Value = -9f;
+        harness.Ui.Frame();
+
+        Assert.Equal(-9f, document.Mixer.Buses.First(bus => bus.Name == "SFX").GainDb);
+        Assert.False(document.Mixer.Buses.First(bus => bus.Name == "SFX").Muted);
+
+        view.Faders[Column("Music")].Value = -18f;
+        harness.Ui.Frame();
+
+        Assert.Equal(-18f, document.Mixer.Buses.First(bus => bus.Name == "Music").GainDb);
+        Assert.True(document.Mixer.Buses.First(bus => bus.Name == "Music").Muted);
+    }
+
+    /// <summary>And the other way round: a mute writes the gain its own fader is showing.</summary>
+    [Fact]
+    public void AMutesHandlerWritesItsOwnFadersGain() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        view.Mutes[Column("SFX")].IsChecked = true;
+        harness.Ui.Frame();
+
+        var sfx = document.Mixer.Buses.First(bus => bus.Name == "SFX");
+
+        Assert.True(sfx.Muted);
+        Assert.Equal(0f, sfx.GainDb);
+
+        // Music is authored at −6 dB, so a mute that read the wrong fader would flatten it to SFX's.
+        view.Mutes[Column("Music")].IsChecked = true;
+        harness.Ui.Frame();
+
+        Assert.Equal(-6f, document.Mixer.Buses.First(bus => bus.Name == "Music").GainDb);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The <c>@for</c> key rule, asserted where getting it wrong would be worst.</b> A key
+    ///     carrying the gain would tear down and rebuild the fader's region on every step of a drag —
+    ///     the element under the pointer, mid-gesture. <c>MixerColumn</c> is name, parent and
+    ///     master-ness, so the row survives and the binding inside it does the moving.
+    /// </summary>
+    [Fact]
+    public void ChangingAGainKeepsTheStripsOwnFaderElement() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out _);
+        var fader = view.Faders[Column("SFX")];
+
+        fader.Value = -4f;
+        harness.Ui.Frame();
+        harness.Ui.Frame();
+
+        Assert.Same(fader, view.Faders[Column("SFX")]);
+        Assert.Equal(-4f, view.Faders[Column("SFX")].Value);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Opening a mixer posts nothing to the undo stack, and that is the one rule
+    ///     <c>change:</c> does not share with <c>bind:</c>.</b> Every fader has both a forward
+    ///     binding and a change handler, and the forward binding first writes one flush <i>after</i>
+    ///     the subscription exists — so without "a change made while effects are draining is not
+    ///     reported", every panel open would record a gain nobody touched, once per strip.
+    /// </summary>
+    [Fact]
+    public void OpeningAMixerPostsNoUndoEntry() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        harness.Ui.Frame();
+        harness.Ui.Frame();
+
+        Assert.Equal(0, document.Stack.Depth.Value);
+        Assert.Empty(document.Stack.History);
+
+        // ⚠ And a real change straight afterwards does post one — otherwise the assertion above
+        // would pass just as well on a panel whose faders were never wired to anything.
+        view.Faders[Column("SFX")].Value = -2f;
+        harness.Ui.Frame();
+
+        Assert.Equal(1, document.Stack.Depth.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The dropdown's options follow the selected bus, which is build-list item 4 worked
+    ///     around rather than fixed.</b> A <c>Select</c>'s options are not its children, so there is
+    ///     no markup spelling for them; <c>OptionCell</c> makes the list a property, and binding a
+    ///     property is an ordinary effect.
+    /// </summary>
+    [Fact]
+    public void TheSendDropdownOffersEveryBusButTheOneItWouldLeave() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out _);
+
+        Choose(harness, view, "SFX");
+        Assert.Equal(["Music", "Voice"], Dropdown(view, "Send to…").Options.Select(option => option.Value));
+
+        Choose(harness, view, "Music");
+        Assert.Equal(["SFX", "Voice"], Dropdown(view, "Send to…").Options.Select(option => option.Value));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Which of the two a fader writes to is the whole of what "editing a snapshot"
+    ///     means</b>, and it is the one behaviour of this panel with no element to look at.
+    /// </summary>
+    [Fact]
+    public void WithASnapshotChosenAFaderRecordsALineAndLeavesTheAuthoredMixAlone() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        document.AddSnapshot("Underwater");
+        harness.Ui.Frame();
+
+        var row = view.Snapshots.Children.First(
+            child => child.Text is { } text && text.StartsWith("Underwater", StringComparison.Ordinal)
+        );
+
+        harness.Ui.Document.Dispatch(
+            new PointerEvent {
+                X = row.AbsoluteLeft + 2f,
+                Y = row.AbsoluteTop + 2f,
+                Action = PointerAction.Pressed,
+                Button = PointerButton.Primary
+            }
+        );
+
+        harness.Ui.Frame();
+        Assert.Equal("Underwater", view.Snapshot);
+
+        view.Faders[Column("Music")].Value = -30f;
+        harness.Ui.Frame();
+
+        Assert.Equal(-6f, document.Mixer.Buses.First(bus => bus.Name == "Music").GainDb);
+
+        var line = document.Mixer.Snapshots.First(entry => entry.Name == "Underwater").Buses
+            .First(entry => entry.Bus == "Music");
+
+        Assert.Equal(-30f, line.GainDb);
+    }
+
+    /// <summary>
+    ///     The master strip is drawn, is not in the file, and is not selectable — which the panel
+    ///     this replaces achieved by never registering a handler on it, and this one by the handler
+    ///     declining. Same answer; written down because the two are not the same code.
+    /// </summary>
+    [Fact]
+    public void TheMasterStripIsNotSelectable() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out _);
+
+        Choose(harness, view, "Master");
+
+        Assert.Equal(string.Empty, view.Selected);
+    }
 }

@@ -449,7 +449,7 @@ Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-wr
 the honest version of that ratio has never been written down. This is it: **every panel in the
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
-**Where it stands.** Eighteen `.vxml` files across six assemblies — seventeen panels and one shared
+**Where it stands.** Nineteen `.vxml` files across six assemblies — eighteen panels and one shared
 part, `Parts/FactRow.vxml` — against **62 files and ~31,700
 lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
 turn out not to be panels at all, which is the first finding. There are 25 `RegisterPanel` call
@@ -508,6 +508,14 @@ since. `VXML2013` refuses it outside a loop, the mirror of `VXML2010`. Both are 
 `Core/Vixen.Ui.Markup/README.md`; the ledger below is updated, and the two remedies at the end of it
 are struck.
 
+✅ **And `AudioMixerView` is ported (2026-08-23), which is the evidence rather than the claim.** Both
+directives are used exactly as they were designed to be: `refs="@Faders"`/`refs="@Mutes"` and two
+`change:` handlers per strip, each reaching *its own* row's other control by key. The port is held to
+a whole-tree rectangle dump — every element's tag, classes and absolute rectangle, in three states —
+that is **byte-identical** to the hand-written panel's, and the "a change made while effects are
+draining is not reported" rule is asserted directly: opening a mixer leaves the undo stack at depth
+nought, and the very next fader move takes it to one.
+
 **3. A bound value is right on the next frame, not this one.** `EffectScheduler`'s contract is that
 writing a signal *only ever queues*, and `Flush` drains it once per frame, after input and before
 layout, because an effect running at the write would mutate the tree while the renderer walked it
@@ -539,6 +547,29 @@ rounding, it is an extra element.
 component can set an intrinsic child's `Text` with a `ref` **and still be used inside a caller's
 `@for`**, where a bare `ref` is `VXML2010`. That is item 2 of the build list below, already
 available in the one shape that matters most: put the row in a part.
+
+✅ **And the escape is four lines rather than a file, which is what wave 3's mixer port found.**
+"Capitalised tag" does not mean "`Component`" and does not mean "`.vxml`": the emitter writes
+`ctx.Child<T>(…)` for any PascalCase tag and lets C# overload resolution settle it, and `Text` is a
+`[UiProperty]` on **every** `UiElement`. So
+
+```csharp
+internal sealed class MixerTitle : UiElement {
+    protected override string TagName => "mixer-title";
+}
+```
+
+makes `<MixerTitle Text="@Heading" />` a real assignment to that element's own `Text`, with the same
+tag the stylesheet already names, in the same position, with no extra box. `AudioMixerView` needed
+nine of them and they cost about forty lines between them — where nine `.vxml` parts would have been
+nine files. **A part is worth a file when it has a shape; a caption has none.** `FactRow` stays a
+part because it is four elements and two cells that disagree about where the text goes; these are one
+element whose only content is its own text.
+
+⚠ **What this does *not* buy is an intrinsic tag written in lowercase.** The subclass is still a type
+somebody has to declare, so shape 5 is unchanged as a statement about the language — it is the *cost*
+of the escape that turned out to be small, which is why `FlameChartView`'s second withdrawal reason
+is now closed.
 
 ### Two recorded gaps are stale, and were verified closed
 
@@ -619,7 +650,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | Panel | Model | Signal-backed? | Verdict | Size |
 |---|---|---|---|---|
 | `BuildSettingsView` | snapshot | no, and cannot be — shape 3 | **done, wave 2** | M |
-| `FlameChartView` | snapshot | no | **no, and the nomination was backwards** — see below | S/M |
+| `FlameChartView` | snapshot | no | **no — withdrawn a second time (2026-08-23), and two of its three reasons are now wrong.** See below | S/M |
 | `CompiledSceneView` | snapshot | no | **port.** Purest snapshot in the tree; 6 tests, all on the view | M |
 | `VariationHarnessView` | snapshot | no | **port.** Read-only text and classes, *zero* value-change subscriptions | S |
 | `SettingsView` | live (view-local) | no | **port — the exclusion is lifted.** See below | M |
@@ -632,7 +663,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | port the readouts, keep the field rows (shape 2) | M |
 | `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output | M |
 | `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | ~~**defer.**~~ The half that was unportable was the field rows, which `change:` now expresses; `AnimationGraphView` still has no tests at all and still goes last | ~~L–XL~~ M–L |
-| `AudioMixerView` | snapshot | no | ~~**no**~~ **port.** `change:` + `refs` landed 2026-08-22: each strip is `refs="@Faders"`/`refs="@Mutes"` and two `change:` handlers that reach their own row by key | ~~XL~~ M |
+| `AudioMixerView` | snapshot | no | ~~**no**~~ ~~**port**~~ **done, wave 3 (2026-08-23).** 541 lines of C# → a 250-line `.vxml`, a 60-line `.cs` of records and captions, and a whole-tree rectangle dump in three states that is byte-identical to what it replaced | ~~XL~~ M |
 | `AnimationClipView` | snapshot | no | **no** — `Timeline.AddTrack`/`AddSpan` + `CurveEditor` is the whole panel | L |
 | `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
 | `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
@@ -657,9 +688,35 @@ state in the sheet; `flame-bar` has `:hover` **and** `:checked`.
    what `KeyBindingsView` kept imperative and for exactly the same reason — and there is no per-row
    handle to keep it imperative with.
 
-So it belongs beside `AudioMixerView`: blocked on **item 2** of the build list rather than item 1,
-and unblocked the day a `@for` body can hold a handle of its own. Until then `GpuTimelineView.vxml`'s
-remark that the `parked` rule "still exists for `FlameChartView`, which still pools" stays true.
+⚠ **Re-checked 2026-08-23 before starting it, and two of the three are now wrong. It is still a
+"no", and reason 1 is the whole of why.**
+
+- **Reason 2 is closed.** Shape 5's escape turned out to cost four lines rather than a file — see the
+  block under shape 5 — so `internal sealed class FlameBar : UiElement` with
+  `TagName => "flame-bar"` makes `<FlameBar Text="@caption" />` an assignment to the bar's own `Text`
+  with no extra box. `AudioMixerView` shipped nine of them.
+- **Reason 3 is closed.** `refs` *is* the per-row handle this said did not exist:
+  `Bars[node].State |= ElementState.Checked` in the click handler is the same two lines the pool
+  writes, reaching the same element.
+- **Reason 1 is wrong as written and right underneath.** "Clicking a bar re-zooms, which changes
+  every bar's geometry and therefore every key" is only true of a *value* key like
+  `GpuTimelineView`'s. A `FlameNode` is a reference and survives a zoom, so a node-keyed `@for` keeps
+  the clicked bar's element — and `BuildContext.For` genuinely reorders survivors rather than
+  rebuilding them. **But the asymmetry it was pointing at is real and is not a panel's to fix.**
+  `ElementState.Hover` is written in exactly one place in the whole engine — `Hover.cs`'s `Restate`,
+  reached from `UiDocument.Track`, which has exactly one call site: a pointer dispatch. So an element
+  that comes into existence between two pointer events **cannot** be hovered until the pointer moves,
+  and `ForgetHover` takes the old one out as it goes. The pool never removes an element, so it never
+  loses the state. That bites hardest where it is least of a corner case: `Show()` replaces every
+  node, so a chart repainted from a live capture while the pointer rests on it loses `:hover` under a
+  keyed loop and keeps it under the pool.
+
+So the verdict stands and the reason has moved. It is no longer blocked on a markup feature — both of
+those landed — it is blocked on **hover being recomputed only by pointer input**, which is
+`Core/Vixen.Ui`'s business and a change every panel would feel. Whoever wants this panel should take
+that up first, or argue the new behaviour is better and record the pixel change deliberately; either
+is a commit that says so, and neither is a port. Until then `GpuTimelineView.vxml`'s remark that the
+`parked` rule "still exists for `FlameChartView`, which still pools" stays true.
 
 ⚠ **`ViewportChrome` is a "no" for a positive reason**, not an absence: it throttles its stats to
 every fifteenth frame on purpose, to keep the window's draw list re-usable, and a binding would
@@ -696,22 +753,19 @@ the same pattern and simpler — an element owned by no region, so `Reload()`'s 
    always was, and not a nested component either.
 3. **A row template for `VirtualizingPanel`.** Frees `ConsoleView`, `MessageLogView` and `AssetGrid`,
    which are three of the most-looked-at surfaces in the editor.
-4. **A `Select` whose options come from markup.** `AddOption` is a method, and combined with
-<<<<<<< HEAD
-   `VXML2010` an enum dropdown inside a `@for` is inexpressible.
+4. **A `Select` whose options come from markup.** `AddOption` is a method — the options are not the
+   control's children at all, they live in a popover hanging off the document root — so with `refs`
+   an enum dropdown inside a `@for` can now be reached and subscribed to, but its options still have
+   to be added from C#. ⚠ **`AudioMixerView` shows the workaround and it is a good one:** wrap the
+   control in a four-line element whose `Choices` is a *property*, because binding a property is an
+   ordinary effect that re-runs with the region it was declared in. That is `OptionCell`, and it is
+   why this item is a convenience rather than a blocker now.
 5. ~~**Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.**~~ **`FactRow` is built** and has
    four callers; `Section` is blocked on the `World-title` casing bug and `VerbRow` earns nothing
-   yet. See "The shared parts" above. What the exercise proved is worth more than the row: a part is
-   the *only* way markup can write an intrinsic element's own text inside a loop, which promotes
-   item 2 from a convenience to the thing everything else is waiting on.
-=======
-   `refs` an enum dropdown inside a `@for` can now be reached and subscribed to, but its options
-   still have to be added from C#.
-5. **Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.** `Fact` is hand-written seven
-   times and `Section`/`Verbs`/`Clear` four times each. Every small terrain, water and blockout panel
-   collapses to a short file once these exist — the cheapest item on this list and the one that makes
-   six of the S-sized ports nearly free.
->>>>>>> agent/value-binding
+   yet. See "The shared parts" above. What the exercise proved is worth more than the row — though
+   ⚠ **wave 3 corrected the conclusion**: a *part* is not the only way markup can write an intrinsic
+   element's own text inside a loop, a four-line `UiElement` subclass is, and it is the cheaper one
+   whenever the thing being written is a caption rather than a row.
 
 ## Localisation
 

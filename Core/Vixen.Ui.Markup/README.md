@@ -211,7 +211,9 @@ and is still checked by the compiler, for anyone who would rather have the error
 
 `ref` refuses to be inside a `@for`, and until this existed that refusal was the end of the road: a
 list of controls could not be reached from C# at all, which is what made `AudioMixerView` — whose
-every strip's fader handler reads *its own* mute — unportable rather than merely awkward.
+every strip's fader handler reads *its own* mute — unportable rather than merely awkward. It is
+ported (2026-08-23), and `Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml` is what the
+snippet below looks like at full size.
 
 ```xml
 @code {

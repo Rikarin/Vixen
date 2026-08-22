@@ -181,6 +181,38 @@ something: a method call, an undo entry, a write that touches two fields.
 from a binding, so reporting it would be an undo entry for something the user never did. A change
 made by input, or by the panel's own code, does fire it.
 
+### Writing an element's own text
+
+An interpolation is a `text` **child**, not the parent's `Text`:
+
+```xml
+<fact-name>@Label</fact-name>          <!-- <fact-name><text>…</text></fact-name> -->
+<fact-name Text="@Label" />            <!-- a selector attribute; sets nothing you can see -->
+```
+
+An attribute on a lowercase tag is not a property assignment — it goes to the style tree, where a
+selector can match it and nothing reads it back. So `row.Add("fact-name").Text = label` has no direct
+markup spelling, and the difference is a box: a `text` child is a layout node and the parent's own
+text is not.
+
+⚠ **A capitalised tag is a real property assignment, and that is the whole escape.** It does not have
+to be a `Component` or a `.vxml` — the emitter writes `ctx.Child<T>(…)` for any PascalCase tag and
+lets C# resolve it, and `Text` is a `[UiProperty]` on every `UiElement`:
+
+```csharp no-compile="a fragment; the real one is Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.cs"
+internal sealed class FactName : UiElement {
+    protected override string TagName => "fact-name";
+}
+```
+
+```xml
+<FactName Text="@Label" />
+```
+
+Same tag, same position, same own text, four lines. Reach for a `.vxml` part instead when the thing
+has a *shape* — several elements, or content of its own; a caption has none. `AudioMixerView` uses
+nine of these and `Parts/FactRow.vxml` is the other kind.
+
 ### The `@for` key rule
 
 **Key on the item's value when the item is immutable data. Key on the object only when that object
