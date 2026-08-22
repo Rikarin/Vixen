@@ -232,11 +232,18 @@ would mean an assembly had been wired to Tailwind's colours instead of the edito
 
 ⚠ **The generated sheet is not the whole story about whether a class name works.** A misspelt utility
 is a style that silently does nothing — neither the compiler nor the markup binder can see one,
-because `class` is a string and every string parses. The build step writes every candidate it did not
-recognise to `obj/…/<Assembly>.unrecognised.txt`, and with the C# scanned that file is mostly ordinary
-English out of comments, so it cannot be a warning list. `StylesheetTests` asks the narrow question
-instead: every class name actually written in a `class` attribute in the editor's markup is either a
-utility the theme can emit or a rule `EditorTheme` wrote, and anything else is a typo.
+because `class` is a string and every string parses. The build step writes every candidate that
+emitted no rule to `obj/…/<Assembly>.unrecognised.txt`, and with the C# scanned that file is mostly
+ordinary English out of comments, so it cannot be a warning list. `StylesheetTests` asks the narrow
+question instead: every class name actually written in a `class` attribute in the editor's markup is
+either a utility the theme can emit or a rule `EditorTheme` wrote, and anything else is a typo.
+
+⚠ **The report has two sections and the first one is short.** A class whose *family* is registered
+and whose value is not — `bg-surfaces` for `bg-surface`, `bg-clip-text` for a keyword set nobody has
+registered — is a different failure from a word out of a comment, and is the one worth reading: it
+means somebody wrote a class whose root exists. Those come first, each naming the family and the
+value it had nothing for; the several thousand candidates that matched no family at all follow. The
+build line prints both counts.
 
 ## See also
 

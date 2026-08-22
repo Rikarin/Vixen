@@ -5,6 +5,33 @@ using System.Text;
 
 namespace Vixen.Ui.Styling.Utilities;
 
+/// <summary>Why a candidate that <i>was</i> a utility still produced no rule.</summary>
+public enum UtilityRefusalKind {
+    /// <summary>The family is registered and does not answer this value.</summary>
+    /// <remarks>
+    ///     <c>bg-clip-text</c>: <c>bg</c> exists, takes the longest registered prefix, and has nothing
+    ///     for <c>clip-text</c>. Every one of these is somebody writing a real Tailwind class against a
+    ///     root Vixen has only partly registered.
+    /// </remarks>
+    Value,
+
+    /// <summary>The utility resolved and one of its variants did not.</summary>
+    /// <remarks><c>supports-hover:p-4</c> — the <c>p-4</c> is fine and the whole class emits nothing.</remarks>
+    Variant
+}
+
+/// <summary>One candidate the generator refused, and what it was about it.</summary>
+/// <param name="Candidate">The class name as scanned.</param>
+/// <param name="Family">The registered family that was consulted — the <c>bg</c> of <c>bg-clip-text</c>.</param>
+/// <param name="Detail">The part it could not answer: the value, or the variant.</param>
+/// <param name="Kind">Which of the two refusals this is.</param>
+public readonly record struct UtilityRefusal(
+    string Candidate,
+    string Family,
+    string Detail,
+    UtilityRefusalKind Kind
+);
+
 /// <summary>Turns the utilities a project uses into a stylesheet.</summary>
 /// <remarks>
 ///     <para>
@@ -33,6 +60,7 @@ public sealed class UtilityGenerator {
     readonly ThemeTokens tokens;
     readonly List<UtilityDeclaration> declarations = [];
     readonly List<string> unknown = [];
+    readonly List<UtilityRefusal> unresolved = [];
     readonly List<string> atRuleScratch = [];
 
     /// <summary>Creates a generator.</summary>
@@ -48,8 +76,37 @@ public sealed class UtilityGenerator {
     ///     from any other string — so most of these are ordinary words, and warning about them would
     ///     make the build unusable. Exposed because a <i>typo</i> in a real utility lands here too,
     ///     and having somewhere to look is the difference between a five-minute puzzle and an hour.
+    ///     <para>
+    ///         ⚠ <b>No longer everything the generator dropped: see <see cref="Unresolved" />.</b> A
+    ///         candidate whose family is registered leaves here and goes there, so this list is now
+    ///         what its remark always claimed it was — the prose.
+    ///     </para>
     /// </remarks>
     public IReadOnlyList<string> Unrecognised => unknown;
+
+    /// <summary>The candidates that named a registered family and still produced no rule.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The distinction <see cref="Unrecognised" /> could not make, and the reason the
+    ///         list above was unreadable.</b> <c>bg-clip-text</c> and the English word <c>however</c>
+    ///         both used to arrive in one list of several hundred entries, so the one that is a real
+    ///         Tailwind class Vixen half-supports was indistinguishable from the several hundred that
+    ///         are prose — and indistinguishable-from-a-typo is the failure mode. Every entry here is
+    ///         news: the author wrote a class whose <i>root</i> this engine registers, which is the
+    ///         only reason they had to expect it to work.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it is not is a to-do list of missing families.</b> A refusal names the family
+    ///         that was consulted, not the family that should have been:
+    ///         <see cref="UtilityFamilies.SplitName" /> takes the longest registered prefix, so
+    ///         <c>rounded-ss-lg</c> is refused by <c>rounded</c> and what it actually wants is a
+    ///         <c>rounded-ss</c> nobody has registered. There is no shorter prefix to retry — a
+    ///         retrying <c>SplitName</c> would rescue none of these, which
+    ///         <c>Vixen.Ui.Styling.Utilities.Tests.ShadowedFamilyTests</c> measures rather than
+    ///         asserts from memory.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<UtilityRefusal> Unresolved => unresolved;
 
     /// <summary>How many rules the last generation emitted.</summary>
     public int RuleCount { get; private set; }
@@ -61,6 +118,7 @@ public sealed class UtilityGenerator {
         ArgumentNullException.ThrowIfNull(candidates);
 
         unknown.Clear();
+        unresolved.Clear();
         RuleCount = 0;
 
         // Sorted and de-duplicated, so that the same project produces the same file byte for byte.
@@ -76,17 +134,37 @@ public sealed class UtilityGenerator {
         var root = new AtRuleGroup();
 
         foreach (var candidate in seen) {
-            if (!UtilityParser.TryParse(candidate, out var parsed)
-                || !UtilityFamilies.TryResolve(parsed, tokens, declarations)) {
+            if (!UtilityParser.TryParse(candidate, out var parsed)) {
                 unknown.Add(candidate);
                 continue;
             }
 
+            if (!UtilityFamilies.TryResolve(parsed, tokens, declarations)) {
+                // ⚠ The split, and it is the only place that can make it. `TryResolve` says no for
+                // two reasons and has one `false` to say them with; the registry is what tells them
+                // apart, and asking it here rather than threading a reason out of `TryResolve` keeps
+                // the refusal a property of *this* run — the same candidate is prose in a project
+                // whose theme lacks the family and news in one whose theme has it.
+                if (UtilityFamilies.IsRegistered(parsed.Name)) {
+                    unresolved.Add(
+                        new UtilityRefusal(candidate, parsed.Name, parsed.Value, UtilityRefusalKind.Value)
+                    );
+                } else {
+                    unknown.Add(candidate);
+                }
+
+                continue;
+            }
+
             atRuleScratch.Clear();
-            var selector = BuildSelector(parsed, atRuleScratch);
+            var selector = BuildSelector(parsed, atRuleScratch, out var refusedVariant);
 
             if (selector is null) {
-                unknown.Add(candidate);
+                // The utility resolved, so this is news whatever the variant was: nothing here is
+                // prose — prose does not survive `TryResolve`.
+                unresolved.Add(
+                    new UtilityRefusal(candidate, parsed.Name, refusedVariant, UtilityRefusalKind.Variant)
+                );
                 continue;
             }
 
@@ -185,6 +263,7 @@ public sealed class UtilityGenerator {
     /// <summary>Works out a candidate's selector and the at-rules it has to sit inside.</summary>
     /// <param name="candidate">The parsed class name.</param>
     /// <param name="atRules">Receives the at-rules, outermost first.</param>
+    /// <param name="refused">Receives the variant that was not one this system knows, or empty.</param>
     /// <returns>The selector, or <c>null</c> if a variant is not one this system knows.</returns>
     /// <remarks>
     ///     <para>
@@ -203,12 +282,14 @@ public sealed class UtilityGenerator {
     ///         hand-written class list does produce — one wrapper rather than two identical ones.
     ///     </para>
     /// </remarks>
-    string? BuildSelector(UtilityCandidate candidate, List<string> atRules) {
+    string? BuildSelector(UtilityCandidate candidate, List<string> atRules, out string refused) {
         var selector = "." + Escape(candidate.Original);
         var prefix = string.Empty;
+        refused = string.Empty;
 
         foreach (var variant in candidate.Variants) {
             if (!Variants.TryResolve(variant, tokens, out var effect)) {
+                refused = variant;
                 return null;
             }
 

@@ -32,9 +32,19 @@ if (result.Errors.Count > 0) {
 
 StyleGenRunner.Write(request, result);
 
+// ⚠ Two counts and not two lists, and the second count is the one that was missing. A build line
+// per refusal was written and then measured: Vixen.Editor.Ui produces forty-three refusals of which
+// thirty-four are a bare English word that collides with a registered family name — `left`, `me`,
+// `to`, `size` — and nine more are CSS property names and comment prose out of a scanned `.vcss`.
+// Printing those on every build of every project is the unread list again, louder. So the counts go
+// here, where a number that moves is visible, and the sentence saying which family refused what goes
+// into the report, which is now sectioned and can actually be read. Nor a warning: `TreatWarningsAsErrors`
+// is on across the tree, and a half-registered Tailwind root is a gap in the family table rather than
+// a broken build.
 Console.WriteLine(
     $"Vixen.StyleGen: {result.RuleCount} utility rules from {request.Scan.Count} scanned files"
-    + $" ({result.Unrecognised.Count} candidates were not utilities)."
+    + $" ({result.Unresolved.Count} named a registered family and emitted nothing,"
+    + $" {result.Unrecognised.Count} matched no family at all)."
 );
 
 return 0;

@@ -10,12 +10,31 @@ namespace Vixen.StyleGen;
 /// <param name="Css">The whole sheet: the hand-written rules, then the utilities.</param>
 /// <param name="Utilities">The generated half on its own.</param>
 /// <param name="Unrecognised">Candidates the generator did not know. Prose, mostly.</param>
+/// <param name="Unresolved">
+///     Candidates that named a registered family and still emitted nothing.
+///     <para>
+///         ⚠ <b>Reported apart from <paramref name="Unrecognised" />, because the two differ by two
+///         orders of magnitude in size and the small one is where a real class hides.</b>
+///         <c>Vixen.Editor.Ui</c> produces forty-three of these against seven thousand of those, so
+///         a reader who has to answer "why does <c>bg-clip-text</c> do nothing" now has forty-three
+///         lines to look at rather than seven thousand and no way to tell which kind of nothing it
+///         was.
+///     </para>
+///     <para>
+///         <b>Not a per-line build message, and that was measured rather than assumed.</b> Of those
+///         forty-three, thirty-four are a bare English word colliding with a registered family name
+///         and the rest are CSS property names out of a scanned <c>.vcss</c> — the scanner is
+///         over-inclusive on purpose and no channel downstream of it can undo that. The count goes on
+///         standard output and the sentences go in the report.
+///     </para>
+/// </param>
 /// <param name="Errors">Reasons the build should fail.</param>
 /// <param name="RuleCount">How many utility rules were emitted.</param>
 internal sealed record StyleGenResult(
     string Css,
     string Utilities,
     IReadOnlyList<string> Unrecognised,
+    IReadOnlyList<UtilityRefusal> Unresolved,
     IReadOnlyList<string> Errors,
     int RuleCount
 );
@@ -175,6 +194,7 @@ internal static class StyleGenRunner {
             root.Length > 0 ? root + '\n' + css : css.ToString(),
             utilities,
             [.. generator.Unrecognised],
+            [.. generator.Unresolved],
             errors,
             generator.RuleCount);
     }
@@ -199,12 +219,57 @@ internal static class StyleGenRunner {
         }
 
         if (request.Report is { } report) {
-            WriteIfDifferent(report, string.Join('\n', result.Unrecognised));
+            WriteIfDifferent(report, Report(result));
         }
 
         if (request.Accessor is { } accessor) {
             WriteIfDifferent(accessor, Accessor(request, result));
         }
+    }
+
+    /// <summary>The refusal report: the news first, the prose after it.</summary>
+    /// <param name="result">What the run produced.</param>
+    /// <returns>The report text.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Two sections in one file rather than two files, and the order is the point.</b> The
+    ///     report was a bare list of every candidate that produced no rule, which for any real project
+    ///     is several hundred English words with the occasional real class buried among them — so the
+    ///     one entry worth acting on was the one nobody could find. The refusals go first, headed, and
+    ///     each one names the family that was consulted, so <c>bg-clip-text</c> reads as "the family
+    ///     <c>bg</c> has nothing for <c>clip-text</c>" rather than as a word this file did not know.
+    ///     <para>
+    ///         Headed even when a section is empty, because an unlabelled empty file is
+    ///         indistinguishable from a run that did not happen.
+    ///     </para>
+    /// </remarks>
+    internal static string Report(StyleGenResult result) {
+        ArgumentNullException.ThrowIfNull(result);
+
+        var text = new StringBuilder();
+
+        text.Append("# ").Append(result.Unresolved.Count)
+            .Append(" candidates named a registered family and emitted nothing\n");
+
+        foreach (var refusal in result.Unresolved) {
+            text.Append(refusal.Candidate).Append("\tthe family '").Append(refusal.Family).Append('\'');
+
+            text.Append(
+                refusal.Kind == UtilityRefusalKind.Variant
+                    ? $" resolves; the variant '{refusal.Detail}' is not one Vixen knows"
+                    : $" has no value '{refusal.Detail}'"
+            );
+
+            text.Append('\n');
+        }
+
+        text.Append("\n# ").Append(result.Unrecognised.Count)
+            .Append(" candidates matched no family at all — the scanner is over-inclusive, so most are prose\n");
+
+        foreach (var candidate in result.Unrecognised) {
+            text.Append(candidate).Append('\n');
+        }
+
+        return text.ToString();
     }
 
     /// <summary>The generated C#: the sheet as constants, and nothing else.</summary>

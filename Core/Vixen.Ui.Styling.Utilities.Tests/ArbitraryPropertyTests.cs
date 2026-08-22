@@ -43,10 +43,22 @@ public class ArbitraryPropertyTests {
             );
         }
 
-        // And whichever half refused it, the generator emits no rule for it at all.
+        // And whichever half refused it, the generator emits no rule for it at all — and says so in
+        // exactly one of its two channels.
+        //
+        // ⚠ Which channel is not this helper's claim, and asserting `Unrecognised` was how it came to
+        // be one. `bg-(brand)` and `text-indent-4` name the registered families `bg` and `text`, so
+        // they are refusals rather than prose (see `ShadowedFamilyTests`); `Foo(bar)` is prose. All
+        // three emit nothing, which is the whole of what "refused" means here.
         var generator = new UtilityGenerator(Tokens);
         Assert.DoesNotContain(candidate, generator.Generate([candidate]), StringComparison.Ordinal);
-        Assert.Contains(candidate, generator.Unrecognised);
+        Assert.Equal(0, generator.RuleCount);
+
+        Assert.True(
+            generator.Unrecognised.Contains(candidate, StringComparer.Ordinal)
+            ^ generator.Unresolved.Any(r => string.Equals(r.Candidate, candidate, StringComparison.Ordinal)),
+            $"'{candidate}' was reported in neither channel, or in both"
+        );
     }
 
     /// <summary>The hatch itself: a property with no family emits exactly what it says.</summary>
