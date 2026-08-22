@@ -150,9 +150,22 @@ grid_align_items_baseline_child_margin_percent
 # one. Six tests in `Core/Vixen.Ui.Tests` fail, headed by
 # `UiDocumentTests.The_root_is_laid_out_against_the_surface_rather_than_against_nothing`: `UiDocument`
 # calls `CalculateLayout(surface.Root, surface.Width, surface.Height, …)`, and a surface root with no
-# stated width would stop filling its window and shrink to its content. That is the question — does a
-# Vixen surface root behave like a browser's shrink-to-fit box or like Yoga's stretched one — and it
-# is not a question a layout fix gets to answer on its own.
+# stated width would stop filling its window and shrink to its content.
+#
+# ⚠ **ANSWERED 2026-08-09: a Vixen surface root FILLS ITS WINDOW, and these two fixtures stay here
+# permanently as a deliberate divergence rather than as work.** Jiu decided it, and the reasoning is
+# stronger than the preference: on the web the root element with `width: auto` is a block-level box
+# whose containing block is the initial containing block, and it FILLS it. Chrome's shrink-to-fit in
+# these fixtures is not a rule about document roots at all — it is what a grid CONTAINER does when
+# handed definite available space. Taffy gives the root a definite viewport width as a harness
+# convention for measuring, which is why only 20 grid fixtures do it and no flex or block fixture
+# does. The two oracles are not disagreeing about roots; they are disagreeing about what the
+# harness's outer box means.
+#
+# So do not "fix" these by switching the root's sizing mode. If a future change makes them pass, check
+# first that `UiDocumentTests.The_root_is_laid_out_against_the_surface_rather_than_against_nothing`
+# and its five siblings still pass too — if they do not, the change took a window's width away from a
+# window.
 #
 # ⚠ AND THE ONE LINE IS NOT THE WHOLE FIX EVEN IF THE ANSWER IS "CHROME". It closes 2 of these 8
 # fixtures, and the other 6 need two rules this heading never named:
