@@ -77,26 +77,41 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **328** | 98 families |
-| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **90** (5 of them `--` placeholders) |
-| …of which something in the engine acts on | — | **72** |
+| Utility **roots** (the unit of this table) | **328** | 128 families |
+| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
+| …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **25** |
 
-⚠ **98 families, not 43.** The working figure that has been quoted — 43 registrations, ~239 emitted
-tokens — counts the helper calls in one region of `UtilityFamilies`' static constructor rather than
-the registry it builds. Parsed properly, the constructor registers **98 distinct family names**
-emitting **90 distinct CSS properties** (five of them `--` placeholders). The direction of the error
-does not change the conclusion; the number does need to be right before it is used as a denominator.
+⚠ **128 families, and the figure moves every week — which is why nothing below is typed by hand any
+more.** The count has been quoted as 43 (the helper calls in one region of `UtilityFamilies`' static
+constructor), then as 98 (the registry that region builds, parsed properly), and it is 128 today.
+Every one of those was right when it was written. The number is a denominator, so it has to be right
+*now*, and the only way that holds is for it to be read off the registry on the run that prints it.
 
-### The five states, and why the four in the brief were not enough
+### The six states, and why the four in the brief were not enough
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **51** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **29** |
-| **inert** | resolves, computes a value, and nothing in the engine looks at it | **13** |
-| **absent** | not emitted at all | **223** |
-| **composed** | in Tailwind it sets a `--tw-*` that another utility assembles; not a property row | **12** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **77** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
+| **inert** | resolves, computes a value, and nothing in the engine looks at it | **4** |
+| **absent** | not emitted at all | **204** |
+| **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
+| **unknown** | the mechanism cannot decide, and the row says why | **1** |
+
+⚠ **`unknown` is the sixth, and it is there because a state that flatters is worse than no state.**
+Exactly one row holds it: an aggregate the original script left behind, eight static classes from
+unrelated Tailwind roots under one descriptive name, of which two resolve and six do not. No single
+state is true of it. The alternative — picking whichever of the five is closest — is how a ledger
+starts lying, and the row instead says what it would take to fix (split it, or drop it).
+
+⚠ **`composed` fell from twelve to three, and eight of the nine moved for two different reasons.**
+Five (`space-x/y-*`, `divide-*`, `divide-x/y-*`) were never composition at all: they are child-scoped
+families that emit real declarations onto `> :not(:last-child)`, and they now measure `works`. Three
+(`mask-radial-*`, `mask-radial-at-*`, `ring-offset-*`) are composition *in Tailwind* and Vixen
+registers no family for them, which is `absent` — calling them `composed` read as "handled" for three
+roots with nothing behind them. What is left is the three gradient-stop families, which are genuinely
+fragments with a working assembler.
 
 ### The composition mechanism
 
@@ -337,68 +352,90 @@ undone rather than approximated, and the cost of that decision has been zero.
 
 ### By category
 
-| Category | roots | works | partial | inert | absent | composed |
-|---|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 9 | 8 | 0 | 20 | 12 |
-| Interactivity | 39 | 2 | 0 | 1 | 36 | 0 |
-| Flexbox and Grid | 34 | 10 | 3 | 3 | 18 | 0 |
-| Typography | 34 | 4 | 3 | 1 | 26 | 0 |
-| Borders | 34 | 1 | 9 | 0 | 24 | 0 |
-| Effects | 33 | 2 | 0 | 1 | 30 | 0 |
-| Spacing | 24 | 14 | 4 | 0 | 6 | 0 |
-| Transforms | 23 | 0 | 0 | 4 | 19 | 0 |
-| Filters | 20 | 0 | 0 | 1 | 19 | 0 |
-| Sizing | 15 | 7 | 0 | 0 | 8 | 0 |
-| Backgrounds | 11 | 0 | 1 | 0 | 10 | 0 |
-| Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 |
-| SVG | 3 | 0 | 0 | 2 | 1 | 0 |
-| Tables | 2 | 0 | 0 | 0 | 2 | 0 |
-| Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **328** | **51** | **29** | **13** | **223** | **12** |
+| Category | roots | works | partial | inert | absent | composed | unknown |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| Layout | 49 | 14 | 8 | 0 | 23 | 3 | 1 |
+| Interactivity | 39 | 1 | 1 | 1 | 36 | 0 | 0 |
+| Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
+| Typography | 34 | 4 | 4 | 0 | 26 | 0 | 0 |
+| Borders | 34 | 13 | 5 | 0 | 16 | 0 | 0 |
+| Effects | 33 | 3 | 0 | 0 | 30 | 0 | 0 |
+| Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
+| Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
+| Filters | 20 | 0 | 0 | 1 | 19 | 0 | 0 |
+| Sizing | 15 | 0 | 7 | 0 | 8 | 0 | 0 |
+| Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
+| Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
+| SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
+| Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
+| Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| **Total** | **328** | **77** | **39** | **4** | **204** | **3** | **1** |
 
-Spacing and Sizing are the two categories that are genuinely done. Everything else is between a
-quarter and nothing, and three categories — Transforms, Filters, Tables — have **no working root at
-all**.
+Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
+Layout follow it. Tables, Filters and Accessibility still have **no working root at all**, and
+Interactivity is 1 of 39.
 
-⚠ **The table above is the hand survey of 2026-08-07 and it is no longer the measurement.** C5 has
-landed as `Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests`, which computes the
-inert set on every test run by resolving real elements and watching what the engine does with them —
-so from here on, the numbers to believe are the ones that run. Three things it found on its first
-pass, all of which the table above gets wrong in one direction or the other:
+⚠ **Sizing reads worse than it was and the roots did not move: the rule did.** It was `7 works, 0
+partial`; it is `0 works, 7 partial`, and nothing regressed. Every one of `w-*`, `h-*`, `size-*`,
+`min-w-*`, `min-h-*`, `max-w-*` and `max-h-*` is read on every property it emits — and none of them
+answers the six viewport-relative keywords Tailwind ships (`w-svw`, `w-lvw`, `w-dvw` and the `-svh`
+pair). The hand survey applied "a keyword set narrower than Tailwind's" to `items` and `overflow` and
+not to `w-*`; the generated column applies it to all of them. **That is the cost of mechanising, paid
+once: the numbers get slightly worse and start meaning the same thing in every row.**
 
-- **Four rows have since moved to `works`** and the survey predates them: `border-bottom-color`,
-  `border-left-color` and `border-right-color` are painted by the draw list now, and `order` is read
-  by both the layout and the paint sequence. The Borders and Flexbox rows are that much better than
-  they read.
-- **Transitions and Animation was `0 works, 0 partial, 3 inert`, not `2 / 1 / 0`** — F10 below. The
-  row was derived from the cascade computing a value, which is the conflation this whole document is
-  about, and it got past the survey. ✅ It is `3 works` now that A20 has landed, arrived at from the
-  other direction: a fade measured mid-flight rather than a value found in a table.
-- **`font-weight` is read** and the survey's own consumer walk did not say otherwise; it is recorded
-  here because it is the one property the *gate* got wrong first time round, for a reason worth
-  knowing. See F10's second half.
+⚠ **The table above is generated, and this paragraph is the third revision of a warning that it is
+not.** It used to say the counts were a hand survey with a date on them, then that the C5 gate had
+superseded them for the inert set only. Both were true and both rotted. The whole of the `state`,
+`vixen_emits` and `engine_reads` columns is now computed on every test run by
+`Core/Vixen.Ui.Styling.Utilities.Tests/ParityLedgerTests`, which drives the same consumption probe
+`UtilityConsumptionGateTests` uses and fails when the file disagrees with it. **The numbers in this
+section are asserted against that table by the same suite**, so prose and data cannot drift apart
+either.
 
-The live count is **11 properties emitted with no consumer**, every one of them on the expiring
-allow-list in `InertProperties.txt` with the task that closes it.
+The live count is **6 properties emitted with no consumer** — `rotate`, `scale`, `user-select`,
+`--blur`, `border-inline-start-color` and `border-inline-end-color` — every one of them on the
+expiring allow-list in `InertProperties.txt` with the task that closes it.
 
 ### The columns
 
 `category · root · kind · example · css · vixen_family · vixen_emits · engine_reads · inherit_only ·
 state · shadowed_by · value_gap · note · classes`
 
-Two of those are the ones to read first. **`shadowed_by`** names the Vixen family that swallows a
-Tailwind class whose own family does not exist — `rounded-tl-lg` reaches the family `rounded` with
-the value `tl-lg`, which no token table answers, so the utility is dropped with no diagnostic. That
-is `absent` with a trap in it rather than plain absence, and there are dozens. **`value_gap`** is the
-column for a root that emits and is read and *still* does not do what it says, `display` and
-`overflow` being the two the resolved-element suite proves.
+⚠ **Three of the fourteen are computed and the other eleven are not, and knowing which is which is
+how to read the file.** `vixen_emits`, `engine_reads` and `state` are measured on every test run and a
+hand edit to them fails the build. Everything else is declared: what Tailwind is, which family answers
+a root, and whether what is emitted is faithful.
 
-⚠ **The table was generated once, by a script, and the script is not in the tree.** Two of its three
-inputs need `tailwindcss` installed to dump the registry, so it is not something `./build.sh` can run.
-Making it one — `Tools/Vixen.TailwindParity`, reading a committed snapshot of the v4 registry and the
-same interning call sites the C5 gate walks — is the honest form of exit criterion 1, and it is
-grouped with C5 below rather than left as an intention. Until then the table is a measurement with a
-date on it: **`tailwindcss@4.3.3`, 2026-08-07.**
+**`shadowed_by`** names the Vixen family that swallows a Tailwind class whose own family does not
+exist — `rounded-tl-lg` used to reach the family `rounded` with the value `tl-lg`, which no token
+table answered, so the utility was dropped with no diagnostic. That was `absent` with a trap in it
+rather than plain absence. The eight per-corner families have since landed and the column is empty for
+them; it still holds for the rest. **`value_gap`** is the column for a root that emits and is read and
+*still* does not do what it says — the six viewport keywords `w-*` lacks, and the flow-relative
+spellings where Vixen emits physical edges (`mx-*` is `margin-left` + `margin-right`, not
+`margin-inline`, which is identical in LTR and wrong in RTL).
+
+⚠ **`value_gap` is hand-kept and it feeds the generated `state`, which is the one seam in the
+mechanism worth naming.** A root whose every property is read is `works` unless something says
+otherwise, and two things can: a listed class that does not resolve, which is measured, or a
+`value_gap`, which is a judgement. So `state` is not purely computed — it is computed from a measured
+read-ness and a declared fidelity. The alternative was to drop fidelity from the state entirely and
+call `w-*` "works", which is how the file came to overstate the sizing category in the first place.
+
+⚠ **What still needs `tailwindcss` installed, and therefore is not generated.** The Tailwind side of
+the cross product — which roots exist, which classes each covers — is transcribed from
+`__unstable__loadDesignSystem()` and is a measurement with a date on it: **`tailwindcss@4.3.3`,
+2026-08-07**. `Tools/Vixen.TailwindParity`, reading a committed snapshot of the v4 registry, would
+close that half too and is the remainder of exit criterion 1. The engine side no longer waits on it.
+
+⚠ **And the join between the two vocabularies is declared, because they collide.** `vixen_family` is
+the column a person maintains, and six names mean different things on either side of it: Tailwind's
+`block-*` and `inline-*` are `block-size` and `inline-size` while Vixen's `block` and `inline` are
+`display`; Tailwind's `bg`, `border`, `text` and `transition` static roots are `background-size`,
+`border-collapse`, `text-wrap` and `transition-behavior`, none of which the like-named Vixen families
+emit. Matching them by name would have marked six roots supported that are not. The guard against the
+column simply being forgotten is `Every_registered_family_is_claimed_by_a_row`: a family that lands
+and is written into no row fails the run, which is exactly the drift that produced this revision.
 
 ---
 
@@ -406,33 +443,43 @@ date on it: **`tailwindcss@4.3.3`, 2026-08-07.**
 
 Nine findings. Each is checkable, and the ones marked ⚠ contradict something currently written down.
 
-### F1 · `border-l-2` changes the layout and paints nothing ⚠
+### F1 · `border-l-2` changes the layout and paints nothing ✅ *closed — the draw list reads all four edges*
 
-`LayoutStyleBuilder` interns all seven border-width names and the layout honours each edge. The draw
-list takes **one** thickness — `Layout.GetComputedBorder(node, Edge.Top)` — and **one** colour,
-`border-top-color`. So:
+**What it was.** `LayoutStyleBuilder` interned all seven border-width names and the layout honoured
+each edge; the draw list took **one** thickness — `Layout.GetComputedBorder(node, Edge.Top)` — and
+**one** colour, `border-top-color`. So `border-l-2` inset the content box by two pixels on the left
+and drew no border anywhere, and `border-t-2` inset the top by two and drew a two-pixel border on
+**all four sides**. The widths were read by one consumer and ignored by the other, which is worse than
+inert, because the geometry moved and the picture did not follow.
 
-- `border-l-2` insets the content box by two pixels on the left and draws no border anywhere.
-- `border-t-2` insets the top by two and draws a two-pixel border on **all four sides**.
+✅ **Closed.** All eight per-edge longhands — four widths and four colours — now move the paint
+channel, measured by the consumption probe rather than read off the source. The six `border-*` roots
+that were `partial` for this reason (`border-*`, `border-x/y-*`, `border-t/r/b/l-*`) are `works`.
+The claim that the *right* consumer acted, which the probe cannot make, is
+`A_per_edge_border_colour_paints_only_the_edge_it_names` in `UtilityFamilySupportTests`: it sets one
+edge colour and asserts a single band, at the bottom, two pixels tall, the element's full width.
 
-Both are now proved by resolving real elements rather than by reading source —
-`A_left_border_insets_the_layout_and_paints_nothing` and `A_top_border_paints_the_whole_box` in
-`UtilityFamilySupportTests`. The first asserts the child's position *and* the absence of any
-`DrawCommandKind.Border`; the second asserts the stroke's rectangle is the element's own box, because
-a thickness assertion alone would pass either way.
+⚠ **What is left is the logical pair, and it is a smaller gap than it looks.**
+`border-inline-start-color` and `border-inline-end-color` still reach nothing — the widths beside them
+do — so `border-s-*` and `border-e-*` remain `partial`, on `InertProperties.txt` #21.
 
-The utilities README says per-edge border *colours* are inert. That is true and it is the smaller
-half: the widths are read by one consumer and ignored by the other, which is worse than inert,
-because the geometry moves and the picture does not follow. Nine of the 34 Borders roots are
-`partial` for this reason.
+### F2 · `rounded` is uniform for the same reason, one level down ✅ *closed — eight per-corner families*
 
-### F2 · `rounded` is uniform for the same reason, one level down
+**What it was.** `DrawListBuilder` interned `border-top-left-radius` and applied it to all four
+corners. ExCSS expands `border-radius`, so `rounded-md` worked; `rounded-tl-md` was not a family, was
+swallowed by `rounded`, failed the radius lookup and was dropped.
 
-`DrawListBuilder` interns `border-top-left-radius` and applies it to all four corners. ExCSS expands
-`border-radius`, so `rounded-md` works. `rounded-tl-md` does not exist as a family, is swallowed by
-`rounded`, fails the radius lookup and is dropped. **Fourteen** per-corner roots, all absent. The
-draw list underneath is not the limitation — `UiShape` already carries eight floats of elliptical
-corner radii; the *property bridge* is.
+✅ **Closed at both levels.** The eight per-corner families (`rounded-t/r/b/l-*` and
+`rounded-tl/tr/br/bl-*`) are registered, each emits exactly the longhand it names, and all four corner
+longhands are separately read — which is the measurement that matters, because a builder still
+applying one radius to every corner would leave the other three moving nothing and they would measure
+inert. The eight roots moved `absent` → `works` and their `shadowed_by` cells are empty.
+
+The per-corner claim the probe cannot make is `A_per_corner_radius_rounds_only_the_corner_it_names`,
+which asserts the other three corners are square *and* that the scalar `DrawCommand.Radius` stays
+zero — the exact bug being guarded is a consumer reading only the scalar and rounding all four by it.
+`UiShape`'s eight floats of elliptical corner radii were never the limitation; the property bridge
+was, and it is built.
 
 ### F3 · The per-axis overflow was the same bug twice, and it is fixed ✅
 
@@ -479,13 +526,17 @@ differ from their block-level twins only inside an inline formatting context, an
 `Block` and `Flex` would give `inline-block` the whole line, which is precisely what an author writes
 it to avoid. An alias would look like support and behave like a bug.
 
-### F5 · `truncate` does not truncate
+### F5 · `truncate` does not truncate ⚠ *re-measured 2026-08-21, still open*
 
 Tailwind's `truncate` is three declarations: `overflow: hidden`, `text-overflow: ellipsis`,
 `white-space: nowrap`. Vixen's emits the first — `Truncate_emits_neither_text_overflow_nor_nowrap`
 resolves an element and finds both of the other two absent. Nothing in `Vixen.Ui.Text` implements
 `text-overflow`, so the name promises an ellipsis the engine cannot draw, and the wrapping the third
 would have suppressed still happens. `line-clamp-*` is absent for the same reason one level up.
+
+⚠ **Both halves re-checked against the engine.** `truncate` still emits `overflow` and nothing else,
+and `text-overflow: ellipsis` moves none of the probe's four channels — so even if the family emitted
+it, nothing would draw it. The root stays `partial` and the gap is the text layer, not the bridge.
 
 ### F6 · Pseudo-element selectors compile and nothing consumes them ✅ *closed — refused, not built*
 
@@ -532,7 +583,7 @@ specificity/renumbering hazard: a refusal after `:is()` has already written into
 `SelectorTable` leaves entries nothing points at, which is waste and not corruption because every
 offset is captured at write time.
 
-### F7 · Arbitrary *properties* are not supported, and arbitrary *values* are ⚠
+### F7 · Arbitrary *properties* are not supported, and arbitrary *values* are ⚠ *re-measured 2026-08-21, still open*
 
 `w-[37px]` works and is well tested. `[mask-type:luminance]` — Tailwind's arbitrary-property escape
 hatch — parses to an arbitrary value with an empty utility name, and `UtilityParser.TryParse` returns
@@ -551,11 +602,19 @@ exactly as here, and a colour named `--color-lg` is exactly as unreachable there
 **and** `font-weight`.
 
 So the overload is not a defect and the resolution order is not a Vixen invention. What *is* a Vixen
-defect is a different thing that lives next door: **the longest-prefix split has no fallback**. When
-`rounded-tl-lg` fails inside the family `rounded`, Tailwind would go on to try `rounded-tl` as a root;
-Vixen has already committed to `rounded` and reports the class as unknown. Every `shadowed_by` row in
-the table is an instance. That is one function's worth of work — try the next-longest prefix on
-failure — and it is what makes adding the per-corner and per-axis families safe.
+defect is a different thing that lives next door: **the longest-prefix split has no fallback**.
+`SplitName` returns on the first name that matches and never reconsiders, so a value the chosen family
+cannot answer is reported as an unknown class rather than retried against a shorter prefix. Every
+`shadowed_by` row in the table is an instance.
+
+⚠ **Re-measured 2026-08-21: still open, and the worked example has been overtaken.** `rounded-tl-lg`
+was the illustration; the eight per-corner families have since been *registered*, so
+`rounded-tl-[6px]` now splits to `rounded-tl` directly and resolves. **The families were added; the
+fallback was not** — which is the more expensive of the two fixes done, and the cheap one still owed.
+The `shadowed_by` column is down from dozens to **39** rows, all now on axes nobody has registered:
+the logical insets (`inset-s/e/bs/be-*`), the logical radii (`rounded-s/e/ss/se/ee/es-*`), the
+per-axis transforms (`scale-x/y/z-*`, `rotate-x/y/z-*`) and `border-spacing-*`. Each is still one
+registration *or* one fallback away, and the fallback closes all 39 at once.
 
 ### F9 · Doc 09's own 1.0 family list was never finished ✅ *settled — two written, three struck*
 
@@ -701,7 +760,7 @@ as `gridded` and `inlined`: a green gate is a claim about the scenes as much as 
   because `transition-*` do not inherit. Fixing it means the overlay participating in inheritance,
   which is a change to the order of the pass rather than to the animator, and is not A20's.
 
-### F11 · The whole of `@media` was evaluated against a surface that does not exist ⚠ *found while closing F10*
+### F11 · The whole of `@media` was evaluated against a surface that does not exist ✅ *closed by A20; per-surface media still owed*
 
 `StyleEngine.Load` has taken a `MediaContext` since the cascade was written. **`UiDocument.Load`
 passed nothing**, and nothing else in `Core/` or `Editor/` constructed one — the only callers outside
@@ -739,11 +798,18 @@ stylesheet, and invisible only because a hot edit rarely changes the rule count 
 being crossed turns a dropped block into rules, which adds selectors by construction, so the first
 `@media` re-evaluation found it immediately.
 
-**Sized at 0.3 EM and landed with A20**, because it is the same shape of bug and the same seam. What
-is still owed is **per-surface media**: `@media` produces rules, rules are shared by every surface of
-one document — that is what keeps one theme across a torn-off window — so `max-width` cannot yet
-answer differently in two windows, and the context is read off the primary surface. `EditorPane`
-publishes the gamut from the main window's swapchain only, for the same reason.
+**Sized at 0.3 EM and landed with A20**, because it is the same shape of bug and the same seam.
+
+✅ **Verified 2026-08-21.** `StyleEngine.SetMedia` is in the shipped surface
+(`PublicAPI.Unshipped.txt`), the loader records the verdicts its guard replays, and
+`Core/Vixen.Ui.Tests/MediaContextTests` covers both the re-evaluation and the guard that stops a
+window drag re-parsing every sheet.
+
+⚠ **What is still owed is per-surface media**, and it is the reason this heading keeps a warning:
+`@media` produces rules, rules are shared by every surface of one document — that is what keeps one
+theme across a torn-off window — so `max-width` cannot yet answer differently in two windows, and the
+context is read off the primary surface. `EditorPane` publishes the gamut from the main window's
+swapchain only, for the same reason.
 
 ⚠ **And the second half is about the instrument rather than the engine: `font-weight` read as inert
 and is not.** The weight reaches `FontRegistry.Resolve` and selects a different face; the gate could
