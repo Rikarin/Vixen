@@ -183,6 +183,16 @@ public class UtilityFamilySupportTests {
         // Paint.
         { "bg-surface-raised", "background-color", "#f2f3f6" },
         { "opacity-50", "opacity", "0.5" },
+
+        // ⚠ <b>`blur-*` was the last row of A6's "paint the renderer has no channel for", and it left
+        // that list the way `fill-*` and `ring-*` did — by the row being wrong about the disease.</b>
+        // It named `--blur`, a property of this engine's own invention that nothing assembled and
+        // nothing could read, so the debt was filed against a name that could never come due. It is a
+        // composed family now: the fragment carries the length and an `Alongside` assembles a real
+        // `filter`, which `DrawListBuilder` reads and both executors render. Asserted on `filter`
+        // rather than on the fragment, because the fragment alone is what the old row already proved
+        // is not evidence of anything.
+        { "blur-2", "filter", "blur(8px)" },
         { "shadow-elevation", "box-shadow", "0px 10px 26px rgba(12, 14, 18, 0.22)" },
 
         // ⚠ <b>`fill-*` and `stroke-*` are the first rows here to move because a <i>consumer</i> was
@@ -402,8 +412,6 @@ public class UtilityFamilySupportTests {
         // What is left of A6 is `user-select`, below, and it is the one that is not waiting for a
         // reader either.
 
-        // Paint the renderer has no channel for.
-        { "blur-2", "--blur" },
 
         // ⚠ <b>Transforms, and this group moved in two directions at once.</b> Four rows were here,
         // all four naming a `--`-prefixed property of the family's own invention. Every one of those
