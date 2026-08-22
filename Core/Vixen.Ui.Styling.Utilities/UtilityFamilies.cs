@@ -723,6 +723,28 @@ public static class UtilityFamilies {
         return (whole, string.Empty);
     }
 
+    /// <summary>Whether a name is one the registry holds.</summary>
+    /// <param name="name">A name, as <see cref="SplitName" /> returns it.</param>
+    /// <returns>Whether a family is registered under it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The question <see cref="TryResolve" />'s <c>false</c> cannot answer, and the whole of
+    ///     why it is public.</b> <c>TryResolve</c> returns <c>false</c> for two situations that read
+    ///     identically to whoever wrote the class and are opposite in what to do about them:
+    ///     <c>flexx-4</c> is a typo and <c>bg-clip-text</c> is a registered family being asked for a
+    ///     value it does not have. Reporting them through one channel makes the second look like the
+    ///     first, and the first is what the scanner produces by the hundred — so the second drowns.
+    ///     <see cref="UtilityGenerator.Unresolved" /> is the channel that needs this to exist.
+    ///     <para>
+    ///         <b>Not a way to ask whether a class works.</b> A registered name says a family will be
+    ///         consulted, not that it will answer: <c>bg</c> is registered and <c>bg-clip-text</c>
+    ///         still emits nothing. Only <see cref="TryResolve" /> knows that.
+    ///     </para>
+    /// </remarks>
+    public static bool IsRegistered(string name) {
+        ArgumentNullException.ThrowIfNull(name);
+        return Registry.ContainsKey(name);
+    }
+
     /// <summary>What a family's rule is about, when it is not the element carrying the class.</summary>
     /// <param name="name">The family name, as <see cref="SplitName" /> returns it.</param>
     /// <returns>

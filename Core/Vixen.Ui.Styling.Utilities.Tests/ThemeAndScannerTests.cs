@@ -337,7 +337,16 @@ public class ThemeAndScannerTests {
         Assert.Contains(".w-\\[37px\\] { width: 37px; }", css, StringComparison.Ordinal);
 
         Assert.Equal(1, fixture.Generator.RuleCount);
-        Assert.Contains("text[1..]", fixture.Generator.Unrecognised);
+
+        // ⚠ A refusal rather than an unrecognised candidate, and the distinction is the point of the
+        // channel: `text` is a registered family handed a value it cannot answer, so this is a real
+        // utility that emitted nothing rather than a word the scanner picked out of a comment.
+        Assert.Equal(
+            [new UtilityRefusal("text[1..]", "text", string.Empty, UtilityRefusalKind.Value)],
+            fixture.Generator.Unresolved
+        );
+
+        Assert.Empty(fixture.Generator.Unrecognised);
     }
 
     /// <summary>

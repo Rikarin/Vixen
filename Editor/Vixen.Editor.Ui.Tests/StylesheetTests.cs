@@ -80,17 +80,31 @@ public partial class StylesheetTests {
 
         generator.Generate([name]);
 
+        // ⚠ Both channels, and checking only the first would have quietly halved this gate. A refused
+        // candidate leaves `Unrecognised` for `Unresolved` the moment its family is registered, so
+        // `bg-surfaces` — the misspelling the theory below is built around — reports through the
+        // second. What this asserts is that the class emitted a rule, which is what its name claims.
         Assert.True(
-            generator.Unrecognised.Count == 0,
+            generator.Unrecognised.Count == 0 && generator.Unresolved.Count == 0,
             $"'{name}' is neither a utility this theme can emit nor a rule in EditorTheme."
+            + (generator.Unresolved.Count > 0
+                ? $" The family '{generator.Unresolved[0].Family}' has no value '{generator.Unresolved[0].Detail}'."
+                : string.Empty)
         );
     }
 
     /// <summary>
     ///     ⚠ <b>The gate above, sabotaged.</b> A test that only ever sees correct input cannot say
     ///     whether it would notice wrong input, and this is the wrong input: five class names a
-    ///     reviewer's eye slides straight over. Every one has to reach <c>Unrecognised</c>, because
-    ///     that is the only place a misspelt utility ever shows up.
+    ///     reviewer's eye slides straight over. Every one has to be reported, because a report is the
+    ///     only place a misspelt utility ever shows up.
+    ///     <para>
+    ///         <b>Which of the two channels is a fact about the typo, not about the gate.</b>
+    ///         <c>flexx</c> mistypes the family and lands in <c>Unrecognised</c>; <c>p-4x</c> and
+    ///         <c>bg-surfaces</c> mistype the <i>value</i> of a family that exists, so they are
+    ///         refusals — which is the more useful diagnostic of the two and the reason the channels
+    ///         were split. See <c>docs/plan/43</c> § F8.
+    ///     </para>
     /// </summary>
     /// <param name="misspelt">The class name somebody nearly got right.</param>
     [Theory]
@@ -99,12 +113,18 @@ public partial class StylesheetTests {
     [InlineData("truncat")]
     [InlineData("min-width-0")]
     [InlineData("bg-surfaces")]
-    public void A_misspelt_utility_lands_in_unrecognised(string misspelt) {
+    public void A_misspelt_utility_is_reported(string misspelt) {
         var generator = new UtilityGenerator(Tokens());
 
         generator.Generate([misspelt]);
 
-        Assert.Contains(misspelt, generator.Unrecognised);
+        Assert.Equal(0, generator.RuleCount);
+
+        Assert.True(
+            generator.Unrecognised.Contains(misspelt, StringComparer.Ordinal)
+            ^ generator.Unresolved.Any(r => string.Equals(r.Candidate, misspelt, StringComparison.Ordinal)),
+            $"'{misspelt}' was reported in neither channel, or in both"
+        );
     }
 
     /// <summary>The tokens read cleanly, and every colour in them is the editor's own.</summary>

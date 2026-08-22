@@ -72,8 +72,25 @@ Vixen.Ui.Styling.Utilities.UtilityGenerator -> sealed class
 Vixen.Ui.Styling.Utilities.UtilityGenerator.Generate(System.Collections.Generic.IEnumerable<string> candidates) -> string
 Vixen.Ui.Styling.Utilities.UtilityGenerator.RuleCount.get -> int
 Vixen.Ui.Styling.Utilities.UtilityGenerator.Unrecognised.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Styling.Utilities.UtilityGenerator.Unresolved.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.Utilities.UtilityRefusal>
 Vixen.Ui.Styling.Utilities.UtilityGenerator.UtilityGenerator(Vixen.Ui.Styling.Utilities.ThemeTokens tokens) -> void
 Vixen.Ui.Styling.Utilities.UtilityParser -> static class
+Vixen.Ui.Styling.Utilities.UtilityRefusal -> readonly struct
+Vixen.Ui.Styling.Utilities.UtilityRefusal : System.IEquatable<Vixen.Ui.Styling.Utilities.UtilityRefusal>
+Vixen.Ui.Styling.Utilities.UtilityRefusal.Candidate.get -> string
+Vixen.Ui.Styling.Utilities.UtilityRefusal.Candidate.init -> string
+Vixen.Ui.Styling.Utilities.UtilityRefusal.Detail.get -> string
+Vixen.Ui.Styling.Utilities.UtilityRefusal.Detail.init -> string
+Vixen.Ui.Styling.Utilities.UtilityRefusal.Family.get -> string
+Vixen.Ui.Styling.Utilities.UtilityRefusal.Family.init -> string
+Vixen.Ui.Styling.Utilities.UtilityRefusal.Kind.get -> Vixen.Ui.Styling.Utilities.UtilityRefusalKind
+Vixen.Ui.Styling.Utilities.UtilityRefusal.Kind.init -> Vixen.Ui.Styling.Utilities.UtilityRefusalKind
+Vixen.Ui.Styling.Utilities.UtilityRefusal.UtilityRefusal() -> void
+Vixen.Ui.Styling.Utilities.UtilityRefusal.UtilityRefusal(string Candidate, string Family, string Detail, Vixen.Ui.Styling.Utilities.UtilityRefusalKind Kind) -> void
+Vixen.Ui.Styling.Utilities.UtilityRefusalKind -> enum : int
+Vixen.Ui.Styling.Utilities.UtilityRefusalKind.UtilityRefusalKind() -> void
+Vixen.Ui.Styling.Utilities.UtilityRefusalKind.Value = 0 -> Vixen.Ui.Styling.Utilities.UtilityRefusalKind
+Vixen.Ui.Styling.Utilities.UtilityRefusalKind.Variant = 1 -> Vixen.Ui.Styling.Utilities.UtilityRefusalKind
 Vixen.Ui.Styling.Utilities.VariantEffect -> readonly struct
 Vixen.Ui.Styling.Utilities.VariantEffect : System.IEquatable<Vixen.Ui.Styling.Utilities.VariantEffect>
 Vixen.Ui.Styling.Utilities.VariantEffect.AtRule.get -> string?
@@ -111,6 +128,7 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) 
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Ring() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.StopList(bool via) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Translation() -> string
+static Vixen.Ui.Styling.Utilities.UtilityFamilies.IsRegistered(string name) -> bool
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.ScopeOf(string name) -> string?
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.SplitName(string whole) -> (string Name, string Value)
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.Surface(Vixen.Ui.Styling.Utilities.ThemeTokens tokens) -> System.Collections.Generic.IReadOnlyList<string>

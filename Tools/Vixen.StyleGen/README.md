@@ -63,7 +63,7 @@ Into `obj/…/Vixen/`:
 |---|---|
 | `<Class>.g.cs` | The sheet as `const string` — added to `@(Compile)`, so the binary carries the text and a shipped game has no build artefact to deploy. |
 | `<Assembly>.g.vcss` | The same sheet as a file. Nothing compiles it; it is what a hot-reload watcher watches and what an asset-pipeline step will take as an input. |
-| `<Assembly>.unrecognised.txt` | Every candidate that was not a utility. |
+| `<Assembly>.unrecognised.txt` | Every candidate that emitted no rule, in two sections: the ones that named a registered family, then the ones that named nothing. |
 | `stylegen.rsp` | The command line, because MSBuild writes it long. |
 
 ⚠ **`unrecognised.txt` is not a warning list and must not become one.** The scanner is over-inclusive
@@ -73,6 +73,20 @@ too, and a misspelt utility is a style that silently does nothing, which no comp
 see. The narrow question a project's own test suite can ask is *is every name written in a `class`
 attribute a real utility*, and `Editor/Vixen.Editor.Ui.Tests/StylesheetTests.cs` is what that looks
 like.
+
+⚠ **Two sections, because the two refusals are not the same news and used to be one list.**
+`UtilityFamilies.TryResolve` says `false` both for "no such family" and for "that family has no such
+value", and `bg-clip-text` — a real Tailwind class against a root this engine registers — used to
+arrive among seven thousand English words with nothing to mark it out. The first section is the
+`UtilityGenerator.Unresolved` channel: each line names the family that was consulted and the value or
+variant it had nothing for. For `Vixen.Editor.Ui` it is 43 lines against 7 060. The build line
+carries both counts, so a number that moves is visible without opening `obj/`.
+
+⚠ **43 is not clean either, and a build message per refusal was tried and measured before being
+dropped.** Thirty-four of those 43 are a bare English word colliding with a registered family name —
+`left`, `me`, `to`, `size` — and most of the rest are CSS property names scanned out of a `.vcss`. No
+channel downstream of the scanner can undo the scanner's over-inclusiveness. See
+`docs/plan/43-web-styling-parity.md` § F8.
 
 ⚠ **Only when the bytes differ.** An output rewritten with identical content still gets a new
 timestamp, and a timestamp is what every incremental step downstream reads — so an unconditional write

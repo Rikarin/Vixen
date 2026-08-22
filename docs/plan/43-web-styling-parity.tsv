@@ -234,12 +234,12 @@ Layout	@container-*	functional	@container-normal	container-type					absent
 Layout	start-*	functional	start-full	inset-inline-start	start	inset-inline-start	inset-inline-start		works				
 Layout	end-*	functional	end-full	inset-inline-end	end	inset-inline-end	inset-inline-end		works				
 Sizing	max-w-screen-*	functional	max-w-screen-md	max-width					absent	max-w		swallowed by the family `max-w`; the value does not resolve, so nothing is emitted	
-Backgrounds	bg-size-*	functional	bg-size-[auto]	background-size					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	
-Backgrounds	bg-position-*	functional	bg-position-[center]	background-position					absent	bg		swallowed by the family `bg`; the value does not resolve, so nothing is emitted	
+Backgrounds	bg-size-*	functional	bg-size-[auto]	background-size					absent			not shadowed: `UtilityParser` decides the arbitrary value before `SplitName` is consulted, so this parses to the unregistered name `bg-size`	
+Backgrounds	bg-position-*	functional	bg-position-[center]	background-position					absent			not shadowed: `UtilityParser` decides the arbitrary value before `SplitName` is consulted, so this parses to the unregistered name `bg-position`	
 Backgrounds	bg-radial-*	functional	bg-radial-[at_50%]	background-image	bg-radial	background-image	background-image		works				
 Effects	mask-size-*	functional	mask-size-[auto]	mask-size					absent				
 Effects	mask-position-*	functional	mask-position-[center]	mask-position					absent				
-Typography	font-features-*	functional	font-features-[normal]	font-feature-settings					absent	font		swallowed by the family `font`; the value does not resolve, so nothing is emitted	
+Typography	font-features-*	functional	font-features-[normal]	font-feature-settings					absent			not shadowed: `UtilityParser` decides the arbitrary value before `SplitName` is consulted, so this parses to the unregistered name `font-features`	
 Filters	filter-*	functional	filter-none	filter					absent				
 Filters	backdrop-filter-*	functional	backdrop-filter-none	backdrop-filter					absent				
 Flexbox and Grid	flex-shrink-*	functional	flex-shrink-0	flex-shrink					absent	flex		swallowed by the family `flex`; the value does not resolve, so nothing is emitted	

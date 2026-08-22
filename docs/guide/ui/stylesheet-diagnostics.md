@@ -3,8 +3,8 @@ title: Stylesheet diagnostics
 slug: ui/stylesheet-diagnostics
 kind: guide
 area: Core
-summary: What happens to CSS Vixen cannot read — the at-rules, selectors and @apply names it drops, where the refusal is now reported, and why a rule that does nothing used to be indistinguishable from a rule that was never written.
-api: [L:7004, L:7005]
+summary: What happens to CSS Vixen cannot read — the at-rules, selectors and @apply names it drops, the build step's two refusal channels, where each refusal is now reported, and why a rule that does nothing used to be indistinguishable from a rule that was never written.
+api: [L:7004, L:7005, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
 tags: [ui, styling, vcss, diagnostics, logging, troubleshooting, apply]
 since: 0.2
 status: preview
@@ -112,6 +112,45 @@ differs from the block it sits in, which is not what *apply this here* means. Wr
 
 **Nothing is logged for a sheet the engine understood**, including `@layer` and `@media` — which
 matters, because a channel that spoke on every load would be a channel nobody reads.
+
+### The build step's own refusals
+
+The cascade's refusals reach the log at run time. The *generator*'s refusals happen at build time and
+have their own two channels on `UtilityGenerator`, reported into
+`obj/…/<Assembly>.unrecognised.txt` and summarised on the build line.
+
+⚠ **The split exists because one `false` was standing for two situations, and the useless one drowns
+the useful one by three orders of magnitude.** `UtilityFamilies.TryResolve` returns `false` both for
+"there is no such family" and for "that family has no such value", and everything it refused went
+into one list — which for `Vixen.Editor.Ui` is seven thousand entries, because the scanner is
+over-inclusive on purpose and reads every English word in every comment. So `bg-clip-text`, a real
+Tailwind class against a root Vixen registers, sat among them unmarked. Indistinguishable from a typo
+is the failure mode.
+
+| | |
+|---|---|
+| `Unrecognised` | The candidate named no family at all. Prose, overwhelmingly — and a misspelt *family*, like `flexx`. |
+| `Unresolved` | The candidate named a **registered** family and still emitted nothing. Each is a `UtilityRefusal` carrying the family that was consulted, the value or variant it had nothing for, and a `UtilityRefusalKind` saying which. |
+
+```csharp no-compile="A fragment: `tokens` is whatever `ThemeTokens` the caller already has, and the trailing comment is an assertion in prose rather than code."
+var generator = new UtilityGenerator(tokens);
+generator.Generate(["bg-clip-text", "however"]);
+
+// "however" is prose; "bg-clip-text" is a class whose root exists.
+UtilityRefusal refusal = generator.Unresolved[0];
+// refusal.Family == "bg", refusal.Detail == "clip-text", refusal.Kind == UtilityRefusalKind.Value
+```
+
+**A `UtilityRefusalKind.Variant` refusal is the same defect one field over**: the utility itself
+resolved and one of its variants did not, so `wednesday:p-4` emits nothing while `p-4` is perfectly
+fine. Nothing that has survived `TryResolve` is prose, so it belongs in this channel and not the
+other.
+
+⚠ **A refusal is not a to-do list entry, because it names the family that *was* consulted rather than
+the one that should have been.** `UtilityFamilies.SplitName` takes the longest registered prefix, so
+`rounded-ss-lg` is refused by `rounded` when what it wants is a `rounded-ss` nobody has registered.
+There is no shorter prefix to retry either — `docs/plan/43-web-styling-parity.md` § F8 has the
+measurement, and `ShadowedFamilyTests` re-takes it on every build.
 
 ## See also
 

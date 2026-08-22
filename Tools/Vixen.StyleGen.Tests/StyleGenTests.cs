@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Styling.Utilities;
 using Xunit;
 
 namespace Vixen.StyleGen.Tests;
@@ -121,6 +122,42 @@ public sealed class StyleGenTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ <b>The report separates the class that half-exists from the prose, because a file with
+    ///     both in one list is a file nobody can read.</b> <c>bg-clip-text</c> is a real Tailwind
+    ///     class against a root this engine registers and <c>however</c> is a word out of a comment;
+    ///     they used to arrive as two adjacent lines saying nothing about which was which, in a list
+    ///     that for any real project is several hundred long. Both sections are headed even when
+    ///     empty, so an untouched report and a report of a run that found nothing are different
+    ///     files.
+    /// </summary>
+    [Fact]
+    public void The_report_puts_a_half_registered_root_above_the_prose() {
+        var result = Run(new StyleGenRequest {
+            Themes = [Write("vixen.ui.vcss", Tokens)],
+            Scan = [Write("Panel.vxml", """<row class="bg-clip-text however p-4">""")]
+        });
+
+        var report = StyleGenRunner.Report(result);
+
+        Assert.Contains(
+            "bg-clip-text\tthe family 'bg' has no value 'clip-text'",
+            report,
+            StringComparison.Ordinal
+        );
+
+        Assert.Contains("# 1 candidates named a registered family", report, StringComparison.Ordinal);
+        Assert.Contains("however", report, StringComparison.Ordinal);
+
+        // The news is above the prose, which is the whole of why there are two sections.
+        Assert.True(
+            report.IndexOf("bg-clip-text", StringComparison.Ordinal)
+            < report.IndexOf("however", StringComparison.Ordinal)
+        );
+
+        Assert.Contains(".p-4 {", result.Css, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     ⚠ <b>A <c>.vcss</c> in the scan set is read as a stylesheet, and the seven rules that fixes
     ///     were never class names.</b> The step globs <c>**/*.vcss</c> alongside the C# and the markup,
     ///     and the scanner parses nothing — so <c>position: absolute</c> in a hand-written sheet was
@@ -234,7 +271,16 @@ public sealed class StyleGenTests : IDisposable {
             Scan = [Write("Panel.vxml", """<row class="bg-blue-500 bg-brand">""")]
         });
 
-        Assert.Contains("bg-blue-500", result.Unrecognised);
+        // ⚠ A refusal and not an unrecognised candidate, and this is the case that makes the split
+        // worth having: `bg` is registered, so somebody who cleared the colour namespace and forgot
+        // to re-add `blue-500` wrote a class whose root exists. Reporting that as "not a utility"
+        // alongside the project's prose is how a cleared token goes unnoticed.
+        Assert.Equal(
+            [new UtilityRefusal("bg-blue-500", "bg", "blue-500", UtilityRefusalKind.Value)],
+            result.Unresolved
+        );
+
+        Assert.DoesNotContain("bg-blue-500", result.Unrecognised);
         Assert.Contains(".bg-brand { background-color: #123456; }", result.Css, StringComparison.Ordinal);
     }
 

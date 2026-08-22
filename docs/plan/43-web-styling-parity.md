@@ -688,20 +688,72 @@ exactly as here, and a colour named `--color-lg` is exactly as unreachable there
 `border-*` is `border-width` **and** `border-color` in v4's own registry. `font-*` is `font-family`
 **and** `font-weight`.
 
-So the overload is not a defect and the resolution order is not a Vixen invention. What *is* a Vixen
-defect is a different thing that lives next door: **the longest-prefix split has no fallback**.
-`SplitName` returns on the first name that matches and never reconsiders, so a value the chosen family
-cannot answer is reported as an unknown class rather than retried against a shorter prefix. Every
-`shadowed_by` row in the table is an instance.
+So the overload is not a defect and the resolution order is not a Vixen invention. What lives next
+door is **the longest-prefix split having no fallback**: `SplitName` returns on the first name that
+matches and never reconsiders, so a value the chosen family cannot answer is reported as an unknown
+class rather than retried against a shorter prefix.
 
-⚠ **Re-measured 2026-08-21: still open, and the worked example has been overtaken.** `rounded-tl-lg`
-was the illustration; the eight per-corner families have since been *registered*, so
-`rounded-tl-[6px]` now splits to `rounded-tl` directly and resolves. **The families were added; the
-fallback was not** — which is the more expensive of the two fixes done, and the cheap one still owed.
-The `shadowed_by` column is down from dozens to **39** rows, all now on axes nobody has registered:
-the logical insets (`inset-s/e/bs/be-*`), the logical radii (`rounded-s/e/ss/se/ee/es-*`), the
-per-axis transforms (`scale-x/y/z-*`, `rotate-x/y/z-*`) and `border-spacing-*`. Each is still one
-registration *or* one fallback away, and the fallback closes all 39 at once.
+⚠ **Settled 2026-08-22, and this section had it wrong three revisions running. The fallback rescues
+nothing. What F8 was worth is the diagnostic, and that needs no fallback.** The claim under it — that
+the `shadowed_by` rows would resolve if the split retried — was never run against the registry, which
+is why it kept changing size. Run, it is false, and the two records that disagreed about it are
+corrected below.
+
+**What was measured.** For a retry to rescue a class, the shorter family must *answer* the value the
+longer one was handed. Swept over every nesting pair the registry contains — `bg`/`bg-linear`,
+`border`/`border-t`, `rounded`/`rounded-tl`, `divide`/`divide-x`, `overflow`/`overflow-x` and the
+twenty-nine others — against every colour, radius, shadow, size, weight, family and screen key in
+*both* shipped themes, the set of classes a retry would rescue is **empty**. Over the 641 class names
+this table's `classes` column lists, 463 do not resolve and **none** is rescuable by a shorter prefix.
+`Vixen.Ui.Styling.Utilities.Tests.ShadowedFamilyTests.A_shorter_prefix_would_rescue_nothing` runs the
+sweep on every build, so the day a registration or a theme token makes it non-empty, it fails and
+names the classes — rather than this paragraph going stale a fourth time.
+
+**Why it is empty, structurally.** Every shadowed root has *exactly one* registered prefix.
+`rounded-ss-2xl` is taken by `rounded` because `rounded` is the only registered prefix it has; there
+is no second candidate to fall back to. A retry would re-offer `inset-s-4` to `inset`, fail on `s-4`
+again, and stop. The longer families that do exist were registered precisely *because* the shorter
+one could not answer, so by construction the shorter one still cannot.
+
+**The `shadowed_by` column is 38 rows, not 39, and its composition is not what this section said.**
+The four groups named here — logical insets, logical radii, per-axis transforms, `border-spacing-*` —
+are 19 of the 38. The other 19 are `border-bs/be-*`, `font-stretch-*`, `text-shadow-*`,
+`inset-shadow-*`, `inset-ring-*`, `ring-offset-*`, `max-w-screen-*`, `flex-shrink/grow-*`, the `bg`
+keyword sets (`bg-clip`, `bg-origin`, `bg-blend`, `bg-repeat`), `stroke-none` and `content-none`.
+Three of those 38 the column *calls* shadowed are not: `bg-size-[auto]`, `bg-position-[center]` and
+`font-features-[normal]` carry an arbitrary value, and `UtilityParser` sets `Arbitrary` before
+`SplitName` is consulted at all — so they parse to the unregistered names `bg-size`, `bg-position`
+and `font-features` and are unknown families rather than shadowed ones. Their notes are corrected in
+the `.tsv`, which leaves the column at **35**.
+
+**So the remaining work on these rows is 35 registrations, and it was never one fallback.** Each row
+is one `Register` call plus whatever engine work the property implies, and nothing about them is
+blocked or unblocked by the split.
+
+⚠ **What *was* real, and is now done: the two refusals were indistinguishable.**
+`UtilityFamilies.TryResolve` returns `false` both for "no such family" and for "that family has no
+such value", and `UtilityGenerator` put both into one `Unrecognised` list. For `Vixen.Editor.Ui` that
+list is **7 103** entries, because the scanner is over-inclusive on purpose — so `bg-clip-text`, a
+real Tailwind class against a root this engine registers, sat among seven thousand English words with
+nothing to mark it out. Indistinguishable-from-a-typo was the failure mode, and it is the one thing
+under F8 that cost anything.
+
+`UtilityGenerator.Unresolved` is now a separate channel carrying `UtilityRefusal(Candidate, Family,
+Detail, Kind)`: the family that was consulted, the value it had nothing for, and whether the refusal
+was of a value or of a variant. The same split covers the case one field over — a utility that
+resolves and whose *variant* does not, which used to be filed as prose despite having survived
+`TryResolve`. The `.unrecognised.txt` report is sectioned, news first, and `StyleGen`'s build line
+carries both counts. For `Vixen.Editor.Ui` that is 43 against 7 060.
+
+⚠ **43 is an improvement of two orders of magnitude and it is still not clean, which is worth
+recording because the obvious next step is wrong.** A build message per refusal was written and then
+measured: 34 of the 43 are a bare English word colliding with a registered family name — `left`,
+`me`, `to`, `size`, `from` — and most of the rest are CSS property names and comment prose scanned
+out of a `.vcss`. Printing them on every build is the unread list again, louder. No channel
+downstream of the scanner can undo the scanner's over-inclusiveness, which is deliberate: a false
+positive costs one unused rule and a false negative is a style that silently does not exist. So the
+count is on standard output, where a number that moves is visible, and the sentences are in the
+report, where somebody chasing one class can read them.
 
 ### F9 · Doc 09's own 1.0 family list was never finished ✅ *settled — two written, three struck*
 
@@ -1883,7 +1935,7 @@ mixed-content paragraph sit behind it.
 
 | # | Item | EM |
 |---|---|--:|
-| C0 🟢 | The next-longest-prefix fallback in `SplitName` (F8) — unblocks every per-edge/per-corner family | 0.1 |
+| C0 ✅ | **The `SplitName` fallback (F8) — refused, measured, and replaced by the diagnostic it was standing in for.** A retry rescues zero classes over every nesting pair in the registry against both shipped themes, and every shadowed root has exactly one registered prefix, so there is nothing to fall back *to*; `ShadowedFamilyTests.A_shorter_prefix_would_rescue_nothing` re-measures that on each build. What was real is that "no such family" and "that family has no such value" were one `false` and one report list of 7 103 entries: `UtilityGenerator.Unresolved` splits them, and the `.unrecognised.txt` report is sectioned. ⛔ The 35 shadowed rows still want 35 registrations, which is C7 | 0.1 |
 | C1 🟢 | Arbitrary properties, and v4's `bg-(--var)` shorthand | 0.15 |
 | C2 🟢 | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5) | 0.1 |
 | C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
