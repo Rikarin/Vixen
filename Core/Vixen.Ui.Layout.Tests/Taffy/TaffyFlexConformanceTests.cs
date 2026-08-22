@@ -21,11 +21,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         result B1 and B2 needed before either could start.
 ///     </para>
 ///     <para>
-///         The 206 that do not are in <c>KnownGaps.txt</c> with a diagnosis each, and they are real:
-///         thirteen fixtures' worth of translation bugs were found and fixed on the way here rather
-///         than written down. The largest bucket is the CSS Flexbox §4.5 automatic minimum size for
-///         items that are containers, which is precisely the hole the layout README predicted the
-///         Yoga corpus was leaving.
+///         The 206 that did not are in <c>KnownGaps.txt</c> with a diagnosis each, and they are
+///         real: thirteen fixtures' worth of translation bugs were found and fixed on the way here
+///         rather than written down. The largest bucket was the CSS Flexbox §4.5 automatic minimum
+///         size for items that are containers, which is precisely the hole the layout README
+///         predicted the Yoga corpus was leaving; it and the <c>aspect-ratio</c> bucket after it are
+///         closed, and <b>94 remain</b>.
 ///     </para>
 /// </remarks>
 public class TaffyFlexConformanceTests {
@@ -53,8 +54,8 @@ public class TaffyFlexConformanceTests {
     // trees now execute LayoutTree.Grid, so a grid regression can turn this suite red — which is
     // correct, because a fixture that stops agreeing with Chrome should be loud wherever it lives,
     // but it will read as a flex failure to anyone who does not look at the names.
-    const int ExpectedPassing = 2098;
-    const int ExpectedFailing = 158;
+    const int ExpectedPassing = 2162;
+    const int ExpectedFailing = 94;
     const int ExpectedUnsupported = 152;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();

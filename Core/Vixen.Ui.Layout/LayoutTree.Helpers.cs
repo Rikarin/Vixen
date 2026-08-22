@@ -27,6 +27,50 @@ public sealed partial class LayoutTree {
     bool IsInFlow(int index) =>
         styles[index].Display != Display.None && styles[index].PositionType != PositionType.Absolute;
 
+    /// <summary>
+    ///     Whether a node is an item of a flex or grid container, and so takes its automatic minimum
+    ///     size from that algorithm rather than from CSS Sizing §4.1's content-based one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the test that decides whether a bound may travel across an aspect ratio</b>,
+    ///     and it is a question about the PARENT. See <see cref="BoundAxisWithinMinAndMax" /> for the
+    ///     pair of fixtures that forced the distinction: the same box under a flex parent and a block
+    ///     parent gets two different answers, because a block box's automatic minimum is its content
+    ///     and an item's is its algorithm's, which its own maximum caps.
+    ///     <para>
+    ///         An absolutely positioned child is an item of nothing — it is sized against a containing
+    ///         block by <c>LayoutTree.Absolute</c>, which applies the ratio rules it needs itself, and
+    ///         applying them here as well would clamp it twice.
+    ///     </para>
+    /// </remarks>
+    bool IsFlexOrGridItem(int index) {
+        var parent = links[index].Parent;
+        return parent >= 0
+            && styles[parent].Display is Display.Flex or Display.InlineFlex or Display.Grid
+            && styles[index].PositionType != PositionType.Absolute
+            && styles[index].Display != Display.None;
+    }
+
+    /// <summary>Whether a node is an item of a flex container specifically.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only flex items are exempt from a transferred bound on an axis that was handed to
+    ///     them</b>, and the two corpora insist on the difference in the same words.
+    ///     <c>aspect_ratio_flex_column_stretch_fill_max_width</c> and
+    ///     <c>grid_aspect_ratio_fill_child_max_width</c> are both <c>max-height: 20px;
+    ///     aspect-ratio: 2</c> on a box whose inline axis its parent fills, and the <c>max-width</c>
+    ///     of 40 that the ratio carries across is ignored by the flex item (100 wide) and obeyed by
+    ///     the grid item (40 wide). CSS Flexbox §9.4 stretches an item whose cross size is
+    ///     <c>auto</c> unconditionally; CSS Box Alignment §6.2's <c>normal</c> does not treat a box
+    ///     with a preferred aspect ratio that way. Same declaration, two containers, two answers.
+    /// </remarks>
+    bool IsFlexItem(int index) {
+        var parent = links[index].Parent;
+        return parent >= 0
+            && styles[parent].Display is Display.Flex or Display.InlineFlex
+            && styles[index].PositionType != PositionType.Absolute
+            && styles[index].Display != Display.None;
+    }
+
     /// <summary>Whether a node's size can be decided without measuring it.</summary>
     bool HasDefiniteLength(int index, Dimension dimension, float ownerSize) {
         var value = StyleResolution.ProcessedDimension(in styles[index], dimension).Resolve(ownerSize);
@@ -74,6 +118,127 @@ public sealed partial class LayoutTree {
         return align == Align.Baseline && FlexAxis.IsColumn(styles[index].FlexDirection) ? Align.FlexStart : align;
     }
 
+    /// <summary>The border-box height an already-decided border-box width implies through the ratio.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Which box the ratio describes is <c>box-sizing</c>'s decision</b>, so a
+    ///     <c>content-box</c> child's padding and border come off one axis before the division and go
+    ///     back on to the other after it. Dividing the border boxes directly is right for the default
+    ///     and silently wrong for every padded box, in an amount equal to the padding.
+    /// </remarks>
+    float HeightAcrossRatio(int child, Direction direction, float borderBoxWidth, float innerWidth) {
+        var ratio = styles[child].AspectRatio;
+
+        if (styles[child].BoxSizing == BoxSizing.BorderBox) {
+            return borderBoxWidth / ratio;
+        }
+
+        var acrossInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
+        var downInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
+
+        return (MathF.Max(0f, borderBoxWidth - acrossInset) / ratio) + downInset;
+    }
+
+    /// <summary>The border-box width an already-decided border-box height implies through the ratio.</summary>
+    /// <remarks>
+    ///     The exact inverse of <see cref="HeightAcrossRatio" />, and it lives beside it so the two
+    ///     cannot drift apart on the <c>box-sizing</c> question: composing them round-trips a length
+    ///     back to itself, which is what lets <see cref="ResolveAspectBounds" /> merge a bound in one
+    ///     axis with a bound in the other and get a pair that agrees with itself.
+    /// </remarks>
+    float WidthAcrossRatio(int child, Direction direction, float borderBoxHeight, float innerWidth) {
+        var ratio = styles[child].AspectRatio;
+
+        if (styles[child].BoxSizing == BoxSizing.BorderBox) {
+            return borderBoxHeight * ratio;
+        }
+
+        var acrossInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
+        var downInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
+
+        return (MathF.Max(0f, borderBoxHeight - downInset) * ratio) + acrossInset;
+    }
+
+    /// <summary>A box's minimums and maximums on both axes, made consistent with its aspect ratio.</summary>
+    /// <param name="MinWidth">The inline floor, or NaN.</param>
+    /// <param name="MinHeight">The block floor, or NaN.</param>
+    /// <param name="MaxWidth">The inline ceiling, or NaN.</param>
+    /// <param name="MaxHeight">The block ceiling, or NaN.</param>
+    readonly record struct AspectBounds(float MinWidth, float MinHeight, float MaxWidth, float MaxHeight);
+
+    /// <summary>
+    ///     A node's minimums and maximums on both axes, each transferred through the aspect ratio into
+    ///     the other axis and merged with what that axis already said.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The transfer is the half that makes a single clamp enough.</b> CSS Sizing §5.1
+    ///         applies a box's minimums and maximums in both axes, and §4.1 makes a bound in one axis
+    ///         a bound in the other whenever a preferred aspect ratio links them: <c>max-height: 20px</c>
+    ///         with <c>aspect-ratio: 2</c> <i>is</i> a <c>max-width</c> of 40. Every fixture in the
+    ///         <c>aspect_ratio_*_fill_{min,max}_*</c> families is that sentence and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Merging in both directions leaves the pair self-consistent</b> —
+    ///         <c>MaxWidth</c> across the ratio is exactly <c>MaxHeight</c>, and likewise for the
+    ///         minimums — because <c>max(a, b·r)/r == max(a/r, b)</c>. That is what lets a caller
+    ///         clamp whichever axis it decided first and then derive the other, without the derived
+    ///         axis landing outside its own bounds and needing a second clamp that would undo the
+    ///         first. Transferring one way only re-introduces the very asymmetry these families fail on.
+    ///     </para>
+    ///     <para>
+    ///         The bounds come back in border-box terms, but the transfer itself happens in whichever
+    ///         box <c>box-sizing</c> names, because that is the box the ratio describes.
+    ///     </para>
+    /// </remarks>
+    AspectBounds ResolveAspectBounds(int index, Direction direction, float ownerWidth, float ownerHeight) {
+        var minWidth = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction);
+        var minHeight = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction);
+        var maxWidth = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction);
+        var maxHeight = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction);
+
+        var ratio = styles[index].AspectRatio;
+        if (float.IsNaN(ratio) || ratio <= 0f) {
+            return new AspectBounds(minWidth, minHeight, maxWidth, maxHeight);
+        }
+
+        // ⚠ Each transfer reads the *original* bound on the other axis, never an already-merged one.
+        // Feeding a merged value back through would apply the same constraint twice and, for a
+        // content-box node, add its padding a second time with it.
+        var widthFromMinHeight = Across(minHeight, true);
+        var heightFromMinWidth = Across(minWidth, false);
+        var widthFromMaxHeight = Across(maxHeight, true);
+        var heightFromMaxWidth = Across(maxWidth, false);
+
+        return new AspectBounds(
+            Merge(minWidth, widthFromMinHeight, true),
+            Merge(minHeight, heightFromMinWidth, true),
+            Merge(maxWidth, widthFromMaxHeight, false),
+            Merge(maxHeight, heightFromMaxWidth, false)
+        );
+
+        float Across(float value, bool toWidth) {
+            if (float.IsNaN(value) || value < 0f) {
+                return float.NaN;
+            }
+
+            return toWidth
+                ? WidthAcrossRatio(index, direction, value, ownerWidth)
+                : HeightAcrossRatio(index, direction, value, ownerWidth);
+        }
+
+        static float Merge(float own, float transferred, bool isMinimum) {
+            if (float.IsNaN(own) || own < 0f) {
+                return transferred;
+            }
+
+            if (float.IsNaN(transferred)) {
+                return own;
+            }
+
+            return isMinimum ? MathF.Max(own, transferred) : MathF.Min(own, transferred);
+        }
+    }
+
     /// <summary>Clamps a value to a node's own min and max on an axis.</summary>
     /// <remarks>
     ///     ⚠ <b>The maximum is applied first and the minimum second, so that a minimum larger than
@@ -84,10 +249,62 @@ public sealed partial class LayoutTree {
     ///     <c>min-width: 50px; max-width: 40px</c> answered 40. Taffy's
     ///     <c>absolute_minmax_bottom_right_min_max</c> is the fixture; Chrome answers 50.
     /// </remarks>
-    float BoundAxisWithinMinAndMax(int index, Direction direction, FlexDirection axis, float value, float axisSize, float widthSize) {
+    float BoundAxisWithinMinAndMax(
+        int index,
+        Direction direction,
+        FlexDirection axis,
+        float value,
+        float axisSize,
+        float widthSize,
+        bool axisSizeIsImposed = false
+    ) {
         var dimension = FlexAxis.DimensionOf(axis);
-        var min = StyleResolution.ResolvedMinDimension(in styles[index], dimension, axisSize, widthSize, direction);
-        var max = StyleResolution.ResolvedMaxDimension(in styles[index], dimension, axisSize, widthSize, direction);
+        var isRow = FlexAxis.IsRow(axis);
+
+        float min;
+        float max;
+
+        if (!IsFlexOrGridItem(index)
+            || (axisSizeIsImposed && IsFlexItem(index))
+            || float.IsNaN(styles[index].AspectRatio)
+            || styles[index].AspectRatio <= 0f) {
+            min = StyleResolution.ResolvedMinDimension(in styles[index], dimension, axisSize, widthSize, direction);
+            max = StyleResolution.ResolvedMaxDimension(in styles[index], dimension, axisSize, widthSize, direction);
+        } else {
+            // ⚠ A RATIO MAKES THE OTHER AXIS'S BOUNDS THIS AXIS'S BOUNDS. `max-height: 20px` with
+            // `aspect-ratio: 2` is a `max-width` of 40, and every `aspect_ratio_flex_*_fill_{min,max}_*`
+            // family is that one sentence and nothing else.
+            //
+            // ⚠ FLEX ITEMS ONLY, and the reason is a pair of fixtures with identical styles and
+            // identical text: `aspect_ratio_flex_column_fill_max_height` and
+            // `block_aspect_ratio_fill_max_height` are both `max-width: 40px; aspect-ratio: 2` around
+            // eleven syllables of Ahem, and Chrome answers 40x20 for the flex item and 40x60 for the
+            // block. The transferred maximum is the same in both; what differs is the automatic
+            // MINIMUM that argues with it. A block box gets CSS Sizing §4.1's content-based automatic
+            // minimum in the ratio-dependent axis, which floors it at the six lines its text needs —
+            // `ResolveBlockChildBox` and the floor below it already implement that, and applying the
+            // transferred bound here as well would overrule it. A flex item instead gets Flexbox
+            // §4.5's automatic minimum, which is explicitly capped by the item's own maximum, so the
+            // transferred 20 wins. Two formatting contexts, two rules; this is not a gate around an
+            // inconvenience.
+            //
+            // ⚠ AN AXIS WHOSE SIZE WAS HANDED TO IT IS NOT THE RATIO'S TO BOUND, which is what
+            // `axisSizeIsImposed` says. A transferred bound belongs to the axis the ratio DECIDES; an
+            // axis the flex algorithm stretched to the line, or that a definite length fixed, was
+            // decided by something else and a bound carried across the ratio has no standing on it.
+            // `aspect_ratio_flex_row_stretch_fill_max_height` is the fixture that insists: its
+            // `max-width: 40px` transfers to a `max-height` of 20, and the item is still 100 tall,
+            // because 100 is what `align-items: stretch` gave it. Its own `max-height` would still
+            // have applied — only the borrowed one does not.
+            //
+            // ⚠ The block axis's owner size is only in hand when the clamp is *about* the block axis,
+            // so a PERCENTAGE `min-height`/`max-height` does not transfer into the inline axis. That
+            // is a real limit rather than an oversight: it degrades to the pre-existing behaviour
+            // instead of resolving a percentage against a length this call was never given.
+            var bounds = ResolveAspectBounds(index, direction, widthSize, isRow ? float.NaN : axisSize);
+            min = isRow ? bounds.MinWidth : bounds.MinHeight;
+            max = isRow ? bounds.MaxWidth : bounds.MaxHeight;
+        }
 
         if (!float.IsNaN(max) && max >= 0f && value > max) {
             value = max;
@@ -101,9 +318,17 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Clamps to min and max, and never below the node's own padding and border.</summary>
-    float BoundAxis(int index, FlexDirection axis, Direction direction, float value, float axisSize, float widthSize) =>
+    float BoundAxis(
+        int index,
+        FlexDirection axis,
+        Direction direction,
+        float value,
+        float axisSize,
+        float widthSize,
+        bool axisSizeIsImposed = false
+    ) =>
         MathF.Max(
-            BoundAxisWithinMinAndMax(index, direction, axis, value, axisSize, widthSize),
+            BoundAxisWithinMinAndMax(index, direction, axis, value, axisSize, widthSize, axisSizeIsImposed),
             StyleResolution.PaddingAndBorderForAxis(in styles[index], axis, direction, widthSize)
         );
 

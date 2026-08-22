@@ -566,26 +566,6 @@ public sealed partial class LayoutTree {
             value < 0f ? float.NaN : StyleResolution.WithBoxSizing(in styles[child], value, dimension, innerWidth, direction);
     }
 
-    /// <summary>The border-box height an already-decided border-box width implies through the ratio.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Which box the ratio describes is <c>box-sizing</c>'s decision</b>, so a
-    ///     <c>content-box</c> child's padding and border come off one axis before the division and go
-    ///     back on to the other after it. Dividing the border boxes directly is right for the default
-    ///     and silently wrong for every padded box, in an amount equal to the padding.
-    /// </remarks>
-    float HeightAcrossRatio(int child, Direction direction, float borderBoxWidth, float innerWidth) {
-        var ratio = styles[child].AspectRatio;
-
-        if (styles[child].BoxSizing == BoxSizing.BorderBox) {
-            return borderBoxWidth / ratio;
-        }
-
-        var acrossInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
-        var downInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
-
-        return (MathF.Max(0f, borderBoxWidth - acrossInset) / ratio) + downInset;
-    }
-
     /// <summary>Clamps a length between a minimum and a maximum, minimum last.</summary>
     /// <remarks>
     ///     CSS Sizing §5.1 expresses the rule as two clamps in that order, which is what makes the

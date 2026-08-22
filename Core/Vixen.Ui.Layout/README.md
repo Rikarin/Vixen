@@ -11,18 +11,18 @@ algorithm is the valuable part.
 ## State
 
 **Flexbox is complete and the conformance suite is green: 534 of Yoga's fixtures, all passing, and
-3 320 of Taffy's judged per fixture across three categories.** Of Taffy's flex and leaf, 2 082 pass,
-168 ask for a property this store has no field for, and 158 are known gaps listed with a diagnosis
+3 320 of Taffy's judged per fixture across three categories.** Of Taffy's flex and leaf, 2 162 pass,
+152 ask for a property this store has no field for, and 94 are known gaps listed with a diagnosis
 each — see [the corpus README](../Vixen.Ui.Layout.Tests/Taffy/README.md).
 
-**Block layout landed with doc 43 § B1 and is the store's second algorithm.** 768 of the 912
+**Block layout landed with doc 43 § B1 and is the store's second algorithm.** 788 of the 912
 `block` and `blockflex` fixtures pass, 124 are refused for a property this store has no field for,
-and 20 fail — every one of them in the *absolute* path, in one bucket that predates block layout and
-that a flex parent hits identically. See [the block section](#block-layout-and-what-a-second-algorithm-cost)
-below and `Taffy/BlockKnownGaps.txt`.
+and **none fail** — `Taffy/BlockKnownGaps.txt` is down to its refusal list, and the committed failure
+count is zero, so the next block regression names itself. See
+[the block section](#block-layout-and-what-a-second-algorithm-cost) below.
 
-**Grid landed with doc 43 § B2 and is the third.** 1 648 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 132 are refused, and 340 fail in the buckets `Taffy/GridKnownGaps.txt`
+**Grid landed with doc 43 § B2 and is the third.** 1 664 of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, 132 are refused, and 324 fail in the buckets `Taffy/GridKnownGaps.txt`
 names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
 sizing (§12), §11.8's baseline alignment and CSS Grid §9's containing block for an out-of-flow
 child are done, and `grid-template-areas` is **not implemented at all** — see
@@ -88,10 +88,10 @@ Chrome-for-Testing — and they exist here for block and grid, which have no ora
 them first on purpose: it is the one mode where the answer is already known, so a wrong harness would
 be visibly wrong there rather than invisibly wrong inside grid later.
 
-**2 074 of the 2 208 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
+**2 162 of the 2 256 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
 Thirteen of the original failures were the bridge and were fixed — `start` is not a spelling of
 `flex-start`, and `self-start` resolves against the item's own direction. Of the 206 that were
-Vixen's, **48 are closed** and 158 remain, catalogued in `Taffy/KnownGaps.txt`.
+Vixen's, **112 are closed** and 94 remain, catalogued in `Taffy/KnownGaps.txt`.
 
 The largest bucket was **the paragraph above, one level further out**, and it turned on a
 distinction CSS Sizing §5.2.2 draws and this store did not: a box's min-content **size** and its
@@ -519,9 +519,14 @@ and `Taffy/../InlineKnownGaps.txt`.
 
 **Floats.** See the block section above for where they attach; 84 fixtures wait on them.
 
-**`aspect-ratio` re-applied after an absolute box's size is clamped** — the bucket that makes up
-all 20 remaining block failures and part of the 158 flex ones. It lives in `LayoutTree.Absolute.cs`,
-which is shared with Yoga's 534, so it wants a change of its own rather than a block-shaped patch.
+**`aspect-ratio` re-applied after a box's size is clamped or stretched** — *done*. It was one rule
+in three places: the sixteen-family flex bucket, five block families and four grid ones, all of them
+the same failure to carry a minimum or a maximum across the ratio into the other axis, and all of
+them closed together. `LayoutTree.Helpers.ResolveAspectBounds` merges the bounds so that one clamp
+settles both axes; `LayoutTree.Absolute` re-derives the axis the ratio owns after clamping and drops
+the over-constrained inset rather than the ratio; and the flex-versus-grid split over whether a
+stretched axis accepts a transferred bound is `IsFlexItem` against `IsFlexOrGridItem`. It emptied
+`BlockKnownGaps.txt` and cost nothing in Yoga's 534.
 Auto margins on an absolutely positioned box (CSS 2.1 §10.3.7 and §10.6.4) were the other half of
 that sentence and are now implemented, judged by the 22 `block_absolute_margin_auto_*_with_inset`
 fixtures and, for the cases none of them reaches, by `AbsoluteAutoMarginTests`.

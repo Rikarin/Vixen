@@ -64,7 +64,7 @@ fixed** rather than written down:
 node. Getting this wrong does not cost a few fixtures, it costs thousands, and every one would read
 as a flexbox bug.
 
-## What the 206 were, and what the 158 are
+## What the 206 were, and what the 94 are
 
 Real, and grouped with evidence in `KnownGaps.txt`. The largest bucket is worth naming here because
 the layout README predicted it, and because **closing it is what the corpus was built for**:
@@ -80,6 +80,14 @@ floored at min(specified 50, content 60) = 50. Vixen shrank both to 45.
 **Closed**, together with min-larger-than-max precedence: 206 → 158. The cause was one distinction
 CSS Sizing §5.2.2 draws that this store did not — a box's min-content *size* against its min-content
 *contribution* — and an empty `width: 50px` box was contributing zero.
+
+The next largest was **`aspect-ratio` against a minimum, a maximum or a stretch**, sixteen families,
+and it is closed too: 158 → 94. It was one rule reaching three algorithms — the same sixteen names
+appear in the grid and block corpora — so it was fixed once, in
+`LayoutTree.Helpers.ResolveAspectBounds` and `LayoutTree.Absolute`, and took five block families and
+four grid ones with it. `BlockKnownGaps.txt` has no failures left at all. The heading in
+`KnownGaps.txt` carries the three sub-rules and the two fixtures that prove a flex parent and a block
+parent answer the same declaration differently.
 
 ⚠ **The corpus was not sufficient to close its own biggest finding, and that is the most useful
 thing this page can report.** Three further rules were needed, and the three oracles split them

@@ -15,8 +15,9 @@
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
 #
-# 206 at the corpus's first run; 158 now. Two rules closed the 48: CSS Sizing §5.2.2's distinction
-# between a min-content size and a min-content contribution, and §5.1's min-over-max precedence.
+# 206 at the corpus's first run; 94 now. Three rules closed the 112: CSS Sizing §5.2.2's distinction
+# between a min-content size and a min-content contribution, §5.1's min-over-max precedence, and
+# §4.1's transfer of a minimum or a maximum ACROSS the aspect ratio into the other axis.
 # A closed bucket keeps its heading with the diagnosis that closed it, because the next person to
 # read this file is more likely to be looking for how one of these was found than for a to-do list.
 
@@ -88,25 +89,40 @@ taffy_issue_696_min_height
 
 # ── aspect-ratio against min/max and stretch ──
 #
-# The ratio is applied, but not re-applied after the cross size is clamped or stretched, so the
-# transfer goes one way only. aspect_ratio_flex_row_fill_max_width: a leaf with aspect-ratio 2 and
-# max-height 20 should be 40x20; Vixen leaves it 80 wide.
-aspect_ratio_flex_column_fill_max_height
-aspect_ratio_flex_column_fill_max_width
-aspect_ratio_flex_column_fill_min_height
-aspect_ratio_flex_column_stretch_fill_max_height
-aspect_ratio_flex_column_stretch_fill_max_width
-aspect_ratio_flex_column_stretch_fill_width
-aspect_ratio_flex_row_fill_max_width
-aspect_ratio_flex_row_fill_min_width
-aspect_ratio_flex_row_stretch_fill_height
-aspect_ratio_flex_row_stretch_fill_max_height
-aspect_ratio_flex_row_stretch_fill_max_width
-absolute_aspect_ratio_aspect_ratio_overrides_height_of_full_inset
-absolute_aspect_ratio_fill_max_height
-absolute_aspect_ratio_fill_max_width
-absolute_aspect_ratio_fill_min_height
-absolute_aspect_ratio_fill_min_width
+# ⚠ CLOSED. Sixteen families, the largest bucket left, and the diagnosis this heading carried was
+# right as far as it went: "the ratio is applied, but not re-applied after the cross size is clamped
+# or stretched, so the transfer goes one way only." What it did not say is that "the transfer" is
+# THREE rules, and that the same sixteen names in the grid and block corpora were the same three.
+# 158 → 94 here, 340 → 324 in GridKnownGaps.txt, and 20 → 0 in BlockKnownGaps.txt.
+#
+#   1. A MINIMUM OR MAXIMUM CROSSES THE RATIO (CSS Sizing §4.1, §5.1). `max-height: 20px` with
+#      `aspect-ratio: 2` IS a `max-width` of 40. LayoutTree.Helpers.ResolveAspectBounds merges each
+#      bound with the other axis's transferred one — larger wins for a minimum, smaller for a
+#      maximum — which leaves the pair self-consistent, so clamping the axis that was decided first
+#      and deriving the other from it needs no second clamp. Transferring one way only is exactly
+#      the asymmetry the heading described. This is where aspect_ratio_flex_row_fill_max_width's
+#      40x20 comes from; it used to be 80 wide.
+#
+#   2. THE BOUND TRANSFERS ONLY INTO AN AXIS THE RATIO DECIDES. An axis the flex algorithm stretched
+#      to the line was decided by §9.4, not by the ratio, and a bound carried across has no standing
+#      on it — aspect_ratio_flex_row_stretch_fill_max_height is 40x100 and not 40x20. Its own
+#      maximum still applies. `axisSizeIsImposed` on BoundAxisWithinMinAndMax is this rule.
+#
+#   3. WHICH AUTOMATIC MINIMUM ARGUES WITH THE TRANSFERRED MAXIMUM IS THE PARENT'S DECISION, and it
+#      is the one that stops rule 1 being applied everywhere. aspect_ratio_flex_column_fill_max_height
+#      and block_aspect_ratio_fill_max_height are the same box — `max-width: 40px; aspect-ratio: 2`
+#      around the same eleven syllables of Ahem — and Chrome answers 40x20 under a flex parent and
+#      40x60 under a block one. A block box gets §4.1's content-based automatic minimum, which its
+#      text floors at six lines; a flex item gets Flexbox §4.5's, which its own maximum caps. Two
+#      formatting contexts, two answers, from one declaration.
+#
+# ⚠ The five absolute_aspect_ratio_* families that used to sit at the bottom of this bucket were the
+# same rules reached through LayoutTree.Absolute, which flex, block and grid all share — which is
+# why closing them here closed BlockKnownGaps.txt entirely and took grid's copy with it. The
+# `overrides_height_of_full_inset` family needed one thing more, and it is written up where it was
+# last diagnosed: a full set of insets plus a ratio is over-constrained, and CSS Position §10.6.4
+# drops the end inset rather than the ratio. All three corpora answered 360x270 for it; Chrome says
+# 360x120.
 
 # ── Baseline alignment past the simple case ──
 #

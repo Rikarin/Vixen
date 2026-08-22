@@ -8,39 +8,28 @@
 # TaffyBlockConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts, so a line cannot quietly widen and a fix cannot quietly land.
 #
-# 744 of the 884 block fixtures pass, plus 24 of the 28 blockflex. 20 fail and 120 are refused.
+# 764 of the 884 block fixtures pass, plus 24 of the 28 blockflex. NONE fail and 120 are refused.
 #
-# ⚠ THE SHAPE OF THIS FILE IS THE RESULT. Every one of the 20 is in LayoutTree.Absolute.cs, and
-# NOT ONE is in block formatting. Margin collapsing — the thing that makes this block rather than a
-# stretch flex column, and about 180 of the 884 fixtures — is entirely green: sibling collapse,
-# parent/first-child, parent/last-child, collapse-through, every one of the twelve things that
-# blocks a collapse, and the sign rule where a positive and a negative margin add rather than
-# maximise. So are auto margins in flow AND out of it, the intrinsic-width probe, RTL placement,
-# relative insets, align-content over the stack, and percentage margins resolving against the
-# inline size.
+# ⚠ THE SHAPE OF THIS FILE IS THE RESULT, AND THE RESULT IS NOW EMPTY. Every block and blockflex
+# fixture that reaches arithmetic agrees with Chrome; what is left below the line is the refusal
+# list, which is a scoping decision rather than a disagreement. Margin collapsing — the thing that
+# makes this block rather than a stretch flex column, and about 180 of the 884 fixtures — is
+# entirely green: sibling collapse, parent/first-child, parent/last-child, collapse-through, every
+# one of the twelve things that blocks a collapse, and the sign rule where a positive and a negative
+# margin add rather than maximise. So are auto margins in flow AND out of it, the intrinsic-width
+# probe, RTL placement, relative insets, align-content over the stack, and percentage margins
+# resolving against the inline size.
 #
-# The one bucket below is a pre-existing engine gap that block layout merely reaches for the first
-# time. It is not caused by this algorithm and it is not fixable inside it.
-
-# ── aspect-ratio on an ABSOLUTELY POSITIONED box, against a minimum or a maximum ──
+# ⚠ The one bucket that used to be here was never block formatting's: five
+# `block_absolute_aspect_ratio_*` families in LayoutTree.Absolute.cs, which this file recorded as a
+# pre-existing engine gap that block layout merely reached first. It said the fix belonged with the
+# flex bucket of the same name rather than here, and it was right — all three corpora's copies of it
+# closed together on agent/aspect-ratio, from one rule in LayoutTree.Absolute and the shared bounds
+# merge in LayoutTree.Helpers.ResolveAspectBounds. Nothing was added to this file to pay for it.
 #
-# ⚠ This is the same bucket KnownGaps.txt already lists under "aspect-ratio against min/max and
-# stretch", reached from the other side — four of the five families below appear there verbatim,
-# spelled `absolute_aspect_ratio_fill_max_width` and so on, and fail identically for flex parents.
-# The ratio is applied once and never re-applied after the cross size is clamped, so the transfer
-# goes one way only. `block_absolute_aspect_ratio_fill_max_width`: a leaf with aspect-ratio 2 and
-# max-height 20 should be 40x20; Vixen leaves it 360 wide.
-#
-# The in-flow path does get this right — see LayoutTree.Block.ResolveBlockChildBox, which transfers
-# the ratio through the minimums and maximums as well as the preferred size, and the content-based
-# automatic minimum below it. That code is deliberately local to the block walk rather than shared:
-# the absolute path resolves its sizes against a containing block instead of a parent and would
-# need the same rule written again, which belongs with the flex bucket's fix and not with this one.
-block_absolute_aspect_ratio_aspect_ratio_overrides_height_of_full_inset
-block_absolute_aspect_ratio_fill_max_height
-block_absolute_aspect_ratio_fill_max_width
-block_absolute_aspect_ratio_fill_min_height
-block_absolute_aspect_ratio_fill_min_width
+# ⚠ THE COROLLARY IS THAT AN EMPTY LIST IS NOW THE ASSERTION. A block fixture that starts
+# disagreeing with Chrome has nowhere to hide: TaffyBlockConformanceTests pins the failure count at
+# ZERO, so the first regression names itself. Do not add a line here to make a build green.
 
 # ── What is REFUSED rather than failing, and why each is honest ──
 #

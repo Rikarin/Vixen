@@ -642,11 +642,24 @@ public sealed partial class LayoutTree {
                         && !StyleResolution.FlexEndMarginIsAuto(in styles[child], crossAxis, direction)) {
                         if (!HasDefiniteLength(child, FlexAxis.DimensionOf(crossAxis), availableInnerCrossDim)) {
                             var childMainSize = results[child].MeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)];
-                            var aspectRatio = styles[child].AspectRatio;
-                            var childCrossSize = !float.IsNaN(aspectRatio)
-                                ? StyleResolution.MarginForAxis(in styles[child], crossAxis, availableInnerWidth)
-                                + (isMainAxisRow ? childMainSize / aspectRatio : childMainSize * aspectRatio)
-                                : line.CrossDim;
+
+                            // ⚠ A STRETCHED CROSS AXIS IS NOT THE RATIO'S TO DECIDE, and reading the
+                            // ratio here instead of the line was four families' worth of wrong.
+                            // `align-items: stretch` gives the item the line's cross size outright —
+                            // CSS Flexbox §9.4 stretches an item whose cross size is `auto`, and an
+                            // aspect ratio does not make it not-`auto`. Deriving the cross size from
+                            // the main size instead answered 40x20 where Chrome says 40x100 for
+                            // `aspect_ratio_flex_row_stretch_fill_height`, and it is the ratio that
+                            // yields: with the cross size stretched the ratio has nothing left to
+                            // say, because the main size was already decided by the flex algorithm.
+                            //
+                            // The ratio is not lost — the item's own layout still transfers the
+                            // stretched cross size back into a main size that is `auto`, which is
+                            // what `aspect_ratio_flex_column_stretch_fill_max_width` needs, and the
+                            // item's own maximum still caps the stretch. What must NOT happen is a
+                            // bound transferred across the ratio landing on this axis: the transfer
+                            // belongs to the axis the ratio decides, and this one is not it.
+                            var childCrossSize = line.CrossDim;
 
                             childMainSize += StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth);
 
@@ -732,10 +745,24 @@ public sealed partial class LayoutTree {
         }
 
         // STEP 9: COMPUTING FINAL DIMENSIONS
-        results[index].MeasuredDimensions[(int) Dimension.Width] =
-            BoundAxis(index, FlexDirection.Row, direction, availableWidth - marginAxisRow, ownerWidth, ownerWidth);
-        results[index].MeasuredDimensions[(int) Dimension.Height] =
-            BoundAxis(index, FlexDirection.Column, direction, availableHeight - marginAxisColumn, ownerHeight, ownerWidth);
+        results[index].MeasuredDimensions[(int) Dimension.Width] = BoundAxis(
+            index,
+            FlexDirection.Row,
+            direction,
+            availableWidth - marginAxisRow,
+            ownerWidth,
+            ownerWidth,
+            widthSizingMode == SizingMode.StretchFit
+        );
+        results[index].MeasuredDimensions[(int) Dimension.Height] = BoundAxis(
+            index,
+            FlexDirection.Column,
+            direction,
+            availableHeight - marginAxisColumn,
+            ownerHeight,
+            ownerWidth,
+            heightSizingMode == SizingMode.StretchFit
+        );
 
         // ⚠ One reading per axis. A scroll container's fit-content size is the room it was offered
         // rather than the room its content wants — that is what stops a list of two hundred rows from
