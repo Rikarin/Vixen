@@ -40,9 +40,9 @@ public sealed partial class LayoutTree {
         if (widthSizingMode == SizingMode.StretchFit && heightSizingMode == SizingMode.StretchFit) {
             // Both sizes are already decided, so there is nothing the content could tell us.
             results[index].MeasuredDimensions[(int) Dimension.Width] =
-                BoundAxis(index, FlexDirection.Row, direction, availableWidth, ownerWidth, ownerWidth);
+                BoundAxis(index, FlexDirection.Row, direction, availableWidth, ownerWidth, ownerWidth, true);
             results[index].MeasuredDimensions[(int) Dimension.Height] =
-                BoundAxis(index, FlexDirection.Column, direction, availableHeight, ownerHeight, ownerWidth);
+                BoundAxis(index, FlexDirection.Column, direction, availableHeight, ownerHeight, ownerWidth, true);
             return;
         }
 
@@ -56,7 +56,8 @@ public sealed partial class LayoutTree {
                 ? measured.Width + paddingAndBorderRow
                 : availableWidth,
             ownerWidth,
-            ownerWidth
+            ownerWidth,
+            widthSizingMode == SizingMode.StretchFit
         );
 
         results[index].MeasuredDimensions[(int) Dimension.Height] = BoundAxis(
@@ -66,6 +67,32 @@ public sealed partial class LayoutTree {
             heightSizingMode is SizingMode.MaxContent or SizingMode.FitContent
                 ? measured.Height + paddingAndBorderColumn
                 : availableHeight,
+            ownerHeight,
+            ownerWidth,
+            heightSizingMode == SizingMode.StretchFit
+        );
+
+        // ⚠ THE CONTENT ANSWERED FOR AN AXIS THE RATIO OWNS, so the ratio answers again over the top.
+        // A measured leaf reports both axes from its text, and the two have no reason to agree with a
+        // ratio that relates them: `aspect_ratio_flex_column_fill_max_width` measured 80x10, was
+        // clamped to 40 wide by the `max-width` its `max-height: 20px` transfers, and stayed 10 tall
+        // — where Chrome says 20, because 40 across a ratio of 2 is 20 and nothing about the text
+        // gets a say once the ratio has one. The inline axis anchors the pair, which is the order
+        // CSS Sizing §4.1 resolves them in and the order every one of these fixtures agrees with.
+        if (heightSizingMode == SizingMode.StretchFit || !IsFlexOrGridItem(index)) {
+            return;
+        }
+
+        var ratio = styles[index].AspectRatio;
+        if (float.IsNaN(ratio) || ratio <= 0f) {
+            return;
+        }
+
+        results[index].MeasuredDimensions[(int) Dimension.Height] = BoundAxis(
+            index,
+            FlexDirection.Column,
+            direction,
+            HeightAcrossRatio(index, direction, results[index].MeasuredDimensions[(int) Dimension.Width], ownerWidth),
             ownerHeight,
             ownerWidth
         );
@@ -91,7 +118,7 @@ public sealed partial class LayoutTree {
         }
 
         results[index].MeasuredDimensions[(int) Dimension.Width] =
-            BoundAxis(index, FlexDirection.Row, direction, width, ownerWidth, ownerWidth);
+            BoundAxis(index, FlexDirection.Row, direction, width, ownerWidth, ownerWidth, widthSizingMode == SizingMode.StretchFit);
 
         var height = availableHeight;
         if (heightSizingMode is SizingMode.MaxContent or SizingMode.FitContent) {
@@ -100,7 +127,7 @@ public sealed partial class LayoutTree {
         }
 
         results[index].MeasuredDimensions[(int) Dimension.Height] =
-            BoundAxis(index, FlexDirection.Column, direction, height, ownerHeight, ownerWidth);
+            BoundAxis(index, FlexDirection.Column, direction, height, ownerHeight, ownerWidth, heightSizingMode == SizingMode.StretchFit);
     }
 
     /// <summary>Answers a measure-only request whose answer the styles already fix.</summary>
@@ -127,7 +154,8 @@ public sealed partial class LayoutTree {
                 ? 0f
                 : availableWidth,
             ownerWidth,
-            ownerWidth
+            ownerWidth,
+            widthSizingMode == SizingMode.StretchFit
         );
 
         results[index].MeasuredDimensions[(int) Dimension.Height] = BoundAxis(
@@ -138,7 +166,8 @@ public sealed partial class LayoutTree {
                 ? 0f
                 : availableHeight,
             ownerHeight,
-            ownerWidth
+            ownerWidth,
+            heightSizingMode == SizingMode.StretchFit
         );
 
         return true;

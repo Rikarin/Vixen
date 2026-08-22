@@ -660,6 +660,39 @@ public sealed partial class LayoutTree {
                 areaHeight
             );
 
+            // ⚠ AN ITEM WITH AN ASPECT RATIO IS NOT STRETCHED DOWN THE BLOCK AXIS; the ratio sizes it.
+            // CSS Box Alignment §6.2's `normal` fills the area only where the item has nothing else to
+            // say, and CSS Sizing §4.1 gives a box with a preferred aspect ratio and a definite inline
+            // size a definite block size — which is something else to say. `ItemSizeOn` cannot know
+            // this on its own because the answer is the *other* axis's size, decided just above.
+            // `grid_aspect_ratio_fill_child_height` is the one-line demonstration: `width: 50px;
+            // aspect-ratio: 2` in a 100x100 grid is 50x25, and stretching gave it the area's 100.
+            //
+            // The inline axis is clamped first and the block axis derived from the clamped value, for
+            // the same reason the absolute path does it in that order — a maximum the ratio carried in
+            // from the other axis has to reach the derived size, not just the one it was written on.
+            if (!float.IsNaN(styles[child].AspectRatio) && styles[child].AspectRatio > 0f) {
+                var bounds = ResolveAspectBounds(child, direction, areaWidth, areaHeight);
+                var marginRowSum = marginStart.OrZero() + marginEnd.OrZero();
+                var borderBoxWidth = ClampBlockChildAxis(width - marginRowSum, bounds.MinWidth, bounds.MaxWidth);
+
+                width = borderBoxWidth + marginRowSum;
+                widthMode = SizingMode.StretchFit;
+
+                // A stated height was never the ratio's to decide, and neither is one the item's own
+                // `align-self` asked to be content-sized rather than stretched.
+                if (float.IsNaN(ResolvedDimension(child, Dimension.Height, areaHeight, areaWidth, direction))
+                    && heightMode == SizingMode.StretchFit) {
+                    height = ClampBlockChildAxis(
+                            HeightAcrossRatio(child, direction, borderBoxWidth, areaWidth),
+                            bounds.MinHeight,
+                            bounds.MaxHeight
+                        )
+                        + marginTop.OrZero()
+                        + marginBottom.OrZero();
+                }
+            }
+
             // ⚠ The owner size is the grid <i>area</i>, which is what CSS Grid §9 makes the item's
             // containing block. Handing down the container's content box instead resolves every
             // percentage inside the item against the whole grid rather than against its own cell.

@@ -196,6 +196,14 @@ public sealed partial class LayoutTree {
         var marginRow = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, containingBlockWidth);
         var marginColumn = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, containingBlockWidth);
 
+        var aspectRatio = styles[child].AspectRatio;
+        var hasRatio = !float.IsNaN(aspectRatio) && aspectRatio > 0f;
+
+        // Whether each axis was decided by something other than the ratio. An axis that was not is
+        // the ratio's to fill in, and — crucially — to re-fill in after the other one is clamped.
+        var widthIsGiven = true;
+        var heightIsGiven = true;
+
         if (HasDefiniteLength(child, Dimension.Width, containingBlockWidth)) {
             childWidth = ResolvedDimension(child, Dimension.Width, containingBlockWidth, containingBlockWidth, direction) + marginRow;
         } else if (BothInsetsDefined(child, FlexDirection.Row, direction)) {
@@ -205,6 +213,8 @@ public sealed partial class LayoutTree {
                     + StyleResolution.FlexEndPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth));
 
             childWidth = BoundAxis(child, FlexDirection.Row, direction, childWidth, containingBlockWidth, containingBlockWidth);
+        } else {
+            widthIsGiven = false;
         }
 
         if (HasDefiniteLength(child, Dimension.Height, containingBlockHeight)) {
@@ -215,11 +225,25 @@ public sealed partial class LayoutTree {
                     + StyleResolution.FlexEndPosition(in styles[child], FlexDirection.Column, direction, containingBlockHeight));
 
             childHeight = BoundAxis(child, FlexDirection.Column, direction, childHeight, containingBlockHeight, containingBlockWidth);
+
+            // ⚠ A FULL SET OF INSETS PLUS A RATIO IS OVER-CONSTRAINED, AND IT IS THE RATIO THAT WINS.
+            // Solving both axes from their own insets is what answered 360x270 where Chrome says
+            // 360x120 — three fixtures, one in each corpus, all named
+            // `aspect_ratio_overrides_height_of_full_inset` after exactly this. CSS Position §10.6.4
+            // resolves the inline axis from its insets and then, when the block size is `auto` and a
+            // preferred aspect ratio is present, lets the ratio decide the block axis and drops the
+            // end inset as the over-constrained one. Handing the block axis back to the ratio here is
+            // that rule; `PositionAbsoluteChild` already prefers the start edge, so `top` survives.
+            if (hasRatio && !float.IsNaN(childWidth)) {
+                childHeight = float.NaN;
+                heightIsGiven = false;
+            }
+        } else {
+            heightIsGiven = false;
         }
 
         // An aspect ratio needs exactly one side to anchor to; with both or neither it says nothing.
-        var aspectRatio = styles[child].AspectRatio;
-        if (float.IsNaN(childWidth) != float.IsNaN(childHeight) && !float.IsNaN(aspectRatio)) {
+        if (float.IsNaN(childWidth) != float.IsNaN(childHeight) && hasRatio) {
             if (float.IsNaN(childWidth)) {
                 childWidth = marginRow + ((childHeight - marginColumn) * aspectRatio);
             } else {
@@ -259,6 +283,33 @@ public sealed partial class LayoutTree {
                 + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, containingBlockWidth);
             childHeight = results[child].MeasuredDimensions[(int) Dimension.Height]
                 + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, containingBlockWidth);
+        }
+
+        // ⚠ THE RATIO HAS TO BE RE-APPLIED AFTER THE CLAMP, WHICH IS THE HALF THAT WAS MISSING.
+        // Transferring once and then clamping leaves the two axes disagreeing with the ratio that is
+        // supposed to relate them: `max-height: 50px; aspect-ratio: 0.5` measured 360x10 and stayed
+        // 360 wide, where the maximum it implies on the inline axis is 25 and the answer is 25x50.
+        // The bounds are merged across the ratio first, so clamping the anchor axis alone is enough
+        // and the axis derived from it cannot land outside its own minimum or maximum.
+        if (hasRatio) {
+            var bounds = ResolveAspectBounds(child, direction, containingBlockWidth, containingBlockHeight);
+
+            if (widthIsGiven && heightIsGiven) {
+                // Nothing for the ratio to decide, but the transferred bounds still apply to both.
+                childWidth = ClampBlockChildAxis(childWidth - marginRow, bounds.MinWidth, bounds.MaxWidth) + marginRow;
+                childHeight = ClampBlockChildAxis(childHeight - marginColumn, bounds.MinHeight, bounds.MaxHeight) + marginColumn;
+            } else if (heightIsGiven) {
+                var height = ClampBlockChildAxis(childHeight - marginColumn, bounds.MinHeight, bounds.MaxHeight);
+                childHeight = height + marginColumn;
+                childWidth = WidthAcrossRatio(child, direction, height, containingBlockWidth) + marginRow;
+            } else {
+                // Neither axis was given, so the measured inline size anchors the pair — which is what
+                // Chrome does, and why a `min-width`/`max-width` family and a `min-height`/`max-height`
+                // family both come out right from one branch.
+                var width = ClampBlockChildAxis(childWidth - marginRow, bounds.MinWidth, bounds.MaxWidth);
+                childWidth = width + marginRow;
+                childHeight = HeightAcrossRatio(child, direction, width, containingBlockWidth) + marginColumn;
+            }
         }
 
         CalculateLayoutInternal(

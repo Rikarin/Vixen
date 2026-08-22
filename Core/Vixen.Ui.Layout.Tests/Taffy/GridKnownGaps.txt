@@ -15,7 +15,7 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1 648 of the 2 120 grid, blockgrid and gridflex fixtures pass, 340 fail and 132 are refused.
+# 1 664 of the 2 120 grid, blockgrid and gridflex fixtures pass, 324 fail and 132 are refused.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
 # with every one of its failures outside block formatting. Grid has not — but the two features this
@@ -213,23 +213,35 @@ grid_justify_content_end_negative_space_gap
 
 # ── ASPECT RATIO AGAINST A GRID AREA, AND AGAINST A FULL SET OF INSETS ──
 #
-# The same bucket KnownGaps.txt lists for flex, reached from grid: the ratio is transferred once and
-# not re-applied after the derived size is clamped by a minimum or a maximum. `MeasureGridItem` now
-# transfers a definite inline size through the ratio for the row pass, which is what fixed the
-# `fill_width`/`fill_height` families; what remains is the clamped case.
+# ⚠ CLOSED, together with the sixteen-family flex bucket of the same name and the five-family block
+# one — which is what the note below predicted, and the prediction is the reason all three were done
+# at once rather than three times. 340 → 324 here. The full write-up is in KnownGaps.txt; what grid
+# needed on top of the shared rules is one sentence:
 #
-# ⚠ The last name is the §9 bucket's one survivor, and it is here rather than there because §9 is
-# not what it is about. Its grid area is the whole padding box — the child names no line — so the
-# containing block this file used to be missing is now right and the box is still wrong: with
-# `aspect-ratio: 3` and all four insets at 5% of a 400×300 box, Chrome reads the inline axis off the
-# insets (360) and then lets the RATIO decide the height (120), ignoring `bottom` as
-# over-constrained. This store solves both axes from their insets and answers 360×270, exactly as it
-# does for the identically-named `absolute_aspect_ratio_*` families under flex and block. It is one
-# rule written once for all three absolute paths, which is the flex bucket's fix and not grid's.
-grid_aspect_ratio_fill_child_height
-grid_aspect_ratio_fill_child_max_width
-grid_aspect_ratio_fill_child_min_height
-grid_aspect_ratio_absolute_aspect_ratio_overrides_height_of_full_inset
+#   A GRID ITEM WITH AN ASPECT RATIO IS NOT STRETCHED DOWN THE BLOCK AXIS. CSS Box Alignment §6.2's
+#   `normal` fills the area only where the item has nothing else to say, and CSS Sizing §4.1's
+#   definite-inline-implies-definite-block is something else to say. `grid_aspect_ratio_fill_child_height`
+#   is the one-line demonstration: `width: 50px; aspect-ratio: 2` in a 100×100 grid is 50×25, and
+#   stretching gave it the area's 100. The inline axis is clamped by the ratio-merged bounds FIRST
+#   and the block axis derived from the clamped value, which is the same order LayoutTree.Absolute
+#   uses and the reason `grid_aspect_ratio_fill_child_max_width` comes out 40×20 rather than 100×20.
+#
+# ⚠ And grid differs from flex here in a way worth keeping: a bound carried across the ratio DOES
+# reach a grid item's stretched inline axis, and does NOT reach a flex item's stretched cross axis.
+# `grid_aspect_ratio_fill_child_max_width` and `aspect_ratio_flex_column_stretch_fill_max_width` are
+# both `max-height: 20px; aspect-ratio: 2` on a box whose parent fills its inline axis, and Chrome
+# answers 40 wide for the grid item and 100 wide for the flex one. Flexbox §9.4 stretches an `auto`
+# cross size unconditionally; Box Alignment's `normal` does not. `IsFlexItem` versus
+# `IsFlexOrGridItem` in LayoutTree.Helpers is that difference and nothing else.
+#
+# ⚠ The last of the four was the §9 bucket's one survivor, and it was here rather than there because
+# §9 was not what it was about. Its grid area is the whole padding box — the child names no line —
+# so the containing block was already right and the box was still wrong: with `aspect-ratio: 3` and
+# all four insets at 5% of a 400×300 box, Chrome reads the inline axis off the insets (360) and then
+# lets the RATIO decide the height (120), ignoring `bottom` as over-constrained. This store solved
+# both axes from their insets and answered 360×270, exactly as it did for the identically-named
+# `absolute_aspect_ratio_*` families under flex and block. One rule in LayoutTree.Absolute for all
+# three absolute paths, as predicted.
 
 # ── THE CLAMP ON A GRID THIS STORE WILL NOT ALLOCATE ──
 #

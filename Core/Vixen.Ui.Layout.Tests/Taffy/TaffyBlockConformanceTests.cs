@@ -20,10 +20,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         had.
 ///     </para>
 ///     <para>
-///         <b>744 of the 884 <c>block</c> fixtures pass and 24 of the 28 <c>blockflex</c>.</b> 120
-///         and 4 are refused for a property this store has no field for, and 20 disagree — all 20 of
-///         them inside <c>LayoutTree.Absolute.cs</c>, in one bucket that predates block layout and
-///         that a flex parent hits identically. Not one is in block formatting itself.
+///         <b>764 of the 884 <c>block</c> fixtures pass and 24 of the 28 <c>blockflex</c>.</b> 120
+///         and 4 are refused for a property this store has no field for, and <b>none disagree</b>.
+///         The 20 that used to were all inside <c>LayoutTree.Absolute.cs</c>, in one
+///         <c>aspect-ratio</c> bucket that predated block layout and that a flex parent hit
+///         identically; they closed with the flex and grid copies of the same rule. Not one was ever
+///         in block formatting itself, and the committed failure count is now zero.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The thing this corpus is here to judge is margin collapsing</b>, because that is the
@@ -44,8 +46,8 @@ public class TaffyBlockConformanceTests {
 
     // ⚠ Committed counts, not lower bounds — see the identical comment in the flex suite. A gap that
     // closes has to be taken off BlockKnownGaps.txt in the same commit as it closes.
-    const int ExpectedPassing = 768;
-    const int ExpectedFailing = 20;
+    const int ExpectedPassing = 788;
+    const int ExpectedFailing = 0;
     const int ExpectedUnsupported = 124;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
