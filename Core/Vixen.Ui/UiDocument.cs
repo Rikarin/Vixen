@@ -359,6 +359,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     </para>
     /// </remarks>
     public int Load(string css, StyleOrigin origin = StyleOrigin.Author) {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(css);
 
         // Asked before the load, so that "a sheet that came earlier" excludes this one.
@@ -392,6 +393,10 @@ public sealed partial class UiDocument : IDisposable {
     ///     appears once somebody opens a second window.
     /// </remarks>
     public bool LoadOnce(object key, string css, StyleOrigin origin = StyleOrigin.Author) {
+        // ⚠ Above the `loadedOnce` set rather than left to `Load`. A refused key is remembered even
+        // when the load never happens, so a disposed document would answer the *next* caller of this
+        // key `false` — a sheet silently never loaded, on a document that had since been rebuilt.
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(key);
 
         if (!loadedOnce.Add(key)) {
@@ -423,6 +428,8 @@ public sealed partial class UiDocument : IDisposable {
     ///     </para>
     /// </remarks>
     public void ReloadStyles(int sheet, string css) {
+        ThrowIfDisposed();
+
         // ⚠ The sheet count does not move, so `Theme`'s own staleness check cannot see this — and a
         // saved theme file whose `--spacing` just changed has to reach every `@apply` in the
         // document, not only the ones in the sheet that was saved. `Replace` reloads everything,
@@ -534,6 +541,15 @@ public sealed partial class UiDocument : IDisposable {
         string? id = null,
         params ReadOnlySpan<string> classNames
     ) {
+        // ⚠ The one seam both `Create` overloads come through, and the one that aborted the process
+        // rather than throwing: creating an element allocates a layout node, and a `LayoutTree` whose
+        // arrays have been freed grows from a capacity of nought by copying out of them and freeing
+        // them again. See `ThrowIfDisposed`.
+        //
+        // ⚠ Above the null check, which is what makes the guard testable: `DocumentLifetimeTests`
+        // asks for this exception with a null element precisely so that a lost guard is a wrong
+        // exception type rather than a dead process.
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(element);
         tag ??= element.TagName;
 
@@ -577,6 +593,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     </para>
     /// </remarks>
     public void Move(UiElement element, int index) {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(element);
 
         if (!ReferenceEquals(element.Document, this)) {
@@ -595,8 +612,20 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         parent.MoveChild(element, index);
-        Layout.RemoveChild(parent.LayoutNode, element.LayoutNode);
-        Layout.InsertChild(parent.LayoutNode, element.LayoutNode, index);
+
+        // ⚠ The style tree takes the element index unchanged below and the layout tree cannot, for
+        // the reason `LayoutIndexOf` documents: a surface root stays in the element tree and the
+        // style tree and is taken out of the layout tree's child list, so a parent that owns one has
+        // two different child counts. `index` is read after `MoveChild`, when the element is already
+        // where it is going, so the surface roots counted are the ones genuinely ahead of it.
+        //
+        // ⚠ And a surface root being moved touches the layout tree not at all — it is not in a child
+        // list to be moved within, and inserting it would lay a second window out inside the first.
+        if (element.SurfaceRoot is null) {
+            Layout.RemoveChild(parent.LayoutNode, element.LayoutNode);
+            Layout.InsertChild(parent.LayoutNode, element.LayoutNode, LayoutIndexOf(parent, index));
+        }
+
         Styles.Tree.Move(element.StyleNode, index);
         Invalidate();
     }
@@ -623,6 +652,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     </para>
     /// </remarks>
     public void Remove(UiElement element) {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(element);
 
         if (ReferenceEquals(element, Root)) {
@@ -821,6 +851,8 @@ public sealed partial class UiDocument : IDisposable {
     ///     stack frame underneath itself.
     /// </remarks>
     public bool Update() {
+        ThrowIfDisposed();
+
         // ⚠ Inside the guard rather than above it. Dirtying nodes and invalidating the document from
         // underneath a pass that is already walking them is the one thing the guard exists to refuse,
         // and a registration made mid-pass is picked up by the loop that is already running.
@@ -1063,6 +1095,8 @@ public sealed partial class UiDocument : IDisposable {
     ///     the whole reason time arrives from outside is that this framework does not read clocks.
     /// </remarks>
     public void Tick(TimeSpan now) {
+        ThrowIfDisposed();
+
         Now = now;
         seconds = (float) now.TotalSeconds;
         Gestures.Tick(now);
@@ -1336,6 +1370,9 @@ public sealed partial class UiDocument : IDisposable {
     ///     and <see cref="Draw()" /> is the loop over it.
     /// </remarks>
     public bool Draw(UiSurface surface) {
+        // ⚠ Here and not in `Draw()`, which is the loop over this. One check per window per frame is
+        // the same order as one per frame and it catches the caller that names its own surface.
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(surface);
         return drawings.Build(this, surface.Root, surface.Drawing);
     }
@@ -1690,6 +1727,63 @@ public sealed partial class UiDocument : IDisposable {
         }
     }
 
+    /// <summary>Whether <see cref="Dispose" /> has run.</summary>
+    /// <remarks>See <see cref="ThrowIfDisposed" /> for why it is worth a field.</remarks>
+    bool disposed;
+
     /// <inheritdoc />
-    public void Dispose() => Layout.Dispose();
+    /// <remarks>
+    ///     ⚠ <b>Idempotent, and the second call was not free before.</b>
+    ///     <c>LayoutTree.Dispose</c> frees four <c>NativeArray</c>s and leaves the struct fields
+    ///     holding the freed pointers, so disposing a document twice hands the same addresses to
+    ///     <c>NativeMemory.AlignedFree</c> twice and the allocator aborts the process. A document
+    ///     inside a <c>using</c> that is also disposed by the host it was handed to is an ordinary
+    ///     arrangement, so this is a real path and not a tidiness.
+    /// </remarks>
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+        Layout.Dispose();
+    }
+
+    /// <summary>Refuses a call on a document whose stores have been released.</summary>
+    /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because the alternative is not an exception but the process going away, a minute
+    ///         later, with nothing said.</b> <see cref="Layout" /> is a <c>LayoutTree</c>, and a
+    ///         <c>LayoutTree</c> is four <c>NativeArray</c>s. Disposing it frees them and sets its
+    ///         capacity to nought but leaves the struct fields pointing at the freed blocks — so the
+    ///         next <c>CreateNode</c> grows from a capacity of nought, finds the arrays non-empty,
+    ///         copies out of memory that is no longer ours and frees it a second time. The allocator
+    ///         aborts. There is no managed exception, no message and no stack.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The minute is <c>xunit.runner.visualstudio</c>'s, not the document's.</b> The
+    ///         abort is instant; what waits is <c>TestProjectConfiguration.CrashDetectionSinkTimeout</c>,
+    ///         whose default is 60&#160;000&#160;ms, before the adapter gives up on the dead test host
+    ///         and prints "Catastrophic failure: Test process crashed with exit code 134". A minute
+    ///         of silence followed by a <c>SIGABRT</c> reads exactly like a deadlock, like a native
+    ///         crash in the RHI and like a host timeout, and it has already cost one debugging cycle
+    ///         spent in the wrong subsystem. Naming the mistake at the door is worth a great deal
+    ///         more here than it usually is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>At the entry points and nowhere below them.</b> A pass walks every element in the
+    ///         document several times over; a check inside one of those walks would be a branch per
+    ///         element per frame to catch a mistake that can only be made once, at the top. So it
+    ///         guards what an outside caller can reach — the loads, the passes, the tick, the surface
+    ///         calls and the four tree mutations — and the inner loops are untouched.
+    ///     </para>
+    ///     <para>
+    ///         It is only ever going to matter more. Hot reload disposes a document and builds
+    ///         another, <c>HotReloadHost</c> rolls back to the previous one when a build fails, and
+    ///         panels are moving to <c>.vxml</c>, where a document's lifetime is managed by something
+    ///         other than the code that calls into it.
+    ///     </para>
+    /// </remarks>
+    void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(disposed, this);
 }

@@ -68,6 +68,7 @@ public sealed partial class UiDocument {
     ///     </para>
     /// </remarks>
     public UiSurface CreateSurface(float width, float height, float dpiScale = 1f, UiElement? owner = null) {
+        ThrowIfDisposed();
         owner ??= Root;
 
         if (!ReferenceEquals(owner.Document, this)) {
@@ -126,6 +127,7 @@ public sealed partial class UiDocument {
     ///     its panels are docked back.
     /// </remarks>
     public bool RemoveSurface(UiSurface surface) {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(surface);
 
         if (surface.IsPrimary || !ReferenceEquals(surface.Document, this) || !surfaces.Remove(surface)) {
@@ -155,6 +157,8 @@ public sealed partial class UiDocument {
     ///     a 2× display would keep the 1× grid for everything that did not otherwise change.
     /// </remarks>
     public void Resize(UiSurface surface, float width, float height, float dpiScale) {
+        // ⚠ Covers `Resize(float, float)` as well, which is the primary surface's spelling of this.
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(surface);
 
         if (!ReferenceEquals(surface.Document, this)) {
@@ -193,6 +197,7 @@ public sealed partial class UiDocument {
     ///     Depth is small and the question is asked at human speed.
     /// </remarks>
     public UiSurface? SurfaceOf(UiElement element) {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(element);
 
         if (!ReferenceEquals(element.Document, this)) {
@@ -206,6 +211,51 @@ public sealed partial class UiDocument {
         }
 
         return null;
+    }
+
+    /// <summary>Where a position among an element's children lands among its layout node's.</summary>
+    /// <param name="parent">The parent, in the element tree.</param>
+    /// <param name="index">A position among <see cref="UiElement.Children" />.</param>
+    /// <returns>The matching position among the layout node's children.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two child lists are not the same length, and every writer that hands one an
+    ///         index taken from the other has to come through here.</b> <see cref="CreateSurface" />
+    ///         takes a surface root out of the layout tree's child list and deliberately leaves it in
+    ///         the element tree, so a parent that owns <i>n</i> surface roots has <i>n</i> more
+    ///         element children than layout children — and an element index used raw as a layout one
+    ///         is that much too high.
+    ///     </para>
+    ///     <para>
+    ///         It read as an obscure corner and is the docking host's ordinary path: a floating
+    ///         window's panels being docked back is a <see cref="Reparent" /> into the element that
+    ///         owns the window's surface root, which is the exact shape that overshoots.
+    ///         <c>LayoutTree.InsertChild</c> refused it, so the headline operation surfaces exist to
+    ///         support threw — see <c>SurfaceIndexTests</c>.
+    ///     </para>
+    ///     <para>
+    ///         The invariant this keeps is that the layout child list is the element child list with
+    ///         the surface roots struck out, in the same order. Appending preserves it for free,
+    ///         which is why <see cref="Adopt(UiElement,string,UiElement,string,System.ReadOnlySpan{string})" />
+    ///         needs nothing; only an insertion at a position does.
+    ///     </para>
+    ///     <para>
+    ///         O(index) rather than a counter kept per element, because it is asked at human
+    ///         speed — a drag that ends, a panel docked, a hot reload — and a maintained count would
+    ///         be a second fact about the tree that every mutation had to remember to update.
+    ///     </para>
+    /// </remarks>
+    static int LayoutIndexOf(UiElement parent, int index) {
+        var children = parent.ChildList;
+        var layout = 0;
+
+        for (var i = 0; i < index; i++) {
+            if (children[i].SurfaceRoot is null) {
+                layout++;
+            }
+        }
+
+        return layout;
     }
 
     void Adopt(UiSurface surface, float width, float height, float dpiScale) {

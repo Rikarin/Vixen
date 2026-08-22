@@ -185,13 +185,13 @@ public class PerSurfaceMediaTests {
     public void A_reparented_panel_answers_the_window_it_lands_in() {
         using var document = Document();
 
-        // ⚠ A plain container rather than `document.Root`, and not for tidiness. `CreateSurface`
-        // takes the surface root out of the *layout* tree's child list and leaves it in the element
-        // tree, so a parent that owns one has two different child counts — and `Reparent` uses the
-        // element one as a layout index. Reparenting back into `document.Root` therefore throws,
-        // which is a bug in `Reparent` rather than anything to do with `@media`; it is raised
-        // separately, and this test keeps to parents that do not trip it.
-        var home = document.Root.Add("div");
+        // ⚠ `document.Root` itself, which this test used to route around. `CreateSurface` takes the
+        // surface root out of the *layout* tree's child list and leaves it in the element tree, so a
+        // parent that owns one has two different child counts — and `Reparent` used the element one
+        // as a layout index, which meant that docking a panel back into the element that owns the
+        // window threw. Fixed with `Move`, which had the same conversion; `SurfaceIndexTests` is
+        // where that is argued, and this line is here so the workaround cannot quietly come back.
+        var home = document.Root;
 
         var panel = home.Add("div");
         var inner = panel.Add("div", null, "box");

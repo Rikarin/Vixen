@@ -671,6 +671,25 @@ layout: it is removed from the layout tree's child list and laid out on its own,
 size. Three passes stop at that boundary — the accumulator, the hit test and the draw list — and
 `UiElement.SurfaceRoot` is what they ask.
 
+⚠ **So a parent that owns a window has two different child counts, and every writer that turns an
+element index into a layout index has to say so.** The layout child list is the element child list
+with the surface roots struck out, in the same order — appending preserves that for free, which is
+why `Adopt` needs nothing, and an insertion *at a position* does not. `LayoutIndexOf` is the one
+conversion; `Reparent` and `Move` are its two callers and both had it wrong. `Reparent` threw, which
+meant the headline operation surfaces exist for — a floating window's panels docked back into the
+element that owns the window — failed outright. `Move` threw only when the index ran off the end of
+the shorter list and otherwise put the element in the wrong place in silence, which was worse: it is
+reached by `HotReloadHost` restoring a rebuilt component's position, by `MenuPresenter` and
+`ToolbarPresenter` pulling their strip back above the workspace, and by every markup region that
+inserts at an index. `SurfaceIndexTests` asserts on geometry rather than on child counts, because an
+off-by-one that still fits inside the shorter list changes no count and throws nothing.
+
+⚠ **And a surface root being moved touches the layout tree not at all.** It is in no child list to be
+moved within, so the removal half is a no-op and the insertion half would lay a whole window out
+inside its new owner's flex line. Both writers skip the layout store entirely when the element being
+moved is a surface root, and do the style and element halves as usual — `:nth-child` counts the
+surface root, because the style tree holds it.
+
 `vw`, `vh` and `%` are the surface's own. `50vw` in a torn-off inspector means half of *that*
 window; resolving it against the main one would size a 400-pixel palette against a 3840-pixel
 display.
@@ -733,6 +752,43 @@ parents-first and never removed, so its index order happened to be its depth ord
 pass needs is "parents before children", and a descent is that by construction rather than by
 coincidence — and it deletes two parallel arrays, since what each element had applied last time now
 lives on the element.
+
+## Lifetime: a disposed document says so
+
+`UiDocument` is `IDisposable` because `LayoutTree` is: the store is four `NativeArray`s and the GC
+cannot see any of them. Disposing the document frees them.
+
+⚠ **Calling into a disposed document used to abort the process rather than throw**, and the failure
+destroyed the evidence that would have named it. `LayoutTree.Dispose` frees the four arrays and
+zeroes its capacity but leaves the struct fields holding the freed pointers — so the next
+`CreateNode` grows from a capacity of nought, finds the arrays non-empty, copies out of memory that
+is no longer ours and frees it a second time. The allocator aborts. There is no managed exception, no
+message and no stack; the run ends with `SIGABRT` and output stops mid-sentence. Disposing twice
+reaches the same double free by the shortest possible route, and `IDisposable` promises that is
+allowed.
+
+⚠ **The minute of silence in front of the abort belongs to the test runner and not to the document.**
+The abort is instant — a standalone process dies within a millisecond of the call. What waits is
+`xunit.runner.visualstudio`'s `TestProjectConfiguration.CrashDetectionSinkTimeoutOrDefault`, 60 000 ms,
+before the adapter gives up on the dead test host and prints *Catastrophic failure: Test process
+crashed with exit code 134*. A minute of nothing followed by an abort reads identically to a deadlock,
+to a native crash in the RHI and to a test-host timeout, which is where the first hour goes.
+
+So `UiDocument.Dispose` is idempotent, and a `disposed` field is checked at the entry points: the
+loads, `Update`, `Tick`, `Draw`, the surface calls, and the four tree mutations `Adopt`, `Move`,
+`Remove` and `Reparent`. **At the entry points and nowhere below them** — a pass walks every element
+several times over, and a check inside one of those walks would be a branch per element per frame to
+catch a mistake that can only be made once, at the top.
+
+⚠ **`DocumentLifetimeTests` never performs the abort, even to check that it no longer happens.**
+Written the obvious way — dispose, then `Add` an element — such a test proves the fix today and, on
+the day it regresses, does not fail: it kills the run, after a minute, with no test name attached. So
+each call is made in a form its own next line would refuse — a null element, an owner from another
+document — which makes the exception *type* the assertion and keeps the process alive to report it.
+
+The deeper fix is `LayoutTree.Dispose` clearing its four `NativeArray` fields rather than leaving
+them holding freed pointers; a disposed store would then grow a fresh set instead of copying out of
+dead memory, and the abort would stop being reachable at all. That is `Vixen.Ui.Layout`'s to make.
 
 ## What the bridge is for
 

@@ -177,6 +177,18 @@ public sealed partial class LayoutTree : IDisposable {
     /// <param name="parent">The owner.</param>
     /// <param name="child">The node to insert. It must not already have a parent.</param>
     /// <param name="index">Where among the existing children it goes.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="index" /> is negative or past the end of <paramref name="parent" />'s
+    ///     child list.
+    /// </exception>
+    /// <remarks>
+    ///     ⚠ <b>The index is a position in <i>this</i> store's child list, which is not necessarily
+    ///     the same list a caller is reading positions off.</b> Every caller here holds a node in at
+    ///     least one other tree as well, and those trees are free to contain nodes this one does
+    ///     not — <c>UiDocument.CreateSurface</c> is one that does, and it took two callers with it.
+    ///     So the range failure below says what the count actually is rather than leaving the caller
+    ///     to find out that the two lists were different lengths.
+    /// </remarks>
     public void InsertChild(LayoutNodeId parent, LayoutNodeId child, int index) {
         var parentIndex = Validate(parent);
         var childIndex = Validate(child);
@@ -190,7 +202,16 @@ public sealed partial class LayoutTree : IDisposable {
 
         ref var parentLinks = ref links[parentIndex];
         ArgumentOutOfRangeException.ThrowIfNegative(index);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(index, parentLinks.ChildCount);
+
+        if (index > parentLinks.ChildCount) {
+            throw new ArgumentOutOfRangeException(
+                nameof(index),
+                index,
+                $"{parent} has {parentLinks.ChildCount} children here, so {index} is past the end of its child "
+                + "list. An index taken from another tree of the same nodes has to be converted first: the two "
+                + "lists are only the same length while neither holds a node the other does not."
+            );
+        }
 
         if (parentLinks.ChildCount == parentLinks.ChildCapacity) {
             var grown = children.Grow(parentLinks.ChildOffset, parentLinks.ChildCount, parentLinks.ChildCapacity);
