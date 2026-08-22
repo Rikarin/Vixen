@@ -289,6 +289,34 @@ public sealed partial class LayoutTree {
             : MathF.Max(contentHeight + insetColumn, insetColumn);
 
         innerHeight = MathF.Max(0f, outerHeight - insetColumn);
+
+        // ⚠ <b>The block axis takes the same definite second pass the inline axis takes, and for the
+        // same reason — but the input that makes it necessary is different.</b> Above, the first pass
+        // is intrinsic because the container's width is unknown; here it is intrinsic because the
+        // container's height is, and `BoundAxis` has just resolved that height against the node's own
+        // `min-height`. A grid with `min-height: 100px` and one empty `auto` row measures its content
+        // at zero, grows its border box to 100 because of the minimum, and then has 56 points of
+        // content box that the row was never told about. §12.8 stretches `auto` tracks into
+        // "remaining positive, definite free space", and until this pass runs there is no definite
+        // free space to stretch into — which is the second sentence of §12.8, "if the free space is
+        // indefinite, but the grid container has a definite min-width/height, use that size", read as
+        // a whole second pass rather than as a special case inside one step.
+        //
+        // ⚠ That reading is what makes `grid-template-rows: 1fr` come out at 56 as well. §12.7's
+        // indefinite branch sizes an `fr` track from its own base size, which is zero; only a definite
+        // available space gives the flexible track a fraction to be. One pass with a number in it
+        // answers both, where a clause bolted onto §12.8 would have answered only the `auto` case.
+        //
+        // The container does NOT re-measure afterwards — its height was settled by the intrinsic pass
+        // and by the minimum, exactly as the inline axis does not re-measure around its gutter.
+        if (rowAxis.Constraint != GridSizingConstraint.Definite) {
+            ResetTracks(rowsAt, placement.Rows);
+
+            rowAxis = rowAxis with { AvailableSpace = innerHeight, Constraint = GridSizingConstraint.Definite };
+
+            SizeGridTracks(in rowAxis, direction, ownerWidth, ownerHeight, currentDepth);
+        }
+
         rowAxis = rowAxis with { AvailableSpace = innerHeight };
 
         SetMeasuredDimension(index, Dimension.Width, outerWidth, unboundedWidth);
@@ -966,7 +994,20 @@ public sealed partial class LayoutTree {
         }
 
         // Not stretched: the item is sized to its content, but never larger than its area.
-        return (MathF.Max(0f, areaSize), SizingMode.FitContent);
+        //
+        // ⚠ <b>…and the area is narrowed by the item's own maximum FIRST, because the block axis is
+        // measured at whatever inline size this returns.</b> Clamping afterwards gives the right
+        // width and the wrong height: `grid_size_child_fixed_tracks`' last item is `max-width: 30px`
+        // in a 40-point column, and measuring its text at 40 wraps it into two lines where 30 needs
+        // four. Chrome answers 30x40; clamping the finished box answers 30x20, which reads as a
+        // line-breaking bug and is a sequencing one. The used inline size is unchanged by moving the
+        // clamp — fit-content is monotonic in the available space, so `min(fit-content(a), m)` and
+        // `fit-content(min(a, m))` agree — which is why only the other axis moves.
+        var axis = dimension == Dimension.Width ? FlexDirection.Row : FlexDirection.Column;
+        var borderBox = MathF.Max(0f, areaSize - marginSum);
+        var bounded = BoundAxisWithinMinAndMax(child, direction, axis, borderBox, reference, areaWidth);
+
+        return (MathF.Max(0f, bounded + marginSum), SizingMode.FitContent);
     }
 
     /// <summary>
@@ -1061,7 +1102,33 @@ public sealed partial class LayoutTree {
             var marginReference = float.IsNaN(item.ResolvedInlineSize) ? ownerWidth : item.ResolvedInlineSize;
             var marginColumn = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, marginReference);
             var marginRow = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, marginReference);
-            var borderBoxInline = MathF.Max(0f, item.ResolvedInlineSize - marginRow);
+            // ⚠ <b>An item with a stated width is measured at THAT width, not at its area's.</b>
+            // `ItemSizeOn` has always resolved the preferred size before the item is laid out; this
+            // pass handed the area's size down as a stretch-fit and let the callee discover the
+            // declaration for itself — which it cannot, because a percentage width needs a
+            // containing block and the callee is given the area as its owner. So a `width: 50%`
+            // grid nested in a 200-point grid measured its own children against 200 and laid them
+            // out against 100, and every percentage inside it came out doubled. That is the whole
+            // of the `grid_percent_items_nested_*` family, and it was filed as a cyclic percentage
+            // — a percentage resolved against the wrong box rather than against an unknown one, for
+            // the third time in this file.
+            //
+            // ⚠ <b>The used width and the containing block are two different numbers and both are
+            // needed.</b> `outerInline` is how much room the item gets; `item.ResolvedInlineSize` —
+            // the grid area — is what the item's own percentages are a fraction of, which is what
+            // `PlaceGridItemBoxes` passes as `ownerWidth` and what CSS Grid §9 requires. Collapsing
+            // them either way is a fixture: feeding the used width down as the owner makes
+            // `grid_percent_items_width_and_padding`'s `padding: 3%` a fraction of the item instead
+            // of the area, and feeding the area down as the available size is the bug above.
+            // `areaInline` is the third, and it is only the border box the ratio needs.
+            var areaInline = MathF.Max(0f, item.ResolvedInlineSize - marginRow);
+
+            var statedInline = float.IsNaN(item.ResolvedInlineSize)
+                ? float.NaN
+                : ResolvedDimension(child, Dimension.Width, item.ResolvedInlineSize, item.ResolvedInlineSize, direction);
+
+            var borderBoxInline = float.IsNaN(statedInline) ? areaInline : MathF.Max(0f, statedInline);
+            var outerInline = float.IsNaN(statedInline) ? item.ResolvedInlineSize : borderBoxInline + marginRow;
 
             // ⚠ <b>An item's own stated height has to be resolved here, because the callee will not
             // do it.</b> `MeasureNodeWithoutChildren` answers a max-content request with the node's
@@ -1087,16 +1154,25 @@ public sealed partial class LayoutTree {
 
             float measured;
             if (!float.IsNaN(statedHeight)) {
-                measured = BoundAxisWithinMinAndMax(child, direction, FlexDirection.Column, statedHeight, ownerHeight, ownerWidth);
+                // ⚠ <b><see cref="BoundAxis" /> and not <see cref="BoundAxisWithinMinAndMax" />: the
+                // pair differ by exactly the padding-and-border floor, and that floor is the whole
+                // of `grid_padding_border_overrides_size`.</b> CSS Box Model: a `border-box` size
+                // smaller than the box's own edges is raised to them, so `height: 12px` on a box with
+                // 14 points of vertical padding and border is a 14-point box. The inline axis was
+                // never short of this — its contributions come back through
+                // `CalculateLayoutInternal`, which floors on the way out — so the item laid out 14
+                // tall inside a row this method had sized at 12. One axis measured the box and the
+                // other measured the declaration.
+                measured = BoundAxis(child, FlexDirection.Column, direction, statedHeight, ownerHeight, ownerWidth);
             } else {
                 CalculateLayoutInternal(
                     child,
-                    item.ResolvedInlineSize,
+                    outerInline,
                     float.NaN,
                     direction,
                     float.IsNaN(item.ResolvedInlineSize) ? SizingMode.MaxContent : SizingMode.StretchFit,
                     SizingMode.MaxContent,
-                    float.IsNaN(item.ResolvedInlineSize) ? ownerWidth : borderBoxInline,
+                    float.IsNaN(item.ResolvedInlineSize) ? ownerWidth : item.ResolvedInlineSize,
                     ownerHeight,
                     performLayout: false,
                     currentDepth

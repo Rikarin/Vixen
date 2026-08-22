@@ -244,6 +244,24 @@ public sealed partial class LayoutTree {
         var minorLimit = rowFlow ? columns : rows;
 
         for (var pass = 0; pass < 2; pass++) {
+            // ⚠ <b>§8.5 step 4 opens by RESETTING the cursor, and the two passes therefore do not
+            // share one.</b> "Reset the auto-placement cursor to the start-most row and column line
+            // in the implicit grid" is the first sentence of the step, and it is there because step
+            // 2 has just walked every major-locked item — including ones far down the grid — and the
+            // fully-auto items are not meant to start from wherever that walk finished.
+            // `grid_placement_auto_negative` is three items in a 2x2 grid: one at `grid-row: 2`,
+            // which pass 0 places and leaves the cursor on row 2, and one fully auto that belongs in
+            // the free cell of row 1 and was landing beside it in row 2 instead.
+            //
+            // ⚠ Both of the fixtures this closes were filed under grid's track cap and neither is
+            // about it. `grid_overlarge_auto_flow_column_large_negative_row_start` has a
+            // `grid-row-start: -19553` in it, so it read as an over-large grid — but the number the
+            // fixture actually disagreed about was which column the one auto-placed item took, and
+            // that is this sentence. A large number in a fixture is not evidence about which rule it
+            // is testing.
+            cursorMajor = 0;
+            cursorMinor = 0;
+
             for (var at = 0; at < count; at++) {
                 ref var item = ref Scratch.Item(itemsAt + at);
 

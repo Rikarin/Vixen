@@ -15,12 +15,14 @@
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
 #
-# 206 at the corpus's first run; 66 now. Five rules closed the 140: CSS Sizing §5.2.2's distinction
+# 206 at the corpus's first run; 62 now. Six rules closed the 144: CSS Sizing §5.2.2's distinction
 # between a min-content size and a min-content contribution, §5.1's min-over-max precedence,
 # §4.1's transfer of a minimum or a maximum ACROSS the aspect ratio into the other axis,
 # CSS Flexbox §9.7's distinction between the sum lines are BROKEN by and the sum free space is
-# COMPUTED from, and §9.2's distinction between a flex BASE size and a HYPOTHETICAL main size — the
-# same shape of mistake twice over, one field answering two questions.
+# COMPUTED from, §9.2's distinction between a flex BASE size and a HYPOTHETICAL main size — the
+# same shape of mistake twice over, one field answering two questions — and CSS Sizing's rule that a
+# BLOCK-axis intrinsic size is a function of the used inline size, which is the one asymmetry between
+# the axes and the one the min-content probe was missing.
 # A closed bucket keeps its heading with the diagnosis that closed it, because the
 # next person to read this file is more likely to be looking for how one of these was found than for
 # a to-do list.
@@ -99,10 +101,10 @@
 #
 # ⚠ "EXPECT NOTHING TO MOVE" WAS MEASURED AND IS WRONG, and it is worth the two lines because the next
 # person will otherwise repeat the experiment. Deleting the cap on the unclamped-flex-base branch
-# costs FOUR grid fixtures (1 896 → 1 892) and gains nothing anywhere: flex stays at 2 190 / 66 and
-# Yoga's 534 do not move. So the cap is load-bearing beyond the two probe defects above, and
-# bevy_issue_9530 below — which the §9.7 heading expected the cap to be holding back — is not waiting
-# on it either.
+# costs FOUR grid fixtures (measured when grid stood at 1 896) and gains nothing anywhere: flex
+# stayed at 2 190 / 66 and Yoga's 534 did not move. So the cap is load-bearing beyond the two probe
+# defects above, and bevy_issue_9530 — which the §9.7 heading expected the cap to be holding back —
+# was not waiting on it either.
 #
 # ⚠ percentage_flex_basis_cross_min_height CLOSED with §9.2's unclamped flex base, which is written up
 # under §9.7 below. It sat here rather than there because its symptom is a cross-axis minimum, and it
@@ -159,10 +161,10 @@ absolute_child_with_max_height_larger_shrinkable_grandchild
 #     200pt non-shrinking child: Chrome keeps the item at 100 and lets the child overflow, Vixen
 #     answers 240. The item's hypothetical size is already 100; what grows is the CONTAINER, which
 #     sizes itself off the child's measurement rather than the item's target size.
-#   · bevy_issue_9530 is content-measured, so the new base does reach it, and it still shrinks both
-#     items proportionally where Chrome freezes the text box and overflows. It is not the §4.5 floor
-#     cap either — deleting that cap was measured and moves this fixture not at all (see the note in
-#     the §4.5 bucket above).
+#   · bevy_issue_9530 is content-measured, so the new base does reach it, and it still shrank both
+#     items proportionally where Chrome freezes the text box and overflows. It was not the §4.5 floor
+#     cap either. It was the floor's own measurement, in the block axis, and it is CLOSED — see the
+#     downstream-regression heading below.
 taffy_issue_696_min_height
 
 # ── aspect-ratio against min/max and stretch ──
@@ -236,7 +238,8 @@ display_none_only_node
 #
 # ⚠ THE PREDICTION THIS HEADING MADE WAS RIGHT TWICE OVER: "the ones most likely to collapse into
 # the buckets above once one of those is fixed." bevy_issue_10343_flex went with the §4.5 descendant
-# rule. bevy_issue_9530 belongs to §9.7 and is waiting on the same unclamped flex base as `min_width`.
+# rule. bevy_issue_9530 was read as §9.7 and as waiting on the unclamped flex base, and was neither —
+# see its own note below, which closed it.
 # Two of the remaining three are diagnosed below and one of them was a bug of its own, which is the
 # argument for reading downstream regression fixtures rather than filing them: they are the ones
 # nobody wrote a spec-shaped test for.
@@ -248,17 +251,22 @@ display_none_only_node
 # `margin: 10px` came out exactly 10 too high, each. One line in LayoutTree.Align, and
 # FlexibleLengthResolutionTests has it written out where no fixture is needed to see it.
 #
-# ⚠ bevy_issue_9530 is §9.7 ON THE SHRINK SIDE, and it did NOT close with the unclamped flex base
-# the way this note predicted. A 300pt column holding a 20pt box and a flex-grow box whose text needs
-# 420: Chrome freezes the text box at its §4.5 minimum, sends the whole 200pt overflow to the 20pt
-# box, and lets the container overflow. Vixen shrinks both proportionally — every height in the tree
-# comes out near half — because the text box's floor never freezes it.
+# ⚠ bevy_issue_9530 IS CLOSED, and the line this heading left for whoever came next is what closed
+# it. It read: "the floor this box needs is not being capped away — it is not being computed, or not
+# being consulted, on the shrink path." It was not being computed, and the reason is one axis of one
+# probe. `ComputeMinContentSizeUncached` measured a leaf's BLOCK-axis min-content size with the width
+# undefined, so a text reported the height of a single line — there is no min-content height of a
+# paragraph on its own, only the height it takes at the inline size it has. §4.5's floor for the
+# grow box was therefore one line where Chrome's is 420, the box did not freeze, and both children
+# shrank proportionally. Measured at the containing block's inline size instead, it freezes, the
+# whole overflow goes to the 20pt box and the container overflows as Chrome draws it.
 #
-# ⚠ Two candidates are now ruled out by measurement rather than by argument, which is the whole value
-# of leaving this line here: the flex base IS unclamped now and this fixture did not move, and
-# deleting the §4.5 floor cap does not move it either (it costs four grid fixtures and buys nothing).
-# So the floor this box needs is not being capped away — it is not being computed, or not being
-# consulted, on the shrink path. That is where the next attempt should start.
+# ⚠ It cost a second change to land, and the second one is the interesting half. Measuring at the
+# real width makes every block-axis §4.5 floor bigger, and a bigger floor overrules a smaller
+# aspect ratio: `aspect_ratio_flex_column_stretch_fill_max_height` went red on the measurement alone.
+# §4.5's CONTENT SIZE SUGGESTION is clamped through the ratio by the cross MIN AND MAX — a different
+# clamp from the transferred size suggestion, which needs a definite cross size where this needs only
+# a bound. Both halves together are +4 here and +4 in grid; the first half alone is +4 and −4.
 #
 # ⚠ bevy_issue_7976_{3,4}_level ARE A PERCENTAGE CYCLE IN THE FLEX-BASIS TRIAL LAYOUT, and they are
 # the one thing here that is not §9.7. A `min-width: 40px` item wrapping a `width: 100%` child should
@@ -272,4 +280,3 @@ display_none_only_node
 # bevy_issue_7976_reduced passes, and the only difference is that it has no percentage child.
 bevy_issue_7976_3_level
 bevy_issue_7976_4_level
-bevy_issue_9530

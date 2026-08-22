@@ -156,16 +156,29 @@ public sealed partial class LayoutTree {
 
             GridTrackSize size;
             if (explicitIndex < 0) {
-                // ⚠ <b>The implicit tracks are numbered from the start of the <i>implicit</i> grid,
-                // not from the explicit one.</b> §7.5 assigns <c>grid-auto-*</c> in order beginning
-                // at the very first track, so the leftmost implicit track takes the list's first
-                // entry — counting backwards from the explicit grid instead gives the cycle the
-                // wrong phase, and only when something was placed at a negative line.
-                size = ImplicitTrackSize(in automatic, track);
+                // ⚠ <b>The cycle runs OUTWARDS from the explicit grid in both directions, and the
+                // two directions do not share a phase.</b> §7.5: "the first implicit grid track
+                // after the explicit grid receives the first specified size, and so on forwards; and
+                // the last implicit grid track before the explicit grid receives the last specified
+                // size, and so on backwards." So the leading tracks are numbered −1, −2, … from the
+                // explicit grid's start edge and read the list from its end — `10px 20px 30px` gives
+                // the track immediately before the explicit grid 30, not 10.
+                //
+                // ⚠ This is the one place a negative ordinal reaches
+                // <see cref="ImplicitTrackSize" />, whose flooring modulo was already written for it.
+                // Numbering the leading tracks 0, 1, 2 … from the start of the *implicit* grid — the
+                // reading this used to carry, in a comment that stated it as the spec — puts the
+                // whole cycle out of phase, and by an amount that depends on how many implicit
+                // tracks a negative line happened to create. `grid_auto_columns` and
+                // `grid_auto_rows` differ only in how many that is, which is why one list of three
+                // sizes disagrees in two different ways.
+                size = ImplicitTrackSize(in automatic, explicitIndex);
             } else if (explicitIndex < explicitCount) {
                 size = ExplicitTrackSize(stored, in template, explicitIndex);
             } else {
-                size = ImplicitTrackSize(in automatic, leadingImplicit + (explicitIndex - explicitCount));
+                // Trailing tracks are numbered from the explicit grid's end edge, so the leading
+                // ones must not be added in: they are a separate run of the same cycle.
+                size = ImplicitTrackSize(in automatic, explicitIndex - explicitCount);
             }
 
             Scratch.Track(at + track).Size = size;
