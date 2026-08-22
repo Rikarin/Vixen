@@ -592,6 +592,26 @@ sealed class EditorHost : IDisposable {
         // lines are a buffer write and are here for the same reason.
         renderer.Upload(commands, pane.Frame, glyphs.Atlas);
 
+        // ⚠ <b>After `Upload` and outside the graph, and both halves of that are load-bearing.</b>
+        // After, because a group's surface is drawn from the vertices `Upload` wrote and through the
+        // descriptor sets it advanced the ring to — composing first would render this frame's groups
+        // from the last frame's geometry. Outside, because `Compose` opens a render pass per group
+        // and the graph's own pass is not somewhere another one can begin; recording them onto
+        // `commands` here puts them before `graph.Execute` on the same list, which is exactly the
+        // order the dependency runs in — the interface's pass samples what these wrote.
+        //
+        // ⚠ The same surface and scale as `Record` below, and not the swapchain's size. `Compose`
+        // draws a group with the frame's own projection into a viewport-sized surface — see
+        // `UiLayer` — so a different number here would put the group's contents at a different place
+        // in its surface than the composite quad expects to find them, and the subtree would land
+        // offset by whatever the two disagreed by.
+        renderer.Compose(
+            commands,
+            pane.Frame,
+            new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
+            scale
+        );
+
         // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
         // interface samples what the scene wrote, and the barrier between them is derived rather
         // than placed by hand.

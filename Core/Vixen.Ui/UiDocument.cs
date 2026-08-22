@@ -293,7 +293,9 @@ public sealed partial class UiDocument : IDisposable {
     ///     preference.</b> See <see cref="DrawListBuilder.Compositing" />: a group is only a picture if
     ///     whoever consumes the draw list renders <c>UiGeometry.Layers</c> into offscreen surfaces, and
     ///     a consumer that ignores them draws a faded panel at full strength rather than approximating
-    ///     it. Off by default because <c>Vixen.Ui.Renderer</c> does not composite yet.
+    ///     it. On by default now that both <c>SoftwareUiRasterizer</c> and <c>Vixen.Ui.Renderer</c>
+    ///     composite — which for the second one means the host also calls <c>UiRenderer.Compose</c> and
+    ///     supplied a <c>UiShaders.Image</c>. Turn it off for a consumer of your own that does neither.
     /// </remarks>
     public bool Compositing {
         get => drawings.Compositing;

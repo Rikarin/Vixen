@@ -439,9 +439,10 @@ public class DrawListTests {
         // draws a background *and* contains a child, so the two models differ wherever they overlap.
         var document = new UiDocument(400f, 300f);
 
-        // ⚠ Opted in, because compositing is off until `Vixen.Ui.Renderer` can execute a group — see
-        // `DrawListBuilder.Compositing`. The multiplier is still the default and still has its own
-        // test below; this one is about the model that replaces it.
+        // ⚠ Set explicitly even though it is now the default — see `DrawListBuilder.Compositing`,
+        // which flipped once both executors could render a group. Written out because the test below
+        // sets the opposite, and a pair of tests where only one names the setting reads as though the
+        // other were testing something unrelated.
         document.Compositing = true;
 
         document.Load(
@@ -479,23 +480,32 @@ public class DrawListTests {
 
     /// <summary>With compositing off, opacity is still a multiplier all the way down.</summary>
     /// <remarks>
-    ///     ⚠ <b>The default, and it is a default about the renderer rather than about the model.</b>
-    ///     A group is only a picture if whoever consumes the draw list can render an offscreen surface,
-    ///     and <c>Vixen.Ui.Renderer</c> cannot yet — so this is what an application draws today, and it
-    ///     has to keep working exactly as it did. `opacity` still does not inherit, so the child is
-    ///     faded by its ancestor and by itself: reading it from the cascade would give 0.5 rather
-    ///     than 0.25.
+    ///     ⚠ <b><s>The default</s> no longer the default, and it is still worth having.</b> A group is
+    ///     only a picture if whoever consumes the draw list can render an offscreen surface; both of
+    ///     this repository's consumers now can, so the gate flipped — but the multiplier is still what
+    ///     a consumer of somebody else's writing gets by turning it back off, and a path with a live
+    ///     caller and no test is one that rots. `opacity` still does not inherit, so the child is faded
+    ///     by its ancestor and by itself: reading it from the cascade would give 0.5 rather than 0.25.
     /// </remarks>
     [Fact]
     public void Opacity_still_multiplies_down_the_tree_when_nothing_can_composite() {
-        using var document = Drawn(
+        // ⚠ Built here rather than through `Drawn`, because the setting has to be off *before* the
+        // draw and `Drawn` draws. Turning it off afterwards and drawing again would test the same
+        // thing, but only for as long as nobody moved the second draw.
+        using var document = new UiDocument(400f, 300f);
+        document.Compositing = false;
+
+        document.Load(
             """
             root { width: 400px; height: 300px; }
             .outer { width: 100px; height: 100px; background-color: #ff0000; opacity: 0.5; }
             .inner { width: 50px; height: 50px; background-color: #00ff00; opacity: 0.5; }
-            """,
-            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+            """
         );
+
+        document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner");
+        document.Update();
+        document.Draw();
 
         Assert.Equal(2, document.Drawing.Commands.Count);
         Assert.Equal(0.5f, document.Drawing.Commands[0].Color.A, Tolerance);

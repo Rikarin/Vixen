@@ -29,12 +29,17 @@
 
     <ItemGroup>
         <!--
-            The four modules UiRenderer draws with, as SPIR-V, committed. Turning shader source into
+            The five modules UiRenderer draws with, as SPIR-V, committed. Turning shader source into
             modules belongs to Raven; until that path is wired a caller hands the renderer whatever
             it has, and these are byte for byte the ones the engine's own samples and golden-image
             fixtures use.
 
-            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the three
+            ⚠ `ui-image.frag` is here even though a new application draws no images, because it is
+            also the stage `UiRenderer.Compose` composites a translucent group's surface back with.
+            Dropping it does not disable images, it makes every faded subtree render opaque — see
+            AppHost's remark where the shaders are built.
+
+            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the four
             fragment stages.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />
