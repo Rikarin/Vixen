@@ -312,12 +312,19 @@ public sealed partial class LayoutTree {
                     var wanted = round switch {
                         GridDistribution.IntrinsicMinimum => contributions.Minimum,
                         GridDistribution.ContentBasedMinimum => contributions.MinContent,
+                        GridDistribution.LimitedMaxContentMinimum => contributions.MaxContent,
                         GridDistribution.MaxContentMinimum => contributions.MaxContent,
                         GridDistribution.IntrinsicMaximum => contributions.MinContent,
                         _ => contributions.MaxContent
                     };
 
-                    DistributeExtraSpace(in axis, in item, wanted - gapsInside, round);
+                    wanted -= gapsInside;
+
+                    if (round == GridDistribution.LimitedMaxContentMinimum) {
+                        wanted = LimitedMaxContent(in axis, in item, wanted);
+                    }
+
+                    DistributeExtraSpace(in axis, in item, wanted, round);
                     touched = true;
                 }
 
@@ -326,6 +333,7 @@ public sealed partial class LayoutTree {
                         in axis,
                         round is GridDistribution.IntrinsicMinimum
                             or GridDistribution.ContentBasedMinimum
+                            or GridDistribution.LimitedMaxContentMinimum
                             or GridDistribution.MaxContentMinimum
                     );
                 }
@@ -347,7 +355,7 @@ public sealed partial class LayoutTree {
         }
 
         if (anyFlexible) {
-            // ⚠ <b>The same three base-size rounds as step 3, intersected with "is flexible".</b>
+            // ⚠ <b>The same base-size rounds as step 3, intersected with "is flexible".</b>
             // §12.5 step 4 says to <i>repeat the previous step</i> while distributing space only to
             // flexible tracks — so the round's own filter still applies on top. That intersection is
             // the whole difference between `0fr 1fr` and `0fr minmax(0px, 0fr)`: both pairs are
@@ -417,10 +425,12 @@ public sealed partial class LayoutTree {
             var wanted = maximum.Kind == GridSizingKind.MinContent ? contributions.MinContent : contributions.MaxContent;
             var limit = float.IsPositiveInfinity(track.GrowthLimit) ? wanted : MathF.Max(track.GrowthLimit, wanted);
 
-            // ⚠ `fit-content(x)` clamps here and nowhere else. §7.2.2 makes it a max-content ceiling
+            // ⚠ `fit-content(x)` clamps the GROWTH LIMIT here. §7.2.2 makes it a max-content ceiling
             // limited by its argument, so the growth limit is the smaller of the two — and a
             // percentage argument against an indefinite container has no value, in which case the
-            // clamp simply does not apply.
+            // clamp simply does not apply. A base size grown past the argument by a spanning item is
+            // a separate question, and §12.5 answers it with the limited contribution rather than
+            // with a ceiling — see <see cref="LimitedMaxContent" />.
             if (maximum.Kind == GridSizingKind.FitContent) {
                 var clamp = FitContentLimit(maximum, axis.AvailableSpace);
 
@@ -437,6 +447,70 @@ public sealed partial class LayoutTree {
         }
     }
 
+    /// <summary>§12.5 step 3.3's <i>limited</i> max-content contribution.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <c>fit-content()</c> track spanned under a max-content constraint is already
+    ///         limited, and the contribution is what carries the limit.</b> The round this feeds is
+    ///         the one that lets an <c>auto</c> track absorb a spanning item's max-content size while
+    ///         the container's own width is still being asked for — which is right for an <c>auto</c>
+    ///         track, whose ceiling is genuinely the content, and wrong for `fit-content(10px)`,
+    ///         whose ceiling is ten. §7.2.2 already says so; the growth limit says so too. But this
+    ///         round grows BASE sizes, and §12.5.1's "distribute space beyond limits" then hands a
+    ///         frozen track the leftover anyway, so the growth limit alone does not hold the line.
+    ///     </para>
+    ///     <para>
+    ///         So the cap is applied to the contribution instead: the item may ask the span for no
+    ///         more than each <c>fit-content()</c> track's argument plus what the other tracks
+    ///         already hold. `min-content fit-content(10px)` spanned by an 80-point item asks for
+    ///         30 rather than 80, the 20 already there covers it, and the grid is 40 wide instead of
+    ///         80 — with `fit-content(30px)` the same sum comes to 50, which is exactly the ten
+    ///         points of headroom the larger argument buys.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ An argument a track has already outgrown does not shrink it. A base size that
+    ///         exceeded the argument got there through §12.5's earlier rounds, which the argument
+    ///         does not govern — floor the per-track allowance at the base size so the cap can only
+    ///         ever refuse growth, never claw any back.
+    ///     </para>
+    ///     <para>
+    ///         An item spanning no <c>fit-content()</c> track has nothing to be limited by and keeps
+    ///         its plain max-content contribution — capping by the base sizes alone would leave
+    ///         every <c>auto</c> track in the span unable to grow at all, which is the round's whole
+    ///         purpose.
+    ///     </para>
+    /// </remarks>
+    float LimitedMaxContent(in GridAxis axis, in GridItem item, float maxContent) {
+        var start = item.StartOn(axis.Inline);
+        var span = item.SpanOn(axis.Inline);
+
+        var cap = 0f;
+        var limits = false;
+
+        for (var at = start; at < start + span; at++) {
+            ref var track = ref Scratch.Track(axis.TracksAt + at);
+
+            if (track.IsCollapsed) {
+                continue;
+            }
+
+            var allowance = track.BaseSize;
+
+            if (track.Size.Max.Kind == GridSizingKind.FitContent) {
+                var argument = FitContentLimit(track.Size.Max, axis.AvailableSpace);
+
+                if (!float.IsNaN(argument)) {
+                    allowance = MathF.Max(argument, track.BaseSize);
+                    limits = true;
+                }
+            }
+
+            cap += allowance;
+        }
+
+        return limits ? MathF.Min(maxContent, cap) : maxContent;
+    }
+
     /// <summary>The number a <c>fit-content()</c> argument stands for, or NaN.</summary>
     static float FitContentLimit(GridSizingFunction maximum, float availableSpace) =>
         maximum.IsFitContentPercent
@@ -450,6 +524,21 @@ public sealed partial class LayoutTree {
 
         /// <summary>Grow base sizes of tracks with a content-based minimum, to fit min-content.</summary>
         ContentBasedMinimum,
+
+        /// <summary>
+        ///     Under a max-content constraint only: grow base sizes of tracks with an <c>auto</c> or
+        ///     <c>max-content</c> minimum, to fit the item's <i>limited</i> max-content contribution.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>This is a separate round from <see cref="MaxContentMinimum" /> because the two
+        ///     sentences of §12.5 step 3.3 hand out two different numbers.</b> The conditional one
+        ///     spends the <i>limited</i> max-content contribution over a wider set of tracks; the
+        ///     unconditional one spends the full max-content contribution over a narrower set. Fusing
+        ///     them into a single round — one `IsAffectedBy` reading both min sizing functions, one
+        ///     contribution for both — gives the wider set the larger number, which is the one
+        ///     combination the step never authorises. See <see cref="LimitedMaxContent" />.
+        /// </remarks>
+        LimitedMaxContentMinimum,
 
         /// <summary>Grow base sizes of tracks with a max-content minimum, to fit max-content.</summary>
         MaxContentMinimum,
@@ -480,6 +569,7 @@ public sealed partial class LayoutTree {
 
         var growsBase = round is GridDistribution.IntrinsicMinimum
             or GridDistribution.ContentBasedMinimum
+            or GridDistribution.LimitedMaxContentMinimum
             or GridDistribution.MaxContentMinimum
             or GridDistribution.FlexibleBase;
 
@@ -643,7 +733,7 @@ public sealed partial class LayoutTree {
         round switch {
             GridDistribution.IntrinsicMinimum or GridDistribution.ContentBasedMinimum =>
                 track.Size.Max.IsIntrinsic(availableSpace),
-            GridDistribution.MaxContentMinimum =>
+            GridDistribution.LimitedMaxContentMinimum or GridDistribution.MaxContentMinimum =>
                 track.Size.Max.Kind is GridSizingKind.MaxContent or GridSizingKind.Auto or GridSizingKind.FitContent,
             _ => true
         };
@@ -660,17 +750,25 @@ public sealed partial class LayoutTree {
     ///         and undoes §6.6 entirely.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The max-content constraint gates <c>auto</c> and only <c>auto</c>.</b> §12.5 step
-    ///         3.3 opens with "if the grid container is being sized under a max-content constraint",
-    ///         and reading that as the whole step is the trap — the step ends with a second sentence,
-    ///         "<i>in all cases</i>, continue to increase the base size of tracks with a min track
-    ///         sizing function of <c>max-content</c> by distributing extra space as needed to account
-    ///         for these items' max-content contributions". So a track that literally says
-    ///         <c>max-content</c> accommodates a spanning item's max-content contribution however the
-    ///         container is being sized, exactly as step 2 already does for a non-spanning one — see
-    ///         <see cref="ApplyNonSpanningContribution" />, which has always read the two the same
-    ///         way. Gating both kinds left `minmax(max-content, 6px)` a min-content track the moment
-    ///         something spanned it, and the same track alone was right.
+    ///         ⚠ <b>§12.5 step 3.3 is TWO rounds, not one round with a widened membership.</b> It
+    ///         opens with "if the grid container is being sized under a max-content constraint,
+    ///         continue to increase the base size of tracks with a min track sizing function of
+    ///         <c>auto</c> or <c>max-content</c> … to account for these items' <i>limited</i>
+    ///         max-content contributions", and ends with "<i>in all cases</i>, continue to increase
+    ///         the base size of tracks with a min track sizing function of <c>max-content</c> … to
+    ///         account for these items' max-content contributions". Two memberships and two
+    ///         contributions, and they are crossed: the wider membership gets the smaller number.
+    ///         Fusing them — one round whose membership is the union and whose contribution is the
+    ///         unlimited one — hands the union the larger number, which is the pairing the step never
+    ///         authorises, and a `fit-content()` track spanned under a max-content constraint grows
+    ///         straight past its own argument. Hence <see cref="GridDistribution.LimitedMaxContentMinimum" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A track that literally says <c>max-content</c> accommodates a spanning item's
+    ///         max-content contribution however the container is being sized, exactly as step 2 does
+    ///         for a non-spanning one — see <see cref="ApplyNonSpanningContribution" />, which has
+    ///         always read the two the same way. Gating that left `minmax(max-content, 6px)` a
+    ///         min-content track the moment something spanned it, and the same track alone was right.
     ///     </para>
     ///     <para>
     ///         ⚠ <c>auto</c> keeps its gate, and that is the half the opening sentence is about:
@@ -684,9 +782,10 @@ public sealed partial class LayoutTree {
             GridDistribution.IntrinsicMinimum => track.Size.Min.IsIntrinsic(availableSpace),
             GridDistribution.ContentBasedMinimum =>
                 track.Size.Min.Kind is GridSizingKind.MinContent or GridSizingKind.MaxContent,
-            GridDistribution.MaxContentMinimum =>
-                track.Size.Min.Kind == GridSizingKind.MaxContent
-                || (constraint == GridSizingConstraint.MaxContent && track.Size.Min.Kind == GridSizingKind.Auto),
+            GridDistribution.LimitedMaxContentMinimum =>
+                constraint == GridSizingConstraint.MaxContent
+                && track.Size.Min.Kind is GridSizingKind.Auto or GridSizingKind.MaxContent,
+            GridDistribution.MaxContentMinimum => track.Size.Min.Kind == GridSizingKind.MaxContent,
             GridDistribution.IntrinsicMaximum => track.Size.Max.IsIntrinsic(availableSpace),
             GridDistribution.MaxContentMaximum =>
                 track.Size.Max.Kind is GridSizingKind.MaxContent or GridSizingKind.Auto or GridSizingKind.FitContent,
@@ -709,9 +808,32 @@ public sealed partial class LayoutTree {
                     track.GrowthLimit = track.BaseSize;
                 }
             } else {
-                track.GrowthLimit = float.IsPositiveInfinity(track.GrowthLimit)
+                var grown = float.IsPositiveInfinity(track.GrowthLimit)
                     ? track.BaseSize + track.PlannedIncrease
                     : track.GrowthLimit + track.PlannedIncrease;
+
+                // ⚠ <b>`fit-content(x)`'s ceiling is x however the contribution arrived.</b> §7.2.2
+                // makes the growth limit `min(max-content, x)`, and `ApplyNonSpanningContribution`
+                // has always honoured that — but only for an item sitting in exactly one track. An
+                // item SPANNING the track reaches the same growth limit through §12.5.1 instead, and
+                // that path had no clamp, so `fit-content(10px)` grew to whatever the spanning item
+                // wanted. Nothing looks wrong until §12.6, which under a max-content constraint has
+                // infinite free space and raises every base size to its growth limit: the argument
+                // is then not a ceiling on anything, and a `min-content fit-content(10px)` grid
+                // measures 80 where Chrome says 40.
+                //
+                // The floor is the base size, not zero: a base that already exceeds the argument got
+                // there through the base-size rounds, which §7.2.2 does not govern, and a growth
+                // limit below its own base size is not a state the rest of §12 is written for.
+                if (track.Size.Max.Kind == GridSizingKind.FitContent) {
+                    var argument = FitContentLimit(track.Size.Max, axis.AvailableSpace);
+
+                    if (!float.IsNaN(argument)) {
+                        grown = MathF.Min(grown, MathF.Max(argument, track.BaseSize));
+                    }
+                }
+
+                track.GrowthLimit = grown;
             }
 
             track.PlannedIncrease = 0f;
