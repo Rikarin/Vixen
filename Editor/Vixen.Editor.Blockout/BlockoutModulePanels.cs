@@ -82,7 +82,7 @@ public sealed partial class BlockoutModule {
     }
 
     /// <summary>A titled divider, which is all a section is.</summary>
-    static void Section(DockPanel panel, string title) => panel.Add("World-title").Text = title;
+    static void Section(DockPanel panel, string title) => panel.Add("world-title").Text = title;
 
     /// <summary>Makes the panel claim the blockout command context when it is pressed in.</summary>
     /// <remarks>

@@ -582,15 +582,29 @@ declared there, and `frame-editor fact-name` overrides two of them in the same s
 declarations into `EditorTheme` would move them earlier in the load order and change which one wins.
 The tag names are the contract, and `EditorApplication` installs both sheets into the one document.
 
-⚠ **`Section` cannot be shared until a two-year-old typo is decided, and the typo is that four
-titles have never been styled.** `WorldTheme.vcss` says `world-title`; `EditorWorlds` writes
-`panel.Add("world-title")` and `TerrainModulePanels`, `WaterModulePanels`, `BlockoutModulePanels` and
-`StandardFrameView` all write `panel.Add("World-title")` with a capital. `NameTable` interns
-ordinally and says why — VXML's own rule is that case distinguishes a component from an element — so
-the rule reaches one of the five call sites and never reached the other four. A shared `<Section>`
-has to pick a spelling, and either choice moves pixels in some panel: the right fix is to correct the
-four and accept `font-weight: 600; margin-top: 6px` appearing where it was always meant to, which is
-a change somebody should look at rather than one a refactor smuggles in.
+⚠ **`Section` was blocked on a two-year-old typo, and the typo was that four titles had never been
+styled.** `WorldTheme.vcss` says `world-title`; `EditorWorlds` wrote `panel.Add("world-title")` and
+`TerrainModulePanels`, `WaterModulePanels`, `BlockoutModulePanels` and `StandardFrameView` all wrote
+`panel.Add("World-title")` with a capital. `NameTable` interns ordinally and says why — VXML's own
+rule is that case distinguishes a component from an element — so the rule reached one of the five
+call sites and never reached the other four. **Fixed 2026-08-23 by correcting the four**, which is
+what the sheet always meant: the four section titles gain `font-weight: 600` and `margin-top: 6px`,
+and `Section` is now free to be shared on the one spelling.
+
+⚠ **Nothing rendered those four panels in a test, which is why the fix moved no baseline.**
+`WorldTheme.Install` is called from `EditorApplication` and nowhere else, so no suite ever loaded the
+sheet and no `__screenshots__` reference contains a `world-title` in either spelling. The pixels do
+move — in the running editor, in the terrain, water and blockout panels and the standard-frame
+inspector — and no committed picture was in a position to notice.
+
+⚠ **The class of bug is now gated, narrowly.** `TypeSelectorReachTests` in `Vixen.Ui.Styling.Tests`
+sweeps every `.vcss` and every element-creation call site in the tree and fails a *hyphenated* tag
+whose lowercase spelling the sheets style and whose written spelling they do not. Narrow on purpose:
+"every tag has a rule" is false for hundreds of legitimate class-styled containers, and "every rule
+has a tag" is false for well over a hundred control parts written ahead of their panels. A
+hyphenated capital is the one unambiguous case — `ComponentEmitter` emits a capitalised tag as
+`Child<Tag>`, so a hyphen there is a C# syntax error and cannot survive a build, which is exactly why
+this bug could only ever hide in a C# string literal.
 
 **`VerbRow` was not built, and the reason is that it buys nothing.** `verb-row` has no rule in any
 stylesheet in the tree; there are two copies of the helper (`TerrainModulePanels`,

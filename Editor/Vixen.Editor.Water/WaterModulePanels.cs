@@ -181,7 +181,7 @@ public sealed partial class WaterModule {
         }
     }
 
-    static void Section(DockPanel panel, string title) => panel.Add("World-title").Text = title;
+    static void Section(DockPanel panel, string title) => panel.Add("world-title").Text = title;
 
     static void Clear(UiElement element) {
         while (element.Children.Count > 0) {
