@@ -413,6 +413,30 @@ public static class UtilityFamilies {
         Size("left", "left");
         Size("start", "inset-inline-start");
         Size("end", "inset-inline-end");
+
+        // ⚠ <b>v4's four logical insets, and `start-*`/`end-*` above are the compatibility spelling
+        // of the first two rather than the other way round.</b> `docs/plan/43` § D5 lists
+        // `start-*`/`end-*` among the utilities v4 keeps only in `compat/legacy-utilities.ts` —
+        // registered, undocumented — and `inset-s/e/bs/be` among what v4.0 *added*. The rule that
+        // section states is "implement the documented name and not the compatibility one", so these
+        // four are the names a person reading Tailwind's documentation will write. The two legacy
+        // ones stay because removing a registered family is a breaking change to every sheet in the
+        // tree, and because they cost one table entry each.
+        //
+        // ⚠ <b>The inline pair is logical and the block pair is physical, and that asymmetry is the
+        // whole of what is worth reading here.</b> `inset-inline-start`/`-end` are longhands
+        // `LayoutStyleBuilder.EdgeNames.ForInset` interns and the layout mirrors under
+        // `direction: rtl` — measured, `[hit,layout,paint]` — so emitting them keeps `inset-s-4` the
+        // leading edge in both directions. `inset-block-start`/`-end` are interned by nobody and
+        // measure inert on every scene, and the physical pair is not an approximation of them:
+        // `Vixen.Ui.Layout` has no writing mode, so the block axis *is* top-to-bottom in every
+        // configuration the engine can be in and `inset-block-start` would mean `top` on every
+        // element that ever resolved it. Same argument, same measurement, as `space-y-*` above.
+        Size("inset-s", "inset-inline-start");
+        Size("inset-e", "inset-inline-end");
+        Size("inset-bs", "top");
+        Size("inset-be", "bottom");
+
         Number("z", "z-index");
 
         Static("box-border", "box-sizing", "border-box");
@@ -546,6 +570,26 @@ public static class UtilityFamilies {
         BorderEdge("border-l", ["border-left-width"], ["border-left-color"]);
         BorderEdge("border-s", ["border-inline-start-width"], ["border-inline-start-color"]);
         BorderEdge("border-e", ["border-inline-end-width"], ["border-inline-end-color"]);
+
+        // ⚠ <b>The block pair, physical for the same reason `inset-bs-*` and `space-y-*` are.</b>
+        // `border-block-start-width` and `border-block-end-width` are interned by nothing —
+        // `LayoutStyleBuilder.EdgeNames.For(table, "border-width", "border", "-width")` reads the
+        // four physical edges and the two *inline* logical ones — and both measure inert on every
+        // scene. With no writing mode in `Vixen.Ui.Layout` the block axis is always top-to-bottom,
+        // so `border-block-start` is `border-top` on every element that could ever resolve it, and
+        // the physical spelling is the same declaration written in the name the engine reads.
+        //
+        // ⚠ Note what this does *not* inherit from `border-s`/`border-e`: those two are the only
+        // partial pair in the table, because their widths are read and their colours are not — the
+        // two `border-inline-*-color` lines in `InertProperties.txt`. Both physical colours are
+        // painted, so these two are read on every longhand they set.
+        //
+        // ⚠ No `border-block-start-style`. v4 emits one alongside the width and Vixen's physical
+        // edges do not, for the reason `divide-solid` is absent: `border-style` is emitted by
+        // nothing here and read by nothing either. Following `border-t` rather than following
+        // Tailwind is what keeps this from being one inert longhand out of two.
+        BorderEdge("border-bs", ["border-top-width"], ["border-top-color"]);
+        BorderEdge("border-be", ["border-bottom-width"], ["border-bottom-color"]);
 
         // ⚠ <b>`divide-*` is `border-*` written on the gaps rather than on the boxes</b>, so it is
         // the same three kinds of value — a width, a bare form meaning one pixel, and a colour —
@@ -693,6 +737,59 @@ public static class UtilityFamilies {
             ["auto"] = "aspect-ratio:auto"
         }));
 
+        // ── The twenty-nine roots that are deliberately NOT here ────────────────────────────
+        //
+        // ⚠ <b>`docs/plan/43`'s `shadowed_by` column is 35 rows and six of them are registered
+        // above. The other twenty-nine are refusals with a measurement behind each, and this comment
+        // exists because the obvious reading of that column — "thirty-five `Register` calls" — is
+        // the one that produces thirty-five inert classes.</b> Each refusal is written out in the
+        // `note` cell of its own row; the shapes are worth having in one place, because they are the
+        // four ways a registration can be wrong and only the first is visible to the gate:
+        //
+        //   <b>1. The property is inert, and registering it turns the gate red.</b> The honest kind.
+        //   `border-spacing-*`, `border-spacing-x/y-*` (no table layout exists at all),
+        //   `font-stretch-*` (interned by `InheritedProperties` and read by nobody — the exact case
+        //   `UtilityConsumptionGateTests.An_interned_property_no_consumer_acts_on_reads_as_inert`
+        //   pins), `text-shadow-*`, `background-clip`/`-origin`/`-blend-mode`/`-repeat` for the four
+        //   `bg` keyword sets, and `content` for `content-none` — which has nothing to apply to
+        //   either, since F6 refused pseudo-elements rather than building them.
+        //
+        //   <b>2. The property is inert and already allow-listed, so the shadowed root inherits a
+        //   debt rather than adding one.</b> `scale-x/y/z-*` and `rotate-x/y/z-*`. `scale` and
+        //   `rotate` are `#23` in `InertProperties.txt`, refused at the draw list because a rotated
+        //   box is not a rectangle and a scaled subtree needs re-shaping; a per-axis family over a
+        //   refused property is inert by construction. The three `-z` and two 3D rotations are
+        //   further out still: `transform` and `perspective` are not interned anywhere and measure
+        //   inert too.
+        //
+        //   ⚠ <b>3. The property is READ, and the value is refused — so the gate stays green over a
+        //   class that paints nothing.</b> The dangerous kind, and the one this table has to catch
+        //   by hand because no per-property measurement can. `inset-shadow-*` and `inset-ring-*`
+        //   emit `box-shadow`, which is read — but `DrawListBuilder.EmitShadow` refuses the `inset`
+        //   keyword outright and says why, and `box-shadow: inset 0 2px 4px #000` moves no channel
+        //   in any scene while `box-shadow: 0 2px 4px #000` moves paint. `ring-offset-*` is worse
+        //   than inert: an offset ring is a two-shadow *list*, `EmitShadow` refuses lists for the
+        //   same stated reason, and a `ring-offset-2` beside a `ring-2` would stop the ring painting
+        //   at all. `stroke-none` is the same shape one file over — `stroke: <colour>` moves paint
+        //   and `stroke: none` moves nothing, because `Icon.Resolve` reads the slot with `ColorOf`
+        //   and falls back to the foreground when it is not a colour.
+        //
+        //   <b>4. The class is v4 compatibility surface, and `docs/plan/43` § D5 already says not to
+        //   implement it.</b> `flex-shrink-*`, `flex-grow-*` and `max-w-screen-*` live in v4's
+        //   `compat/legacy-utilities.ts`: registered, undocumented, superseded by `shrink-*`,
+        //   `grow-*` and the sizing scale, all of which are here and read. Their properties are read
+        //   too, so these three would have registered cleanly and passed everything — which is why
+        //   the reason they are absent is a policy and not a measurement.
+        //
+        //   <b>And the six logical radii are their own case.</b> `rounded-s/e/ss/se/ee/es-*` set
+        //   `border-start-start-radius` and its three siblings, none of which anything interns, so
+        //   they belong to shape 1 — but the physical fallback that rescued `inset-bs-*` is not
+        //   available to them, and that is the part worth writing down. A radius corner is named on
+        //   the *inline* axis, which this engine really does mirror: `rounded-ss` is the top-left
+        //   corner under `direction: ltr` and the top-right under `rtl`. `border-top-left-radius`
+        //   would therefore be right half the time, which is worse than absent — the block-axis
+        //   mapping above is safe precisely because no configuration of this engine flips it.
+        //
         // Longest first, so `min-w` wins over nothing and `flex-wrap` over `flex`.
         Names.Sort(static (left, right) => right.Length.CompareTo(left.Length));
     }

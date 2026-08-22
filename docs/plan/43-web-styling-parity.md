@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **79** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **85** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **38** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **4** |
-| **absent** | not emitted at all | **203** |
+| **absent** | not emitted at all | **197** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -354,11 +354,11 @@ undone rather than approximated, and the cost of that decision has been zero.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 14 | 8 | 0 | 23 | 3 | 1 |
+| Layout | 49 | 18 | 8 | 0 | 19 | 3 | 1 |
 | Interactivity | 39 | 1 | 1 | 1 | 36 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 6 | 3 | 0 | 25 | 0 | 0 |
-| Borders | 34 | 13 | 5 | 0 | 16 | 0 | 0 |
+| Borders | 34 | 15 | 5 | 0 | 14 | 0 | 0 |
 | Effects | 33 | 3 | 0 | 0 | 30 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
@@ -369,7 +369,7 @@ undone rather than approximated, and the cost of that decision has been zero.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **79** | **38** | **4** | **203** | **3** | **1** |
+| **Total** | **328** | **85** | **38** | **4** | **197** | **3** | **1** |
 
 Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
 Layout follow it. Tables, Filters and Accessibility still have **no working root at all**, and
@@ -726,9 +726,53 @@ Three of those 38 the column *calls* shadowed are not: `bg-size-[auto]`, `bg-pos
 and `font-features` and are unknown families rather than shadowed ones. Their notes are corrected in
 the `.tsv`, which leaves the column at **35**.
 
-**So the remaining work on these rows is 35 registrations, and it was never one fallback.** Each row
-is one `Register` call plus whatever engine work the property implies, and nothing about them is
-blocked or unblocked by the split.
+⚠ **Worked 2026-08-22, and "35 registrations" was the fourth wrong count in this section. It is six
+registrations and twenty-nine refusals.** The sentence that used to stand here — *each row is one
+`Register` call plus whatever engine work the property implies* — reads as arithmetic and is the
+instruction that produces twenty-nine inert classes. The question each row actually asks is the one
+the grid families answered eleven times over: **does the layout or the renderer read the property**,
+measured on `UtilityConsumptionProbe` rather than assumed from the CSS name.
+
+**The six that landed** are `inset-s/e/bs/be-*` and `border-bs/be-*`, and they are all one finding:
+the logical *inline* pair is read and mirrors, and the logical *block* pair is interned by nobody
+while its physical twin is read. So `inset-s-*` emits `inset-inline-start` and `inset-bs-*` emits
+`top` — `Vixen.Ui.Layout` has no writing mode, the block axis is top-to-bottom in every configuration
+the engine can be in, and the two spellings are the same declaration. That is `space-y-*`'s argument
+reused, and the asymmetry is the whole of it: the same physical fallback applied to the six logical
+*radii* would be wrong, because a radius corner is named on the inline axis and this engine really
+does mirror that one.
+
+**The twenty-nine refusals are four shapes, and only the first is one the consumption gate can see.**
+
+1. *The property is inert, and a registration turns the gate red.* `border-spacing-*` and its two
+   axes (there is no table layout at all), `font-stretch-*` (interned by `InheritedProperties`, read
+   by nothing — the gate keeps a control for exactly this), `text-shadow-*`, the four `bg` keyword
+   sets, and `content-none`, which additionally has nothing to apply to since F6 refused
+   pseudo-elements rather than building them.
+2. *The property is inert and already allow-listed, so the root inherits a debt rather than adding
+   one.* `scale-x/y/z-*` and `rotate-x/y/z-*` over `scale` and `rotate`, both `#23`. The compositing
+   raster that landed this week did not change that, and `transform` and `perspective` measure inert
+   too, so the 3D forms are two features away rather than one.
+3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
+   over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
+   it. `inset-shadow-*` and `inset-ring-*` emit `box-shadow`, which is read — but
+   `DrawListBuilder.EmitShadow` refuses the `inset` keyword outright, and `box-shadow: inset 0 2px
+   4px #000` moves no channel where the outer form moves paint. `ring-offset-*` is worse than inert:
+   an offset ring is a two-shadow *list*, `EmitShadow` refuses lists on the stated argument that
+   painting the first and dropping the rest looks like it worked, so a `ring-offset-2` beside a
+   `ring-2` would stop the ring painting. `stroke-none` is the same shape one file over — `stroke` is
+   read only as a colour, and `Icon.Resolve` falls back to the foreground for anything that is not
+   one.
+4. *The class is v4 compatibility surface, and § D5 already says not to implement it.*
+   `flex-shrink-*`, `flex-grow-*` and `max-w-screen-*` are in `compat/legacy-utilities.ts`:
+   registered, undocumented, superseded by `shrink-*`, `grow-*` and the sizing scale, all of which
+   are here and read. **These three would have registered cleanly and passed everything**, which is
+   why their absence is a policy and not a measurement — and why it is written down here rather than
+   left to be rediscovered as an oversight.
+
+Every one of the twenty-nine carries its measurement in the `note` cell of its own row, and the four
+shapes are restated at the foot of `UtilityFamilies`' constructor, where the next person adding a
+family will be. None of it was blocked or unblocked by the split above.
 
 ⚠ **What *was* real, and is now done: the two refusals were indistinguishable.**
 `UtilityFamilies.TryResolve` returns `false` both for "no such family" and for "that family has no

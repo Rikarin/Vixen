@@ -22,10 +22,10 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <see cref="A_shorter_prefix_would_rescue_nothing" /> sweeps every nesting pair the
 ///         registry contains against every token key both shipped themes contain, and asserts that no
 ///         class exists which the longest-first rule refuses and a shorter prefix would answer. The
-///         shadowed roots — <c>inset-s-*</c>, <c>rounded-ss-*</c>, <c>scale-x-*</c>,
-///         <c>border-spacing-*</c> and the rest — are shadowed by a family that is the <i>only</i>
-///         registered prefix they have, so there is nothing shorter to retry: they need registering,
-///         and the retry is a separate question with the answer "no".
+///         shadowed roots — <c>rounded-ss-*</c>, <c>scale-x-*</c>, <c>border-spacing-*</c> and the
+///         rest — are shadowed by a family that is the <i>only</i> registered prefix they have, so
+///         there is nothing shorter to retry: whatever closes them, it is not the retry, and the
+///         retry is a separate question with the answer "no".
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Which leaves the diagnostic, and that is what F8 was actually worth.</b>
@@ -37,9 +37,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         rest of this file pins it.
 ///     </para>
 ///     <para>
-///         <b>What this file does not do is register anything.</b> Closing the shadowed column is
-///         thirty-five family registrations plus whatever engine work each one implies, and none of
-///         it is unblocked or blocked by the split above.
+///         <b>What this file does not do is register anything.</b> Closing the shadowed column was
+///         never one fallback, and it was not thirty-five registrations either: six of the
+///         thirty-five are registered — <see cref="A_registered_logical_root_resolves_to_what_the_engine_reads" />
+///         — and twenty-nine are refusals with a measurement, written into the `note` cell of their
+///         own row and summarised at the foot of <see cref="UtilityFamilies" />' constructor. None of
+///         it was blocked or unblocked by the split above.
 ///     </para>
 /// </remarks>
 public class ShadowedFamilyTests {
@@ -150,12 +153,9 @@ public class ShadowedFamilyTests {
     ///     to. Whatever closes these rows, it is a <c>rounded-ss</c> registration.
     /// </remarks>
     [Theory]
-    [InlineData("inset-s-0", "inset")]
-    [InlineData("inset-bs-0", "inset")]
     [InlineData("inset-ring-0", "inset")]
     [InlineData("inset-shadow-2xs", "inset")]
     [InlineData("border-spacing-0", "border")]
-    [InlineData("border-bs-0", "border")]
     [InlineData("rounded-ss-2xl", "rounded")]
     [InlineData("rounded-es-2xl", "rounded")]
     [InlineData("scale-x-0", "scale")]
@@ -180,6 +180,58 @@ public class ShadowedFamilyTests {
             .ToList();
 
         Assert.Equal([only], prefixes);
+    }
+
+    /// <summary>The six that left the column: each reaches its own family and emits a read property.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two claims, and the second is the one a registration can quietly fail.</b> That
+    ///         the class now splits to its own family rather than to the one that used to swallow it
+    ///         is the cheap half — <c>SplitName</c> sorts longest-first, so it follows from the
+    ///         entry existing. That the declaration it emits names a property
+    ///         <see cref="UtilityConsumptionProbe" /> has measured a consumer for is the half worth
+    ///         asserting: this repository's commonest defect is a family that resolves, cascades and
+    ///         moves nothing, and <c>docs/plan/43</c>'s <c>shadowed_by</c> column is thirty-five
+    ///         invitations to add one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The inline pair emits a logical longhand and the block pair a physical one, and
+    ///         the rows say so rather than leaving it to the remark in
+    ///         <see cref="UtilityFamilies" />.</b> A later hand "correcting" <c>inset-bs-*</c> to
+    ///         <c>inset-block-start</c> for Tailwind fidelity would be reverting it to something
+    ///         nothing interns — a green cascade and a dead class — and the expected value here is
+    ///         what fails on that. The reverse edit is just as wrong: <c>inset-s-*</c> mapped to
+    ///         <c>left</c> would stop mirroring under <c>direction: rtl</c>, which is the whole
+    ///         reason the logical spelling exists.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("inset-s-2", "inset-s", "inset-inline-start", "8px")]
+    [InlineData("inset-e-2", "inset-e", "inset-inline-end", "8px")]
+    [InlineData("inset-bs-2", "inset-bs", "top", "8px")]
+    [InlineData("inset-be-2", "inset-be", "bottom", "8px")]
+    [InlineData("inset-s-full", "inset-s", "inset-inline-start", "100%")]
+    [InlineData("inset-bs-full", "inset-bs", "top", "100%")]
+    [InlineData("border-bs-2", "border-bs", "border-top-width", "2px")]
+    [InlineData("border-be-2", "border-be", "border-bottom-width", "2px")]
+    [InlineData("border-bs-paint", "border-bs", "border-top-color", "#3366cc")]
+    [InlineData("border-be-paint", "border-be", "border-bottom-color", "#3366cc")]
+    public void A_registered_logical_root_resolves_to_what_the_engine_reads(
+        string whole,
+        string family,
+        string property,
+        string value
+    ) {
+        Assert.Equal(family, UtilityFamilies.SplitName(whole).Name);
+
+        var declarations = new List<UtilityDeclaration>();
+
+        Assert.True(UtilityParser.TryParse(whole, out var parsed));
+        Assert.True(UtilityFamilies.TryResolve(parsed, Probe, declarations));
+        Assert.Equal([new UtilityDeclaration(property, value)], declarations);
+
+        // And the property is one something in the engine acts on, measured rather than asserted.
+        Assert.NotEmpty(UtilityConsumptionProbe.Channels(property, value));
     }
 
     /// <summary>The three the ledger calls shadowed that are not: the bracket comes before the split.</summary>
