@@ -145,12 +145,29 @@ public sealed partial class UiDocument : IDisposable {
         // shows the whole document. It is the first entry of `Surfaces` and the only one that
         // cannot be removed, which is what makes every single-window caller — every test, every
         // sample, the whole of `Vixen.Ui.Testing` — carry on meaning what it meant.
-        Adopt(new UiSurface(this, 0, Root, width, height, 1f, Drawing), width, height, 1f);
+        // ⚠ `MediaScopes.Document` rather than a scope of its own, so that an element created
+        // outside every surface — which is what `Root` itself is until this line runs — is in the
+        // same scope as the primary window rather than in one that answers nothing.
+        var primary = new UiSurface(
+            this,
+            0,
+            Root,
+            width,
+            height,
+            1f,
+            Drawing,
+            ColorSchemePreference.NoPreference
+        ) {
+            Scope = MediaScopes.Document
+        };
+
+        Adopt(primary, width, height, 1f);
 
         // ⚠ After the surface exists, because the context is read off it — and before any caller can
-        // reach `Load`, because a sheet loaded against the wrong surface has already had its `@media`
-        // blocks decided. Nothing is loaded yet, so this only records the context; see `Media.cs`.
-        Remedia();
+        // reach `Load`, because a sheet loaded against a nought-by-nought surface would answer every
+        // breakpoint no on its first pass. Nothing is loaded yet, so this only records the context;
+        // see `Media.cs`.
+        Remedia(primary);
     }
 
     /// <summary>What <c>rem</c> measures against, kept because a new surface needs it too.</summary>

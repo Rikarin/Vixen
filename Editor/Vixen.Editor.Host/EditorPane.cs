@@ -161,25 +161,27 @@ sealed class EditorPane : IDisposable {
     /// <summary>Tells the cascade what this surface was granted, so <c>@media</c> can ask.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same fact the line above hands the geometry builder, and until now only the
-    ///         geometry builder got it.</b> <c>@media (color-gamut: p3)</c> was evaluated against
+    ///         ⚠ <b>The same fact the line above hands the geometry builder, and until recently only
+    ///         the geometry builder got it.</b> <c>@media (color-gamut: p3)</c> was evaluated against
     ///         <c>MediaContext</c>'s default and could not match on any hardware — a stylesheet could
     ///         not opt into a wider palette on the one surface able to show it, while every colour it
     ///         did emit was already being mapped against this value on the way to a vertex.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only the main window, because a document has one cascade.</b> Rules are shared by
-    ///         every surface — that is what keeps one theme across a torn-off panel — so there is no
-    ///         way for a query to answer differently in two windows today, and answering it from
-    ///         whichever pane last recreated its swapchain would be worse than answering it from the
-    ///         primary one: the main window is where the interface is, and a docked palette dragged
-    ///         onto a second display would otherwise redecide the whole editor's palette. Per-surface
-    ///         media is recorded as owed on <c>UiDocument.Media</c>.
+    ///         ⚠ <b>Every pane, not just the main window, which is the half that was owed.</b> This
+    ///         published from the primary swapchain alone, because a document had one cascade: rules
+    ///         are shared by every surface — that is what keeps one theme across a torn-off panel —
+    ///         so a query could not answer differently in two windows, and answering it from whichever
+    ///         pane recreated its swapchain last would have been worse than answering it from the
+    ///         primary one. The verdict is per surface now (<c>MediaScopes</c>), so a palette dragged
+    ///         onto a wide display picks the wider gamut up and the main window keeps its own — which
+    ///         is the same rule <c>Geometry.Gamut</c> two lines above has always followed, finally
+    ///         applied to the cascade as well.
     ///     </para>
     /// </remarks>
     void Publish() {
-        if (IsPrimary && SwapChain is { } chain) {
-            Surface.Document.Gamut = chain.Gamut;
+        if (SwapChain is { } chain) {
+            Surface.Gamut = chain.Gamut;
         }
     }
 

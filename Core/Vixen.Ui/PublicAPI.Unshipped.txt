@@ -924,13 +924,18 @@ Vixen.Ui.UiPropertyKey.SetValue(Vixen.Ui.UiElement element, object? value) -> vo
 Vixen.Ui.UiPropertyKey.ValueType.get -> System.Type
 Vixen.Ui.UiPropertyRegistry -> static class
 Vixen.Ui.UiSurface -> sealed class
+Vixen.Ui.UiSurface.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
+Vixen.Ui.UiSurface.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiSurface.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.UiSurface.DpiScale.get -> float
 Vixen.Ui.UiSurface.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiSurface.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
+Vixen.Ui.UiSurface.Gamut.set -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiSurface.Height.get -> float
 Vixen.Ui.UiSurface.Id.get -> int
 Vixen.Ui.UiSurface.IsPrimary.get -> bool
 Vixen.Ui.UiSurface.IsRemoved.get -> bool
+Vixen.Ui.UiSurface.Media.get -> Vixen.Ui.Styling.MediaContext
 Vixen.Ui.UiSurface.Metrics.get -> Vixen.Ui.LengthContext
 Vixen.Ui.UiSurface.Root.get -> Vixen.Ui.UiElement
 Vixen.Ui.UiSurface.Width.get -> float

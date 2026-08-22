@@ -3562,8 +3562,11 @@ T:Vixen.Ui.Styling.Keyframe sweep-pending
 T:Vixen.Ui.Styling.KeyframesTable sweep-pending
 T:Vixen.Ui.Styling.LayerRule sweep-pending
 T:Vixen.Ui.Styling.LayerRuleParser sweep-pending
+T:Vixen.Ui.Styling.MediaConditions sweep-pending
 T:Vixen.Ui.Styling.MediaContext sweep-pending
 T:Vixen.Ui.Styling.MediaQuery sweep-pending
+T:Vixen.Ui.Styling.MediaScopes sweep-pending
+T:Vixen.Ui.Styling.MediaVerdicts sweep-pending
 T:Vixen.Ui.Styling.NameTable sweep-pending
 T:Vixen.Ui.Styling.NamedColors sweep-pending
 T:Vixen.Ui.Styling.PositionTest sweep-pending

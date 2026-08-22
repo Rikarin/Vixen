@@ -219,7 +219,18 @@ public sealed class ComputedStyleCache {
 ///         What the key still cannot carry is where an element sits among its siblings, or what its
 ///         attributes are — which is what <see cref="StyleRuleSet.SharingIsSound" /> is for.
 ///     </para>
+///     <para>
+///         ⚠ <b>The media scope is in the key even though the parent very nearly makes it
+///         redundant, and the exception is exactly the case per-surface media exists for.</b> Two
+///         elements with the same parent are in the same surface by construction, so for every
+///         ordinary element the scope adds nothing. Surface <i>roots</i> are the elements that
+///         break it: <c>UiDocument.CreateSurface</c> hangs them all off one owner, and two torn-off
+///         windows are then the same tag with no id and no classes under the same parent — the
+///         perfect sharing key, for two elements whose whole difference is which window's
+///         breakpoints they answer. One integer, and the case it covers is the headline feature.
+///     </para>
 /// </remarks>
+/// <param name="Scope">Which surface's <c>@media</c> answers it reads.</param>
 public readonly record struct StyleSharingKey(
     StyleNodeId Parent,
     int Tag,
@@ -227,5 +238,6 @@ public readonly record struct StyleSharingKey(
     int ClassHash,
     int ClassCount,
     ElementState State,
-    InlineStyleId? Inline
+    InlineStyleId? Inline,
+    int Scope
 );

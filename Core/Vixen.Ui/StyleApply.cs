@@ -41,8 +41,10 @@ namespace Vixen.Ui;
 ///     <para>
 ///         The mechanism is <see cref="StyleEngine.Preprocessor" /> rather than a transform in front
 ///         of <see cref="UiDocument.Load" />, because a reload has to re-run it —
-///         <see cref="StyleEngine.SetMedia" /> and <see cref="StyleEngine.Replace" /> both replay
-///         <see cref="StyleEngine.SheetText" />, which is deliberately the text as it was handed in.
+///         <see cref="StyleEngine.Replace" /> replays <see cref="StyleEngine.SheetText" />, which is
+///         deliberately the text as it was handed in, and so does the re-expansion
+///         <see cref="TokensCameLate" /> forces when a theme sheet lands late. A transform applied by
+///         the caller would be applied once and dropped by the next hot edit.
 ///     </para>
 /// </remarks>
 public sealed partial class UiDocument {
@@ -132,8 +134,9 @@ public sealed partial class UiDocument {
     ///     <para>
     ///         The cost is bounded and paid by almost nobody. It is a substring search per load,
     ///         plus — only when a theme sheet lands after a sheet that used <c>@apply</c> — one
-    ///         reload, which is the same reload <see cref="StyleEngine.SetMedia" /> already performs
-    ///         when a resize flips a breakpoint.
+    ///         reload, which is the same reload a hot edit of a stylesheet already performs. A resize
+    ///         no longer costs one: <c>@media</c> is answered per surface at match time now, so
+    ///         crossing a breakpoint restyles rather than re-parsing.
     ///     </para>
     /// </remarks>
     bool TokensCameLate(string css) {

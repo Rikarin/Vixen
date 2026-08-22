@@ -899,7 +899,7 @@ as `gridded` and `inlined`: a green gate is a claim about the scenes as much as 
   because `transition-*` do not inherit. Fixing it means the overlay participating in inheritance,
   which is a change to the order of the pass rather than to the animator, and is not A20's.
 
-### F11 · The whole of `@media` was evaluated against a surface that does not exist ✅ *closed by A20; per-surface media still owed*
+### F11 · The whole of `@media` was evaluated against a surface that does not exist ✅ *closed*
 
 `StyleEngine.Load` has taken a `MediaContext` since the cascade was written. **`UiDocument.Load`
 passed nothing**, and nothing else in `Core/` or `Editor/` constructed one — the only callers outside
@@ -921,12 +921,14 @@ matters:
   the gamut it was *granted*, `UiGeometryBuilder` is already told and maps every colour it emits
   against it, and the same fact never reached the cascade.
 
-⚠ **`@media` is decided at load and not at match**, which `StyleSheetLoader` says and gives the reason
-for — so re-asking the question on a resize is somebody's job, and it was nobody's. It is
-`StyleEngine.SetMedia` now, guarded on the *verdicts* rather than on the context: the conditions the
-loader saw are replayed against the old context and the new one, and the sheets are reloaded only
-where one of them disagrees. Without that guard a window drag would be a full ExCSS re-parse of every
-sheet sixty times a second, and would restart every fade in the window each time.
+⚠ **`@media` was decided at load and not at match**, which `StyleSheetLoader` said and gave the
+reason for — so re-asking the question on a resize was somebody's job, and it was nobody's. The first
+fix was `StyleEngine.SetMedia` guarded on the *verdicts* rather than on the context: the conditions
+the loader saw were replayed against the old context and the new one, and the sheets were reloaded
+only where one of them disagreed. Without that guard a window drag would have been a full ExCSS
+re-parse of every sheet sixty times a second, and would have restarted every fade in the window each
+time. **That is no longer how it works** — see the per-surface note below, which removed the reload
+rather than guarding it.
 
 ⚠ **And it uncovered a latent crash that predates all of this.** `StyleUpdater` builds a
 `StyleInvalidator` over `StyleEngine.Selectors` in its constructor and keeps a cursor into
@@ -934,21 +936,68 @@ sheet sixty times a second, and would restart every fade in the window each time
 somebody else's compound and invalidated the wrong subtree, and one that produced more read off the
 end and threw — reachable through `UiDocument.ReloadStyles` and therefore through every hot edit of a
 stylesheet, and invisible only because a hot edit rarely changes the rule count much. A breakpoint
-being crossed turns a dropped block into rules, which adds selectors by construction, so the first
-`@media` re-evaluation found it immediately.
+being crossed turned a dropped block into rules, which adds selectors by construction, so the first
+`@media` re-evaluation found it immediately. ⚠ **The fix is still needed and the finder is gone:**
+crossing a breakpoint no longer reloads anything, so `StyleUpdater.Refresh` is now exercised only by
+`StyleEngine.Replace` — a hot edit of a stylesheet — which is where the latent crash lived all along
+and where it would have gone on living unnoticed.
 
 **Sized at 0.3 EM and landed with A20**, because it is the same shape of bug and the same seam.
 
-✅ **Verified 2026-08-21.** `StyleEngine.SetMedia` is in the shipped surface
-(`PublicAPI.Unshipped.txt`), the loader records the verdicts its guard replays, and
-`Core/Vixen.Ui.Tests/MediaContextTests` covers both the re-evaluation and the guard that stops a
-window drag re-parsing every sheet.
+✅ **Verified 2026-08-21.** `StyleEngine.SetMedia` is in the unshipped surface
+(`PublicAPI.Unshipped.txt`) and `Core/Vixen.Ui.Tests/MediaContextTests` covers the re-evaluation. ⚠
+The *guard* that paragraph described — replaying the loader's recorded conditions so a drag did not
+re-parse every sheet — no longer exists, because the reload it was guarding no longer exists; see
+below. The test that asserted it has been rewritten to assert the opposite, which is the behaviour
+that is now correct.
 
-⚠ **What is still owed is per-surface media**, and it is the reason this heading keeps a warning:
-`@media` produces rules, rules are shared by every surface of one document — that is what keeps one
-theme across a torn-off window — so `max-width` cannot yet answer differently in two windows, and the
-context is read off the primary surface. `EditorPane` publishes the gamut from the main window's
-swapchain only, for the same reason.
+✅ **Per-surface media landed 2026-08-22, and the obvious fix was the wrong one.** The account above
+was right about the cause — `@media` produced rules, rules are shared by every surface of one
+document, so the verdict lived in the rule set and there could only be one of it — and wrong about
+the remedy. It said per-surface media "would mean a rule set per surface"; **it does not, and a rule
+set per surface is unaffordable.** A reload was measured at **42 ms** for the editor's twelve sheets
+(245 KB, 1 398 rules), so a four-window editor would have paid 170 ms of ExCSS on one drag, plus four
+matchers, four interning caches and four animators for a set of windows whose whole point is that
+they share a theme.
+
+**What moved was the verdict, not the rules.** A `@media` block's rules are now loaded whatever the
+condition says, each tagged with the `MediaConditions` group it came from — a conjunction, stored as
+a link to its enclosing group so nesting still conjoins — and each surface carries a `MediaVerdicts`
+vector in `MediaScopes`. An element carries its surface's scope on its `StyleTree` slot, inherited
+from its parent at creation, and the cascade tests one integer before the matcher runs. The rules
+stay shared; only the yes-or-no is per window.
+
+Three consequences worth recording, because none of them was the goal:
+
+- **Crossing a breakpoint went from 50 ms to 0.04 ms**, measured the same way, and is now
+  indistinguishable from a resize that changes nothing. `SetMedia` no longer reloads at all, so the
+  guard it needed is gone and so is the fade-restarting the guard existed to prevent.
+- **A condition nobody can read is refused once, at load.** The loader used to drop a nested block
+  *unread* when its enclosing condition was false, so a typo inside a breakpoint no window had
+  reached stayed silent until somebody made a window wide enough. Every group is walked now.
+- **`StyleRuleSet.SharingIsSound` had to become per-surface**, which is the regression this design
+  would otherwise have shipped invisibly: a block that does not apply is now *in* the rule set, so
+  one `:nth-child` sealed behind an unreached breakpoint would have turned the sharing cache off for
+  the whole document, for ever, with every style still correct and only the restyle rate to show for
+  it.
+
+⚠ **One line was drawn rather than discovered, and it is the one to revisit if anybody complains.**
+`@keyframes` and `@layer` inside a `@media` load unconditionally, because both are document-global by
+construction — one keyframes table and one layer order per rule set, shared exactly as the rules are.
+Neither does anything alone: a keyframes definition is inert until an `animation-name` names it, and
+that declaration is in a rule and *is* gated. A keyframes table per surface would be a much larger
+change for no case anybody has.
+
+`EditorPane` publishes the gamut per pane now, which is only correct because of the above — a window
+on a wide-gamut display next to one on sRGB gets its own answer, and the main window keeps its own.
+`Core/Vixen.Ui.Tests/PerSurfaceMediaTests` is the coverage; every assertion is on a box or a colour
+rather than on a rule count, which matters more than it used to, because a block that does not apply
+now has rules in the set and anything counting them would pass.
+
+⚠ **Nothing in the repository exercises any of this yet.** There is not one `@media` in any shipped
+`.vcss` and not one responsive variant in any `.vxml`, which is why the original bug survived a
+release and why this fix moved no screenshot baseline. It is correctness banked in advance, not a
+defect anybody was hitting.
 
 ⚠ **And the second half is about the instrument rather than the engine: `font-weight` read as inert
 and is not.** The weight reaches `FontRegistry.Resolve` and selects a different face; the gate could
@@ -1904,7 +1953,8 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
-| A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing** — a `StyleRule` still carries no condition. ⚠ The real finding was next door: see § D6 | cascade | — | done |
+| A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
+conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |
 | A16 🟡 | Container queries: `container-type` and its containment constraint, the resolution walk, the `@` variants. ⚠ **Re-sized from 0.75 by A15**: nested conditional groups are done and the at-rule chain does not care that a link is `@container`, so the remaining risk is one item — a container query makes style depend on layout, and layout already depends on style. See § D3 | cascade + layout | — | 0.75 |
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
 | A18 🟢 | Scroll properties as `ScrollView` inputs rather than CSS | `Vixen.Ui.Controls` | — | 0.3 |

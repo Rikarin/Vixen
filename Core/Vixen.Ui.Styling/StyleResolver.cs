@@ -24,6 +24,7 @@ public sealed class StyleResolver {
     readonly SelectorMatcher matcher;
     readonly InheritedProperties inherited;
     readonly ComputedStyleCache interning;
+    readonly MediaScopes scopes;
     readonly Dictionary<StyleSharingKey, ComputedStyle> shared = [];
     readonly Dictionary<int, Winner> winners = [];
     readonly List<int> candidates = [];
@@ -34,21 +35,34 @@ public sealed class StyleResolver {
     /// <param name="inlineStyles">The declarations written on elements themselves.</param>
     /// <param name="matcher">The selector matcher.</param>
     /// <param name="interning">Where computed styles are interned.</param>
+    /// <param name="scopes">
+    ///     Which <c>@media</c> groups hold on each surface the rule set is shown on.
+    ///     <para>
+    ///         ⚠ <b>Read off the element's own scope rather than taken as an argument, and that is
+    ///         the point.</b> A verdict parameter would be a parameter every one of the cascade's
+    ///         callers could forget, and forgetting it is silent — a query that stops matching, which
+    ///         is this subsystem's recurring defect. Which surface an element is in is a fact about
+    ///         the element, held next to its classes, and the cascade looks it up the same way.
+    ///     </para>
+    /// </param>
     public StyleResolver(
         StyleRuleSet rules,
         InlineStyleStore inlineStyles,
         SelectorMatcher matcher,
-        ComputedStyleCache interning
+        ComputedStyleCache interning,
+        MediaScopes scopes
     ) {
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(inlineStyles);
         ArgumentNullException.ThrowIfNull(matcher);
         ArgumentNullException.ThrowIfNull(interning);
+        ArgumentNullException.ThrowIfNull(scopes);
 
         this.rules = rules;
         this.inlineStyles = inlineStyles;
         this.matcher = matcher;
         this.interning = interning;
+        this.scopes = scopes;
         inherited = new InheritedProperties(rules.Properties);
     }
 
@@ -101,7 +115,7 @@ public sealed class StyleResolver {
     ) {
         ArgumentNullException.ThrowIfNull(tree);
 
-        if (!rules.SharingIsSound) {
+        if (!rules.SharingIsSound(scopes.VerdictsOf(tree.ScopeAt(tree.Validate(element))))) {
             return Cascade(tree, element, parent, inline);
         }
 
@@ -139,8 +153,22 @@ public sealed class StyleResolver {
 
         rules.Index.Collect(tree, element, candidates);
 
+        // The surface this element is shown in, which is what its `@media` blocks are about. One
+        // lookup per element rather than per candidate: every rule in the loop below is asked about
+        // the same surface.
+        var verdicts = scopes.VerdictsOf(tree.ScopeAt(tree.Validate(element)));
+
         foreach (var rule in candidates) {
             var candidate = rules[rule];
+
+            // ⚠ Before the matcher, because it is the cheaper test and the one that can reject a
+            // whole breakpoint's worth of rules on an integer compare. `Unconditional` is checked
+            // first inside `Holds`, and is what every rule in every stylesheet this repository ships
+            // carries — so the common case is one comparison against zero.
+            if (!verdicts.Holds(candidate.Conditions)) {
+                continue;
+            }
+
             if (!matcher.Matches(tree, element, candidate.Selector)) {
                 continue;
             }
@@ -293,7 +321,8 @@ public sealed class StyleResolver {
             classHash,
             tree.ClassCountOf(index),
             tree.StateOf(index),
-            inline
+            inline,
+            tree.ScopeAt(index)
         );
     }
 

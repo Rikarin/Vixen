@@ -45,6 +45,11 @@ public sealed class StyleEngine {
         Values = new NameTable();
         InlineStyles = new InlineStyleStore();
         Tree = new StyleTree(Names);
+
+        // Before `Build`, which hands both to the loader and the resolver. `Scopes` outlives every
+        // reload for the same reason `Tree` does: a scope id is written on an element, and the
+        // surface it names is still that window after a hot edit of a stylesheet.
+        Scopes = new MediaScopes(Conditions);
         Build();
     }
 
@@ -107,76 +112,75 @@ public sealed class StyleEngine {
     /// </remarks>
     public Animator Animations { get; private set; }
 
+    /// <summary>The conditional groups the loaded sheets declared.</summary>
+    /// <remarks>
+    ///     Owned here rather than by <see cref="Loader" /> because a group id is written on a rule
+    ///     and read by a surface, and <see cref="Build" /> replaces the loader on every reload. It is
+    ///     cleared and refilled by a reload, in the same order by the same sheets.
+    /// </remarks>
+    public MediaConditions Conditions { get; } = new();
+
+    /// <summary>Everywhere the rules are being shown, and what <c>@media</c> answers on each.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The whole of per-surface media, and the reason it is not a rule set per window.</b>
+    ///     Rules are shared by every surface of a document — that is what keeps one theme across a
+    ///     torn-off panel — so the answer cannot live in the rule set, and compiling the sheets again
+    ///     per surface was measured at 42 ms a time for the editor's twelve. It lives here instead:
+    ///     one context and one verdict vector per surface, and an element resolves against the scope
+    ///     it is in.
+    /// </remarks>
+    public MediaScopes Scopes { get; }
+
     /// <summary>What <c>@media</c> is evaluated against for sheets that did not name a context.</summary>
     /// <remarks>
-    ///     ⚠ <b>The default is a nought-by-nought surface, and it is a deliberate non-answer rather
-    ///     than a sensible starting point.</b> An engine nobody has told about a window cannot know
-    ///     how wide one is, and inventing a plausible width would make <c>@media (min-width: 768px)</c>
-    ///     silently mean something. A host sets this through <c>UiDocument</c>, which reads it off the
-    ///     surface it is already holding.
+    ///     <para>
+    ///         ⚠ <b>The default is a nought-by-nought surface, and it is a deliberate non-answer rather
+    ///         than a sensible starting point.</b> An engine nobody has told about a window cannot know
+    ///         how wide one is, and inventing a plausible width would make
+    ///         <c>@media (min-width: 768px)</c> silently mean something. A host sets this through
+    ///         <c>UiDocument</c>, which reads it off the surface it is already holding.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="MediaScopes.Document" />'s context, which is what every element that is not
+    ///         inside a second window resolves against.
+    ///     </para>
     /// </remarks>
-    public MediaContext Media { get; private set; }
+    public MediaContext Media => Scopes.ContextOf(MediaScopes.Document);
 
-    /// <summary>Re-evaluates every <c>@media</c> block against a new surface.</summary>
+    /// <summary>Re-evaluates every <c>@media</c> block against a new primary surface.</summary>
     /// <param name="media">What the surface is now.</param>
-    /// <returns>Whether any block changed its mind, and the sheets were therefore reloaded.</returns>
+    /// <returns>Whether any block changed its mind.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b><c>@media</c> is evaluated at load and not at match</b> — see
-    ///         <see cref="StyleSheetLoader" /> — which is the trade that makes matching cheap and makes
-    ///         this method necessary. A surface that changed size has to re-ask the questions, and the
-    ///         only way to re-ask them is to load the sheets again.
+    ///         ⚠ <b>No longer a reload, and that is the change worth reading twice.</b> <c>@media</c>
+    ///         used to be decided at load, so re-asking the question meant loading the sheets again —
+    ///         a full ExCSS re-parse of every sheet, measured at 42 ms for the editor's twelve, on a
+    ///         frame of a window drag, which also destroyed <see cref="Animations" /> and restarted
+    ///         every fade in the window. The verdict belongs to a surface now, so this evaluates the
+    ///         conditions and rebuilds nothing: crossing a breakpoint costs a restyle, and a fade in
+    ///         flight goes on fading.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Guarded on the verdicts rather than on the context, and the difference is a window
-    ///         drag.</b> A resize changes <see cref="MediaContext.Width" /> on every frame of it; a
-    ///         reload re-parses every stylesheet with ExCSS, which for a generated utility sheet is
-    ///         not a per-frame cost. So the conditions the loader actually saw are replayed against
-    ///         the old context and the new one, and the reload happens only where one of them
-    ///         disagrees. A document with no <c>@media</c> in it — which is every stylesheet this
-    ///         repository ships — replays nothing and reloads never.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ Anything in flight is forgotten when it does reload, <see cref="Animations" />
-    ///         included, because everything derived from the rules is rebuilt. That is the same rule
-    ///         <see cref="Replace" /> follows and it is why the guard above is worth having twice
-    ///         over: without it, resizing a window would restart every fade in it.
+    ///         ⚠ <b>Still guarded on the verdicts rather than on the context, for the reason it always
+    ///         was.</b> A resize moves <see cref="MediaContext.Width" /> on every frame of it and
+    ///         almost never moves an answer, and the caller uses the return value to decide whether to
+    ///         forget every computed style it holds. A document with no <c>@media</c> in it — which is
+    ///         every stylesheet this repository ships — has one group, compares one boolean and never
+    ///         says yes.
     ///     </para>
     /// </remarks>
-    public bool SetMedia(MediaContext media) {
-        var previous = Media;
+    public bool SetMedia(MediaContext media) => SetMedia(MediaScopes.Document, media);
 
-        if (previous == media) {
-            return false;
-        }
-
-        Media = media;
-
-        if (!VerdictsDiffer(previous, media)) {
-            return false;
-        }
-
-        Reload();
-        return true;
-    }
-
-    /// <summary>Whether any condition the loader evaluated would answer differently.</summary>
+    /// <summary>Tells one surface what it is now, and re-evaluates <c>@media</c> there.</summary>
+    /// <param name="scope">The scope, from <see cref="MediaScopes.Create" />.</param>
+    /// <param name="media">What that surface is now.</param>
+    /// <returns>Whether any block changed its mind on that surface.</returns>
     /// <remarks>
-    ///     A condition it could not evaluate at all is counted as false for both contexts, so an
-    ///     unsupported feature is a block that stays dropped rather than a reload on every resize.
+    ///     ⚠ <b>Per scope and not per document, which is what a torn-off window needed.</b> The rules
+    ///     are still shared — one theme, one <c>@keyframes</c> table, one layer order — and only the
+    ///     verdict is not.
     /// </remarks>
-    bool VerdictsDiffer(MediaContext before, MediaContext after) {
-        foreach (var condition in Loader.MediaConditions) {
-            if (Holds(condition, before) != Holds(condition, after)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    static bool Holds(string condition, MediaContext context) =>
-        MediaQuery.TryEvaluate(condition, context, out var matches, out _) && matches;
+    public bool SetMedia(int scope, MediaContext media) => Scopes.Set(scope, media);
 
     /// <summary>A transform every sheet's text goes through on its way to the parser.</summary>
     /// <remarks>
@@ -184,7 +188,7 @@ public sealed class StyleEngine {
     ///         ⚠ <b>The seam <c>@apply</c> needs, and the reason it is here rather than in front of
     ///         <see cref="Load" />.</b> A caller can already transform its own text before handing it
     ///         over; what it cannot do is be present for a <see cref="Reload" />, and a reload is not
-    ///         a rare event — <see cref="SetMedia" /> triggers one, <see cref="Replace" /> triggers
+    ///         a rare event — <see cref="SetMedia(MediaContext)" /> triggers one, <see cref="Replace" /> triggers
     ///         one, and both replay <see cref="SheetText" />. A transform applied by the caller would
     ///         be applied once and then quietly dropped by the next resize.
     ///     </para>
@@ -206,8 +210,17 @@ public sealed class StyleEngine {
     /// <param name="css">Its text.</param>
     /// <param name="origin">Who it came from.</param>
     /// <param name="media">
-    ///     What to evaluate <c>@media</c> against, or <c>null</c> to follow <see cref="Media" /> — and
-    ///     to keep following it, so that <see cref="SetMedia" /> reaches this sheet too.
+    ///     A fixed surface to decide <c>@media</c> against, or <c>null</c> to let each surface decide
+    ///     for itself.
+    ///     <para>
+    ///         ⚠ <b><c>null</c> is the answer for a real stylesheet and naming a context is the
+    ///         special case.</b> A sheet that names one is asking a question with a single answer —
+    ///         "this sheet is about a 320-pixel surface" — so its <c>@media</c> blocks are decided
+    ///         here and dropped or kept, as they always were. A sheet that names none is about
+    ///         whatever surface it is being shown on, and a document can be shown on several at once;
+    ///         its blocks become <see cref="MediaConditions" /> groups that every scope answers
+    ///         separately.
+    ///     </para>
     /// </param>
     /// <returns>The sheet's index, for <see cref="Replace" />.</returns>
     public int Load(string css, StyleOrigin origin = StyleOrigin.Author, MediaContext? media = null) {
@@ -217,7 +230,7 @@ public sealed class StyleEngine {
         // whole document declares — which is exactly what `@apply` needs — reads `SheetText`, and a
         // sheet that is not in the list yet is a sheet whose own `@theme` it cannot see.
         sheets.Add(new(css, origin, media));
-        Loader.Load(Preprocess(css), origin, media ?? Media);
+        Loader.Load(Preprocess(css), origin, media);
         return sheets.Count - 1;
     }
 
@@ -270,8 +283,15 @@ public sealed class StyleEngine {
         Build();
 
         foreach (var sheet in sheets) {
-            Loader.Load(Preprocess(sheet.Css), sheet.Origin, sheet.Media ?? Media);
+            Loader.Load(Preprocess(sheet.Css), sheet.Origin, sheet.Media);
         }
+
+        // ⚠ After every sheet, not per sheet. A load registers groups one at a time and every scope's
+        // verdicts go stale on each, so refreshing inside the loop would be a re-evaluation per group
+        // per window. What this is for is the *return* — a caller holding resolved styles has to be
+        // told when a reload moved an answer — and `Replace` is exactly that case: a hot edit that
+        // adds a `@media` block changes what a window shows without anybody resizing it.
+        Scopes.Refresh();
     }
 
     /// <summary>
@@ -300,8 +320,15 @@ public sealed class StyleEngine {
         Matcher = new SelectorMatcher(Selectors);
         Interning = new ComputedStyleCache();
         Keyframes = new KeyframesTable();
-        Loader = new StyleSheetLoader(Rules, Keyframes, Compiler);
-        Resolver = new StyleResolver(Rules, InlineStyles, Matcher, Interning);
+
+        // ⚠ Cleared rather than replaced, because the scopes hold verdicts indexed by group and the
+        // surfaces hold scope ids. Both are facts about windows and neither is derived from the
+        // rules, so a reload refills the same table — in the same order, from the same sheets — and
+        // the revision counter is what tells a cached verdict vector it is looking at a new one.
+        Conditions.Reset();
+
+        Loader = new StyleSheetLoader(Rules, Keyframes, Compiler, Conditions);
+        Resolver = new StyleResolver(Rules, InlineStyles, Matcher, Interning, Scopes);
 
         // After `Keyframes`, which it holds — see the remarks on `Animations` for why it is rebuilt
         // here rather than kept. `Names` is the keyword table `StyleValueParser` interns identifiers

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Styling;
+
 namespace Vixen.Ui;
 
 public sealed partial class UiDocument {
@@ -80,8 +82,35 @@ public sealed partial class UiDocument {
         // document is a removed element and because that chain is what a routed event climbs.
         Layout.RemoveChild(owner.LayoutNode, root.LayoutNode);
 
-        var surface = new UiSurface(this, nextSurface++, root, width, height, dpiScale, new DrawList());
+        // ⚠ The colour scheme is carried over from the primary and the gamut is not, and the two
+        // defaults differ because the two facts do. An appearance preference is a platform setting
+        // that every window of an application shares; a gamut is negotiated per swapchain, so a new
+        // window starts at the conservative sRGB and waits for its host to publish what it was
+        // actually granted — see `EditorPane.Publish`.
+        var surface = new UiSurface(
+            this,
+            nextSurface++,
+            root,
+            width,
+            height,
+            dpiScale,
+            new DrawList(),
+            Primary.ColorScheme
+        ) {
+            Scope = Styles.Scopes.Create(default)
+        };
+
+        // ⚠ On the surface root and on nothing else, because every element created under it inherits
+        // the scope through `StyleTree.CreateElement` — including a whole panel reparented in, since
+        // `Reparent` rebuilds a moved subtree's slots rather than moving them. This is the one write;
+        // the rest is propagation the tree already does.
+        Styles.Tree.SetScope(root.StyleNode, surface.Scope);
+
         Adopt(surface, width, height, dpiScale);
+
+        // After `Adopt`, which is what measures it — a scope told about a nought-by-nought surface
+        // would answer every `min-width` no until the first resize.
+        Remedia(surface);
 
         SurfaceAdded?.Invoke(this, surface);
         return surface;
@@ -144,14 +173,13 @@ public sealed partial class UiDocument {
             Layout.Invalidate(surface.Root.LayoutNode);
         }
 
-        // ⚠ <b>A resize is the one thing that can change what `@media` answers, and for two phases it
-        // did not.</b> Conditions are decided at load rather than at match — `StyleSheetLoader` says
-        // so and gives the reason — which makes re-asking them somebody's job, and nobody's. Only the
-        // primary surface, because the rule set is shared by every surface of one document; see the
-        // limitation recorded on `Media`.
-        if (surface.IsPrimary) {
-            Remedia();
-        }
+        // ⚠ <b>This surface, not the primary one, and that is the second half of the fix.</b> A
+        // resize is the one thing that can change what `@media` answers, and for two phases nobody
+        // re-asked it at all; then it was re-asked only for the primary window, because the verdict
+        // lived in the rule set and a rule set is shared. It lives on the surface now — see
+        // `MediaScopes` — so a torn-off inspector crossing its own breakpoint restyles itself and
+        // leaves the main window alone.
+        Remedia(surface);
 
         Forget();
     }
