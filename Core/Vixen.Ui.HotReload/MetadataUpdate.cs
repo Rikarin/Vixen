@@ -75,11 +75,23 @@ public static class MetadataUpdate {
 
     /// <summary>Called by the runtime after an update is applied.</summary>
     /// <param name="types">The types that changed, or null when the runtime does not know.</param>
+    /// <remarks>
+    ///     ⚠ <b>The types are passed on rather than dropped, and that is what reaches the component
+    ///     channel.</b> Almost every update is a changed method body, and
+    ///     re-running <c>Build</c> on the same object is both the cheap answer and the one that keeps
+    ///     a panel's state. The exception is an instance the update left behind — the runtime can add
+    ///     a field to a live type and the initialiser that would fill it does not run on an object
+    ///     that already exists — and telling that apart from an ordinary mistake needs to know which
+    ///     types the runtime actually touched. See
+    ///     <see cref="HotReloadHost.ReloadComponents(IReadOnlyCollection{Type})" />.
+    /// </remarks>
     public static void UpdateApplication(Type[]? types) {
-        _ = types;
+        // A set rather than the array: the lookup is per tracked component and the runtime's array
+        // is however long the edit was.
+        var updated = types is null || types.Length == 0 ? null : new HashSet<Type>(types);
 
         foreach (var host in Live) {
-            _ = host.ReloadComponents();
+            _ = host.ReloadComponents(updated);
         }
     }
 }

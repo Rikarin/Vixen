@@ -36,4 +36,19 @@ public readonly record struct ReloadReport(
 ) {
     /// <summary>Whether it worked.</summary>
     public bool Succeeded => Errors.IsDefaultOrEmpty;
+
+    /// <summary>How many component <i>instances</i> were thrown away and made again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="Components" /> because it is the number that costs
+    ///     something.</b> A rebuild keeps the object and therefore its signals; a replacement keeps
+    ///     only what <see cref="HotReloadStateAttribute" /> marked, which in practice is nothing at
+    ///     all. A developer who sees a panel forget where it was is entitled to a number that says
+    ///     so, and a report that folded the two together would make the expensive case
+    ///     indistinguishable from the free one.
+    ///     <para>
+    ///         Not a positional parameter: a reload is a rebuild almost always, and every caller
+    ///         that constructs a report about one would have to write a zero.
+    ///     </para>
+    /// </remarks>
+    public int Replaced { get; init; }
 }

@@ -64,10 +64,11 @@ broken `.vxml` does not compile so no update ever arrives.
 
 ### Component replacement
 
-For the edits .NET calls rude. The new instance starts from its own field initialisers, and
+For an instance the update left behind. The new one starts from its own field initialisers, and
 `[HotReloadState]` says what to carry — by name, because two instances of two versions of a type
 share nothing else. A value whose type no longer fits is left behind rather than thrown at the
-field: the whole point of a reload is that the type changed.
+field: the whole point of a reload is that the type changed. Reached by hand and, since the metadata
+handler stopped dropping the runtime's type list, by the runtime — see below.
 
 ## What this does not do
 
@@ -84,6 +85,18 @@ is a leak with a development-only cause and a production-shaped consequence.
 
 Watches `.vcss` only, for the reason above: watching for a file it could not act on would put a
 spinner on an operation that never happens.
+
+⚠ **A file the document already holds is adopted rather than loaded again, and that is what makes
+the watcher's reload a reload.** Every stylesheet in this repository is a `.vcss` embedded from the
+file a developer edits, and installed at `UserAgent`. Loading the same text again puts an `Author`
+copy on top of it — which wins wherever it says something and says nothing where a rule was
+*deleted*, so the copy underneath goes on applying it. Values iterate live and the set of rules does
+not, which is the exact shape of a channel that looks wired and half works. `Load` compares the
+file's text against the text of every sheet the engine holds — the text is the only thing the two
+copies share, because a sheet is loaded from a string and remembers no path — and binds the path to
+the sheet that is already there. A save then replaces it, at its own origin, and a deleted rule
+disappears. A file that matches nothing is still an overlay on top, because an overlay is what a
+scratch directory of overrides is; `Replaces` says which of the two a path got.
 
 ⚠ **Editors write files more than once.** Save-to-temp-then-rename, a truncate followed by a write,
 a tool that touches the timestamp afterwards — one save can raise three events. Changes are
@@ -105,13 +118,36 @@ that is wrong when a save does nothing at all.
 application — including the measurement that says a `.vxml` edit reaches a running process in tens
 of milliseconds and that a stylesheet held in a C# `const` cannot reach one at all.
 
+### Component replacement, and what reaches it
+
+⚠ **`Replace` has a caller now, and it is the runtime's own.** It used to have none — the component
+channel was tested and nothing anywhere reached it, on the reasoning that a rude edit is a
+`dotnet watch` restart in practice. That reasoning was about the wrong signal. `UpdateApplication`
+is handed **the types the runtime changed**, and it dropped them; passing them on is what closes the
+gap, because the case rebuilding cannot cover is *not* a rude edit — it is an instance the update
+left behind.
+
+The runtime can add an instance field to a live type. The initialiser that would have filled it does
+not run on an object that already exists, so a component holding a `Signal<T>` field the edit
+introduced holds `null` there, the new `Build` dereferences it, and rebuilding again fails
+identically for ever — a panel that goes empty on one save and never comes back. A fresh instance
+runs its own initialisers, and `[HotReloadState]` is how anything worth keeping crosses over. That
+is what the attribute has always been for.
+
+⚠ **Only for a type the runtime named, and only after a throw.** Both halves guard the same thing:
+replacing an instance discards everything not marked, and state preservation is what this channel is
+for. A `Build` that throws for any other reason is a component whose type nobody edited, and it keeps
+its fields and its error. A `.vxml` with a typo in it does not compile, so no update arrives for it
+at all — a throw *after* a successful compile of its own type is the stale-instance shape and nothing
+else is.
+
+The report counts replacements separately from rebuilds, because they cost different things: a
+rebuild keeps the object and therefore its signals, and a replacement keeps only what was marked.
+
 ## Owed
 
 Scroll offsets and selection in the preserved set (neither exists yet to preserve). And a reload of
 a *subtree* rather than a whole component, for when a large screen is being edited a control at a
 time.
-
-And `Replace` has no caller: the component channel is tested and nothing in the editor reaches it,
-so a rude edit is a `dotnet watch` restart in practice.
 
 Licensed under Apache-2.0.

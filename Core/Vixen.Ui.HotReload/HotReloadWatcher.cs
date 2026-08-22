@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Styling;
+
 namespace Vixen.Ui.HotReload;
 
 /// <summary>Watches a directory of <c>.vcss</c> files and reloads the ones it knows.</summary>
@@ -23,7 +25,7 @@ namespace Vixen.Ui.HotReload;
 public sealed class HotReloadWatcher : IDisposable {
     readonly HotReloadHost host;
     readonly FileSystemWatcher watcher;
-    readonly Dictionary<string, int> sheets = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, Bound> sheets = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> pending = new(StringComparer.OrdinalIgnoreCase);
     readonly Lock gate = new();
 
@@ -52,17 +54,78 @@ public sealed class HotReloadWatcher : IDisposable {
     /// <summary>Loads a stylesheet and remembers where it came from.</summary>
     /// <param name="path">The file.</param>
     /// <returns>The sheet's index.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A file the document already holds is <i>adopted</i> rather than loaded a second
+    ///         time, and that is the difference between a reload and an overlay.</b> A shipped sheet
+    ///         is embedded from the same <c>.vcss</c> the developer is about to edit and installed at
+    ///         <see cref="StyleOrigin.UserAgent" />; loading the file again puts a second copy in at
+    ///         <see cref="StyleOrigin.Author" />, which wins wherever it says something and says
+    ///         nothing where a rule was <b>deleted</b> — so the shipped copy underneath goes on
+    ///         applying it. Values iterate live and the set of rules does not, which is the shape of
+    ///         a channel that looks wired and half works. Binding the path to the sheet that is
+    ///         already there makes a save a replacement of it, at its own origin, and a deleted rule
+    ///         disappears.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Identity is the text, because the text is the only thing the two copies share.</b>
+    ///         A sheet is loaded from a string and remembers no path — <c>EditorTheme.Css</c> reads
+    ///         an embedded resource and <see cref="UiDocument.Load" /> is handed the result — so
+    ///         there is nothing to match a file against but what it says. Both sides are the
+    ///         <i>unexpanded</i> text the engine keeps (see <c>StyleEngine.Preprocessor</c>), so an
+    ///         <c>@apply</c> compares equal to itself rather than to what it expanded to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A file that matches nothing is loaded exactly as it always was</b>, at
+    ///         <c>Author</c>, on top. That is the case the channel was built for — a scratch
+    ///         directory of overrides — and it stays an overlay because an overlay is what it is.
+    ///         <see cref="Replaces" /> says which of the two happened, so a caller can tell a
+    ///         developer rather than leaving them to infer it from a rule that will not go away.
+    ///     </para>
+    /// </remarks>
     public int Load(string path) {
         ArgumentNullException.ThrowIfNull(path);
 
         var full = Path.GetFullPath(path);
-        var sheet = host.Document.Load(File.ReadAllText(full));
+        var css = File.ReadAllText(full);
+        var installed = Installed(css);
+        var sheet = installed ?? host.Document.Load(css);
 
         lock (gate) {
-            sheets[full] = sheet;
+            sheets[full] = new(sheet, installed is not null);
         }
 
         return sheet;
+    }
+
+    /// <summary>Whether a loaded path replaces a sheet the document already had.</summary>
+    /// <param name="path">The file, as it was given to <see cref="Load" />.</param>
+    /// <returns>
+    ///     <see langword="true" /> when a save replaces the shipped sheet in place,
+    ///     <see langword="false" /> when it layers a new <c>Author</c> sheet over everything — which
+    ///     is also the answer for a path that was never loaded.
+    /// </returns>
+    public bool Replaces(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+
+        var full = Path.GetFullPath(path);
+
+        lock (gate) {
+            return sheets.TryGetValue(full, out var bound) && bound.Replaced;
+        }
+    }
+
+    /// <summary>The index of a sheet the document already holds this exact text as, if any.</summary>
+    int? Installed(string css) {
+        var styles = host.Document.Styles;
+
+        for (var sheet = 0; sheet < styles.SheetCount; sheet++) {
+            if (string.Equals(styles.SheetText(sheet), css, StringComparison.Ordinal)) {
+                return sheet;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Applies whatever has changed since the last call.</summary>
@@ -85,7 +148,7 @@ public sealed class HotReloadWatcher : IDisposable {
             }
 
             changed = [
-                .. pending.Where(sheets.ContainsKey).Select(path => (Path: path, Sheet: sheets[path]))
+                .. pending.Where(sheets.ContainsKey).Select(path => (Path: path, Sheet: sheets[path].Sheet))
             ];
 
             pending.Clear();
@@ -134,4 +197,7 @@ public sealed class HotReloadWatcher : IDisposable {
             pending.Add(Path.GetFullPath(path));
         }
     }
+
+    /// <summary>What a watched path is bound to, and whether that sheet was already installed.</summary>
+    readonly record struct Bound(int Sheet, bool Replaced);
 }
