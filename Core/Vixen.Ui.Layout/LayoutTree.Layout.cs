@@ -315,6 +315,15 @@ public sealed partial class LayoutTree {
         // baseline some earlier pass left on this node.
         results[index].InlineBaseline = float.NaN;
 
+        // ⚠ And the fifth question, cleared here for a reason the four above do not have. A node's
+        // fragments are written by its *parent's* line walk, after this runs — so clearing them on
+        // the way in is what makes "I was two boxes last frame and I am one this frame" work. The
+        // case is not hypothetical: widening a container until a span stops crossing a line is the
+        // ordinary way a fragment disappears, and a stale second box would go on being painted.
+        if (performLayout) {
+            WriteFragments(index, default);
+        }
+
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             MeasureNodeWithMeasureFunction(
                 index,

@@ -69,6 +69,8 @@ public sealed partial class LayoutTree {
                 - RoundToPixelGrid(absoluteNodeTop, scale, false, textRounding);
         }
 
+        RoundFragmentsToPixelGrid(index, absoluteNodeLeft, absoluteNodeTop, scale);
+
         // Descending is the expensive half — the pass is O(whole tree) if it always does, which
         // measured at 60–70 % of an incremental frame. It is safe to stop here when two things
         // hold: the algorithm did not run for this node, so nothing rewrote its children's raw
@@ -86,6 +88,57 @@ public sealed partial class LayoutTree {
 
         foreach (var child in ChildIds(index)) {
             RoundToPixelGrid(child, absoluteNodeLeft, absoluteNodeTop);
+        }
+    }
+
+    /// <summary>Snaps a fragmented node's extra boxes onto the same grid its own box went onto.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Rounded exactly the way the node above is, and the reason to say so is that the
+    ///         obvious shortcut is wrong.</b> The shortcut is to round a fragment's own width, which
+    ///         reintroduces per-box rounding and the one-pixel seam this whole pass exists to remove —
+    ///         between two fragments of the same span, where it is most visible, because a background
+    ///         that stops half a pixel short of the line below it reads as a broken highlight rather
+    ///         than as a rounding artefact. So the <i>absolute</i> edges are rounded and the size is
+    ///         the difference, which is the rule one function up.
+    ///     </para>
+    ///     <para>
+    ///         The offsets stay relative to the node and the sizes come from absolute edges, which is
+    ///         the same split <see cref="LayoutResult.RoundedPosition" /> and
+    ///         <see cref="LayoutResult.RoundedDimensions" /> already have. A consumer that adds a
+    ///         rounded fragment offset to the node's accumulated absolute position therefore lands
+    ///         where the node's own rounded box would have put it.
+    ///     </para>
+    /// </remarks>
+    void RoundFragmentsToPixelGrid(int index, double absoluteNodeLeft, double absoluteNodeTop, double scale) {
+        var run = FragmentsOf(index);
+        if (run.IsEmpty) {
+            return;
+        }
+
+        // A fragmented box is never a measured leaf — it is an inline box with box children, and a
+        // measure function makes a node a leaf. So there is no text-rounding case to carry down here,
+        // and asserting that by passing `false` is more honest than threading a flag that cannot be
+        // set.
+        for (var i = 0; i < run.Length; i++) {
+            ref var box = ref run[i];
+
+            if (scale == 0d) {
+                box.RoundedLeft = box.Left;
+                box.RoundedTop = box.Top;
+                box.RoundedWidth = box.Width;
+                box.RoundedHeight = box.Height;
+
+                continue;
+            }
+
+            var left = absoluteNodeLeft + box.Left;
+            var top = absoluteNodeTop + box.Top;
+
+            box.RoundedLeft = RoundToPixelGrid(box.Left, scale, false, false);
+            box.RoundedTop = RoundToPixelGrid(box.Top, scale, false, false);
+            box.RoundedWidth = RoundToPixelGrid(left + box.Width, scale, false, false) - RoundToPixelGrid(left, scale, false, false);
+            box.RoundedHeight = RoundToPixelGrid(top + box.Height, scale, false, false) - RoundToPixelGrid(top, scale, false, false);
         }
     }
 

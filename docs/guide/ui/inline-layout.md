@@ -4,7 +4,7 @@ slug: ui/inline-layout
 kind: guide
 area: Core
 summary: Line boxes over Vixen's layout store — inline-block and inline-flex, shrink-to-fit sizing, baseline alignment and vertical-align, and the one invariant an inline formatting context asks the store to give up.
-api: [T:Vixen.Ui.Layout.VerticalAlign]
+api: [T:Vixen.Ui.Layout.VerticalAlign, T:Vixen.Ui.Layout.LayoutFragmentEnds]
 tags: [ui, layout, inline, css, line-boxes, baseline]
 since: 0.2
 status: preview
@@ -119,28 +119,59 @@ between values defined against the **line box** and values defined against a **f
 than approximated, because rounding `middle` to `baseline` looks almost right and reads as a
 rendering quirk.
 
+### Fragmentation: when one node is several boxes
+
+Every other algorithm in this store preserves an invariant it never had to state: **one node
+produces one box**. A `LayoutResult` holds one rectangle, and that is what makes a hundred thousand
+nodes four allocations.
+
+⚠ **A non-replaced `inline` box is the exception.** CSS Display §2.2 *fragments* a `span` that
+crosses a line break into one box per line — with the horizontal border and padding drawn at the two
+real ends and **not** at the breaks. A `span` with box children that wraps is therefore several
+rectangles, and asking for them is two calls:
+
+```csharp no-compile="a fragment; `span` is a node the caller made and `Paint` is the caller's own"
+for (var i = 0; i < tree.GetFragmentCount(span); i++) {
+    var (left, top, width, height, ends) = tree.GetFragment(span, i);
+
+    // `left` and `top` are relative to the span itself, so add them to wherever the walk has
+    // already got to. A box that did not fragment answers 1 and gives you (0, 0, width, height).
+    Paint(absoluteLeft + left, absoluteTop + top, width, height, ends);
+}
+```
+
+`ends` is a <xref:Vixen.Ui.Layout.LayoutFragmentEnds>: `Start`, `End`,
+`Both`, or `None` for a middle fragment with a line break on either side. The *rectangle* already
+includes the border and padding at whichever ends are real, so a background needs no reference to
+the flag; what the flag decides is **which vertical border to stroke**, and drawing both on every
+fragment is what a naive painter does.
+
+⚠ **Everything that does not care keeps working unchanged.** `GetLeft`, `GetTop`, `GetWidth` and
+`GetHeight` return the **union** of a fragmented box's rectangles — which is not a compromise but
+CSS 2.1 §10.1's own answer, since the containing block of an absolutely positioned descendant of an
+inline box *is* the bounding box of its first and last fragments. `GetFragmentCount` answers `1` for
+every ordinary node.
+
 ### Limits
 
-The boundary is one fact rather than a list. Every algorithm in this store preserves an invariant it
-never had to state: **one node produces one box**. A `LayoutResult` holds one rectangle, and that is
-what makes a hundred thousand nodes four allocations.
+Fragmentation is one level deep: a `span` **inside** another `span` is still laid out atomically,
+and so is one with an out-of-flow child. Both are limits of the walk rather than of the
+representation, and both are written up in `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
 
-⚠ **A non-replaced `inline` box breaks it.** CSS Display §2.2 *fragments* a `span` that crosses a line
-break into one box per line, each with its own rectangle. There is nowhere in the store to put the
-second fragment — so `Display.Inline` here is **atomic**: it does not split. For the case that
-dominates a user interface, a span holding text and no box children, atomic and non-atomic agree
-exactly, because there is nothing to split.
-
-Also absent, each with its reason in `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`: anonymous
-block boxes (so mixed content stacks), the strut, `text-align`, `white-space`,
-`text-overflow: ellipsis`, `line-clamp` and bidirectional reordering.
+Also absent, each with its reason in the same file: anonymous block boxes (so mixed content stacks),
+generated `::before`/`::after` boxes, the strut, `text-align`, `white-space`,
+`text-overflow: ellipsis`, `line-clamp` and bidirectional reordering. ⚠ The first two are the
+*opposite* direction from fragmentation — a box with no node behind it — and the fragment arena does
+not help with either.
 
 ⚠ **Text is not re-wrapped here.** `Vixen.Ui`'s `TextLayout` already breaks a string into lines across
 a font-fallback chain and reaches the store the way every leaf does — as a measure function. This
 algorithm treats such a leaf as one atomic item and asks it exactly the question the measure cache is
 keyed on. A second wrapper would disagree with the first about kerning, fallback and UAX #14 the
 moment either changed. The cost is stated rather than hidden: a text leaf's first line is not
-shortened to the space left on the line it lands on, because shortening it is fragmentation again.
+shortened to the space left on the line it lands on. ⚠ That is still true now that fragmentation has
+landed, and the two were filed as the same blocker but are not: there is somewhere to put a
+shortened first line, and the reason it was refused was never storage.
 
 ## Examples
 

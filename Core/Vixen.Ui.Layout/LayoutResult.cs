@@ -186,6 +186,32 @@ public struct LayoutResult {
     /// </remarks>
     internal float InlineBaseline;
 
+    /// <summary>Where this node's extra boxes start in <see cref="FragmentArena" />, or -1.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero here is the whole compatibility story.</b> <see cref="FragmentCount" /> of zero
+    ///     means the node produced exactly one box and that box is <see cref="Position" /> and
+    ///     <see cref="Dimensions" />, which is what every node produced before fragments existed and
+    ///     what all but a handful produce now. So nothing that reads <see cref="LayoutTree.GetLeft" />
+    ///     had to learn anything, and a tree with no non-atomic inline box in it never allocates a
+    ///     fragment.
+    ///     <para>
+    ///         ⚠ When the count is non-zero, <see cref="Position" /> and <see cref="Dimensions" /> hold
+    ///         the <b>union</b> of the fragments rather than one of them. That is not a fallback: CSS
+    ///         2.1 §10.1 makes the containing block of an absolutely positioned descendant of an inline
+    ///         box the bounding box of its first and last fragments, so the union is the answer the
+    ///         absolute walk actually wants, and it is also the right rectangle for a scroll extent and
+    ///         for a coarse hit test. A consumer that needs the individual boxes — a painter drawing a
+    ///         background, a hit test that must not claim the gap between two lines — asks for them.
+    ///     </para>
+    /// </remarks>
+    internal int FragmentOffset;
+
+    /// <summary>How many fragments this node was split into, or 0 for the ordinary one-box case.</summary>
+    internal int FragmentCount;
+
+    /// <summary>How big the node's block in <see cref="FragmentArena" /> is.</summary>
+    internal int FragmentCapacity;
+
     /// <summary>Where an out-of-flow child of a block container would have sat in flow.</summary>
     /// <remarks>
     ///     CSS 2.1 §10.6.4's static position. The flex path derives an absolute child's fallback

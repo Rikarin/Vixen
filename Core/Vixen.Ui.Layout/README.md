@@ -32,8 +32,10 @@ child are done, and `grid-template-areas` is **not implemented at all** — see
 with **no corpus at all**: not one of the 6 058 fixtures sets `display: inline*` or `vertical-align`,
 verified by enumeration. Its oracle had to be fetched from `web-platform-tests`, and most of WPT's
 inline suite could not cross either — a line box's metrics depend on a font, and this store has none.
-It is **partial and says which part**: atomic inlines are done, and a non-atomic `inline` box does
-not fragment, because a `LayoutResult` holds exactly one rectangle. See
+It is **partial and says which part**: atomic inlines are done, and so is **fragmentation** — a
+non-atomic `inline` box crossing a line break is now one box per line, which is the first time a node
+in this store has produced more than one rectangle. What is still owed is nested spans, anonymous
+boxes and the strut. See
 [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
 `InlineKnownGaps.txt`.
 
@@ -45,7 +47,8 @@ not fragment, because a `LayoutResult` holds exactly one rectangle. See
 | `LayoutTree.CalculateLayout` | The algorithm: flex basis, line breaking, the two-pass free-space distribution, justification, cross-axis alignment, multi-line alignment, absolute positioning, pixel-grid rounding. |
 | `LayoutTree.Block`, `CollapsibleMargin` | The second algorithm: block stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing, auto margins, the intrinsic-width probe. |
 | `LayoutTree.Grid*`, `GridTrackSize`, `TrackArena` | The third: CSS Grid §8 placement, §12 track sizing, `fr`/`minmax`/`fit-content`/`repeat`, and the variable-length track lists that made a second arena necessary. |
-| `LayoutTree.Inline`, `VerticalAlign` | The fourth: CSS 2.1 §9.4.2 line boxes, §10.3.9 shrink-to-fit, §10.8.1 baselines and vertical alignment. Atomic inlines only — see below for the invariant that decides where it stops. |
+| `LayoutTree.Inline`, `VerticalAlign` | The fourth: CSS 2.1 §9.4.2 line boxes, §10.3.9 shrink-to-fit, §10.8.1 baselines and vertical alignment. |
+| `LayoutTree.Fragments`, `LayoutFragment`, `FragmentArena` | CSS Display §2.2 fragmentation, and the third arena — the only one on the *output* side. What relaxed *one node produces one box*, and the zero default that kept every existing consumer of `GetLeft` unchanged. |
 | `LayoutTree.Order` | §5.4 `order`, the one part that is not Yoga's. One redirection: the algorithm reaches children only through `ChildIds`, so sorting what that returns is the whole property. |
 | `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
 | `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block and grid **were** judged by — every category but `float` now runs per fixture. |
@@ -351,13 +354,14 @@ it, because the corpus's grids are almost always the root.
 Doc 43 § B3, the last of the three big layout modes and the fourth algorithm. **What it landed is
 atomic inlines: `inline`, `inline-block` and `inline-flex` are real keywords, a container whose
 in-flow children are all inline-level lays them onto line boxes, and `vertical-align` has three of
-its eight values.** What it did not land is one fact rather than a list, and that fact is the
-interesting part.
+its eight values.** What it did *not* land was one fact rather than a list — and that fact has since
+been paid for, which is the interesting part twice over.
 
-### What a *fourth* algorithm cost, and what it asked for and could not have
+### What a *fourth* algorithm cost, and what it asked for and eventually got
 
 Block cost three **outputs**. Grid cost variable-length **input** and a second arena. Inline cost
-**one output and no arena** — and then hit a wall.
+**one output and no arena** — and then hit a wall, which came down later for a third arena on the
+**output** side.
 
 The output is `LayoutResult.InlineBaseline`, and it is an output for a different reason than block's
 margins were. A collapsible margin is an output because it belongs to somebody else; this is an
@@ -379,18 +383,46 @@ loops over an index range, and the whole algorithm allocates nothing. Variable-l
 the thing grid did not have and inline does not either; what grid needed was variable-length *input*,
 and a line box has none.
 
-⚠ **The wall is an invariant that three algorithms preserved without ever having to say so: one node
-produces one box.** A `LayoutResult` holds one `Position` and one `Dimensions`; `GetLeft`, the
-rounding pass, the absolute walk and hit testing all rest on it, and it is what makes a hundred
+⚠ **The wall was an invariant that three algorithms preserved without ever having to say so: one
+node produces one box.** A `LayoutResult` holds one `Position` and one `Dimensions`; `GetLeft`, the
+rounding pass, the absolute walk and hit testing all rested on it, and it is what makes a hundred
 thousand nodes four allocations. CSS Display §2.2's non-replaced `inline` box breaks it — a `span`
-crossing a line break is **fragmented** into one box per line, each with its own rectangle, with the
-horizontal border and padding drawn at the two real ends and not at the breaks. There is nowhere to
-put the second fragment.
+crossing a line break is **fragmented** into one box per line, with the horizontal border and
+padding drawn at the two real ends and not at the breaks.
 
-So the boundary is: **atomic inlines are implemented, non-atomic ones are not**, and that is one
-concept rather than a list of missing features. `Display.Inline` here does not split — which for the
-case that dominates a user interface, a span holding text and no box children, is identical to CSS,
-because there is nothing to split.
+### The wall came down for one arena and three ints, and nothing downstream changed
+
+`FragmentArena` is variable-length **output** — the same shape `TrackArena` is on the input side —
+and `LayoutResult` carries a handle into it. The thing that made it additive rather than a migration
+is the zero default: **`FragmentCount == 0` means "one box, and it is `Position` and `Dimensions`,
+exactly as before"**. So `GetLeft` was not touched, the rounding pass gained one loop, and the
+absolute walk gained nothing at all — nor did the four properties on `Vixen.Ui`'s `UiElement` that
+every hit test and draw list in the engine funnels through.
+
+⚠ **When the count is non-zero, `Position` and `Dimensions` hold the *union* of the fragments, and
+that is CSS's own answer rather than a compromise.** CSS 2.1 §10.1 makes the containing block of an
+absolutely positioned descendant of an inline box the bounding box of its first and last fragments.
+The union is therefore exactly what the absolute walk wants, which is why the absolute walk needed
+nothing. Individual boxes are there for whoever needs them — `GetFragmentCount` and `GetFragment`,
+the latter reporting which of the box's *real* ends each fragment carries so a painter knows which
+vertical border to stroke and which break to leave open.
+
+⚠ **What the store still cannot do is the other direction: a box with *no* node.** An anonymous
+block box (§9.2.1.1) and a generated box (`::before`, doc 43's A12) are not fragments and are not
+served by any of this — storing one against a nearby node would give it that node's style. The two
+are also not the same as each other: an anonymous block box takes initial values for every
+non-inherited property, so it is never painted and never hit-tested and needs no stored rectangle at
+all, only a line walk over a sub-range of children. A generated box needs a style slot. See
+`InlineKnownGaps.txt`, which now costs them separately.
+
+⚠ **The claim that a line box allocates nothing survived, and it was the thing most at risk.** A
+line used to be a *contiguous range of the existing child span*, exactly as a flex line is, and
+every item's size was already on the item. A span breaks that: it is not *on* a line, its children
+are, and it contributes only its two horizontal edges wherever they fall. So a line is now a
+contiguous range of a flattened Open/Atomic/Close stream — held in a watermarked buffer reused
+across passes, alongside a second one for fragments in flight. `LayoutPassTests`'s zero-byte gate
+holds with a span re-fragmenting on every frame, which is what makes a side arena affordable where a
+list per node would not have been.
 
 ⚠ **`inline-block` genuinely does not take the whole line, and the mechanism was already in the
 store.** §10.3.9's shrink-to-fit is `SizingMode.FitContent`, which the block path has branched on
@@ -408,7 +440,14 @@ on. A second wrapper breaking text inside the line box would disagree with the f
 fallback and UAX #14 the moment either changed.
 
 The cost is stated rather than hidden: **a text leaf's first line is not shortened to the space left
-on the line it lands on.** Shortening it is fragmentation again, from the other end.
+on the line it lands on.** ⚠ And it is *still* not, now that fragmentation has landed — which is
+worth saying because the two were filed as the same blocker and are not. There is now somewhere to
+put a shortened first line; what has not changed is the reason it was refused, which was never
+storage but the fact that two wrappers disagreeing about kerning, fallback and UAX #14 is worse than
+one. ⚠ The day text breaking does move into the line box, Vixen's UAX #14 conformance stops being
+the right target: browsers do not implement it as written, and the reference for any change to a
+break position is Parley's `break_overrides.rs` or the 2 048 Chrome-recorded positions beside it —
+not the algorithm.
 
 ### The oracle had to be fetched, and most of it could not cross
 

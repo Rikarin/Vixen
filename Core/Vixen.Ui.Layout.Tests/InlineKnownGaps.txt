@@ -1,4 +1,5 @@
-# Inline formatting — what doc 43 § B3 landed, and what it did not.
+# Inline formatting — what doc 43 § B3 landed, what fragmentation landed after it, and what neither
+# did.
 #
 # ⚠ THIS FILE IS NOT SHAPED LIKE ITS THREE SIBLINGS, AND THE REASON IS THE WHOLE STORY.
 #
@@ -45,41 +46,85 @@ right-to-left lines               the first item on a line is the rightmost one
 inner display is independent      `inline-flex` runs the flex algorithm; `inline-block` runs block
 
 
-# ══ DELIBERATELY ABSENT — the store cannot represent it ══════════════════════════════════════════
-
-# ⚠ FRAGMENTATION. This is the boundary, and everything under it is one consequence of one fact.
+# ══ FRAGMENTATION — LANDED, and the invariant it broke is worth keeping written down ════════════
 #
-# Every algorithm in this store preserves an invariant it never had to state: ONE NODE PRODUCES ONE
-# BOX. A `LayoutResult` holds one `Position` and one `Dimensions`; `GetLeft` and `GetWidth` return
-# from them; the rounding pass, the absolute walk and hit testing all assume it. That invariant is
-# what makes the store five parallel arrays and a hundred thousand nodes four allocations.
+# ⚠ THIS SECTION USED TO BE THE BOUNDARY. It said that every algorithm in this store preserved an
+# invariant it never had to state — ONE NODE PRODUCES ONE BOX — and that CSS Display §2.2's
+# non-replaced `inline` box breaks it, with nowhere to put the second fragment. The first half is
+# still true and is why the store is shaped the way it is. The second half is not, any more.
 #
-# CSS Display §2.2's non-replaced `inline` box breaks it. A `span` crossing a line break is
-# fragmented into one box per line, each with its own rectangle, with the horizontal border and
-# padding drawn at the two real ends and not at the breaks. There is nowhere to put the second
-# fragment and nothing to return it from.
+# What it cost, so that the next algorithm can compare: ONE ARENA AND THREE INTS (offset, count and
+# capacity, exactly as `ChildArena` and `TrackArena` are addressed), and NOT a change to any
+# existing consumer. `FragmentArena` is the same shape as `TrackArena` — grid needed
+# variable-length INPUT, this is variable-length OUTPUT — and `LayoutResult` carries a handle into
+# it. The thing that made it additive rather than a migration is the zero default:
 #
-# This is NOT the same kind of gap as block's or grid's. Block cost three outputs and grid cost an
-# arena — both were additions. This one is a change to what a layout result IS, and it would touch
-# the rounding pass, the absolute walk, hit testing and every consumer of `GetLeft`. It is written
-# down here rather than attempted.
+#     FragmentCount == 0  means  "one box, and it is Position and Dimensions, exactly as before".
+#
+# So `GetLeft` was not touched, the absolute walk was not touched, and neither was any of the four
+# properties in `Vixen.Ui/UiElement.cs` that every hit test and draw list in the engine goes
+# through. ⚠ AND WHEN THE COUNT IS NON-ZERO, `Position` AND `Dimensions` HOLD THE UNION of the
+# fragments — which is not a fallback but CSS 2.1 §10.1's own answer, since the containing block of
+# an absolutely positioned descendant of an inline box IS the bounding box of its first and last
+# fragments. That is why the absolute walk needed nothing.
+#
+# ⚠ THE CLAIM THAT A LINE BOX ALLOCATES NOTHING SURVIVED, and it was the thing most at risk. A line
+# used to be a contiguous range of `ChildIds`; it is now a contiguous range of a flattened stream of
+# Open/Atomic/Close entries, because a span is not ON a line — its children are, and it contributes
+# only its two edges. The stream and the fragment scratch are watermarked buffers reused across
+# passes, so `LayoutPassTests`'s zero-byte gate still holds with a span re-fragmenting every frame.
+# `A_fragmenting_span_re_laid_every_frame_allocates_nothing` is that gate for this path.
+#
+# Covered by `InlineFragmentationTests`. What remains is SCOPE — a limit of the producer, not of the
+# representation, which holds any number of fragments for any node:
 
-non-atomic inline fragmentation   a `display: inline` box with box children does not split across
-                                  lines; it is laid out as one atomic box. ⚠ For the case that
-                                  dominates a UI — a span holding text and no box children — atomic
-                                  and non-atomic agree exactly, because there is nothing to split.
-horizontal border/padding at
-  a fragment's inner ends         same fact, one level down
+nested non-atomic inline boxes    a `display: inline` box INSIDE another one is still laid out
+                                  atomically. One level of flattening, not a recursion. What is
+                                  missing is the rebasing of a union inside a union, not somewhere
+                                  to put it. Pinned by `A_span_inside_a_span_is_still_atomic`,
+                                  which should FAIL and be inverted when nesting lands.
+a span with an out-of-flow child  refused, and the child is the reason rather than the span. The
+                                  absolute walk recurses only through `PositionType.Static`
+                                  children and this store's default is `Relative` — Yoga's, not
+                                  CSS's — so a flattened span, whose own `CalculateLayoutImpl`
+                                  never runs, is where that walk stops. Refusing leaves a box
+                                  un-split; flattening would leave the child positioned by nobody.
+the strut's effect on a fragment  a fragment is exactly as tall as its line box, and its line box
+                                  is exactly as tall as the boxes on it. Same missing strut as
+                                  below; §10.8's rule that a non-replaced inline box's VERTICAL
+                                  padding and border do not affect line height is implemented, and
+                                  is the one place that rule is visible.
 
-# ⚠ ANONYMOUS BOXES. §9.2.1.1 says a block container holding both block-level and inline-level
-# children wraps each run of the inline ones in an anonymous block box. An anonymous box has no
-# node — no id, no style, no entry in the child arena — so inventing one means either allocating
-# nodes during layout or teaching the walk to address something that is not a node. Mixed content
-# therefore stacks, which is what the engine did before B3: wrong in the same direction as before
-# rather than in a new one. Pinned by `Mixed_content_stacks_because_there_are_no_anonymous_boxes`,
-# which should FAIL and be inverted if anonymous boxes ever land.
+# ══ DELIBERATELY ABSENT — the store still cannot represent it ═══════════════════════════════════
+
+# ⚠ ANONYMOUS BOXES — AND THE FRAGMENT ARENA DOES NOT HELP, WHICH IS WORTH SAYING BECAUSE IT LOOKS
+# LIKE IT SHOULD. §9.2.1.1 says a block container holding both block-level and inline-level children
+# wraps each run of the inline ones in an anonymous block box. That is the OTHER direction from
+# fragmentation: fragmentation is one node to many boxes, an anonymous box is a box with NO node.
+# Storing one as a fragment of some nearby node would give it that node's style, which is wrong.
+#
+# ⚠ BUT THE BLOCKER RECORDED HERE WAS OVERSTATED, AND THE OVERSTATEMENT IS THE USEFUL PART. This
+# file used to say inventing an anonymous box means "either allocating nodes during layout or
+# teaching the walk to address something that is not a node", as though both were structural. The
+# second is neither structural nor expensive: an anonymous block box takes INITIAL VALUES for every
+# non-inherited property, so it has no background, no border, no padding, no margin and no event
+# target. It is never painted and never hit-tested. It therefore needs NO STORED RECTANGLE AT ALL —
+# only the ability to run a line walk over a SUB-RANGE of a container's children and report a
+# height, which `MeasureLine` and `PlaceLine` already take. Whoever picks this up should cost it as
+# a range-walk change and not as a store change.
+#
+# Mixed content still stacks today. Pinned by `Mixed_content_stacks_because_there_are_no_anonymous_boxes`,
+# which should FAIL and be inverted when anonymous boxes land.
 
 anonymous block boxes             mixed block-level and inline-level children stack
+generated boxes (::before/after)  doc 43's A12, and NOT unblocked by the fragment arena — same
+                                  reason as the row above, plus one more: a generated box has a
+                                  STYLE of its own, so it needs a second style slot rather than a
+                                  second rectangle. ⚠ A12's estimate was recorded as an
+                                  underestimate "while this invariant stands". The invariant has
+                                  now moved, and the estimate should NOT be revised on that basis
+                                  — A12 was never blocked on fragmentation, it is blocked on
+                                  anonymous boxes, and that is the row above.
 
 # ⚠ THE STRUT. §10.8 begins every line box with an imaginary zero-width inline box carrying the
 # block container's own font and line height. It is why an empty line is still a line tall, why a
@@ -106,9 +151,44 @@ vertical-align: <length> / <%>    not in the enum at all; needs `line-height` to
 text-align                        the inline-axis distribution of a line's items. Not a fragmentation
                                   problem and not a font problem — genuinely just unwritten. It is
                                   the cheapest remaining item here: one offset per line, computed
-                                  from the line's slack, applied in `PlaceLine`.
-                                  ⚠ 124 of the block corpus's refusals cite `text-align`, so this is
-                                  the one entry in this file with browser-recorded answers waiting.
+                                  from the line's slack, applied in `PlaceLine`, which already has
+                                  the slack in hand and throws it away.
+                                  ⚠ THIS ENTRY USED TO CLAIM "124 of the block corpus's refusals
+                                  cite text-align, so this is the one entry in this file with
+                                  browser-recorded answers waiting". BOTH HALVES ARE WRONG and the
+                                  correction was worth more than the claim. The count is 16, not
+                                  124 — `BlockKnownGaps.txt`'s own refusal table says 16 and a
+                                  count of `text-align=` in `Corpus/block.xml` agrees. ⚠ 124 is
+                                  doc 43's B1 row, where it is the TOTAL of block+blockflex
+                                  refusals across four unrelated causes — 88 `scrollbar-width`,
+                                  16 `text-align`, 8 `flow-root`, 4 `float`, plus 4 `align-content:
+                                  safe end` and 4 blockflex. A total was read as one cause's share.
+                                  And the 16
+                                  are not this feature: every one of them sets `-webkit-center`,
+                                  `-webkit-left` or `-webkit-right`, and every one contains only
+                                  BLOCK-level children with no inline content anywhere. Those are
+                                  CSS Text §7.1's legacy aliases, which shrink-to-fit and centre
+                                  BLOCK BOXES — a block-layout rule needing no line box, no inline
+                                  formatting context and no fragmentation. So `text-align` proper
+                                  has NO oracle in either corpus, exactly like everything else in
+                                  this file, and the 16 fixtures are a separate, self-contained,
+                                  oracle-backed item that belongs to block layout. ⚠ Closing them
+                                  moves the block corpus's REFUSAL count, so it is its own commit.
+a text leaf's first line          ⚠ STILL NOT shortened to the space left on the line box it lands
+  shortened to its line             on, and the fragment arena did NOT unblock this even though it
+                                  was named as the other end of the same invariant. There is now
+                                  somewhere to PUT a shortened first line; what is still true is
+                                  the reason it was refused, which was never storage. `Vixen.Ui`'s
+                                  `TextLayout` is the only thing that breaks a string, across a
+                                  font-fallback chain, and a second wrapper breaking text inside
+                                  the line box would disagree with it about kerning, fallback and
+                                  UAX #14 the moment either changed. ⚠ AND THE MOMENT IT DOES,
+                                  Vixen's UAX #14 conformance stops being the right target:
+                                  browsers do not implement it as written, and Parley's
+                                  `parley_engine/src/break_overrides.rs` documents the deltas with
+                                  line-level Chromium citations. Do not move a break position
+                                  without that file or the 2048 Chrome-recorded positions in
+                                  `linebreaking_browser_recorder/data/*.csv` as the reference.
 line-height on the container      needs the strut
 white-space / nowrap              the container-level suppression of line breaking
 text-overflow: ellipsis           ⚠ Parley was proposed for this and REFUTED — the word "ellipsis"

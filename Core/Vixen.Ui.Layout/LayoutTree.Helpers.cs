@@ -778,10 +778,17 @@ public sealed partial class LayoutTree {
     /// <summary>Blanks a subtree that is not being laid out, so it reports nothing rather than stale.</summary>
     void ZeroOutLayoutRecursively(int index) {
         var cached = results[index].CachedLayout;
+
+        // ⚠ Before the wholesale `default` below, which would zero the arena handle rather than
+        // clearing it — and zero is a valid offset, so a `display: none` span would keep pointing at
+        // fragments the arena had already handed to somebody else.
+        ReleaseFragments(index);
+
         results[index] = default;
         results[index].ComputedFlexBasis = float.NaN;
         results[index].ComputedAutoMinMainSize = float.NaN;
         results[index].GridAreaWidth = float.NaN;
+        results[index].FragmentOffset = -1;
         results[index].CachedLayout = cached;
         flags[index] |= LayoutNodeState.HasNewLayout;
         flags[index] &= ~LayoutNodeState.Dirty;
