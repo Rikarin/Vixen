@@ -1,0 +1,113 @@
+<Project>
+
+  <!--
+    Vixen — what a PackageReference brings, for the projects that cannot make one.
+    Spec: docs/plan/02-repository-layout.md § "Shared MSBuild"
+
+    ==================================================================================================
+    ⚠ **Outside this repository a UI project writes nothing at all.** `Vixen.Ui` ships its build
+    assets in `buildTransitive/`, so a project whose only line is
+    `<PackageReference Include="Vixen.Ui.Controls" />` gets the `.vxml` compiler, the `.vcss` glob and
+    the utility stylesheet step with no plumbing — verified by extracting the produced packages and
+    building against them, which is a thing that had never been done.
+
+    Inside it there are no packages. MSBuild assets and analyzers do not travel through a
+    `ProjectReference`, so every in-repo project with an interface used to write out by hand what the
+    package would have imported: two analyzer references, a build-order reference to the style-sheet
+    tool, an `EmbeddedResource` glob, and an `Import` — ⚠ which had to sit at the *bottom* of the
+    file, because the globs must run after `DefaultItemExcludes` is final, and which silently gave
+    the wrong item set anywhere else.
+
+    This file is the stand-in, and the ordering trap goes away with it: MSBuild imports
+    `Directory.Build.targets` after everything the project wrote, which is exactly where those globs
+    belong, so there is no longer a wrong place to put them.
+    ==================================================================================================
+
+    **`VixenUi` is the declaration, and it is the only line.** It says the same thing the
+    `PackageReference` says outside — "this project has an interface in it" — and it is spelled
+    rather than sniffed on purpose. Wiring every project that merely *references* `Vixen.Ui` would
+    reach nine that do not want it: `Vixen.Ui.Markup.Tests` keeps deliberately malformed `.vxml`
+    fixtures that must not be compiled as components, and `Vixen.Ui.Styling.Utilities.Tests` keeps
+    `.vcss` that is input to a test rather than a stylesheet to embed.
+  -->
+
+  <PropertyGroup>
+    <VixenUi Condition="'$(VixenUi)' == ''">false</VixenUi>
+    <VixenRepositoryRoot>$(MSBuildThisFileDirectory)</VixenRepositoryRoot>
+
+    <!--
+      ==============================================================================================
+      ⚠ **The two flags, captured here because an item cannot read them where they are set.**
+
+      MSBuild evaluates a project in passes: *every* property and *every* import first, then the
+      items. So an `ItemGroup` condition below reads the value a property has at the *end* of the
+      property pass, not the value it had at that point in the file — and the imports at the bottom
+      of this file set both of these. Conditioned on them directly, the analyzer references below
+      were skipped in every project, the `.vxml` reached the compiler as an `AdditionalFiles` item
+      with no generator loaded to read it, and the build succeeded with no components in it.
+
+      A property *assignment* is different: those do happen in document order. Reading the flags into
+      two names before the imports run is therefore the only way to ask "did the project wire itself
+      up, or am I about to?" — and the answer is what keeps this file out of the way of the fifteen
+      projects that still name everything by hand.
+      ==============================================================================================
+    -->
+    <_VixenUiWiredByProject>$(VixenUiBuildImported)</_VixenUiWiredByProject>
+    <_VixenStylesWiredByProject>$(VixenUtilityStylesImported)</_VixenStylesWiredByProject>
+  </PropertyGroup>
+
+  <!--
+    The item types, from the same file the package imports. Guarded by the flag that file sets, so a
+    project that still names it by hand — there are fifteen, and converting them is a separate change
+    — keeps its own import and gets no second copy of either glob.
+  -->
+  <Import Project="$(VixenRepositoryRoot)Core/Vixen.Ui/build/Vixen.Ui.targets"
+          Condition="'$(VixenUi)' == 'true' AND '$(_VixenUiWiredByProject)' != 'true'" />
+
+  <!--
+    The utility stylesheet step, on the same terms. `Vixen.Editor.Ui.Styling.targets` reaches this
+    file too, for the dozen editor assemblies that share one `@theme`; its flag is what keeps this
+    import from being a second one.
+  -->
+  <Import Project="$(VixenRepositoryRoot)Core/Vixen.Ui.Styling.Utilities/build/Vixen.Ui.Styling.Utilities.targets"
+          Condition="'$(VixenUi)' == 'true' AND '$(_VixenStylesWiredByProject)' != 'true'" />
+
+  <!--
+    ⚠ The two generators, which is the half a `ProjectReference` provably cannot carry:
+    `OutputItemType="Analyzer"` contributes one DLL and nothing transitive, so the assembly that
+    declares a `[UiProperty]` or owns a `.vxml` is the one that has to name them.
+    `Vixen.Ui.Generators` turns a `[UiProperty]` into a property the style system can see;
+    `Vixen.Ui.Markup.Generators` is the VXML compiler.
+  -->
+  <ItemGroup Condition="'$(VixenUi)' == 'true' AND '$(_VixenUiWiredByProject)' != 'true'">
+    <ProjectReference Include="$(VixenRepositoryRoot)Core/Vixen.Ui.Generators/Vixen.Ui.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+
+    <ProjectReference Include="$(VixenRepositoryRoot)Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--
+    ⚠ **A build-order reference and nothing else** — `ReferenceOutputAssembly="false"`, so no assembly
+    is referenced and nothing of the tool reaches the output. The step above invokes
+    `Tools/Vixen.StyleGen`, and only a `ProjectReference` makes MSBuild build it first; outside this
+    repository the tool travels inside `Vixen.Ui.Styling.Utilities`' own `tools/` and there is
+    nothing to order.
+
+    ⚠ Conditioned on the project actually having a palette, and the item to test is the one the
+    import above has just globbed. A project with no `vixen.ui.vcss` never launches the tool — the
+    generation target says so in its own condition — so ordering a build against it would be a
+    dependency taken for a step that does not run, and, for a `Core/` project, an edge into `Tools/`
+    that `CheckArchitecture` reads project files to forbid.
+  -->
+  <ItemGroup Condition="'$(VixenUi)' == 'true' AND '@(VixenUiTokens)' != ''">
+    <ProjectReference Include="$(VixenRepositoryRoot)Tools/Vixen.StyleGen/Vixen.StyleGen.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

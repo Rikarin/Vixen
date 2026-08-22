@@ -5,10 +5,50 @@ using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
 using Vixen.Cli;
 using Vixen.Editor.Core;
+using Vixen.Ui.Markup.Generators;
 
 namespace Vixen.Templates.Tests;
+
+/// <summary>A template's <c>.vxml</c>, handed to the generator without one existing on disk.</summary>
+sealed class TemplateMarkup(string path, string text) : AdditionalText {
+    public override string Path { get; } = path;
+
+    public override SourceText GetText(CancellationToken cancellationToken = default) => SourceText.From(text);
+}
+
+/// <summary>The two MSBuild properties the VXML generator reads, and nothing else.</summary>
+/// <remarks>
+///     ⚠ <b>The same two <c>Vixen.Ui.targets</c> makes compiler-visible</b>, which is what a
+///     scaffolded project gets from its <c>PackageReference</c>. A namespace or a project directory
+///     spelled differently here would be testing a build nobody has.
+/// </remarks>
+sealed class TemplateBuildOptions(string projectDirectory, string rootNamespace) : AnalyzerConfigOptionsProvider {
+    public override AnalyzerConfigOptions GlobalOptions { get; } = new Options(
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+            ["build_property.projectdir"] = projectDirectory,
+            ["build_property.rootnamespace"] = rootNamespace
+        }
+    );
+
+    public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => Options.Empty;
+
+    public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => Options.Empty;
+
+    sealed class Options(Dictionary<string, string> values) : AnalyzerConfigOptions {
+        public static readonly Options Empty = new([]);
+
+        public override bool TryGetValue(string key, out string value) {
+            var found = values.TryGetValue(key, out var result);
+            value = result ?? string.Empty;
+
+            return found;
+        }
+    }
+}
 
 /// <summary>Compiles the C# a template writes, without building a project.</summary>
 /// <remarks>
@@ -84,10 +124,11 @@ static class TemplateCompiler {
             .Select(file => CSharpSyntaxTree.ParseText(
                     Encoding.UTF8.GetString(file.Content),
                     ParseOptions,
-                    file.Path
+                    ProjectDirectory + file.Path
                 )
             )
-            .Prepend(CSharpSyntaxTree.ParseText(ImplicitUsings, ParseOptions));
+            .Prepend(CSharpSyntaxTree.ParseText(ImplicitUsings, ParseOptions))
+            .Concat(StyleSheetAccessors(files, projectName));
 
         // A template with an OutputType of Exe has an entry point and one without it does not, and
         // Roslyn will complain about whichever it was not told to expect. `OutputType` is in the
@@ -121,9 +162,96 @@ static class TemplateCompiler {
             )
         );
 
+        // ⚠ **The markup, compiled by the generator a scaffolded project's PackageReference brings.**
+        // Without this the gate is checking less than it looks like it checks: `vixen-app` ships an
+        // `AppShell.vxml` that `AppDocument.cs` mounts, so a compilation over only the `.cs` would
+        // either fail on a type nobody wrote or — if the C# were arranged to avoid naming it — pass
+        // while the markup beside it went unparsed. `Vixen.Ui.Markup.Generators` is referenced as a
+        // library for exactly this, the way `Vixen.Ui.Markup.Generators.Tests` does.
+        var markup = files
+            .Where(file => file.Path.EndsWith(".vxml", StringComparison.Ordinal))
+            .Select(file => new TemplateMarkup(ProjectDirectory + file.Path, Encoding.UTF8.GetString(file.Content)))
+            .ToArray();
+
+        if (markup.Length > 0) {
+            CSharpGeneratorDriver
+                .Create(
+                    [new VxmlGenerator().AsSourceGenerator()],
+                    markup,
+                    ParseOptions,
+                    new TemplateBuildOptions(ProjectDirectory, projectName)
+                )
+                .RunGeneratorsAndUpdateCompilation(compilation, out var updated, out var produced);
+
+            compilation = (CSharpCompilation) updated;
+
+            // The generator's own diagnostics point at the `.vxml`, with its line and column. They
+            // are the ones worth reading when a template's markup is wrong, so they are reported
+            // rather than left to show up as a missing type in the C# that mounts the component.
+            return [
+                .. produced
+                    .Concat(compilation.GetDiagnostics())
+                    .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
+                    .Select(diagnostic => diagnostic.ToString())
+            ];
+        }
+
         return compilation.GetDiagnostics()
             .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
             .Select(diagnostic => diagnostic.ToString())
             .ToArray();
+    }
+
+    /// <summary>Where the scaffolded project is pretended to live.</summary>
+    /// <remarks>
+    ///     The VXML generator builds a component's namespace from <c>RootNamespace</c> plus the
+    ///     file's folders <em>below the project directory</em>, so every path handed to it has to
+    ///     share a root or a component in the project's own directory would come out namespaced
+    ///     after the whole absolute path. Nothing is read from disk; this is a prefix.
+    /// </remarks>
+    const string ProjectDirectory = "/scaffold/";
+
+    /// <summary>
+    ///     The class the utility build step would have written, in the shape it writes it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A stand-in, and the one thing in this file that is not the real mechanism.</b>
+    ///         The utility stylesheet is produced by <c>Tools/Vixen.StyleGen</c> — an out-of-process
+    ///         MSBuild step, not a source generator — so there is nothing to hand a
+    ///         <c>GeneratorDriver</c>. What a template's C# depends on is the *shape* of what that
+    ///         step emits, and that is what this supplies: the three members
+    ///         <c>StyleGenRunner.Accessor</c> writes, under the name and namespace the
+    ///         <c>.targets</c> default to.
+    ///     </para>
+    ///     <para>
+    ///         So this catches a template naming a member the accessor does not have, and does not
+    ///         catch the accessor changing shape. The second is what
+    ///         <c>Vixen.StyleGen.Tests</c> is for.
+    ///     </para>
+    ///     <para>
+    ///         Emitted only for a template that actually has a theme file, because that is the
+    ///         condition the generation target itself carries: a project with no
+    ///         <c>vixen.ui.vcss</c> gets no sheet and no accessor, and a stub here would let such a
+    ///         template compile against a class its own build would never produce.
+    ///     </para>
+    /// </remarks>
+    static IEnumerable<SyntaxTree> StyleSheetAccessors(IReadOnlyList<TemplateFile> files, string projectName) {
+        if (!files.Any(file => Path.GetFileName(file.Path) == "vixen.ui.vcss")) {
+            yield break;
+        }
+
+        yield return CSharpSyntaxTree.ParseText(
+            $$"""
+            namespace {{projectName}};
+
+            internal static class VixenUtilityStyles {
+                public const string Utilities = "";
+                public const string Css = "";
+                public const int RuleCount = 0;
+            }
+            """,
+            ParseOptions
+        );
     }
 }

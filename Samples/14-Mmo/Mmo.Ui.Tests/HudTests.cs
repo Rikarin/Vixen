@@ -36,7 +36,7 @@ public sealed class HudTests : IDisposable {
     public HudTests() {
         hud.Model = model;
 
-        ui.Load(MmoStyles.Compile());
+        ui.Load(MmoStyles.Css);
         BuildContext.BuildInto(hud, ui.Document, ui.Document.Root);
     }
 

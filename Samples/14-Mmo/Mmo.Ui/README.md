@@ -12,8 +12,8 @@ the UI framework is for.
 | | |
 |---|---|
 | `Theme/vixen.ui.vcss` | The design tokens, as an `@theme` block layered over the palette the engine ships. One file, and "the accent is teal now" is one line of it. |
-| `Theme/hud.vcss` | The handful of rules a utility class cannot say, and nothing else. |
-| `Theme/MmoStyles.cs` | Tokens + scan + generate, into one sheet. |
+| `Theme/hud.vcss` | The handful of rules a utility class cannot say, and nothing else. Handed to the build step as the base sheet, so it is emitted ahead of the utilities. |
+| `MmoStyles` | Generated. Tokens + scan + generate, into one sheet, by the build rather than at startup. |
 | `HudModel.cs` | What the panels bind to. Signals all the way down. |
 | `UnitFrame` | Name, level, health, resource, an elite mark and a cast bar. Used for the player and for their target. |
 | `ActionBar` | Twelve slots with keybinds, costs and a cooldown sweep. |
@@ -36,10 +36,18 @@ lines and every one of them is a rule that could not have been a class.
 **Only what is used is emitted.** Every family crossed with every token is a stylesheet in the tens
 of megabytes, so the generator is given the class names the markup mentions and emits those.
 
-⚠ **The scan happens at startup here and belongs in a build step.** The utilities README lists build
-integration as waiting on the asset pipeline; until it lands, something has to glob the source. This
-sample embeds its own `.vxml` and scans those with the same `CandidateScanner` a build step would
-use. It costs a few milliseconds, once.
+**The scan happens in the build, and this project's whole share of it is one line.**
+`<VixenUi>true</VixenUi>` in `Mmo.Ui.csproj` is what brings the VXML compiler, the two item types and
+the utility step; `Theme/vixen.ui.vcss` is found by a glob rather than named; every `.vxml` and every
+`.cs` here is scanned before the compiler runs, and `MmoStyles` is the constant that comes out.
+Outside this repository even that line is unnecessary — a `PackageReference` to `Vixen.Ui.Controls`
+carries all of it.
+
+⚠ **It used to be a hundred and thirty-five lines of `Theme/MmoStyles.cs`** — embed the markup as
+resources, walk the manifest, run the scanner, run the generator — whose own remarks admitted it was
+standing in for a build step nobody had written. The step exists; the file is gone; the name it had
+is the name the generated class is given, so nothing that read it had to change except
+`Compile()` becoming `Css`.
 
 ⚠ **A class name assembled at run time is invisible to the scanner, and that is the one place the
 design costs something.** `$"border-{rarity}"` is `border-` and a variable; `border-storied` appears
@@ -47,14 +55,15 @@ nowhere and no rule is emitted for it. Two answers, both used here:
 
 - **Write the whole name in a switch.** `ActionBar.Cell` returns three complete class lists rather
   than composing one from a state — longer, and the scanner can read it.
-- **Safelist it.** `MmoStyles.Safelist` names the five rarity colours, because four different panels
-  colour by them and a closed set is exactly what a safelist is for.
+- **Safelist it.** `Mmo.Ui.csproj`'s `VixenStyleSafelist` items name the five rarity colours and the
+  four resource bars, because four different panels colour by them and a closed set is exactly what a
+  safelist is for.
 
-⚠ **The scanner is over-inclusive on purpose**, so `UtilityGenerator.Unrecognised` is mostly prose
-out of comments and cannot be asserted on directly. What *can* be asserted is the set actually
-written in a `class` attribute: `StylesheetTests` pulls those out and requires each one to be either
-a utility the theme can emit or a rule in `hud.vcss`. It caught `rounded-t-md` — a real Tailwind
-utility, not one this engine has — which would have silently done nothing.
+⚠ **The scanner is over-inclusive on purpose**, so the unrecognised list is mostly prose out of
+comments and cannot be asserted on directly. What *can* be asserted is the set actually written in a
+`class` attribute: `StylesheetTests` reads those out of the `.vxml` on disk and requires the built
+sheet to carry a rule for each one. It caught `rounded-t-md` — a real Tailwind utility, not one this
+engine has — which would have silently done nothing.
 
 ## Five things VXML will teach you in the first hour
 

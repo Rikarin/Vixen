@@ -17,9 +17,9 @@ namespace Vixen.Editor.Ui;
 ///         ⚠ <b>The build step is why this file is four lines rather than a hundred and thirty.</b>
 ///         <c>Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs</c> is what this looked like before it: embed
 ///         the markup as resources, walk the manifest, run the scanner, run the generator, cache the
-///         answer — a startup bootstrap whose own remarks admit it is standing in for a build step
-///         that had not been written. It has been written. The sample is left as it is deliberately,
-///         as the reference for what the step replaced.
+///         answer — a startup bootstrap whose own remarks admitted it was standing in for a build
+///         step that had not been written. It has been written, and that sample is converted too, so
+///         nothing in the tree does it by hand any more.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The tokens are not a second palette, and the <c>@theme</c> block goes to some trouble

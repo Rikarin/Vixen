@@ -34,6 +34,15 @@
         ==========================================================================================
     -->
     <PropertyGroup>
+        <!--
+            ⚠ **The flag the repository's `Directory.Build.targets` reads**, for the reason
+            `Vixen.Ui.targets` states beside its own: in-repo that file stands in for the
+            `PackageReference` and is imported last, so a project that already names this one — or
+            reaches it through `Vixen.Editor.Ui.Styling.targets` — says so here and is left alone.
+            Importing the same file twice would redefine both targets and re-declare `VixenUiTokens`.
+        -->
+        <VixenUtilityStylesImported>true</VixenUtilityStylesImported>
+
         <VixenUtilityStyles Condition="'$(VixenUtilityStyles)' == ''">true</VixenUtilityStyles>
         <VixenUtilityStylesNamespace Condition="'$(VixenUtilityStylesNamespace)' == ''">$(RootNamespace)</VixenUtilityStylesNamespace>
         <VixenUtilityStylesClass Condition="'$(VixenUtilityStylesClass)' == ''">VixenUtilityStyles</VixenUtilityStylesClass>

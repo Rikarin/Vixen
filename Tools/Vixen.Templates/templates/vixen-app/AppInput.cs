@@ -30,7 +30,7 @@ static class AppInput {
         // ⚠ Stopwatch ticks, not milliseconds. The platform's clock is monotonic and its unit is
         // whatever the machine's high-resolution timer counts in, so converting by the wrong
         // constant gives a gesture recogniser whose double-tap window is either eternity or nothing.
-        // It is also the same clock AppShell.Tick reads through Stopwatch.Elapsed, which is what
+        // It is also the same clock AppDocument.Tick reads through Stopwatch.Elapsed, which is what
         // makes the two comparable at all.
         var when = Stopwatch.GetElapsedTime(0, platformEvent.Timestamp);
         var modifiers = Modifiers(platformEvent.Modifiers);

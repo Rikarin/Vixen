@@ -7,6 +7,26 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <IsPackable>false</IsPackable>
+
+        <!--
+            ⚠ **This one line is the whole of the UI plumbing, and it used to be forty.** Outside this
+            repository it is not even a line: `Vixen.Ui` ships its build assets in `buildTransitive/`,
+            so a `PackageReference` to `Vixen.Ui.Controls` brings the VXML compiler, the `.vxml` and
+            `.vcss` item types and the utility stylesheet step by itself. In here there are no
+            packages and analyzers do not travel through a `ProjectReference`, so
+            `Directory.Build.targets` stands in for one — and it is imported after everything written
+            below, which is where the globs have to run and used to be a rule the author had to know.
+        -->
+        <VixenUi>true</VixenUi>
+
+        <!--
+            The generated stylesheet keeps the name the hand-written bootstrap had, because it is the
+            name the tests and the README already say. `Theme/hud.vcss` goes in as the base sheet and
+            the utilities are appended, so `MmoStyles.Css` is exactly what `MmoStyles.Compile()`
+            returned — the same two halves in the same order, assembled by the build instead of by a
+            static constructor.
+        -->
+        <VixenUtilityStylesClass>MmoStyles</VixenUtilityStylesClass>
     </PropertyGroup>
 
     <ItemGroup>
@@ -20,55 +40,56 @@
         <ProjectReference Include="..\Mmo.Shared\Mmo.Shared.csproj" />
 
         <!--
-            The interface framework, and the two halves it is written in: VXML for the tree, and the
-            Tailwind-shaped utilities for everything a class name can say.
+            The interface framework. VXML for the tree and the Tailwind-shaped utilities for
+            everything a class name can say both arrive with it: `Vixen.Ui.Controls` depends on
+            `Vixen.Ui`, which depends on `Vixen.Ui.Styling.Utilities`, and a package brings its
+            dependencies' build assets with it.
         -->
         <ProjectReference Include="..\..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
-        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
-
-        <!--
-            ⚠ Analyzers do not flow through a ProjectReference, so this project names both
-            generators itself. Vixen.Ui.Generators is what turns a [UiProperty] into a property the
-            style system can see; Vixen.Ui.Markup.Generators is the VXML compiler. A shipped game
-            gets them from the Vixen.Sdk package.
-        -->
-        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
-                          OutputItemType="Analyzer"
-                          ReferenceOutputAssembly="false" />
-        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
-                          OutputItemType="Analyzer"
-                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
         <!--
-            ⚠ **The markup is embedded as well as compiled, and that is the utility system's build
-            step standing in for itself.** `Vixen.Ui.Styling.Utilities`' README lists build-step
-            integration as waiting on the asset pipeline: until it lands, something has to scan the
-            source for class names so the generator knows which rules to emit. A game does it in its
-            build; this sample does it at startup, over the same files, with the same scanner.
-
-            The scan is deliberately over-inclusive — see `CandidateScanner` — so embedding the
-            markup verbatim is exactly the input it wants.
+            ⚠ **The rules a utility cannot say, handed to the step as its base sheet rather than
+            concatenated afterwards.** `hud.vcss` opens with `@layer base, components, utilities;`
+            and that statement is what fixes the ladder's order, so it has to be emitted *first*: the
+            generated utilities name `utilities` too, and written first they would make it layer zero
+            and let a `@layer components` rule declared later beat them. StyleGen puts every base
+            sheet ahead of what it generates for exactly this reason, and expands the sheet's
+            `@apply` on the way through.
         -->
-        <EmbeddedResource Include="**/*.vxml" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+        <VixenStyleBase Include="Theme/hud.vcss" />
 
         <!--
-            ⚠ The `.vcss` line that used to be here is gone: `Vixen.Ui.targets` globs them now, and
-            naming them again is a duplicate item the SDK refuses. That glob is the change this
-            sample's own remarks were waiting on — a stylesheet on disk that the build knows about.
+            ⚠ **Class names the scanner cannot see, because nothing writes them down whole.** The
+            scanner is deliberately over-inclusive — every run of characters that *could* be a class
+            name, with the generator discarding the rest — but it cannot see a name that is never
+            written: `@Slot.RarityClass.Value` is a property access, and `text-storied` appears
+            nowhere. The rule is Tailwind's own: a class name assembled at run time must be
+            safelisted, or written out in full in a switch the scanner can read.
+
+            The five rarities and the four resource bars are a closed set that four different panels
+            colour by, which is why they are listed rather than spelled out at every use site.
         -->
+        <VixenStyleSafelist Include="text-worn" />
+        <VixenStyleSafelist Include="text-common" />
+        <VixenStyleSafelist Include="text-fine" />
+        <VixenStyleSafelist Include="text-rare" />
+        <VixenStyleSafelist Include="text-storied" />
+        <VixenStyleSafelist Include="border-worn" />
+        <VixenStyleSafelist Include="border-common" />
+        <VixenStyleSafelist Include="border-fine" />
+        <VixenStyleSafelist Include="border-rare" />
+        <VixenStyleSafelist Include="border-storied" />
+        <VixenStyleSafelist Include="text-health" />
+        <VixenStyleSafelist Include="text-mana" />
+        <VixenStyleSafelist Include="text-rage" />
+        <VixenStyleSafelist Include="text-focus" />
+        <VixenStyleSafelist Include="text-cast" />
     </ItemGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Mmo.Ui.Tests" />
     </ItemGroup>
-
-    <!--
-        What a PackageReference to Vixen.Ui would have imported on its own: the **/*.vxml glob and
-        the two properties the generator asks MSBuild for. At the bottom of the file for the reason
-        the .targets itself gives — the glob has to run after DefaultItemExcludes is final.
-    -->
-    <Import Project="..\..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 
 </Project>

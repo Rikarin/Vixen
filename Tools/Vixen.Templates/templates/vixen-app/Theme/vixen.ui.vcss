@@ -1,0 +1,25 @@
+/* The application's design tokens.
+
+   ⚠ **The name is the convention and the whole of the configuration.** The build step globs
+   `**/vixen.ui.vcss`, finds this, and every class name in every `.vxml` and every `.cs` in the
+   project resolves against it. One per project — two would be two palettes, which is the thing a
+   token model exists to prevent, so the build refuses rather than picking.
+
+   ⚠ **A project with no theme file still has tokens.** Everything below layers over the palette the
+   engine ships — Tailwind v4's own twenty-six ramps in oklch — so `bg-slate-800` works here without
+   being declared. `--color-*: initial;` is how an application that wants none of them says so, and
+   `--color-blue-500: initial;` removes exactly one.
+
+   A token is a custom property, so declaring `--color-brand` does two things at once: it makes
+   `var(--color-brand)` available to hand-written CSS, and it tells the generator that `bg-brand`,
+   `text-brand` and `border-brand` exist. */
+
+@theme {
+    /* 4px, which makes `p-2` eight and `p-4` sixteen and everybody able to see that one is twice the
+       other. It is also the engine's default, so this line is a statement rather than a change — and
+       it is the one to edit when the whole interface should breathe more. */
+    --spacing: 4px;
+
+    /* The one colour this application calls its own. */
+    --color-brand: oklch(74% 0.13 195);
+}

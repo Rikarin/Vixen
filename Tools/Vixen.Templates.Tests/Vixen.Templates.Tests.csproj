@@ -48,6 +48,23 @@
         <ProjectReference Include="..\Vixen.Cli\Vixen.Cli.csproj" />
 
         <!--
+            ⚠ **The VXML compiler, as a library rather than as an analyzer**, because
+            <c>TemplateCompiler</c> constructs it and drives it through <c>CSharpGeneratorDriver</c>
+            itself. The same arrangement — and the same reason — as
+            <c>Vixen.Ui.Markup.Generators.Tests</c>.
+
+            Without it this gate is checking less than it appears to: `vixen-app` ships an
+            `AppShell.vxml`, `AppDocument.cs` builds the class it compiles to, and a compilation that
+            saw only the `.cs` would fail on a type nobody wrote — or, worse, pass while the markup
+            beside it was never parsed at all.
+
+            ⚠ Deliberately *not* alongside `Vixen.Ui.Markup`. That front end is compiled into the
+            generator assembly by linked source, so referencing both would make every type in it
+            ambiguous.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj" />
+
+        <!--
             ⚠ Everything a scaffolded project references, so that TemplateCompiler can compile the
             C# the templates write against the same assemblies their PackageReferences resolve to.
             Nothing here is called from a test; these are metadata references and nothing more, and

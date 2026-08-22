@@ -194,9 +194,9 @@ public sealed class BagSlot {
 
     /// <summary>The whole border class for the rarity — <c>border-storied</c>, not <c>storied</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Whole, because the scanner cannot see a name that is assembled.</b> These five are on
-    ///     <c>MmoStyles.Safelist</c> for the same reason, and between the two of them the rule is:
-    ///     never put a fragment of a class name in a signal.
+    ///     ⚠ <b>Whole, because the scanner cannot see a name that is assembled.</b> These five are
+    ///     <c>VixenStyleSafelist</c> items in <c>Mmo.Ui.csproj</c> for the same reason, and between
+    ///     the two of them the rule is: never put a fragment of a class name in a signal.
     /// </remarks>
     public Signal<string> RarityClass { get; } = new("border-common");
 

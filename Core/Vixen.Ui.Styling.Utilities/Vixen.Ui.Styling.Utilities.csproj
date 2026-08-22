@@ -18,9 +18,15 @@
         <!--
             The build step's MSBuild half, which is what makes a PackageReference to this assembly
             enough on its own: no scanner call, no manifest walk, no bootstrap of any kind in the
-            consuming project. `build/<PackageId>.targets` is the name NuGet imports automatically.
+            consuming project.
+
+            ⚠ **`buildTransitive/` and not `build/`, for the reason `Vixen.Ui.csproj` records at
+            length.** NuGet imports `build/<id>.targets` only for a direct PackageReference, and
+            nothing reaches this assembly directly: an application references `Vixen.Ui.Controls`,
+            which depends on `Vixen.Ui`, which depends on this. Under `build/` the step was reachable
+            only by a project that had gone looking for it.
         -->
-        <None Include="build/Vixen.Ui.Styling.Utilities.targets" Pack="true" PackagePath="build/" />
+        <None Include="build/Vixen.Ui.Styling.Utilities.targets" Pack="true" PackagePath="buildTransitive/" />
 
         <!--
             ⚠ **The tool is packed by path rather than by ProjectReference, and it has to be.**
@@ -35,9 +41,30 @@
             alone produces a package whose `tools/` is empty and whose `.targets` then falls through
             to its third answer and finds nothing. Packing has to follow a solution build. That is
             the same bargain `Vixen.Sdk` makes with the CLI it ships.
+
+            ⚠ **The whole output directory and not the one assembly, and the difference is whether
+            the step runs at all.** `Vixen.StyleGen.dll` on its own is an entry point with nothing
+            behind it: the first line of `Main` touches `Vixen.Ui.Styling.Utilities`, and the shipped
+            package placed neither that nor `Vixen.Core`, `Vixen.Ui.Styling` or the `.deps.json` that
+            names them. Every consumer of every package produced so far would have got
+            `FileNotFoundException: Could not load file or assembly 'Vixen.Ui.Styling.Utilities'` out
+            of an `Exec` — checked by extracting a produced `.nupkg` and running it, which is the
+            only way this was ever going to be found. A framework-dependent build is *flat*, so the
+            fix is the directory: `*.dll` beside the `.deps.json` is exactly the layout the host
+            probes.
+
+            ⚠ `.dll` rather than `**`, deliberately. The `.pdb` and `.xml` beside them are for
+            debugging an assembly nobody debugs from here and would double the count for nothing;
+            the two `.json` files are named individually because they are the two that are read.
         -->
-        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.dll"
+        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/*.dll"
               Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.dll')"
+              Pack="true"
+              PackagePath="tools/"
+              Visible="false" />
+
+        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.deps.json"
+              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.deps.json')"
               Pack="true"
               PackagePath="tools/"
               Visible="false" />

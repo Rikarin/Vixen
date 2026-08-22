@@ -31,7 +31,7 @@ namespace VixenApp1;
 sealed class AppHost : IDisposable {
     readonly IPlatform platform;
     readonly IWindow window;
-    readonly AppShell ui;
+    readonly AppDocument ui;
 
     readonly UiGeometryBuilder geometry = new();
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
@@ -59,7 +59,7 @@ sealed class AppHost : IDisposable {
         this.platform = platform;
         this.window = window;
 
-        ui = new AppShell(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
+        ui = new AppDocument(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
 
         AppFonts.Install(ui.Document);
     }
