@@ -15,15 +15,17 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1552 of the 2 120 grid, blockgrid and gridflex fixtures pass, 436 fail and 132 are refused.
+# 1 648 of the 2 120 grid, blockgrid and gridflex fixtures pass, 340 fail and 132 are refused.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
-# with every one of its 42 failures outside block formatting. Grid has not: the buckets below are
-# real grid gaps, and the largest of them — CSS Grid §9's containing block for an out-of-flow child
-# — is a whole feature rather than an arithmetic slip. What IS complete is placement (§8), the bulk
-# of track sizing (§12) and now §11.8's baseline alignment: every `grid_placement_*`,
+# with every one of its failures outside block formatting. Grid has not — but the two features this
+# file named as its largest have both since landed, in the same afternoon and from different
+# branches: §11.8's baseline alignment and §9's containing block for an out-of-flow child. What
+# remains is arithmetic rather than whole features. Complete: placement (§8), the bulk of track
+# sizing (§12), §11.8 baseline alignment and §9's containing block — every `grid_placement_*`,
 # `grid_auto_flow_*`, `grid_repeat_*`, `grid_gap_*`, `grid_span_*` non-indefinite,
-# `grid_relayout_*` and `grid_align_items_baseline_*` family is green, and so are 472 of the 548
+# `grid_relayout_*`, `grid_align_items_baseline_*` and `grid_absolute_*` family is green, and so
+# are 472 of the 548
 # `grid_flex_track_*` fixtures, which are the ones that exercise §12.5 and §12.7 hardest.
 
 # ── BASELINE ALIGNMENT (§11.8) ── CLOSED ──
@@ -73,51 +75,6 @@
 # overflows its area and then rounded — a rounding question in `PlaceGridItemBoxes`' RTL mirror
 # rather than a margin-resolution one, and nothing else in the corpus exercises it.
 grid_align_items_baseline_child_margin_percent
-
-# ── AN ABSOLUTELY POSITIONED CHILD'S CONTAINING BLOCK IS NOT ITS GRID AREA (§9) ──
-#
-# CSS Grid §9 makes the grid area the containing block of an out-of-flow child whose placement is
-# definite, which has two consequences: the child's STATIC POSITION is the area's start corner, and
-# its INSETS resolve against the area's size. Neither is implemented; an abspos grid child measures
-# from the container's padding box, which is what `LayoutTree.Absolute` does for a flex parent.
-#
-# ⚠ <b>The cheap half was implemented, measured, and taken back out.</b> Recording the area's start
-# corner as a static position — reusing the BlockStaticLeft/BlockStaticTop pair block layout already
-# has, and letting the absolute walk read it for a grid parent too — is about forty lines and it
-# fixed six fixtures in the `_gaps_` and `_container_` families while breaking eight in
-# `_align_self_`: a net loss of two against the oracle. The half that pays is the other one, and it
-# needs a per-child containing block inside `LayoutTree.Absolute` — a file shared with Yoga's 534
-# fixtures and with every flex and block absolute case, so it wants its own commit and its own
-# conformance run rather than a grid-shaped patch. Doing the cheap half alone is worse than doing
-# neither, and that is a measurement rather than an opinion.
-#
-# The `_gaps_` families are the same gap seen through the gutters: an area that starts at line 3 of
-# a gapped grid begins after two gutters, and the padding box does not know that.
-grid_absolute_collapsed_auto_fit_tracks_rtl
-grid_absolute_column_end
-grid_absolute_column_start
-grid_absolute_container_left_overrides_right
-grid_absolute_container_left_right
-grid_absolute_container_left_right_margin
-grid_absolute_container_top_bottom
-grid_absolute_container_top_bottom_margin
-grid_absolute_content_alignment_center
-grid_absolute_content_alignment_end_rtl
-grid_absolute_content_alignment_space_between
-grid_absolute_gaps_end_lines
-grid_absolute_gaps_end_lines_rtl
-grid_absolute_gaps_out_of_range_lines_rtl
-grid_absolute_gaps_spans
-grid_absolute_gaps_spans_rtl
-grid_absolute_gaps_start_lines
-grid_absolute_gaps_start_lines_rtl
-grid_absolute_justify_self_self_start_child_rtl
-grid_absolute_justify_self_sized_all
-grid_absolute_layout_within_border_static
-grid_absolute_row_end
-grid_absolute_row_start
-grid_absolute_top_overrides_bottom
-grid_aspect_ratio_absolute_aspect_ratio_overrides_height_of_full_inset
 
 # ── §12.5.1's SECOND HALF: A FIXED MINIMUM UNDER A FLEXIBLE MAXIMUM, SPANNED ──
 #
@@ -254,15 +211,25 @@ grid_align_content_end_negative_space_gap
 grid_justify_content_center_negative_space_gap
 grid_justify_content_end_negative_space_gap
 
-# ── ASPECT RATIO AGAINST A GRID AREA ──
+# ── ASPECT RATIO AGAINST A GRID AREA, AND AGAINST A FULL SET OF INSETS ──
 #
 # The same bucket KnownGaps.txt lists for flex, reached from grid: the ratio is transferred once and
 # not re-applied after the derived size is clamped by a minimum or a maximum. `MeasureGridItem` now
 # transfers a definite inline size through the ratio for the row pass, which is what fixed the
 # `fill_width`/`fill_height` families; what remains is the clamped case.
+#
+# ⚠ The last name is the §9 bucket's one survivor, and it is here rather than there because §9 is
+# not what it is about. Its grid area is the whole padding box — the child names no line — so the
+# containing block this file used to be missing is now right and the box is still wrong: with
+# `aspect-ratio: 3` and all four insets at 5% of a 400×300 box, Chrome reads the inline axis off the
+# insets (360) and then lets the RATIO decide the height (120), ignoring `bottom` as
+# over-constrained. This store solves both axes from their insets and answers 360×270, exactly as it
+# does for the identically-named `absolute_aspect_ratio_*` families under flex and block. It is one
+# rule written once for all three absolute paths, which is the flex bucket's fix and not grid's.
 grid_aspect_ratio_fill_child_height
 grid_aspect_ratio_fill_child_max_width
 grid_aspect_ratio_fill_child_min_height
+grid_aspect_ratio_absolute_aspect_ratio_overrides_height_of_full_inset
 
 # ── THE CLAMP ON A GRID THIS STORE WILL NOT ALLOCATE ──
 #

@@ -97,6 +97,7 @@ public sealed partial class LayoutTree : IDisposable {
         results[index] = default;
         results[index].ComputedFlexBasis = float.NaN;
         results[index].ComputedAutoMinMainSize = float.NaN;
+        results[index].GridAreaWidth = float.NaN;
         results[index].MinContentSizes[0] = float.NaN;
         results[index].MinContentSizes[1] = float.NaN;
         results[index].LastOwnerDirection = Direction.Inherit;

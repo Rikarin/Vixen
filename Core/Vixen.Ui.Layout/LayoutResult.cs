@@ -183,6 +183,31 @@ public struct LayoutResult {
 
     /// <inheritdoc cref="BlockStaticLeft" />
     internal float BlockStaticTop;
+
+    /// <summary>The grid area this out-of-flow child of a grid container is positioned against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>CSS Grid §9.2's containing block, and it is an output for the same reason
+    ///     <see cref="BlockStaticLeft" /> is: nothing can reconstruct it afterwards.</b> The rectangle
+    ///     is cut out of the track offsets and sizes, which live in the grid's scratch arena and are
+    ///     handed back the moment §11 finishes. Four floats — physical, measured from the grid
+    ///     container's border-box origin — is what survives that.
+    ///     <para>
+    ///         NaN width for "no grid recorded one", which the absolute walk reads as the container's
+    ///         padding box. That is not a fallback so much as the all-<c>auto</c> answer: §9.2 makes
+    ///         every <c>auto</c> line the padding edge, so a grid child that names no line has the
+    ///         padding box for an area.
+    ///     </para>
+    /// </remarks>
+    internal float GridAreaLeft;
+
+    /// <inheritdoc cref="GridAreaLeft" />
+    internal float GridAreaTop;
+
+    /// <inheritdoc cref="GridAreaLeft" />
+    internal float GridAreaWidth;
+
+    /// <inheritdoc cref="GridAreaLeft" />
+    internal float GridAreaHeight;
 }
 
 /// <summary>One remembered answer to "how big are you, given this much room".</summary>

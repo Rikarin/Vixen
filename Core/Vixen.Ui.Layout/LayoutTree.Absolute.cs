@@ -15,6 +15,36 @@ namespace Vixen.Ui.Layout;
 ///     parent-relative position, which is what everything else in the tree stores.
 /// </remarks>
 public sealed partial class LayoutTree {
+    /// <summary>The rectangle an out-of-flow box resolves its insets, its size and its margins against.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not always the containing node's padding box, and CSS Grid §9 is the reason this
+    ///         is a rectangle rather than a pair of sizes.</b> For every other parent it <i>is</i> the
+    ///         padding box, which is what the four fields say when they are filled in by
+    ///         <see cref="LayoutTree.PaddingBoxOf" />: the offsets are the borders and the size is the
+    ///         border box less them. For an out-of-flow child of a grid container whose placement
+    ///         names at least one line, §9.2 makes it the child's <i>grid area</i> instead — a
+    ///         rectangle somewhere inside the padding box that the container's own geometry cannot
+    ///         reconstruct.
+    ///     </para>
+    ///     <para>
+    ///         <paramref name="Left" /> and <paramref name="Top" /> are physical and measured from the
+    ///         containing node's <i>border box</i> origin, which is the frame every
+    ///         <see cref="LayoutResult.Position" /> in the tree is written in.
+    ///     </para>
+    /// </remarks>
+    /// <param name="Left">The offset from the containing node's border-box left edge.</param>
+    /// <param name="Top">The offset from the containing node's border-box top edge.</param>
+    /// <param name="Width">The rectangle's width.</param>
+    /// <param name="Height">The rectangle's height.</param>
+    readonly record struct AbsoluteContainingBlock(float Left, float Top, float Width, float Height) {
+        /// <summary>The rectangle's size along an axis.</summary>
+        public float SizeOn(FlexDirection axis) => FlexAxis.IsRow(axis) ? Width : Height;
+
+        /// <summary>The rectangle's near edge along an axis, physically.</summary>
+        public float StartOn(FlexDirection axis) => FlexAxis.IsRow(axis) ? Left : Top;
+    }
+
     bool LayoutAbsoluteDescendants(
         int containingNode,
         int currentNode,
@@ -28,6 +58,8 @@ public sealed partial class LayoutTree {
     ) {
         var hasNewLayout = false;
         var children = ChildIds(currentNode);
+        var isGridParent = styles[currentNode].Display == Display.Grid;
+        var gridEstablishesContainingBlock = isGridParent && currentNode == containingNode;
 
         for (var i = 0; i < children.Length; i++) {
             var child = children[i];
@@ -36,17 +68,24 @@ public sealed partial class LayoutTree {
             }
 
             if (styles[child].PositionType == PositionType.Absolute) {
-                var containingBlockWidth = results[containingNode].MeasuredDimensions[(int) Dimension.Width]
-                    - StyleResolution.BorderForAxis(in styles[containingNode], FlexDirection.Row);
-                var containingBlockHeight = results[containingNode].MeasuredDimensions[(int) Dimension.Height]
-                    - StyleResolution.BorderForAxis(in styles[containingNode], FlexDirection.Column);
+                // ⚠ CSS Grid §9.2 against §9.3, and they disagree about which rectangle is which.
+                // When the grid container IS the containing block, the child's grid area is both the
+                // rectangle its insets resolve against and the one its alignment falls back to. When
+                // the grid is merely a static ancestor the containing block belongs to somebody
+                // further up, and all §9.3 gives the child is a static position inside the grid's
+                // padding box — its grid-placement properties say nothing at all.
+                var area = gridEstablishesContainingBlock ? GridAreaOf(containingNode, child)
+                    : isGridParent ? PaddingBoxOf(currentNode)
+                    : default;
+
+                var containingBlock = gridEstablishesContainingBlock ? area : PaddingBoxOf(containingNode);
 
                 LayoutAbsoluteChild(
                     containingNode,
                     currentNode,
                     child,
-                    containingBlockWidth,
-                    containingBlockHeight,
+                    in containingBlock,
+                    in area,
                     widthSizingMode,
                     currentNodeDirection,
                     currentDepth
@@ -54,11 +93,16 @@ public sealed partial class LayoutTree {
 
                 hasNewLayout = hasNewLayout || (flags[child] & LayoutNodeState.HasNewLayout) != 0;
 
-                var isBlockParent = styles[currentNode].Display == Display.Block;
-                var parentMainAxis = isBlockParent
+                // ⚠ The same two axes <see cref="LayoutAbsoluteChild" /> positioned against, and they
+                // have to be derived the same way or the trailing pass below reads an edge that was
+                // never written. A grid parent resolved as `row-reverse` here while the child was
+                // placed on a physical `row` puts every RTL grid child at
+                // `container − child − Position[Right]`, with a stale zero for the right edge.
+                var isPhysicalParent = styles[currentNode].Display is Display.Block or Display.Grid;
+                var parentMainAxis = isPhysicalParent
                     ? FlexDirection.Row
                     : FlexAxis.Resolve(styles[currentNode].FlexDirection, currentNodeDirection);
-                var parentCrossAxis = isBlockParent
+                var parentCrossAxis = isPhysicalParent
                     ? FlexDirection.Column
                     : FlexAxis.ResolveCross(parentMainAxis, currentNodeDirection);
 
@@ -125,19 +169,23 @@ public sealed partial class LayoutTree {
         int containingNode,
         int node,
         int child,
-        float containingBlockWidth,
-        float containingBlockHeight,
+        in AbsoluteContainingBlock containingBlock,
+        in AbsoluteContainingBlock parentArea,
         SizingMode widthMode,
         Direction direction,
         int currentDepth
     ) {
-        // ⚠ A block container's `flex-direction` is meaningless and must not be consulted — it is
-        // whatever the stylesheet happened to leave there, and the corpus leaves `row`, which under
-        // RTL resolves to `row-reverse` and would send every un-inset absolute child to the wrong
-        // physical edge. Block boxes are physical: inline is the row, block is the column.
-        var isBlockParent = styles[node].Display == Display.Block;
-        var mainAxis = isBlockParent ? FlexDirection.Row : FlexAxis.Resolve(styles[node].FlexDirection, direction);
-        var crossAxis = isBlockParent ? FlexDirection.Column : FlexAxis.ResolveCross(mainAxis, direction);
+        var containingBlockWidth = containingBlock.Width;
+        var containingBlockHeight = containingBlock.Height;
+
+        // ⚠ A block or grid container's `flex-direction` is meaningless and must not be consulted —
+        // it is whatever the stylesheet happened to leave there, and the corpus leaves `row`, which
+        // under RTL resolves to `row-reverse` and would send every un-inset absolute child to the
+        // wrong physical edge. Both box types are physical: inline is the row, block is the column,
+        // and the writing direction is applied by the `Inline*` helpers rather than by the axis.
+        var isPhysicalParent = styles[node].Display is Display.Block or Display.Grid;
+        var mainAxis = isPhysicalParent ? FlexDirection.Row : FlexAxis.Resolve(styles[node].FlexDirection, direction);
+        var crossAxis = isPhysicalParent ? FlexDirection.Column : FlexAxis.ResolveCross(mainAxis, direction);
         var isMainAxisRow = FlexAxis.IsRow(mainAxis);
 
         var childWidth = float.NaN;
@@ -152,9 +200,7 @@ public sealed partial class LayoutTree {
             childWidth = ResolvedDimension(child, Dimension.Width, containingBlockWidth, containingBlockWidth, direction) + marginRow;
         } else if (BothInsetsDefined(child, FlexDirection.Row, direction)) {
             // With both edges pinned and no width of its own, the width is what is left between them.
-            childWidth = results[containingNode].MeasuredDimensions[(int) Dimension.Width]
-                - (StyleResolution.FlexStartBorder(in styles[containingNode], FlexDirection.Row, direction)
-                    + StyleResolution.FlexEndBorder(in styles[containingNode], FlexDirection.Row, direction))
+            childWidth = containingBlockWidth
                 - (StyleResolution.FlexStartPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth)
                     + StyleResolution.FlexEndPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth));
 
@@ -164,9 +210,7 @@ public sealed partial class LayoutTree {
         if (HasDefiniteLength(child, Dimension.Height, containingBlockHeight)) {
             childHeight = ResolvedDimension(child, Dimension.Height, containingBlockHeight, containingBlockWidth, direction) + marginColumn;
         } else if (BothInsetsDefined(child, FlexDirection.Column, direction)) {
-            childHeight = results[containingNode].MeasuredDimensions[(int) Dimension.Height]
-                - (StyleResolution.FlexStartBorder(in styles[containingNode], FlexDirection.Column, direction)
-                    + StyleResolution.FlexEndBorder(in styles[containingNode], FlexDirection.Column, direction))
+            childHeight = containingBlockHeight
                 - (StyleResolution.FlexStartPosition(in styles[child], FlexDirection.Column, direction, containingBlockHeight)
                     + StyleResolution.FlexEndPosition(in styles[child], FlexDirection.Column, direction, containingBlockHeight));
 
@@ -230,8 +274,8 @@ public sealed partial class LayoutTree {
             currentDepth
         );
 
-        PositionAbsoluteChild(containingNode, node, child, direction, mainAxis, true, containingBlockWidth, containingBlockHeight);
-        PositionAbsoluteChild(containingNode, node, child, direction, crossAxis, false, containingBlockWidth, containingBlockHeight);
+        PositionAbsoluteChild(containingNode, node, child, direction, mainAxis, true, in containingBlock, in parentArea);
+        PositionAbsoluteChild(containingNode, node, child, direction, crossAxis, false, in containingBlock, in parentArea);
     }
 
     void PositionAbsoluteChild(
@@ -241,11 +285,13 @@ public sealed partial class LayoutTree {
         Direction direction,
         FlexDirection axis,
         bool isMainAxis,
-        float containingBlockWidth,
-        float containingBlockHeight
+        in AbsoluteContainingBlock containingBlock,
+        in AbsoluteContainingBlock parentArea
     ) {
-        var containingBlockSize = FlexAxis.IsRow(axis) ? containingBlockWidth : containingBlockHeight;
+        var containingBlockWidth = containingBlock.Width;
+        var containingBlockSize = containingBlock.SizeOn(axis);
         var flexStart = (int) FlexAxis.FlexStartEdge(axis);
+        var (usedStartMargin, usedEndMargin) = UsedAbsoluteMargins(child, axis, direction, in containingBlock);
 
         // The start inset wins over the end inset when both are set. The result is written to the
         // flex-start edge either way, because that is the edge everything else in the algorithm
@@ -253,8 +299,8 @@ public sealed partial class LayoutTree {
         if (StyleResolution.IsInlineStartPositionDefined(in styles[child], axis, direction)
             && !StyleResolution.IsInlineStartPositionAuto(in styles[child], axis, direction)) {
             var relativeToInlineStart = StyleResolution.InlineStartPosition(in styles[child], axis, direction, containingBlockSize)
-                + StyleResolution.InlineStartBorder(in styles[containingNode], axis, direction)
-                + StyleResolution.InlineStartMargin(in styles[child], axis, direction, containingBlockSize);
+                + InlineStartOffsetOf(in containingBlock, containingNode, axis, direction)
+                + usedStartMargin;
 
             results[child].Position[flexStart] = FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
                 ? PositionOfOppositeEdge(relativeToInlineStart, axis, containingNode, child)
@@ -267,13 +313,46 @@ public sealed partial class LayoutTree {
             var dimension = (int) FlexAxis.DimensionOf(axis);
             var relativeToInlineStart = results[containingNode].MeasuredDimensions[dimension]
                 - results[child].MeasuredDimensions[dimension]
-                - StyleResolution.InlineEndBorder(in styles[containingNode], axis, direction)
-                - StyleResolution.InlineEndMargin(in styles[child], axis, direction, containingBlockSize)
+                - InlineEndOffsetOf(in containingBlock, containingNode, axis, direction)
+                - usedEndMargin
                 - StyleResolution.InlineEndPosition(in styles[child], axis, direction, containingBlockSize);
 
             results[child].Position[flexStart] = FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
                 ? PositionOfOppositeEdge(relativeToInlineStart, axis, containingNode, child)
                 : relativeToInlineStart;
+            return;
+        }
+
+        // ⚠ A grid container aligns an un-inset out-of-flow child inside its GRID AREA, with
+        // `justify-self` on the inline axis and `align-self` on the block one — not with the
+        // `justify-content`/`align-items` pair the flex fallback below reaches for, and not against
+        // the content box. CSS Grid §9.2: the area is the containing block, and its edges are the
+        // named grid lines with every `auto` one standing for the container's padding edge. So a
+        // grid with no template at all still aligns against its padding box rather than its content
+        // box, which is what `grid_absolute_layout_within_border_static` measures.
+        if (styles[parent].Display == Display.Grid) {
+            var isRow = FlexAxis.IsRow(axis);
+            var alignment = isRow
+                ? styles[child].JustifySelf == Align.Auto ? styles[parent].JustifyItems : styles[child].JustifySelf
+                : styles[child].AlignSelf == Align.Auto ? styles[parent].AlignItems : styles[child].AlignSelf;
+
+            var areaSize = parentArea.SizeOn(axis);
+            var childSize = results[child].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)];
+            var startMargin = StyleResolution.InlineStartMargin(in styles[child], axis, direction, containingBlockWidth);
+            var endMargin = StyleResolution.InlineEndMargin(in styles[child], axis, direction, containingBlockWidth);
+
+            var free = MathF.Max(0f, areaSize - childSize - startMargin - endMargin);
+            var offsetFromInlineStart = startMargin + alignment switch {
+                Align.Center => free / 2f,
+                Align.FlexEnd => free,
+                _ => 0f
+            };
+
+            // The offset is measured from the area's inline-start edge, which in RTL is its right.
+            results[child].Position[(int) (isRow ? Edge.Left : Edge.Top)] = isRow && direction == Direction.Rtl
+                ? parentArea.Left + areaSize - offsetFromInlineStart - childSize
+                : parentArea.StartOn(axis) + offsetFromInlineStart;
+
             return;
         }
 
@@ -377,6 +456,121 @@ public sealed partial class LayoutTree {
             + results[parent].Padding[startEdge]
             + StyleResolution.FlexStartMargin(in styles[child], axis, direction, containingBlockWidth);
     }
+
+    /// <summary>
+    ///     CSS 2.1 §10.3.7: an over-constrained inset equation hands its slack to whichever margin
+    ///     said <c>auto</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Over-constrained is the precondition, and it is why this is not the in-flow auto
+    ///         margin written a second time.</b> An in-flow box has one equation and one unknown, so
+    ///         an <c>auto</c> margin is what centres it. An out-of-flow box with both insets and a
+    ///         size stated has <i>no</i> unknown left — §10.3.7's equation cannot balance — and CSS
+    ///         resolves that by declaring the auto margins the unknowns after all. With neither inset
+    ///         given there is nothing to be over-constrained about and an auto margin is simply zero,
+    ///         which is what the corpus's twelve <c>*_without_inset</c> families already asserted and
+    ///         got right by doing nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Negative slack is handed over as readily as positive, and only the both-<c>auto</c>
+    ///         case carves it out.</b> §10.3.7 splits the slack evenly between two auto margins
+    ///         "unless that would make them negative, in which case, when the direction is
+    ///         left-to-right, set <c>margin-left</c> to zero and solve for <c>margin-right</c>".
+    ///         <c>block_absolute_margin_auto_left_child_bigger_than_parent_with_inset</c> is the
+    ///         single-margin half of that — a 72-point box in a 52-point block lands at x=−40 — and
+    ///         <c>…_left_right_…</c> is the both-margin half, which lands at x=10 instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written here rather than in the block walk, because it is absolute positioning's
+    ///         rule and not block formatting's.</b> The corpus only exercises it under
+    ///         <c>block/</c> — Yoga does not implement it and the flex corpus has no fixture — so the
+    ///         oracle for the flex and grid parents this also reaches is WPT's
+    ///         <c>css/css-position/</c> rather than a fixture. Restricting it to block parents would
+    ///         have been the smaller change and a worse one: nothing in §10.3.7 mentions the parent's
+    ///         formatting context, and an abspos box's parent has no say in its geometry anyway.
+    ///     </para>
+    /// </remarks>
+    (float Start, float End) UsedAbsoluteMargins(int child, FlexDirection axis, Direction direction, in AbsoluteContainingBlock block) {
+        var size = block.SizeOn(axis);
+        var start = StyleResolution.InlineStartMargin(in styles[child], axis, direction, size);
+        var end = StyleResolution.InlineEndMargin(in styles[child], axis, direction, size);
+
+        var startIsAuto = StyleResolution.InlineStartMarginIsAuto(in styles[child], axis, direction);
+        var endIsAuto = StyleResolution.InlineEndMarginIsAuto(in styles[child], axis, direction);
+
+        if ((!startIsAuto && !endIsAuto) || !BothInsetsDefined(child, axis, direction)) {
+            return (start, end);
+        }
+
+        var slack = size
+            - StyleResolution.InlineStartPosition(in styles[child], axis, direction, size)
+            - StyleResolution.InlineEndPosition(in styles[child], axis, direction, size)
+            - results[child].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)]
+            - (startIsAuto ? 0f : start)
+            - (endIsAuto ? 0f : end);
+
+        // ⚠ The negative carve-out is §10.3.7's and it is the INLINE axis's alone. §10.6.4 states the
+        // block-axis rule without it — "solve the equation under the extra constraint that the two
+        // margins get equal values", full stop — so a box taller than the gap between `top` and
+        // `bottom` overflows equally at both ends rather than being pinned to the top. No fixture
+        // separates the two; WPT's css-position tests and the specification's own wording do.
+        if (startIsAuto && endIsAuto) {
+            return slack < 0f && FlexAxis.IsRow(axis) ? (0f, slack) : (slack / 2f, slack / 2f);
+        }
+
+        return startIsAuto ? (slack, end) : (start, slack);
+    }
+
+    /// <summary>A node's padding box, which is the containing block of everything below it.</summary>
+    AbsoluteContainingBlock PaddingBoxOf(int node) {
+        var left = StyleResolution.FlexStartBorder(in styles[node], FlexDirection.Row, Direction.Ltr);
+        var right = StyleResolution.FlexEndBorder(in styles[node], FlexDirection.Row, Direction.Ltr);
+        var top = StyleResolution.FlexStartBorder(in styles[node], FlexDirection.Column, Direction.Ltr);
+        var bottom = StyleResolution.FlexEndBorder(in styles[node], FlexDirection.Column, Direction.Ltr);
+
+        return new AbsoluteContainingBlock(
+            left,
+            top,
+            results[node].MeasuredDimensions[(int) Dimension.Width] - left - right,
+            results[node].MeasuredDimensions[(int) Dimension.Height] - top - bottom
+        );
+    }
+
+    /// <summary>The grid area <see cref="RecordAbsoluteGridAreas" /> recorded for one out-of-flow child.</summary>
+    /// <remarks>
+    ///     Falls back to the padding box rather than to a NaN rectangle, because a grid whose layout
+    ///     pass never reached §11 — a measurement rather than a layout — leaves nothing behind, and
+    ///     the padding box is what §9.2 says an all-<c>auto</c> placement resolves to anyway.
+    /// </remarks>
+    AbsoluteContainingBlock GridAreaOf(int containingNode, int child) =>
+        float.IsNaN(results[child].GridAreaWidth)
+            ? PaddingBoxOf(containingNode)
+            : new AbsoluteContainingBlock(
+                results[child].GridAreaLeft,
+                results[child].GridAreaTop,
+                results[child].GridAreaWidth,
+                results[child].GridAreaHeight
+            );
+
+    /// <summary>
+    ///     How far the containing block's inline-start edge sits from the containing node's, along one
+    ///     axis. The containing node's border, for everything but a grid area.
+    /// </summary>
+    float InlineStartOffsetOf(in AbsoluteContainingBlock block, int containingNode, FlexDirection axis, Direction direction) =>
+        FlexAxis.InlineStartEdge(axis, direction) switch {
+            Edge.Left => block.Left,
+            Edge.Top => block.Top,
+            _ => results[containingNode].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)]
+                - block.StartOn(axis)
+                - block.SizeOn(axis)
+        };
+
+    /// <inheritdoc cref="InlineStartOffsetOf" />
+    float InlineEndOffsetOf(in AbsoluteContainingBlock block, int containingNode, FlexDirection axis, Direction direction) =>
+        results[containingNode].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)]
+        - block.SizeOn(axis)
+        - InlineStartOffsetOf(in block, containingNode, axis, direction);
 
     bool BothInsetsDefined(int index, FlexDirection axis, Direction direction) =>
         StyleResolution.IsFlexStartPositionDefined(in styles[index], axis, direction)

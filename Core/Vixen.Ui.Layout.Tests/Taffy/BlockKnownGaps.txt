@@ -8,18 +8,19 @@
 # TaffyBlockConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts, so a line cannot quietly widen and a fix cannot quietly land.
 #
-# 722 of the 884 block fixtures pass, plus 24 of the 28 blockflex. 42 fail and 120 are refused.
+# 744 of the 884 block fixtures pass, plus 24 of the 28 blockflex. 20 fail and 120 are refused.
 #
-# ⚠ THE SHAPE OF THIS FILE IS THE RESULT. Every one of the 42 is in LayoutTree.Absolute.cs, and
+# ⚠ THE SHAPE OF THIS FILE IS THE RESULT. Every one of the 20 is in LayoutTree.Absolute.cs, and
 # NOT ONE is in block formatting. Margin collapsing — the thing that makes this block rather than a
 # stretch flex column, and about 180 of the 884 fixtures — is entirely green: sibling collapse,
 # parent/first-child, parent/last-child, collapse-through, every one of the twelve things that
 # blocks a collapse, and the sign rule where a positive and a negative margin add rather than
-# maximise. So are auto margins, the intrinsic-width probe, RTL placement, relative insets,
-# align-content over the stack, and percentage margins resolving against the inline size.
+# maximise. So are auto margins in flow AND out of it, the intrinsic-width probe, RTL placement,
+# relative insets, align-content over the stack, and percentage margins resolving against the
+# inline size.
 #
-# Both buckets below are pre-existing engine gaps that block layout merely reaches for the first
-# time. Neither is caused by this algorithm and neither is fixable inside it.
+# The one bucket below is a pre-existing engine gap that block layout merely reaches for the first
+# time. It is not caused by this algorithm and it is not fixable inside it.
 
 # ── aspect-ratio on an ABSOLUTELY POSITIONED box, against a minimum or a maximum ──
 #
@@ -40,33 +41,6 @@ block_absolute_aspect_ratio_fill_max_height
 block_absolute_aspect_ratio_fill_max_width
 block_absolute_aspect_ratio_fill_min_height
 block_absolute_aspect_ratio_fill_min_width
-
-# ── AUTO MARGINS on an absolutely positioned box ──
-#
-# CSS 2.1 §10.3.7: with `left`, `right` and `width` all resolved and a margin set to `auto`, the
-# equation is over-constrained and the slack goes to the auto margin — both of them equally when
-# both are auto. `block_absolute_margin_auto_left_with_inset` is the clean case: a 50-wide box in a
-# 200-wide block with `left: 10px; right: 20px; margin-left: auto` belongs at x=130, and Vixen puts
-# it at 10 because it never expands the margin.
-#
-# ⚠ Not implemented rather than approximated, and the reason is scope: this is absolute
-# positioning's rule, not block formatting's, and LayoutTree.Absolute.cs is shared with flex and
-# with Yoga's 534. Yoga does not implement it either, the flex corpus has no fixture for it — the
-# `absolute_margin_auto_*` families exist only under `block/` — so there is no oracle here that
-# would catch a wrong version of it, which is exactly the situation the corpus README warns about.
-# It wants its own change, judged by these 22 fixtures and by WPT's `css/css-position/`.
-#
-# The IN-FLOW auto margin is implemented and green: `block_margin_auto_left_and_right`,
-# `block_margin_auto_multiple_children` and the ten other `block_margin_auto_*` families all pass.
-# It is only the out-of-flow one that is missing.
-block_absolute_margin_auto_bottom_and_top_with_inset
-block_absolute_margin_auto_left_and_right_with_inset
-block_absolute_margin_auto_left_child_bigger_than_parent_with_inset
-block_absolute_margin_auto_left_fix_right_child_bigger_than_parent_with_inset
-block_absolute_margin_auto_left_with_inset
-block_absolute_margin_auto_multiple_children_with_inset
-block_absolute_margin_auto_right_with_inset
-block_absolute_margin_auto_top_with_inset
 
 # ── What is REFUSED rather than failing, and why each is honest ──
 #

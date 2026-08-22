@@ -249,6 +249,19 @@ public sealed partial class LayoutTree {
 
         PlaceGridItemBoxes(index, in columnAxis, in rowAxis, direction, innerWidth, innerHeight, insetLeft, insetTop, currentDepth);
 
+        RecordAbsoluteGridAreas(
+            index,
+            in placement,
+            in columnAxis,
+            in rowAxis,
+            direction,
+            explicitColumns,
+            explicitRows,
+            innerWidth,
+            insetLeft,
+            insetTop
+        );
+
         if (styles[index].PositionType != PositionType.Static || currentDepth == 1) {
             LayoutAbsoluteDescendants(
                 index,
@@ -698,19 +711,118 @@ public sealed partial class LayoutTree {
             results[child].Margin[(int) Edge.Bottom] = usedBottom;
         }
 
-        // ⚠ <b>An absolutely positioned grid child is NOT given its grid area as a containing block,
-        // and the corpus is why that is a deliberate omission rather than an unfinished one.</b> CSS
-        // Grid §9 says an out-of-flow child with a definite placement is positioned against its grid
-        // area. Recording the area's start corner as a static position — reusing the
-        // `BlockStaticLeft`/`BlockStaticTop` pair block layout already has, and letting the absolute
-        // walk read it for a grid parent too — was implemented, measured, and **taken back out**: it
-        // fixed six fixtures in the `_gaps_` and `_container_` families and broke eight in
-        // `_align_self_`, for a net loss of two. The half that pays is the other half — resolving an
-        // inset against the AREA's size rather than the padding box's — and that needs a per-child
-        // containing block inside `LayoutTree.Absolute`, which is shared with Yoga's 534 fixtures
-        // and wants its own commit. Doing the cheap half alone is worse than doing neither.
-
         static Align Resolve(Align self, Align container) => self == Align.Auto ? container : self;
+    }
+
+    /// <summary>
+    ///     §9.2: cuts each out-of-flow child's grid area out of the finished tracks, for the absolute
+    ///     walk to use as that child's containing block.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An <c>auto</c> line is the container's PADDING edge, not a one-track span, and
+    ///         that single sentence is most of this method.</b> §9.2 resolves an out-of-flow child's
+    ///         four placement properties against the implicit grid and puts the padding edge wherever
+    ///         one of them says <c>auto</c> — so <c>grid-column-start: 1</c> alone gives an area that
+    ///         runs from the first line all the way to the right padding edge, not a 40-point column.
+    ///         Reading the placement with <see cref="ResolveAxisPlacement" /> instead, which is §8's
+    ///         in-flow rule, gives a one-track area and the wrong width for every
+    ///         <c>grid_absolute_{row,column}_{start,end}</c> fixture in the corpus.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <c>span</c> is <c>auto</c> here too, and so is a line outside the grid.</b> An
+    ///         out-of-flow child does not create implicit tracks — <see cref="PlaceGridItems" /> has
+    ///         already skipped it — so <c>grid-row-start: 5</c> against a two-row grid names a line
+    ///         that does not exist and falls back to the padding edge rather than growing the grid to
+    ///         reach it. That is what <c>grid_absolute_gaps_out_of_range_lines_rtl</c> pins.
+    ///     </para>
+    ///     <para>
+    ///         The rectangle is written physically, mirrored for RTL exactly as
+    ///         <see cref="PlaceGridItemBoxes" /> mirrors an in-flow item, because
+    ///         <see cref="LayoutResult.Position" /> is physical and the absolute walk has no track
+    ///         list left to consult by the time it runs.
+    ///     </para>
+    /// </remarks>
+    void RecordAbsoluteGridAreas(
+        int index,
+        in GridPlacementResult placement,
+        in GridAxis columnAxis,
+        in GridAxis rowAxis,
+        Direction direction,
+        int explicitColumns,
+        int explicitRows,
+        float innerWidth,
+        float insetLeft,
+        float insetTop
+    ) {
+        var borderLeft = results[index].Border[(int) Edge.Left];
+        var borderTop = results[index].Border[(int) Edge.Top];
+        var paddingBoxRight = results[index].MeasuredDimensions[(int) Dimension.Width] - results[index].Border[(int) Edge.Right];
+        var paddingBoxBottom = results[index].MeasuredDimensions[(int) Dimension.Height] - results[index].Border[(int) Edge.Bottom];
+
+        foreach (var child in ChildIds(index)) {
+            if (styles[child].Display == Display.None || styles[child].PositionType != PositionType.Absolute) {
+                continue;
+            }
+
+            var columnStart = AbsoluteLine(styles[child].GridColumnStart, explicitColumns, placement.ColumnOffset, columnAxis.TrackCount);
+            var columnEnd = AbsoluteLine(styles[child].GridColumnEnd, explicitColumns, placement.ColumnOffset, columnAxis.TrackCount);
+            var rowStart = AbsoluteLine(styles[child].GridRowStart, explicitRows, placement.RowOffset, rowAxis.TrackCount);
+            var rowEnd = AbsoluteLine(styles[child].GridRowEnd, explicitRows, placement.RowOffset, rowAxis.TrackCount);
+
+            // Two definite lines the wrong way round name the same area as the right way round.
+            if (columnStart >= 0 && columnEnd >= 0 && columnEnd < columnStart) {
+                (columnStart, columnEnd) = (columnEnd, columnStart);
+            }
+
+            if (rowStart >= 0 && rowEnd >= 0 && rowEnd < rowStart) {
+                (rowStart, rowEnd) = (rowEnd, rowStart);
+            }
+
+            float left;
+            float right;
+
+            if (direction == Direction.Ltr) {
+                left = columnStart < 0 ? borderLeft : insetLeft + GridLinePosition(in columnAxis, columnStart);
+                right = columnEnd < 0 ? paddingBoxRight : insetLeft + GridLinePosition(in columnAxis, columnEnd);
+            } else {
+                right = columnStart < 0 ? paddingBoxRight : insetLeft + innerWidth - GridLinePosition(in columnAxis, columnStart);
+                left = columnEnd < 0 ? borderLeft : insetLeft + innerWidth - GridLinePosition(in columnAxis, columnEnd);
+            }
+
+            var top = rowStart < 0 ? borderTop : insetTop + GridLinePosition(in rowAxis, rowStart);
+            var bottom = rowEnd < 0 ? paddingBoxBottom : insetTop + GridLinePosition(in rowAxis, rowEnd);
+
+            results[child].GridAreaLeft = MathF.Min(left, right);
+            results[child].GridAreaTop = MathF.Min(top, bottom);
+            results[child].GridAreaWidth = MathF.Abs(right - left);
+            results[child].GridAreaHeight = MathF.Abs(bottom - top);
+        }
+    }
+
+    /// <summary>One placement property as a track index, or −1 for "the padding edge".</summary>
+    static int AbsoluteLine(GridPlacement placement, int explicitCount, int offset, int trackCount) {
+        if (placement.Kind != GridPlacementKind.Line) {
+            return -1;
+        }
+
+        var line = ResolveLine(placement.Value, explicitCount) + offset;
+
+        return line < 0 || line > trackCount ? -1 : line;
+    }
+
+    /// <summary>Where a grid line sits, measured from the container's content box.</summary>
+    float GridLinePosition(in GridAxis axis, int line) {
+        if (axis.TrackCount == 0) {
+            return 0f;
+        }
+
+        if (line >= axis.TrackCount) {
+            ref var last = ref Scratch.Track(axis.TracksAt + axis.TrackCount - 1);
+            return last.Offset + (last.IsCollapsed ? 0f : last.BaseSize);
+        }
+
+        return Scratch.Track(axis.TracksAt + int.Max(0, line)).Offset;
     }
 
     /// <summary>

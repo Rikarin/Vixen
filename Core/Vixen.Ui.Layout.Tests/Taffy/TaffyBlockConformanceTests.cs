@@ -20,9 +20,9 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         had.
 ///     </para>
 ///     <para>
-///         <b>722 of the 884 <c>block</c> fixtures pass and 24 of the 28 <c>blockflex</c>.</b> 120
-///         and 4 are refused for a property this store has no field for, and 42 disagree — all 42 of
-///         them inside <c>LayoutTree.Absolute.cs</c>, in two buckets that predate block layout and
+///         <b>744 of the 884 <c>block</c> fixtures pass and 24 of the 28 <c>blockflex</c>.</b> 120
+///         and 4 are refused for a property this store has no field for, and 20 disagree — all 20 of
+///         them inside <c>LayoutTree.Absolute.cs</c>, in one bucket that predates block layout and
 ///         that a flex parent hits identically. Not one is in block formatting itself.
 ///     </para>
 ///     <para>
@@ -44,8 +44,8 @@ public class TaffyBlockConformanceTests {
 
     // ⚠ Committed counts, not lower bounds — see the identical comment in the flex suite. A gap that
     // closes has to be taken off BlockKnownGaps.txt in the same commit as it closes.
-    const int ExpectedPassing = 746;
-    const int ExpectedFailing = 42;
+    const int ExpectedPassing = 768;
+    const int ExpectedFailing = 20;
     const int ExpectedUnsupported = 124;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
@@ -108,7 +108,7 @@ public class TaffyBlockConformanceTests {
     ///     Margin collapsing specifically, counted apart from everything else.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A total of 746 says nothing about which rules are implemented, and the one rule this
+    ///     ⚠ <b>A total of 768 says nothing about which rules are implemented, and the one rule this
     ///     algorithm could most plausibly have skipped is the one it is named for.</b> A block layout
     ///     that stacked boxes and stretched them and did no collapsing at all would still pass most
     ///     of this corpus — the majority of these fixtures set no vertical margin. So the
