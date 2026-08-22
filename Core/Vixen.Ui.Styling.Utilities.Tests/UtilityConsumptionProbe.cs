@@ -433,6 +433,43 @@ static class UtilityConsumptionProbe {
                      background-color: #204080; color: #e0e0e0; }
             #after { width: 96px; height: 20px; background-color: #a0a040; }
             """
+        ),
+
+        // ⚠ <b>A line of text that is too long for the box it is in and forbidden from wrapping —
+        // the one arrangement in which an overflow marker has anything to mark.</b> Fifth instance of
+        // the lesson `gridded`, `inlined`, `primed` and `translated` each record, and the reason it
+        // keeps recurring is worth stating plainly: this gate's logic has never been wrong, and its
+        // scene list has been wrong five times. A property is observable only in a situation that
+        // needs it, and the situations are hand-written.
+        //
+        // Nothing above could see `text-overflow`. Every other scene either lets the label wrap — in
+        // which case there is no overflowing line to truncate — or clips it with `overflow: hidden`
+        // on `#probe` while the text lives in a child that is free to be as wide as it likes. `tiny`
+        // comes closest and still cannot: at two pixels the label has already overflowed everything,
+        // but it wraps, so the marker would have nothing to replace.
+        //
+        // ⚠ <b>The three declarations are on `#label` and the fourth is what gets injected.</b> That
+        // is forced by the instrument rather than chosen: `Run` puts the declaration under test on
+        // `#probe`, and `#probe` owns no text — its glyphs are in the `#label` and `#short` spans. So
+        // the scene has to establish everything `text-overflow` *needs* and leave the property itself
+        // to be the one thing that varies. It reaches the span by inheriting, which is Vixen's
+        // deviation from CSS and is argued at `UiDocument.EllipsisOf`; a reader that did not inherit
+        // would resolve on `#probe`, find no text there, and measure inert with the feature working.
+        //
+        // `#short` is left wrapping on purpose, so that one text child in the scene is unaffected and
+        // the signature says the marker landed on the line that overflowed rather than on all of them.
+        new(
+            "clipped",
+            """
+            #host  { display: flex; flex-direction: row; width: 200px; height: 60px; align-items: flex-start; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 80px;
+                     background-color: #204080; color: #e0e0e0; }
+            .kid   { width: 8px; height: 8px; }
+            #wide  { width: 8px; height: 8px; }
+            #label { width: 36px; overflow: hidden; white-space: nowrap; }
+            #short { width: 36px; }
+            #after { width: 30px; height: 20px; background-color: #a0a040; }
+            """
         )
     ];
 

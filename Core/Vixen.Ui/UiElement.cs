@@ -591,6 +591,159 @@ public partial class UiElement : Composition.IComposable {
         return block;
     }
 
+    /// <summary>The character CSS names for the overflow marker, and the only one it allows.</summary>
+    const string Ellipsis = "…";
+
+    /// <summary>
+    ///     Its text as it should be <i>drawn</i> in a box this wide: the same block as
+    ///     <see cref="Block()" /> unless <c>text-overflow: ellipsis</c> is in force and a line does
+    ///     not fit, in which case that line ends in an ellipsis.
+    /// </summary>
+    /// <param name="contentWidth">The content box to draw into, in pixels.</param>
+    /// <returns>The block to draw, or null if there is no text or no font.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second block, and <see cref="Block()" /> is deliberately left alone.</b> That
+    ///         one is what the caret and hit testing read — <c>TextField</c> and <c>CodeEditor</c>
+    ///         both index into its lines — so a truncated block behind that name would put the caret
+    ///         in the wrong character and break the sideways scrolling a single-line field depends
+    ///         on. Truncation is a fact about the picture and not about the text, so it lives on a
+    ///         path only the draw list takes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it happens here, at paint, because this is the first moment the number
+    ///         exists.</b> Under <c>white-space: nowrap</c> — which <c>truncate</c> always sets —
+    ///         <see cref="Block(float)" /> is handed an infinite width on purpose, so the wrap pass
+    ///         cannot know what the line has to fit into. The box only gets its real width when its
+    ///         parent shrinks it, which is after layout. Measuring is <i>supposed</i> to report the
+    ///         untruncated width: that is what makes the parent shrink it in the first place, and an
+    ///         ellipsis applied during measure would report a box that always fits and therefore
+    ///         never needed one.
+    ///     </para>
+    /// </remarks>
+    public TextLayout? Ellipsized(float contentWidth) {
+        var source = Block();
+
+        if (source is null || !Document.EllipsisOf(Style)) {
+            return source;
+        }
+
+        // Not `<= 0` — an infinite or undecided width is every bit as unusable as a negative one, and
+        // NaN fails this test rather than passing it the way `> 0f` negated would.
+        if (!(contentWidth > 0f) || float.IsPositiveInfinity(contentWidth)) {
+            return source;
+        }
+
+        if (ellipsizedFor.Equals(contentWidth) && ReferenceEquals(ellipsizedFrom, source)) {
+            return ellipsized;
+        }
+
+        var family = Document.FontFamilyOf(Style);
+        var chain = new List<FontFace>();
+        Document.Fonts.Chain(family, Document.FontWeightOf(Style), Document.FontStyleOf(Style), chain);
+
+        if (chain.Count == 0) {
+            return source;
+        }
+
+        var marker = Runs(Ellipsis, 0, chain);
+        var lines = ImmutableArray.CreateBuilder<TextLine>(source.Lines.Length);
+        var cut = false;
+
+        foreach (var line in source.Lines) {
+            if (line.Width <= contentWidth) {
+                lines.Add(line);
+                continue;
+            }
+
+            lines.Add(Truncate(line, marker, contentWidth, chain));
+            cut = true;
+        }
+
+        // The block is returned unchanged when nothing was cut, so the common case — a label that
+        // fits, carrying the class for the day it does not — allocates one builder and no layout, and
+        // the draw list goes on sharing the block every other reader already has.
+        ellipsized = cut ? new TextLayout(lines.ToImmutable()) : source;
+        ellipsizedFor = contentWidth;
+        ellipsizedFrom = source;
+
+        return ellipsized;
+    }
+
+    /// <summary>Replaces the tail of one line with an ellipsis so that what is left fits.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The kept text and the ellipsis are shaped as <i>one</i> string.</b> Appending a
+    ///     separately shaped marker would leave the shaper unable to kern across the join, and would
+    ///     cut a cursive script mid-word without unjoining it — the same reason
+    ///     <c>UiElement.Wrap</c> re-shapes each line instead of slicing the paragraph's shaping.
+    /// </remarks>
+    TextLine Truncate(TextLine line, TextLine marker, float contentWidth, List<FontFace> chain) {
+        var text = Text!;
+        var start = line.Start;
+        var end = start + line.Length;
+
+        var advances = new float[text.Length + 1];
+
+        foreach (var run in line.Runs) {
+            var scale = run.Scale;
+            var measured = LineWrapper.Advances(run.Shaped);
+
+            for (var i = 0; i < measured.Length - 1 && run.Start + i < text.Length; i++) {
+                advances[run.Start + i] = measured[i] * scale;
+            }
+        }
+
+        var room = contentWidth - marker.Width;
+        var boundaries = new List<int>();
+        GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
+
+        var kept = start;
+
+        if (room > 0f) {
+            var width = 0f;
+            var at = start;
+
+            foreach (var boundary in boundaries) {
+                var here = start + boundary;
+
+                if (here <= at || here > end) {
+                    continue;
+                }
+
+                for (var i = at; i < here; i++) {
+                    width += advances[i];
+                }
+
+                if (width > room) {
+                    break;
+                }
+
+                kept = here;
+                at = here;
+            }
+        }
+
+        // ⚠ The marker alone when not one cluster fits, rather than nothing. A box too narrow for a
+        // single character still has to say that something was elided; drawing an empty line would be
+        // indistinguishable from an element with no text, and the clip will trim the glyph if even it
+        // does not fit.
+        if (kept <= start) {
+            return marker.Runs.Length == 0 ? line : Runs(Ellipsis, start, chain);
+        }
+
+        // ⚠ Trailing space is trimmed before the ellipsis, the way a browser does it: `"ab  "` cut at
+        // the space reads as `"ab …"` with a hole in it otherwise.
+        var last = kept;
+
+        while (last > start && char.IsWhiteSpace(text[last - 1])) {
+            last--;
+        }
+
+        var body = last > start ? text[start..last] : text[start..kept];
+
+        return Runs(body + Ellipsis, start, chain);
+    }
+
     /// <summary>The width this element wraps its text to, from the layout it was last given.</summary>
     /// <remarks>
     ///     ⚠ <b>The content box of the <i>last</i> pass.</b> Drawing happens after layout, so this is
@@ -702,6 +855,13 @@ public partial class UiElement : Composition.IComposable {
     }
 
     TextLayout? block;
+
+    // The truncated picture, and what it was truncated from. Keyed on the block's identity rather
+    // than on the ten fields `Block` compares: a new block is a new object, so one reference test
+    // stands in for every reason the text might have been laid out again.
+    TextLayout? ellipsized;
+    TextLayout? ellipsizedFrom;
+    float ellipsizedFor = float.NaN;
     string? lineText;
     string? lineFamily;
     int lineWeight;

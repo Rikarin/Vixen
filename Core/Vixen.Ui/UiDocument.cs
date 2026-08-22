@@ -39,6 +39,8 @@ public sealed partial class UiDocument : IDisposable {
     readonly int fontFamily;
     readonly int whiteSpace;
     readonly int overflowWrap;
+    readonly int textOverflow;
+    readonly int ellipsis;
     readonly int nowrap;
     readonly int anywhere;
     readonly int breakWord;
@@ -119,6 +121,8 @@ public sealed partial class UiDocument : IDisposable {
         fontFamily = Styles.Properties.Intern("font-family");
         whiteSpace = Styles.Properties.Intern("white-space");
         overflowWrap = Styles.Properties.Intern("overflow-wrap");
+        textOverflow = Styles.Properties.Intern("text-overflow");
+        ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
         anywhere = Styles.Values.Intern("anywhere");
         breakWord = Styles.Values.Intern("break-word");
@@ -1477,6 +1481,38 @@ public sealed partial class UiDocument : IDisposable {
     ///     other two, so honouring <c>pre</c> for wrapping alone would be honouring a third of it.
     /// </remarks>
     internal bool WrapsOf(ComputedStyle style) => !style.TryGet(whiteSpace, out var value) || value != nowrap;
+
+    /// <summary>Whether a line too wide for its box ends in an ellipsis rather than being cut.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This property inherits here and does not in CSS, and the deviation is deliberate
+    ///         and load-bearing rather than an oversight.</b> CSS Overflow 3 § 5.1 applies
+    ///         <c>text-overflow</c> to a <i>block container</i>, where it ellipsises the inline
+    ///         content of the line boxes that container establishes — so
+    ///         <c>div { text-overflow: ellipsis } &gt; span</c> truncates the span's text without the
+    ///         property ever inheriting, because the span's glyphs are <i>on the div's own line
+    ///         box</i>.
+    ///     </para>
+    ///     <para>
+    ///         Vixen has no shared line box to put them on. Every element measures and draws its own
+    ///         text independently — see <c>UiElement.Block</c> — and
+    ///         <c>Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt</c> records why: one node produces
+    ///         one box, and a line box spanning several elements is the fragmentation work that
+    ///         invariant forbids. With no shared line, the only way a container's declaration can
+    ///         reach the glyphs CSS says it governs is to inherit to the element that owns them.
+    ///     </para>
+    ///     <para>
+    ///         What that buys and what it costs: <c>class="truncate"</c> on a row whose text sits in
+    ///         a child span does what its author plainly meant, which is the overwhelmingly common
+    ///         shape and the one <c>TaskCenter.vxml</c> writes. What it over-applies is a
+    ///         <i>nested block container's</i> text, which CSS would leave alone. That case needs a
+    ///         real block-container model to distinguish, it is rare, and an ellipsis on clipped text
+    ///         is a far smaller wrong than silently drawing nothing — which is what this property did
+    ///         before. Written down rather than discovered.
+    ///     </para>
+    /// </remarks>
+    internal bool EllipsisOf(ComputedStyle style) =>
+        style.TryGet(textOverflow, out var value) && value == ellipsis;
 
     /// <summary>What to do with a word wider than the line it has to fit in.</summary>
     internal TextWrapMode WrapModeOf(ComputedStyle style) =>

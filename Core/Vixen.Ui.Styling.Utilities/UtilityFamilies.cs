@@ -170,7 +170,29 @@ public static class UtilityFamilies {
         Static("inline-flex", "display", "inline-flex");
         Static("grid", "display", "grid");
         Static("hidden", "display", "none");
-        Static("truncate", "overflow", "hidden");
+
+        // ⚠ <b>Three declarations, because `truncate` <i>is</i> three declarations.</b> It was one
+        // here — `overflow: hidden` alone — and doc 43's F5 is the finding that the other two were
+        // missing: the class named the ellipsis it could not draw, and the wrapping the third
+        // suppresses went on happening, so a long title in `TaskCenter.vxml` grew the row downwards
+        // instead of ending in a marker.
+        //
+        // ⚠ The order the two arrived in is the part worth keeping. Emitting these before
+        // `Vixen.Ui.Text` could draw an ellipsis would have produced this repository's most-repeated
+        // defect — a property that resolves and paints nothing — and the consumption gate would have
+        // caught it and been answered with a line in `InertProperties.txt`, which is the cheap close.
+        // The reader landed first (`UiDocument.EllipsisOf`), the `clipped` scene proved the gate can
+        // see it, and this changed last. So no line was needed and none was added.
+        Register(new Family(
+            "truncate",
+            ValueKind.Static,
+            ["overflow"],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "overflow:hidden" },
+            Alongside: [
+                new UtilityDeclaration("text-overflow", "ellipsis"),
+                new UtilityDeclaration("white-space", "nowrap")
+            ]
+        ));
 
         // `flex-wrap` and `flex-col` are both values of `flex`, and they set different properties.
         // Registering `flex-wrap` as a family of its own would make the class `flex-wrap` a family
@@ -424,6 +446,19 @@ public static class UtilityFamilies {
 
         Keywords("whitespace", "white-space", new() {
             ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap"
+        });
+
+        // The two halves of `text-overflow` under the prefix v4 gives them. Registered as a second
+        // keyword table on `text` rather than as a family of its own, for the reason the type's
+        // remarks give: `text-ellipsis` has to be the family `text` with the value `ellipsis`, or the
+        // class becomes a family with no value and `text-sm` stops resolving.
+        //
+        // ⚠ <c>text-clip</c> earns its place rather than being symmetry. It is CSS's initial value and
+        // would be a no-op on its own — but `text-overflow` inherits in Vixen (see
+        // `UiDocument.EllipsisOf`), so it is the opt-out a child needs to escape an ellipsis its
+        // container asked for, and there is no other way to write that.
+        Keywords("text", "text-overflow", new() {
+            ["ellipsis"] = "ellipsis", ["clip"] = "clip"
         });
 
         Keywords("align", "vertical-align", new() {

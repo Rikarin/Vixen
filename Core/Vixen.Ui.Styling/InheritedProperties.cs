@@ -78,6 +78,15 @@ public sealed class InheritedProperties {
         "white-space",
         "word-break",
         "overflow-wrap",
+
+        // ⚠ `text-overflow` is NOT CSS-inherited, and it is here on purpose. CSS applies it to a
+        // block container, where it ellipsises the inline content of that container's own line
+        // boxes — so it reaches a child span's glyphs without inheriting. Vixen has no line box
+        // shared between elements (see `InlineKnownGaps.txt`: one node produces one box), so
+        // inheritance is the only route from the container the class is written on to the element
+        // that owns the glyphs. The full argument, and what it over-applies, is on
+        // `UiDocument.EllipsisOf`.
+        "text-overflow",
         "direction",
         "visibility",
         "cursor",

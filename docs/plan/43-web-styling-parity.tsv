@@ -223,7 +223,7 @@ Borders	outline-*	functional	outline-offset-0	outline-color,outline-style,outlin
 Borders	outline-offset-*	functional	outline-offset-0	outline-offset					absent				
 Effects	opacity-*	functional	opacity-0	opacity	opacity	opacity	opacity		works				
 Typography	underline-offset-*	functional	underline-offset-0	text-underline-offset					absent				
-Typography	text-*	functional	text-2xl	font-size,line-height	text	color,font-size,line-height,text-align	color,font-size,line-height,text-align		partial		font-size and line-height work; the colour reading works; text-<n>/<leading> does not		
+Typography	text-*	functional	text-2xl	font-size,line-height	text	color,font-size,line-height,text-align,text-overflow	color,font-size,line-height,text-align,text-overflow		partial		font-size and line-height work; the colour reading works; text-<n>/<leading> does not		
 Typography	text-shadow-*	functional	text-shadow-2xs	text-shadow					absent	text		swallowed by the family `text`; the value does not resolve, so nothing is emitted	
 Effects	shadow-*	functional	shadow-2xl	box-shadow	shadow	box-shadow	box-shadow		works				
 Effects	inset-shadow-*	functional	inset-shadow-2xs	box-shadow					absent	inset		swallowed by the family `inset`; the value does not resolve, so nothing is emitted	
@@ -294,8 +294,8 @@ Layout	overscroll-y	static	overscroll-y-auto	overscroll-behavior-y					absent			
 Interactivity	scroll	static	scroll-auto	scroll-behavior					absent				scroll-auto scroll-smooth
 Interactivity	scrollbar	static	scrollbar-auto	scrollbar-width					absent				scrollbar-auto scrollbar-thin scrollbar-none
 Interactivity	scrollbar-gutter	static	scrollbar-gutter-auto	scrollbar-gutter					absent				scrollbar-gutter-auto scrollbar-gutter-stable scrollbar-gutter-both
-Typography	truncate	static	truncate	overflow,text-overflow,white-space	truncate	overflow	overflow		partial		Vixen emits overflow:hidden only; text-overflow and white-space are not emitted, so nothing is actually truncated		truncate
-Typography	text-overflow	static	text-ellipsis	text-overflow					absent	text		swallowed by the family `text`; the value does not resolve, so nothing is emitted	text-ellipsis text-clip overflow-ellipsis
+Typography	truncate	static	truncate	overflow,text-overflow,white-space	truncate	overflow,text-overflow,white-space	overflow,text-overflow,white-space		works				truncate
+Typography	text-overflow	static	text-ellipsis	text-overflow	text	color,font-size,line-height,text-align,text-overflow	color,font-size,line-height,text-align,text-overflow		works			text-ellipsis and text-clip are keywords on the family `text`; overflow-ellipsis is v3 spelling that v4 removed	text-ellipsis text-clip
 Typography	hyphens	static	hyphens-none	-webkit-hyphens,hyphens					absent				hyphens-none hyphens-manual hyphens-auto
 Typography	whitespace	static	whitespace-normal	white-space	whitespace	white-space	white-space		partial			4 of 6 keywords: missing whitespace-pre-line whitespace-break-spaces; 4 of 6 listed keywords resolve: missing whitespace-pre-line whitespace-break-spaces	whitespace-normal whitespace-nowrap whitespace-pre whitespace-pre-line whitespace-pre-wrap whitespace-break-spaces
 Typography	text	static	text-wrap	text-wrap					absent				text-wrap text-nowrap text-balance text-pretty
@@ -315,7 +315,7 @@ Backgrounds	bg-blend	static	bg-blend-normal	background-blend-mode					absent	bg	
 Effects	mix-blend	static	mix-blend-normal	mix-blend-mode					absent				mix-blend-normal mix-blend-multiply mix-blend-screen mix-blend-overlay mix-blend-darken mix-blend-lighten mix-blend-color-dodge mix-blend-color-burn
 SVG	stroke-none	static	stroke-none	stroke					absent	stroke		swallowed by the family `stroke`; the value does not resolve, so nothing is emitted	stroke-none
 Layout	object	static	object-contain	object-fit					absent				object-contain object-cover object-fill object-none object-scale-down
-Typography	text (keywords)	static	text-left	text-align	text	color,font-size,line-height,text-align	color,font-size,line-height,text-align		works				text-left text-center text-right text-justify text-start text-end
+Typography	text (keywords)	static	text-left	text-align	text	color,font-size,line-height,text-align,text-overflow	color,font-size,line-height,text-align,text-overflow		works				text-left text-center text-right text-justify text-start text-end
 Typography	text-transform	static	uppercase	text-transform				text-transform	absent				uppercase lowercase capitalize normal-case
 Typography	font-style	static	italic	font-style					absent				italic not-italic
 Typography	text-decoration-line	static	underline	text-decoration-line					absent				underline overline line-through no-underline

@@ -160,7 +160,12 @@ public partial class StylesheetTests {
 
         ui.Frame();
 
+        // ⚠ All three of `truncate`'s declarations, not just the one it used to emit. Doc 43's F5 was
+        // that this class named an ellipsis the engine could not draw and suppressed no wrapping;
+        // asserting only `overflow` here is what let that stand for as long as it did.
         Assert.Equal("hidden", ui.StyleOf(title, "overflow"));
+        Assert.Equal("ellipsis", ui.StyleOf(title, "text-overflow"));
+        Assert.Equal("nowrap", ui.StyleOf(title, "white-space"));
         Assert.Equal("0", ui.StyleOf(title, "min-width"));
     }
 

@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **77** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **79** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **38** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **4** |
-| **absent** | not emitted at all | **204** |
+| **absent** | not emitted at all | **203** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -357,7 +357,7 @@ undone rather than approximated, and the cost of that decision has been zero.
 | Layout | 49 | 14 | 8 | 0 | 23 | 3 | 1 |
 | Interactivity | 39 | 1 | 1 | 1 | 36 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
-| Typography | 34 | 4 | 4 | 0 | 26 | 0 | 0 |
+| Typography | 34 | 6 | 3 | 0 | 25 | 0 | 0 |
 | Borders | 34 | 13 | 5 | 0 | 16 | 0 | 0 |
 | Effects | 33 | 3 | 0 | 0 | 30 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
@@ -369,7 +369,7 @@ undone rather than approximated, and the cost of that decision has been zero.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **77** | **39** | **4** | **204** | **3** | **1** |
+| **Total** | **328** | **79** | **38** | **4** | **203** | **3** | **1** |
 
 Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
 Layout follow it. Tables, Filters and Accessibility still have **no working root at all**, and
@@ -526,17 +526,63 @@ differ from their block-level twins only inside an inline formatting context, an
 `Block` and `Flex` would give `inline-block` the whole line, which is precisely what an author writes
 it to avoid. An alias would look like support and behave like a bug.
 
-### F5 · `truncate` does not truncate ⚠ *re-measured 2026-08-21, still open*
+### F5 · `truncate` does not truncate ✅ *closed 2026-08-22 — single-line ellipsis; `line-clamp` split off*
 
 Tailwind's `truncate` is three declarations: `overflow: hidden`, `text-overflow: ellipsis`,
-`white-space: nowrap`. Vixen's emits the first — `Truncate_emits_neither_text_overflow_nor_nowrap`
-resolves an element and finds both of the other two absent. Nothing in `Vixen.Ui.Text` implements
-`text-overflow`, so the name promises an ellipsis the engine cannot draw, and the wrapping the third
-would have suppressed still happens. `line-clamp-*` is absent for the same reason one level up.
+`white-space: nowrap`. Vixen's emitted the first only, so the name promised an ellipsis the engine
+could not draw and the wrapping the third suppresses went on happening. Both halves were re-measured
+on 2026-08-21 and both held: the family emitted `overflow` and nothing else, **and**
+`text-overflow: ellipsis` moved none of the probe's four channels — so the gap was the text layer and
+not the bridge, and widening the family first would have bought nothing but a greener-looking table.
 
-⚠ **Both halves re-checked against the engine.** `truncate` still emits `overflow` and nothing else,
-and `text-overflow: ellipsis` moves none of the probe's four channels — so even if the family emitted
-it, nothing would draw it. The root stays `partial` and the gap is the text layer, not the bridge.
+⚠ **One correction to the finding as written: the test it named, `Truncate_emits_neither_text_overflow_nor_nowrap`, never existed.**
+A NUL-safe search returns nothing anywhere in the tree, and this line was its only mention. The claim
+it stood for was true — it had simply never been written down as a test, which is the shape of debt
+this document exists to stop. What replaced it asserts the opposite fact and asserts it about pixels:
+`Core/Vixen.Ui.Tests/TextOverflowTests.cs`, eight `Fact`s, none of which asks the cascade anything.
+
+**Built in the order the finding demanded: reader, scene, then family.**
+
+1. **`Vixen.Ui` draws the ellipsis.** `UiDocument.EllipsisOf` reads the property and
+   `UiElement.Ellipsized(contentWidth)` replaces the tail of any line too wide for its box with
+   U+2026, re-shaping the kept text and the marker as one string so the shaper kerns across the join.
+2. ⚠ **It happens at paint, and that is forced rather than chosen.** `truncate` sets
+   `white-space: nowrap`, which hands the wrap pass an infinite width on purpose, so the box only
+   learns the width it has to fit into after its parent has shrunk it. Measuring is *supposed* to
+   report the untruncated width — that is what makes the parent shrink it — and an ellipsis applied
+   during measure would report a box that always fits and therefore never needed one.
+3. ⚠ **`Block()` is left alone, which is what keeps a text field working.** `TextField` and
+   `CodeEditor` index into it for the caret and for hit testing, so truncation lives on a second
+   cached block that only `DrawListBuilder.EmitText` takes. Pinned by
+   `Truncating_the_picture_leaves_the_text_the_caret_reads_alone`.
+4. ⚠ **`text-overflow` inherits here and does not in CSS.** CSS applies it to a block container,
+   where it reaches a child span's glyphs by putting them on the container's *own* line box. Vixen has
+   no line box shared between elements — `InlineKnownGaps.txt`'s one-node-one-box invariant — so
+   inheritance is the only route from the container the class is written on to the element that owns
+   the glyphs. It over-applies to a nested block container's text, which CSS would leave alone; the
+   full argument is on `UiDocument.EllipsisOf`. Without it the property would resolve on the element
+   the class was written on, find no text there, and measure inert with the feature working.
+5. **The gate got eyes before the family got the property.** No scene could observe an ellipsis:
+   every one either let the label wrap or clipped a container whose text lived in a child free to be
+   any width. The `clipped` scene is the fifth time this file has had to record that — `gridded`,
+   `inlined`, `primed` and `translated` are the others — and `The_clipped_scene_can_observe_an_ellipsis`
+   is a control over the scene rather than over the engine. **No line was added to `InertProperties.txt`.**
+6. **Then the family.** `truncate` emits all three declarations, and `text-ellipsis` / `text-clip`
+   join the `text` keyword table — `text-clip` earning its place as the opt-out an inherited property
+   needs. `overflow-ellipsis` is dropped from the row's classes: it is v3's spelling and v4 removed it.
+
+Both roots are now `works`, measured rather than asserted: `truncate` from `partial` and
+`text-overflow` from `absent`, which is the whole of Typography's 4 → 6.
+
+⚠ **`line-clamp-*` is deliberately NOT in this, and the reason is not effort.** A single-line ellipsis
+needs no fragmentation — one box, one line, glyphs replaced at the end — which is why it was reachable
+at all. A clamp is not that shape. `-webkit-line-clamp` changes **how many lines there are**, so it
+changes the element's *height*, which puts it in the measure pass — the one place the final width is
+not yet known and the one place truncation was just proved not to belong. It also needs
+`display: -webkit-box` and `-webkit-box-orient: vertical` to be modelled, which are two more absent
+properties, and the ellipsis lands on the last *retained* line rather than on an overflowing one. That
+is a different algorithm in a different pass, and it is filed as its own item rather than smuggled in
+behind a class name that looks adjacent.
 
 ### F6 · Pseudo-element selectors compile and nothing consumes them ✅ *closed — refused, not built*
 
