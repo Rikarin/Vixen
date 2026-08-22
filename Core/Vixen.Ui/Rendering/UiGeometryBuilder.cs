@@ -398,7 +398,7 @@ public sealed class UiGeometryBuilder {
     /// </remarks>
     void Layer(in DrawCommand command, Rectangle clip, Rectangle viewport) {
         if (command.Kind == DrawCommandKind.LayerPush) {
-            opening.Add(new Opening(draws.Count, vertices.Count, command.Color.A, clip));
+            opening.Add(new Opening(draws.Count, vertices.Count, command.Color.A, clip, command.Blur));
             return;
         }
 
@@ -411,7 +411,27 @@ public sealed class UiGeometryBuilder {
         var open = opening[^1];
         opening.RemoveAt(opening.Count - 1);
 
-        var bounds = Intersect(Ink(open.Vertex), Intersect(open.Clip, viewport));
+        // ⚠ <b>Outset before the clip narrows it, and outset at all only because a blur is the one
+        // thing a group does that <see cref="Ink" /> cannot see.</b> Every other primitive arrives
+        // here already expanded to the quad that contains its ink — that is the whole of `Ink`'s
+        // argument — but a blur is applied to the group's finished surface, after those quads have
+        // been rasterised, so it moves coverage to texels no vertex of the group ever touched. Left
+        // un-outset, the composite quad cuts the halo off flush with the unblurred silhouette, which
+        // is a soft edge with a hard line across it: the picture looks like a blur that failed rather
+        // than like a bound that was wrong.
+        //
+        // ⚠ The order matters and is the opposite way round from what "clip, then grow" would give.
+        // An ancestor's `overflow: hidden` clips the *filtered* result — Filter Effects 1 § 5 — so
+        // the halo is grown out of the ink and then cut by the clip, not grown out of an already-cut
+        // rectangle, which would let the halo escape a clip the group is inside.
+        var ink = Ink(open.Vertex);
+
+        if (open.Blur > 0f) {
+            var reach = UiLayer.KernelRadius(open.Blur, 1f);
+            ink = new Rectangle(ink.X - reach, ink.Y - reach, ink.Width + (2f * reach), ink.Height + (2f * reach));
+        }
+
+        var bounds = Intersect(ink, Intersect(open.Clip, viewport));
 
         if (bounds.Width <= 0f || bounds.Height <= 0f) {
             // The group inked nothing the clip lets through. There is no surface worth allocating and
@@ -421,7 +441,8 @@ public sealed class UiGeometryBuilder {
         }
 
         var layer = new UiLayer(open.Draw, draws.Count - open.Draw, bounds, open.Alpha) {
-            Image = LayerImage(layerNumber++)
+            Image = LayerImage(layerNumber++),
+            Blur = open.Blur
         };
 
         // ⚠ <b>Inserted in pre-order rather than appended, and the number is a counter rather than the
@@ -480,6 +501,14 @@ public sealed class UiGeometryBuilder {
     ///     because each of those shaders resolves coverage <i>inside</i> the geometry it is given. So no
     ///     fragment can land outside the hull of the positions, and there is no per-kind margin to add
     ///     here that would not be added twice.
+    ///     <para>
+    ///         ⚠ <b>A group's <c>filter: blur()</c> is the one exception, and it is not a per-kind
+    ///         margin.</b> It is applied to the surface the quads were rasterised into rather than to
+    ///         any of them, so it moves coverage outside this hull no matter how each primitive
+    ///         expanded itself. That outset is added by <see cref="Layer" />, once per group, and
+    ///         deliberately not here — adding it per vertex would grow the hull of a group that
+    ///         happens to sit inside a blurred one as well.
+    ///     </para>
     /// </remarks>
     Rectangle Ink(int from) {
         if (from >= vertices.Count) {
@@ -522,7 +551,7 @@ public sealed class UiGeometryBuilder {
     public static ulong LayerImage(int index) => ulong.MaxValue - (ulong) index;
 
     /// <summary>A group that has been pushed and not yet popped.</summary>
-    readonly record struct Opening(int Draw, int Vertex, float Alpha, Rectangle Clip);
+    readonly record struct Opening(int Draw, int Vertex, float Alpha, Rectangle Clip, float Blur);
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>
     /// <remarks>

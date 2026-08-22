@@ -192,7 +192,7 @@ Typography	font-stretch-*	functional	font-stretch-50%	font-stretch				font-stret
 Typography	placeholder-*	functional	placeholder-amber-50	color					absent				
 Typography	decoration-*	functional	decoration-0	text-decoration-thickness					absent				decoration-auto decoration-from-font
 Transitions and Animation	animate-*	functional	animate-bounce	animation					absent				
-Filters	blur-*	functional	blur-2xl	filter	blur	--blur			inert			emits the placeholder --blur; nothing reads it — InertProperties.txt #28	
+Filters	blur-*	functional	blur-2xl	filter	blur	--tw-blur,filter	filter		works			A8/#28 closed: --tw-blur assembles into filter, and the compositor blurs the group's surface	
 Filters	backdrop-blur-*	functional	backdrop-blur-2xl	-webkit-backdrop-filter,backdrop-filter					absent				
 Filters	brightness-*	functional	brightness-0	filter					absent				
 Filters	backdrop-brightness-*	functional	backdrop-brightness-0	-webkit-backdrop-filter,backdrop-filter					absent				

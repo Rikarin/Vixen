@@ -19,7 +19,7 @@ framework into every renderer.
 
 | Type | What it does |
 |---|---|
-| `UiShaders` | The four modules a frame is drawn with, supplied rather than compiled |
+| `UiShaders` | The modules a frame is drawn with, supplied rather than compiled — four required, `Image` and `Blur` optional |
 | `UiRenderer` | Pipelines, buffers, the atlas texture, and recording a frame |
 | `UiRenderFeature` | A `RootRenderFeature` so a `RenderSystem` can reach one |
 | `UiSurface` | One interface as the renderer sees it: geometry, atlas, size, order |
@@ -98,6 +98,29 @@ pipelines take them **per vertex** and out of a shape buffer, so one draw is a w
 interface draws hundreds of boxes of different sizes per frame, so the batched form is the one that
 stays — which is what the editor's `Ui.rvn` is, and what a library shader would have to become before
 it could be used here.
+
+### The two optional stages, and what their absence looks like
+
+`Image` and `Blur` are `init` properties rather than positional parameters, so a host that hands over
+neither keeps the four-argument constructor. Their absences are not equally serious and it is worth
+knowing which is which.
+
+**No `Image` is the bad one.** It is the stage `Compose` composites a group's surface back with, so
+without it `Compose` returns having done nothing at all — and a frame whose groups were left
+uncomposited does not draw the old approximation, it draws the group's contents *in place at full
+strength*. A disabled control comes out opaque. See `composed`.
+
+**No `Blur` is the mild one.** Groups still composite, at the right opacity; a `filter: blur()` in a
+stylesheet simply draws sharp. `Blurred` is what says so, and it is the only thing that can: the
+picture of a blur that did not happen is a correct picture of something else.
+
+⚠ **`Vixen.Editor.Host` supplies `Image` and does not yet supply `Blur`**, so the editor composites
+and does not blur. The obstacle is push-constant layout rather than the shader: the blur's kernel
+rides in a fragment-stage range at byte 16, past the vertex stage's projection, and Raven's
+`[PushConstant]` lays a shader's constants out from zero with no way to say otherwise. The hand-written
+GLSL says `layout(offset = 16)` and `Shaders/Ui.rvn` has no spelling for it. Giving Raven an offset —
+or the blur a pipeline layout of its own, which is safe here because its passes bind nothing else — is
+what closes it.
 
 ### And where the numbers in a vertex layout come from
 

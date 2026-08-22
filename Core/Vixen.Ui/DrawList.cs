@@ -263,6 +263,28 @@ public readonly record struct DrawCommand(
     ///     square corner is a sensible default; this does not.
     /// </remarks>
     public float MiterLimit { get; init; }
+
+    /// <summary>
+    ///     How far a composited group's surface is blurred, as a Gaussian standard deviation in
+    ///     document pixels. Zero and unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A field of its own rather than a ride in <see cref="Thickness" />, which is free
+    ///         on a layer command and was the obvious place for it.</b> <see cref="Thickness" /> is
+    ///         already a blur on a <see cref="DrawCommandKind.Shadow" /> — a <i>half-extent</i>, half
+    ///         the CSS length, because that is what the box shader's falloff wants — and
+    ///         <c>filter: blur()</c> is a standard deviation, the full CSS length. Two different
+    ///         conventions in one field is a factor of two nothing would report, on the one kind
+    ///         where the reader has to remember which it is holding.
+    ///     </para>
+    ///     <para>
+    ///         Init-only for the reason every field here is: a caller emitting a layer for
+    ///         <c>opacity</c> alone is entitled to say nothing about a filter, and the eight
+    ///         positional arguments stay eight.
+    ///     </para>
+    /// </remarks>
+    public float Blur { get; init; }
 }
 
 /// <summary>A frame's worth of drawing, and whether it differs from the last one.</summary>

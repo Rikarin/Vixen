@@ -258,11 +258,14 @@ comes back as `rgba(59, 130, 246, 1)` — and a test should be able to write wha
 
 ## Owed
 
-- **Group opacity.** `opacity` is carried down the tree as a multiplier rather than composited into
-  an offscreen surface, so two overlapping children of a half-opaque panel show through each other
-  where CSS says they should not. The two agree exactly whenever a subtree does not overlap itself,
-  which is most interfaces and all of the ones a fade-in is applied to. The correct version is a
-  compositor decision rather than a draw list's.
+- <s>**Group opacity.** `opacity` is carried down the tree as a multiplier rather than composited
+  into an offscreen surface, so two overlapping children of a half-opaque panel show through each
+  other where CSS says they should not.</s> **Done, and this renderer composites.**
+  `SoftwareUiRasterizer.Frame` gives each `UiGeometry.Layers` entry a viewport-sized float target of
+  its own, and `filter: blur()` is a separable Gaussian over that target — the same kernel the device
+  runs, taken from `UiLayer.KernelRadius` rather than written twice. ⚠ The claim that the two agree
+  is not this file's to make: `Vixen.Graphics.Golden.Tests.UiCompositingTests` renders one frame both
+  ways and requires the pictures to match, which is the only thing that can say so.
 - **A third finger.** Two pointers make a transform; a third arriving during one is ignored rather
   than folded in. Three-finger gestures have no agreed meaning across platforms, and averaging an
   arbitrary number of pointers into one scale is an approximation worse than the gap.
