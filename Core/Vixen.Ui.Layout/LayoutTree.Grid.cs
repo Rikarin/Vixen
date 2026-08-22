@@ -168,19 +168,31 @@ public sealed partial class LayoutTree {
         var contentWidth = UsedTrackSpace(in columnAxis);
 
         float outerWidth;
+
+        // ⚠ The same width with the grid's own min and max left off, because CSS Flexbox §9.2's
+        // flex base size is the measurement before that clamp — see
+        // LayoutResult.UnclampedMeasuredDimensions. It follows every step below EXCEPT the clamp:
+        // a fit-content ceiling and a definite width are how the size is decided rather than bounds
+        // laid over the decision, so both apply to this figure too.
+        float unboundedWidth;
+
         if (widthSizingMode == SizingMode.StretchFit) {
             outerWidth = definiteWidth;
+            unboundedWidth = definiteWidth;
         } else {
             outerWidth = BoundAxis(index, FlexDirection.Row, direction, contentWidth + insetRow, ownerWidth, ownerWidth);
+            unboundedWidth = MathF.Max(contentWidth + insetRow, insetRow);
 
             // ⚠ <b>A fit-content container that did not fit re-sizes its tracks, and one that did
             // must not.</b> CSS Sizing §5.1 makes fit-content the max-content size clamped to the
             // available space, so the first pass has to be a max-content one — but once the clamp
             // bites, the tracks were sized against a width the container does not have, and an
             // `1fr` column would keep the width it wanted rather than shrinking.
-            var clamped = widthSizingMode == SizingMode.FitContent && !float.IsNaN(availableWidth)
-                ? MathF.Min(outerWidth, MathF.Max(availableWidth - marginAxisRow, insetRow))
-                : outerWidth;
+            var fitCeiling = widthSizingMode == SizingMode.FitContent && !float.IsNaN(availableWidth)
+                ? MathF.Max(availableWidth - marginAxisRow, insetRow)
+                : float.PositiveInfinity;
+
+            var clamped = MathF.Min(outerWidth, fitCeiling);
 
             // ⚠ <b>A container sized under an intrinsic constraint re-sizes its tracks too, and for
             // a reason the clamp never reaches: the constraint itself is an input to §12.5.</b> Step
@@ -198,6 +210,7 @@ public sealed partial class LayoutTree {
 
             if (clamped < outerWidth - 1e-4f || !float.IsNaN(definiteWidth) || measuredIntrinsically) {
                 outerWidth = float.IsNaN(definiteWidth) ? clamped : definiteWidth;
+                unboundedWidth = float.IsNaN(definiteWidth) ? MathF.Min(unboundedWidth, fitCeiling) : definiteWidth;
                 innerWidth = MathF.Max(0f, outerWidth - insetRow);
 
                 ResetTracks(columnsAt, placement.Columns);
@@ -271,11 +284,15 @@ public sealed partial class LayoutTree {
             ? definiteHeight
             : BoundAxis(index, FlexDirection.Column, direction, contentHeight + insetColumn, ownerHeight, ownerWidth);
 
+        var unboundedHeight = heightSizingMode == SizingMode.StretchFit
+            ? definiteHeight
+            : MathF.Max(contentHeight + insetColumn, insetColumn);
+
         innerHeight = MathF.Max(0f, outerHeight - insetColumn);
         rowAxis = rowAxis with { AvailableSpace = innerHeight };
 
-        results[index].MeasuredDimensions[(int) Dimension.Width] = outerWidth;
-        results[index].MeasuredDimensions[(int) Dimension.Height] = outerHeight;
+        SetMeasuredDimension(index, Dimension.Width, outerWidth, unboundedWidth);
+        SetMeasuredDimension(index, Dimension.Height, outerHeight, unboundedHeight);
 
         if (!performLayout) {
             return;

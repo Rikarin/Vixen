@@ -151,9 +151,11 @@ public sealed partial class LayoutTree {
         // A container establishing an inline formatting context is still block-level itself unless
         // its own `display` says otherwise, so a StretchFit request is still taken whole — it is the
         // *items* that shrink-to-fit, and they do it one level down.
-        float outerWidth;
+        // ⚠ The raw figure travels beside the bounded one: CSS Flexbox §9.2's flex base size is this
+        // measurement before the box's own min and max. See LayoutResult.UnclampedMeasuredDimensions.
+        float rawWidth;
         if (widthSizingMode == SizingMode.StretchFit) {
-            outerWidth = BoundAxis(index, FlexDirection.Row, direction, availableWidth - marginAxisRow, ownerWidth, ownerWidth);
+            rawWidth = availableWidth - marginAxisRow;
         } else {
             var probeWidth = float.IsNaN(availableWidth) ? float.NaN : availableWidth - marginAxisRow - insetRow;
             var contentWidth = DetermineInlineContentWidth(
@@ -168,9 +170,10 @@ public sealed partial class LayoutTree {
                 currentDepth
             );
 
-            outerWidth = BoundAxis(index, FlexDirection.Row, direction, contentWidth + insetRow, ownerWidth, ownerWidth);
+            rawWidth = contentWidth + insetRow;
         }
 
+        var outerWidth = BoundAxis(index, FlexDirection.Row, direction, rawWidth, ownerWidth, ownerWidth);
         var innerWidth = MathF.Max(0f, outerWidth - insetRow);
 
         var definiteHeight = heightSizingMode == SizingMode.StretchFit
@@ -197,15 +200,11 @@ public sealed partial class LayoutTree {
 
         var intrinsicHeight = walk.ContentHeight + insetBottom;
 
-        float outerHeight;
-        if (heightSizingMode == SizingMode.StretchFit) {
-            outerHeight = BoundAxis(index, FlexDirection.Column, direction, availableHeight - marginAxisColumn, ownerHeight, ownerWidth);
-        } else {
-            outerHeight = BoundAxis(index, FlexDirection.Column, direction, intrinsicHeight, ownerHeight, ownerWidth);
-        }
+        var rawHeight = heightSizingMode == SizingMode.StretchFit ? availableHeight - marginAxisColumn : intrinsicHeight;
+        var outerHeight = BoundAxis(index, FlexDirection.Column, direction, rawHeight, ownerHeight, ownerWidth);
 
-        results[index].MeasuredDimensions[(int) Dimension.Width] = outerWidth;
-        results[index].MeasuredDimensions[(int) Dimension.Height] = outerHeight;
+        SetMeasuredDimension(index, Dimension.Width, outerWidth, MathF.Max(rawWidth, insetRow));
+        SetMeasuredDimension(index, Dimension.Height, outerHeight, MathF.Max(rawHeight, insetColumn));
 
         // ── What this box reports upward ────────────────────────────────────────────────────────
         // ⚠ An inline formatting context is a barrier to margin collapsing in both directions: the

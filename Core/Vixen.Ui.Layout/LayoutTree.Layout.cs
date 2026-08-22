@@ -191,6 +191,8 @@ public sealed partial class LayoutTree {
             ref var entry = ref cachedIsLayout ? ref layout.CachedLayout : ref layout.CachedMeasurements[cached];
             layout.MeasuredDimensions[(int) Dimension.Width] = entry.ComputedWidth;
             layout.MeasuredDimensions[(int) Dimension.Height] = entry.ComputedHeight;
+            layout.UnclampedMeasuredDimensions[(int) Dimension.Width] = entry.UnclampedComputedWidth;
+            layout.UnclampedMeasuredDimensions[(int) Dimension.Height] = entry.UnclampedComputedHeight;
 
             // A layout has more outputs than a size once block containers exist. See the remarks on
             // CachedMeasurement.TopCollapsibleMargin for why replaying them is not optional.
@@ -227,6 +229,8 @@ public sealed partial class LayoutTree {
                     HeightMeasureMode = MeasureModeOf(heightSizingMode),
                     ComputedWidth = layout.MeasuredDimensions[(int) Dimension.Width],
                     ComputedHeight = layout.MeasuredDimensions[(int) Dimension.Height],
+                    UnclampedComputedWidth = layout.UnclampedMeasuredDimensions[(int) Dimension.Width],
+                    UnclampedComputedHeight = layout.UnclampedMeasuredDimensions[(int) Dimension.Height],
                     IsPopulated = true,
                     TopCollapsibleMargin = layout.TopCollapsibleMargin,
                     BottomCollapsibleMargin = layout.BottomCollapsibleMargin,
@@ -490,7 +494,7 @@ public sealed partial class LayoutTree {
         var availableInnerCrossDim = isMainAxisRow ? availableInnerHeight : availableInnerWidth;
 
         // STEP 3: DETERMINE FLEX BASIS FOR EACH ITEM
-        var totalMainDim = ComputeFlexBasisForChildren(
+        ComputeFlexBasisForChildren(
             index,
             availableInnerWidth,
             availableInnerHeight,
@@ -502,15 +506,6 @@ public sealed partial class LayoutTree {
             currentDepth
         );
 
-        if (childCount > 1) {
-            totalMainDim += StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim) * (childCount - 1);
-        }
-
-        var mainAxisOverflows = sizingModeMainDim != SizingMode.MaxContent && totalMainDim > availableInnerMainDim;
-        if (isNodeFlexWrap && mainAxisOverflows && sizingModeMainDim == SizingMode.FitContent) {
-            sizingModeMainDim = SizingMode.StretchFit;
-        }
-
         // ⚠ CSS Flexbox §9.2 step 9: an item's HYPOTHETICAL main size is its flex base size clamped
         // by its used min and max — and for `min-width: auto` the used minimum is §4.5's automatic
         // one. §9.3 then collects items into lines by that hypothetical size, so the floor has to
@@ -518,11 +513,36 @@ public sealed partial class LayoutTree {
         // ResolveFlexibleLength, which runs per line and only when something actually flexes; an
         // item that never flexed therefore never saw its own floor, and line breaking never saw it
         // at all. Both are one number, so both are computed here, once, for the whole node.
+        //
+        // ⚠ AND THE OVERFLOW TEST BELOW IS THE SAME SUM §9.3 IS, so it is taken in the same walk.
+        // "Do the items overflow the main axis" is a question about their outer HYPOTHETICAL sizes,
+        // not about their flex bases: an item's base is what it would be with nothing constraining
+        // it, and a `min-width: 60px` item takes 60 points of the line whatever its base says. This
+        // used to add up the bases, which agreed with the hypothetical sizes only by accident —
+        // ComputedFlexBasis was read back out of an already-clamped measurement. Once it became a
+        // real base, `gap_column_gap_wrap_align_stretch` measured five zero-basis items as 20 points
+        // of gap in a 300-point row, decided nothing overflowed, and stretched every item to the
+        // container's full height instead of sharing it between the two lines it still broke into.
+        var totalMainDim = 0f;
         foreach (var child in ChildIds(index)) {
-            if (IsInFlow(child)) {
-                results[child].ComputedAutoMinMainSize =
-                    ComputeAutoMinMainSize(child, mainAxis, direction, mainAxisOwnerSize, availableInnerWidth, availableInnerHeight);
+            if (!IsInFlow(child)) {
+                continue;
             }
+
+            results[child].ComputedAutoMinMainSize =
+                ComputeAutoMinMainSize(child, mainAxis, direction, mainAxisOwnerSize, availableInnerWidth, availableInnerHeight);
+
+            totalMainDim += HypotheticalMainSize(child, direction, mainAxis, results[child].ComputedFlexBasis, mainAxisOwnerSize, ownerWidth)
+                + StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth);
+        }
+
+        if (childCount > 1) {
+            totalMainDim += StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim) * (childCount - 1);
+        }
+
+        var mainAxisOverflows = sizingModeMainDim != SizingMode.MaxContent && totalMainDim > availableInnerMainDim;
+        if (isNodeFlexWrap && mainAxisOverflows && sizingModeMainDim == SizingMode.FitContent) {
+            sizingModeMainDim = SizingMode.StretchFit;
         }
 
         // STEP 4: COLLECT FLEX ITEMS INTO FLEX LINES
@@ -781,7 +801,7 @@ public sealed partial class LayoutTree {
         }
 
         // STEP 9: COMPUTING FINAL DIMENSIONS
-        results[index].MeasuredDimensions[(int) Dimension.Width] = BoundAxis(
+        SetMeasuredDimension(
             index,
             FlexDirection.Row,
             direction,
@@ -790,7 +810,7 @@ public sealed partial class LayoutTree {
             ownerWidth,
             widthSizingMode == SizingMode.StretchFit
         );
-        results[index].MeasuredDimensions[(int) Dimension.Height] = BoundAxis(
+        SetMeasuredDimension(
             index,
             FlexDirection.Column,
             direction,
@@ -808,21 +828,22 @@ public sealed partial class LayoutTree {
 
         if (sizingModeMainDim == SizingMode.MaxContent
             || (mainOverflow != Overflow.Scroll && sizingModeMainDim == SizingMode.FitContent)) {
-            results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)] =
-                BoundAxis(index, mainAxis, direction, maxLineMainDim, mainAxisOwnerSize, ownerWidth);
+            SetMeasuredDimension(index, mainAxis, direction, maxLineMainDim, mainAxisOwnerSize, ownerWidth);
         } else if (sizingModeMainDim == SizingMode.FitContent && mainOverflow == Overflow.Scroll) {
-            results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)] = MathF.Max(
+            var scrolledMain = MathF.Max(
                 MathF.Min(
                     availableInnerMainDim + paddingAndBorderAxisMain,
                     BoundAxisWithinMinAndMax(index, direction, mainAxis, maxLineMainDim, mainAxisOwnerSize, ownerWidth)
                 ),
                 paddingAndBorderAxisMain
             );
+
+            SetMeasuredDimension(index, FlexAxis.DimensionOf(mainAxis), scrolledMain, scrolledMain);
         }
 
         if (sizingModeCrossDim == SizingMode.MaxContent
             || (crossOverflow != Overflow.Scroll && sizingModeCrossDim == SizingMode.FitContent)) {
-            results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(crossAxis)] = BoundAxis(
+            SetMeasuredDimension(
                 index,
                 crossAxis,
                 direction,
@@ -831,7 +852,7 @@ public sealed partial class LayoutTree {
                 ownerWidth
             );
         } else if (sizingModeCrossDim == SizingMode.FitContent && crossOverflow == Overflow.Scroll) {
-            results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(crossAxis)] = MathF.Max(
+            var scrolledCross = MathF.Max(
                 MathF.Min(
                     availableInnerCrossDim + paddingAndBorderAxisCross,
                     BoundAxisWithinMinAndMax(
@@ -845,6 +866,8 @@ public sealed partial class LayoutTree {
                 ),
                 paddingAndBorderAxisCross
             );
+
+            SetMeasuredDimension(index, FlexAxis.DimensionOf(crossAxis), scrolledCross, scrolledCross);
         }
 
         // Only forward wrapping has been done so far; wrap-reverse is that mirrored.

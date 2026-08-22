@@ -139,9 +139,13 @@ public sealed partial class LayoutTree {
         // the equation balance, i.e. the containing block's width. So a StretchFit request is taken
         // whole, and only a container whose own width is being asked for — a flex item, a float, an
         // absolute box, the root under a max-content viewport — falls through to the content probe.
-        float outerWidth;
+        // ⚠ The raw figure is kept beside the bounded one because CSS Flexbox §9.2's flex base size
+        // is this measurement BEFORE the box's own min and max — see
+        // LayoutResult.UnclampedMeasuredDimensions. A block container is a flex item as often as
+        // any other box, so its two answers have to be recorded like everybody else's.
+        float rawWidth;
         if (widthSizingMode == SizingMode.StretchFit) {
-            outerWidth = BoundAxis(index, FlexDirection.Row, direction, availableWidth - marginAxisRow, ownerWidth, ownerWidth);
+            rawWidth = availableWidth - marginAxisRow;
         } else {
             var probeWidth = float.IsNaN(availableWidth) ? float.NaN : availableWidth - marginAxisRow - insetRow;
             var contentWidth = DetermineBlockContentWidth(
@@ -154,8 +158,10 @@ public sealed partial class LayoutTree {
                 currentDepth
             );
 
-            outerWidth = BoundAxis(index, FlexDirection.Row, direction, contentWidth + insetRow, ownerWidth, ownerWidth);
+            rawWidth = contentWidth + insetRow;
         }
+
+        var outerWidth = BoundAxis(index, FlexDirection.Row, direction, rawWidth, ownerWidth, ownerWidth);
 
         var innerWidth = MathF.Max(0f, outerWidth - insetRow);
 
@@ -207,29 +213,27 @@ public sealed partial class LayoutTree {
 
         var intrinsicHeight = walk.ContentHeight;
 
-        float outerHeight;
-        if (heightSizingMode == SizingMode.StretchFit) {
-            outerHeight = BoundAxis(index, FlexDirection.Column, direction, availableHeight - marginAxisColumn, ownerHeight, ownerWidth);
-        } else {
-            outerHeight = BoundAxis(index, FlexDirection.Column, direction, intrinsicHeight, ownerHeight, ownerWidth);
+        var rawHeight = heightSizingMode == SizingMode.StretchFit ? availableHeight - marginAxisColumn : intrinsicHeight;
+        var outerHeight = BoundAxis(index, FlexDirection.Column, direction, rawHeight, ownerHeight, ownerWidth);
+        var unboundedHeight = MathF.Max(rawHeight, insetColumn);
 
-            // A scroll container's fit-content height is the room it was offered, not the room its
-            // content wants — the same one-axis reading the flex path applies at its STEP 9.
-            if (heightSizingMode == SizingMode.FitContent
-                && OverflowOn(index, Dimension.Height) == Overflow.Scroll
-                && !float.IsNaN(availableHeight)) {
-                outerHeight = MathF.Max(
-                    MathF.Min(
-                        availableHeight - marginAxisColumn,
-                        BoundAxisWithinMinAndMax(index, direction, FlexDirection.Column, intrinsicHeight, ownerHeight, ownerWidth)
-                    ),
-                    insetColumn
-                );
-            }
+        // A scroll container's fit-content height is the room it was offered, not the room its
+        // content wants — the same one-axis reading the flex path applies at its STEP 9.
+        if (heightSizingMode == SizingMode.FitContent
+            && OverflowOn(index, Dimension.Height) == Overflow.Scroll
+            && !float.IsNaN(availableHeight)) {
+            outerHeight = MathF.Max(
+                MathF.Min(
+                    availableHeight - marginAxisColumn,
+                    BoundAxisWithinMinAndMax(index, direction, FlexDirection.Column, intrinsicHeight, ownerHeight, ownerWidth)
+                ),
+                insetColumn
+            );
+            unboundedHeight = outerHeight;
         }
 
-        results[index].MeasuredDimensions[(int) Dimension.Width] = outerWidth;
-        results[index].MeasuredDimensions[(int) Dimension.Height] = outerHeight;
+        SetMeasuredDimension(index, Dimension.Width, outerWidth, MathF.Max(rawWidth, insetRow));
+        SetMeasuredDimension(index, Dimension.Height, outerHeight, unboundedHeight);
 
         // ── align-content, as one subject ───────────────────────────────────────────────────────
         // CSS Box Alignment §5.3 applies to block containers too, and a block container's whole

@@ -294,8 +294,9 @@ public sealed partial class LayoutTree {
         results[index].Position[(int) Edge.Top] = top + RelativePosition(index, FlexDirection.Column, direction, bottom - top);
         results[index].Dimensions[(int) Dimension.Width] = right - left;
         results[index].Dimensions[(int) Dimension.Height] = bottom - top;
-        results[index].MeasuredDimensions[(int) Dimension.Width] = right - left;
-        results[index].MeasuredDimensions[(int) Dimension.Height] = bottom - top;
+        // Nothing clamped this union, so the two measurements are the same number.
+        SetMeasuredDimension(index, Dimension.Width, right - left, right - left);
+        SetMeasuredDimension(index, Dimension.Height, bottom - top, bottom - top);
         results[index].Direction = direction;
 
         // ⚠ Claimed on the span's behalf because the claim is true and the rounding pass acts on it:

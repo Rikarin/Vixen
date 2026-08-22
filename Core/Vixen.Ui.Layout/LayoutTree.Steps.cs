@@ -39,16 +39,14 @@ public sealed partial class LayoutTree {
 
         if (widthSizingMode == SizingMode.StretchFit && heightSizingMode == SizingMode.StretchFit) {
             // Both sizes are already decided, so there is nothing the content could tell us.
-            results[index].MeasuredDimensions[(int) Dimension.Width] =
-                BoundAxis(index, FlexDirection.Row, direction, availableWidth, ownerWidth, ownerWidth, true);
-            results[index].MeasuredDimensions[(int) Dimension.Height] =
-                BoundAxis(index, FlexDirection.Column, direction, availableHeight, ownerHeight, ownerWidth, true);
+            SetMeasuredDimension(index, FlexDirection.Row, direction, availableWidth, ownerWidth, ownerWidth, true);
+            SetMeasuredDimension(index, FlexDirection.Column, direction, availableHeight, ownerHeight, ownerWidth, true);
             return;
         }
 
         var measured = Measure(index, innerWidth, MeasureModeOf(widthSizingMode), innerHeight, MeasureModeOf(heightSizingMode));
 
-        results[index].MeasuredDimensions[(int) Dimension.Width] = BoundAxis(
+        SetMeasuredDimension(
             index,
             FlexDirection.Row,
             direction,
@@ -60,7 +58,7 @@ public sealed partial class LayoutTree {
             widthSizingMode == SizingMode.StretchFit
         );
 
-        results[index].MeasuredDimensions[(int) Dimension.Height] = BoundAxis(
+        SetMeasuredDimension(
             index,
             FlexDirection.Column,
             direction,
@@ -88,7 +86,7 @@ public sealed partial class LayoutTree {
             return;
         }
 
-        results[index].MeasuredDimensions[(int) Dimension.Height] = BoundAxis(
+        SetMeasuredDimension(
             index,
             FlexDirection.Column,
             direction,
@@ -117,8 +115,7 @@ public sealed partial class LayoutTree {
                 + layout.Border[(int) Edge.Left] + layout.Border[(int) Edge.Right];
         }
 
-        results[index].MeasuredDimensions[(int) Dimension.Width] =
-            BoundAxis(index, FlexDirection.Row, direction, width, ownerWidth, ownerWidth, widthSizingMode == SizingMode.StretchFit);
+        SetMeasuredDimension(index, FlexDirection.Row, direction, width, ownerWidth, ownerWidth, widthSizingMode == SizingMode.StretchFit);
 
         var height = availableHeight;
         if (heightSizingMode is SizingMode.MaxContent or SizingMode.FitContent) {
@@ -126,8 +123,7 @@ public sealed partial class LayoutTree {
                 + layout.Border[(int) Edge.Top] + layout.Border[(int) Edge.Bottom];
         }
 
-        results[index].MeasuredDimensions[(int) Dimension.Height] =
-            BoundAxis(index, FlexDirection.Column, direction, height, ownerHeight, ownerWidth, heightSizingMode == SizingMode.StretchFit);
+        SetMeasuredDimension(index, FlexDirection.Column, direction, height, ownerHeight, ownerWidth, heightSizingMode == SizingMode.StretchFit);
     }
 
     /// <summary>Answers a measure-only request whose answer the styles already fix.</summary>
@@ -146,7 +142,7 @@ public sealed partial class LayoutTree {
             return false;
         }
 
-        results[index].MeasuredDimensions[(int) Dimension.Width] = BoundAxis(
+        SetMeasuredDimension(
             index,
             FlexDirection.Row,
             direction,
@@ -158,7 +154,7 @@ public sealed partial class LayoutTree {
             widthSizingMode == SizingMode.StretchFit
         );
 
-        results[index].MeasuredDimensions[(int) Dimension.Height] = BoundAxis(
+        SetMeasuredDimension(
             index,
             FlexDirection.Column,
             direction,
@@ -200,8 +196,14 @@ public sealed partial class LayoutTree {
         return MathF.Max(MathF.Min(available, maxInner), minInner);
     }
 
-    /// <summary>Works out every in-flow child's flex basis, and returns their total outer size.</summary>
-    float ComputeFlexBasisForChildren(
+    /// <summary>Works out every in-flow child's flex basis.</summary>
+    /// <remarks>
+    ///     ⚠ It used to hand back the sum of those bases and <c>CalculateLayoutImpl</c> used the sum
+    ///     to decide whether the main axis overflows. That is §9.3's question and §9.3 asks it of the
+    ///     outer HYPOTHETICAL main sizes, so the caller now takes the sum itself, in the walk that
+    ///     computes each item's automatic minimum. See the note at STEP 3.
+    /// </remarks>
+    void ComputeFlexBasisForChildren(
         int index,
         float availableInnerWidth,
         float availableInnerHeight,
@@ -212,7 +214,6 @@ public sealed partial class LayoutTree {
         bool performLayout,
         int currentDepth
     ) {
-        var totalOuterFlexBasis = 0f;
         var singleFlexChild = -1;
         var sizingModeMainDim = FlexAxis.IsRow(mainAxis) ? widthSizingMode : heightSizingMode;
         var children = ChildIds(index);
@@ -273,11 +274,7 @@ public sealed partial class LayoutTree {
                 );
             }
 
-            totalOuterFlexBasis += results[child].ComputedFlexBasis
-                + StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth);
         }
-
-        return totalOuterFlexBasis;
     }
 
     /// <summary>Works out one child's flex basis, measuring it if nothing else settles it.</summary>
@@ -420,8 +417,16 @@ public sealed partial class LayoutTree {
                 currentDepth
             );
 
+            // ⚠ THE UNCLAMPED MEASUREMENT, because §9.2's flex base size and hypothetical main size
+            // are two numbers and this is the first of them. Step 3E sizes the item under a
+            // max-content constraint and takes the result; step 4 clamps THAT by the item's used min
+            // and max. Reading MeasuredDimensions here made the base equal to the hypothetical size
+            // by construction, so §9.7 step 2's freeze test — base on the far side of hypothetical —
+            // could never fire, and the clamp was instead charged to the free-space pool. An empty
+            // `min-width: 60px` item in a 100pt row reported a base of 60 and came out 80 wide;
+            // Chrome freezes it at 60 and gives the other 40 to its sibling.
             results[child].ComputedFlexBasis = MathF.Max(
-                results[child].MeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)],
+                results[child].UnclampedMeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)],
                 StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth)
             );
         }

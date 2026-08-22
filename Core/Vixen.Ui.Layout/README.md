@@ -91,10 +91,10 @@ Chrome-for-Testing — and they exist here for block and grid, which have no ora
 them first on purpose: it is the one mode where the answer is already known, so a wrong harness would
 be visibly wrong there rather than invisibly wrong inside grid later.
 
-**2 178 of the 2 256 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
+**2 190 of the 2 256 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
 Thirteen of the original failures were the bridge and were fixed — `start` is not a spelling of
 `flex-start`, and `self-start` resolves against the item's own direction. Of the 206 that were
-Vixen's, **128 are closed** and 78 remain, catalogued in `Taffy/KnownGaps.txt`.
+Vixen's, **140 are closed** and 66 remain, catalogued in `Taffy/KnownGaps.txt`.
 
 The largest bucket was **the paragraph above, one level further out**, and it turned on a
 distinction CSS Sizing §5.2.2 draws and this store did not: a box's min-content **size** and its
@@ -143,11 +143,24 @@ an item that neither grows nor shrinks finally sees its own floor with nothing n
 Freezing also removes the item's flex *factor*, not just its size — leaving the factor in was a
 latent divide-by-zero that surfaced as a `NaN` width the moment step 2 arrived.
 
-⚠ **What is still open is one sentence, and it is not in this algorithm.** `ComputedFlexBasis` is
-read back out of a trial layout that has already clamped it, so it is not a flex base size: an empty
-`min-width: 60px` box reports 60 where §9.2 says its base is 0, the item is never frozen, and
-`min_width` still answers 80 and 20 where Chrome says 60 and 40. Recording the unclamped measurement
-is the fix and it touches all three formatting contexts, so it wants its own pass.
+⚠ **The sentence that was left open is the same mistake one level down, and it is closed.**
+`ComputedFlexBasis` was read back out of a trial layout that had already clamped it, so it was not a
+flex base size at all: §9.2 makes the flex **base** size and the **hypothetical** main size two
+numbers, and this was the second wearing the first's name. An empty `min-width: 60px` box reported 60
+where §9.2 says its base is 0, base and hypothetical agreed by construction, §9.7 step 2 could never
+freeze the item, and `min_width` answered 80 and 20 where Chrome says 60 and 40.
+`LayoutResult.UnclampedMeasuredDimensions` records each axis's measurement before `BoundAxis`, at
+every site that writes a measurement — all three formatting contexts, the inline one, and the
+measurement cache, which replays it for the reason it already replays the collapsible margins.
+`LayoutTree.SetMeasuredDimension` is what stops the two being written apart.
+
+⚠ **The half that was not scoped is that the overflow test read the same field**, and it is what turns
+this from +12-with-four-regressions into +12. STEP 3 summed the items' flex *bases* to decide whether
+the main axis overflows; that is §9.3's question and §9.3 asks it of the outer hypothetical sizes. The
+two agreed only because the base was the clamped measurement. With a real base,
+`gap_column_gap_wrap_align_stretch` read five zero-basis items as 20 points of gap in a 300-point row,
+concluded nothing overflowed, and stretched every item to the container's full height instead of
+halving it between the two lines it still broke into.
 
 ⚠ **And the new corpus has its own blind spot, which the old one covers.** Taffy's fixtures set
 `direction` on every one of their 22 776 nodes, so `Direction.Inherit` is never stored: breaking

@@ -23,6 +23,8 @@ Vixen.Ui.Layout.CachedMeasurement.ComputedHeight -> float
 Vixen.Ui.Layout.CachedMeasurement.ComputedWidth -> float
 Vixen.Ui.Layout.CachedMeasurement.HeightMeasureMode -> Vixen.Ui.Layout.MeasureMode
 Vixen.Ui.Layout.CachedMeasurement.IsPopulated -> bool
+Vixen.Ui.Layout.CachedMeasurement.UnclampedComputedHeight -> float
+Vixen.Ui.Layout.CachedMeasurement.UnclampedComputedWidth -> float
 Vixen.Ui.Layout.CachedMeasurement.WidthMeasureMode -> Vixen.Ui.Layout.MeasureMode
 Vixen.Ui.Layout.CachedMeasurements -> struct
 Vixen.Ui.Layout.CachedMeasurements.CachedMeasurements() -> void
@@ -209,6 +211,7 @@ Vixen.Ui.Layout.LayoutResult.RoundedAbsoluteLeft -> float
 Vixen.Ui.Layout.LayoutResult.RoundedAbsoluteTop -> float
 Vixen.Ui.Layout.LayoutResult.RoundedDimensions -> Vixen.Ui.Layout.DimensionValues
 Vixen.Ui.Layout.LayoutResult.RoundedPosition -> Vixen.Ui.Layout.EdgeValues
+Vixen.Ui.Layout.LayoutResult.UnclampedMeasuredDimensions -> Vixen.Ui.Layout.DimensionValues
 Vixen.Ui.Layout.LayoutSize -> readonly struct
 Vixen.Ui.Layout.LayoutSize : System.IEquatable<Vixen.Ui.Layout.LayoutSize>
 Vixen.Ui.Layout.LayoutSize.Height.get -> float
