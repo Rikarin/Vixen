@@ -4,7 +4,7 @@ slug: ui/markup-panels
 kind: guide
 area: Core
 summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref for the parts they read, and the @for key rule that decides whether a row updates at all.
-api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration]
+api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow]
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
@@ -204,6 +204,53 @@ And the key rule, both ways round:
 
 `key="@row.Label"` in the first loop would compile, draw the right number of rows in the right order,
 and show the first reading for ever.
+
+## A part is how markup writes an element's own text
+
+Markup has exactly one spelling for text, and it is a child. `<fact-name>@Name</fact-name>` calls
+`BuildContext.Text`, which creates a `text` element inside `fact-name`; it does not set
+`fact-name.Text`. Nor does an attribute — on a lowercase tag `BuildContext.Attribute` special-cases
+`class` and `style` and sends every other name to `StyleTree.SetAttribute`, which is an attribute a
+`[name=…]` selector can match and nothing reads back. So `<fact-name Text="@Name" />` compiles,
+runs, and does nothing.
+
+That matters because a `text` child is a box of its own. Whether it lands where the parent's own
+text would is a question about the parent's padding, its `align-items` and how many lines the text
+wraps to — so replacing one with the other is a layout change, and a port that makes it silently is
+a port that moved pixels.
+
+⚠ **A capitalised tag is the way out, and this is the second reason to reach for `@inherits`.** A
+component tag's attributes *are* property assignments — the emitter writes
+`ctx.Bind(() => n1.Name = …)` — and a component's `ref`s belong to the component, so they still work
+when a caller drops it into a `@for`, where a bare `ref` is `VXML2010`. Wrapping the row in a part
+buys both at once:
+
+```vxml
+@component FactRow
+@inherits Vixen.Ui.UiElement
+@tag fact-row
+
+<fact-name ref="@NameCell" />
+<fact-value><text ref="@ValueText" /></fact-value>
+
+@code {
+    public UiElement NameCell { get; private set; } = null!;
+    public UiElement ValueText { get; private set; } = null!;
+
+    public string Name { set => NameCell.Text = value; }
+    public string Value { set => ValueText.Text = value; }
+}
+```
+
+`Vixen.Editor.Ui`'s [`FactRow`](/docs/api/vixen.editor.ui/factrow) is that file. A caller writes
+`facts.Add<FactRow>()` from C# or `<FactRow Name="@f.Name" Value="@f.Value" />` from a `@for`, and
+both produce the tree the four hand-written copies produced — which is asserted by dumping every
+element's rectangle for the old shape and the new one and comparing the two.
+
+⚠ **The setters are write-through rather than signal-backed on purpose.** The build runs from
+`OnCreated`, so the parts exist before any parameter is assigned, and `BuildContext.Bind` runs its
+assignment immediately as well as on every later change. A signal in between would buy nothing and
+cost a frame.
 
 ## See also
 

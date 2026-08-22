@@ -241,14 +241,14 @@ public sealed partial class WaterModule : IEditorPlugin {
 
     /// <summary>One "label: value" row in a derived-facts readout.</summary>
     /// <remarks>
-    ///     <c>TerrainModule.Fact</c>'s four lines, copied for its stated reason: doc 20's
-    ///     <c>(derived)</c> convention is a shape — a row, a name, a value — and a shared helper would
-    ///     be an assembly reference for four lines of element building.
+    ///     <see cref="FactRow" />, which is where <c>TerrainModule.Fact</c>'s four lines now live —
+    ///     the reference they were being copied to avoid was already on this project, for
+    ///     <c>EditorShell</c>.
     /// </remarks>
     static void Fact(UiElement into, string label, string value) {
-        var row = into.Add("fact-row");
+        var row = into.Add<FactRow>();
 
-        row.Add("fact-name").Text = label;
-        row.Add("fact-value").Add("text").Text = value;
+        row.Name = label;
+        row.Value = value;
     }
 }

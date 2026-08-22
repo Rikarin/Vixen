@@ -502,9 +502,6 @@ public sealed partial class TerrainModule {
 
         for (var index = map.Layers.Count - 1; index >= 0; index--) {
             var layer = map.Layers[index];
-            var row = list.Add("fact-row");
-
-            row.Add("fact-name").Text = layer.Name;
 
             var state = layer.Kind switch {
                 TerrainLayerKind.Splines => "reserved — the spline tool owns it",
@@ -513,7 +510,7 @@ public sealed partial class TerrainModule {
                 _ => layer.IsVisible ? "visible" : "hidden"
             };
 
-            row.Add("fact-value").Add("text").Text = layer.IsLocked ? state + ", locked" : state;
+            Fact(list, layer.Name, layer.IsLocked ? state + ", locked" : state);
         }
     }
 

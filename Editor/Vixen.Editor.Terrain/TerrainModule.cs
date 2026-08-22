@@ -83,16 +83,19 @@ public sealed partial class TerrainModule : IEditorPlugin {
 
     /// <summary>One "label: value" row in a derived-facts readout.</summary>
     /// <remarks>
-    ///     ⚠ <b>A copy of the application's own four lines rather than a contract for it.</b> Doc 20's
-    ///     <c>(derived)</c> convention is a shape — a row, a name, a value — and the styling is the
-    ///     theme's; a shared helper would be an assembly reference for four lines of element
-    ///     building, which is the trade `PluginServices`' own remarks warn against.
+    ///     ⚠ <b>The copy is gone, and the assembly reference it was avoiding was already here.</b>
+    ///     This used to be four lines of element building duplicated from the application's own, on
+    ///     the argument that a shared helper would cost a reference for four lines. It would not:
+    ///     this module already references <c>Vixen.Editor.Ui</c> for <c>EditorShell</c>, and
+    ///     <see cref="FactRow" /> is the same four lines with the one thing markup cannot say —
+    ///     <c>fact-name</c>'s own <c>Text</c> — held behind a <c>ref</c>, so a panel ported to
+    ///     <c>.vxml</c> can write <c>&lt;FactRow /&gt;</c> in a <c>@for</c> and get this tree.
     /// </remarks>
     static void Fact(UiElement into, string label, string value) {
-        var row = into.Add("fact-row");
+        var row = into.Add<FactRow>();
 
-        row.Add("fact-name").Text = label;
-        row.Add("fact-value").Add("text").Text = value;
+        row.Name = label;
+        row.Value = value;
     }
 
     /// <inheritdoc />

@@ -423,24 +423,48 @@ the UI thread, is what the button reads.
 cared, because none of its selectors reach past the part — but a rule written as `task-title` and
 meaning "the thing with the words in it" would.
 
+## `Parts/` — the pieces more than one panel is made of
+
+`Parts/FactRow.vxml` is the first, and the folder is here rather than beside any one panel because
+nothing in it is this assembly's own chrome: a fact row is doc 20's `(derived)` convention — a row, a
+name, a value — and four assemblies had a copy of the four lines that build one.
+
+```csharp
+var row = facts.Add<FactRow>();
+
+row.Name = "Terrains to carve";
+row.Value = CarvableTerrains.ToString();
+```
+
+⚠ **A `UiElement` rather than a `Component`, so it is reachable from both spellings.** The panels
+that show facts are still C#; a part only a `.vxml` could name would have waited for them.
+`@inherits` costs nothing and the same type is `<FactRow Name="…" Value="…" />` in a `@for` the day
+one of them is ported — which is the point, because a part is also the *only* way markup can set an
+intrinsic child's own `Text` inside a loop. See the ledger's shape 5.
+
 ## The panel ledger — what is markup, what is next, and what never will be
 
 Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-written editor C#", and
 the honest version of that ratio has never been written down. This is it: **every panel in the
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
-**Where it stands.** Seventeen `.vxml` files across six assemblies, against **62 files and ~31,700
+**Where it stands.** Eighteen `.vxml` files across six assemblies — seventeen panels and one shared
+part, `Parts/FactRow.vxml` — against **62 files and ~31,700
 lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
 turn out not to be panels at all, which is the first finding. There are 25 `RegisterPanel` call
 sites and 34 `editor.panel.*` ids, so **34 is the denominator**, not 62 and not 120,000 lines.
 
 ⚠ **[`docs/overview.md`](../../docs/overview.md) and doc 36 § "F7's number" had both gone stale** —
 they said eleven and three — and are corrected in the same commit as this section. A count nobody
-can re-derive goes stale again: it is `find Editor -name '*.vxml'`.
+can re-derive goes stale again: it is `find Editor -name '*.vxml' -not -path '*/bin/*'` — the
+`-not` matters, because `Vixen.Editor.Ui.Tests` copies this assembly's markup into its output as
+fixtures and a bare `find` counts each of them twice.
 
-### The four shapes that decide a port
+### The four shapes that decide a port — and a fifth, found by trying
 
 Wave 1b found one reason a panel should be left alone. There are four, and only the first was known.
+Wave 3 added the fifth, which is below the other four because it was found by building against
+them rather than by reading.
 
 **1. The content reaches the screen through a control, not the tree.** `PluginHost`, `KeyMap` and
 `CommandRegistry` were left alone because every value they show goes through a `DataGrid` column
@@ -485,6 +509,22 @@ caller's element (`ProjectBrowser`, `ViewportLayout`, `SceneHierarchyView`, `Too
 worth their own line: their menus and popovers hang off the **document root**, so the bar is not an
 ancestor of its own items. There is no tree for markup to describe.
 
+**5. Markup cannot write an element's own `Text`.** An interpolation is `BuildContext.Text`, which
+creates a `text` *child*; and an attribute on an intrinsic tag is not a property assignment —
+`BuildContext.Attribute` special-cases `class` and `style` and sends everything else to
+`StyleTree.SetAttribute`, which is a selector attribute nothing reads back. So
+`row.Add("fact-name").Text = label` has **no markup spelling at all**: `<fact-name>@Name</fact-name>`
+adds a box and `<fact-name Text="@Name" />` silently does nothing. This is the mechanism behind the
+"a wrapped paragraph rounds differently at four, five and six lines" note — the difference is not
+rounding, it is an extra element.
+
+⚠ **The escape is a capitalised tag, and that is why the shared parts had to come first.** A
+*component* tag does get real property assignment (`ComponentEmitter.EmitParameter` writes
+`ctx.Bind(() => n1.Prop = …)`), and a component's `ref`s are its own. So a row wrapped in a
+component can set an intrinsic child's `Text` with a `ref` **and still be used inside a caller's
+`@for`**, where a bare `ref` is `VXML2010`. That is item 2 of the build list below, already
+available in the one shape that matters most: put the row in a part.
+
 ### Two recorded gaps are stale, and were verified closed
 
 ⚠ **`class=` on a control tag no longer clobbers.** `BuildContext.Attribute`'s remark reads as if it
@@ -500,6 +540,58 @@ it was blocked on nothing.
 
 Both had been carried forward as blockers in wave notes. **Verify a gap before you design around it.**
 
+### The shared parts: `FactRow` exists, `Section` is blocked by a bug, `VerbRow` is not worth one
+
+`Parts/FactRow.vxml` is the first of the three this section asked for, and it lands with its callers
+rather than ahead of them: `EditorWorlds`, `TerrainModule`, `WaterModule` and the terrain layer list
+all build their rows out of it now, and `FactRowTests` holds it to the four lines it replaced by
+dumping the whole document — tag, classes and every rectangle — for the hand-written form and for the
+part, in the same position, and comparing the two strings.
+
+⚠ **`Fact` was hand-written *six* times, not seven, and two of the six were a different row.**
+`EditorWorlds`, `TerrainModule`, `WaterModule` and `FontView` put the value in a `text` child;
+`TextureImportView` and `CompiledSceneView` set `fact-value`'s own `Text`. The part reproduces the
+four, because those are the four it replaces — and by shape 5 above, reconciling the other two is a
+layout change and not a tidy-up.
+
+⚠ **Three of the six are out of reach, and the reason is the reference graph rather than the code.**
+`FontView`, `TextureImportView` and `CompiledSceneView` are in `Vixen.Editor.AssetEditors`, which
+does not reference `Vixen.Editor.Ui` and should not start to for a row. The only assembly all six can
+see is `Vixen.Editor.Inspector`; whether a shared *panel* part belongs in the property-drawer
+assembly is a question for whoever wants the other three, and the honest answer today is that
+`Vixen.Editor.Ui` covers terrain, water, blockout and the app's own world panels, which is where the
+six S-sized ports are.
+
+⚠ **The rules stay in `AssetEditorTheme.vcss`.** `fact-row`, `fact-name` and `fact-value` are
+declared there, and `frame-editor fact-name` overrides two of them in the same sheet; moving the
+declarations into `EditorTheme` would move them earlier in the load order and change which one wins.
+The tag names are the contract, and `EditorApplication` installs both sheets into the one document.
+
+⚠ **`Section` cannot be shared until a two-year-old typo is decided, and the typo is that four
+titles have never been styled.** `WorldTheme.vcss` says `world-title`; `EditorWorlds` writes
+`panel.Add("world-title")` and `TerrainModulePanels`, `WaterModulePanels`, `BlockoutModulePanels` and
+`StandardFrameView` all write `panel.Add("World-title")` with a capital. `NameTable` interns
+ordinally and says why — VXML's own rule is that case distinguishes a component from an element — so
+the rule reaches one of the five call sites and never reached the other four. A shared `<Section>`
+has to pick a spelling, and either choice moves pixels in some panel: the right fix is to correct the
+four and accept `font-weight: 600; margin-top: 6px` appearing where it was always meant to, which is
+a change somebody should look at rather than one a refactor smuggles in.
+
+**`VerbRow` was not built, and the reason is that it buys nothing.** `verb-row` has no rule in any
+stylesheet in the tree; there are two copies of the helper (`TerrainModulePanels`,
+`WaterModulePanels`) and one inline use (`StandardFrameView`), each about eight lines; and a part
+whose `@for` followed a verb list would need that list to be a signal, so a caller assigning it after
+construction is a frame behind where three lines of C# are not. Worth revisiting when a panel that
+has verbs is actually being ported.
+
+⚠ **And the six S-sized ports need one more thing this section did not know.** Blockout settings, the
+two water panels and the three terrain ones build *directly into a `DockPanel`*, and
+`dock-panel.scrolls > * { flex-shrink: 0 }` reaches direct children only — so wrapping a whole panel
+in one markup component inserts a box that stops that rule reaching the content, and a tall panel
+compresses instead of scrolling. The way through is the one `FactRow` takes: port the panel's
+**parts**, each component's host tag being an element the panel already creates, so the tree is
+unchanged and the C# factory shrinks a piece at a time.
+
 ### The ledger
 
 Sizes are the wave-1b unit: four panels, ~1,130 lines of C# removed, ~1,370 of `.vxml` added, one
@@ -512,7 +604,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | Panel | Model | Signal-backed? | Verdict | Size |
 |---|---|---|---|---|
 | `BuildSettingsView` | snapshot | no, and cannot be — shape 3 | **done, wave 2** | M |
-| `FlameChartView` | snapshot | no | **port next.** `GpuTimelineView.vxml` names it: it still pools, and a keyed `@for` is that pool | S/M |
+| `FlameChartView` | snapshot | no | **no, and the nomination was backwards** — see below | S/M |
 | `CompiledSceneView` | snapshot | no | **port.** Purest snapshot in the tree; 6 tests, all on the view | M |
 | `VariationHarnessView` | snapshot | no | **port.** Read-only text and classes, *zero* value-change subscriptions | S |
 | `SettingsView` | live (view-local) | no | **port — the exclusion is lifted.** See below | M |
@@ -531,6 +623,28 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
 | `InspectorView` + the four drawers · `TargetOverrideMatrix` | — | — | **no** — a drawer *is* a factory, and markup cannot be one | — |
 | `ProjectBrowser` · `SceneHierarchyView` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `DialogService` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` | — | — | **not panels** — shape 4 | — |
+
+⚠ **`FlameChartView` was nominated for the wrong reason and is a "no" for three.** The nomination
+read "it still pools, and a keyed `@for` is that pool", which is what made the GPU timeline's port
+free — and the asymmetry between the two bars is the whole answer. `gpu-bar` has no interactive
+state in the sheet; `flame-bar` has `:hover` **and** `:checked`.
+
+1. **The pool carries the hover, and a keyed `@for` cannot.** `UiDocument.Track` sets `:hover` as a
+   *difference between two element chains* (`Hover.cs`) — an element that is replaced loses the state
+   until the pointer moves again, and clicking a bar re-zooms, which changes every bar's geometry and
+   therefore every key. The C# pool keeps the same object in the same slot; whether that is *right*
+   is a separate question — after a zoom the surviving hover is on whatever bar now occupies the slot
+   — but the two behaviours differ, and a port that changes pixels is a defect until argued for.
+2. **The caption is `bar.Text` on a bare `UiElement`, which by shape 5 markup cannot write** —
+   inside a `@for`, where the `ref` escape is `VXML2010`. Every bar would gain a `text` child inside a
+   `padding: 0 4px; overflow: hidden; align-items: center` box.
+3. **The selection is `bar.State |= Checked`**, a flag set shared with Hover and Active — exactly
+   what `KeyBindingsView` kept imperative and for exactly the same reason — and there is no per-row
+   handle to keep it imperative with.
+
+So it belongs beside `AudioMixerView`: blocked on **item 2** of the build list rather than item 1,
+and unblocked the day a `@for` body can hold a handle of its own. Until then `GpuTimelineView.vxml`'s
+remark that the `parked` rule "still exists for `FlameChartView`, which still pools" stays true.
 
 ⚠ **`ViewportChrome` is a "no" for a positive reason**, not an absence: it throttles its stats to
 every fifteenth frame on purpose, to keep the window's draw list re-usable, and a binding would
@@ -568,10 +682,11 @@ the same pattern and simpler — an element owned by no region, so `Reload()`'s 
    which are three of the most-looked-at surfaces in the editor.
 4. **A `Select` whose options come from markup.** `AddOption` is a method, and combined with
    `VXML2010` an enum dropdown inside a `@for` is inexpressible.
-5. **Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.** `Fact` is hand-written seven
-   times and `Section`/`Verbs`/`Clear` four times each. Every small terrain, water and blockout panel
-   collapses to a short file once these exist — the cheapest item on this list and the one that makes
-   six of the S-sized ports nearly free.
+5. ~~**Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.**~~ **`FactRow` is built** and has
+   four callers; `Section` is blocked on the `World-title` casing bug and `VerbRow` earns nothing
+   yet. See "The shared parts" above. What the exercise proved is worth more than the row: a part is
+   the *only* way markup can write an intrinsic element's own text inside a loop, which promotes
+   item 2 from a convenience to the thing everything else is waiting on.
 
 ## Localisation
 

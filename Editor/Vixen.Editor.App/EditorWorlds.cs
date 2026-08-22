@@ -144,11 +144,7 @@ sealed partial class EditorApplication {
                 Budgets(facts);
 
                 foreach (var view in LightingDebugViews) {
-                    var row = panel.Add("fact-row");
-                    row.Add("fact-name").Text = view;
-
-                    var value = row.Add("fact-value").Add("text");
-                    value.Text = "needs the GI path — doc 14 Phase 7";
+                    Fact(panel, view, "needs the GI path — doc 14 Phase 7");
                 }
             }
         );
@@ -282,11 +278,16 @@ sealed partial class EditorApplication {
         );
     }
 
+    /// <summary>One "label: value" row in a derived-facts readout.</summary>
+    /// <remarks>
+    ///     <see cref="FactRow" />, the shared part — this was the original of the four lines
+    ///     <c>TerrainModule</c> and <c>WaterModule</c> each kept a copy of.
+    /// </remarks>
     static void Fact(UiElement into, string label, string value) {
-        var row = into.Add("fact-row");
+        var row = into.Add<FactRow>();
 
-        row.Add("fact-name").Text = label;
-        row.Add("fact-value").Add("text").Text = value;
+        row.Name = label;
+        row.Value = value;
     }
 
     /// <summary>Bakes a navigation mesh over the scene's geometry and reports what came out.</summary>
