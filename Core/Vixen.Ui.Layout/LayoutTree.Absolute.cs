@@ -291,6 +291,7 @@ public sealed partial class LayoutTree {
         var containingBlockWidth = containingBlock.Width;
         var containingBlockSize = containingBlock.SizeOn(axis);
         var flexStart = (int) FlexAxis.FlexStartEdge(axis);
+        var (usedStartMargin, usedEndMargin) = UsedAbsoluteMargins(child, axis, direction, in containingBlock);
 
         // The start inset wins over the end inset when both are set. The result is written to the
         // flex-start edge either way, because that is the edge everything else in the algorithm
@@ -299,7 +300,7 @@ public sealed partial class LayoutTree {
             && !StyleResolution.IsInlineStartPositionAuto(in styles[child], axis, direction)) {
             var relativeToInlineStart = StyleResolution.InlineStartPosition(in styles[child], axis, direction, containingBlockSize)
                 + InlineStartOffsetOf(in containingBlock, containingNode, axis, direction)
-                + StyleResolution.InlineStartMargin(in styles[child], axis, direction, containingBlockSize);
+                + usedStartMargin;
 
             results[child].Position[flexStart] = FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
                 ? PositionOfOppositeEdge(relativeToInlineStart, axis, containingNode, child)
@@ -313,7 +314,7 @@ public sealed partial class LayoutTree {
             var relativeToInlineStart = results[containingNode].MeasuredDimensions[dimension]
                 - results[child].MeasuredDimensions[dimension]
                 - InlineEndOffsetOf(in containingBlock, containingNode, axis, direction)
-                - StyleResolution.InlineEndMargin(in styles[child], axis, direction, containingBlockSize)
+                - usedEndMargin
                 - StyleResolution.InlineEndPosition(in styles[child], axis, direction, containingBlockSize);
 
             results[child].Position[flexStart] = FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
@@ -454,6 +455,71 @@ public sealed partial class LayoutTree {
             + results[parent].Border[startEdge]
             + results[parent].Padding[startEdge]
             + StyleResolution.FlexStartMargin(in styles[child], axis, direction, containingBlockWidth);
+    }
+
+    /// <summary>
+    ///     CSS 2.1 §10.3.7: an over-constrained inset equation hands its slack to whichever margin
+    ///     said <c>auto</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Over-constrained is the precondition, and it is why this is not the in-flow auto
+    ///         margin written a second time.</b> An in-flow box has one equation and one unknown, so
+    ///         an <c>auto</c> margin is what centres it. An out-of-flow box with both insets and a
+    ///         size stated has <i>no</i> unknown left — §10.3.7's equation cannot balance — and CSS
+    ///         resolves that by declaring the auto margins the unknowns after all. With neither inset
+    ///         given there is nothing to be over-constrained about and an auto margin is simply zero,
+    ///         which is what the corpus's twelve <c>*_without_inset</c> families already asserted and
+    ///         got right by doing nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Negative slack is handed over as readily as positive, and only the both-<c>auto</c>
+    ///         case carves it out.</b> §10.3.7 splits the slack evenly between two auto margins
+    ///         "unless that would make them negative, in which case, when the direction is
+    ///         left-to-right, set <c>margin-left</c> to zero and solve for <c>margin-right</c>".
+    ///         <c>block_absolute_margin_auto_left_child_bigger_than_parent_with_inset</c> is the
+    ///         single-margin half of that — a 72-point box in a 52-point block lands at x=−40 — and
+    ///         <c>…_left_right_…</c> is the both-margin half, which lands at x=10 instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written here rather than in the block walk, because it is absolute positioning's
+    ///         rule and not block formatting's.</b> The corpus only exercises it under
+    ///         <c>block/</c> — Yoga does not implement it and the flex corpus has no fixture — so the
+    ///         oracle for the flex and grid parents this also reaches is WPT's
+    ///         <c>css/css-position/</c> rather than a fixture. Restricting it to block parents would
+    ///         have been the smaller change and a worse one: nothing in §10.3.7 mentions the parent's
+    ///         formatting context, and an abspos box's parent has no say in its geometry anyway.
+    ///     </para>
+    /// </remarks>
+    (float Start, float End) UsedAbsoluteMargins(int child, FlexDirection axis, Direction direction, in AbsoluteContainingBlock block) {
+        var size = block.SizeOn(axis);
+        var start = StyleResolution.InlineStartMargin(in styles[child], axis, direction, size);
+        var end = StyleResolution.InlineEndMargin(in styles[child], axis, direction, size);
+
+        var startIsAuto = StyleResolution.InlineStartMarginIsAuto(in styles[child], axis, direction);
+        var endIsAuto = StyleResolution.InlineEndMarginIsAuto(in styles[child], axis, direction);
+
+        if ((!startIsAuto && !endIsAuto) || !BothInsetsDefined(child, axis, direction)) {
+            return (start, end);
+        }
+
+        var slack = size
+            - StyleResolution.InlineStartPosition(in styles[child], axis, direction, size)
+            - StyleResolution.InlineEndPosition(in styles[child], axis, direction, size)
+            - results[child].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)]
+            - (startIsAuto ? 0f : start)
+            - (endIsAuto ? 0f : end);
+
+        // ⚠ The negative carve-out is §10.3.7's and it is the INLINE axis's alone. §10.6.4 states the
+        // block-axis rule without it — "solve the equation under the extra constraint that the two
+        // margins get equal values", full stop — so a box taller than the gap between `top` and
+        // `bottom` overflows equally at both ends rather than being pinned to the top. No fixture
+        // separates the two; WPT's css-position tests and the specification's own wording do.
+        if (startIsAuto && endIsAuto) {
+            return slack < 0f && FlexAxis.IsRow(axis) ? (0f, slack) : (slack / 2f, slack / 2f);
+        }
+
+        return startIsAuto ? (slack, end) : (start, slack);
     }
 
     /// <summary>A node's padding box, which is the containing block of everything below it.</summary>

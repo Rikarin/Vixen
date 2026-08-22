@@ -15,17 +15,18 @@ algorithm is the valuable part.
 168 ask for a property this store has no field for, and 158 are known gaps listed with a diagnosis
 each — see [the corpus README](../Vixen.Ui.Layout.Tests/Taffy/README.md).
 
-**Block layout landed with doc 43 § B1 and is the store's second algorithm.** 746 of the 912
+**Block layout landed with doc 43 § B1 and is the store's second algorithm.** 768 of the 912
 `block` and `blockflex` fixtures pass, 124 are refused for a property this store has no field for,
-and 42 fail — every one of them in the *absolute* path, in two buckets that predate block layout and
+and 20 fail — every one of them in the *absolute* path, in one bucket that predates block layout and
 that a flex parent hits identically. See [the block section](#block-layout-and-what-a-second-algorithm-cost)
 below and `Taffy/BlockKnownGaps.txt`.
 
-**Grid landed with doc 43 § B2 and is the third.** 1 526 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 132 are refused, and 462 fail in the buckets `Taffy/GridKnownGaps.txt`
-names one at a time. It is **partial and says which part**: placement (§8) and the bulk of track
-sizing (§12) are done, baseline alignment and CSS Grid §9's containing block are not, and
-`grid-template-areas` is **not implemented at all** — see [the grid section](#grid-and-the-part-with-no-oracle).
+**Grid landed with doc 43 § B2 and is the third.** 1 622 of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, 132 are refused, and 366 fail in the buckets `Taffy/GridKnownGaps.txt`
+names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
+sizing (§12) and CSS Grid §9's containing block for out-of-flow children are done, baseline
+alignment is not, and `grid-template-areas` is **not implemented at all** — see
+[the grid section](#grid-and-the-part-with-no-oracle).
 
 **Inline formatting landed with doc 43 § B3 and is the fourth**, and it is the first mode to arrive
 with **no corpus at all**: not one of the 6 058 fixtures sets `display: inline*` or `vertical-align`,
@@ -240,7 +241,7 @@ Doc 43 § B2, and the largest single item in that plan at 3.5 EM of about 19. **
 already here**: 2 040 `grid` fixtures plus 56 `blockgrid` and 24 `gridflex`, every one refused at
 exactly one point — the `display` keyword — since B0 committed them. The prediction paid out for the
 second time: they went from 8 passing to 1 526 in the commit that added the keyword and the
-algorithm behind it, and nothing about the harness changed.
+algorithm behind it — 1 622 as of §9's containing block — and nothing about the harness changed.
 
 ### What a *third* algorithm cost, and it was not what block cost
 
@@ -263,7 +264,7 @@ declaration and the corpus contains it, so fixed repetitions are expanded once o
 only text parsing here, and the exception is argued rather than accidental. It is the inverse of
 `GridTrackSize.ToString`, which already emits `minmax(0,1fr)`; and it is what lets the conformance
 corpus and the CSS bridge read a track list with the same lines. That matters more than the layering
-does: every one of the 1 526 passing grid fixtures arrives through `TaffyStyleMap` and never touches
+does: every one of the passing grid fixtures arrives through `TaffyStyleMap` and never touches
 CSS, so a grammar written only for stylesheets would have had no adversarial coverage at all.
 `TaffyTrackListParser` is now an adapter between its returned refusal and the corpus's thrown one.
 
@@ -506,8 +507,10 @@ It reports every fixture it could not translate and why. Nine are skipped today,
 oracle in either corpus. See the grid section above for why writing them against expectations of our
 own devising was the wrong trade.
 
-**Grid's baseline alignment and §9 containing block**, both listed per fixture in
-`Taffy/GridKnownGaps.txt`.
+**Grid's baseline alignment**, listed per fixture in `Taffy/GridKnownGaps.txt`. §9's containing
+block for an out-of-flow child is done: the grid area is cut out of the finished tracks and handed
+to `LayoutTree.Absolute` as a per-child rectangle, which is what closed 96 `grid_absolute_*`
+fixtures.
 
 **Non-atomic inline fragmentation, anonymous block boxes, the strut, and `text-align`** — the parts
 of inline formatting that survived § B3. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
@@ -515,10 +518,12 @@ and `Taffy/../InlineKnownGaps.txt`.
 
 **Floats.** See the block section above for where they attach; 84 fixtures wait on them.
 
-**Auto margins on an absolutely positioned box** (CSS 2.1 §10.3.7) and **`aspect-ratio` re-applied
-after an absolute box's size is clamped** — the two buckets that make up all 42 block failures and
-part of the 158 flex ones. Both live in `LayoutTree.Absolute.cs`, which is shared with Yoga's 534, so
-they want a change of their own rather than a block-shaped patch.
+**`aspect-ratio` re-applied after an absolute box's size is clamped** — the bucket that makes up
+all 20 remaining block failures and part of the 158 flex ones. It lives in `LayoutTree.Absolute.cs`,
+which is shared with Yoga's 534, so it wants a change of its own rather than a block-shaped patch.
+Auto margins on an absolutely positioned box (CSS 2.1 §10.3.7 and §10.6.4) were the other half of
+that sentence and are now implemented, judged by the 22 `block_absolute_margin_auto_*_with_inset`
+fixtures and, for the cases none of them reaches, by `AbsoluteAutoMarginTests`.
 
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to

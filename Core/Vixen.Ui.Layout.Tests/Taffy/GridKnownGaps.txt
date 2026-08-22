@@ -15,10 +15,10 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1622 of the 2 120 grid, blockgrid and gridflex fixtures pass, 366 fail and 132 are refused.
+# 1 622 of the 2 120 grid, blockgrid and gridflex fixtures pass, 366 fail and 132 are refused.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
-# with every one of its 42 failures outside block formatting. Grid has not: the buckets below are
+# with every one of its failures outside block formatting. Grid has not: the buckets below are
 # real grid gaps, and the largest of them — baseline alignment — is a whole feature rather than an
 # arithmetic slip. What IS complete is placement (§8), the bulk of track sizing (§12) and, as of
 # this file's 366, §9's containing block for out-of-flow children: every `grid_placement_*`,

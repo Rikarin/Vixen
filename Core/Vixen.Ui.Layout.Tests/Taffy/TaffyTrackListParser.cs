@@ -11,7 +11,7 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         ⚠ <b>The grammar itself is no longer here.</b> It moved to
 ///         <see cref="GridTrackList" /> in the layout assembly so that the stylesheet bridge and this
 ///         corpus read a track list with the same lines. That matters more than it looks: every one
-///         of the corpus's 1 526 passing grid fixtures arrives through <c>TaffyStyleMap</c> and never
+///         of the corpus's passing grid fixtures arrives through <c>TaffyStyleMap</c> and never
 ///         touches CSS, so a second grammar written for the stylesheet would have had no adversarial
 ///         coverage at all — no <c>repeat(40000, 10px 10px)</c>, no 84 KB attribute of longhand
 ///         tracks, none of the <c>0fr</c> families. Sharing one grammar points all of that at the
