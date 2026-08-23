@@ -3347,6 +3347,7 @@ T:Vixen.Ui.Controls.OpenChangedEvent sweep-pending
 T:Vixen.Ui.Controls.Option sweep-pending
 T:Vixen.Ui.Controls.Orientation sweep-pending
 T:Vixen.Ui.Controls.Overlay sweep-pending
+T:Vixen.Ui.Controls.OverscrollBehavior sweep-with-ScrollView — the value type of a ScrollView property, exempt on the terms ScrollView itself is; what the two members mean, and why `contain` and `none` are one behaviour in an engine with no rubber-band, is in Vixen.Ui.Controls/README.md § What ScrollView reads out of the cascade
 T:Vixen.Ui.Controls.PageButton sweep-pending
 T:Vixen.Ui.Controls.Pagination sweep-pending
 T:Vixen.Ui.Controls.Panel sweep-pending
@@ -3357,6 +3358,7 @@ T:Vixen.Ui.Controls.RadioButton sweep-pending
 T:Vixen.Ui.Controls.RadioGroup sweep-pending
 T:Vixen.Ui.Controls.RangeBase sweep-pending
 T:Vixen.Ui.Controls.RangeSlider sweep-pending
+T:Vixen.Ui.Controls.ScrollBehavior sweep-with-ScrollView — ditto; it governs programmatic scrolls only, and the reason the wheel and a bar drag are exempt from it is on the same README section and in docs/guide/editor/utility-styles.md
 T:Vixen.Ui.Controls.ScrollBar sweep-pending
 T:Vixen.Ui.Controls.ScrollView sweep-pending
 T:Vixen.Ui.Controls.SearchBox sweep-pending

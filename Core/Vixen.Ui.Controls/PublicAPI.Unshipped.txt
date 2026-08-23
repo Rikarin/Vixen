@@ -395,6 +395,10 @@ Vixen.Ui.Controls.Overlay.Overlay() -> void
 Vixen.Ui.Controls.Overlay.Placement.get -> Vixen.Ui.Controls.Placement
 Vixen.Ui.Controls.Overlay.Placement.set -> Vixen.Ui.Controls.Placement
 Vixen.Ui.Controls.Overlay.Reposition() -> void
+Vixen.Ui.Controls.OverscrollBehavior -> enum : byte
+Vixen.Ui.Controls.OverscrollBehavior.Auto = 0 -> Vixen.Ui.Controls.OverscrollBehavior
+Vixen.Ui.Controls.OverscrollBehavior.Contain = 1 -> Vixen.Ui.Controls.OverscrollBehavior
+Vixen.Ui.Controls.OverscrollBehavior.OverscrollBehavior() -> void
 Vixen.Ui.Controls.PageButton -> sealed class
 Vixen.Ui.Controls.PageButton : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.PageButton.Page.get -> int
@@ -532,22 +536,29 @@ Vixen.Ui.Controls.ScrollBar.Value.get -> float
 Vixen.Ui.Controls.ScrollBar.Value.set -> float
 Vixen.Ui.Controls.ScrollBar.ViewportSize.get -> float
 Vixen.Ui.Controls.ScrollBar.ViewportSize.set -> float
+Vixen.Ui.Controls.ScrollBehavior -> enum : byte
+Vixen.Ui.Controls.ScrollBehavior.Instant = 0 -> Vixen.Ui.Controls.ScrollBehavior
+Vixen.Ui.Controls.ScrollBehavior.ScrollBehavior() -> void
+Vixen.Ui.Controls.ScrollBehavior.Smooth = 1 -> Vixen.Ui.Controls.ScrollBehavior
 Vixen.Ui.Controls.ScrollView -> sealed class
 Vixen.Ui.Controls.ScrollView : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.ScrollView.ClearScrollLeft() -> void
 Vixen.Ui.Controls.ScrollView.ClearScrollTop() -> void
 Vixen.Ui.Controls.ScrollView.Content.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.ScrollView.HorizontalBar.get -> Vixen.Ui.Controls.ScrollBar
+Vixen.Ui.Controls.ScrollView.IsScrolling.get -> bool
 Vixen.Ui.Controls.ScrollView.MaximumLeft.get -> float
 Vixen.Ui.Controls.ScrollView.MaximumTop.get -> float
 Vixen.Ui.Controls.ScrollView.Refresh() -> void
 Vixen.Ui.Controls.ScrollView.ScrollIntoView(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.Controls.ScrollView.ScrollLeft.get -> float
 Vixen.Ui.Controls.ScrollView.ScrollLeft.set -> float
+Vixen.Ui.Controls.ScrollView.ScrollTo(float top, float left) -> void
 Vixen.Ui.Controls.ScrollView.ScrollTop.get -> float
 Vixen.Ui.Controls.ScrollView.ScrollTop.set -> float
 Vixen.Ui.Controls.ScrollView.ScrollView() -> void
 Vixen.Ui.Controls.ScrollView.Scrolled -> System.Action<Vixen.Ui.Controls.ScrollView>?
+Vixen.Ui.Controls.ScrollView.Settle() -> void
 Vixen.Ui.Controls.ScrollView.VerticalBar.get -> Vixen.Ui.Controls.ScrollBar
 Vixen.Ui.Controls.SearchBox -> sealed class
 Vixen.Ui.Controls.SearchBox : Vixen.Ui.Controls.TextField
@@ -749,6 +760,7 @@ Vixen.Ui.Controls.VirtualizingPanel.ScrollIntoView(int item) -> void
 Vixen.Ui.Controls.VirtualizingPanel.Scroller.get -> Vixen.Ui.Controls.ScrollView
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
+const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float
 const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
 const Vixen.Ui.Controls.VirtualizingPanel.Overscan = 2 -> int
 override Vixen.Ui.Controls.Accordion.AcceptsFocus.get -> bool

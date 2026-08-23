@@ -144,13 +144,34 @@ specificity and beats a child's own `mb-0`, exactly as Tailwind v3 did. And `spa
 nobody here and there is no writing mode for the two to differ in. `@apply space-x-4` is refused, for
 the same reason `@apply hover:bg-accent` is: it is a rule with a selector of its own.
 
-⚠ **`mix-blend-*`, `origin-*` and the `scroll-*` set are deliberately not families**, and each is a
-measured verdict rather than an omission. Nothing in the engine reads `mix-blend-mode` (there is no
-blend channel on a `DrawCommand` and no offscreen target to blend into) or `transform-origin` (which
-needs a transform whose fixed point matters, and `translate` — the only one implemented — is
-origin-independent). `scroll-m-*`, `scroll-p-*` and `scroll-behavior` are deferred rather than
-refused: scrolling here is `ScrollView`, a control, so the behaviour lands first and the utilities
-become properties it reads. See `docs/plan/43-web-styling-parity.md` § F9.
+⚠ **`mix-blend-*` and `origin-*` are deliberately not families**, and each is a measured verdict
+rather than an omission. Nothing in the engine reads `mix-blend-mode` (there is no blend channel on a
+`DrawCommand` and no offscreen target to blend into) or `transform-origin` (which needs a transform
+whose fixed point matters, and `translate` — the only one implemented — is origin-independent). See
+`docs/plan/43-web-styling-parity.md` § F9.
+
+⚠ **The `scroll-*` set is written now, and every one of them only means something inside a
+`<ScrollView>`.** `scroll-mt-4` on a `div` that nothing ever scrolls to resolves, computes a value and
+does nothing, which is true of the CSS as well and is the reason these were held back until the
+reader existed. What each is for:
+
+- **`scroll-m-*`** goes on the **target** — the row, the field, the section heading — and says "leave
+  this much room around me when something scrolls to me". A sticky header two rows deep is the usual
+  cause: `scroll-mt-10` on the rows stops the header covering whichever one just took focus.
+- **`scroll-p-*`** goes on the **`ScrollView`** and says the same thing from the container's side, so
+  one declaration covers every target inside it. Where both apply they add up, as CSS does.
+- **`scroll-smooth`** on a `ScrollView` eases its *programmatic* scrolls — `ScrollIntoView`, Page,
+  Home, End — over about 75 ms. ⚠ It does **not** smooth the wheel or a drag on the bar, and neither
+  does a browser: an eased wheel lags the finger by the whole time constant and reads as a dropped
+  frame.
+- **`overscroll-contain`** on an inner `ScrollView` stops the wheel chaining to the panel behind it
+  once the inner has run out. ⚠ `overscroll-none` does the same thing here — the two differ in CSS
+  only over the rubber-band that this engine does not have.
+
+The logical edges (`scroll-ms-*`, `scroll-pe-*`, …) mirror under `direction: rtl` exactly as `ms-*`
+does. The **block** ones — v4's `scroll-mbs-*` and friends — are absent, for the reason `space-y-*`
+writes `margin-bottom`: nothing here interns a block longhand. `snap-*` and `scrollbar-*` are still
+deferred; see `docs/plan/43-web-styling-parity.md` Part 8 § 3.
 
 ⚠ **`ring-*` is a `box-shadow`, not an outline, and it used to emit `outline-color` — a property no
 version of Tailwind has ever emitted for it.** `ring-2` is `box-shadow: 0 0 0 2px currentcolor`: a

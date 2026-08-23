@@ -68,7 +68,11 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         which asserts <i>what</i> happened rather than <i>that</i> something did.
 ///     </para>
 /// </remarks>
-sealed record ProbeScene(string Name, string Css);
+/// <param name="Scrolling">
+///     Whether <c>#probe</c> is a <see cref="ScrollView" /> nested inside another one, and the scene
+///     drives scrolls between the recorded frames. False for every scene but <c>scrolled</c>.
+/// </param>
+sealed record ProbeScene(string Name, string Css, bool Scrolling = false);
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
 /// <remarks>
@@ -470,6 +474,64 @@ static class UtilityConsumptionProbe {
             #short { width: 36px; }
             #after { width: 30px; height: 20px; background-color: #a0a040; }
             """
+        ),
+
+        // ⚠ <b>Scrolled, and it is the only scene in which anything scrolls at all.</b> The seventh
+        // time this list has been the thing missing rather than the engine, and the first where the
+        // arrangement had to *do* something between frames as well as be shaped a certain way.
+        //
+        // The four scroll families say where a scroll lands, how it gets there and what happens at
+        // the end. Every one of those is a question about a scroll that is actually happening, so a
+        // static tree measures all four inert however well `ScrollView` reads them — and a tree with
+        // one scroll container measures half of them inert, because `scroll-margin` is read off the
+        // *target* and `scroll-padding` off the *container* and the injected declaration only ever
+        // lands on `#probe`. Hence the nesting: `#probe` is a `ScrollView` inside a `ScrollView`, so
+        // it is the target of the outer one's `ScrollIntoView` and the container of its own.
+        //
+        // ⚠ <b>And the scrolls are driven in three phases, because one call cannot see both edges.</b>
+        // `ScrollIntoView` moves the minimum that works, so a target above the viewport exercises
+        // `scroll-margin-top` and tells you nothing whatever about `scroll-margin-bottom` — the
+        // branch never runs. The gate is per-longhand, so a scene that only ever approached from one
+        // side would leave six of the twelve inset properties measuring inert with the reader present.
+        // Phase 0 approaches everything from below-right, phase 1 from above-left, and phase 2 is the
+        // wheel. `direction` is left `ltr`, so `-inline-start` folds onto the left and `-inline-end`
+        // onto the right and the same two phases cover them.
+        //
+        // ⚠ <b>The wheel is last on purpose.</b> It calls `ScrollView.Settle`, which abandons any
+        // smooth scroll in flight — so a phase 2 that ran before the recorded frames would erase the
+        // one thing `scroll-behavior: smooth` can be seen by, and the property would measure inert
+        // because the scene cancelled it rather than because nothing reads it.
+        new(
+            "scrolled",
+            """
+            /* ⚠ `ControlTheme.vcss` itself, quoted, because this project loads no theme and a
+               `ScrollView` without one does not scroll. `scroll-content { flex-shrink: 0 }` is the
+               load-bearing line: a column flex container shrinks its items to fit before it lets
+               them overflow, so an unstyled scroll view measures its content at its own height and
+               `MaximumTop` is zero for ever. That is the `dock-panel.scrolls > *` finding one level
+               down, and it cost a run — the four right-hand insets measured consumed and the eight
+               top and left ones inert, which reads exactly like a half-written reader. */
+            scroll-view          { flex-direction: column; overflow: hidden; position: relative; }
+            scroll-content       { flex-direction: column; flex-shrink: 0; align-self: flex-start; min-width: 100%; }
+            scrollbar            { position: absolute; }
+            scrollbar.vertical   { top: 0px; right: 0px; bottom: 0px; width: 10px; }
+            scrollbar.horizontal { left: 0px; right: 0px; bottom: 0px; height: 10px; }
+
+            #host   { display: flex; flex-direction: column; width: 200px; height: 140px; align-items: flex-start; }
+            #outer  { width: 100px; height: 60px; }
+            #lead   { width: 260px; height: 90px; background-color: #404060; }
+            #trail  { width: 260px; height: 90px; background-color: #604040; }
+            #probe  { width: 60px; height: 40px; margin-left: 110px; background-color: #204080; }
+            #above  { width: 140px; height: 50px; background-color: #206040; }
+            #below  { width: 140px; height: 50px; background-color: #402060; }
+            #mark   { width: 30px; height: 12px; margin-left: 70px; background-color: #c0a020; }
+            .kid    { width: 8px; height: 8px; }
+            #wide   { width: 8px; height: 8px; }
+            #label  { width: 30px; }
+            #short  { width: 30px; }
+            #after  { width: 30px; height: 12px; background-color: #a0a040; }
+            """,
+            Scrolling: true
         )
     ];
 
@@ -892,16 +954,39 @@ static class UtilityConsumptionProbe {
         document.Load(css.ToString(), StyleOrigin.Author);
 
         var host = document.Create("div", document.Root, "host");
-        var probe = document.Create("div", host, "probe");
 
-        document.Create("div", probe, null, "kid");
-        document.Create("div", probe, null, "kid");
-        document.Create("div", probe, "wide");
+        // In the scrolled scene `#probe` is a `ScrollView` rather than a `div`, and the shared
+        // children go into its content rather than into it: a `ScrollView`'s own children are its
+        // parts, and a kid added beside `scroll-content` is a kid that does not scroll.
+        ScrollView? outer = null;
+        ScrollView? inner = null;
+        UiElement? mark = null;
 
-        var label = document.Create("span", probe, "label");
+        UiElement probe;
+        UiElement body;
+
+        if (scene.Scrolling) {
+            outer = host.Add<ScrollView>(null, "outer");
+            document.Create("div", outer.Content, "lead");
+
+            inner = outer.Content.Add<ScrollView>(null, "probe");
+            document.Create("div", outer.Content, "trail");
+
+            probe = inner;
+            body = inner.Content;
+        } else {
+            probe = document.Create("div", host, "probe");
+            body = probe;
+        }
+
+        document.Create("div", body, null, "kid");
+        document.Create("div", body, null, "kid");
+        document.Create("div", body, "wide");
+
+        var label = document.Create("span", body, "label");
         label.Text = "Ag jq Wm il";
 
-        var short_ = document.Create("span", probe, "short");
+        var short_ = document.Create("span", body, "short");
         short_.Text = "Ag";
 
         // ⚠ <b>An icon, because `fill` and `stroke` have no other observable and a scene without one
@@ -914,7 +999,7 @@ static class UtilityConsumptionProbe {
         // overrides: a `Literal` would be an icon the properties are supposed to leave alone, and a
         // `None` stroke would leave `stroke` with nothing to move. One path carrying both slots is
         // enough, and cheaper than two.
-        var art = probe.Add<Icon>();
+        var art = body.Add<Icon>();
 
         art.Art = new IconArt(
             new IconPath(
@@ -924,6 +1009,12 @@ static class UtilityConsumptionProbe {
                 2f
             )
         );
+
+        if (scene.Scrolling) {
+            document.Create("div", body, "above");
+            mark = document.Create("div", body, "mark");
+            document.Create("div", body, "below");
+        }
 
         document.Create("div", host, "after");
 
@@ -944,11 +1035,32 @@ static class UtilityConsumptionProbe {
             document.Draw();
         }
 
+        // ⚠ The extra frame is inside the branch, so every other scene's frame count is exactly what
+        // it was. Adding one globally would have re-timed all thirteen existing baselines — every
+        // transition would be sampled a frame further along — and quietly re-measured properties this
+        // change has nothing to do with.
+        if (scene.Scrolling) {
+            Approach(0);
+
+            now += TimeSpan.FromMilliseconds(16);
+            document.Tick(now);
+            document.Update();
+            document.Draw();
+        }
+
         Record();
 
         probe.AddClass("moved");
 
+        if (scene.Scrolling) {
+            Approach(1);
+        }
+
         for (var frame = 0; frame < 3; frame++) {
+            if (scene.Scrolling && frame == 2) {
+                Approach(2);
+            }
+
             now += TimeSpan.FromMilliseconds(16);
             document.Tick(now);
             document.Update();
@@ -957,6 +1069,99 @@ static class UtilityConsumptionProbe {
         }
 
         return new SceneSignature(layout.ToString(), paint.ToString(), cursor.ToString(), hit.ToString());
+
+        // One of the three scroll approaches the `scrolled` scene needs. See that scene's remark for
+        // why there are three of them and why the wheel is last.
+        void Approach(int phase) {
+            if (outer is null || inner is null || mark is null) {
+                return;
+            }
+
+            // ⚠ <b>Twice, and neither is optional.</b> `ScrollIntoView`, `MaximumTop` and `Bounds` are
+            // every one of them answers about the *laid-out* tree, and a phase runs between frames —
+            // so without the first pass they are read from the frame before the offsets were set, and
+            // without the second they are read from before this phase's own move. Getting this wrong
+            // does not throw: it silently approaches from the side the previous phase left it on, and
+            // the eight properties whose branch never ran measure inert with the reader present.
+            document.Update();
+
+            switch (phase) {
+                // From below-right: the outer is at the top, so `#probe` is past the bottom edge and
+                // past the right one, and the far-edge branch of both axes runs. That is what makes
+                // `scroll-margin-bottom`, `-right` and `-inline-end` observable.
+                case 0:
+                    outer.ScrollTop = 0f;
+                    outer.ScrollLeft = 0f;
+
+                    inner.ScrollTop = 0f;
+                    inner.ScrollLeft = 0f;
+
+                    document.Update();
+
+                    outer.ScrollIntoView(inner);
+                    inner.ScrollIntoView(mark);
+                    break;
+
+                // From above-left, which is the other branch and the other six properties. The
+                // inner's scroll is also the one `scroll-behavior` eases, and it is started here
+                // rather than in phase 0 because the three frames after this point are recorded
+                // individually — a smooth scroll and an instant one agree about where the offset
+                // finishes and differ only on the way.
+                case 1:
+                    outer.ScrollTop = outer.MaximumTop;
+                    outer.ScrollLeft = outer.MaximumLeft;
+
+                    inner.ScrollTop = inner.MaximumTop;
+                    inner.ScrollLeft = inner.MaximumLeft;
+
+                    document.Update();
+
+                    outer.ScrollIntoView(inner);
+                    inner.ScrollIntoView(mark);
+                    break;
+
+                // The wheel, over an inner that has no room left. Whether the outer moves is the
+                // whole of what `overscroll-behavior` decides, and a nested pair at its stop is the
+                // only arrangement in which the question is asked.
+                default:
+                    // ⚠ At the stop, and it has to be *exactly* at it. A view with one pixel left
+                    // scrolls that pixel, reports the wheel handled, and never asks
+                    // `overscroll-behavior` anything — so the property measures inert for want of a
+                    // clamp rather than for want of a reader. That is why the max is read after a
+                    // pass rather than from the frame before.
+                    // ⚠ <b>The outer is scrolled to the inner rather than to a pair of numbers, and
+                    // the numbers are what this was written as first.</b> The wheel is hit-tested and
+                    // the outer clips, so it has to land on an inner that is actually on screen — and
+                    // where that is cannot be hardcoded, because `#probe.moved` in `Common` sets a
+                    // `margin-left` of its own and out-specifies the scene's. A fixed reveal aimed at
+                    // where the inner used to be hits the empty part of the outer, nothing chains
+                    // whatever `overscroll-behavior` says, and all three of its longhands measure
+                    // inert — with a reader present and correct, which is the exact false gap this
+                    // file's own opening warns about.
+                    outer.ScrollTop = 0f;
+                    outer.ScrollLeft = 0f;
+
+                    document.Update();
+
+                    outer.ScrollIntoView(inner);
+
+                    inner.ScrollTop = inner.MaximumTop;
+                    inner.ScrollLeft = inner.MaximumLeft;
+
+                    document.Update();
+
+                    var over = inner.Bounds;
+
+                    document.Dispatch(new WheelEvent {
+                        X = over.X + over.Width * 0.5f,
+                        Y = over.Y + over.Height * 0.5f,
+                        DeltaX = 40f,
+                        DeltaY = 40f
+                    });
+
+                    break;
+            }
+        }
 
         void Record() {
             foreach (var element in order) {

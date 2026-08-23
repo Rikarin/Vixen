@@ -370,6 +370,68 @@ public static class UtilityFamilies {
         Spacing("ms", "margin-inline-start");
         Spacing("me", "margin-inline-end");
 
+        // ── Scroll insets ───────────────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>Four longhands where `m-*` emits one shorthand, and the difference is ExCSS.</b>
+        // `Spacing("m", "margin")` works because the parser expands `margin` on the way in, so the
+        // cascade never sees a shorthand at all. ExCSS has never heard of `scroll-margin`, and
+        // `ShorthandExpansion` only runs for the two placement properties and for values holding a
+        // `var()` — so `scroll-margin: 4px` would reach a computed style intact and `ScrollView`
+        // would read four absent longhands beside one declaration nothing looks at. That is the
+        // `inset` hole `ShorthandExpansion` already records, and it is invisible from the class: the
+        // CSS is valid, the cascade computes it, and the scroll does not move. Emitting the longhands
+        // is not a workaround for it — there is simply no shorthand worth writing when nothing reads
+        // one.
+        //
+        // ⚠ <b>`scroll-mx-*` is the physical pair where v4 spells it `scroll-margin-inline`, for the
+        // reason `space-y-*` is `margin-bottom`</b> — see the remark below. The `-inline` and
+        // `-block` shorthands are read by nobody here and expanded by nobody either, so v4's spelling
+        // would resolve, compute and move nothing. The per-edge logical pair *is* read, because
+        // `ScrollView.InsetOf` folds `-inline-start`/`-inline-end` against `direction` itself, so
+        // `scroll-ms-*` and `scroll-me-*` mirror under `rtl` exactly as `ms-*` does.
+        Spacing("scroll-m", "scroll-margin-top", "scroll-margin-right", "scroll-margin-bottom", "scroll-margin-left");
+        Spacing("scroll-mx", "scroll-margin-left", "scroll-margin-right");
+        Spacing("scroll-my", "scroll-margin-top", "scroll-margin-bottom");
+        Spacing("scroll-mt", "scroll-margin-top");
+        Spacing("scroll-mr", "scroll-margin-right");
+        Spacing("scroll-mb", "scroll-margin-bottom");
+        Spacing("scroll-ml", "scroll-margin-left");
+        Spacing("scroll-ms", "scroll-margin-inline-start");
+        Spacing("scroll-me", "scroll-margin-inline-end");
+
+        Spacing("scroll-p", "scroll-padding-top", "scroll-padding-right", "scroll-padding-bottom", "scroll-padding-left");
+        Spacing("scroll-px", "scroll-padding-left", "scroll-padding-right");
+        Spacing("scroll-py", "scroll-padding-top", "scroll-padding-bottom");
+        Spacing("scroll-pt", "scroll-padding-top");
+        Spacing("scroll-pr", "scroll-padding-right");
+        Spacing("scroll-pb", "scroll-padding-bottom");
+        Spacing("scroll-pl", "scroll-padding-left");
+        Spacing("scroll-ps", "scroll-padding-inline-start");
+        Spacing("scroll-pe", "scroll-padding-inline-end");
+
+        // ⚠ <b>`scroll` is a shorter prefix than `scroll-m` and registering it here is safe only
+        // because `SplitName` takes the longest.</b> `scroll-mt-4` matches `scroll-mt` before it can
+        // match `scroll`, and `scroll-smooth` cannot match `scroll-m` because the character after the
+        // prefix has to be a hyphen. Both are `SplitName`'s existing rules rather than anything this
+        // family needed, and `ThemeAndScannerTests` is what would notice if that changed.
+        Keywords("scroll", "scroll-behavior", new Dictionary<string, string>(StringComparer.Ordinal) {
+            ["auto"] = "auto", ["smooth"] = "smooth"
+        });
+
+        // ⚠ <b>`contain` and `none` are registered although `ScrollView` treats them alike</b>, and
+        // that is not the inert-class defect: the property moves a channel — `auto` chains the wheel
+        // outwards and both of the others do not — so a reader acts on it. What the two values share
+        // is that this engine has no rubber-band or pull-to-refresh for `none` to additionally
+        // suppress, which is a documented equivalence rather than a missing half. See
+        // `OverscrollBehavior`.
+        var overscroll = new Dictionary<string, string>(StringComparer.Ordinal) {
+            ["auto"] = "auto", ["contain"] = "contain", ["none"] = "none"
+        };
+
+        Keywords("overscroll", "overscroll-behavior", overscroll);
+        Keywords("overscroll-x", "overscroll-behavior-x", overscroll);
+        Keywords("overscroll-y", "overscroll-behavior-y", overscroll);
+
         // ── The two families that are a rule over children ──────────────────────────────────
         //
         // ⚠ <b>`space-x-4` is not a property on the element that carries it.</b> It is
