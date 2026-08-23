@@ -97,6 +97,15 @@ public class UtilityFamilySupportTests {
         { "inline", "display", "inline" },
         { "inline-block", "display", "inline-block" },
         { "inline-flex", "display", "inline-flex" },
+
+        // ⚠ The pair the two vocabularies make easy to confuse, which is why both are written out
+        // here next to each other: `hidden` above is `display: none` and takes the box out of
+        // layout; `invisible` is `visibility: hidden` and leaves it there, occupying its space and
+        // painting nothing. `collapse` is the third keyword and reads as `hidden` on every box this
+        // engine can build, there being no table rows for it to mean anything else on.
+        { "visible", "visibility", "visible" },
+        { "invisible", "visibility", "hidden" },
+        { "collapse", "visibility", "collapse" },
         { "align-top", "vertical-align", "top" },
         { "align-bottom", "vertical-align", "bottom" },
         { "align-baseline", "vertical-align", "baseline" },

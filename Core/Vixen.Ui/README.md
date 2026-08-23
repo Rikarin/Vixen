@@ -24,7 +24,7 @@ top.
 | `UiDocument.Focus`, `MoveFocus` | Focus, focus scopes, and HTML's tab order. |
 | `UiDocument.FindInDirection` | Arrow navigation over the layout, by the beam model. |
 | `GestureRecognizer` | Taps with a count, long presses and drags from one pointer; pinch and rotation from two, as one `TransformEvent`. |
-| `visibility`, `opacity` | Honoured by the draw list: hidden elements are not painted but keep their space and their subtree; opacity multiplies down the tree. |
+| `visibility`, `opacity` | Honoured by the draw list *and* the hit test: hidden elements are not painted and are not pointer targets, but keep their space and their subtree; `collapse` reads as `hidden`; opacity multiplies down the tree. |
 | `FontRegistry`, `TextRun`, `TextLine`, `TextLayout` | `font-family` → a fallback chain, a face per character, shaping through a cache, measurement into layout, glyphs into the draw list. |
 | `PathBuilder`, `OnDraw` | Lines, curves, fills and strokes for the controls a stylesheet cannot describe. |
 | `DrawBatcher` | Contiguous, order-preserving, maximal runs a renderer can submit as one. |
@@ -385,8 +385,16 @@ anything — it reads.
 rectangle from flexbox and takes the subtree with it. `visibility: hidden` skips the element's own
 background, border and text but still descends — it is inherited, so a child is hidden by having
 inherited the value, and a child that declares `visibility: visible` reappears inside a hidden
-parent. `opacity: 0` skips the subtree outright, because opacity multiplies and nothing below can
-bring it back.
+parent. `visibility: collapse` is the same thing as `hidden` here, per CSS 2.1 §11.2 — the keyword
+only differs on a table row or column, and there is no table formatting context. `opacity: 0` skips
+the subtree outright, because opacity multiplies and nothing below can bring it back.
+
+⚠ **Only one of the three is also a hit-testing rule, and it is `visibility`.** CSS UI §5.2 makes an
+invisible box untargetable, so `IsHitTestVisible` reads the property alongside `pointer-events` —
+per element, for the same inheritance reason, so a `visible` island inside a hidden subtree is
+clickable again. `display: none` never reaches a hit test because layout gave it no rectangle to be
+inside, and `opacity: 0` deliberately stays clickable: CSS keeps a fully transparent box a pointer
+target, which is what makes an invisible drag handle work.
 
 ⚠ **An element's own text is inside its own clip, and for a long time it was not.** `overflow` clips
 an element's *content*; the background and the border are the two things it does not clip, which is

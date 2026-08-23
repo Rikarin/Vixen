@@ -36,6 +36,9 @@ namespace Vixen.Ui;
 public sealed partial class UiDocument : IDisposable {
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
+    readonly int visibility;
+    readonly int visibilityHidden;
+    readonly int visibilityCollapse;
     readonly int fontFamily;
     readonly int whiteSpace;
     readonly int overflowWrap;
@@ -117,6 +120,9 @@ public sealed partial class UiDocument : IDisposable {
         reader = new StyleValueParser(Styles.Values, Styles.Names);
 
         pointerEvents = Styles.Properties.Intern("pointer-events");
+        visibility = Styles.Properties.Intern("visibility");
+        visibilityHidden = Styles.Values.Intern("hidden");
+        visibilityCollapse = Styles.Values.Intern("collapse");
         color = Styles.Properties.Intern("color");
         fontFamily = Styles.Properties.Intern("font-family");
         whiteSpace = Styles.Properties.Intern("white-space");
@@ -1513,6 +1519,25 @@ public sealed partial class UiDocument : IDisposable {
 
     internal bool PointerEventsNone(ComputedStyle style) =>
         style.TryGet(pointerEvents, out var value) && value == none;
+
+    /// <summary>Whether <c>visibility</c> takes this element out of the pointer's reach.</summary>
+    /// <remarks>
+    ///     ⚠ <b>CSS UI §5.2 makes an invisible box untargetable, and this used to be the half of
+    ///     <c>visibility</c> that was missing.</b> The paint walk has always honoured the property;
+    ///     hit testing did not, so a hidden element went on swallowing the clicks meant for whatever
+    ///     was behind it. <c>AdvancedTheme.vcss</c> has three of them, and the one that shows what
+    ///     the gap cost is <c>code-metrics</c> — an absolutely positioned measurement probe pinned at
+    ///     the origin, invisible, and until now the first thing a click in the top-left corner of a
+    ///     code editor ever reached.
+    ///     <para>
+    ///         Read per element rather than by walking ancestors, exactly as <c>DrawListBuilder</c>
+    ///         reads it: the property inherits, so a descendant of a hidden box has already been
+    ///         given the value, and one that declares <c>visible</c> is targetable again. Checking an
+    ///         ancestor chain here would break that second case and disagree with what is painted.
+    ///     </para>
+    /// </remarks>
+    internal bool Invisible(ComputedStyle style) =>
+        style.TryGet(visibility, out var value) && (value == visibilityHidden || value == visibilityCollapse);
 
     /// <summary>An element's <c>z-index</c>, which is zero when it has none.</summary>
     /// <remarks>
