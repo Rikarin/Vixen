@@ -449,8 +449,9 @@ Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-wr
 the honest version of that ratio has never been written down. This is it: **every panel in the
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
-**Where it stands.** ~~Twenty~~ **Twenty-seven** `.vxml` files across ~~six~~ **seven** assemblies —
-twenty-two panels and five shared parts (`Vixen.Editor.Ui/Parts/FactRow.vxml`,
+**Where it stands.** ~~Twenty~~ ~~Twenty-seven~~ **Thirty-four** `.vxml` files across ~~six~~
+~~seven~~ **eight** assemblies — twenty-eight panels and six shared parts
+(`Vixen.Editor.Ui/Parts/FactRow.vxml`, `Vixen.Editor.AssetEditors/AnalysisRow.vxml`,
 `Vixen.Editor.Terrain/FactBlock.vxml`, and water's `WaterZoneFacts`, `WaterFacts` and
 `WaterNotice`) — against **62 files and ~31,700
 lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
@@ -459,6 +460,14 @@ sites and 34 `editor.panel.*` ids, so **34 is the denominator**, not 62 and not 
 ⚠ **`Vixen.Editor.Water` is the seventh assembly and it cost two lines of `.csproj` to become one** —
 see the wave-5 note under the six S-sized ports; the first `.vxml` in an assembly needs the markup
 generator and the `Vixen.Ui.targets` import naming it, and not having them is not a diagnostic.
+⚠ **`Vixen.Editor.NodeGraph` is the eighth, and it had one of the two lines, which is worse than
+having neither.** The `Vixen.Ui.targets` import was already there for the `**/*.vcss` glob — with a
+comment saying "there is no `.vxml` in this project, so the other half of the .targets is inert
+here" — so the moment one appeared the glob made it an item and no generator read it. The failure is
+identical to having no import at all and reads as a mistake in the markup; the comment that said
+what the file assumed is the only reason it took a minute rather than an hour. **Wave 6's
+prescription: before writing an assembly's first `.vxml`, `grep -c Vixen.Ui.Markup.Generators` its
+`.csproj` and expect 1.**
 
 ⚠ **[`docs/overview.md`](../../docs/overview.md) and doc 36 § "F7's number" had both gone stale** —
 they said eleven and three — and are corrected in the same commit as this section. A count nobody
@@ -745,6 +754,31 @@ hyphenated capital is the one unambiguous case — `ComponentEmitter` emits a ca
 `Child<Tag>`, so a hyphen there is a C# syntax error and cannot survive a build, which is exactly why
 this bug could only ever hide in a C# string literal.
 
+✅ **And `AnalysisRow` is the second shared part, built by wave 6 on the condition wave 3 set.**
+`AudioMixerView.cs` declared `AnalysisStage`/`AnalysisMessage` privately and said "hoisting it into
+a part is a job for whoever ports the second of them, because doing it here would move pixels in a
+panel this change has not measured". `QueryView` and `GoapDomainView` are the second and the third,
+so the triple is `Vixen.Editor.AssetEditors/AnalysisRow.vxml` (`@tag analysis-row`, `@inherits
+Vixen.Ui.UiElement`) with its two cells and a shared `AnalysisNote` record in `Captions.cs`. The
+mixer moved onto it in the same commit and its dump was re-taken to check: **unchanged**, because
+the part's host tag *is* the `analysis-row` the loop built. Nine panels in that assembly build this
+row by hand; three of them are on the part now.
+
+⚠ **`class` is deliberately not a parameter of it.** `analysis-row.error` and `.warning` are the two
+severity colours and `AddressableGroupsView` passes them positionally, but `class` is one of markup's
+three universal attributes — so a caller writes `class="@note.Class"` on the tag and the part has no
+opinion about severity at all. A `Severity` parameter would have been a second place to decide what
+red means.
+
+⚠ **`PanelTitle` is in `Captions.cs` rather than being a part, and it is the shape-5 line again.**
+`panel.Add("panel-title").Text = "Diagnostics"` is written twenty-three times across the AI,
+behaviour-tree and utility editors — a caption, not a row, so four lines of `UiElement` rather than a
+file. ⚠ And it is a *tag* with no rule: `EditorTheme`'s only `panel-title` rule is
+`viewport-panel > .panel-title`, a **class** selector reached from `ViewportChrome.AddClass`, and
+every panel in `Vixen.Editor.AssetEditors` writes the tag instead. That asymmetry is preserved rather
+than tidied — giving these headings the class would restyle five panels in a commit about markup —
+and it is recorded here because it looks exactly like a bug and is not one this wave should fix.
+
 **`VerbRow` was not built, and the reason is that it buys nothing.** `verb-row` has no rule in any
 stylesheet in the tree; there are two copies of the helper (`TerrainModulePanels`,
 `WaterModulePanels`) and one inline use (`StandardFrameView`), each about eight lines; and a part
@@ -827,10 +861,11 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `TextureImportView` | snapshot | no | ~~**port**~~ **done, wave 5 (2026-08-23).** The `<Tabs>`/`<TabItem>` half was exactly as advertised and cost four tags; the part the sizing did not see is that its four facts had to become *one* snapshot record, because three of them depend on a mutable settings object no signal watches. 277 lines → a 356-line `.vxml` and an 88-line `.cs`; byte-identical in seven dumped states | M |
 | Water zone · Water body · Terrain grass/growth/splines | snapshot | no | ~~**port, six small ones**~~ **five done, wave 5 (2026-08-23).** Ported as *parts*, exactly as the block below this table prescribes, and that prescription is the finding: each is now `panel.Add<FactBlock>()` where it was `panel.Add("terrain-facts")`. Splines' duplicated fact block is gone — into one method rather than a `@for`, which is where it actually lived | S each |
 | Blockout settings | snapshot | no | ~~**port**~~ **no — it has no part with a shape.** Its seven children are three `world-title`s, three `InspectorView`s and a `Button`: every one is a single element, so there is nothing for a part to be, and the only container is the `DockPanel` itself. See below | S |
-| `QueryView` · `GoapDomainView` · `AgentDebuggerView` | snapshot | no | port; leave `CurveEditor`/`NodeCanvas` behind a `ref` | S/M |
+| `QueryView` · `GoapDomainView` · `AgentDebuggerView` | snapshot | no | ~~**port; leave `CurveEditor`/`NodeCanvas` behind a `ref`**~~ **done, wave 6 (2026-08-23).** The sizing was right and the `ref` instruction was right; what it got wrong is calling all three snapshots the same shape. Two of them choose a *tag* from the data — `query-row-selected`, `agent-row-live` — and a tag is not a class and cannot be bound, so the flag has to be in the **key**. 861 lines of C# → three `.vxml` (1,132 lines) and three `.cs` of records and captions (506); **byte-identical in all sixteen dumped states** | S/M |
 | `CodeEditorView` · `VfxGraphView` · `ShaderGraphView` · `CompositorView` | live | no | port the chrome; the editor/canvas/`KeyValueList` rows stay | S–M |
-| `NodeInspector` · `NodeSearchPopup` · `CommandPalette` · `AddComponentMenu` | snapshot | no | port; each deletes a hand-rolled element pool or reconciler | M |
-| `RemoteInspectorView` | **live** | no | port; signal-back `RemoteInspectorClient` additively, per `DeviceManager` | M |
+| `NodeSearchPopup` · `CommandPalette` | snapshot | no | ~~**port; each deletes a hand-rolled element pool or reconciler**~~ **done, wave 6 (2026-08-23).** The pool was the point and it was worse than "churn": it only ever *grew*, so a list that had once shown twelve rows carried the surplus under `display: none` **still labelled with the previous query's results**. 601 lines → two `.vxml` (565) and two `.cs` (288), with 31 and 26 lines of pooling gone. Every visible element byte-identical in fifteen dumped states; the only differences are the parked rows, which no longer exist | M |
+| `NodeInspector` · `AddComponentMenu` | snapshot | no | ~~**port**~~ **stopped, wave 6 — both blocked by the same cause, and it is not a markup gap.** Shape 1's escape is "keep the control behind a `ref`", and where the control is fed by a *method* the sanctioned workaround is the mixer's four-line wrapper subclass. `InspectorView` and `ScrollView` are both `sealed`, so neither panel can be written. See below | M |
+| `RemoteInspectorView` | **live** | ~~no~~ **yes, additively** | ~~**port; signal-back `RemoteInspectorClient` additively, per `DeviceManager`**~~ **done, wave 6 (2026-08-23).** The sizing and the worked example were both right. What the row did not say is that this is the panel where the signals pay most: `Poll` runs from the tick, so `Restate` relabelled a button, rewrote a sentence, rebuilt the entity tree and re-ran a pool **sixty times a second whether or not the far end had said anything**. 293 lines → a 341-line `.vxml` and a 75-line `.cs`; byte-identical in eight of nine dumped states, the ninth being the parked counter rows | M |
 | `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | port the readouts, keep the field rows (shape 2) | M |
 | `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output | M |
 | `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | ~~**defer.**~~ The half that was unportable was the field rows, which `change:` now expresses; `AnimationGraphView` still has no tests at all and still goes last | ~~L–XL~~ M–L |
@@ -940,6 +975,82 @@ styles is a **control**, and a tag selector cannot tell one `button` from anothe
 was previously reached from C# with `AddClass`, which that gate does not read — so the first panel to
 write one in markup is the first to be accused of a typo. The premise is corrected in place.
 
+### `sealed` is the sixth shape, and it is wave 6's finding
+
+⚠ **Two of wave 6's eight panels stopped, and neither is blocked by anything markup cannot say.**
+Both are blocked by a control being `sealed`, and the chain that gets there is worth writing down
+because every escape this document has recorded ends at the same door.
+
+The ledger's shape 1 says a control-fed panel is correctly imperative and the answer is to keep the
+control behind a `ref`. That is right *when the control is fed by properties* — `AttachButton.Label`,
+`RefreshButton.Disabled` — because a property is what a component-tag parameter assigns. It is not
+right when the control is fed by a **method**: `panel.Inspect(descriptor, provider, targets)` and
+`List.SetItems(…)` have no markup spelling at all, and neither does `Part<ScrollView>("add-component-list")`,
+which asks for a tag the control does not have.
+
+**The sanctioned escape for all three is the same four lines**, and this document has written it up
+twice: shape 5's `internal sealed class MixerTitle : UiElement`, and `AudioMixerView`'s `OptionCell`
+— *"wrap the control in a four-line element whose `Choices` is a property, because binding a
+property is an ordinary effect"*. Both are **subclasses**. So:
+
+- **`NodeInspector`** needs `<InspectorView Source="@Inspecting" />`, where `Source` is a property
+  that calls `Inspect`. `InspectorView` is `sealed`, and there is no base class to reach for the way
+  `Button`'s `ButtonBase` was there for `SettingsTab`.
+- **`AddComponentMenu`** needs a `ScrollView` whose tag is `add-component-list`, because
+  `BrowserTheme.vcss` styles that tag and the C# spells it `Part<ScrollView>("add-component-list")`.
+  `ScrollView` is `sealed` too.
+
+⚠ **This is a bigger statement than two panels.** There are twenty-nine `sealed class … : Control`
+declarations in `Vixen.Ui.Controls`, and every one of them is a control that can be `ref`'d and
+cannot be *extended* — so any panel whose relationship with a control is "feed it by a method" or
+"give it my tag" is unportable, and no amount of markup design changes that. The choices are: unseal
+the controls a panel needs to wrap (a one-word change per type, with no behavioural effect — a
+subclass keeps the tag and the classes); give the control the property the wrapper would have added;
+or add a markup directive meaning "run this expression when the region builds", which is a real
+feature with real design questions and is the only one of the three that is not local.
+
+**Nothing was worked around.** `NodeInspector`'s reconciler — 27 lines of `StringBuilder` signature
+building, which exists only to decide whether the tree needs rebuilding and is exactly what a keyed
+loop makes structural — is still there, and is the prize whenever this is unblocked.
+
+### Two more things wave 6 measured rather than argued
+
+⚠ **The pool's hover is real, `FlameChartView` was right about it, and now there is a number.**
+`node-search-row:hover` and `add-component-row:hover` are rules; `palette-row`'s deliberately is not
+(*"a hover rule as well would give two highlighted rows"* — `EditorTheme.vcss` says so). So of the
+three pooled pickers, only the palette escapes the trap, and `NodeSearchPopup` walks into it. The
+harness dumps the state directly: the pointer rests on a row, the query changes what that row says,
+and the hand-written panel keeps `state=Hover, Checked` where the ported one keeps only `Checked`.
+⚠ **The port was taken anyway, and the argument is that the pool's behaviour was the wrong one**:
+hover followed the *slot*, so after a keystroke it drew a hovered row over a node type the pointer
+had never been over. `BuildContext.For` moves it with the *item*, and a row that survives a re-query
+keeps its hover — which the `search-8` dump shows happening. Neither is what a pointer-driven
+`:hover` should do; one of them is at least not misleading. Recorded here because it is a pixel
+change and this section is where those are argued.
+
+⚠ **A pooled row is not merely a spare element, it is a stale one.** Every one of the four pools
+this wave met (`CommandPalette`, `NodeSearchPopup`, `AddComponentMenu`, `RemoteInspectorView`) parks
+its surplus with a class and leaves the text alone — so the tree under `display: none` holds the
+*previous* query's labels indefinitely. The dumps show it plainly: narrowing the node search to
+"Comb" leaves seven hidden rows still reading Constant, Named, Settings, Texture, Vector. That is
+the whole of the difference between the hand-written dumps and the ported ones, in every state where
+they differ at all: no visible element moved a pixel in any of the forty states dumped this wave.
+
+⚠ **And `change:` refuses a `TreeView`'s selection, correctly.** `change:Selection` compiles and
+throws at compose time — "'tree-view' has no property called 'Selection'" — because `change:` is
+`bind:`'s property lookup with a handler and a selection is state inside a control that paints its
+own rows, not a `[UiProperty]`. That is shape 1 seen from the event side, and the remedy is the one
+already documented: a `ref` plus a subscription in `OnComposed`, writing a signal the `Disabled`
+binding reads.
+
+⚠ **`OnComposed` is also where a *capture-leg* handler has to live**, which is a limitation nothing
+had hit before. `BuildContext.Subscriptions`' entries are
+`Action<UiElement, Action<UiEvent>, RoutingStrategy>` and the `on:` syntax has no way to say which
+leg — so the three pickers' `AddHandler<KeyEvent>(…, RoutingStrategy.Capture)`, which is what stops
+a search box turning Down into caret movement, cannot be written as an attribute. Worked around in
+`OnComposed`, named here because the next picker will hit it too. An `on:keydown.capture` modifier
+would close it and the modifier list is already parsed.
+
 ### What to build, in order of leverage
 
 1. ~~**A value-change subscription markup can name.**~~ Built 2026-08-22 as `change:X`, and it
@@ -965,6 +1076,22 @@ write one in markup is the first to be accused of a typo. The premise is correct
    *part* is not the only way markup can write an intrinsic element's own text inside a loop, a
    four-line `UiElement` subclass with a `TagName` override is, and it is the cheaper one whenever
    the thing being written is a caption rather than a row.
+6. **Un-`sealed` controls, or a way to feed a sealed one from markup.** Wave 6's finding and now the
+   top of this list by count: two panels stopped on it, twenty-nine `sealed class … : Control`
+   declarations are behind it, and every escape this document records — shape 5's caption subclass,
+   `OptionCell`, `SettingsTab` — is a subclass. The cheapest form is to unseal the two types a panel
+   actually needs to wrap; the general form is a markup directive meaning "run this when the region
+   builds", which is the only one of the two that is a language change.
+7. **`on:` with a routing strategy — `on:keydown.capture`.** Three pickers subscribe on the capture
+   leg so that Down and Enter are taken before a search box treats them as caret movement and
+   submit, and `BuildContext.Subscriptions`' entries already carry a `RoutingStrategy` that no
+   attribute can name. The modifier list is already parsed, so this is a table lookup rather than a
+   design.
+8. **A `CollectionSignal` for a map.** `RemoteInspectorClient`'s counters are a
+   `Signal<ImmutableDictionary<string, double>>`, which is correct and allocates a node per counter
+   update where an in-place write allocated nothing. At the handful of counters a build reports that
+   is the right trade and it would not be at a thousand — so this is a convenience until something
+   reports a thousand.
 
 ## Localisation
 

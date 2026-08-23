@@ -1,0 +1,80 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 6. The diagnostics row nine panels in this assembly build by hand — a stage, a
+    message, and three lines of element building each. `AudioMixerView.cs` nominated it: "hoisting
+    it into a part is a job for whoever ports the second of them, because doing it here would move
+    pixels in a panel this change has not measured". `QueryView` and `GoapDomainView` are the second
+    and the third, so this is that part, and the mixer moves onto it in the same commit with its
+    dump re-checked.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and not `Control`**, for `FactRow`'s reason: a `Control` gives
+    itself `variant-default` and `size-md` in `OnCreated`, and `analysis-list > analysis-row` is a
+    plain element with neither. Two classes nothing styles would be two lines of difference in every
+    dump for ever.
+
+    ⚠ **The host tag *is* the `analysis-row`**, so `<AnalysisRow />` in a caller's `@for` stands
+    exactly where `list.Add("analysis-row")` stood, as the same direct child of `analysis-list`. That
+    is what makes the swap byte-neutral rather than merely equivalent — `analysis-list
+    { flex-direction: column; gap: 2px }` reaches it and `analysis-row.error` still colours it.
+
+    ⚠ **`ref` on both cells and a field behind each property, which is `FactRow`'s pattern and is
+    needed for the same two reasons.** `<analysis-stage>@Stage</analysis-stage>` appends a `text`
+    *child* rather than writing the cell's own `Text` — the ledger's shape 5 — and a C# caller may
+    assign either property before the row is in a document, which `new AnalysisRow()` allows even
+    though `Add<AnalysisRow>()` does not.
+
+    ⚠ **`class` is the caller's and is not a parameter here.** `analysis-row.error` and
+    `analysis-row.warning` are the two severity colours, `AddressableGroupsView` passes them
+    positionally today, and `class` is one of markup's three universal attributes — so a caller
+    writes `class="@note.Class"` on the tag and this file has no opinion about severity at all.
+-->
+@component AnalysisRow
+@namespace Vixen.Editor.AssetEditors
+@inherits Vixen.Ui.UiElement
+@tag analysis-row
+@using Vixen.Ui
+
+<AnalysisStage ref="@StageCell" />
+<AnalysisMessage ref="@MessageCell" />
+
+@code {
+    string stage = string.Empty;
+    string detail = string.Empty;
+
+    /// <summary>The cell naming which part of the pipeline spoke.</summary>
+    public UiElement StageCell { get; private set; } = null!;
+
+    /// <summary>The cell holding what it said.</summary>
+    public UiElement MessageCell { get; private set; } = null!;
+
+    /// <summary>Which stage the complaint came from.</summary>
+    public string Stage {
+        get => stage;
+        set {
+            stage = value;
+
+            if (StageCell is not null) {
+                StageCell.Text = value;
+            }
+        }
+    }
+
+    /// <summary>And what it said.</summary>
+    public string Message {
+        get => detail;
+        set {
+            detail = value;
+
+            if (MessageCell is not null) {
+                MessageCell.Text = value;
+            }
+        }
+    }
+
+    partial void OnComposed() {
+        StageCell.Text = stage;
+        MessageCell.Text = detail;
+    }
+}

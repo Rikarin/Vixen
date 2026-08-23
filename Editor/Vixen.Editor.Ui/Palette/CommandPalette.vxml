@@ -1,0 +1,332 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 6. Fuzzy search over everything the editor can do, reached with one chord —
+    and search-everywhere, which is the same control with `GroupBySource` and `RequiresQuery` on.
+
+    ⚠ **The pool is what this deletes, and it was ten elements deep.** `Build` grew a
+    `List<PaletteRow>` to `Limit`, filled the first `results.Count` of them and gave the rest a
+    `parked` class — so a palette showing two matches carried eight elements under `display: none`
+    still labelled with whatever the previous keystroke had produced. Thirty-one lines of `Build`
+    and `Restyle` become a keyed `@for` and two bindings.
+
+    ⚠ **`palette-row` has no `:hover` rule, and that is why this one is a clean port where
+    `NodeSearchPopup`'s is not.** The pool's other property — an element that is never removed never
+    loses `ElementState.Hover`, which a pointer dispatch is the only thing that writes — cannot be
+    observed here, because nothing in `EditorTheme` draws a hovered palette row. `FlameChartView`
+    stays a "no" for exactly the rule this panel escapes by not using.
+
+    ⚠ **The highlight is a bound property, not a key.** `Selected="@Chosen(row)"` is
+    `ctx.Bind(() => n1.Selected = …)` — an effect inside the row's own region — so Down and Up move
+    the highlight without changing one key or rebuilding one element. `PaletteRow.Selected` is the
+    four-line `SettingsTab` escape: a property that owns one bit of `ElementState`, where the flag
+    set itself may not be assigned.
+
+    ⚠ **`display` is a class here where it was an inline style.** `EmptyPart` and `PreviewPart` were
+    positioned with `SetStyle("display", …)`; the ledger's "a `display` toggle is a class" is advice
+    about taste, and the two `hidden` rules this adds to the theme are what that advice asks for.
+    The rendered result is the same and the dumps say so.
+
+    ⚠ **The two `AddHandler`s stay in `OnComposed`**, for `NodeSearchPopup`'s reason: the key handler
+    is on the **capture** leg, before the search box turns Down into caret movement, and
+    `BuildContext.Subscriptions` has no spelling for a routing strategy.
+-->
+@component CommandPalette
+@namespace Vixen.Editor.Ui
+@inherits Vixen.Ui.Controls.Overlay
+@tag command-palette
+@using System.Collections.Immutable
+@using Vixen.Input
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+@using Vixen.Ui.Styling
+
+<SearchBox ref="@Field" change:Value="@(_ => Refresh())" />
+
+<palette-list ref="@List">
+    @for (var row in Rows) {
+        <PaletteRow key="@row"
+                    Index="@row.Index"
+                    Focusable="false"
+                    Label="@row.Title"
+                    Category="@row.Category"
+                    Detail="@row.Detail"
+                    Selected="@Chosen(row)" />
+    }
+</palette-list>
+
+<palette-empty ref="@EmptyPart" style="display: @EmptyDisplay" />
+
+<PalettePreview ref="@PreviewPart" Text="@Preview" style="display: @PreviewDisplay" />
+
+@code {
+    readonly List<IPaletteSource> sources = [];
+
+    /// <summary>What the last query produced, in the order the rows are drawn.</summary>
+    readonly Signal<ImmutableArray<PaletteItem>> found = new([]);
+
+    /// <summary>Which row Enter would run.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A signal because it is read from inside a row's region.</b> <c>Chosen(row)</c> is an
+    ///     effect registered per row, and a plain field would be read once at build time — after
+    ///     which the first highlighted row would stay highlighted whatever the arrows did.
+    /// </remarks>
+    readonly Signal<int> highlight = new(0);
+
+    /// <summary>How many results are shown.</summary>
+    public int Limit { get; set; } = 10;
+
+    /// <summary>Whether the best results are kept together by the source they came from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off for the command palette and on for search-everywhere, and the difference is
+    ///         what is being asked.</b> A palette is asked "run the thing I am typing the name of",
+    ///         and the answer is a ranked list where the best match is first whatever kind of thing it
+    ///         is. Doc 20's A8 asks for the other question — "where is this word in my project" —
+    ///         and there the answer is four short lists: assets, entities, settings, commands. A
+    ///         single ranked list of twenty across five sources buries whichever source happened to
+    ///         score a point lower.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <i>cut</i> is still by score.</b> The best <see cref="Limit" /> results are
+    ///         chosen first and only then arranged by source, so grouping never promotes a bad match
+    ///         over a good one — it decides the order of what survived, not what survives.
+    ///     </para>
+    /// </remarks>
+    public bool GroupBySource { get; set; }
+
+    /// <summary>Whether an empty query shows nothing rather than asking the sources.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The palette's policy, not each source's.</b> Opening the command palette and
+    ///         seeing what the editor can do is half of what it is for; search-everywhere is opened
+    ///         to look for something, and a list sitting there before a word is typed is rows that
+    ///         push out the first real match. That is one decision about one overlay — and left to
+    ///         the sources it is a rule every future source has to remember, which is a rule that
+    ///         will be forgotten.
+    ///     </para>
+    ///     <para>
+    ///         Skipping the loop entirely also means a source is never asked a question whose answer
+    ///         is thrown away, which is what made the asset source's per-match work worth having.
+    ///     </para>
+    /// </remarks>
+    public bool RequiresQuery { get; set; }
+
+    /// <summary>What is typed into it.</summary>
+    public SearchBox Field { get; private set; } = null!;
+
+    /// <summary>Where the rows go.</summary>
+    public UiElement List { get; private set; } = null!;
+
+    /// <summary>What it says when nothing matched.</summary>
+    public UiElement EmptyPart { get; private set; } = null!;
+
+    /// <summary>The pane under the rows describing whatever is highlighted.</summary>
+    /// <remarks>
+    ///     Drawn only when <see cref="GroupBySource" /> is on, which is the same condition as "this
+    ///     is search-everywhere rather than the palette": a command palette with a paragraph under it
+    ///     is a palette that has stopped being one keystroke and a Return.
+    /// </remarks>
+    public UiElement PreviewPart { get; private set; } = null!;
+
+    /// <summary>Where it looks, in order.</summary>
+    public IReadOnlyList<IPaletteSource> Sources => sources;
+
+    /// <summary>What it is currently showing, best first.</summary>
+    public IReadOnlyList<PaletteItem> Results => found.Value;
+
+    /// <summary>Which result is highlighted, or -1.</summary>
+    public int Highlighted => found.Value.Length == 0 ? -1 : highlight.Value;
+
+    /// <summary>Adds somewhere for it to look.</summary>
+    /// <param name="source">The source. Order decides the tiebreak between equal scores.</param>
+    public void AddSource(IPaletteSource source) {
+        ArgumentNullException.ThrowIfNull(source);
+        sources.Add(source);
+    }
+
+    /// <summary>Opens it in the middle of the top of the document, empty.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The query is cleared every time.</b> A palette that remembered what was typed last
+    ///     would make the common case — open it, type three letters, press Enter — start by deleting
+    ///     somebody else's word. Recency belongs in the ranking, not in the field.
+    /// </remarks>
+    public void OpenPalette() {
+        Field.Value = string.Empty;
+        highlight.Value = 0;
+
+        Open();
+        Refresh();
+
+        var viewport = Document.Viewport;
+        var width = Bounds.Width;
+
+        MoveTo(MathF.Max(0f, (viewport.ViewportWidth - width) * 0.5f), viewport.ViewportHeight * 0.12f);
+        Document.Focus(Field);
+    }
+
+    /// <summary>Runs the highlighted result and closes.</summary>
+    /// <returns>Whether there was one.</returns>
+    public bool Accept() {
+        if (Highlighted < 0) {
+            return false;
+        }
+
+        var item = found.Value[highlight.Value];
+
+        // ⚠ Closed before the action runs. A command that opens a dialog, or another palette, would
+        // otherwise be covered by the palette that started it — and one that throws would leave the
+        // palette up with the query still in it.
+        Close(CloseReason.Committed);
+        item.Run();
+
+        return true;
+    }
+
+    /// <summary>Moves the highlight.</summary>
+    /// <param name="delta">By how many rows, wrapping at both ends.</param>
+    public void Move(int delta) {
+        if (found.Value.Length == 0) {
+            return;
+        }
+
+        var count = found.Value.Length;
+
+        highlight.Value = (((highlight.Value + delta) % count) + count) % count;
+    }
+
+    /// <summary>Asks every source what matches what is typed, and shows the best of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The rows are right on the next flush; <see cref="Results" /> and
+    ///     <see cref="Highlighted" /> are right on this line.</b> A signal <i>read</i> is immediate
+    ///     and only its effects are queued (ADR-007), which is what lets every existing test that
+    ///     reads <c>Results</c> straight after <c>Refresh()</c> go on doing so.
+    /// </remarks>
+    public void Refresh() {
+        var query = Field.Value ?? string.Empty;
+        var gathered = new List<PaletteItem>();
+
+        if (!RequiresQuery || query.Length > 0) {
+            foreach (var source in sources) {
+                source.Search(query, gathered, Limit);
+            }
+        }
+
+        // ⚠ A stable sort, which is what `List.Sort` is not — so the order sources were added in,
+        // and the order each returned its own results in, survives a tie. Without it a palette
+        // showing two equally-good matches would put them in a different order on every keystroke.
+        var ranked = gathered.OrderByDescending(item => item.Score).Take(Limit).ToList();
+
+        if (GroupBySource) {
+            // ⚠ Blocks in the order their best result scored, and rows within a block in score
+            // order. `GroupBy` keys appear in first-appearance order and `ranked` is already sorted,
+            // so the block holding the best match is first — which is the arrangement that keeps the
+            // top row the top row whether or not grouping is on, and therefore the one where turning
+            // grouping on never moves what Enter would have run.
+            ranked = [.. ranked.GroupBy(item => item.Category, StringComparer.Ordinal).SelectMany(group => group)];
+        }
+
+        found.Value = [.. ranked];
+        highlight.Value = Math.Clamp(highlight.Value, 0, Math.Max(0, ranked.Count - 1));
+    }
+
+    /// <inheritdoc />
+    protected override void OnOpened() {
+        base.OnOpened();
+        Document.Focus(Field);
+    }
+
+    /// <inheritdoc cref="NodeSearchPopup" />
+    /// <remarks>
+    ///     ⚠ <b>Capture, which is what keeps these two out of the markup.</b> See the file header.
+    /// </remarks>
+    partial void OnComposed() {
+        IsFocusScope = true;
+        LightDismiss = true;
+        CloseOnEscape = true;
+
+        Field.Placeholder = EditorStrings.PalettePlaceholder.Text;
+        EmptyPart.Text = EditorStrings.PaletteEmpty.Text;
+
+        AddHandler<KeyEvent>(static (element, args) => ((CommandPalette) element).Keyed(args), RoutingStrategy.Capture);
+        AddHandler<ClickEvent>(static (element, args) => ((CommandPalette) element).Chosen(args));
+    }
+
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed) {
+            return;
+        }
+
+        switch (args.Key) {
+            case InputKey.Down:
+                Move(1);
+                break;
+
+            case InputKey.Up:
+                Move(-1);
+                break;
+
+            case InputKey.Enter or InputKey.KeypadEnter:
+                Accept();
+                break;
+
+            default:
+                return;
+        }
+
+        // ⚠ Handled on the capture leg, before the field sees it. A search box treats Enter as
+        // "submit" and the arrows as caret movement, and both would fight the list.
+        args.Handled = true;
+    }
+
+    void Chosen(ClickEvent args) {
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (element is not PaletteRow { Index: >= 0 } row) {
+                continue;
+            }
+
+            highlight.Value = row.Index;
+            Accept();
+
+            args.Handled = true;
+            return;
+        }
+    }
+
+    // ================================================================== What the markup reads
+
+    /// <summary>One row per result, keyed on what it says.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A projection rather than the <see cref="PaletteItem" /> itself, and the score is
+    ///     why.</b> A <c>PaletteItem</c> carries a <c>Run</c> delegate and a score, so two queries
+    ///     producing the same visible list would still be different keys and would rebuild every
+    ///     row. What the row draws is its identity.
+    /// </remarks>
+    ImmutableArray<PaletteRowData> Rows =>
+        [.. found.Value.Select(
+            (item, slot) => new PaletteRowData(slot, item.Title, item.Category, item.Detail ?? string.Empty)
+        )];
+
+    bool Chosen(PaletteRowData row) => row.Index == highlight.Value;
+
+    /// <summary>
+    ///     ⚠ <b>An inline style rather than a class, which is the one place this port keeps the less
+    ///     tasteful spelling on purpose.</b> The ledger's "a `display` toggle is a class" is advice,
+    ///     and it is good advice — but `palette-preview` declares `display: none` in the sheet and
+    ///     the hand-written panel overrode it from the inline origin, so a class would have had to be
+    ///     a new rule at a different specificity. `style=` reaches the same
+    ///     `CascadeRanks.NormalInline` that `SetStyle` did, which makes the port a port.
+    /// </summary>
+    string EmptyDisplay => found.Value.Length == 0 ? "flex" : "none";
+
+    /// <inheritdoc cref="PreviewPart" />
+    string Preview =>
+        GroupBySource && Highlighted >= 0
+            ? found.Value[highlight.Value].Preview?.Invoke() ?? found.Value[highlight.Value].Detail ?? string.Empty
+            : string.Empty;
+
+    /// <inheritdoc cref="EmptyDisplay" />
+    string PreviewDisplay => Preview.Length > 0 ? "flex" : "none";
+}

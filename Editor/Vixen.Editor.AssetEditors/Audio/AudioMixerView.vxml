@@ -180,10 +180,7 @@
 
         <analysis-list ref="@Problems">
             @for (var note in Notes) {
-                <analysis-row key="@note">
-                    <AnalysisStage Text="@note.Stage" />
-                    <AnalysisMessage Text="@note.Message" />
-                </analysis-row>
+                <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
             }
         </analysis-list>
     </mixer-side>

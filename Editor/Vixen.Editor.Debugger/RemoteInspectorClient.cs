@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers;
+using System.Collections.Immutable;
 using Vixen.Net;
 using Vixen.Net.Transport;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Debugger;
 
@@ -53,11 +55,45 @@ public enum RemoteState : byte {
 ///     </para>
 /// </remarks>
 public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
+    // ⚠ Signal-backed **additively**, which is `DeviceManager`'s bargain and is spelled out here
+    // because the two halves of this class are on opposite sides of it.
+    //
+    // `Changed` is still raised by every path that raised it before, and the panel's entity tree is
+    // still fed from that event — `TreeView` is painted from `TreeNode` *data* by `Refresh()`, which
+    // is the panel ledger's shape 1 and which no attribute could ever bind. What the signals buy is
+    // the half that *is* expressible: the status sentence, the Attach button's label, and the two
+    // greyed buttons, which between them were the whole of `RemoteInspectorView.Restate`.
+    //
+    // ⚠ And **not** one `Signal<int>` that everything reads to force a re-evaluation. Each of these
+    // is a value that genuinely changes, so a revision counter would stand in for five notifications
+    // that are all perfectly expressible — and it would defeat the equality check that makes an
+    // unchanged poll cost nothing, which matters here more than anywhere: `Poll` runs every frame.
+    readonly Signal<RemoteState> state = new(RemoteState.Detached);
+    readonly Signal<string?> buildName = new(null);
+    readonly Signal<ushort> buildVersion = new(0);
+    readonly Signal<bool> fetching = new(false);
+    readonly CollectionSignal<RemoteEntity> entities = new();
+
+    // ⚠ An `ImmutableDictionary` in a `Signal` rather than a `Dictionary`, and it is `SettingsView`'s
+    // `categories` lesson in the other collection shape: a dictionary written in place is a value
+    // change no signal can see, which is exactly the hole a revision counter gets invented to paper
+    // over. Replacing the map is the notification, and `ImmutableDictionary<string, double>` already
+    // *is* the `IReadOnlyDictionary<string, double>` the public property promises.
+    //
+    // ⚠ There is no `CollectionSignal` for a map, which is the one thing this port wanted and did
+    // not find. `SetItem` allocates a node per counter update where an in-place write allocated
+    // nothing; at the handful of counters a build reports that is not worth a new reactive
+    // primitive, and it would be at a thousand.
+    readonly Signal<ImmutableDictionary<string, double>> counters =
+        new(ImmutableDictionary.Create<string, double>(StringComparer.Ordinal));
+
     readonly ITransport transport;
     readonly ArrayBufferWriter<byte> outgoing = new(1024);
-    readonly List<RemoteEntity> entities = [];
     readonly List<RemoteEntity> staging = [];
-    readonly Dictionary<string, double> counters = new(StringComparer.Ordinal);
+
+    // ⚠ Deliberately *not* signal-backed, which is what "additively" means. Nothing binds the log —
+    // no panel in the tree draws it — so signal-backing it would be reactivity nobody reads, paid
+    // for on every line of a conversation that is bounded at two hundred.
     readonly List<string> log = [];
 
     bool disposed;
@@ -86,25 +122,56 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
     public string EditorName { get; }
 
     /// <summary>Where the conversation has got to.</summary>
-    public RemoteState State { get; private set; } = RemoteState.Detached;
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and a read is still immediate.</b> Only the effects a write schedules
+    ///     are queued (ADR-007), so <c>RemoteInspectorTests</c>' <c>Assert.Equal(RemoteState.Attached,
+    ///     client.State)</c> on the line after <c>Settle()</c> means exactly what it did.
+    /// </remarks>
+    public RemoteState State {
+        get => state.Value;
+        private set => state.Value = value;
+    }
 
     /// <summary>What the far end calls itself, once it has said.</summary>
-    public string? BuildName { get; private set; }
+    /// <inheritdoc cref="State" select="remarks" />
+    public string? BuildName {
+        get => buildName.Value;
+        private set => buildName.Value = value;
+    }
 
     /// <summary>What version it speaks.</summary>
-    public ushort BuildVersion { get; private set; }
+    /// <inheritdoc cref="State" select="remarks" />
+    public ushort BuildVersion {
+        get => buildVersion.Value;
+        private set => buildVersion.Value = value;
+    }
 
     /// <summary>The entities it has reported, in the order they arrived.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="CollectionSignal{T}" />, which already <i>is</i> an
+    ///     <c>IReadOnlyList&lt;T&gt;</c></b> — so the property is unchanged and counting it inside a
+    ///     binding subscribes. That is what makes the status line say "3 entit(ies)" without anybody
+    ///     calling <c>Restate</c>.
+    /// </remarks>
     public IReadOnlyList<RemoteEntity> Entities => entities;
 
     /// <summary>The live counters, by name.</summary>
-    public IReadOnlyDictionary<string, double> Counters => counters;
+    /// <remarks>
+    ///     ⚠ <b>Replaced rather than written into.</b> See the field: a map mutated in place is a
+    ///     change no signal can see.
+    /// </remarks>
+    public IReadOnlyDictionary<string, double> Counters => counters.Value;
 
     /// <summary>The last few things that happened, oldest first.</summary>
+    /// <remarks>⚠ Not signal-backed; nothing binds it. See the field.</remarks>
     public IReadOnlyList<string> Log => log;
 
     /// <summary>Whether a tree is still arriving.</summary>
-    public bool IsFetching { get; private set; }
+    /// <inheritdoc cref="State" select="remarks" />
+    public bool IsFetching {
+        get => fetching.Value;
+        private set => fetching.Value = value;
+    }
 
     /// <summary>Raised when the entities, the counters or the state changed.</summary>
     public event Action<RemoteInspectorClient>? Changed;
@@ -240,7 +307,11 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
 
             case InspectorMessage.TreeComplete:
                 entities.Clear();
-                entities.AddRange(staging);
+
+                foreach (var arrived in staging) {
+                    entities.Add(arrived);
+                }
+
                 staging.Clear();
 
                 IsFetching = false;
@@ -251,7 +322,7 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
 
             case InspectorMessage.Counter:
                 if (InspectorProtocol.TryReadCounter(payload, out var counter)) {
-                    counters[counter.Name] = counter.Value;
+                    counters.Value = counters.Value.SetItem(counter.Name, counter.Value);
                     Changed?.Invoke(this);
                 }
 
@@ -329,7 +400,7 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
 
         entities.Clear();
         staging.Clear();
-        counters.Clear();
+        counters.Value = ImmutableDictionary.Create<string, double>(StringComparer.Ordinal);
     }
 
     void Note(string line) {

@@ -1,0 +1,233 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 6. Create-a-node by typing, and by dragging a wire into empty space.
+
+    ⚠ **What this port deletes is a pool, and the pool was not only churn.** `Refresh` grew a
+    `List<NodeSearchRow>` to the high-water mark of every query the popup had ever answered and
+    hid the surplus with a class — so a popup that had once shown twelve rows and now shows one
+    carried eleven elements whose *labels were the ones that query had produced*, sitting in the tree
+    under `display: none`. The dump of the hand-written panel narrowing to "Comb" shows seven hidden
+    rows still reading Constant, Named, Settings, Texture, Vector. A keyed `@for` has one row.
+
+    ⚠ **The highlight is a binding and the row's identity is not.** `Selected="@Chosen(row)"` is
+    `ctx.Bind(() => n1.Selected = …)` — an effect inside the row's own region that re-runs when the
+    highlight signal moves — so arrowing down does not change any key and rebuilds no row. That is
+    `SettingsView`'s rail exactly: a property that owns one bit of `ElementState` may be bound, where
+    the flag set may not. Putting the highlight in the key instead would have worked and would have
+    destroyed and rebuilt two elements per arrow press.
+
+    ⚠ **And that is the difference between this list and `QueryView`'s**, which does put its
+    selected flag in the key: there the selection changes the *tag*, and a tag is not a property.
+
+    ⚠ **One behaviour does change, and it is the one `FlameChartView` is still a "no" for.**
+    `node-search-row:hover` is a real rule, `ElementState.Hover` is written only by a pointer
+    dispatch (`Hover.cs`'s `Restate`, reached from `UiDocument.Track`), and an element that comes
+    into existence between two pointer events cannot carry it. So with the pointer resting on a row
+    while somebody types, the hand-written panel keeps the highlight on that *slot* and this one
+    drops it until the pointer moves. Recorded rather than hidden — `search-7`/`search-8` in wave 6's
+    harness are the two states that show it — and argued rather than merely recorded: the pool's
+    behaviour is hover following the *slot*, so after a keystroke it was drawing a hover over a row
+    that had become a different node type. Neither is right; one of them is at least not misleading.
+
+    ⚠ **The two `AddHandler`s stay in `OnComposed`.** `on:click` would serve the rows, but the key
+    handler is subscribed on the **capture** leg — before the search box treats Down and Enter as
+    caret movement and submit — and `BuildContext.Subscriptions` has no spelling for a routing
+    strategy. Named as a markup limitation in wave 6's report rather than worked around silently.
+-->
+@component NodeSearchPopup
+@namespace Vixen.Editor.NodeGraph
+@inherits Vixen.Ui.Controls.Overlay
+@tag node-search
+@using System.Collections.Immutable
+@using Vixen.Input
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+@using Vixen.Ui.Styling
+
+<SearchBox ref="@Field" Placeholder="Create node" change:Value="@(_ => Refresh())" />
+
+<node-search-list ref="@List">
+    @for (var row in Rows) {
+        <NodeSearchRow key="@row"
+                       Index="@row.Index"
+                       Label="@row.Title"
+                       Category="@row.Category"
+                       Port="@row.Port"
+                       Selected="@Chosen(row)" />
+    }
+</node-search-list>
+
+<NodeSearchEmpty ref="@EmptyPart" Text="No node type matches." class="@EmptyClass" />
+
+@code {
+    /// <summary>What the last query produced, best first.</summary>
+    readonly Signal<ImmutableArray<NodeSearchResult>> found = new([]);
+
+    /// <summary>Which row the arrows have landed on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A signal rather than a field, because it is read from inside a row's region.</b>
+    ///     <c>Chosen(row)</c> is an effect registered per row; a plain field would be read once, at
+    ///     build time, and the first highlighted row would stay highlighted for ever.
+    /// </remarks>
+    readonly Signal<int> highlight = new(0);
+
+    NodeTypeRegistry? registry;
+    PortFilter? filter;
+
+    /// <summary>How many results are shown.</summary>
+    public int Limit { get; set; } = 12;
+
+    /// <summary>What is typed into it.</summary>
+    public SearchBox Field { get; private set; } = null!;
+
+    /// <summary>Where the rows go.</summary>
+    public UiElement List { get; private set; } = null!;
+
+    /// <summary>What it says when nothing matched.</summary>
+    public UiElement EmptyPart { get; private set; } = null!;
+
+    /// <summary>What it is showing, best first.</summary>
+    public IReadOnlyList<NodeSearchResult> Results => found.Value;
+
+    /// <summary>Which result is highlighted, or -1 when there are none.</summary>
+    public int Highlighted => found.Value.Length == 0 ? -1 : highlight.Value;
+
+    /// <summary>The port a dragged wire is looking for, when the popup was opened by one.</summary>
+    public PortFilter? Filter => filter;
+
+    /// <summary>Raised when a node type is chosen.</summary>
+    public event Action<NodeSearchPopup, NodeSearchResult>? Accepted;
+
+    /// <summary>Opens it at a point, over everything.</summary>
+    /// <param name="library">The node types it may offer.</param>
+    /// <param name="wire">The port a dragged wire left, when one was dragged.</param>
+    /// <param name="x">Where to put it, in document space.</param>
+    /// <param name="y">And vertically.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="library" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The query is cleared every time.</b> A popup that remembered what was typed last makes
+    ///     the common case — open it, type three letters, press Enter — start by deleting somebody
+    ///     else's word.
+    /// </remarks>
+    public void Show(NodeTypeRegistry library, PortFilter? wire, float x, float y) {
+        ArgumentNullException.ThrowIfNull(library);
+
+        registry = library;
+        filter = wire;
+        highlight.Value = 0;
+
+        Field.Value = "";
+
+        Refresh();
+        Open();
+        MoveTo(x, y);
+
+        Document.Focus(Field);
+    }
+
+    /// <summary>Chooses the highlighted result, as Enter does.</summary>
+    /// <returns>Whether there was one.</returns>
+    public bool Accept() {
+        if (Highlighted < 0) {
+            return false;
+        }
+
+        var chosen = found.Value[highlight.Value];
+
+        Close();
+        Accepted?.Invoke(this, chosen);
+
+        return true;
+    }
+
+    /// <summary>Moves the highlight.</summary>
+    /// <param name="delta">How far, in rows.</param>
+    /// <remarks>
+    ///     Clamped rather than wrapped. A list of twelve that jumps from the bottom to the top on one
+    ///     more Down is one where holding the key never settles anywhere.
+    /// </remarks>
+    public void Highlight(int delta) {
+        if (found.Value.Length == 0) {
+            return;
+        }
+
+        highlight.Value = Math.Clamp(highlight.Value + delta, 0, found.Value.Length - 1);
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>Capture, and that is why these two are here rather than in the markup.</b> The arrows
+    ///     and Enter must be taken before the search box treats them as caret movement and submit,
+    ///     and <c>BuildContext.Subscriptions</c>' entries carry a <c>RoutingStrategy</c> that no
+    ///     <c>on:</c> attribute has a spelling for. The click handler keeps it company because it
+    ///     walks the source chain rather than sitting on a row, which is what makes a click on a
+    ///     row's own label land on the row.
+    /// </remarks>
+    partial void OnComposed() {
+        IsFocusScope = true;
+        LightDismiss = true;
+        CloseOnEscape = true;
+
+        AddHandler<KeyEvent>(static (element, args) => ((NodeSearchPopup) element).Keyed(args), RoutingStrategy.Capture);
+        AddHandler<ClickEvent>(static (element, args) => ((NodeSearchPopup) element).Chosen(args));
+    }
+
+    void Refresh() {
+        found.Value = registry is null ? [] : [.. NodeSearch.Rank(registry, Field.Value, filter, Limit)];
+        highlight.Value = Math.Clamp(highlight.Value, 0, Math.Max(0, found.Value.Length - 1));
+    }
+
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed) {
+            return;
+        }
+
+        switch (args.Key) {
+            case InputKey.Down:
+                Highlight(1);
+                break;
+
+            case InputKey.Up:
+                Highlight(-1);
+                break;
+
+            case InputKey.Enter or InputKey.KeypadEnter:
+                Accept();
+                break;
+
+            default:
+                return;
+        }
+
+        args.Handled = true;
+    }
+
+    void Chosen(ClickEvent args) {
+        if (args.Source is not NodeSearchRow row || row.Index < 0 || row.Index >= found.Value.Length) {
+            return;
+        }
+
+        highlight.Value = row.Index;
+        args.Handled = true;
+
+        Accept();
+    }
+
+    // ================================================================== What the markup reads
+
+    /// <summary>One row per result, keyed on the whole record.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The immutable-data half of the <c>@for</c> rule.</b> A <c>NodeSearchResult</c> is a
+    ///     readonly record struct, so a re-ranked list is a different set of keys and the rows are
+    ///     rebuilt with the new text in them. Only the highlight is a binding, because only the
+    ///     highlight is a property.
+    /// </remarks>
+    ImmutableArray<NodeSearchRowData> Rows =>
+        [.. found.Value.Select((result, slot) => new NodeSearchRowData(slot, result.Type.Title, result.Type.Category, result.Port))];
+
+    bool Chosen(NodeSearchRowData row) => row.Index == highlight.Value;
+
+    string EmptyClass => found.Value.Length == 0 ? string.Empty : "hidden";
+}

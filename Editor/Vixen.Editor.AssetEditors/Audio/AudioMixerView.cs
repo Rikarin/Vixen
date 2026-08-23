@@ -103,11 +103,14 @@ internal readonly record struct MixerNote(int Slot, string Stage, string Message
 ///         to a word.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Internal, and the two analysis ones are the seed of something shared.</b>
-///         <c>analysis-row</c>/<c>analysis-stage</c>/<c>analysis-message</c> is a triple this
-///         assembly builds in more than one panel; hoisting it into a part is a job for whoever ports
-///         the second of them, because doing it here would move pixels in a panel this change has not
-///         measured.
+///         ✅ <b>And the two analysis ones are gone, into the part this file nominated.</b> The note
+///         here used to read "<c>analysis-row</c>/<c>analysis-stage</c>/<c>analysis-message</c> is a
+///         triple this assembly builds in more than one panel; hoisting it into a part is a job for
+///         whoever ports the second of them". Wave 6 ported the second and the third —
+///         <c>QueryView</c> and <c>GoapDomainView</c> — and the triple is
+///         <c>AnalysisRow.vxml</c> now, with its two cells in <c>Captions.cs</c> beside
+///         <see cref="FactName" />. This panel's own diagnostics list uses it, and its dump is
+///         unchanged: the part's host tag <i>is</i> the <c>analysis-row</c> the loop built.
 ///     </para>
 /// </remarks>
 internal sealed class MixerStripName : UiElement {
@@ -137,18 +140,6 @@ internal sealed class MixerTitle : UiElement {
 internal sealed class MixerSnapshotRow : UiElement {
     /// <inheritdoc />
     protected override string TagName => "mixer-snapshot";
-}
-
-/// <inheritdoc cref="MixerStripName" />
-internal sealed class AnalysisStage : UiElement {
-    /// <inheritdoc />
-    protected override string TagName => "analysis-stage";
-}
-
-/// <inheritdoc cref="MixerStripName" />
-internal sealed class AnalysisMessage : UiElement {
-    /// <inheritdoc />
-    protected override string TagName => "analysis-message";
 }
 
 /// <summary>A <c>fact-value</c> holding a dropdown whose options are data.</summary>

@@ -1,0 +1,309 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 6. doc 37 § Part 5's GOAP editor: three authored tables, a derived read-only
+    graph, and what the compiler said. The ledger sized it S/M with "port; leave
+    `CurveEditor`/`NodeCanvas` behind a `ref`", and the canvas is the cleanest example of shape 1 in
+    the tree — `Canvas.Graph = projection.Project(…)` hands a whole graph model to a control that
+    draws nodes, ports and wires in `OnDraw`. None of them are elements, so there is nothing for
+    markup to describe and signal-backing the projection would move no pixel.
+
+    ⚠ **Three tables, one tag.** Goals, actions and world keys are all `goap-row` and differ only in
+    which cells they carry, so each list is its own `@for` over its own record rather than one loop
+    over a union. Three records is three keys that cannot collide; one record with five nullable
+    cells would have been a shape the panel does not have.
+
+    ⚠ **Every key is the whole record, including the slot.** Nothing behind this panel is
+    signal-backed below the four lists, so a changed cost has to *be* a changed identity — and two
+    world keys that read alike are ordinary here, because a constant key prints its own number and
+    nothing stops two constants being `0`.
+
+    ⚠ **`Refresh` and `Compile` stay two methods, because they are two costs.** `Refresh` re-reads
+    three tables; `Compile` runs the domain compiler and re-projects the graph. `Follow` calls only
+    the second, which is what makes a running agent's plan redraw without re-reading the asset. The
+    port changes neither call graph nor which one the document's `Changed` reaches.
+-->
+@component GoapDomainView
+@namespace Vixen.Editor.AssetEditors.Ai
+@inherits Vixen.Ui.Controls.Control
+@tag goap-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Ai
+@using Vixen.Editor.Ai
+@using Vixen.Editor.Core
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<goap-body>
+    <!--
+        Left to right: goals, then what serves them, then what serves those — the direction the
+        search walks, so a domain that plans four deep looks four deep.
+    -->
+    <NodeCanvas ref="@Canvas" Orientation="Horizontal" />
+
+    <goap-side>
+        <goap-toolbar>
+            <Button ref="@Build" Label="Compile" />
+        </goap-toolbar>
+
+        <PanelTitle Text="Goals" />
+
+        <goap-goals ref="@Goals">
+            @for (var goal in GoalRows) {
+                <goap-row key="@goal">
+                    <GoapName Text="@goal.Name" />
+                    <GoapPriority Text="@goal.Priority" />
+                    <GoapDetail Text="@goal.Conditions" />
+                </goap-row>
+            }
+        </goap-goals>
+
+        <PanelTitle Text="Actions" />
+
+        <goap-actions ref="@Actions">
+            @for (var action in ActionRows) {
+                <goap-row key="@action">
+                    <GoapName Text="@action.Name" />
+                    <GoapTask Text="@action.Task" />
+                    <GoapCost Text="@action.Cost" />
+                    <GoapDetail Text="@action.Conditions" />
+                    <GoapEffects Text="@action.Effects" />
+                </goap-row>
+            }
+        </goap-actions>
+
+        <PanelTitle Text="World keys" />
+
+        <goap-keys ref="@Keys">
+            @for (var key in KeyRows) {
+                <goap-row key="@key">
+                    <GoapName Text="@key.Name" />
+                    <GoapSource Text="@key.Source" />
+                    <GoapDetail Text="@key.Detail" />
+                </goap-row>
+            }
+        </goap-keys>
+
+        <PanelTitle Text="Diagnostics" />
+
+        <goap-diagnostics ref="@Diagnostics">
+            @for (var note in DiagnosticRows) {
+                <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
+            }
+        </goap-diagnostics>
+    </goap-side>
+</goap-body>
+
+@code {
+    readonly GoapGraphProjection projection = new();
+    readonly List<GoapConsidered> considered = [];
+
+    /// <summary>The goals, as the loop keys them.</summary>
+    readonly Signal<ImmutableArray<GoapGoalRow>> goals = new([]);
+
+    /// <summary>The actions.</summary>
+    readonly Signal<ImmutableArray<GoapActionRow>> actions = new([]);
+
+    /// <summary>The world keys.</summary>
+    readonly Signal<ImmutableArray<GoapKeyRow>> keys = new([]);
+
+    /// <summary>What the last compile said, in the order it said it.</summary>
+    readonly Signal<ImmutableArray<AnalysisNote>> notes = new([]);
+
+    AgentDebugModel? live;
+    GoapDomainDocument? document;
+    bool listening;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The derived graph. ⚠ Read-only, and deliberately without a command stack.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>ref</c>, and the ledger's shape 1 says why.</b> <c>Canvas.Graph = built</c> hands
+    ///     a whole model to a control that draws its nodes, ports and wires itself; not one of them is
+    ///     an element, so there is no tree here for markup to describe and no attribute that could
+    ///     bind one.
+    /// </remarks>
+    public NodeCanvas Canvas { get; private set; } = null!;
+
+    /// <summary>The goals.</summary>
+    public UiElement Goals { get; private set; } = null!;
+
+    /// <summary>The actions.</summary>
+    public UiElement Actions { get; private set; } = null!;
+
+    /// <summary>The world keys.</summary>
+    public UiElement Keys { get; private set; } = null!;
+
+    /// <summary>What the last compile said.</summary>
+    public UiElement Diagnostics { get; private set; } = null!;
+
+    /// <summary>The button that compiles the domain and rebuilds the graph.</summary>
+    public Button Build { get; private set; } = null!;
+
+    /// <summary>Shows a document.</summary>
+    /// <param name="value">The domain.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="value" /> is null.</exception>
+    public void Show(GoapDomainDocument value) {
+        ArgumentNullException.ThrowIfNull(value);
+
+        document = value;
+
+        if (!listening) {
+            document.Changed += _ => Refresh();
+            listening = true;
+        }
+
+        Refresh();
+        Compile();
+    }
+
+    /// <summary>Follows a running agent, so the graph shows its plan and its world.</summary>
+    /// <param name="value">The debugger's model, or null to go back to the authored picture.</param>
+    /// <param name="planner">The planner whose search to trace, or null for none.</param>
+    /// <remarks>
+    ///     doc 37 § Part 5: <i>"in play mode it shows the live search over it: the chosen goal, the
+    ///     plan, each node's condition states from current world data, and the actions that were
+    ///     considered and rejected with why."</i> All four come from the agent rather than from a
+    ///     second search this panel runs, because a panel that re-planned would be showing a plan the
+    ///     agent is not following.
+    /// </remarks>
+    public void Follow(AgentDebugModel? value, GoapPlanner? planner = null) {
+        live = value;
+
+        if (planner is not null) {
+            // ⚠ The list belongs to the panel and not to the planner, so closing the panel stops the
+            // cost — see GoapPlanner.Traced.
+            planner.Traced = value is null ? null : considered;
+        }
+
+        Compile();
+    }
+
+    /// <summary>Compiles the domain, lists what it said and redraws the derived graph.</summary>
+    /// <param name="plan">A plan to highlight on it, or null.</param>
+    /// <returns>The domain, or null.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The return value and the canvas are right on this line; the diagnostics list is right
+    ///     on the next flush.</b> That split is <c>EffectScheduler</c>'s contract rather than this
+    ///     panel's choice (ADR-007), and it is exactly the line the ledger's shape 3 draws: the
+    ///     canvas is written directly because it is not a region, and the list is a projection of a
+    ///     signal. No production caller reads either back with no frame between.
+    /// </remarks>
+    public GoapDomain? Compile(GoapPlan? plan = null) {
+        if (document is null) {
+            return null;
+        }
+
+        var domain = document.Compile();
+        var found = ImmutableArray.CreateBuilder<AnalysisNote>();
+        var slot = 0;
+
+        foreach (var diagnostic in document.Diagnostics) {
+            found.Add(new(slot++, diagnostic.Node.IsSome ? diagnostic.Node.ToString() : "domain", diagnostic.Message));
+        }
+
+        if (domain is not null) {
+            Canvas.Graph = projection.Project(domain, plan ?? Following(), Projected(), live is null ? null : considered);
+
+            if (document.Diagnostics.Count == 0) {
+                found.Add(
+                    new(
+                        slot,
+                        "domain",
+                        string.Create(
+                            CultureInfo.InvariantCulture,
+                            $"{domain.Name} compiles: {domain.Count} action(s), {domain.Goals.Length} goal(s), "
+                            + $"{domain.Keys.Count} world key(s), {domain.EdgeCount} derived edge(s)."
+                        )
+                    )
+                );
+            }
+        }
+
+        notes.Value = found.ToImmutable();
+
+        return domain;
+    }
+
+    /// <summary>Rebuilds the three tables from the document.</summary>
+    public void Refresh() {
+        if (document is null) {
+            return;
+        }
+
+        goals.Value = [
+            .. document.Content.Goals.Select(
+                (goal, slot) => new GoapGoalRow(
+                    slot,
+                    goal.Name,
+                    goal.Priority.ToString(CultureInfo.InvariantCulture),
+                    string.Join(", ", goal.Conditions.Select(Describe))
+                )
+            )
+        ];
+
+        actions.Value = [
+            .. document.Content.Actions.Select(
+                (action, slot) => new GoapActionRow(
+                    slot,
+                    action.Name,
+                    action.Task,
+                    action.Cost.ToString("0.##", CultureInfo.InvariantCulture),
+                    string.Join(", ", action.Conditions.Select(Describe)),
+                    string.Join(", ", action.Effects.Select(effect => $"{(effect.Increases ? "+" : "−")} {effect.Key}"))
+                )
+            )
+        ];
+
+        keys.Value = [
+            .. document.Content.Keys.Select(
+                (key, slot) => new GoapKeyRow(
+                    slot,
+                    key.Name,
+                    key.Source.ToString(),
+                    key.Source == GoapSourceKind.Constant ? key.Value.ToString(CultureInfo.InvariantCulture) : key.From
+                )
+            )
+        ];
+    }
+
+    /// <summary>One condition, as a person reads it.</summary>
+    /// <param name="condition">The condition.</param>
+    /// <returns>Its text.</returns>
+    public static string Describe(GoapConditionContent condition) {
+        ArgumentNullException.ThrowIfNull(condition);
+
+        var symbol = condition.Comparison switch {
+            GoapComparison.Less => "<",
+            GoapComparison.LessOrEqual => "≤",
+            GoapComparison.Greater => ">",
+            _ => "≥"
+        };
+
+        return $"{condition.Key} {symbol} {condition.Value.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    /// <summary>The followed agent's plan, when it is planning over this domain.</summary>
+    GoapPlan? Following() => live?.Plan;
+
+    /// <summary>
+    ///     The followed agent's world keys, as the search read them — or empty when nothing is
+    ///     running, so the conditions are drawn without a verdict.
+    /// </summary>
+    ReadOnlySpan<int> Projected() => live is null ? default : live.WorldKeys;
+
+    // ================================================================== What the markup reads
+
+    ImmutableArray<GoapGoalRow> GoalRows => goals.Value;
+
+    ImmutableArray<GoapActionRow> ActionRows => actions.Value;
+
+    ImmutableArray<GoapKeyRow> KeyRows => keys.Value;
+
+    ImmutableArray<AnalysisNote> DiagnosticRows => notes.Value;
+}

@@ -1,12 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
-using Vixen.Ai.Diagnostics;
-using Vixen.Core;
-using Vixen.Editor.Ai;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.AssetEditors.Ai;
 
@@ -17,7 +12,12 @@ namespace Vixen.Editor.AssetEditors.Ai;
 ///     <para>
 ///         doc 37 § Part 5 § Shared's agent inspector, and § P7's editor panels. Five lists over one
 ///         <see cref="AgentDebugModel" />: the agents, the four sections of its snapshot, the recorded
-///         log, and whatever <see cref="AiDiagnosis" /> made of it.
+///         log, and whatever <see cref="Vixen.Ai.Diagnostics.AiDiagnosis" /> made of it.
+///     </para>
+///     <para>
+///         The panel is <c>AgentDebuggerView.vxml</c>; this file is the accessibility modifier, the
+///         five records its lists key on, and the cells that exist only so that markup can write an
+///         intrinsic tag's own <c>Text</c>.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It has no document and no command stack, because there is nothing here to edit.</b>
@@ -32,201 +32,151 @@ namespace Vixen.Editor.AssetEditors.Ai;
 ///         diagnosis feature nobody notices.
 ///     </para>
 /// </remarks>
-public sealed class AgentDebuggerView : Control {
-    AgentDebugModel? model;
+public sealed partial class AgentDebuggerView;
 
+/// <summary>One agent's row in the left-hand list.</summary>
+/// <param name="Slot">Where it is in the world's order.</param>
+/// <param name="Name">The entity, as it prints itself.</param>
+/// <param name="Selected">Whether this is the one the detail pane is about.</param>
+/// <remarks>
+///     ⚠ <b><see cref="Selected" /> is in the key because it decides whether the row has a second
+///     child.</b> The bullet is an element that is there or is not, so a surviving key would keep the
+///     bullet on whichever agent was selected when the row first appeared.
+/// </remarks>
+internal readonly record struct AgentListRow(int Slot, string Name, bool Selected);
+
+/// <summary>The one-line header, as one value so that the whole of it changes together.</summary>
+/// <param name="Planner">Utility set, behaviour tree or GOAP.</param>
+/// <param name="Asset">Which asset it is running.</param>
+/// <param name="Action">What it is doing right now.</param>
+/// <param name="Status">Running, succeeded, failed — or that a breakpoint has halted it.</param>
+/// <param name="Origin">Where the decision came from.</param>
+/// <param name="HasReason">Whether the snapshot carries a reason at all.</param>
+/// <param name="Reason">And what it says.</param>
+/// <remarks>
+///     ⚠ <b>One record rather than six signals, because the six are one photograph.</b>
+///     <c>AgentDebugModel.Refresh</c> re-photographs the running system in one go, and six signals
+///     would have been six flushes of a header that is only ever written together.
+/// </remarks>
+internal readonly record struct AgentHeadRow(
+    string Planner,
+    string Asset,
+    string Action,
+    string Status,
+    string Origin,
+    bool HasReason,
+    string Reason
+);
+
+/// <summary>One row of one of the four snapshot sections.</summary>
+/// <param name="Slot">Where it is in that section.</param>
+/// <param name="Active">Whether it is the live one, which is a different tag.</param>
+/// <param name="Name">What it is called.</param>
+/// <param name="Value">And what it reads.</param>
+/// <remarks>
+///     ⚠ <b><see cref="Active" /> is in the key and that is the whole of this panel's <c>@for</c>
+///     risk.</b> <c>agent-row-live</c> is a *tag*, not a class, so the choice is an <c>@if</c> inside
+///     the loop body and a surviving key would never re-run it. On a flapping agent — the case the
+///     debugger exists for — the highlight would sit on whichever candidate was live on the frame the
+///     panel opened, while every value beside it updated correctly.
+/// </remarks>
+internal readonly record struct AgentSectionRow(int Slot, bool Active, string Name, string Value);
+
+/// <summary>One thing <c>AiDiagnosis</c> found.</summary>
+/// <param name="Slot">Where it is in the diagnosis's order.</param>
+/// <param name="Symptom">Which symptom it is.</param>
+/// <param name="Detail">The finding, as it prints itself.</param>
+internal readonly record struct AgentFindingRow(int Slot, string Symptom, string Detail);
+
+/// <summary>One recorded decision.</summary>
+/// <param name="Slot">Where it is in the log, oldest first.</param>
+/// <param name="Tick">Which tick it was made on.</param>
+/// <param name="Action">What was chosen.</param>
+/// <param name="Status">How it went.</param>
+/// <param name="Reason">Why, when the record carries one.</param>
+/// <remarks>
+///     ⚠ <b>The slot earns its place here more than anywhere else in the wave.</b> A stable agent
+///     records the same action with the same status on tick after tick, so equal rows are the
+///     <i>normal</i> content of this list rather than a corner case, and <c>BuildContext.For</c>
+///     cannot reconcile two equal keys in one loop.
+/// </remarks>
+internal readonly record struct AgentLogRow(int Slot, string Tick, string Action, string Status, string Reason);
+
+/// <summary>
+///     ⚠ The cells that exist only so that markup can set an intrinsic tag's own <c>Text</c>.
+/// </summary>
+/// <remarks>
+///     The panel ledger's shape 5 and its sanctioned escape; <see cref="FactName" /> carries the full
+///     argument. <c>agent-name</c>, <c>agent-status</c> and <c>agent-detail</c> each appear in two
+///     different rows, which is why they are declared once here rather than per list.
+/// </remarks>
+internal sealed class AgentName : UiElement {
     /// <inheritdoc />
-    protected override string TagName => "agent-debugger";
+    protected override string TagName => "agent-name";
+}
 
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentMark : UiElement {
     /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
+    protected override string TagName => "agent-mark";
+}
 
-    /// <summary>Every agent in the world, one row each.</summary>
-    public UiElement Agents { get; private set; } = null!;
-
-    /// <summary>What the selected agent is, in one line.</summary>
-    public UiElement Header { get; private set; } = null!;
-
-    /// <summary>What it is doing: the active path, the scored candidates, the plan.</summary>
-    public UiElement Doing { get; private set; } = null!;
-
-    /// <summary>Why.</summary>
-    public UiElement Why { get; private set; } = null!;
-
-    /// <summary>Its data: the blackboard, live.</summary>
-    public UiElement Data { get; private set; } = null!;
-
-    /// <summary>Its senses.</summary>
-    public UiElement Senses { get; private set; } = null!;
-
-    /// <summary>What is visibly wrong with it.</summary>
-    public UiElement Findings { get; private set; } = null!;
-
-    /// <summary>What it has decided lately, oldest first.</summary>
-    public UiElement Log { get; private set; } = null!;
-
-    /// <summary>Lets a stopped agent go.</summary>
-    public Button Continue { get; private set; } = null!;
-
-    /// <summary>Opens the asset the selected agent is running, scrolled to what it is doing.</summary>
-    /// <remarks>
-    ///     doc 37 § Part 5 § Shared. ⚠ <b>It reports what to open rather than opening it</b>, through
-    ///     <see cref="Opening" /> — this panel knows an agent's <c>Symbol</c> and its active node, and
-    ///     it does not know where the project keeps its files or which host owns the tab strip. A view
-    ///     that reached for a document service would be a view that cannot be tested without one.
-    /// </remarks>
-    public Button Open { get; private set; } = null!;
-
-    /// <summary>What to open, and where in it: the asset's name and the live node's index.</summary>
-    public event Action<Symbol, int>? Opening;
-
-    /// <summary>The model it is showing, or null.</summary>
-    public AgentDebugModel? Model => model;
-
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentValue : UiElement {
     /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
+    protected override string TagName => "agent-value";
+}
 
-        var body = Add("agent-debugger-body");
-        var left = body.Add("agent-debugger-agents");
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentDetail : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-detail";
+}
 
-        left.Add("panel-title").Text = "Agents";
-        Agents = left.Add("agent-list");
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentPlanner : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-planner";
+}
 
-        var right = body.Add("agent-debugger-detail");
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentAsset : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-asset";
+}
 
-        Header = right.Add("agent-header");
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentAction : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-action";
+}
 
-        var toolbar = right.Add("agent-toolbar");
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentStatus : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-status";
+}
 
-        Continue = toolbar.Add<Button>();
-        Continue.Label = "Continue";
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentOrigin : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-origin";
+}
 
-        Open = toolbar.Add<Button>();
-        Open.Label = "Open asset";
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentReason : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-reason";
+}
 
-        right.Add("panel-title").Text = "Doing";
-        Doing = right.Add("agent-rows");
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentSymptom : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-symptom";
+}
 
-        right.Add("panel-title").Text = "Why";
-        Why = right.Add("agent-rows");
-
-        right.Add("panel-title").Text = "Data";
-        Data = right.Add("agent-rows");
-
-        right.Add("panel-title").Text = "Senses";
-        Senses = right.Add("agent-rows");
-
-        right.Add("panel-title").Text = "Findings";
-        Findings = right.Add("agent-findings");
-
-        right.Add("panel-title").Text = "Log";
-        Log = right.Add("agent-log");
-    }
-
-    /// <summary>Shows a model, and follows it from then on.</summary>
-    /// <param name="value">The model.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="value" /> is null.</exception>
-    public void Show(AgentDebugModel value) {
-        ArgumentNullException.ThrowIfNull(value);
-
-        model = value;
-
-        Refresh();
-    }
-
-    /// <summary>
-    ///     Says which asset the selected agent is running and where in it, for whoever owns the tabs.
-    /// </summary>
-    /// <returns>Whether there was anything to open.</returns>
-    public bool OpenAsset() {
-        if (model is null || !model.Snapshot.Asset.IsSome) {
-            return false;
-        }
-
-        // ⚠ The *live* node, not the selected one: an author pressing this wants the tree scrolled to
-        // what the agent is doing, which is the whole reason the button is on this panel rather than
-        // in the asset browser.
-        Opening?.Invoke(model.Snapshot.Asset, model.ActivePath.Count > 0 ? model.ActivePath[^1] : 0);
-
-        return true;
-    }
-
-    /// <summary>Rebuilds every list from the model.</summary>
-    public void Refresh() {
-        if (model is null) {
-            return;
-        }
-
-        Empty(Agents);
-        Empty(Header);
-        Empty(Doing);
-        Empty(Why);
-        Empty(Data);
-        Empty(Senses);
-        Empty(Findings);
-        Empty(Log);
-
-        foreach (var entity in model.Agents) {
-            var row = Agents.Add("agent-row");
-
-            row.Add("agent-name").Text = entity.ToString();
-
-            if (entity == model.Selected) {
-                row.Add("agent-mark").Text = "•";
-            }
-        }
-
-        var snapshot = model.Snapshot;
-
-        Header.Add("agent-planner").Text = snapshot.Planner.ToString();
-        Header.Add("agent-asset").Text = snapshot.Asset.ToString();
-        Header.Add("agent-action").Text = snapshot.Action.ToString();
-        Header.Add("agent-status").Text = model.Halted ? "halted" : snapshot.Status.ToString();
-        Header.Add("agent-origin").Text = model.Origin.ToString();
-
-        if (snapshot.Reason.Length > 0) {
-            Header.Add("agent-reason").Text = snapshot.Reason;
-        }
-
-        Rows(Doing, AiDebugSection.Doing);
-        Rows(Why, AiDebugSection.Why);
-        Rows(Data, AiDebugSection.Data);
-        Rows(Senses, AiDebugSection.Senses);
-
-        foreach (var finding in model.SelectedFindings()) {
-            var row = Findings.Add("agent-finding");
-
-            row.Add("agent-symptom").Text = finding.Symptom.ToString();
-            row.Add("agent-detail").Text = finding.ToString();
-        }
-
-        foreach (var record in model.Log) {
-            var row = Log.Add("agent-log-row");
-
-            row.Add("agent-tick").Text = record.Tick.ToString(CultureInfo.InvariantCulture);
-            row.Add("agent-name").Text = record.Action.ToString();
-            row.Add("agent-status").Text = record.Status.ToString();
-            row.Add("agent-detail").Text = record.Reason.IsSome ? record.Reason.ToString() : string.Empty;
-        }
-    }
-
-    void Rows(UiElement into, AiDebugSection section) {
-        if (model is null) {
-            return;
-        }
-
-        foreach (var row in model.Section(section)) {
-            var element = into.Add(row.Active ? "agent-row-live" : "agent-row");
-
-            element.Add("agent-name").Text = row.Name;
-            element.Add("agent-value").Text = row.Value;
-        }
-    }
-
-    static void Empty(UiElement element) {
-        while (element.Children.Count > 0) {
-            element.Children[^1].Remove();
-        }
-    }
+/// <inheritdoc cref="AgentName" />
+internal sealed class AgentTick : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "agent-tick";
 }

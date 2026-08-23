@@ -1,13 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
-using Vixen.Ai;
-using Vixen.Editor.Ai;
 using Vixen.Editor.Core;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Ai;
 
@@ -20,6 +15,11 @@ namespace Vixen.Editor.AssetEditors.Ai;
 ///         stack means read-only"</i>.
 ///     </para>
 ///     <para>
+///         The panel is <c>GoapDomainView.vxml</c>; this file is the accessibility modifier, the
+///         three records its tables key on, and the cells that exist only so that markup can write an
+///         intrinsic tag's own <c>Text</c>.
+///     </para>
+///     <para>
 ///         ⚠ <b>This is where "the node editor is mandatory" gets an honest answer.</b> crashkonijn
 ///         ships a GraphViewer rather than a graph editor, and that is right: the edges are computed
 ///         from which effects satisfy which conditions, so drawing them by hand would be authoring the
@@ -27,217 +27,95 @@ namespace Vixen.Editor.AssetEditors.Ai;
 ///         condition.
 ///     </para>
 /// </remarks>
-public sealed class GoapDomainView : Control {
-    readonly GoapGraphProjection projection = new();
-    readonly List<GoapConsidered> considered = [];
+public sealed partial class GoapDomainView;
 
-    AgentDebugModel? live;
-    GoapDomainDocument? document;
-    bool listening;
+/// <summary>One goal's row, as the <c>@for</c> keys it.</summary>
+/// <param name="Slot">Where it is in the document's goal list.</param>
+/// <param name="Name">What it is called.</param>
+/// <param name="Priority">How badly it is wanted.</param>
+/// <param name="Conditions">What has to hold for it to be met, as a person reads it.</param>
+/// <remarks>
+///     ⚠ <b>The whole record is the key</b> — the immutable-data half of the <c>@for</c> rule.
+///     Nothing here is signal-backed, so a re-prioritised goal has to be a different key or the row
+///     would keep the first number. The slot is in it because <c>BuildContext.For</c> cannot
+///     reconcile two equal keys in one loop and nothing stops a domain naming two goals alike.
+/// </remarks>
+internal readonly record struct GoapGoalRow(int Slot, string Name, string Priority, string Conditions);
 
+/// <summary>One action's row.</summary>
+/// <param name="Slot">Where it is in the document's action list.</param>
+/// <param name="Name">What it is called.</param>
+/// <param name="Task">Which task runs it.</param>
+/// <param name="Cost">What the search pays for it.</param>
+/// <param name="Conditions">What has to hold before it may run.</param>
+/// <param name="Effects">What it changes, and in which direction.</param>
+/// <inheritdoc cref="GoapGoalRow" path="/remarks" />
+internal readonly record struct GoapActionRow(
+    int Slot,
+    string Name,
+    string Task,
+    string Cost,
+    string Conditions,
+    string Effects
+);
+
+/// <summary>One world key's row.</summary>
+/// <param name="Slot">Where it is in the document's key list.</param>
+/// <param name="Name">What it is called.</param>
+/// <param name="Source">Whether it is a constant, a sensor or a blackboard reading.</param>
+/// <param name="Detail">Its value, or where it comes from.</param>
+/// <remarks>
+///     ⚠ Equal rows are the ordinary case here rather than the hypothetical one: a constant key
+///     prints its own number and nothing stops two constants being <c>0</c>. Hence the slot.
+/// </remarks>
+internal readonly record struct GoapKeyRow(int Slot, string Name, string Source, string Detail);
+
+/// <summary>
+///     ⚠ The cells that exist only so that markup can set an intrinsic tag's own <c>Text</c>.
+/// </summary>
+/// <remarks>
+///     The panel ledger's shape 5 and its sanctioned escape; <see cref="FactName" /> carries the full
+///     argument.
+/// </remarks>
+internal sealed class GoapName : UiElement {
     /// <inheritdoc />
-    protected override string TagName => "goap-editor";
+    protected override string TagName => "goap-name";
+}
 
+/// <inheritdoc cref="GoapName" />
+internal sealed class GoapPriority : UiElement {
     /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
+    protected override string TagName => "goap-priority";
+}
 
-    /// <summary>The derived graph. ⚠ Read-only, and deliberately without a command stack.</summary>
-    public NodeCanvas Canvas { get; private set; } = null!;
-
-    /// <summary>The goals.</summary>
-    public UiElement Goals { get; private set; } = null!;
-
-    /// <summary>The actions.</summary>
-    public UiElement Actions { get; private set; } = null!;
-
-    /// <summary>The world keys.</summary>
-    public UiElement Keys { get; private set; } = null!;
-
-    /// <summary>What the last compile said.</summary>
-    public UiElement Diagnostics { get; private set; } = null!;
-
-    /// <summary>The button that compiles the domain and rebuilds the graph.</summary>
-    public Button Build { get; private set; } = null!;
-
+/// <inheritdoc cref="GoapName" />
+internal sealed class GoapDetail : UiElement {
     /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
+    protected override string TagName => "goap-detail";
+}
 
-        var body = Add("goap-body");
+/// <inheritdoc cref="GoapName" />
+internal sealed class GoapTask : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "goap-task";
+}
 
-        Canvas = body.Add<NodeCanvas>();
+/// <inheritdoc cref="GoapName" />
+internal sealed class GoapCost : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "goap-cost";
+}
 
-        // Left to right: goals, then what serves them, then what serves those — the direction the
-        // search walks, so a domain that plans four deep looks four deep.
-        Canvas.Orientation = GraphOrientation.Horizontal;
+/// <inheritdoc cref="GoapName" />
+internal sealed class GoapEffects : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "goap-effects";
+}
 
-        var side = body.Add("goap-side");
-        var toolbar = side.Add("goap-toolbar");
-
-        Build = toolbar.Add<Button>();
-        Build.Label = "Compile";
-
-        side.Add("panel-title").Text = "Goals";
-        Goals = side.Add("goap-goals");
-
-        side.Add("panel-title").Text = "Actions";
-        Actions = side.Add("goap-actions");
-
-        side.Add("panel-title").Text = "World keys";
-        Keys = side.Add("goap-keys");
-
-        side.Add("panel-title").Text = "Diagnostics";
-        Diagnostics = side.Add("goap-diagnostics");
-    }
-
-    /// <summary>Shows a document.</summary>
-    /// <param name="value">The domain.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="value" /> is null.</exception>
-    public void Show(GoapDomainDocument value) {
-        ArgumentNullException.ThrowIfNull(value);
-
-        document = value;
-
-        if (!listening) {
-            document.Changed += _ => Refresh();
-            listening = true;
-        }
-
-        Refresh();
-        Compile();
-    }
-
-    /// <summary>Follows a running agent, so the graph shows its plan and its world.</summary>
-    /// <param name="value">The debugger's model, or null to go back to the authored picture.</param>
-    /// <param name="planner">The planner whose search to trace, or null for none.</param>
-    /// <remarks>
-    ///     doc 37 § Part 5: <i>"in play mode it shows the live search over it: the chosen goal, the
-    ///     plan, each node's condition states from current world data, and the actions that were
-    ///     considered and rejected with why."</i> All four come from the agent rather than from a
-    ///     second search this panel runs, because a panel that re-planned would be showing a plan the
-    ///     agent is not following.
-    /// </remarks>
-    public void Follow(AgentDebugModel? value, GoapPlanner? planner = null) {
-        live = value;
-
-        if (planner is not null) {
-            // ⚠ The list belongs to the panel and not to the planner, so closing the panel stops the
-            // cost — see GoapPlanner.Traced.
-            planner.Traced = value is null ? null : considered;
-        }
-
-        Compile();
-    }
-
-    /// <summary>Compiles the domain, lists what it said and redraws the derived graph.</summary>
-    /// <param name="plan">A plan to highlight on it, or null.</param>
-    /// <returns>The domain, or null.</returns>
-    public GoapDomain? Compile(GoapPlan? plan = null) {
-        if (document is null) {
-            return null;
-        }
-
-        var domain = document.Compile();
-
-        Empty(Diagnostics);
-
-        foreach (var diagnostic in document.Diagnostics) {
-            var row = Diagnostics.Add("analysis-row");
-
-            row.Add("analysis-stage").Text = diagnostic.Node.IsSome ? diagnostic.Node.ToString() : "domain";
-            row.Add("analysis-message").Text = diagnostic.Message;
-        }
-
-        if (domain is not null) {
-            Canvas.Graph = projection.Project(domain, plan ?? Following(), Projected(), live is null ? null : considered);
-
-            if (document.Diagnostics.Count == 0) {
-                var row = Diagnostics.Add("analysis-row");
-
-                row.Add("analysis-stage").Text = "domain";
-                row.Add("analysis-message").Text = string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"{domain.Name} compiles: {domain.Count} action(s), {domain.Goals.Length} goal(s), "
-                    + $"{domain.Keys.Count} world key(s), {domain.EdgeCount} derived edge(s)."
-                );
-            }
-        }
-
-        return domain;
-    }
-
-    /// <summary>Rebuilds the three tables from the document.</summary>
-    public void Refresh() {
-        if (document is null) {
-            return;
-        }
-
-        Empty(Goals);
-        Empty(Actions);
-        Empty(Keys);
-
-        foreach (var goal in document.Content.Goals) {
-            var row = Goals.Add("goap-row");
-
-            row.Add("goap-name").Text = goal.Name;
-            row.Add("goap-priority").Text = goal.Priority.ToString(CultureInfo.InvariantCulture);
-            row.Add("goap-detail").Text = string.Join(", ", goal.Conditions.Select(Describe));
-        }
-
-        foreach (var action in document.Content.Actions) {
-            var row = Actions.Add("goap-row");
-
-            row.Add("goap-name").Text = action.Name;
-            row.Add("goap-task").Text = action.Task;
-            row.Add("goap-cost").Text = action.Cost.ToString("0.##", CultureInfo.InvariantCulture);
-            row.Add("goap-detail").Text = string.Join(", ", action.Conditions.Select(Describe));
-            row.Add("goap-effects").Text = string.Join(
-                ", ",
-                action.Effects.Select(effect => $"{(effect.Increases ? "+" : "−")} {effect.Key}")
-            );
-        }
-
-        foreach (var key in document.Content.Keys) {
-            var row = Keys.Add("goap-row");
-
-            row.Add("goap-name").Text = key.Name;
-            row.Add("goap-source").Text = key.Source.ToString();
-            row.Add("goap-detail").Text = key.Source == GoapSourceKind.Constant
-                ? key.Value.ToString(CultureInfo.InvariantCulture)
-                : key.From;
-        }
-    }
-
-    /// <summary>One condition, as a person reads it.</summary>
-    /// <param name="condition">The condition.</param>
-    /// <returns>Its text.</returns>
-    public static string Describe(GoapConditionContent condition) {
-        ArgumentNullException.ThrowIfNull(condition);
-
-        var symbol = condition.Comparison switch {
-            GoapComparison.Less => "<",
-            GoapComparison.LessOrEqual => "≤",
-            GoapComparison.Greater => ">",
-            _ => "≥"
-        };
-
-        return $"{condition.Key} {symbol} {condition.Value.ToString(CultureInfo.InvariantCulture)}";
-    }
-
-    /// <summary>The followed agent's plan, when it is planning over this domain.</summary>
-    GoapPlan? Following() => live?.Plan;
-
-    /// <summary>
-    ///     The followed agent's world keys, as the search read them — or empty when nothing is
-    ///     running, so the conditions are drawn without a verdict.
-    /// </summary>
-    ReadOnlySpan<int> Projected() => live is null ? default : live.WorldKeys;
-
-    static void Empty(UiElement element) {
-        while (element.Children.Count > 0) {
-            element.Children[^1].Remove();
-        }
-    }
+/// <inheritdoc cref="GoapName" />
+internal sealed class GoapSource : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "goap-source";
 }
 
 /// <summary>Opens a <c>.vxgoap</c>.</summary>
