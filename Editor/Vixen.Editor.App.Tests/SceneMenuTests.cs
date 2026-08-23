@@ -88,9 +88,21 @@ public class SceneMenuTests {
 
         // The first is at the top, which is what "clockwise from the top" has to mean for a flick to
         // be learnable.
+        //
+        // ⚠ To within half a pixel, and for the same reason the ring above is to within one — this
+        // assertion used to demand one decimal place, which is 0.05px, and it contradicted the
+        // paragraph four lines above it. It began failing the day text measurement started reporting
+        // whole DEVICE pixels: a wedge is as wide as its label, an integer width cannot be centred on
+        // a half-pixel centre, and 794.5 against 795 is that and nothing else. Half a pixel is the
+        // layout's own quantum, so a tighter bound here is not a stricter test of the geometry — it
+        // is a test of the rounding, which is what the comment above says not to write.
         var first = menu.Items[0];
+        var middleOfFirst = first.Bounds.X + (first.Bounds.Width * 0.5f);
 
-        Assert.Equal(centre.X, first.Bounds.X + (first.Bounds.Width * 0.5f), 1);
+        Assert.True(
+            MathF.Abs(middleOfFirst - centre.X) <= 0.5f,
+            $"the first wedge's middle is at {middleOfFirst} and the centre is at {centre.X}"
+        );
         Assert.True(first.Bounds.Y < centre.Y, "the first wedge should be above the centre");
     }
 
