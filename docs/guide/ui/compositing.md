@@ -295,7 +295,7 @@ one: `ui-mask.frag` serves masked groups *and* carries the colour matrix, so a r
 the colour pipeline by mistake would draw a correctly filtered, entirely unmasked group — and
 `Filtered` would still count it.
 
-## `drop-shadow`
+### `drop-shadow`
 
 A **drop shadow** is a Gaussian over the group's *alpha channel*, displaced, tinted, and composited
 **under** the group rather than over it. `UiLayer.Shadow` carries it, as an offset, a standard

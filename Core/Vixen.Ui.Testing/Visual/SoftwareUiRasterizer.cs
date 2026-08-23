@@ -731,22 +731,6 @@ public static class SoftwareUiRasterizer {
                         surface = Blurred(surface, layer.Blur);
                     }
 
-                    // ⚠ <b>At the same seam, in place, and <i>not</i> at the same place the device
-                    // does it — which is the one deliberate structural divergence in this file and
-                    // the reason it is safe is arithmetic rather than testing.</b> `UiRenderer`
-                    // applies the matrix in the composite's fragment stage, because that costs it no
-                    // pass and no second surface; a convolution has no such option and a per-pixel
-                    // transform does. Both give the same picture because the transform is affine in
-                    // premultiplied colour: `M(Σ wᵢ sᵢ) = Σ wᵢ M(sᵢ)`, so it commutes exactly with
-                    // both the Gaussian above and the bilinear sampler below, and the tint the
-                    // composite multiplies in afterwards is a scalar that commutes with everything.
-                    // ⚠ The clamp in `UiColorMatrix.Apply` is the part that does *not* commute, which
-                    // is why it happens once, last, on both paths rather than per tap.
-                    //
-                    // ⚠ Over the whole viewport-sized surface and not over `layer.Bounds`, because
-                    // the two have to be the same picture and the device's fragment stage cannot
-                    // choose. It is free of consequence: the matrix maps transparent black to
-                    // transparent black, so every texel outside the group's ink is unchanged.
                     // ⚠ <b>Between the two, and the position is forced from both sides.</b> After the
                     // blur, because <c>blur(σ) drop-shadow(0 0 τ)</c> casts the shadow of the
                     // <i>blurred</i> element and the two Gaussians do not commute — see
@@ -765,6 +749,22 @@ public static class SoftwareUiRasterizer {
                         surfaces[layer.ShadowImage] = Filtered(Blurred(surface, cast.Blur), cast.Tint);
                     }
 
+                    // ⚠ <b>At the same seam, in place, and <i>not</i> at the same place the device
+                    // does it — which is the one deliberate structural divergence in this file and
+                    // the reason it is safe is arithmetic rather than testing.</b> `UiRenderer`
+                    // applies the matrix in the composite's fragment stage, because that costs it no
+                    // pass and no second surface; a convolution has no such option and a per-pixel
+                    // transform does. Both give the same picture because the transform is affine in
+                    // premultiplied colour: `M(Σ wᵢ sᵢ) = Σ wᵢ M(sᵢ)`, so it commutes exactly with
+                    // both the Gaussian above and the bilinear sampler below, and the tint the
+                    // composite multiplies in afterwards is a scalar that commutes with everything.
+                    // ⚠ The clamp in `UiColorMatrix.Apply` is the part that does *not* commute, which
+                    // is why it happens once, last, on both paths rather than per tap.
+                    //
+                    // ⚠ Over the whole viewport-sized surface and not over `layer.Bounds`, because
+                    // the two have to be the same picture and the device's fragment stage cannot
+                    // choose. It is free of consequence: the matrix maps transparent black to
+                    // transparent black, so every texel outside the group's ink is unchanged.
                     if (layer.Filter is { } matrix && !matrix.IsIdentity) {
                         surface = Filtered(surface, matrix);
                     }
