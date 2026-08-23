@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **153** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **52** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **159** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **51** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **116** |
+| **absent** | not emitted at all | **111** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -389,7 +389,7 @@ refusal block, which already says so for the same reason.
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
 | Layout | 49 | 22 | 8 | 0 | 15 | 3 | 1 |
-| Interactivity | 39 | 20 | 1 | 1 | 17 | 0 | 0 |
+| Interactivity | 39 | 26 | 0 | 1 | 12 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 11 | 6 | 0 | 17 | 0 | 0 |
 | Borders | 34 | 24 | 6 | 0 | 4 | 0 | 0 |
@@ -403,11 +403,33 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **153** | **52** | **3** | **116** | **3** | **1** |
+| **Total** | **328** | **159** | **51** | **3** | **111** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
-Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and Layout. Tables and Accessibility
-still have **no working root at all**, and Interactivity is 1 of 39.
+Interactivity at 26 of 39 and Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and
+Layout. Tables and Accessibility still have **no working root at all**.
+
+⚠ **Interactivity went from 20 to 26 with no `partial` left, and the six that moved split three
+ways, which is the part worth reading.** Four were renames — `scroll-mbs/mbe/pbs/pbe-*` emit the
+*physical* longhand for the reason `inset-bs-*` does, because there is no writing mode for the block
+axis to be anything but top-to-bottom. One was a reader that existed and was spelled differently:
+`TextField` and `CodeEditor` had drawn the caret off Vixen's own `--caret-color` since they were
+written, and asking the standard `caret-color` first is the whole of `caret-*`. One was a keyword:
+`cursor-help` needed a `UiCursor.Help` and nothing else.
+
+⚠ **And the twelve still absent are not twelve of the same thing.** Six are refusals with a named
+blocker in their own row — `accent-*` (the three controls CSS means are drawn from a stylesheet, and
+`var()` cannot read a standard property), `will-change-*` (no element-keyed retained surface),
+`touch` (touch events never reach `UiDocument` at all), `resize`, `appearance` and `field-sizing`.
+Two are sized and not started: `snap` and `snap (keywords)`, which want 250–400 lines in `ScrollView`
+and, harder, an end-of-gesture the wheel and the scrollbar drag do not have. The remaining four are
+the scrollbar cluster, which is one feature and is owned elsewhere.
+
+⚠ **The one finding here that is nobody's root and everybody's problem: `UiDocument.Cursor` has no
+consumer in the tree.** `cursor` measures `works` because the probe reads `CursorOf` directly, and it
+is genuinely read — but nothing calls `SetCursor` on a window from it, so no `cursor-*` class of any
+value changes what the user sees. That is a gap in the *host*, family-wide and equally true of
+`cursor-pointer`, and this file has no column that can say so.
 
 ⚠ **Effects went from 12 of 33 to 24 of 33 on one change, and every root that moved was waiting on
 the same thing: a mask *list*.** `mask-t-from-*` and its eleven siblings are per-edge ramps that only

@@ -42,6 +42,7 @@ public abstract partial class TextField : Control {
     UiElement placeholder = null!;
     int selectionColor;
     int caretColor;
+    int caretColorStandard;
     bool dragging;
 
     /// <inheritdoc />
@@ -125,6 +126,7 @@ public abstract partial class TextField : Control {
 
         selectionColor = Document.PropertyId("--selection-color");
         caretColor = Document.PropertyId("--caret-color");
+        caretColorStandard = Document.PropertyId("caret-color");
 
         AddHandler<KeyEvent>(static (element, args) => ((TextField) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((TextField) element).Typed(args));
@@ -286,6 +288,30 @@ public abstract partial class TextField : Control {
     /// </remarks>
     protected bool ShowsCaret => !ReadOnly && !Disabled;
 
+    /// <summary>What colour to draw the insertion point in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two properties and not one, and the standard spelling is asked first.</b>
+    ///         <c>--caret-color</c> is Vixen's own token — <c>ControlTheme.vcss</c> and
+    ///         <c>EditorTheme.vcss</c> both declare it on the root, so it is the palette's answer for
+    ///         a whole document. <c>caret-color</c> is CSS's, and it is what <c>caret-accent</c>
+    ///         emits: a statement about <i>this</i> field. The palette is the fallback and the
+    ///         statement wins, which is the order that makes both spellings mean what somebody
+    ///         writing them expects.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ What it costs, stated rather than left to be found: both names inherit, so a
+    ///         document that declared <c>caret-color</c> at the root <i>and</i> <c>--caret-color</c>
+    ///         on one field would get the root's answer on that field. Nothing in the tree does
+    ///         that, and the alternative — comparing which declaration is nearer — is not something
+    ///         a computed style can answer, because inheritance has already flattened the distance.
+    ///     </para>
+    /// </remarks>
+    Color4 CaretColour(DrawContext context) =>
+        Document.ColorOf(Style, caretColorStandard)
+        ?? Document.ColorOf(Style, caretColor)
+        ?? context.Foreground;
+
     /// <inheritdoc />
     /// <remarks>
     ///     ⚠ <b>Drawn on the field rather than on the text element</b>, and before the children, so
@@ -315,7 +341,7 @@ public abstract partial class TextField : Control {
             if (ShowsCaret) {
                 context.FillRectangle(
                     new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
-                    Document.ColorOf(Style, caretColor) ?? context.Foreground
+                    CaretColour(context)
                 );
             }
 
@@ -365,7 +391,7 @@ public abstract partial class TextField : Control {
 
         context.FillRectangle(
             new Rectangle(origin + caretX, top + caretY, 1f, block.Lines[block.LineOf(CaretIndex)].Height),
-            Document.ColorOf(Style, caretColor) ?? context.Foreground
+            CaretColour(context)
         );
     }
 

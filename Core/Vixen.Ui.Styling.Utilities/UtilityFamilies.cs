@@ -432,6 +432,18 @@ public static class UtilityFamilies {
         Spacing("scroll-ms", "scroll-margin-inline-start");
         Spacing("scroll-me", "scroll-margin-inline-end");
 
+        // ⚠ <b>The block pair is physical where the inline pair above is logical, and the asymmetry
+        // is the same one `inset-bs-*` and `border-bs-*` already carry.</b> `ScrollView.EdgeIds.For`
+        // interns six names per family — the four physical edges and the two *inline* logical ones —
+        // so `scroll-margin-block-start` is read by nobody and would measure inert on every scene.
+        // The physical spelling is not an approximation of it: `Vixen.Ui.Layout` has no writing mode,
+        // so the block axis is top-to-bottom in every configuration this engine can be in, and
+        // `scroll-margin-block-start` would mean `scroll-margin-top` on every element that ever
+        // resolved it. Contrast `rounded-ss-*`, which is *not* done this way: a radius corner is
+        // named on the inline axis too, and that axis really does mirror.
+        Spacing("scroll-mbs", "scroll-margin-top");
+        Spacing("scroll-mbe", "scroll-margin-bottom");
+
         Spacing("scroll-p", "scroll-padding-top", "scroll-padding-right", "scroll-padding-bottom", "scroll-padding-left");
         Spacing("scroll-px", "scroll-padding-left", "scroll-padding-right");
         Spacing("scroll-py", "scroll-padding-top", "scroll-padding-bottom");
@@ -441,6 +453,10 @@ public static class UtilityFamilies {
         Spacing("scroll-pl", "scroll-padding-left");
         Spacing("scroll-ps", "scroll-padding-inline-start");
         Spacing("scroll-pe", "scroll-padding-inline-end");
+
+        // Physical for the reason `scroll-mbs`/`scroll-mbe` are, one comment up.
+        Spacing("scroll-pbs", "scroll-padding-top");
+        Spacing("scroll-pbe", "scroll-padding-bottom");
 
         // ⚠ <b>`scroll` is a shorter prefix than `scroll-m` and registering it here is safe only
         // because `SplitName` takes the longest.</b> `scroll-mt-4` matches `scroll-mt` before it can
@@ -705,6 +721,14 @@ public static class UtilityFamilies {
         Color("bg", "background-color");
         Color("fill", "fill");
         Color("stroke", "stroke");
+
+        // ⚠ <b>The one interactivity colour with a reader, and finding the reader is what decided
+        // it.</b> `TextField` and `CodeEditor` have drawn their insertion point off Vixen's own
+        // `--caret-color` token since they were written; the standard spelling is now asked before
+        // it, so `caret-accent` on a field is the field's answer and the palette stays the
+        // document's. Its sibling `accent-*` is absent for the opposite reason — see the refusals at
+        // the foot of this table.
+        Color("caret", "caret-color");
 
         // ⚠ <b>A ring is a <c>box-shadow</c> with a width, and this family used to emit
         // <c>outline-color</c> — which no version of Tailwind has ever emitted for it.</b> Not v4's
@@ -1231,7 +1255,8 @@ public static class UtilityFamilies {
             ["grab"] = "grab", ["grabbing"] = "grabbing", ["crosshair"] = "crosshair",
             ["wait"] = "wait", ["progress"] = "progress",
             ["col-resize"] = "col-resize", ["row-resize"] = "row-resize",
-            ["ew-resize"] = "ew-resize", ["ns-resize"] = "ns-resize"
+            ["ew-resize"] = "ew-resize", ["ns-resize"] = "ns-resize",
+            ["help"] = "help"
         });
 
         Keywords("select", "user-select", new() {
@@ -1304,6 +1329,24 @@ public static class UtilityFamilies {
         //   `grow-*` and the sizing scale, all of which are here and read. Their properties are read
         //   too, so these three would have registered cleanly and passed everything — which is why
         //   the reason they are absent is a policy and not a measurement.
+        //
+        //   ⚠ <b>5. There is no channel to point a reader at, and the property's meaning is a
+        //   negotiation with something this engine does not have.</b> Interactivity's six refusals
+        //   are all this shape, and it is worth separating from shape 1 because "inert" understates
+        //   it — there is not a reader missing, there is nothing for a reader to read. `appearance`
+        //   is `color-scheme`'s refusal with the same subject: every control here is drawn from
+        //   authored CSS, so `none` has no second look to strip. `touch` needs a UA touch behaviour
+        //   to withhold, and touch events never reach `UiDocument` at all — `PlatformInput` drops
+        //   `TouchDown`/`Moved`/`Up` through its `default`. `will-change` needs a retained surface
+        //   keyed on an element, and `UiGeometryBuilder.LayerImage` is a per-frame ordinal.
+        //   `field-sizing` needs a UA default field size for `fixed` to restore, and there is none.
+        //   `resize` needs a grip element that no property can conjure, F6 having refused pseudo-
+        //   elements. And `accent-*` is the near miss: `RangeBase` could read `accent-color`
+        //   tomorrow, but the checkbox, radio and switch it is mostly written on are tinted by
+        //   `var(--accent)` on a child part, and `var()` reads custom properties only — so half a
+        //   family would score green over the half people use. Every keyword of every one of these
+        //   was checked against the reader by hand; the per-family gate cannot, and `visibility`'s
+        //   dead `collapse` is what happens when nobody does.
         //
         //   <b>And the six logical radii are their own case.</b> `rounded-s/e/ss/se/ee/es-*` set
         //   `border-start-start-radius` and its three siblings, none of which anything interns, so

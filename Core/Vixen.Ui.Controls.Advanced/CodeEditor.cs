@@ -218,6 +218,7 @@ public sealed partial class CodeEditor : Control {
 
     int selectionColor;
     int caretColor;
+    int caretColorStandard;
     int currentLineColor;
     bool editing;
 
@@ -388,6 +389,11 @@ public sealed partial class CodeEditor : Control {
 
         selectionColor = Document.PropertyId("--selection-color");
         caretColor = Document.PropertyId("--caret-color");
+
+        // CSS's spelling beside Vixen's, asked first. See `TextField.CaretColour`, which states the
+        // order and what it costs; a code editor's caret is the same promise a field's is, and
+        // `caret-accent` has to mean the same thing written on either.
+        caretColorStandard = Document.PropertyId("caret-color");
         currentLineColor = Document.PropertyId("--current-line-color");
 
         Gutter = Part("code-gutter");
@@ -896,7 +902,9 @@ public sealed partial class CodeEditor : Control {
                 MathF.Max(1f, CharacterWidth * 0.1f),
                 RowHeight
             ),
-            Document.ColorOf(Style, caretColor) ?? Document.ForegroundOf(this)
+            Document.ColorOf(Style, caretColorStandard)
+            ?? Document.ColorOf(Style, caretColor)
+            ?? Document.ForegroundOf(this)
         );
     }
 

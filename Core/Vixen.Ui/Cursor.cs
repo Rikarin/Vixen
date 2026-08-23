@@ -67,7 +67,18 @@ public enum UiCursor : byte {
     EastWest,
 
     /// <summary>Resize up and down, over a box's horizontal edge.</summary>
-    NorthSouth
+    NorthSouth,
+
+    /// <summary>Help is available for whatever is under the pointer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Appended rather than filed beside <see cref="Wait" /> where it belongs, because the
+    ///     underlying type is a <see langword="byte" /> and every member below an insertion point
+    ///     would change number.</b> Nothing in the tree persists one of these today, which is
+    ///     exactly the state in which renumbering is free and therefore the state in which somebody
+    ///     does it — and the first saved layout or replayed input log afterwards is where it would
+    ///     be found.
+    /// </remarks>
+    Help
 }
 
 public sealed partial class UiDocument {
@@ -87,7 +98,8 @@ public sealed partial class UiDocument {
         ("col-resize", UiCursor.ColumnResize),
         ("row-resize", UiCursor.RowResize),
         ("ew-resize", UiCursor.EastWest),
-        ("ns-resize", UiCursor.NorthSouth)
+        ("ns-resize", UiCursor.NorthSouth),
+        ("help", UiCursor.Help)
     ];
 
     readonly Dictionary<int, UiCursor> cursors = [];
