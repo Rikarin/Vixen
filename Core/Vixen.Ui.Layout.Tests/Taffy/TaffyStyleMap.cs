@@ -43,25 +43,26 @@ sealed class TaffyUnsupportedException(string feature) : Exception($"unsupported
 /// </remarks>
 /// <summary>The facts about a box that its own attributes decide, and that its neighbours' mapping needs.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="Scrolls" /> and <see cref="IsLeaf" /> are not about <c>start</c> and <c>end</c>
-///     like the other four, and they are here because they are the two facts that decide whether an
-///     attribute is <i>inert</i>.</b> A property whose value cannot move a single box is not a gap in
-///     the store, and refusing it costs a fixture that would otherwise assert everything else it
-///     sets. See <c>UnsupportedFixtures.txt</c> § HARNESS for the two that qualify and why nothing
-///     else does.
+///     ⚠ <b><see cref="IsLeaf" /> is not about <c>start</c> and <c>end</c> like the other four, and
+///     it is here because it decides whether an attribute is <i>inert</i>.</b> A property whose value
+///     cannot move a single box is not a gap in the store, and refusing it costs a fixture that would
+///     otherwise assert everything else it sets. See <c>UnsupportedFixtures.txt</c> § HARNESS.
+///
+///     ⚠ <b>There was a <c>Scrolls</c> beside it and there is not any more, which is the shape a
+///     harness gap closes in.</b> It existed to decide whether <c>scrollbar-width</c> could be
+///     accepted as inert or had to be refused; <see cref="LayoutStyle.ScrollbarWidth" /> now takes
+///     the value on every box, so the question the flag answered has stopped being asked.
 /// </remarks>
 /// <param name="IsColumn">Whether its main axis is the block axis, which puts the cross axis inline.</param>
 /// <param name="IsReverse">Whether its main axis runs backwards.</param>
 /// <param name="WrapReverse">Whether its cross axis runs backwards.</param>
 /// <param name="Rtl">Whether its inline axis runs right to left.</param>
-/// <param name="Scrolls">Whether either axis is a scroll container, which is what reserves a gutter.</param>
 /// <param name="IsLeaf">Whether it has no children, so nothing inside it can see its axes.</param>
 readonly record struct TaffyBox(
     bool IsColumn,
     bool IsReverse,
     bool WrapReverse,
     bool Rtl,
-    bool Scrolls,
     bool IsLeaf
 ) {
     public static TaffyBox From(TaffyInput input) {
@@ -73,7 +74,6 @@ readonly record struct TaffyBox(
             direction.EndsWith("-reverse", StringComparison.Ordinal),
             attributes.GetValueOrDefault("flex-wrap") == "wrap-reverse",
             attributes.GetValueOrDefault("direction") == "rtl",
-            attributes.GetValueOrDefault("overflow-x") == "scroll" || attributes.GetValueOrDefault("overflow-y") == "scroll",
             input.Children.Count == 0
         );
     }
@@ -342,19 +342,13 @@ static class TaffyStyleMap {
             // fixture never asked it to", and conflating them cost 124 fixtures their assertions —
             // 30% of every refusal in the corpus. See UnsupportedFixtures.txt.
 
-            // ⚠ A scrollbar gutter is reserved by a SCROLL CONTAINER, not by the property. Chrome
-            // reserves `scrollbar-width` on `overflow: scroll` and on an overflowing `auto`, and on
-            // nothing else — `overflow: hidden` clips without a scrollbar, so the gutter is zero and
-            // the declaration cannot move a box. The corpus writes `scrollbar-width="15"` on 336
-            // elements and 156 of them are `overflow: hidden`, where accepting it is not a lenience
-            // but the correct answer. Where either axis really does scroll the store has no field
-            // for the gutter and the refusal stands.
-            case "scrollbar-width":
-                if (self.Scrolls) {
-                    throw new TaffyUnsupportedException(name);
-                }
-
-                break;
+            // ⚠ A scrollbar gutter is reserved by a SCROLL CONTAINER, not by the property, and the
+            // store now says so itself: `SetScrollbarWidth` takes the value on every box and
+            // `Overflow.Scroll` on an axis is what turns it into space. `overflow: hidden` clips
+            // without a scrollbar, so the 156 elements that declare it beside `hidden` still reserve
+            // nothing — the difference has simply moved out of this switch and into the algorithm,
+            // where it belongs.
+            case "scrollbar-width": tree.SetScrollbarWidth(node, Number(value)); break;
 
             // ⚠ `writing-mode` turns the box's axes, and on a childless box very nearly the only
             // thing that can see them is its own intrinsic measurement — which TaffyAhemMeasure has
