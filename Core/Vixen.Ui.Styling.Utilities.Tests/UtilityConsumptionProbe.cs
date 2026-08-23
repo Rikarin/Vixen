@@ -72,7 +72,19 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     Whether <c>#probe</c> is a <see cref="ScrollView" /> nested inside another one, and the scene
 ///     drives scrolls between the recorded frames. False for every scene but <c>scrolled</c>.
 /// </param>
-sealed record ProbeScene(string Name, string Css, bool Scrolling = false);
+/// <param name="Unbroken">
+///     Whether the probe carries a <c>#long</c> span holding one word with no break opportunity in
+///     it. False for every scene but <c>overlong</c>.
+///     <para>
+///         ⚠ <b>A flag rather than a change to the shared children, and the difference is thirteen
+///         baselines.</b> The obvious way to give the gate a long word is to lengthen
+///         <c>#label</c>'s text, which every scene shares — and that re-measures every property in
+///         the table against text nobody chose, for the sake of one family. Added the way the
+///         <c>scrolled</c> scene adds its <c>#mark</c>: in one scene, leaving the other thirteen
+///         byte-identical.
+///     </para>
+/// </param>
+sealed record ProbeScene(string Name, string Css, bool Scrolling = false, bool Unbroken = false);
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
 /// <remarks>
@@ -503,6 +515,45 @@ static class UtilityConsumptionProbe {
             #short { width: 36px; }
             #after { width: 30px; height: 20px; background-color: #a0a040; }
             """
+        ),
+
+        // ⚠ <b>Overlong: one word with no break opportunity in it, wider than the box it is in — the
+        // only arrangement in which `overflow-wrap` decides anything.</b> The eighth instance of the
+        // lesson `gridded`, `inlined`, `primed`, `translated`, `clipped`, `masked` and `decorated`
+        // each record, and this one was found the same way five of those were: by measuring a
+        // property with a finished reader and being told it was dead.
+        //
+        // `UiDocument.WrapModeOf` has read `overflow-wrap` for as long as there has been a wrapper to
+        // read it for, and `LineWrapper` applies `TextWrapMode.Anywhere` in exactly one branch —
+        // "nothing fits: one unbreakable run is wider than the whole line". Every scene above shares
+        // `#label`'s "Ag jq Wm il", whose longest word is two characters: there is always an earlier
+        // opportunity that fitted, the branch never runs, and the property measured inert in all
+        // fourteen of them. It is not a narrow box that is needed — `tiny` has a two-pixel one — it
+        // is a long *word*.
+        //
+        // ⚠ The word is on a child span and the declaration lands on `#probe`, so this measures the
+        // inheritance at the same time — the same arrangement `decorated` uses and for the same
+        // reason. `overflow-wrap` is in `InheritedProperties`, and a `wrap-break-word` written on a
+        // row whose text is in a child is essentially the only way anybody writes it.
+        //
+        // ⚠ And the box is wide enough for several graphemes rather than one. A one-grapheme box
+        // makes `Squeeze` return `start` and the wrapper falls out of the branch it was supposed to
+        // exercise, so the property would measure inert for want of room rather than for want of a
+        // reader — `tiny` again, one step further along.
+        new(
+            "overlong",
+            """
+            #host  { display: flex; flex-direction: row; width: 200px; height: 90px; align-items: flex-start; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 90px;
+                     background-color: #204080; color: #e0e0e0; }
+            .kid   { width: 8px; height: 8px; }
+            #wide  { width: 8px; height: 8px; }
+            #label { width: 40px; }
+            #short { width: 40px; }
+            #long  { width: 44px; }
+            #after { width: 30px; height: 20px; background-color: #a0a040; }
+            """,
+            Unbroken: true
         ),
 
         // ⚠ <b>Decorated: the probe already carries an underline, and without that the four
@@ -1091,6 +1142,15 @@ static class UtilityConsumptionProbe {
         var short_ = document.Create("span", body, "short");
         short_.Text = "Ag";
 
+        // One word, no space, no hyphen, no break opportunity anywhere inside it — so UAX#14 offers
+        // the wrapper nothing between its first character and its last, and the only way it fits is
+        // the one `overflow-wrap` asks for. Latin letters rather than a long number, because LB25
+        // does find opportunities inside a numeric run.
+        if (scene.Unbroken) {
+            var long_ = document.Create("span", body, "long");
+            long_.Text = "Wmilqjagwmilqjag";
+        }
+
         // ⚠ <b>An icon, because `fill` and `stroke` have no other observable and a scene without one
         // measures them inert however well the engine reads them.</b> A child of the probe rather
         // than the probe itself, deliberately: both properties inherit, and an injected declaration
@@ -1343,14 +1403,28 @@ static class UtilityConsumptionProbe {
     ///     the registry, not whether the glyphs get heavier, and a second distinct face is the smallest
     ///     thing that can tell those apart.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>And a third face for the slant, which is the same measurement one axis over and was
+    ///     the whole of why <c>font-style</c> read as inert.</b> <c>UiDocument.FontStyleOf</c> reads
+    ///     the property and <c>FontRegistry.Slanted</c> implements CSS Fonts 4 § 5.2's italic →
+    ///     oblique → upright search in full — but a family with no italic variant resolves
+    ///     <c>italic</c> to its upright by that search's own last resort, correctly and invisibly. So
+    ///     the property measured inert with a finished reader and a finished matcher, for want of
+    ///     anything to match. This repository has no italic font in it; a distinct
+    ///     <see cref="Vixen.Ui.Text.FontFace" /> over the same bytes is what the weight above uses and
+    ///     is exactly as much as the question needs, because what is under test is whether the slant
+    ///     reaches the registry and not whether the glyphs lean.
+    /// </remarks>
     static void Typeset(UiDocument document) {
         document.Fonts.Register("Probe", Regular, 400);
         document.Fonts.Register("Probe", Bold, 700);
+        document.Fonts.Register("Probe", Italic, 400, FontStyle.Italic);
         document.Fonts.Default = Regular;
     }
 
     static readonly Text.FontFace Regular = LoadFont("regular");
     static readonly Text.FontFace Bold = LoadFont("bold");
+    static readonly Text.FontFace Italic = LoadFont("italic");
 
     static Text.FontFace LoadFont(string name) {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly()

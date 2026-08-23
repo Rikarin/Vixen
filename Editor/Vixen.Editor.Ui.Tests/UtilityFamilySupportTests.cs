@@ -213,6 +213,42 @@ public class UtilityFamilySupportTests {
         { "tracking-px", "letter-spacing", "1px" },
         { "whitespace-nowrap", "white-space", "nowrap" },
 
+        // ⚠ <b>Every keyword of the three wrapping roots, one row each, and the completeness is the
+        // point rather than thoroughness for its own sake.</b> The consumption gate's verdict is per
+        // *property* and unions over the values a family can emit, so one live keyword makes the
+        // whole family green — which is how `visibility` came to register a `collapse` that was
+        // parsed as a `box-shadow: inset` and painted normally while the family scored green. A
+        // multi-keyword family is exactly where that union hides things, and these three are all
+        // multi-keyword.
+        //
+        // What each row is asserting differs, and the difference is worth reading:
+        //
+        //   `italic`/`not-italic` set a property `UiDocument.FontStyleOf` reads and
+        //   `FontRegistry.Slanted` matches on. Pixels are in
+        //   `Vixen.Ui.Controls.Tests.FontSlantPixelTests`, because a slant that reached the cascade
+        //   and picked the wrong face would satisfy every assertion here.
+        //
+        //   `wrap-anywhere` and `wrap-break-word` are two spellings of one behaviour in this engine
+        //   — CSS Sizing § 5.2 separates them only by a min-content contribution `Vixen.Ui.Layout`
+        //   has no stage for — and both are registered because both are CSS. Asserted as one
+        //   behaviour in `TextWrappingPixelTests` rather than left as an unstated deviation.
+        //
+        //   ⚠ `wrap-normal`, `break-normal` and `text-wrap` emit CSS's *initial* values, so on a bare
+        //   element they are correctly indistinguishable from writing nothing and the gate measures
+        //   all three inert. They are not no-ops: all three properties inherit, so each is how a
+        //   descendant escapes a rule on its container — the same argument `text-clip` earns its
+        //   place with, and the pixel tests assert it against an inherited declaration because that
+        //   is the only arrangement in which any of them can do anything.
+        { "italic", "font-style", "italic" },
+        { "not-italic", "font-style", "normal" },
+        { "wrap-anywhere", "overflow-wrap", "anywhere" },
+        { "wrap-break-word", "overflow-wrap", "break-word" },
+        { "wrap-normal", "overflow-wrap", "normal" },
+        { "break-words", "overflow-wrap", "break-word" },
+        { "break-normal", "overflow-wrap", "normal" },
+        { "text-wrap", "text-wrap", "wrap" },
+        { "text-nowrap", "text-wrap", "nowrap" },
+
         // Text decoration. ⚠ `decoration-` is the second three-way prefix in this table — a keyword
         // is a thickness or a style, and anything else is a colour — so all three are here rather
         // than one standing for the family. And `underline-offset-2` is here because it is the pair

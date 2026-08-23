@@ -76,6 +76,10 @@ public sealed class InheritedProperties {
         "text-align",
         "text-transform",
         "white-space",
+
+        // CSS Text 4 § 4 splits `white-space` into a collapsing half and a wrapping half, and both
+        // halves inherit. `UiDocument.WrapsOf` reads this one beside `white-space`.
+        "text-wrap",
         "word-break",
         "overflow-wrap",
 

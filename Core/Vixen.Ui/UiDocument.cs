@@ -41,6 +41,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int visibilityCollapse;
     readonly int fontFamily;
     readonly int whiteSpace;
+    readonly int textWrap;
     readonly int overflowWrap;
     readonly int textOverflow;
     readonly int ellipsis;
@@ -126,6 +127,7 @@ public sealed partial class UiDocument : IDisposable {
         color = Styles.Properties.Intern("color");
         fontFamily = Styles.Properties.Intern("font-family");
         whiteSpace = Styles.Properties.Intern("white-space");
+        textWrap = Styles.Properties.Intern("text-wrap");
         overflowWrap = Styles.Properties.Intern("overflow-wrap");
         textOverflow = Styles.Properties.Intern("text-overflow");
         ellipsis = Styles.Values.Intern("ellipsis");
@@ -1573,7 +1575,36 @@ public sealed partial class UiDocument : IDisposable {
     ///     answered here. <c>nowrap</c> and <c>pre</c> agree about wrapping and disagree about the
     ///     other two, so honouring <c>pre</c> for wrapping alone would be honouring a third of it.
     /// </remarks>
-    internal bool WrapsOf(ComputedStyle style) => !style.TryGet(whiteSpace, out var value) || value != nowrap;
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>text-wrap</c> is read beside it, and it is the property CSS Text 4 moved this
+    ///         question to.</b> § 4 redefines <c>white-space</c> as a shorthand for
+    ///         <c>white-space-collapse</c> and <c>text-wrap-mode</c>, and <c>text-wrap</c> is the one
+    ///         that decides wrapping — which is precisely the third of <c>white-space</c> this method
+    ///         was already answering and the other two thirds it was refusing to. So the two are read
+    ///         together rather than one shadowing the other.
+    ///     </para>
+    ///     <para>
+    ///         <b>Either saying <c>nowrap</c> stops the wrapping, and that is a choice rather than the
+    ///         specification.</b> A cascade that expanded the shorthand could let the later
+    ///         declaration win; this one inherits <i>specified</i> values and does not expand
+    ///         <c>white-space</c>, so there is no order to appeal to and an <c>or</c> is the only
+    ///         reading that does not silently drop one of the two. What it costs is that
+    ///         <c>text-wrap: wrap</c> cannot re-enable wrapping under a <c>white-space: nowrap</c> on
+    ///         the same element — it can under an inherited <c>text-wrap: nowrap</c>, which is the
+    ///         case anybody writes, and <c>whitespace-normal</c> is the opt-out for the other.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>balance</c> and <c>pretty</c> are values of this property that fall through to
+    ///         "wraps", which is the honest answer rather than a gap: both ask for a *better* set of
+    ///         line breaks, <c>LineWrapper</c> is greedy first-fit on purpose, and neither utility is
+    ///         registered — so no class can put either value here. See docs/plan/43's Typography
+    ///         section for what a balancing pass would cost.
+    ///     </para>
+    /// </remarks>
+    internal bool WrapsOf(ComputedStyle style) =>
+        (!style.TryGet(whiteSpace, out var collapsing) || collapsing != nowrap)
+        && (!style.TryGet(textWrap, out var wrapping) || wrapping != nowrap);
 
     /// <summary>Whether a line too wide for its box ends in an ellipsis rather than being cut.</summary>
     /// <remarks>
