@@ -457,17 +457,41 @@ across ~~six~~ ~~seven~~ **eight** assemblies — twenty-eight panels and five s
 lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
 turn out not to be panels at all, which is the first finding. There are 25 `RegisterPanel` call
 sites and 34 `editor.panel.*` ids, so **34 is the denominator**, not 62 and not 120,000 lines.
-⚠ **`Vixen.Editor.Water` is the seventh assembly and it cost two lines of `.csproj` to become one** —
-see the wave-5 note under the six S-sized ports; the first `.vxml` in an assembly needs the markup
-generator and the `Vixen.Ui.targets` import naming it, and not having them is not a diagnostic.
-⚠ **`Vixen.Editor.NodeGraph` is the eighth, and it had one of the two lines, which is worse than
-having neither.** The `Vixen.Ui.targets` import was already there for the `**/*.vcss` glob — with a
+⚠ ~~**`Vixen.Editor.Water` is the seventh assembly and it cost two lines of `.csproj` to become one**
+— see the wave-5 note under the six S-sized ports; the first `.vxml` in an assembly needs the markup
+generator and the `Vixen.Ui.targets` import naming it, and not having them is not a diagnostic.~~
+⚠ ~~**`Vixen.Editor.NodeGraph` is the eighth, and it had one of the two lines, which is worse than
+having neither.**~~ The `Vixen.Ui.targets` import was already there for the `**/*.vcss` glob — with a
 comment saying "there is no `.vxml` in this project, so the other half of the .targets is inert
-here" — so the moment one appeared the glob made it an item and no generator read it. The failure is
-identical to having no import at all and reads as a mistake in the markup; the comment that said
-what the file assumed is the only reason it took a minute rather than an hour. **Wave 6's
+here" — so the moment one appeared the glob made it an item and no generator read it. ~~The failure
+is identical to having no import at all and reads as a mistake in the markup~~; the comment that said
+what the file assumed is the only reason it took a minute rather than an hour. ~~**Wave 6's
 prescription: before writing an assembly's first `.vxml`, `grep -c Vixen.Ui.Markup.Generators` its
-`.csproj` and expect 1.**
+`.csproj` and expect 1.**~~
+
+✅ **All three struck 2026-08-23: it is two diagnostics now, and it is one line rather than two.**
+`VX4001` is a `.vxml` on disk that is not compiler input, checked in `Directory.Build.targets`
+because a check inside `Vixen.Ui.targets` is a check inside the thing that was never imported.
+`VX4002` is a `.vxml` that *is* an `AdditionalFiles` item with no `Vixen.Ui.Markup.Generators.dll` in
+`@(Analyzer)` — the NodeGraph shape — and lives in `Vixen.Ui.targets`, so it travels to package
+consumers as well. Both are **errors** naming the `.csproj` and the one line that fixes it, both are
+built and sabotage-verified by `BuildIntegrationTests`, and the escape for markup that is
+deliberately uncompiled is `<VixenUiMarkupCheck>false</VixenUiMarkupCheck>` (one project needs it:
+`Tools/Vixen.Templates`, whose `.vxml` belongs to a scaffold it copies rather than builds).
+
+⚠ **Three things the wave-6 note got wrong, and each is worth more than the fix.**
+
+- **Not a `VXML` code.** That space belongs to a generator that has read the file, and the whole
+  content of this failure is that none ran. `VX4001`/`VX4002` are MSBuild diagnostics in
+  `docs/manual/diagnostic-codes.md`, in the `VX4000` range already reserved for UI markup.
+- **Not a warning.** A warning ahead of a wall of C# errors buys a log line — and in the case nobody
+  had met, there is no wall: ⚠ **a `.vxml` with no hand-written partner does not fail at all.** It is
+  simply not read, the class does not exist, and the build succeeds. That is the state the two
+  diagnostics exist for, more than the noisy one.
+- **Not two lines.** `<VixenUi>true</VixenUi>` has been the whole of it since `Directory.Build.targets`
+  became the in-repo stand-in for the package. Twelve projects still hand-write the import and the
+  two analyzer references — the count in that file's own comment says fifteen and is stale — and
+  converting them now deletes duplication rather than fixing a trap.
 
 ⚠ **[`docs/overview.md`](../../docs/overview.md) and doc 36 § "F7's number" had both gone stale** —
 they said eleven and three — and are corrected in the same commit as this section. A count nobody
@@ -812,17 +836,19 @@ tags, which was two types until `tag=` landed. Every one is
 dumping the whole document's rectangles for the hand-written loop and for the part and comparing the
 two strings, in `FactBlockTests` and `WaterFactsTests`.
 
-⚠ **Three things the prescription did not say, and the first one costs an hour if you meet it
+⚠ ~~**Three things the prescription did not say, and the first one costs an hour if you meet it
 cold.** **The first `.vxml` in an assembly needs two lines of `.csproj` and there is no diagnostic
-when they are missing.** `Vixen.Editor.Water` had never had one, so the generator never ran, the
+when they are missing.**~~ `Vixen.Editor.Water` had never had one, so the generator never ran, the
 `.vxml` was not an item at all, and the build failed with "`WaterZoneFacts` does not contain a
 definition for `Show`" on every member the markup declares — which reads as a mistake in the markup
-and is a mistake in the project file. The two lines are the `Vixen.Ui.Markup.Generators`
-`ProjectReference` as an `Analyzer` and the `Vixen.Ui.targets` import at the bottom of the file;
+and is a mistake in the project file. ~~The two lines are the `Vixen.Ui.Markup.Generators`
+`ProjectReference` as an `Analyzer` and the `Vixen.Ui.targets` import at the bottom of the file~~;
 `Vixen.Editor.Terrain` and `Vixen.Editor.AssetEditors` each already carry them with a comment saying
-a `PackageReference` to `Vixen.Ui` would have brought both and a `ProjectReference` does not. Worth a
-`VXML` diagnostic, or a `.vxml` in a project with no generator being an MSBuild warning; today it is
-neither.
+a `PackageReference` to `Vixen.Ui` would have brought both and a `ProjectReference` does not. ~~Worth
+a `VXML` diagnostic, or a `.vxml` in a project with no generator being an MSBuild warning; today it
+is neither.~~ ✅ **`VX4001` and `VX4002`, both errors, since 2026-08-23 — and the line count was
+wrong too: it is `<VixenUi>true</VixenUi>` and nothing else.** See the strike under "Where it
+stands".
 
 **And two more.**
 
@@ -1182,11 +1208,21 @@ would close it and the modifier list is already parsed.
    submit, and `BuildContext.Subscriptions`' entries already carry a `RoutingStrategy` that no
    attribute can name. The modifier list is already parsed, so this is a table lookup rather than a
    design.
-8. **A `CollectionSignal` for a map.** `RemoteInspectorClient`'s counters are a
-   `Signal<ImmutableDictionary<string, double>>`, which is correct and allocates a node per counter
-   update where an in-place write allocated nothing. At the handful of counters a build reports that
-   is the right trade and it would not be at a thousand — so this is a convenience until something
-   reports a thousand.
+8. ~~**A `CollectionSignal` for a map.**~~ **Built 2026-08-23 as `SignalDictionary<TKey, TValue>`,
+   and the sizing was right about the trade and wrong about what would trigger it.** It was not the
+   thousandth counter; it is that the type is under three hundred lines once you decline to build a
+   change log — and a map has no use for one, because `@for` cannot bind to a dictionary at all (its
+   order is its hashing), so what a reconciler keys on is a *sorted projection* and the log would be
+   written every update and read by nobody. ⚠ **One node for the whole map**, which is
+   `CollectionSignal<T>`'s choice and is the right one here for a reason specific to maps: a binding
+   that reads a key *that is not there yet* still has to wake when it appears, so per-key nodes would
+   have to be created on read as well as write and kept after removal — an unbounded set keyed by
+   whatever strings a caller invents. The coarse edge over-approximates and cannot under-approximate,
+   so the cost is a re-run and never a stale answer. ⚠ **`SignalDictionary`, not `DictionarySignal`**:
+   CA1710 requires an `IReadOnlyDictionary` implementor to end in `Dictionary`, and `CollectionSignal`
+   escapes the same rule only because `IReadOnlyList<T>` is not on it. `RemoteInspectorClient`'s
+   counters are converted and the panel's nine states dump identically. ⚠ And the conversion turned
+   `Counters` from a snapshot into a **live view**, which is the one behavioural difference.
 
 ## Localisation
 
