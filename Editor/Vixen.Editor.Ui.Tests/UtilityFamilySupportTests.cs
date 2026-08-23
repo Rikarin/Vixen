@@ -248,6 +248,17 @@ public class UtilityFamilySupportTests {
         { "rounded-lg", "border-top-left-radius", "8px 8px" },
         { "rounded-tl-row", "border-top-left-radius", "4px" },
 
+        // ⚠ <b>All three radius tokens, because for a while only two of them were there.</b>
+        // `--radius-row` and `--radius-control` resolved and `--radius-panel` did not, and the
+        // difference between them was a paragraph of prose: the comment above these three
+        // declarations in `vixen.ui.vcss` spelled a glob containing `*` `/`, CSS comments do not nest,
+        // and the sentence that escaped ran on as one declaration until the first semicolon after it
+        // — which was `--radius-panel`'s. A row for the first token of a run is the cheap way to
+        // notice a comment that ate it, and the reason the row exists is that a single row would have
+        // been the second one.
+        { "rounded-tl-panel", "border-top-left-radius", "5px" },
+        { "rounded-tl-control", "border-top-left-radius", "4px" },
+
         // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
         // maps it onto `Overflow.Scroll` — the two differ only by a scrollbar gutter nothing draws.
         { "truncate", "overflow", "hidden" },

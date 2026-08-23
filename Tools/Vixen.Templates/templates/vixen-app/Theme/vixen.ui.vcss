@@ -1,9 +1,17 @@
 /* The application's design tokens.
 
-   ⚠ **The name is the convention and the whole of the configuration.** The build step globs
-   `**/vixen.ui.vcss`, finds this, and every class name in every `.vxml` and every `.cs` in the
-   project resolves against it. One per project — two would be two palettes, which is the thing a
-   token model exists to prevent, so the build refuses rather than picking.
+   ⚠ **The name is the convention and the whole of the configuration.** The build step globs for a
+   file called `vixen.ui.vcss` anywhere under the project, finds this, and every class name in every
+   `.vxml` and every `.cs` in the project resolves against it. One per project — two would be two
+   palettes, which is the thing a token model exists to prevent, so the build refuses rather than
+   picking.
+
+   ⚠ **The glob is described rather than written out, and that is not fastidiousness about prose.**
+   CSS comments do not nest and they have no escape: the first `*` `/` in a comment closes it, so the
+   pattern spelled literally would have ended this comment on its own second line and fed the
+   paragraph you are reading to the parser as CSS. It did, for as long as it was written that way —
+   `the`, `to`, `is` and a dozen other words were compiled as type selectors, and `bg-brand`,
+   `text-brand` and `border-brand` below were rules rather than examples.
 
    ⚠ **A project with no theme file still has tokens.** Everything below layers over the palette the
    engine ships — Tailwind v4's own twenty-six ramps in oklch — so `bg-slate-800` works here without

@@ -124,12 +124,19 @@
        tokens, and `rounded-row` resolves.
 
        ⚠ **That old spelling is described here and no longer written out, which is not fastidiousness
-       about prose.** `CandidateScanner` scans `**/*.vcss` and deliberately parses nothing, so a class
-       name typed into a comment is indistinguishable from one typed into a `class` attribute: for as
-       long as the bracket form sat in this paragraph, every build of `Vixen.Editor.Ui` emitted a rule
-       for it, and anyone reading the generated sheet saw the editor apparently still using the
-       workaround this very comment exists to say it had stopped using. One rule of the twenty-five
-       was a sentence about history.
+       about prose.** `CandidateScanner` sweeps every stylesheet in the project and deliberately parses
+       nothing, so a class name typed into a comment is indistinguishable from one typed into a
+       `class` attribute: for as long as the bracket form sat in this paragraph, every build of
+       `Vixen.Editor.Ui` emitted a rule for it, and anyone reading the generated sheet saw the editor
+       apparently still using the workaround this very comment exists to say it had stopped using. One
+       rule of the twenty-five was a sentence about history.
+
+       ⚠ **And the scanner's own glob is described rather than written out for a second reason, which
+       cost this block a token.** CSS comments do not nest and cannot be escaped, so a `*` `/` inside
+       the pattern closes the comment where it stands — this paragraph was live CSS, the parser read
+       it as one declaration running from the colon after `class` attribute to the first semicolon
+       after it, and the semicolon it found was `--radius-panel`'s. The token was swallowed by a
+       sentence, `rounded-panel` resolved to nothing, and the two lines below it were fine.
 
        The engine's own `--radius-xs … --radius-4xl` are deliberately *not* cleared: they are v4's
        scale, they collide with nothing here, and a new panel wanting `rounded-md` should have it. */

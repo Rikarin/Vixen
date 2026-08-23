@@ -628,7 +628,10 @@ harness-cell.selected { border-width: 1px; border-color: var(--accent); }
    Score column, so the query and its result are never on two screens. */
 moveset-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
 moveset-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
-moveset-bar > text-box { flex-grow: 1; min-width: 160px; }
+/* ⚠ `textbox`, not `text-box`. `TextField.TagName` is one word, every other rule in this file
+   spells it that way — see `override-bar > textbox` and `material-bar > textbox` — and this one
+   hyphenated copy meant the query box in the move-set bar never grew. */
+moveset-bar > textbox { flex-grow: 1; min-width: 160px; }
 moveset-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
 moveset-table { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
 moveset-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow-y: auto; }

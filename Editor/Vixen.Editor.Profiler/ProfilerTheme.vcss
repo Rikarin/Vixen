@@ -85,14 +85,23 @@ flame-bar:hover { border-width: 1px; border-color: var(--text); }
    scope you are looking at across a zoom. */
 flame-bar:checked { border-width: 1px; border-color: var(--accent-text); }
 
-flame-hue-0 { background-color: #6ea8fe; }
-flame-hue-1 { background-color: #79d99a; }
-flame-hue-2 { background-color: #e6c15c; }
-flame-hue-3 { background-color: #e08a6b; }
-flame-hue-4 { background-color: #b191e0; }
-flame-hue-5 { background-color: #5fc9c1; }
-flame-hue-6 { background-color: #d98ab5; }
-flame-hue-7 { background-color: #9aae7a; }
+/* ⚠ **Classes, and they have to be.** These eight were written as type selectors and never fired
+   once: a bar's tag is `flame-bar` — that is what carries the position, the padding and the two
+   states above — and an element has one tag, so a hue that is also a tag is a hue the bar cannot
+   have. `FlameChartView` has always applied them with `AddClass`, which is the only way eight
+   alternatives can sit on top of one element, so the dot is the half that was missing.
+
+   The specificity is right way round with it: a class beats `flame-bar` outright, so the hue wins
+   over anything the type rule ever grows, and loses to `flame-bar:checked` — which sets a border
+   and no fill, which is exactly the note above saying the selection keeps its hue. */
+.flame-hue-0 { background-color: #6ea8fe; }
+.flame-hue-1 { background-color: #79d99a; }
+.flame-hue-2 { background-color: #e6c15c; }
+.flame-hue-3 { background-color: #e08a6b; }
+.flame-hue-4 { background-color: #b191e0; }
+.flame-hue-5 { background-color: #5fc9c1; }
+.flame-hue-6 { background-color: #d98ab5; }
+.flame-hue-7 { background-color: #9aae7a; }
 
 profiler-detail {
     padding: 4px 8px;
