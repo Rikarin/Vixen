@@ -403,7 +403,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **153** | **42** | **3** | **126** | **3** | **1** |
+| **Total** | **328** | **153** | **52** | **3** | **116** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
 Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and Layout. Tables and Accessibility
