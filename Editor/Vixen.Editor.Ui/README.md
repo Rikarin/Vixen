@@ -940,7 +940,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `CodeEditorView` · `VfxGraphView` · `ShaderGraphView` · `CompositorView` | live | no | port the chrome; the editor/canvas/`KeyValueList` rows stay | S–M |
 | `NodeSearchPopup` · `CommandPalette` | snapshot | no | ~~**port; each deletes a hand-rolled element pool or reconciler**~~ **done, wave 6 (2026-08-23).** The pool was the point and it was worse than "churn": it only ever *grew*, so a list that had once shown twelve rows carried the surplus under `display: none` **still labelled with the previous query's results**. 601 lines → two `.vxml` (565) and two `.cs` (288), with 31 and 26 lines of pooling gone. Every visible element byte-identical in fifteen dumped states; the only differences are the parked rows, which no longer exist | M |
 | `NodeInspector` · `AddComponentMenu` | snapshot | no | ~~**port**~~ **stopped, wave 6 — both blocked by the same cause, and it is not a markup gap.** Shape 1's escape is "keep the control behind a `ref`", and where the control is fed by a *method* the sanctioned workaround is the mixer's four-line wrapper subclass. `InspectorView` and `ScrollView` are both `sealed`, so neither panel can be written. See below | M |
-| `RemoteInspectorView` | **live** | ~~no~~ **yes, additively** | ~~**port; signal-back `RemoteInspectorClient` additively, per `DeviceManager`**~~ **done, wave 6 (2026-08-23).** The sizing and the worked example were both right. What the row did not say is that this is the panel where the signals pay most: `Poll` runs from the tick, so `Restate` relabelled a button, rewrote a sentence, rebuilt the entity tree and re-ran a pool **sixty times a second whether or not the far end had said anything**. 293 lines → a 341-line `.vxml` and a 75-line `.cs`; byte-identical in eight of nine dumped states, the ninth being the parked counter rows | M |
+| `RemoteInspectorView` | **live** | ~~no~~ **yes, additively** | ~~**port; signal-back `RemoteInspectorClient` additively, per `DeviceManager`**~~ **done, wave 6 (2026-08-23).** The sizing and the worked example were both right. What the row did not say is that this is the panel where the signals pay most: `Poll` runs from the tick, so `Restate` relabelled a button, rewrote a sentence, rebuilt the entity tree and re-ran a pool **sixty times a second whether or not the far end had said anything**. 293 lines → a 341-line `.vxml` and a 75-line `.cs`; byte-identical in eight of nine dumped states, the ninth being the parked counter rows. **Wave 7 finished it twice over**: the counters are a `SignalDictionary` rather than a `Signal<ImmutableDictionary<…>>`, so a per-frame counter update allocates nothing, and the `OnComposed` that subscribed to the tree's selection is gone — `change:SelectedNodes` is the whole of it | M |
 | `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | port the readouts, keep the field rows (shape 2) | M |
 | `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output | M |
 | `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | ~~**defer.**~~ The half that was unportable was the field rows, which `change:` now expresses; `AnimationGraphView` still has no tests at all and still goes last | ~~L–XL~~ M–L |
@@ -1182,17 +1182,61 @@ they differ at all: no visible element moved a pixel in any of the forty states 
 ⚠ **And `change:` refuses a `TreeView`'s selection, correctly.** `change:Selection` compiles and
 throws at compose time — "'tree-view' has no property called 'Selection'" — because `change:` is
 `bind:`'s property lookup with a handler and a selection is state inside a control that paints its
-own rows, not a `[UiProperty]`. That is shape 1 seen from the event side, and the remedy is the one
+own rows, not a `[UiProperty]`. That is shape 1 seen from the event side, and ~~the remedy is the one
 already documented: a `ref` plus a subscription in `OnComposed`, writing a signal the `Disabled`
-binding reads.
+binding reads.~~
 
-⚠ **`OnComposed` is also where a *capture-leg* handler has to live**, which is a limitation nothing
+✅ **The diagnosis is right, the remedy was wrong, and the difference is whose side the fix is on
+(2026-08-23).** `change:Selection` still throws and always will — but a `ref` and an `OnComposed`
+were never the answer, because `Selection` is a read-only view over a `HashSet` **mutated in place**:
+the same instance before and after every change, so nothing built on `PropertyChanged` could ever
+have reported it. What was missing was a *value*. `TreeView.SelectedNodes` is an
+`[UiProperty] ImmutableArray<TreeNode>` snapshot published by `Restate` **only when the set really
+differs**, so `change:SelectedNodes` is one attribute — and it is *quieter* than the
+`SelectionChanged` event it replaces, which fires again for a click on the row that was already
+selected. `RemoteInspectorView.vxml` is ported and its whole `OnComposed` is gone;
+`PortedPanelTests.Apply_lights_only_with_a_selection_and_a_member` fails without the attribute.
+
+⚠ **The rule for a control author, which is the part worth more than the panel:** *a collection is
+bindable only as a value, written where the mutation happens.* `DataGrid` and `NodeCanvas` are the
+identical shape — a `HashSet`, a read-only view, an event and one restate funnel — and the same four
+members apply verbatim. Still owed.
+
+⚠ ~~**`OnComposed` is also where a *capture-leg* handler has to live**, which is a limitation nothing
 had hit before. `BuildContext.Subscriptions`' entries are
-`Action<UiElement, Action<UiEvent>, RoutingStrategy>` and the `on:` syntax has no way to say which
-leg — so the three pickers' `AddHandler<KeyEvent>(…, RoutingStrategy.Capture)`, which is what stops
+`Action<UiElement, Action<UiEvent>, RoutingStrategy>` and **the `on:` syntax has no way to say which
+leg** — so the three pickers' `AddHandler<KeyEvent>(…, RoutingStrategy.Capture)`, which is what stops
 a search box turning Down into caret movement, cannot be written as an attribute. Worked around in
 `OnComposed`, named here because the next picker will hit it too. An `on:keydown.capture` modifier
-would close it and the modifier list is already parsed.
+would close it and the modifier list is already parsed.~~
+
+⚠ **Wrong, and instructively so: `on:` could always say which leg.** `capture` was in
+`Binder.EventModifiers` *and* honoured by `BuildContext.On`, which reads
+`modifiers.Contains("capture") ? RoutingStrategy.Capture : RoutingStrategy.Bubble`. What the table
+had no entry for was **`keydown`**, so the attribute threw *"'keydown' is not an event"* at compose
+and the symptom was read as a syntax gap. This is the "two recorded gaps are stale" lesson a third
+time: the sentence "the modifier list is already parsed" was in the note, and nobody followed it one
+step further to ask what else the line could be failing on. `keydown`, `keyup` and `textinput` are
+registered now (2026-08-23) — `textinput` because `KeyEvent.Key` is a *physical* US-QWERTY position,
+so an author with no name for the event carrying characters reads letters out of `on:keydown` and
+ships the AZERTY bug.
+
+⚠ **And a typed `on:` handler must be an explicitly typed lambda.**
+`on:keydown.capture="@((KeyEvent e) => Keyed(e))"` works; `@Keyed` for a `void Keyed(KeyEvent)` fails
+with "cannot convert from 'method group' to 'System.Action'". That is C#'s rule rather than an
+emitter choice: one call is written for both `On` overloads and the emitter cannot name the event
+type — the table owns that — so `TEvent` is inferred from the argument, and a method group has no
+natural type until the delegate's parameters are known. `@Increment` and `@(() => …)` are unaffected,
+being `Action`s.
+
+⚠ **So the pickers are still not ported, and the reason has moved to a bigger place.** All five
+capture-leg handlers in the tree — `CommandPalette`, `NodeSearchPopup`, `AddComponentMenu`,
+`KeyBindingsView`, `InputActionsView` — call `AddHandler` on **`this`**, the component's own element.
+An `@inherits` file's markup roots are *children* of the host and `ComponentEmitter.Target` can only
+ever name one of those, so `on:keydown.capture` on the `<SearchBox>` is a different element with
+different route coverage: a key arriving while the focus is anywhere else in the panel would no
+longer be seen. A port would be a behaviour change, which is a defect until argued for. ⚠ Two of the
+five also want `handledEventsToo: true`, which `on:` has no modifier for either.
 
 ### What to build, in order of leverage
 
@@ -1231,11 +1275,15 @@ would close it and the modifier list is already parsed.
    is true, and `use="@(v => v.Inspect(…))"` is the directive — an effect, so it re-runs and leaves
    with its region, which is strictly more than the wrapper property would have been. Neither panel
    is ported yet; both are unblocked. See the block under "`sealed` is the sixth shape".
-7. **`on:` with a routing strategy — `on:keydown.capture`.** Three pickers subscribe on the capture
-   leg so that Down and Enter are taken before a search box treats them as caret movement and
-   submit, and `BuildContext.Subscriptions`' entries already carry a `RoutingStrategy` that no
-   attribute can name. The modifier list is already parsed, so this is a table lookup rather than a
-   design.
+7. ~~**`on:` with a routing strategy — `on:keydown.capture`.**~~ **Built 2026-08-23, and it was not
+   the routing strategy — that always worked. It was that the `Subscriptions` table had no keyboard
+   entry at all.** `keydown`, `keyup` and `textinput` are registered. ⚠ **What is left is a different
+   item and it now blocks more than this one did: a markup spelling for the component's *own*
+   element.** All five capture-leg handlers in the tree subscribe on `this`, an `@inherits` file's
+   markup roots are children of the host, and `ComponentEmitter.Target` can only name a child — so
+   every one of those ports would change which element the route reaches. The shape is a `<self />`
+   pseudo-tag whose attributes emit against `this`; two of the five also need a `handledEventsToo`
+   modifier.
 8. ~~**A `CollectionSignal` for a map.**~~ **Built 2026-08-23 as `SignalDictionary<TKey, TValue>`,
    and the sizing was right about the trade and wrong about what would trigger it.** It was not the
    thousandth counter; it is that the type is under three hundred lines once you decline to build a
