@@ -69,6 +69,16 @@ public partial class TypeSelectorReachTests {
     ///     the time it is a compiled constant the spelling is exactly as invisible as it is at run
     ///     time. <c>bin</c> and <c>obj</c> are skipped so the answer does not depend on what the last
     ///     build left behind.
+    ///     <para>
+    ///         ⚠ <b><c>.claude</c> is skipped too, and that is not housekeeping — it is the difference
+    ///         between a test about this repository and a test about whatever else is on the disk.</b>
+    ///         Agent worktrees live under <c>.claude/worktrees/</c> and are full checkouts, so a sweep
+    ///         that walks them asserts against other people's uncommitted work. This test failed a
+    ///         gate run by finding the very <c>World-title</c> it exists to prevent, in a worktree
+    ///         where it had not been fixed yet — a true statement about a tree nobody was asking
+    ///         about. A repository-wide file sweep has to say what it means by "the repository", and
+    ///         here that is the working tree and not the tooling beside it.
+    ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Suspect {
         get {
@@ -205,7 +215,9 @@ public partial class TypeSelectorReachTests {
         return [
             .. Directory.EnumerateFiles(RepositoryRoot(), pattern, SearchOption.AllDirectories)
                 .Where(path => !path.Contains($"{separator}bin{separator}", StringComparison.Ordinal)
-                    && !path.Contains($"{separator}obj{separator}", StringComparison.Ordinal))
+                    && !path.Contains($"{separator}obj{separator}", StringComparison.Ordinal)
+                    && !path.Contains($"{separator}.claude{separator}", StringComparison.Ordinal)
+                    && !path.Contains($"{separator}.git{separator}", StringComparison.Ordinal))
                 .Order(StringComparer.Ordinal)
         ];
     }
