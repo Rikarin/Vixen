@@ -1,0 +1,66 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 7. The edit-layer stack in the Terrain panel: one row a layer, top to bottom,
+    each saying what state it is in and who owns it. Structurally this is `FactBlock` — a `@for` of
+    `FactRow` — under a different tag.
+
+    ⚠ **A second type rather than a parameter, and wave 5 already argued this.** `@tag` is a
+    compile-time directive, so "the same part under another name" is not sayable; `WaterFacts` and
+    `WaterZoneFacts` are the same call made for the same reason. Neither `terrain-facts` nor
+    `terrain-layers` is styled by any sheet in the tree — so one shared type under one tag would
+    have rendered identically and lied about what the panel is made of, which is the whole value the
+    tags carry here.
+
+    ⚠ **The panel is not a component and this is why the parts exist.** The three terrain panels
+    build directly into a `DockPanel`, and `dock-panel.scrolls > * { flex-shrink: 0 }` reaches direct
+    children only — so wrapping a whole panel in one markup component inserts a box that stops that
+    rule reaching the content, and a tall panel compresses instead of scrolling. The way through is
+    `FactRow`'s: port the panel's *parts*, each component's host tag being an element the panel
+    already created, so the tree is unchanged and the C# factory shrinks a piece at a time.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and not `Control`**, for `FactBlock`'s reason: a `Control`
+    gives itself `variant-default` and `size-md` in `OnCreated`, and the plain element this replaces
+    has neither. Two classes nothing styles would be two lines of difference in every dump for ever.
+
+    ⚠ **The whole row is the key.** Nothing behind this list is signal-backed, so a layer that is
+    hidden, locked or renamed has to *be* a new identity — and the slot is in it because two layers
+    may legitimately carry the same name while one is being renamed, which
+    `BuildContext.For` cannot reconcile.
+-->
+@component LayerBlock
+@namespace Vixen.Editor.Terrain
+@inherits Vixen.Ui.UiElement
+@tag terrain-layers
+@using System.Collections.Immutable
+@using Vixen.Editor.Ui
+@using Vixen.Ui
+@using Vixen.Ui.Reactive
+
+@for (var layer in Rows) {
+    <FactRow key="@layer" Name="@layer.Label" Value="@layer.Value" />
+}
+
+@code {
+    /// <inheritdoc cref="Show" />
+    readonly Signal<ImmutableArray<FactLine>> rows = new([]);
+
+    /// <summary>What the stack says, top layer first.</summary>
+    public IReadOnlyList<FactLine> Layers => rows.Value;
+
+    /// <summary>Replaces what the stack says.</summary>
+    /// <param name="layers">The rows, in the order they should read.</param>
+    /// <remarks>
+    ///     ⚠ <b>The rows are right on the next flush, not on this line.</b> Writing a signal only
+    ///     queues (ADR-007). Nothing reads this block back synchronously — a caller that wanted to
+    ///     would be asking the panel what it had just told it.
+    /// </remarks>
+    public void Show(IEnumerable<(string Label, string Value)> layers) {
+        ArgumentNullException.ThrowIfNull(layers);
+
+        rows.Value = [.. layers.Select((layer, slot) => new FactLine(slot, layer.Label, layer.Value))];
+    }
+
+    ImmutableArray<FactLine> Rows => rows.Value;
+}
