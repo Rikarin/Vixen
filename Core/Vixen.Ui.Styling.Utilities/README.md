@@ -374,6 +374,14 @@ shape of the *resolved* value — reject anything not starting with a digit — 
 a fraction's, so the check moved to the value as written. The general form is worth keeping in mind:
 *a validity test applied after resolution can only see what survived it.*
 
+⚠ **And the fix is a hand-kept list, which means it is a fix that has to be remembered.** `NotNegatable`
+names the six keywords `TrySize` had when it was written; the six viewport ones added since —
+`w-svw` and its siblings, resolving to `100vw` and `100vh` — begin with a digit in exactly the same
+way and would have gone straight through. They are in the set, and `Only_a_number_can_be_negated`
+asserts them. *A guard that is a list of names is a guard that is wrong by default whenever the thing
+it guards grows*, which is the argument for the class of check that enumerates rather than
+remembers — and the reason this one is worth re-reading every time a keyword lands in `TrySize`.
+
 **A breakpoint that could not be spelled.** `2xl:` was emitting `.2xl\:p-4`, which is not a selector —
 CSS Syntax 3 § 4.3.8 requires a leading digit to be escaped as a code point, `\32 `. ExCSS refused the
 rule and the generated sheet contributed nothing, in every project using the shipped theme, for as long

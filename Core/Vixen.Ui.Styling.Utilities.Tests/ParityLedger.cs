@@ -53,9 +53,9 @@ sealed class ParityRow {
 ///         <b>The split of what is measured from what is declared.</b> Two of the three axes in Part 0's
 ///         cross product cannot be measured here — what Tailwind is needs <c>tailwindcss</c> installed,
 ///         and which Vixen family answers a Tailwind root is a judgement about two vocabularies that
-///         collide on six names (<c>block-*</c> is <c>block-size</c> and Vixen's <c>block</c> is
-///         <c>display</c>; likewise <c>inline-*</c>, <c>bg</c>, <c>border</c>, <c>text</c> and
-///         <c>transition</c>). Those stay in the file as reviewed data. What the engine <i>does</i> with
+///         collide on names (<c>bg</c>, <c>border</c>, <c>text</c> and <c>transition</c> mean different
+///         things on either side; <c>block</c> and <c>inline</c> used to and now honestly answer both
+///         roots apiece). Those stay in the file as reviewed data. What the engine <i>does</i> with
 ///         what the family emits is measurable, is the part that rotted, and is what this computes.
 ///     </para>
 ///     <para>

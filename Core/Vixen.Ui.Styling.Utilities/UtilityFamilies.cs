@@ -180,8 +180,16 @@ public static class UtilityFamilies {
 
     static UtilityFamilies() {
         // ── Layout ──────────────────────────────────────────────────────────────────────────
-        Static("block", "display", "block");
-        Static("inline", "display", "inline");
+        //
+        // ⚠ <b>`block` and `inline` are two Tailwind roots apiece, and the bare form is the one that
+        // is `display`.</b> `block` is `display: block`; `block-40` is `block-size: 40 * spacing`,
+        // which here is `height`. `Register` keeps the first family under a name, so these cannot be
+        // a `Static` and a `Size` registered in the two sections they belong to — they are one family
+        // whose empty keyword is the display value and whose value kind is the sizing one, which is
+        // the same shape `flex` has for the same reason. The sizing half is written up beside the
+        // other four logical roots, under `── Sizing ──` below.
+        StaticOrSize("block", "display", "block", "height");
+        StaticOrSize("inline", "display", "inline", "width");
         Static("inline-block", "display", "inline-block");
         Static("flex", "display", "flex");
         Static("inline-flex", "display", "inline-flex");
@@ -510,6 +518,41 @@ public static class UtilityFamilies {
         Size("min-h", "min-height");
         Size("max-w", "max-width");
         Size("max-h", "max-height");
+
+        // ⚠ <b>The six writing-mode-relative sizing roots, and all six are physical — including the
+        // inline three, which is the half that looks wrong and is not.</b> The block three go the way
+        // `inset-bs-*` and `scroll-mbs-*` went: `Vixen.Ui.Layout` has no writing mode, so the block
+        // axis is top-to-bottom in every configuration this engine can be in, and `block-size` would
+        // mean `height` on every element that ever resolved it.
+        //
+        // ⚠ <b>The inline three are physical for a different and stronger reason, and it is worth
+        // separating because the neighbouring precedent points the other way.</b> `inset-s-*` and
+        // `rounded-ss-*` keep their logical spelling because `direction: rtl` really does mirror
+        // them — an *edge* and a *corner* are named by which end of the inline axis they sit at, and
+        // which end that is depends on the direction. A *size* is not: `inline-size` is the extent
+        // *along* the inline axis, and mirroring the axis does not change how long it is.
+        // `direction` chooses a direction within the axis; only a writing mode chooses which axis is
+        // inline, and there is none. So `inline-size` is `width` in LTR and in RTL alike, which is
+        // strictly safer than the block mapping rather than a compromise with it.
+        //
+        // ⚠ <b>And the deciding fact is in the code rather than in the reasoning above.</b>
+        // `inline-size` and `block-size` appear in this tree in exactly one place — `ContainerQuery`,
+        // where they are `container-type` values and query feature names, not declarations — and
+        // `ContainerQuery.Match` maps them to width and height with no direction consulted and the
+        // same comment written over it. Nothing interns either name as a property: `LayoutStyleBuilder`
+        // interns `width`, `height`, `min-`/`max-` of each, and no logical spelling. Emitting the
+        // logical names would therefore resolve, compute, and move nothing — the inert family this
+        // table is not allowed to add.
+        //
+        // ⚠ <b>Four of the six are here and two are not.</b> `inline-*` and `block-*` are registered
+        // under `── Layout ──` by `StaticOrSize`, because Tailwind spells `display: block` and
+        // `block-size` with the same prefix and `Register` keeps the first family under a name — a
+        // `Size("block", "height")` written here would be discarded without a word and every
+        // `block-*` class would go on being reported as a typo.
+        Size("min-inline", "min-width");
+        Size("max-inline", "max-width");
+        Size("min-block", "min-height");
+        Size("max-block", "max-height");
 
         // ── Position ────────────────────────────────────────────────────────────────────────
         Static("static", "position", "static");
@@ -1812,9 +1855,19 @@ public static class UtilityFamilies {
     ///     "minus one hundred per cent wide" is exactly the class of bug that test is there to stop,
     ///     and it took the negation being written the shape-only way once to notice.
     ///     <c>px</c> is deliberately absent: <c>-mt-px</c> is a real and useful one-pixel pull.
+    ///     <para>
+    ///         ⚠ <b>The six viewport keywords are here for exactly the reason the note above
+    ///         describes, and they are the case that would have slipped through it.</b>
+    ///         <c>full</c> and <c>screen</c> resolve to <c>100%</c>, which the shape test catches
+    ///         only because this set names them; <c>svh</c> and its five siblings resolve to
+    ///         <c>100vh</c>, which begins with a digit in the same way. <c>-h-dvh</c> is not
+    ///         "minus one viewport tall" any more than <c>-w-full</c> is minus one hundred per
+    ///         cent wide.
+    ///     </para>
     /// </remarks>
     static readonly HashSet<string> NotNegatable = new(StringComparer.Ordinal) {
-        "auto", "full", "screen", "min", "max", "fit"
+        "auto", "full", "screen", "min", "max", "fit",
+        "svw", "lvw", "dvw", "svh", "lvh", "dvh"
     };
 
     /// <summary>Flips the sign of everything a utility resolved to.</summary>
@@ -2189,6 +2242,28 @@ public static class UtilityFamilies {
         return true;
     }
 
+    /// <summary>Resolves the value half of a sizing utility.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The six viewport keywords are three spellings of two answers, and that is a property
+    ///     of this engine rather than a shortcut.</b> CSS Values 4 separates <c>svw</c>/<c>lvw</c>/
+    ///     <c>dvw</c> — and the <c>-vh</c> trio — only by what a retracting browser toolbar does to
+    ///     the viewport: the <i>small</i> viewport assumes every retractable UA chrome is shown, the
+    ///     <i>large</i> one assumes it is all hidden, and the <i>dynamic</i> one tracks the current
+    ///     state. A Vixen surface has no retractable chrome to show or hide —
+    ///     <c>LengthContext</c> is built from <c>UiSurface</c>'s width and height and
+    ///     there is no second, smaller rectangle anywhere for the small viewport to be — so all three
+    ///     name the same measurement and <c>vw</c>/<c>vh</c> is it. Emitting <c>100dvw</c> instead
+    ///     would put a unit into the sheet that <c>StyleValueParser</c> does not read, which is the
+    ///     inert-class shape this table is not allowed to add.
+    ///     <para>
+    ///         ⚠ <b>Both trios are answered by every family, including the ones named for the other
+    ///         axis.</b> <c>h-dvw</c> is <c>height: 100vw</c> and <c>w-svh</c> is
+    ///         <c>width: 100vh</c> — Tailwind names these after the viewport axis being measured and
+    ///         not after the property being set, so the mapping belongs here, on the value, rather
+    ///         than in the seven <see cref="Size" /> registrations. That is also what makes one rule
+    ///         close all seven sizing roots at once.
+    ///     </para>
+    /// </remarks>
     static bool TrySize(UtilityCandidate candidate, ThemeTokens tokens, out string result) {
         result = string.Empty;
 
@@ -2210,6 +2285,16 @@ public static class UtilityFamilies {
                 return true;
             case "fit":
                 result = "fit-content";
+                return true;
+            case "svw":
+            case "lvw":
+            case "dvw":
+                result = "100vw";
+                return true;
+            case "svh":
+            case "lvh":
+            case "dvh":
+                result = "100vh";
                 return true;
             default:
                 break;
@@ -2333,6 +2418,30 @@ public static class UtilityFamilies {
     static void Static(string name, string property, string value) =>
         Register(new Family(name, ValueKind.Static, [property], new Dictionary<string, string>(StringComparer.Ordinal) {
             [string.Empty] = $"{property}:{value}"
+        }));
+
+    /// <summary>Registers a name that is a static utility bare and a sizing one with a value.</summary>
+    /// <param name="name">The utility prefix, which is also the whole of the static class.</param>
+    /// <param name="staticProperty">What the bare form sets.</param>
+    /// <param name="staticValue">What it sets it to.</param>
+    /// <param name="sizeProperty">What the form with a value sets.</param>
+    /// <remarks>
+    ///     ⚠ <b>One family and not two, because <see cref="Register" /> keeps the first under a
+    ///     name.</b> A second <see cref="Size" /> call for <c>block</c> would be silently discarded
+    ///     and every <c>block-*</c> class would go on being reported as an unrecognised typo — the
+    ///     failure being quiet is why this is a named helper rather than a hand-rolled
+    ///     <see cref="Register" /> at each site.
+    ///     <para>
+    ///         The split works because <see cref="Resolve" /> consults the keyword table before the
+    ///         value kind: the empty key answers the bare class, and anything else falls through to
+    ///         <see cref="TrySize" />. <c>ValueKind.Static</c> is deliberately *not* used here —
+    ///         it is the kind that answers <c>false</c> to every value, which is the behaviour being
+    ///         replaced.
+    ///     </para>
+    /// </remarks>
+    static void StaticOrSize(string name, string staticProperty, string staticValue, string sizeProperty) =>
+        Register(new Family(name, ValueKind.Size, [sizeProperty], new Dictionary<string, string>(StringComparer.Ordinal) {
+            [string.Empty] = $"{staticProperty}:{staticValue}"
         }));
 
     static void Keywords(
