@@ -12,6 +12,13 @@
         <!-- The fixture nodes are node types, and a node's ports are its fields. See the framework's
              own csproj for why that is the design rather than an oversight. -->
         <NoWarn>$(NoWarn);CA1051</NoWarn>
+
+        <!-- SealedControlHost.vxml, for the same reason the node generator is referenced below: the
+             test that a compiler works is a test that it compiles something it has never seen. Here
+             what is being compiled is a `.vxml` naming two `sealed` controls, which the panel ledger
+             recorded as unwritable. One line, because Directory.Build.targets is the stand-in for
+             what a PackageReference brings. -->
+        <VixenUi>true</VixenUi>
     </PropertyGroup>
 
     <ItemGroup>

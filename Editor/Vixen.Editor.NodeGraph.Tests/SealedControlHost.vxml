@@ -1,0 +1,62 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    ⚠ **A fixture, and the two controls in it are the real ones on purpose.** The panel ledger's
+    sixth shape says `NodeInspector` and `AddComponentMenu` "cannot be written" because
+    `InspectorView` and `ScrollView` are both `sealed` and the sanctioned escape — a four-line
+    subclass exposing the call as a property — has no base class to reach for. This file is the
+    counter-example, held to the two actual types rather than to a stand-in that could be derived
+    from.
+
+    The same argument this project's `.csproj` already makes about the node generator: the test that
+    a compiler works is a test that it compiles something it has never seen.
+
+    ⚠ **The `use` below is `NodeInspector.Rebuild`'s own call**, arguments and all —
+    `panel.Inspect(provider.Descriptor, provider, [.. selected])` — because a probe that inspected
+    something easier would be evidence about something easier.
+
+    ⚠ **And neither line here is a panel.** `NodeInspector` is still hand-written and still carries
+    its 27-line `StringBuilder` reconciler; what this asserts is only that the door it stopped at is
+    open.
+-->
+@component SealedControlHost
+@namespace Vixen.Editor.NodeGraph.Tests
+@inherits Vixen.Ui.UiElement
+@tag sealed-control-host
+@using Vixen.Editor.Core
+@using Vixen.Editor.Inspector
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<InspectorView ref="@Inspector"
+               use="@(view => { if (Shown.Value is { Descriptor: { } described, Provider: { } from } shown) { view.Inspect(described, from, shown.Nodes); } else { view.Inspect(); } })" />
+
+<!-- Under the tag a stylesheet names, which is what `Part<ScrollView>("add-component-list")` wanted. -->
+<ScrollView tag="add-component-list" ref="@List" />
+
+@code {
+    /// <summary>What the inspector is pointed at, or one holding nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read inside the lambda, which is what makes the lambda depend on it.</b> Written as an
+    ///     <c>@if</c> arm around the tag it would be the wave-4 trap instead: the arm's predicate is
+    ///     "is anything shown", so moving from one inspection to another would not rebuild it and the
+    ///     pattern variable would stay closed over the first.
+    /// </remarks>
+    public Signal<Inspection> Shown { get; } = new(Inspection.Nothing);
+
+    /// <summary>The inspector, so a test can count what it drew.</summary>
+    public InspectorView Inspector { get; private set; } = null!;
+
+    /// <summary>And the list, so a test can read the tag it answers to.</summary>
+    public ScrollView List { get; private set; } = null!;
+
+    /// <summary>What one call to <c>Inspect</c> needs, in the shape <c>NodeInspector</c> assembles it.</summary>
+    /// <param name="Descriptor">What the rows are built from, or null for nothing.</param>
+    /// <param name="Provider">How the members are reached.</param>
+    /// <param name="Nodes">The objects.</param>
+    public sealed record Inspection(InspectorDescriptor? Descriptor, IEditProvider? Provider, object[] Nodes) {
+        /// <summary>An empty panel, which is what a fixture is before a test says otherwise.</summary>
+        public static readonly Inspection Nothing = new(null, null, []);
+    }
+}

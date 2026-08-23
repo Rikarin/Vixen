@@ -1075,6 +1075,17 @@ method' or 'give it my tag' is unportable, and no amount of markup design change
 were markup gaps and markup closed them.** What is genuinely left of `sealed` is a panel that needs to
 *override* a control's behaviour, and no panel in this ledger does.
 
+⚠ **The claim is held to the two named types rather than argued.**
+`Editor/Vixen.Editor.NodeGraph.Tests/SealedControlHost.vxml` is a `.vxml` whose two tags are the real
+`InspectorView` and the real `ScrollView` — a fixture that could be derived from would let the test
+pass by writing the subclass the actual panels cannot write — and `SealedControlTests` reads it:
+`add-component-list` is the list's tag and still a scroller, the inspector is fed by
+`view.Inspect(descriptor, provider, targets)` (`NodeInspector.Rebuild`'s own call, arguments and all),
+and pointing it somewhere else re-runs it. The test project gained the markup wiring in one line —
+`<VixenUi>true</VixenUi>` — which is worth noticing on its own: the "two lines of `.csproj`" this
+document warns about twice have been one line since `Directory.Build.targets` learned to stand in for
+the package.
+
 ⚠ **What this section still owes, and it is the part that is not done.** The two panels are unblocked
 and **neither is ported**. `NodeInspector`'s 27-line `StringBuilder` reconciler is still there and is
 still the prize. The one thing wave 7 checked before stopping is the shape-3 question, and the answer
