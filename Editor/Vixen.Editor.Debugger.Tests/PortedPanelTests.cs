@@ -64,11 +64,17 @@ namespace Vixen.Editor.Debugger.Tests;
 ///             connection coming up is supposed to move — and nothing else.
 ///         </item>
 ///         <item>
-///             <c>RemoteInspectorClient.counters</c> back as a <c>Dictionary</c> written in place
-///             fails <see cref="A_counter_that_arrives_and_then_moves_reaches_the_pane" /> and
+///             <c>RemoteInspectorClient.counters</c> back as a plain <c>Dictionary</c> written in
+///             place fails <see cref="A_counter_that_arrives_and_then_moves_reaches_the_pane" /> and
 ///             <see cref="Detaching_removes_the_counter_rows_rather_than_parking_them" />, and
-///             nothing else. That is the <c>ImmutableDictionary</c> earning its allocation: a map
-///             mutated in place is a change no signal can see.
+///             nothing else — re-checked after the map moved off <c>ImmutableDictionary</c>, and
+///             still exactly those two. ⚠ <b>The claim the sabotage makes is narrower than it looks
+///             and the map is what changed.</b> It used to say the <c>ImmutableDictionary</c> earned
+///             its allocation, because a map mutated in place is a change no signal can see; the map
+///             is a <c>SignalDictionary</c> now, which is mutated in place and <i>is</i> the signal,
+///             so what these two tests assert is the notification and not the copy. That the copy is
+///             gone is measured in <c>Vixen.Ui.Reactive.Tests.SignalDictionaryTests</c>, where a
+///             byte count can say so and a rectangle cannot.
 ///         </item>
 ///     </list>
 ///     <para>

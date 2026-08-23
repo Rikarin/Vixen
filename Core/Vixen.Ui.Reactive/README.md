@@ -20,6 +20,7 @@ budget — and SignalsDotnet's effects are driven by Rx schedulers.
 | `Effect` | The only thing that *does* anything. Queued on write, run on `Flush`. |
 | `EffectScheduler` | The queue, the per-frame budget, the runaway detector, and `Post` for off-thread results. |
 | `CollectionSignal<T>` | A list that reports *what* changed, for the keyed `@for` reconciler. |
+| `SignalDictionary<TKey, TValue>` | A map written in place, so a value arriving every frame costs nothing. |
 | `LinkedSignal<TSource, T>` | Writable, until the thing it is derived from moves. |
 | `AsyncComputed<TRequest, T>` | Asynchronous derivation with loading / value / error as one state. |
 | `ReactiveGraph` | `Untracked`, `Batch`, and the owning-thread check. |
@@ -42,6 +43,39 @@ reuses its storage, and the per-frame path takes no closures. Two tests measure 
 claim it: one asserts a thousand write-and-flush cycles allocate exactly zero bytes, and one asserts
 that building and tearing down a subscription costs the same as building and tearing down an
 identical thing that subscribes to nothing.
+
+## The two collections, and the one node each of them is
+
+Both `CollectionSignal<T>` and `SignalDictionary<TKey, TValue>` are themselves nodes, and **the whole
+collection is the dependency**. Reading a count, an item, a key, or enumerating records one edge — so
+a binding that read `counters["fps"]` is woken when `counters["draws"]` is written. That
+over-approximates and cannot under-approximate: the cost is a re-run, never a stale answer, and a
+re-run producing the same string stops at the equality check one level up. Neither is per-key or
+per-index, and a design that needs that granularity wants a signal per key held by whatever owns the
+keys.
+
+⚠ **They exist because the two obvious alternatives each fail in one direction.** A `Signal<List<T>>`
+is silently dead — the comparer sees the same instance, so a write that appended a row propagates
+nothing, which is the commonest way a hand-built model draws its first answer for ever. A
+`Signal<ImmutableDictionary<K, V>>` is *correct* and rebuilds a balanced tree's spine every time one
+number moves. `RemoteInspectorClient`'s counters were the second of those, paid per counter per frame
+because `Poll` runs from the panel's tick; they are a `SignalDictionary` now, and
+`SignalDictionaryTests` measures the in-place write at exactly zero bytes with the immutable shape
+beside it as the control.
+
+⚠ **The change log is the list's and is deliberately not the map's.** A list's log earns its per-write
+cost because the keyed `@for` reconciler reads it and turns "inserted at 3" into one appended row.
+Nothing reads a map's: `@for` cannot bind to a dictionary at all — a dictionary's order is its hashing,
+and a pane of live numbers that reordered itself as values arrived would be unreadable — so a map is
+projected to a sorted sequence first and *that* is what gets reconciled. A log here would be a ring
+buffer written on every update and read by nobody, which is the cost the type was built to remove
+under a different name.
+
+⚠ **`SignalDictionary`, not `DictionarySignal`, and it is the analyzer's call.** CA1710 makes a type
+implementing `IReadOnlyDictionary<TKey, TValue>` end in `Dictionary` or `Collection`;
+`CollectionSignal<T>` escapes the same rule only because `IReadOnlyList<T>` is not on its list.
+Suppressing it was the other option and the suffix is worth more than the symmetry — it is what tells
+a caller that `foreach` over the thing yields `KeyValuePair`.
 
 ## Where this differs from doc 09, and why
 
