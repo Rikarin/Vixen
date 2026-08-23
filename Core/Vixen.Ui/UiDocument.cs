@@ -138,6 +138,7 @@ public sealed partial class UiDocument : IDisposable {
         translation = new TranslationReader(Styles.Properties, Styles.Values, Styles.Names);
         none = Styles.Values.Intern("none");
         InternCursors();
+        InternContainers();
 
         Root = Create("root", null, null, []);
 
@@ -878,6 +879,10 @@ public sealed partial class UiDocument : IDisposable {
         StylesApplied = 0;
         StylesResolved = 0;
 
+        // ⚠ Here rather than in `Recontain`, for the reason `StylesResolved` is: the settle loop
+        // arranges again and the counter is about the frame rather than about the last pass of it.
+        ContainerScopesEntered = 0;
+
         // ⚠ Before anything reads a slot, and only when the tombstones outnumber the elements. Here
         // rather than in `Remove`, because compaction is O(elements) and removing a thousand-row list
         // one row at a time would then be O(elements²) — and because a pass is the one moment where
@@ -1018,12 +1023,15 @@ public sealed partial class UiDocument : IDisposable {
         SettlingPasses = 0;
         Settled = true;
 
-        if (LayoutFinished is null) {
-            return;
-        }
-
+        // ⚠ No early return for a document with no handler any more, and that is the container
+        // queries' doing. A handler used to be the only thing that could dirty a document after its
+        // boxes were final; `Recontain` is a second, it runs inside `Arrange` for every document
+        // whose sheets declare a `@container`, and no application registers for it. Returning here
+        // would enter the scopes, mark the document dirty and go home — showing every container
+        // query's verdict one frame late, which for a dragged panel is a visible resize after the
+        // drag. The cost of not returning is one null delegate check and one boolean per frame.
         for (var pass = 0; pass <= SettlePasses; pass++) {
-            LayoutFinished.Invoke(this);
+            LayoutFinished?.Invoke(this);
 
             if (!dirty) {
                 return;
@@ -1067,6 +1075,13 @@ public sealed partial class UiDocument : IDisposable {
             // window.
             Accumulate(surface.Root, 0f, 0f, surface.Metrics);
         }
+
+        // ⚠ Last, because it is the one thing here that needs a box rather than producing one — and
+        // inside `Arrange` rather than beside its two callers, so that the settle loop's own pass
+        // cannot forget it. A scope entered on the first pass and not re-entered on the second is a
+        // container answering off a box that has since moved, which shows up only where one
+        // container's query decides another one's size. See `Containers.cs`.
+        Recontain();
     }
 
     /// <summary>Lets time pass, for the things that happen because nothing happened.</summary>

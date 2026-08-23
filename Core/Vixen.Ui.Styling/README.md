@@ -446,13 +446,33 @@ Two rules that are easy to get wrong and are each pinned by a test:
   above it matches nothing. Relaxing this was the one sabotage the first version of the test file did
   not catch.
 
-⚠ **The cascade answers; nothing measures yet.** No caller outside the tests enters a scope, so in a
-live document every element sits at `ContainerScopes.Root`, where no query has an eligible container
-and all of them are false. The wiring — reading `container-type`, entering a scope per container from
-its measured box after `Arrange()`, re-assigning the subtree — is owed, and so are the `@sm:`
-variants, which are deliberately unregistered until something can observe them. See
-[doc 43](../../docs/plan/43-web-styling-parity.md) § D3, which also records why containment is free
-for a normal-flow block and is not free for a box sized by its contents.
+**Something measures now.** `UiDocument.Recontain` — `Core/Vixen.Ui/Containers.cs` — reads
+`container-type`, `container-name` and the `container` shorthand off each element's computed style at
+the end of every `Arrange()`, enters a scope per container from its **content box**, re-assigns the
+subtree, and `Invalidate()`s when a scope moved so the settle loop cascades again. `ContainerWiringTests`
+in `Vixen.Ui.Tests` is the end-to-end half: every case asserts a resolved value on an element inside a
+container of a given size, and most assert a *box*, so a green run means the declaration reached the
+layout tree.
+
+Three things that fell out of building it and are worth knowing before touching either half:
+
+- **The cycle closes in one extra settle pass per level of container nesting**, and the bound is the
+  existing `SettlePasses = 3`. A `StretchFit` container measures the same box on the second pass, so
+  nothing moves and the loop stops; a container sized by its contents can flip on every pass, which
+  exhausts the budget and reports `Settled` false rather than hanging.
+- **`Settle()` no longer returns early when nothing is listening to `LayoutFinished`.** That early
+  return was correct while a handler was the only thing that could dirty a document after a layout;
+  the container walk is a second such thing and no application registers for it, so returning would
+  have shown every verdict one frame late.
+- **Nothing walks unless a sheet declared a `@container`**, so the feature is free for every
+  stylesheet in this repository that does not use it.
+
+⚠ **The `@sm:`/`@md:` variants are still unregistered, and the wiring was not the only thing blocking
+them.** See [doc 43](../../docs/plan/43-web-styling-parity.md) § D3 for the two preconditions that
+were not previously recorded — `@` is not a candidate character in `CandidateScanner`, and `@` is
+`.vxml`'s interpolation marker inside an attribute value, so `class="@sm:p-4"` binds a C# expression
+named `sm`. Doc 43 also records why containment is free for a normal-flow block and is not free for a
+box sized by its contents.
 
 ## Deliberately not supported
 

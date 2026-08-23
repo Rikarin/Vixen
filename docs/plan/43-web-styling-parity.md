@@ -1303,7 +1303,7 @@ sizing above did not know, all of them checked rather than reasoned about:
   saying it did not work. Every colour in `Editor/Vixen.Editor.Ui/Theming/vixen.ui.yaml` is a
   `var()`, so the whole editor palette was in the silently-dropped class. The warning is gone.
 
-### D3. Container queries are a feature, not a variant 🟡 *cascade half landed — the wiring and the variants are owed, and the containment question has an answer*
+### D3. Container queries are a feature, not a variant 🟡 *the query answers in a live document — the variants are owed, and their blocker was never the wiring*
 
 v4 builds container queries in: `@container` marks the container, and `@sm:`…`@7xl:`, `@max-*`,
 `@min-[…]`, named `@container/main` + `@sm/main`, and stacked ranges `@sm:@max-md:` are variants over
@@ -1427,38 +1427,114 @@ failure of the set, because it is right until somebody adds a wrapper.
 `A_named_query_does_not_fall_back_to_an_unnamed_container` closes it and was re-checked against the
 same sabotage.
 
+#### ⚠ The wiring landed, and the convergence question has a number
+
+`UiDocument.Recontain` (`Core/Vixen.Ui/Containers.cs`) is the caller `ContainerScopes.Enter` was
+missing. It reads `container-type`, `container-name` **and the `container` shorthand** off each
+element's computed style, enters a scope per container from its **content box**, re-assigns the
+subtree, and invalidates when a scope moved. `ContainerWiringTests` — fifteen cases in
+`Vixen.Ui.Tests` — asserts a resolved value on an element inside a container of a given size, and
+mostly asserts a *box*, so a pass means the declaration reached the layout tree.
+
+Four things the plan got slightly wrong, each cheap and each worth recording:
+
+- **Not `UiDocument.Apply`.** `Apply` runs *before* `CalculateLayout`, so reading `container-type`
+  there is reading the declaration in the one pass that cannot see the result of it. The walk goes at
+  the **end of `Arrange()`**, off the same `ComputedStyle` `Apply` just wrote.
+- **Inside `Arrange`, not beside its two callers**, so the settle loop's own pass re-enters the
+  scopes. A walk called once per `Update` passes every one-level test and fails only where one
+  container's query decides another container's size — which is the case
+  `A_container_inside_a_container_resolves_and_costs_a_pass_per_level` exists for, and it was written
+  because that sabotage was caught by nothing else.
+- **`Invalidate()` and not `Forget()`.** A moved verdict changes which rules match, which changes the
+  interned `ComputedStyle`, which changes the reference `Apply` compares — so an element whose style
+  genuinely moved rebuilds and one whose style did not is left alone. `Forget()` would rebuild every
+  layout style in the document for a query that repainted one panel. (`Remedia` still forgets; it
+  predates the interning being trusted and does not need to either.)
+- **`Settle()`'s early return had to go.** It returned immediately when nothing was listening to
+  `LayoutFinished`, which was correct while a handler was the only thing that could dirty a document
+  after a layout. The container walk is a second such thing and no application registers for it, so a
+  document with a container query and no handler would have entered its scopes, marked itself dirty
+  and gone home — every verdict one frame late. Restoring that one `if` fails twelve of the fifteen
+  tests.
+
+**The bound is one extra settle pass per level of container nesting**, measured rather than argued:
+`SettlingPasses` is 1 for a `StretchFit` container and 2 for one container nested in another. The
+second pass measures the same box, interns the same scope, moves nothing and stops — which is what
+the `StretchFit` claim below *means* operationally. `SettlePasses = 3` is therefore also a nesting
+depth limit of three, and a fourth level of size-dependent nesting reports `Settled` false rather
+than hanging.
+
+⚠ **Verified by sabotage, eight of them, and the sixth is the one that changed the test file.** The
+name test relaxed so a named query falls back to an unnamed container — the break the cascade half's
+own five missed — fails 1, the live twin of the test that closes it. The content-box subtraction
+dropped fails 1. A container made to answer its own query fails 3. `Settle`'s early return restored
+fails 12. `moved |=` made short-circuiting, so the walk stops at the first element that moved, fails
+4. The fast path widened by one fails 12. `container-name` never read fails 3. And **calling
+`Recontain` once per `Update` instead of at the end of every `Arrange` failed exactly nothing** until
+`A_container_inside_a_container_resolves_and_costs_a_pass_per_level` was written for it — every other
+case in the file is one container deep, and one container deep cannot tell the two placements apart.
+
+**And the eviction policy `ContainerScopes` deferred is now a ceiling.** Scopes are interned by value,
+so a container dragged wider interns one chain per pixel per frame and nothing removes one. A
+generation stamp cannot be swept without renumbering — ids are list indices and elements hold them —
+so `UiDocument.ContainerScopeCeiling` rebuilds the table wholesale at 4096 chains, in the one order
+`Reset` is documented as safe in: reset, re-assign, re-cascade. `ContainerScopesEntered` reports the
+churn, and is nought on a settled frame.
+
 #### What is owed, and what it costs
 
-**1. The wiring — ~0.2 EM, and it is what makes the feature real.** Nothing calls
-`ContainerScopes.Enter` outside tests, so in a live document every element sits at
-`ContainerScopes.Root`, where no query has an eligible container and all of them are false. The
-cascade half is a finished consumer nothing feeds, which is this repository's commonest shape of
-"missing feature" — recorded here rather than left to be rediscovered. It needs: `container-type` and
-`container-name` read in `UiDocument.Apply`; after `Arrange()`, a walk that enters a scope per
-container from its measured box and re-assigns the subtree; and `Forget()` when a verdict moved, which
-`Settle()` then reconverges. It was **deliberately not built here** because it lands in `Vixen.Ui`
-alongside two other agents' work.
-
-**2. The containment coercion — ~0.15 EM, in `Vixen.Ui.Layout`.** Force `SizingMode.StretchFit` on a
+**1. The containment coercion — ~0.15 EM, in `Vixen.Ui.Layout`.** Force `SizingMode.StretchFit` on a
 `container-type: inline-size` node that would otherwise consult its contents, or refuse it with a
 diagnostic. Until then a container sized by its contents can oscillate — and `Settled` already reports
 that, so the failure is visible rather than silent, which is why the interim is tolerable.
 
-**3. The variants — ~0.25 EM, and they are gated on 1 and 2, deliberately.** `@sm:`…`@7xl:`, `@max-*`,
-`@min-[…]`, `@container/main`, `@sm/main`, stacked ranges. The emitter needs nothing: `BuildSelector`
-already carries a `List<string>` of at-rules and the trie already shares prefixes, so
-`@container (min-width: …)` slots in beside `@media` unchanged. They are **not registered yet on
-purpose** — the consumption gate judges a new utility family by an arrangement that observes it, and
-until the wiring lands nothing can observe one. Registering them first would ship a family that emits
-correct CSS and never matches, which is the defect this document keeps finding.
+**2. ⚠ The variants — and the wiring was never their only blocker.** `@sm:`…`@7xl:`, `@max-*`,
+`@min-[…]`, `@container/main`, `@sm/main`, stacked ranges. The claim above — "the emitter needs
+nothing" — is true and was read as "nothing else needs anything", which it is not. A query can be
+true now, and the variants are still **not registered**, for three reasons found by trying:
 
-**4. `cqw`/`cqi`/`cqb` units and `style()` queries** — not started, not costed, and not needed by the
+- ⚠ **`@` is `.vxml`'s interpolation marker inside an attribute value, and that is the hard one.**
+  `VxmlLexer.StepAttributeValue` (`Core/Vixen.Ui.Markup/Parsing/VxmlLexer.cs:631`) sends `@` to
+  `LexInterpolation`, whose implicit form is a name and its member accesses — so `class="@sm:p-4"`
+  interpolates a C# expression named `sm` and leaves `:p-4` as text. The only spelling that reaches
+  the class list is `@@sm:p-4`, the escape that `The_escape_for_a_literal_at_sign_is_decoded` pins.
+  **`.vxml` is the intended authoring path**, so a variant whose markup spelling is a doubled sigil
+  is not v4 parity, it is a new dialect — and choosing one is a decision for the lexer's owner, not a
+  detail of registering a variant. The corroborating symptom is already in the tree:
+  `StylesheetTests.Written` (`Editor/Vixen.Editor.Ui.Tests/StylesheetTests.cs:53`) skips every class
+  name starting with `@` *because* they are bindings, so container variants in editor markup would
+  fall out of the misspelt-utility gate as well as out of the binder.
+- ⚠ **`@` is not a candidate character.** `CandidateScanner.IsCandidateChar`
+  (`Core/Vixen.Ui.Styling.Utilities/CandidateScanner.cs:251`) omits it deliberately, and the scanner's
+  own remarks explain why: `@` not being an identifier character is what stops `@apply p-4
+  hover:bg-accent flex;` being mistaken for a declaration. Widening it is not a one-character change,
+  because `@media`, `@theme` and `@apply` would then be taken as candidate runs and land in
+  `Unrecognised`, which `StylesheetTests.cs:88` asserts is empty for the editor. The shape that works
+  is to admit `@` and have `Take` reject a `@`-run with no `:` in it — at-keywords never have one
+  attached, container variants always do — but that is a change to the scanner's contract and wants
+  its own sabotage pass.
+- **There is no `--container-*` namespace.** `ThemeTokens` parses `--breakpoint-*` into `Screens`;
+  v4's container scale is a *different set of numbers under the same names* (`sm` is a 40 rem window,
+  `@sm` is a 24 rem box). Driving `@sm:` off `Screens` would give every container variant a threshold
+  no dockable panel reaches — correct CSS that never matches, this document's recurring defect,
+  arriving through a shared dictionary. The file's own header already records `--container-*` as
+  deliberately absent "until its family arrives".
+
+The consumption gate turns out **not** to be the obstacle it was assumed to be: `UtilityFamilies.Surface`
+enumerates the family registry, and a pure variant emits no new property, so `@sm:` is invisible to it.
+The arrangement that has to exist first is in `UtilityFixture.Computed`, which needs a sized container
+ancestor the way it grew `Probe` for `group-*` — the styling project's `CascadeFixture.Contain` is the
+shape. A `@container`/`@container/main` *marker* family is the part that would face the gate, and it
+would need a fifteenth probe scene, because `container-type` moves none of the four channels unless
+the scene contains a query that reacts to it.
+
+**3. `cqw`/`cqi`/`cqb` units and `style()` queries** — not started, not costed, and not needed by the
 editor's case.
 
-**Size: 0.6 EM remaining**, from 0.75. The parsing and the grammar came in under estimate; the
-containment turned out to be free for the normal-flow case and a small layout change for the rest; the
-risk the survey concentrated in item 3 was already carried by a bounded settle loop that existed
-before the question was asked.
+**Size: 0.4 EM remaining**, from 0.6. The wiring came in under estimate and answered the convergence
+question with a measured pass count; the variants are unchanged in size but have moved from "gated on
+the wiring" to "gated on a decision about `.vxml`'s sigil", which is a different owner.
 
 ### D6. The variants had almost no end-to-end coverage, and that was worth more than A15 ✅ *closed — and it has now found a second bug*
 
