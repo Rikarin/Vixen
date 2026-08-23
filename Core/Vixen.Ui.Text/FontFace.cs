@@ -17,6 +17,40 @@ public readonly record struct FontMetrics(int Ascender, int Descender, int LineG
     public int LineHeight => Ascender - Descender + LineGap;
 }
 
+/// <summary>Where a font wants a decoration line drawn, in design units.</summary>
+/// <remarks>
+///     <para>
+///         <b>Every number here comes out of the face's own tables and none of them is a constant.</b>
+///         That is the whole point of the type. Across the twenty-two faces this repository ships,
+///         the underline thickness ranges from 20 design units at 2048 per em — under one hundredth
+///         of an em — to 184 at the same grid, which is nine per cent of it. A hardcoded hairline
+///         looks deliberate in Open Sans and looks like a rendering fault in the Nastaliq face beside
+///         it, and no test of a single font can tell the two apart.
+///     </para>
+///     <para>
+///         ⚠ <b>Positive is <i>upwards</i>, as the font grid has it, so an underline offset is
+///         negative.</b> The draw list is y-down; <see cref="Vixen.Ui" />'s <c>TextRun</c> is where
+///         the sign flips, in the same place and for the same reason <c>Place</c> flips a glyph's.
+///     </para>
+///     <para>
+///         ⚠ <b>An offset is the <i>centre</i> of the stem, not its top.</b> The two readings of
+///         <c>post.underlinePosition</c> are a genuine disagreement in the wild — the OpenType
+///         specification says the top, Apple's says the centre, and FreeType and Skia both take the
+///         centre, so the overwhelming majority of shipped fonts were drawn against that reading.
+///         Following the majority is what makes a face look like it does everywhere else.
+///     </para>
+/// </remarks>
+/// <param name="UnderlineOffset">The centre of the underline stem, relative to the baseline.</param>
+/// <param name="UnderlineThickness">How thick that stem is. Always positive.</param>
+/// <param name="StrikeoutOffset">The centre of the line-through stem. Positive: it crosses the glyphs.</param>
+/// <param name="StrikeoutThickness">How thick <i>that</i> stem is. Always positive.</param>
+public readonly record struct DecorationMetrics(
+    int UnderlineOffset,
+    int UnderlineThickness,
+    int StrikeoutOffset,
+    int StrikeoutThickness
+);
+
 /// <summary>One loaded font, ready to shape with.</summary>
 /// <remarks>
 ///     <para>
@@ -69,6 +103,67 @@ public sealed class FontFace : IDisposable {
 
     /// <summary>The horizontal metrics.</summary>
     public FontMetrics Metrics { get; }
+
+    /// <summary>Where this face wants an underline and a line-through, in design units.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Read on every access rather than cached beside <see cref="Metrics" />, and the
+    ///         difference is variable fonts.</b> <c>MVAR</c> moves all four of these along an axis, and
+    ///         HarfBuzz answers for whatever instance <see cref="SetInstance" /> left the shaper at —
+    ///         so a cached copy would be the default instance's numbers wearing the current one's
+    ///         name. It is one native call per <i>decorated run</i>, not per glyph, against four that
+    ///         shaping the run already made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A face that reports nothing is synthesised from, and a face that reports zero is
+    ///         treated as reporting nothing.</b> Both happen: <c>TestGSUBOne.otf</c> in this
+    ///         repository's own font set carries a <c>post</c> table whose underline position and
+    ///         thickness are both literally zero. Taken at face value that is a zero-height line on
+    ///         the baseline — an underline that is invisible <i>and</i> in the wrong place — which
+    ///         would read as a broken feature rather than as a broken font.
+    ///     </para>
+    ///     <para>
+    ///         The synthesised numbers are FreeType's, because they are the ones every other
+    ///         toolkit's fallback text has been measured against: a twentieth of an em thick, half a
+    ///         tenth of an em below the baseline. The strikeout falls back to the underline's
+    ///         thickness — which is what the face itself says in nineteen of the twenty-two here —
+    ///         and to half the x-height for its position, since crossing the lowercase is the only
+    ///         thing a line-through has to get right.
+    ///     </para>
+    /// </remarks>
+    public DecorationMetrics Decoration {
+        get {
+            var underlineThickness = Positive(OpenTypeMetricsTag.UnderlineSize) ?? UnitsPerEm / 20;
+            var underlineOffset = Metric(OpenTypeMetricsTag.UnderlineOffset) is { } offset and not 0
+                ? offset
+                : -(UnitsPerEm / 10);
+
+            // The x-height is itself optional — two of the faces here report zero for it — so the
+            // last resort is a quarter of the ascender, which lands within a few per cent of what
+            // every face that *does* answer says.
+            var strikeoutOffset = Positive(OpenTypeMetricsTag.StrikeoutOffset)
+                ?? (Positive(OpenTypeMetricsTag.XHeight) is { } height ? height / 2 : Metrics.Ascender / 4);
+
+            return new DecorationMetrics(
+                underlineOffset,
+                underlineThickness,
+                strikeoutOffset,
+                Positive(OpenTypeMetricsTag.StrikeoutSize) ?? underlineThickness
+            );
+        }
+    }
+
+    /// <summary>One OpenType metric, or null where the face does not carry the table it lives in.</summary>
+    int? Metric(OpenTypeMetricsTag tag) =>
+        font.OpenTypeMetrics.TryGetPosition(tag, out var value) ? value : null;
+
+    /// <summary>The same, treating a zero or a negative as "the face has no opinion".</summary>
+    /// <remarks>
+    ///     Only for the three metrics whose meaning requires a positive number — a thickness, and a
+    ///     distance above the baseline. <see cref="Decoration" />'s underline offset is the one that
+    ///     is legitimately negative and is tested against zero on its own.
+    /// </remarks>
+    int? Positive(OpenTypeMetricsTag tag) => Metric(tag) is { } value and > 0 ? value : null;
 
     internal Font Shaper => font;
 

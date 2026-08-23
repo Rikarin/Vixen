@@ -243,6 +243,43 @@ evenly above and below. Putting it all underneath is what makes a generous `line
 top margin, which then gets called a padding bug for a week. Half of a *negative* leading is negative
 and that is correct too — a line height smaller than the glyphs crops them evenly at both ends.
 
+**A decoration is a rectangle at a position the face states.** `underline`, `overline`, `line-through`
+and their colour, style, thickness and offset. Every number but the overline's comes out of
+`FontFace.Decoration`, which reads the face's own `post` and `OS/2` tables through HarfBuzz — and that
+is the whole point, because across the fonts this repository ships the underline thickness runs from
+a hundredth of an em to a tenth. A constant looks deliberate in one face and looks like a rendering
+fault in the next, and no test of a single font can tell the two apart.
+
+⚠ **It is a `Rectangle` command with a zero radius, so there is no second implementation to keep in
+step.** The bar reaches `UiGeometryBuilder.Box`, the rounded-box field and both executors by the path
+a background already takes; the device and the software rasteriser agree because they are drawing the
+same quad rather than because two ports were kept aligned.
+
+⚠ **One bar per line, not per run.** It spans `TextLine.Width` and takes its metrics from the line's
+first run — CSS Text Decoration 3's "first available font". Per run it would break visibly at every
+change of face and step in thickness in the middle of a word.
+
+⚠ **The underline and the overline go under the glyphs and the line-through over them**, which is
+CSS's painting order and the only reason a descender interrupts an underline. Both orders draw a
+plausible picture; the wrong one is invisible until a `g` sits on the line.
+
+⚠ **The overline sits entirely above the ascent, and that was a measurement.** An earlier draft put
+its top edge on the ascent line so a thick one would stay inside the line box. In `TestShapeLana` the
+ascent is 1556 design units and the cap height is 1493, so the bar landed on the tops of the
+capitals — the letters looked struck rather than overlined. A face whose ascent clears its capitals
+hides that completely, which is why it took a pixel test rather than a draw-list one to find.
+
+⚠ **A decoration moves nothing that was measured**, which is CSS's rule and also the only behaviour
+compatible with `TextLayout.Measure` reporting whole device pixels: a bar that widened a line would
+round the block up and shift every element after it.
+
+⚠ **The five properties inherit although CSS inherits none of them.** CSS *propagates* a decoration
+from the block box across its own line boxes; one node produces one box here, so there is no ancestor
+to draw the line and propagation has nowhere to happen. `text-overflow` is already here for a weaker
+form of the same reason. The cost is that a child can escape a decoration with `no-underline` where
+CSS says it cannot — and the benefit is that `<div class="underline">{Label}</div>` works at all,
+since a `.vxml` interpolation emits its text as a child element.
+
 ## The cursor
 
 `UiDocument.Cursor` is what the pointer should look like where it is, resolved from the hovered

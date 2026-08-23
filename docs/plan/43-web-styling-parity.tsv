@@ -190,7 +190,7 @@ Typography	align-*	functional	align-baseline	vertical-align	align	vertical-align
 Typography	font-*	functional	font-black	font-weight	font	font-weight	font-weight		works				
 Typography	font-stretch-*	functional	font-stretch-50%	font-stretch				font-stretch	absent	font		refused, measured: `font-stretch` moves no channel at `50%` or at `condensed`. It is interned by `InheritedProperties` purely so the cascade knows it inherits, which is the exact interned-is-not-acted-on case `UtilityConsumptionGateTests` keeps a control for. Closing it is width-variable shaping in `Vixen.Ui.Text`, which is A19.	font-stretch-normal font-stretch-ultra-condensed font-stretch-extra-condensed font-stretch-condensed font-stretch-semi-condensed font-stretch-semi-expanded font-stretch-expanded font-stretch-extra-expanded
 Typography	placeholder-*	functional	placeholder-amber-50	color					absent				
-Typography	decoration-*	functional	decoration-0	text-decoration-thickness					absent				decoration-auto decoration-from-font
+Typography	decoration-*	functional	decoration-0	text-decoration-thickness	decoration	text-decoration-color,text-decoration-style,text-decoration-thickness	text-decoration-color,text-decoration-style,text-decoration-thickness		works				decoration-auto decoration-from-font
 Transitions and Animation	animate-*	functional	animate-bounce	animation					absent				
 Filters	blur-*	functional	blur-2xl	filter	blur	--tw-blur,filter	filter		works			A8/#28 closed: --tw-blur assembles into filter, and the compositor blurs the group's surface	
 Filters	backdrop-blur-*	functional	backdrop-blur-2xl	-webkit-backdrop-filter,backdrop-filter					absent				
@@ -222,7 +222,7 @@ Typography	tracking-*	functional	tracking-normal	letter-spacing	tracking	letter-
 Borders	outline-*	functional	outline-offset-0	outline-color,outline-style,outline-width					absent				
 Borders	outline-offset-*	functional	outline-offset-0	outline-offset					absent				
 Effects	opacity-*	functional	opacity-0	opacity	opacity	opacity	opacity		works				
-Typography	underline-offset-*	functional	underline-offset-0	text-underline-offset					absent				
+Typography	underline-offset-*	functional	underline-offset-0	text-underline-offset	underline-offset	text-underline-offset	text-underline-offset		works				
 Typography	text-*	functional	text-2xl	font-size,line-height	text	color,font-size,line-height,text-align,text-overflow	color,font-size,line-height,text-align,text-overflow		partial		font-size and line-height work; the colour reading works; text-<n>/<leading> does not		
 Typography	text-shadow-*	functional	text-shadow-2xs	text-shadow					absent	text		refused, measured: `text-shadow` moves no channel and no consumer interns it — the draw list has no glyph-shadow path at all. A registration would be an inert class with no reader to name in `InertProperties.txt`.	
 Effects	shadow-*	functional	shadow-2xl	box-shadow	shadow	box-shadow	box-shadow		works				
@@ -318,8 +318,8 @@ Layout	object	static	object-contain	object-fit					absent				object-contain obje
 Typography	text (keywords)	static	text-left	text-align	text	color,font-size,line-height,text-align,text-overflow	color,font-size,line-height,text-align,text-overflow		works				text-left text-center text-right text-justify text-start text-end
 Typography	text-transform	static	uppercase	text-transform				text-transform	absent				uppercase lowercase capitalize normal-case
 Typography	font-style	static	italic	font-style					absent				italic not-italic
-Typography	text-decoration-line	static	underline	text-decoration-line					absent				underline overline line-through no-underline
-Typography	decoration	static	decoration-solid	text-decoration-style					absent				decoration-solid decoration-double decoration-dotted decoration-dashed decoration-wavy
+Typography	text-decoration-line	static	underline	text-decoration-line	underline,overline,line-through,no-underline	text-decoration-line	text-decoration-line		works				underline overline line-through no-underline
+Typography	decoration	static	decoration-solid	text-decoration-style	decoration	text-decoration-color,text-decoration-style,text-decoration-thickness	text-decoration-color,text-decoration-style,text-decoration-thickness		partial		solid and double are drawn; dotted, dashed and wavy are not registered. Measured, not assumed, and the same finding divide-solid is absent under: nothing in Vixen.Ui can draw a dash pattern - border-style is emitted by nothing and read by nothing - so all three would resolve cleanly and paint a solid line, which is the inert class the consumption gate exists to keep out.		decoration-solid decoration-double decoration-dotted decoration-dashed decoration-wavy
 Transitions and Animation	transition	static	transition-discrete	transition-behavior					absent				transition-discrete transition-normal
 Typography	content-none	static	content-none	content					absent	content		refused, measured: `content` moves no channel, and there is nothing for it to apply to. F6 refused pseudo-element selectors rather than building them, so there is no `before:` or `after:` variant, and CSS `content` on an ordinary element does nothing either.	content-none
 Accessibility	forced-color-adjust	static	forced-color-adjust-none	forced-color-adjust					absent				forced-color-adjust-none forced-color-adjust-auto

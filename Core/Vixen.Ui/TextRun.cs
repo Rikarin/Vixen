@@ -189,4 +189,118 @@ public sealed record TextRun(
         }
     }
 
+    /// <summary>Where one decoration line sits on this run, relative to its baseline.</summary>
+    /// <param name="line">Which line. Exactly one — <see cref="Bars" /> is what walks a set of them.</param>
+    /// <param name="decoration">The resolved style, whose two <c>auto</c>s this settles.</param>
+    /// <returns>The bar, in pixels, y downwards from the baseline.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is where the face's opinion becomes a rectangle</b>, and every number in it but
+    ///         the overline's comes out of <see cref="FontFace.Decoration" />. The design-unit values
+    ///         are y-up, as a font grid is; the draw list is y-down, so the offsets are negated here
+    ///         for the same reason <see cref="Place" /> negates a glyph's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <i>centre</i> of the stem is what the font states, so the bar's top is half a
+    ///         thickness above it.</b> Placing the top at the stated position instead puts the whole
+    ///         line a half-thickness too low, which is invisible at 13px in a text face and obvious in
+    ///         a display face whose underline is a ninth of an em.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An overline has no font metric and is placed just above the ascent.</b> No
+    ///         OpenType table states one — neither <c>post</c> nor <c>OS/2</c> has the field — so this
+    ///         is the one position that is derived rather than read, and the ascender is what every
+    ///         other toolkit derives it from. <c>text-underline-offset</c> does not move it: CSS
+    ///         applies that property to the underline alone, and a shared offset would be a fifth
+    ///         thing to explain for no author's benefit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <c>auto</c> thickness is floored at one pixel and an authored one is not.</b>
+    ///         A face asking for a hundredth of an em — and one here does — is asking for 0.13px at
+    ///         13pt, which the rasteriser draws as a grey smear that reads as a fault rather than as a
+    ///         hairline. A thickness the author wrote is theirs, floor included: clamping it would
+    ///         make <c>decoration-0</c> draw a line, and would make two adjacent thicknesses stop
+    ///         being distinguishable at exactly the sizes somebody would be comparing them at.
+    ///     </para>
+    /// </remarks>
+    public DecorationBar Bar(TextDecorationLine line, TextDecoration decoration) {
+        var metrics = Font.Decoration;
+        var scale = Scale;
+
+        var thickness = float.IsNaN(decoration.Thickness)
+            ? MathF.Max(
+                (line == TextDecorationLine.LineThrough ? metrics.StrikeoutThickness : metrics.UnderlineThickness)
+                * scale,
+                1f
+            )
+            : decoration.Thickness;
+
+        var centre = line switch {
+            // Negated twice over: the metric is negative because it is below the baseline in a y-up
+            // grid, and this axis points down.
+            TextDecorationLine.Underline => (-metrics.UnderlineOffset * scale) + decoration.Offset,
+            TextDecorationLine.LineThrough => -metrics.StrikeoutOffset * scale,
+            _ => -Font.Metrics.Ascender * scale
+        };
+
+        // ⚠ The overline sits *entirely above* the ascent rather than centred on it or hanging below
+        // it, and that is a measurement rather than a preference. An earlier draft put its top edge
+        // on the ascent line, on the argument that a thick one should stay inside the line box; in
+        // `TestShapeLana` the ascent is 1556 design units and the cap height is 1493, so the bar
+        // landed on the tops of the capitals — two pixels of overlap at 60px, and the letters looked
+        // struck rather than overlined. A face whose ascent clears its capitals hides that entirely,
+        // which is why it took a pixel test to find. The cost is that the bar is outside the line box
+        // and an element clipping its overflow will cut it, which is what a browser does too.
+        return new DecorationBar(
+            line == TextDecorationLine.Overline ? centre - thickness : centre - (thickness / 2f),
+            thickness
+        );
+    }
+
+    /// <summary>The bars a decoration asks for on one side of the glyphs.</summary>
+    /// <param name="decoration">The resolved style.</param>
+    /// <param name="under">
+    ///     True for the lines painted beneath the glyphs, false for the ones painted over them.
+    /// </param>
+    /// <returns>The bars, in painting order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The split is CSS Text Decoration 3 § 4.1's painting order, and it is observable.</b>
+    ///         The underline and the overline go <i>under</i> the glyphs and the line-through goes
+    ///         <i>over</i> them — which is why a descender interrupts an underline and nothing
+    ///         interrupts a strikethrough. Emitting all three on one side is a picture that looks
+    ///         plausible until a <c>g</c> or a <c>y</c> sits on the line, which is why the caller is
+    ///         made to ask twice rather than being handed one list to place wherever is convenient.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="TextDecorationStyle.Double" /> doubles each bar — two of the thickness with
+    ///         a gap of the thickness between them, growing downwards so that a doubled underline
+    ///         does not creep up into the glyphs it belongs under.
+    ///     </para>
+    /// </remarks>
+    public IEnumerable<DecorationBar> Bars(TextDecoration decoration, bool under) {
+        foreach (var line in Order) {
+            if ((decoration.Lines & line) == 0 || Under(line) != under) {
+                continue;
+            }
+
+            var bar = Bar(line, decoration);
+            yield return bar;
+
+            if (decoration.Style == TextDecorationStyle.Double) {
+                yield return bar with { Top = bar.Top + (bar.Thickness * 2f) };
+            }
+        }
+    }
+
+    /// <summary>Whether a line is painted beneath the glyphs rather than over them.</summary>
+    /// <param name="line">The line.</param>
+    public static bool Under(TextDecorationLine line) => line != TextDecorationLine.LineThrough;
+
+    /// <summary>The three lines in painting order.</summary>
+    static readonly TextDecorationLine[] Order = [
+        TextDecorationLine.Underline,
+        TextDecorationLine.Overline,
+        TextDecorationLine.LineThrough
+    ];
 }

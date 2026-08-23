@@ -204,6 +204,21 @@ public class UtilityFamilySupportTests {
         { "tracking-px", "letter-spacing", "1px" },
         { "whitespace-nowrap", "white-space", "nowrap" },
 
+        // Text decoration. ⚠ `decoration-` is the second three-way prefix in this table — a keyword
+        // is a thickness or a style, and anything else is a colour — so all three are here rather
+        // than one standing for the family. And `underline-offset-2` is here because it is the pair
+        // where a *shorter* family name is a prefix of a longer one and both are registered: if the
+        // name split ever stopped sorting longest-first, this row would resolve as `underline` with
+        // the offset silently dropped, which the row above it would not notice.
+        { "underline", "text-decoration-line", "underline" },
+        { "overline", "text-decoration-line", "overline" },
+        { "line-through", "text-decoration-line", "line-through" },
+        { "no-underline", "text-decoration-line", "none" },
+        { "underline-offset-2", "text-underline-offset", "2px" },
+        { "decoration-2", "text-decoration-thickness", "2px" },
+        { "decoration-double", "text-decoration-style", "double" },
+        { "decoration-text-muted", "text-decoration-color", "#5c616b" },
+
         // Paint.
         { "bg-surface-raised", "background-color", "#f2f3f6" },
         { "opacity-50", "opacity", "0.5" },
