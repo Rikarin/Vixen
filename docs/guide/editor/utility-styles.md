@@ -124,7 +124,7 @@ disagrees with that ledger is this page being stale, not the ledger being wrong.
 | `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`, both widths and colours; **`border-bs`/`-be`**, both; `border-s`/`-e` widths | `border-s-<colour>` and `border-e-<colour>` — the *inline* logical pair never reached the draw list |
 | **`divide-x-`**, **`divide-y-`**, **`divide-<colour>`** | `divide-solid`/`-dashed`/`-dotted`/`-double`, `divide-x-reverse`, `divide-y-reverse` — not registered; nothing reads `border-style`, and the reverse pair needs `calc()` |
 | `overflow-hidden`, `overflow-scroll`, `overflow-auto`, **`overflow-x-*`**, **`overflow-y-*`**, `truncate` | |
-| `cursor-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
+| `cursor-`, `caret-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
 | **`bg-linear-*`**, **`bg-radial`**, **`bg-conic`** with `from-`/`via-`/`to-` and stop positions | |
 
 ⚠ **v4's logical families divide into two halves here, and the halves emit different spellings.**
@@ -174,9 +174,27 @@ reader existed. What each is for:
   only over the rubber-band that this engine does not have.
 
 The logical edges (`scroll-ms-*`, `scroll-pe-*`, …) mirror under `direction: rtl` exactly as `ms-*`
-does. The **block** ones — v4's `scroll-mbs-*` and friends — are absent, for the reason `space-y-*`
-writes `margin-bottom`: nothing here interns a block longhand. `snap-*` and `scrollbar-*` are still
-deferred; see `docs/plan/43-web-styling-parity.md` Part 8 § 3.
+does. The **block** ones — `scroll-mbs-*`, `scroll-mbe-*`, `scroll-pbs-*`, `scroll-pbe-*` — are
+written now and emit the *physical* `scroll-margin-top` and friends, for the reason `inset-bs-*` does
+one section up: nothing interns a block longhand and there is no writing mode for the block axis to
+be anything but top-to-bottom, so the physical name is the same declaration in a spelling
+`ScrollView` can read. `snap-*` and `scrollbar-*` are still deferred; see
+`docs/plan/43-web-styling-parity.md` Part 8 § 3.
+
+⚠ **`caret-*` is the one interactivity colour with a reader, and `accent-*` is not.** `caret-accent`
+on a `<TextBox>`, a `<TextArea>` or a `<CodeEditor>` colours the insertion point: both controls ask
+the standard `caret-color` first and fall back to Vixen's own `--caret-color` token, which is what
+`ControlTheme.vcss` and `EditorTheme.vcss` declare on the root — so the class is the field's answer
+and the token stays the document's. It inherits, so writing it on a form row reaches every field
+inside. **`accent-*` is deliberately absent**: CSS applies `accent-color` to checkboxes, radios,
+sliders and progress bars, and Vixen draws the last two in C# but the first three from the
+stylesheet — a checkbox's tint is `checkbox:checked box { background-color: var(--accent) }`, a rule
+on a *child part*, and `var()` reads custom properties only. Set `--accent` to recolour them.
+
+⚠ **A `cursor-*` class resolves and is read, and no window shows it yet.** `UiDocument.Cursor`
+answers correctly for whatever is hovered; nothing in the tree turns that answer into a call on the
+window. This is family-wide — `cursor-pointer` is in exactly the same position as `cursor-help` —
+and it is a gap in the host rather than in the cascade.
 
 ⚠ **`ring-*` is a `box-shadow`, not an outline, and it used to emit `outline-color` — a property no
 version of Tailwind has ever emitted for it.** `ring-2` is `box-shadow: 0 0 0 2px currentcolor`: a

@@ -120,6 +120,14 @@ public sealed class InheritedProperties {
         "visibility",
         "cursor",
 
+        // ⚠ <b>CSS-inherited, and here for `fill`/`stroke`'s reason as much as for CSS's.</b>
+        // CSS Basic UI 4 § 4.1 inherits it, and the case that makes the line load-bearing is the
+        // narrow one the `fill`/`stroke` note below states: a `caret-accent` is as likely to be
+        // written on a form row or a panel as on the field itself, and without this it would
+        // resolve, compute, and stop one element short of `TextField.CaretColour` — which, with
+        // `CodeEditor`'s copy of the same two lines, is the only thing that reads it.
+        "caret-color",
+
         // ⚠ <b>SVG's two, and they inherit for the reason <c>color</c> does — but the case that makes
         // it load-bearing is narrower than it looks.</b> SVG 2 § 13.2 has both inherit, and an icon is
         // almost never the element anyone writes the class on: `fill-accent` goes on the button, and

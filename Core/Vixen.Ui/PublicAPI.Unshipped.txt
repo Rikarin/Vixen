@@ -874,6 +874,7 @@ Vixen.Ui.UiCursor.Default = 1 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.EastWest = 14 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.Grab = 7 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.Grabbing = 8 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Help = 16 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.Move = 5 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.None = 2 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiCursor.NorthSouth = 15 -> Vixen.Ui.UiCursor

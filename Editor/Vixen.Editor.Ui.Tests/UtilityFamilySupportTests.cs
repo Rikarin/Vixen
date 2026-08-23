@@ -160,8 +160,7 @@ public class UtilityFamilySupportTests {
         // asserting `scroll-m-2` → `scroll-margin` would be asserting the emission that does not
         // work; the per-edge value is the one that reaches `ScrollView`. The logical pair keeps CSS's
         // spelling for the reason `ms-*` does — `ScrollView.InsetOf` folds it against `direction` —
-        // and there are no `scroll-mbs-*`/`scroll-pbs-*` rows because the block pair is registered by
-        // nobody, exactly as `inset-bs-*` records below.
+        // and the block pair emits the physical longhand, exactly as `inset-bs-*` records below.
         { "scroll-m-2", "scroll-margin-top", "8px" },
         { "scroll-mt-1", "scroll-margin-top", "4px" },
         { "scroll-mx-2", "scroll-margin-left", "8px" },
@@ -169,6 +168,17 @@ public class UtilityFamilySupportTests {
         { "scroll-p-2", "scroll-padding-top", "8px" },
         { "scroll-pb-1", "scroll-padding-bottom", "4px" },
         { "scroll-pe-2", "scroll-padding-inline-end", "8px" },
+
+        // ⚠ <b>The four block logicals, and the *property* is what these four rows are for.</b>
+        // `ScrollView.EdgeIds.For` interns six names — the four physical edges and the two inline
+        // logical ones — so a later hand "correcting" these to v4's `scroll-margin-block-start`
+        // would leave four classes that parse, cascade and compute perfectly and move no scroll at
+        // all. Asserting the value alone would not notice. Same guard, same reason, as the
+        // `inset-bs-2` row below.
+        { "scroll-mbs-2", "scroll-margin-top", "8px" },
+        { "scroll-mbe-1", "scroll-margin-bottom", "4px" },
+        { "scroll-pbs-2", "scroll-padding-top", "8px" },
+        { "scroll-pbe-1", "scroll-padding-bottom", "4px" },
 
         // The three keyword families that go with them. `scroll-smooth` is the one worth a row of its
         // own: it is the only member of any of these that changes *when* something happens rather
@@ -496,7 +506,22 @@ public class UtilityFamilySupportTests {
         { "duration-150", "transition-duration", "150ms" },
         { "ease-out", "transition-timing-function", "ease-out" },
         { "cursor-pointer", "cursor", "pointer" },
+
+        // ⚠ <b>`cursor-help` is here because it was the one keyword of the eight the ledger lists
+        // that did not resolve</b>, and the fix was a `UiCursor.Help` rather than anything in this
+        // table — `UtilityFamilies` deliberately registers only the keywords `UiCursor` has a
+        // reading of, since one it cannot map resolves to the host's default and is
+        // indistinguishable from writing nothing.
+        { "cursor-help", "cursor", "help" },
         { "pointer-events-none", "pointer-events", "none" },
+
+        // ⚠ <b>`caret-*` is a reader that existed under a different name, which is a shape this
+        // table had not seen before.</b> `TextField` and `CodeEditor` have drawn the insertion point
+        // off Vixen's own `--caret-color` since they were written; the family emits CSS's
+        // `caret-color` and both controls now ask that first. So the row asserts the *standard*
+        // spelling: emitting `--caret-color` instead would have worked today and made every
+        // downstream sheet's root token unoverridable by a class, which is backwards.
+        { "caret-text-muted", "caret-color", "#5c616b" },
         { "aspect-video", "aspect-ratio", "16/9" },
 
         // Transforms. ⚠ <b>The two translations are the first rows in this file to arrive by way of

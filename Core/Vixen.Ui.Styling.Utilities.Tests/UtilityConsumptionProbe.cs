@@ -72,6 +72,20 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     Whether <c>#probe</c> is a <see cref="ScrollView" /> nested inside another one, and the scene
 ///     drives scrolls between the recorded frames. False for every scene but <c>scrolled</c>.
 /// </param>
+/// <param name="Edited">
+///     Whether the probe carries a focused <see cref="TextBox" />. False for every scene but
+///     <c>edited</c>.
+///     <para>
+///         ⚠ <b>The eighth time this list has been the thing missing rather than the engine, and
+///         the first where the missing ingredient was a <i>control state</i> rather than a shape.</b>
+///         <c>TextField.OnDraw</c> returns before it draws anything at all unless
+///         <see cref="UiElement.IsFocused" />, so a text box sitting unfocused in a scene
+///         contributes a box and no caret — which is the <c>icon { width: 14px }</c> lesson one
+///         parameter down, wearing focus instead of size. The caret is the only thing in the engine
+///         that reads <c>caret-color</c>, so without the focus this scene would be present, look
+///         right, and measure the property inert.
+///     </para>
+/// </param>
 /// <param name="Unbroken">
 ///     Whether the probe carries a <c>#long</c> span holding one word with no break opportunity in
 ///     it. False for every scene but <c>overlong</c>.
@@ -84,7 +98,13 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         byte-identical.
 ///     </para>
 /// </param>
-sealed record ProbeScene(string Name, string Css, bool Scrolling = false, bool Unbroken = false);
+sealed record ProbeScene(
+    string Name,
+    string Css,
+    bool Scrolling = false,
+    bool Unbroken = false,
+    bool Edited = false
+);
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
 /// <remarks>
@@ -695,6 +715,53 @@ static class UtilityConsumptionProbe {
             #after  { width: 30px; height: 12px; background-color: #a0a040; }
             """,
             Scrolling: true
+        ),
+
+        // ⚠ <b>Edited, and it is the only scene in which anything has a caret.</b> `caret-color` is
+        // read in exactly two places — `TextField.CaretColour` and `CodeEditor`'s copy of it — and
+        // both are inside an `if (!IsFocused) return;`. So the ingredient is a *state* rather than a
+        // shape, which is new: every earlier gap in this list was an arrangement the tree could not
+        // make, and this one is an arrangement it could make perfectly while measuring the property
+        // inert, because nothing in the probe had ever focused anything.
+        //
+        // ⚠ <b>The field is a child of `#probe` and not `#probe` itself</b>, for the reason the icon
+        // is: `caret-color` inherits, the injected declaration lands on `#probe`, and a
+        // `caret-accent` is at least as likely to be written on a form row as on the input in it. A
+        // scene that made the probe the field would measure the reader and not the inheritance, and
+        // the inheritance is the half that `InheritedProperties` had to be changed for.
+        //
+        // ⚠ <b>And the value is non-empty on purpose.</b> `TextField.OnDraw` has two caret branches
+        // — one for a field with no text block at all and one for a field with lines — and only the
+        // second is reached here. Both call the same helper, so one is enough to measure the
+        // property; picking the empty branch instead would have measured a rectangle whose height
+        // comes from `min-height: 1.2em`, which is a font metric this project resolves against the
+        // probe face and a needlessly brittle thing for a baseline to depend on.
+        new(
+            "edited",
+            """
+            /* `ControlTheme.vcss` quoted, for the reason the scrolled scene quotes it: this project
+               loads no theme, and `field-text { min-height: 1.2em }` is the line that stops the
+               field being its padding and nothing else. The colours are literals rather than the
+               theme's `var()`s — there is no `root` rule here to declare the tokens against, and a
+               `var()` that resolves to nothing would leave the caret's fallback path measuring
+               instead of the property. */
+            textbox          { flex-direction: row; align-items: center; padding: 4px;
+                               border-width: 1px; border-color: #c02020; background-color: #f0f0f0;
+                               color: #202020; position: relative; }
+            field-text       { flex-shrink: 0; white-space: nowrap; min-height: 1.2em; }
+            field-placeholder { position: absolute; left: 4px; display: none; }
+
+            #host  { display: flex; flex-direction: column; width: 200px; height: 120px;
+                     align-items: flex-start; }
+            #probe { display: flex; flex-direction: column; width: 160px;
+                     background-color: #204080; color: #e0e0e0; }
+            .kid   { width: 8px; height: 8px; }
+            #wide  { width: 8px; height: 8px; }
+            #label { width: 30px; }
+            #short { width: 30px; }
+            #after { width: 30px; height: 12px; background-color: #a0a040; }
+            """,
+            Edited: true
         )
     ];
 
@@ -1159,6 +1226,15 @@ static class UtilityConsumptionProbe {
         if (scene.Unbroken) {
             var long_ = document.Create("span", body, "long");
             long_.Text = "Wmilqjagwmilqjag";
+        }
+
+        // The focused field. `Focus` is called after the value is set rather than before, because a
+        // field with no value takes the other caret branch and the branch is chosen at draw time
+        // from whatever the value is then — see the scene's own remark.
+        if (scene.Edited) {
+            var field = body.Add<TextBox>(null, "field");
+            field.Value = "Ag";
+            document.Focus(field);
         }
 
         // ⚠ <b>An icon, because `fill` and `stroke` have no other observable and a scene without one
