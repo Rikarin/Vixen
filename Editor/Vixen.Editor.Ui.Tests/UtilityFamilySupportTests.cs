@@ -318,6 +318,41 @@ public class UtilityFamilySupportTests {
         // `Alongside`.
         { "filter-none", "filter", "none" },
 
+        // ── The backdrop's ten ──────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>A second declaration with a second set of fragments, and the rows are here to say that
+        // it is not the first one's.</b> `filter` transforms what the element drew and
+        // `backdrop-filter` transforms what is behind it, so an element may carry `blur-2` and
+        // `backdrop-blur-lg` and mean two different pictures. Fragments shared between the two would
+        // make that impossible to write and would look, from a stylesheet, exactly like the second
+        // class having been ignored.
+        //
+        // ⚠ <b>Nine functions where the list above has nine, and one of them is different in each:
+        // `opacity()` here, `drop-shadow()` there.</b> That is Tailwind's set and this engine's:
+        // `backdrop-opacity-*` is one of the ten roots and `backdrop-drop-shadow-*` is not a class
+        // anywhere. `DrawListBuilder.One` refuses each in the other's property.
+        //
+        // ⚠ <b>`opacity`'s identity is one and not zero</b>, which is the one initial in the table a
+        // reader coming from `grayscale(0)` will guess wrong — and guessing it wrong would erase the
+        // backdrop of every element carrying any `backdrop-*` class at all.
+        //
+        // ⚠ Only the unprefixed property is asserted here; every one of these families emits
+        // `-webkit-backdrop-filter` with the identical value beside it, which nothing in this engine
+        // reads and Safari would. See `UtilityFamilies.BackdropAlongside`.
+        { "backdrop-blur-2", "backdrop-filter", "blur(8px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) opacity(1) saturate(1) sepia(0)" },
+        { "backdrop-brightness-125", "backdrop-filter", "blur(0px) brightness(1.25) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) opacity(1) saturate(1) sepia(0)" },
+        { "backdrop-contrast-75", "backdrop-filter", "blur(0px) brightness(1) contrast(0.75) grayscale(0) hue-rotate(0deg) invert(0) opacity(1) saturate(1) sepia(0)" },
+        { "backdrop-grayscale", "backdrop-filter", "blur(0px) brightness(1) contrast(1) grayscale(1) hue-rotate(0deg) invert(0) opacity(1) saturate(1) sepia(0)" },
+        { "backdrop-hue-rotate-90", "backdrop-filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(90deg) invert(0) opacity(1) saturate(1) sepia(0)" },
+        { "backdrop-invert", "backdrop-filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(1) opacity(1) saturate(1) sepia(0)" },
+        { "backdrop-opacity-50", "backdrop-filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) opacity(0.5) saturate(1) sepia(0)" },
+        { "backdrop-saturate-150", "backdrop-filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) opacity(1) saturate(1.5) sepia(0)" },
+        { "backdrop-sepia-50", "backdrop-filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) opacity(1) saturate(1) sepia(0.5)" },
+
+        // ⚠ The keyword, for `filter-none`'s reason word for word — and it sets the prefixed copy too,
+        // so that turning the feature off turns off the copy a browser would have read.
+        { "backdrop-filter-none", "backdrop-filter", "none" },
+
         // ⚠ Two families composing into one declaration is the case this theory cannot state — a row
         // here is one class — so it is
         // <see cref="Two_filter_families_compose_into_one_declaration_and_one_matrix" /> instead.

@@ -3,8 +3,8 @@ title: Compositing groups
 slug: ui/compositing
 kind: guide
 area: Core
-summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, and what `backdrop-filter` and gradient text would each still need on top of it.
-api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite]
+summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, how a backdrop filter is a replay of the draw-list prefix rather than a read-back and what that cost the compositor's walk, and what gradient text would still need on top of it.
+api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiBackdrop, T:Vixen.Ui.Renderer.UiBackdropSource, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite]
 tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, drop-shadow, backdrop-filter, mask, mask-image, mask-composite]
 since: 0.2
 status: preview
@@ -348,69 +348,125 @@ passes; a second is refused, and refusing takes the whole declaration with it. T
 `DrawListBuilder.Filter` keeps for every function it cannot execute, and it is what stops a
 half-applied filter looking like a working one.
 
-### What `backdrop-*` would still need
+### `backdrop-filter`
 
-**`backdrop-*` is a different feature wearing the same names, and the compositor cannot see what it
-needs.** It reads the destination the group is about to composite *into*. At the moment a group's
-surface is rendered that destination has not been drawn: `UiRenderer.Compose` records every group's
-pass **before** the host's frame pass begins — it has to, because passes do not nest — so nothing
-painted below the group exists yet. By the time the composite is submitted the destination is the
-colour attachment being written, which is not sampleable without an input attachment or a copy out
-of the pass, and this renderer's command list has neither.
+**`backdrop-*` is a different feature wearing the same names, and what it reads is the destination the
+group is about to composite *into*.** At the moment a group's surface is rendered that destination has
+not been drawn: `UiRenderer.Compose` records every group's pass **before** the host's frame pass begins
+— it has to, because passes do not nest — so nothing painted below the group exists yet. By the time
+the composite is submitted the destination is the colour attachment being written, which is not
+sampleable without an input attachment or a copy out of the pass, and this renderer's command list has
+neither.
 
-⚠ **The trap it sets is that `SoftwareUiRasterizer` could do it in three lines**, because its
-recursion already holds the parent's buffer while it runs the group's. A backdrop filter written
-there alone would look implemented and would surface as a *compositing divergence* in
-`UiCompositingTests` rather than as a missing feature.
-
-#### The shape of the change, sized
-
-Re-measured, and the answer is not a slot in `UiLayer`. Four things have to move, and the third and
-fourth are why this is a branch of its own rather than a rider on the drop shadow.
+**None of which turned out to matter, because a read-back is not what this needs.** The draw-list
+prefix behind a group is *replayable*, and replaying it is what turned this from a capability the
+backend lacks into a scheduling problem the compositor solves. Four things moved, and the last two are
+why it was a branch of its own rather than a rider on the drop shadow.
 
 **1. Every group here is already a backdrop root, which is the one piece of luck.** Filter Effects 2
 says an element forms a *backdrop root* if it has a filter, an opacity below one, a mask or a
 clip-path — and a `UiLayer` exists in this engine for precisely those reasons and no other. So the
 backdrop of a group nested in another group is **the parent's own surface content so far**, and never
-an accumulation up the ancestor chain. There is no recursion to write.
+an accumulation up the ancestor chain. There is no recursion, and — the part that matters at execution
+time — a nested group's backdrop starts from *transparent black*, because that is what its parent's
+surface starts from. Only a top-level group's backdrop has ever seen the host's frame.
 
 **2. The capture is a re-render of the prefix, not a read-back.** For a group `g` with parent `p`, the
-backdrop is what `Submit(self: p)` would draw from `p.First` up to `g.First`. `Submit` already walks
-exactly that range and already skips nested groups in favour of their composites; it needs one extra
-`stop` argument and the caller needs `p`, which is the nearest preceding layer whose range contains
-`g`'s. A pass per backdrop group, confined to `g`'s bounds, into a surface of its own — then the same
-blur and matrix machinery a drop shadow now uses, and a second quad drawn under the group's, which is
-the arrangement `UiLayer.ShadowImage` demonstrates.
+backdrop is what `Submit(self: p)` would draw from `p.First` up to `g.First`. `Submit` already walked
+exactly that range and already skipped nested groups in favour of their composites; it needed one extra
+`stop` argument. `UiRenderer.Capture` is that call, wrapped in a pass of its own, confined to the
+group's border box outset by the backdrop's kernel — then the same blur machinery a drop shadow uses,
+and a second quad drawn under the group's, which is the arrangement `UiLayer.ShadowImage` demonstrates.
 
-**3. `Compose`'s walk has to change order, and it is a working, subtle loop.** It runs *reverse
-pre-order*, which puts a group's children before it and a group's **later** siblings before its
-earlier ones. A capture needs the opposite of that second half: everything painted behind `g` must be
-finished before `g`'s capture pass runs. **Post-order satisfies both** — each child subtree in
-document order, then the parent — so the loop is replaceable rather than extendable, and every
-barrier and surface-state argument in it has to be re-read against the new order.
+**3. `Compose`'s walk is post-order, where it used to be reverse pre-order.** The old loop put a
+group's children before it — which is the one ordering it needed, since an outer group's pass samples
+its children's surfaces — and a group's **later** siblings before its earlier ones. A capture needs the
+opposite of that second half: everything painted behind `g` must be finished before `g`'s capture pass
+runs. **Post-order satisfies both** — each child subtree in document order, then the parent —
+so `UiRenderer.Forest` replaced the loop rather than extending it.
 
-**4. The host's content is not the compositor's, and this is the part that is a public API change.**
-`Record` draws into a pass the host has already begun; the UI's own draw list is all `Compose` can
-re-render. A capture built from it alone is *the interface behind the element and nothing else* — so
-a glass panel over a 3D scene would blur nothing, which is the single commonest reason to reach for
-the feature. It is worse than incomplete: the captured backdrop is then not opaque, and compositing a
-blurred translucent copy **over** the sharp original is a double image along every edge, where CSS
-*replaces* the backdrop within the element's bounds. Both problems close the same way and only that
-way — the host hands over what it has already painted, as
-`Compose(commands, geometry, surface, scale, TextureViewHandle? beneath)`, and the capture pass draws
-it full-screen before re-rendering the prefix over it. That is a new public parameter, an entry in
-`PublicAPI.Unshipped.txt`, and wiring in `Vixen.Editor.Host`, `Samples/02-HelloUi` and the app
-template. A host that passes nothing gets the degraded reading and has to be told so.
+⚠ **Nothing else in that loop depended on the old order, and it was checked by running the fixture
+without a backdrop in it rather than by reading the code.** Each group's turn is self-contained: one
+barrier in, a pass, an optional blur and shadow that borrow the shared scratch and hand it back, one
+barrier out. The only state two turns share is that scratch, whose borrow begins and ends inside one of
+them, and each surface's own `ResourceState`. Post-order is therefore a strict tightening of the
+constraint the reverse walk met, not a different one.
 
-⚠ **And one fidelity gap that has no cheap answer**: CSS clips the filtered backdrop to the element's
-border box *including its radius*, and `UiLayer.Bounds` is a plain rectangle with no radius in it.
-`rounded-2xl backdrop-blur-md bg-white/30` is the canonical use of this feature, and a rectangular
-backdrop shows blurred corners outside the rounded ones. The mask machinery is the nearest existing
-tool; a rounded-rect SDF in the composite fragment is the other.
+**4. The host's content is not the compositor's, and that is the public API change.** `Record` draws
+into a pass the host has already begun; the UI's own draw list is all `Compose` can re-render. A
+capture built from it alone is *the interface behind the element and nothing else* — so a glass panel
+over a 3D scene would blur nothing, which is the single commonest reason to reach for the feature. It
+is worse than incomplete: the captured backdrop is then not opaque, and compositing a blurred
+translucent copy **over** the sharp original is a double image along every edge, where CSS *replaces*
+the backdrop within the element's bounds. So the host hands over what it has already painted, as
+`Compose(commands, geometry, surface, scale, UiBackdropSource beneath)`.
 
-**What is *not* needed**, and was assumed to be: an input attachment, a `vkCmdCopyImage`, or any
-read-back of a colour attachment. The prefix is replayable, and replaying it is what turns this from a
-capability the backend lacks into a scheduling problem the compositor can solve.
+⚠ **A colour *and* a texture, where the design said a texture.** All three call sites in this
+repository begin the interface's pass with a `LoadAction.Clear` and have painted nothing else:
+`Vixen.Editor.Host`, the app template and `UiCompositingTests`. What they have "already painted" is a
+colour, and a colour is also the only thing that can reach `SoftwareUiRasterizer` — whose capture is a
+clone of a buffer that already holds the background, so the two executors agree only if the device's
+capture starts from the same ground. `UiBackdropSource.Image` is the other half, for a host that has
+genuinely rendered a scene into a texture of the interface's size; it is drawn full-screen into the
+capture before the prefix is replayed over it. **A host that passes nothing gets the degraded reading**
+and `UiRenderer.Backdropped` is what says the capture happened at all.
+
+⚠ **`UiRenderer.Backdropped` matters more than any other counter on the class, because a backdrop
+filter over a flat field is the identity.** Blurring a uniform colour returns it; greying an
+already-grey one returns it. So a fixture whose panels sit on plain background cannot tell a working
+capture from no capture — and neither can `UiCompositingTests`, because the software path would be
+reproducing the same nothing. That is a second vacuity on top of the one every `filter` has, and it is
+worse: the colour matrix's picture is at least a function of the group's own contents.
+
+⚠ **The two blurs are convolved through different quads and one of them is not a quad at all.** A
+group's own blur sweeps through its composite quad, which `UiGeometryBuilder.Layer` has already outset
+by the kernel — so the second axis never reads outside itself for a pixel that matters. A backdrop's
+quad is the border box with **no** outset, because that is what the result is clipped to, so sweeping
+through it makes the second axis read the cleared scratch just outside the box and darkens the panel's
+whole rim. Measured before it was fixed: twenty pixels along the top edge of the compositing fixture's
+glass panel, up to ten levels dark. The backdrop's sweeps therefore run over the whole confined region,
+through four vertices of the renderer's own — `UiRenderer.Fullscreen`, the only geometry in that file
+that is not the frame's.
+
+⚠ **`opacity()` is a backdrop function and `drop-shadow()` is not, which is the mirror of `filter`.**
+`backdrop-opacity-*` is one of Tailwind's ten roots and `UiColorMatrix` has three rows and cannot scale
+alpha, so it lands on `UiBackdrop.Alpha` and rides the backdrop quad's own vertex alpha — exactly where
+a drop shadow's colour alpha rides. `drop-shadow()` inside a `backdrop-filter` is refused, and takes
+the whole declaration with it: a shadow of the backdrop is a silhouette composited under a picture that
+is already behind everything.
+
+⚠ **A backdrop costs a second pass over everything behind the element, and the counters say so out
+loud.** The capture replays the prefix, so a composite in that prefix carrying a colour matrix is
+submitted twice and `UiRenderer.Filtered` counts it twice; the same goes for `Masked`. Neither is
+bounded by the layer count any more. That is the price of the feature rather than a bookkeeping
+artefact, and it is what makes the price visible.
+
+⚠ **The filtered backdrop is clipped to the border box and *not* to its corner radius, which is a
+stated divergence.** `UiLayer.Bounds` is the group's *ink* — a child overflowing the element makes it
+bigger — so a rectangle taken from there would put blurred scene outside the panel that asked for it;
+`UiLayer.BackdropBounds` carries the border box instead, which closes that half. The radius is not
+closed: a `UiLayer` carries none, and `rounded-2xl backdrop-blur-md bg-white/30` is the canonical use
+of this feature, so the blurred picture shows square corners just outside the rounded ones. The mask
+machinery cannot express a rounded rectangle — its shapes are linear, radial and conic ramps — so
+closing it needs a rounded-rect signed distance in the composite fragment, which is a change to
+`ui-image.frag`, `ui-colour.frag` and `ui-mask.frag`, to the three committed copies of each, and to
+`SoftwareUiRasterizer.Composite`. The ten `backdrop-*` roots read **partial** in `docs/plan/43` for
+this reason and for one more below.
+
+⚠ **An element that paints nothing of its own gets no backdrop, and that is structural rather than
+thrift.** `DrawListBuilder` discards a group with no draws in it, and a group with `Count == 0` is not
+merely wasteful: both executors walk the layer list by matching a draw index, and a zero-width range
+matches its own start and never advances. Every glass panel in practice paints a background — that is
+what `bg-white/30` is for — and an element that wants only the blur can carry a fully transparent one
+to become a group.
+
+⚠ **The trap this feature sets is that `SoftwareUiRasterizer` can do it in three lines**, because its
+recursion already holds the parent's buffer while it runs the group's. A backdrop filter written there
+alone would look implemented and would surface as a *compositing divergence* in `UiCompositingTests`
+rather than as a missing feature. Both halves landed together, and the fixture there carries a fourth
+group whose backdrop straddles the busiest part of the frame — which is also the only thing in the
+repository that can see the post-order change, since the other three groups are correct in either
+order.
 
 ### What the surfaces cost
 

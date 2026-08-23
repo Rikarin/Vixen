@@ -230,6 +230,14 @@ public sealed class StyleValueParser {
             _ when name.Equals("invert", StringComparison.OrdinalIgnoreCase) => "invert",
             _ when name.Equals("saturate", StringComparison.OrdinalIgnoreCase) => "saturate",
             _ when name.Equals("sepia", StringComparison.OrdinalIgnoreCase) => "sepia",
+
+            // ⚠ <b>The seventh, and it is only ever legal inside a <c>backdrop-filter</c> as far as
+            // this engine is concerned.</b> The grammar is identical to the six above — a number or a
+            // percentage — so it belongs in this branch; which of the two properties may contain it is
+            // <c>DrawListBuilder.One</c>'s decision, exactly as the *meaning* of the other six is.
+            // ⚠ It cannot be confused with the <c>opacity</c> property: that one is a bare value and
+            // never reaches a method whose whole job is what is in front of a bracket.
+            _ when name.Equals("opacity", StringComparison.OrdinalIgnoreCase) => "opacity",
             _ => null
         };
 

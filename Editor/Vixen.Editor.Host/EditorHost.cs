@@ -47,6 +47,19 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class EditorHost : IDisposable {
+    /// <summary>What a window is cleared to, and so what a <c>backdrop-filter</c> starts from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One constant for two call sites that have to agree, and nothing else can check that
+    ///     they do.</b> The interface's pass clears the backbuffer to this, and <c>UiRenderer.Compose</c>
+    ///     is told the same colour so that a captured backdrop begins from the ground the frame will
+    ///     actually be drawn on — see <see cref="UiBackdropSource" />. Two literals a few hundred lines
+    ///     apart would drift into a rectangle of the wrong shade under every glass panel, which reads
+    ///     as the blur being tinted rather than as a mismatch.
+    ///     ⚠ Alpha one, which is what makes the clear and the capture the same picture. See
+    ///     <see cref="UiBackdropSource.Colour" />.
+    /// </remarks>
+    static readonly Color4 Ground = new(0.06f, 0.07f, 0.09f, 1f);
+
     readonly IPlatform platform;
     readonly IWindow window;
     readonly EditorApplication editor;
@@ -605,11 +618,26 @@ sealed class EditorHost : IDisposable {
         // `UiLayer` — so a different number here would put the group's contents at a different place
         // in its surface than the composite quad expects to find them, and the subtree would land
         // offset by whatever the two disagreed by.
+        //
+        // ⚠ <b>And the same colour the interface's own pass clears to, which is what
+        // <c>backdrop-filter</c> reads and is not optional.</b> `Compose` can re-render the
+        // interface's draw list and nothing else, so a backdrop captured from that alone would be
+        // both the wrong picture — the panels above the element instead of the window under it — and
+        // a *translucent* one, which composites over the sharp original rather than replacing it.
+        // The window's ground is a flat clear, so a colour is the whole of what this host has to
+        // hand: the scene panes are drawn into targets of their own that the interface samples as
+        // ordinary images, and a glass panel over one of them blurs the interface's copy along with
+        // everything else. See `UiBackdropSource`.
+        //
+        // ⚠ It has to be the *same* colour as the `LoadAction.Clear` below, and there is nothing that
+        // checks it. A disagreement is a rectangle of the wrong shade under every glass panel, which
+        // reads as the blur being tinted.
         renderer.Compose(
             commands,
             pane.Frame,
             new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
-            scale
+            scale,
+            new UiBackdropSource(Ground)
         );
 
         // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
@@ -711,7 +739,7 @@ sealed class EditorHost : IDisposable {
         graph.AddPass(
             "ui",
             pass => {
-                pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
+                pass.ColourAttachment(backbuffer, LoadAction.Clear, Ground);
                 pass.SideEffect();
 
                 // ⚠ No timestamp pair here any more. The graph brackets every pass it runs with a

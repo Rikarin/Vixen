@@ -410,7 +410,9 @@ public sealed class UiGeometryBuilder {
                     command.Filter,
                     command.Offset,
                     command.HasMask ? command.Length : 0,
-                    command.Shadow
+                    command.Shadow,
+                    command.Backdrop,
+                    new Rectangle(command.X, command.Y, command.Width, command.Height)
                 )
             );
             return;
@@ -485,16 +487,44 @@ public sealed class UiGeometryBuilder {
             }
         }
 
-        // ⚠ Both drawn off the one counter and in this order, so that they are distinct by
-        // construction — see <see cref="UiLayer.ShadowImage" />, which argues against deriving the
-        // second from the first. A group with no shadow consumes one number and not two, which is
-        // what keeps a frame's numbering unchanged by a feature it does not use.
+        // ⚠ <b>The border box and not the ink, clipped by the same two rectangles the group's own
+        // bounds are, and dropped whole when nothing is left.</b> CSS clips a backdrop filter to the
+        // element's border box — so a panel whose child overflows it, or whose own <c>blur-*</c> grew
+        // the ink, must not filter the backdrop over the overflow. Nulling the backdrop here rather
+        // than leaving an empty rectangle is <c>cast</c>'s arrangement above and for its reason: both
+        // executors read <see cref="UiLayer.Backdrop" /> as the whole answer, and one that named a
+        // surface no quad draws would have each of them allocate one and capture into it for nobody.
+        var behind = open.Backdrop;
+        var backdropBounds = default(Rectangle);
+
+        if (behind is not null) {
+            backdropBounds = Intersect(open.Box, Intersect(open.Clip, viewport));
+
+            if (backdropBounds.Width <= 0f || backdropBounds.Height <= 0f) {
+                behind = null;
+            }
+        }
+
+        // ⚠ All three drawn off the one counter and in this order, so that they are distinct by
+        // construction — see <see cref="UiLayer.ShadowImage" />, which argues against deriving one
+        // from another. A group with no shadow and no backdrop consumes one number and not three,
+        // which is what keeps a frame's numbering unchanged by a feature it does not use.
         var image = LayerImage(layerNumber++);
+        var backdropImage = behind is null ? 0UL : LayerImage(layerNumber++);
         var shadowImage = cast is null ? 0UL : LayerImage(layerNumber++);
 
         var layer = new UiLayer(open.Draw, draws.Count - open.Draw, bounds, open.Alpha) {
             Image = image,
             Blur = open.Blur,
+
+            // ⚠ <b>Carried with no outset of the group's bounds, and that is not the colour matrix's
+            // reason.</b> A backdrop's Gaussian does move coverage — but it moves it within a surface
+            // of its own, which the capture pass fills and confines for itself, and the result is then
+            // clipped to the border box rather than allowed to spread. So the group's own ink is
+            // untouched by it. See <c>UiRenderer.Capture</c>, which is where that outset happens.
+            Backdrop = behind,
+            BackdropImage = backdropImage,
+            BackdropBounds = backdropBounds,
 
             // ⚠ Carried whole, offset included, even though the offset is already spent on the quad
             // below. Both executors need the blur to produce the surface and neither needs the
@@ -574,6 +604,57 @@ public sealed class UiGeometryBuilder {
         // <see cref="UiDropShadow.Tint" /> is a three-row matrix and cannot carry it. A group at
         // <c>opacity: 0.5</c> with a shadow at 25% gets one eighth, which is what nesting two fades
         // means.
+        // ⚠ <b>First of the three quads, which is what "the filtered backdrop is behind the element"
+        // means in a painter's algorithm.</b> Nothing in either executor knows a backdrop from a
+        // nested group's composite — both are premultiplied surfaces sampled by a quad — so paint
+        // order is the whole of it. Emitting it after the group's own composite would draw the blurred
+        // scene *over* the panel, which is not a subtle error; emitting it after the shadow would put
+        // the element's own drop shadow behind its backdrop, which is.
+        //
+        // ⚠ <b>The quad covers <c>backdropBounds</c> — the border box — and its texture coordinates
+        // are the plain viewport-relative ones.</b> The capture surface is the viewport's size and
+        // holds the picture where the picture is, so there is no displacement here of the kind the
+        // shadow's quad carries: a backdrop is read from exactly where it is drawn.
+        //
+        // ⚠ <b>The alpha is the group's own times the backdrop's <c>opacity()</c>.</b> Both executors
+        // scale all four channels of a premultiplied sample by the quad's alpha, so this is the one
+        // place <see cref="UiBackdrop.Alpha" /> can go — <see cref="UiColorMatrix" /> has no alpha
+        // row. Multiplying the group's own opacity in is what CSS means by the backdrop image being
+        // painted inside the element's stacking context: a half-opaque glass panel shows half a
+        // blurred backdrop over half the sharp one, which is what a browser draws.
+        if (behind is { } filtered) {
+            var backdropFirst = indices.Count;
+
+            Quad(
+                backdropBounds.X,
+                backdropBounds.Y,
+                backdropBounds.X + backdropBounds.Width,
+                backdropBounds.Y + backdropBounds.Height,
+                new Vector2(
+                    (backdropBounds.X - viewport.X) / viewport.Width,
+                    (backdropBounds.Y - viewport.Y) / viewport.Height
+                ),
+                new Vector2(
+                    (backdropBounds.X + backdropBounds.Width - viewport.X) / viewport.Width,
+                    (backdropBounds.Y + backdropBounds.Height - viewport.Y) / viewport.Height
+                ),
+                new Color4(1f, 1f, 1f, open.Alpha * filtered.Alpha),
+                new Vector4(1f, 0f, 0f, 0f)
+            );
+
+            draws.Add(
+                new UiDraw(
+                    BatchKind.Image,
+                    backdropFirst,
+                    indices.Count - backdropFirst,
+                    0,
+                    Intersect(open.Clip, viewport)
+                ) {
+                    Image = backdropImage
+                }
+            );
+        }
+
         if (cast is { } drop) {
             var shadowFirst = indices.Count;
 
@@ -704,6 +785,14 @@ public sealed class UiGeometryBuilder {
     ///     because a pop with no push is dropped and a `LayerPop` a caller assembled by hand carries
     ///     whatever it carries. The same argument the entry clip already makes a few lines up.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <c>Box</c> is the element's own border box, in document pixels — the <c>LayerPush</c>'s
+    ///     own rectangle — and is read <i>only</i> by the backdrop. It is deliberately not confused
+    ///     with <c>Ink</c>: a group's ink is what its subtree drew, which a child overflowing the
+    ///     element makes bigger and a blur makes bigger still. CSS clips a backdrop filter to the
+    ///     border box, so this is the rectangle that has to survive to
+    ///     <see cref="UiLayer.BackdropBounds" />.
+    /// </remarks>
     readonly record struct Opening(
         int Draw,
         int Vertex,
@@ -713,7 +802,9 @@ public sealed class UiGeometryBuilder {
         UiColorMatrix? Filter,
         int MaskFirst,
         int MaskCount,
-        UiDropShadow? Shadow
+        UiDropShadow? Shadow,
+        UiBackdrop? Backdrop,
+        Rectangle Box
     );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>

@@ -92,9 +92,9 @@ public sealed class UiCompositingTests {
     ///         ⚠ <b>Nested, because a single group would not exercise the ordering either path had to
     ///         get right.</b> <c>UiGeometry.Layers</c> is in pre-order and the two consumers walk it
     ///         differently — the software one recurses into a group as it meets it, the device one
-    ///         renders the passes in <i>reverse</i> pre-order so that a group's children are finished
-    ///         before the pass that samples them. Those are the same order only when there is
-    ///         something nested to order.
+    ///         renders the passes <i>post-order</i> so that a group's children are finished before the
+    ///         pass that samples them <i>and</i> its earlier siblings before a backdrop can capture
+    ///         them. Those are the same order only when there is something nested to order.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And text inside the groups, which is where the premultiply bug lives.</b> A layer
@@ -120,7 +120,7 @@ public sealed class UiCompositingTests {
         // ⚠ Before either renderer runs. A frame that opened no group is one where the whole
         // comparison below is between two flat walks, which would agree whatever the compositing
         // code did — including if it were deleted.
-        Assert.Equal(3, geometry.Layers.Count);
+        Assert.Equal(5, geometry.Layers.Count);
 
         var renderer = new UiRenderer(
             owned.Device,
@@ -154,19 +154,42 @@ public sealed class UiCompositingTests {
                 // set `Upload` rebinds for this frame's region, so composing first would render every
                 // group from the previous frame's geometry.
                 renderer.Upload(commands, geometry, cache.Atlas);
-                renderer.Compose(commands, geometry, new Int2(Side, Side));
+                // ⚠ <b>The same colour the graph's pass clears to, and handing over nothing is a
+                // visibly different frame rather than an unspecified one.</b> A capture built from
+                // the draw list alone is transparent where the window's ground should be, so the
+                // backdrop group would composite a blurred *translucent* copy over the sharp original
+                // instead of replacing it — a double image along every edge inside the panel, which
+                // the software renderer would not reproduce because its capture is a clone of a
+                // buffer that already holds the background. See `UiBackdropSource`.
+                renderer.Compose(
+                    commands,
+                    geometry,
+                    new Int2(Side, Side),
+                    beneath: new UiBackdropSource(Background)
+                );
             }
         );
 
         // The instrument, before the measurement. See the class remarks.
-        Assert.Equal(3, renderer.Composited);
+        Assert.Equal(5, renderer.Composited);
 
         // ⚠ <b>And the second instrument, because a blur has three separate ways of not happening
         // and all of them draw a correct sharp picture.</b> No blur stage handed over, no
         // `UiLayer.Blur` on the geometry, a `KernelRadius` that came out zero — each leaves
         // `Composited` at two and the comparison below passing, since the software renderer would
         // then be being compared against a device that agreed with it about doing nothing.
-        Assert.Equal(1, renderer.Blurred);
+        // ⚠ Two, and they are two different kinds of blur over two different pictures: the inner
+        // group's own surface, and the fourth group's *backdrop*. A renderer that ran only the first
+        // would leave a sharp scene behind the glass panel, which is a picture a comparison can see
+        // only because the panel sits over content that has structure in it.
+        Assert.Equal(2, renderer.Blurred);
+
+        // ⚠ <b>And the counter without which the whole backdrop is invisible to this file.</b> With
+        // nothing behind an element every backdrop filter is the identity, so a capture that never
+        // ran and a capture that ran perfectly are the same frame over most fixtures — and both
+        // executors would be reproducing the same nothing, which is the one failure a comparison of
+        // the two provably cannot report. This is the only assertion here that separates them.
+        Assert.Equal(2, renderer.Backdropped);
 
         // ⚠ <b>And the third, because a colour matrix has a fourth way of not happening that a blur
         // does not: the frame can be <i>identical</i> without it.</b> A blur that did not run leaves a
@@ -186,7 +209,22 @@ public sealed class UiCompositingTests {
         // `ui-colour.frag`, and the inner one is masked and goes to `ui-mask.frag`, which carries the
         // matrix as well. `EnsureSurfaces` picks between them per layer, and picking wrong is a
         // shadow that is not allocated at all rather than one drawn badly.
-        Assert.Equal(4, renderer.Filtered);
+        // ⚠ <b>Seven, and the two above five are the surprise this feature brings to every counter
+        // on the class.</b> Five draws are the frame's own: the two groups' composites, the two drop
+        // shadows' quads, and the fourth group's *backdrop* quad, whose sepia is a matrix of its own
+        // and emphatically not the group's — an element may carry a `filter` and a `backdrop-filter`
+        // that do different things, and a renderer that reused one for the other would tint the scene
+        // as well as the panel.
+        //
+        // ⚠ The other two are the <i>same</i> draws submitted a second time, inside the backdrop's
+        // capture pass: a capture is a replay of the prefix behind the group, and the outer group's
+        // composite and the third group's shadow quad are both in that prefix and both carry a
+        // matrix. That is real work and the counter is right to see it — a backdrop costs the frame a
+        // second pass over everything behind the element, which is the price of the feature and is
+        // exactly what these numbers exist to make visible. It also means <c>Filtered</c> and
+        // <c>Masked</c> are no longer bounded by the layer count, and a reader who assumed they were
+        // would find that surprising here rather than in production.
+        Assert.Equal(10, renderer.Filtered);
 
         // ⚠ <b>And the fourth instrument, for the reason the third one gives and one more.</b> A mask
         // shares all four of a colour matrix's ways of not happening, and it adds a fifth that is
@@ -198,7 +236,10 @@ public sealed class UiCompositingTests {
         // masked too — see `UiRenderer.Compose`, which states the frame it is cut in and how that
         // differs from CSS. A shadow left out of the mask map would escape the ramp entirely, which
         // is a hard-edged silhouette under a faded element and the one thing a mask exists to stop.
-        Assert.Equal(3, renderer.Masked);
+        // ⚠ Four rather than three: the two groups, the inner group's shadow, and the outer group's
+        // composite a *second* time — replayed into the fourth group's backdrop capture, for the
+        // reason `Filtered` gives one assertion up.
+        Assert.Equal(6, renderer.Masked);
 
         // ⚠ <b>And the fifth, because a drop shadow has every one of a blur's ways of not happening
         // and one that is peculiar to it.</b> No `UiShaders.Blur`, no `UiLayer.Shadow`, a group
@@ -252,7 +293,7 @@ public sealed class UiCompositingTests {
         var withGroups = new UiGeometryBuilder().Build(Groups(), isolated, Viewport);
         var withoutGroups = new UiGeometryBuilder().Build(Groups(isolate: false), flattened, Viewport);
 
-        Assert.Equal(3, withGroups.Layers.Count);
+        Assert.Equal(5, withGroups.Layers.Count);
         Assert.Empty(withoutGroups.Layers);
 
         var a = SoftwareUiRasterizer.Render(withGroups, isolated.Atlas, Side, Side, Background);
@@ -380,7 +421,7 @@ public sealed class UiCompositingTests {
         // blurred composite rather than a sharp one.</b> On the device that is a pass writing into a
         // surface that a later pass samples and blurs again; in the software renderer it is a
         // convolved buffer being sampled by the recursion one level up. Those are the two orderings
-        // the reverse-pre-order walk exists to keep straight, and a blur on the outermost group would
+        // the post-order walk exists to keep straight, and a blur on the outermost group would
         // exercise neither.
         //
         // ⚠ Three, not thirty. `UiLayer.KernelRadius` is three sigma, so this is a nine-pixel outset
@@ -439,6 +480,38 @@ public sealed class UiCompositingTests {
         Text(list, font, "C", 52, 104, Fade(Color4.White, isolate, nested));
 
         Pop(list, isolate);
+
+        // ⚠ <b>A glass panel <i>inside</i> the outer group, and the one thing it is here for is the
+        // clear its capture pass starts from.</b> Filter Effects 2 § 2 makes every `UiLayer` a
+        // backdrop root, so a nested group's backdrop is its parent's own surface so far — which
+        // starts from *transparent black*, not from whatever the host painted. `SoftwareUiRasterizer`
+        // gets that for free by cloning the buffer its recursion was handed; `UiRenderer.Capture` has
+        // to be told, and a version that cleared to `UiBackdropSource.Colour` here would paint the
+        // window's ground inside a translucent panel — checked by breaking it, and it comes out at
+        // 541 of 16384 pixels differing by up to 43 levels.
+        //
+        // ⚠ <b>And it is placed where the outer group's surface is <i>transparent</i>, which is the
+        // whole of why it can see that.</b> The first position tried sat inside the blue rectangle,
+        // where the parent's prefix covers every texel the panel samples — so the clear underneath it
+        // made no difference at all and the sabotage above passed. A backdrop test has to read a pixel
+        // whose value comes from the clear rather than from the replay, and inside a group that means
+        // a gap in the parent's own ink.
+        //
+        // ⚠ <b>And its prefix is the outer group's, not the frame's.</b> It sits after the inner
+        // group's composite, so the capture replays the outer group's two rectangles, its text and the
+        // whole nested composite — a walk with a `stop` that has to start at the *parent's* first draw
+        // rather than at zero. Starting at zero would pull the orange bar and the frame's ground into
+        // a nested panel.
+        //
+        // ⚠ Unblurred, deliberately, so that this arm is the *copy* branch of `Capture` while the
+        // top-level panel below is the two-sweep one. An invert rather than something subtler because
+        // the outer group's own quarter-inversion is already on this ground, and an invert of an
+        // inverted thing is the one transform that is obviously not the identity here.
+        Push(list, isolate, 86, 26, 30, 18, 1f, backdrop: new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f)));
+
+        list.Add(new(DrawCommandKind.Rectangle, 86, 26, 30, 18, new Color4(1f, 1f, 1f, 0.1f), 4, 0));
+
+        Pop(list, isolate);
         Pop(list, isolate);
 
         // ⚠ <b>A third group, at the top level, carrying a drop shadow and nothing else — and every
@@ -483,6 +556,50 @@ public sealed class UiCompositingTests {
 
         list.Add(new(DrawCommandKind.Rectangle, 64, 4, 56, 18, new Color4(0.55f, 0.85f, 0.95f, 1f), 6, 0));
         Text(list, font, "D", 70, 18, Color4.White);
+
+        Pop(list, isolate);
+
+        // ⚠ <b>A fourth group, carrying a <c>backdrop-filter</c> and drawn last — and every one of
+        // those three words is a constraint the other three groups could not supply.</b>
+        //
+        // ⚠ <b>Last, so that its backdrop is a replay of everything above.</b> A capture is the
+        // parent's draws from its first up to this group's first, and at the top level that is the
+        // orange bar, the whole nested pair and the third group's shadow — three composites this
+        // group's own pass has to find already in <c>ShaderRead</c>. That is the constraint that made
+        // <c>UiRenderer.Compose</c>'s walk post-order: the reverse pre-order it used to run renders
+        // a group's <i>later</i> siblings first, so under the old loop this capture would have
+        // sampled surfaces nothing had written. ⚠ Nothing else in this fixture can see that change —
+        // the other three groups are correct in either order.
+        //
+        // ⚠ <b>Over the busiest part of the frame rather than over the background.</b> With nothing
+        // behind it every backdrop filter is the identity — a blur of a flat field is the field — so
+        // a glass panel on plain ground would make a working capture and no capture at all the same
+        // picture, on both executors at once. This one straddles the outer group's blurred, masked,
+        // quarter-inverted composite and the bare background beside it, which is coverage that varies
+        // over the panel in both axes.
+        //
+        // ⚠ <b>A blur <i>and</i> a matrix <i>and</i> an alpha, because the three land in three
+        // different places and only one of them is the backdrop's surface.</b> The Gaussian is two
+        // passes over the capture, the matrix rides the backdrop quad's fragment stage through
+        // `ui-colour.frag`, and `UiBackdrop.Alpha` rides the quad's vertex alpha — which is the one
+        // a three-row colour matrix cannot carry. An executor that put the alpha in both places would
+        // square it, and this is the fixture that would say so.
+        //
+        // ⚠ <b>And the panel's own paint is nearly transparent</b>, so what the comparison is looking
+        // at is the filtered backdrop rather than a white rectangle over it. It cannot be *fully*
+        // transparent: a group that paints nothing is discarded before it becomes a layer.
+        Push(
+            list,
+            isolate,
+            6,
+            86,
+            64,
+            36,
+            1f,
+            backdrop: new UiBackdrop(2.5f, 0.85f, UiColorMatrix.Sepia(1f))
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 6, 86, 64, 36, new Color4(1f, 1f, 1f, 0.12f), 6, 0));
 
         Pop(list, isolate);
 
@@ -544,7 +661,8 @@ public sealed class UiCompositingTests {
         float blur = 0f,
         UiColorMatrix? filter = null,
         ReadOnlySpan<UiMask> mask = default,
-        UiDropShadow? shadow = null
+        UiDropShadow? shadow = null,
+        UiBackdrop? backdrop = null
     ) {
         if (isolate) {
             list.Add(
@@ -552,6 +670,7 @@ public sealed class UiCompositingTests {
                     Blur = blur,
                     Filter = filter,
                     Shadow = shadow,
+                    Backdrop = backdrop,
 
                     // ⚠ A range of the draw list's own side buffer, which is the only way a group can
                     // carry a mask now that `mask-image` is a list. See `DrawList.Masks`.

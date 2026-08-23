@@ -111,8 +111,31 @@ public sealed class DrawListBuilder {
     readonly int collapse;
     readonly int opacity;
     readonly int filter;
+
+    /// <summary>The property <see cref="Backdrop" /> reads, which is <i>not</i> <see cref="filter" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second property and not a second value of the first, because the two transform
+    ///     different pictures and an element may carry both.</b> <c>filter</c> transforms what the
+    ///     element drew; <c>backdrop-filter</c> transforms what is behind it. Reading one into the
+    ///     other's field draws a picture that is wrong in a way the draw list cannot show, because
+    ///     both open the same bracket.
+    /// </remarks>
+    readonly int backdropFilter;
+
     readonly int blurFunction;
     readonly int dropShadowFunction;
+
+    /// <summary>The <c>opacity()</c> function, which only <c>backdrop-filter</c> accepts.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Refused inside <c>filter</c> deliberately, and it is not an omission waiting to be
+    ///     filled.</b> <c>UtilityComposition.Filter</c> emits nine functions and this is not one of
+    ///     them, so nothing in the engine generates it there — while
+    ///     <c>UtilityComposition.BackdropFilter</c> emits it for <c>backdrop-opacity-*</c>, which is one
+    ///     of the ten roots the feature exists for. Accepting it in both would mean <see cref="ElementFilter" />
+    ///     needed somewhere to put an alpha scale that <see cref="UiColorMatrix" /> cannot carry, on a
+    ///     path where nothing would ever set it.
+    /// </remarks>
+    readonly int opacityFunction;
 
     /// <summary>The seven <c>filter</c> functions that are a colour matrix, interned in order.</summary>
     /// <remarks>
@@ -244,10 +267,17 @@ public sealed class DrawListBuilder {
         opacity = properties.Intern("opacity");
         filter = properties.Intern("filter");
 
+        // ⚠ The unprefixed spelling, and it is the only one anything emits. Tailwind writes
+        // `-webkit-backdrop-filter` beside it for Safari; `UtilityFamilies` deliberately does not,
+        // because a vendor prefix is a fact about a browser and this is not one — see
+        // `UtilityFamilies.BackdropAlongside`.
+        backdropFilter = properties.Intern("backdrop-filter");
+
         // ⚠ The keywords table, for the reason `currentColor` below says: a function name arrives
         // from `StyleValueParser` as an identifier, and an identifier is interned there.
         blurFunction = keywords.Intern("blur");
         dropShadowFunction = keywords.Intern("drop-shadow");
+        opacityFunction = keywords.Intern("opacity");
 
         // In `FilterFunction`'s order, which `Filter` indexes by. The names are the parser's own
         // spellings — see `StyleValueParser.ParseFunction`, which interns exactly these seven.
@@ -469,7 +499,17 @@ public sealed class DrawListBuilder {
         Span<UiMask> list = stackalloc UiMask[GradientReader.MostLayers];
         var masks = MasksFor(element, width, height, list);
 
-        var group = Compositing && (own < 1f || filters.Any || masks > 0) ? into.Count : -1;
+        // ⚠ <b>The fourth reason to open a group, and the only one whose surface holds something the
+        // element did not draw.</b> A <c>backdrop-filter</c> transforms the picture <i>behind</i> the
+        // element, which needs the element to be a boundary in the paint order — Filter Effects 2 § 2
+        // makes it a backdrop root and a stacking context for exactly that reason. Pushing it down
+        // onto the element's own commands is not merely wrong here, it is meaningless: none of them
+        // knows what is under it.
+        var backdrop = Backdrop(document, element);
+
+        var group = Compositing && (own < 1f || filters.Any || masks > 0 || backdrop is not null)
+            ? into.Count
+            : -1;
 
         if (group >= 0) {
             into.Add(
@@ -486,6 +526,7 @@ public sealed class DrawListBuilder {
                     Blur = filters.Blur,
                     Filter = filters.Colour,
                     Shadow = filters.Shadow,
+                    Backdrop = backdrop,
 
                     // ⚠ The range is claimed even when the group turns out to be discarded a few
                     // lines below, and the entries it named are then simply unreferenced until the
@@ -521,6 +562,15 @@ public sealed class DrawListBuilder {
             // needs. Blurring nothing gives nothing however wide the kernel is, so the surface would
             // cost two render passes to convolve a cleared target — the group is genuinely empty, not
             // merely small.
+            //
+            // ⚠ <b>And discarded even when there is a <c>backdrop-filter</c>, which is a stated
+            // divergence rather than the same argument.</b> Blurring the backdrop of an element that
+            // paints nothing of its own is a picture CSS would show and this does not. The reason is
+            // structural and not thrift: a group with no draws has <c>Count == 0</c>, and both
+            // executors walk the layer list by matching a draw index — a zero-width range matches its
+            // own start and never advances. Every glass panel in practice paints a background, which
+            // is what <c>bg-white/30</c> is for; an element that wants only the blur can carry a
+            // fully transparent background to become one.
             into.Discard(group);
             return;
         }
@@ -536,7 +586,15 @@ public sealed class DrawListBuilder {
         // ⚠ `masks == 0` joins the guard for the filter's reason word for word: a masked rectangle
         // is not a fainter rectangle either, and a single background rectangle under a `mask-*` is
         // exactly the shape this branch catches.
-        if (!filters.Any && masks == 0 && drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
+        // ⚠ `backdrop is null` joins the guard for the filter's reason and a stronger one: a
+        // collapsed group has no surface *and no bracket*, so there is nothing left to say which
+        // prefix of the frame the backdrop was to be captured from. A single background rectangle
+        // under a `backdrop-blur-*` is precisely the shape of every glass panel there is.
+        if (!filters.Any
+            && masks == 0
+            && backdrop is null
+            && drawn == 1
+            && DrawList.Fadeable(into.Commands[group + 1])) {
             into.Collapse(group, inherited * own);
             return;
         }
@@ -555,6 +613,7 @@ public sealed class DrawListBuilder {
                 Blur = filters.Blur,
                 Filter = filters.Colour,
                 Shadow = filters.Shadow,
+                Backdrop = backdrop,
 
                 // ⚠ The same range as the push names, and not a second copy of the entries.
                 // `UiGeometryBuilder.Layer` reads the push's copy and never this one — see its
@@ -1370,6 +1429,22 @@ public sealed class DrawListBuilder {
     ///     what every element that says nothing gets.
     /// </remarks>
     readonly record struct ElementFilter(float Blur, UiColorMatrix? Colour, UiDropShadow? Shadow = null) {
+        /// <summary>
+        ///     What <c>opacity()</c> asks the result to be faded by, or null where nobody wrote one.
+        ///     Only ever set while reading a <c>backdrop-filter</c>.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>Nullable rather than defaulting to one, because a record struct's default is
+        ///     zero and zero is the value that erases the picture.</b> The distinction it buys is the
+        ///     same one <see cref="Colour" /> needs: "nobody wrote an <c>opacity()</c>" and "somebody
+        ///     wrote <c>opacity(0)</c>" are different declarations and the second is legal.
+        ///     ⚠ It cannot ride <see cref="Colour" />: <see cref="UiColorMatrix" /> is three rows and
+        ///     has no alpha row at all, which is the same limit <see cref="UiDropShadow" /> works
+        ///     around by putting its colour's alpha on its quad. This does the same — see
+        ///     <see cref="UiBackdrop.Alpha" />.
+        /// </remarks>
+        public float? Alpha { get; init; }
+
         /// <summary>Whether this is worth opening a group for.</summary>
         /// <remarks>
         ///     ⚠ <b>An identity matrix does not count, and that is a deliberate departure from CSS
@@ -1446,8 +1521,51 @@ public sealed class DrawListBuilder {
     ///         clamped, because there the spec says so.
     ///     </para>
     /// </remarks>
-    ElementFilter Filter(UiDocument document, UiElement element) {
-        if (!element.Style.TryGet(filter, out var id)) {
+    ElementFilter Filter(UiDocument document, UiElement element) =>
+        Functions(document, element, filter, backdrop: false);
+
+    /// <summary>Reads an element's <c>backdrop-filter</c> declaration.</summary>
+    /// <param name="document">The document, for the length context relative units resolve against.</param>
+    /// <param name="element">The element.</param>
+    /// <returns>What it asks for, or null — which is every element that says nothing.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same grammar as <see cref="Filter" /> with two functions swapped, and the swap
+    ///         is what the two properties actually differ by rather than a simplification.</b>
+    ///         <c>drop-shadow()</c> is refused here — it is a Gaussian over an <i>alpha silhouette</i>
+    ///         composited <i>under</i> the thing it belongs to, which is meaningless for a backdrop
+    ///         that is already behind everything, and Tailwind emits no <c>backdrop-drop-shadow-*</c>.
+    ///         <c>opacity()</c> is accepted here and nowhere else, because <c>backdrop-opacity-*</c> is
+    ///         one of the ten roots. Everything else — the refusal of the whole list on one unreadable
+    ///         function, the order among the colour functions, the quadrature of two blurs, the
+    ///         clamping rules — is <see cref="Filter" />'s, from the same code.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An all-identity read is null and not an empty backdrop.</b> Every declaration
+    ///         <c>UtilityComposition.BackdropFilter</c> emits names all nine functions, so
+    ///         <c>backdrop-blur-0</c> alone would otherwise cost a capture surface, a capture pass and
+    ///         a composite draw to reproduce the picture that was already there. See
+    ///         <see cref="UiBackdrop.IsIdentity" />, which is the same departure from CSS's
+    ///         "any filter is a stacking context" that <see cref="ElementFilter.Any" /> makes.
+    ///     </para>
+    /// </remarks>
+    UiBackdrop? Backdrop(UiDocument document, UiElement element) {
+        var read = Functions(document, element, backdropFilter, backdrop: true);
+        var backdrop = new UiBackdrop(read.Blur, read.Alpha ?? 1f, read.Colour);
+
+        return backdrop.IsIdentity ? null : backdrop;
+    }
+
+    /// <summary>Reads one of the two filter properties into the three shapes a group can carry.</summary>
+    /// <param name="document">The document, for the length context relative units resolve against.</param>
+    /// <param name="element">The element.</param>
+    /// <param name="property">Either <see cref="filter" /> or <see cref="backdropFilter" />.</param>
+    /// <param name="backdrop">
+    ///     Which of the two, which decides only whether <c>drop-shadow()</c> or <c>opacity()</c> is the
+    ///     function this list may contain. See <see cref="Backdrop" />.
+    /// </param>
+    ElementFilter Functions(UiDocument document, UiElement element, int property, bool backdrop) {
+        if (!element.Style.TryGet(property, out var id)) {
             return default;
         }
 
@@ -1472,7 +1590,7 @@ public sealed class DrawListBuilder {
         // pair. A many-function list can never begin with a keyword: every function parses to a list
         // of its own, so `items[0].Kind` is `List` whenever there is more than one.
         if (items[0].Kind == StyleValueKind.Keyword) {
-            return Settle(One(document, element, items, default) ?? default);
+            return Settle(One(document, element, items, default, backdrop) ?? default);
         }
 
         var accumulated = new ElementFilter();
@@ -1494,7 +1612,7 @@ public sealed class DrawListBuilder {
             // different answers and `grayscale(0) blur(4px)` is the list that tells them apart. A
             // sentinel of `default` would drop the blur on the floor for being preceded by a
             // do-nothing colour function.
-            if (One(document, element, item.Items, accumulated) is not { } folded) {
+            if (One(document, element, item.Items, accumulated, backdrop) is not { } folded) {
                 return default;
             }
 
@@ -1538,15 +1656,26 @@ public sealed class DrawListBuilder {
     ///     be refusing something this executor can do perfectly. Nothing else in a filter list has
     ///     that property, which is why nothing else gets the treatment.
     /// </remarks>
-    ElementFilter? One(UiDocument document, UiElement element, ReadOnlySpan<StyleValue> pair, ElementFilter into) {
+    ElementFilter? One(
+        UiDocument document,
+        UiElement element,
+        ReadOnlySpan<StyleValue> pair,
+        ElementFilter into,
+        bool backdrop
+    ) {
         var keyword = pair[0].Keyword;
 
         // ⚠ <b>Before the pair is unpacked, because this is the one function that is not a pair.</b>
         // Everything below reads <c>pair[1]</c> as <i>the</i> argument; <c>drop-shadow</c> has three
         // or four, and reading the first of them as the whole would be a shadow whose blur and colour
         // were silently the offset's.
+        // ⚠ And refused outright inside a <c>backdrop-filter</c>, which takes the whole declaration
+        // with it — the rule this method keeps for every function it cannot execute. A shadow of the
+        // *backdrop* would be a silhouette composited under a picture that is already behind
+        // everything, which is nothing at all; drawing it as if it were the element's own shadow is
+        // the plausible mistake, and it would put a dark rectangle under every glass panel.
         if (keyword == dropShadowFunction) {
-            return Shadow(document, element, pair[1..], into);
+            return backdrop ? null : Shadow(document, element, pair[1..], into);
         }
 
         if (pair.Length != 2) {
@@ -1554,6 +1683,32 @@ public sealed class DrawListBuilder {
         }
 
         var argument = pair[1];
+
+        // ⚠ <b>Accepted only for a backdrop, and it is the one function whose answer does not go into
+        // the colour matrix.</b> <see cref="UiColorMatrix" /> has three rows and cannot scale alpha —
+        // see <see cref="ElementFilter.Alpha" />, which is where this lands and why. Filter Effects 1
+        // § 8.6 clamps it to [0, 1] rather than refusing what is outside, which is <c>grayscale</c>'s
+        // rule and not <c>brightness</c>'s.
+        if (keyword == opacityFunction) {
+            if (!backdrop) {
+                return null;
+            }
+
+            var opacity = argument.Kind switch {
+                StyleValueKind.Number => argument.Number,
+                StyleValueKind.Length when argument.Unit == StyleUnit.Percent => argument.Number / 100f,
+                _ => float.NaN
+            };
+
+            if (!float.IsFinite(opacity)) {
+                return null;
+            }
+
+            // ⚠ Multiplied into whatever is already there rather than replacing it, because CSS's
+            // list applies each function to the result of the last and two `opacity()`s therefore
+            // compose. `?? 1f` is what makes the first one land unchanged.
+            return into with { Alpha = (into.Alpha ?? 1f) * Math.Clamp(opacity, 0f, 1f) };
+        }
 
         if (keyword == blurFunction) {
             var pixels = argument.Kind switch {

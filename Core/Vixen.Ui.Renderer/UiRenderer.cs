@@ -123,6 +123,72 @@ public readonly record struct UiShaders(
     public VertexLocations Locations { get; init; }
 }
 
+/// <summary>What the host had already painted where the interface is about to be drawn.</summary>
+/// <param name="Colour">
+///     What the host's own pass clears its target to, in the same linear space the geometry's colours
+///     are. ⚠ <b>Premultiplied, which for the opaque frame every host actually draws means "alpha
+///     one".</b> A clear writes the colour to the attachment as it stands and
+///     <c>SoftwareUiRasterizer</c> premultiplies its background into a float target, so the two agree
+///     exactly at alpha one and differ by the alpha below it.
+/// </param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The parameter <c>backdrop-filter</c> could not be built without, and its absence is
+///         not a missing optimisation but two wrong pictures.</b> <c>UiRenderer.Compose</c> can
+///         re-render the interface's own draw list and nothing else, so a backdrop captured from that
+///         alone is <i>the interface behind the element and nothing else</i> — a glass panel over a
+///         3D scene would blur nothing, which is the commonest reason to reach for the feature. Worse,
+///         a capture with nothing under it is <i>not opaque</i>, and compositing a blurred translucent
+///         copy <b>over</b> the sharp original is a double image along every edge, where CSS
+///         <i>replaces</i> the backdrop within the element's bounds.
+///     </para>
+///     <para>
+///         ⚠ <b>A colour and a texture rather than only a texture, because all three call sites in
+///         this repository have the first and none has the second.</b> The editor, the app template
+///         and the golden fixture each begin the interface's pass with a <c>LoadAction.Clear</c>; what
+///         they have "already painted" is that colour. <see cref="Image" /> is for the host that has
+///         genuinely rendered something — a scene, a video, a previous frame — into a texture of the
+///         interface's own size.
+///     </para>
+///     <para>
+///         ⚠ <b>Only a <i>top-level</i> group's backdrop reads this, and that is Filter Effects 2's
+///         rule rather than a shortcut.</b> Every <c>UiLayer</c> is a backdrop root — a group exists
+///         here only for a filter, an opacity, a mask or a backdrop — so a nested group's backdrop is
+///         its parent's own surface so far, which starts from transparent black and has never seen the
+///         host's frame. A capture that put this under a nested group would paint the host's
+///         background inside a translucent panel.
+///     </para>
+/// </remarks>
+public readonly record struct UiBackdropSource(Color4 Colour) {
+    /// <summary>
+    ///     What the host has already drawn, at the interface's own size, or an invalid handle where it
+    ///     has drawn nothing but the clear.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Sampled with the interface's own clamped linear sampler and read as
+    ///         <i>premultiplied</i></b>, which is what every surface this renderer produces holds. An
+    ///         opaque scene target is the same picture either way; one with real transparency in it
+    ///         would need premultiplying by the host.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It must already hold what it is claimed to hold when <c>Compose</c> is called, and
+    ///         that is a constraint on the host's pass order rather than on this.</b> The group passes
+    ///         are recorded <i>before</i> the host's frame pass begins, so a texture the host is about
+    ///         to render into this frame holds the previous frame's picture — which is a one-frame lag
+    ///         in the backdrop and not an error. A host that wants this frame's scene has to record the
+    ///         scene's pass onto the same command list before calling <c>Compose</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not owned and not registered.</b> The set that points at it is written the frame
+    ///         the handle changes and belongs to this renderer; the texture behind it belongs to the
+    ///         host, which must not destroy it while a submitted frame still samples it — the same
+    ///         bargain <see cref="UiRenderer.RegisterImage" /> states.
+    ///     </para>
+    /// </remarks>
+    public TextureViewHandle Image { get; init; }
+}
+
 /// <summary>Draws a frame of interface geometry.</summary>
 /// <remarks>
 ///     <para>
@@ -393,6 +459,47 @@ public sealed class UiRenderer : IDisposable {
 
     DescriptorSetHandle scratchSet;
 
+    /// <summary>The quad a capture pass draws <see cref="UiBackdropSource.Image" /> through.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This renderer's own four vertices, and it is the only geometry in the file that
+    ///         does not come out of the frame's one upload.</b> Every other pass here borrows a quad
+    ///         the geometry already holds — the composite quad serves the blur, the shadow and the
+    ///         backdrop alike, which is what <c>BlurSurface</c>'s remark argues for. There is no quad
+    ///         in a draw list that covers the <i>whole viewport</i>, and inventing one in
+    ///         <c>UiGeometryBuilder</c> would put a draw in the software renderer's walk that has no
+    ///         business being there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ringed like everything else this writes per frame.</b> Its positions are in
+    ///         geometry units and so change with the surface size; writing one region while a
+    ///         submitted frame reads another is the hazard <see cref="slots" /> exists for, and four
+    ///         vertices per frame in flight is a few hundred bytes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Allocated only on the first frame that has a backdrop <i>and</i> a host texture to
+    ///         put under it.</b> A host that hands over a colour alone needs no draw at all — the
+    ///         capture pass's clear is the whole of it.
+    ///     </para>
+    /// </remarks>
+    BufferHandle fullscreenVertices;
+
+    BufferHandle fullscreenIndices;
+
+    /// <summary>One set per frame in flight, pointing at <see cref="UiBackdropSource.Image" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A ring and not one set, for <see cref="imageDescriptors" />' reason exactly.</b> The
+    ///     host may hand over a different view every frame — a scene target survives a window resize by
+    ///     being replaced — and a single set rewritten each frame is a descriptor update on a set an
+    ///     unfinished frame is still reading: <c>VUID-vkUpdateDescriptorSets-None-03047</c>. This one
+    ///     is written at <see cref="slot" />, which <see cref="UploadGeometry" /> has already advanced
+    ///     past everything the device is still working on.
+    /// </remarks>
+    DescriptorSetHandle[] beneathSets = [];
+
+    /// <summary>What each frame's set in <see cref="beneathSets" /> currently points at.</summary>
+    TextureViewHandle[] beneathViews = [];
+
     /// <summary>The format a layer surface is, which is the format the pipelines were built for.</summary>
     /// <remarks>
     ///     ⚠ A surface in another format is a pipeline the device will not let the pass use. It is
@@ -444,6 +551,9 @@ public sealed class UiRenderer : IDisposable {
     ///     pipeline is a full-colour copy of the element and increments this and not that.
     /// </remarks>
     int shadowed;
+
+    /// <summary>How many of those groups <see cref="Compose" /> also captured a backdrop for.</summary>
+    int backdropped;
 
     /// <summary>How many composite draws the frame put a colour matrix through.</summary>
     /// <remarks>
@@ -659,6 +769,36 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     public int Shadowed => shadowed;
 
+    /// <summary>How many of those groups the last <see cref="Compose" /> also captured a backdrop for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The observer a silently-skipped backdrop has, and it is the one counter on this
+    ///         class that a <i>correct-looking</i> frame most needs.</b> Every other filter has at
+    ///         least one way of being visible when it runs: a blur softens, a matrix shifts colour, a
+    ///         shadow adds ink. <b>A backdrop filter over a flat field is the identity</b> — blurring
+    ///         a uniform colour returns it, and so does greying an already-grey one — so a fixture
+    ///         whose panels sit on plain background cannot tell a working capture from no capture at
+    ///         all, and neither can a comparison of the two executors, because the software path would
+    ///         be reproducing the same nothing. That is the second vacuity this feature has and it is
+    ///         worse than the colour matrix's: there the picture is at least a function of the group's
+    ///         own contents.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Every one of <see cref="Blurred" />'s ways of not happening applies, and two more: a
+    ///         host that handed over no <c>UiShaders.Blur</c> gets no capture at all for a group whose
+    ///         backdrop is only a blur — see <see cref="EnsureSurfaces" /> — and a group whose border
+    ///         box was clipped away entirely loses its backdrop in <c>UiGeometryBuilder.Layer</c> while
+    ///         keeping its own composite.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It is the count of capture surfaces and of capture passes, and a blurred backdrop adds
+    ///         two more passes on top of that: a frame's extra passes are
+    ///         <c>Composited + Backdropped + 2 × Blurred + (1 or 2) × Shadowed</c>, where
+    ///         <see cref="Blurred" /> counts a blurred backdrop as well as a blurred group.
+    ///     </para>
+    /// </remarks>
+    public int Backdropped => backdropped;
+
     /// <summary>How many composite draws the last <see cref="Record" /> put a colour matrix through.</summary>
     /// <remarks>
     ///     <para>
@@ -818,11 +958,25 @@ public sealed class UiRenderer : IDisposable {
     ///         and no picture is left half-drawn.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Innermost first, which is what reverse pre-order buys.</b>
+    ///         ⚠ <b><s>Innermost first, which is what reverse pre-order buys.</s> Post-order, and the
+    ///         change was forced by the backdrop rather than chosen.</b>
     ///         <see cref="UiGeometry.Layers" /> is sorted so that a group comes before every group
-    ///         nested in it; walking it backwards therefore renders every group's children before the
-    ///         group itself, which is the order the dependency runs in — an outer group's pass
-    ///         <i>samples</i> its children's surfaces.
+    ///         nested in it. Walking it <i>backwards</i> renders every group's children before the
+    ///         group itself, which is the one ordering the old loop needed — an outer group's pass
+    ///         samples its children's surfaces — but it also renders every group's <b>later siblings
+    ///         before its earlier ones</b>, which is the exact opposite of what a capture needs:
+    ///         everything painted behind a group has to be finished before the group's backdrop is
+    ///         captured. <b>Post-order satisfies both</b> — each child subtree in document order, then
+    ///         the parent — so the loop was replaced rather than extended. See <see cref="Forest" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing else in the loop depended on the old order, and that was checked rather
+    ///         than assumed.</b> Each group's turn is self-contained: one barrier in, a pass, an
+    ///         optional blur and shadow that borrow the shared scratch and hand it back, one barrier
+    ///         out. No two turns share state but <see cref="scratch" />, whose borrow begins and ends
+    ///         inside one of them, and <see cref="LayerSurface.State" />, which is per surface. So
+    ///         post-order is a strict tightening of the constraint the reverse walk met, not a
+    ///         different one.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A colour filter costs this method nothing, and that is a claim about the two
@@ -837,35 +991,42 @@ public sealed class UiRenderer : IDisposable {
     ///         neighbourhood operation's price for something that is not one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And this is where <c>backdrop-filter</c> stops, which is worth writing down here
-    ///         rather than in a plan document, because the reason is the shape of this method.</b> A
-    ///         backdrop filter reads what is <i>behind</i> the layer — the destination the group is
-    ///         about to composite into — and at the moment a group's surface is rendered that
-    ///         destination has not been drawn. It cannot have been: the paragraph two up says these
-    ///         passes are recorded <i>before</i> the caller's own begins, because a pass cannot be
-    ///         opened inside one, so nothing painted below the group exists yet. Nor is the composite
-    ///         a way round it — by then the destination is the colour attachment being written, which
-    ///         is not sampleable without an input attachment or a copy out of the pass, and neither
-    ///         exists in this layer's command list.
-    ///         <para>
-    ///             ⚠ <b>The trap it sets is that <c>SoftwareUiRasterizer</c> could do it in three
-    ///             lines</b> — its recursion already holds the parent's buffer while it runs the
-    ///             group's — so a backdrop filter written there alone would look implemented and would
-    ///             fail <c>UiCompositingTests</c> as a compositing divergence rather than as a missing
-    ///             feature. What closing it actually needs is the backdrop captured into a real
-    ///             texture before the groups that read it are composed: a second walk over the layer
-    ///             tree to find which groups have one, an ordering constraint saying everything behind
-    ///             each of them is finished first, and a copy per backdrop group. That is a different
-    ///             feature with a different price, not a slot in the matrix.
-    ///         </para>
+    ///         ⚠ <b>And this is where <c>backdrop-filter</c> <s>stops</s> starts, because the thing it
+    ///         needs turned out not to be a capability the backend lacks.</b> A backdrop filter reads
+    ///         the destination the group is about to composite into, and at the moment a group's
+    ///         surface is rendered that destination has not been drawn — these passes are recorded
+    ///         <i>before</i> the caller's own begins, because a pass cannot be opened inside one. Nor
+    ///         is the composite a way round it: by then the destination is the colour attachment being
+    ///         written, which is not sampleable without an input attachment or a copy out of the pass,
+    ///         and this command list has neither. <b>But a read-back is not what it needs.</b> The
+    ///         draw-list prefix behind the group is <i>replayable</i>, and <see cref="Submit" /> is
+    ///         already the method that walks exactly that range and skips nested groups in favour of
+    ///         their composites — so it takes a <c>stop</c>, the walk above takes an order, and
+    ///         <paramref name="beneath" /> supplies the one thing the draw list does not have. See
+    ///         <see cref="Capture" />.
     ///     </para>
     /// </remarks>
-    public void Compose(ICommandList commands, in UiGeometry geometry, Int2 surface, float scale = 1f) {
+    /// <param name="beneath">
+    ///     What the host had already painted where the interface will be drawn, for the top-level
+    ///     groups whose <c>backdrop-filter</c> reads it. ⚠ <b>Its default is "nothing at all", which
+    ///     is a <i>degraded</i> backdrop and not merely an unspecified one</b> — a glass panel over a
+    ///     scene blurs only the interface above it, and the capture is transparent where it should be
+    ///     opaque, which leaves a blurred copy composited over the sharp original instead of replacing
+    ///     it. A frame with no backdrop group in it is unaffected. See <see cref="UiBackdropSource" />.
+    /// </param>
+    public void Compose(
+        ICommandList commands,
+        in UiGeometry geometry,
+        Int2 surface,
+        float scale = 1f,
+        UiBackdropSource beneath = default
+    ) {
         ArgumentNullException.ThrowIfNull(commands);
 
         composed = 0;
         blurred = 0;
         shadowed = 0;
+        backdropped = 0;
         filtered = 0;
         masked = 0;
 
@@ -897,6 +1058,12 @@ public sealed class UiRenderer : IDisposable {
         EnsureSurfaces(geometry, width, height);
         composed = geometry.Layers.Count;
 
+        // ⚠ After the surfaces and before the walk, and unconditionally rather than only on a frame
+        // with a backdrop in it: the write is four vertices and a set comparison, and gating it on the
+        // geometry would mean a host that added a glass panel between two frames drew the first of
+        // them from a buffer nothing had filled.
+        EnsureBeneath(geometry, beneath, surface);
+
         // ⚠ In a loop of its own and before the passes, because it is read by `Record` rather than
         // here — a group's composite draw is submitted by whichever pass contains it, and that pass
         // may be another group's, recorded earlier in the walk below. Filling the map as each group's
@@ -926,6 +1093,18 @@ public sealed class UiRenderer : IDisposable {
                 // disagree about how many draws the frame had.
                 if (layer.Shadow is { } cast && layerSurfaces.ContainsKey(layer.ShadowImage)) {
                     layerFilters[layer.ShadowImage] = cast.Tint;
+                }
+
+                // ⚠ <b>The backdrop's own matrix, keyed by the backdrop's number, and it is a
+                // different matrix from the group's.</b> `filter: grayscale(1) backdrop-filter:
+                // blur(8px)` is a grey panel over a blurred scene, so a renderer that reused
+                // `layer.Filter` here would grey the scene as well — which is a picture that looks
+                // deliberate. Conditional on the surface existing for the shadow's reason: an entry
+                // for a capture `EnsureSurfaces` declined to make would put the quad through the
+                // colour pipeline to sample an unregistered image.
+                if (layer.Backdrop is { Matrix: { IsIdentity: false } transform }
+                    && layerSurfaces.ContainsKey(layer.BackdropImage)) {
+                    layerFilters[layer.BackdropImage] = transform;
                 }
             }
         }
@@ -964,95 +1143,463 @@ public sealed class UiRenderer : IDisposable {
                     if (layer.Shadow is not null && layerSurfaces.ContainsKey(layer.ShadowImage)) {
                         layerMasks[layer.ShadowImage] = (layer.MaskFirst, layer.MaskCount);
                     }
+
+                    // ⚠ <b>And the backdrop, which unlike the shadow is cut in exactly the right
+                    // place.</b> Both executors recover a mask's point as `uv × size`, and a backdrop
+                    // quad's UV is the plain viewport-relative one — there is no displacement here for
+                    // the fold to be evaluated in the wrong frame of. So `mask-b-from-*` over a glass
+                    // panel fades the blurred backdrop out at the bottom of the box, which is what CSS
+                    // gives. Leaving it unmasked would be a hard-edged rectangle of blurred scene
+                    // sticking out of a faded panel.
+                    if (layer.Backdrop is not null && layerSurfaces.ContainsKey(layer.BackdropImage)) {
+                        layerMasks[layer.BackdropImage] = (layer.MaskFirst, layer.MaskCount);
+                    }
                 }
             }
         }
 
-        for (var index = geometry.Layers.Count - 1; index >= 0; index--) {
+        Forest(commands, geometry, parent: -1, from: 0, to: geometry.Layers.Count, surface, scale, width, height, beneath);
+    }
+
+    /// <summary>Renders one run of sibling groups and their descendants, post-order.</summary>
+    /// <param name="commands">A list that is not inside a pass.</param>
+    /// <param name="geometry">The frame's geometry.</param>
+    /// <param name="parent">
+    ///     The layer these siblings are nested in, or -1 for the frame's top level. ⚠ Needed only by
+    ///     the backdrop, which replays <i>the parent's</i> draws up to the child's first one.
+    /// </param>
+    /// <param name="from">The first index of this run.</param>
+    /// <param name="to">One past its last.</param>
+    /// <param name="surface">The target size in geometry units.</param>
+    /// <param name="scale">Framebuffer pixels per geometry unit.</param>
+    /// <param name="width">The framebuffer width, for the shared scratch.</param>
+    /// <param name="height">The framebuffer height, for the same.</param>
+    /// <param name="beneath">What the host had already painted. Read only at the top level.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Post-order, which is two constraints at once and neither of them is obvious from
+    ///         the shape of the recursion.</b> Children before their parent, because an outer group's
+    ///         pass <i>samples</i> its children's surfaces — that is the one the reverse pre-order walk
+    ///         this replaced already met. Earlier siblings before later ones, because a group's
+    ///         backdrop is a replay of everything painted behind it and every earlier sibling's
+    ///         composite is part of that. The old walk met the first and inverted the second.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A subtree is a contiguous run, which is what <see cref="UiGeometry.Layers" />'
+    ///         sort buys and the only reason this needs no search.</b> The list is pre-order and the
+    ///         ranges nest rather than overlap, so every descendant of <c>from</c> is an entry after it
+    ///         whose <c>First</c> is inside its range — and the first entry that is not is the next
+    ///         sibling, whose <c>First</c> is at or past the parent's end. A frame whose ranges
+    ///         genuinely overlapped would be a builder bug and this would render it in some order
+    ///         rather than looping.
+    ///     </para>
+    /// </remarks>
+    void Forest(
+        ICommandList commands,
+        in UiGeometry geometry,
+        int parent,
+        int from,
+        int to,
+        Int2 surface,
+        float scale,
+        int width,
+        int height,
+        UiBackdropSource beneath
+    ) {
+        var index = from;
+
+        while (index < to) {
             var layer = geometry.Layers[index];
-            var target = layerSurfaces[layer.Image];
+            var end = layer.First + layer.Count;
+            var last = index + 1;
 
-            // ⚠ The source half names the shader stages, and that is what makes one surface per group
-            // enough rather than one per frame in flight. See `layerSurfaces`: the hazard is this
-            // frame's colour writes overtaking the *previous* frame's sampling of the same texture,
-            // and an execution dependency from the shader stages to the colour-attachment stage is
-            // exactly the ordering a write-after-read wants. `Undefined` on the first frame, because a
-            // texture nothing has written has no contents to preserve and claiming otherwise is a
-            // validation error on exactly one frame.
-            commands.Barrier(new([], [new(target.Texture, target.State, ResourceState.ColourTarget)]));
+            while (last < to && geometry.Layers[last].First < end) {
+                last++;
+            }
 
-            // ⚠ The reach is computed here rather than inside `BlurSurface`, because it widens the
-            // region *this* pass has to leave defined — see `Confine`. `BlurSurface` derives it again
-            // from the same method, so the two cannot drift.
-            // ⚠ The wider of the two, because the shadow's kernel reads this pass's target — see
-            // `UiGeometryBuilder.Layer`, which outsets the bounds by the same maximum. A region
-            // widened only by the group's own blur would leave the shadow's outermost taps reading
-            // texels this pass never wrote, which on a reused surface is the *previous* group's
-            // contents smeared along the shadow's edge.
-            var reach = blurPipeline.IsValid
-                ? Math.Max(
-                    UiLayer.KernelRadius(layer.Blur, scale),
-                    UiLayer.KernelRadius(layer.Shadow?.Blur ?? 0f, scale)
-                )
-                : 0;
+            Forest(commands, geometry, index, index + 1, last, surface, scale, width, height, beneath);
+            Group(commands, geometry, index, parent, surface, scale, width, height, beneath);
 
-            var region = Confine(layer.Bounds, surface, scale, reach);
+            index = last;
+        }
+    }
 
-            // Transparent black, not the frame's background: a group composites *over* whatever is
-            // already on the target, so starting its surface from that would blend it in twice.
-            commands.BeginRenderPass(
+    /// <summary>Renders one group's surface, and its backdrop, blur and shadow where it has them.</summary>
+    /// <remarks>
+    ///     ⚠ The body of what used to be <see cref="Compose" />'s loop, lifted out unchanged but for
+    ///     the capture at the top. Every barrier and surface-state argument in it is about
+    ///     <i>this</i> group alone — one transition in, one out, and a scratch borrowed and handed back
+    ///     between them — which is what made the walk above replaceable rather than extendable.
+    /// </remarks>
+    void Group(
+        ICommandList commands,
+        in UiGeometry geometry,
+        int index,
+        int parent,
+        Int2 surface,
+        float scale,
+        int width,
+        int height,
+        UiBackdropSource beneath
+    ) {
+        var layer = geometry.Layers[index];
+        var target = layerSurfaces[layer.Image];
+
+        // ⚠ <b>Before the group's own pass, and that is the ordering the whole post-order walk
+        // exists to make possible rather than a preference.</b> The capture replays the parent's
+        // draws up to this group's first one, and every group inside that prefix is an earlier
+        // sibling whose surface the replay samples — so all of them are already in
+        // <c>ShaderRead</c> by the time this runs. It could equally go after the group's own pass;
+        // it is here because the group's pass is the one thing in this method the capture provably
+        // has nothing to do with, and a reader should not have to check.
+        if (layer.Backdrop is { } behind
+            && layerSurfaces.TryGetValue(layer.BackdropImage, out var captured)
+            && Capture(commands, geometry, layer, behind, captured, index, parent, surface, scale, width, height, beneath)) {
+            backdropped++;
+        }
+
+        // ⚠ The source half names the shader stages, and that is what makes one surface per group
+        // enough rather than one per frame in flight. See `layerSurfaces`: the hazard is this
+        // frame's colour writes overtaking the *previous* frame's sampling of the same texture,
+        // and an execution dependency from the shader stages to the colour-attachment stage is
+        // exactly the ordering a write-after-read wants. `Undefined` on the first frame, because a
+        // texture nothing has written has no contents to preserve and claiming otherwise is a
+        // validation error on exactly one frame.
+        commands.Barrier(new([], [new(target.Texture, target.State, ResourceState.ColourTarget)]));
+
+        // ⚠ The reach is computed here rather than inside `BlurSurface`, because it widens the
+        // region *this* pass has to leave defined — see `Confine`. `BlurSurface` derives it again
+        // from the same method, so the two cannot drift.
+        // ⚠ The wider of the two, because the shadow's kernel reads this pass's target — see
+        // `UiGeometryBuilder.Layer`, which outsets the bounds by the same maximum. A region
+        // widened only by the group's own blur would leave the shadow's outermost taps reading
+        // texels this pass never wrote, which on a reused surface is the *previous* group's
+        // contents smeared along the shadow's edge.
+        var reach = blurPipeline.IsValid
+            ? Math.Max(
+                UiLayer.KernelRadius(layer.Blur, scale),
+                UiLayer.KernelRadius(layer.Shadow?.Blur ?? 0f, scale)
+            )
+            : 0;
+
+        var region = Confine(layer.Bounds, surface, scale, reach);
+
+        // Transparent black, not the frame's background: a group composites *over* whatever is
+        // already on the target, so starting its surface from that would blend it in twice.
+        commands.BeginRenderPass(
+            new(
+                [new(target.View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 0f))],
+                name: "ui layer " + index.ToString(CultureInfo.InvariantCulture),
+                renderArea: region
+            )
+        );
+
+        // ⚠ Nothing carries over a pass boundary — not the pipeline, not the descriptor set, not
+        // the push constants — so each group's pass starts from an empty binding state. Sharing
+        // one across the passes is the optimisation that looks free and is a frame drawn with
+        // whatever the last pass left bound.
+        var bound = default(Bindings);
+        Submit(commands, geometry, index, surface, scale, ref bound);
+
+        commands.EndRenderPass();
+
+        // ⚠ <b>Between the group's pass and its <c>ShaderRead</c> barrier, which is the only
+        // window where the surface is finished and nothing downstream has been told it is
+        // readable yet.</b> Two more passes go in here and the surface comes back out in
+        // <c>ColourTarget</c>, so the barrier below is the same barrier either way — the blur is
+        // an interpolation into this loop rather than a second shape of it.
+        // ⚠ The count comes back from the work rather than being incremented beside it, because
+        // every early return in `BlurSurface` is a blur that did not happen — and `Blurred`
+        // exists precisely so that a blur which did not happen cannot look like one that did.
+        if (layer.Blur > 0f
+            && blurPipeline.IsValid
+            && Scratch(width, height) is { } through
+            && BlurSurface(
+                commands,
+                geometry,
+                layer.Composite,
+                layer.Blur,
+                layer.Image,
+                target,
+                through,
+                surface,
+                scale,
+                region
+            )) {
+            blurred++;
+        }
+
+        // ⚠ <b>After the group's own blur and in the same window, because a drop shadow is cast
+        // from the <i>finished</i> surface.</b> The two Gaussians do not commute — see
+        // <see cref="UiLayer.Shadow" /> — so the order is fixed rather than chosen, and this is
+        // the only place in the loop where the group's contents are complete and nothing has
+        // sampled them. `SoftwareUiRasterizer` casts its shadow at the same seam, from the same
+        // surface, which is what makes the two comparable at all.
+        // ⚠ The scratch is asked for inside rather than here, unlike the blur above it: a shadow
+        // with no blur is a single-tap copy and touches no scratch at all, and a frame whose only
+        // shadows are hard-edged would otherwise allocate a viewport-sized target it never binds.
+        if (layer.Shadow is not null
+            && blurPipeline.IsValid
+            && layerSurfaces.TryGetValue(layer.ShadowImage, out var cast)
+            && ShadowSurface(commands, geometry, layer, target, cast, width, height, surface, scale, region)) {
+            shadowed++;
+        }
+
+        commands.Barrier(
+            new([], [new(target.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
+        );
+
+        target.State = ResourceState.ShaderRead;
+    }
+
+    /// <summary>Renders the picture behind one group into a surface of its own, and filters it.</summary>
+    /// <returns>Whether it ran. False leaves the surface defined and empty rather than untouched.</returns>
+    /// <param name="commands">A list that is not inside a pass. This opens one, and the blur two more.</param>
+    /// <param name="geometry">The frame's geometry, for the prefix to replay and the quad to blur through.</param>
+    /// <param name="layer">The group.</param>
+    /// <param name="behind">Its <c>backdrop-filter</c>.</param>
+    /// <param name="captured">The surface this fills.</param>
+    /// <param name="index">The group's position in <see cref="UiGeometry.Layers" />, for the pass name.</param>
+    /// <param name="parent">
+    ///     The layer this group is nested in, or -1 at the top level — <b>whose</b> prefix is replayed.
+    /// </param>
+    /// <param name="surface">The target size in geometry units.</param>
+    /// <param name="scale">Framebuffer pixels per geometry unit.</param>
+    /// <param name="width">The framebuffer width, for the shared scratch.</param>
+    /// <param name="height">The framebuffer height, for the same.</param>
+    /// <param name="beneath">What the host had already painted. Drawn only at the top level.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A re-render of the prefix and not a read-back, which is the whole design and the
+    ///         thing the old note here said was impossible.</b> What the group will composite into is
+    ///         <i>the host's frame, plus the parent's draws from its first up to this group's first</i>
+    ///         — and <see cref="Submit" /> already walks exactly that range, skipping nested groups in
+    ///         favour of their composites. So this is that walk with a <c>stop</c>, into a target of
+    ///         its own, and the surfaces it samples are all in <c>ShaderRead</c> because the walk above
+    ///         is post-order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><paramref name="beneath" /> is drawn only when <paramref name="parent" /> is
+    ///         -1.</b> Filter Effects 2 § 2 makes every <c>UiLayer</c> a backdrop root, so a nested
+    ///         group's backdrop starts from transparent black and holds its parent's prefix and nothing
+    ///         else — which is exactly what <c>SoftwareUiRasterizer</c> gets by cloning the buffer it
+    ///         was handed. Putting the host's frame under a nested capture would paint the window's
+    ///         background inside a translucent panel, and the two executors would disagree by it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The colour is a <i>clear</i> and the texture is a <i>draw</i>, and both are needed
+    ///         rather than one being a convenience.</b> A clear cannot put a picture down and a draw
+    ///         needs a quad; the clear also has to happen whatever else does, because the region
+    ///         outside the group's box is otherwise the previous frame's. See
+    ///         <see cref="Fullscreen" />, which is the four vertices the draw needs and the only
+    ///         geometry in this file that is not the frame's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The region is the group's <i>border box</i> outset by the backdrop's kernel, and
+    ///         not <see cref="UiLayer.Bounds" />.</b> The bounds are the group's ink, which a child
+    ///         overflowing the element makes larger — see <see cref="UiLayer.BackdropBounds" />. What
+    ///         the quad samples is the box; what the blur reads is the box plus its reach; so one
+    ///         <see cref="Confine" /> over the box covers both, exactly as the group's own passes share
+    ///         one over its bounds.
+    ///     </para>
+    /// </remarks>
+    bool Capture(
+        ICommandList commands,
+        in UiGeometry geometry,
+        in UiLayer layer,
+        in UiBackdrop behind,
+        LayerSurface captured,
+        int index,
+        int parent,
+        Int2 surface,
+        float scale,
+        int width,
+        int height,
+        UiBackdropSource beneath
+    ) {
+        var reach = blurPipeline.IsValid ? UiLayer.KernelRadius(behind.Blur, scale) : 0;
+        var region = Confine(layer.BackdropBounds, surface, scale, reach);
+
+        commands.Barrier(new([], [new(captured.Texture, captured.State, ResourceState.ColourTarget)]));
+
+        // ⚠ <b>The host's ground at the top level and transparent black inside a group, and getting
+        // this wrong is the window's background painted inside a translucent panel.</b> Filter Effects
+        // 2 § 2 makes every <see cref="UiLayer" /> a backdrop root, so a nested group's backdrop is its
+        // parent's own surface so far — and a parent's surface starts from transparent black, which is
+        // the same clear its own pass uses two methods up. <c>SoftwareUiRasterizer</c> gets this for
+        // free by cloning the buffer it was handed; here it has to be said.
+        var ground = parent < 0 ? beneath.Colour : new Color4(0f, 0f, 0f, 0f);
+
+        commands.BeginRenderPass(
+            new(
+                [new(captured.View, LoadAction.Clear, StoreAction.Store, ground)],
+                name: "ui backdrop " + index.ToString(CultureInfo.InvariantCulture),
+                renderArea: region
+            )
+        );
+
+        var bound = default(Bindings);
+
+        // ⚠ Whatever the host painted first, then the interface's own prefix over it, which is the
+        // order the frame itself will be drawn in. Reversing the two would put the panels behind the
+        // scene.
+        if (parent < 0 && beneath.Image.IsValid) {
+            Fullscreen(commands, surface, region);
+        }
+
+        // ⚠ <b>The <i>parent's</i> range and this group's <c>First</c> as the stop, and both halves
+        // are load-bearing.</b> A group's backdrop is what its own parent has painted so far — not
+        // the whole frame, which would put the parent's earlier siblings inside a nested capture, and
+        // not this group's own range, which is empty behind it by definition.
+        Submit(commands, geometry, parent, surface, scale, ref bound, stop: layer.First);
+
+        commands.EndRenderPass();
+
+        // ⚠ The same two sweeps and the same shared scratch the group's own blur uses, through the
+        // backdrop's own quad rather than the composite one — that quad covers the border box, which
+        // is the rectangle the result is clipped to.
+        if (behind.Blur > 0f
+            && blurPipeline.IsValid
+            && Scratch(width, height) is { } through
+            && BlurSurface(
+                commands,
+                geometry,
+
+                // ⚠ Not `layer.BackdropDraw`, and the difference is the panel's whole rim — see the
+                // remark on the parameter. A backdrop's quad is the border box with no outset, so the
+                // second axis would read the cleared scratch just outside it.
+                quadDraw: -1,
+                behind.Blur,
+                layer.BackdropImage,
+                captured,
+                through,
+                surface,
+                scale,
+                region
+            )) {
+            blurred++;
+        }
+
+        commands.Barrier(
+            new([], [new(captured.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
+        );
+
+        captured.State = ResourceState.ShaderRead;
+
+        // ⚠ True even when the blur declined, because what this counts is the *capture* — the surface
+        // was filled and the quad will sample it. `Blurred` is the counter that says whether the
+        // Gaussian ran, and it is incremented above by the work rather than beside it.
+        return true;
+    }
+
+    /// <summary>Draws <see cref="UiBackdropSource.Image" /> over the whole target.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Four vertices of this renderer's own, written into this frame's region and drawn
+    ///     through the image pipeline with <c>shape.x</c> set — see <see cref="fullscreenVertices" />
+    ///     for why the frame's own geometry cannot supply them.</b> The one is what tells
+    ///     <c>ui-image.frag</c> the sample is already premultiplied, which is what
+    ///     <see cref="UiBackdropSource.Image" /> promises.
+    /// </remarks>
+    void Fullscreen(ICommandList commands, Int2 surface, ScissorRect region) {
+        if (!imagePipeline.IsValid || beneathSets.Length <= slot || !beneathSets[slot].IsValid) {
+            return;
+        }
+
+        commands.BindVertexBuffer(0, fullscreenVertices, (long) slot * FullscreenVertexBytes);
+        commands.BindIndexBuffer(fullscreenIndices, IndexFormat.UInt32, 0);
+        commands.BindPipeline(imagePipeline);
+
+        Span<float> projection = [2f / surface.X, -2f / surface.Y, -1f, 1f];
+        commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
+
+        commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, beneathSets[slot]);
+        commands.SetScissor(region);
+        commands.DrawIndexed(6);
+    }
+
+    /// <summary>How many bytes one frame's four full-screen vertices are.</summary>
+    const int FullscreenVertexBytes = 4 * 48;
+
+    /// <summary>
+    ///     Makes the full-screen quad and the set that points at the host's picture, and keeps both
+    ///     current. Called once per <see cref="Compose" /> that has a backdrop group in it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The vertices are rewritten every frame and the set only when the view changes</b>, and
+    ///     both are written at <see cref="slot" /> — which <see cref="UploadGeometry" /> has already
+    ///     advanced to a region no submitted frame is reading. That is the same invariant
+    ///     <see cref="RebindBoxes" /> keeps and the reason neither write needs a staleness flag.
+    /// </remarks>
+    void EnsureBeneath(in UiGeometry geometry, UiBackdropSource beneath, Int2 surface) {
+        // ⚠ <b>Two readers, and the second is the one that is easy to miss.</b> The obvious one is
+        // <see cref="Fullscreen" />, which needs the quad to draw the host's picture. The other is the
+        // backdrop's <i>blur</i>, which sweeps the whole confined region through the same four
+        // vertices because its own quad has no outset — see <see cref="BlurSurface" />. So a frame
+        // with a blurred backdrop and no host texture needs the quad and no descriptor set, and a
+        // frame with a host texture and an unblurred backdrop needs both.
+        var wanted = beneath.Image.IsValid;
+
+        for (var index = 0; !wanted && index < geometry.Layers.Count; index++) {
+            wanted = geometry.Layers[index].Backdrop is { Blur: > 0f };
+        }
+
+        if (!wanted) {
+            return;
+        }
+
+        if (!fullscreenVertices.IsValid) {
+            fullscreenVertices = device.CreateBuffer(
                 new(
-                    [new(target.View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 0f))],
-                    name: "ui layer " + index.ToString(CultureInfo.InvariantCulture),
-                    renderArea: region
+                    (long) FullscreenVertexBytes * slots,
+                    BufferUsage.Vertex,
+                    MemoryAccess.HostUpload,
+                    "ui backdrop quad"
                 )
             );
 
-            // ⚠ Nothing carries over a pass boundary — not the pipeline, not the descriptor set, not
-            // the push constants — so each group's pass starts from an empty binding state. Sharing
-            // one across the passes is the optimisation that looks free and is a frame drawn with
-            // whatever the last pass left bound.
-            var bound = default(Bindings);
-            Submit(commands, geometry, index, surface, scale, ref bound);
-
-            commands.EndRenderPass();
-
-            // ⚠ <b>Between the group's pass and its <c>ShaderRead</c> barrier, which is the only
-            // window where the surface is finished and nothing downstream has been told it is
-            // readable yet.</b> Two more passes go in here and the surface comes back out in
-            // <c>ColourTarget</c>, so the barrier below is the same barrier either way — the blur is
-            // an interpolation into this loop rather than a second shape of it.
-            // ⚠ The count comes back from the work rather than being incremented beside it, because
-            // every early return in `BlurSurface` is a blur that did not happen — and `Blurred`
-            // exists precisely so that a blur which did not happen cannot look like one that did.
-            if (layer.Blur > 0f
-                && blurPipeline.IsValid
-                && Scratch(width, height) is { } through
-                && BlurSurface(commands, geometry, layer, target, through, surface, scale, region)) {
-                blurred++;
-            }
-
-            // ⚠ <b>After the group's own blur and in the same window, because a drop shadow is cast
-            // from the <i>finished</i> surface.</b> The two Gaussians do not commute — see
-            // <see cref="UiLayer.Shadow" /> — so the order is fixed rather than chosen, and this is
-            // the only place in the loop where the group's contents are complete and nothing has
-            // sampled them. `SoftwareUiRasterizer` casts its shadow at the same seam, from the same
-            // surface, which is what makes the two comparable at all.
-            // ⚠ The scratch is asked for inside rather than here, unlike the blur above it: a shadow
-            // with no blur is a single-tap copy and touches no scratch at all, and a frame whose only
-            // shadows are hard-edged would otherwise allocate a viewport-sized target it never binds.
-            if (layer.Shadow is not null
-                && blurPipeline.IsValid
-                && layerSurfaces.TryGetValue(layer.ShadowImage, out var cast)
-                && ShadowSurface(commands, geometry, layer, target, cast, width, height, surface, scale, region)) {
-                shadowed++;
-            }
-
-            commands.Barrier(
-                new([], [new(target.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
+            // ⚠ Six indices, once, at offset zero and never ringed. They never change, so there is no
+            // write for a frame in flight to race with — which is the whole of what the vertex ring
+            // above is for.
+            fullscreenIndices = device.CreateBuffer(
+                new(6 * 4, BufferUsage.Index, MemoryAccess.HostUpload, "ui backdrop quad indices")
             );
 
-            target.State = ResourceState.ShaderRead;
+            Span<uint> order = [0, 1, 2, 0, 2, 3];
+            device.Write(fullscreenIndices, 0, MemoryMarshal.AsBytes(order));
+        }
+
+        // ⚠ In geometry units, because the vertex stage applies the frame's own projection — the same
+        // one every other draw in the capture pass is submitted with. Clip-space corners here would be
+        // right until the first DPI-scaled window.
+        var corners = new UiVertex[4];
+        corners[0] = new(new(0f, 0f), new(0f, 0f), Color4.White, new(1f, 0f, 0f, 0f));
+        corners[1] = new(new(surface.X, 0f), new(1f, 0f), Color4.White, new(1f, 0f, 0f, 0f));
+        corners[2] = new(new(surface.X, surface.Y), new(1f, 1f), Color4.White, new(1f, 0f, 0f, 0f));
+        corners[3] = new(new(0f, surface.Y), new(0f, 1f), Color4.White, new(1f, 0f, 0f, 0f));
+
+        device.Write(fullscreenVertices, (long) slot * FullscreenVertexBytes, MemoryMarshal.AsBytes<UiVertex>(corners));
+
+        if (!beneath.Image.IsValid || !imagePipeline.IsValid) {
+            // The quad is made and kept current; the set is not, because there is nothing for it to
+            // point at. A frame that later hands one over writes it below on the frame it does.
+            return;
+        }
+
+        if (beneathSets.Length != slots) {
+            beneathSets = new DescriptorSetHandle[slots];
+            beneathViews = new TextureViewHandle[slots];
+
+            for (var index = 0; index < slots; index++) {
+                beneathSets[index] = device.CreateDescriptorSet(
+                    atlasLayout,
+                    "ui backdrop source " + index.ToString(CultureInfo.InvariantCulture)
+                );
+            }
+        }
+
+        if (beneathViews[slot] != beneath.Image) {
+            Write(beneathSets[slot], beneath.Image);
+            beneathViews[slot] = beneath.Image;
         }
     }
 
@@ -1060,8 +1607,14 @@ public sealed class UiRenderer : IDisposable {
     /// <returns>Whether the blur ran. False leaves every resource in the state it was handed.</returns>
     /// <param name="commands">A list that is not inside a pass. Each axis opens one.</param>
     /// <param name="geometry">The frame's geometry, for the quad to draw.</param>
-    /// <param name="layer">The group.</param>
-    /// <param name="target">Its surface, holding its finished contents and about to hold the blur.</param>
+    /// <param name="quadDraw">
+    ///     Which draw's quad the two sweeps are run through — the group's composite quad for its own
+    ///     blur, its backdrop quad for a backdrop's. ⚠ It decides the rectangle the result lands in
+    ///     and, through <see cref="Confine" />'s region, which texels around it were left defined.
+    /// </param>
+    /// <param name="blur">The standard deviation, in document pixels.</param>
+    /// <param name="image">Which surface number <paramref name="target" /> is registered under.</param>
+    /// <param name="target">The surface, holding what is to be blurred and about to hold the blur.</param>
     /// <param name="through">The scratch the first axis lands in.</param>
     /// <param name="surface">The target size in geometry units.</param>
     /// <param name="scale">Framebuffer pixels per geometry unit.</param>
@@ -1098,38 +1651,56 @@ public sealed class UiRenderer : IDisposable {
     bool BlurSurface(
         ICommandList commands,
         in UiGeometry geometry,
-        in UiLayer layer,
+        int quadDraw,
+        float blur,
+        ulong image,
         LayerSurface target,
         LayerSurface through,
         Int2 surface,
         float scale,
         ScissorRect region
     ) {
-        // The composite quad sits just after the group's own draws, past the shadow's quad where
-        // there is one — see <see cref="UiLayer.Composite" />, which is where that arithmetic lives
-        // now that it has two cases. A geometry that has been truncated between being built and being
-        // composed would index past the end here rather than draw the wrong thing, so it is checked.
-        var composite = layer.Composite;
-
-        if (composite >= geometry.Draws.Count) {
+        // The quad the caller named. For a group's own blur that is the composite quad, which sits
+        // just after the group's draws past whichever of the backdrop's and the shadow's are there —
+        // see <see cref="UiLayer.Composite" />. For a backdrop it is the backdrop's own quad, which
+        // covers the border box the filtered picture is clipped to. A geometry that has been truncated
+        // between being built and being composed would index past the end here rather than draw the
+        // wrong thing, so it is checked.
+        if (quadDraw >= geometry.Draws.Count) {
             return false;
         }
 
-        var quad = geometry.Draws[composite];
-        var scissor = Scissor(quad.Clip, surface, scale);
+        // ⚠ <b>A negative index means the whole region, drawn through this renderer's own full-screen
+        // quad, and that is <i>not</i> an optimisation — it is the only correct sweep for a backdrop
+        // and the wrong one for a group.</b> Both sweeps clear before they draw, so whatever the quad
+        // does not cover is transparent black; a group's composite quad is already outset by the
+        // kernel — see <c>UiGeometryBuilder.Layer</c> — so its second axis never reads outside itself
+        // for a pixel that matters. A backdrop's quad is the border box with <i>no</i> outset, because
+        // CSS clips the filtered picture to it, so sweeping through the quad makes the second axis read
+        // cleared black just outside the box and darkens the panel's whole rim. Measured on the
+        // compositing fixture before this was fixed: twenty pixels along the top edge, up to ten
+        // levels dark, against a software path that convolves the whole buffer.
+        var fullscreen = quadDraw < 0;
+        var quad = fullscreen ? default : geometry.Draws[quadDraw];
+
+        var scissor = fullscreen ? region : Scissor(quad.Clip, surface, scale);
 
         if (scissor.Width <= 0 || scissor.Height <= 0) {
             return false;
         }
 
-        var reach = UiLayer.KernelRadius(layer.Blur, scale);
+        if (fullscreen && !fullscreenVertices.IsValid) {
+            return false;
+        }
+
+        var reach = UiLayer.KernelRadius(blur, scale);
 
         if (reach <= 0) {
             return false;
         }
 
-        var sigma = layer.Blur * scale;
-        var source = imageDescriptors.TryGetValue(layer.Image, out var registered) ? registered.Sets[slot] : default;
+        var sigma = blur * scale;
+        var source = imageDescriptors.TryGetValue(image, out var registered) ? registered.Sets[slot] : default;
 
         if (!source.IsValid || !scratchSet.IsValid) {
             return false;
@@ -1147,7 +1718,7 @@ public sealed class UiRenderer : IDisposable {
             )
         );
 
-        Sweep(commands, through, quad, scissor, region, source, surface, 1f / layerWidth, 0f, sigma, reach);
+        Sweep(commands, through, quad, fullscreen, scissor, region, source, surface, 1f / layerWidth, 0f, sigma, reach);
 
         // And back down, into the surface. The two textures swap roles, which is why the scratch
         // cannot simply stay a colour target: this is the pass that samples it.
@@ -1163,7 +1734,7 @@ public sealed class UiRenderer : IDisposable {
 
         through.State = ResourceState.ShaderRead;
 
-        Sweep(commands, target, quad, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
+        Sweep(commands, target, quad, fullscreen, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
 
         return true;
     }
@@ -1264,7 +1835,7 @@ public sealed class UiRenderer : IDisposable {
                 )
             );
 
-            Sweep(commands, cast, quad, scissor, region, source, surface, 0f, 0f, sigma, 0);
+            Sweep(commands, cast, quad, fullscreen: false, scissor, region, source, surface, 0f, 0f, sigma, 0);
 
             commands.Barrier(
                 new(
@@ -1296,7 +1867,7 @@ public sealed class UiRenderer : IDisposable {
             )
         );
 
-        Sweep(commands, through, quad, scissor, region, source, surface, 1f / layerWidth, 0f, sigma, reach);
+        Sweep(commands, through, quad, fullscreen: false, scissor, region, source, surface, 1f / layerWidth, 0f, sigma, reach);
 
         // And down, into the shadow's own surface — which is where this differs from a blur, whose
         // second axis lands back where it started.
@@ -1312,7 +1883,7 @@ public sealed class UiRenderer : IDisposable {
 
         through.State = ResourceState.ShaderRead;
 
-        Sweep(commands, cast, quad, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
+        Sweep(commands, cast, quad, fullscreen: false, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
 
         // ⚠ Both in one barrier, and the group's surface is put *back* to being a colour target
         // rather than left readable. The loop that called this ends with one barrier taking it from
@@ -1384,6 +1955,7 @@ public sealed class UiRenderer : IDisposable {
         ICommandList commands,
         LayerSurface into,
         in UiDraw quad,
+        bool fullscreen,
         ScissorRect scissor,
         ScissorRect region,
         DescriptorSetHandle source,
@@ -1401,8 +1973,14 @@ public sealed class UiRenderer : IDisposable {
             )
         );
 
-        commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
-        commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
+        if (fullscreen) {
+            commands.BindVertexBuffer(0, fullscreenVertices, (long) slot * FullscreenVertexBytes);
+            commands.BindIndexBuffer(fullscreenIndices, IndexFormat.UInt32, 0);
+        } else {
+            commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
+            commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
+        }
+
         commands.BindPipeline(blurPipeline);
 
         Span<float> projection = [2f / surface.X, -2f / surface.Y, -1f, 1f];
@@ -1413,7 +1991,12 @@ public sealed class UiRenderer : IDisposable {
 
         commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, source);
         commands.SetScissor(scissor);
-        commands.DrawIndexed(quad.Count, firstIndex: quad.First);
+
+        if (fullscreen) {
+            commands.DrawIndexed(6);
+        } else {
+            commands.DrawIndexed(quad.Count, firstIndex: quad.First);
+        }
 
         commands.EndRenderPass();
     }
@@ -1433,6 +2016,21 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="surface">The target size in geometry units.</param>
     /// <param name="scale">Framebuffer pixels per geometry unit.</param>
     /// <param name="bound">What this pass has bound so far.</param>
+    /// <param name="stop">
+    ///     One past the last draw to submit, or -1 for the whole of <paramref name="self" />'s range.
+    ///     <para>
+    ///         ⚠ <b>What turned <c>backdrop-filter</c> from a capability the backend lacks into a
+    ///         scheduling problem.</b> A group's backdrop is its parent's draws from the parent's first
+    ///         up to the group's own first — which is this walk with an earlier end, including the
+    ///         skipping of nested groups in favour of their composites, and that skipping is the half
+    ///         that would have been rewritten wrong. See <see cref="Capture" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Clamped rather than trusted, and it may legitimately be smaller than the range's own
+    ///         start: a group that is the very first thing its parent paints has an empty prefix, which
+    ///         is a capture holding only the clear.
+    ///     </para>
+    /// </param>
     /// <remarks>
     ///     ⚠ <b>A group already rendered into a surface contributes its <i>composite</i> and not its
     ///     contents, and drawing both is the failure this walk exists to prevent.</b> The composite
@@ -1447,11 +2045,16 @@ public sealed class UiRenderer : IDisposable {
         int self,
         Int2 surface,
         float scale,
-        ref Bindings bound
+        ref Bindings bound,
+        int stop = -1
     ) {
         var layers = geometry.Layers;
         var from = self < 0 ? 0 : layers[self].First;
         var to = self < 0 ? geometry.Draws.Count : layers[self].First + layers[self].Count;
+
+        if (stop >= 0) {
+            to = Math.Min(to, stop);
+        }
 
         // ⚠ Clamped rather than trusted, because <see cref="composed" /> is a count taken from the
         // *last* geometry <see cref="Compose" /> saw. A host that composed one frame and recorded a
@@ -1686,6 +2289,22 @@ public sealed class UiRenderer : IDisposable {
             // exists.
             if (layer.Shadow is not null && blurPipeline.IsValid && Tintable(layer)) {
                 Ensure(layer.ShadowImage);
+            }
+
+            // ⚠ <b>On easier terms than the shadow's, because a backdrop is not defined by its
+            // tint.</b> A shadow composited through the image pipeline is a full-colour copy of the
+            // element — a different picture, and a worse one than no shadow — so its surface is not
+            // allocated where the tint cannot be applied. A backdrop composited without its matrix is
+            // still the backdrop, blurred and in the right place; only the colour transform is
+            // missing, which is the degradation `Filtered` already reports for a filtered group on a
+            // host with no colour stage.
+            //
+            // ⚠ <b>The blur is the one it <i>is</i> refused for.</b> An unblurrable backdrop capture
+            // is a copy of what is already behind the element, drawn over it — which replaces it with
+            // itself where the picture is opaque and doubles it where it is not. Declining leaves the
+            // quad naming an unregistered image, which `SubmitDraw` skips, and `Backdropped` says so.
+            if (layer.Backdrop is { } behind && (behind.Blur <= 0f || blurPipeline.IsValid)) {
+                Ensure(layer.BackdropImage);
             }
         }
 
@@ -1951,6 +2570,26 @@ public sealed class UiRenderer : IDisposable {
         // a throw part-way through construction is the one path that reaches here without it.
         if (maskEntries.IsValid) {
             device.Destroy(maskEntries);
+        }
+
+        // ⚠ The backdrop's three, on the same discipline: they are made lazily by `EnsureBeneath` and
+        // so are the easiest things in the file to allocate and forget, which is exactly what happened
+        // to `colourPipeline`.
+        foreach (var set in beneathSets) {
+            if (set.IsValid) {
+                device.Destroy(set);
+            }
+        }
+
+        beneathSets = [];
+        beneathViews = [];
+
+        if (fullscreenVertices.IsValid) {
+            device.Destroy(fullscreenVertices);
+        }
+
+        if (fullscreenIndices.IsValid) {
+            device.Destroy(fullscreenIndices);
         }
 
         DestroyAtlas();

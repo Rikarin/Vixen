@@ -90,27 +90,34 @@ scale                        #23  the box scales in four multiplications; the gl
 # `Vixen.Graphics.Golden.Tests.UiCompositingTests` for the two paths agreeing. The fragment carries no
 # line here, like the eight before it.
 #
-# ⚠ What is *not* closed and is deliberately absent from this list: the whole of `backdrop-filter`.
-# No family emits anything for it, so it is not a debt this file can record — a property nothing emits
-# is exactly the mistake the `--blur` line was. The ten roots are absent in docs/plan/43's ledger,
-# which is where an absence belongs. What it would take, re-measured rather than restated:
+# ⚠ `backdrop-filter` is now emitted and read, and it still carries no line here — which is the
+# right answer for the second time and for a different reason than before. It used to be absent
+# because no family emitted anything for it, and a property nothing emits is exactly the mistake the
+# `--blur` line was. It is absent now because a consumer reads it: `DrawListBuilder` interns
+# `backdrop-filter`, turns the list into a `UiBackdrop` and opens a group for it, and both executors
+# capture the picture behind that group and filter it. The ten roots moved from `absent` to `partial`
+# in docs/plan/43's ledger, and the `partial` is a fidelity gap rather than a consumption one — the
+# filtered backdrop is clipped to the border box but not to its corner radius.
 #
-#   `backdrop-*` reads the destination the group is about to composite *into*, and at the moment a
-#   group's surface is rendered that destination does not exist yet: `UiRenderer.Compose` records
-#   every group's pass **before** the host's frame pass begins — it has to, because passes do not
-#   nest — so nothing behind the group has been drawn. By the time the composite is submitted the
-#   destination is the colour attachment being written, which is not sampleable without an input
-#   attachment or a copy. `SoftwareUiRasterizer` could do it in three lines, because its recursion
-#   already holds the parent buffer; that asymmetry is the argument rather than a reason to try, since
-#   `UiCompositingTests` requires the two to agree.
+# ⚠ The nine `--tw-backdrop-*` fragments carry no line either, like the nine before them: a fragment
+# is half a declaration and is judged by whatever assembles it, which here is
+# `UtilityComposition.BackdropFilter`.
 #
-#   ⚠ The fix is *not* a read-back, which is what the paragraph above used to imply. The prefix is
-#   replayable and `Submit` already walks exactly the range that would have to be replayed, so what is
-#   needed is a capture pass per backdrop group, `Compose`'s reverse-pre-order walk changed to
-#   post-order so everything behind a group is finished before it, and a new public parameter on
-#   `Compose` carrying what the host has already painted — without which the feature blurs the
-#   interface and not the scene under it. That last part is what makes it a branch rather than a slot.
-#   docs/guide/ui/compositing.md has the sized version.
+# ⚠ And `-webkit-backdrop-filter` is deliberately **not** emitted, which is the one decision here a
+# reader might expect to find recorded as a debt. Tailwind v4 writes it beside the unprefixed property
+# because Safari needs it; this engine is not a browser, so emitting it would put a declaration into
+# every generated sheet that nothing could ever read — a line in this file by construction, and one
+# nobody could ever close. The ledger's `css` column still lists both, because that column is about
+# what Tailwind emits.
+#
+# ⚠ What the feature cost, since the note it replaces spent four paragraphs saying it could not be
+# done. Not a read-back: the draw-list prefix behind a group is replayable and `UiRenderer.Submit`
+# already walked exactly that range, so it took a `stop` argument, a capture pass per backdrop group,
+# `Compose`'s reverse-pre-order walk changed to post-order so everything painted behind a group is
+# finished before its capture runs, and a new public parameter carrying what the host had already
+# painted — without which the feature blurs the interface and not the scene under it, and composites
+# a translucent blurred copy over the sharp original where CSS replaces it.
+# docs/guide/ui/compositing.md has the whole of it.
 
 # ── Borders — A1. The physical four are painted now; the two logical edges are not, so `border-s-*`
 # and `border-e-*` still colour nothing. The widths *are* read, which is why only the colours are here
