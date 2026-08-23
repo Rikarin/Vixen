@@ -1,0 +1,598 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 7, and doc 39's editor surface: the knobs, the look, what the node expands to,
+    the resolved quality waterfall, the resolved volume fold, and Explode. The ledger sized it M in
+    the seven-panel block with "port the readouts, keep the field rows (shape 2)" — and this panel is
+    the one that instruction fits without qualification, because its field rows are not rows at all:
+    they are two whole `InspectorView`s, which is shape 1 and always was.
+
+    ⚠ **Two `InspectorView`s behind two `ref`s, and neither needs the wrapper `MaterialView` could
+    not have.** `Inspect` is a method, `InspectorView` is `sealed`, and that combination is wave 6's
+    sixth shape — but only *inside a `@for`*, where the call has to happen once per row and a
+    property is the only thing a component tag can assign. One control fed once from `Restate` is
+    ordinary shape 1: hold it in a member and call the method. The distinction is worth keeping
+    because the two look identical from a distance and only one of them is blocked.
+
+    ⚠ **`applying` survives the port unchanged, and it is the reason this panel is not simply four
+    signals.** A write raises the document's `Changed`, which restates the panel, which re-`Inspect`s
+    both forms — throwing away the row being typed into and the caret with it. The derived sections
+    still rebuild; the guard covers exactly the two inspectors, and it has to stay a field rather
+    than becoming a signal because nothing reads it from a binding.
+
+    ⚠ **`analysis-list` is `AnalysisRow`'s fifth and sixth callers**, which is what wave 6 built the
+    part for. Both lists here — what the node expands to, and what the volume fold said about itself
+    — are `Line(into, stage, message, kind)`, which is the part's three elements exactly, with the
+    severity passed as `class`. `AnalysisRow`'s host tag *is* the `analysis-row`, so the swap is
+    byte-neutral.
+
+    ⚠ **The quality table interleaves two different tags and the flag is in the key.** A
+    `frame-group` heading and a `fact-row` are one list in the C# and have to be one `@for` here, so
+    the choice is an `@if` inside the loop body — wave 4's trap — and `FrameKnobRow.Group` is in the
+    key for `QueryView`'s reason. Unlike a selection, a row does not turn into a heading without
+    everything else about it changing, so this costs nothing.
+
+    ⚠ **`fact-value` is written with a caption here and with an interpolation in `FontView`, and both
+    are right.** This panel does `row.Add("fact-value").Text = …` — the cell's *own* text, the
+    ledger's shape 5, so `<FactValue Text="…" />`. `FontView` does
+    `row.Add("fact-value").Add("text").Text = …`, which is what an interpolation builds. The ledger
+    counted six hand-written fact rows and found the split was four to two; reconciling them is a
+    layout change and not a tidy-up, so each port reproduces the one it replaces.
+
+    ⚠ **`QualityRows` and `StackRows` stay synchronous, and the ledger's shape 3 is why the question
+    was asked.** They are counts of the rows a projection produced, assigned while it runs — a signal
+    *write* is immediate and only the tree is deferred — so a caller reading one on the line after
+    `Restate` gets the same number it always did. ⚠ **Nothing in the tree is that caller.** Their
+    remarks say "which is what a test counts" and no test counts them; grep finds no reference to
+    `StandardFrameView` outside this file at all. Recorded rather than removed, because a public
+    number this panel promises is not a wave-7 decision to revoke.
+
+    ⚠ **The scroll region's shape is load-bearing and was measured on device.** `frame-knobs` is not a
+    `ScrollView` of its own: a nested scroll region's content is `align-self: flex-start` with
+    `min-width: 100%`, so its rows size against their own content's width and the fixed-width
+    provenance column — the entire point of these tables — resolved to nothing and drew nothing. The
+    panel scrolls as one thing. `<ScrollView>` takes its children through `ContentHost`, so the
+    markup nests exactly where `scroll.Content.Add("frame-sections")` did.
+-->
+@component StandardFrameView
+@namespace Vixen.Editor.AssetEditors.Frame
+@inherits Vixen.Ui.Controls.Control
+@tag frame-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Core.Mathematics
+@using Vixen.Ecs
+@using Vixen.Editor.Core
+@using Vixen.Editor.Inspector
+@using Vixen.Editor.SceneView
+@using Vixen.Rendering
+@using Vixen.Rendering.Compositor
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<frame-banner ref="@Banner">@BannerText</frame-banner>
+
+<ScrollView>
+    <frame-sections>
+        <WorldTitle Text="The frame" />
+
+        <InspectorView ref="@Knobs" />
+
+        <WorldTitle Text="Look profile" />
+
+        <InspectorView ref="@Look" />
+
+        <verb-row>
+            <Button ref="@Explode"
+                    Label="Explode to a full document"
+                    Disabled="@CannotExplode"
+                    on:click="@(() => Eject())" />
+        </verb-row>
+
+        <WorldTitle Text="What it expands to" />
+
+        <analysis-list ref="@Facts">
+            @for (var note in FactRows) {
+                <AnalysisRow key="@note" class="@note.Class" Stage="@note.Stage" Message="@note.Message" />
+            }
+        </analysis-list>
+
+        <WorldTitle Text="Resolved quality" />
+
+        <CheckBox Label="Only what is overridden" change:IsChecked="@(only => Only(only))" />
+
+        <frame-knobs ref="@Quality">
+            @for (var knob in QualityKnobs) {
+                @if (knob.Group) {
+                    <FrameGroup key="@knob" Text="@knob.Name" />
+                } else {
+                    <fact-row key="@knob" class="@knob.Class">
+                        <FactName Text="@knob.Name" />
+                        <FactValue Text="@knob.Value" />
+                    </fact-row>
+                }
+            }
+
+            @if (QualityRows == 0) {
+                <TextLine Text="Nothing above the engine table states a value for this tier." />
+            }
+        </frame-knobs>
+
+        <WorldTitle Text="Volumes reaching the camera" />
+
+        <Button Label="Fold again" on:click="@(() => RestateVolumes())" />
+
+        <analysis-list ref="@Summary">
+            @if (NoScene.Length > 0) {
+                <TextLine Text="@NoScene" />
+            }
+
+            @for (var note in SummaryRows) {
+                <AnalysisRow key="@note" class="@note.Class" Stage="@note.Stage" Message="@note.Message" />
+            }
+        </analysis-list>
+
+        <frame-knobs ref="@Stack">
+            @for (var knob in StackKnobs) {
+                <fact-row key="@knob" class="@knob.Class">
+                    <FactName Text="@knob.Name" />
+                    <FactValue Text="@knob.Value" />
+                </fact-row>
+            }
+        </frame-knobs>
+    </frame-sections>
+</ScrollView>
+
+@code {
+    readonly ResolvedVolumes volumes = new();
+
+    /// <summary>What the panel is saying about the document as a whole.</summary>
+    readonly Signal<string> banner = new(string.Empty);
+
+    /// <summary>Whether the node can be replaced by the graph it stands for.</summary>
+    readonly Signal<bool> explodable = new(false);
+
+    /// <summary>What the expansion produced, and what it complained about.</summary>
+    readonly Signal<ImmutableArray<FrameNote>> facts = new([]);
+
+    /// <summary>What the fold said about itself.</summary>
+    readonly Signal<ImmutableArray<FrameNote>> summary = new([]);
+
+    /// <summary>The sentence shown instead of a fold when no scene is open.</summary>
+    readonly Signal<string> noScene = new(string.Empty);
+
+    /// <summary>The resolved quality stack, headings and rows in one list.</summary>
+    readonly Signal<ImmutableArray<FrameKnobRow>> quality = new([]);
+
+    /// <summary>The resolved volume stack.</summary>
+    readonly Signal<ImmutableArray<FrameKnobRow>> stack = new([]);
+
+    StandardFrameDocument? document;
+    bool overriddenOnly;
+
+    /// <summary>Whether the panel is the thing that caused the change it is being told about.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Without it, editing a knob rebuilds the form the knob is in.</b> A write raises the
+    ///     document's <c>Changed</c>, and the full restate re-inspects both forms — which throws away
+    ///     the row being typed into, and with it the caret. The derived sections still rebuild; only
+    ///     the two inspectors are left alone.
+    /// </remarks>
+    bool applying;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Where custom inspectors are found, so the markup forms are used rather than the rows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Handed in rather than read off <c>EditorRegistry.Default</c>.</b> The static is a
+    ///     different session's in a test run — the reason <c>TerrainModulePanels</c> gives — and a
+    ///     panel that found somebody else's contribution for its own settings type would draw
+    ///     somebody else's form. Null is not a failure: the generated rows are drawn instead, in
+    ///     declaration order, and everything still edits.
+    /// </remarks>
+    public IEditorRegistry? Extensions { get; set; }
+
+    /// <summary>The scene whose volumes the stack panel folds, or null for an editor without one.</summary>
+    public IActiveScene? Scene { get; set; }
+
+    /// <summary>The view the editor is looking through, whose position decides which volumes reach.</summary>
+    public IActiveView? Eye { get; set; }
+
+    /// <summary>The knobs.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>ref</c>, and ordinary shape 1 rather than wave 6's <c>sealed</c> blocker.</b>
+    ///     One control fed once by a method needs no wrapper type; what <c>sealed</c> stops is the
+    ///     wrapper a control fed <i>inside a <c>@for</c></i> would need, which is
+    ///     <c>MaterialView</c>'s parameter list and not this.
+    /// </remarks>
+    public InspectorView Knobs { get; private set; } = null!;
+
+    /// <summary>The look profile the document carries inline.</summary>
+    /// <inheritdoc cref="Knobs" />
+    public InspectorView Look { get; private set; } = null!;
+
+    /// <summary>The button that replaces the node with the graph it stands for.</summary>
+    public Button Explode { get; private set; } = null!;
+
+    /// <summary>What the expansion produced, and what it complained about.</summary>
+    public UiElement Facts { get; private set; } = null!;
+
+    /// <summary>The resolved quality stack.</summary>
+    public UiElement Quality { get; private set; } = null!;
+
+    /// <summary>The resolved volume stack.</summary>
+    public UiElement Stack { get; private set; } = null!;
+
+    /// <summary>What the fold said about itself — the camera, the counts, and what did not reach.</summary>
+    public UiElement Summary { get; private set; } = null!;
+
+    /// <summary>What the panel is saying about the document as a whole.</summary>
+    public UiElement Banner { get; private set; } = null!;
+
+    /// <summary>How many quality rows are showing, which is what a test counts.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Still synchronous, and the ledger's shape 3 is why the question was asked.</b> It is
+    ///     assigned while the projection runs, and a signal write is immediate — only the tree it
+    ///     produces is deferred. ⚠ And no test counts it: nothing in the tree names
+    ///     <c>StandardFrameView</c> outside this file. Kept because a public number this panel
+    ///     promises is not a port's to revoke.
+    /// </remarks>
+    public int QualityRows { get; private set; }
+
+    /// <summary>And how many volume-parameter rows.</summary>
+    /// <inheritdoc cref="QualityRows" />
+    public int StackRows { get; private set; }
+
+    partial void OnComposed() {
+        Knobs.EditedDocument = null;
+        Look.EditedDocument = null;
+    }
+
+    /// <summary>Shows a frame document.</summary>
+    /// <param name="frame">The document.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="frame" /> is null.</exception>
+    public void Show(StandardFrameDocument frame) {
+        ArgumentNullException.ThrowIfNull(frame);
+
+        if (document is { } previous) {
+            previous.Changed -= Restate;
+        }
+
+        document = frame;
+
+        Knobs.Extensions = Extensions ?? Knobs.Extensions;
+        Look.Extensions = Extensions ?? Look.Extensions;
+
+        frame.Changed += Restate;
+
+        Restate(frame);
+    }
+
+    /// <summary>Stops listening to the document, because a view that has left must not write.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>OnUnmounted</c> rather than <c>OnRemoved</c>, and the generator owns the
+    ///     difference.</b> A markup component's <c>OnRemoved</c> is emitted — it is where the
+    ///     composition is disposed — so overriding it here is <c>CS0111</c>. <c>OnUnmounted</c> is
+    ///     the partial the generator calls first, before the effects go, which is exactly where a
+    ///     subscription to something outside the document belongs.
+    /// </remarks>
+    partial void OnUnmounted() {
+        if (document is { } frame) {
+            frame.Changed -= Restate;
+            document = null;
+        }
+    }
+
+    /// <summary>Rebuilds everything the document decides.</summary>
+    /// <param name="frame">The document.</param>
+    public void Restate(StandardFrameDocument frame) {
+        ArgumentNullException.ThrowIfNull(frame);
+
+        document = frame;
+
+        // ⚠ The banner is the transition doc 39 asks for. After an explode the file is a full
+        // document and the form over it is gone; a panel that kept drawing knobs would be a form
+        // whose every write was discarded, which is the silent half of "one-way".
+        banner.Value = frame.CanEdit
+            ? $"!StandardFrame — {(frame.TierIsHosts ? "no tier written, so the host decides" : $"tier {frame.Tier}")}"
+            : "A hand-authored document. There is no frame node to turn, so the knobs are hidden and "
+            + "the panel does not write this file.";
+
+        if (!applying) {
+            Knobs.Inspect(frame.CanEdit ? [frame.Settings] : []);
+            Look.Inspect(frame.CanEdit ? [frame.Look] : []);
+
+            Watch(Knobs);
+            Watch(Look);
+        }
+
+        explodable.Value = frame.CanExplode;
+
+        RestateFacts(frame);
+        RestateQuality();
+        RestateVolumes();
+    }
+
+    /// <summary>Subscribes to every row of a form, so a write reaches the document.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>InspectorView.ValueChanged</c> does not fire for a custom inspector, which is the
+    ///     shape this panel is.</b> The event is raised from the generated-row loop, and a
+    ///     <c>CustomInspector</c> returns before that loop runs — so a markup form's writes are
+    ///     silent to whoever is holding the view. The edit target's own properties do raise
+    ///     <c>Changed</c>, and they are the same objects the markup bound to, so this is the same
+    ///     notification one layer down rather than a second mechanism.
+    /// </remarks>
+    void Watch(InspectorView view) {
+        if (view.Edited is not { } edited) {
+            return;
+        }
+
+        // ⚠ A fresh `InspectorTarget` is built by every `Inspect`, so these are new properties with
+        // no subscribers rather than the same ones subscribed twice.
+        foreach (var property in edited.Properties()) {
+            property.Changed += _ => Applied();
+        }
+    }
+
+    void Applied() {
+        if (applying || document is not { } frame) {
+            return;
+        }
+
+        applying = true;
+
+        try {
+            // The document raises `Changed`, which is what restates the panel — so the write path
+            // and the reload path are the same path and cannot drift.
+            frame.Apply();
+        } finally {
+            applying = false;
+        }
+    }
+
+    void Only(bool value) {
+        overriddenOnly = value;
+
+        RestateQuality();
+    }
+
+    void Eject() {
+        if (document is not { } frame || !frame.CanExplode) {
+            return;
+        }
+
+        try {
+            var kept = frame.Explode();
+
+            facts.Value = [
+                new(
+                    0,
+                    string.Empty,
+                    "exploded",
+                    $"The knobs are gone and this file is now hand-authored. What was there is beside it, "
+                    + $"as {Path.GetFileName(kept)}."
+                )
+            ];
+        } catch (InvalidOperationException refusal) {
+            facts.Value = [new(0, "error", "refused", refusal.Message)];
+        }
+    }
+
+    void RestateFacts(StandardFrameDocument frame) {
+        var expanded = frame.Expanded;
+        var rows = ImmutableArray.CreateBuilder<FrameNote>();
+        var slot = 0;
+
+        // Said on success too, for the reason the compositor's own analysis gives: a list that
+        // empties itself when everything is fine is one nobody can tell apart from one that never ran.
+        rows.Add(
+            new(
+                slot++,
+                string.Empty,
+                "frame",
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{expanded.Stages.Length} stages, {expanded.Resources.Length} targets, "
+                    + $"{expanded.Buffers.Length} buffers."
+                )
+            )
+        );
+
+        rows.Add(
+            new(
+                slot++,
+                string.Empty,
+                "quality",
+                frame.Preset is null
+                    ? $"Engine defaults for {frame.Tier}. No {StandardFrameDocument.PresetFile} beside the frame."
+                    : $"{StandardFrameDocument.PresetFile} over the engine table, for {frame.Tier}."
+            )
+        );
+
+        foreach (var complaint in frame.Diagnostics) {
+            rows.Add(new(slot++, "error", "refused", complaint));
+        }
+
+        facts.Value = rows.ToImmutable();
+    }
+
+    void RestateQuality() {
+        QualityRows = 0;
+
+        if (document is not { } frame) {
+            quality.Value = [];
+            return;
+        }
+
+        var rows = ImmutableArray.CreateBuilder<FrameKnobRow>();
+        var group = string.Empty;
+        var slot = 0;
+
+        foreach (var knob in ResolvedQualityTable.Resolve(frame.Tier, frame.Preset, frame.Node?.Preset)) {
+            if (overriddenOnly && !knob.Overridden) {
+                continue;
+            }
+
+            if (!string.Equals(group, knob.Group, StringComparison.Ordinal)) {
+                group = knob.Group;
+
+                rows.Add(new(slot++, true, string.Empty, group, string.Empty));
+            }
+
+            // ⚠ The provenance is *in* the value cell, not in a column of its own, and that is a
+            // finding rather than a preference. A third cell with a fixed width sits at the right
+            // edge of a docked panel, where a long member name, a padded scroll region or a
+            // scrollbar each push it out of view — measured three ways on device, invisible every
+            // time. A cell that always draws is worth more than a column that sometimes aligns.
+            //
+            // ⚠ Short names, because the cell is narrow: `RenderQuality.vxpreset` clipped to
+            // `RenderQuality.vxpres…` says less than `vxpreset`. The file's full name is on the
+            // line above the table, once.
+            //
+            // ⚠ Engine values are the rule and the other two are the exceptions, so only the
+            // exceptions are coloured — a table where every row is highlighted highlights nothing.
+            rows.Add(
+                new(
+                    slot++,
+                    false,
+                    knob.Overridden ? "overridden" : string.Empty,
+                    knob.Name,
+                    $"{knob.Value}   {knob.Layer switch {
+                        QualityLayer.Document => "document",
+                        QualityLayer.Project => "vxpreset",
+                        _ => "engine"
+                    }}"
+                )
+            );
+
+            QualityRows++;
+        }
+
+        quality.Value = rows.ToImmutable();
+    }
+
+    void RestateVolumes() {
+        StackRows = 0;
+
+        if (document is not { } frame) {
+            stack.Value = [];
+            summary.Value = [];
+            noScene.Value = string.Empty;
+
+            return;
+        }
+
+        if (Scene?.Current is not { } scene) {
+            stack.Value = [];
+            summary.Value = [];
+            noScene.Value = "No scene is open, so there is nothing to fold.";
+
+            return;
+        }
+
+        noScene.Value = string.Empty;
+
+        // ⚠ The document's own look is laid down as the base layer, because that is what the host
+        // does: `PostEffectFactory` deposits it on the builder and `AppGraphics` hands it to the
+        // fold. A panel that folded volumes without it would show a stack the game never has.
+        volumes.Look = frame.Look.ToSettings();
+        volumes.Camera = Eye?.Current?.Position ?? Vector3.Zero;
+
+        var report = volumes.Fold(scene.World);
+        var lines = ImmutableArray.CreateBuilder<FrameNote>();
+        var line = 0;
+
+        // ⚠ Above the table rather than in it, and not only so it stays put while the parameters
+        // scroll: a sentence is as wide as it is, and a scroll region sized to its content is a
+        // region whose columns start off the right edge — which is where the provenance column went
+        // the first time these four lines shared the table's box.
+        lines.Add(new(line++, string.Empty, "camera", Where(volumes.Camera)));
+        lines.Add(new(line++, string.Empty, "fold", report.Summary));
+
+        if (report.HasLook) {
+            lines.Add(
+                new(line++, string.Empty, "look", "The document's look profile is the base layer, at full weight.")
+            );
+        }
+
+        if (report.Volumes > report.Contributing) {
+            // ⚠ Two short lines rather than one long one, and the reason is the panel's width: a
+            // sentence in this column wraps against the scroll content's width rather than the
+            // dock's, so a line past about sixty characters runs off the right edge mid-word. The
+            // cause list is the useful half and must not be the half that is cut.
+            lines.Add(
+                new(line++, "warning", "note", $"{report.Volumes - report.Contributing} placed and not reaching.")
+            );
+
+            lines.Add(
+                new(line++, "warning", "why", "Out of range, zero weight, zero extents, or says nothing.")
+            );
+        }
+
+        summary.Value = lines.ToImmutable();
+
+        var rows = ImmutableArray.CreateBuilder<FrameKnobRow>();
+        var slot = 0;
+
+        foreach (var parameter in report.Parameters) {
+            // The same three facts the quality table shows, in the same cell and for the same
+            // reason: what it resolved to, at what weight, and which layer had the last word.
+            //
+            // ⚠ Contested is the interesting state, not "came from a volume". A parameter one
+            // layer claims is doing what its author asked; a parameter three layers claim is
+            // where somebody's edit is being quietly out-voted.
+            rows.Add(
+                new(
+                    slot++,
+                    false,
+                    parameter.IsContested ? "overridden" : string.Empty,
+                    parameter.Parameter,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{parameter.Value} ×{parameter.Weight:0.##}   {Short(parameter.Winner)}"
+                        + $"{(parameter.IsContested ? $" of {parameter.Layers.Count}" : string.Empty)}"
+                    )
+                )
+            );
+
+            StackRows++;
+        }
+
+        stack.Value = rows.ToImmutable();
+    }
+
+    /// <summary>A layer name that fits the column.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shortened here and not in <see cref="ResolvedVolumes" />.</b> The fold's own spelling
+    ///     is <c>volume(priority 3)</c> — <c>PostProcessVolumeSystem.Contributions</c> writes it, a
+    ///     log line quotes it, and a test asserts it — so the data keeps it and only the cell is
+    ///     narrowed. A clipped <c>volume(prior…</c> tells a reader nothing; the priority is the part
+    ///     that distinguishes one volume from the next.
+    /// </remarks>
+    static string Short(string layer) => layer.StartsWith("volume(priority ", StringComparison.Ordinal)
+        ? $"priority {layer[16..].TrimEnd(')')}"
+        : layer;
+
+    static string Where(Vector3 point) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"{point.X:0.##}, {point.Y:0.##}, {point.Z:0.##}"
+    );
+
+    // ================================================================== What the markup reads
+
+    string BannerText => banner.Value;
+
+    bool CannotExplode => !explodable.Value;
+
+    ImmutableArray<FrameNote> FactRows => facts.Value;
+
+    ImmutableArray<FrameNote> SummaryRows => summary.Value;
+
+    string NoScene => noScene.Value;
+
+    ImmutableArray<FrameKnobRow> QualityKnobs => quality.Value;
+
+    ImmutableArray<FrameKnobRow> StackKnobs => stack.Value;
+}
