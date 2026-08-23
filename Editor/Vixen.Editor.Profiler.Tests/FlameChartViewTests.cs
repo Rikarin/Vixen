@@ -22,6 +22,7 @@ public sealed class FlameChartViewTests : IDisposable {
     static readonly ProfilingKey Frame = ProfilingKey.Register("Chart.Frame");
     static readonly ProfilingKey Wide = ProfilingKey.Register("Chart.Wide");
     static readonly ProfilingKey Sliver = ProfilingKey.Register("Chart.Sliver");
+    static readonly ProfilingKey Other = ProfilingKey.Register("Chart.Other");
 
     public FlameChartViewTests() {
         ControlTheme.Install(test.Document);
@@ -138,6 +139,40 @@ public sealed class FlameChartViewTests : IDisposable {
         Assert.Equal(FlameChartView.HueOf("Render.Culling"), FlameChartView.HueOf("Render.Culling"));
         Assert.InRange(FlameChartView.HueOf("Render.Culling"), 0, FlameChartView.HueCount - 1);
         Assert.InRange(FlameChartView.HueOf(""), 0, FlameChartView.HueCount - 1);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the hue reaches the bar, which for the whole life of the control it did not.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="AScopesColourFollowsItsNameAndIsStable" /> asks <c>HueOf</c> what number it
+    ///     chose and stops there, so it passed every day the chart drew eight identical grey bars:
+    ///     <c>ProfilerTheme</c> declared <c>flame-hue-0 … flame-hue-7</c> as <i>type</i> selectors and
+    ///     <c>Place</c> applies them with <c>AddClass</c>, so the eight rules named a tag nothing has
+    ///     and the eight classes matched nothing. Nothing could have noticed: an unstyled element
+    ///     still renders, and a bar with no fill is a bar. So the assertion is on the resolved
+    ///     colour — the only reading that can tell the two apart.
+    /// </remarks>
+    [Fact]
+    public void ABarIsPaintedTheColourItsHueClassDeclares() {
+        // ⚠ `Other` rather than `Wide`, and the reason is worth a line: `Chart.Frame`, `Chart.Wide`
+        // and `Chart.Sliver` all hash to hue 4, so the pair every other test in this file uses could
+        // not have told a working palette from a broken one.
+        Show(Sample(Other, 1, 500, 200), Sample(Frame, 0, 100, 1000));
+
+        var colours = test.Get("flame-bar")
+            .Elements
+            .Select(bar => test.ColorOf(bar, "background-color"))
+            .ToList();
+
+        Assert.Equal(2, colours.Count);
+        Assert.All(colours, colour => Assert.NotNull(colour));
+
+        // The two scopes hash to different hues, so the chart is doing the one thing colour is here
+        // for: saying which bar is which. `HueOf` is asked rather than asserted against a literal —
+        // the hash is that test's subject, and this one's is that the class it picks paints.
+        Assert.NotEqual(FlameChartView.HueOf("Chart.Frame"), FlameChartView.HueOf("Chart.Other"));
+        Assert.NotEqual(colours[0], colours[1]);
     }
 
     [Fact]

@@ -184,9 +184,17 @@ public class ControlVisualTests {
         ui.Screenshot("spinner-quarter");
     }
 
+    /// <summary>
+    ///     ⚠ <b>The fixture said <c>text-box</c>, and <c>TextField.TagName</c> is <c>textbox</c>.</b>
+    ///     The one rule this test has never matched, so the box was never given the 160×32 the line
+    ///     asks for — and the two pictures committed as what a text box looks like are of a
+    ///     seventeen-pixel sliver filling the full height of the frame. Both references are owed a
+    ///     re-acceptance with <c>VIXEN_UPDATE_SCREENSHOTS=1</c>; look at what it draws first, because
+    ///     looking at it is the step the last acceptance evidently skipped.
+    /// </summary>
     [Fact]
     public void Text_box_empty_and_filled_and_focused() {
-        using var ui = Opened(180f, 44f, "text-box { width: 160px; height: 32px; }");
+        using var ui = Opened(180f, 44f, "textbox { width: 160px; height: 32px; }");
         ui.Add<TextBox>("name");
         ui.Frame();
 

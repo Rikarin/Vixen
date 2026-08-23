@@ -18,7 +18,7 @@ public class NavigationInteractionTests {
             tabs { width: 300px; height: 40px; }
             expander, accordion { width: 300px; }
             scroll-view { width: 200px; height: 100px; }
-            text-box { width: 200px; height: 32px; }
+            textbox { width: 200px; height: 32px; }
             """
             + Environment.NewLine
             + css

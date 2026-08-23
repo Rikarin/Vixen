@@ -52,8 +52,21 @@ asset-path { flex-direction: row; flex-wrap: wrap; align-items: center; flex-shr
 /* ⚠ The tile size is a custom property rather than a rule on the tile, because the grid
    does the placing: it needs the number to work out how many fit across and where item
    40 000 is, and a size the control could only discover by measuring an element would
-   defeat the whole arrangement. */
-asset-tiles {
+   defeat the whole arrangement.
+
+   ⚠ **A class, and the rule was the half that was wrong.** `AssetGrid` writes
+   `body.AddClass("asset-tiles")` on a `VirtualizingGrid`, and it has to: the element's tag is
+   `virtualizing-grid`, which is what `ControlTheme` reaches for with `virtualizing-grid { flex: 1 }`
+   and `virtualizing-grid scroll-view { flex: 1 }`. Naming the part `asset-tiles` instead — the other
+   way to make a type selector match — would take both of those away to fix a rule that duplicates
+   one of them. So the dot goes here rather than the tag moving there.
+
+   ⚠ **Which is also why nothing moves on screen.** `TileSize` writes the three sizes inline from
+   `TileSizes`, inline beats any sheet, and the numbers below are `Medium`'s to the pixel — so these
+   three declarations were dead twice over and the two flex ones say what `virtualizing-grid` already
+   said. They are kept because the sheet is where a tile size is *read*, and a size only ever written
+   from code is a size the theme cannot answer for. */
+.asset-tiles {
     --tile-width: 82px;
     --tile-height: 84px;
     --tile-glyph: 40px;

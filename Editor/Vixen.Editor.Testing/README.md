@@ -10,7 +10,7 @@ editor.Step("rename the crate")
       .ExpandAll(editor.Hierarchy)
       .DoubleClickRow(editor.Hierarchy, "Crate");
 
-editor.Ui.Get("text-box").Type("Barrel").PressKey(InputKey.Enter);
+editor.Ui.Get("textbox").Type("Barrel").PressKey(InputKey.Enter);
 editor.Ui.Contains("Barrel").ShouldExist();
 ```
 

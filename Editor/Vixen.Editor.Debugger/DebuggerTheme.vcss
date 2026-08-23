@@ -87,7 +87,10 @@ remote-write {
     border-color: var(--border);
 }
 
-remote-write > text-box { flex-grow: 1; min-width: 60px; }
+/* ⚠ `textbox`, not `text-box` — `TextField.TagName` is one word. The two boxes the remote
+   inspector writes with are `TextBox`es, so the hyphen meant the member and value fields never
+   took the width the row had for them. */
+remote-write > textbox { flex-grow: 1; min-width: 60px; }
 
 /* ── The device manager ─────────────────────────────────────────────── */
 device-manager > data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
