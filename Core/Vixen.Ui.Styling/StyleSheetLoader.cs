@@ -156,7 +156,14 @@ public sealed class StyleSheetLoader {
 
             declarationScratch.Clear();
             foreach (var declaration in stop.Style) {
-                Collect(declaration.Name, declaration.Value, declaration.IsImportant);
+                // The stop rather than the animation: `@keyframes fade` may have six of them, and
+                // the one to go and fix is the offset the declaration is written under.
+                Collect(
+                    declaration.Name,
+                    declaration.Value,
+                    declaration.IsImportant,
+                    $"@keyframes {rule.Name} {{ {stop.KeyText} }}"
+                );
             }
 
             keyframes.Add(rule.Name, offset, CollectionsMarshal.AsSpan(declarationScratch));
@@ -245,7 +252,10 @@ public sealed class StyleSheetLoader {
 
         declarationScratch.Clear();
         foreach (var declaration in style.Style) {
-            Collect(declaration.Name, declaration.Value, declaration.IsImportant);
+            // ⚠ The selector, so that a shorthand this could not take apart names the rule it was
+            // written in. `border: var(--x) solid` is the same six words in every rule that has it,
+            // and the refusal is otherwise indistinguishable between two of them.
+            Collect(declaration.Name, declaration.Value, declaration.IsImportant, style.SelectorText);
         }
 
         // A comma-separated selector is several rules that happen to share a declaration block, and
@@ -332,7 +342,11 @@ public sealed class StyleSheetLoader {
                 new SelectorDiagnostic(
                     $"{name}: {value}",
                     "this shorthand could not be taken apart, so the longhands it would have set "
-                    + "are not set"
+                    + "are not set",
+                    // There is no rule to name — a `style="…"` attribute belongs to one element and
+                    // has no selector — but saying so is still worth more than saying nothing, because
+                    // it tells a reader not to go looking through the stylesheets for it.
+                    "a style=\"…\" attribute"
                 )
             );
         }
@@ -349,7 +363,7 @@ public sealed class StyleSheetLoader {
     ///     half of the rule with nothing to say why. Running over ExCSS's own output remains out of
     ///     the question; see <see cref="ShorthandExpansion" /> for both holes and why each is silent.
     /// </remarks>
-    void Collect(string name, string value, bool important) {
+    void Collect(string name, string value, bool important, string? rule) {
         if (ShorthandExpansion.NeedsExpanding(name, value)) {
             expansionScratch.Clear();
 
@@ -368,7 +382,8 @@ public sealed class StyleSheetLoader {
                 new SelectorDiagnostic(
                     $"{name}: {value}",
                     "this shorthand could not be taken apart, so the longhands it would have set "
-                    + "are not set"
+                    + "are not set",
+                    rule
                 )
             );
         }

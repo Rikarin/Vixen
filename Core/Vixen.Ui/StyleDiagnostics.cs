@@ -140,7 +140,16 @@ public sealed partial class UiDocument {
 
         for (; drained < entries.Count; drained++) {
             var diagnostic = entries[drained];
-            StyleLog.Refused(logger, source, diagnostic.Text, diagnostic.Reason);
+
+            // ⚠ The enclosing rule when there is one, because the fragment alone does not say which
+            // rule to go and fix — see `SelectorDiagnostic`. Two events rather than one with an
+            // empty slot, so that a refusal whose fragment *is* its rule does not read "in 'X'"
+            // after having already said 'X'.
+            if (diagnostic.NamesAnEnclosingRule) {
+                StyleLog.RefusedIn(logger, source, diagnostic.Text, diagnostic.Where, diagnostic.Reason);
+            } else {
+                StyleLog.Refused(logger, source, diagnostic.Text, diagnostic.Reason);
+            }
         }
     }
 }

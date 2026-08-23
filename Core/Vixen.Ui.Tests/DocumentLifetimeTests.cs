@@ -8,45 +8,33 @@ namespace Vixen.Ui.Tests;
 /// <summary>That a document which has been disposed says so instead of taking the process with it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The failure this replaces destroyed the evidence that would have identified
+///         <b>The failure this was written against destroyed the evidence that would have identified
 ///         it.</b> <c>UiDocument.Layout</c> is a <c>LayoutTree</c> and a <c>LayoutTree</c> is four
-///         <c>NativeArray</c>s. Disposing it frees them and zeroes its capacity but leaves the
-///         struct fields holding the freed pointers — so the next <c>CreateNode</c> grows from a
-///         capacity of nought, finds the arrays non-empty, copies out of memory that is no longer
-///         ours and frees it a second time. The allocator aborts. No managed exception, no message,
-///         no stack: the run ends with <c>SIGABRT</c> and stdout stops mid-sentence.
-///     </para>
-///     <para>
-///         ⚠ <b>And the minute of silence in front of it belongs to the test runner, not to the
-///         document.</b> The abort is immediate — a standalone process dies inside a millisecond of
-///         the call. What waits is <c>xunit.runner.visualstudio</c>'s
-///         <c>TestProjectConfiguration.CrashDetectionSinkTimeoutOrDefault</c>, 60&#160;000&#160;ms,
-///         before the adapter gives up on the dead test host and prints "Catastrophic failure: Test
+///         <c>NativeArray</c>s. Disposing it freed them and zeroed its capacity but left the struct
+///         fields holding the freed pointers — so the next <c>CreateNode</c> grew from a capacity of
+///         nought, found the arrays non-empty, copied out of memory that was no longer ours and
+///         freed it a second time. The allocator aborted: no managed exception, no message, no
+///         stack, and then <c>xunit.runner.visualstudio</c>'s
+///         <c>TestProjectConfiguration.CrashDetectionSinkTimeoutOrDefault</c> — 60&#160;000&#160;ms
+///         — before the adapter gave up on the dead host and printed "Catastrophic failure: Test
 ///         process crashed with exit code 134". A minute of nothing followed by an abort reads
-///         identically to a deadlock, to a native crash in the RHI and to a host timeout, and it has
-///         already cost one debugging cycle spent in the wrong subsystem.
+///         identically to a deadlock, and it cost one debugging cycle spent in the wrong subsystem.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why no test here performs the abort, even to check that it no longer
-///         happens.</b> Written the obvious way — dispose, then <c>Add</c> an element — a test proves
-///         the fix today and, on the day it regresses, does not fail: it kills the run, after a
-///         minute, with no test name attached to it. So every call below is made in a form that
-///         throws before it reaches the layout store, and the exception <i>type</i> carries the
-///         assertion. A lost guard is then a red line about an exception type rather than a dead
-///         process. See
-///         <see cref="Creating_an_element_on_a_disposed_document_throws_rather_than_aborting" />.
+///         ⚠ <b>Every call here used to be fenced, and none of them is any more.</b> While the abort
+///         was reachable, a test written the obvious way — dispose, then <c>Add</c> an element —
+///         proved the fix on the day it was written and, on the day it regressed, did not fail: it
+///         killed the run, after a minute, with no test name attached. So each call was made in a
+///         form that threw <i>before</i> reaching the layout store — a null element, an owner from
+///         another document — and the exception <i>type</i> carried the assertion.
 ///     </para>
 ///     <para>
-///         The one exception is disposing twice, which cannot be probed without doing it. It is
-///         fenced behind an <c>Update</c> assertion instead, so removing the <c>disposed</c> field
-///         is caught before the second <c>Dispose</c> runs; only a deliberate rewrite of
-///         <c>Dispose</c> that keeps the field and drops its early return gets past that.
-///     </para>
-///     <para>
-///         ⚠ The abort would stop being reachable at all if <c>LayoutTree.Dispose</c> cleared its
-///         four <c>NativeArray</c> fields rather than leaving them holding freed pointers — a
-///         disposed store would then grow a fresh set instead of copying out of dead memory. That is
-///         the deeper fix and it belongs to <c>Vixen.Ui.Layout</c>; this is the guard in front of it.
+///         <c>LayoutTree.Dispose</c> now clears its four fields and empties its free list, so a
+///         disposed store grows a fresh set rather than copying out of dead memory, and the abort is
+///         unreachable through any holder rather than only through a guarded document. The plain
+///         form is therefore safe to write, and is written: a lost guard here is now a red
+///         <c>Assert.Throws</c> naming the call that lost it. The store's own half of the contract
+///         is asserted by <c>LayoutTreeTests.A_disposed_tree_can_be_used_again_rather_than_freeing_the_same_memory_twice</c>.
 ///     </para>
 /// </remarks>
 public class DocumentLifetimeTests {
@@ -123,37 +111,30 @@ public class DocumentLifetimeTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Creating an element is the call that actually aborted, and it is asked in the one
-    ///     form that cannot abort.</b>
+    ///     ⚠ <b>Creating an element is the call that actually aborted, and it is now asked plainly.</b>
     /// </summary>
     /// <remarks>
     ///     <para>
     ///         <c>Adopt</c> is the seam both <c>Create</c> overloads and every <c>UiElement.Add</c>
-    ///         come through, and it allocates a layout node — the growth that copies out of the freed
-    ///         arrays and frees them again. So <c>document.Root.Add("div")</c> is the plainest
-    ///         reproduction there is and the one assertion that must not be written: with the guard
-    ///         gone it does not fail, it takes the whole run with it, and the run then sits silent
-    ///         for the runner's minute before saying so.
+    ///         come through, and it allocates a layout node — the growth that used to copy out of the
+    ///         freed arrays and free them again. So <c>document.Root.Add("div")</c> is the plainest
+    ///         reproduction there is, and it was for exactly that reason the one assertion that could
+    ///         not be written: with the guard gone it did not fail, it took the run with it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So each call is made with an argument its own next line would refuse.</b> A null
-    ///         element and an owner belonging to another document both throw before anything reaches
-    ///         the layout store, which makes the exception <i>type</i> the whole assertion:
-    ///         <c>ObjectDisposedException</c> means the guard ran, and
-    ///         <c>ArgumentNullException</c> or <c>ArgumentException</c> means it did not. Either way
-    ///         the process survives to report it.
+    ///         It is written now. <c>LayoutTree.Dispose</c> clears its four <c>NativeArray</c> fields,
+    ///         so the worst a lost guard can do here is create an element against a store that grew
+    ///         itself a fresh set — a wrong answer, which <c>Assert.Throws</c> reports as one.
     ///     </para>
     /// </remarks>
     [Fact]
     public void Creating_an_element_on_a_disposed_document_throws_rather_than_aborting() {
         var document = Disposed();
 
-        // ⚠ `Adopt` rather than `Create` or `Add`, because it is the only one of the three that
-        // takes the element as an argument — and a null one is refused on the line below the guard.
-        Assert.Throws<ObjectDisposedException>(() => document.Adopt(null!, "div", document.Root));
+        Assert.Throws<ObjectDisposedException>(() => document.Root.Add("div"));
+        Assert.Throws<ObjectDisposedException>(() => document.Adopt(new UiElement(), "div", document.Root));
 
-        // ⚠ And an owner from another document, which `CreateSurface` refuses immediately after its
-        // own guard. `elsewhere` is live, so nothing here depends on two disposed documents.
+        // `elsewhere` is live, so nothing here depends on two disposed documents.
         using var elsewhere = new UiDocument(100f, 100f);
         Assert.Throws<ObjectDisposedException>(() => document.CreateSurface(400f, 300f, 1f, elsewhere.Root));
     }
@@ -165,13 +146,14 @@ public class DocumentLifetimeTests {
     ///     A document inside a <c>using</c> that is also disposed by the host it was handed to is an
     ///     ordinary arrangement rather than a mistake, and <c>IDisposable</c> promises this is
     ///     allowed. It was not: the second call handed the same four addresses back to the allocator.
-    ///     Fenced behind the same <c>Update</c> assertion, for the same reason.
+    ///     It is doubly true now — <c>UiDocument.Dispose</c> returns early on its <c>disposed</c>
+    ///     field, and <c>LayoutTree.Dispose</c> would free nothing twice even if it did not — so this
+    ///     no longer needs the <c>Update</c> assertion that used to fence it.
     /// </remarks>
     [Fact]
     public void Disposing_twice_is_allowed() {
         var document = Disposed();
 
-        Assert.Throws<ObjectDisposedException>(() => document.Update());
         document.Dispose();
         document.Dispose();
     }

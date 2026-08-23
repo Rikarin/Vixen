@@ -15,6 +15,24 @@ static partial class StyleLog {
     )]
     public static partial void Refused(ILogger logger, string source, string text, string reason);
 
+    /// <summary>The same refusal, when the fragment that caused it is not the whole rule.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second event rather than a <c>{Rule}</c> in 7004, because most refusals do not have
+    ///     one.</b> A refusal names the fragment the compiler stopped on — <c>::before</c>, a
+    ///     combinator, one declaration out of a block — and the fragment on its own says nothing
+    ///     about <i>which</i> rule to go and change: a sheet with two <c>::before</c> rules produces
+    ///     two 7004 lines differing only in their reason. Where the enclosing rule is known it is
+    ///     named here. Where the fragment already <i>is</i> the rule — <c>@media (min-width: bananas)</c>
+    ///     is both — 7004 stands, rather than a line reading "refused 'X' in 'X'".
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 7006,
+        Level = LogLevel.Warning,
+        Message = "{Source} refused '{Text}' in '{Rule}': {Reason}. It was dropped; the rest of the stylesheet "
+            + "still applies, so the visible effect is a rule that does nothing."
+    )]
+    public static partial void RefusedIn(ILogger logger, string source, string text, string rule, string reason);
+
     [LoggerMessage(
         EventId = 7005,
         Level = LogLevel.Warning,

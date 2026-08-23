@@ -400,11 +400,40 @@ public sealed partial class LayoutTree : IDisposable {
     }
 
     /// <summary>Releases the store.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Each of the four is cleared as well as freed, and that is not tidiness.</b>
+    ///         <see cref="NativeArray{T}" /> is a <c>readonly struct</c>, so its <c>Dispose</c>
+    ///         cannot null its own pointer — the field goes on holding the freed address and
+    ///         <c>IsEmpty</c> goes on answering <see langword="false" />. Left that way, the next
+    ///         <see cref="CreateNode" /> finds <c>capacity</c> at nought, calls <c>Grow(0)</c>, and
+    ///         <c>Grow</c>'s <c>Resize</c> tests exactly that property: it copies out of memory that
+    ///         is no longer ours and hands the same address back to the allocator a second time.
+    ///         macOS libmalloc aborts on the double free immediately and without a managed
+    ///         exception, so the run ends in <c>SIGABRT</c> with no test name on it — and, under
+    ///         xunit, only after the runner's 60-second crash-detection timeout, which reads exactly
+    ///         like a deadlock. Assigning <c>default</c> makes a disposed store grow a fresh set
+    ///         instead, which is also what makes disposing twice free nothing twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>freeCount</c> for the same reason, one step further in.</b> A tree that
+    ///         removed a node before it was disposed has slots on the free list, and
+    ///         <see cref="CreateNode" /> takes one of those <i>without</i> growing — so it would
+    ///         write through the stale pointer before <c>Grow</c> ever got a chance to replace it.
+    ///         Clearing the arrays alone would leave that path live.
+    ///     </para>
+    /// </remarks>
     public void Dispose() {
         styles.Dispose();
         results.Dispose();
         links.Dispose();
         flags.Dispose();
+        styles = default;
+        results = default;
+        links = default;
+        flags = default;
+        freeSlots = [];
+        freeCount = 0;
         measureFunctions = null;
         baselineFunctions = null;
         contexts = null;

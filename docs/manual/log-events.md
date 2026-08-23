@@ -117,15 +117,28 @@ whatever the host names when it builds the document; `Vixen.Editor.App` files th
 `Vixen.Ui.Styling`, deliberately apart from the editor's own `Vixen.Editor`, so that "the styling is
 wrong" is one filter in the Console panel.
 
-⚠ **`LayoutStyleBuilder.Diagnostics` is the third list of the same shape and is still unread** — it
-is produced inside the per-element pass rather than at load, so it needs a drain point in
-`UiDocument.Update`. Tracked as #56; it will use 7004 rather than an id of its own, because it is
-the same event with a different source.
+`LayoutStyleBuilder.Diagnostics` is the third list of the same shape and is drained too, by
+`UiDocument.DrainBuilderDiagnostics` at the end of `Update` — it is produced inside the per-element
+pass rather than at load, so it could not share the loader's drain point. It uses these same ids
+rather than any of its own, because it is the same event with a different `{Source}`.
+
+⚠ **7004 and 7006 are one event in two shapes, and which one arrives is a fact about the
+refusal.** A refusal names the *fragment* the cascade stopped on — `::before`, a combinator, one
+declaration out of a block — and a fragment does not say which rule to go and fix: a sheet with two
+`::before` rules produced two 7004 lines that were character-for-character identical, on a channel
+with no line numbers behind it, because ExCSS does not carry source positions through to the nodes
+the compiler walks. Where the enclosing rule is known it is named, on 7006. Where the fragment
+already *is* the whole rule — `@nonsense pretend` is both — 7004 stands, rather than a line reading
+`refused 'X' in 'X'`. `LayoutStyleBuilder`'s refusals are always 7004: it is handed a
+`ComputedStyle`, which is interned property and value ids with every trace of provenance already
+cascaded away, and carrying rule ids through the cascade to recover it would break the interning
+that makes ten thousand identically styled cells one entry.
 
 | Id | Level | Message | Since |
 |---|---|---|---|
-| 7004 | Warning | `{Source} refused '{Text}': {Reason}.` — an at-rule, a selector or a declaration the cascade dropped. The rule stays in the sheet and does nothing, which is why silence was expensive | 0.1.0 |
+| 7004 | Warning | `{Source} refused '{Text}': {Reason}.` — an at-rule, a selector or a declaration the cascade dropped, where the text is the whole of what can be named. The rule stays in the sheet and does nothing, which is why silence was expensive | 0.1.0 |
 | 7005 | Warning | `An @apply could not be expanded: {Reason}.` — a utility name that is not one, or one carrying a variant. The declarations it stood for are simply absent from the block | 0.1.0 |
+| 7006 | Warning | `{Source} refused '{Text}' in '{Rule}': {Reason}.` — the same refusal, where the fragment is part of a larger rule and `{Rule}` is the selector or block to go and change | 0.1.0 |
 
 ### `Vixen.Audio` and its backends
 

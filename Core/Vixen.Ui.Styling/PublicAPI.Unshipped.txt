@@ -265,12 +265,16 @@ Vixen.Ui.Styling.SelectorCompiler.Diagnostics.get -> System.Collections.Generic.
 Vixen.Ui.Styling.SelectorCompiler.SelectorCompiler(Vixen.Ui.Styling.SelectorTable table, Vixen.Ui.Styling.NameTable names) -> void
 Vixen.Ui.Styling.SelectorDiagnostic -> readonly struct
 Vixen.Ui.Styling.SelectorDiagnostic : System.IEquatable<Vixen.Ui.Styling.SelectorDiagnostic>
+Vixen.Ui.Styling.SelectorDiagnostic.NamesAnEnclosingRule.get -> bool
 Vixen.Ui.Styling.SelectorDiagnostic.Reason.get -> string
 Vixen.Ui.Styling.SelectorDiagnostic.Reason.init -> string
+Vixen.Ui.Styling.SelectorDiagnostic.Rule.get -> string?
+Vixen.Ui.Styling.SelectorDiagnostic.Rule.init -> string?
 Vixen.Ui.Styling.SelectorDiagnostic.SelectorDiagnostic() -> void
-Vixen.Ui.Styling.SelectorDiagnostic.SelectorDiagnostic(string Text, string Reason) -> void
+Vixen.Ui.Styling.SelectorDiagnostic.SelectorDiagnostic(string Text, string Reason, string? Rule = null) -> void
 Vixen.Ui.Styling.SelectorDiagnostic.Text.get -> string
 Vixen.Ui.Styling.SelectorDiagnostic.Text.init -> string
+Vixen.Ui.Styling.SelectorDiagnostic.Where.get -> string
 Vixen.Ui.Styling.SelectorMatcher -> sealed class
 Vixen.Ui.Styling.SelectorMatcher.Matches(Vixen.Ui.Styling.StyleTree tree, Vixen.Ui.Styling.StyleNodeId element, Vixen.Ui.Styling.Selector selector, bool useBloom = true) -> bool
 Vixen.Ui.Styling.SelectorMatcher.SelectorMatcher(Vixen.Ui.Styling.SelectorTable table) -> void

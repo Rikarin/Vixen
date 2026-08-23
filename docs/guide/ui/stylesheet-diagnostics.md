@@ -4,7 +4,7 @@ slug: ui/stylesheet-diagnostics
 kind: guide
 area: Core
 summary: What happens to CSS Vixen cannot read — the at-rules, selectors and @apply names it drops, the build step's two refusal channels, where each refusal is now reported, and why a rule that does nothing used to be indistinguishable from a rule that was never written.
-api: [L:7004, L:7005, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
+api: [L:7004, L:7005, L:7006, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
 tags: [ui, styling, vcss, diagnostics, logging, troubleshooting, apply]
 since: 0.2
 status: preview
@@ -21,12 +21,13 @@ and it is the right one for a UI that must not disappear over a typo.
 
 The cost of it is that **a rule which does nothing looks exactly like a rule nobody wrote.**
 
-Two log events close that gap. Every refusal the cascade makes is now reported as it is made:
+Three log events close that gap. Every refusal the cascade makes is now reported as it is made:
 
 | Id | Level | What it means |
 |---|---|---|
-| `7004` | Warning | The stylesheet loader or the selector compiler dropped something. The message names the source, the text as it was written, and why. |
+| `7004` | Warning | The stylesheet loader, the selector compiler or the layout bridge dropped something, and the text it names is the whole of what can be named. |
 | `7005` | Warning | An `@apply` could not be expanded — a name that is not a utility, or one carrying a variant. |
+| `7006` | Warning | The same refusal as `7004`, where what was refused is a *fragment* of a larger rule. The message names the fragment **and** the rule to go and change. |
 
 They arrive through `ILogger`, so they land in `Vixen.Core.Diagnostics`' always-on `RingBufferSink`:
 the editor's Console panel, a game's log overlay, a rolling log file, and a crash dump.
@@ -54,7 +55,8 @@ not implemented: all of them take the same path, and all of them used to vanish.
 ```vcss
 /* Every line below is dropped, and every one of them now says so. */
 @suports (display: grid) { .card { display: grid } }   /* 7004 — not an at-rule Vixen knows */
-.card >>> .body { color: red }                          /* 7004 — not a combinator Vixen supports */
+.card >>> .body { color: red }                          /* 7006 — not a combinator Vixen supports */
+.card::before { content: '>' }                          /* 7006 — names `.card::before`, not `::before` */
 .card { @apply p-4 hover:bg-accent notautility; }       /* 7005 twice: the variant, and the name */
 ```
 
@@ -68,11 +70,27 @@ the first sheet's problems. A reload — a resize that flips a breakpoint, a sav
 both producers and the refusals that survive it are reported again, which is what makes a hot reload
 that fixes one rule and breaks another legible.
 
-⚠ **A dropped declaration inside a rule Vixen *did* understand is a third list and is not drained
-yet.** `LayoutStyleBuilder.Diagnostics` answers a different question — what parsed as CSS and then
+**A dropped declaration inside a rule Vixen *did* understand is a third list, and it is drained
+too.** `LayoutStyleBuilder.Diagnostics` answers a different question — what parsed as CSS and then
 meant nothing to the layout, `grid-template-columns: 4furlongs` being the canonical case — and is
-produced inside the per-element pass rather than at load. Tracked as issue #56; it will report on
-`7004` when it lands, because it is the same event with a different source.
+produced inside the per-element pass rather than at load, so it is drained at the end of `Update`
+rather than after a load. It reports on `7004`, because it is the same event with a different
+source.
+
+⚠ **A refusal names the fragment; `7006` also names the rule.** The cascade stops on the smallest
+thing it could not use — `::before`, a combinator, one declaration — and reports *that*, which is
+right and is not enough on its own: a sheet with two `::before` rules used to produce two warnings
+that were character-for-character identical, and neither said which rule to open. There are no line
+numbers to fall back on, because the CSS parser does not carry source positions through to the nodes
+the compiler walks, so the enclosing selector is the only locator there is. Where it is known you get
+`7006` and the rule is in the message; where the fragment already *is* the whole rule you get `7004`
+and it is named once.
+
+The layout bridge's refusals are always `7004`. It is handed a `ComputedStyle` — interned property
+and value ids, with the rule, origin, layer and specificity that produced them already resolved and
+discarded — so there is no rule left to name. What it gives you instead is a text that is a locator
+of its own: `grid-template-columns: 4furlongs` is the declaration as you wrote it, and greppable
+across a project's sheets in a way a bare `::before` is not.
 
 ## Examples
 

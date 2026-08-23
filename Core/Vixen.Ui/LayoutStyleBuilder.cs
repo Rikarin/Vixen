@@ -139,6 +139,33 @@ public sealed class LayoutStyleBuilder {
     /// </remarks>
     public void ClearDiagnostics() => diagnostics.Clear();
 
+    /// <summary>Records a refused declaration, once per distinct declaration.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>These carry no <c>Rule</c>, and it is not an oversight — the information does not
+    ///         reach here.</b> <see cref="SelectorDiagnostic" /> was widened so that a refusal naming
+    ///         a fragment can also name the rule the fragment was written in, and the loader and the
+    ///         compiler both pass one. This producer cannot: it is handed a
+    ///         <see cref="ComputedStyle" />, which is two <c>int[]</c>s of interned property and
+    ///         value ids with every trace of where they came from already cascaded away. By the time
+    ///         a declaration is refused here, the rule that declared it, its origin, its layer and
+    ///         its specificity have all been resolved and discarded.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And carrying provenance to get it would cost more than it is worth.</b> It would
+    ///         mean a third parallel array of rule ids on every <see cref="ComputedStyle" />, which is
+    ///         the object the cascade <i>interns</i> — ten thousand identical cells are one entry
+    ///         today precisely because the style is nothing but its properties and values, and a rule
+    ///         id per declaration would make two cells styled by different rules into two entries
+    ///         however identical they look.
+    ///     </para>
+    ///     <para>
+    ///         What it can do instead, and does, is make <c>Text</c> a locator in its own right:
+    ///         <c>grid-template-rows: 4furlongs</c> is the declaration as the author wrote it, which
+    ///         is greppable across a project's sheets in a way a bare <c>::before</c> is not. That is
+    ///         the reason the bridge's half of this was already answerable and the compiler's was not.
+    ///     </para>
+    /// </remarks>
     void Refuse(int property, string value, string reason) {
         var text = $"{propertyNames.NameOf(property)}: {value}";
 
