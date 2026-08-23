@@ -229,6 +229,162 @@ public class RasterizerTests {
         Assert.True(ImageComparer.Compare(a, a, ImageTolerance.Exact).Matches);
     }
 
+    /// <summary>An outline is drawn outside the border box, and the box keeps its own colour.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The claim a draw-list assertion cannot make, and the one an outline gets wrong in the
+    ///     way that is hardest to see.</b> A ring emitted at the right size and the wrong place — the
+    ///     border box instead of outside it — produces a draw list with a <c>Border</c> command in it
+    ///     of exactly the expected thickness and colour, so every assertion short of a pixel passes
+    ///     while the picture is an ordinary border. The three positions below are what separate them:
+    ///     <i>outside</i> the box is the ring, <i>inside</i> it is the fill and not the ring, and
+    ///     further out still is the background.
+    /// </remarks>
+    [Fact]
+    public void An_outline_is_drawn_outside_the_box_and_not_on_it() {
+        using var ui = Opened("""
+            .ringed {
+                position: absolute; left: 20px; top: 20px; width: 20px; height: 20px;
+                background-color: #808080;
+                outline-width: 4px;
+                outline-color: #ffffff;
+            }
+        """);
+
+        ui.Create("div", ui.Document.Root, null, "ringed");
+        ui.Frame();
+
+        var box = CommandOf(ui, DrawCommandKind.Rectangle);
+        var image = ui.Capture();
+
+        // ⚠ <b>The layout is untouched, and this is checked before the pixels because it is the half
+        // of the feature the picture cannot show.</b> An outline takes no space: the fill is still a
+        // twenty-pixel box at twenty, twenty, exactly where it would be with no ring at all. A border
+        // of the same width would have moved the content and grown the box.
+        Assert.Equal(20f, box.X, 0.001f);
+        Assert.Equal(20f, box.Y, 0.001f);
+        Assert.Equal(20f, box.Width, 0.001f);
+        Assert.Equal(20f, box.Height, 0.001f);
+
+        // Two pixels outside the left edge — inside the four-pixel ring.
+        Assert.True(Pixel(image, 18, 30).R > 200, "the ring should be drawn outside the left edge");
+
+        // ⚠ The middle of the box is the *fill*, not the ring. A `Border` command emitted on the
+        // border box rather than on a grown one draws its ring here instead.
+        //
+        // ⚠ The expected channel is read off the command and not written as `#808080`, which is this
+        // file's standing rule and was worth the reminder: the cascade hands the draw list a linear
+        // colour, so the literal would have been asserting a colour-space conversion rather than
+        // where the ring is.
+        Assert.Equal(Quantised(box.Color.R), Pixel(image, 30, 30).R);
+
+        // Six pixels out, which is past a four-pixel ring at zero offset.
+        Assert.Equal((byte)0, Pixel(image, 14, 30).R);
+
+        // And it is a ring rather than three sides: outside every edge, on both axes, which is what
+        // catches a rectangle whose width and height were swapped on the way out.
+        Assert.True(Pixel(image, 42, 30).R > 200, "the ring should be drawn outside the right edge");
+        Assert.True(Pixel(image, 30, 18).R > 200, "the ring should be drawn above the top edge");
+        Assert.True(Pixel(image, 30, 42).R > 200, "the ring should be drawn below the bottom edge");
+    }
+
+    /// <summary>An outline offset pushes the ring away and leaves a gap.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The gap is the assertion.</b> <c>outline-offset</c> read as zero — dropped, or folded
+    ///     into the width instead of into the position — still draws a ring outside the box, still of
+    ///     the right thickness, still the right colour. The only thing that distinguishes it is
+    ///     whether the pixels immediately outside the border edge are painted, and here they must not
+    ///     be.
+    /// </remarks>
+    [Fact]
+    public void An_outline_offset_leaves_a_gap_between_the_box_and_the_ring() {
+        using var ui = Opened("""
+            .ringed {
+                position: absolute; left: 20px; top: 20px; width: 20px; height: 20px;
+                background-color: #808080;
+                outline-width: 2px;
+                outline-offset: 4px;
+                outline-color: #ffffff;
+            }
+        """);
+
+        ui.Create("div", ui.Document.Root, null, "ringed");
+        ui.Frame();
+
+        var box = CommandOf(ui, DrawCommandKind.Rectangle);
+        var image = ui.Capture();
+
+        // The ring sits four pixels out and is two thick, so it occupies x in [14, 16).
+        Assert.True(Pixel(image, 15, 30).R > 200, "the ring should be drawn four pixels out");
+
+        // ⚠ The gap. Two pixels outside the box is inside the offset and must be background — this is
+        // the pixel that fails when the offset is ignored.
+        Assert.Equal((byte)0, Pixel(image, 18, 30).R);
+
+        // Past the ring, and the fill inside it, both unchanged.
+        Assert.Equal((byte)0, Pixel(image, 12, 30).R);
+        Assert.Equal(Quantised(box.Color.R), Pixel(image, 30, 30).R);
+    }
+
+    /// <summary>A logical corner radius follows the direction, rather than naming a fixed corner.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the test that separates a reader from a rename, and nothing cheaper does
+    ///         it.</b> <c>border-start-start-radius</c> mapped statically onto
+    ///         <c>border-top-left-radius</c> passes every assertion about the <c>ltr</c> case — the
+    ///         cascade carries the right length, the draw list carries the right corner, the picture
+    ///         is right. It is wrong only under <c>direction: rtl</c>, where the inline axis is
+    ///         mirrored and the start-start corner is the top <i>right</i> one. So the two halves are
+    ///         asserted as a pair and neither is meaningful alone.
+    ///     </para>
+    ///     <para>
+    ///         The block half of the name is not tested for mirroring because there is nothing that
+    ///         could mirror it: <c>Vixen.Ui.Layout</c> has no writing mode, so block-start is the top
+    ///         in every configuration the engine can be put in.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("ltr")]
+    [InlineData("rtl")]
+    public void A_logical_corner_radius_is_resolved_against_the_direction(string flow) {
+        using var ui = Opened(
+            $$"""
+              .round {
+                  position: absolute; left: 0; top: 0; width: 40px; height: 40px;
+                  background-color: #ffffff;
+                  direction: {{flow}};
+                  border-start-start-radius: 16px;
+              }
+              """
+        );
+
+        ui.Create("div", ui.Document.Root, null, "round");
+        ui.Frame();
+
+        var box = CommandOf(ui, DrawCommandKind.Rectangle);
+        var image = ui.Capture();
+
+        // The direction must not have moved the box, or the corners below are being read off the
+        // wrong pixels and the test would pass for the wrong reason.
+        Assert.Equal(0f, box.X, 0.001f);
+        Assert.Equal(40f, box.Width, 0.001f);
+
+        var rounded = flow == "rtl" ? (39, 0) : (0, 0);
+        var square = flow == "rtl" ? (0, 0) : (39, 0);
+
+        Assert.Equal((byte)0, Pixel(image, rounded.Item1, rounded.Item2).R);
+
+        Assert.True(
+            Pixel(image, square.Item1, square.Item2).R > 200,
+            $"under `direction: {flow}` the other top corner should still be square"
+        );
+
+        // The bottom corners are untouched by a single start-start radius in either direction, which
+        // is what catches a mirror written as a reversal of the four corners rather than as a swap of
+        // the two on each row.
+        Assert.True(Pixel(image, 0, 39).R > 200, "the bottom-left corner should be square");
+        Assert.True(Pixel(image, 39, 39).R > 200, "the bottom-right corner should be square");
+    }
+
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
             .GetManifestResourceStream("Vixen.Ui.Testing.Tests.Fonts.TestShapeLana.ttf")

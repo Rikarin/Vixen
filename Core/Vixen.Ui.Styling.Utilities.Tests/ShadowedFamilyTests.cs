@@ -22,7 +22,7 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <see cref="A_shorter_prefix_would_rescue_nothing" /> sweeps every nesting pair the
 ///         registry contains against every token key both shipped themes contain, and asserts that no
 ///         class exists which the longest-first rule refuses and a shorter prefix would answer. The
-///         shadowed roots — <c>rounded-ss-*</c>, <c>scale-x-*</c>, <c>border-spacing-*</c> and the
+///         shadowed roots — <c>scale-x-*</c>, <c>border-spacing-*</c>, <c>inset-ring-*</c> and the
 ///         rest — are shadowed by a family that is the <i>only</i> registered prefix they have, so
 ///         there is nothing shorter to retry: whatever closes them, it is not the retry, and the
 ///         retry is a separate question with the answer "no".
@@ -148,16 +148,23 @@ public class ShadowedFamilyTests {
     /// <summary>Every shadowed root the ledger names has exactly one registered prefix.</summary>
     /// <remarks>
     ///     ⚠ <b>The reason the retry is not the fix, stated as the shape of the data rather than as
-    ///     an opinion.</b> <c>rounded-ss-2xl</c> is taken by <c>rounded</c> because <c>rounded</c> is
-    ///     the only registered prefix it has; there is no second candidate for a retry to fall back
-    ///     to. Whatever closes these rows, it is a <c>rounded-ss</c> registration.
+    ///     an opinion.</b> <c>scale-x-0</c> is taken by <c>scale</c> because <c>scale</c> is the only
+    ///     registered prefix it has; there is no second candidate for a retry to fall back to.
+    ///     Whatever closes these rows, it is a <c>scale-x</c> registration.
+    ///     <para>
+    ///         ⚠ <b><c>rounded-ss-2xl</c> and <c>rounded-es-2xl</c> were here and are gone, which is
+    ///         what closing a shadowed root looks like.</b> The registration this remark predicted is
+    ///         the one that landed — six <c>rounded-s/e/ss/se/ee/es</c> families over the four logical
+    ///         corner longhands, resolved against <c>direction</c> in <c>DrawListBuilder.Corners</c>.
+    ///         They are removed rather than left as passing rows because the theory asserts a class
+    ///         is <i>still</i> shadowed, so a closed root here would be a failure and not a
+    ///         no-op.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("inset-ring-0", "inset")]
     [InlineData("inset-shadow-2xs", "inset")]
     [InlineData("border-spacing-0", "border")]
-    [InlineData("rounded-ss-2xl", "rounded")]
-    [InlineData("rounded-es-2xl", "rounded")]
     [InlineData("scale-x-0", "scale")]
     [InlineData("rotate-z-0", "rotate")]
     [InlineData("flex-shrink-0", "flex")]
@@ -267,14 +274,18 @@ public class ShadowedFamilyTests {
     [Fact]
     public void A_shadowed_class_is_refused_distinctly_from_an_unknown_one() {
         var generator = new UtilityGenerator(Probe);
-        generator.Generate(["bg-clip-text", "rounded-ss-lg", "flexx-4", "however", "p-4"]);
+        // ⚠ <c>rounded-ss-lg</c> used to be the second of these and is now a rule, because the six
+        // logical radii landed. <c>scale-x-0</c> replaces it rather than the list shrinking to one:
+        // the claim is that *two* shadowed classes are separated from *two* English words, and a
+        // single-element list would still pass if the partition collapsed the wrong way.
+        generator.Generate(["bg-clip-text", "scale-x-0", "flexx-4", "however", "p-4"]);
 
         Assert.Equal(1, generator.RuleCount);
 
         Assert.Equal(
             [
                 new UtilityRefusal("bg-clip-text", "bg", "clip-text", UtilityRefusalKind.Value),
-                new UtilityRefusal("rounded-ss-lg", "rounded", "ss-lg", UtilityRefusalKind.Value)
+                new UtilityRefusal("scale-x-0", "scale", "x-0", UtilityRefusalKind.Value)
             ],
             generator.Unresolved
         );
