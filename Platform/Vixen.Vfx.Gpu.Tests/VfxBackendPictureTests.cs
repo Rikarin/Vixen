@@ -133,22 +133,27 @@ public sealed class VfxBackendPictureTests(ITestOutputHelper output) {
         // honestly.
         output.WriteLine($"worst={worst}/255 moved={moved}/{Side * Side}");
 
-        // ⚠ **Measured, not guessed, on two devices: 3/255 over 25 pixels on MoltenVK and 13/255 on
-        // lavapipe.** The bound is 24 because the quantity it has to survive is a driver's
-        // transcendentals, not a rounding — and the two drivers already differ by four times.
+        // ⚠ **Measured, not guessed, on two devices: 3/255 over 25 pixels on MoltenVK and 13/255
+        // over 49 on lavapipe.** The second pair is the one that settles what 13 *is*. Forty-nine
+        // pixels of 65 536 is a rim around some sprites and cannot be anything else — a backend that
+        // had actually disagreed would have moved a sprite, not shaded one — so the channel number
+        // is a resampling depth, and the bound has to be sized for the deepest resample a driver's
+        // transcendentals can produce rather than for the shallowest one that has been seen.
         //
-        // What sets the floor under it: `VfxAgreementTests.Forty_steps_later_the_two_backends_still
+        // What sets the floor under 24: `VfxAgreementTests.Forty_steps_later_the_two_backends_still
         // _agree` passes on both devices at a relative tolerance of 1e-3, so no particle is more
         // than about eleven millimetres out of place. At nine metres through this camera that is
         // roughly a quarter of a pixel, and a quarter-pixel resample of a soft additive disc — the
         // sprite is drawn at an edge sharpness of 0.25 — is a smooth change of a few levels per
-        // overlapping sprite. Thirteen is what that looks like where several stack.
+        // overlapping sprite. Thirteen is what that looks like where several stack, and the two
+        // drivers already differ from each other by four times.
         //
         // What sets the ceiling: the failure this exists to catch is not a rim. A particle whose
         // hash differed by one bit is somewhere else in the emitter's four-metre box, which moves a
-        // whole ten-pixel sprite — orange on a blue clear, so a channel goes to the low two hundreds
-        // and `moved` goes to the tens of thousands. There is an order of magnitude between 24 and
-        // that, and `moved` below is the guard that closes on the drift case regardless.
+        // whole ten-pixel sprite — orange on a blue clear. `The_comparison_notices_a_difference`
+        // measures exactly that shape and reports 255/255 over 21 393 pixels, which is ten times
+        // this bound and four hundred times the rim. There is no disagreement that could hide under
+        // 24, and `moved` below closes on the drift case regardless.
         Assert.True(
             worst <= ChannelBound,
             $"a channel differs by {worst}/255 between the two backends ({moved} pixels moved)"
