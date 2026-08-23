@@ -66,12 +66,16 @@
             <Switch Label="Wireframe" bind:IsChecked="@Model.Wireframe.Value" />
 
             <!--
-                ⚠ `RadioGroup` builds its choices through `AddOption` and keeps its own list of them,
-                so a `<RadioButton>` child would draw and never be part of the group — no roving tab
-                index, no exclusivity, no `Value`. That is the same `ContentHost` gap `Shell.vxml`
-                names, and it is why this one control is wired in `OnComposed`.
+                ⚠ **The group's `Value` is written before its choices exist, and that is the ordinary
+                case rather than an awkward one** — a group built from saved settings knows what was
+                chosen before it knows what is on offer. `RadioGroup.OnChildAdded` restates on every
+                arrival, so the right radio comes up checked and the roving tab index lands on it.
             -->
-            <RadioGroup ref="@quality" bind:Value="@Model.Quality.Value" />
+            <RadioGroup bind:Value="@Model.Quality.Value">
+                <RadioButton Value="low" Label="Low" />
+                <RadioButton Value="medium" Label="Medium" />
+                <RadioButton Value="high" Label="High" />
+            </RadioGroup>
         </Card>
 
         <Card>
@@ -81,8 +85,17 @@
             <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 
-            <!-- `Select` has `AddOption` too, and the same gap. -->
-            <Select ref="@blend" Placeholder="Blend mode" bind:Value="@Model.Blend.Value" />
+            <!--
+                ⚠ **An `<Option>` nested here lands in the popover and not in the field**, because a
+                dropdown inside the control that opens it is a dropdown clipped by every scrolling
+                ancestor between the two — `SelectBase.ContentHost` is what routes it, and
+                `Popover.ContentAdded` is what tells the field it arrived.
+            -->
+            <Select Placeholder="Blend mode" bind:Value="@Model.Blend.Value">
+                <Option Value="opaque" Label="Opaque" />
+                <Option Value="cutout" Label="Cutout" />
+                <Option Value="blend" Label="Blend" />
+            </Select>
 
             <Slider bind:Value="@Model.Detail.Value" />
             <RangeSlider Low="0.2" High="0.8" />
@@ -108,21 +121,38 @@
                    Message="Ui/Msdf.rvn(42): expected ';'" />
         </Card>
 
-        <!--
-            ⚠ `Tabs` and `Expander` *do* override `ContentHost`, which is why these two are written
-            as tags and the four controls above are not. It is a one-property difference and it is
-            the whole difference between a control that can be written in markup and one that cannot.
-        -->
         <Tabs>
             <TabItem Label="Surface">Metallic-roughness</TabItem>
             <TabItem Label="Shading">Standard</TabItem>
             <TabItem Label="Layers">None</TabItem>
         </Tabs>
 
-        <Expander Label="Advanced">
-            <expander-note class="text-sm text-slate-400">Nothing here yet.</expander-note>
-        </Expander>
+        <!--
+            ⚠ An `Accordion` keeps no list of its sections — `Sections` reads them off its children —
+            so an `<Expander>` nested here *is* a section, and `AllowMultiple="false"` makes the three
+            of them exclusive without anything registering anything.
+        -->
+        <Accordion AllowMultiple="false">
+            <Expander Label="Advanced">
+                <expander-note class="text-sm text-slate-400">Nothing here yet.</expander-note>
+            </Expander>
 
+            <Expander Label="Debug">
+                <expander-note class="text-sm text-slate-400">Nothing here either.</expander-note>
+            </Expander>
+        </Accordion>
+
+        <Breadcrumb>
+            <BreadcrumbItem Label="Assets" />
+            <BreadcrumbItem Label="Materials" />
+            <BreadcrumbItem Label="Standard" />
+        </Breadcrumb>
+
+        <!--
+            ⚠ Never a gap: a pagination's buttons are *generated* from `PageCount`, so its whole
+            authoring surface has always been three numbers. A `<PageButton>` nested here would be a
+            button the next rebuild throws away.
+        -->
         <Pagination PageCount="12" />
     </scroll-column>
 </ScrollView>
@@ -143,9 +173,6 @@
     ];
 
     readonly Signal<ShellModel> model = new(new());
-
-    RadioGroup quality = null!;
-    Select blend = null!;
 
     /// <summary>What it is showing.</summary>
     /// <remarks>
@@ -169,23 +196,7 @@
     /// </remarks>
     string Detail => Model.Detail.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
-    partial void OnComposed() {
-        quality.AddOption("low", "Low");
-        quality.AddOption("medium", "Medium");
-        quality.AddOption("high", "High");
-
-        blend.AddOption("opaque", "Opaque");
-        blend.AddOption("cutout", "Cutout");
-        blend.AddOption("blend", "Blend");
-
-        // ⚠ After the options exist. `Value` names a choice, and a group told to select one before
-        // that choice has been added selects nothing and reports null — which the two-way binding
-        // then writes back to the model, quietly replacing the default with an empty one.
-        quality.Value = Model.Quality.Value;
-        blend.Value = Model.Blend.Value;
-
-        Root.Document.Ticked += Advance;
-    }
+    partial void OnComposed() => Root.Document.Ticked += Advance;
 
     /// <inheritdoc />
     protected override void OnUnmounted() {

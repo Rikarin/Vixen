@@ -65,11 +65,22 @@ public abstract partial class ButtonBase : Control {
 
     /// <summary>What it says.</summary>
     /// <remarks>
-    ///     <c>null</c> and the empty string are the same thing here — a label with neither measures
-    ///     nothing and takes up no room, which is what an icon-only button wants and what stops a
-    ///     button that was never given a label from reserving a line's height for it.
+    ///     <para>
+    ///         <c>null</c> and the empty string are the same thing here — a label with neither
+    ///         measures nothing and takes up no room, which is what an icon-only button wants and
+    ///         what stops a button that was never given a label from reserving a line's height for
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Virtual, because for some buttons the label is not only theirs.</b> An
+    ///         <see cref="Option" />'s label is what the closed <see cref="Select" /> above it
+    ///         displays, so the select has to hear about a change to it — and this writes straight
+    ///         through to a part's text, which raises nothing. It is not a <c>[UiProperty]</c> for
+    ///         the same reason it never was: it is a projection of an element's text rather than a
+    ///         value this control holds, and the cascade has no business matching on it.
+    ///     </para>
     /// </remarks>
-    public string? Label {
+    public virtual string? Label {
         get => label.Text;
         set => label.Text = value;
     }

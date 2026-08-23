@@ -12,6 +12,29 @@ public sealed partial class Option : ButtonBase {
     /// <inheritdoc />
     protected override string TagName => "option";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Overridden to say so, because the list above this option is what shows it.</b> A
+    ///     closed <see cref="Select" /> displays the chosen option's label, and <see cref="Label" />
+    ///     on the base writes a part's text — which notifies nobody. Assigned after the option was
+    ///     added, which is the order markup uses and the order <c>AddOption</c> uses, the field would
+    ///     otherwise go on showing its placeholder for a value that is genuinely selected.
+    /// </remarks>
+    public override string? Label {
+        get => base.Label;
+        set {
+            if (string.Equals(base.Label, value, StringComparison.Ordinal)) {
+                return;
+            }
+
+            base.Label = value;
+            LabelChanged?.Invoke(this);
+        }
+    }
+
+    /// <summary>Raised when <see cref="Label" /> changes.</summary>
+    internal event Action<Option>? LabelChanged;
+
     /// <summary>What choosing it means.</summary>
     [UiProperty]
     public partial string? Value { get; set; }
@@ -31,8 +54,6 @@ public sealed partial class Option : ButtonBase {
 ///     therefore an <see cref="Overlay" />, and the field keeps a reference to it.
 /// </remarks>
 public abstract partial class SelectBase : Control {
-    readonly List<Option> options = [];
-
     /// <summary>The field that opens the list.</summary>
     public UiElement Field { get; private set; } = null!;
 
@@ -43,10 +64,37 @@ public abstract partial class SelectBase : Control {
     public Popover List { get; private set; } = null!;
 
     /// <summary>The options, in order.</summary>
-    public IReadOnlyList<Option> Options => options;
+    /// <remarks>
+    ///     ⚠ <b>Read from the list's children rather than kept, and a fresh snapshot each time.</b> A
+    ///     list this control maintained would be a second place the truth lived — one that markup
+    ///     could not write to, so an <c>&lt;Option&gt;</c> written as a nested tag drew a choice that
+    ///     was in the popover and not in the control: never matched by <see cref="Options" />, never
+    ///     restated, and invisible to the keyboard. <c>Accordion.Sections</c> is the same arrangement
+    ///     for the same reasons.
+    ///     <para>
+    ///         ⚠ It reads <see cref="List" />'s content and not this control's children, because that
+    ///         is where the options are — see the remark on the class. Before <see cref="List" />
+    ///         exists it is empty rather than a null reference, which is what lets a derived
+    ///         <c>OnCreated</c> ask before calling its base.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<Option> Options => List is null ? [] : [.. List.Content.Children.OfType<Option>()];
 
     /// <summary>Whether the list is showing.</summary>
     public bool IsOpen => List.IsOpen;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The popover, so that an <c>&lt;Option&gt;</c> written inside a <c>&lt;Select&gt;</c>
+    ///     lands where the options actually are.</b> Hung off the control itself it would sit beside
+    ///     the field and the chevron, be laid out as part of the closed control, and show whether or
+    ///     not the list was open — which is a row of choices printed under the field for ever.
+    ///     <para>
+    ///         The null guard is <c>Tabs</c>' and it is load-bearing for the same reason:
+    ///         <c>ContentHost</c> can be read before <see cref="OnCreated" /> has made the popover.
+    ///     </para>
+    /// </remarks>
+    protected override UiElement ContentHost => List is null ? this : List.Content;
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -63,6 +111,39 @@ public abstract partial class SelectBase : Control {
         List = Document.Root.Add<Popover>();
         List.AddClass("select-list");
         List.Placement = Placement.Bottom;
+
+        // ⚠ **What makes an `<Option>` written as a nested tag mean what it looks like.** The options
+        // live in the popover, so `UiElement.OnChildAdded` fires there rather than here — see
+        // `Popover.ContentAdded`, which exists for this. Both routes now reach `OnOptionAdded`:
+        // `AddOption` is sugar over `List.Content.Add<Option>()` and two properties.
+        List.ContentAdded += (_, child) => {
+            if (child is not Option option) {
+                return;
+            }
+
+            OnOptionAdded(option);
+
+            // ⚠ **And again whenever the option says something different about itself, which is the
+            // half that arriving cannot cover.** A tag is created before its attributes are
+            // assigned, so the line above runs on an option with no value and no label — and
+            // `Restate` matches on the value and displays the label. Without this an
+            // `<Option Value="cutout" />` in a `<Select Value="cutout" />` leaves the closed field
+            // showing its placeholder: everything correct, nothing selected, no diagnostic.
+            //
+            // Any property rather than a test against two keys, because restating is a walk of a
+            // handful of options and being right is worth more than the comparison it saves.
+            option.PropertyChanged += (changed, _) => {
+                if (changed is Option named) {
+                    OnOptionAdded(named);
+                }
+            };
+
+            // ⚠ And the label, which is not a `[UiProperty]` and so is not covered by the line above:
+            // `ButtonBase.Label` writes a part's text. It is what the closed field displays, so a
+            // label assigned after the option arrived — which is every order there is — has to reach
+            // `Restate` or the field shows its placeholder for a value that is selected.
+            option.LabelChanged += OnOptionAdded;
+        };
 
         AddHandler<PointerEvent>(static (element, args) => ((SelectBase) element).Pointed(args));
         AddHandler<KeyEvent>(static (element, args) => ((SelectBase) element).Keyed(args));
@@ -116,7 +197,11 @@ public abstract partial class SelectBase : Control {
         option.Value = value;
         option.Label = label ?? value;
 
-        options.Add(option);
+        // ⚠ **`OnOptionAdded` has already run, from `Popover.ContentAdded` above — and it ran before
+        // these two lines, with the value not yet set.** So it is called again here, once the option
+        // says what it is. That is the same shape `RadioGroup.AddOption` has and for the same
+        // reason: a hook fires when the element arrives, and a property assigned on the next line is
+        // news to it.
         OnOptionAdded(option);
 
         return option;
@@ -135,11 +220,9 @@ public abstract partial class SelectBase : Control {
     ///     </para>
     /// </remarks>
     public void ClearOptions() {
-        foreach (var option in options) {
+        foreach (var option in Options) {
             option.Remove();
         }
-
-        options.Clear();
     }
 
     /// <summary>Shows the list.</summary>
@@ -204,6 +287,10 @@ public abstract partial class SelectBase : Control {
     /// <summary>Moves the highlight through the list, opening it first if it is shut.</summary>
     /// <param name="step">Which way, and how far.</param>
     protected void Highlight(int step) {
+        // ⚠ One snapshot, read once. `Options` walks the popover's children, so two reads are two
+        // walks and two lists the moment anything between them adds an option.
+        var options = Options;
+
         if (options.Count == 0) {
             return;
         }
@@ -212,7 +299,15 @@ public abstract partial class SelectBase : Control {
             Open();
         }
 
-        var current = options.FindIndex(static option => option.IsFocused);
+        var current = -1;
+
+        for (var i = 0; i < options.Count; i++) {
+            if (options[i].IsFocused) {
+                current = i;
+                break;
+            }
+        }
+
         var next = current < 0
             ? step > 0 ? 0 : options.Count - 1
             : Math.Clamp(current + step, 0, options.Count - 1);
@@ -221,7 +316,11 @@ public abstract partial class SelectBase : Control {
     }
 
     void Chosen(ClickEvent args) {
-        if (args.Source is Option option && options.Contains(option)) {
+        // ⚠ The parent test rather than a lookup in a list this no longer keeps, and it is the
+        // stronger check of the two: an `Option` belonging to some other select nested in this one's
+        // popover would have been found by a `Contains` only if it had been registered here, which
+        // is exactly the accident a snapshot removes.
+        if (args.Source is Option option && ReferenceEquals(option.Parent, List.Content)) {
             OnOptionChosen(option);
         }
     }
@@ -472,8 +571,6 @@ public sealed partial class MultiSelect : SelectBase {
 ///     combo box that discards what was typed.
 /// </remarks>
 public sealed partial class ComboBox : Control {
-    readonly List<Option> options = [];
-
     /// <inheritdoc />
     protected override string TagName => "combo-box";
 
@@ -490,13 +587,23 @@ public sealed partial class ComboBox : Control {
     public Popover List { get; private set; } = null!;
 
     /// <summary>The suggestions, in order.</summary>
-    public IReadOnlyList<Option> Options => options;
+    /// <remarks>
+    ///     ⚠ Read from the list's children rather than kept, on <c>SelectBase.Options</c>' terms and
+    ///     for its reasons — a suggestion written as a nested <c>&lt;Option&gt;</c> is a suggestion.
+    ///     Unlike a select's, a combo box's options carry no derived state, so there is nothing for a
+    ///     <c>Popover.ContentAdded</c> handler to do here and none is subscribed.
+    /// </remarks>
+    public IReadOnlyList<Option> Options => List is null ? [] : [.. List.Content.Children.OfType<Option>()];
 
     /// <summary>What is in the field.</summary>
     public string? Value {
         get => Editor.Value;
         set => Editor.Value = value;
     }
+
+    /// <inheritdoc />
+    /// <remarks>The popover, on <c>SelectBase.ContentHost</c>'s terms and for its reasons.</remarks>
+    protected override UiElement ContentHost => List is null ? this : List.Content;
 
     /// <summary>Raised when the text changes, whether it was typed or chosen.</summary>
     public event Action<ComboBox, string?>? ValueChanged;
@@ -546,7 +653,6 @@ public sealed partial class ComboBox : Control {
         option.Value = value;
         option.Label = label ?? value;
 
-        options.Add(option);
         return option;
     }
 
@@ -571,7 +677,7 @@ public sealed partial class ComboBox : Control {
     }
 
     void Picked(ClickEvent args) {
-        if (args.Source is not Option option || !options.Contains(option)) {
+        if (args.Source is not Option option || !ReferenceEquals(option.Parent, List.Content)) {
             return;
         }
 

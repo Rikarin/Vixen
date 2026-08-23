@@ -54,8 +54,6 @@ Vixen.Ui.Controls.ButtonBase : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.ButtonBase.Activate() -> void
 Vixen.Ui.Controls.ButtonBase.ButtonBase() -> void
 Vixen.Ui.Controls.ButtonBase.HasIcon.get -> bool
-Vixen.Ui.Controls.ButtonBase.Label.get -> string?
-Vixen.Ui.Controls.ButtonBase.Label.set -> string?
 Vixen.Ui.Controls.ButtonBase.LabelPart.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.ButtonBase.LeadingIcon.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.Card -> sealed class
@@ -303,7 +301,10 @@ Vixen.Ui.Controls.Menu.AddSubmenu(string? label = null) -> Vixen.Ui.Controls.Men
 Vixen.Ui.Controls.Menu.Clear() -> void
 Vixen.Ui.Controls.Menu.CloseChain(Vixen.Ui.Controls.CloseReason reason) -> void
 Vixen.Ui.Controls.Menu.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.MenuItem>
+Vixen.Ui.Controls.Menu.Label.get -> string?
+Vixen.Ui.Controls.Menu.Label.set -> string?
 Vixen.Ui.Controls.Menu.Menu() -> void
+Vixen.Ui.Controls.Menu.Opener.get -> Vixen.Ui.Controls.ButtonBase?
 Vixen.Ui.Controls.Menu.ParentMenu.get -> Vixen.Ui.Controls.Menu?
 Vixen.Ui.Controls.MenuBar -> sealed class
 Vixen.Ui.Controls.MenuBar : Vixen.Ui.Controls.Control
@@ -428,6 +429,7 @@ Vixen.Ui.Controls.Placement.Top = 1 -> Vixen.Ui.Controls.Placement
 Vixen.Ui.Controls.Popover -> sealed class
 Vixen.Ui.Controls.Popover : Vixen.Ui.Controls.Overlay
 Vixen.Ui.Controls.Popover.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Popover.ContentAdded -> System.Action<Vixen.Ui.Controls.Popover, Vixen.Ui.UiElement>?
 Vixen.Ui.Controls.Popover.Popover() -> void
 Vixen.Ui.Controls.ProgressBar -> sealed class
 Vixen.Ui.Controls.ProgressBar : Vixen.Ui.Controls.RangeBase
@@ -774,6 +776,7 @@ override Vixen.Ui.Controls.Avatar.TagName.get -> string
 override Vixen.Ui.Controls.Badge.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Badge.TagName.get -> string
 override Vixen.Ui.Controls.Breadcrumb.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Breadcrumb.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.Breadcrumb.OnCreated() -> void
 override Vixen.Ui.Controls.Breadcrumb.TagName.get -> string
 override Vixen.Ui.Controls.BreadcrumbItem.TagName.get -> string
@@ -787,6 +790,7 @@ override Vixen.Ui.Controls.CheckBox.Activate(Vixen.Ui.Controls.ActivationDevice 
 override Vixen.Ui.Controls.CheckBox.OnCreated() -> void
 override Vixen.Ui.Controls.CheckBox.TagName.get -> string
 override Vixen.Ui.Controls.ComboBox.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.ComboBox.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.ComboBox.OnCreated() -> void
 override Vixen.Ui.Controls.ComboBox.OnRemoved() -> void
 override Vixen.Ui.Controls.ComboBox.TagName.get -> string
@@ -827,12 +831,14 @@ override Vixen.Ui.Controls.KeyboardShortcut.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.KeyboardShortcut.TagName.get -> string
 override Vixen.Ui.Controls.Link.TagName.get -> string
 override Vixen.Ui.Controls.Menu.IsOutside(Vixen.Ui.UiElement? hit) -> bool
+override Vixen.Ui.Controls.Menu.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.Menu.OnClosed(Vixen.Ui.Controls.CloseReason reason) -> void
 override Vixen.Ui.Controls.Menu.OnCreated() -> void
 override Vixen.Ui.Controls.Menu.OnOpened() -> void
 override Vixen.Ui.Controls.Menu.OnRemoved() -> void
 override Vixen.Ui.Controls.Menu.TagName.get -> string
 override Vixen.Ui.Controls.MenuBar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.MenuBar.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.MenuBar.OnCreated() -> void
 override Vixen.Ui.Controls.MenuBar.OnRemoved() -> void
 override Vixen.Ui.Controls.MenuBar.TagName.get -> string
@@ -846,6 +852,8 @@ override Vixen.Ui.Controls.NumericInput.OnCreated() -> void
 override Vixen.Ui.Controls.NumericInput.OnSubmit() -> void
 override Vixen.Ui.Controls.NumericInput.SelectAt(int index, int count) -> void
 override Vixen.Ui.Controls.NumericInput.TagName.get -> string
+override Vixen.Ui.Controls.Option.Label.get -> string?
+override Vixen.Ui.Controls.Option.Label.set -> string?
 override Vixen.Ui.Controls.Option.TagName.get -> string
 override Vixen.Ui.Controls.Overlay.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Overlay.OnCreated() -> void
@@ -870,6 +878,7 @@ override Vixen.Ui.Controls.RadioButton.CanUncheck.get -> bool
 override Vixen.Ui.Controls.RadioButton.OnCreated() -> void
 override Vixen.Ui.Controls.RadioButton.TagName.get -> string
 override Vixen.Ui.Controls.RadioGroup.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.RadioGroup.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.RadioGroup.OnCreated() -> void
 override Vixen.Ui.Controls.RadioGroup.TagName.get -> string
 override Vixen.Ui.Controls.RangeBase.OnCreated() -> void
@@ -891,6 +900,7 @@ override Vixen.Ui.Controls.SearchBox.TagName.get -> string
 override Vixen.Ui.Controls.Select.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.Select.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.Select.TagName.get -> string
+override Vixen.Ui.Controls.SelectBase.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.SelectBase.OnCreated() -> void
 override Vixen.Ui.Controls.SelectBase.OnRemoved() -> void
 override Vixen.Ui.Controls.Separator.AcceptsFocus.get -> bool
@@ -1040,6 +1050,8 @@ static readonly Vixen.Ui.Controls.VirtualizingGrid.CountProperty -> Vixen.Ui.UiP
 static readonly Vixen.Ui.Controls.VirtualizingPanel.CountProperty -> Vixen.Ui.UiPropertyKey
 virtual Vixen.Ui.Controls.ButtonBase.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
 virtual Vixen.Ui.Controls.ButtonBase.ActivatesOnEnter.get -> bool
+virtual Vixen.Ui.Controls.ButtonBase.Label.get -> string?
+virtual Vixen.Ui.Controls.ButtonBase.Label.set -> string?
 virtual Vixen.Ui.Controls.Control.AcceptsFocus.get -> bool
 virtual Vixen.Ui.Controls.Overlay.IsOutside(Vixen.Ui.UiElement? hit) -> bool
 virtual Vixen.Ui.Controls.Overlay.OnClosed(Vixen.Ui.Controls.CloseReason reason) -> void

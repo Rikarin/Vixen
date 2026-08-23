@@ -924,6 +924,53 @@ public partial class UiElement : Composition.IComposable {
     protected internal virtual void OnCreated() {
     }
 
+    /// <summary>Called on the parent, once a child of it has been created and initialised.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What lets a container be written as nested tags.</b> A control whose contents are a
+    ///         <i>set</i> rather than a subtree — a menu's items, a radio group's choices, a
+    ///         breadcrumb's steps — has always had an <c>AddItem</c>-shaped method, because adding
+    ///         the element is only half of what arriving means: the other half is being registered,
+    ///         numbered, restated or wired. Markup has no way to call a method, so before this
+    ///         existed a nested tag drew and did nothing at all — no diagnostic, no exception, a
+    ///         choice with no value and no exclusivity.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the rule for a container is: do the registering <i>here</i>, and let the
+    ///         <c>AddX</c> method be sugar over <c>Add&lt;T&gt;()</c> and a property or two.</b> Both
+    ///         routes then arrive at the same state by the same code, which is the only arrangement
+    ///         where markup and C# cannot disagree — and a container that registers in its method
+    ///         instead has an <c>AddX</c> that works and a tag that silently does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>After the child's <see cref="OnCreated" />, which is why it is not
+    ///         <c>Attach</c>.</b> A control builds its parts in <c>OnCreated</c>, so a parent told
+    ///         any earlier gets a <c>MenuItem</c> with no label element and a
+    ///         <c>Select</c> with no popover — and the first thing a registrar does is read one of
+    ///         those.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Creation only, and never a reparent.</b> Docking moves panels between groups
+    ///         several times per drag and a select's popover is built under the root; a hook that
+    ///         also fired on <see cref="UiDocument.Reparent" /> would register the same child once
+    ///         per move. What a container needs to know about a move it already knows, because it is
+    ///         the thing doing the moving.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The child is a child of <c>this</c>, not of <see cref="ContentHost" />.</b> Those
+    ///         differ for every control that has parts: a <c>&lt;Card&gt;</c>'s nested tag lands in
+    ///         its body, so it is the <i>body</i> that hears about it. A container that routes its
+    ///         children elsewhere and registers them here has to override this on whatever it routed
+    ///         them to — see <c>SelectBase</c>, whose options live in a popover at the root.
+    ///     </para>
+    ///     <para>
+    ///         An override must call its base.
+    ///     </para>
+    /// </remarks>
+    /// <param name="child">The child that arrived.</param>
+    protected internal virtual void OnChildAdded(UiElement child) {
+    }
+
     /// <summary>Called once, as the element leaves the document.</summary>
     /// <remarks>
     ///     <para>

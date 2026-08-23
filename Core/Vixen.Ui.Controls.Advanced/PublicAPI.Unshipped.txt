@@ -441,6 +441,7 @@ Vixen.Ui.Controls.Advanced.DockPanel.ClearScrolls() -> void
 Vixen.Ui.Controls.Advanced.DockPanel.ClearTitle() -> void
 Vixen.Ui.Controls.Advanced.DockPanel.DockPanel() -> void
 Vixen.Ui.Controls.Advanced.DockPanel.Id.get -> string
+Vixen.Ui.Controls.Advanced.DockPanel.Id.set -> string
 Vixen.Ui.Controls.Advanced.DockPanel.MaximumScroll.get -> float
 Vixen.Ui.Controls.Advanced.DockPanel.Overflows.get -> bool
 Vixen.Ui.Controls.Advanced.DockPanel.Refresh() -> void
@@ -1201,6 +1202,7 @@ override Vixen.Ui.Controls.Advanced.DockSplitterView.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DockSplitterView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockTab.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockingHost.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DockingHost.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.Advanced.DockingHost.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DockingHost.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.DockingHost.TagName.get -> string

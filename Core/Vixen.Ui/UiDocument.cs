@@ -572,6 +572,11 @@ public sealed partial class UiDocument : IDisposable {
         Invalidate();
         element.OnCreated();
 
+        // ⚠ After the child's own `OnCreated` and not inside `Attach`, because the first thing a
+        // registrar does is read a part the child builds there — see `UiElement.OnChildAdded`, which
+        // is what makes a container writable as nested tags at all.
+        parent?.OnChildAdded(element);
+
         return element;
     }
 

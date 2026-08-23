@@ -72,11 +72,46 @@ public sealed partial class DockPanel : Control {
 
     /// <summary>What identifies it in a saved layout.</summary>
     /// <remarks>
-    ///     Assigned by <see cref="DockingHost.AddPanel" /> and not afterwards: it is the name a
-    ///     serialised arrangement refers to the panel by, so changing it is renaming something two
-    ///     files already agree about.
+    ///     <para>
+    ///         The name a serialised arrangement refers to the panel by, so changing it after
+    ///         anything has been saved is renaming something two files already agree about. Set it
+    ///         once, when the panel is made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Settable, and it is what registers the panel with its host.</b>
+    ///         <c>DockingHost.AddPanel</c> can assign it before anybody sees the panel; markup
+    ///         cannot — a tag is created first and its attributes are assigned afterwards, so a
+    ///         <c>&lt;DockPanel Id="hierarchy" /&gt;</c> arrives at its host nameless and acquires
+    ///         its name a line later. So the assignment is the event: it is what files the panel
+    ///         under its id and puts it in the arrangement, and re-assigning it moves the entry
+    ///         rather than leaving a second one behind.
+    ///     </para>
     /// </remarks>
-    public string Id { get; internal set; } = string.Empty;
+    public string Id {
+        get => id;
+        set {
+            ArgumentNullException.ThrowIfNull(value);
+
+            if (string.Equals(id, value, StringComparison.Ordinal)) {
+                return;
+            }
+
+            var previous = id;
+            id = value;
+
+            Host?.Rekey(this, previous);
+        }
+    }
+
+    /// <summary>The host that owns it, once it has one.</summary>
+    /// <remarks>
+    ///     A back-pointer rather than a walk up the parents, because a panel spends its life being
+    ///     reparented — <c>Detached</c>, a group view, another group view — and the one thing that
+    ///     does not change is which host is doing the moving.
+    /// </remarks>
+    internal DockingHost? Host { get; set; }
+
+    string id = string.Empty;
 
     /// <summary>What its tab says.</summary>
     [UiProperty(Changed = nameof(OnTitleChanged))]
@@ -865,23 +900,123 @@ public sealed partial class DockingHost : Control {
             return existing;
         }
 
-        var panel = Detached.Add<DockPanel>();
+        // ⚠ Added to the *host* and not to `Detached`, which is where it used to go, so that this
+        // method and a nested `<DockPanel Id="…" />` come through the same `OnChildAdded` — which is
+        // what parks it, adopts it and hangs the title handler on it. Everything below is then two
+        // property assignments, and the second of them is what registers the panel: see
+        // `DockPanel.Id`.
+        var panel = Add<DockPanel>();
         panel.Id = id;
         panel.Title = title ?? id;
-        panel.TitleChanged += _ => Rebuild();
 
-        panels[id] = panel;
+        return panel;
+    }
 
-        if (Layout.Find(id) is null) {
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A nested <c>&lt;DockPanel&gt;</c> is parked rather than left where it was written.</b>
+    ///     A panel's place in the tree is the arrangement's to decide — <see cref="Rebuild" /> moves
+    ///     every one of them into the group view it belongs to on every change — so a panel that
+    ///     stayed a direct child of the host would be drawn beside the docked surface and outside
+    ///     every group. <see cref="Detached" /> is where a panel waits, and waiting is what a panel
+    ///     that has just been made is doing.
+    ///     <para>
+    ///         ⚠ <b>It does not register the panel, because it cannot: the id has not arrived yet.</b>
+    ///         A tag is created and then assigned to, so this runs one line before
+    ///         <c>Id="hierarchy"</c> does. Registration is the id's own business — see
+    ///         <see cref="DockPanel.Id" /> — and a panel that never gets one stays parked and
+    ///         invisible, which is the honest outcome for a panel with no name.
+    ///     </para>
+    /// </remarks>
+    protected override void OnChildAdded(UiElement child) {
+        base.OnChildAdded(child);
+
+        if (child is not DockPanel panel) {
+            return;
+        }
+
+        panel.Host = this;
+
+        // ⚠ **A title change writes the tab's label; it does not rebuild the tree.** This used to
+        // call `Rebuild`, which tears down every group view and every floating window and builds
+        // them again — for a string. An editor's panel title carries its document's dirty marker, so
+        // that was a full teardown on the keystroke that first made a scene dirty and another on the
+        // save that made it clean.
+        //
+        // ⚠ It also has to be this way now rather than merely better. The handler is subscribed here
+        // rather than after the title is first assigned, which is where `AddPanel` used to put it —
+        // so a rebuild would report a layout change for the initial `Title = …` as well as for the
+        // `Id = …` beside it, and an application that saves on `LayoutChanged` would write the
+        // arrangement twice for every panel it adds. A test caught it.
+        //
+        // A panel with no tab yet — parked, or not named — finds nothing and does nothing, which is
+        // exactly right: `Build` reads `Title` when it makes the tab.
+        panel.TitleChanged += changed => {
+            if (changed is DockPanel named) {
+                Retitle(named);
+            }
+        };
+
+        Document.Reparent(panel, Detached);
+
+        // ⚠ **Only a panel that already has a name, and the guard is load-bearing rather than
+        // defensive.** `Rekey` ends in `Rebuild`, which raises `LayoutChanged` — so registering a
+        // nameless panel here and then again from the id's setter one line later reports two changes
+        // for one `AddPanel`, and an application that saves on every change writes the arrangement
+        // twice per panel. A test caught it. What is left for this call is the one order the id's
+        // setter cannot cover: an element built by hand, given an id, and adopted afterwards.
+        if (panel.Id.Length > 0) {
+            Rekey(panel, string.Empty);
+        }
+    }
+
+    /// <summary>Writes a panel's title onto the tab that shows it, if it has one.</summary>
+    void Retitle(DockPanel panel) {
+        if (panel.Id.Length == 0) {
+            return;
+        }
+
+        foreach (var group in groups) {
+            foreach (var child in group.Tabs.Children) {
+                if (child is DockTab tab && string.Equals(tab.PanelId, panel.Id, StringComparison.Ordinal)) {
+                    tab.Label = panel.Title;
+                    return;
+                }
+            }
+        }
+    }
+
+    /// <summary>Files a panel under its current id, taking it out from under its previous one.</summary>
+    /// <param name="panel">The panel.</param>
+    /// <param name="previous">What it was called before, or empty if it had no name.</param>
+    internal void Rekey(DockPanel panel, string previous) {
+        if (previous.Length > 0) {
+            panels.Remove(previous);
+            Layout.RemovePanel(previous);
+        }
+
+        if (panel.Id.Length == 0) {
+            // Named and then un-named, which only `Id = ""` can do. The entry above is gone; there
+            // is nothing to file it under, so the panel goes back to waiting in `Detached`.
+            Rebuild();
+            return;
+        }
+
+        panels[panel.Id] = panel;
+
+        // ⚠ A panel the arrangement already places is left where the arrangement put it, which is
+        // what makes "load the layout, then register the panels" work — and that is the order every
+        // application does it in, because the layout comes off disk before the code that builds the
+        // panels has run.
+        if (Layout.Find(panel.Id) is null) {
             if (Layout.Groups() is [var first, ..]) {
-                first.Add(id);
+                first.Add(panel.Id);
             } else {
-                Layout.Root = new DockGroupNode(id);
+                Layout.Root = new DockGroupNode(panel.Id);
             }
         }
 
         Rebuild();
-        return panel;
     }
 
     /// <summary>Takes a panel out of the arrangement and out of the document.</summary>

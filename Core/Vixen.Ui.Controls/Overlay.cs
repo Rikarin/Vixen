@@ -344,10 +344,51 @@ public sealed partial class Popover : Overlay {
     /// <remarks>So that markup written inside a <c>&lt;Popover&gt;</c> lands in its panel.</remarks>
     protected override UiElement ContentHost => Content;
 
+    /// <summary>Raised when an element is added to <see cref="Content" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For a control whose contents live in a popover it does not contain, which is every
+    ///     control with a dropdown.</b> <see cref="UiElement.OnChildAdded" /> fires on the element a
+    ///     child was added to — <see cref="Content" /> — and that is a part of this overlay rather
+    ///     than of the field that opened it. So a <c>SelectBase</c> routing its markup options here
+    ///     through <see cref="UiElement.ContentHost" /> would place them correctly and never hear
+    ///     that they had arrived: an <c>&lt;Option&gt;</c> would draw, and the closed field would go
+    ///     on showing its placeholder.
+    ///     <para>
+    ///         An event rather than a second element between the popover and its options, because
+    ///         that element would be a flex item the theme has to size — <c>popover.select-list</c>
+    ///         lays its children out in a column — and a DOM level added to satisfy a notification
+    ///         is a DOM level every stylesheet has to know about.
+    ///     </para>
+    /// </remarks>
+    public event Action<Popover, UiElement>? ContentAdded;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
-        Content = Part("popover-content");
+
+        // ⚠ Typed, but with the same tag as the plain part it replaces, so nothing a stylesheet says
+        // changes. Its whole job is to have somewhere to override `OnChildAdded`.
+        var content = Part<PopoverContent>();
+        content.Owner = this;
+
+        Content = content;
+    }
+
+    void Added(UiElement child) => ContentAdded?.Invoke(this, child);
+
+    /// <summary>The panel inside a popover, which exists to forward what lands in it.</summary>
+    sealed partial class PopoverContent : UiElement {
+        /// <summary>The popover this is the content of.</summary>
+        internal Popover? Owner { get; set; }
+
+        /// <inheritdoc />
+        protected override string TagName => "popover-content";
+
+        /// <inheritdoc />
+        protected override void OnChildAdded(UiElement child) {
+            base.OnChildAdded(child);
+            Owner?.Added(child);
+        }
     }
 }
 

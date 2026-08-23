@@ -77,20 +77,40 @@ prints the docking arrangement, which is what an application would write to disk
 
 ## Where the markup stops, and why
 
-⚠ **Four controls are wired in `OnComposed` rather than written as tags, and each one is a gap in the
-engine rather than a preference.** A nested tag goes to `UiElement.ContentHost`, and a control that
-does not override it puts children on itself instead of in the slot they belong in — where they draw,
-unregistered, doing nothing:
+Everything in this sample is a nested tag except one thing, and that one cannot be:
 
-| Control | What builds its contents | What a nested tag would do |
+**`TreeView`, because a `TreeNode` is not a `UiElement`.** It is a plain object in a model the
+virtualiser flattens — which is the whole point of a virtualised tree, and the reason a thousand rows
+cost about thirty elements. A `<TreeNode>` tag would have to be an element, and a tree whose nodes
+were elements would be a tree that allocates a thousand of them. So `Panels/Hierarchy.vxml` builds
+its model in `OnComposed`, and that is not friction: `@for` is the right answer for the five buttons
+in the gallery and the wrong one for a thousand rows.
+
+Everything else was friction and is fixed. `UiElement.OnChildAdded` is the seam: a container does its
+registering there, and its `AddX` method is sugar over `Add<T>()` and a property or two, so both
+routes arrive at the same state by the same code. Two of the controls needed a second signal as well,
+because **a tag is created before its attributes are assigned** — so a container hears about a child
+that does not yet know what it is:
+
+| Control | What arriving could not say | What says it |
 |---|---|---|
-| `MenuBar` | `AddMenu`, which parents the dropdown to `Document.Root` | Draw a menu inside the bar, clipped by it |
-| `DockingHost` | `AddPanel`, which assigns an id and places it in the layout | Draw a panel the arrangement does not know about |
-| `TreeView` | `Root.Add`, into a model the virtualiser flattens | Draw a row the virtualiser never realises |
-| `RadioGroup`, `Select` | `AddOption`, into a list the control keeps | Draw a choice with no `Value`, no exclusivity, no roving tab index |
+| `Select`, `ComboBox` | the option's value and label | `Popover.ContentAdded`, then the option's own `PropertyChanged` and `LabelChanged` |
+| `DockingHost` | the panel's id | `DockPanel.Id`'s setter, which is what files it and places it |
+| `RadioGroup` | the radio's value | restated on every arrival, and on `Value` |
+| `MenuBar`, `Menu` | — | `OnChildAdded`, which also moves the menu to the root: every overlay is a root child |
+| `Breadcrumb` | — | `OnChildAdded`, which inserts the chevron *before* the step that asked for it |
+| `Accordion`, `Pagination` | — | nothing: they were never gaps. See below. |
 
-`Tabs`, `Expander`, `ScrollView` and `Card` do override it, which is why every one of *those* is a
-tag here. It is one property per control, and closing the gap is worth doing.
+⚠ **Two entries in this table used to claim `Accordion` and `Pagination` were gaps, and both were
+wrong.** `Accordion.Sections` already read its children rather than keeping a list — its own remark
+says a list "would be one that markup could not write to" — and a `Pagination`'s buttons are
+*generated* from `PageCount`, so three numbers were always its whole authoring surface. Checking
+turned two imagined fixes into two tests.
+
+⚠ **`Option.Label` is the odd one out and is worth knowing about.** `ButtonBase.Label` writes a
+part's text, which notifies nobody — so a `<Option Value="cutout" Label="Cutout" />` under a
+`<Select Value="cutout" />` left the closed field showing its placeholder for a value that was
+genuinely selected. `Label` is virtual now and `Option` overrides it to say so.
 
 ## Two layout traps, both found by looking at the picture
 

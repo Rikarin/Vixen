@@ -117,16 +117,51 @@ public sealed partial class MenuItem : ButtonBase {
 ///     </para>
 /// </remarks>
 public partial class Menu : Overlay {
-    readonly List<MenuItem> items = [];
-
     /// <inheritdoc />
     protected override string TagName => "menu";
 
     /// <summary>The items, in order, not counting separators.</summary>
-    public IReadOnlyList<MenuItem> Items => items;
+    /// <remarks>
+    ///     ⚠ <b>Read from the children rather than kept, and a fresh snapshot each time.</b> A list
+    ///     the menu maintained would be a second place the truth lived — one that markup could not
+    ///     write to, so a <c>&lt;MenuItem&gt;</c> written as a nested tag drew a row that was in the
+    ///     menu and not in it: no hover-to-highlight, no arrow-key navigation, and nothing raised
+    ///     when it was clicked. <c>Accordion.Sections</c> is the same arrangement for the same
+    ///     reasons, and <see cref="OnChildAdded" /> does the part a snapshot cannot.
+    /// </remarks>
+    public IReadOnlyList<MenuItem> Items => [.. Children.OfType<MenuItem>()];
 
     /// <summary>The menu this one opened out of, if it is a submenu.</summary>
     public Menu? ParentMenu { get; internal set; }
+
+    /// <summary>The item that drops this menu, whether on a bar or in a menu above it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The back-pointer that makes <see cref="Label" /> possible</b>, and it is set by
+    ///     whichever of <see cref="MenuBar" /> and <see cref="Menu" /> made the item. Both of them
+    ///     already hold the forward reference — <c>MenuBarItem.Menu</c> and <c>MenuItem.Submenu</c> —
+    ///     and neither could be walked backwards.
+    /// </remarks>
+    public ButtonBase? Opener { get; internal set; }
+
+    /// <summary>What the item that drops this menu says.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A property on the menu rather than on the item, because markup nests a menu and not
+    ///     an item:</b> <c>&lt;Menu Label="File"&gt;</c> is what a reader writes and what a menu bar
+    ///     looks like. The item is made by the bar — or by the menu above — and is not a tag anybody
+    ///     writes, so it has nowhere to be given a name.
+    ///     <para>
+    ///         Reading it before an opener exists answers null, which is the honest answer for a menu
+    ///         nothing drops: a menu built free-standing and opened by code has no name to show.
+    ///     </para>
+    /// </remarks>
+    public string? Label {
+        get => Opener?.Label;
+        set {
+            if (Opener is { } opener) {
+                opener.Label = value;
+            }
+        }
+    }
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -156,32 +191,77 @@ public partial class Menu : Overlay {
         while (Children.Count > 0) {
             Children[^1].Remove();
         }
-
-        items.Clear();
     }
 
     /// <summary>Adds a command.</summary>
     /// <param name="label">What it says.</param>
     /// <returns>The item.</returns>
     public MenuItem AddItem(string? label = null) {
+        // ⚠ Sugar over `Add<MenuItem>()` and a label. The hover handler is `OnChildAdded`'s, which
+        // `Add` above has already run — so this method and a nested `<MenuItem Label="…" />` arrive
+        // at the same state by the same code.
         var item = Add<MenuItem>();
         item.Label = label;
 
-        items.Add(item);
-
-        // ⚠ On the item and Direct, not on the menu, because a pointer entering an element is
-        // raised once per element that it entered rather than routed — `EventRouter.Direct` — so a
-        // handler up here would never hear about it. The same arrangement `MenuBar` uses.
-        item.AddHandler<PointerEvent>(
-            static (element, args) => {
-                if (args.Action == PointerAction.Entered && element is MenuItem entered) {
-                    ((Menu) entered.Parent!).Hovered(entered);
-                }
-            },
-            RoutingStrategy.Direct
-        );
-
         return item;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The hover handler is on the item and <see cref="RoutingStrategy.Direct" />, not on
+    ///         the menu</b>, because a pointer entering an element is raised once per element that it
+    ///         entered rather than routed — see <c>EventRouter.Direct</c> — so a handler up here would
+    ///         never hear about it. The same arrangement <see cref="MenuBar" /> uses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A nested <c>&lt;Menu&gt;</c> becomes a submenu, and is moved to the root.</b> That
+    ///         is where every submenu has always lived — it is what lets one hang off the side of its
+    ///         parent without being clipped by it — and <see cref="AddSubmenu" /> puts it there
+    ///         directly. Markup cannot: a tag is nested where it is written, so the nesting says what
+    ///         it means and this is what makes it true.
+    ///     </para>
+    /// </remarks>
+    protected override void OnChildAdded(UiElement child) {
+        base.OnChildAdded(child);
+
+        switch (child) {
+            case MenuItem:
+                child.AddHandler<PointerEvent>(
+                    static (element, args) => {
+                        if (args.Action == PointerAction.Entered
+                            && element is MenuItem entered
+                            && entered.Parent is Menu menu) {
+                            menu.Hovered(entered);
+                        }
+                    },
+                    RoutingStrategy.Direct
+                );
+
+                break;
+
+            case Menu submenu:
+                Promote(submenu);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>Gives a nested menu the item that drops it, and moves it out to the root.</summary>
+    void Promote(Menu submenu) {
+        var item = AddItem(submenu.Label);
+
+        item.Submenu = submenu;
+        submenu.Opener = item;
+        submenu.ParentMenu = this;
+        submenu.Placement = Placement.Right;
+
+        // ⚠ After the item exists, so that the menu's `Label` has somewhere to be read from before
+        // anything reparents it — and last, because reparenting rebuilds the subtree's style slots
+        // and there is no reason to do that twice.
+        Document.Reparent(submenu, Document.Root);
     }
 
     /// <summary>Adds a rule between two groups of commands.</summary>
@@ -196,11 +276,16 @@ public partial class Menu : Overlay {
     ///     is what lets it hang off the side without being clipped by it.
     /// </remarks>
     public Menu AddSubmenu(string? label = null) {
+        // ⚠ Made at the root and never nested, so `OnChildAdded` does not see it and `Promote` does
+        // not run — which is right: there is nothing here to promote. What the two routes share is
+        // the state they end in, which the four assignments below and `Promote`'s four match line
+        // for line.
         var item = AddItem(label);
 
         var submenu = Document.Root.Add<Menu>();
         submenu.Placement = Placement.Right;
         submenu.ParentMenu = this;
+        submenu.Opener = item;
 
         item.Submenu = submenu;
         return submenu;
@@ -215,7 +300,7 @@ public partial class Menu : Overlay {
     ///     so each one is announced exactly once on the way down.
     /// </remarks>
     protected override void OnRemoved() {
-        foreach (var item in items) {
+        foreach (var item in Items) {
             if (item.Submenu is { IsRemoved: false } submenu) {
                 item.Submenu = null;
                 Document.Remove(submenu);
@@ -234,8 +319,8 @@ public partial class Menu : Overlay {
     protected override void OnOpened() {
         base.OnOpened();
 
-        if (items.Count > 0) {
-            Document.Focus(items[0]);
+        if (Items is [var first, ..]) {
+            Document.Focus(first);
         }
     }
 
@@ -245,7 +330,7 @@ public partial class Menu : Overlay {
 
         // Every submenu goes with it. One left open after its parent has gone is an orphan floating
         // over the interface with nothing to dismiss it.
-        foreach (var item in items) {
+        foreach (var item in Items) {
             item.Submenu?.Close(reason);
         }
     }
@@ -260,7 +345,7 @@ public partial class Menu : Overlay {
             return false;
         }
 
-        foreach (var item in items) {
+        foreach (var item in Items) {
             if (item.Submenu is { IsOpen: true } submenu && !submenu.IsOutside(hit)) {
                 return false;
             }
@@ -302,7 +387,7 @@ public partial class Menu : Overlay {
             return;
         }
 
-        foreach (var other in items) {
+        foreach (var other in Items) {
             if (!ReferenceEquals(other, item) && other.Submenu is { IsOpen: true } open) {
                 open.Close(CloseReason.Code);
             }
@@ -314,7 +399,10 @@ public partial class Menu : Overlay {
     }
 
     void Chosen(ClickEvent args) {
-        if (args.Source is not MenuItem item || !items.Contains(item)) {
+        // ⚠ The parent test rather than a lookup in a list this no longer keeps, and it is the
+        // stronger check: an item belonging to some other menu could only have been found by a
+        // `Contains` if it had been registered here, which is the accident a snapshot removes.
+        if (args.Source is not MenuItem item || !ReferenceEquals(item.Parent, this)) {
             return;
         }
 
@@ -332,27 +420,38 @@ public partial class Menu : Overlay {
     }
 
     void Keyed(KeyEvent args) {
+        // ⚠ One snapshot, read once and passed to `Highlight`. `Items` walks the children, so two
+        // reads are two walks and two lists the moment anything between them adds an item.
+        var items = Items;
+
         if (args.Action != KeyAction.Pressed || items.Count == 0) {
             return;
         }
 
-        var current = items.FindIndex(item => item.IsFocused);
+        var current = -1;
+
+        for (var i = 0; i < items.Count; i++) {
+            if (items[i].IsFocused) {
+                current = i;
+                break;
+            }
+        }
 
         switch (args.Key) {
             case InputKey.Down:
-                Highlight(current < 0 ? 0 : (current + 1) % items.Count);
+                Highlight(items, current < 0 ? 0 : (current + 1) % items.Count);
                 break;
 
             case InputKey.Up:
-                Highlight(current < 0 ? items.Count - 1 : (current - 1 + items.Count) % items.Count);
+                Highlight(items, current < 0 ? items.Count - 1 : (current - 1 + items.Count) % items.Count);
                 break;
 
             case InputKey.Home:
-                Highlight(0);
+                Highlight(items, 0);
                 break;
 
             case InputKey.End:
-                Highlight(items.Count - 1);
+                Highlight(items, items.Count - 1);
                 break;
 
             case InputKey.Right when current >= 0 && items[current].Submenu is { } submenu:
@@ -370,7 +469,7 @@ public partial class Menu : Overlay {
         args.Handled = true;
     }
 
-    void Highlight(int index) => Document.Focus(items[index]);
+    void Highlight(IReadOnlyList<MenuItem> items, int index) => Document.Focus(items[index]);
 }
 
 /// <summary>A menu opened at a point rather than beside an element.</summary>
@@ -433,8 +532,6 @@ public sealed partial class MenuBarItem : ButtonBase {
 ///     hover with nothing open must do nothing.
 /// </remarks>
 public sealed partial class MenuBar : Control {
-    readonly List<MenuBarItem> items = [];
-
     /// <inheritdoc />
     protected override string TagName => "menu-bar";
 
@@ -442,7 +539,11 @@ public sealed partial class MenuBar : Control {
     protected override bool AcceptsFocus => false;
 
     /// <summary>The names on the bar, in order.</summary>
-    public IReadOnlyList<MenuBarItem> Items => items;
+    /// <remarks>
+    ///     ⚠ Read from the children rather than kept, on <see cref="Menu.Items" />' terms and for its
+    ///     reasons — a <c>&lt;Menu Label="File"&gt;</c> nested in a bar is a name on that bar.
+    /// </remarks>
+    public IReadOnlyList<MenuBarItem> Items => [.. Children.OfType<MenuBarItem>()];
 
     /// <summary>The menu currently dropped, if any.</summary>
     public Menu? Current { get; private set; }
@@ -457,15 +558,52 @@ public sealed partial class MenuBar : Control {
     /// <param name="label">The name.</param>
     /// <returns>The menu, whose items are added with <see cref="Menu.AddItem" />.</returns>
     public Menu AddMenu(string? label = null) {
+        // ⚠ Made at the root and never nested, so `OnChildAdded` does not see it and `Adopt` does not
+        // run. What the two routes share is the state they end in, which `Adopt` matches line for
+        // line — and the two of them are the only places a bar item is ever wired.
+        var menu = Document.Root.Add<Menu>();
+        menu.Placement = Placement.Bottom;
+
+        Adopt(menu, label);
+
+        return menu;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A nested <c>&lt;Menu&gt;</c> becomes a name on the bar, and is moved to the root.</b>
+    ///     A menu is an overlay and every overlay is a root child — that is what lets a dropdown
+    ///     spill past the strip that dropped it instead of being clipped by it — so
+    ///     <see cref="AddMenu" /> parents it there directly and markup cannot: a tag is nested where
+    ///     it is written. This is what makes the nesting mean what it says.
+    ///     <para>
+    ///         ⚠ It is the <i>menu</i> that is nested and not the <see cref="MenuBarItem" />, which
+    ///         is why <see cref="Menu.Label" /> exists. The item is made here, is not a tag anybody
+    ///         writes, and would otherwise have nowhere to be given a name.
+    ///     </para>
+    /// </remarks>
+    protected override void OnChildAdded(UiElement child) {
+        base.OnChildAdded(child);
+
+        if (child is Menu menu) {
+            menu.Placement = Placement.Bottom;
+            Adopt(menu, menu.Label);
+        }
+    }
+
+    /// <summary>Gives a menu its name on the bar, and wires the two together.</summary>
+    /// <remarks>
+    ///     ⚠ The item is added <i>after</i> the menu exists and before anything reparents it, so that
+    ///     <see cref="Menu.Label" /> has somewhere to be read from at every point in between.
+    /// </remarks>
+    void Adopt(Menu menu, string? label) {
         var item = Add<MenuBarItem>();
         item.Label = label;
 
-        var menu = Document.Root.Add<Menu>();
-        menu.Placement = Placement.Bottom;
-        menu.OpenChanged += (opened, isOpen) => Current = isOpen ? (Menu) opened : Current == opened ? null : Current;
-
         item.Menu = menu;
-        items.Add(item);
+        menu.Opener = item;
+
+        menu.OpenChanged += (opened, isOpen) => Current = isOpen ? (Menu) opened : Current == opened ? null : Current;
 
         item.AddHandler<PointerEvent>(
             (element, args) => {
@@ -479,7 +617,12 @@ public sealed partial class MenuBar : Control {
             RoutingStrategy.Direct
         );
 
-        return menu;
+        // ⚠ Last, because reparenting rebuilds the subtree's style slots and there is no reason to do
+        // that twice — and because a menu already at the root is left where it is: `Reparent` would
+        // move it to the end of the root's children for nothing.
+        if (!ReferenceEquals(menu.Parent, Document.Root)) {
+            Document.Reparent(menu, Document.Root);
+        }
     }
 
     /// <inheritdoc />
@@ -490,7 +633,7 @@ public sealed partial class MenuBar : Control {
     ///     capture handlers <see cref="Overlay" /> puts on the root.
     /// </remarks>
     protected override void OnRemoved() {
-        foreach (var item in items) {
+        foreach (var item in Items) {
             if (item.Menu is { IsRemoved: false } menu) {
                 item.Menu = null!;
                 Document.Remove(menu);
@@ -501,7 +644,8 @@ public sealed partial class MenuBar : Control {
     }
 
     void Chosen(ClickEvent args) {
-        if (args.Source is not MenuBarItem item || !items.Contains(item)) {
+        // The parent test rather than a lookup in a list this no longer keeps — see `Menu.Chosen`.
+        if (args.Source is not MenuBarItem item || !ReferenceEquals(item.Parent, this)) {
             return;
         }
 

@@ -216,8 +216,6 @@ public sealed partial class RadioButton : ToggleBase {
 ///     </para>
 /// </remarks>
 public sealed partial class RadioGroup : Control {
-    readonly List<RadioButton> options = [];
-
     /// <inheritdoc />
     protected override string TagName => "radio-group";
 
@@ -233,7 +231,15 @@ public sealed partial class RadioGroup : Control {
     public partial string? Value { get; set; }
 
     /// <summary>The radios, in order.</summary>
-    public IReadOnlyList<RadioButton> Options => options;
+    /// <remarks>
+    ///     ⚠ <b>Read from the children rather than kept, and a fresh snapshot each time.</b> A list
+    ///     the group maintained would be a second place the truth lived — one that markup could not
+    ///     write to, so a <c>&lt;RadioButton&gt;</c> written as a nested tag drew a radio that was in
+    ///     the tree and not in the group: no exclusivity, no roving tab index, no <see cref="Value" />.
+    ///     That is <c>Accordion.Sections</c>' arrangement and it is the right one for the same
+    ///     reasons; <see cref="OnChildAdded" /> is what does the part a snapshot cannot.
+    /// </remarks>
+    public IReadOnlyList<RadioButton> Options => [.. Children.OfType<RadioButton>()];
 
     /// <summary>Raised when the choice changes.</summary>
     public event Action<RadioGroup, string?>? ValueChanged;
@@ -267,15 +273,41 @@ public sealed partial class RadioGroup : Control {
         option.Value = value;
         option.Label = label ?? value;
 
-        options.Add(option);
-
-        // Chosen if it is what the group was already set to — which happens when the value is
-        // assigned before the options exist, and that is the ordinary case for a group built from
-        // saved settings.
-        option.IsChecked = string.Equals(value, Value, StringComparison.Ordinal);
-        Rove();
+        // ⚠ Nothing else, and that is the point. Registering, restating and re-roving all happen in
+        // `OnChildAdded`, which `Add<RadioButton>` above has already run — so this method and a
+        // nested `<RadioButton Value="…" />` arrive at exactly the same state by the same code.
+        // ⚠ The one thing it has to redo is the check, because the value is assigned *after* the
+        // child arrived: the hook saw an option with no value yet.
+        Restate();
 
         return option;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Two things a snapshot cannot do</b>: give the arriving radio the checked state the
+    ///     group's <see cref="Value" /> implies — which is the ordinary case for a group built from
+    ///     saved settings, where the value is assigned before any option exists — and put the roving
+    ///     tab index back, since which radio is the group's single tab stop depends on how many there
+    ///     are and which is chosen.
+    /// </remarks>
+    protected override void OnChildAdded(UiElement child) {
+        base.OnChildAdded(child);
+
+        if (child is not RadioButton) {
+            return;
+        }
+
+        Restate();
+    }
+
+    /// <summary>Brings every radio's checked state and the tab stop into line with <see cref="Value" />.</summary>
+    void Restate() {
+        foreach (var option in Options) {
+            option.IsChecked = option.Value is { } value && string.Equals(value, Value, StringComparison.Ordinal);
+        }
+
+        Rove();
     }
 
     void Chosen(ClickEvent args) {
@@ -297,6 +329,8 @@ public sealed partial class RadioGroup : Control {
             _ => 0
         };
 
+        var options = Options;
+
         if (step == 0 || options.Count == 0) {
             return;
         }
@@ -305,7 +339,7 @@ public sealed partial class RadioGroup : Control {
         // a layout: it has a first and a last member and no geometry worth respecting, and stopping
         // at the end would make Down at the bottom of a three-item group do nothing at all — which
         // reads as the keyboard being broken rather than as a boundary.
-        var current = options.FindIndex(static option => option.IsChecked);
+        var current = IndexOfChecked(options);
         var next = current < 0
             ? step > 0 ? 0 : options.Count - 1
             : (current + step + options.Count) % options.Count;
@@ -317,11 +351,7 @@ public sealed partial class RadioGroup : Control {
     }
 
     void OnValueChanged(string? previous, string? current) {
-        foreach (var option in options) {
-            option.IsChecked = string.Equals(option.Value, current, StringComparison.Ordinal);
-        }
-
-        Rove();
+        Restate();
 
         Raise(new ValueChangedEvent<string> { Previous = previous, Value = current });
         ValueChanged?.Invoke(this, current);
@@ -334,7 +364,9 @@ public sealed partial class RadioGroup : Control {
     ///     to move the focus onto the others.
     /// </remarks>
     void Rove() {
-        var stop = options.FindIndex(static option => option.IsChecked);
+        var options = Options;
+        var stop = IndexOfChecked(options);
+
         if (stop < 0) {
             stop = 0;
         }
@@ -342,5 +374,21 @@ public sealed partial class RadioGroup : Control {
         for (var i = 0; i < options.Count; i++) {
             options[i].TabIndex = i == stop ? 0 : -1;
         }
+    }
+
+    /// <summary>Which radio is chosen, or -1.</summary>
+    /// <remarks>
+    ///     Taken over a snapshot the caller already holds rather than over <see cref="Options" />,
+    ///     because two reads of that property are two walks of the children and two different lists
+    ///     the moment anything between them adds one.
+    /// </remarks>
+    static int IndexOfChecked(IReadOnlyList<RadioButton> options) {
+        for (var i = 0; i < options.Count; i++) {
+            if (options[i].IsChecked) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }

@@ -24,8 +24,6 @@ public sealed partial class BreadcrumbItem : ButtonBase {
 ///     one, which a <c>::before</c> on every item would have to undo with a <c>:last-child</c> rule.
 /// </remarks>
 public sealed partial class Breadcrumb : Control {
-    readonly List<BreadcrumbItem> steps = [];
-
     /// <inheritdoc />
     protected override string TagName => "breadcrumb";
 
@@ -33,7 +31,15 @@ public sealed partial class Breadcrumb : Control {
     protected override bool AcceptsFocus => false;
 
     /// <summary>The steps, in order from the root.</summary>
-    public IReadOnlyList<BreadcrumbItem> Steps => steps;
+    /// <remarks>
+    ///     ⚠ <b>Read from the children rather than kept, and a fresh snapshot each time.</b> A list
+    ///     the trail maintained would be a second place the truth lived — one that markup could not
+    ///     write to, so a <c>&lt;BreadcrumbItem&gt;</c> written as a nested tag drew a step that was
+    ///     in the tree and not in the trail: no separator before it, never marked current, and
+    ///     silently ignored by <see cref="Navigated" />. <c>Accordion.Sections</c> is the same
+    ///     arrangement for the same reasons.
+    /// </remarks>
+    public IReadOnlyList<BreadcrumbItem> Steps => [.. Children.OfType<BreadcrumbItem>()];
 
     /// <summary>Raised when a step is activated.</summary>
     public event Action<Breadcrumb, BreadcrumbItem>? Navigated;
@@ -49,20 +55,46 @@ public sealed partial class Breadcrumb : Control {
     /// <param name="value">What it stands for.</param>
     /// <returns>The step.</returns>
     public BreadcrumbItem AddStep(string? label, string? value = null) {
-        if (steps.Count > 0) {
-            var separator = Add<Icon>();
-            separator.Geometry = ControlIcons.ChevronRight;
-            separator.AddClass("breadcrumb-separator");
-        }
-
+        // ⚠ Sugar over `Add<BreadcrumbItem>()` and two properties, and nothing else. The separator
+        // and the current-step state are `OnChildAdded`'s, which `Add` above has already run — so
+        // this method and a nested `<BreadcrumbItem Label="…" />` arrive at the same state by the
+        // same code, which is the only arrangement where markup and C# cannot disagree.
         var step = Add<BreadcrumbItem>();
         step.Label = label;
         step.Value = value ?? label;
 
-        steps.Add(step);
-        Restate();
-
         return step;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The separator goes in <i>before</i> the step that needed it, which is why this is a
+    ///     move and not an append.</b> A chevron belongs between two steps, so it is the second step
+    ///     arriving that asks for one — and by then it is already the last child. <c>Move</c> touches
+    ///     all three stores, so the chevron is before the step for <c>:first-child</c> and the
+    ///     sibling combinators as well as for flexbox.
+    ///     <para>
+    ///         ⚠ It counts <see cref="Steps" /> rather than <c>Children</c>, because the children are
+    ///         steps and separators interleaved — and the separators are the thing being counted
+    ///         towards.
+    ///     </para>
+    /// </remarks>
+    protected override void OnChildAdded(UiElement child) {
+        base.OnChildAdded(child);
+
+        if (child is not BreadcrumbItem) {
+            return;
+        }
+
+        if (Steps.Count > 1) {
+            var separator = Add<Icon>();
+            separator.Geometry = ControlIcons.ChevronRight;
+            separator.AddClass("breadcrumb-separator");
+
+            Document.Move(separator, Children.Count - 2);
+        }
+
+        Restate();
     }
 
     /// <summary>Marks the last step as the current one.</summary>
@@ -72,6 +104,8 @@ public sealed partial class Breadcrumb : Control {
     ///     every other selected thing in the set.
     /// </remarks>
     void Restate() {
+        var steps = Steps;
+
         for (var i = 0; i < steps.Count; i++) {
             if (i == steps.Count - 1) {
                 steps[i].State |= ElementState.Checked;
@@ -82,7 +116,11 @@ public sealed partial class Breadcrumb : Control {
     }
 
     void Chosen(ClickEvent args) {
-        if (args.Source is BreadcrumbItem step && steps.Contains(step)) {
+        // ⚠ The parent test rather than a lookup in a list this no longer keeps — and it is the
+        // stronger check of the two anyway: a `BreadcrumbItem` inside some *other* trail nested in
+        // this one's content would have been found by a `Contains` over a flat list only if it had
+        // been registered, which is exactly the accident a snapshot removes.
+        if (args.Source is BreadcrumbItem step && ReferenceEquals(step.Parent, this)) {
             Navigated?.Invoke(this, step);
         }
     }
