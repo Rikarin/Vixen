@@ -1037,6 +1037,65 @@ public static class UtilityFamilies {
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
 
+        // ── The backdrop ────────────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>Ten roots in the shape of the nine above, and the shape is all they share.</b> These
+        // set `backdrop-filter`, which transforms the picture <i>behind</i> the element rather than
+        // what it drew — so an element may carry `blur-2` and `backdrop-blur-8` and mean two different
+        // pictures, which is why the fragments are a second set and `UtilityComposition.BackdropFilter`
+        // is a second assembler rather than nine more slots in the first.
+        //
+        // ⚠ <b>One declaration alongside and not Tailwind's two.</b> v4 emits
+        // `-webkit-backdrop-filter` beside the unprefixed property because Safari needs it; this
+        // engine is not a browser, so that copy would be a property emitted into every generated
+        // sheet that nothing could ever read — which is precisely what the consumption gate exists to
+        // flag, and what `InertProperties.txt` exists to record when it cannot be avoided. Here it
+        // can be. The ledger's `css` column still lists both, because that column is about what
+        // Tailwind emits.
+        //
+        // ⚠ <b><c>backdrop-opacity-*</c> is here and <c>backdrop-drop-shadow-*</c> is not.</b> That
+        // is Tailwind's set, and it is also this engine's: a shadow of the backdrop is a silhouette
+        // composited under a picture that is already behind everything, and `DrawListBuilder.One`
+        // refuses `drop-shadow()` inside a `backdrop-filter` for that reason.
+        Register(new Family(
+            "backdrop-blur",
+            ValueKind.Spacing,
+            [UtilityComposition.BackdropBlur],
+            Alongside: BackdropAlongside
+        ));
+
+        Backdrop("backdrop-brightness", UtilityComposition.BackdropBrightness);
+        Backdrop("backdrop-contrast", UtilityComposition.BackdropContrast);
+        Backdrop("backdrop-grayscale", UtilityComposition.BackdropGrayscale, bare: "1");
+        Backdrop("backdrop-invert", UtilityComposition.BackdropInvert, bare: "1");
+        Backdrop("backdrop-opacity", UtilityComposition.BackdropOpacity);
+        Backdrop("backdrop-saturate", UtilityComposition.BackdropSaturate);
+        Backdrop("backdrop-sepia", UtilityComposition.BackdropSepia, bare: "1");
+
+        // ⚠ The angle, for `hue-rotate`'s reason exactly: `StyleValueParser` refuses a bare number
+        // where an angle belongs, and a family emitting one would produce a declaration the engine
+        // drops *whole* — taking every other backdrop function on the element with it.
+        Register(new Family(
+            "backdrop-hue-rotate",
+            ValueKind.CountTemplate,
+            [UtilityComposition.BackdropHueRotate],
+            Template: "{0}deg",
+            Alongside: BackdropAlongside
+        ));
+
+        // ⚠ <b><c>backdrop-filter-none</c>, which sets no fragment for the reason <c>filter-none</c>
+        // sets none.</b> It is the keyword `none`, which `DrawListBuilder` reads as "not a list" and
+        // returns nothing for — so the element composites over an untouched backdrop whatever the nine
+        // fragments the cascade handed it say. Assembling the nine at their identities instead would
+        // be a different declaration with the same picture and a `var()` chain nobody can read.
+        // ⚠ The prefixed copy is set too, so that turning the feature off turns off the copy a browser
+        // would have read.
+        Keywords(
+            "backdrop-filter",
+            "backdrop-filter",
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["none"] = "none" }
+        );
+
         // ── Masks ───────────────────────────────────────────────────────────────────────
         //
         // ⚠ <b>Twenty-five roots now, and what is still missing is `mask-origin-*`,
@@ -2215,13 +2274,31 @@ public static class UtilityFamilies {
             [string.Empty] = $"{property}:{value}"
         }));
 
-    static void Keywords(string name, string property, Dictionary<string, string> keywords) {
+    static void Keywords(
+        string name,
+        string property,
+        Dictionary<string, string> keywords,
+        params UtilityDeclaration[] alongside
+    ) {
         var qualified = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var (key, value) in keywords) {
             qualified[key] = $"{property}:{value}";
         }
 
-        Register(new Family(name, ValueKind.Keyword, [property], qualified));
+        Register(
+            new Family(
+                name,
+                ValueKind.Keyword,
+                [property],
+                qualified,
+
+                // ⚠ Null and not an empty array where there is nothing alongside, because `Family`
+                // distinguishes the two and the ledger's join reads what a family emits. `params`
+                // hands an empty array to every existing caller otherwise, which would put a family
+                // with no companions in the same shape as one whose companions were dropped.
+                Alongside: alongside.Length > 0 ? alongside : null
+            )
+        );
     }
 
     static void Spacing(string name, params string[] properties) =>
@@ -2251,6 +2328,42 @@ public static class UtilityFamilies {
                 ? null
                 : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+        ));
+
+    /// <summary>What every <c>backdrop-*</c> family emits beside its own fragment.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The unprefixed property alone, where Tailwind v4 emits <c>-webkit-backdrop-filter</c>
+    ///     beside it.</b> That copy exists for Safari and there is no Safari here — it would be a
+    ///     declaration in every generated sheet that nothing in the engine could ever read, which is
+    ///     the exact shape of debt the consumption gate is for. Dropping it also keeps these ten roots
+    ///     honest in the parity ledger: with the prefix, every one of them would read <c>partial</c>
+    ///     for a reason that has nothing to do with the feature.
+    /// </remarks>
+    static UtilityDeclaration[] BackdropAlongside => [
+        new("backdrop-filter", UtilityComposition.BackdropFilter())
+    ];
+
+    /// <summary>One of the seven proportional <c>backdrop-filter</c> functions.</summary>
+    /// <param name="name">The class prefix, whose tail is also the CSS function's name.</param>
+    /// <param name="fragment">The <c>--tw-*</c> the amount goes into.</param>
+    /// <param name="bare">
+    ///     What the class with no value means, or null where it means nothing.
+    ///     <c>backdrop-grayscale</c>, <c>backdrop-invert</c> and <c>backdrop-sepia</c> have one.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <see cref="Filter" />'s shape with a different assembler, and the duplication is the
+    ///     point rather than an oversight: the two properties are independent and a helper that served
+    ///     both would have to be told which, on every call, for one line saved.
+    /// </remarks>
+    static void Backdrop(string name, string fragment, string? bare = null) =>
+        Register(new Family(
+            name,
+            ValueKind.Fraction,
+            [fragment],
+            bare is null
+                ? null
+                : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
+            Alongside: BackdropAlongside
         ));
 
     /// <summary>Registers a family whose rule is about the element's children rather than the element.</summary>

@@ -93,9 +93,9 @@ Every one of those was right when it was written. The number is a denominator, s
 | State | Meaning | Roots |
 |---|--:|--:|
 | **works** | Vixen emits it, and a consumer acts on every property it sets | **153** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **42** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **52** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **126** |
+| **absent** | not emitted at all | **116** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -396,7 +396,7 @@ refusal block, which already says so for the same reason.
 | Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
-| Filters | 20 | 10 | 0 | 0 | 10 | 0 | 0 |
+| Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
 | Sizing | 15 | 0 | 7 | 0 | 8 | 0 | 0 |
 | Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
 | Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
@@ -439,18 +439,34 @@ which is the tinted silhouette, so `ui-colour.frag` draws it unchanged. It is wr
 that does not — which also means every filter declaration in the engine grew a ninth function whose
 identity is a transparent shadow. See `docs/guide/ui/compositing.md`.
 
-⚠ **The ten `backdrop-*` twins are still not one change away, and the blocker has been re-measured
-rather than restated.** They read what is *behind* the group, and `UiRenderer.Compose` records every
-group's pass before the host's frame pass begins, so at that moment nothing below the group exists;
-by composite time the destination is the colour attachment being written. The fix is **not** a
-read-back — the prefix is replayable, and `Submit` already walks exactly the range that would have to
-be replayed. What it needs is a capture pass per backdrop group, `Compose`'s reverse-pre-order walk
-changed to post-order so that everything behind a group is finished before it, **and a new public
-parameter on `Compose`** carrying what the host has already painted — without which the feature blurs
-the interface and not the scene under it, and composites a translucent copy over the sharp original
-instead of replacing it. That last part is what makes it a branch of its own. `docs/guide/ui/compositing.md`
-§ *The shape of the change, sized* has the whole of it, including the rounded-corner clip it does not
-yet answer.
+⚠ **The ten `backdrop-*` twins have landed, and what they cost was a change to the compositor's
+walk rather than a capability the backend lacked.** They read what is *behind* the group, and
+`UiRenderer.Compose` records every group's pass before the host's frame pass begins, so at that moment
+nothing below the group exists; by composite time the destination is the colour attachment being
+written. The fix was **not** a read-back — the prefix is replayable, and `UiRenderer.Submit` already
+walked exactly the range that had to be replayed. So it took a `stop` argument; `Compose`'s
+reverse-pre-order walk became post-order, so that everything painted behind a group is finished before
+its capture runs; a capture pass per backdrop group renders the prefix into a surface of its own; and
+`Compose` grew a public parameter carrying what the host had already painted — without which the
+feature blurs the interface and not the scene under it, and composites a translucent copy over the
+sharp original instead of replacing it. `docs/guide/ui/compositing.md` § *`backdrop-filter`* has the
+whole of it.
+
+⚠ **They read `partial` rather than `works`, and the gap is a fidelity one rather than a consumption
+one.** CSS clips the filtered backdrop to the element's border box *including its radius*, and a
+`UiLayer` carries no radius — so `rounded-2xl backdrop-blur-md bg-white/30`, which is the canonical
+use of the feature, shows square corners just outside the rounded ones. The border box itself *is*
+honoured: `UiLayer.BackdropBounds` carries it separately from the group's ink, because the ink is
+grown by any child that overflows the element and filtering the backdrop over that would put blurred
+scene outside the panel that asked for it. Closing the radius needs a rounded-rect signed distance in
+three shipped fragment modules and their software transcription. A second, smaller divergence rides in
+the same column: an element that paints nothing of its own opens no group and so gets no backdrop.
+
+⚠ **Vixen emits only `backdrop-filter` where Tailwind emits `-webkit-backdrop-filter` beside it.**
+That copy is for Safari and there is no Safari here; emitting it would put a declaration into every
+generated sheet that nothing could ever read, which is the exact shape of debt `InertProperties.txt`
+exists to record — and one nobody could ever close. The ledger's `css` column still lists both,
+because that column is about what Tailwind emits.
 
 ⚠ **Sizing reads worse than it was and the roots did not move: the rule did.** It was `7 works, 0
 partial`; it is `0 works, 7 partial`, and nothing regressed. Every one of `w-*`, `h-*`, `size-*`,
@@ -2297,7 +2313,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A5 ✅ | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | `OverflowReader`, `LayoutStyleBuilder` | done | — |
 | A6 🟡 | **Three of the four landed, in three different ways, and the fourth is refused.** `fill`/`stroke` were the honest case: the emission was already v4's and the renderer had had the channel all along — `IconPath` carries a fill paint and a stroke paint and `IconPaintKind.Foreground` is SVG's `currentColor` marker — so it was two `ColorOf` reads in `Icon.Resolve`, plus the two names in `InheritedProperties` without which the class only works written on the icon itself. `outline` is **gone rather than done**: `ring-*` emitted `outline-color`, a property no Tailwind has ever emitted for it (see § D5, corrected), and under v4's box-shadow shape the existing spread path paints it with no new rendering. That needed `currentcolor` in `EmitShadow`. ⚠ **`user-select` stays inert and is not waiting for a reader.** A selection model exists — `TextField` has `CaretIndex`/`SelectionAnchor`/`SelectWord` and drag-to-select, `CodeEditor` has its own — but both are per-control: each captures the pointer for its own drag and hit-tests only its own `TextLayout`. The *document-wide* selection `user-select` governs does not exist, so `select-none` on a button, which is what the class is for, has nothing to suppress. Teaching `TextField` to honour it would expire the allow-list line and leave that promise unkept. ⚠ Also owed: `overflow-clip`. ⚠ And the parity gate could not see `fill`/`stroke` until `UtilityConsumptionProbe` could build an `Icon` — `grid-cols-3`'s missing grid again | `Icon`, `DrawListBuilder`, `InheritedProperties` | **#24** | 0.05 of 0.25 |
 | A7 🟢 | **Transforms — the translation is done and the other two are refused, on purpose.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **Owed: `scale` and `rotate`, and neither is waiting for a reader.** A `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box — and a rotated clip — cannot be represented at all, and a bounding-box approximation would draw a 45-point square where a 32-point one was asked for. Scale can scale the box and not the picture: glyph advances are shaped at `run.Size` during *layout*, so a scaled subtree needs re-shaping, which is the one thing §3 forbids. Both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes | `TranslationReader`, `UiDocument` | **#23** | 0.35 |
-| A8 🟢 | **`filter: blur()` is done and the rest of A8 is not.** `blur-*` emits a `--tw-blur` fragment assembled into a real `filter`, closing the `--blur` placeholder the same way the translations closed theirs; `DrawListBuilder` opens a composited group for it — *and never collapses one*, since the single-command peephole is an identity for opacity and nonsense for a filter — `UiGeometryBuilder` outsets the group's bounds by three sigma before the clip narrows them, and both executors convolve the finished surface with the same kernel from `UiLayer.KernelRadius`. On the device that is two extra passes and **one** shared scratch target for the whole frame, not one per blurred group. Measured at 1920×1080: the twelve composited groups an editor frame already had cost **1.10 ms**, and a blurred group adds 0.17 ms at σ=4 — ⚠ **the surfaces are the expensive part of this design and the blur is not**, which is the finding worth carrying into any future work here. ⚠ **Owed:** the rest of `filter` (`brightness`, `contrast`, `saturate`, `grayscale`, …), all of which are *absent* roots rather than inert ones and each of which is a constant, an initial and a slot in `UtilityComposition.Filter`; `backdrop-filter`, which needs the frame *under* a group and the compositor does not keep it; and `Vixen.Editor.Host`, which supplies no blur stage because Raven's `[PushConstant]` cannot place a block at a byte offset — see `Vixen.Ui.Renderer/README.md` | `DrawListBuilder`, `UiGeometryBuilder`, `UiRenderer`, `SoftwareUiRasterizer` | **#28** | 0.35 of 0.75 |
+| A8 🟢 | **`filter: blur()` is done and the rest of A8 is not.** `blur-*` emits a `--tw-blur` fragment assembled into a real `filter`, closing the `--blur` placeholder the same way the translations closed theirs; `DrawListBuilder` opens a composited group for it — *and never collapses one*, since the single-command peephole is an identity for opacity and nonsense for a filter — `UiGeometryBuilder` outsets the group's bounds by three sigma before the clip narrows them, and both executors convolve the finished surface with the same kernel from `UiLayer.KernelRadius`. On the device that is two extra passes and **one** shared scratch target for the whole frame, not one per blurred group. Measured at 1920×1080: the twelve composited groups an editor frame already had cost **1.10 ms**, and a blurred group adds 0.17 ms at σ=4 — ⚠ **the surfaces are the expensive part of this design and the blur is not**, which is the finding worth carrying into any future work here. ⚠ **Owed:** the rest of `filter` (`brightness`, `contrast`, `saturate`, `grayscale`, …), all of which are *absent* roots rather than inert ones and each of which is a constant, an initial and a slot in `UtilityComposition.Filter`; <s>`backdrop-filter`, which needs the frame *under* a group and the compositor does not keep it</s> — **landed**: the frame under a group is not kept, it is *re-rendered*, so `UiRenderer.Submit` took a `stop`, `Compose`'s walk became post-order and the host hands over what it had already painted; and `Vixen.Editor.Host`, which supplies no blur stage because Raven's `[PushConstant]` cannot place a block at a byte offset — see `Vixen.Ui.Renderer/README.md` | `DrawListBuilder`, `UiGeometryBuilder`, `UiRenderer`, `SoftwareUiRasterizer` | **#28** | 0.35 of 0.75 |
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
 | A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |
@@ -2536,8 +2552,9 @@ layer", and it is available today.
 defined effect is on `mix-blend-mode`: it stops a descendant blending with what is outside the
 group. **`mix-blend-mode` does not exist at any layer** — not parsed, not stored, no channel on
 `DrawCommand`, none on `UiLayer`, no shader path, no branch in the software rasteriser, whose blend
-is fixed at premultiplied source-over in both executors. `background-blend-mode` and
-`backdrop-filter` are absent too. Registering `isolation` would add a property that resolves,
+is fixed at premultiplied source-over in both executors. `background-blend-mode` is absent too, and
+`backdrop-filter` — which *has* landed — is no help: it filters what is behind a group rather than
+changing how the group blends with it, so it gives `isolation` nothing to isolate. Registering `isolation` would add a property that resolves,
 computes a value and moves no channel in any scene — the defect this document exists to prevent.
 
 ⚠ **Two doc comments already argue this and one of them is now half stale.** `DrawListBuilder`'s

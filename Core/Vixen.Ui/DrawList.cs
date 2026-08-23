@@ -356,6 +356,37 @@ public readonly record struct DrawCommand(
     public UiDropShadow? Shadow { get; init; }
 
     /// <summary>
+    ///     What a composited group's <c>backdrop-filter</c> does to the picture behind it, or null
+    ///     where there is none. Unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Beside <see cref="Filter" /> and pointed at a different picture, which is the one
+    ///         thing about it that has to be understood before anything else.</b> That field transforms
+    ///         what the group <i>drew</i>; this transforms what is <i>behind</i> the group. They are
+    ///         independent — <c>filter: grayscale(1) </c> and <c>backdrop-filter: blur(8px)</c> on one
+    ///         element is a grey panel over a blurred scene — so they are two fields and not one, and a
+    ///         consumer reading either as the other draws a picture that is wrong in a way no amount of
+    ///         inspecting the draw list reveals.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nullable for <see cref="Filter" />'s reason.</b> A zeroed <see cref="UiBackdrop" />
+    ///         has an <see cref="UiBackdrop.Alpha" /> of zero, which erases the backdrop rather than
+    ///         leaving it alone — so the default of the struct is emphatically not the absence of the
+    ///         feature, and only the null is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The element's own box is read off this command's rectangle and not carried
+    ///         again.</b> A <see cref="DrawCommandKind.LayerPush" /> is emitted at the element's border
+    ///         box, which is exactly the rectangle CSS clips a backdrop filter to —
+    ///         <c>UiGeometryBuilder.Layer</c> takes it from there into
+    ///         <see cref="Vixen.Ui.Rendering.UiLayer.BackdropBounds" />. The group's <i>ink</i> bounds
+    ///         are a different rectangle and are the wrong one; see that member.
+    ///     </para>
+    /// </remarks>
+    public UiBackdrop? Backdrop { get; init; }
+
+    /// <summary>
     ///     The coverage a composited group's <c>mask-image</c> multiplies its surface by, as a range
     ///     of <see cref="DrawList.Masks" />. Unread on every kind but
     ///     <see cref="DrawCommandKind.LayerPush" />.

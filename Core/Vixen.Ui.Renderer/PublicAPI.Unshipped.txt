@@ -1,4 +1,12 @@
 #nullable enable
+Vixen.Ui.Renderer.UiBackdropSource -> readonly struct
+Vixen.Ui.Renderer.UiBackdropSource : System.IEquatable<Vixen.Ui.Renderer.UiBackdropSource>
+Vixen.Ui.Renderer.UiBackdropSource.Colour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Renderer.UiBackdropSource.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Renderer.UiBackdropSource.Image.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Ui.Renderer.UiBackdropSource.Image.init -> Vixen.Graphics.TextureViewHandle
+Vixen.Ui.Renderer.UiBackdropSource.UiBackdropSource() -> void
+Vixen.Ui.Renderer.UiBackdropSource.UiBackdropSource(Vixen.Core.Mathematics.Color4 Colour) -> void
 Vixen.Ui.Renderer.UiInterface -> readonly struct
 Vixen.Ui.Renderer.UiInterface : System.IEquatable<Vixen.Ui.Renderer.UiInterface>
 Vixen.Ui.Renderer.UiInterface.Atlas.get -> Vixen.Ui.Text.Rasterizing.GlyphAtlas
@@ -21,8 +29,9 @@ Vixen.Ui.Renderer.UiRenderFeature.UiRenderFeature() -> void
 Vixen.Ui.Renderer.UiRenderer -> sealed class
 Vixen.Ui.Renderer.UiRenderer : System.IDisposable
 Vixen.Ui.Renderer.UiRenderer.AtlasUploads.get -> int
+Vixen.Ui.Renderer.UiRenderer.Backdropped.get -> int
 Vixen.Ui.Renderer.UiRenderer.Blurred.get -> int
-Vixen.Ui.Renderer.UiRenderer.Compose(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Core.Mathematics.Int2 surface, float scale = 1) -> void
+Vixen.Ui.Renderer.UiRenderer.Compose(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Core.Mathematics.Int2 surface, float scale = 1, Vixen.Ui.Renderer.UiBackdropSource beneath = default(Vixen.Ui.Renderer.UiBackdropSource)) -> void
 Vixen.Ui.Renderer.UiRenderer.Composited.get -> int
 Vixen.Ui.Renderer.UiRenderer.Dispose() -> void
 Vixen.Ui.Renderer.UiRenderer.Draws.get -> int

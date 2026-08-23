@@ -29,6 +29,16 @@ namespace VixenApp1;
 ///     </para>
 /// </remarks>
 sealed class AppHost : IDisposable {
+    /// <summary>What the window is cleared to, and so what a <c>backdrop-filter</c> starts from.</summary>
+    /// <remarks>
+    ///     ⚠ One constant for two call sites that have to agree: the interface's pass clears to it and
+    ///     <c>UiRenderer.Compose</c> is told the same colour, so that a glass panel's captured backdrop
+    ///     begins from the ground the frame is actually drawn on. Two literals would drift into a
+    ///     rectangle of the wrong shade under every such panel. Alpha one, which is what makes the
+    ///     clear and the capture the same picture — see <c>UiBackdropSource</c>.
+    /// </remarks>
+    static readonly Color4 Ground = new(0.06f, 0.07f, 0.09f, 1f);
+
     readonly IPlatform platform;
     readonly IWindow window;
     readonly AppDocument ui;
@@ -212,15 +222,23 @@ sealed class AppHost : IDisposable {
             // ⚠ The same surface and scale as `Record` below. A group's surface is viewport-sized and
             // drawn with the frame's own projection, so a different number here would place the
             // subtree somewhere its composite quad does not look for it.
+            //
+            // ⚠ And the colour the pass below clears to, which is what a `backdrop-filter` reads.
+            // `Compose` can re-render the interface's own draw list and nothing else, so a backdrop
+            // captured without this would be the panels above the element instead of the window under
+            // it — and transparent where it should be opaque, which composites a blurred copy over
+            // the sharp original instead of replacing it. The two colours have to agree and nothing
+            // checks that they do, which is why there is one constant.
             renderer.Compose(
                 commands,
                 frame,
                 new Int2((int) MathF.Round(surface.Width), (int) MathF.Round(surface.Height)),
-                scale
+                scale,
+                new UiBackdropSource(Ground)
             );
 
             graph.AddPass("ui", pass => {
-                pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
+                pass.ColourAttachment(backbuffer, LoadAction.Clear, Ground);
                 pass.SideEffect();
 
                 // ⚠ The *logical* surface and the DPI scale, not the swapchain's size. The geometry

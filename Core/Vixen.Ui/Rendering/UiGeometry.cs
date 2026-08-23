@@ -235,6 +235,60 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </remarks>
     public ulong ShadowImage { get; init; }
 
+    /// <summary>What this group's <c>backdrop-filter</c> does to the picture behind it, or null.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one member of this record whose surface is not a function of the group's own
+    ///         draws, and that is what makes it a scheduling constraint rather than another
+    ///         field.</b> <see cref="Blur" />, <see cref="Filter" />, <see cref="MaskCount" /> and
+    ///         <see cref="Shadow" /> are all read off the surface this group renders. A backdrop is
+    ///         read off <i>everything painted behind it</i> — the prefix of its parent's draw range up
+    ///         to <see cref="First" /> — so the group's capture pass may not run until every group in
+    ///         that prefix has finished. That is why <c>UiRenderer.Compose</c> walks post-order: each
+    ///         child subtree in document order, then the parent. See <see cref="UiBackdrop" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A consumer that ignores this composites the group over an unfiltered backdrop</b>,
+    ///         which is the same bargain <see cref="Blur" />, <see cref="Filter" /> and
+    ///         <see cref="MaskCount" /> make — the picture is the one the frame would have had without
+    ///         the declaration, rather than a wrong one. <c>UiRenderer.Backdropped</c> is what says out
+    ///         loud that it did not happen, and it needs to: a backdrop over a flat field is the
+    ///         identity, so a capture that never ran is invisible in most fixtures.
+    ///     </para>
+    /// </remarks>
+    public UiBackdrop? Backdrop { get; init; }
+
+    /// <summary>The number the backdrop's surface is named by. Meaningless when <see cref="Backdrop" /> is null.</summary>
+    /// <remarks>
+    ///     ⚠ A third number off <c>UiGeometryBuilder.LayerImage</c>'s counter, for the reason
+    ///     <see cref="ShadowImage" /> gives: numbers derived from <see cref="Image" /> collide with the
+    ///     next group's the moment two groups are adjacent, which is every list.
+    /// </remarks>
+    public ulong BackdropImage { get; init; }
+
+    /// <summary>
+    ///     The rectangle the filtered backdrop is drawn in — the group's <b>border box</b>, clipped.
+    ///     Meaningless when <see cref="Backdrop" /> is null.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="Bounds" />, and the difference is visible on the commonest layout
+    ///         there is.</b> These bounds are the group's <i>ink</i> — outset by the blur, and grown by
+    ///         any child that overflows the element. CSS clips a backdrop filter to the element's own
+    ///         border box, so filtering over the ink would put a blurred rectangle outside the panel
+    ///         wherever a tooltip, a shadow-casting child or a <c>blur-*</c> pushed the ink out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rectangular, including where the element is rounded, and that is a stated
+    ///         divergence rather than an oversight.</b> A <c>UiLayer</c> carries no corner radius, and
+    ///         <c>rounded-2xl backdrop-blur-md</c> is the canonical use of the feature — so the
+    ///         filtered backdrop shows square corners just outside the rounded ones. Closing it needs
+    ///         a rounded-rect distance in the composite fragment, which is a change to three shipped
+    ///         shader modules; <c>docs/guide/ui/compositing.md</c> prices it.
+    ///     </para>
+    /// </remarks>
+    public Rectangle BackdropBounds { get; init; }
+
     /// <summary>Where this group's own composite draw sits in <see cref="UiGeometry.Draws" />.</summary>
     /// <remarks>
     ///     ⚠ <b>A property rather than the arithmetic written out, because the arithmetic changed and
@@ -245,8 +299,20 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///     with, which is not. A blur that drew the <i>shadow's</i> quad would convolve the group's
     ///     surface through a displaced rectangle and leave the picture shifted by the shadow's offset
     ///     — an error that only appears when a blur and a drop shadow are on one element.
+    ///     <para>
+    ///         ⚠ A backdrop puts a third quad in, and it goes <i>first</i> of the three: CSS paints
+    ///         the filtered backdrop behind the element, and the element's own drop shadow over it.
+    ///         See <see cref="BackdropDraw" /> and <see cref="ShadowDraw" />, which is where that order
+    ///         is written down rather than re-derived.
+    ///     </para>
     /// </remarks>
-    public int Composite => First + Count + (Shadow is null ? 0 : 1);
+    public int Composite => First + Count + (Backdrop is null ? 0 : 1) + (Shadow is null ? 0 : 1);
+
+    /// <summary>Where this group's backdrop quad sits. Meaningless when <see cref="Backdrop" /> is null.</summary>
+    public int BackdropDraw => First + Count;
+
+    /// <summary>Where this group's shadow quad sits. Meaningless when <see cref="Shadow" /> is null.</summary>
+    public int ShadowDraw => First + Count + (Backdrop is null ? 0 : 1);
 
     /// <summary>The widest kernel either executor will run, in texels each side of the centre.</summary>
     /// <remarks>

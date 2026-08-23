@@ -716,6 +716,46 @@ public static class SoftwareUiRasterizer {
                 if (next < geometry.Layers.Count && geometry.Layers[next].First == draw) {
                     var layer = geometry.Layers[next++];
 
+                    // ⚠ <b>Before the group's own contents are drawn, and from the buffer this
+                    // recursion was handed rather than from a buffer of its own — which is the whole
+                    // of the backdrop capture on this path.</b> `target` at this moment holds exactly
+                    // what will be under the group when its composite lands: the frame's background
+                    // plus everything painted before it at the top level, and transparent black plus
+                    // the parent's own prefix inside a group. That second case is not an
+                    // approximation — Filter Effects 2 § 2 makes every one of these a *backdrop root*,
+                    // so a nested group's backdrop is its parent's surface so far and never an
+                    // accumulation up the ancestors. See `UiBackdrop`.
+                    //
+                    // ⚠ <b>The device does the same thing the expensive way, and it has to.</b>
+                    // `UiRenderer` cannot read the destination it is about to write, so it replays the
+                    // prefix into a surface of its own — `UiRenderer.Capture` — with the host's
+                    // already-painted frame under it at the top level. The trap this file sets is
+                    // exactly here: a backdrop written *only* here would be three lines, would look
+                    // implemented, and would surface as a compositing divergence rather than as a
+                    // missing feature.
+                    if (layer.Backdrop is { } behind) {
+                        var captured = (float[]) target.Clone();
+
+                        // The same seam and the same order as the group's own surface below: the
+                        // Gaussian first, the matrix after it. Both commute here — see `UiBackdrop` —
+                        // so the order is a convention shared with the device rather than a
+                        // constraint, and sharing it is what keeps the two comparable.
+                        if (behind.Blur > 0f) {
+                            captured = Blurred(captured, behind.Blur);
+                        }
+
+                        if (behind.Matrix is { } transform && !transform.IsIdentity) {
+                            captured = Filtered(captured, transform);
+                        }
+
+                        // ⚠ `UiBackdrop.Alpha` is deliberately *not* applied here. It rides the
+                        // backdrop quad's own vertex alpha, which `Composite` multiplies into all four
+                        // channels — the same place `UiDropShadow`'s colour alpha rides, and for the
+                        // same reason: a three-row colour matrix cannot scale alpha. Applying it here
+                        // as well would square it.
+                        surfaces[layer.BackdropImage] = captured;
+                    }
+
                     // Transparent black, not the background: a group composites *over* what is already
                     // there, so starting it from the destination would blend the destination in twice.
                     var surface = new float[width * height * 4];

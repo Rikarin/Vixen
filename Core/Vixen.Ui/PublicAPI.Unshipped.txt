@@ -135,6 +135,8 @@ Vixen.Ui.DrawBatch.Kind.init -> Vixen.Ui.BatchKind
 Vixen.Ui.DrawBatcher -> static class
 Vixen.Ui.DrawCommand -> readonly struct
 Vixen.Ui.DrawCommand : System.IEquatable<Vixen.Ui.DrawCommand>
+Vixen.Ui.DrawCommand.Backdrop.get -> Vixen.Ui.Rendering.UiBackdrop?
+Vixen.Ui.DrawCommand.Backdrop.init -> Vixen.Ui.Rendering.UiBackdrop?
 Vixen.Ui.DrawCommand.Blur.get -> float
 Vixen.Ui.DrawCommand.Blur.init -> float
 Vixen.Ui.DrawCommand.Cap.get -> Vixen.Ui.LineCap
@@ -556,6 +558,17 @@ Vixen.Ui.Rendering.PathVertex.PathVertex() -> void
 Vixen.Ui.Rendering.PathVertex.PathVertex(Vixen.Core.Mathematics.Vector2 Position, float Coverage) -> void
 Vixen.Ui.Rendering.PathVertex.Position.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.PathVertex.Position.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiBackdrop -> readonly struct
+Vixen.Ui.Rendering.UiBackdrop : System.IEquatable<Vixen.Ui.Rendering.UiBackdrop>
+Vixen.Ui.Rendering.UiBackdrop.Alpha.get -> float
+Vixen.Ui.Rendering.UiBackdrop.Alpha.init -> float
+Vixen.Ui.Rendering.UiBackdrop.Blur.get -> float
+Vixen.Ui.Rendering.UiBackdrop.Blur.init -> float
+Vixen.Ui.Rendering.UiBackdrop.IsIdentity.get -> bool
+Vixen.Ui.Rendering.UiBackdrop.Matrix.get -> Vixen.Ui.Rendering.UiColorMatrix?
+Vixen.Ui.Rendering.UiBackdrop.Matrix.init -> Vixen.Ui.Rendering.UiColorMatrix?
+Vixen.Ui.Rendering.UiBackdrop.UiBackdrop() -> void
+Vixen.Ui.Rendering.UiBackdrop.UiBackdrop(float Blur, float Alpha, Vixen.Ui.Rendering.UiColorMatrix? Matrix = null) -> void
 Vixen.Ui.Rendering.UiColorMatrix -> readonly struct
 Vixen.Ui.Rendering.UiColorMatrix : System.IEquatable<Vixen.Ui.Rendering.UiColorMatrix>
 Vixen.Ui.Rendering.UiColorMatrix.Apply(Vixen.Core.Mathematics.Color4 colour) -> Vixen.Core.Mathematics.Color4
@@ -637,6 +650,13 @@ Vixen.Ui.Rendering.UiLayer -> readonly struct
 Vixen.Ui.Rendering.UiLayer : System.IEquatable<Vixen.Ui.Rendering.UiLayer>
 Vixen.Ui.Rendering.UiLayer.Alpha.get -> float
 Vixen.Ui.Rendering.UiLayer.Alpha.init -> float
+Vixen.Ui.Rendering.UiLayer.Backdrop.get -> Vixen.Ui.Rendering.UiBackdrop?
+Vixen.Ui.Rendering.UiLayer.Backdrop.init -> Vixen.Ui.Rendering.UiBackdrop?
+Vixen.Ui.Rendering.UiLayer.BackdropBounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiLayer.BackdropBounds.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiLayer.BackdropDraw.get -> int
+Vixen.Ui.Rendering.UiLayer.BackdropImage.get -> ulong
+Vixen.Ui.Rendering.UiLayer.BackdropImage.init -> ulong
 Vixen.Ui.Rendering.UiLayer.Blur.get -> float
 Vixen.Ui.Rendering.UiLayer.Blur.init -> float
 Vixen.Ui.Rendering.UiLayer.Bounds.get -> Vixen.Core.Mathematics.Rectangle
@@ -656,6 +676,7 @@ Vixen.Ui.Rendering.UiLayer.MaskFirst.get -> int
 Vixen.Ui.Rendering.UiLayer.MaskFirst.init -> int
 Vixen.Ui.Rendering.UiLayer.Shadow.get -> Vixen.Ui.Rendering.UiDropShadow?
 Vixen.Ui.Rendering.UiLayer.Shadow.init -> Vixen.Ui.Rendering.UiDropShadow?
+Vixen.Ui.Rendering.UiLayer.ShadowDraw.get -> int
 Vixen.Ui.Rendering.UiLayer.ShadowImage.get -> ulong
 Vixen.Ui.Rendering.UiLayer.ShadowImage.init -> ulong
 Vixen.Ui.Rendering.UiLayer.UiLayer() -> void

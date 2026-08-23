@@ -330,6 +330,54 @@ public static class UtilityComposition {
     /// </remarks>
     public const string DropShadow = Prefix + "drop-shadow";
 
+    // ── The backdrop's nine ─────────────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>Nine more fragments and a second assembler, and <i>not</i> nine more slots in the first
+    // one.</b> `backdrop-filter` is a different property from `filter` and an element may carry both:
+    // `filter: grayscale(1)` greys the panel and `backdrop-filter: blur(8px)` blurs the scene under
+    // it, which is a real and common pair. Sharing the fragments would make `blur-2 backdrop-blur-8`
+    // impossible to express — the second would overwrite the first's length — and sharing the
+    // assembler would emit each function into both declarations.
+    //
+    // ⚠ <b>Nine and not eight, because this list has `opacity()` where the other has
+    // `drop-shadow()`.</b> `backdrop-opacity-*` is one of Tailwind's ten backdrop roots and
+    // `backdrop-drop-shadow-*` is not one of them at all — a shadow of the backdrop would be a
+    // silhouette composited under a picture that is already behind everything. `DrawListBuilder.One`
+    // refuses each of them in the other's property for exactly that asymmetry.
+
+    /// <summary>How far a <c>backdrop-filter: blur()</c> spreads. As <see cref="Blur" />.</summary>
+    public const string BackdropBlur = Prefix + "backdrop-blur";
+
+    /// <summary>How much a <c>backdrop-filter: brightness()</c> scales the colour. One is unchanged.</summary>
+    public const string BackdropBrightness = Prefix + "backdrop-brightness";
+
+    /// <summary>How much a <c>backdrop-filter: contrast()</c> pushes away from mid grey. One is unchanged.</summary>
+    public const string BackdropContrast = Prefix + "backdrop-contrast";
+
+    /// <summary>How far a <c>backdrop-filter: grayscale()</c> drains the colour. Zero is unchanged.</summary>
+    public const string BackdropGrayscale = Prefix + "backdrop-grayscale";
+
+    /// <summary>How far a <c>backdrop-filter: hue-rotate()</c> turns the hue. Zero is unchanged.</summary>
+    public const string BackdropHueRotate = Prefix + "backdrop-hue-rotate";
+
+    /// <summary>How far a <c>backdrop-filter: invert()</c> flips the colour. Zero is unchanged.</summary>
+    public const string BackdropInvert = Prefix + "backdrop-invert";
+
+    /// <summary>How far a <c>backdrop-filter: opacity()</c> fades the backdrop. One is unchanged.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one function in either list that is not a colour matrix and not a Gaussian.</b>
+    ///     <c>UiColorMatrix</c> has three rows and cannot scale alpha, so this lands on
+    ///     <c>UiBackdrop.Alpha</c> and rides the backdrop quad's own vertex alpha — the same place a
+    ///     <c>drop-shadow</c>'s colour alpha rides, and for the same reason.
+    /// </remarks>
+    public const string BackdropOpacity = Prefix + "backdrop-opacity";
+
+    /// <summary>How much a <c>backdrop-filter: saturate()</c> scales the distance from grey.</summary>
+    public const string BackdropSaturate = Prefix + "backdrop-saturate";
+
+    /// <summary>How far a <c>backdrop-filter: sepia()</c> ages the colour. Zero is unchanged.</summary>
+    public const string BackdropSepia = Prefix + "backdrop-sepia";
+
     static readonly Dictionary<string, string> Initials = new(StringComparer.Ordinal) {
         [GradientFrom] = "transparent",
         [GradientVia] = "transparent",
@@ -411,7 +459,24 @@ public static class UtilityComposition {
         // number for it — see `ParseFunction`, which will not guess degrees. A plain zero would make
         // the whole assembled declaration invalid for every element that set none of the seven,
         // which is every element that writes a `blur-*`.
-        [HueRotate] = "0deg"
+        [HueRotate] = "0deg",
+
+        // ⚠ <b>The backdrop's nine, and the values are the same identities for the same reason</b> —
+        // a second table rather than a second use of the first, because they are a second set of
+        // fragments. See the constants: `filter` and `backdrop-filter` are different properties and
+        // one element may set both, so `blur-2 backdrop-blur-8` has to be two lengths and not one.
+        // ⚠ <c>opacity</c>'s identity is <b>one</b> and not zero, which is the one place a reader
+        // coming from the seven above will guess wrong: `opacity(0)` erases the backdrop entirely,
+        // which every element carrying any `backdrop-*` class would then do.
+        [BackdropBlur] = "0px",
+        [BackdropBrightness] = "1",
+        [BackdropContrast] = "1",
+        [BackdropGrayscale] = "0",
+        [BackdropHueRotate] = "0deg",
+        [BackdropInvert] = "0",
+        [BackdropOpacity] = "1",
+        [BackdropSaturate] = "1",
+        [BackdropSepia] = "0"
     };
 
     static readonly List<string> Names;
@@ -669,4 +734,43 @@ public static class UtilityComposition {
         $"blur({Reference(Blur)}) brightness({Reference(Brightness)}) contrast({Reference(Contrast)}) "
         + $"grayscale({Reference(Grayscale)}) hue-rotate({Reference(HueRotate)}) invert({Reference(Invert)}) "
         + $"saturate({Reference(Saturate)}) sepia({Reference(Sepia)}) drop-shadow({Reference(DropShadow)})";
+
+    /// <summary>The <c>backdrop-filter</c> declaration the ten backdrop families assemble into.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second assembler and not nine more slots in <see cref="Filter" />, because
+    ///         <c>filter</c> and <c>backdrop-filter</c> are different properties an element may
+    ///         legitimately carry both of.</b> A single declaration cannot be two, and the picture the
+    ///         pair describes — a grey panel over a blurred scene — is the ordinary use of the
+    ///         feature rather than an exotic one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nine functions in Tailwind v4's own order, which puts <c>opacity()</c> between
+    ///         <c>invert()</c> and <c>saturate()</c> and has no <c>drop-shadow()</c> at the end.</b>
+    ///         Everything <see cref="Filter" />'s remarks say about why the order is fixed here rather
+    ///         than taken from the classes applies word for word: classes on an element are a set and
+    ///         CSS's list is a sequence, so no utility system can offer both orders and v4 documents
+    ///         the one it picks.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>opacity()</c>'s presence here is the reason <c>StyleValueParser</c> learned the
+    ///         function at all</b>, and it is refused inside a plain <c>filter</c> —
+    ///         <c>DrawListBuilder.One</c> is where that asymmetry is stated. It cannot ride the colour
+    ///         matrix the other eight compose into, because a three-row matrix has no alpha row; see
+    ///         <c>UiBackdrop.Alpha</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The unprefixed property only, where Tailwind emits <c>-webkit-backdrop-filter</c>
+    ///         beside it.</b> That copy is for Safari and there is no Safari here, so emitting it would
+    ///         put a declaration nothing can read into every generated sheet — see
+    ///         <c>UtilityFamilies.BackdropAlongside</c>, which is where the choice is argued.
+    ///     </para>
+    /// </remarks>
+    public static string BackdropFilter() =>
+        $"blur({Reference(BackdropBlur)}) brightness({Reference(BackdropBrightness)}) "
+        + $"contrast({Reference(BackdropContrast)}) grayscale({Reference(BackdropGrayscale)}) "
+        + $"hue-rotate({Reference(BackdropHueRotate)}) invert({Reference(BackdropInvert)}) "
+        + $"opacity({Reference(BackdropOpacity)}) saturate({Reference(BackdropSaturate)}) "
+        + $"sepia({Reference(BackdropSepia)})";
 }
