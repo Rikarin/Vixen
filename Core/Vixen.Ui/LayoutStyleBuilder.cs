@@ -1186,7 +1186,8 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("grid")] = Display.Grid,
                 [table.Intern("inline")] = Display.Inline,
                 [table.Intern("inline-block")] = Display.InlineBlock,
-                [table.Intern("inline-flex")] = Display.InlineFlex
+                [table.Intern("inline-flex")] = Display.InlineFlex,
+                [table.Intern("flow-root")] = Display.FlowRoot
             };
 
             // ⚠ <b>Three of the eight, and the five that are missing are missing on purpose.</b>

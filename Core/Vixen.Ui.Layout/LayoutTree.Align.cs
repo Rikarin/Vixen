@@ -42,7 +42,11 @@ public sealed partial class LayoutTree {
         var betweenMainDim = gap;
         var justifyContent = line.RemainingFreeSpace >= 0f
             ? styles[index].JustifyContent
-            : FallbackJustify(styles[index].JustifyContent);
+            : SafeFallback(
+                FallbackJustify(styles[index].JustifyContent),
+                styles[index].JustifyContentOverflow,
+                line.RemainingFreeSpace
+            );
 
         // Auto margins eat the free space before any of the distribution keywords see it.
         if (line.AutoMarginCount == 0) {
@@ -178,7 +182,9 @@ public sealed partial class LayoutTree {
         var innerCrossDim =
             BoundAxis(index, crossAxis, direction, unclampedCrossDim, crossAxisOwnerSize, ownerWidth) - contentInsetAxisCross;
         var remaining = innerCrossDim - totalLineCrossDim;
-        var alignContent = remaining >= 0f ? styles[index].AlignContent : FallbackAlign(styles[index].AlignContent);
+        var alignContent = remaining >= 0f
+            ? styles[index].AlignContent
+            : SafeFallback(FallbackAlign(styles[index].AlignContent), styles[index].AlignContentOverflow, remaining);
 
         switch (alignContent) {
             case Align.FlexEnd:
@@ -262,7 +268,17 @@ public sealed partial class LayoutTree {
                     continue;
                 }
 
-                switch (ResolveChildAlignment(index, child)) {
+                // §4.4's fallback, against the space this item has left inside its own line. STEP 7
+                // measures the same thing against the container's cross size, because until the
+                // lines are laid out there is no line to measure against; a wrapping container gets
+                // here instead, and the line is the alignment container once there is one.
+                var itemFreeSpace = lineHeight - DimensionWithMargin(child, crossAxis, availableInnerWidth);
+
+                switch (SafeFallback(
+                            ResolveChildAlignment(index, child),
+                            ResolveChildAlignmentOverflow(index, child),
+                            itemFreeSpace
+                        )) {
                     case Align.FlexStart:
                         // ⚠ THE ITEM'S LEADING CROSS MARGIN, which this case alone used to drop. The
                         // line's height is measured with the margins in it a few lines up, and
@@ -421,7 +437,7 @@ public sealed partial class LayoutTree {
             return results[index].InlineBaseline;
         }
 
-        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline) {
+        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline or Display.FlowRoot) {
             return results[index].MeasuredDimensions[(int) Dimension.Height];
         }
 
@@ -483,4 +499,36 @@ public sealed partial class LayoutTree {
         Justify.SpaceBetween or Justify.SpaceAround or Justify.SpaceEvenly => Justify.FlexStart,
         _ => justify
     };
+
+    /// <summary>
+    ///     CSS Box Alignment §4.4: a <c>safe</c> alignment packs at the start once it would overflow.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one rule, applied at the end of an alignment computation and nowhere
+    ///         earlier.</b> Whether a subject overflows is not knowable from the style — it is the
+    ///         sign of the free space, which is the last thing each of the six alignment sites works
+    ///         out. So this is deliberately a function of a number rather than a resolution step:
+    ///         call it where the free space is in hand, immediately before the <c>switch</c> that
+    ///         spends it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Align.FlexStart" /> and not <see cref="Align.Auto" /> or a clamp.</b>
+    ///         §4.4 says the subject "is aligned as if the alignment mode were <c>start</c>", which
+    ///         on an already-flow-relative axis is exactly this store's <c>FlexStart</c> — the same
+    ///         answer <see cref="FallbackAlign" /> gives the distribution keywords, and reached from
+    ///         a different condition. Clamping the computed offset to zero would agree on these two
+    ///         cases and disagree the moment a leading margin or a start padding is involved.
+    ///     </para>
+    /// </remarks>
+    /// <param name="align">The position the style asked for.</param>
+    /// <param name="overflow">Whether that position was written <c>safe</c>.</param>
+    /// <param name="freeSpace">What is left of the alignment container once the subject is in it.</param>
+    /// <returns>The position to actually use.</returns>
+    static Align SafeFallback(Align align, OverflowAlignment overflow, float freeSpace) =>
+        overflow == OverflowAlignment.Safe && freeSpace < 0f ? Align.FlexStart : align;
+
+    /// <inheritdoc cref="SafeFallback(Align,OverflowAlignment,float)" />
+    static Justify SafeFallback(Justify justify, OverflowAlignment overflow, float freeSpace) =>
+        overflow == OverflowAlignment.Safe && freeSpace < 0f ? Justify.FlexStart : justify;
 }

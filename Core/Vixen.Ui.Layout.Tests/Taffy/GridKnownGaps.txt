@@ -15,7 +15,13 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 2 002 of the 2 120 grid, blockgrid and gridflex fixtures pass, 42 fail and 76 are refused.
+# 2 038 of the 2 120 grid, blockgrid and gridflex fixtures pass, 42 fail and 40 are refused.
+#
+# ⚠ 76 → 40 most recently, and unlike the batch described below all 36 of them passed. They are the
+# `safe` alignment families, which were an ENGINE gap rather than a harness one — `OverflowAlignment`
+# beside the position, read in `PositionTracks` and `AlignInArea` — and code written against a set
+# of fixtures does not surprise you with them. Every refusal left in this corpus is now
+# `scrollbar-width`.
 #
 # ⚠ THOSE THREE NUMBERS MOVED WITHOUT A LINE OF GRID LAYOUT CHANGING, and the failing one moved
 # UPWARDS. 56 fixtures that had been refused on `scrollbar-width` and `writing-mode` — a gutter

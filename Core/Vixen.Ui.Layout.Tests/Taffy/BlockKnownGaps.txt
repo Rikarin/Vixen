@@ -8,7 +8,7 @@
 # TaffyBlockConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts, so a line cannot quietly widen and a fix cannot quietly land.
 #
-# 788 of the 884 block fixtures pass, plus ALL 28 blockflex. NONE fail and 96 are refused.
+# 812 of the 884 block fixtures pass, plus ALL 28 blockflex. NONE fail and 72 are refused.
 #
 # ⚠ That was 764 + 24 with 124 refused, and the 28 that moved moved on the harness rather than on
 # the algorithm: they wrote `scrollbar-width` on an `overflow: hidden` box, which reserves no gutter
@@ -16,6 +16,14 @@
 # Every one of the 28 went straight to green. Block is the corpus where that trade was free; flex
 # and grid each paid for it with newly visible failures, which is the honest half of the story and
 # is written up in their files.
+#
+# ⚠ 96 → 72 since, and this time on the ENGINE rather than on the harness: three of the four
+# refusal buckets below were real missing fields and all three were written. Legacy `text-align`
+# has a `LegacyTextAlign` enum and one call in `WalkBlockChildren`; `display: flow-root` has a
+# `Display.FlowRoot` member and a clause in `EstablishesBlockFormattingContext`; `align-content:
+# safe end` has `OverflowAlignment` and `LayoutTree.SafeFallback`, shared with flex and grid. All 24
+# fixtures went straight to green, which is what an engine gap does — the code was written against
+# them. It is the harness batch above, not this one, that was evidence about the algorithm.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, AND THE RESULT IS NOW EMPTY. Every block and blockflex
 # fixture that reaches arithmetic agrees with Chrome; what is left below the line is the refusal
@@ -47,26 +55,44 @@
 # beside this file, covers all eight corpora, and is asserted rather than described. What follows is
 # block's slice of it, kept here because a reader of this file should not have to open another one.
 #
-# 96 block fixtures never reach arithmetic. No blockflex fixture is refused any more.
+# 72 block fixtures never reach arithmetic. No blockflex fixture is refused any more.
 #
 #   64  scrollbar-width  — LayoutStyle has no scrollbar width, so a scroll container reserves no
 #                          gutter. That is a real omission and it is doc 43 § F3's, not B1's.
 #                          ⚠ Was 88. The other 24 were `overflow: hidden`, where there is no
 #                          scrollbar to reserve a gutter for and the declaration is inert; the
 #                          refusal was the harness's, not the store's, and they all pass.
+#    8  float            — doc 43's 84 float fixtures, plus these eight. See the remarks on
+#                          LayoutTree.Block for where floats would attach and why nothing here
+#                          forecloses them. ⚠ Was 4, and the four that joined are the ones that
+#                          make this section worth reading twice:
+#                          `block_flow_root_contains_float` used to be refused for `flow-root` and
+#                          is now refused for the float it ALSO needs. Nothing about them improved.
+#
+# ── and the three that used to be here, all closed ──
+#
 #   16  text-align       — the legacy `-webkit-{left,right,center}` values, which align a block
 #                          container's BLOCK-LEVEL children. Not the inline formatting context;
 #                          this line used to say "inline alignment. Doc 43 § B3." and B3 landed
 #                          without touching them, because they are a property of block layout.
+#                          ⚠ CLOSED: `LegacyTextAlign` on LayoutStyle and one call to
+#                          `LegacyTextAlignOffset` where a block child's physical left edge is
+#                          decided. All 16 pass. The enum is deliberately NOT called `TextAlign`:
+#                          plain `text-align: center` moves inline content and leaves block-level
+#                          children alone, so one field cannot hold both sets of keywords.
 #    8  display:flow-root — a block box that always establishes a formatting context. ⚠ This line
 #                          used to add "`overflow: hidden` already gets the same behaviour out of
 #                          this implementation today", which is true and is not a reason to alias
 #                          the keyword: `block_flow_root_margin_non_collapse` is a flow root with
 #                          `overflow: visible`, and mapping it to Block gets that one wrong. Four
 #                          of the eight need floats as well.
+#                          ⚠ CLOSED, and the sentence above was right about both halves:
+#                          `Display.FlowRoot` plus one clause in
+#                          `EstablishesBlockFormattingContext` converted 4, and the other 4 went to
+#                          the `float` line above exactly as predicted.
 #    4  align-content: safe end — `safe` alignment has no expression in this store's Align enum.
 #                          `safe` is an overflow FALLBACK rather than a position, so there is
 #                          nowhere to record it, and the fixture is named `_overflow`.
-#    4  float            — doc 43's 84 float fixtures, plus these four. See the remarks on
-#                          LayoutTree.Block for where floats would attach and why nothing here
-#                          forecloses them.
+#                          ⚠ CLOSED: there is somewhere to record it now — `OverflowAlignment`
+#                          beside the position, tested against the free space at each of the six
+#                          places §4.4 applies. Shared with flex and grid, which had 72 more.

@@ -76,11 +76,20 @@ public sealed partial class LayoutTree {
     ///     <i>collapse-through</i> answer would be computed as though it were transparent — so an
     ///     empty one between two margins would let them meet through it, which is the one thing a
     ///     formatting context root exists to stop.
+    ///
+    ///     ⚠ <b>And <see cref="Display.FlowRoot" /> is the keyword that asks for this and nothing
+    ///     else, which is why it cannot be derived from the two clauses above it.</b> Every other
+    ///     route to a new formatting context is a side effect of something: clipping, floating,
+    ///     going inline. A <c>flow-root</c> with <c>overflow: visible</c> reads as
+    ///     <c>false</c> on both of them and must still answer <c>true</c> —
+    ///     <c>block_flow_root_margin_non_collapse</c> puts one beside a plain <c>block</c> with
+    ///     identical content and Chrome makes the first 10 points tall and the second 60.
     /// </remarks>
     bool EstablishesBlockFormattingContext(int index) =>
         styles[index].OverflowX != Overflow.Visible
         || styles[index].OverflowY != Overflow.Visible
-        || IsInlineLevel(styles[index].Display);
+        || IsInlineLevel(styles[index].Display)
+        || styles[index].Display == Display.FlowRoot;
 
     /// <summary>
     ///     Whether this node's vertical margins are allowed to collapse with its parent's.
@@ -92,6 +101,13 @@ public sealed partial class LayoutTree {
     ///     function of the node's own style and its parent's, both of which are fixed for the whole
     ///     pass, so the same node is asked the same question every time it is laid out. A tree
     ///     mutation that could change the answer dirties the node anyway.
+    ///
+    ///     ⚠ <b>Both <c>Display.Block</c> tests below stay exactly that and do NOT grow an
+    ///     <c>or FlowRoot</c>, which is the one place the new keyword reads as an omission and is
+    ///     not one.</b> A flow root's margins do not collapse with its children's in either
+    ///     direction: as the <i>node</i> it is barred by the clause below it as well, and as the
+    ///     <i>parent</i> there is no other clause, so the literal test is what stops a child's
+    ///     margin escaping through it.
     /// </remarks>
     bool BlockMarginsCollapsibleWithParent(int index) {
         var parent = links[index].Parent;
@@ -254,7 +270,10 @@ public sealed partial class LayoutTree {
         // distribution keywords all fall back and the group moves by one offset.
         if (performLayout && walk.InFlowCount > 0 && styles[index].AlignContent != Align.FlexStart) {
             var freeSpace = (outerHeight - insetColumn) - (intrinsicHeight - insetColumn);
-            var offset = SingleSubjectAlignmentOffset(styles[index].AlignContent, freeSpace);
+            var offset = SingleSubjectAlignmentOffset(
+                SafeFallback(styles[index].AlignContent, styles[index].AlignContentOverflow, freeSpace),
+                freeSpace
+            );
 
             if (offset != 0f) {
                 foreach (var child in ChildIds(index)) {
@@ -610,9 +629,21 @@ public sealed partial class LayoutTree {
 
                 // The box sits against the inline-start edge — the left in LTR, the right in RTL —
                 // and it is the inline-*start* margin that separates it from that edge either way.
-                results[child].Position[(int) Edge.Left] = direction == Direction.Ltr
-                    ? insetLeft + usedStart + relativeX
-                    : outerWidth - insetRight - childOuterWidth - usedStart + relativeX;
+                // Unless CSS Text §7.1's legacy `text-align` says otherwise, which is the one thing
+                // in block layout that names a PHYSICAL edge rather than a flow-relative one.
+                var usedLeft = direction == Direction.Ltr ? usedStart : usedEnd;
+                var usedRight = direction == Direction.Ltr ? usedEnd : usedStart;
+
+                results[child].Position[(int) Edge.Left] = insetLeft
+                    + LegacyTextAlignOffset(
+                        styles[index].LegacyTextAlign,
+                        direction,
+                        innerWidth,
+                        childOuterWidth,
+                        usedLeft,
+                        usedRight
+                    )
+                    + relativeX;
                 results[child].Position[(int) Edge.Top] = committed + advance + relativeY;
                 results[child].Margin[(int) (direction == Direction.Ltr ? Edge.Left : Edge.Right)] = usedStart;
                 results[child].Margin[(int) (direction == Direction.Ltr ? Edge.Right : Edge.Left)] = usedEnd;
@@ -827,6 +858,59 @@ public sealed partial class LayoutTree {
         }
 
         return widest;
+    }
+
+    /// <summary>
+    ///     How far a block-level child's left edge sits from its container's left content edge.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Physical throughout, which is why the two margins are passed as left and right
+    ///         rather than as start and end.</b> CSS Text §7.1's legacy keywords are physical — a
+    ///         <c>-webkit-left</c> container puts its children on the left in RTL too — and they are
+    ///         the only thing in block layout that is. <c>block_item_text_align_left__border_box_rtl</c>
+    ///         is the fixture: an RTL container whose 100-point child Chrome puts at x=0, where
+    ///         §10.3.3 alone would have put it at x=100.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="LegacyTextAlign.None" /> is §10.3.3 unchanged, and the two arms it
+    ///         reduces to are exactly the two the caller used to write inline: the inline-start edge,
+    ///         which is <see cref="LegacyTextAlign.Left" />'s answer in LTR and
+    ///         <see cref="LegacyTextAlign.Right" />'s in RTL.
+    ///     </para>
+    ///     <para>
+    ///         The centre arm floors its free space at zero rather than halving a negative, which
+    ///         matches the auto-margin resolution three lines above the call site and matches
+    ///         §10.3.3's rule that an over-constrained <c>auto</c> margin becomes zero —
+    ///         <c>-webkit-center</c> is that behaviour under another name. ⚠ No fixture in the
+    ///         corpus overflows a legacy-aligned child, so this arm is reasoned rather than
+    ///         measured; the three keywords' non-overflowing behaviour is what the 16 pin.
+    ///     </para>
+    /// </remarks>
+    /// <param name="textAlign">The container's legacy alignment.</param>
+    /// <param name="direction">The container's inline direction, which only <c>None</c> consults.</param>
+    /// <param name="innerWidth">The container's content-box width.</param>
+    /// <param name="childOuterWidth">The child's border-box width.</param>
+    /// <param name="usedLeft">The child's used left margin, auto margins already resolved.</param>
+    /// <param name="usedRight">Its used right margin.</param>
+    /// <returns>The offset from the content box's left edge.</returns>
+    static float LegacyTextAlignOffset(
+        LegacyTextAlign textAlign,
+        Direction direction,
+        float innerWidth,
+        float childOuterWidth,
+        float usedLeft,
+        float usedRight
+    ) {
+        var resolved = textAlign == LegacyTextAlign.None
+            ? direction == Direction.Ltr ? LegacyTextAlign.Left : LegacyTextAlign.Right
+            : textAlign;
+
+        return resolved switch {
+            LegacyTextAlign.Center => usedLeft + (MathF.Max(0f, innerWidth - usedLeft - usedRight - childOuterWidth) / 2f),
+            LegacyTextAlign.Right => innerWidth - childOuterWidth - usedRight,
+            _ => usedLeft
+        };
     }
 
     /// <summary>

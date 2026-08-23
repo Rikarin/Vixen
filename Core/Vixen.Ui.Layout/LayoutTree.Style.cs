@@ -97,54 +97,88 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Sets main-axis distribution.</summary>
+    /// <remarks>
+    ///     ⚠ The overflow half of the value is set with it rather than through a setter of its own,
+    ///     because CSS writes them as one declaration and because the pair is only meaningful
+    ///     together — see <see cref="OverflowAlignment" />. The same is true of the five siblings of
+    ///     this method.
+    /// </remarks>
     /// <param name="node">The node.</param>
     /// <param name="justify">The distribution.</param>
-    public void SetJustifyContent(LayoutNodeId node, Justify justify) {
+    /// <param name="overflow">What it does when the items do not fit.</param>
+    public void SetJustifyContent(LayoutNodeId node, Justify justify, OverflowAlignment overflow = OverflowAlignment.Unsafe) {
         var index = Validate(node);
-        if (styles[index].JustifyContent == justify) {
+        if (styles[index].JustifyContent == justify && styles[index].JustifyContentOverflow == overflow) {
             return;
         }
 
         styles[index].JustifyContent = justify;
+        styles[index].JustifyContentOverflow = overflow;
         MarkDirtyAndPropagate(index);
     }
 
     /// <summary>Sets cross-axis distribution of the lines.</summary>
+    /// <inheritdoc cref="SetJustifyContent" path="/remarks" />
     /// <param name="node">The node.</param>
     /// <param name="align">The distribution.</param>
-    public void SetAlignContent(LayoutNodeId node, Align align) {
+    /// <param name="overflow">What it does when the lines do not fit.</param>
+    public void SetAlignContent(LayoutNodeId node, Align align, OverflowAlignment overflow = OverflowAlignment.Unsafe) {
         var index = Validate(node);
-        if (styles[index].AlignContent == align) {
+        if (styles[index].AlignContent == align && styles[index].AlignContentOverflow == overflow) {
             return;
         }
 
         styles[index].AlignContent = align;
+        styles[index].AlignContentOverflow = overflow;
         MarkDirtyAndPropagate(index);
     }
 
     /// <summary>Sets cross-axis placement of the children.</summary>
+    /// <inheritdoc cref="SetJustifyContent" path="/remarks" />
     /// <param name="node">The node.</param>
     /// <param name="align">The placement.</param>
-    public void SetAlignItems(LayoutNodeId node, Align align) {
+    /// <param name="overflow">What it does for a child that does not fit.</param>
+    public void SetAlignItems(LayoutNodeId node, Align align, OverflowAlignment overflow = OverflowAlignment.Unsafe) {
         var index = Validate(node);
-        if (styles[index].AlignItems == align) {
+        if (styles[index].AlignItems == align && styles[index].AlignItemsOverflow == overflow) {
             return;
         }
 
         styles[index].AlignItems = align;
+        styles[index].AlignItemsOverflow = overflow;
         MarkDirtyAndPropagate(index);
     }
 
     /// <summary>Sets this node's own cross-axis placement.</summary>
+    /// <inheritdoc cref="SetJustifyContent" path="/remarks" />
     /// <param name="node">The node.</param>
     /// <param name="align">The placement.</param>
-    public void SetAlignSelf(LayoutNodeId node, Align align) {
+    /// <param name="overflow">What it does when this node does not fit.</param>
+    public void SetAlignSelf(LayoutNodeId node, Align align, OverflowAlignment overflow = OverflowAlignment.Unsafe) {
         var index = Validate(node);
-        if (styles[index].AlignSelf == align) {
+        if (styles[index].AlignSelf == align && styles[index].AlignSelfOverflow == overflow) {
             return;
         }
 
         styles[index].AlignSelf = align;
+        styles[index].AlignSelfOverflow = overflow;
+        MarkDirtyAndPropagate(index);
+    }
+
+    /// <summary>Sets where a block container puts its block-level children on the inline axis.</summary>
+    /// <remarks>
+    ///     ⚠ Only the three legacy <c>text-align</c> keywords, and only on a block container. See
+    ///     <see cref="LegacyTextAlign" />.
+    /// </remarks>
+    /// <param name="node">The node.</param>
+    /// <param name="textAlign">The alignment.</param>
+    public void SetLegacyTextAlign(LayoutNodeId node, LegacyTextAlign textAlign) {
+        var index = Validate(node);
+        if (styles[index].LegacyTextAlign == textAlign) {
+            return;
+        }
+
+        styles[index].LegacyTextAlign = textAlign;
         MarkDirtyAndPropagate(index);
     }
 

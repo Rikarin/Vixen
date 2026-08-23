@@ -72,8 +72,17 @@ public class TaffyUnsupportedCensusTests {
 
         Assert.NotEmpty(measured);
         Assert.True(measured.Sum(bucket => bucket.Count) > 0, "no fixture was refused at all, which no run has ever produced");
-        Assert.True(measured.Select(bucket => bucket.Reason).Distinct(StringComparer.Ordinal).Count() > 1, "one reason for every refusal");
         Assert.True(measured.Select(bucket => bucket.Category).Distinct(StringComparer.Ordinal).Count() > 1, "one corpus refused everything");
+
+        // ⚠ This read `Distinct().Count() > 1` until 2026-08-23, and it was the right assertion right
+        // up to the moment it stopped being one: the corpus converged on a SINGLE remaining reason
+        // when `scrollbar-width`, `safe` alignment, legacy `text-align` and half of `flow-root` all
+        // landed in one day. A proxy for "the census is rich" that success consumes is a proxy, not a
+        // guard — so it is replaced by the stronger statement rather than lowered to `> 0`. Every
+        // refusal left in the corpus is `float`; a new reason appearing, or `float` ceasing to be
+        // refused, both fail here and both are things somebody should have to look at.
+        Assert.Equal(["float"], measured.Select(bucket => bucket.Reason).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
+        Assert.All(measured, bucket => Assert.False(string.IsNullOrWhiteSpace(bucket.Reason), "a refusal with no reason is a census of nothing wearing a number"));
 
         // And the corpus behind it really was walked, all eight files of it.
         Assert.Equal(5524, TaffyCorpus.Categories.Sum(category => TaffyCorpus.Load(category).Count));

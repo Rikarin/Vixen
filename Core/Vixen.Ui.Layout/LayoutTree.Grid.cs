@@ -343,8 +343,8 @@ public sealed partial class LayoutTree {
         // ⚠ Both axes are positioned in *content-box* coordinates and the physical inset is added
         // when each box is placed. That is what lets the one RTL line in `PlaceGridItemBoxes` be a
         // mirror of a single number rather than an inset-aware rearrangement of the whole pass.
-        PositionTracks(in columnAxis, styles[index].JustifyContent);
-        PositionTracks(in rowAxis, JustifyOf(styles[index].AlignContent));
+        PositionTracks(in columnAxis, styles[index].JustifyContent, styles[index].JustifyContentOverflow);
+        PositionTracks(in rowAxis, JustifyOf(styles[index].AlignContent), styles[index].AlignContentOverflow);
 
         // ⚠ THE ORIGIN IS CLAMPED INTO THE BOX, and only a scrollbar gutter can push it out of one.
         // `insetLeft` and `insetTop` are the content box's origin, and every other contributor to
@@ -651,7 +651,10 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>§10.3: distributes the container's leftover space between the tracks.</summary>
-    void PositionTracks(in GridAxis axis, Justify distribution) {
+    /// <param name="axis">The axis whose tracks are being placed.</param>
+    /// <param name="distribution">The content distribution the container asked for.</param>
+    /// <param name="overflow">Whether it was written <c>safe</c>.</param>
+    void PositionTracks(in GridAxis axis, Justify distribution, OverflowAlignment overflow) {
         var alive = 0;
         for (var at = 0; at < axis.TrackCount; at++) {
             if (!Scratch.Track(axis.TracksAt + at).IsCollapsed) {
@@ -676,11 +679,20 @@ public sealed partial class LayoutTree {
         // arrive at start, and negative free space is spent on none of them. Mapping the last two
         // to a plain `Center` puts every track half the overflow to the left, which is what
         // `grid_justify_content_space_around_negative_space_gap` and its `space_evenly` twin catch.
+        //
+        // ⚠ <b>And `safe` is also the keyword an author can write on the property itself</b>, which
+        // is the one way negative free space does reach `center` and `end`.
+        // `grid_safe_justify_content_end_overflow` is three 40-point columns in a 100-point grid:
+        // `unsafe end` starts them at −20 and `safe end` at 0.
         if (free < 0f) {
-            distribution = distribution switch {
-                Justify.SpaceBetween or Justify.SpaceAround or Justify.SpaceEvenly => Justify.FlexStart,
-                _ => distribution
-            };
+            distribution = SafeFallback(
+                distribution switch {
+                    Justify.SpaceBetween or Justify.SpaceAround or Justify.SpaceEvenly => Justify.FlexStart,
+                    _ => distribution
+                },
+                overflow,
+                free
+            );
         }
 
         var (leading, between) = distribution switch {
@@ -757,6 +769,16 @@ public sealed partial class LayoutTree {
 
             var justify = Resolve(styles[child].JustifySelf, containerJustify);
             var align = Resolve(styles[child].AlignSelf, containerAlign);
+
+            // The prefix travels with the position it modifies: an item that defers to the
+            // container's `justify-items` inherits its `safe` too. See ResolveChildAlignmentOverflow.
+            var justifyOverflow = styles[child].JustifySelf == Align.Auto
+                ? styles[index].JustifyItemsOverflow
+                : styles[child].JustifySelfOverflow;
+
+            var alignOverflow = styles[child].AlignSelf == Align.Auto
+                ? styles[index].AlignItemsOverflow
+                : styles[child].AlignSelfOverflow;
 
             // ⚠ The size handed down is the *outer* one — the area, margins included — because
             // `CalculateLayoutInternal` subtracts the margins itself on the way in. Passing the
@@ -838,8 +860,31 @@ public sealed partial class LayoutTree {
             var usedWidth = results[child].MeasuredDimensions[(int) Dimension.Width];
             var usedHeight = results[child].MeasuredDimensions[(int) Dimension.Height];
 
-            var offsetX = AlignInArea(areaWidth, usedWidth, marginStart, marginEnd, startIsAuto, endIsAuto, justify, out var usedStart, out var usedEnd);
-            var offsetY = AlignInArea(areaHeight, usedHeight, marginTop, marginBottom, topIsAuto, bottomIsAuto, align, out var usedTop, out var usedBottom);
+            var offsetX = AlignInArea(
+                areaWidth,
+                usedWidth,
+                marginStart,
+                marginEnd,
+                startIsAuto,
+                endIsAuto,
+                justify,
+                justifyOverflow,
+                out var usedStart,
+                out var usedEnd
+            );
+
+            var offsetY = AlignInArea(
+                areaHeight,
+                usedHeight,
+                marginTop,
+                marginBottom,
+                topIsAuto,
+                bottomIsAuto,
+                align,
+                alignOverflow,
+                out var usedTop,
+                out var usedBottom
+            );
 
             // §11.8: a baseline-aligned item starts where its group's baseline puts it. `AlignInArea`
             // has already placed it at the area's start — the shim is the rest of the answer, and the
@@ -1063,6 +1108,7 @@ public sealed partial class LayoutTree {
         bool startIsAuto,
         bool endIsAuto,
         Align alignment,
+        OverflowAlignment overflow,
         out float usedStart,
         out float usedEnd
     ) {
@@ -1087,7 +1133,12 @@ public sealed partial class LayoutTree {
         // relative sizes. So `align-self: end` on a 60-point item in a 40-point row puts it 20
         // points ABOVE the row, and `center` puts it 10 above — negative offsets that a clamp here
         // rounded to zero, which reads as an item that simply ignores its own alignment.
-        return usedStart + alignment switch {
+        //
+        // ⚠ <b>And when the author DID write `safe`, this is the line that honours it.</b> Asked of
+        // the keyword rather than of the sign, so an `unsafe` overflow still overflows:
+        // `grid_safe_align_self_end_overflow` and `grid_unsafe_align_self_end_overflow` are the same
+        // 150-point item in the same 100-point row and Chrome answers 0 and −50.
+        return usedStart + SafeFallback(alignment, overflow, free) switch {
             Align.Center => free / 2f,
             Align.FlexEnd => free,
             _ => 0f

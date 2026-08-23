@@ -32,8 +32,10 @@
 #     like a line in a gap file.
 #
 # Of the 408, **124 were harness and 284 were engine — 30% against 70%.** All 124 are closed, and so
-# are 180 of the 284: `scrollbar-width` was the largest bucket in the file and it is gone. What
-# remains below is 104, plus `float`'s own corpus, which is tallied rather than skipped.
+# are 276 of the 284: `scrollbar-width` (180), the `safe` alignment families (76), legacy
+# `text-align` (16) and half of `display: flow-root` (4). What remains below is `float` and nothing
+# else — 8 skipped by the block suite, plus `float`'s own corpus, which is tallied rather than
+# skipped.
 #
 # Closing them was worth what it was supposed to be worth. 92 of the 124 went straight to green,
 # which is 92 fixtures' worth of correctness evidence that already existed and was being thrown
@@ -41,6 +43,24 @@
 # silently — filed under new headings in `KnownGaps.txt` and `GridKnownGaps.txt`. Two of the three
 # were pre-existing arithmetic that no visible fixture happened to exercise, which is the reason to
 # do this rather than a cost of doing it.
+#
+# ⚠ **96 of the 284 ENGINE gaps have since been closed too, and they went 96 pass / 0 fail.** Safe
+# alignment, legacy `text-align` and `display: flow-root` were each a real missing field rather than
+# a translation the map never learned — this file said so and was right about all three — and each
+# was written. Not one of the 96 that started running disagreed with Chrome, which is the opposite
+# of what the harness batch did and is worth reading the right way round rather than as a victory:
+# a HARNESS gap hides fixtures whose arithmetic nobody has ever checked, so it turns up defects; an
+# ENGINE gap hides fixtures that were waiting on code that did not exist, so the code is written
+# against them and of course they pass. Only the first kind is evidence about the algorithm.
+#
+# ⚠ The three buckets held 100 refusals between them and the total fell by 96, which is not an
+# arithmetic slip. 4 of the 8 `display: flow-root` fixtures are `block_flow_root_contains_float`,
+# which needed the keyword AND a float; they did not convert, they changed which missing feature
+# they are refused for, and they are counted under FLOATS now. A bucket emptying and a fixture
+# converting are two different events and this file has to be able to tell them apart.
+#
+# The headings for the three are kept, with their counts zeroed, under CLOSED at the foot of this
+# file — a deleted heading leaves a reader unable to tell "implemented" from "never existed".
 #
 #
 # ══ HARNESS — CLOSED ═════════════════════════════════════════════════════════════════════════════
@@ -84,9 +104,14 @@
 # `align-content: safe end` is not `align-content: end` — `safe` falls back to start alignment when
 # the item overflows, which is precisely what 15 of the 19 families are named for. `display:
 # flow-root` is not `display: block` — the whole content of the keyword is that it establishes a
-# formatting context, and `EstablishesBlockFormattingContext` reads `overflow` and inline-level-ness
-# and nothing else. Mapping either of those would produce a wrong answer on the exact fixture that
-# tests it, which is a hack and not a translation.
+# formatting context, and `EstablishesBlockFormattingContext` read `overflow` and inline-level-ness
+# and nothing else. Mapping either of those would have produced a wrong answer on the exact fixture
+# that tests it, which is a hack and not a translation.
+#
+# ⚠ Both of those refusals stood, and both of those features are now IMPLEMENTED — which is the
+# vindication of the distinction rather than a contradiction of it. The question this heading asks
+# is "can the map translate this into something the store already has", and the answer for both was
+# no. The answer to the different question, "should the store have it", was yes. See CLOSED.
 #
 #
 # ══ ENGINE ═══════════════════════════════════════════════════════════════════════════════════════
@@ -121,38 +146,7 @@
 # `Overflow` still has no `Auto` member and still does not need one: the corpus writes `scroll`,
 # which always reserves, and the enum's remarks argue the rest.
 
-# ── SAFE ALIGNMENT (CSS Box Alignment §4.4) ── 76 ──
-#
-# `safe` is an overflow FALLBACK, not a position: an item aligned `safe end` sits at the end edge
-# until doing so would push its start edge out of the alignment container, at which point it aligns
-# to start instead and overflows the other way. `Align` and `Justify` carry the position only, so
-# there is nowhere to record the fallback, and mapping `safe end` onto `FlexEnd` is wrong on exactly
-# the fixtures that test it — 15 of these 19 families are named `_overflow`.
-#
-# ⚠ The four named `_no_overflow` are the ones where `safe` and unsafe provably agree, and they are
-# refused with the rest on purpose. There is no way to know at TRANSLATION time whether a box will
-# overflow; only the algorithm knows, and by then the style is already set. Accepting them because
-# their names say they are safe would be reading the answer off the fixture.
-#
-# Additive, and smaller than the count suggests: one bit beside the position, and one comparison at
-# each of the four places §4.4 is applied — `align-content`, `align-self`, `justify-content` and
-# `justify-self` — that swaps the position for start when the free space is negative.
-
-    12  flex       align-self: safe end
-    12  flex       justify-content: safe end
-     8  grid       align-self: safe end
-     8  grid       justify-content: safe end
-     4  block      align-content: safe end
-     4  flex       align-content: safe end
-     4  flex       align-self: safe center
-     4  flex       justify-content: safe center
-     4  grid       align-content: safe center
-     4  grid       align-content: safe end
-     4  grid       justify-content: safe center
-     4  grid       justify-self: safe center
-     4  grid       justify-self: safe end
-
-# ── FLOATS ── 88 ──
+# ── FLOATS ── 92 ──
 #
 # The one layout mode with a whole corpus of its own and no implementation, and the reason it did
 # not arrive with block layout is stated in `TaffyPendingCorporaTests`: these fixtures are refused
@@ -163,49 +157,94 @@
 # ⚠ The 84 in the `float` corpus are TALLIED rather than skipped — `TaffyPendingCorporaTests` runs
 # every one of them and pins `(0, 0, 84)`, so a crash or a hang in that path is visible today. They
 # are listed here anyway, because the point of this file is the whole ledger and a reader counting
-# refusals should not have to know which of two mechanisms records each one. The 4 in `block` are
-# real skips: `block_flow_root_avoids_sibling_float`, which needs a float AND a flow root.
+# refusals should not have to know which of two mechanisms records each one. The 8 in `block` are
+# real skips: `block_flow_root_avoids_sibling_float` and `block_flow_root_contains_float`, each of
+# which needs a float AND a flow root. ⚠ The second family was 4 of the 8 `display: flow-root`
+# refusals until the keyword landed; it did not become a pass, it changed which of two missing
+# features it names. A bucket shrinking is not the same as fixtures converting, and this is the one
+# place in this file where the two come apart.
 #
 # Structural, and the largest single item owed: an exclusion list threaded through inline line-box
 # construction, plus `clear`, plus the interaction with margin collapsing that
 # `block_flow_root_contains_float` is about.
 
     84  float      float
-     4  block      float
+     8  block      float
 
-# ── LEGACY `text-align` ON A BLOCK CONTAINER ── 16 ──
+
+# ══ CLOSED ═══════════════════════════════════════════════════════════════════════════════════════
+#
+# ⚠ Kept as headings with no lines under them, because the counts are asserted and a bucket that is
+# simply deleted leaves a reader unable to tell "implemented" from "never existed". Each of these
+# was an ENGINE gap when it was written down, and each was written rather than translated away.
+#
+# ── SAFE ALIGNMENT (CSS Box Alignment §4.4) ── was 76, now 0 ──
+#
+# `safe` is an overflow FALLBACK, not a position: an item aligned `safe end` sits at the end edge
+# until doing so would push its start edge out of the alignment container, at which point it aligns
+# to start instead and overflows the other way. `Align` and `Justify` carry the position only, and
+# mapping `safe end` onto `FlexEnd` would have been wrong on exactly the fixtures that test it — 15
+# of the 19 families are named `_overflow`. This file said the fix was "one bit beside the position,
+# and one comparison at each of the four places §4.4 is applied", and that is what it was:
+# `OverflowAlignment` on `LayoutEnums`, six `*Overflow` fields on `LayoutStyle` — the four named
+# plus `align-items` and `justify-items`, which the corpus does not exercise and which `align-self:
+# auto` inherits from — and `LayoutTree.SafeFallback` called from six sites.
+#   → 76 converted, 76 pass, 0 fail.
+#
+# ⚠ The four `_no_overflow` families were refused with the rest on purpose, and they were the ones
+# that proved the design: they are where `safe` and unsafe agree, so a translation-time hack would
+# have passed them and failed the other fifteen. They pass now for the right reason.
+#
+# ⚠ One asymmetry Chrome has and the spec does not obviously state, worth recording because it looks
+# like a bug from either side. `absolute_safe_align_self_end_overflow` puts a 200-point out-of-flow
+# child in a 100-point flex container and Chrome answers 0 — safe fired. Its twin
+# `absolute_safe_justify_content_end_overflow` is the same overflow on the main axis and Chrome
+# answers −100 — safe did NOT fire. The rule that reconciles them is what §4.4 measures: the
+# ALIGNMENT SUBJECT. `align-self` is the child's own declaration and its subject is the child, which
+# overflows. `justify-content`'s subject is the container's in-flow content, and an out-of-flow
+# child is not in it — the line the static position is read off holds no items at all, so nothing
+# overflows and `end` is honoured. See `LayoutTree.Absolute.LayoutAbsoluteChild`.
+#
+# ── LEGACY `text-align` ON A BLOCK CONTAINER ── was 16, now 0 ──
 #
 # `-webkit-center`, `-webkit-left` and `-webkit-right` are the legacy values that align a block
 # container's BLOCK-LEVEL children, not just its inline content — the behaviour `<center>` had, kept
-# alive because pages depend on it. Chrome implements them and Taffy translates them into a
-# `TextAlign` on the block algorithm; this store has neither the property nor the step in
-# `LayoutTree.Block` that would read it. `block_text_align_center_rtl` additionally pins that the
-# legacy keywords are physical and do not flip with `direction`.
+# alive because pages depend on it. This store had neither the property nor the step in
+# `LayoutTree.Block` that would read it, and now has both: `LegacyTextAlign` and
+# `LayoutTree.LegacyTextAlignOffset`, one call where a block child's physical left edge is decided.
+#   → 16 converted, 16 pass, 0 fail.
 #
-# Additive: a three-valued enum on `LayoutStyle`, read once where a block child's inline offset is
-# decided. Worth noting that it is unrelated to the inline formatting context — these fixtures are
-# about boxes, and `InlineKnownGaps.txt` is where actual text alignment would be owed.
-
-    16  block      text-align
-
-# ── `display: flow-root` ── 8 ──
+# ⚠ The enum is `LegacyTextAlign` and not `TextAlign`, and that is not fastidiousness. Plain
+# `text-align: center` centres a block container's INLINE content and leaves its block-level
+# children exactly where §10.3.3 put them; only the three legacy keywords move the boxes. One field
+# holding both sets would have to mean two different things, so the map refuses an unprefixed value
+# rather than folding it in. `text-align` proper is still owed, still has no oracle in either
+# corpus, and is still `InlineKnownGaps.txt`'s entry — which said all of this before the field
+# existed and is worth reading for the arithmetic error it corrects.
+#
+# ⚠ `block_text_align_center_rtl` is the one that pins the keywords PHYSICAL: an RTL container puts
+# its child at x=50 rather than mirroring, and `block_item_text_align_left__border_box_rtl` puts one
+# at x=0 where §10.3.3 alone would have said x=100. Direction is consulted only when none of the
+# three was written.
+#
+# ── `display: flow-root` ── was 8, now 0 ──
 #
 # A block container that always establishes a block formatting context, whatever its `overflow`
-# says. `EstablishesBlockFormattingContext` derives the answer from `overflow` and from
-# inline-level-ness, which is the complete rule for every other keyword and cannot express this one:
-# a `flow-root` with `overflow: visible` must still stop its children's margins escaping, and
-# `block_flow_root_margin_non_collapse` is that fixture exactly.
+# says. `EstablishesBlockFormattingContext` derived the answer from `overflow` and from
+# inline-level-ness, which is the complete rule for every other keyword and could not express this
+# one: a `flow-root` with `overflow: visible` must still stop its children's margins escaping, and
+# `block_flow_root_margin_non_collapse` is that fixture exactly. `Display` grew a `FlowRoot` member,
+# `EstablishesBlockFormattingContext` grew a clause, and four `is Block or Grid`-shaped tests grew
+# an arm.
+#   → 4 converted, 4 pass, 0 fail. ⚠ The other 4 are `block_flow_root_contains_float`, which this
+#     file predicted would need floats regardless. They are still refused, are now counted under
+#     FLOATS, and are the whole of the difference between this batch's 100 and 96.
 #
-# ⚠ Half of these need floats regardless — `block_flow_root_contains_float` is a flow root whose
-# whole job is to contain one — so closing this keyword alone converts 4 of the 8.
+# ⚠ `BlockMarginsCollapsibleWithParent` deliberately did NOT grow an `or FlowRoot`, which is the one
+# place the keyword reads as a missed site and is not one: a flow root's margins collapse with its
+# children's in neither direction, so the literal `Display.Block` test is what enforces that.
 #
-# Additive: a `FlowRoot` member on `Display`, one clause in `EstablishesBlockFormattingContext`, and
-# `is Block or FlowRoot` wherever `Display.Block` is currently tested for outer block-ness. It is a
-# public enum, so it costs an API line and a documented member rather than being free.
-
-     8  block      display: flow-root
-
-
+#
 # ── THE REFUSALS THAT NEVER FIRE ── 0 ──
 #
 # ⚠ Worth recording precisely because they are absent, and because they are the ones a reader
@@ -226,13 +265,17 @@
 #
 # ══ TOTAL ════════════════════════════════════════════════════════════════════════════════════════
 #
-# 188 of the 5 524 fixtures are refused: 104 skipped by the three conformance suites, 84 tallied by
+# 92 of the 5 524 fixtures are refused: 8 skipped by the three conformance suites, 84 tallied by
 # `TaffyPendingCorporaTests`. Asserted, and asserted to be non-zero — a census that can quietly
 # census nothing is the failure this file was written about.
 #
-# ⚠ 368 → 188, and 180 of those 180 went to green. Read that against the 124 harness gaps, where 32
-# of 124 went red: a bucket recorded as ENGINE is a claim that the store cannot express the fixture,
-# and when the claim is right, implementing it produces no surprises. The harness buckets were the
-# ones hiding defects, because those fixtures had been runnable all along.
+# ⚠ 368 → 92. Every refusal left in this file is `float`, and one feature is now the whole of the
+# remaining debt. Of the 276 that left, 272 became passing fixtures and 4 changed which missing
+# feature they name; nothing has ever left this file by being deleted.
+#
+# ⚠ Read the clean conversion as the WEAK result it is. All 276 were ENGINE gaps — a claim that the
+# store cannot express the fixture — so the code was written against them and was never going to
+# disagree with them. The 124 HARNESS gaps were the ones hiding defects: 32 of those went red,
+# because those fixtures had been runnable all along and nobody had checked their arithmetic.
 
-total  188
+total  92

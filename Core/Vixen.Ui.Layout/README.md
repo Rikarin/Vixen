@@ -258,13 +258,23 @@ sign rule where a positive and a negative margin **add** rather than maximise �
 sign rule; collapsing implemented as a running `MathF.Max` is right for every all-positive case,
 which is most of them.)
 
+**`display: flow-root` is a member and not an alias**, for the one reason the keyword exists: it
+establishes a block formatting context whatever `overflow` says. Aliasing it onto `Block` would be
+wrong on precisely the fixture that tests it — `block_flow_root_margin_non_collapse` puts a
+`flow-root` beside a plain `block` with byte-identical content and Chrome makes one 10 points tall
+and the other 60. So `EstablishesBlockFormattingContext` has a clause for it and
+`BlockMarginsCollapsibleWithParent` deliberately has none: that method's two literal `Display.Block`
+tests are what stop a margin escaping through a flow root in either direction.
+
 **Floats are not implemented and are not foreclosed.** They would attach at exactly two points — the
 intrinsic-width probe would route a floated child into a left/right accumulator instead of the
 running maximum, and the in-flow walk would ask a float context for a content slot instead of taking
 the whole inner width — and nothing in the walk caches an assumption a float could not later narrow.
 The 84 `float` fixtures stay refused at the style map, and they were never waiting on `display`:
 `TaffyStyleMap` refuses them on the `float` attribute, so unlike block and grid they did not arrive
-with the keyword.
+with the keyword. Eight `block_flow_root_*` fixtures wait on them too, and four of those eight were
+refused for the keyword until it landed — the same fixture can be blocked twice, and closing one of
+the two moves it between census buckets rather than turning it green.
 
 ### The 884 could not see three of the rules, and one of the three is Chrome's own fixture
 
@@ -346,7 +356,7 @@ oracle first — WPT's `css-grid/grid-definition/` reftests, re-expressed the wa
 | `repeat()`, `auto-fill`, `auto-fit` including collapsing | **done** |
 | `fit-content()` | **done** against a definite container; a percentage argument against an indefinite one is listed |
 | Gaps, including percentage gaps | **done** |
-| `justify-*`/`align-*` items, self and content | **done** except the overflow fallback (§4.4) and `safe`, which is refused |
+| `justify-*`/`align-*` items, self and content, including §4.4's `safe` overflow fallback | **done** |
 | Baseline alignment (§11.8) | **not implemented** — the largest named gap, 64 of the corpus's 80 `align-items` values |
 | An out-of-flow child's grid area as its containing block (§9) | **not implemented** — see below |
 | `grid-template-areas`, named lines, `subgrid`, `masonry` | **not implemented**, no oracle |
@@ -605,7 +615,15 @@ of the four this line used to name have closed: non-atomic inline fragmentation,
 boxes for mixed content. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
 and `Taffy/../InlineKnownGaps.txt`.
 
-**Floats.** See the block section above for where they attach; 84 fixtures wait on them.
+⚠ **`text-align` here means the inline one and only the inline one.** CSS Text §7.1's three legacy
+keywords — `-webkit-left`, `-webkit-center`, `-webkit-right` — align a block container's
+*block-level children* rather than its inline content, which is a block-layout rule needing no line
+box at all, and they are implemented: `LegacyTextAlign` on `LayoutStyle`, read once in
+`WalkBlockChildren`. Sixteen Taffy fixtures cover them. Distributing the items on a *line* is the
+part still owed, and it has no oracle in either corpus.
+
+**Floats.** See the block section above for where they attach; 92 fixtures wait on them — the 84 in
+the `float` corpus plus eight `block_flow_root_*` families that need a flow root *and* a float.
 
 **`aspect-ratio` re-applied after a box's size is clamped or stretched** — *done*. It was one rule
 in three places: the sixteen-family flex bucket, five block families and four grid ones, all of them

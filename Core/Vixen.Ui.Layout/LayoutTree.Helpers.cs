@@ -118,6 +118,17 @@ public sealed partial class LayoutTree {
         return align == Align.Baseline && FlexAxis.IsColumn(styles[index].FlexDirection) ? Align.FlexStart : align;
     }
 
+    /// <summary>Whether that alignment was written <c>safe</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It has to follow the same <c>auto</c> resolution as the position it modifies, or the
+    ///     two halves of one declaration come from two different elements.</b> <c>align-items: safe
+    ///     end</c> on a container is inherited whole by a child whose <c>align-self</c> is
+    ///     <c>auto</c> — position and prefix together — and reading the prefix off the child instead
+    ///     would silently drop it.
+    /// </remarks>
+    OverflowAlignment ResolveChildAlignmentOverflow(int index, int child) =>
+        styles[child].AlignSelf == Align.Auto ? styles[index].AlignItemsOverflow : styles[child].AlignSelfOverflow;
+
     /// <summary>The border-box height an already-decided border-box width implies through the ratio.</summary>
     /// <remarks>
     ///     ⚠ <b>Which box the ratio describes is <c>box-sizing</c>'s decision</b>, so a

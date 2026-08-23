@@ -37,51 +37,15 @@ public class TaffyFlexConformanceTests {
     /// </remarks>
     static readonly string[] Categories = ["flex", "leaf"];
 
-    // ⚠ Committed counts, not lower bounds. A gap that gets fixed has to be taken off the list in
-    // the same commit, and a fixture that starts failing cannot hide inside a listed family.
-    // ⚠ Eight of these moved from "unsupported" to "passing" when `display: block` landed, and
-    // nothing moved into or out of "failing". Those eight are flex fixtures with a *block* box
-    // somewhere in the tree — the corpus was refusing whole trees for one descendant's keyword — so
-    // the flex algorithm is unchanged and eight more of its fixtures now judge it. 2 074 → 2 082.
-    //
-    // ⚠ Sixteen more moved the same way when `display: grid` landed, for the same reason and with
-    // the same non-effect on "failing": 2 082 → 2 098, unsupported 168 → 152. They are the four
-    // `aspect_ratio_flex_{row,column}_fill_width_flex`, `bevy_issue_10343_grid` and
-    // `bevy_issue_21240` families, each of which is a flex tree with one grid box in it.
-    //
-    // ⚠ THE CONSEQUENCE IS THAT THIS NUMBER IS NO LONGER PURELY FLEX'S, and it is the reason to
-    // re-run this census alongside the grid one rather than only when flex changes. Those sixteen
-    // trees now execute LayoutTree.Grid, so a grid regression can turn this suite red — which is
-    // correct, because a fixture that stops agreeing with Chrome should be loud wherever it lives,
-    // but it will read as a flex failure to anyone who does not look at the names.
-    //
-    // ⚠ Sixteen more moved from "failing" to "passing" on agent/flex-gaps, and unlike the two notes
-    // above this one IS the flex algorithm: CSS Flexbox §9.7's free space is built from the items'
-    // flex base sizes while §9.3 breaks lines by their hypothetical ones, and one field was serving
-    // both. 2 162 → 2 178. Nothing moved the other way, in this corpus or in Yoga's 534.
-    //
-    // ⚠ Twelve more on agent/flex-basis-and-root, and it is the SAME SHAPE OF MISTAKE one level down:
-    // §9.2 makes the flex BASE size and the HYPOTHETICAL main size two numbers, and ComputedFlexBasis
-    // was read back out of an already-clamped measurement, so it was the second wearing the first's
-    // name. LayoutResult.UnclampedMeasuredDimensions separates them. 2 178 → 2 190. Nothing moved the
-    // other way here, in Yoga's 534, or in the block and grid corpora — but only after the same field
-    // was taken out of STEP 3's overflow test, which is §9.3's sum and not §9.7's; leaving it there
-    // cost four fixtures and one Yoga fixture. See KnownGaps.txt's §9.7 heading.
-    //
-    // ⚠ 152 → 112 unsupported on agent/unsupported-fixtures, and that number is the one to read
-    // sceptically: 36 of the 40 became passes and 4 became a NEW heading in KnownGaps.txt. Nothing
-    // in the algorithm moved either way. A refusal is not a gap and it is not a pass; it is a
-    // fixture asserting nothing, and 408 of them across the three suites were doing that silently.
-    // See UnsupportedFixtures.txt for the census and the harness-versus-engine split.
-    //
-    // ⚠ 112 → 36, and this one cost nothing: all 76 became passes and not one line went into
-    // KnownGaps.txt. They are the `scrollbar-width` refusals — 44 in `flex` and the whole of the
-    // `leaf` corpus's 32 — and `LayoutStyle.ScrollbarWidth` reserves the gutter they were about.
-    // Worth noticing against the two entries above it: the same census predicted an engine gap here
-    // rather than a harness one, and an engine gap that is genuinely additive lands clean.
-    const int ExpectedPassing = 2354;
+    // ⚠ 112 → 0: this corpus refuses nothing at all now. 76 were `scrollbar-width` (44 here and the
+    // whole of the `leaf` corpus's 32) and 36 were the `safe` alignment families. All 112 became
+    // passes and not one line went into KnownGaps.txt — but read that as the WEAK result it is.
+    // Both were ENGINE gaps, which is a claim that the store cannot express the fixture, so the code
+    // was written against them and was never going to disagree with them. The harness buckets were
+    // the ones hiding defects: 32 of those 124 went red, because they had been runnable all along.
+    const int ExpectedPassing = 2390;
     const int ExpectedFailing = 18;
-    const int ExpectedUnsupported = 36;
+    const int ExpectedUnsupported = 0;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

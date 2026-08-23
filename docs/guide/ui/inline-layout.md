@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Layout.VerticalAlign, T:Vixen.Ui.Layout.LayoutFragmentEnds]
 tags: [ui, layout, inline, css, line-boxes, baseline]
 since: 0.2
 status: preview
-related: [ui/grid-layout, ui/utility-composition, ui/markup-panels]
+related: [ui/grid-layout, ui/box-alignment, ui/utility-composition, ui/markup-panels]
 ---
 
 ## What it is

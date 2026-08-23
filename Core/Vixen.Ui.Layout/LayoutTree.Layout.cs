@@ -390,7 +390,11 @@ public sealed partial class LayoutTree {
         // formatting context asks with `FitContent`, and §10.3.9's shrink-to-fit is what the block
         // path already does when it is not asked with `StretchFit`. Nothing about *being* inline-level
         // is visible from in here, which is why this is one condition and not two algorithms.
-        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline) {
+        //
+        // ⚠ `flow-root` adds nothing to the dispatch for the same reason: its inner display is flow,
+        // so it runs the very same algorithm as `block`. Everything the keyword means is one answer
+        // from `EstablishesBlockFormattingContext`, which the block path asks on its own way in.
+        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline or Display.FlowRoot) {
             // An inline formatting context is not a variant of block layout, it is what a block
             // container does instead when everything in it is inline-level. See LayoutTree.Inline.cs.
             if (EstablishesInlineFormattingContext(index)) {
@@ -811,6 +815,12 @@ public sealed partial class LayoutTree {
                         var remainingCrossDim = containerCrossAxis - DimensionWithMargin(child, crossAxis, availableInnerWidth);
                         var startIsAuto = StyleResolution.FlexStartMarginIsAuto(in styles[child], crossAxis, direction);
                         var endIsAuto = StyleResolution.FlexEndMarginIsAuto(in styles[child], crossAxis, direction);
+
+                        // §4.4: the free space is finally known here, so this is where a `safe`
+                        // alignment gets to change its mind. `flex_safe_align_self_end_overflow` is a
+                        // 150-point item in a 100-point container: `unsafe end` puts its top at −50
+                        // and `safe end` at 0.
+                        alignItem = SafeFallback(alignItem, ResolveChildAlignmentOverflow(index, child), remainingCrossDim);
 
                         if (startIsAuto && endIsAuto) {
                             leadingCrossDim += MathF.Max(0f, remainingCrossDim / 2f);

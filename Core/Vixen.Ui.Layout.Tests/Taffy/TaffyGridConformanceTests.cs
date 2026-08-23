@@ -45,23 +45,14 @@ public class TaffyGridConformanceTests {
     /// <summary>The categories the grid algorithm is expected to answer.</summary>
     static readonly string[] Categories = ["grid", "blockgrid", "gridflex"];
 
-    // ⚠ Committed counts, not lower bounds — see the identical comment in the flex and block suites.
-    // A gap that closes has to be taken off GridKnownGaps.txt in the same commit as it closes.
-    //
-    // ⚠ 132 → 76 unsupported, and grid is where that trade was least comfortable: 28 of the 56
-    // became passes and the other 28 became two new headings in GridKnownGaps.txt. Neither heading
-    // is a regression. 24 of the 28 are §12 arithmetic that has been wrong for as long as it has
-    // existed, hidden behind a `scrollbar-width` refusal on the only fixtures that exercise it; the
-    // other 4 are the first fixtures in this corpus to need a writing mode on `LayoutStyle`, which
-    // was previously untestable because the attribute was refused. See UnsupportedFixtures.txt.
-    //
-    // ⚠ 76 → 36 for `scrollbar-width`, and all 40 became passes. Grid needed two rules the other
-    // algorithms did not: `RecordAbsoluteGridAreas` had to put the gutter inside the padding edge an
-    // `auto` grid line resolves to, and the RTL mirror in `PlaceGridItemBoxes` had to have its
-    // origin clamped into a box narrower than its own scrollbar. See UnsupportedFixtures.txt.
-    const int ExpectedPassing = 2042;
+    // ⚠ 76 → 0: 40 `scrollbar-width` and 36 `safe` alignment, all 76 passing. Grid needed two rules
+    // for the gutter that the other algorithms did not: `RecordAbsoluteGridAreas` had to put it
+    // inside the padding edge an `auto` grid line resolves to, and the RTL mirror in
+    // `PlaceGridItemBoxes` had to have its origin clamped into a box narrower than its own scrollbar.
+    // See the flex suite's note on why an engine gap converts differently from a harness one.
+    const int ExpectedPassing = 2078;
     const int ExpectedFailing = 42;
-    const int ExpectedUnsupported = 36;
+    const int ExpectedUnsupported = 0;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

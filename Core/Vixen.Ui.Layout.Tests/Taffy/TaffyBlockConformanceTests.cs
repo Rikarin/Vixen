@@ -20,8 +20,9 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         had.
 ///     </para>
 ///     <para>
-///         <b>764 of the 884 <c>block</c> fixtures pass and 24 of the 28 <c>blockflex</c>.</b> 120
-///         and 4 are refused for a property this store has no field for, and <b>none disagree</b>.
+///         <b>812 of the 884 <c>block</c> fixtures pass and all 28 <c>blockflex</c>.</b> 72 are
+///         refused for a property this store has no field for — <c>scrollbar-width</c> and
+///         <c>float</c>, and nothing else — and <b>none disagree</b>.
 ///         The 20 that used to were all inside <c>LayoutTree.Absolute.cs</c>, in one
 ///         <c>aspect-ratio</c> bucket that predated block layout and that a flex parent hit
 ///         identically; they closed with the flex and grid copies of the same rule. Not one was ever
@@ -45,21 +46,17 @@ public class TaffyBlockConformanceTests {
     /// </remarks>
     static readonly string[] Categories = ["block", "blockflex"];
 
-    // ⚠ Committed counts, not lower bounds — see the identical comment in the flex suite. A gap that
-    // closes has to be taken off BlockKnownGaps.txt in the same commit as it closes.
-    //
-    // ⚠ 124 → 96 unsupported without a line of block layout changing, and all 28 of them became
-    // passes. They were `scrollbar-width` on `overflow: hidden` boxes, which reserves no gutter and
-    // so could never have moved a box — `TaffyStyleMap` was refusing an inert declaration and taking
-    // every other property the fixture set down with it. See UnsupportedFixtures.txt.
-    //
-    // ⚠ 96 → 32, and this half was the engine's. The other 64 wrote `scrollbar-width` on a box that
-    // really does scroll, where the gutter moves every number inside it; `LayoutStyle.ScrollbarWidth`
-    // reserves it now and all 64 became passes with nothing filed against them. What is left is
-    // block's 16 `text-align`, 8 `display: flow-root`, 4 `float` and 4 `align-content: safe end`.
-    const int ExpectedPassing = 880;
+    // ⚠ 96 → 8, and the two halves arrived from different directions on the same day. 64 were
+    // `scrollbar-width` on a box that really does scroll, where the gutter moves every number
+    // inside it; `LayoutStyle.ScrollbarWidth` reserves it now. The other 24 were 4
+    // `align-content: safe end`, 16 legacy `text-align` and 4 `block_flow_root_margin_non_collapse`.
+    // All 88 pass and nothing was filed against them. ⚠ The `display: flow-root` bucket lost 8 while
+    // this count lost only 24 of its own, because the other 4 — `block_flow_root_contains_float` —
+    // stopped being refused for the keyword and started being refused for the float they also need.
+    // A bucket emptying is not the same as fixtures converting; see UnsupportedFixtures.txt § CLOSED.
+    const int ExpectedPassing = 904;
     const int ExpectedFailing = 0;
-    const int ExpectedUnsupported = 32;
+    const int ExpectedUnsupported = 8;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 
