@@ -210,6 +210,24 @@
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!--
+            The interface's face, embedded for the reason `Fonts` gives: a font beside the binary is
+            a font a publish step can drop, and the failure is a window whose every label measures
+            zero. Open Sans under the SIL Open Font License 1.1 — Fonts/OFL.txt is the licence as it
+            ships, and NOTICE names it.
+
+            ⚠ **In this assembly and not in the executable, because `Fonts` is in this assembly.**
+            `Fonts.Embedded` reads `typeof(Fonts).Assembly`, so the resource name it computes is
+            `Vixen.Editor.App.Fonts.OpenSans-Regular.ttf` no matter who calls `Install`. Embedding
+            the file in `Vixen.Editor.Host` — which is where it sat from the library split until this
+            was found — leaves that lookup answering null, and the fallback below it is a *silent*
+            one: the editor comes up in Arial, Segoe UI or DejaVu Sans depending on the machine, and
+            the only symptom is that the three platforms measure, wrap and photograph differently.
+        -->
+        <EmbeddedResource Include="Fonts\*.ttf" />
+    </ItemGroup>
+
     <!--
         What a PackageReference to Vixen.Ui would have imported: the **/*.vxml glob and the two
         properties the generator asks MSBuild for. At the bottom of the file, because the glob has

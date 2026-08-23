@@ -49,12 +49,20 @@ namespace Vixen.Vfx.Gpu.Tests;
 ///         the test binary, which is where a CI run's artefacts are collected from.
 ///     </para>
 /// </remarks>
-public sealed class VfxBackendPictureTests {
+public sealed class VfxBackendPictureTests(ITestOutputHelper output) {
     const int Count = 512;
     const int Side = 256;
     const int Steps = 40;
     const float Dt = 1f / 60f;
     const uint Seed = 7;
+
+    /// <summary>How far apart one channel may get before the two backends are disagreeing.</summary>
+    /// <remarks>
+    ///     Named rather than written twice, because <see cref="The_comparison_notices_a_difference" />
+    ///     has to require <i>more</i> than this of a difference it calls real — an instrument that
+    ///     objected to less than the gate tolerates would be proving nothing about the gate.
+    /// </remarks>
+    const int ChannelBound = 24;
 
     /// <summary>The colour the particles are, at birth and for the whole of this run.</summary>
     static Vector4 Ember => new(1f, 0.45f, 0.08f, 1f);
@@ -117,17 +125,34 @@ public sealed class VfxBackendPictureTests {
 
         var (worst, moved) = Compare(left, right);
 
-        // ⚠ **Measured, not guessed: 3/255 and 25 pixels of 65 536 on this machine** — the two
-        // backends draw very nearly the same frame, and the bounds are what they are because that
-        // was measured before they were written rather than after they failed.
+        // ⚠ **Printed on a pass as well as on a failure, and that is the whole reason the bound
+        // below can be argued about at all.** This file's first bound was 8, written from 3/255 and
+        // 25 pixels measured on one machine — and it had never been run anywhere else, so the number
+        // the *next* device produced (13) arrived as a red build with nothing to compare it to. A
+        // tolerance whose reading is only visible when it is exceeded is one nobody can widen
+        // honestly.
+        output.WriteLine($"worst={worst}/255 moved={moved}/{Side * Side}");
+
+        // ⚠ **Measured, not guessed, on two devices: 3/255 over 25 pixels on MoltenVK and 13/255 on
+        // lavapipe.** The bound is 24 because the quantity it has to survive is a driver's
+        // transcendentals, not a rounding — and the two drivers already differ by four times.
         //
-        // The headroom is deliberately large in absolute terms and still tiny against a real
-        // disagreement. A particle whose hash differed by one bit is not a rim a pixel wide: it is
-        // somewhere else in the emitter's four-metre box, which at this distance moves a whole
-        // ten-pixel sprite — eighty pixels for one particle, and forty thousand if the arithmetic
-        // rather than the rounding had diverged. So there is no bound between "a rasterised edge"
-        // and "the backends disagree" that this could be sitting the wrong side of.
-        Assert.True(worst <= 8, $"a channel differs by {worst}/255 between the two backends");
+        // What sets the floor under it: `VfxAgreementTests.Forty_steps_later_the_two_backends_still
+        // _agree` passes on both devices at a relative tolerance of 1e-3, so no particle is more
+        // than about eleven millimetres out of place. At nine metres through this camera that is
+        // roughly a quarter of a pixel, and a quarter-pixel resample of a soft additive disc — the
+        // sprite is drawn at an edge sharpness of 0.25 — is a smooth change of a few levels per
+        // overlapping sprite. Thirteen is what that looks like where several stack.
+        //
+        // What sets the ceiling: the failure this exists to catch is not a rim. A particle whose
+        // hash differed by one bit is somewhere else in the emitter's four-metre box, which moves a
+        // whole ten-pixel sprite — orange on a blue clear, so a channel goes to the low two hundreds
+        // and `moved` goes to the tens of thousands. There is an order of magnitude between 24 and
+        // that, and `moved` below is the guard that closes on the drift case regardless.
+        Assert.True(
+            worst <= ChannelBound,
+            $"a channel differs by {worst}/255 between the two backends ({moved} pixels moved)"
+        );
 
         Assert.True(
             moved <= Side * Side / 100,
@@ -168,7 +193,16 @@ public sealed class VfxBackendPictureTests {
             ParticlePicture.Render(owned, late, camera, Side)
         );
 
-        Assert.True(worst > 16, $"a tenth of a second of gravity moved no channel by more than {worst}/255");
+        output.WriteLine($"worst={worst}/255 moved={moved}/{Side * Side}");
+
+        // ⚠ Strictly more than the gate tolerates, rather than a number of its own. An instrument
+        // that objected at sixteen while the gate accepted twenty-four would leave a band in which
+        // this passes and proves nothing.
+        Assert.True(
+            worst > ChannelBound,
+            $"a tenth of a second of gravity moved no channel by more than {worst}/255"
+        );
+
         Assert.True(moved > Side * Side / 25, $"a tenth of a second of gravity moved only {moved} pixels");
     }
 

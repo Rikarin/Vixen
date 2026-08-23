@@ -145,4 +145,93 @@ public class HarnessTests {
         Assert.False(session.IsAsking);
         Assert.False(session.IsClosing);
     }
+
+    /// <summary>
+    ///     ⚠ <b>The editor draws in the face it ships, and this is the assertion whose absence hid
+    ///     the fact that it did not for four weeks.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Fonts.Install</c> tries the embedded Open Sans and then, if it is not there, borrows
+    ///         whatever the machine has — Arial on macOS, Segoe UI on Windows, DejaVu Sans on Linux —
+    ///         and <b>returns true either way</b>. So when the library split left the <c>.ttf</c>
+    ///         embedded in <c>Vixen.Editor.Host</c> while the code reading it stayed in
+    ///         <c>Vixen.Editor.App</c>, the lookup answered null and nothing anywhere said so.
+    ///     </para>
+    ///     <para>
+    ///         What that costs is not cosmetic. Three platforms measuring three different faces are
+    ///         three platforms that wrap, lay out and hit-test differently, so a suite driving
+    ///         synthetic clicks passes on two of them and fails on the third for reasons that read as
+    ///         a Windows filesystem bug. Asserting the family — rather than merely that <i>some</i>
+    ///         face was found — is what makes the fallback visible when it happens.
+    ///     </para>
+    ///     <para>
+    ///         The semibold is asserted too, because it is registered on the same path: without the
+    ///         resource the fallback registers one face under the file's own name, and every bold
+    ///         label in the editor silently resolves to the regular.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_editor_draws_in_the_face_it_ships_rather_than_one_off_the_machine() {
+        using var session = EditorSession.Start();
+
+        var fonts = session.Document.Fonts;
+
+        Assert.Equal("OpenSans-Regular", fonts.Default?.Name);
+
+        // Through the family the editor's own sheet names, which is the lookup that actually happens.
+        Assert.Equal("OpenSans-Regular", fonts.Resolve("OpenSans")?.Name);
+        Assert.Equal("OpenSans-SemiBold", fonts.Resolve("OpenSans", 600)?.Name);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A row past the bottom of the tree is reached by scrolling to it, not by pressing the
+    ///     place it would be if the tree were taller.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The trees virtualise, so a row just off the bottom is realised and has honest bounds —
+    ///         and is clipped. A press at its centre reaches the panel behind the scroller, the
+    ///         gesture never starts, and nothing throws: the failure arrives several steps later as a
+    ///         rename that did not commit or a drag no field ever saw.
+    ///     </para>
+    ///     <para>
+    ///         Seven rows of 24 pixels in 156 of viewport is the case that found it, and it found it
+    ///         only after the editor started measuring in its own face — which is why this asserts
+    ///         about an overflowing tree rather than about a particular project.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_row_below_the_fold_is_scrolled_to_before_it_is_clicked() {
+        using var session = EditorSession.Start();
+
+        session.Open("project");
+
+        // Enough files that the browser cannot show them all, whatever the face measures.
+        var folder = Path.Combine(session.ProjectRoot, "Assets", "Deep");
+
+        Directory.CreateDirectory(folder);
+
+        for (var index = 0; index < 40; index++) {
+            File.WriteAllText(Path.Combine(folder, $"file{index:D2}.txt"), "content");
+        }
+
+        session.Run("assets.refresh");
+        session.ExpandAll(session.Assets);
+
+        var last = session.Row(session.Assets, "file39.txt");
+        var viewport = session.Assets.Scroller.Bounds;
+
+        // ⚠ The instrument first: without the scroll this row is below the fold, so a version of
+        // `Row` that did nothing would still satisfy the click below by accident on a short list.
+        Assert.True(
+            last.Bounds.Bottom <= viewport.Bottom && last.Bounds.Top >= viewport.Top,
+            $"the row is at {last.Bounds} and the viewport is {viewport}"
+        );
+
+        session.ClickRow(session.Assets, "file39.txt");
+
+        Assert.True(session.Project.Assets.TryGetByPath("Assets/Deep/file39.txt", out var entry));
+        Assert.Equal([entry.Guid], session.Project.Selection);
+    }
 }
