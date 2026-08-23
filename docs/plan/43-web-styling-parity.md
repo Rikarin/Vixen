@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **86** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **93** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **38** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **197** |
+| **absent** | not emitted at all | **190** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -364,18 +364,29 @@ undone rather than approximated, and the cost of that decision has been zero.
 | Effects | 33 | 3 | 0 | 0 | 30 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
-| Filters | 20 | 1 | 0 | 0 | 19 | 0 | 0 |
+| Filters | 20 | 8 | 0 | 0 | 12 | 0 | 0 |
 | Sizing | 15 | 0 | 7 | 0 | 8 | 0 | 0 |
 | Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
 | Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **86** | **38** | **3** | **197** | **3** | **1** |
+| **Total** | **328** | **93** | **38** | **3** | **190** | **3** | **1** |
 
 Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
-Layout follow it. Tables and Accessibility still have **no working root at all**; Filters has
-exactly one — `blur-*`, closed by A8 — and Interactivity is 1 of 39.
+Layout follow it. Tables and Accessibility still have **no working root at all**, and Interactivity
+is 1 of 39.
+
+⚠ **Filters went from 1 of 20 to 8 of 20 in one change, and the seven that moved cost the frame
+nothing.** `brightness-*`, `contrast-*`, `grayscale-*`, `hue-rotate-*`, `invert-*`, `saturate-*` and
+`sepia-*` are a single 3×4 colour matrix composed on the CPU and applied in the fragment stage of the
+composite draw a group already makes — no second surface, no extra pass, forty-eight bytes of push
+constant. That is the whole reason they landed together and `drop-shadow-*` did not: it is a blur of
+the alpha channel, offset, tinted and composited *under* the layer, so it wants `blur-*`'s machinery
+rather than the matrix's. **The ten `backdrop-*` twins are not one change away either** — they read
+what is *behind* the group, which the compositor does not have: `UiRenderer.Compose` renders every
+group's surface before the host's frame pass has begun, so at the moment a group is drawn there is no
+destination to sample. See `UiRenderer.Compose`'s remarks, which say what would have to change.
 
 ⚠ **Sizing reads worse than it was and the roots did not move: the rule did.** It was `7 works, 0
 partial`; it is `0 works, 7 partial`, and nothing regressed. Every one of `w-*`, `h-*`, `size-*`,

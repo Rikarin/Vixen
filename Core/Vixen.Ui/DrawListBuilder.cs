@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
+using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui;
@@ -53,6 +54,16 @@ public sealed class DrawListBuilder {
     readonly int opacity;
     readonly int filter;
     readonly int blurFunction;
+
+    /// <summary>The seven <c>filter</c> functions that are a colour matrix, interned in order.</summary>
+    /// <remarks>
+    ///     ⚠ An array indexed by <see cref="FilterFunction" /> rather than seven fields, because
+    ///     <see cref="Filter" /> has to turn a keyword id back into <i>which</i> function it is and a
+    ///     chain of seven comparisons is where the eighth one gets forgotten. The order is the enum's
+    ///     and nothing else may reorder it.
+    /// </remarks>
+    readonly int[] filterFunctions;
+
     readonly int textAlign;
     readonly int direction;
     readonly int boxShadow;
@@ -120,6 +131,18 @@ public sealed class DrawListBuilder {
         // ⚠ The keywords table, for the reason `currentColor` below says: a function name arrives
         // from `StyleValueParser` as an identifier, and an identifier is interned there.
         blurFunction = keywords.Intern("blur");
+
+        // In `FilterFunction`'s order, which `Filter` indexes by. The names are the parser's own
+        // spellings — see `StyleValueParser.ParseFunction`, which interns exactly these seven.
+        filterFunctions = [
+            keywords.Intern("brightness"),
+            keywords.Intern("contrast"),
+            keywords.Intern("grayscale"),
+            keywords.Intern("invert"),
+            keywords.Intern("saturate"),
+            keywords.Intern("sepia"),
+            keywords.Intern("hue-rotate")
+        ];
 
         textAlign = properties.Intern("text-align");
         direction = properties.Intern("direction");
@@ -274,14 +297,21 @@ public sealed class DrawListBuilder {
         // rasterised subtree, so with no surface there is nothing to convolve and the honest answer
         // is the unblurred picture. Read before the group is decided because it is half of that
         // decision.
-        var blur = Blur(document, element);
+        var filters = Filter(document, element);
 
         // ⚠ <b>A group is opened for the element's <i>own</i> opacity only.</b> What it inherited is
         // already being carried by a surface further up, or by the multiplier — either way it is not
         // this element's to isolate a second time. CSS agrees: each translucent element forms one
         // stacking context, and nesting two of them composites twice, which is what the product of
         // the two alphas means.
-        var group = Compositing && (own < 1f || blur > 0f) ? into.Count : -1;
+        //
+        // ⚠ <b>And for a colour matrix on the same terms as a blur, which is the half of this that
+        // looks optional and is not.</b> A per-pixel colour transform could plausibly be pushed down
+        // onto each command's colour — no surface, no pass — and the result would be wrong wherever
+        // two of the group's children overlap with partial coverage, because CSS transforms the
+        // group's *rendered* result and not each thing in it. Filter Effects 1 § 5 says so outright:
+        // any `filter` other than `none` makes the element a stacking context.
+        var group = Compositing && (own < 1f || filters.Any) ? into.Count : -1;
 
         if (group >= 0) {
             into.Add(
@@ -295,7 +325,8 @@ public sealed class DrawListBuilder {
                     0f,
                     0f
                 ) {
-                    Blur = blur
+                    Blur = filters.Blur,
+                    Filter = filters.Colour
                 }
             );
         }
@@ -326,14 +357,15 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        // ⚠ <b>The peephole is an identity for opacity and a lie for a blur, so a blurred group is
+        // ⚠ <b>The peephole is an identity for opacity and a lie for a filter, so a filtered group is
         // never collapsed.</b> `Collapse` throws the bracket away and multiplies the one command's
         // alpha instead — exactly right when the surface's only job was to carry a fade, and exactly
-        // wrong here: a blurred rectangle is not a fainter rectangle, and the picture that came out
-        // would be sharp at whatever opacity the filter had nothing to do with. The single-command
-        // case is not rare enough to leave to chance either, since a `blur-*` on a bare panel is one
-        // background rectangle and nothing else, which is precisely the shape this branch catches.
-        if (blur <= 0f && drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
+        // wrong here: a blurred rectangle is not a fainter rectangle, and neither is a grey one, and
+        // the picture that came out would be sharp and full-colour at whatever opacity the filter had
+        // nothing to do with. The single-command case is not rare enough to leave to chance either,
+        // since a `blur-*` or a `grayscale` on a bare panel is one background rectangle and nothing
+        // else, which is precisely the shape this branch catches.
+        if (!filters.Any && drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
             into.Collapse(group, inherited * own);
             return;
         }
@@ -349,7 +381,8 @@ public sealed class DrawListBuilder {
                 0f,
                 0f
             ) {
-                Blur = blur
+                Blur = filters.Blur,
+                Filter = filters.Colour
             }
         );
     }
@@ -891,23 +924,67 @@ public sealed class DrawListBuilder {
         return mirrored != (alignment == alignedEnd) ? slack : 0f;
     }
 
-    /// <summary>The standard deviation of an element's <c>filter: blur()</c>, in document pixels.</summary>
+    /// <summary>Everything an element's <c>filter</c> asks for, in the two shapes a group can carry.</summary>
+    /// <param name="Blur">The Gaussian's standard deviation in document pixels, or zero.</param>
+    /// <param name="Colour">The colour transform, or null where every function was a blur.</param>
+    /// <remarks>
+    ///     ⚠ <b>Two fields because the executors need two, not because CSS has two.</b> A blur costs a
+    ///     scratch surface, two render passes and a bounds outset; a colour matrix rides the composite
+    ///     draw the group was making anyway. <c>default</c> is "no filter" on both counts, which is
+    ///     what every element that says nothing gets.
+    /// </remarks>
+    readonly record struct ElementFilter(float Blur, UiColorMatrix? Colour) {
+        /// <summary>Whether this is worth opening a group for.</summary>
+        /// <remarks>
+        ///     ⚠ <b>An identity matrix does not count, and that is a deliberate departure from CSS
+        ///     with a real cost behind it.</b> Filter Effects 1 § 5 makes <i>any</i> <c>filter</c>
+        ///     other than <c>none</c> a stacking context, so a browser isolates for
+        ///     <c>brightness(1)</c>. A group here costs a viewport-sized render target and a pass —
+        ///     see <c>UiRenderer.Compose</c> — and the utility layer assembles all eight functions
+        ///     into every <c>filter</c> it emits, so <c>blur-0</c> alone would otherwise buy a
+        ///     surface to convolve nothing and multiply by one. The engine has no other observable
+        ///     that depends on the isolation, which is what makes the trade safe rather than merely
+        ///     cheap: <c>Compositing</c> off already declines every group there is.
+        /// </remarks>
+        public bool Any => Blur > 0f || Colour is not null;
+    }
+
+    /// <summary>Which of the seven colour functions a keyword names. The order is <c>filterFunctions</c>'.</summary>
+    enum FilterFunction {
+        Brightness,
+        Contrast,
+        Grayscale,
+        Invert,
+        Saturate,
+        Sepia,
+        HueRotate
+    }
+
+    /// <summary>Reads an element's <c>filter</c> declaration.</summary>
     /// <param name="document">The document, for the length context relative units resolve against.</param>
     /// <param name="element">The element.</param>
-    /// <returns>Zero when there is no blur, which is every element that says nothing.</returns>
+    /// <returns>What it asks for, or <c>default</c> — which is every element that says nothing.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The whole declaration is refused rather than partly applied, which is the rule
     ///         <see cref="EmitShadow" /> already keeps and the one that matters most here.</b>
-    ///         <c>filter</c> is an ordered list of functions and this reads exactly one of them; a
-    ///         <c>filter: brightness(2) blur(4px)</c> that quietly dropped the brightness would draw a
-    ///         blurred element at the wrong exposure and look like a blur bug. So anything that is not
-    ///         a lone <c>blur()</c> — a second function, an unknown one, <c>none</c> — is nothing at
-    ///         all, and the element draws as it would have without the property. ⚠ The rest of
-    ///         <c>filter</c> is <i>not</i> on <c>InertProperties.txt</c> and could not be: no family
-    ///         emits <c>brightness()</c> or <c>saturate()</c>, so they are absent roots in
-    ///         <c>docs/plan/43</c> rather than debts that file can record — which is exactly the
-    ///         distinction the <c>--blur</c> line got wrong for as long as it existed.
+    ///         <c>filter</c> is an ordered list of functions and this reads eight of them; a
+    ///         <c>filter: drop-shadow(2px 2px 4px black) blur(4px)</c> that quietly dropped the shadow
+    ///         would draw a blurred element that is missing something and look like a blur bug. So a
+    ///         list containing any function this does not read — <c>drop-shadow</c>, <c>opacity</c>,
+    ///         <c>url()</c>, a typo, <c>none</c> — is nothing at all, and the element draws as it
+    ///         would have without the property. That is what makes each function landing here an
+    ///         additive change with no silent middle state.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Order is honoured among the colour functions and is <i>meaningless</i> between one
+    ///         of them and a blur, and both halves of that are load-bearing.</b>
+    ///         <c>invert(1) brightness(2)</c> is not <c>brightness(2) invert(1)</c>, so the matrices
+    ///         are composed left to right by <see cref="UiColorMatrix.Then" /> in the order the list
+    ///         is walked. A Gaussian, on the other hand, is a weighted sum with weights summing to
+    ///         one, and a colour matrix on premultiplied colour is linear — so the two commute
+    ///         exactly and neither executor has to be told which came first. See
+    ///         <see cref="DrawCommand.Filter" />.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The CSS length is the standard deviation and is not halved.</b> The shadow path a
@@ -917,39 +994,153 @@ public sealed class DrawListBuilder {
     ///         one of them applies here.
     ///     </para>
     ///     <para>
-    ///         ⚠ Negative is refused rather than clamped: <c>blur(-4px)</c> is invalid CSS, and a
-    ///         clamp to zero would spend a surface and two render passes on a declaration a browser
-    ///         would have thrown away at parse time.
+    ///         ⚠ Negative is refused rather than clamped — for a blur, for a <c>brightness</c>, for a
+    ///         <c>contrast</c> and for a <c>saturate</c>. Each is invalid CSS, and a clamp to zero
+    ///         would spend a surface and two render passes, or a whole composited group, on a
+    ///         declaration a browser would have thrown away at parse time. The four that CSS
+    ///         <i>does</i> clamp — <c>grayscale</c>, <c>invert</c> and <c>sepia</c> above one — are
+    ///         clamped, because there the spec says so.
     ///     </para>
     /// </remarks>
-    float Blur(UiDocument document, UiElement element) {
+    ElementFilter Filter(UiDocument document, UiElement element) {
         if (!element.Style.TryGet(filter, out var id)) {
-            return 0f;
+            return default;
         }
 
         var value = parser.Parse(id);
 
-        // A lone `blur()` is the keyword and its length, and nothing else this reads is two items —
-        // see `StyleValueParser.ParseFunction`, which is where that shape is decided.
-        if (value.Kind != StyleValueKind.List || value.Items.Length != 2) {
-            return 0f;
+        if (value.Kind != StyleValueKind.List) {
+            return default;
         }
 
-        var function = value.Items[0];
-        var radius = value.Items[1];
+        // ⚠ One function or several, and the two arrive in shapes that are not nested the same way.
+        // `StyleValueParser.Parse` splits on top-level whitespace and returns a *single* part's parse
+        // directly rather than wrapping it, so a lone `blur(4px)` is the two-item `[keyword, length]`
+        // list itself while `blur(4px) invert(1)` is a two-item list *of* those. Reading the first
+        // item's kind is what tells them apart, and getting it wrong reads `blur` as a function name
+        // and `4px` as a second function.
+        var items = value.Items;
 
-        if (function.Kind != StyleValueKind.Keyword || function.Keyword != blurFunction) {
-            return 0f;
+        if (items.Length == 2 && items[0].Kind == StyleValueKind.Keyword) {
+            return Settle(One(document, element, items, default) ?? default);
         }
 
-        var pixels = radius.Kind switch {
-            StyleValueKind.Length => radius.Number
-                * document.Viewport.WithFontSize(element.FontSize).PixelsPer(radius.Unit),
-            StyleValueKind.Number when radius.Number == 0f => 0f,
-            _ => 0f
+        var accumulated = new ElementFilter();
+
+        foreach (var item in items) {
+            if (item.Kind != StyleValueKind.List
+                || item.Items.Length != 2
+                || item.Items[0].Kind != StyleValueKind.Keyword) {
+                return default;
+            }
+
+            // ⚠ Null and not `default`, because "refused" and "read, and it came to the identity" are
+            // different answers and `grayscale(0) blur(4px)` is the list that tells them apart. A
+            // sentinel of `default` would drop the blur on the floor for being preceded by a
+            // do-nothing colour function.
+            if (One(document, element, item.Items, accumulated) is not { } folded) {
+                return default;
+            }
+
+            accumulated = folded;
+        }
+
+        return Settle(accumulated);
+    }
+
+    /// <summary>Drops a colour transform that came out the identity, so nothing pays for it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Once, at the end, and never inside the fold.</b> <c>invert(1) invert(1)</c> is the
+    ///     identity and <c>invert(1)</c> alone is not, so a fold that discarded an identity as it went
+    ///     would be discarding an intermediate — <c>grayscale(0)</c> followed by <c>sepia(1)</c> is a
+    ///     sepia, and its first step is the identity. Only the composed answer is allowed to decide.
+    /// </remarks>
+    static ElementFilter Settle(ElementFilter read) =>
+        read.Colour is { IsIdentity: true } ? read with { Colour = null } : read;
+
+    /// <summary>Folds one <c>filter</c> function into what has been read so far.</summary>
+    /// <returns>Null when the function or its argument is one this refuses.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Two blurs compose by quadrature rather than being refused, and that is the one place
+    ///     this method is more generous than the rest of the file.</b> Convolving a Gaussian of σ₁
+    ///     with one of σ₂ gives a Gaussian of √(σ₁² + σ₂²) exactly — it is not an approximation — so
+    ///     <c>blur(3px) blur(4px)</c> has a single correct answer of <c>5px</c> and refusing it would
+    ///     be refusing something this executor can do perfectly. Nothing else in a filter list has
+    ///     that property, which is why nothing else gets the treatment.
+    /// </remarks>
+    ElementFilter? One(UiDocument document, UiElement element, ReadOnlySpan<StyleValue> pair, ElementFilter into) {
+        var keyword = pair[0].Keyword;
+        var argument = pair[1];
+
+        if (keyword == blurFunction) {
+            var pixels = argument.Kind switch {
+                StyleValueKind.Length => argument.Number
+                    * document.Viewport.WithFontSize(element.FontSize).PixelsPer(argument.Unit),
+                StyleValueKind.Number when argument.Number == 0f => 0f,
+                _ => float.NaN
+            };
+
+            if (float.IsNaN(pixels) || pixels < 0f || !float.IsFinite(pixels)) {
+                return null;
+            }
+
+            return into with { Blur = MathF.Sqrt((into.Blur * into.Blur) + (pixels * pixels)) };
+        }
+
+        var which = Array.IndexOf(filterFunctions, keyword);
+
+        if (which < 0) {
+            return null;
+        }
+
+        var function = (FilterFunction) which;
+
+        // A percentage and a number are the same value written two ways for all seven — `50%` and
+        // `0.5` are one filter — and `hue-rotate` takes neither, so its unit is checked on its own
+        // terms. `StyleValueParser` has already refused every other shape.
+        var amount = argument.Kind switch {
+            StyleValueKind.Number => argument.Number,
+            StyleValueKind.Length when argument.Unit == StyleUnit.Percent => argument.Number / 100f,
+            StyleValueKind.Length when argument.Unit == StyleUnit.Degrees => argument.Number,
+            _ => float.NaN
         };
 
-        return pixels > 0f && float.IsFinite(pixels) ? pixels : 0f;
+        if (!float.IsFinite(amount)) {
+            return null;
+        }
+
+        // The angle is the only one of the seven that is not a proportion, so it is the only one a
+        // unit tells apart. A `hue-rotate(50%)` reaching here would be a parser that let it.
+        if ((function == FilterFunction.HueRotate) != (argument.Unit == StyleUnit.Degrees)
+            && !(function == FilterFunction.HueRotate && amount == 0f)) {
+            return null;
+        }
+
+        // ⚠ Refused below zero rather than clamped for the three where CSS calls it invalid, and
+        // clamped above one for the three where CSS calls it clamped. Both are the spec's rule and
+        // neither is this file's taste — `saturate(2)` is a real, useful over-saturation and
+        // `grayscale(2)` is `grayscale(1)`.
+        if (function != FilterFunction.HueRotate && amount < 0f) {
+            return null;
+        }
+
+        var matrix = function switch {
+            FilterFunction.Brightness => UiColorMatrix.Brightness(amount),
+            FilterFunction.Contrast => UiColorMatrix.Contrast(amount),
+            FilterFunction.Grayscale => UiColorMatrix.Grayscale(MathF.Min(amount, 1f)),
+            FilterFunction.Invert => UiColorMatrix.Invert(MathF.Min(amount, 1f)),
+            FilterFunction.Saturate => UiColorMatrix.Saturate(amount),
+            FilterFunction.Sepia => UiColorMatrix.Sepia(MathF.Min(amount, 1f)),
+            _ => UiColorMatrix.HueRotate(amount)
+        };
+
+        // ⚠ Composed onto what is already there and never the other way round, because
+        // <see cref="UiColorMatrix.Then" /> reads in CSS's order and this walk is in CSS's order.
+        var composed = (into.Colour ?? UiColorMatrix.Identity).Then(matrix);
+
+        // ⚠ An identity is kept here and dropped by `Settle`, which is the only place that can tell
+        // a composed identity from an intermediate one. See its remark.
+        return into with { Colour = composed };
     }
 
     /// <summary>An element's own <c>opacity</c>, before anything above it is multiplied in.</summary>

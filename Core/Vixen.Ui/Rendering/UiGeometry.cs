@@ -116,6 +116,37 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </remarks>
     public float Blur { get; init; }
 
+    /// <summary>The colour transform its surface is put through, or null where there is none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Costs neither a surface nor a pass, and that is the whole reason it is a separate
+    ///         field from <see cref="Blur" /> rather than a second thing "the filter" means.</b> A
+    ///         blur is a neighbourhood operation, so it cannot read and write one attachment and the
+    ///         device needs a scratch target and two more passes for it; <see cref="Bounds" /> has to
+    ///         be outset by the kernel as well, because coverage moves. A colour matrix is per pixel.
+    ///         It moves no coverage, so the bounds are untouched, and it can be folded into the
+    ///         composite draw the group was going to make anyway — see <c>UiRenderer.Compose</c>,
+    ///         where a filtered group costs one pipeline change and forty-eight bytes of push
+    ///         constant over an unfiltered one. A design that spent a viewport-sized target on this
+    ///         would be paying a blur's price for something that is not a blur.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Where in the pipeline it is applied is deliberately <i>not</i> specified, because
+    ///         it does not matter and pinning it down would cost one of the executors a pass.</b> The
+    ///         transform is affine in premultiplied colour and a Gaussian is a weighted sum, so the
+    ///         two commute exactly; the transform is also linear, so it commutes with a bilinear
+    ///         sampler. <c>SoftwareUiRasterizer</c> therefore applies it to the finished surface, at
+    ///         the same seam it blurs at, and <c>UiRenderer</c> applies it in the fragment stage of
+    ///         the composite. <c>UiCompositingTests</c> is what holds the two to the same picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Null and not a zeroed matrix — see <see cref="UiColorMatrix" />, whose default maps
+    ///         every colour to black. A consumer that ignores this composites the group in full
+    ///         colour, which is the same bargain <see cref="Blur" /> makes.
+    ///     </para>
+    /// </remarks>
+    public UiColorMatrix? Filter { get; init; }
+
     /// <summary>The widest kernel either executor will run, in texels each side of the centre.</summary>
     /// <remarks>
     ///     ⚠ <b>A cap and not a limit on what may be asked for, and the two executors truncate

@@ -64,11 +64,43 @@ scale                        #23  the box scales in four multiplications; the gl
 # `Vixen.Graphics.Golden.Tests.UiCompositingTests` for the two paths agreeing. The fragment carries no
 # line here, like the gradient stops and the two translations.
 #
-# ⚠ What is *not* closed and is deliberately absent from this list: the rest of `filter`, and
+# ⚠ CLOSED for the seven colour functions too, and they cost the frame nothing the blur did not
+# already cost. `brightness-*`, `contrast-*`, `grayscale-*`, `hue-rotate-*`, `invert-*`, `saturate-*`
+# and `sepia-*` each set a `--tw-*` fragment and assemble into the same one `filter` declaration
+# `blur-*` does, in a fixed order. `DrawListBuilder` composes them into a single 3x4 `UiColorMatrix`,
+# and the two executors apply it: the device in the fragment stage of the composite draw the group was
+# going to make anyway — no second surface, no extra pass, forty-eight bytes of push constant — and
+# `SoftwareUiRasterizer` over the finished surface at the same seam it blurs at. The two places differ
+# and the picture does not, because the transform is affine in premultiplied colour and so commutes
+# exactly with both the Gaussian and the sampler. See `Vixen.Ui.Controls.Tests.FilterColourTests` for
+# what each function does and `Vixen.Graphics.Golden.Tests.UiCompositingTests` for the two paths
+# agreeing. The seven fragments carry no line here, like the gradient stops and the two translations.
+#
+# ⚠ What is *not* closed and is deliberately absent from this list: `drop-shadow()`, and the whole of
 # `backdrop-filter`. Neither has a family emitting anything, so neither is a debt this file can
-# record — a property nothing emits is exactly the mistake the `--blur` line was. `brightness-*`,
-# `contrast-*` and the rest are absent roots in docs/plan/43's ledger, which is where an absence
-# belongs; `backdrop-filter` needs the frame *under* a group, which the compositor does not keep.
+# record — a property nothing emits is exactly the mistake the `--blur` line was. Both are absent
+# roots in docs/plan/43's ledger, which is where an absence belongs. What each would take:
+#
+#   `drop-shadow-*` is not a colour matrix and does not fit beside one. It is a Gaussian over the
+#   *alpha channel alone*, offset by two lengths, tinted, and composited **under** the layer rather
+#   than over it — so it wants `ui-blur.frag`'s scratch target and two passes plus a third composite,
+#   and it needs `UiGeometryBuilder.Layer` to outset the bounds asymmetrically by the offset as well
+#   as by the kernel. It also does not commute with anything, which is the property the seven colour
+#   functions lean on: a `drop-shadow` before a `grayscale` is a grey shadow and after it is a
+#   coloured one, so the day it lands `DrawCommand.Filter` needs an *ordered* representation rather
+#   than one composed matrix.
+#
+#   `backdrop-*` is a different feature wearing the same names, and the compositor cannot see what it
+#   needs. It reads the destination the group is about to composite *into*, and at the moment a
+#   group's surface is rendered that destination does not exist yet: `UiRenderer.Compose` records
+#   every group's pass **before** the host's frame pass begins — it has to, because passes do not
+#   nest — so nothing behind the group has been drawn. By the time the composite is submitted the
+#   destination is the colour attachment being written, which is not sampleable without an input
+#   attachment or a copy. `SoftwareUiRasterizer` could do it in three lines, because its recursion
+#   already holds the parent buffer; that asymmetry is the argument rather than a reason to try, since
+#   `UiCompositingTests` requires the two to agree. Closing it needs the backdrop captured as a real
+#   texture before the groups that read it are composed, which is a second walk over the layer tree
+#   and a copy per backdrop group — a different feature, priced differently, and not one line here.
 
 # ── Borders — A1. The physical four are painted now; the two logical edges are not, so `border-s-*`
 # and `border-e-*` still colour nothing. The widths *are* read, which is why only the colours are here

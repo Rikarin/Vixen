@@ -68,15 +68,24 @@ public class SharedUiShaderTests {
     ///         <c>ui-image.frag</c> because a new application draws no images until someone adds one.</s>
     ///         Both of them have that one now — it is the stage <c>UiRenderer.Compose</c> composites a
     ///         group back with, so it is not optional for anything with an <c>opacity</c> in its theme
-    ///         — and it is <c>ui-blur.frag</c> that the sample is missing, because the sample wires no
-    ///         <c>UiShaders.Image</c> and therefore composites nothing to blur. Demanding the full set
-    ///         would either fail forever or push a shader into a project to satisfy a test. What is
-    ///         never legitimate is a copy that exists and disagrees.
+    ///         — and it is <c>ui-blur.frag</c> and <c>ui-colour.frag</c> that the sample is missing,
+    ///         because the sample wires no <c>UiShaders.Image</c> and therefore composites nothing to
+    ///         blur or tint. Demanding the full set would either fail forever or push a shader into a
+    ///         project to satisfy a test. What is never legitimate is a copy that exists and
+    ///         disagrees.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>compared &gt; 0</c> assertion at the bottom is why a new shader has to be
+    ///         added to at least one other project in the same change.</b> A row here whose file
+    ///         exists only in this suite compares against nothing, and a theory that compares nothing
+    ///         is the failure mode the whole file is about. <c>ui-colour.frag</c> ships in the
+    ///         template for that reason as much as for the template's own sake.
     ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("ui-blur.frag")]
     [InlineData("ui-box.frag")]
+    [InlineData("ui-colour.frag")]
     [InlineData("ui-image.frag")]
     [InlineData("ui-solid.frag")]
     [InlineData("ui-text.frag")]
@@ -130,6 +139,7 @@ public class SharedUiShaderTests {
     [Theory]
     [InlineData("ui-blur.frag")]
     [InlineData("ui-box.frag")]
+    [InlineData("ui-colour.frag")]
     [InlineData("ui-image.frag")]
     [InlineData("ui-solid.frag")]
     [InlineData("ui-text.frag")]

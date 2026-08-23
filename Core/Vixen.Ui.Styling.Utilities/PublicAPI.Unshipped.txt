@@ -105,6 +105,8 @@ Vixen.Ui.Styling.Utilities.Variants -> static class
 const Vixen.Ui.Styling.Utilities.ThemeTokens.DefaultKey = "DEFAULT" -> string
 const Vixen.Ui.Styling.Utilities.ThemeTokens.PixelsPerRem = 16 -> float
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Blur = "--tw-blur" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Brightness = "--tw-brightness" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Contrast = "--tw-contrast" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFrom = "--tw-gradient-from" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFromPosition = "--tw-gradient-from-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientStops = "--tw-gradient-stops" -> string
@@ -112,9 +114,14 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientTo = "--tw-gradient-
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientToPosition = "--tw-gradient-to-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientVia = "--tw-gradient-via" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientViaPosition = "--tw-gradient-via-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Grayscale = "--tw-grayscale" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.HueRotate = "--tw-hue-rotate" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Invert = "--tw-invert" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingColor = "--tw-ring-color" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingWidth = "--tw-ring-width" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Saturate = "--tw-saturate" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Sepia = "--tw-sepia" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateX = "--tw-translate-x" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateY = "--tw-translate-y" -> string
 static Vixen.Ui.Styling.Utilities.CandidateScanner.Scan(string text, System.Collections.Generic.ISet<string> into) -> void

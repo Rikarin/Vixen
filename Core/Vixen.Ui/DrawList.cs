@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Ui.Rendering;
 using Vixen.Ui.Text;
 
 namespace Vixen.Ui;
@@ -285,6 +286,41 @@ public readonly record struct DrawCommand(
     ///     </para>
     /// </remarks>
     public float Blur { get; init; }
+
+    /// <summary>
+    ///     The colour transform a composited group's <c>filter</c> applies to its surface, or null
+    ///     where there is none. Unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nullable, and it is the one field on this struct where the default is not the
+    ///         absence.</b> <see cref="Blur" /> can be a plain <c>float</c> because a zero-width
+    ///         Gaussian is the identity, and <see cref="MiterLimit" /> gets a sentinel because zero
+    ///         is a real value with an absurd meaning. A zeroed <see cref="UiColorMatrix" /> is worse
+    ///         than either: it maps every colour to black, so a command that said nothing about a
+    ///         filter would silently ask for one. See <c>UiColorMatrix</c>'s own remark.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Beside <see cref="Blur" /> rather than composed with it, because the two are
+    ///         executed by different machinery and only one of them moves ink.</b> A blur needs a
+    ///         second surface, two passes and a bounds outset; a colour matrix needs none of the
+    ///         three — see <c>UiRenderer.Compose</c>, where it rides the composite draw the group was
+    ///         going to make anyway. Folding them into one "filter" field would have made the cheap
+    ///         one look like it costs what the expensive one costs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Order between the two is not carried, and that is a fact about the arithmetic
+    ///         rather than a simplification.</b> CSS's <c>filter</c> is ordered and
+    ///         <c>DrawListBuilder</c> honours the order <i>within</i> the colour functions, where it
+    ///         matters. It does not matter between a colour matrix and a Gaussian: both are linear in
+    ///         premultiplied colour with weights that sum to one, so
+    ///         <c>M(Σ wᵢ sᵢ) = Σ wᵢ M(sᵢ)</c> exactly, and <c>grayscale(1) blur(4px)</c> and
+    ///         <c>blur(4px) grayscale(1)</c> are the same picture. <c>UiColorMatrix.Apply</c>'s clamp
+    ///         is the one part that does not commute, and it is applied once, at the end, on both
+    ///         executors.
+    ///     </para>
+    /// </remarks>
+    public UiColorMatrix? Filter { get; init; }
 }
 
 /// <summary>A frame's worth of drawing, and whether it differs from the last one.</summary>

@@ -121,7 +121,8 @@ public sealed class UiCompositingTests {
                 owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
             ) {
                 Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
-                Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment)
+                Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+                Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment)
             },
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
@@ -155,6 +156,18 @@ public sealed class UiCompositingTests {
         // `Composited` at two and the comparison below passing, since the software renderer would
         // then be being compared against a device that agreed with it about doing nothing.
         Assert.Equal(1, renderer.Blurred);
+
+        // ⚠ <b>And the third, because a colour matrix has a fourth way of not happening that a blur
+        // does not: the frame can be <i>identical</i> without it.</b> A blur that did not run leaves a
+        // sharp picture, which is at least a different picture; a matrix that did not run leaves the
+        // right picture wherever the group's colours happen to be near the matrix's fixed points.
+        // Both of these are chosen not to be — see `Groups` — but the assertion is what makes that a
+        // fact rather than a hope, and it is also the only thing that would notice a host handing
+        // over no `UiShaders.Colour`, which composites through the image pipeline and says nothing.
+        //
+        // ⚠ Two, and the inner one is submitted inside the *outer group's* pass rather than the
+        // frame's. That is the half of the count `Record` alone could not see.
+        Assert.Equal(2, renderer.Filtered);
 
         var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
 
@@ -279,7 +292,7 @@ public sealed class UiCompositingTests {
         const float Inner = 0.5f;
         const float InnerBlur = 3f;
 
-        Push(list, isolate, 8, 24, 112, 96, Outer);
+        Push(list, isolate, 8, 24, 112, 96, Outer, filter: OuterFilter);
 
         // ⚠ Two overlapping children of the outer group, and the overlap is the whole point: isolated,
         // they do not show through each other; faded separately, they do. Both rounded, so the pixels
@@ -302,7 +315,7 @@ public sealed class UiCompositingTests {
         // and a nineteen-tap kernel on a hundred-and-twenty-eight-pixel fixture — wide enough that the
         // halo lands well outside the group's unblurred silhouette, and short of the truncation at
         // `UiLayer.MaximumKernel`, which is a case worth having somewhere and not here.
-        Push(list, isolate, 44, 56, 72, 60, Inner, InnerBlur);
+        Push(list, isolate, 44, 56, 72, 60, Inner, InnerBlur, InnerFilter);
 
         // The nested group's own overlapping pair, offset from the outer one's so that the two
         // groups' ink is not the same rectangle — a surface sized from the wrong group's bounds
@@ -321,6 +334,48 @@ public sealed class UiCompositingTests {
         return list;
     }
 
+    /// <summary>The outer group's colour transform: a quarter of the way to its own complement.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An <c>invert</c> rather than anything prettier, because it is the only one of the
+    ///         seven with a non-zero <i>offset</i>, and the offset is the half of the arithmetic that
+    ///         can be wrong in a way nothing else catches.</b> A colour matrix on premultiplied colour
+    ///         is <c>M·c + o·a</c>, and an implementation that forgot the <c>·a</c> would be exactly
+    ///         right on every fully opaque pixel and wrong on every partly covered one — which is
+    ///         every glyph edge and every rounded corner in this fixture, and nothing at all in a
+    ///         fixture of opaque rectangles. It is the same shape as the premultiply bug the text in
+    ///         here exists to catch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A quarter and not a full inversion, and the reason is the tolerance rather than
+    ///         taste.</b> The device applies the matrix to a surface that has been quantised to eight
+    ///         bits and the software renderer applies it to floats, so whatever the matrix amplifies,
+    ///         it amplifies that quantisation too. <c>invert(0.25)</c> scales by <c>0.5</c> — a
+    ///         contraction — so the difference between the two paths shrinks rather than grows, and
+    ///         <see cref="Agreement" /> is measuring compositing rather than the matrix's gain. A
+    ///         <c>brightness(4)</c> here would put pixels over the bound and prove nothing.
+    ///     </para>
+    /// </remarks>
+    static UiColorMatrix OuterFilter => UiColorMatrix.Invert(0.25f);
+
+    /// <summary>The inner group's: fully grey, on top of its blur.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the group that is <i>also</i> blurred, which is the interaction neither renderer
+    ///     runs the same way.</b> The device blurs the surface in two passes and then applies the
+    ///     matrix in the composite's fragment stage; the software renderer blurs the surface and then
+    ///     transforms the whole buffer at the seam. Those give the same picture only because the
+    ///     transform is linear in premultiplied colour and so commutes with the Gaussian — see
+    ///     <c>UiLayer.Filter</c> — and this is the fixture that would report it if the argument were
+    ///     wrong. A filter on the unblurred group alone would exercise neither path against the other.
+    ///     <para>
+    ///         ⚠ And it is a <i>different</i> matrix from the outer group's, so a renderer that took
+    ///         one group's filter and applied it to both — the shape of bug a per-frame push constant
+    ///         instead of a per-draw one would produce — is a visible difference rather than a
+    ///         coincidence. Grey inside a quarter-inverted parent is not quarter-inverted grey.
+    ///     </para>
+    /// </remarks>
+    static UiColorMatrix InnerFilter => UiColorMatrix.Grayscale(1f);
+
     /// <summary>Opens a group, or does nothing when the fixture is being flattened.</summary>
     static void Push(
         DrawList list,
@@ -330,12 +385,14 @@ public sealed class UiCompositingTests {
         float width,
         float height,
         float alpha,
-        float blur = 0f
+        float blur = 0f,
+        UiColorMatrix? filter = null
     ) {
         if (isolate) {
             list.Add(
                 new DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, alpha), 0, 0) {
-                    Blur = blur
+                    Blur = blur,
+                    Filter = filter
                 }
             );
         }

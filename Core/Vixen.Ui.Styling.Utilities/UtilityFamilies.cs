@@ -660,6 +660,45 @@ public static class UtilityFamilies {
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
 
+        // ── The colour filters ──────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>Seven families, one shape, and every one of them is an assembler as well as a
+        // contributor — which is `translate-x`'s arrangement and not the gradient stops'.</b> Each
+        // sets its own fragment and emits the whole `filter` declaration beside it, so
+        // `grayscale` alone works and `grayscale blur-2 brightness-125` composes: three rules write
+        // the identical `filter` value and differ only in which fragment they set. The alternative
+        // is Tailwind v3's separate enabling class, which v4 dropped because forgetting it looked
+        // exactly like the utilities being broken.
+        //
+        // ⚠ <b>`Fraction` for six of them, because Tailwind's scale runs in hundredths and CSS's
+        // does not.</b> `brightness-125` is `1.25`, `grayscale-50` is `0.5`. Emitting the bare count
+        // would be `brightness(125)` — valid CSS, a hundred and twenty-five times the exposure, and
+        // a white rectangle where the panel was.
+        //
+        // ⚠ <b>And the bare forms, which are half of why anyone writes these.</b> `grayscale`,
+        // `invert` and `sepia` with no value mean *fully*, and the three whose identity is one have
+        // no bare form at all — a bare `brightness` would have to mean something, and Tailwind does
+        // not define it. The empty key is the keyword table's, so the pair is written out.
+        Filter("brightness", UtilityComposition.Brightness);
+        Filter("contrast", UtilityComposition.Contrast);
+        Filter("grayscale", UtilityComposition.Grayscale, bare: "1");
+        Filter("invert", UtilityComposition.Invert, bare: "1");
+        Filter("saturate", UtilityComposition.Saturate);
+        Filter("sepia", UtilityComposition.Sepia, bare: "1");
+
+        // ⚠ <b>An angle, and the one of the eight that is not a proportion.</b> `hue-rotate-90` is
+        // ninety degrees, so the unit has to be appended — which is `CountTemplate`'s whole job, and
+        // the same reason `rotate` uses it. `StyleValueParser` refuses `hue-rotate(90)` outright, so
+        // a family emitting the bare count here would produce a declaration the engine drops *whole*,
+        // taking every other filter on the element with it.
+        Register(new Family(
+            "hue-rotate",
+            ValueKind.CountTemplate,
+            [UtilityComposition.HueRotate],
+            Template: "{0}deg",
+            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+        ));
+
         // A token names a whole declaration rather than a number, because a shadow is a designed
         // thing: its offset, blur and alpha are chosen together to read as one height above the
         // surface. `shadow-none` is here rather than in the theme so that turning one off never
@@ -1742,6 +1781,32 @@ public static class UtilityFamilies {
 
     static void Spacing(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Spacing, properties));
+
+    /// <summary>One of the six proportional <c>filter</c> functions.</summary>
+    /// <param name="name">The class prefix, which is also the CSS function's name.</param>
+    /// <param name="fragment">The <c>--tw-*</c> the amount goes into.</param>
+    /// <param name="bare">
+    ///     What the class with no value means, or null where it means nothing. <c>grayscale</c>,
+    ///     <c>invert</c> and <c>sepia</c> have one and the other three do not.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>Every one of these emits the <i>whole</i> <c>filter</c> declaration alongside its
+    ///     fragment, and that is what makes any of them work on its own.</b> See
+    ///     <see cref="UtilityComposition.Filter" />: the declaration names all eight functions and
+    ///     the seven nobody set resolve to their identities through the <c>var()</c> fallbacks, so
+    ///     one class is one working filter and eight classes are one declaration rather than eight
+    ///     fighting over the cascade.
+    /// </remarks>
+    static void Filter(string name, string fragment, string? bare = null) =>
+        Register(new Family(
+            name,
+            ValueKind.Fraction,
+            [fragment],
+            bare is null
+                ? null
+                : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
+            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+        ));
 
     /// <summary>Registers a family whose rule is about the element's children rather than the element.</summary>
     /// <param name="name">The utility prefix.</param>

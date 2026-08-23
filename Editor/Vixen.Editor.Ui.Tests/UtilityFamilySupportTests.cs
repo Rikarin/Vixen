@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Styling.Utilities;
 using Vixen.Ui.Testing;
@@ -192,7 +193,30 @@ public class UtilityFamilySupportTests {
         // `filter`, which `DrawListBuilder` reads and both executors render. Asserted on `filter`
         // rather than on the fragment, because the fragment alone is what the old row already proved
         // is not evidence of anything.
-        { "blur-2", "filter", "blur(8px)" },
+        { "blur-2", "filter", "blur(8px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0)" },
+
+        // ⚠ <b>Eight functions where the row above used to expect one, and the seven that joined it
+        // are all identities.</b> That is what `UtilityComposition.Filter` assembles: every filter
+        // family writes the same declaration and differs only in which fragment it sets, so a
+        // `blur-2` on its own resolves the other seven through their `var()` fallbacks and gets
+        // `brightness(1) contrast(1) …` for free. The alternative — emitting only the functions
+        // somebody wrote — is the thing a per-class generator cannot do, and is argued at length in
+        // `UtilityComposition`'s own remarks.
+        //
+        // ⚠ <b>And the order is fixed here rather than following the class list</b>, because classes
+        // on an element are a set. `invert brightness-200` and `brightness-200 invert` are different
+        // pictures in CSS and the same element here; v4 picks an order and this picks v4's.
+        { "brightness-125", "filter", "blur(0px) brightness(1.25) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0)" },
+        { "contrast-75", "filter", "blur(0px) brightness(1) contrast(0.75) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0)" },
+        { "grayscale", "filter", "blur(0px) brightness(1) contrast(1) grayscale(1) hue-rotate(0deg) invert(0) saturate(1) sepia(0)" },
+        { "hue-rotate-90", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(90deg) invert(0) saturate(1) sepia(0)" },
+        { "invert", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(1) saturate(1) sepia(0)" },
+        { "saturate-150", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1.5) sepia(0)" },
+        { "sepia-50", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0.5)" },
+
+        // ⚠ Two families composing into one declaration is the case this theory cannot state — a row
+        // here is one class — so it is
+        // <see cref="Two_filter_families_compose_into_one_declaration_and_one_matrix" /> instead.
         { "shadow-elevation", "box-shadow", "0px 10px 26px rgba(12, 14, 18, 0.22)" },
 
         // ⚠ <b>`fill-*` and `stroke-*` are the first rows here to move because a <i>consumer</i> was
@@ -564,6 +588,113 @@ public class UtilityFamilySupportTests {
             vertical.X + vertical.Width > ui.Document.Viewport.ViewportWidth,
             "and ends right of it"
         );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A colour filter is only observable in a scene that has colour in it, and this is that
+    ///     scene.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What makes this worth writing is that the consumption gate next door cannot make
+    ///         the claim.</b> That gate's verdict is "the draw list changed", and a
+    ///         <c>filter</c> changes it by opening a group — a <c>LayerPush</c> and a <c>LayerPop</c>
+    ///         appear whatever the matrix says, so the gate would pass on a matrix no executor ever
+    ///         reads and on a <c>grayscale</c> that came out the identity. Its scene list is not the
+    ///         thing to fix either: no scene can reach past the draw list, because the draw list is
+    ///         where the gate stops. So the observation belongs here, in the file whose job is
+    ///         <i>what</i> happened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the colour is the arrangement.</b> A <c>grayscale</c> over a scene with no
+    ///         colour in it is the identity by coincidence, and would prove nothing while working
+    ///         perfectly — so the panel is given <c>bg-accent</c>, which is blue-dominant, and the
+    ///         assertion is that the matrix flattens <i>that</i> colour's channels and that they were
+    ///         not flat to begin with. The second half is what stops the test passing on a grey
+    ///         theme.
+    ///     </para>
+    ///     <para>
+    ///         The pixels themselves are asserted in <c>Vixen.Graphics.Golden.Tests.UiCompositingTests</c>,
+    ///         where the device and the software rasterizer are required to draw the same filtered
+    ///         frame. This is the half that says the stylesheet reached the matrix at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_grayscale_utility_puts_the_group_it_opens_through_a_matrix_that_flattens_this_colour() {
+        using var ui = Sheet("grayscale", "bg-accent", "w-8", "h-8");
+
+        ui.Create("probe", ui.Document.Root, null, "grayscale", "bg-accent", "w-8", "h-8");
+        ui.Frame();
+
+        var push = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.LayerPush
+        );
+
+        // ⚠ The group exists *because* of the filter and not because of an opacity — its own alpha is
+        // one. Without this the assertions below would hold on a frame where the filter did nothing
+        // and something else opened the bracket.
+        Assert.Equal(1f, push.Color.A);
+
+        var matrix = Assert.NotNull(push.Filter);
+
+        var panel = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle
+        );
+
+        // ⚠ Premultiplied on the way in, because that is what a layer surface holds and what
+        // `UiColorMatrix.Apply` is defined on. An opaque panel makes that a no-op, which is the point
+        // of using one: the arithmetic under test is the matrix and not the encoding.
+        var before = panel.Color;
+
+        Assert.True(
+            MathF.Abs(before.B - before.R) > 0.05f,
+            "the scene's own colour has to be off-grey or a grayscale that did nothing would pass"
+        );
+
+        var after = matrix.Apply(before);
+
+        Assert.Equal(after.R, after.G, 4);
+        Assert.Equal(after.G, after.B, 4);
+        Assert.Equal(before.A, after.A);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Two filter families on one element are one declaration and one matrix, which is the
+    ///     whole reason the fragments exist.</b>
+    /// </summary>
+    /// <remarks>
+    ///     Two classes are two rules with two selectors of equal weight, so a pair of families that
+    ///     each emitted a whole <c>filter</c> would let the cascade keep one and silently drop the
+    ///     other — the failure <c>translate-x</c>/<c>translate-y</c> had before they were composed,
+    ///     and the reason <c>UtilityComposition</c> exists at all. Asserted on the group rather than
+    ///     on the computed string, because a computed string that holds both functions is still
+    ///     compatible with <c>DrawListBuilder</c> reading one and discarding the other — which is
+    ///     exactly what it used to do.
+    /// </remarks>
+    [Fact]
+    public void Two_filter_families_compose_into_one_declaration_and_one_matrix() {
+        using var ui = Sheet("blur-2", "invert", "bg-accent", "w-8", "h-8");
+
+        ui.Create("probe", ui.Document.Root, null, "blur-2", "invert", "bg-accent", "w-8", "h-8");
+        ui.Frame();
+
+        var push = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.LayerPush
+        );
+
+        Assert.Equal(8f, push.Blur);
+
+        var matrix = Assert.NotNull(push.Filter);
+        var white = matrix.Apply(new Color4(1f, 1f, 1f, 1f));
+
+        // A full inversion takes white to black and leaves the coverage alone.
+        Assert.Equal(0f, white.R, 4);
+        Assert.Equal(0f, white.G, 4);
+        Assert.Equal(0f, white.B, 4);
+        Assert.Equal(1f, white.A);
     }
 
     /// <summary>

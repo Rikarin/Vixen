@@ -132,24 +132,73 @@ public sealed class StyleValueParser {
             return ParsePredefined(arguments);
         }
 
-        // ⚠ <b>The one non-colour function this parser knows, and it is spelt as a keyword and a
-        // length rather than given a <c>StyleValueKind</c> of its own.</b> A filter is a *list* of
+        // ⚠ <b>The non-colour functions this parser knows, and each is spelt as a keyword and its
+        // argument rather than given a <c>StyleValueKind</c> of its own.</b> A filter is a *list* of
         // functions — <c>filter: blur(4px) brightness(.5)</c> — so whatever a single one parses to
         // has to survive being an item of the list `Parse` already builds by splitting on
         // whitespace. A two-item list does; a new kind carrying a name would have meant a field on
         // `StyleValue` that only filters ever set, on a struct every declaration in the cascade is
         // one of.
         //
-        // ⚠ The <i>argument</i> is refused rather than defaulted when it is not a length. CSS says
-        // <c>blur()</c> with no argument is zero, which is a filter that does nothing and is
+        // ⚠ The <i>argument</i> is refused rather than defaulted when it is not the right shape. CSS
+        // says <c>blur()</c> with no argument is zero, which is a filter that does nothing and is
         // therefore indistinguishable from the declaration having been rejected — so accepting it
         // would buy a caller nothing and cost the reader the ability to tell a typo from a no-op.
+        // The same rule applies to the seven below, where it matters more: an omitted argument is
+        // legal CSS for all of them and means <i>one</i> for five and <i>zero</i> for two, so a
+        // parser guessing would have to encode a per-function default that the layer above already
+        // has to know anyway.
         if (name.Equals("blur", StringComparison.OrdinalIgnoreCase)) {
             var radius = ParseOne(arguments);
 
             return radius.Kind is StyleValueKind.Length
                 || (radius.Kind == StyleValueKind.Number && radius.Number == 0f)
                     ? StyleValue.FromList([StyleValue.FromKeyword(keywords.Intern("blur")), radius])
+                    : StyleValue.Unknown;
+        }
+
+        // ⚠ <b>An angle and not a number, and <c>hue-rotate(90)</c> is refused.</b> Filter Effects 1
+        // § 8.5 takes an <c>&lt;angle&gt;</c> here, and CSS has no unitless angle outside a very few
+        // legacy properties — so a bare <c>90</c> is a stylesheet bug, and one whose plausible
+        // reading (degrees) is exactly what would make it invisible. Zero is the exception every
+        // angle grammar makes.
+        if (name.Equals("hue-rotate", StringComparison.OrdinalIgnoreCase)) {
+            var angle = ParseOne(arguments);
+
+            return (angle.Kind == StyleValueKind.Length && angle.Unit == StyleUnit.Degrees)
+                || (angle.Kind == StyleValueKind.Number && angle.Number == 0f)
+                    ? StyleValue.FromList([StyleValue.FromKeyword(keywords.Intern("hue-rotate")), angle])
+                    : StyleValue.Unknown;
+        }
+
+        // ⚠ <b>Six functions and one branch, because their grammar is identical and their <i>meaning</i>
+        // is not this method's business.</b> Each takes a <c>&lt;number&gt;</c> or a
+        // <c>&lt;percentage&gt;</c>; what one means — a ratio for <c>brightness</c>, a proportion of
+        // the way to grey for <c>grayscale</c>, a range that clamps for four of them and does not for
+        // two — belongs to `DrawListBuilder`, which is the only thing that reads them. Splitting the
+        // interpretation across the parser and the consumer is how <c>saturate</c> would come to
+        // clamp at one in a version of the parser nobody remembered to check.
+        //
+        // ⚠ The percentage is carried as a percentage rather than divided by a hundred here. This
+        // method resolves nothing — see `StyleUnit`'s own remark, which is the rule the relative
+        // lengths follow — and a value that arrived as `50%` and left as `0.5` could not be told
+        // apart from one written `0.5`, which is the ambiguity the animator would inherit.
+        var amount = name switch {
+            _ when name.Equals("brightness", StringComparison.OrdinalIgnoreCase) => "brightness",
+            _ when name.Equals("contrast", StringComparison.OrdinalIgnoreCase) => "contrast",
+            _ when name.Equals("grayscale", StringComparison.OrdinalIgnoreCase) => "grayscale",
+            _ when name.Equals("invert", StringComparison.OrdinalIgnoreCase) => "invert",
+            _ when name.Equals("saturate", StringComparison.OrdinalIgnoreCase) => "saturate",
+            _ when name.Equals("sepia", StringComparison.OrdinalIgnoreCase) => "sepia",
+            _ => null
+        };
+
+        if (amount is not null) {
+            var value = ParseOne(arguments);
+
+            return value.Kind == StyleValueKind.Number
+                || (value.Kind == StyleValueKind.Length && value.Unit == StyleUnit.Percent)
+                    ? StyleValue.FromList([StyleValue.FromKeyword(keywords.Intern(amount)), value])
                     : StyleValue.Unknown;
         }
 
