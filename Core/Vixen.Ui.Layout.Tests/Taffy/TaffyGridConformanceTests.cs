@@ -54,9 +54,12 @@ public class TaffyGridConformanceTests {
     // existed, hidden behind a `scrollbar-width` refusal on the only fixtures that exercise it; the
     // other 4 are the first fixtures in this corpus to need a writing mode on `LayoutStyle`, which
     // was previously untestable because the attribute was refused. See UnsupportedFixtures.txt.
-    const int ExpectedPassing = 2002;
+    //
+    // ⚠ 76 → 40, all 36 of them `safe` alignment and all 36 passing. See the flex suite's note on
+    // why an engine gap converts differently from a harness one.
+    const int ExpectedPassing = 2038;
     const int ExpectedFailing = 42;
-    const int ExpectedUnsupported = 76;
+    const int ExpectedUnsupported = 40;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

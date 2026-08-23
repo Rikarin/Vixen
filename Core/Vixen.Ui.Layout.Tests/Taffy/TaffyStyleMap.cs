@@ -124,7 +124,15 @@ static class TaffyStyleMap {
                         "inline-block" => Display.InlineBlock,
                         "inline-flex" => Display.InlineFlex,
 
-                        // `inline-grid` and `flow-root` still land here.
+                        // ⚠ <b>`flow-root` is NOT an alias for `block`, and the fixture that says so
+                        // is the one this keyword is written on.</b> A flow root establishes a block
+                        // formatting context whatever its `overflow` says, so
+                        // `block_flow_root_margin_non_collapse` puts one beside a plain `block` with
+                        // byte-identical content and expects 60 points against 10. `Display` grew a
+                        // member for it rather than being lied to.
+                        "flow-root" => Display.FlowRoot,
+
+                        // `inline-grid` still lands here.
                         _ => throw new TaffyUnsupportedException($"display: {value}")
                     }
                 );
@@ -207,25 +215,45 @@ static class TaffyStyleMap {
                 // A self-relative align-items means something different for each child, so it cannot
                 // be one container-level value; Build pushes it down onto the children instead.
                 if (!IsSelfRelative(value)) {
-                    tree.SetAlignItems(node, CrossAlign(name, value, self, self));
+                    var (align, overflow) = CrossAlign(name, value, self, self);
+                    tree.SetAlignItems(node, align, overflow);
                 }
 
                 break;
 
-            case "align-self": tree.SetAlignSelf(node, CrossAlign(name, value, parent, self)); break;
-            case "align-content": tree.SetAlignContent(node, CrossAlign(name, value, self, self)); break;
-            case "justify-content": tree.SetJustifyContent(node, Justification(value, self)); break;
+            case "align-self": {
+                var (align, overflow) = CrossAlign(name, value, parent, self);
+                tree.SetAlignSelf(node, align, overflow);
+                break;
+            }
+
+            case "align-content": {
+                var (align, overflow) = CrossAlign(name, value, self, self);
+                tree.SetAlignContent(node, align, overflow);
+                break;
+            }
+
+            case "justify-content": {
+                var (justify, overflow) = Justification(value, self);
+                tree.SetJustifyContent(node, justify, overflow);
+                break;
+            }
 
             // The inline-axis pair. ⚠ `justify-items: self-*` is pushed down onto the children by
             // TaffyFixtureRunner.Build, exactly as `align-items: self-*` is, so it is not applied here.
             case "justify-items":
                 if (!IsSelfRelative(value)) {
-                    tree.SetJustifyItems(node, GridAlign(name, value, self, self));
+                    var (align, overflow) = GridAlign(name, value, self, self);
+                    tree.SetJustifyItems(node, align, overflow);
                 }
 
                 break;
 
-            case "justify-self": tree.SetJustifySelf(node, GridAlign(name, value, parent, self)); break;
+            case "justify-self": {
+                var (align, overflow) = GridAlign(name, value, parent, self);
+                tree.SetJustifySelf(node, align, overflow);
+                break;
+            }
 
             // ── Flex ────────────────────────────────────────────────────────────────────────────
             case "flex-direction":
@@ -352,12 +380,32 @@ static class TaffyStyleMap {
 
                 break;
 
+            // ⚠ <b>The three values here are the LEGACY ones and they are not `text-align`.</b>
+            // CSS Text §7.1: `-webkit-left`, `-webkit-center` and `-webkit-right` align a block
+            // container's BLOCK-LEVEL children, which plain `left`/`center`/`right` do not — those
+            // move only inline content, which is a different rule reaching a different algorithm.
+            // So this maps onto `LegacyTextAlign` rather than onto a general `text-align` field, and
+            // an unprefixed value is refused rather than being folded in with them: the corpus
+            // writes none, and accepting one would put every block child of a `text-align: center`
+            // container in the wrong place. `text-align` proper is owed in `InlineKnownGaps.txt`.
+            case "text-align":
+                tree.SetLegacyTextAlign(
+                    node,
+                    value switch {
+                        "-webkit-left" => LegacyTextAlign.Left,
+                        "-webkit-center" => LegacyTextAlign.Center,
+                        "-webkit-right" => LegacyTextAlign.Right,
+                        _ => throw new TaffyUnsupportedException($"{name}: {value}")
+                    }
+                );
+
+                break;
+
             // ── Everything Vixen has no field for ───────────────────────────────────────────────
             // Refused by name so that a failure report says which property is missing rather than
             // which number is wrong. B1 and B2 deleted most of these lines as they landed.
             case "float":
             case "clear":
-            case "text-align":
 
             // ⚠ Named areas are not a track list and are deliberately still refused even though B2
             // landed. `grid-template-areas` declares named *lines* that `grid-row-start: header`
@@ -411,9 +459,12 @@ static class TaffyStyleMap {
     ///         <c>ltr</c> sibling lands at x=0, from the same declaration.
     ///     </para>
     ///     <para>
-    ///         <c>unsafe X</c> is exactly <c>X</c> — unsafe is the default overflow behaviour — so it
-    ///         is mapped. <c>safe X</c> falls back to start alignment when the item overflows, which
-    ///         has no expression here, so it is refused rather than approximated.
+    ///         Both halves of the value come back from <see cref="Overflowing" />: the position,
+    ///         which is what this method resolves, and CSS Box Alignment §4.4's prefix, which the
+    ///         caller hands to <see cref="LayoutStyle.AlignSelfOverflow" /> and its siblings.
+    ///         ⚠ <c>safe X</c> used to be refused outright, and rightly — mapping it onto plain
+    ///         <c>X</c> is wrong on precisely the fixtures named <c>_overflow</c>. What changed is
+    ///         the store, not the translation.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A <i>grid</i> container's <c>align-*</c> comes through here too, and the answer
@@ -433,8 +484,8 @@ static class TaffyStyleMap {
     /// <param name="value">Its value.</param>
     /// <param name="container">The box whose cross axis this aligns against.</param>
     /// <param name="item">The box being aligned — the same one for <c>align-items</c>.</param>
-    static Align CrossAlign(string property, string value, TaffyBox container, TaffyBox item) {
-        value = Unsafe(property, value);
+    static (Align Align, OverflowAlignment Overflow) CrossAlign(string property, string value, TaffyBox container, TaffyBox item) {
+        (value, var overflow) = Overflowing(value);
 
         var flip = value switch {
             // Flex-relative already: Vixen's own enum reverses these under wrap-reverse.
@@ -464,7 +515,7 @@ static class TaffyStyleMap {
             _ => throw new TaffyUnsupportedException($"{property}: {value}")
         };
 
-        return resolved;
+        return (resolved, overflow);
     }
 
     // ── Grid ────────────────────────────────────────────────────────────────────────────────────
@@ -510,21 +561,21 @@ static class TaffyStyleMap {
     ///         one declaration.
     ///     </para>
     ///     <para>
-    ///         <c>safe X</c> stays refused, as it is for flex: falling back to start alignment on
-    ///         overflow has no expression in this store's <see cref="Align" />. <c>unsafe X</c> is
-    ///         stripped, because unsafe is what every other keyword already means.
+    ///         The overflow prefix is split off by <see cref="Overflowing" /> here exactly as it is
+    ///         for flex, and travels to <see cref="LayoutStyle.JustifySelfOverflow" /> beside the
+    ///         position rather than into it.
     ///     </para>
     /// </remarks>
     /// <param name="property">The attribute name, for the refusal message.</param>
     /// <param name="value">Its value.</param>
     /// <param name="container">The grid whose inline axis this aligns against.</param>
     /// <param name="item">The box being aligned — the same one for <c>justify-items</c>.</param>
-    static Align GridAlign(string property, string value, TaffyBox container, TaffyBox item) {
-        value = Unsafe(property, value);
+    static (Align Align, OverflowAlignment Overflow) GridAlign(string property, string value, TaffyBox container, TaffyBox item) {
+        (value, var overflow) = Overflowing(value);
 
         var flip = value is "self-start" or "self-end" && container.Rtl != item.Rtl;
 
-        return value switch {
+        var resolved = value switch {
             "flex-start" or "start" => Align.FlexStart,
             "flex-end" or "end" => Align.FlexEnd,
             "self-start" => flip ? Align.FlexEnd : Align.FlexStart,
@@ -540,10 +591,12 @@ static class TaffyStyleMap {
             "auto" => Align.Auto,
             _ => throw new TaffyUnsupportedException($"{property}: {value}")
         };
+
+        return (resolved, overflow);
     }
 
     /// <summary>Resolves a grid container's self-relative <c>justify-items</c> for one child.</summary>
-    public static Align JustifyItemsForChild(string value, TaffyBox container, TaffyBox item) =>
+    public static (Align Align, OverflowAlignment Overflow) JustifyItemsForChild(string value, TaffyBox container, TaffyBox item) =>
         GridAlign("justify-items", value, container, item);
 
     /// <summary><c>grid-auto-flow</c>, whose two words may be written in either order.</summary>
@@ -600,12 +653,12 @@ static class TaffyStyleMap {
             : throw new TaffyUnsupportedException($"{property}: {value}");
 
     /// <summary>The same resolution on the main axis, where <c>*-reverse</c> plays wrap-reverse's part.</summary>
-    static Justify Justification(string value, TaffyBox container) {
-        value = Unsafe("justify-content", value);
+    static (Justify Justify, OverflowAlignment Overflow) Justification(string value, TaffyBox container) {
+        (value, var overflow) = Overflowing(value);
 
         var flip = value is "start" or "end" && container.IsReverse;
 
-        return value switch {
+        var resolved = value switch {
             "flex-start" or "normal" => Justify.FlexStart,
             "flex-end" => Justify.FlexEnd,
             "start" => flip ? Justify.FlexEnd : Justify.FlexStart,
@@ -616,23 +669,34 @@ static class TaffyStyleMap {
             "space-evenly" => Justify.SpaceEvenly,
             _ => throw new TaffyUnsupportedException($"justify-content: {value}")
         };
+
+        return (resolved, overflow);
     }
 
-    /// <summary>Strips an <c>unsafe</c> prefix, and refuses a <c>safe</c> one.</summary>
-    static string Unsafe(string property, string value) {
-        if (value.StartsWith("safe ", StringComparison.Ordinal)) {
-            throw new TaffyUnsupportedException($"{property}: {value}");
-        }
-
-        return value.StartsWith("unsafe ", StringComparison.Ordinal) ? value["unsafe ".Length..] : value;
-    }
+    /// <summary>
+    ///     Splits CSS Box Alignment §4.4's overflow prefix off the front of an alignment value.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The prefix is not a value and the position is not a modifier</b> — the grammar is
+    ///     <c>[ safe | unsafe ]? &lt;position&gt;</c>, two independent halves — so this returns the
+    ///     half the four resolvers below know how to read and hands the other half back for
+    ///     <see cref="LayoutStyle.AlignSelfOverflow" /> and its siblings. <c>unsafe X</c> is exactly
+    ///     <c>X</c>, because unsafe is what a bare keyword already means; <c>safe X</c> is <c>X</c>
+    ///     with <see cref="OverflowAlignment.Safe" /> beside it.
+    /// </remarks>
+    /// <param name="value">The attribute's value, prefix and all.</param>
+    /// <returns>The position on its own, and what the prefix said about it.</returns>
+    static (string Value, OverflowAlignment Overflow) Overflowing(string value) =>
+        value.StartsWith("safe ", StringComparison.Ordinal) ? (value["safe ".Length..], OverflowAlignment.Safe)
+        : value.StartsWith("unsafe ", StringComparison.Ordinal) ? (value["unsafe ".Length..], OverflowAlignment.Unsafe)
+        : (value, OverflowAlignment.Unsafe);
 
     /// <summary>Whether a value names the item's own axis rather than its container's.</summary>
     public static bool IsSelfRelative(string value) =>
-        value is "self-start" or "self-end" or "unsafe self-start" or "unsafe self-end";
+        Overflowing(value).Value is "self-start" or "self-end";
 
     /// <summary>Resolves a container's self-relative <c>align-items</c> for one particular child.</summary>
-    public static Align AlignItemsForChild(string value, TaffyBox container, TaffyBox item) =>
+    public static (Align Align, OverflowAlignment Overflow) AlignItemsForChild(string value, TaffyBox container, TaffyBox item) =>
         CrossAlign("align-items", value, container, item);
 
     static StyleLength Length(string value) =>

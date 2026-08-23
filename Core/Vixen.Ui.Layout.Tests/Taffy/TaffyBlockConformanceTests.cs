@@ -20,8 +20,9 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         had.
 ///     </para>
 ///     <para>
-///         <b>764 of the 884 <c>block</c> fixtures pass and 24 of the 28 <c>blockflex</c>.</b> 120
-///         and 4 are refused for a property this store has no field for, and <b>none disagree</b>.
+///         <b>812 of the 884 <c>block</c> fixtures pass and all 28 <c>blockflex</c>.</b> 72 are
+///         refused for a property this store has no field for — <c>scrollbar-width</c> and
+///         <c>float</c>, and nothing else — and <b>none disagree</b>.
 ///         The 20 that used to were all inside <c>LayoutTree.Absolute.cs</c>, in one
 ///         <c>aspect-ratio</c> bucket that predated block layout and that a flex parent hit
 ///         identically; they closed with the flex and grid copies of the same rule. Not one was ever
@@ -51,9 +52,16 @@ public class TaffyBlockConformanceTests {
     // passes. They were `scrollbar-width` on `overflow: hidden` boxes, which reserves no gutter and
     // so could never have moved a box — `TaffyStyleMap` was refusing an inert declaration and taking
     // every other property the fixture set down with it. See UnsupportedFixtures.txt.
-    const int ExpectedPassing = 816;
+    //
+    // ⚠ 96 → 72: 4 `align-content: safe end`, 16 legacy `text-align` and 4
+    // `block_flow_root_margin_non_collapse` started running and all 24 pass. ⚠ The `display:
+    // flow-root` bucket lost 8 and this count only 24, because the other 4 —
+    // `block_flow_root_contains_float` — stopped being refused for the keyword and started being
+    // refused for the float they also need. A bucket emptying is not the same as fixtures
+    // converting; see UnsupportedFixtures.txt § CLOSED.
+    const int ExpectedPassing = 840;
     const int ExpectedFailing = 0;
-    const int ExpectedUnsupported = 96;
+    const int ExpectedUnsupported = 72;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

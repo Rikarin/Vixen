@@ -98,7 +98,7 @@ public sealed partial class LayoutTree {
                 // never written. A grid parent resolved as `row-reverse` here while the child was
                 // placed on a physical `row` puts every RTL grid child at
                 // `container − child − Position[Right]`, with a stale zero for the right edge.
-                var isPhysicalParent = styles[currentNode].Display is Display.Block or Display.Grid;
+                var isPhysicalParent = styles[currentNode].Display is Display.Block or Display.FlowRoot or Display.Grid;
                 var parentMainAxis = isPhysicalParent
                     ? FlexDirection.Row
                     : FlexAxis.Resolve(styles[currentNode].FlexDirection, currentNodeDirection);
@@ -183,7 +183,7 @@ public sealed partial class LayoutTree {
         // under RTL resolves to `row-reverse` and would send every un-inset absolute child to the
         // wrong physical edge. Both box types are physical: inline is the row, block is the column,
         // and the writing direction is applied by the `Inline*` helpers rather than by the axis.
-        var isPhysicalParent = styles[node].Display is Display.Block or Display.Grid;
+        var isPhysicalParent = styles[node].Display is Display.Block or Display.FlowRoot or Display.Grid;
         var mainAxis = isPhysicalParent ? FlexDirection.Row : FlexAxis.Resolve(styles[node].FlexDirection, direction);
         var crossAxis = isPhysicalParent ? FlexDirection.Column : FlexAxis.ResolveCross(mainAxis, direction);
         var isMainAxisRow = FlexAxis.IsRow(mainAxis);
@@ -392,6 +392,12 @@ public sealed partial class LayoutTree {
             var startMargin = StyleResolution.InlineStartMargin(in styles[child], axis, direction, containingBlockWidth);
             var endMargin = StyleResolution.InlineEndMargin(in styles[child], axis, direction, containingBlockWidth);
 
+            // ⚠ §4.4 asks for nothing here: this clamp already gives every alignment the `safe`
+            // answer, so `JustifySelfOverflow` and `AlignSelfOverflow` could not change it. That is
+            // arguably too generous — an `unsafe end` item in a smaller area should overflow, as it
+            // does in `AlignInArea` one file over — but no fixture in the corpus places an
+            // out-of-flow grid child larger than its own area, so the two cannot be told apart from
+            // here and the clamp is left as it is rather than changed blind.
             var free = MathF.Max(0f, areaSize - childSize - startMargin - endMargin);
             var offsetFromInlineStart = startMargin + alignment switch {
                 Align.Center => free / 2f,
@@ -411,7 +417,7 @@ public sealed partial class LayoutTree {
         // CSS 2.1 §10.6.4: the static position of an out-of-flow box is where its hypothetical box
         // would have been — after every in-flow sibling before it. `WalkBlockChildren` records that
         // as it goes, because by the time this pass runs the walk is over and the cursor is gone.
-        if (styles[parent].Display == Display.Block) {
+        if (styles[parent].Display is Display.Block or Display.FlowRoot) {
             var isRow = FlexAxis.IsRow(axis);
             var staticEdge = isRow ? Edge.Left : Edge.Top;
             var staticValue = isRow ? results[child].BlockStaticLeft : results[child].BlockStaticTop;
@@ -434,6 +440,16 @@ public sealed partial class LayoutTree {
         }
 
         // With no inset at all, it is placed where the parent's alignment would have put it.
+        //
+        // ⚠ <b>`justify-content: safe end` does NOT rescue this child, and the reason is what
+        // `safe` is measured against.</b> §4.4 falls back when the ALIGNMENT SUBJECT overflows its
+        // container, and `justify-content`'s subject is the container's in-flow content — of which
+        // an out-of-flow child is not part. The line this static position is read off holds no items
+        // at all, so its free space is the whole content box and nothing overflows: the child is
+        // placed at the end edge and hangs off it by however much bigger than the container it is.
+        // `absolute_safe_justify_content_end_overflow` is a 200-point child in a 100-point container
+        // and Chrome answers x=−100, the same as `end` would. Its `align-self` twin below answers 0,
+        // because THAT declaration's subject is the child itself.
         if (isMainAxis) {
             switch (styles[parent].JustifyContent) {
                 case Justify.FlexEnd:
@@ -466,6 +482,19 @@ public sealed partial class LayoutTree {
             itemAlign = itemAlign == Align.FlexEnd ? Align.FlexStart : itemAlign != Align.Center ? Align.FlexEnd : itemAlign;
         }
 
+        // §4.4, and here the subject really is this child: `align-self` is its own declaration and
+        // the alignment container is the parent's content box. `absolute_safe_align_self_end_overflow`
+        // is 200 points of child in 100 points of container, and Chrome puts it at 0.
+        //
+        // ⚠ After the wrap-reverse swap, not before. `safe` falls back to the START of whichever
+        // axis direction the swap left in place, so reversing a `FlexStart` that this line produced
+        // would send it back to the end.
+        itemAlign = SafeFallback(
+            itemAlign,
+            ResolveChildAlignmentOverflow(parent, child),
+            AbsoluteCrossFreeSpace(parent, child, axis, containingBlockWidth)
+        );
+
         switch (itemAlign) {
             case Align.FlexEnd:
                 SetFlexEndLayoutPosition(parent, child, direction, axis, containingBlockWidth);
@@ -477,6 +506,31 @@ public sealed partial class LayoutTree {
                 SetFlexStartLayoutPosition(parent, child, direction, axis, containingBlockWidth);
                 break;
         }
+    }
+
+    /// <summary>
+    ///     What is left of a parent's content box on an axis once an out-of-flow child is in it.
+    /// </summary>
+    /// <remarks>
+    ///     The same two quantities <see cref="SetCenterLayoutPosition" /> divides, kept apart so that
+    ///     §4.4 can read the sign of their difference before deciding which of the three placements
+    ///     to run.
+    /// </remarks>
+    float AbsoluteCrossFreeSpace(int parent, int child, FlexDirection axis, float containingBlockWidth) {
+        var startEdge = (int) FlexAxis.FlexStartEdge(axis);
+        var endEdge = (int) FlexAxis.FlexEndEdge(axis);
+        var dimension = (int) FlexAxis.DimensionOf(axis);
+
+        var parentContentBox = results[parent].MeasuredDimensions[dimension]
+            - results[parent].Border[startEdge]
+            - results[parent].Border[endEdge]
+            - results[parent].Padding[startEdge]
+            - results[parent].Padding[endEdge];
+
+        var childOuterSize = results[child].MeasuredDimensions[dimension]
+            + StyleResolution.MarginForAxis(in styles[child], axis, containingBlockWidth);
+
+        return parentContentBox - childOuterSize;
     }
 
     void SetFlexStartLayoutPosition(int parent, int child, Direction direction, FlexDirection axis, float containingBlockWidth) {

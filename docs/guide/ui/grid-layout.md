@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Layout.GridTrackSize, T:Vixen.Ui.Layout.GridSizingFunction, T:V
 tags: [ui, layout, grid, css, tracks, placement]
 since: 0.2
 status: preview
-related: [ui/inline-layout, ui/utility-composition, ui/markup-panels]
+related: [ui/inline-layout, ui/box-alignment, ui/utility-composition, ui/markup-panels]
 ---
 
 ## What it is

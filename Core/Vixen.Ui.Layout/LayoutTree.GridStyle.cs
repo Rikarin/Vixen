@@ -162,28 +162,34 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Sets the inline-axis placement of every child of this container.</summary>
+    /// <inheritdoc cref="SetJustifyContent" path="/remarks" />
     /// <param name="node">The node.</param>
     /// <param name="align">The alignment. <see cref="Align.FlexStart" /> means the inline start.</param>
-    public void SetJustifyItems(LayoutNodeId node, Align align) {
+    /// <param name="overflow">What it does for an item wider than its area.</param>
+    public void SetJustifyItems(LayoutNodeId node, Align align, OverflowAlignment overflow = OverflowAlignment.Unsafe) {
         var index = Validate(node);
-        if (styles[index].JustifyItems == align) {
+        if (styles[index].JustifyItems == align && styles[index].JustifyItemsOverflow == overflow) {
             return;
         }
 
         styles[index].JustifyItems = align;
+        styles[index].JustifyItemsOverflow = overflow;
         MarkDirtyAndPropagate(index);
     }
 
     /// <summary>Sets this item's own inline-axis placement.</summary>
+    /// <inheritdoc cref="SetJustifyContent" path="/remarks" />
     /// <param name="node">The node.</param>
     /// <param name="align">The alignment, or <see cref="Align.Auto" /> to defer to the container.</param>
-    public void SetJustifySelf(LayoutNodeId node, Align align) {
+    /// <param name="overflow">What it does when this item is wider than its area.</param>
+    public void SetJustifySelf(LayoutNodeId node, Align align, OverflowAlignment overflow = OverflowAlignment.Unsafe) {
         var index = Validate(node);
-        if (styles[index].JustifySelf == align) {
+        if (styles[index].JustifySelf == align && styles[index].JustifySelfOverflow == overflow) {
             return;
         }
 
         styles[index].JustifySelf = align;
+        styles[index].JustifySelfOverflow = overflow;
         MarkDirtyAndPropagate(index);
     }
 

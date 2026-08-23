@@ -215,6 +215,20 @@ text-align                        the inline-axis distribution of a line's items
                                   this file, and the 16 fixtures are a separate, self-contained,
                                   oracle-backed item that belongs to block layout. ⚠ Closing them
                                   moves the block corpus's REFUSAL count, so it is its own commit.
+                                  ⚠ AND THEY ARE CLOSED, in exactly that shape: `LegacyTextAlign`
+                                  on `LayoutStyle`, read once by `LayoutTree.Block`'s
+                                  `LegacyTextAlignOffset`, all 16 green, block's refusals 96 → 72.
+                                  Nothing in THIS entry moved. The enum is called
+                                  `LegacyTextAlign` rather than `TextAlign` precisely so that the
+                                  distinction this paragraph spent twenty lines drawing survives
+                                  contact with the field: `text-align: center` and
+                                  `-webkit-center` cannot share one field, because the first must
+                                  leave block-level children where §10.3.3 put them and the second
+                                  must move them. `TaffyStyleMap` refuses an unprefixed value for
+                                  the same reason. So when the line-distribution half below is
+                                  written it gets a field of its own, and the two can be set
+                                  independently, which is what CSS's single property actually
+                                  means once the legacy values are in it.
 a text leaf's first line          ⚠ STILL NOT shortened to the space left on the line box it lands
   shortened to its line             on, and the fragment arena did NOT unblock this even though it
                                   was named as the other end of the same invariant. There is now

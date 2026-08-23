@@ -22,15 +22,15 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 
 | Category | Fixtures | Pass | Fail | Refused |
 |---|--:|--:|--:|--:|
-| `flex` | 2 352 | 2 254 | 18 | 80 |
+| `flex` | 2 352 | 2 290 | 18 | 44 |
 | `leaf` | 56 | 24 | 0 | 32 |
-| `block` | 884 | 788 | 0 | 96 |
+| `block` | 884 | 812 | 0 | 72 |
 | `blockflex` | 28 | 28 | 0 | 0 |
 | `blockgrid` | 56 | 56 | 0 | 0 |
-| `grid` | 2 040 | 1 922 | 42 | 76 |
+| `grid` | 2 040 | 1 958 | 42 | 40 |
 | `gridflex` | 24 | 24 | 0 | 0 |
 | `float` | 84 | 0 | 0 | 84 |
-| | **5 524** | **5 096** | **60** | **368** |
+| | **5 524** | **5 192** | **60** | **272** |
 
 Every one of those numbers is asserted — the pass and fail columns by the three conformance suites
 and `TaffyPendingCorporaTests`, the refused column additionally by `TaffyUnsupportedCensusTests`,
@@ -43,7 +43,7 @@ are about 1 381 distinct cases run four ways.
 
 **2 002 of the 2 208 runnable flex fixtures passed on the first run**, on a store built entirely
 against a *different* browser-derived corpus. 176 more are refused for a property this store has no
-field for, and 206 disagreed. **192 of those are now closed and 2 278 of the 2 408 pass** — 112 are
+field for, and 206 disagreed. **192 of those are now closed and 2 314 of the 2 408 pass** — 76 are
 still refused and 18 disagree, which is what the table above counts.
 
 That number was the point. Flexbox already had an oracle — Yoga's 534, green — so the flex corpus is
@@ -229,6 +229,18 @@ in either direction. All 124 are closed: 92 became passes, and 32 became newly *
 filed under three new headings in the gap files. Two of those three are arithmetic that had been
 wrong since it was written, with the only fixtures that exercise it refused on an unrelated
 property.
+
+⚠ **96 of the 284 engine gaps have since been closed as well, and the contrast with the harness
+batch is the thing to take from it.** Safe alignment (76), the legacy `text-align` keywords (16) and
+`display: flow-root` (8, of which 4 also need floats) were each a field `LayoutStyle` genuinely did
+not have; the census said so, refused to let them be translated away, and all three were written.
+**96 fixtures started running and 96 passed.** That is a much weaker result than the harness batch's
+92-and-32, and it should read that way: code written *against* a set of fixtures agrees with them,
+so an engine gap converting tells you the work is done and nothing about the algorithm. It is the
+harness kind — fixtures whose arithmetic was never checked by anybody — that finds defects.
+
+**272 are refused now**, and the shape of what is left is worth a sentence: `scrollbar-width` (180)
+and floats (92), which is to say two features and no odds and ends.
 
 ## The Ahem measure function
 

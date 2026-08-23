@@ -73,9 +73,15 @@ public class TaffyFlexConformanceTests {
     // in the algorithm moved either way. A refusal is not a gap and it is not a pass; it is a
     // fixture asserting nothing, and 408 of them across the three suites were doing that silently.
     // See UnsupportedFixtures.txt for the census and the harness-versus-engine split.
-    const int ExpectedPassing = 2278;
+    //
+    // ⚠ 112 → 76, and this batch reads the opposite way round to the one above it: all 36 became
+    // passes and none became a heading. They are the `safe` alignment families, and the difference
+    // is that they were an ENGINE gap rather than a harness one — the code that answers them was
+    // written against them, so it was never going to disagree with them. A harness gap uncovers
+    // arithmetic nobody has checked; an engine gap uncovers only the work.
+    const int ExpectedPassing = 2314;
     const int ExpectedFailing = 18;
-    const int ExpectedUnsupported = 112;
+    const int ExpectedUnsupported = 76;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

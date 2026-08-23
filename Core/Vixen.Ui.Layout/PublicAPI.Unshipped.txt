@@ -45,6 +45,7 @@ Vixen.Ui.Layout.Display -> enum : byte
 Vixen.Ui.Layout.Display.Block = 2 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.Display() -> void
 Vixen.Ui.Layout.Display.Flex = 0 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Display.FlowRoot = 7 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.Grid = 3 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.Inline = 4 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.InlineBlock = 5 -> Vixen.Ui.Layout.Display
@@ -222,8 +223,11 @@ Vixen.Ui.Layout.LayoutSize.Width.get -> float
 Vixen.Ui.Layout.LayoutSize.Width.init -> float
 Vixen.Ui.Layout.LayoutStyle -> struct
 Vixen.Ui.Layout.LayoutStyle.AlignContent -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.LayoutStyle.AlignContentOverflow -> Vixen.Ui.Layout.OverflowAlignment
 Vixen.Ui.Layout.LayoutStyle.AlignItems -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.LayoutStyle.AlignItemsOverflow -> Vixen.Ui.Layout.OverflowAlignment
 Vixen.Ui.Layout.LayoutStyle.AlignSelf -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.LayoutStyle.AlignSelfOverflow -> Vixen.Ui.Layout.OverflowAlignment
 Vixen.Ui.Layout.LayoutStyle.AspectRatio -> float
 Vixen.Ui.Layout.LayoutStyle.Border -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.BoxSizing -> Vixen.Ui.Layout.BoxSizing
@@ -243,9 +247,13 @@ Vixen.Ui.Layout.LayoutStyle.GridColumnStart -> Vixen.Ui.Layout.GridPlacement
 Vixen.Ui.Layout.LayoutStyle.GridRowEnd -> Vixen.Ui.Layout.GridPlacement
 Vixen.Ui.Layout.LayoutStyle.GridRowStart -> Vixen.Ui.Layout.GridPlacement
 Vixen.Ui.Layout.LayoutStyle.JustifyContent -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.LayoutStyle.JustifyContentOverflow -> Vixen.Ui.Layout.OverflowAlignment
 Vixen.Ui.Layout.LayoutStyle.JustifyItems -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.LayoutStyle.JustifyItemsOverflow -> Vixen.Ui.Layout.OverflowAlignment
 Vixen.Ui.Layout.LayoutStyle.JustifySelf -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.LayoutStyle.JustifySelfOverflow -> Vixen.Ui.Layout.OverflowAlignment
 Vixen.Ui.Layout.LayoutStyle.LayoutStyle() -> void
+Vixen.Ui.Layout.LayoutStyle.LegacyTextAlign -> Vixen.Ui.Layout.LegacyTextAlign
 Vixen.Ui.Layout.LayoutStyle.Margin -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.MaxDimensions -> Vixen.Ui.Layout.DimensionLengths
 Vixen.Ui.Layout.LayoutStyle.MinDimensions -> Vixen.Ui.Layout.DimensionLengths
@@ -297,9 +305,9 @@ Vixen.Ui.Layout.LayoutTree.NodeCount.get -> int
 Vixen.Ui.Layout.LayoutTree.PointScaleFactor.get -> float
 Vixen.Ui.Layout.LayoutTree.PointScaleFactor.set -> float
 Vixen.Ui.Layout.LayoutTree.RemoveChild(Vixen.Ui.Layout.LayoutNodeId parent, Vixen.Ui.Layout.LayoutNodeId child) -> bool
-Vixen.Ui.Layout.LayoutTree.SetAlignContent(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align) -> void
-Vixen.Ui.Layout.LayoutTree.SetAlignItems(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align) -> void
-Vixen.Ui.Layout.LayoutTree.SetAlignSelf(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align) -> void
+Vixen.Ui.Layout.LayoutTree.SetAlignContent(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align, Vixen.Ui.Layout.OverflowAlignment overflow = Vixen.Ui.Layout.OverflowAlignment.Unsafe) -> void
+Vixen.Ui.Layout.LayoutTree.SetAlignItems(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align, Vixen.Ui.Layout.OverflowAlignment overflow = Vixen.Ui.Layout.OverflowAlignment.Unsafe) -> void
+Vixen.Ui.Layout.LayoutTree.SetAlignSelf(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align, Vixen.Ui.Layout.OverflowAlignment overflow = Vixen.Ui.Layout.OverflowAlignment.Unsafe) -> void
 Vixen.Ui.Layout.LayoutTree.SetAspectRatio(Vixen.Ui.Layout.LayoutNodeId node, float aspectRatio) -> void
 Vixen.Ui.Layout.LayoutTree.SetBaselineFunction(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.BaselineFunction? baseline) -> void
 Vixen.Ui.Layout.LayoutTree.SetBorder(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength border) -> void
@@ -323,9 +331,10 @@ Vixen.Ui.Layout.LayoutTree.SetGridTemplateColumns(Vixen.Ui.Layout.LayoutNodeId n
 Vixen.Ui.Layout.LayoutTree.SetGridTemplateColumns(Vixen.Ui.Layout.LayoutNodeId node, System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize> tracks, Vixen.Ui.Layout.GridAutoRepeat kind, int autoRepeatIndex, int autoRepeatCount) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridTemplateRows(Vixen.Ui.Layout.LayoutNodeId node, System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize> tracks) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridTemplateRows(Vixen.Ui.Layout.LayoutNodeId node, System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize> tracks, Vixen.Ui.Layout.GridAutoRepeat kind, int autoRepeatIndex, int autoRepeatCount) -> void
-Vixen.Ui.Layout.LayoutTree.SetJustifyContent(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Justify justify) -> void
-Vixen.Ui.Layout.LayoutTree.SetJustifyItems(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align) -> void
-Vixen.Ui.Layout.LayoutTree.SetJustifySelf(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align) -> void
+Vixen.Ui.Layout.LayoutTree.SetJustifyContent(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Justify justify, Vixen.Ui.Layout.OverflowAlignment overflow = Vixen.Ui.Layout.OverflowAlignment.Unsafe) -> void
+Vixen.Ui.Layout.LayoutTree.SetJustifyItems(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align, Vixen.Ui.Layout.OverflowAlignment overflow = Vixen.Ui.Layout.OverflowAlignment.Unsafe) -> void
+Vixen.Ui.Layout.LayoutTree.SetJustifySelf(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align, Vixen.Ui.Layout.OverflowAlignment overflow = Vixen.Ui.Layout.OverflowAlignment.Unsafe) -> void
+Vixen.Ui.Layout.LayoutTree.SetLegacyTextAlign(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.LegacyTextAlign textAlign) -> void
 Vixen.Ui.Layout.LayoutTree.SetMargin(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength margin) -> void
 Vixen.Ui.Layout.LayoutTree.SetMaxDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
 Vixen.Ui.Layout.LayoutTree.SetMeasureFunction(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.MeasureFunction? measure) -> void
@@ -347,6 +356,12 @@ Vixen.Ui.Layout.LayoutUnit.Percent = 2 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LayoutUnit.Point = 1 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LayoutUnit.Stretch = 6 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LayoutUnit.Undefined = 0 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LegacyTextAlign -> enum : byte
+Vixen.Ui.Layout.LegacyTextAlign.Center = 2 -> Vixen.Ui.Layout.LegacyTextAlign
+Vixen.Ui.Layout.LegacyTextAlign.Left = 1 -> Vixen.Ui.Layout.LegacyTextAlign
+Vixen.Ui.Layout.LegacyTextAlign.LegacyTextAlign() -> void
+Vixen.Ui.Layout.LegacyTextAlign.None = 0 -> Vixen.Ui.Layout.LegacyTextAlign
+Vixen.Ui.Layout.LegacyTextAlign.Right = 3 -> Vixen.Ui.Layout.LegacyTextAlign
 Vixen.Ui.Layout.MeasureFunction -> delegate
 Vixen.Ui.Layout.MeasureMode -> enum : byte
 Vixen.Ui.Layout.MeasureMode.AtMost = 2 -> Vixen.Ui.Layout.MeasureMode
@@ -376,6 +391,10 @@ Vixen.Ui.Layout.Overflow.Hidden = 1 -> Vixen.Ui.Layout.Overflow
 Vixen.Ui.Layout.Overflow.Overflow() -> void
 Vixen.Ui.Layout.Overflow.Scroll = 2 -> Vixen.Ui.Layout.Overflow
 Vixen.Ui.Layout.Overflow.Visible = 0 -> Vixen.Ui.Layout.Overflow
+Vixen.Ui.Layout.OverflowAlignment -> enum : byte
+Vixen.Ui.Layout.OverflowAlignment.OverflowAlignment() -> void
+Vixen.Ui.Layout.OverflowAlignment.Safe = 1 -> Vixen.Ui.Layout.OverflowAlignment
+Vixen.Ui.Layout.OverflowAlignment.Unsafe = 0 -> Vixen.Ui.Layout.OverflowAlignment
 Vixen.Ui.Layout.PositionType -> enum : byte
 Vixen.Ui.Layout.PositionType.Absolute = 2 -> Vixen.Ui.Layout.PositionType
 Vixen.Ui.Layout.PositionType.PositionType() -> void

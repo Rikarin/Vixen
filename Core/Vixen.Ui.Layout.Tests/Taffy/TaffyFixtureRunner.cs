@@ -107,11 +107,13 @@ static class TaffyFixtureRunner {
             var childBox = TaffyBox.From(childInput);
 
             if (selfRelativeItems is not null && !childInput.Attributes.ContainsKey("align-self")) {
-                tree.SetAlignSelf(child, TaffyStyleMap.AlignItemsForChild(selfRelativeItems, self, childBox));
+                var (align, overflow) = TaffyStyleMap.AlignItemsForChild(selfRelativeItems, self, childBox);
+                tree.SetAlignSelf(child, align, overflow);
             }
 
             if (selfRelativeJustify is not null && !childInput.Attributes.ContainsKey("justify-self")) {
-                tree.SetJustifySelf(child, TaffyStyleMap.JustifyItemsForChild(selfRelativeJustify, self, childBox));
+                var (justify, overflow) = TaffyStyleMap.JustifyItemsForChild(selfRelativeJustify, self, childBox);
+                tree.SetJustifySelf(child, justify, overflow);
             }
 
             tree.InsertChild(node, child, index);

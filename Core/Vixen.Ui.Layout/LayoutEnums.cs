@@ -98,6 +98,96 @@ public enum Align : byte {
     SpaceEvenly
 }
 
+/// <summary>
+///     What an alignment does when what it is aligning does not fit: CSS Box Alignment §4.4's
+///     <c>&lt;overflow-position&gt;</c>.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Nothing to do with <see cref="Overflow" />, despite the word.</b> That enum is
+///         <c>overflow-x</c> and <c>overflow-y</c> — whether content is clipped or scrolled. This one
+///         is the first half of an alignment value's grammar, <c>[ safe | unsafe ]? &lt;position&gt;</c>,
+///         and it decides what happens to that <i>position</i> when the free space goes negative.
+///     </para>
+///     <para>
+///         ⚠ <b>It is a modifier on a position, not a position, which is why it is a second field
+///         beside <see cref="LayoutStyle.AlignSelf" /> and its five siblings rather than four more
+///         members on <see cref="Align" />.</b> <c>safe end</c> is not a third place to sit — it is
+///         <c>end</c> with a condition attached — and folding it into the position enum would put a
+///         new arm in every <c>switch</c> that reads one, each of which would answer <c>start</c> by
+///         falling through a <c>default</c> whether or not anything overflowed.
+///     </para>
+/// </remarks>
+public enum OverflowAlignment : byte {
+    /// <summary>
+    ///     Align as asked however far the subject overflows. The initial behaviour, and what every
+    ///     unprefixed keyword means.
+    /// </summary>
+    /// <remarks>
+    ///     So <c>align-self: end</c> on a 150-point item in a 100-point line puts its <i>top</i> 50
+    ///     points above the line, rather than giving up and going to the start.
+    /// </remarks>
+    Unsafe,
+
+    /// <summary>
+    ///     Align as asked, unless doing so would overflow, in which case align to start instead.
+    /// </summary>
+    /// <remarks>
+    ///     The point is reachability: overflow towards the start edge scrolls data out of the corner
+    ///     the reader begins at and no scrollbar goes back for it, so <c>safe</c> spends the overflow
+    ///     at the end instead. The test is on the free space and nothing else — a <c>safe</c>
+    ///     alignment with room to spare is indistinguishable from an <c>unsafe</c> one.
+    /// </remarks>
+    Safe
+}
+
+/// <summary>
+///     CSS Text §7.1's three legacy <c>text-align</c> values, which move a block container's
+///     <i>block-level</i> children.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>This is not <c>text-align</c>, and the difference is the reason it has its own name
+///         and its own enum.</b> <c>text-align: center</c> centres the <i>inline</i> content of a
+///         block container and leaves its block-level children exactly where §10.3.3 put them.
+///         <c>-webkit-center</c> — the behaviour <c>&lt;center&gt;</c> had, kept alive because pages
+///         depend on it — centres the child <i>boxes</i> as well, which is a block-layout rule that
+///         needs no line box and no inline formatting context. A field called <c>TextAlign</c>
+///         holding both sets of keywords would have to behave differently for each, so it holds only
+///         the set this store implements.
+///     </para>
+///     <para>
+///         ⚠ <b>Physical, and they do not flip with <see cref="Direction" />.</b>
+///         <see cref="Left" /> is the left in an RTL container too — the keywords predate
+///         writing-mode-relative alignment and were never respecified in terms of it.
+///         <c>block_text_align_center_rtl</c> in the Taffy corpus is that pin exactly.
+///     </para>
+///     <para>
+///         <c>text-align</c> proper — the inline-axis distribution of the items on a line box — is a
+///         separate, unwritten thing with no oracle in either corpus. See
+///         <c>InlineKnownGaps.txt</c>, which has carried the entry since before this enum existed.
+///     </para>
+/// </remarks>
+public enum LegacyTextAlign : byte {
+    /// <summary>
+    ///     None of the three was written, so block-level children sit at the inline start.
+    /// </summary>
+    /// <remarks>
+    ///     Also where every non-legacy value of <c>text-align</c> lands, because none of them moves a
+    ///     block-level child at all.
+    /// </remarks>
+    None,
+
+    /// <summary><c>-webkit-left</c>: against the container's left content edge in both directions.</summary>
+    Left,
+
+    /// <summary><c>-webkit-center</c>: centred in the container's content box.</summary>
+    Center,
+
+    /// <summary><c>-webkit-right</c>: against the container's right content edge in both directions.</summary>
+    Right
+}
+
 /// <summary>How a node is positioned relative to its parent.</summary>
 public enum PositionType : byte {
     /// <summary>In flow, and <c>inset</c> is ignored.</summary>
@@ -231,7 +321,29 @@ public enum Display : byte {
     ///     <see cref="Flex" />'s algorithm unchanged; only the outside — line participation and
     ///     shrink-to-fit — differs.
     /// </remarks>
-    InlineFlex
+    InlineFlex,
+
+    /// <summary>
+    ///     A block container that always establishes a block formatting context of its own.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not an alias for <see cref="Block" />, and the difference is the whole content of
+    ///         the keyword.</b> Every other way of getting a new formatting context has a side effect
+    ///         somebody has to live with — <c>overflow: hidden</c> clips, <c>float</c> takes the box
+    ///         out of the stack, <c>inline-block</c> shrink-to-fits and shares a line. <c>flow-root</c>
+    ///         is the one that asks for the formatting context and nothing else, so a
+    ///         <c>flow-root</c> with <c>overflow: visible</c> still stops its children's vertical
+    ///         margins escaping through its edges and still contains its floats.
+    ///     </para>
+    ///     <para>
+    ///         Everything else about it is <see cref="Block" />: outer display block, inner display
+    ///         flow, same algorithm, same <c>width: auto</c> filling the containing block. The only
+    ///         reads that separate the two are <c>EstablishesBlockFormattingContext</c> and
+    ///         <c>BlockMarginsCollapsibleWithParent</c>.
+    ///     </para>
+    /// </remarks>
+    FlowRoot
 }
 
 /// <summary>

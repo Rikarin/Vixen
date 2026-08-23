@@ -63,6 +63,36 @@ public struct LayoutStyle {
     /// <summary>This node's own cross-axis placement, overriding its parent's.</summary>
     public Align AlignSelf;
 
+    /// <summary>Whether <see cref="JustifyContent" /> gives up and packs at the start on overflow.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An alignment value in CSS is two things, and this is the other one.</b> The grammar is
+    ///     <c>[ safe | unsafe ]? &lt;position&gt;</c> — see <see cref="OverflowAlignment" /> for why
+    ///     the pair is two fields rather than four more members on <see cref="Align" />. The six
+    ///     <c>*Overflow</c> fields here are the six places CSS Box Alignment lets the prefix be
+    ///     written, and every one of them is <see cref="OverflowAlignment.Unsafe" /> by default
+    ///     because that is what a bare keyword means.
+    /// </remarks>
+    public OverflowAlignment JustifyContentOverflow;
+
+    /// <inheritdoc cref="JustifyContentOverflow" />
+    public OverflowAlignment AlignContentOverflow;
+
+    /// <inheritdoc cref="JustifyContentOverflow" />
+    public OverflowAlignment AlignItemsOverflow;
+
+    /// <inheritdoc cref="JustifyContentOverflow" />
+    public OverflowAlignment AlignSelfOverflow;
+
+    /// <summary>
+    ///     Where this block container puts its block-level children on the inline axis.
+    /// </summary>
+    /// <remarks>
+    ///     Read only by the block algorithm, and only by it: a flex or grid container has
+    ///     <see cref="JustifyContent" /> and <see cref="JustifyItems" /> to say the same thing
+    ///     properly. See <see cref="LegacyTextAlign" /> for why this is not called <c>TextAlign</c>.
+    /// </remarks>
+    public LegacyTextAlign LegacyTextAlign;
+
     /// <summary>How this node is positioned.</summary>
     public PositionType PositionType;
 
@@ -173,6 +203,12 @@ public struct LayoutStyle {
     /// <summary>This item's own inline-axis placement, overriding its container's.</summary>
     public Align JustifySelf;
 
+    /// <inheritdoc cref="JustifyContentOverflow" />
+    public OverflowAlignment JustifyItemsOverflow;
+
+    /// <inheritdoc cref="JustifyContentOverflow" />
+    public OverflowAlignment JustifySelfOverflow;
+
     /// <summary>Which row this item starts in.</summary>
     public GridPlacement GridRowStart;
 
@@ -217,6 +253,17 @@ public struct LayoutStyle {
         style.AlignContent = Align.FlexStart;
         style.AlignItems = Align.Stretch;
         style.AlignSelf = Align.Auto;
+
+        // An unprefixed alignment keyword is the `unsafe` one, so all six start there. Stated rather
+        // than left to the zero, like every other initial value in this method.
+        style.JustifyContentOverflow = OverflowAlignment.Unsafe;
+        style.AlignContentOverflow = OverflowAlignment.Unsafe;
+        style.AlignItemsOverflow = OverflowAlignment.Unsafe;
+        style.AlignSelfOverflow = OverflowAlignment.Unsafe;
+        style.JustifyItemsOverflow = OverflowAlignment.Unsafe;
+        style.JustifySelfOverflow = OverflowAlignment.Unsafe;
+
+        style.LegacyTextAlign = LegacyTextAlign.None;
         style.PositionType = PositionType.Relative;
         style.FlexWrap = Wrap.NoWrap;
         style.OverflowX = Overflow.Visible;

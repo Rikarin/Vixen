@@ -112,6 +112,10 @@ public class LayoutStyleBridgeTests {
     [InlineData("overflow-y: auto", "OverflowY", "Scroll")]
     [InlineData("display: none", "Display", "None")]
     [InlineData("display: block", "Display", "Block")]
+
+    // ⚠ Not an alias for `block`: a flow root establishes a block formatting context whatever its
+    // `overflow` says, which is the whole content of the keyword. See `Display.FlowRoot`.
+    [InlineData("display: flow-root", "Display", "FlowRoot")]
     [InlineData("box-sizing: border-box", "BoxSizing", "BorderBox")]
     [InlineData("direction: rtl", "Direction", "Rtl")]
     public void A_keyword_becomes_its_enum(string css, string field, string expected) {
