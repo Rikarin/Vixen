@@ -62,6 +62,7 @@ public sealed class DrawListBuilder {
     readonly OverflowReader overflow;
     readonly int visibility;
     readonly int hidden;
+    readonly int collapse;
     readonly int opacity;
     readonly int filter;
     readonly int blurFunction;
@@ -142,6 +143,7 @@ public sealed class DrawListBuilder {
 
         visibility = properties.Intern("visibility");
         this.hidden = values.Intern("hidden");
+        collapse = values.Intern("collapse");
         opacity = properties.Intern("opacity");
         filter = properties.Intern("filter");
 
@@ -440,7 +442,22 @@ public sealed class DrawListBuilder {
         // inherited the value rather than by being skipped here — and a child that declares
         // `visibility: visible` reappears inside a hidden parent, which is the whole reason CSS has
         // two properties for this.
-        var shown = !element.Style.TryGet(visibility, out var mode) || mode != hidden;
+        //
+        // ⚠ <b>`collapse` reads as `hidden` here, and that is CSS 2.1 §11.2 rather than an
+        // approximation.</b> The third keyword only means something different on a table row, a
+        // table column and their groups; on every other box the spec says it "has the same meaning
+        // as `hidden`". This engine has no table formatting context at all — no `display: table-row`,
+        // no `border-collapse` — so there is no box in it for which the other reading is the right
+        // one, and mapping the keyword here is complete rather than partial.
+        //
+        // ⚠ The one place that is <i>not</i> true is a flex item, where Flexbox §4.1 makes a
+        // collapsed item keep its contribution to the line's cross size — a strut whose main size
+        // goes to zero. That is a layout effect and this is the paint walk, so it is not refused
+        // here so much as unreachable from here: it needs `LayoutStyle` to carry the keyword, which
+        // it does not. Suppressing the paint is right in that case too and strictly closer than the
+        // previous behaviour, which was to paint a collapsed item in full. See the triage note in
+        // `docs/plan/43-web-styling-parity.md`.
+        var shown = !element.Style.TryGet(visibility, out var mode) || (mode != hidden && mode != collapse);
 
         if (shown) {
             // Before the background, which is where CSS paints it: a shadow is cast *by* the box and

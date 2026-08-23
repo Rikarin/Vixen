@@ -247,7 +247,7 @@ Flexbox and Grid	flex-grow-*	functional	flex-grow-0	flex-grow					absent	flex		r
 Spacing	sr-only	static	sr-only	border-width,clip-path,height,margin,overflow,padding,position,white-space,width					absent				sr-only
 Spacing	not-sr-only	static	not-sr-only	clip-path,height,margin,overflow,padding,position,white-space,width					absent				not-sr-only
 Interactivity	pointer-events	static	pointer-events-none	pointer-events	pointer-events	pointer-events	pointer-events		works				pointer-events-none pointer-events-auto
-Layout	visibility	static	visible	visibility					absent				visible invisible collapse
+Layout	visibility	static	visible	visibility	collapse,invisible,visible	visibility	visibility		works				visible invisible collapse
 Layout	position	static	static	position	absolute,relative,static	position	position		partial			3 of 5 keywords: missing fixed sticky; 3 of 5 listed keywords resolve: missing fixed sticky	static fixed absolute relative sticky
 Layout	isolation	static	isolate	isolation					absent				isolate isolation-auto
 Layout	float	static	float-start	float					absent				float-start float-end float-right float-left float-none

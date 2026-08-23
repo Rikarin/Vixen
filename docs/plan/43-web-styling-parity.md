@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **123** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **124** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **159** |
+| **absent** | not emitted at all | **158** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -388,7 +388,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 21 | 8 | 0 | 16 | 3 | 1 |
+| Layout | 49 | 22 | 8 | 0 | 15 | 3 | 1 |
 | Interactivity | 39 | 20 | 1 | 1 | 17 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 6 | 3 | 0 | 25 | 0 | 0 |
@@ -403,7 +403,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **123** | **39** | **3** | **159** | **3** | **1** |
+| **Total** | **328** | **124** | **39** | **3** | **158** | **3** | **1** |
 
 Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
 Layout follow it. Tables and Accessibility still have **no working root at all**, and Interactivity
@@ -2370,6 +2370,170 @@ viewport, and `DataGrid` currently hand-rolls it. `sticky` is 🟡 **in**, sized
 **Everything else in the 223 absent roots is in.** Including the ones that look frivolous: `zoom-*`,
 `field-sizing-*` and `scheme-*` are one property each and cost less than arguing about them, and an
 inventory with an unexplained hole in it is how a subset gets rationalised the next time.
+
+---
+
+## Part 9 — The sixteen absent `Layout` roots, triaged
+
+⚠ **They are not one feature, and the useful finding is that they are not even one *kind* of
+absence.** Sixteen roots in the `Layout` category read `absent`. Four of them belong to work in
+flight elsewhere — `mask-radial-*`, `mask-radial-at-*`, `ring-offset-*` and `@container-*`. The
+other twelve were triaged together, and they fall into four buckets that want four different
+answers. **Only one bucket was buildable, and the other three are refusals with a measurement
+behind each.** The costs below are the deliverable; the one implementation is the small part.
+
+### Bucket 1 — the reader already existed. `visibility`. ✅ **Closed.**
+
+⚠ **`absent` meant "nobody can spell it", not "the engine cannot do it", and that is the most
+expensive way for this table to be wrong.** `DrawListBuilder` has honoured `visibility: hidden`
+since the draw list existed — an inherited property, read per element, gating the shadow, the
+background, the gradient, the border, the text and `OnDraw`, and deliberately *not* gating the clip
+bracket or the child recursion, so a descendant that declares `visible` reappears inside a hidden
+parent. What was missing was three classes and one keyword. `visible` / `invisible` / `collapse`
+are registered, and the root now measures `works`.
+
+Two things were genuinely broken and are fixed with it:
+
+- **`collapse` parsed, cascaded, inherited — and painted.** The test was `mode != hidden`, so the
+  third keyword fell through to "visible". CSS 2.1 §11.2 says `collapse` means `hidden` on every box
+  that is not a table row, column or their groups, and this engine has **no table formatting
+  context at all**, so `hidden` is the complete answer rather than an approximation. ⚠ This was the
+  `box-shadow: inset` shape exactly — a property that is *read* while one of its *values* is
+  refused, which no per-property gate can see, because the gate unions channels across every value
+  the family emits and `hidden` moves paint. Registering `collapse` without fixing the keyword would
+  have shipped an inert class under a green gate.
+- **Hit testing ignored the property.** CSS UI §5.2 makes an invisible box untargetable; here it
+  went on catching the clicks meant for whatever was behind it. `AdvancedTheme.vcss` has three
+  `visibility: hidden` rules, and one of them shows what the gap cost: `code-metrics` is an
+  absolutely positioned measurement probe pinned at the origin, invisible, and until now the first
+  thing a click in the top-left corner of a code editor ever reached.
+
+⚠ **The one divergence left, stated rather than hidden:** Flexbox §4.1 makes `visibility: collapse`
+on a *flex item* a collapsed item — main size zero, cross-size contribution kept, a strut. That is a
+layout effect and needs `LayoutStyle` to carry the keyword, which it does not. Suppressing the paint
+is right in that case too and strictly closer than painting it in full, so this is a smaller gap
+than the one it replaced, not a new one.
+
+### Bucket 2 — nothing exists that could observe it. `isolation`. ⛔ **Refused.**
+
+The compositor does make real groups now — `DrawListBuilder` opens one for `opacity < 1`, for a
+`filter`, and for a `mask-image`, and both the GPU and software executors render a real offscreen
+surface and composite it back. So the obvious reading is that `isolation: isolate` is "open a
+layer", and it is available today.
+
+⚠ **It is available and it is unobservable, which is not the same as working.** `isolation`'s only
+defined effect is on `mix-blend-mode`: it stops a descendant blending with what is outside the
+group. **`mix-blend-mode` does not exist at any layer** — not parsed, not stored, no channel on
+`DrawCommand`, none on `UiLayer`, no shader path, no branch in the software rasteriser, whose blend
+is fixed at premultiplied source-over in both executors. `background-blend-mode` and
+`backdrop-filter` are absent too. Registering `isolation` would add a property that resolves,
+computes a value and moves no channel in any scene — the defect this document exists to prevent.
+
+⚠ **Two doc comments already argue this and one of them is now half stale.** `DrawListBuilder`'s
+`ElementFilter.Any` remark justifies departing from CSS for an identity filter with "the engine has
+no other observable that depends on the isolation", which is the same argument reached
+independently. But the *older* refusal of `mix-blend-mode` is justified partly with "there is no
+offscreen target to blend into", and that half is no longer true — the compositor has them. The
+surviving half ("no blend channel on a `DrawCommand`") is the whole reason, and it is worth
+correcting the record: the blocker moved from the compositor to the command.
+
+**Cost to close:** not `isolation` — `mix-blend-mode` first, and it is a channel through four
+layers (a field on `DrawCommand` and `UiLayer`, a batching key, a shader variant in the composite,
+matching arithmetic in `SoftwareUiRasterizer.Composite`) plus the separable/non-separable blend
+formulae. `isolation` is then perhaps twenty lines on top and cannot sensibly precede it.
+
+### Bucket 3 — the code exists and an *input* does not. `object-fit`, `object-position`, `contain`.
+
+⚠ **The guess going in was that these are about the sampling rectangle. The sampling rectangle is
+already there and already honoured** — `DrawCommand.Source` is a UV sub-rect, it survives to the
+geometry builder, and negative extents work (`Viewport` flips vertically with one). Nine-slice
+already relates a destination rect to a source rect, and `Icon.Fit` is `object-fit: contain` plus
+`object-position: center` written out in path space. None of that is the blocker.
+
+**The blocker is that `Vixen.Ui` cannot see the texture's intrinsic size.** `Image.Texture` is an
+opaque `ulong` the renderer owns; the control does no measurement, has no measure hook, and takes
+its box entirely from `width`/`height`/`aspect-ratio`. `object-fit` is *defined* as a relation
+between the intrinsic ratio of the replaced content and the box — so `contain`, `cover`,
+`scale-down` and `none` are all undefined here, and only `fill`, the initial value, is expressible,
+which is what already happens. ⚠ **This is a layering decision, not an oversight**, and the honest
+close is an app-supplied intrinsic size on `Image` (the asset layer knows it) rather than reaching
+through the abstraction from the UI. That is an API design question and a decision about who fills
+it in, not a property registration. **Sized: small once the intrinsic size exists, and the intrinsic
+size is the actual work.** Note a video is an `Image` here, so this covers the classic
+non-matching-aspect case.
+
+`contain` is refused for a related reason and a worse one: **there is no containment concept in the
+layout store at all**, and no vocabulary to express the interesting half. Size containment means a
+box sizes as if it had no contents — which needs intrinsic-size keywords the store does not
+implement. ⚠ **Correcting a claim made in passing during the container-query work:**
+`LayoutUnit.Stretch` is *not* an enum member nothing references — it is referenced by two generated
+Yoga fixtures and by `Vixen.YogaTestGen`. It is, however, unimplemented, and so are
+`LayoutUnit.MaxContent` and `LayoutUnit.FitContent`: `StyleLength.IsResolvable` admits only `Point`
+and `Percent`, and `Resolve` returns `NaN` for the other four. So those two fixtures pass with the
+keyword behaving as "undefined", which is a thing worth knowing before anybody builds on it. Three
+unimplemented sizing keywords is the prerequisite, and `contain` is behind them.
+
+### Bucket 4 — the algorithm was never written. `columns`, the three `break-*`, `box-decoration-break`, `float`, `clear`.
+
+**Multi-column and the `break-*` roots are already permanently out of scope** under Part 8's first
+exclusion, and this triage does not reopen that — but the *reachability* question it was asked to
+settle has an answer, and the answer is no.
+
+⚠ **Fragmentation landed this week and it is inline-axis fragmentation, which is a different thing
+from what multi-column needs.** The evidence is narrow and decisive:
+
+- `WriteFragments` has exactly **two** call sites, both in `LayoutTree.InlineItems`, plus clears.
+  Nothing else in the store produces a fragment.
+- A fragment is pure geometry — two rectangles and an `Ends` flag — and `LayoutFragmentEnds` is
+  `Start`/`End` in the **inline** axis, for CSS Display §2.2's rule about which vertical edges to
+  stroke. Block-direction fragmentation needs block-start/block-end ends and there is no member.
+- **No fragment carries any association to a child.** `CommitInlineBoxFragments` rebases the span's
+  children into the span's coordinates, and each child keeps exactly *one* position. Multi-column
+  needs a block child that crosses a column boundary to be split with its own subtree distributed
+  between the pieces, and there is nowhere to record which piece a descendant belongs to.
+- A **fragmentainer** — the column box itself — is a box with no node behind it, and
+  `LayoutTree.Fragments` says in terms that this is the *other* direction from what it serves and is
+  not served by the arena.
+
+So multi-column needs a second fragmentation machinery, not an extension of this one: fragmentainers,
+block-direction breaking with a forced/avoid break model, subtree splitting, and column balancing
+(an iterative height search). **Sized: comparable to a fourth layout algorithm.** The exclusion
+stands, now for a measured reason as well as a scoping one.
+
+⚠ **`box-decoration-break` is the one that is *not* print media, and it is refused for a third
+reason worth separating out.** `slice` and `clone` are exactly the distinction `LayoutFragmentEnds`
+already encodes — `clone` would give every fragment `Ends.Both` — so inline fragmentation does serve
+it and it is a handful of lines. **But nothing paints fragments.** `GetFragment` is called only from
+`InlineFragmentationTests`; no painter, no hit test, no consumer outside the layout assembly reads a
+fragment at all. Registering `box-decoration-break` today would be inert, and it would be inert
+*downstream of a feature that already shipped*. **The owed item is not the property — it is a draw
+list that walks fragments**, which is also what makes a two-line `<span>`'s border correct today.
+That is the real finding in this bucket and it is a gap in fragmentation, not in this root.
+
+**`float` / `clear` — ⛔ not started, as instructed, and sized.** This is the largest single item in
+the parity list and CSS 2.1 §9.5 is why. The measurements:
+
+- **88 fixtures** are refused on it — the 84 in `Taffy/Corpus/float.xml`, pinned by
+  `TaffyPendingCorporaTests` at `{ "float", 0, 0, 84 }`, plus 4 in the block corpus. It is the last
+  pending corpus in the file, and unlike block and grid it was **never gated on a `display`
+  keyword** — it is refused by name in `TaffyStyleMap`, so no keyword will ever release it.
+- `LayoutTree.Block` already names the two entry points, and the note there is right: the
+  intrinsic-width probe in `DetermineBlockContentWidth` would route a floated child's width into a
+  left/right accumulator instead of the running maximum, and the in-flow walk would ask a float
+  context for a content slot rather than taking the full inner width. **Both are additive** —
+  nothing caches a "the inner width is the whole content box" assumption a float could not later
+  narrow.
+- ⚠ **What that note does not price is the float context itself**, which is the actual cost: a
+  per-formatting-context list of outstanding floats with their block extents, a "find the first
+  vertical band wide enough" query that every line box and every block box must consult, `clear`
+  as a forced advance past the relevant floats' bottoms, the interaction with margin collapsing
+  (§9.5 does not let a collapsed margin move a float's position), and the rule that a block box's
+  border box ignores floats while its *line boxes* do not. It also touches the inline formatting
+  context, which is where the line-narrowing lands.
+
+**Sized: the largest remaining layout item, and the only one that changes both the block and the
+inline algorithm at once.** It should be its own task with its own corpus target, and the honest
+success measure is `{ "float", 84, 0, 0 }`.
 
 ---
 

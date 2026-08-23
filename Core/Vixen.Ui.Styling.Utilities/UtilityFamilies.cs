@@ -171,6 +171,22 @@ public static class UtilityFamilies {
         Static("grid", "display", "grid");
         Static("hidden", "display", "none");
 
+        // ⚠ <b>`visibility` was never a missing reader — `DrawListBuilder` has honoured `hidden`
+        // since the draw list existed. What was absent was the three classes and one keyword.</b>
+        // The ledger's `absent` against this root read as "the engine cannot do this"; it actually
+        // meant "nobody can spell it", which is a different debt and a much smaller one. Note the
+        // pairing with the line above: `hidden` is `display: none` and `invisible` is
+        // `visibility: hidden`, which is Tailwind's naming and also the distinction CSS has two
+        // properties for — the first takes the box out of layout, the second leaves it there.
+        //
+        // ⚠ <b>`visible` emits the initial value and is not therefore a no-op.</b> The whole point
+        // of the keyword is to override an *inherited* `hidden` on a descendant, which is the one
+        // thing `display` cannot express — a hidden subtree with a visible island in it. The gate
+        // cannot see that from a single probe element, so `VisibilityTests` asserts it directly.
+        Static("visible", "visibility", "visible");
+        Static("invisible", "visibility", "hidden");
+        Static("collapse", "visibility", "collapse");
+
         // ⚠ <b>Three declarations, because `truncate` <i>is</i> three declarations.</b> It was one
         // here — `overflow: hidden` alone — and doc 43's F5 is the finding that the other two were
         // missing: the class named the ellipsis it could not draw, and the wrapping the third

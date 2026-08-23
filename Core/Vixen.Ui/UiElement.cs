@@ -1067,14 +1067,28 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Where it is in document space, after the last layout pass.</summary>
     public Rectangle Bounds => new(AbsoluteLeft, AbsoluteTop, Width, Height);
 
-    /// <summary>Whether a pointer can land on it. <c>pointer-events: none</c> makes it false.</summary>
+    /// <summary>
+    ///     Whether a pointer can land on it. <c>pointer-events: none</c> and
+    ///     <c>visibility: hidden</c> each make it false.
+    /// </summary>
     /// <remarks>
-    ///     Read from the computed style rather than stored, because it is a stylesheet's decision and
-    ///     a stylesheet can change it between frames. An element that is not hit-testable does not
-    ///     stop its children from being — that is what CSS says, and it is what makes an overlay
-    ///     usable.
+    ///     <para>
+    ///         Read from the computed style rather than stored, because it is a stylesheet's decision
+    ///         and a stylesheet can change it between frames. An element that is not hit-testable does
+    ///         not stop its children from being — that is what CSS says, and it is what makes an
+    ///         overlay usable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two reasons look alike here and are not the same rule, which is why they are
+    ///         two calls rather than one.</b> <c>pointer-events: none</c> is not inherited and says
+    ///         only "let the pointer through me"; <c>visibility: hidden</c> <i>is</i> inherited, so
+    ///         reading it per element gives a hidden subtree for free and still lets a descendant
+    ///         that declares <c>visible</c> be clicked — the same asymmetry the paint walk relies on.
+    ///         Neither takes the box out of layout; that is <c>display: none</c>, and it never reaches
+    ///         a hit test because layout gave it no rectangle to be inside.
+    ///     </para>
     /// </remarks>
-    public bool IsHitTestVisible => !Document.PointerEventsNone(Style);
+    public bool IsHitTestVisible => !Document.PointerEventsNone(Style) && !Document.Invisible(Style);
 
     /// <summary>Listens for an event on its way through this element.</summary>
     /// <typeparam name="T">The event type.</typeparam>
