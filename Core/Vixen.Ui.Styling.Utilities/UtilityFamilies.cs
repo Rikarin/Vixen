@@ -567,6 +567,58 @@ public static class UtilityFamilies {
             ["top"] = "top", ["middle"] = "middle", ["bottom"] = "bottom", ["baseline"] = "baseline"
         });
 
+        // ── Text decoration ─────────────────────────────────────────────────────────────────
+        // ⚠ <b>Four families for one line, and it is `text-decoration-line` that gets its own class
+        // names rather than a value.</b> v4 spells the lines as bare words — `underline`, not
+        // `decoration-underline` — because they are the ones anybody writes, and `decoration-*` is
+        // reserved for the three properties that modify them. Following that is not deference: a
+        // `decoration-underline` family would collide with `decoration-2` and `decoration-red-500`
+        // under one prefix that is already carrying three meanings.
+        Static("underline", "text-decoration-line", "underline");
+        Static("overline", "text-decoration-line", "overline");
+        Static("line-through", "text-decoration-line", "line-through");
+        Static("no-underline", "text-decoration-line", "none");
+
+        // ⚠ <b>`underline-offset` is a longer name than `underline`, and that is the only reason
+        // `underline-offset-2` is not read as the family `underline` with a stray value.</b>
+        // `SplitName`'s longest-first sort settles it, exactly as it settles `rounded-tl` against
+        // `rounded` — worth saying here because these two are the first pair where the shorter name
+        // is a `Static` family, so the failure would not be an unknown-token diagnostic but a silent
+        // `underline` with the offset dropped.
+        //
+        // ⚠ <b>A keyword table rather than `Spacing`, because v4's offsets are a fixed scale and not
+        // the spacing one.</b> `underline-offset-3` is not a class in any Tailwind, and registering
+        // the spacing scale here would invent five that resolve, compute and draw — real classes
+        // this project made up, which is the failure `bg-conic-<angle>` is recorded under.
+        Keywords("underline-offset", "text-underline-offset", new() {
+            ["0"] = "0px", ["1"] = "1px", ["2"] = "2px", ["4"] = "4px", ["8"] = "8px", ["auto"] = "auto"
+        });
+
+        // ⚠ <b>One prefix, three properties, and the resolution order is the same one `text` uses:
+        // keywords first, then the family's own kind.</b> `decoration-2` is a thickness because `2`
+        // is in the keyword table; `decoration-accent` is a colour because it is not. The colour
+        // registration comes first so that the family's `ValueKind` is the fallthrough, and
+        // `Register` merges the two keyword tables into it.
+        //
+        // ⚠ <b>`decoration-dotted`, `-dashed` and `-wavy` are deliberately absent — the same
+        // measurement `divide-solid` is absent under.</b> There is no dash pattern in `Vixen.Ui` and
+        // no stroke that could carry one: `border-style` is emitted by nothing and read by nothing,
+        // and a wave is a path where every other decoration is a rectangle. All three would resolve
+        // cleanly, compute a value and paint a solid line, which is the inert family
+        // `UtilityConsumptionGateTests` exists to keep out. `solid` and `double` are registered
+        // because both are genuinely drawn — see `TextRun.Bars`, where `double` is two bars — so
+        // `text-decoration-style` is a property the engine reads rather than one it stores.
+        Color("decoration", "text-decoration-color");
+
+        Keywords("decoration", "text-decoration-thickness", new() {
+            ["0"] = "0px", ["1"] = "1px", ["2"] = "2px", ["4"] = "4px", ["8"] = "8px",
+            ["auto"] = "auto", ["from-font"] = "from-font"
+        });
+
+        Keywords("decoration", "text-decoration-style", new() {
+            ["solid"] = "solid", ["double"] = "double"
+        });
+
         // ── Colours ─────────────────────────────────────────────────────────────────────────
         Color("bg", "background-color");
         Color("fill", "fill");

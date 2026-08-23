@@ -87,6 +87,31 @@ public sealed class InheritedProperties {
         // that owns the glyphs. The full argument, and what it over-applies, is on
         // `UiDocument.EllipsisOf`.
         "text-overflow",
+
+        // ⚠ <b>None of these five is CSS-inherited, and all five are here for `text-overflow`'s
+        // reason, one step stronger.</b> CSS does not inherit a decoration; it <i>propagates</i> one.
+        // A block container's `text-decoration-line` decorates the in-flow inline content of its own
+        // line boxes — the line is drawn by the ancestor, across the descendants — which is why a
+        // child cannot switch it off with `text-decoration: none` and why the ancestor's colour and
+        // thickness are the ones used. Vixen has no line box shared between elements (one node
+        // produces one box; see `InlineKnownGaps.txt`), so there is no ancestor to draw the line and
+        // propagation has nowhere to happen. Inheritance is the only route from the container the
+        // class is written on to the element that owns the glyphs — and that route is the whole
+        // feature, because a `.vxml` interpolation emits the text as a *child* element, so
+        // `&lt;div class="underline"&gt;{Label}&lt;/div&gt;` decorates nothing at all without it.
+        //
+        // ⚠ <b>What it costs, stated rather than left to be found.</b> A descendant can escape a
+        // decoration with `no-underline`, where CSS says it cannot — the forgiving direction, and
+        // `text-clip` is already the same shape of opt-out one line above. And a relative thickness
+        // or offset resolves against the descendant's own font size rather than the decorating box's,
+        // which is `line-height`'s objection two comments up; kept anyway, because it is invisible
+        // for the pixel values every utility emits and, where it does show, scaling a mark with the
+        // text it marks is the answer somebody would have wanted.
+        "text-decoration-line",
+        "text-decoration-color",
+        "text-decoration-style",
+        "text-decoration-thickness",
+        "text-underline-offset",
         "direction",
         "visibility",
         "cursor",

@@ -61,6 +61,19 @@ public class UtilityFamilyTests {
     [InlineData("leading-none", "line-height: 1")]
     [InlineData("leading-relaxed", "line-height: 1.625")]
     [InlineData("whitespace-nowrap", "white-space: nowrap")]
+    // Text decoration. `decoration-*` carries three properties and `underline-offset` has to beat
+    // `underline` in the name split, so both are asserted here rather than left to the family table.
+    [InlineData("underline", "text-decoration-line: underline")]
+    [InlineData("overline", "text-decoration-line: overline")]
+    [InlineData("line-through", "text-decoration-line: line-through")]
+    [InlineData("no-underline", "text-decoration-line: none")]
+    [InlineData("underline-offset-4", "text-underline-offset: 4px")]
+    [InlineData("underline-offset-auto", "text-underline-offset: auto")]
+    [InlineData("decoration-2", "text-decoration-thickness: 2px")]
+    [InlineData("decoration-auto", "text-decoration-thickness: auto")]
+    [InlineData("decoration-from-font", "text-decoration-thickness: from-font")]
+    [InlineData("decoration-double", "text-decoration-style: double")]
+    [InlineData("decoration-accent", "text-decoration-color: #4f7cff")]
     // Colours.
     [InlineData("bg-surface-2", "background-color: #17171d")]
     [InlineData("bg-accent", "background-color: #4f7cff")]

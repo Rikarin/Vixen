@@ -23,6 +23,7 @@ Both suites were committed before their implementations, which is what those com
 | `FontFace`, `TextShaper` | HarfBuzz shaping, and the glyphs it produces. |
 | `ShapedText.CaretOffset` | Where a caret goes, and what a click means, in graphemes rather than glyphs. |
 | `ShapingCache` | Shaped paragraphs with LRU eviction. Keyed without the size. |
+| `FontFace.Decoration` | Where the face wants an underline and a line-through, and how thick. |
 | MSDF atlas, font fallback, rich-text runs | ⏳ |
 | `TextEditor` model with IME and caret affinity | ⏳ |
 
@@ -90,6 +91,17 @@ levels of the `RLE` one, because the run before it had already been raised.
 
 Three subsystems, three variants of the same mistake: **reading a mutated array where the unmutated
 one was meant.** It is worth naming because it will happen again.
+
+**And a fourth finding of a different shape, from `FontFace.Decoration`: the faces disagree far more
+than a plausible constant would let you guess.** Across the twenty-two fonts committed here the
+underline thickness runs from 20 design units per 2048-unit em to 184 — a factor of nine, between two
+faces a single document could mix — and the underline position from 39 units below the baseline to
+292. A hardcoded hairline is right for one of them and reads as a rendering fault in the other, which
+is the whole argument for asking the face. Two of the twenty-two report a zero x-height, and one,
+`TestGSUBOne.otf`, carries a `post` table whose underline position and thickness are *both* zero: a
+reader that believes it draws a zero-height line on the baseline, which is invisible and in the wrong
+place at once. `DecorationMetricsTests` asserts the four faces' numbers against a separate parse of
+the binaries rather than against this code, so a wrong table offset cannot agree with itself.
 
 ## Shaping, and how to test something you did not write
 

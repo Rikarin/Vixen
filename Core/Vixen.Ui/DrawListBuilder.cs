@@ -78,6 +78,15 @@ public sealed class DrawListBuilder {
 
     readonly int textAlign;
     readonly int direction;
+    readonly int decorationLine;
+    readonly int decorationColor;
+    readonly int decorationStyle;
+    readonly int decorationThickness;
+    readonly int underlineOffset;
+    readonly int keywordUnderline;
+    readonly int keywordOverline;
+    readonly int keywordLineThrough;
+    readonly int keywordDouble;
     readonly int boxShadow;
     readonly int currentColor;
     readonly int alignedCenter;
@@ -165,6 +174,32 @@ public sealed class DrawListBuilder {
 
         textAlign = properties.Intern("text-align");
         direction = properties.Intern("direction");
+
+        // ⚠ The four longhands and not `text-decoration`. ExCSS expands the shorthand while parsing,
+        // exactly as it does `border` and `border-radius`, so a cascade written against the
+        // shorthand carries nothing at all — `AssetEditorTheme.vcss` has had a
+        // `text-decoration: line-through` in it the whole time this drew nothing, and reading the
+        // shorthand would have kept it that way while looking like a fix.
+        decorationLine = properties.Intern("text-decoration-line");
+        decorationColor = properties.Intern("text-decoration-color");
+        decorationStyle = properties.Intern("text-decoration-style");
+        decorationThickness = properties.Intern("text-decoration-thickness");
+        underlineOffset = properties.Intern("text-underline-offset");
+
+        // The keywords table rather than `values`, for the reason `currentcolor` below gives: an
+        // identifier reaches here through the one `StyleValueParser` was handed for keywords, and an
+        // id from the wrong table can never compare equal.
+        keywordUnderline = keywords.Intern("underline");
+        keywordOverline = keywords.Intern("overline");
+        keywordLineThrough = keywords.Intern("line-through");
+        keywordDouble = keywords.Intern("double");
+
+        // ⚠ Neither `auto` nor `from-font` is interned, and that is a statement rather than an
+        // omission. CSS distinguishes them because `auto` lets the user agent pick a thickness it
+        // likes and `from-font` insists on the face's; this engine only ever uses the face's, so the
+        // two requests have one answer and `TextLength` reaches it without having to tell them apart.
+        // The classes still resolve to the two different values — the difference is visible in the
+        // cascade and absent from the picture, which is what parity means here.
         boxShadow = properties.Intern("box-shadow");
         // ⚠ The <i>keywords</i> table, not <c>values</c>. `StyleValueParser` interns an identifier it
         // does not recognise as a colour into the one it was handed for keywords, and the two tables
@@ -723,7 +758,14 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        var color = Fade(Color(element, textColor) ?? Color4.Black, alpha);
+        var foreground = Color(element, textColor) ?? Color4.Black;
+        var color = Fade(foreground, alpha);
+        var decoration = Decoration(element);
+
+        // ⚠ The decoration's own colour falls back to the *unfaded* foreground and is faded once.
+        // Fading an already-faded colour would square the alpha, which is invisible at full opacity
+        // and halves the bar against the text inside anything the compositor has dimmed.
+        var decorationColour = decoration.Color is { } own ? Fade(own, alpha) : color;
 
         // ⚠ One command per run *per line*, because a command names one font and lies on one
         // baseline. A wrapped paragraph in two faces is four commands, and each of them carries its
@@ -736,6 +778,8 @@ public sealed class DrawListBuilder {
             // would left-align every line but the widest.
             var x = left + Indent(element, content - line.Width);
             var y = top + block.TopOf(block.Lines.IndexOf(line)) + line.Baseline;
+
+            EmitDecoration(into, line, decoration, decorationColour, x, y, under: true);
 
             for (var i = 0; i < line.Runs.Length; i++) {
                 var run = line.Runs[i];
@@ -769,6 +813,83 @@ public sealed class DrawListBuilder {
                     }
                 );
             }
+
+            EmitDecoration(into, line, decoration, decorationColour, x, y, under: false);
+        }
+    }
+
+    /// <summary>Emits one line's decoration bars, on one side of its glyphs.</summary>
+    /// <param name="into">The draw list.</param>
+    /// <param name="line">The line being decorated.</param>
+    /// <param name="decoration">The resolved style. Nothing is emitted when it asks for nothing.</param>
+    /// <param name="colour">The bar colour, already faded and already resolved from <c>currentColor</c>.</param>
+    /// <param name="x">Where the line starts, after alignment.</param>
+    /// <param name="y">Its baseline.</param>
+    /// <param name="under">Whether to emit the lines painted under the glyphs or the ones over them.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A decoration is a rectangle, which is why this needed no command kind, no shader
+    ///         and no second implementation.</b> It goes out as <see cref="DrawCommandKind.Rectangle" />
+    ///         with a zero radius, so it reaches <c>UiGeometryBuilder.Box</c>, the rounded-box field
+    ///         and both executors by exactly the path a background already takes — the software
+    ///         rasteriser and the device draw the same bar because they are drawing the same quad,
+    ///         rather than because two ports of a line-drawing routine were kept in step.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per <i>line</i>, spanning <c>line.Width</c>, and taking its metrics from the
+    ///         line's first run.</b> Three consequences worth stating. It decorates the gaps between
+    ///         runs, which a per-run bar would leave as visible breaks in the middle of a word that
+    ///         happened to change face. It is one rectangle rather than one per run, on a list that is
+    ///         compared command by command every frame. And it uses the same width the alignment used
+    ///         — <see cref="TextLine.Width" />, which excludes trailing whitespace — so a centred
+    ///         underline is centred under the text rather than under the text plus a space. Taking the
+    ///         first run's metrics where the faces differ is CSS Text Decoration 3 § 3's "first
+    ///         available font" rule, and the alternative, a bar per run at its own thickness, draws a
+    ///         visible step in the middle of a line.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It moves nothing that was measured.</b> The bars are placed from a baseline the
+    ///         layout has already fixed and are never fed back into <c>TextLayout.Measure</c>, so an
+    ///         underlined paragraph occupies exactly the box the same paragraph occupied without one.
+    ///         That is CSS's rule and it is also the only behaviour compatible with measurement
+    ///         reporting whole device pixels: a decoration that widened a line would round the block
+    ///         up and move every element after it, for a mark that is not part of the text.
+    ///     </para>
+    /// </remarks>
+    static void EmitDecoration(
+        DrawList into,
+        TextLine line,
+        TextDecoration decoration,
+        Color4 colour,
+        float x,
+        float y,
+        bool under
+    ) {
+        if (decoration.IsNone) {
+            return;
+        }
+
+        foreach (var bar in line.Runs[0].Bars(decoration, under)) {
+            // ⚠ `decoration-0` is a real class and a zero thickness is a real request — for no line.
+            // Emitting the empty rectangle anyway would draw nothing and cost a command, and would
+            // make `decoration-0` and `no-underline` produce draw lists that differ without the
+            // pictures differing, which is the one thing the frame diff must not be told.
+            if (bar.Thickness <= 0f || line.Width <= 0f) {
+                continue;
+            }
+
+            into.Add(
+                new DrawCommand(
+                    DrawCommandKind.Rectangle,
+                    x,
+                    y + bar.Top,
+                    line.Width,
+                    bar.Thickness,
+                    colour,
+                    0f,
+                    0f
+                )
+            );
         }
     }
 
@@ -1215,6 +1336,119 @@ public sealed class DrawListBuilder {
     /// </remarks>
     internal static Color4 Fade(Color4 colour, float alpha) =>
         alpha >= 1f ? colour : new Color4(colour.R, colour.G, colour.B, colour.A * alpha);
+
+    /// <summary>An element's <c>text-decoration</c>, resolved as far as anything but a run can.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="TextDecoration.IsNone" /> is the answer for almost every element in
+    ///         every frame, and this returns it after one <see cref="ComputedStyle.TryGet" />.</b>
+    ///         Text is the most-emitted thing in an interface and undecorated text is nearly all of
+    ///         it; four more lookups per label to discover that a colour and a thickness were never
+    ///         set is a cost paid on every frame for nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Lengths resolve against the element's own font size, and a percentage does too.</b>
+    ///         CSS Text Decoration 4 defines a percentage on both of these against one <c>em</c>,
+    ///         which is the one case in this builder where a percentage <i>is</i> knowable — unlike
+    ///         <see cref="Radius" />'s, which needs a box the layout has not finished. So it is
+    ///         resolved rather than refused, and the refusal comment on the corner radius is not a
+    ///         precedent for dropping it here.
+    ///     </para>
+    /// </remarks>
+    TextDecoration Decoration(UiElement element) {
+        var lines = Lines(element);
+
+        if (lines == TextDecorationLine.None) {
+            return default;
+        }
+
+        return new TextDecoration(
+            lines,
+            element.Style.TryGet(decorationStyle, out var style) && parser.Parse(style) is
+                { Kind: StyleValueKind.Keyword } keyword && keyword.Keyword == keywordDouble
+                    ? TextDecorationStyle.Double
+                    : TextDecorationStyle.Solid,
+            Color(element, decorationColor),
+            TextLength(element, decorationThickness, float.NaN),
+            TextLength(element, underlineOffset, 0f)
+        );
+    }
+
+    /// <summary>Which lines <c>text-decoration-line</c> asks for.</summary>
+    /// <remarks>
+    ///     A space-separated list, because <c>underline overline</c> is one declaration and two
+    ///     lines. Anything else — <c>none</c>, <c>blink</c>, a typo — contributes nothing, so the
+    ///     declaration that names only unreadable values is the same as no declaration.
+    /// </remarks>
+    TextDecorationLine Lines(UiElement element) {
+        if (!element.Style.TryGet(decorationLine, out var id)) {
+            return TextDecorationLine.None;
+        }
+
+        var value = parser.Parse(id);
+
+        if (value.Kind != StyleValueKind.List) {
+            return Line(value);
+        }
+
+        var lines = TextDecorationLine.None;
+        foreach (var item in value.Items) {
+            lines |= Line(item);
+        }
+
+        return lines;
+
+        TextDecorationLine Line(StyleValue value) {
+            if (value.Kind != StyleValueKind.Keyword) {
+                return TextDecorationLine.None;
+            }
+
+            if (value.Keyword == keywordUnderline) {
+                return TextDecorationLine.Underline;
+            }
+
+            if (value.Keyword == keywordOverline) {
+                return TextDecorationLine.Overline;
+            }
+
+            return value.Keyword == keywordLineThrough ? TextDecorationLine.LineThrough : TextDecorationLine.None;
+        }
+    }
+
+    /// <summary>One decoration length in pixels, or the caller's <c>auto</c>.</summary>
+    /// <param name="element">The element, whose font size an <c>em</c> resolves against.</param>
+    /// <param name="property">Which length.</param>
+    /// <param name="auto">What <c>auto</c>, <c>from-font</c> and anything unreadable mean.</param>
+    /// <remarks>
+    ///     ⚠ <b>Every keyword lands on <paramref name="auto" />, including one CSS has never heard
+    ///     of, and that is the specified behaviour rather than a shrug.</b> The only two either
+    ///     property accepts are <c>auto</c> and <c>from-font</c>, which mean the same thing here —
+    ///     see the interning of <c>from-font</c> above — and CSS drops an invalid declaration, which
+    ///     leaves the initial value, which is <c>auto</c>. So the three cases genuinely have one
+    ///     answer, and writing them as three branches returning the same thing would look like a
+    ///     distinction that is not there.
+    /// </remarks>
+    float TextLength(UiElement element, int property, float auto) {
+        if (!element.Style.TryGet(property, out var id)) {
+            return auto;
+        }
+
+        var value = parser.Parse(id);
+
+        if (value.Kind != StyleValueKind.Length) {
+            return auto;
+        }
+
+        return value.Unit switch {
+            StyleUnit.Pixels or StyleUnit.None => value.Number,
+            StyleUnit.Em => value.Number * element.FontSize,
+
+            // CSS Text Decoration 4 resolves a percentage on both of these against one em.
+            StyleUnit.Percent => value.Number * element.FontSize / 100f,
+            StyleUnit.Rem => value.Number * element.Document.Root.FontSize,
+            _ => auto
+        };
+    }
 
     Color4? Color(UiElement element, int property) {
         if (!element.Style.TryGet(property, out var id)) {

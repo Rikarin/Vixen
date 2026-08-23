@@ -83,6 +83,14 @@ Vixen.Ui.CornerRadii.TopLeft.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.TopLeft.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.TopRight.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.TopRight.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.DecorationBar -> readonly struct
+Vixen.Ui.DecorationBar : System.IEquatable<Vixen.Ui.DecorationBar>
+Vixen.Ui.DecorationBar.DecorationBar() -> void
+Vixen.Ui.DecorationBar.DecorationBar(float Top, float Thickness) -> void
+Vixen.Ui.DecorationBar.Thickness.get -> float
+Vixen.Ui.DecorationBar.Thickness.init -> float
+Vixen.Ui.DecorationBar.Top.get -> float
+Vixen.Ui.DecorationBar.Top.init -> float
 Vixen.Ui.DragEvent -> sealed class
 Vixen.Ui.DragEvent : Vixen.Ui.UiEvent
 Vixen.Ui.DragEvent.DeltaX.get -> float
@@ -694,6 +702,31 @@ Vixen.Ui.TapEvent.X.get -> float
 Vixen.Ui.TapEvent.X.init -> float
 Vixen.Ui.TapEvent.Y.get -> float
 Vixen.Ui.TapEvent.Y.init -> float
+Vixen.Ui.TextDecoration -> readonly struct
+Vixen.Ui.TextDecoration : System.IEquatable<Vixen.Ui.TextDecoration>
+Vixen.Ui.TextDecoration.Color.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Ui.TextDecoration.Color.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Ui.TextDecoration.IsNone.get -> bool
+Vixen.Ui.TextDecoration.Lines.get -> Vixen.Ui.TextDecorationLine
+Vixen.Ui.TextDecoration.Lines.init -> Vixen.Ui.TextDecorationLine
+Vixen.Ui.TextDecoration.Offset.get -> float
+Vixen.Ui.TextDecoration.Offset.init -> float
+Vixen.Ui.TextDecoration.Style.get -> Vixen.Ui.TextDecorationStyle
+Vixen.Ui.TextDecoration.Style.init -> Vixen.Ui.TextDecorationStyle
+Vixen.Ui.TextDecoration.TextDecoration() -> void
+Vixen.Ui.TextDecoration.TextDecoration(Vixen.Ui.TextDecorationLine Lines, Vixen.Ui.TextDecorationStyle Style = Vixen.Ui.TextDecorationStyle.Solid, Vixen.Core.Mathematics.Color4? Color = null, float Thickness = NaN, float Offset = 0) -> void
+Vixen.Ui.TextDecoration.Thickness.get -> float
+Vixen.Ui.TextDecoration.Thickness.init -> float
+Vixen.Ui.TextDecorationLine -> enum : byte
+Vixen.Ui.TextDecorationLine.LineThrough = 4 -> Vixen.Ui.TextDecorationLine
+Vixen.Ui.TextDecorationLine.None = 0 -> Vixen.Ui.TextDecorationLine
+Vixen.Ui.TextDecorationLine.Overline = 2 -> Vixen.Ui.TextDecorationLine
+Vixen.Ui.TextDecorationLine.TextDecorationLine() -> void
+Vixen.Ui.TextDecorationLine.Underline = 1 -> Vixen.Ui.TextDecorationLine
+Vixen.Ui.TextDecorationStyle -> enum : byte
+Vixen.Ui.TextDecorationStyle.Double = 1 -> Vixen.Ui.TextDecorationStyle
+Vixen.Ui.TextDecorationStyle.Solid = 0 -> Vixen.Ui.TextDecorationStyle
+Vixen.Ui.TextDecorationStyle.TextDecorationStyle() -> void
 Vixen.Ui.TextInputEvent -> sealed class
 Vixen.Ui.TextInputEvent : Vixen.Ui.UiEvent
 Vixen.Ui.TextInputEvent.Text.get -> string
@@ -724,6 +757,8 @@ Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.
 Vixen.Ui.TextLine.Width.get -> float
 Vixen.Ui.TextRun -> sealed record
 Vixen.Ui.TextRun : System.IEquatable<Vixen.Ui.TextRun>
+Vixen.Ui.TextRun.Bar(Vixen.Ui.TextDecorationLine line, Vixen.Ui.TextDecoration decoration) -> Vixen.Ui.DecorationBar
+Vixen.Ui.TextRun.Bars(Vixen.Ui.TextDecoration decoration, bool under) -> System.Collections.Generic.IEnumerable<Vixen.Ui.DecorationBar>
 Vixen.Ui.TextRun.Baseline.get -> float
 Vixen.Ui.TextRun.CaretIndexAt(float x) -> int
 Vixen.Ui.TextRun.CaretOffset(int index) -> float
@@ -1092,6 +1127,7 @@ static Vixen.Ui.Rendering.UiMask.Hidden.get -> Vixen.Ui.Rendering.UiMask
 static Vixen.Ui.SvgPath.Parse(string data) -> Vixen.Ui.PathBuilder
 static Vixen.Ui.SvgPath.TryParse(string? data) -> Vixen.Ui.PathBuilder?
 static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize
+static Vixen.Ui.TextRun.Under(Vixen.Ui.TextDecorationLine line) -> bool
 static Vixen.Ui.UiDocument.TabOrder(Vixen.Ui.UiElement scope) -> System.Collections.Generic.List<Vixen.Ui.UiElement>
 static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiPropertyKey>
 static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, System.Type valueType, bool inherits, System.Func<Vixen.Ui.UiElement, object?> get, System.Action<Vixen.Ui.UiElement, object?> set) -> Vixen.Ui.UiPropertyKey

@@ -476,6 +476,39 @@ static class UtilityConsumptionProbe {
             """
         ),
 
+        // ⚠ <b>Decorated: the probe already carries an underline, and without that the four
+        // properties that <i>modify</i> one all measure inert.</b> `primed`'s lesson again, and this
+        // time it was predicted rather than discovered — but only just, and the measurement is worth
+        // recording because the shape recurs. `text-decoration-line` is observable in every scene
+        // above: it adds a rectangle to the draw list wherever there is text. Its thickness, colour,
+        // style and offset are not observable anywhere, because each of them changes a bar that only
+        // exists once something else asked for one, and the injected declaration is the *only*
+        // declaration — so `text-decoration-thickness: 4px` on an undecorated probe correctly moves
+        // nothing at all. Four properties, a reader for each, and a green gate that would have said
+        // they were dead.
+        //
+        // ⚠ <b>The underline is on `#probe` and the text is in its children, which is the second
+        // half of the feature and not a convenience.</b> `#label` and `#short` are spans inside the
+        // probe; a decoration written on a container and read on the text inside it is what every
+        // `.vxml` panel does, because an interpolation emits its text as a child element. So this
+        // scene measures the inheritance at the same time — the same argument the icon two hundred
+        // lines down makes for `fill` and `stroke`, and for the same reason: an injected declaration
+        // lands on `#probe` and nowhere else.
+        new(
+            "decorated",
+            """
+            #host  { display: flex; flex-direction: row; width: 200px; height: 80px; align-items: flex-start; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 120px;
+                     background-color: #204080; color: #e0e0e0;
+                     text-decoration-line: underline; }
+            .kid   { width: 8px; height: 8px; }
+            #wide  { width: 8px; height: 8px; }
+            #label { width: 100px; }
+            #short { width: 40px; }
+            #after { width: 30px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         // ⚠ <b>Scrolled, and it is the only scene in which anything scrolls at all.</b> The seventh
         // time this list has been the thing missing rather than the engine, and the first where the
         // arrangement had to *do* something between frames as well as be shaped a certain way.

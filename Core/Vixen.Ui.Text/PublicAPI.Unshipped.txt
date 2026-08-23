@@ -58,6 +58,18 @@ Vixen.Ui.Text.ClusterSpan.Start.get -> int
 Vixen.Ui.Text.ClusterSpan.Start.init -> int
 Vixen.Ui.Text.ClusterSpan.X.get -> float
 Vixen.Ui.Text.ClusterSpan.X.init -> float
+Vixen.Ui.Text.DecorationMetrics -> readonly struct
+Vixen.Ui.Text.DecorationMetrics : System.IEquatable<Vixen.Ui.Text.DecorationMetrics>
+Vixen.Ui.Text.DecorationMetrics.DecorationMetrics() -> void
+Vixen.Ui.Text.DecorationMetrics.DecorationMetrics(int UnderlineOffset, int UnderlineThickness, int StrikeoutOffset, int StrikeoutThickness) -> void
+Vixen.Ui.Text.DecorationMetrics.StrikeoutOffset.get -> int
+Vixen.Ui.Text.DecorationMetrics.StrikeoutOffset.init -> int
+Vixen.Ui.Text.DecorationMetrics.StrikeoutThickness.get -> int
+Vixen.Ui.Text.DecorationMetrics.StrikeoutThickness.init -> int
+Vixen.Ui.Text.DecorationMetrics.UnderlineOffset.get -> int
+Vixen.Ui.Text.DecorationMetrics.UnderlineOffset.init -> int
+Vixen.Ui.Text.DecorationMetrics.UnderlineThickness.get -> int
+Vixen.Ui.Text.DecorationMetrics.UnderlineThickness.init -> int
 Vixen.Ui.Text.EastAsianWidthClass -> enum : byte
 Vixen.Ui.Text.EastAsianWidthClass.A = 1 -> Vixen.Ui.Text.EastAsianWidthClass
 Vixen.Ui.Text.EastAsianWidthClass.EastAsianWidthClass() -> void
@@ -88,6 +100,7 @@ Vixen.Ui.Text.FontAxis.Tag.init -> string
 Vixen.Ui.Text.FontFace -> sealed class
 Vixen.Ui.Text.FontFace : System.IDisposable
 Vixen.Ui.Text.FontFace.Axes.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Text.FontAxis>
+Vixen.Ui.Text.FontFace.Decoration.get -> Vixen.Ui.Text.DecorationMetrics
 Vixen.Ui.Text.FontFace.Dispose() -> void
 Vixen.Ui.Text.FontFace.GetOutline(ushort glyphId, Vixen.Ui.Text.FontVariation? variation = null) -> Vixen.Ui.Text.Outlines.GlyphOutline
 Vixen.Ui.Text.FontFace.GlyphCount.get -> int
