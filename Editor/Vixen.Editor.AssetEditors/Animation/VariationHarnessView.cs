@@ -1,12 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
 using Vixen.Animation.Constraints;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.AssetEditors.Animation;
 
@@ -23,9 +20,15 @@ public sealed record HarnessSelection(HarnessCell Cell, HarnessCase Case, Harnes
 /// <summary>The variation matrix: every configuration against every goal, worst cell first.</summary>
 /// <remarks>
 ///     <para>
+///         The panel is <c>VariationHarnessView.vxml</c>; this file is the accessibility modifier, the
+///         key the grid's <c>@for</c> reconciles a cell on, and the handful of elements that exist
+///         only so that markup can write an intrinsic tag's own <c>Text</c>. Same arrangement as
+///         <c>AudioMixerView</c>.
+///     </para>
+///     <para>
 ///         <b>The report is the deliverable, and the drill-down is what makes it a tool.</b> A grid of
 ///         numbers saying a clip is wrong somewhere is not actionable. Selecting a cell raises
-///         <see cref="CellSelected" /> with the configuration rebuilt and the moment attached, so the
+///         <c>CellSelected</c> with the configuration rebuilt and the moment attached, so the
 ///         application can put that body, that prop and that frame on screen.
 ///     </para>
 ///     <para>
@@ -37,284 +40,108 @@ public sealed record HarnessSelection(HarnessCell Cell, HarnessCase Case, Harnes
 ///         <see cref="HarnessDocument.TryRun" />, which is synchronous and answers why it could not
 ///         start rather than throwing — a plan whose clip has not been imported yet is an ordinary
 ///         state. A host that wants a run on a background task, with progress and a cancellation,
-///         calls <see cref="VariationHarness" /> itself and uses
-///         <see cref="Show(HarnessPlan, VariationReport)" /> to show the answer.
+///         calls <see cref="VariationHarness" /> itself and uses <c>Show(HarnessPlan, VariationReport)</c>
+///         to show the answer.
 ///     </para>
 /// </remarks>
-public sealed class VariationHarnessView : Control {
-    readonly List<(UiElement Row, HarnessCell Cell)> cells = [];
+public sealed partial class VariationHarnessView;
 
-    HarnessDocument? document;
-    HarnessPlan? plan;
-    VariationReport? report;
-    HarnessCell? selected;
+/// <summary>One cell of the grid, as the <c>@for</c> keys it.</summary>
+/// <param name="Variation">Its row: an index into the report's configurations.</param>
+/// <param name="Goal">Its column: an index into the report's goals.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The two indices and emphatically not the <see cref="HarnessCell" />.</b> A key
+///         carrying the measurement would be a different key the moment a re-run moved a residual by
+///         a millimetre, and every surviving cell's element would be torn down and rebuilt — the one
+///         under the pointer included. A cell's <i>position</i> in the matrix is what makes it the
+///         same cell across runs, and everything that changes about it reaches the screen through a
+///         binding inside the body, which is what a surviving key leaves running.
+///     </para>
+///     <para>
+///         ⚠ <b>And two indices rather than the goal's name, because a name is not unique.</b> Two
+///         constraints in one clip may both be called "right hand"; <c>BuildContext.For</c> cannot
+///         reconcile two equal keys in one loop, and the panel this replaces drew both columns.
+///     </para>
+///     <para>
+///         ⚠ <b>Globally unique across the nest, not merely within a row.</b> The inner loop is a
+///         fresh <c>For</c> per row and could have keyed on the column alone — but
+///         <c>VariationHarnessView.Cells</c> is <i>one</i> <see cref="Vixen.Ui.Composition.ElementRefs{TElement}" />
+///         shared by every row, and a handle is filed under the loop's own key. A bare column index
+///         would file every row's cells under the same few keys and hand back whichever row was
+///         built last.
+///     </para>
+/// </remarks>
+internal readonly record struct HarnessSlot(int Variation, int Goal);
 
+/// <summary>
+///     ⚠ The elements that exist only so that markup can set an intrinsic tag's own <c>Text</c>.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>This is the panel ledger's shape 5, and these are the sanctioned escape from it.</b> An
+///         interpolation is <c>BuildContext.Text</c>, which appends a <c>text</c> <i>child</i>; an
+///         attribute on a lowercase tag is <c>BuildContext.Attribute</c>, which is a selector
+///         attribute and not <see cref="UiElement.Text" />. So <c>row.Add("fact-name").Text = label</c>
+///         has no markup spelling — but a <i>capitalised</i> tag is a real property assignment, and
+///         <c>Text</c> is a <c>[UiProperty]</c> on every element. A four-line subclass that answers to
+///         the tag the stylesheet already names is therefore the whole fix, and it moves nothing:
+///         same tag, same position, same own text.
+///     </para>
+///     <para>
+///         ⚠ <b>Seven of them, and every one is a caption rather than a row.</b> A <c>.vxml</c> part
+///         is worth a file when it has a shape — <c>FactRow</c> is four elements and two cells that
+///         disagree about where the text goes — and these have none.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="FactName" /> and <see cref="FactValue" /> are this assembly's second pair
+///         with those tags</b>, after <c>AudioMixerView</c>'s. They are not hoisted into something
+///         shared here for the reason that block gives: <c>fact-row</c>'s rules live in
+///         <c>AssetEditorTheme.vcss</c> and both panels already agree with them, so a shared
+///         declaration would buy a file and move nothing — and the four callers that could actually
+///         use <c>Vixen.Editor.Ui</c>'s <c>FactRow</c> part are in a different assembly. See the
+///         panel ledger's note on the reference graph.
+///     </para>
+/// </remarks>
+internal sealed class HarnessVerdict : UiElement {
     /// <inheritdoc />
-    protected override string TagName => "harness-editor";
+    protected override string TagName => "harness-verdict";
+}
 
+/// <inheritdoc cref="HarnessVerdict" />
+internal sealed class HarnessLabel : UiElement {
     /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
+    protected override string TagName => "harness-label";
+}
 
-    /// <summary>The bar across the top.</summary>
-    public UiElement Bar { get; private set; } = null!;
-
-    /// <summary>What the run was and whether it passed.</summary>
-    public UiElement Verdict { get; private set; } = null!;
-
-    /// <summary>Runs the plan. Only useful when the panel is showing a document.</summary>
-    public Button Run { get; private set; } = null!;
-
-    /// <summary>Jumps to the worst cell without hunting for it.</summary>
-    public Button Worst { get; private set; } = null!;
-
-    /// <summary>The grid.</summary>
-    public UiElement Matrix { get; private set; } = null!;
-
-    /// <summary>What the selected cell is.</summary>
-    public UiElement Fields { get; private set; } = null!;
-
-    /// <summary>Which cell is selected, or <see langword="null" />.</summary>
-    public HarnessCell? Selected => selected;
-
-    /// <summary>Raised when a cell is chosen, with everything needed to show it.</summary>
-    public event Action<VariationHarnessView, HarnessSelection>? CellSelected;
-
+/// <inheritdoc cref="HarnessVerdict" />
+internal sealed class HarnessGridCell : UiElement {
     /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
+    protected override string TagName => "harness-cell";
+}
 
-        Bar = Part("harness-bar");
-        Verdict = Bar.Add("harness-verdict");
+/// <inheritdoc cref="HarnessVerdict" />
+internal sealed class HarnessTitle : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "harness-title";
+}
 
-        Run = Bar.Add<Button>();
-        Run.Label = "Run";
+/// <inheritdoc cref="HarnessVerdict" />
+internal sealed class HarnessError : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "harness-error";
+}
 
-        Worst = Bar.Add<Button>();
-        Worst.Label = "Worst Cell";
+/// <inheritdoc cref="HarnessVerdict" />
+internal sealed class FactName : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "fact-name";
+}
 
-        var body = Part("harness-body");
-
-        Matrix = body.Add("harness-matrix");
-
-        var side = body.Add("harness-side");
-        Fields = side.Add("harness-fields");
-
-        AddHandler<ClickEvent>(static (element, args) => ((VariationHarnessView) element).Chosen(args));
-
-        // ⚠ A cell is a plain element and plain elements raise no click. The button above does,
-        // because it is a control; a grid of seventy cells is deliberately not seventy controls, so
-        // the press is caught here and turned into a selection by hit test.
-        AddHandler<PointerEvent>(static (element, args) => ((VariationHarnessView) element).Pressed(args));
-    }
-
-    /// <summary>Shows a report.</summary>
-    /// <param name="ran">The plan it came from, which is what a drill-down rebuilds against.</param>
-    /// <param name="result">The report.</param>
-    /// <remarks>
-    ///     For a host that ran the harness itself — a build log viewer, a test. A panel opened on a
-    ///     <c>.vxharness</c> uses <see cref="Show(HarnessDocument)" /> and runs it from the bar.
-    /// </remarks>
-    public void Show(HarnessPlan ran, VariationReport result) {
-        ArgumentNullException.ThrowIfNull(ran);
-        ArgumentNullException.ThrowIfNull(result);
-
-        plan = ran;
-        report = result;
-        selected = null;
-
-        Reload();
-    }
-
-    /// <summary>Shows a declared plan, which can then be run from the bar.</summary>
-    /// <param name="declared">The document.</param>
-    public void Show(HarnessDocument declared) {
-        ArgumentNullException.ThrowIfNull(declared);
-
-        if (document is { } previous) {
-            previous.Changed -= Reload;
-        }
-
-        document = declared;
-        declared.Changed += Reload;
-
-        Reload(declared);
-    }
-
-    /// <summary>Rebuilds from the document.</summary>
-    /// <param name="declared">The document.</param>
-    public void Reload(HarnessDocument declared) {
-        ArgumentNullException.ThrowIfNull(declared);
-
-        plan = declared.Ran;
-        report = declared.Report;
-        selected = null;
-
-        Reload();
-    }
-
-    /// <summary>Rebuilds the grid from the report.</summary>
-    public void Reload() {
-        Matrix.Empty();
-        cells.Clear();
-
-        if (report is not { } result || plan is not { } ran) {
-            Verdict.Text = document is { } declared
-                ? $"{declared.Plan.Name} — {declared.Plan.Configurations} configuration(s), not run yet."
-                : "No run yet.";
-
-            Verdict.SetClass("failed", false);
-            Restate();
-
-            return;
-        }
-
-        var judged = result.Judge(ran.Thresholds);
-
-        Verdict.Text = judged.Passed
-            ? string.Create(
-                CultureInfo.InvariantCulture,
-                $"Passed — {result.Cases.Count} configuration(s) × {result.Goals.Count} goal(s)"
-            )
-            : string.Create(CultureInfo.InvariantCulture, $"Failed — {judged.Failed.Count} cell(s)");
-
-        Verdict.SetClass("failed", !judged.Passed);
-
-        // The header, so the columns are readable without counting across.
-        var header = Matrix.Add("harness-row");
-        header.AddClass("header");
-        header.Add("harness-label").Text = string.Empty;
-
-        foreach (var goal in result.Goals) {
-            header.Add("harness-cell").Text = goal;
-        }
-
-        for (var variation = 0; variation < result.Cases.Count; variation++) {
-            var row = Matrix.Add("harness-row");
-
-            row.Add("harness-label").Text = result.Cases[variation].Label;
-
-            for (var goal = 0; goal < result.Goals.Count; goal++) {
-                var cell = result[variation, goal];
-                var element = row.Add("harness-cell");
-
-                element.Text = Say(cell);
-
-                // ⚠ Three states and not two. "Never resolved" is not a large error and not a small
-                // one — it is a different thing, and an author who reads it as a number will spend
-                // the afternoon adjusting a goal that is not running.
-                element.SetClass("missing", !cell.Ran);
-                element.SetClass("failed", cell.Ran && cell.Fails(ran.Thresholds));
-
-                cells.Add((element, cell));
-            }
-        }
-
-        Restate();
-    }
-
-    static string Say(in HarnessCell cell) =>
-        cell.Ran
-            ? string.Create(CultureInfo.InvariantCulture, $"{cell.Residual * 100f:0.#}")
-            : "—";
-
-    /// <summary>Selects a cell and tells whoever is listening.</summary>
-    /// <param name="cell">The cell.</param>
-    public void Select(in HarnessCell cell) {
-        if (report is not { } result || plan is not { } ran) {
-            return;
-        }
-
-        selected = cell;
-
-        var where = result.Cases[cell.Variation];
-
-        Restate();
-        CellSelected?.Invoke(this, new(cell, where, VariationHarness.Rebuild(ran, where)));
-    }
-
-    void Restate() {
-        Fields.Empty();
-
-        foreach (var (element, cell) in cells) {
-            element.SetClass("selected", selected is { } chosen && chosen == cell);
-        }
-
-        if (report is not { } result || selected is not { } shown) {
-            Fields.Add("text").Text = "Select a cell.";
-            return;
-        }
-
-        Fields.Add("harness-title").Text = shown.Goal;
-        Line("Configuration", result.Cases[shown.Variation].Label);
-
-        if (!shown.Ran) {
-            Fields.Add("harness-error").Text =
-                "This goal never resolved in this configuration. Its frame did not answer — a shape it names is "
-                + "missing on this body, or a slot it names is unbound. It is not a goal that is nearly right.";
-
-            return;
-        }
-
-        Line("Worst miss", Metres(shown.Residual));
-        Line("At", string.Create(CultureInfo.InvariantCulture, $"{shown.At:0.###} of the clip"));
-        Line("Sank in", Metres(shown.Penetration));
-        Line("Velocity jump", string.Create(CultureInfo.InvariantCulture, $"{shown.Jerk:0.#} m/s²"));
-
-        if (shown.Reached) {
-            Fields.Add("harness-error").Text =
-                "The chain was straight and still short. This is a reach problem rather than a tuning one: the "
-                + "contact is somewhere this body cannot get to, and easing it will not help.";
-        }
-    }
-
-    static string Metres(float value) => string.Create(CultureInfo.InvariantCulture, $"{value * 100f:0.##} cm");
-
-    void Line(string label, string value) {
-        var row = Fields.Add("fact-row");
-
-        row.Add("fact-name").Text = label;
-        row.Add("fact-value").Text = value;
-    }
-
-    void Chosen(ClickEvent args) {
-        for (var element = args.Source; element is not null; element = element.Parent) {
-            if (ReferenceEquals(element, Run)) {
-                if (document is { } declared && !declared.TryRun(out var why)) {
-                    // Said in the verdict line rather than thrown or swallowed: a run that cannot
-                    // start is the ordinary state of a plan whose clip has not been imported yet.
-                    Verdict.Text = why;
-                    Verdict.SetClass("failed", true);
-                }
-
-                args.Handled = true;
-                return;
-            }
-
-            if (ReferenceEquals(element, Worst)) {
-                if (report?.Worst(plan?.Thresholds ?? default) is { } worst) {
-                    Select(worst);
-                }
-
-                args.Handled = true;
-                return;
-            }
-        }
-    }
-
-    void Pressed(PointerEvent args) {
-        if (args.Action != PointerAction.Pressed || args.Button != PointerButton.Primary) {
-            return;
-        }
-
-        foreach (var (candidate, cell) in cells) {
-            if (candidate.Bounds.Contains(new Vector2(args.X, args.Y))) {
-                Select(cell);
-                args.Handled = true;
-
-                return;
-            }
-        }
-    }
+/// <inheritdoc cref="HarnessVerdict" />
+internal sealed class FactValue : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "fact-value";
 }
 
 /// <summary>Opens a declared variation run.</summary>

@@ -449,7 +449,7 @@ Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-wr
 the honest version of that ratio has never been written down. This is it: **every panel in the
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
-**Where it stands.** Nineteen `.vxml` files across six assemblies — eighteen panels and one shared
+**Where it stands.** Twenty `.vxml` files across six assemblies — nineteen panels and one shared
 part, `Parts/FactRow.vxml` — against **62 files and ~31,700
 lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
 turn out not to be panels at all, which is the first finding. There are 25 `RegisterPanel` call
@@ -571,6 +571,59 @@ somebody has to declare, so shape 5 is unchanged as a statement about the langua
 of the escape that turned out to be small, which is why `FlameChartView`'s second withdrawal reason
 is now closed.
 
+### The surviving-region rule is not only about `@for`, and that is wave 4's finding
+
+⚠ **"A surviving key never re-runs its body" is a statement about *regions*, and `@if` opens one
+too.** The `@for` corollary is written down twice above and both times as a loop rule; it is not.
+`BuildContext.Switch` and `BuildContext.For` are deliberately the same mechanism — the file says so —
+and `Switch` rebuilds its arm **only when the arm index changes**. So a side panel whose `@if` reads
+"is anything selected" does not rebuild when the selection moves from one thing to another, and a
+binding inside that arm which closed over an `is { } shown` pattern variable keeps showing whatever
+was selected first.
+
+⚠ **It is worse than the `@for` version in one specific way: nothing warns you.** A `ref` in a loop
+is `VXML2010` and a `refs` outside one is `VXML2013`, so the loop shape has two diagnostics pointing
+at it. A pattern variable in an `@if` arm is ordinary, legal C# that compiles, runs, and is correct
+for the first value it ever sees. `VariationHarnessView` was written with one and the whole existing
+suite passed: **every test in `HarnessViewTests` selected exactly one cell.**
+
+**So the rule generalises to: a binding may close over a region's *identity* and never over its
+content.** For a `@for` row that identity is the key; for an `@if` arm it is the *predicate* — and a
+predicate like "is anything selected" identifies far less than a key does, which is why this is the
+sharper edge of the two. Every readout in that arm goes back through the signal
+(`ChosenCase`, `ChosenResidual`, …) and the arm's condition is the only thing allowed to be a shape.
+`ChoosingASecondCellMovesTheSidePanelOffTheFirst` is the test, and it was confirmed to fail against a
+deliberately reintroduced stale readout while the other six passed.
+
+⚠ **And `refs` has a second use, which the mixer's write-up did not have a case for.** There it was
+"a handler must reach a sibling control it cannot read off the model". Here nothing is edited at all
+— what needs the per-row handle is a **hit test**: a plain element raises no click, seventy cells are
+deliberately not seventy controls, and the press is resolved by asking each cell whether it contains
+the point. `ElementRefs` refusing to enumerate is exactly right for this: the report is already the
+authority on what order the rows are in, and the loop walks the model and looks each row up. **A
+read-only panel can still need `refs`**, which the ledger's sizing did not anticipate — it had
+`VariationHarnessView` down as needing neither directive.
+
+⚠ **The one state that is not byte-identical, and why it is allowed.** Six states were dumped —
+nothing shown, a report shown, a passing cell selected, an unresolved cell selected, a declared plan
+not yet run, and a refused run. Five match to the byte. The sixth is the *first*: a panel that is
+added to a document and framed **without `Show` ever being called**. The hand-written panel left the
+verdict blank and the side panel empty there, because `Reload` had never run; the markup builds its
+empty state at construction, so the verdict says "No run yet." and the side panel says "Select a
+cell.". ⚠ **That is not a new appearance — it is the state the hand-written panel's own public
+`Reload()` produces**, arriving one call earlier. Nothing reaches it: `HarnessEditorFactory.CreateView`
+calls `Show` on the line after `Add`, before any frame, and every test does the same. Recorded rather
+than papered over, because the way to make it match would be a "has been shown" signal gating the
+whole tree, which is a worse panel for an unreachable state.
+
+⚠ **And one behaviour deliberately kept, bug and all.** The hit test is geometric —
+`element.Bounds.Contains(point)` over the cells in the model's order — so a press that lands outside
+`harness-matrix` but inside some cell's rectangle selects that cell, including a cell scrolled out of
+view under `overflow: auto` or sitting behind the side panel. Routing the press through
+`on:pointerdown` on each cell instead would fix it for free and was the more natural markup. It was
+not done: a port that changes behaviour is a defect until argued for, and this belongs in a commit
+that says so. Same call as the mixer's "renaming a bus deselects it".
+
 ### Two recorded gaps are stale, and were verified closed
 
 ⚠ **`class=` on a control tag no longer clobbers.** `BuildContext.Attribute`'s remark reads as if it
@@ -666,7 +719,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `BuildSettingsView` | snapshot | no, and cannot be — shape 3 | **done, wave 2** | M |
 | `FlameChartView` | snapshot | no | **no — withdrawn a second time (2026-08-23), and two of its three reasons are now wrong.** See below | S/M |
 | `CompiledSceneView` | snapshot | no | **port.** Purest snapshot in the tree; 6 tests, all on the view | M |
-| `VariationHarnessView` | snapshot | no | **port.** Read-only text and classes, *zero* value-change subscriptions | S |
+| `VariationHarnessView` | snapshot | no | ~~**port**~~ **done, wave 4 (2026-08-23).** The sizing was right and the reasoning was not: read-only and zero `change:` subscriptions, but it needed `refs` all the same — for the hit test, not for a handler. 230 lines of C# → a `.vxml` and a 60-line `.cs` of one key record and seven captions; byte-identical in five of six dumped states, and the sixth is argued below | S |
 | `SettingsView` | live (view-local) | no | **port — the exclusion is lifted.** See below | M |
 | `TextureImportView` | snapshot | no | **port.** The direct `<Tabs>`/`<TabItem>` + `<ImportSettingsView>` case those two features were built for | M |
 | Blockout settings · Water zone · Water body · Terrain grass/growth/splines | snapshot | no | **port, six small ones.** `TerrainBrushInspector.vxml` is the model; splines has a literal duplicated fact block a `@for` deletes | S each |

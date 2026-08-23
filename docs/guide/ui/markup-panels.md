@@ -3,7 +3,7 @@ title: Panels in markup
 slug: ui/markup-panels
 kind: guide
 area: Core
-summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref and refs for the parts they read, change: for the values they edit, and the @for key rule that decides whether a row updates at all.
+summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref and refs for the parts they read, change: for the values they edit, and the key rule — for @for and for @if alike — that decides whether a row updates at all.
 api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1]
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
@@ -225,6 +225,33 @@ every per-item binding stays closed over the item as it was when its key first a
 So a row of immutable data keyed on a stable field never updates again. `VXML2011` warns when a key
 is a member access off the loop variable, which is the shape that mistake always takes; whether the
 item holds signals is a question about its type, and the markup binder deliberately resolves none.
+
+### ⚠ And the same rule governs `@if`
+
+`@if` and `@for` are one mechanism, and an arm is rebuilt **only when the arm index changes** — so an
+arm is a surviving region on exactly the terms a row is. The rule reads the same both times: *a
+binding may close over a region's identity and never over its content.* For a row that identity is
+the key; for an arm it is the predicate, which usually identifies far less.
+
+```vxml
+<!-- Wrong. Choosing a different cell does not change which arm is live, so the arm is not rebuilt
+     and `shown` stays whatever was selected the first time anything was. -->
+@if (Chosen is { } shown) {
+    <FactValue Text="@shown.Label" />
+}
+
+<!-- Right. The condition may be a shape; every readout goes back through the signal. -->
+@if (Chosen is null) {
+    @("Select a cell.")
+} else {
+    <FactValue Text="@ChosenLabel" />
+}
+```
+
+⚠ **Nothing diagnoses this one.** The loop shape is watched from three sides — `VXML2010`,
+`VXML2013`, `VXML2011` — but a pattern variable in an `@if` arm is ordinary, legal C# that is correct
+for the first value it ever sees. **If your panel has a detail pane over a selection, the test that
+catches it is the one that selects a second thing.**
 
 ## Examples
 

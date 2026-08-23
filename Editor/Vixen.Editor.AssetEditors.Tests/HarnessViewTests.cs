@@ -83,6 +83,46 @@ public class HarnessViewTests {
         Assert.Equal(selection.Cell, view.Selected);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Choosing a <i>second</i> cell moves the side panel, which is the one thing the port
+    ///     to markup could break silently.</b> Selecting a cell when none was selected swaps the
+    ///     <c>@if</c> arm and rebuilds it, so every readout is right by construction; selecting a
+    ///     different one does not change which arm is live, and a surviving arm never re-runs its
+    ///     body. A readout that had captured the first cell — an <c>is { } shown</c> pattern
+    ///     variable in the markup rather than a property over the signal — would keep showing it,
+    ///     and every test above selects exactly one cell and would pass.
+    /// </summary>
+    [Fact]
+    public void ChoosingASecondCellMovesTheSidePanelOffTheFirst() {
+        using var harness = new ViewHarness();
+        var (plan, report) = Run();
+
+        var view = harness.Ui.Document.Root.Add<VariationHarnessView>();
+        view.Show(plan, report);
+
+        harness.Ui.Frame();
+
+        Click(harness, view.Matrix.Children[1].Children[1]);
+        Assert.Equal(report.Cases[0].Label, Configuration(view));
+
+        // The third body, so a stale readout cannot coincide with the right answer.
+        Click(harness, view.Matrix.Children[3].Children[1]);
+
+        Assert.Equal(2, Assert.NotNull(view.Selected).Variation);
+        Assert.Equal(report.Cases[2].Label, Configuration(view));
+    }
+
+    /// <summary>What the side panel's "Configuration" row says.</summary>
+    static string Configuration(VariationHarnessView view) {
+        foreach (var row in view.Fields.Children) {
+            if (row.Children.Count == 2 && string.Equals(row.Children[0].Text, "Configuration", StringComparison.Ordinal)) {
+                return row.Children[1].Text ?? string.Empty;
+            }
+        }
+
+        return string.Empty;
+    }
+
     /// <summary>The button that jumps to the cell worth looking at, without hunting across the grid.</summary>
     [Fact]
     public void TheWorstCellButtonSelectsTheWorstCell() {

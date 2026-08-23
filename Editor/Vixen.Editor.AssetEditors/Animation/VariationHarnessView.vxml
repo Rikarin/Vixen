@@ -1,0 +1,526 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 — the variation matrix, ported from 230 lines of element construction. The panel
+    ledger sized this one S and called it "read-only text and classes, *zero* value-change
+    subscriptions", and that turned out to be exactly right: nothing here needs `change:`, and the
+    one thing it does need is `refs`.
+
+    ⚠ **What `refs` is for here, and it is not what it was for in the mixer.** No cell edits
+    anything, so no handler has to reach a sibling control. What the panel needs a per-row handle
+    for is the *hit test*: a `harness-cell` is a plain element, plain elements raise no click, and
+    seventy cells are deliberately not seventy controls — so a press on the panel is turned into a
+    selection by asking each cell whether it contains the point. That loop needs the element for a
+    cell, in the model's own order, and `Cells[slot]` is it. `ElementRefs` refuses to enumerate on
+    purpose — "iterate the model and look each row up" — which is precisely the shape this had
+    already.
+
+    ⚠ **The key is the cell's position and not the cell.** `HarnessCell` is a measurement; keying on
+    it would rebuild every surviving element whenever a re-run moved a residual. See `HarnessSlot`.
+
+    ⚠ **Nothing in a loop body may read the loop variable for a value that changes.** A surviving
+    key never re-runs its body, so `Text="@CellText(slot)"` takes the slot as a *position* and goes
+    back to the report for the number. The inner loop's source closes over the outer loop's
+    `variation`, which is legal for the same reason: it is the row's identity, not its content.
+
+    ⚠ **And the same rule applies to `@if`, which is where it nearly caught this port.** Selecting a
+    different cell does not change which arm of the side panel is live, so the arm is *not* rebuilt
+    — a binding that had closed over an `is { } shown` pattern variable would still be showing the
+    first cell ever selected. Every readout in that arm is a property that goes back to the signal.
+
+    ⚠ **Seven one-line element types, because markup cannot write an intrinsic tag's own `Text`.**
+    That is the ledger's shape 5; `VariationHarnessView.cs` holds them and the argument.
+
+    ⚠ **One deliberate difference, recorded rather than fixed.** The hit test is geometric —
+    `Bounds.Contains` — so a press that lands outside the matrix but inside a cell's rectangle (a
+    cell scrolled out of `harness-matrix`'s `overflow: auto`, under the side panel) selects that
+    cell. That is what the panel this replaces did, byte for byte, and routing the press through
+    `on:pointerdown` on each cell instead would fix it. Fixing it is a change to what the editor
+    does and belongs in a commit that says so.
+-->
+@component VariationHarnessView
+@namespace Vixen.Editor.AssetEditors.Animation
+@inherits Vixen.Ui.Controls.Control
+@tag harness-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Animation.Constraints
+@using Vixen.Core.Mathematics
+@using Vixen.Ui
+@using Vixen.Ui.Composition
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<harness-bar ref="@Bar">
+    <HarnessVerdict ref="@Verdict" Text="@VerdictText" class="@VerdictClass" />
+
+    <Button ref="@Run" Label="Run" on:click.stop="@Start" />
+    <Button ref="@Worst" Label="Worst Cell" on:click.stop="@Jump" />
+</harness-bar>
+
+<harness-body>
+    <harness-matrix ref="@Matrix">
+        @if (Result is not null) {
+            <harness-row class="header">
+                <harness-label />
+
+                @for (var goal in Goals) {
+                    <HarnessGridCell key="@goal" Text="@GoalName(goal)" />
+                }
+            </harness-row>
+
+            @for (var variation in Cases) {
+                <harness-row key="@variation">
+                    <HarnessLabel Text="@CaseLabel(variation)" />
+
+                    @for (var slot in Slots(variation)) {
+                        <HarnessGridCell refs="@Cells"
+                                         key="@slot"
+                                         Text="@CellText(slot)"
+                                         class="@CellClass(slot)" />
+                    }
+                </harness-row>
+            }
+        }
+    </harness-matrix>
+
+    <harness-side>
+        <harness-fields ref="@Fields">
+            @if (Chosen is null) {
+                @("Select a cell.")
+            } else {
+                <HarnessTitle Text="@ChosenGoal" />
+
+                <fact-row>
+                    <FactName Text="Configuration" />
+                    <FactValue Text="@ChosenCase" />
+                </fact-row>
+
+                @if (ChosenRan) {
+                    <fact-row>
+                        <FactName Text="Worst miss" />
+                        <FactValue Text="@ChosenResidual" />
+                    </fact-row>
+
+                    <fact-row>
+                        <FactName Text="At" />
+                        <FactValue Text="@ChosenAt" />
+                    </fact-row>
+
+                    <fact-row>
+                        <FactName Text="Sank in" />
+                        <FactValue Text="@ChosenPenetration" />
+                    </fact-row>
+
+                    <fact-row>
+                        <FactName Text="Velocity jump" />
+                        <FactValue Text="@ChosenJerk" />
+                    </fact-row>
+
+                    @if (ChosenReached) {
+                        <HarnessError Text="@OutOfReach" />
+                    }
+                } else {
+                    <HarnessError Text="@NeverResolved" />
+                }
+            }
+        </harness-fields>
+    </harness-side>
+</harness-body>
+
+@code {
+    /// <summary>What the panel is showing, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A signal and not a field, even though only <c>Show</c> writes it.</b> The verdict
+    ///     line reads it — a declared plan that has not been run says its name and how many
+    ///     configurations it will have — and a field read inside an effect is a dependency the
+    ///     scheduler cannot see. Every other signal here can be unchanged across a second
+    ///     <c>Show</c> (null report, null plan), so nothing else would wake that binding.
+    /// </remarks>
+    readonly Signal<HarnessDocument?> source = new(null);
+
+    /// <summary>The plan the report came from, which is what a drill-down rebuilds against.</summary>
+    readonly Signal<HarnessPlan?> ran = new(null);
+
+    /// <summary>The report.</summary>
+    readonly Signal<VariationReport?> result = new(null);
+
+    /// <summary>The selected cell, or <see langword="null" />.</summary>
+    readonly Signal<HarnessCell?> chosen = new(null);
+
+    /// <summary>
+    ///     Why a run could not start, which the verdict line says instead of its own text.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own signal rather than a write to the verdict.</b> The verdict is a projection
+    ///     of the report; a handler that assigned to the element would be overwritten by the next
+    ///     flush of that projection, and one that assigned to a "verdict text" signal would have to
+    ///     re-derive the passed/failed line every time anything else changed. This is the one thing
+    ///     on screen that is not a function of the report, so it is the one thing that is stored.
+    ///     Every <c>Reload</c> clears it, which is what the panel this replaces did by overwriting.
+    /// </remarks>
+    readonly Signal<string> excuse = new(string.Empty);
+
+    bool listening;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The bar across the top.</summary>
+    public UiElement Bar { get; private set; } = null!;
+
+    /// <summary>What the run was and whether it passed.</summary>
+    public UiElement Verdict { get; private set; } = null!;
+
+    /// <summary>Runs the plan. Only useful when the panel is showing a document.</summary>
+    public Button Run { get; private set; } = null!;
+
+    /// <summary>Jumps to the worst cell without hunting for it.</summary>
+    public Button Worst { get; private set; } = null!;
+
+    /// <summary>The grid.</summary>
+    public UiElement Matrix { get; private set; } = null!;
+
+    /// <summary>What the selected cell is.</summary>
+    public UiElement Fields { get; private set; } = null!;
+
+    /// <summary>Every cell of the grid, by the position the loop reconciled it on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The hit test's handle, and the reason this panel needed <c>refs</c> at all.</b> See
+    ///     the file header: a press is turned into a selection by asking each cell whether it
+    ///     contains the point, and the model's order is the order to ask in.
+    /// </remarks>
+    internal ElementRefs<HarnessGridCell> Cells { get; } = new();
+
+    /// <summary>Which cell is selected, or <see langword="null" />.</summary>
+    public HarnessCell? Selected => chosen.Value;
+
+    /// <summary>Raised when a cell is chosen, with everything needed to show it.</summary>
+    public event Action<VariationHarnessView, HarnessSelection>? CellSelected;
+
+    /// <summary>Shows a report.</summary>
+    /// <param name="plan">The plan it came from, which is what a drill-down rebuilds against.</param>
+    /// <param name="report">The report.</param>
+    /// <remarks>
+    ///     For a host that ran the harness itself — a build log viewer, a test. A panel opened on a
+    ///     <c>.vxharness</c> uses <see cref="Show(HarnessDocument)" /> and runs it from the bar.
+    /// </remarks>
+    public void Show(HarnessPlan plan, VariationReport report) {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(report);
+
+        ran.Value = plan;
+        result.Value = report;
+        chosen.Value = null;
+        excuse.Value = string.Empty;
+    }
+
+    /// <summary>Shows a declared plan, which can then be run from the bar.</summary>
+    /// <param name="declared">The document.</param>
+    public void Show(HarnessDocument declared) {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        if (source.Value is { } previous) {
+            previous.Changed -= Reload;
+        }
+
+        source.Value = declared;
+        declared.Changed += Reload;
+
+        Reload(declared);
+    }
+
+    /// <summary>Rebuilds from the document.</summary>
+    /// <param name="declared">The document.</param>
+    public void Reload(HarnessDocument declared) {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        ran.Value = declared.Ran;
+        result.Value = declared.Report;
+        chosen.Value = null;
+        excuse.Value = string.Empty;
+    }
+
+    /// <summary>Clears the selection and whatever the last refused run said.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What is left of a method that used to rebuild the whole grid.</b> The matrix, the
+    ///     verdict and the side panel are projections of <see cref="ran" /> and
+    ///     <see cref="result" />, so re-reading them is not something a caller has to ask for — the
+    ///     two things that are <i>not</i> projections are the selection and the refusal, and they
+    ///     are what is left here.
+    /// </remarks>
+    public void Reload() {
+        chosen.Value = null;
+        excuse.Value = string.Empty;
+    }
+
+    /// <summary>Selects a cell and tells whoever is listening.</summary>
+    /// <param name="cell">The cell.</param>
+    public void Select(in HarnessCell cell) {
+        if (result.Value is not { } report || ran.Value is not { } plan) {
+            return;
+        }
+
+        chosen.Value = cell;
+
+        var where = report.Cases[cell.Variation];
+
+        CellSelected?.Invoke(this, new(cell, where, VariationHarness.Rebuild(plan, where)));
+    }
+
+    /// <summary>
+    ///     ⚠ Subscribes the hit test once the cells exist, and lets go of the document, which the
+    ///     panel this replaces never did. A handler left on <c>Changed</c> writes signals into a
+    ///     view that has been removed, and holds it — and every element under it — alive for as
+    ///     long as the document lives.
+    /// </summary>
+    partial void OnComposed() {
+        // ⚠ Guarded because `OnComposed` runs again after a hot reload, on the new elements, and
+        // a handler is on the control rather than on any of them — so it survives what the reload
+        // replaced, and a second one would answer the same press twice.
+        if (listening) {
+            return;
+        }
+
+        listening = true;
+        AddHandler<PointerEvent>(static (element, args) => ((VariationHarnessView) element).Pressed(args));
+    }
+
+    /// <inheritdoc cref="OnComposed" />
+    partial void OnUnmounted() {
+        if (source.Value is { } declared) {
+            declared.Changed -= Reload;
+            source.Value = null;
+        }
+    }
+
+    // ================================================================== What the markup reads
+
+    /// <summary>The report, or <see langword="null" /> when there is nothing to draw.</summary>
+    /// <remarks>
+    ///     ⚠ Both halves, because a report without the plan it came from cannot be judged and the
+    ///     drill-down cannot rebuild anything. The grid is drawn only when there are two.
+    /// </remarks>
+    VariationReport? Result => ran.Value is null ? null : result.Value;
+
+    /// <summary>The grid's columns, as indices.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Indices and not the goal names.</b> A name is what the column <i>says</i> and is not
+    ///     unique — two constraints in one clip may share one — so it cannot be a key. See
+    ///     <c>HarnessSlot</c>.
+    /// </remarks>
+    ImmutableArray<int> Goals =>
+        Result is { } report ? [.. Enumerable.Range(0, report.Goals.Count)] : [];
+
+    /// <summary>And its rows.</summary>
+    ImmutableArray<int> Cases =>
+        Result is { } report ? [.. Enumerable.Range(0, report.Cases.Count)] : [];
+
+    /// <summary>One row's cells.</summary>
+    /// <param name="variation">The row.</param>
+    /// <returns>Its slots, left to right.</returns>
+    ImmutableArray<HarnessSlot> Slots(int variation) =>
+        Result is { } report
+            ? [.. Enumerable.Range(0, report.Goals.Count).Select(goal => new HarnessSlot(variation, goal))]
+            : [];
+
+    /// <summary>What a column's header says.</summary>
+    /// <param name="goal">The column.</param>
+    /// <returns>The goal's name.</returns>
+    string GoalName(int goal) => Result is { } report ? report.Goals[goal] : string.Empty;
+
+    /// <summary>And what a row's label says.</summary>
+    /// <param name="variation">The row.</param>
+    /// <returns>The configuration, in words.</returns>
+    string CaseLabel(int variation) => Result is { } report ? report.Cases[variation].Label : string.Empty;
+
+    /// <summary>What one cell says.</summary>
+    /// <param name="slot">Where it is.</param>
+    /// <returns>Its residual in centimetres, or an em dash for a goal that never resolved.</returns>
+    string CellText(HarnessSlot slot) =>
+        At(slot) is { } cell
+            ? cell.Ran
+                ? string.Create(CultureInfo.InvariantCulture, $"{cell.Residual * 100f:0.#}")
+                : "—"
+            : string.Empty;
+
+    /// <summary>Which of the three states one cell is in, plus whether it is selected.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three states and not two.</b> "Never resolved" is not a large error and not a small
+    ///     one — it is a different thing, and an author who reads it as a number will spend the
+    ///     afternoon adjusting a goal that is not running.
+    ///     <para>
+    ///         ⚠ <b>The order is load-bearing and only for the tests.</b> <c>SetClasses</c> appends
+    ///         what it is given and takes back only what it wrote, so the class list reads in this
+    ///         order — which is the order the panel this replaces added them in, and therefore what
+    ///         a whole-tree dump of the two has to agree on. No rule in <c>AssetEditorTheme.vcss</c>
+    ///         depends on it.
+    ///     </para>
+    /// </remarks>
+    /// <param name="slot">Where the cell is.</param>
+    /// <returns>Its classes, space separated.</returns>
+    string CellClass(HarnessSlot slot) {
+        if (At(slot) is not { } cell || ran.Value is not { } plan) {
+            return string.Empty;
+        }
+
+        var names = new List<string>(3);
+
+        if (!cell.Ran) {
+            names.Add("missing");
+        }
+
+        if (cell.Ran && cell.Fails(plan.Thresholds)) {
+            names.Add("failed");
+        }
+
+        if (chosen.Value is { } shown && shown == cell) {
+            names.Add("selected");
+        }
+
+        return string.Join(' ', names);
+    }
+
+    /// <summary>What the bar says about the run.</summary>
+    string VerdictText {
+        get {
+            if (excuse.Value is { Length: > 0 } refused) {
+                return refused;
+            }
+
+            if (Result is not { } report || ran.Value is not { } plan) {
+                return source.Value is { } declared
+                    ? $"{declared.Plan.Name} — {declared.Plan.Configurations} configuration(s), not run yet."
+                    : "No run yet.";
+            }
+
+            var judged = report.Judge(plan.Thresholds);
+
+            return judged.Passed
+                ? string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Passed — {report.Cases.Count} configuration(s) × {report.Goals.Count} goal(s)"
+                )
+                : string.Create(CultureInfo.InvariantCulture, $"Failed — {judged.Failed.Count} cell(s)");
+        }
+    }
+
+    /// <summary>And whether that is bad news.</summary>
+    string VerdictClass {
+        get {
+            if (excuse.Value.Length > 0) {
+                return "failed";
+            }
+
+            return Result is { } report && ran.Value is { } plan && !report.Judge(plan.Thresholds).Passed
+                ? "failed"
+                : string.Empty;
+        }
+    }
+
+    /// <summary>The selected cell, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every readout below goes through this rather than through a pattern variable in the
+    ///     markup.</b> Choosing a different cell does not change which <c>@if</c> arm is live, so
+    ///     the arm is not rebuilt and a binding that had captured the cell would never move. See the
+    ///     file header.
+    /// </remarks>
+    HarnessCell? Chosen => chosen.Value;
+
+    string ChosenGoal => Chosen?.Goal ?? string.Empty;
+
+    string ChosenCase =>
+        Chosen is { } cell && Result is { } report ? report.Cases[cell.Variation].Label : string.Empty;
+
+    bool ChosenRan => Chosen?.Ran ?? false;
+
+    bool ChosenReached => Chosen?.Reached ?? false;
+
+    string ChosenResidual => Chosen is { } cell ? Metres(cell.Residual) : string.Empty;
+
+    string ChosenPenetration => Chosen is { } cell ? Metres(cell.Penetration) : string.Empty;
+
+    string ChosenAt =>
+        Chosen is { } cell
+            ? string.Create(CultureInfo.InvariantCulture, $"{cell.At:0.###} of the clip")
+            : string.Empty;
+
+    string ChosenJerk =>
+        Chosen is { } cell
+            ? string.Create(CultureInfo.InvariantCulture, $"{cell.Jerk:0.#} m/s²")
+            : string.Empty;
+
+    /// <summary>What a goal that never answered says.</summary>
+    /// <remarks>
+    ///     ⚠ A property rather than a literal in the attribute, only because the sentence is longer
+    ///     than a line and an attribute value cannot be wrapped without changing it.
+    /// </remarks>
+    static string NeverResolved =>
+        "This goal never resolved in this configuration. Its frame did not answer — a shape it names is "
+        + "missing on this body, or a slot it names is unbound. It is not a goal that is nearly right.";
+
+    /// <inheritdoc cref="NeverResolved" />
+    static string OutOfReach =>
+        "The chain was straight and still short. This is a reach problem rather than a tuning one: the "
+        + "contact is somewhere this body cannot get to, and easing it will not help.";
+
+    // ================================================================== What the markup runs
+
+    /// <summary>Runs the plan, or says why it could not start.</summary>
+    /// <remarks>
+    ///     Said in the verdict line rather than thrown or swallowed: a run that cannot start is the
+    ///     ordinary state of a plan whose clip has not been imported yet.
+    /// </remarks>
+    void Start() {
+        if (source.Value is { } declared && !declared.TryRun(out var why)) {
+            excuse.Value = why;
+        }
+    }
+
+    /// <summary>Selects the cell worth looking at, without hunting across the grid.</summary>
+    void Jump() {
+        if (result.Value?.Worst(ran.Value?.Thresholds ?? default) is { } worst) {
+            Select(worst);
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ A cell is a plain element and plain elements raise no click. The buttons above do,
+    ///     because they are controls; a grid of seventy cells is deliberately not seventy controls,
+    ///     so the press is caught here and turned into a selection by hit test.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The model's order, because <c>ElementRefs</c> refuses to enumerate.</b> It is one
+    ///     answer to "what order are the rows in" and the report is the other; offering both is
+    ///     offering one to get wrong. This walks the report exactly as the list it replaces was
+    ///     built.
+    /// </remarks>
+    void Pressed(PointerEvent args) {
+        if (args.Action != PointerAction.Pressed || args.Button != PointerButton.Primary) {
+            return;
+        }
+
+        if (Result is not { } report) {
+            return;
+        }
+
+        var at = new Vector2(args.X, args.Y);
+
+        for (var variation = 0; variation < report.Cases.Count; variation++) {
+            for (var goal = 0; goal < report.Goals.Count; goal++) {
+                if (Cells.TryGet(new HarnessSlot(variation, goal), out var element)
+                    && element.Bounds.Contains(at)) {
+                    Select(report[variation, goal]);
+                    args.Handled = true;
+
+                    return;
+                }
+            }
+        }
+    }
+
+    HarnessCell? At(HarnessSlot slot) => Result is { } report ? report[slot.Variation, slot.Goal] : null;
+
+    static string Metres(float value) => string.Create(CultureInfo.InvariantCulture, $"{value * 100f:0.##} cm");
+}

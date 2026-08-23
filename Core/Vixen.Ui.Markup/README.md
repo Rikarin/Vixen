@@ -488,6 +488,34 @@ is a real limitation and the diagnostics are a guard rail over it. The alternati
 body for a surviving key — would throw away the elements and therefore the focus, scroll offset and
 animation state that keys exist to preserve, so it is not a fix, it is the other trade.
 
+### ⚠ The same rule governs `@if`, where nothing diagnoses it
+
+**`@for` and `@if` are one mechanism** — `Switch` and `For` are deliberately the same construct, for
+the reason `Switch`'s own remark gives — and `Switch` rebuilds its arm **only when the arm index
+changes**. So an arm is a surviving region on exactly the terms a row is, and the rule reads the same
+way: *a binding may close over a region's identity and never over its content.* For a row the
+identity is the key. For an arm it is the **predicate**, which usually identifies far less.
+
+```html
+<!-- Wrong. Choosing a different cell does not change which arm is live, so the arm is not rebuilt
+     and `shown` is whatever was selected the first time anything was. -->
+@if (Chosen is { } shown) { <FactValue Text="@shown.Label" /> }
+
+<!-- Right. The condition may be a shape; every readout goes back through the signal. -->
+@if (Chosen is null) { … } else { <FactValue Text="@ChosenLabel" /> }
+```
+
+⚠ **This is the sharper edge of the two, because there is no `VXML2011` for it.** A `ref` in a loop
+is `VXML2010`, a `refs` outside one is `VXML2013`, and a projected key is `VXML2011` — the loop shape
+is watched from three sides. A pattern variable in an `@if` arm is ordinary, legal C# that compiles,
+runs, and is correct for the first value it ever sees. It is not decidable here for `VXML2011`'s
+reason and one more: the arm's own condition *must* be allowed to read the thing the arm is about, so
+the mistake and the correct spelling mention the same variable.
+
+Found writing `VariationHarnessView`, where it survived the whole existing suite because every test
+selected exactly one cell. **If a panel has a detail pane over a selection, the test that catches
+this is the one that selects a second thing.**
+
 The runtime it calls is `Vixen.Ui.Composition`. The emitter's gate compiles its output against that
 assembly, loads the result, builds it into a `UiDocument` and drives it with a signal — so what is
 tested is markup to syntax tree to component model to C# to IL to an element tree, and not the shape
