@@ -217,6 +217,86 @@ public class LayoutTreeTests {
         Assert.Equal(LayoutUnit.Undefined, length.Unit);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A disposed store grows a fresh set rather than copying out of the freed one.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>NativeArray&lt;T&gt;</c> is a <c>readonly struct</c>, so <c>Dispose</c> cannot null
+    ///         the pointer it was called on; only the field's owner can. Before that owner did,
+    ///         <c>Dispose</c> freed the four arrays and zeroed <c>capacity</c> but left the fields
+    ///         holding the freed addresses, and the next <c>CreateNode</c> — <c>nodeCount</c> and
+    ///         <c>capacity</c> both nought — went through <c>Grow(0)</c>, whose <c>Resize</c> asks
+    ///         <c>IsEmpty</c> and is told no. It copied out of memory that was no longer ours and
+    ///         handed the same address back to the allocator.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why this test, before the fix, does not fail — it ends the run.</b>
+    ///         macOS libmalloc aborts on the double free with no managed exception and no stack, and
+    ///         under xunit the abort is followed by the runner's 60-second crash-detection timeout
+    ///         before anything is printed at all. That is deliberate here rather than avoided: the
+    ///         behaviour under test <i>is</i> the allocator's, so there is nothing else to assert on,
+    ///         and unlike <c>DocumentLifetimeTests</c> — which fences every risky call because a
+    ///         <c>UiDocument</c> has a guard that can be asserted instead — the store has no guard to
+    ///         stand in for it. The assertions below are the part a reader can act on; surviving to
+    ///         reach them is the rest.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_disposed_tree_can_be_used_again_rather_than_freeing_the_same_memory_twice() {
+        var tree = new LayoutTree();
+        tree.CreateNode();
+        tree.Dispose();
+
+        Assert.Equal(0, tree.NodeCount);
+
+        var node = tree.CreateNode();
+
+        Assert.Equal(1, tree.NodeCount);
+        Assert.Equal(Align.Stretch, tree.GetStyle(node).AlignItems);
+
+        tree.Dispose();
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the free list is emptied with them, which is the path clearing the arrays alone
+    ///     would leave live.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A tree that destroyed a node before it was disposed has slots on the free list, and
+    ///     <c>CreateNode</c> takes one of those <i>without</i> calling <c>Grow</c> — so it writes
+    ///     through the stale pointer directly, before the growth that would have replaced it ever
+    ///     runs. The four fresh fields do not help here; only forgetting the slots does.
+    /// </remarks>
+    [Fact]
+    public void A_disposed_tree_forgets_the_slots_its_destroyed_nodes_left_behind() {
+        var tree = new LayoutTree();
+        var root = tree.CreateNode();
+        var child = tree.CreateNode();
+        tree.AddChild(root, child);
+        tree.DestroyRecursive(child);
+        tree.Dispose();
+
+        var node = tree.CreateNode();
+
+        Assert.Equal(1, tree.NodeCount);
+        Assert.Equal(Align.Stretch, tree.GetStyle(node).AlignItems);
+
+        tree.Dispose();
+    }
+
+    /// <summary>Disposing twice frees nothing twice, which <c>IDisposable</c> promises.</summary>
+    [Fact]
+    public void Disposing_a_tree_twice_is_allowed() {
+        var tree = new LayoutTree();
+        tree.CreateNode();
+
+        tree.Dispose();
+        tree.Dispose();
+
+        Assert.Equal(0, tree.NodeCount);
+    }
+
     static void ClearDirty(LayoutTree tree, params LayoutNodeId[] nodes) {
         foreach (var node in nodes) {
             tree.MarkClean(node);

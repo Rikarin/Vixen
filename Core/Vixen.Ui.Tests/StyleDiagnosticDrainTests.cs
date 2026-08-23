@@ -240,9 +240,140 @@ public class StyleDiagnosticDrainTests {
 
         var warning = Assert.Single(Warnings(sink));
 
-        Assert.Equal(7004, warning.EventId.Id);
+        // 7006 rather than 7004: the fragment is `::before` and the rule is `p::before`, so the
+        // refusal has an enclosing rule to name. See the two tests below.
+        Assert.Equal(7006, warning.EventId.Id);
         Assert.Contains("The selector compiler", warning.Message, StringComparison.Ordinal);
         Assert.Contains("::before", warning.Message, StringComparison.Ordinal);
         Assert.Contains("no box without an element behind it", warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Two refusals of the same kind are told apart by the rule each names, and nothing
+    ///     else.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the whole reason <c>SelectorDiagnostic</c> carries a rule.</b> A refusal
+    ///         names the fragment the compiler stopped on, which for both rules below is the same
+    ///         five characters — and the reason is the same sentence. Before the rule arrived, this
+    ///         sheet produced two log lines that were <i>character-for-character identical</i>, on a
+    ///         channel with no line numbers behind it, and a reader had no way to learn from either
+    ///         one which rule to go and change. ExCSS does not carry source positions through to the
+    ///         nodes the compiler walks, so the selector text is the only locator there is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted on the message, not on the diagnostic.</b> The compiler could build a
+    ///         perfectly correct <c>SelectorDiagnostic</c> and the drain could go on logging four of
+    ///         its five fields, which is the failure this file exists to catch in its other half. So
+    ///         the subject here is <see cref="RingBufferSink" />'s record — what a person actually
+    ///         reads in the Console panel — and the distinguishing assertion is that one message
+    ///         names <c>.card</c> and the other does not.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_refusals_differing_only_in_their_rule_each_name_the_rule_they_came_from() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(".card::before { color: red } .badge::before { color: blue }");
+
+        var warnings = Warnings(sink);
+        Assert.Equal(2, warnings.Count);
+
+        var card = Assert.Single(warnings, record => record.Message.Contains(".card", StringComparison.Ordinal));
+        var badge = Assert.Single(warnings, record => record.Message.Contains(".badge", StringComparison.Ordinal));
+
+        // Each names its own rule and only its own — which is the fact that fails the moment the
+        // rule stops being threaded and both lines collapse back into the same text.
+        Assert.Contains(".card::before", card.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(".badge", card.Message, StringComparison.Ordinal);
+        Assert.Contains(".badge::before", badge.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(".card", badge.Message, StringComparison.Ordinal);
+
+        // And both still say what was refused and why: the rule is an addition, not a replacement.
+        foreach (var warning in warnings) {
+            Assert.Equal(7006, warning.EventId.Id);
+            Assert.Contains("::before", warning.Message, StringComparison.Ordinal);
+            Assert.Contains("no box without an element behind it", warning.Message, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    ///     A refusal whose fragment already is the whole rule does not say so twice.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of the contract, and the reason the drain picks between two events
+    ///         rather than always logging a <c>{Rule}</c>. <c>@nonsense pretend</c> is both the
+    ///         fragment and the rule; a single message naming it once is the whole of what can be
+    ///         said, and "refused 'X' in 'X'" on every at-rule in the language would be a worse
+    ///         channel than the one before the rule was added.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Written as an <c>EventId</c> assertion because that is the decision under test.
+    ///         Asserting the message text would pass just as well with 7006 emitting a duplicated
+    ///         name, which is the mistake this guards.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_refusal_whose_fragment_is_its_own_rule_stays_on_the_shorter_message() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load("@nonsense pretend { color: red }");
+
+        var warning = Assert.Single(Warnings(sink));
+
+        Assert.Equal(7004, warning.EventId.Id);
+        Assert.Contains("@nonsense", warning.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(" in '", warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A <c>:has()</c> argument is attributed to the rule it sits in, not to itself.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The compiler re-enters its own entry point to compile the argument of a <c>:is()</c> or a
+    ///     <c>:has()</c>, and the naive threading — set the rule on every entry — would name
+    ///     <c>:totally-invented</c> as the rule that contains <c>:totally-invented</c>. The argument
+    ///     is not something a reader can go and find; the rule around it is.
+    /// </remarks>
+    [Fact]
+    public void A_refusal_inside_a_nested_selector_names_the_outer_rule() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(".panel:has(:totally-invented) { color: red }");
+
+        var warnings = Warnings(sink);
+
+        Assert.NotEmpty(warnings);
+        Assert.All(
+            warnings,
+            warning => Assert.Contains(".panel:has(:totally-invented)", warning.Message, StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A comma-separated selector is attributed per part, because the cascade splits it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <c>a::before, b::before</c> is one rule to ExCSS and two to the cascade, and the one a
+    ///     reader has to change is the part. Naming the whole list on both lines would put them back
+    ///     to being indistinguishable, which is the defect this set of tests is about.
+    /// </remarks>
+    [Fact]
+    public void Each_part_of_a_selector_list_is_attributed_to_itself() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(".card::before, .badge::before { color: red }");
+
+        var warnings = Warnings(sink);
+        Assert.Equal(2, warnings.Count);
+
+        Assert.Single(warnings, record => !record.Message.Contains(".badge", StringComparison.Ordinal));
+        Assert.Single(warnings, record => !record.Message.Contains(".card", StringComparison.Ordinal));
     }
 }

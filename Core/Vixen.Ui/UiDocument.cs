@@ -541,14 +541,11 @@ public sealed partial class UiDocument : IDisposable {
         string? id = null,
         params ReadOnlySpan<string> classNames
     ) {
-        // ⚠ The one seam both `Create` overloads come through, and the one that aborted the process
-        // rather than throwing: creating an element allocates a layout node, and a `LayoutTree` whose
-        // arrays have been freed grows from a capacity of nought by copying out of them and freeing
-        // them again. See `ThrowIfDisposed`.
-        //
-        // ⚠ Above the null check, which is what makes the guard testable: `DocumentLifetimeTests`
-        // asks for this exception with a null element precisely so that a lost guard is a wrong
-        // exception type rather than a dead process.
+        // ⚠ The one seam both `Create` overloads come through, and the one that used to abort the
+        // process rather than throw: creating an element allocates a layout node, and a `LayoutTree`
+        // whose arrays had been freed grew from a capacity of nought by copying out of them and
+        // freeing them again. `LayoutTree.Dispose` clears its four fields now, so the abort is gone
+        // and this guard is back to doing the ordinary job of a guard. See `ThrowIfDisposed`.
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(element);
         tag ??= element.TagName;
@@ -1734,11 +1731,13 @@ public sealed partial class UiDocument : IDisposable {
     /// <inheritdoc />
     /// <remarks>
     ///     ⚠ <b>Idempotent, and the second call was not free before.</b>
-    ///     <c>LayoutTree.Dispose</c> frees four <c>NativeArray</c>s and leaves the struct fields
-    ///     holding the freed pointers, so disposing a document twice hands the same addresses to
-    ///     <c>NativeMemory.AlignedFree</c> twice and the allocator aborts the process. A document
-    ///     inside a <c>using</c> that is also disposed by the host it was handed to is an ordinary
-    ///     arrangement, so this is a real path and not a tidiness.
+    ///     <c>LayoutTree.Dispose</c> used to free four <c>NativeArray</c>s and leave the struct
+    ///     fields holding the freed pointers, so disposing a document twice handed the same
+    ///     addresses to <c>NativeMemory.AlignedFree</c> twice and the allocator aborted the process.
+    ///     It clears the fields now and is idempotent in its own right, so this field is no longer
+    ///     the only thing standing between a host and a <c>SIGABRT</c> — it is kept because a
+    ///     document inside a <c>using</c> that is also disposed by the host it was handed to is an
+    ///     ordinary arrangement, and because <see cref="disposed" /> is what the guard below reads.
     /// </remarks>
     public void Dispose() {
         if (disposed) {
@@ -1753,23 +1752,26 @@ public sealed partial class UiDocument : IDisposable {
     /// <exception cref="ObjectDisposedException">The document has been disposed.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because the alternative is not an exception but the process going away, a minute
-    ///         later, with nothing said.</b> <see cref="Layout" /> is a <c>LayoutTree</c>, and a
-    ///         <c>LayoutTree</c> is four <c>NativeArray</c>s. Disposing it frees them and sets its
-    ///         capacity to nought but leaves the struct fields pointing at the freed blocks — so the
-    ///         next <c>CreateNode</c> grows from a capacity of nought, finds the arrays non-empty,
-    ///         copies out of memory that is no longer ours and frees it a second time. The allocator
-    ///         aborts. There is no managed exception, no message and no stack.
+    ///         <b>It was written because the alternative was not an exception but the process going
+    ///         away, a minute later, with nothing said.</b> <see cref="Layout" /> is a
+    ///         <c>LayoutTree</c>, and a <c>LayoutTree</c> is four <c>NativeArray</c>s. Disposing it
+    ///         freed them and set its capacity to nought but left the struct fields pointing at the
+    ///         freed blocks — so the next <c>CreateNode</c> grew from a capacity of nought, found the
+    ///         arrays non-empty, copied out of memory that was no longer ours and freed it a second
+    ///         time. The allocator aborted: no managed exception, no message, no stack, and then
+    ///         <c>xunit.runner.visualstudio</c>'s 60-second
+    ///         <c>TestProjectConfiguration.CrashDetectionSinkTimeout</c> before the adapter even said
+    ///         so, which reads exactly like a deadlock.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The minute is <c>xunit.runner.visualstudio</c>'s, not the document's.</b> The
-    ///         abort is instant; what waits is <c>TestProjectConfiguration.CrashDetectionSinkTimeout</c>,
-    ///         whose default is 60&#160;000&#160;ms, before the adapter gives up on the dead test host
-    ///         and prints "Catastrophic failure: Test process crashed with exit code 134". A minute
-    ///         of silence followed by a <c>SIGABRT</c> reads exactly like a deadlock, like a native
-    ///         crash in the RHI and like a host timeout, and it has already cost one debugging cycle
-    ///         spent in the wrong subsystem. Naming the mistake at the door is worth a great deal
-    ///         more here than it usually is.
+    ///         ⚠ <b>That is history now, and the guard is worth keeping anyway.</b>
+    ///         <c>LayoutTree.Dispose</c> clears its four fields, so a disposed store grows a fresh
+    ///         set and no caller of it can reach the abort any more — this guard is no longer load
+    ///         bearing against <c>SIGABRT</c>. What it still buys is the difference between an
+    ///         <c>ObjectDisposedException</c> that names the document and a call that quietly
+    ///         succeeds against an empty store: an <c>Update</c> on a released document laying out
+    ///         nothing, returning cleanly, and leaving the panel that asked for it blank. Silence
+    ///         with a plausible result is the harder of the two to find.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>At the entry points and nowhere below them.</b> A pass walks every element in the

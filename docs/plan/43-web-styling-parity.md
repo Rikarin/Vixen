@@ -1081,7 +1081,7 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | Arbitrary value `w-[37px]` | ✅ | ✅ | |
 | Arbitrary property `[mask-type:luminance]` | ✅ | ✅ | F7 *closed* |
 | CSS-variable shorthand `bg-(--brand)` | ✅ | ✅ | F7 *closed* |
-| `/opacity` modifier | ✅ `color-mix` | 🟡 hex only | Part 2 |
+| `/opacity` modifier | ✅ `color-mix` | ✅ `color-mix` | A9 *closed* |
 | `!important` | **suffix** `bg-red-500!` | ✅ suffix | *matches v4, not v3* |
 | Negative values `-mt-4` | ✅ | ✅ | |
 | Prefix (`tw:flex`) | ✅ | ⛔ | |

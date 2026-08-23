@@ -9,9 +9,47 @@ using Selector = Vixen.Ui.Styling.Selector;
 namespace Vixen.Ui.Styling;
 
 /// <summary>Why a selector could not be compiled.</summary>
-/// <param name="Text">The selector as it was written.</param>
+/// <param name="Text">The fragment that stopped it, as it was written.</param>
 /// <param name="Reason">What stopped it.</param>
-public readonly record struct SelectorDiagnostic(string Text, string Reason);
+/// <param name="Rule">
+///     The enclosing rule the fragment was written in, or <see langword="null" /> when
+///     <paramref name="Text" /> is already the whole of it. Read through <see cref="Where" />.
+/// </param>
+/// <remarks>
+///     <para>
+///         ⚠ <b><paramref name="Text" /> is the fragment, and on its own it does not say which rule
+///         to go and fix.</b> A refusal names what the compiler choked on — <c>::before</c>,
+///         <c>:has(…)</c>, a combinator — because that is what it was looking at when it stopped.
+///         That is the right thing to report and the wrong thing to report <i>alone</i>: a sheet
+///         with two <c>::before</c> rules produces two lines differing only in a reason, and neither
+///         names a rule. There are no line numbers to fall back on, because ExCSS does not carry
+///         them through to the nodes this walks.
+///     </para>
+///     <para>
+///         ⚠ <b>It began mattering when the drain landed.</b> Until then these went into a
+///         <c>List&lt;SelectorDiagnostic&gt;</c> behind a public property that nothing outside this
+///         assembly's tests read, and a test knows which rule it wrote. They now reach the editor's
+///         Console panel, the log overlay and the crash dump, where the reader is a person looking
+///         at a stylesheet they did not necessarily write.
+///     </para>
+///     <para>
+///         Null rather than a copy of <paramref name="Text" /> when the two would be the same, so
+///         that the sink can tell "the rule is the fragment" from "the rule is elsewhere" and log
+///         the shorter message for the first. See <see cref="Where" />.
+///     </para>
+/// </remarks>
+public readonly record struct SelectorDiagnostic(string Text, string Reason, string? Rule = null) {
+    /// <summary>The rule to go and fix: <see cref="Rule" /> when there is one, else <see cref="Text" />.</summary>
+    public string Where => Rule ?? Text;
+
+    /// <summary>Whether <see cref="Rule" /> says something <see cref="Text" /> does not.</summary>
+    /// <remarks>
+    ///     A rule that is character-for-character its own fragment — <c>@media (min-width: bananas)</c>
+    ///     is both — has nothing to add, and repeating it would make every such line read
+    ///     "refused 'X' in 'X'".
+    /// </remarks>
+    public bool NamesAnEnclosingRule => Rule is not null && !string.Equals(Rule, Text, StringComparison.Ordinal);
+}
 
 /// <summary>Turns ExCSS's selector tree into the flat form the matcher runs.</summary>
 /// <remarks>
@@ -35,6 +73,19 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     /// <summary>Everything that could not be compiled, and why.</summary>
     public IReadOnlyList<SelectorDiagnostic> Diagnostics => diagnostics;
 
+    /// <summary>
+    ///     The complex selector currently being compiled, which every refusal below is attributed to.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A field rather than a parameter on nine signatures.</b> The refusals are raised four
+    ///     and five calls down — inside a compound, inside a pseudo-class, inside the argument of a
+    ///     <c>:has()</c> — and every one of those frames would have to carry a string it does not
+    ///     otherwise use. It is set in exactly one place, <see cref="CompileParts" />, and saved and
+    ///     restored around the nested compile so that a <c>:is()</c> argument keeps attributing to
+    ///     the rule it was written in rather than to itself.
+    /// </remarks>
+    string? rule;
+
     /// <summary>Compiles one ExCSS selector, splitting a list into its parts.</summary>
     /// <param name="selector">What ExCSS parsed.</param>
     /// <param name="compiled">Receives one entry per comma-separated selector.</param>
@@ -42,18 +93,39 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         ArgumentNullException.ThrowIfNull(selector);
         ArgumentNullException.ThrowIfNull(compiled);
 
+        CompileParts(selector, compiled);
+    }
+
+    void CompileParts(ISelector selector, List<Selector> compiled) {
         if (selector is ListSelector list) {
+            // ⚠ Each part of `a::before, b::before` is attributed to itself and not to the pair.
+            // The two are one rule to ExCSS and two rules to the cascade, and the one a reader has
+            // to go and change is the part — so the enclosing text is reset per child below rather
+            // than taken from the list.
             foreach (var child in list) {
-                Compile(child, compiled);
+                CompileParts(child, compiled);
             }
 
             return;
         }
 
-        if (TryCompileOne(selector, out var result)) {
-            compiled.Add(result);
+        // ⚠ Not overwritten when already set. `TryCompileNested` re-enters here for the argument of
+        // a `:is()` or `:has()`, and that argument is not a rule anybody can go and find; the rule
+        // is the selector the argument sits inside.
+        var outer = rule;
+        rule ??= selector.Text;
+
+        try {
+            if (TryCompileOne(selector, out var result)) {
+                compiled.Add(result);
+            }
+        } finally {
+            rule = outer;
         }
     }
+
+    /// <summary>Records a refusal against the rule currently being compiled.</summary>
+    void Refuse(string text, string reason) => diagnostics.Add(new SelectorDiagnostic(text, reason, rule));
 
     bool TryCompileOne(ISelector selector, out Selector compiled) {
         // Compounds are buffered and written in one run at the end. A `:not()` or `:is()` inside
@@ -91,7 +163,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             };
 
             if (next == Combinator.None) {
-                diagnostics.Add(new SelectorDiagnostic(selector.Text, $"the combinator '{delimiter}' is not supported"));
+                Refuse(selector.Text, $"the combinator '{delimiter}' is not supported");
                 compiled = default;
                 return false;
             }
@@ -100,7 +172,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         }
 
         if (count == 0) {
-            diagnostics.Add(new SelectorDiagnostic(selector.Text, "the selector is empty"));
+            Refuse(selector.Text, "the selector is empty");
             compiled = default;
             return false;
         }
@@ -265,11 +337,9 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // carries a STYLE of its own, so it needs a second style slot rather than a second
             // rectangle. Until doc 43's A12, the author gets a message instead of a surprise.
             case PseudoElementSelector:
-                diagnostics.Add(
-                    new SelectorDiagnostic(
-                        selector.Text,
-                        "a pseudo-element generates a box of its own, and Vixen has no box without an element behind it"
-                    )
+                Refuse(
+                    selector.Text,
+                    "a pseudo-element generates a box of its own, and Vixen has no box without an element behind it"
                 );
 
                 return false;
@@ -278,7 +348,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                 return TryCompilePseudoClass(pseudo, ref specificity, out compiled);
 
             default:
-                diagnostics.Add(new SelectorDiagnostic(selector.Text, $"'{selector.Text}' is not a selector Vixen supports"));
+                Refuse(selector.Text, $"'{selector.Text}' is not a selector Vixen supports");
                 return false;
         }
 
@@ -334,7 +404,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             return true;
         }
 
-        diagnostics.Add(new SelectorDiagnostic(pseudo.Text, $":{name} is not supported"));
+        Refuse(pseudo.Text, $":{name} is not supported");
         return false;
     }
 
@@ -354,7 +424,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         Compile(inner, parts);
 
         if (parts.Count == 0 || diagnostics.Count != before) {
-            diagnostics.Add(new SelectorDiagnostic(text, "its argument could not be compiled"));
+            Refuse(text, "its argument could not be compiled");
             return false;
         }
 
