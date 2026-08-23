@@ -48,16 +48,35 @@ public sealed class DrawListBuilder {
     readonly int backgroundImage;
     readonly GradientReader gradients;
 
-    /// <summary><c>mask-image</c>, read by <see cref="MaskFor" /> and by nothing else.</summary>
+    /// <summary><c>mask-image</c>, read by <see cref="MasksFor" /> and by nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one <c>mask-*</c> longhand that is read, and the others are absent rather than
-    ///     ignored.</b> <c>mask-position</c>, <c>mask-size</c>, <c>mask-origin</c>, <c>mask-repeat</c>
-    ///     and <c>mask-composite</c> all describe where a mask <i>image</i> is placed and how several
-    ///     of them combine; a gradient sized to the border box needs none of them, and honouring one
+    ///     ⚠ <b>Two of the <c>mask-*</c> longhands are read and the rest are absent rather than
+    ///     ignored.</b> <c>mask-position</c>, <c>mask-size</c>, <c>mask-origin</c> and
+    ///     <c>mask-repeat</c> all describe where a mask <i>image</i> is placed inside a box it does
+    ///     not already fill; a gradient sized to the border box needs none of them, and honouring one
     ///     without the rest would place a mask the next property could not move. See
     ///     <c>InertProperties.txt</c>, which records them as absent for that reason.
     /// </remarks>
     readonly int maskImage;
+
+    /// <summary><c>mask-composite</c>, read by <see cref="MasksFor" /> and by nothing else.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read as text and cached by value id, not interned as four keywords.</b> It is a
+    ///     <i>list</i> property — <c>mask-composite: add, intersect</c> is two operators for two
+    ///     layers — so the common single-keyword case is only the one-element case of the general
+    ///     one, and a keyword comparison would have had to fall back to text for the rest anyway.
+    /// </remarks>
+    readonly int maskComposite;
+
+    /// <summary>The operators of each <c>mask-composite</c> value seen, keyed by its id.</summary>
+    /// <remarks>
+    ///     The cache <see cref="GradientReader" /> keeps for the same reason: an interned id names a
+    ///     fixed piece of text forever, so parsing it twice can only ever produce the same answer.
+    /// </remarks>
+    readonly Dictionary<int, MaskComposite[]> maskComposites = [];
+
+    /// <summary>The table declaration values are interned in, for <see cref="MasksFor" />.</summary>
+    readonly NameTable values;
     readonly int textColor;
     readonly OverflowReader overflow;
     readonly int visibility;
@@ -120,6 +139,14 @@ public sealed class DrawListBuilder {
         // a second set of refusals to keep in step, and `mask-image: linear-gradient(...)` is the
         // identical production — only what is taken out of the result differs.
         maskImage = properties.Intern("mask-image");
+
+        // ⚠ Its default is `add` and *not* `intersect`, which is the one thing about this property
+        // that is worth being sure of. CSS Masking 1 § 5.4 gives `add` as the initial value, so a
+        // hand-written two-layer `mask-image` with nothing beside it unions its layers. Tailwind's
+        // mask utilities all write `intersect` explicitly, because that is the operator under which
+        // an unset layer — which they emit as a fully opaque gradient — changes nothing.
+        maskComposite = properties.Intern("mask-composite");
+        this.values = values;
 
         // ⚠ The longhands, never the shorthands, and *all* of them. A shorthand is expanded before
         // it is interned — by ExCSS while parsing when the value is literal, and by
@@ -371,9 +398,16 @@ public sealed class DrawListBuilder {
         // covered things masked separately and then blended do not give the blend masked once. CSS
         // agrees — Masking 1 § 5 makes any `mask` other than `none` a stacking context, in the same
         // sentence shape Filter Effects uses for `filter`.
-        var mask = MaskFor(element, width, height);
+        //
+        // ⚠ <b>And a list rather than one mask, which is not a generalisation for its own sake — it
+        // is what twelve of Tailwind's mask roots need.</b> `mask-t-from-*` and its siblings are
+        // per-edge ramps that only mean anything combined, under the `mask-composite` CSS gives as a
+        // separate property. See `UiMask.Coverage`, which is the fold, and `DrawList.Masks`, which is
+        // where the entries live.
+        Span<UiMask> list = stackalloc UiMask[GradientReader.MostLayers];
+        var masks = MasksFor(element, width, height, list);
 
-        var group = Compositing && (own < 1f || filters.Any || mask is not null) ? into.Count : -1;
+        var group = Compositing && (own < 1f || filters.Any || masks > 0) ? into.Count : -1;
 
         if (group >= 0) {
             into.Add(
@@ -389,7 +423,15 @@ public sealed class DrawListBuilder {
                 ) {
                     Blur = filters.Blur,
                     Filter = filters.Colour,
-                    Mask = mask
+
+                    // ⚠ The range is claimed even when the group turns out to be discarded a few
+                    // lines below, and the entries it named are then simply unreferenced until the
+                    // next `BeginFrame` clears the buffer. Nothing reads them — a discarded group has
+                    // no `LayerPush` left to name them — and they are the same entries every frame,
+                    // so the diff is not disturbed either. Reclaiming them would mean trimming a
+                    // buffer that a *nested* group may already have appended to.
+                    Offset = masks > 0 ? into.AddMasks(list[..masks]) : 0,
+                    Length = masks
                 }
             );
         }
@@ -428,10 +470,10 @@ public sealed class DrawListBuilder {
         // nothing to do with. The single-command case is not rare enough to leave to chance either,
         // since a `blur-*` or a `grayscale` on a bare panel is one background rectangle and nothing
         // else, which is precisely the shape this branch catches.
-        // ⚠ `mask is null` joins the guard for the filter's reason word for word: a masked rectangle
+        // ⚠ `masks == 0` joins the guard for the filter's reason word for word: a masked rectangle
         // is not a fainter rectangle either, and a single background rectangle under a `mask-*` is
         // exactly the shape this branch catches.
-        if (!filters.Any && mask is null && drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
+        if (!filters.Any && masks == 0 && drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
             into.Collapse(group, inherited * own);
             return;
         }
@@ -449,7 +491,14 @@ public sealed class DrawListBuilder {
             ) {
                 Blur = filters.Blur,
                 Filter = filters.Colour,
-                Mask = mask
+
+                // ⚠ The same range as the push names, and not a second copy of the entries.
+                // `UiGeometryBuilder.Layer` reads the push's copy and never this one — see its
+                // `Opening` remark — so appending here would put a duplicate list in the side buffer
+                // for every masked group in the frame, which nothing would read and the diff would
+                // walk.
+                Offset = into.Commands[group].Offset,
+                Length = masks
             }
         );
     }
@@ -1522,78 +1571,219 @@ public sealed class DrawListBuilder {
             ? command
             : command with { Offset = into.AddBox(BoxStyle.Rounded(corners)), Length = 1 };
 
-    /// <summary>The coverage this element's <c>mask-image</c> asks for, or null where there is none.</summary>
-    /// <param name="element">The element being drawn.</param>
-    /// <param name="width">Its border box's width, in document pixels.</param>
-    /// <param name="height">Its border box's height.</param>
-    /// <returns>A mask, or null when there is nothing to mask by.</returns>
+    /// <summary>The mask list this element's <c>mask-image</c> asks for, into a caller's span.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="width">Its border-box width, in document pixels.</param>
+    /// <param name="height">Its border-box height.</param>
+    /// <param name="into">Where to write the entries. At least <c>GradientReader.MostLayers</c> long.</param>
+    /// <returns>How many entries were written. Zero when there is nothing to mask by.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>A mask this cannot resolve masks <i>nothing</i>, which is the opposite of the
-    ///         refusal <see cref="EmitGradient" /> makes one method down, and the asymmetry is CSS's
-    ///         rather than this file's.</b> A background gradient that cannot be painted is left out
+    ///         default and is the whole of why the refusal path is written out rather than left to a
+    ///         null-conditional.</b> A background gradient that cannot be read is simply not painted
     ///         and the element keeps its own colour: the picture is missing something. A mask that
     ///         cannot be resolved, left out the same way, would leave the element <i>unmasked</i> —
     ///         also the picture missing something. But a mask that failed <i>closed</i> would erase
-    ///         the element outright, and an author staring at a blank rectangle has no way to tell a
-    ///         bad gradient from a layout collapse. Masking 1 § 4.1 says the same thing for the same
-    ///         reason: a mask resource that cannot be fetched is ignored.
+    ///         the element, which is indistinguishable from a layout collapse. Masking 1 § 4.1 says
+    ///         the same thing for the same reason: a mask resource that cannot be fetched is ignored.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A fully opaque ramp returns null rather than an identity mask, and it has to
-    ///         happen here rather than in an executor.</b> Returning one would open a group — and the
-    ///         group is the expensive half: a viewport-sized surface, a pass, and a composite, spent
-    ///         on a mask that changes no pixel. <c>UiColorMatrix</c>'s identity is dropped by
-    ///         <see cref="Settle" /> at exactly the same point and for exactly this reason.
+    ///         ⚠ <b>One unreadable layer refuses the <i>whole</i> list, and that is the fail-open
+    ///         answer rather than a shortcut.</b> Dropping just the bad layer changes the arithmetic
+    ///         of every operator around it — a missing <c>subtract</c> leaves the thing it was meant
+    ///         to punch out — so a partly-resolved list is a mask that is confidently wrong. The
+    ///         whole declaration is dropped instead, and the element is drawn plainly.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A degenerate box returns null too, and testing the box rather than the axis is
+    ///         ⚠ <b>A list that provably changes nothing returns zero rather than an identity list,
+    ///         and it has to, because a mask is what <i>opens the group</i>.</b> Returning entries
+    ///         that cover everything would spend a viewport-sized surface and a composite pass on a
+    ///         mask that changes no pixel. <c>UiColorMatrix</c>'s identity is dropped by
+    ///         <c>UiRenderer</c> instead, one level down, because a `grayscale(0)` still isolates a
+    ///         stacking context in CSS and this does not. See <see cref="Reduce" /> for which lists
+    ///         are provably nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The zero-axis guard is on the shape and not on the axis, and the difference is
     ///         deliberate.</b> A radial mask has no axis at all — <see cref="BackgroundGradient.Axis" />
     ///         returns zero for one legitimately — so a guard written against the axis would delete
     ///         every round mask while looking like it guarded a division.
     ///     </para>
     /// </remarks>
-    UiMask? MaskFor(UiElement element, float width, float height) {
-        if (!element.Style.TryGet(maskImage, out var id)) {
-            return null;
+    int MasksFor(UiElement element, float width, float height, Span<UiMask> into) {
+        if (!element.Style.TryGet(maskImage, out var id) || width <= 0f || height <= 0f) {
+            return 0;
         }
 
-        var gradient = gradients.Read(id);
+        var layers = gradients.ReadLayers(id);
 
-        if (!gradient.IsPaintable || width <= 0f || height <= 0f) {
-            return null;
+        if (layers.Count == 0) {
+            return 0;
         }
 
-        var axis = gradient.Axis(width, height);
-
-        if (gradient.Shape == GradientShape.Linear && axis == Vector2.Zero) {
-            return null;
-        }
-
+        var operators = Composites(element);
         var half = new Vector2(width * 0.5f, height * 0.5f);
 
         // ⚠ <b>The border box, in document pixels, and it is the element's own — not the group's.</b>
         // `UiLayer.Bounds` is the ink and has already been outset by a blur; resolving the ramp
         // against that would slide it the moment somebody added `blur-sm` beside the mask. See
-        // `UiMask`, which carries the box for this reason.
+        // `UiMask`, which carries the box for this reason. Every layer shares it, because
+        // `mask-origin`, `mask-position` and `mask-size` — the three properties that would let them
+        // differ — are not read: see `maskImage`.
         var centre = new Vector2(element.AbsoluteLeft + half.X, element.AbsoluteTop + half.Y);
 
-        // ⚠ <b>Alphas alone, and the three colours are dropped on the floor here rather than
-        // downstream.</b> `mask-mode` resolves to `alpha` for every image that is not an SVG
-        // `<mask>`, so `linear-gradient(to right, black, transparent)` and
-        // `linear-gradient(to right, #ff0000, #00ff0000)` are the same mask. Carrying the colours to
-        // find that out later would be carrying a field whose only correct use is being ignored.
-        var mask = new UiMask(
-            centre,
-            half,
-            axis,
-            new Vector3(gradient.Start.A, gradient.Via.A, gradient.End.A),
-            gradient.Stops,
-            gradient.Shape,
-            gradient.HasVia
-        );
+        for (var layer = 0; layer < layers.Count; layer++) {
+            var gradient = layers[layer];
 
-        return mask.IsOpaque ? null : mask;
+            if (!gradient.IsPaintable) {
+                return 0;
+            }
+
+            var axis = gradient.Axis(width, height);
+
+            if (gradient.Shape == GradientShape.Linear && axis == Vector2.Zero) {
+                return 0;
+            }
+
+            // ⚠ <b>Alphas alone, and the three colours are dropped on the floor here rather than
+            // downstream.</b> `mask-mode` resolves to `alpha` for every image that is not an SVG
+            // `<mask>`, so `linear-gradient(to right, black, transparent)` and
+            // `linear-gradient(to right, #ff0000, #00ff0000)` are the same mask. Carrying the colours
+            // to find that out later would be carrying a field whose only correct use is being
+            // ignored.
+            into[layer] = new UiMask(
+                centre,
+                half,
+                axis,
+                new Vector3(gradient.Start.A, gradient.Via.A, gradient.End.A),
+                gradient.Stops,
+                gradient.Shape,
+                gradient.HasVia
+            ) {
+                // ⚠ Repeated to the layer count when there are fewer operators than layers, which is
+                // what CSS does with every comma-separated `mask-*` list and is the case that
+                // matters: Tailwind writes one `intersect` for a list of six.
+                Composite = operators.Length == 0
+                    ? MaskComposite.Add
+                    : operators[layer % operators.Length]
+            };
+        }
+
+        return Reduce(into[..layers.Count]);
+    }
+
+    /// <summary>Drops the entries of a mask list that provably cannot change its coverage.</summary>
+    /// <param name="masks">The list, topmost first. Rewritten in place.</param>
+    /// <returns>How many entries are left.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An optimisation with a correctness consequence, which is why it is here and not
+    ///         in an executor.</b> A mask is what opens a composited group, so a list that reduces to
+    ///         nothing has to reduce to nothing <i>before</i> the group is decided on — otherwise a
+    ///         <c>mask-t-from-*</c> that happens to be fully opaque would still cost a
+    ///         viewport-sized surface and two passes to composite a picture identical to the one that
+    ///         needed neither.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is what lets the utility layer emit Tailwind's shape at all.</b> Every
+    ///         <c>mask-*</c> class writes the same six-layer <c>mask-image</c>, with the layers
+    ///         nobody set falling back to a fully opaque gradient — that is how an unset layer
+    ///         changes nothing under <c>intersect</c>, and it is Tailwind v4's own arrangement. A
+    ///         <c>mask-radial-from-50%</c> therefore arrives here as six layers of which five are
+    ///         opaque, and leaves as one.
+    ///     </para>
+    ///     <para>
+    ///         The two rules are the only two that are true of <i>every</i> input, and both are
+    ///         about <c>intersect</c> because it is the only operator with an identity inside
+    ///         <c>[0, 1]</c>. Writing a third for <c>add</c> — whose identity is a transparent layer
+    ///         — would be reasonable and is not done, because nothing generates one.
+    ///     </para>
+    /// </remarks>
+    static int Reduce(Span<UiMask> masks) {
+        var kept = 0;
+
+        // An opaque entry composited with `intersect` is `1 · b`, which is `b`: the entry is the
+        // identity wherever it sits, so long as it is not the bottom one — the bottom entry has no
+        // backdrop to be the identity over.
+        for (var index = 0; index < masks.Length; index++) {
+            if (index < masks.Length - 1
+                && masks[index].IsOpaque
+                && masks[index].Composite == MaskComposite.Intersect) {
+                continue;
+            }
+
+            masks[kept++] = masks[index];
+        }
+
+        // And the mirror of it: when the bottom entry is opaque, the entry above it sees a backdrop
+        // of one, so `s · 1` is `s` and the bottom entry is what can go instead. Once only — the
+        // entry that becomes the new bottom survived the loop above, so it is not itself an opaque
+        // `intersect`.
+        if (kept > 1 && masks[kept - 1].IsOpaque && masks[kept - 2].Composite == MaskComposite.Intersect) {
+            kept--;
+        }
+
+        // ⚠ A single fully opaque ramp is nothing at all, and detecting it is worth the line because
+        // `mask-linear-from-100%` is a real thing to write while tuning one — it should cost nothing
+        // while it says nothing.
+        return kept == 1 && masks[0].IsOpaque ? 0 : kept;
+    }
+
+    /// <summary>The <c>mask-composite</c> operators an element declares, in order.</summary>
+    /// <returns>The operators, or empty when the property is absent or unreadable.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Empty and not <c>[add]</c>, so that "nobody wrote one" and "somebody wrote
+    ///     <c>add</c>" are the same picture without being the same value.</b> An unreadable keyword
+    ///     drops the whole property rather than the one operator it appeared in, for
+    ///     <see cref="MasksFor" />'s reason: a list with one operator silently replaced is a mask
+    ///     that is confidently wrong, and CSS discards an invalid declaration whole.
+    /// </remarks>
+    MaskComposite[] Composites(UiElement element) {
+        if (!element.Style.TryGet(maskComposite, out var id)) {
+            return [];
+        }
+
+        if (maskComposites.TryGetValue(id, out var cached)) {
+            return cached;
+        }
+
+        var text = values.NameOf(id).AsSpan();
+        Span<Range> parts = stackalloc Range[GradientReader.MostLayers];
+        var count = 0;
+        var start = 0;
+
+        for (var index = 0; index <= text.Length && count < parts.Length; index++) {
+            if (index != text.Length && text[index] != ',') {
+                continue;
+            }
+
+            parts[count++] = new Range(start, index);
+            start = index + 1;
+        }
+
+        var operators = new MaskComposite[count];
+
+        for (var index = 0; index < count; index++) {
+            var name = text[parts[index]].Trim();
+
+            operators[index] = name switch {
+                _ when name.Equals("add", StringComparison.OrdinalIgnoreCase) => MaskComposite.Add,
+                _ when name.Equals("subtract", StringComparison.OrdinalIgnoreCase) => MaskComposite.Subtract,
+                _ when name.Equals("intersect", StringComparison.OrdinalIgnoreCase) => MaskComposite.Intersect,
+                _ when name.Equals("exclude", StringComparison.OrdinalIgnoreCase) => MaskComposite.Exclude,
+                _ => (MaskComposite) (-1)
+            };
+
+            if (operators[index] < 0) {
+                operators = [];
+                break;
+            }
+        }
+
+        maskComposites[id] = operators;
+
+        return operators;
     }
 
     /// <summary>Paints the <c>background-image</c> layer, when it is a gradient this engine draws.</summary>

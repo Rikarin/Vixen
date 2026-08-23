@@ -427,6 +427,35 @@ static class UtilityConsumptionProbe {
         // other scene arranges: a transform and a clip interacting. That is where an implementation
         // that moved the box and not the rectangle it is cut by would show, and it is the interaction
         // the per-axis overflow work had to get right for the untransformed case.
+        // ⚠ <b>A probe that already carries a two-layer <c>mask-image</c> — the sixth instance of the
+        // lesson <c>gridded</c>, <c>inlined</c>, <c>primed</c>, <c>translated</c> and <c>clipped</c>
+        // each record.</b> <c>mask-composite</c> says how the layers of a mask list combine, so on an
+        // element with no mask list it is a declaration about nothing and moves not one pixel of any
+        // of the four channels. Every scene above has no mask, so all four of
+        // <c>mask-add</c>/<c>subtract</c>/<c>intersect</c>/<c>exclude</c> measured inert with the
+        // reader sitting in <c>DrawListBuilder.Composites</c> — the false gap that costs the most,
+        // because the honest response to it is to implement something already there.
+        //
+        // ⚠ <b>Two layers and not one, and they have to disagree.</b> Every operator is the identity
+        // on a list of one — see <c>UiMask.Coverage</c> — so a single-layer mask here would leave the
+        // property just as invisible as no mask at all. Two ramps at right angles differ under all
+        // four: <c>add</c> unions them, <c>intersect</c> multiplies, and the corner where one is
+        // opaque and the other is not is where the four part company.
+        //
+        // ⚠ It is on <c>#probe</c> rather than on a child because that is where <c>Run</c> injects,
+        // and the two have to meet on one element: a mask on the child and the operator on the parent
+        // would be two declarations that never see each other.
+        new(
+            "masked",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                     background-color: #204080; color: #e0e0e0;
+                     mask-image: linear-gradient(to right, #000000, transparent), linear-gradient(to bottom, #000000, transparent); }
+            #after { width: 96px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         new(
             "translated",
             """
@@ -1222,6 +1251,16 @@ static class UtilityConsumptionProbe {
 
             foreach (var box in drawing.Boxes) {
                 paint.Append(box).Append(';');
+            }
+
+            // ⚠ <b>And the masks, for the boxes' reason and with a sharper edge on it.</b> A
+            // `LayerPush` names a range of `DrawList.Masks` and carries nothing of the entries
+            // themselves, so a declaration that changes only what is *in* that range leaves every
+            // command in the frame byte-identical. `mask-composite` is exactly that declaration —
+            // it moves one field of each entry and not the range — and it measured inert with
+            // `DrawListBuilder.Composites` reading it perfectly, on a scene built to make it visible.
+            foreach (var mask in drawing.Masks) {
+                paint.Append(mask).Append(';');
             }
 
             // ⚠ <b>The faces, which <see cref="DrawList.Differs" /> deliberately does not compare and

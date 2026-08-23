@@ -145,6 +145,62 @@ public static class UtilityComposition {
     /// <summary>Where a conic mask's sweep starts.</summary>
     public const string MaskConicAngle = Prefix + "mask-conic-angle";
 
+    // ── The mask layers ─────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>A `mask-image` is a list, and these are the slots the utilities fill it from.</b> Every
+    // `mask-*` class writes the same three-layer `mask-image` — see <see cref="MaskLayers" /> — and
+    // sets whichever of these three its shape belongs to. That is what lets `mask-radial-from-50%`
+    // and `mask-conic-to-80%` compose instead of one silently winning the cascade, which is what
+    // happened while `mask-image` was written whole by each family.
+    //
+    // ⚠ <b>Their initial is a gradient that covers everything, and the whole scheme rests on it.</b>
+    // Under `mask-composite: intersect` — which every one of these utilities also emits — an opaque
+    // layer is the identity, so a slot nobody filled changes nothing. Defaulting them to `none`
+    // instead would make the whole declaration invalid; defaulting them to a *transparent* gradient
+    // would erase the element. `DrawListBuilder.Reduce` is what stops the untouched slots costing
+    // anything, and it drops them precisely because they are opaque and intersected.
+
+    /// <summary>The <c>mask-image</c> layer a linear mask, or a set of edge ramps, fills.</summary>
+    public const string MaskLinear = Prefix + "mask-linear";
+
+    /// <summary>The layer a radial mask fills.</summary>
+    public const string MaskRadial = Prefix + "mask-radial";
+
+    /// <summary>The layer a conic mask fills.</summary>
+    public const string MaskConic = Prefix + "mask-conic";
+
+    /// <summary>A gradient that covers everything, which is the initial value of every mask layer.</summary>
+    /// <remarks>
+    ///     ⚠ Two stops, because <c>GradientReader</c> refuses a one-stop gradient — and both of them
+    ///     white, because only the <i>alpha</i> reaches <c>UiMask</c> and white's is one.
+    /// </remarks>
+    public const string MaskOpaque = "linear-gradient(#fff, #fff)";
+
+    /// <summary>The four box edges a <c>mask-t-*</c> ramp and its siblings run from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The names are the CSS keywords, because they go straight into <c>to &lt;side&gt;</c>.</b>
+    ///     <c>mask-t-from-50%</c> is a ramp running <i>towards</i> the top — solid at the bottom,
+    ///     fading out at the top — so the gradient is <c>linear-gradient(to top, …)</c> and the class
+    ///     letter has to become the keyword somewhere. Here, once, rather than at each of the twelve
+    ///     registrations.
+    /// </remarks>
+    public static readonly string[] MaskEdges = ["top", "right", "bottom", "left"];
+
+    /// <summary>The whole gradient one edge's ramp assembles to.</summary>
+    public static string MaskEdge(string edge) => Prefix + "mask-" + edge;
+
+    /// <summary>One edge ramp's near colour. Only its alpha is read.</summary>
+    public static string MaskEdgeFrom(string edge) => MaskEdge(edge) + "-from";
+
+    /// <summary>One edge ramp's far colour.</summary>
+    public static string MaskEdgeTo(string edge) => MaskEdge(edge) + "-to";
+
+    /// <summary>Where one edge ramp's near stop sits.</summary>
+    public static string MaskEdgeFromPosition(string edge) => MaskEdge(edge) + "-from-position";
+
+    /// <summary>Where one edge ramp's far stop sits.</summary>
+    public static string MaskEdgeToPosition(string edge) => MaskEdge(edge) + "-to-position";
+
     // ── The translation ─────────────────────────────────────────────────────────────────────
     //
     // ⚠ Two fragments and *one* property, which is the difference between this pair and the gradient
@@ -280,6 +336,14 @@ public static class UtilityComposition {
         [MaskLinearAngle] = "180deg",
         [MaskConicAngle] = "0deg",
 
+        // See the mask layers' own remark: an opaque layer is the identity under `intersect`, which
+        // is the operator every mask utility emits, so a slot nobody filled costs nothing and says
+        // nothing. The four edges are added below, in the static constructor, because there are
+        // twenty of them and a loop is one place to get it wrong instead of twenty.
+        [MaskLinear] = MaskOpaque,
+        [MaskRadial] = MaskOpaque,
+        [MaskConic] = MaskOpaque,
+
         // ⚠ <b><c>0px</c> rather than <c>0</c>, and the unit is <i>not</i> doing the work it looks
         // like it is doing — measured, because the plausible reason is wrong.</b> The obvious story is
         // that <see cref="Vixen.Ui.Styling.StyleValue.CanInterpolate" /> compares units, so a
@@ -329,6 +393,17 @@ public static class UtilityComposition {
     static readonly List<string> Names;
 
     static UtilityComposition() {
+        // ⚠ Before the snapshot below, which is the whole of why this loop is here rather than beside
+        // the table: `Names` is what `IsFragment` and the parity gate read, and twenty fragments
+        // registered after it would be twenty properties the gate calls unexplained.
+        foreach (var edge in MaskEdges) {
+            Initials[MaskEdge(edge)] = MaskOpaque;
+            Initials[MaskEdgeFrom(edge)] = "black";
+            Initials[MaskEdgeTo(edge)] = "transparent";
+            Initials[MaskEdgeFromPosition(edge)] = "0%";
+            Initials[MaskEdgeToPosition(edge)] = "100%";
+        }
+
         // Two passes, because one fragment's initial value is written in terms of the others. The
         // stop list is the only one, and the alternative — a lazily resolved table — would buy
         // generality nothing has asked for and lose the invariant that `Reference` is a pure lookup.
@@ -377,6 +452,57 @@ public static class UtilityComposition {
     ///     class of bug actually arrives.
     /// </remarks>
     public static string Reference(string fragment) => $"var({fragment}, {InitialValueOf(fragment)})";
+
+    /// <summary>The three-layer <c>mask-image</c> every <c>mask-*</c> utility emits.</summary>
+    /// <returns>The <c>mask-image</c> value.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same string from every family, which is what makes the shapes compose.</b>
+    ///         `mask-radial-from-50% mask-conic-to-80%` is two classes that have to end up as one
+    ///         `mask-image` naming both — the situation the fragment mechanism exists for, and the
+    ///         one `translate-x-2 translate-y-4` is in. Written whole by each family instead,
+    ///         whichever rule the cascade picked last would win outright and the other shape would
+    ///         vanish.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three layers always, even for a class that fills one of them.</b> The other two
+    ///         resolve to <see cref="MaskOpaque" />, which is the identity under the <c>intersect</c>
+    ///         the same families emit, and <c>DrawListBuilder.Reduce</c> drops them before a group is
+    ///         opened. Emitting only the layer that was set would need each family to know which
+    ///         others were present, which is exactly what a stylesheet cannot know.
+    ///     </para>
+    /// </remarks>
+    public static string MaskLayers() =>
+        $"{Reference(MaskLinear)}, {Reference(MaskRadial)}, {Reference(MaskConic)}";
+
+    /// <summary>The four-layer value the edge ramps give <see cref="MaskLinear" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The edges take over the linear slot rather than getting a fourth of their own, which
+    ///     is Tailwind v4's arrangement and is also the only one that fits.</b> A `mask-t-*` beside a
+    ///     `mask-linear-*` is two linear masks and CSS has one linear slot; giving the edges their
+    ///     own would make `mask-image` seven layers deep before anybody wrote a second class. What it
+    ///     costs is that `mask-t-from-50% mask-linear-45` is a conflict — the two write the same
+    ///     fragment and the cascade picks one — which is the behaviour Tailwind has.
+    /// </remarks>
+    public static string MaskEdgeLayers() =>
+        string.Join(", ", MaskEdges.Select(edge => Reference(MaskEdge(edge))));
+
+    /// <summary>One edge's ramp, as a gradient running towards that edge.</summary>
+    /// <param name="edge">One of <see cref="MaskEdges" />.</param>
+    /// <returns>The gradient text.</returns>
+    /// <remarks>
+    ///     ⚠ <b><c>to top</c> and not <c>to bottom</c> for <c>mask-t-*</c>, and the direction is the
+    ///     part that is easy to get backwards.</b> `mask-t-from-50%` fades the element out *at the
+    ///     top*: it is opaque from the bottom up to the halfway mark and transparent by the top edge.
+    ///     A gradient written `to bottom` with the same stops fades the bottom instead, which is a
+    ///     perfectly plausible picture and the wrong one.
+    /// </remarks>
+    public static string MaskEdgeImage(string edge) {
+        var from = $"{Reference(MaskEdgeFrom(edge))} {Reference(MaskEdgeFromPosition(edge))}";
+        var to = $"{Reference(MaskEdgeTo(edge))} {Reference(MaskEdgeToPosition(edge))}";
+
+        return $"linear-gradient(to {edge}, {from}, {to})";
+    }
 
     /// <summary>One mask assembler: the shape, its geometry, and the two-stop ramp.</summary>
     /// <param name="shape"><c>linear</c>, <c>radial</c> or <c>conic</c>.</param>

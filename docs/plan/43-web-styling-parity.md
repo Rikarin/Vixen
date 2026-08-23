@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **127** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **40** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **140** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **154** |
+| **absent** | not emitted at all | **142** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -393,7 +393,7 @@ refusal block, which already says so for the same reason.
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 9 | 4 | 0 | 21 | 0 | 0 |
 | Borders | 34 | 15 | 5 | 0 | 14 | 0 | 0 |
-| Effects | 33 | 11 | 1 | 0 | 21 | 0 | 0 |
+| Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
 | Filters | 20 | 8 | 0 | 0 | 12 | 0 | 0 |
@@ -403,11 +403,20 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **127** | **40** | **3** | **154** | **3** | **1** |
+| **Total** | **328** | **140** | **39** | **3** | **142** | **3** | **1** |
 
-Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
-Layout follow it. Tables and Accessibility still have **no working root at all**, and Interactivity
-is 1 of 39.
+Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
+Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and Layout. Tables and Accessibility
+still have **no working root at all**, and Interactivity is 1 of 39.
+
+⚠ **Effects went from 12 of 33 to 24 of 33 on one change, and every root that moved was waiting on
+the same thing: a mask *list*.** `mask-t-from-*` and its eleven siblings are per-edge ramps that only
+mean anything combined, so none of them could be registered while `UiLayer` carried one mask —
+registering them would have emitted a `mask-composite` nothing read, which is what the consumption
+gate exists to catch. The list also closed `mask-*` itself, whose four `mask-composite` keywords had
+been the one `partial` in the category. What it cost is a storage buffer for the entries, because
+`ui-mask.frag`'s push constants were already at the 128 bytes Vulkan guarantees — see
+`docs/guide/ui/compositing.md`.
 
 ⚠ **Filters went from 1 of 20 to 8 of 20 in one change, and the seven that moved cost the frame
 nothing.** `brightness-*`, `contrast-*`, `grayscale-*`, `hue-rotate-*`, `invert-*`, `saturate-*` and

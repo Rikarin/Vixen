@@ -301,11 +301,39 @@ public sealed class UiCompositingTests {
         const float Inner = 0.5f;
         const float InnerBlur = 3f;
 
-        // ⚠ <b>A mask on the outer group, and it runs to nearly nothing at the far edge on purpose.</b>
-        // A mask that only dimmed the group slightly would be a difference the tolerance could
-        // absorb; a ramp with real dynamic range across the group's own box is what makes a
-        // disagreement about *where* the mask is resolved show up as pixels rather than as rounding.
-        Push(list, isolate, 8, 24, 112, 96, Outer, filter: OuterFilter, mask: Ramp(8, 24, 112, 96, 1f, 0.1f));
+        // ⚠ <b>A mask <i>list</i> on the outer group, of three entries, and every part of its shape
+        // is doing a job.</b> A single ramp with real dynamic range is what makes a disagreement
+        // about *where* the mask is resolved show up as pixels rather than as rounding — that much
+        // was already true. Three entries add the three things a list can get wrong and one mask
+        // cannot: an index into the storage buffer that is off by one, an operator read from the
+        // wrong entry, and a fold run in the wrong direction.
+        //
+        // ⚠ <b>The middle entry composites with <c>subtract</c>, and it is the only operator that
+        // could.</b> `add`, `intersect` and `exclude` are all symmetric in their two arguments, so a
+        // fold that walked the list top-down instead of bottom-up would produce the identical picture
+        // under any of them and this fixture would say the two executors agreed about an order
+        // neither had been asked to have. `subtract` is `s(1 - b)`, which is not `b(1 - s)`: with
+        // these three the reversed fold falls to under a fifth of the coverage over most of the box.
+        //
+        // ⚠ <b>And the arrangement keeps the group bright.</b> The `subtract` sits above the entry
+        // with the *smallest* coverage, so what it punches out is small and the composed ramp still
+        // runs from about a tenth to one across the group's box. A list that composed to nearly
+        // nothing would be a fixture whose pixels all agree because there is nothing left of them.
+        Push(
+            list,
+            isolate,
+            8,
+            24,
+            112,
+            96,
+            Outer,
+            filter: OuterFilter,
+            mask: [
+                Ramp(8, 24, 112, 96, 1f, 0.35f, MaskComposite.Intersect),
+                Ramp(8, 24, 112, 96, 1f, 0.45f, MaskComposite.Subtract) with { Axis = new Vector2(0f, 1f) },
+                Round(8, 24, 112, 96, 0.3f, 0f)
+            ]
+        );
 
         // ⚠ Two overlapping children of the outer group, and the overlap is the whole point: isolated,
         // they do not show through each other; faded separately, they do. Both rounded, so the pixels
@@ -338,7 +366,11 @@ public sealed class UiCompositingTests {
         //
         // ⚠ Radial rather than linear, so that the pair of masks in this fixture do not share a shape
         // — a `mask_progress` wired to one branch for every kind would otherwise draw both correctly.
-        Push(list, isolate, 44, 56, 72, 60, Inner, InnerBlur, InnerFilter, Round(44, 56, 72, 60, 1f, 0.15f));
+        //
+        // ⚠ One entry here and three on the outer group, deliberately: the one-entry path is the one
+        // every `mask-linear-*` in the engine takes, and a list implementation that only ever ran with
+        // several would leave it to be exercised by nothing.
+        Push(list, isolate, 44, 56, 72, 60, Inner, InnerBlur, InnerFilter, [Round(44, 56, 72, 60, 1f, 0.15f)]);
 
         // The nested group's own overlapping pair, offset from the outer one's so that the two
         // groups' ink is not the same rectangle — a surface sized from the wrong group's bounds
@@ -410,14 +442,18 @@ public sealed class UiCompositingTests {
         float alpha,
         float blur = 0f,
         UiColorMatrix? filter = null,
-        UiMask? mask = null
+        ReadOnlySpan<UiMask> mask = default
     ) {
         if (isolate) {
             list.Add(
                 new DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, alpha), 0, 0) {
                     Blur = blur,
                     Filter = filter,
-                    Mask = mask
+
+                    // ⚠ A range of the draw list's own side buffer, which is the only way a group can
+                    // carry a mask now that `mask-image` is a list. See `DrawList.Masks`.
+                    Offset = mask.Length > 0 ? list.AddMasks(mask) : 0,
+                    Length = mask.Length
                 }
             );
         }
@@ -431,7 +467,15 @@ public sealed class UiCompositingTests {
     ///     mask has to reach both of them from one place; whether <c>mask-image</c> resolves to this
     ///     mask is <c>MaskGradientTests</c>' question and is asked against pixels there.
     /// </remarks>
-    static UiMask Ramp(float x, float y, float width, float height, float from, float to) =>
+    static UiMask Ramp(
+        float x,
+        float y,
+        float width,
+        float height,
+        float from,
+        float to,
+        MaskComposite composite = MaskComposite.Add
+    ) =>
         new(
             new Vector2(x + (width / 2f), y + (height / 2f)),
             new Vector2(width / 2f, height / 2f),
@@ -440,7 +484,9 @@ public sealed class UiCompositingTests {
             GradientStops.Default,
             GradientShape.Linear,
             Via: false
-        );
+        ) {
+            Composite = composite
+        };
 
     /// <summary>A round ramp from the centre of a box outwards.</summary>
     static UiMask Round(float x, float y, float width, float height, float from, float to) =>

@@ -49,6 +49,7 @@ public sealed class UiGeometryBuilder {
     readonly List<uint> indices = [];
     readonly List<UiDraw> draws = [];
     readonly List<UiShape> shapes = [];
+    readonly List<UiMask> masks = [];
     readonly List<Rectangle> clips = [];
     readonly List<UiLayer> layers = [];
     readonly List<Opening> opening = [];
@@ -243,6 +244,7 @@ public sealed class UiGeometryBuilder {
         indices.Clear();
         draws.Clear();
         shapes.Clear();
+        masks.Clear();
         clips.Clear();
         layers.Clear();
         opening.Clear();
@@ -292,7 +294,7 @@ public sealed class UiGeometryBuilder {
             }
 
             if (batch.Kind == BatchKind.Layer) {
-                Layer(list.Commands[batch.First], clip, viewport);
+                Layer(list, list.Commands[batch.First], clip, viewport);
                 continue;
             }
 
@@ -365,7 +367,7 @@ public sealed class UiGeometryBuilder {
         opening.Clear();
 
         Trim();
-        return new UiGeometry(vertices, indices, draws, shapes) { Layers = layers };
+        return new UiGeometry(vertices, indices, draws, shapes) { Layers = layers, Masks = masks };
     }
 
     /// <summary>Opens or closes a composited group, and emits the quad that composites it.</summary>
@@ -396,10 +398,19 @@ public sealed class UiGeometryBuilder {
     ///         whole group against a scissor belonging to something within it.
     ///     </para>
     /// </remarks>
-    void Layer(in DrawCommand command, Rectangle clip, Rectangle viewport) {
+    void Layer(DrawList list, in DrawCommand command, Rectangle clip, Rectangle viewport) {
         if (command.Kind == DrawCommandKind.LayerPush) {
             opening.Add(
-                new Opening(draws.Count, vertices.Count, command.Color.A, clip, command.Blur, command.Filter, command.Mask)
+                new Opening(
+                    draws.Count,
+                    vertices.Count,
+                    command.Color.A,
+                    clip,
+                    command.Blur,
+                    command.Filter,
+                    command.Offset,
+                    command.HasMask ? command.Length : 0
+                )
             );
             return;
         }
@@ -454,25 +465,31 @@ public sealed class UiGeometryBuilder {
             // transparent — `UiColorMatrix.Apply` maps transparent black to transparent black.
             Filter = open.Filter,
 
-            // ⚠ <b>Carried un-outset for the colour matrix's reason and clipped for neither's.</b> A
-            // mask only ever *removes* coverage, so it can no more grow the ink than a matrix can —
-            // and it must not shrink the bounds either, however tempting that is on a ramp that
-            // reaches zero halfway across. The bounds are what both executors allocate and clear; a
-            // mask that narrowed them would be deciding the group's extent from a coverage the
-            // *composite* applies, which the surface's own contents know nothing about.
-            //
-            // ⚠ <b>Rebased onto the viewport's origin, which is the one thing about it that is not
-            // simply carried.</b> `DrawListBuilder` works in absolute document coordinates and knows
-            // nothing of the viewport; the composite quad's UV, twelve lines down, is deliberately
-            // *relative* to the viewport because the surface covers the viewport rather than the
-            // document. Both executors recover the mask's point as `uv × size`, so the box has to be
-            // in the same space that product lands in. Left absolute, a mask would sit correctly on
-            // every viewport whose origin is zero — which is every test and most frames — and slide
-            // by the origin on the ones where it is not.
-            Mask = open.Mask is { } shape
-                ? shape with { Centre = shape.Centre - new Vector2(viewport.X, viewport.Y) }
-                : null
+            // ⚠ The range is filled below rather than here, because the entries have to be rebased
+            // onto the viewport's origin on the way in and `masks.Count` is where they will land.
+            MaskFirst = masks.Count,
+            MaskCount = open.MaskCount
         };
+
+        // ⚠ <b>Copied into this frame's own buffer rather than pointing back into the draw list's,
+        // and the rebase is the reason it has to be a copy.</b> `DrawListBuilder` works in absolute
+        // document coordinates and knows nothing of the viewport; the composite quad's UV, a few
+        // lines up, is deliberately *relative* to the viewport because the surface covers the
+        // viewport rather than the document. Both executors recover a mask's point as `uv × size`, so
+        // every entry's box has to be in the space that product lands in. Left absolute, a mask would
+        // sit correctly on every viewport whose origin is zero — which is every test and most frames
+        // — and slide by the origin on the ones where it is not.
+        //
+        // ⚠ Un-outset for the colour matrix's reason and un-narrowed for neither's. A mask only ever
+        // *removes* coverage, so it can no more grow the ink than a matrix can — and it must not
+        // shrink the bounds either, however tempting that is on a ramp that reaches zero halfway
+        // across. The bounds are what both executors allocate and clear; a mask that narrowed them
+        // would be deciding the group's extent from a coverage the *composite* applies, which the
+        // surface's own contents know nothing about.
+        for (var entry = 0; entry < open.MaskCount; entry++) {
+            var shape = list.Masks[open.MaskFirst + entry];
+            masks.Add(shape with { Centre = shape.Centre - new Vector2(viewport.X, viewport.Y) });
+        }
 
         // ⚠ <b>Inserted in pre-order rather than appended, and the number is a counter rather than the
         // position.</b> Groups close innermost first, so appending would give post-order — and a
@@ -594,7 +611,8 @@ public sealed class UiGeometryBuilder {
         Rectangle Clip,
         float Blur,
         UiColorMatrix? Filter,
-        UiMask? Mask
+        int MaskFirst,
+        int MaskCount
     );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>

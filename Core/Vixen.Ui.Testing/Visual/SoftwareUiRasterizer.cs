@@ -146,7 +146,7 @@ public static class SoftwareUiRasterizer {
         GlyphAtlas atlas,
         Bounds clip,
         float[]? surface,
-        UiMask? mask
+        ReadOnlySpan<UiMask> masks
     ) {
         var area = Edge(a.Position, b.Position, c.Position);
 
@@ -223,7 +223,7 @@ public static class SoftwareUiRasterizer {
                     // draws nothing, because an image quad's `shape.x` is zero. That is the behaviour
                     // this renderer has always had for images and it is not being changed here.
                     BatchKind.Image when surface is not null =>
-                        Composite(surface, width, height, texture, colour, mask),
+                        Composite(surface, width, height, texture, colour, masks),
                     _ => Solid(colour, shape)
                 };
 
@@ -572,7 +572,14 @@ public static class SoftwareUiRasterizer {
     ///         transcription is otherwise literal.
     ///     </para>
     /// </remarks>
-    static Color4 Composite(float[] surface, int width, int height, Vector2 uv, Color4 tint, UiMask? mask) {
+    static Color4 Composite(
+        float[] surface,
+        int width,
+        int height,
+        Vector2 uv,
+        Color4 tint,
+        ReadOnlySpan<UiMask> masks
+    ) {
         var sampled = SampleSurface(surface, width, height, uv);
 
         // ⚠ <b>Here, at the composite, and <i>not</i> at the seam the blur and the colour matrix are
@@ -589,9 +596,13 @@ public static class SoftwareUiRasterizer {
         // pixel — the identical expression the shader evaluates. Taking the loop's `x` and `y`
         // instead would be right today and would stop being right the first time a composite quad
         // was not laid out one-to-one.
-        var coverage = mask is { } shape
-            ? Math.Clamp(shape.Coverage(new Vector2(uv.X * width, uv.Y * height)), 0f, 1f)
-            : 1f;
+        //
+        // ⚠ <b>And the fold over the list is <c>UiMask</c>'s own, not a loop written here.</b> The
+        // operators are not commutative, so two transcriptions of the same list could agree entry by
+        // entry and still disagree about the order they combine in — which is a class of divergence
+        // `UiCompositingTests` would report as a diff over the whole group with no obvious cause. One
+        // method, called by both executors, is what removes the possibility.
+        var coverage = UiMask.Coverage(masks, new Vector2(uv.X * width, uv.Y * height));
 
         // ⚠ <b>All four channels, because the sample is premultiplied.</b> Scaling coverage on
         // premultiplied colour is `(rgb·m, a·m)`; the `(rgb, a·m)` an ordinary straight-alpha image
@@ -667,17 +678,28 @@ public static class SoftwareUiRasterizer {
     sealed class Frame(UiGeometry geometry, GlyphAtlas atlas, int width, int height) {
         readonly Dictionary<ulong, float[]> surfaces = [];
 
-        /// <summary>Each composited group's mask, keyed the way its surface is.</summary>
+        /// <summary>Each composited group's mask list, as a range of <see cref="UiGeometry.Masks" />.</summary>
         /// <remarks>
         ///     ⚠ <b>A second dictionary beside <see cref="surfaces" /> rather than a pass beside
-        ///     <c>Blurred</c> and <c>Filtered</c>, and the shape is <c>UiRenderer.layerFilters</c>'
+        ///     <c>Blurred</c> and <c>Filtered</c>, and the shape is <c>UiRenderer.layerMasks</c>'
         ///     on purpose.</b> A mask cannot be folded into a surface — see <see cref="UiMask" /> —
         ///     so it has to survive until the composite draw reads it, which is precisely what
         ///     keying it by <c>UiLayer.Image</c> buys. The device does the same lookup in
         ///     <c>SubmitDraw</c>, so the two paths find the mask at the same moment as well as apply
         ///     it at the same moment.
+        ///     ⚠ A range and not the entries, because the entries are already contiguous in the
+        ///     geometry and copying them here would be a second copy for the two paths to disagree
+        ///     about.
         /// </remarks>
-        readonly Dictionary<ulong, UiMask> masks = [];
+        readonly Dictionary<ulong, (int First, int Count)> masks = [];
+
+        /// <summary>Every mask of the frame, flattened once so a composite can take a span of it.</summary>
+        /// <remarks>
+        ///     ⚠ <c>UiGeometry.Masks</c> is an <c>IReadOnlyList</c> and a fragment needs a
+        ///     <c>ReadOnlySpan</c>, so the copy happens once per frame here rather than once per
+        ///     <i>pixel</i> at the composite.
+        /// </remarks>
+        readonly UiMask[] entries = [.. geometry.Masks];
 
         int next;
 
@@ -734,8 +756,8 @@ public static class SoftwareUiRasterizer {
                     // ⚠ Recorded rather than applied, which is the whole of the difference between a
                     // mask and the two transforms above it. Nothing here may touch the surface with
                     // it: the composite draw is the seam, on this path and on the device's.
-                    if (layer.Mask is { } shape) {
-                        masks[layer.Image] = shape;
+                    if (layer.MaskCount > 0) {
+                        masks[layer.Image] = (layer.MaskFirst, layer.MaskCount);
                     }
 
                     // The composite draw sits immediately after the group's own draws and is an
@@ -905,9 +927,9 @@ public static class SoftwareUiRasterizer {
                 ? found
                 : null;
 
-            var mask = draw.Kind == BatchKind.Image && masks.TryGetValue(draw.Image, out var shape)
-                ? shape
-                : default(UiMask?);
+            var mask = draw.Kind == BatchKind.Image && masks.TryGetValue(draw.Image, out var range)
+                ? entries.AsSpan(range.First, range.Count)
+                : default;
 
             for (var i = draw.First; i + 2 < draw.First + draw.Count; i += 3) {
                 Triangle(

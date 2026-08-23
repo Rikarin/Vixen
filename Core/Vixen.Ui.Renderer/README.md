@@ -130,7 +130,7 @@ read from a neighbour. What it costs is one pipeline switch and forty-eight byte
 on a draw that was happening anyway.
 
 **No `Mask` is the same story with one extra trap.** It is the composite of a group whose
-`mask-image` fades it out, and without it the group composites through `Image` unmasked. `Masked` is
+`mask-image` list fades it out, and without it the group composites through `Image` unmasked. `Masked` is
 what says so. ⚠ The trap is that this stage carries the colour matrix *as well*: a pipeline is chosen
 once per draw, so a group with both a `filter` and a `mask-image` has to be served by one module that
 does both. A host that supplies `Mask` and not `Colour` therefore gets `grayscale` working on masked
@@ -138,10 +138,23 @@ elements and nowhere else, which is a stranger picture than either stage being a
 or neither.
 
 ⚠ **It costs no pass and no surface either**, on the colour matrix's terms. What it costs is a
-pipeline switch and a hundred and twelve bytes of push constant — the matrix's forty-eight plus the
-mask's sixty-four. That is what set the pipeline layout's fragment range, and 16 + 112 is 128, which
-is exactly what Vulkan guarantees. The next thing to want a push constant here has to share those
-bytes or move to the storage buffer.
+pipeline switch, forty-eight bytes of push constant for the matrix, and sixteen more naming a range
+of the mask storage buffer.
+
+⚠ **The mask entries are in a storage buffer rather than in push constants, and that is a ceiling
+reached rather than a design preference.** `mask-image` is a list — twelve of Tailwind's mask roots
+are per-edge ramps that only mean anything combined — and one entry is already sixty-four bytes. With
+the matrix's forty-eight that came to a hundred and twelve, which set the pipeline layout's fragment
+range, and 16 + 112 is exactly the 128 Vulkan guarantees on every device. A second entry could not
+have fitted, never mind eight. So the entries ride binding 2 of the shared descriptor set — the one
+`UiShape` already uses — and the draw pushes an index and a count.
+
+⚠ **That buffer has a fixed capacity and is allocated once, which is what keeps every image
+descriptor set valid.** A composite draw binds an *image* set, so that set's binding 2 is what
+`ui-mask.frag` reads its list through; a buffer that grew would be a new handle and every set in the
+ring would be pointing at freed memory on the frame it grew. It is sized for `MaskCapacity` entries
+per frame in flight and never replaced. A frame asking for more composites the groups past the line
+unmasked, which is the fail-open answer `DrawListBuilder` already gives an unreadable mask.
 
 ⚠ **`Vixen.Editor.Host` supplies `Image` and neither of the other two**, so the editor composites,
 does not blur, and does not filter. The obstacle is the same for both and it is push-constant layout

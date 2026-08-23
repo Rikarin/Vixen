@@ -127,7 +127,7 @@ public class MaskGradientTests {
 
         Assert.Equal(0f, layer.Blur);
         Assert.Equal(1f, layer.Alpha, 3);
-        Assert.NotNull(layer.Mask);
+        Assert.Equal(1, layer.MaskCount);
         Assert.Null(layer.Filter);
     }
 
@@ -166,13 +166,245 @@ public class MaskGradientTests {
         using var plain = Square("mask-image: linear-gradient(to right, #000000, transparent);");
         using var blurred = Square("mask-image: linear-gradient(to right, #000000, transparent);", "filter: blur(4px);");
 
-        var one = Assert.Single(plain.Geometry.Layers).Mask;
-        var two = Assert.Single(blurred.Geometry.Layers).Mask;
+        var one = Only(plain);
+        var two = Only(blurred);
 
-        Assert.NotNull(one);
-        Assert.NotNull(two);
-        Assert.Equal(one!.Value.Centre, two!.Value.Centre);
-        Assert.Equal(one.Value.Half, two.Value.Half);
+        Assert.Equal(one.Centre, two.Centre);
+        Assert.Equal(one.Half, two.Half);
+    }
+
+    /// <summary>The declaration a <c>mask-t-from-*</c> generates fades the element out at the top.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two levels of <c>var()</c> and six layers, which is what the whole edge-ramp
+    ///         arrangement rests on and what no other test here exercises.</b> The
+    ///         <c>mask-image</c> names three shape layers; the linear one resolves to four edge
+    ///         layers; each of those resolves to a gradient assembled from four stop fragments.
+    ///         <c>UtilityFamilyTests</c> proves the class emits this text and the ledger proves the
+    ///         text moves the draw list. Neither proves it fades the right edge.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The relation is chosen to fail for the neighbouring edge.</b> `mask-t-from-50%` is
+    ///         solid from the bottom up to the halfway mark and gone by the top — so a `to bottom`
+    ///         written where `to top` belongs, which is the mistake this direction invites, swaps the
+    ///         two readings rather than merely dimming them.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_declaration_a_top_edge_ramp_generates_fades_the_top_and_not_the_bottom() {
+        const string Opaque = "linear-gradient(#fff, #fff)";
+
+        const string Generated =
+            "--tw-mask-top-from-position: 50%; "
+            + "--tw-mask-top: linear-gradient(to top, "
+            + "var(--tw-mask-top-from, black) var(--tw-mask-top-from-position, 0%), "
+            + "var(--tw-mask-top-to, transparent) var(--tw-mask-top-to-position, 100%)); "
+            + "--tw-mask-linear: var(--tw-mask-top, " + Opaque + "), var(--tw-mask-right, " + Opaque + "), "
+            + "var(--tw-mask-bottom, " + Opaque + "), var(--tw-mask-left, " + Opaque + "); "
+            + "mask-image: var(--tw-mask-linear, " + Opaque + "), var(--tw-mask-radial, " + Opaque + "), "
+            + "var(--tw-mask-conic, " + Opaque + "); "
+            + "mask-composite: intersect;";
+
+        using var ui = Square(Generated);
+        var full = Unmasked();
+
+        // Six layers in, one out: the three unset edges and the radial and conic slots are all opaque
+        // and all intersected, so every one of them is `Reduce`'s first rule.
+        var layer = Assert.Single(ui.Geometry.Layers);
+
+        Assert.Equal(1, layer.MaskCount);
+
+        // The square runs from y 10 to 30, so 29 is its bottom row and 11 is one in from its top.
+        // `to top` measures from the bottom, and the near stop sits at half way — so everything below
+        // the middle is untouched and the fade is entirely in the top half. ⚠ The reading at the
+        // *centre* is the one that says which half: a `to bottom` written where `to top` belongs
+        // still darkens one end and still ramps, and it puts the centre at full on the other side.
+        Assert.True(Blue(ui, 20, 29) > full - 2, $"the bottom stays: {Blue(ui, 20, 29)} of {full}");
+        Assert.True(Blue(ui, 20, 20) > full - 2, $"and so does the middle: {Blue(ui, 20, 20)} of {full}");
+        Assert.True(Blue(ui, 20, 11) < full * 0.20, $"and the top nearly goes: {Blue(ui, 20, 11)} of {full}");
+        Assert.True(
+            Blue(ui, 20, 11) < Blue(ui, 20, 15) && Blue(ui, 20, 15) < Blue(ui, 20, 20),
+            $"with a ramp between them: {Blue(ui, 20, 11)}, {Blue(ui, 20, 15)}, {Blue(ui, 20, 20)}"
+        );
+    }
+
+    // ── The list ────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Two gradients in one <c>mask-image</c> are two entries, in the order written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Topmost first, exactly as written, because that is CSS's order for every
+    ///     comma-separated <c>mask-*</c> and for <c>background-image</c> before it.</b> The fold that
+    ///     turns the range into one coverage runs the other way — see <c>UiMask.Coverage</c> — and
+    ///     reversing the entries here instead would put the reversal somewhere the two executors could
+    ///     disagree about.
+    /// </remarks>
+    [Fact]
+    public void Two_gradients_in_one_declaration_are_two_entries_in_the_order_written() {
+        using var ui = Square(
+            "mask-image: linear-gradient(to right, #000000, transparent), radial-gradient(#000000, transparent);"
+        );
+
+        var layer = Assert.Single(ui.Geometry.Layers);
+
+        Assert.Equal(2, layer.MaskCount);
+        Assert.Equal(GradientShape.Linear, ui.Geometry.Masks[layer.MaskFirst].Shape);
+        Assert.Equal(GradientShape.Radial, ui.Geometry.Masks[layer.MaskFirst + 1].Shape);
+    }
+
+    /// <summary>An absent <c>mask-composite</c> is <c>add</c>, which is CSS's initial value.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The default is the part of this feature most likely to be wrong, because the two
+    ///     plausible answers both look reasonable.</b> Tailwind writes <c>intersect</c> on every mask
+    ///     utility it emits, so a reader who learned the property from generated CSS would call that
+    ///     the default; CSS Masking 1 § 5.4 says <c>add</c>. The difference is visible on any list
+    ///     whose layers disagree: <c>add</c> unions them, so a pixel either ramp covers is covered.
+    /// </remarks>
+    [Fact]
+    public void A_list_with_no_composite_unions_its_layers() {
+        using var ui = Square(
+            "mask-image: linear-gradient(to right, #000000, transparent), linear-gradient(to left, #000000, transparent);"
+        );
+
+        var layer = Assert.Single(ui.Geometry.Layers);
+
+        Assert.Equal(2, layer.MaskCount);
+        Assert.All(
+            Enumerable.Range(layer.MaskFirst, layer.MaskCount),
+            index => Assert.Equal(MaskComposite.Add, ui.Geometry.Masks[index].Composite)
+        );
+
+        // ⚠ The two ramps are opposites, so their union is opaque at both ends and dips only in the
+        // middle — where each is at half. `intersect` would do the reverse of that, which is the next
+        // test. A relation that only said "the pixels changed" would pass for either.
+        var full = Unmasked();
+
+        Assert.True(Blue(ui, Near, 20) > full * 0.9, $"the left end stays: {Blue(ui, Near, 20)} of {full}");
+        Assert.True(Blue(ui, Far, 20) > full * 0.9, $"and so does the right: {Blue(ui, Far, 20)} of {full}");
+        Assert.True(Blue(ui, 20, 20) < full * 0.85, $"and the middle dips: {Blue(ui, 20, 20)} of {full}");
+    }
+
+    /// <summary><c>mask-composite: intersect</c> multiplies the layers instead of unioning them.</summary>
+    /// <remarks>
+    ///     ⚠ The same two ramps as the test above and the opposite picture, which is the relation that
+    ///     matters: an implementation that read the property and applied the wrong operator would move
+    ///     the pixels in <i>both</i> tests and pass a pair of "something changed" assertions.
+    /// </remarks>
+    [Fact]
+    public void Intersect_multiplies_the_layers_where_add_unions_them() {
+        const string Ramps =
+            "mask-image: linear-gradient(to right, #000000, transparent), linear-gradient(to left, #000000, transparent);";
+
+        using var united = Square(Ramps);
+        using var crossed = Square(Ramps + " mask-composite: intersect;");
+
+        var layer = Assert.Single(crossed.Geometry.Layers);
+
+        Assert.Equal(2, layer.MaskCount);
+        Assert.All(
+            Enumerable.Range(layer.MaskFirst, layer.MaskCount),
+            index => Assert.Equal(MaskComposite.Intersect, crossed.Geometry.Masks[index].Composite)
+        );
+
+        var full = Unmasked();
+
+        Assert.True(Blue(crossed, Near, 20) < full * 0.2, $"the left end goes: {Blue(crossed, Near, 20)} of {full}");
+        Assert.True(Blue(crossed, Far, 20) < full * 0.2, $"and so does the right: {Blue(crossed, Far, 20)} of {full}");
+        Assert.True(
+            Blue(crossed, 20, 20) > Blue(crossed, Near, 20),
+            $"and the middle survives: {Blue(crossed, 20, 20)} against {Blue(crossed, Near, 20)}"
+        );
+
+        // And the two are not the same picture, at the ends where the operators most disagree.
+        Assert.True(
+            Blue(united, Near, 20) > Blue(crossed, Near, 20) * 3,
+            $"add against intersect: {Blue(united, Near, 20)} against {Blue(crossed, Near, 20)}"
+        );
+    }
+
+    /// <summary><c>subtract</c> is the one operator that is not symmetric, so the order is asserted.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three of the four operators commute and this one does not, which makes it the only
+    ///     thing that can pin the fold's direction.</b> <c>s(1 - b)</c> is not <c>b(1 - s)</c>, so a
+    ///     fold that walked the list top-down would produce a picture that is bright where this one is
+    ///     dark. The two ramps here run in opposite directions so that the asymmetry lands on the two
+    ///     ends rather than cancelling in the middle.
+    /// </remarks>
+    [Fact]
+    public void Subtract_reads_the_sources_operator_and_folds_from_the_bottom() {
+        using var ui = Square(
+            "mask-image: linear-gradient(to right, #000000, transparent), linear-gradient(to left, #000000, transparent); "
+            + "mask-composite: subtract;"
+        );
+
+        var full = Unmasked();
+
+        // The top layer fades to the right and the bottom one to the left, so `s(1 - b)` is one times
+        // (one minus nothing) at the left edge and nothing times (one minus one) at the right. Fold it
+        // the other way and the bright end is the right one.
+        Assert.True(Blue(ui, Near, 20) > full * 0.85, $"bright at the left: {Blue(ui, Near, 20)} of {full}");
+        Assert.True(Blue(ui, Far, 20) < full * 0.15, $"and gone at the right: {Blue(ui, Far, 20)} of {full}");
+    }
+
+    /// <summary>A layer that is opaque under <c>intersect</c> is dropped before the group is decided.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is what lets the utility layer emit Tailwind's shape at all.</b> Every
+    ///     <c>mask-*</c> class writes the same three-layer <c>mask-image</c> with the slots nobody
+    ///     filled resolving to an opaque gradient, so the common case arrives here as three layers of
+    ///     which two say nothing. Left in, they would cost two more entries in the storage buffer and
+    ///     two more evaluations per pixel of every masked group in the interface — and the all-opaque
+    ///     case would open a viewport-sized surface to composite a picture identical to the one that
+    ///     needed none.
+    /// </remarks>
+    [Fact]
+    public void An_opaque_intersected_layer_is_dropped_and_an_all_opaque_list_opens_no_group() {
+        using var one = Square(
+            "mask-image: linear-gradient(to right, #000000, transparent), linear-gradient(#ffffff, #ffffff); "
+            + "mask-composite: intersect;"
+        );
+
+        var layer = Assert.Single(one.Geometry.Layers);
+
+        Assert.Equal(1, layer.MaskCount);
+        Assert.Equal(GradientShape.Linear, one.Geometry.Masks[layer.MaskFirst].Shape);
+
+        using var none = Square(
+            "mask-image: linear-gradient(#ffffff, #ffffff), linear-gradient(#ffffff, #ffffff); "
+            + "mask-composite: intersect;"
+        );
+
+        Assert.Empty(none.Geometry.Layers);
+    }
+
+    /// <summary>One unreadable layer refuses the whole list rather than the layer.</summary>
+    /// <remarks>
+    ///     Dropping just the bad layer changes the arithmetic of every operator around it — a missing
+    ///     <c>subtract</c> leaves the thing it was meant to punch out — so a partly-resolved list is a
+    ///     mask that is confidently wrong. ⚠ And the whole declaration failing <i>open</i> rather than
+    ///     closed is Masking 1 § 4.1: a mask that cannot be resolved is ignored, because a mask that
+    ///     erased the element would be indistinguishable from a layout collapse.
+    /// </remarks>
+    [Fact]
+    public void One_unreadable_layer_leaves_the_element_unmasked() {
+        using var ui = Square(
+            "mask-image: linear-gradient(to right, #000000, transparent), url(nothing.png);"
+        );
+
+        Assert.Empty(ui.Geometry.Layers);
+        Assert.Equal(Unmasked(), Blue(ui, 20, 20));
+    }
+
+    /// <summary>The one mask of a fixture that is expected to have exactly one.</summary>
+    /// <remarks>
+    ///     ⚠ The count is asserted rather than indexed past, because a list that grew an unexpected
+    ///     entry — an opaque layer <c>DrawListBuilder.Reduce</c> should have dropped, say — would
+    ///     otherwise be read as its first entry and the test would go on passing.
+    /// </remarks>
+    static UiMask Only(UiTest probe) {
+        var layer = Assert.Single(probe.Geometry.Layers);
+
+        Assert.Equal(1, layer.MaskCount);
+
+        return probe.Geometry.Masks[layer.MaskFirst];
     }
 
     /// <summary>A mask that is opaque everywhere opens no group.</summary>
@@ -410,7 +642,7 @@ public class MaskGradientTests {
 
         var layer = Assert.Single(ui.Geometry.Layers);
 
-        Assert.NotNull(layer.Mask);
+        Assert.Equal(1, layer.MaskCount);
         Assert.NotNull(layer.Filter);
 
         var near = At(ui, 11, 20);
@@ -445,14 +677,23 @@ public class MaskGradientTests {
     public void The_declaration_the_utilities_generate_fades_the_element_downwards() {
         const string Generated =
             "--tw-mask-from-position: 50%; "
-            + "mask-image: linear-gradient(var(--tw-mask-linear-angle, 180deg), "
+            + "--tw-mask-linear: linear-gradient(var(--tw-mask-linear-angle, 180deg), "
             + "var(--tw-mask-from, black) var(--tw-mask-from-position, 0%), "
-            + "var(--tw-mask-to, transparent) var(--tw-mask-to-position, 100%));";
+            + "var(--tw-mask-to, transparent) var(--tw-mask-to-position, 100%)); "
+            + "mask-image: var(--tw-mask-linear, linear-gradient(#fff, #fff)), "
+            + "var(--tw-mask-radial, linear-gradient(#fff, #fff)), "
+            + "var(--tw-mask-conic, linear-gradient(#fff, #fff)); "
+            + "mask-composite: intersect;";
 
         using var ui = Square(Generated);
         var full = Unmasked();
 
-        Assert.NotNull(Assert.Single(ui.Geometry.Layers).Mask);
+        // ⚠ One entry and not three, which is the second claim this test makes now. The generated
+        // `mask-image` always names all three shape layers and this class fills one of them; the
+        // other two resolve to their opaque fallback, which `DrawListBuilder.Reduce` drops because
+        // they are opaque and intersected. A three here would mean the reduction stopped working and
+        // every masked group in the interface had grown two dead entries and two evaluations a pixel.
+        Assert.Equal(1, Assert.Single(ui.Geometry.Layers).MaskCount);
 
         // 180deg is `to bottom`, and the first stop sits at half way — so the top half is untouched
         // and the bottom fades to nothing.

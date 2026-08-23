@@ -267,7 +267,19 @@ sealed class GradientReader {
     /// </remarks>
     const int MostStops = 3;
 
+    /// <summary>The most layers a <c>mask-image</c> list may have.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Six is what the utility layer can generate and eight is what is allowed, and the gap
+    ///     is deliberate.</b> Tailwind's widest mask is four edge ramps under <c>--tw-mask-linear</c>
+    ///     plus a radial and a conic, which is six; a hand-written <c>.vcss</c> may reasonably want
+    ///     one or two more. Past that the list is refused outright rather than truncated, because
+    ///     truncation would silently drop the layers at one end and the picture would be a mask that
+    ///     nearly works — the failure mode <see cref="GradientRefusal" /> exists to avoid.
+    /// </remarks>
+    public const int MostLayers = 8;
+
     readonly Dictionary<int, BackgroundGradient> cache = [];
+    readonly Dictionary<int, BackgroundGradient[]> layerCache = [];
     readonly NameTable values;
     readonly StyleValueParser parser;
 
@@ -294,6 +306,69 @@ sealed class GradientReader {
         cache[value] = parsed;
 
         return parsed;
+    }
+
+    /// <summary>Reads an interned <c>mask-image</c> value as the list of layers it is.</summary>
+    /// <param name="value">Its id.</param>
+    /// <returns>
+    ///     One entry per layer, topmost first, each of which may be a refusal. Empty when the value
+    ///     is <c>none</c>, when it is blank, or when it has more than <see cref="MostLayers" />
+    ///     layers.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same <see cref="Parse" /> per layer, which is what keeps a one-layer list and
+    ///         a bare <c>mask-image</c> the same picture.</b> A second parser tuned for lists would be
+    ///         a second set of refusals to keep in step with this one, and the layer syntax is not a
+    ///         different production — it is this production, several times, separated by commas.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The split is at depth zero, so the commas <i>inside</i> a gradient's own argument
+    ///         list are not layer separators.</b> <c>linear-gradient(black, transparent)</c> is one
+    ///         layer with two stops and not two layers of nonsense, and a naive
+    ///         <c>text.Split(',')</c> here would turn every existing single-layer mask in the engine
+    ///         into a list of unparseable fragments.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<BackgroundGradient> ReadLayers(int value) {
+        if (layerCache.TryGetValue(value, out var cached)) {
+            return cached;
+        }
+
+        var parsed = ParseLayers(values.NameOf(value).AsSpan());
+        layerCache[value] = parsed;
+
+        return parsed;
+    }
+
+    /// <summary>Reads <c>mask-image</c> text as the list of layers it is.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>One entry per layer, topmost first.</returns>
+    public BackgroundGradient[] ParseLayers(ReadOnlySpan<char> text) {
+        text = text.Trim();
+
+        if (text.IsEmpty || text.Equals("none", StringComparison.OrdinalIgnoreCase)) {
+            return [];
+        }
+
+        // ⚠ One slot more than the ceiling, so that a list *at* the ceiling and a list past it can be
+        // told apart. `SplitCommas` stops when it runs out of room and says nothing about what it
+        // dropped, so a span sized exactly to the ceiling would report a nine-layer value as a legal
+        // eight-layer one and mask by the wrong eight.
+        Span<Range> parts = stackalloc Range[MostLayers + 1];
+        var count = SplitCommas(text, parts);
+
+        if (count == 0 || count > MostLayers) {
+            return [];
+        }
+
+        var layers = new BackgroundGradient[count];
+
+        for (var i = 0; i < count; i++) {
+            layers[i] = Parse(text[parts[i]]);
+        }
+
+        return layers;
     }
 
     /// <summary>Reads <c>background-image</c> text.</summary>
