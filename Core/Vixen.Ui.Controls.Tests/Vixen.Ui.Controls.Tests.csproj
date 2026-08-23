@@ -27,6 +27,18 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
                           LogicalName="Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf" />
+
+        <!--
+            ⚠ A second face, and the only reason it is here is that `font-style` cannot be measured
+            with one. The slant decides *which face of a family draws*, so a fixture registering one
+            face at both slants renders the same pixels either way and would pass with the property
+            unread. No italic font is committed anywhere in this repository and Vixen does not
+            synthesise a slant — see `FontRegistry.Slanted` — so the second face is a different font
+            rather than a leaning one, which is exactly as much as the question needs. Linked, like
+            the one above.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\NotoSerifKannada-Regular.ttf"
+                          LogicalName="Vixen.Ui.Controls.Tests.Fonts.NotoSerifKannada-Regular.ttf" />
     </ItemGroup>
 
     <ItemGroup>

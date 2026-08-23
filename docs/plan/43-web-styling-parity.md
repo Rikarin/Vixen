@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **140** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **142** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **41** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **142** |
+| **absent** | not emitted at all | **138** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -391,7 +391,7 @@ refusal block, which already says so for the same reason.
 | Layout | 49 | 22 | 8 | 0 | 15 | 3 | 1 |
 | Interactivity | 39 | 20 | 1 | 1 | 17 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
-| Typography | 34 | 9 | 4 | 0 | 21 | 0 | 0 |
+| Typography | 34 | 11 | 6 | 0 | 17 | 0 | 0 |
 | Borders | 34 | 15 | 5 | 0 | 14 | 0 | 0 |
 | Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
@@ -2622,6 +2622,183 @@ success measure is `{ "float", 84, 0, 0 }`.
 
 ---
 
+## Part 10 — The twenty-one absent `Typography` roots, triaged
+
+⚠ **Typography was the largest remaining absent cluster — 21 of its 34 roots — and it is not one
+feature either.** Triaged the way Part 9 triaged Layout, and the split came out the same shape and
+in different proportions: **four roots were nothing but a missing family**, three are already
+refused with a measurement behind them, and the remaining fourteen divide into *blocked on a
+refusal this document already made* and *waiting for an algorithm nobody has written*. The costs
+below are the deliverable; the four registrations are the small part.
+
+⚠ **Every keyword was checked against the reader by hand, and that is not thoroughness for its own
+sake.** `UtilityConsumptionGateTests`' verdict is per **property** and unions over every value a
+family emits, so one live keyword makes the whole family green — which is exactly how `visibility`
+came to ship a `collapse` that parsed as the `box-shadow: inset` shape and painted normally, under a
+gate that was green because `hidden` moved paint. Six of these roots are multi-keyword, and the
+keyword most likely to be dead is the rare one no theme writes: the one the union hides. So each
+keyword below was measured on its own through `UtilityConsumptionProbe.Channels(property, value)`,
+and the results are stated per keyword rather than per family.
+
+### Bucket 1 — the reader already existed. `font-style`, `overflow-wrap`, `text-wrap`. ✅ **Closed.**
+
+⚠ **Part 9's most expensive way for this table to be wrong, three more times: `absent` meant "nobody
+can spell it".** Every one of these three properties has a finished consumer, and two of them have a
+*complete* one:
+
+- **`font-style`** — `UiDocument.FontStyleOf` reads it, `font-style` is in `InheritedProperties`, and
+  `FontRegistry.Slanted` implements CSS Fonts 4 § 5.2's italic → oblique → upright search in full.
+  `italic` and `not-italic` are registered and the root measures `works`.
+- **`overflow-wrap`** — `UiDocument.WrapModeOf` maps `anywhere` and `break-word` onto
+  `TextWrapMode.Anywhere`, which `LineWrapper` applies at a **grapheme** boundary. `wrap-anywhere`,
+  `wrap-break-word`, `wrap-normal` and `break-words` are registered; the root measures `works`.
+- **`text-wrap`** — this one needed one line of engine. CSS Text 4 § 4 redefines `white-space` as a
+  shorthand over a collapsing half and a wrapping half, and the wrapping half is precisely the third
+  of `white-space` that `UiDocument.WrapsOf` was already answering. It now reads both, and either
+  saying `nowrap` stops the wrapping — a choice, not the specification, because this cascade inherits
+  *specified* values and does not expand the shorthand, so there is no declaration order to appeal to.
+
+⚠ **Two of the three measured inert with the reader present, and the scenes were the reason both
+times — the eighth and ninth instances of the lesson `UtilityConsumptionProbe` has now recorded
+seven times.**
+
+- **`font-style` had nothing to match.** `FontRegistry.Slanted`'s last resort is an upright, so a
+  family with no italic variant resolves `italic` to its upright — correctly, and invisibly. The
+  probe registered two weights of one face and no slant, so the property moved no channel with a
+  finished reader *and* a finished matcher behind it. `Typeset` registers a third face now, exactly
+  as it registers a second weight and for the same stated reason.
+- **`overflow-wrap` had no long word.** `LineWrapper` consults the mode in one branch — "nothing
+  fits: one unbreakable run is wider than the whole line" — and all fourteen scenes shared a label
+  whose longest word is two characters, so the branch never ran in any of them. It is not a narrow
+  box that was missing: `tiny`'s is two pixels. The `overlong` scene is what gave the gate eyes.
+
+⚠ **And the gate could not have caught what a pixel test caught.** "The draw list changed" is
+satisfied by a break placed inside a surrogate pair, by a word broken when it did not need to be, and
+by a line that still runs off the edge after being told not to. `TextWrappingPixelTests` and
+`FontSlantPixelTests` assert relations chosen to fail for the *neighbouring* case, on the software
+rasteriser's output — the method A19's overline needed.
+
+**Three deliberate non-registrations inside this bucket, each of which would have been a class that
+resolves and does nothing:**
+
+- ⚠ **`text-balance` and `text-pretty`.** Both are values of a property that is now read, so they
+  would cascade, compute, reach `WrapsOf`, fall through to "wraps", and produce byte-identically the
+  lines the default produces. **No per-property gate can see that** — the property passes — which is
+  the `collapse` shape again, and the root is `partial` rather than `works` because of it. Both ask
+  for a better *choice* of breaks and `LineWrapper` is greedy first-fit by an argued decision;
+  `The_better_break_keywords_are_indistinguishable_from_the_default` is what would have to start
+  failing before either class is worth having.
+- ⚠ **`break-normal`'s second half.** v4 emits `overflow-wrap: normal; word-break: normal`. The
+  second is the initial value of a property nothing reads — a no-op twice over — so the family emits
+  the first alone and the row carries the value gap. Registered rather than skipped because the half
+  that is there is a real opt-out: `overflow-wrap` inherits, so it is how a child escapes a
+  `break-words` on its container, and `wrap-normal` is the same declaration under v4's spelling.
+- **`anywhere` and `break-word` are one behaviour here, and both are registered anyway.** CSS Sizing
+  § 5.2 separates them only by their min-content contribution, and `Vixen.Ui.Layout` has no stage
+  that consults it. Asserted as one behaviour in a test rather than left as an unstated deviation,
+  so the day the layout grows that stage something fails and says where the claim was written down.
+
+### Bucket 2 — blocked on F6, which this document already refused. `list-*`, `list-image-*`, `list-style-position`, `placeholder-*`. ⛔ **Refused, and not independently.**
+
+⚠ **All four want a box that does not exist, and F6 is why it does not.** A list marker is generated
+content — CSS puts it in a `::marker` box — and a placeholder is styled through `::placeholder`.
+`SelectorCompiler` refuses pseudo-element selectors outright, and refused them *for a reason*: a
+compiled `::before` used to style the originating element, so `p::before { color: red }` turned the
+paragraph red.
+
+So `list-style-type` would compute a keyword with nowhere to draw it; `list-style-image` needs that
+same absent box *and* `background-image`'s painter aimed at it; `list-style-position` describes where
+the box sits relative to the line box. And `placeholder-*` has no element to match even if the
+selector compiled: `TextField.Placeholder` is a C# property the control draws itself, not a child in
+the tree. **None of these four is worth costing separately** — three of them are one generated-content
+box behind `list-*`, and the fourth is F6. A `--placeholder-color` custom property the control read
+would work, and would not be the class Tailwind means.
+
+### Bucket 3 — the plumbing is done and the algorithm is not. `word-break`, `tab-*`, `indent-*`, `hyphens`, `line-clamp-*`. 🟡 **Sized, not started.**
+
+⚠ **Sized rather than started, and the reason to say so precisely is that four of the five look one
+line away from a fix and are not.**
+
+- **`word-break` is not `overflow-wrap` under another name**, which is the mistake that would close
+  it cheaply and wrongly. `TextWrapMode.Anywhere` is consulted in the "nothing fits" branch and that
+  is what CSS Text 3 § 5.5 says `overflow-wrap` means. `break-all` makes every grapheme a break
+  opportunity, so a word that *would* have fitted on the next line is still split at the end of this
+  one; `break-keep` suppresses the opportunities UAX#14 finds between CJK characters. Two new
+  `TextWrapMode` values and two changes to `LineBreaker.Collect`'s opportunity list. The mode already
+  threads from `WrapModeOf` through `UiElement.Block`'s cache key, so the plumbing is genuinely done.
+  ⚠ Registering `break-all` alone would give `wrap-anywhere`'s declaration a second spelling that
+  lies, so this closes as a pair or not at all.
+- **`tab-*`** — nothing segments a paragraph on U+0009. HarfBuzz maps a tab to whatever the face's
+  cmap says and `LineWrapper` measures that advance, so a tab is a *glyph* here and `tab-size` has no
+  stop to size. Closing it is a pass between shaping and wrapping that resets the pen to the next
+  multiple of the size, in `UiElement.Wrap` where the per-character advances are already assembled.
+- **`indent-*`** — one of Part 0's seven interned-but-unread properties, and *not* a missing reader.
+  `LineWrapper.Wrap` takes one `maxAdvance` for the whole paragraph, so a first-line indent needs it
+  to take two widths and `TextLine` to carry a leading offset the draw list and the hit test both
+  honour. ⚠ `CaretIndexAt` has to learn it in the same change, or the caret lands a character out on
+  the first line only.
+- **`hyphens`** — `LineBreaker` already offers a break at a hyphen that is *there*; LB21a is written
+  out in it. `auto` **inserts** one, which needs a per-language pattern set (Liang/TeX, tens of
+  kilobytes a language) and a language to choose it with — and `TextShaper` deliberately leaves
+  HarfBuzz's language unset so that shaping does not depend on the machine's locale, so the input is
+  missing as well as the algorithm. `manual` is the smaller half (honour U+00AD as an opportunity
+  that costs a glyph) and is still a wrapper change.
+- **`line-clamp-*`** — unchanged from F5's split, and re-measured rather than re-asserted. Two of its
+  four declarations are a box model Vixen does not have: `display: -webkit-box` is not a value
+  `LayoutStyleBuilder.Display` knows and `-webkit-box-orient` is interned by nobody.
+
+### Bucket 4 — one missing input, shared. `font-features-*`, `font-variant-numeric`. 🟡 **Sized, and they are one item.**
+
+⚠ **The blocker is one argument in one call**: `TextShaper.ShapeRun` ends
+`font.Shaper.Shape(buffer, [])`, and the feature array is empty because nothing plumbs one. Every
+keyword of `font-variant-numeric` is one or two OpenType features — `tnum`, `pnum`, `onum`, `lnum`,
+`zero`, `ordn`, `frac` — so it is `font-features-*` under a friendlier name, and HarfBuzz does the
+work for both the moment the array is filled.
+
+What the change actually costs: a `Feature[]` resolved from the computed style, threaded through
+`UiElement.Block` into that call, and **`ShapingCache`'s key**, which is the font and the string
+today — so a feature set would silently share an entry with the untouched text, which is the failure
+that would ship. ⚠ `font-features-*` additionally cannot be *spelled* right now: `UtilityParser`
+decides the arbitrary value before `SplitName` is consulted, so `font-features-[normal]` parses to
+the unregistered name `font-features`. **Closing these two separately would be two routes to the same
+missing plumbing.**
+
+### Bucket 5 — no channel to point a reader at. `font-smoothing`, `scheme`. ⛔ **Refused.**
+
+- **`font-smoothing`** — glyphs are rasterised into a distance field and antialiased by the shader
+  from it. There is no coverage-versus-LCD switch anywhere in `Vixen.Ui.Text.Rasterizing` and no
+  subpixel filter at all, so `antialiased` and `subpixel-antialiased` are the same picture *by
+  construction* rather than by omission. Closing it is an RGB-decimated raster path and a second
+  sampler in both executors — a rendering feature, and a very small one to want.
+- **`scheme`** — ⚠ **and this is Bucket 2 of Part 9 in its purest form.** `color-scheme` tells a
+  *user agent* which schemes an element's UA-rendered widgets, scrollbars and canvas support. Every
+  control in Vixen is drawn by the engine from CSS somebody wrote, so there is no UA rendering for
+  the property to govern. What `dark:` asks is `prefers-color-scheme`, a media *feature*, which
+  `MediaQuery` has read since F11. Part 8 lists `scheme-*` under "costs less than arguing about it";
+  that was written before anyone asked what it would do, and the answer is nothing.
+
+### The three already refused, re-measured rather than taken on trust
+
+`font-stretch-*`, `text-shadow-*` and `content-none` were refused earlier with a measurement behind
+each. All three were re-measured through the probe on this pass and all three still move no channel
+at any value a utility can give them — `font-stretch` at both `50%` and `condensed`, which is the
+pair a keyword table would hide. Their rows are unchanged.
+
+### `text-transform` stays split off, and the reason is unchanged
+
+A19 records it and nothing here weakens it: `straße` uppercases to `STRASSE` and `ﬁne` to `FINE`, so
+a case mapping changes the UTF-16 **length**, and `TextRun.Start`, `CaretOffset`, `CaretIndexAt`,
+`TextLine.Start`/`Length`, `Ellipsized` and `TextField`'s selection are every one of them indices
+into the element's own string. The deliverable is the index mapping; the four classes are the easy
+part, and shipping them first would put the caret in the wrong place on an editable field, silently.
+
+**Net: Typography moves 21 absent → 17, and 9 works → 11.** Two roots became `partial` rather than
+`works` — `text` because two of its four keywords are deliberately unregistered, `break-normal`
+because it emits one of Tailwind's two declarations — and both are recorded as value gaps rather
+than rounded up.
+
+---
+
 ## Exit criteria (measured)
 
 1. **Every one of the 328 roots is `works`, or carries an open task number, or is one of the four
@@ -2630,7 +2807,7 @@ success measure is `{ "float", 84, 0, 0 }`.
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
    rather than `CheckArchitecture`, for the reason Part 5 gives, and "acts on" rather than "interns"
    for the reason Part 0 measured at seven properties. Today: **5 properties, 5 allow-listed** out of
-   131 emitted, with 107 acted on and 19 composed — and the allow-list expires on its condition.
+   171 emitted, with 118 acted on and 48 composed — and the allow-list expires on its condition.
 3. **`UtilityFamilySupportTests` has a row per root, resolved against a real element**, and its
    `Inert` table is empty or every entry names its task. It is the only artefact in this survey built
    by resolving elements rather than by reading source, and it is where a finding goes to become a

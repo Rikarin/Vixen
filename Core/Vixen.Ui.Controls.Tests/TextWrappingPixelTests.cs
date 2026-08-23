@@ -1,0 +1,289 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Reflection;
+using Vixen.Core.Imaging;
+using Vixen.Ui.Testing;
+using Vixen.Ui.Text;
+using Xunit;
+
+namespace Vixen.Ui.Controls.Tests;
+
+/// <summary><c>overflow-wrap</c> and <c>text-wrap</c>, as the pixels the software rasteriser produced.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>These are the tests the consumption gate cannot be, and the argument is
+///         <c>TextDecorationPixelTests</c>' one word for word.</b> That gate's verdict is "the draw
+///         list changed", and re-wrapping a paragraph changes it whatever the new lines are. It would
+///         pass on a break placed in the middle of a surrogate pair, on a word broken when it did not
+///         need to be, and on a line that still runs off the right-hand edge after being told not to.
+///     </para>
+///     <para>
+///         ⚠ <b>Every relation here is chosen to fail for the <i>neighbouring</i> case rather than
+///         only for no declaration at all.</b> Breaking must both add a row band and pull the right
+///         edge back inside the box — either alone is satisfied by something that is not wrapping.
+///         And each opt-out is asserted against an <i>inherited</i> declaration rather than against
+///         nothing, because that is the only situation in which it can do anything: <c>wrap-normal</c>
+///         and <c>break-normal</c> emit CSS's initial value, so on a bare element they are correctly
+///         indistinguishable from silence, and a test that wrote one on its own would be asserting
+///         that the default is the default.
+///     </para>
+///     <para>
+///         ⚠ <b>The word has no break opportunity in it, and that is what the feature is about.</b>
+///         UAX#14 offers nothing between a run of Latin letters' first character and its last, so
+///         <c>LineWrapper</c> reaches its "nothing fits" branch — the one and only place
+///         <c>TextWrapMode.Anywhere</c> is consulted. A word with a hyphen or a space in it would
+///         wrap identically with the property and without it, and every assertion below would hold
+///         against an engine that had never heard of <c>overflow-wrap</c>.
+///     </para>
+/// </remarks>
+public class TextWrappingPixelTests {
+    /// <summary>One word, no space, no hyphen, no break opportunity anywhere inside it.</summary>
+    const string Unbroken = "Wmilqjagwmilqjag";
+
+    /// <summary>Four words, so that ordinary wrapping has somewhere to happen.</summary>
+    const string Words = "Ag jq Wm il";
+
+    const int BoxLeft = 20;
+    const int BoxWidth = 120;
+
+    static readonly FontFace Font = LoadFont();
+
+    /// <summary>Where the glyphs landed in one frame.</summary>
+    /// <param name="Bands">How many separated groups of rows hold a glyph pixel. One band is one line.</param>
+    /// <param name="Right">The rightmost column holding one, or -1.</param>
+    /// <param name="Count">How many glyph pixels there were, which says the text was drawn at all.</param>
+    readonly record struct Marks(int Bands, int Right, int Count) {
+        public bool Any => Count > 0;
+    }
+
+    static FontFace LoadFont() {
+        using var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
+            ?? throw new InvalidOperationException("the test font is not embedded");
+
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+
+        return FontFace.Load(memory.ToArray(), name: "TestShapeLana");
+    }
+
+    /// <summary>White text on black in a box narrower than the word, under two nested declarations.</summary>
+    /// <param name="text">What to draw.</param>
+    /// <param name="outer">Declarations on the box, which the text element inherits.</param>
+    /// <param name="inner">Declarations on the text element itself.</param>
+    /// <remarks>
+    ///     ⚠ <b>Two elements rather than one, because half of what is under test is the
+    ///     inheritance.</b> <c>overflow-wrap</c> and <c>text-wrap</c> are both in
+    ///     <c>InheritedProperties</c>, and the class is written on a row whose text is in a child
+    ///     essentially always — a <c>.vxml</c> interpolation emits its text as a child element. A
+    ///     one-element fixture would pass with the inheritance removed.
+    ///     <para>
+    ///         The box does not clip. An overflowing line has to stay visible for its right edge to
+    ///         be measurable at all, and <c>overflow: hidden</c> here would make "it wrapped" and "it
+    ///         was cut off" the same picture.
+    ///     </para>
+    /// </remarks>
+    static Marks Render(string text, string outer, string inner) {
+        using var ui = UiTest.Create(320f, 200f);
+        ui.Document.Fonts.Register("Test", Font);
+
+        ui.Load(
+            $$"""
+            root  { width: 320px; height: 200px; background-color: #000000; }
+            .box  { position: absolute; left: {{BoxLeft}}px; top: 16px; width: {{BoxWidth}}px;
+                    font-family: Test; font-size: 28px; color: #ffffff; {{outer}} }
+            .text { {{inner}} }
+            """
+        );
+
+        var box = ui.Create("div", null, "box", "box");
+        ui.Create("span", box, "text", "text").Text = text;
+        ui.Frame();
+
+        return Scan(ui.Capture());
+    }
+
+    /// <summary>Counts the row bands the glyphs occupy and finds their right-hand edge.</summary>
+    /// <remarks>
+    ///     A band is a maximal run of consecutive rows holding a lit pixel, so two lines with a gap
+    ///     between them count as two and one taller line counts as one. That is the measurement that
+    ///     tells wrapping from a larger font, and it is why the row set is walked rather than only
+    ///     its extent — an assertion on the extent alone would pass for text that simply got taller.
+    /// </remarks>
+    static Marks Scan(Bitmap image) {
+        var rows = new HashSet<int>();
+        var right = -1;
+        var count = 0;
+
+        for (var y = 0; y < image.Height; y++) {
+            for (var x = 0; x < image.Width; x++) {
+                // Anything appreciably lighter than the black ground is a glyph: the text is the only
+                // thing drawn, and it is antialiased, so almost no pixel is pure white.
+                if (image.Pixels[image.Offset(x, y)] < 24) {
+                    continue;
+                }
+
+                rows.Add(y);
+                right = Math.Max(right, x);
+                count++;
+            }
+        }
+
+        var bands = 0;
+
+        foreach (var y in rows.Order()) {
+            if (!rows.Contains(y - 1)) {
+                bands++;
+            }
+        }
+
+        return new Marks(bands, right, count);
+    }
+
+    /// <summary>The font draws the letters this file measures.</summary>
+    /// <remarks>
+    ///     ⚠ The guard <c>TextDecorationPixelTests</c> keeps for the same reason. A shared test font
+    ///     that lacked these characters would shape them to <c>.notdef</c> — a visible box, which is
+    ///     still a lit pixel — and every relation below would hold against a row of tofu. A
+    ///     <c>Fact</c> rather than an assertion inside <see cref="Render" />, so that its failure says
+    ///     what is wrong instead of failing six tests obscurely.
+    /// </remarks>
+    [Fact]
+    public void The_font_draws_the_letters_this_file_measures() {
+        foreach (var letter in (Unbroken + Words).Distinct().Where(c => c != ' ')) {
+            Assert.True(Font.Supports(letter), $"the test font has no glyph for '{letter}'");
+        }
+    }
+
+    /// <summary>Left alone, an unbreakable word runs off the end of its box.</summary>
+    /// <remarks>
+    ///     The baseline every other test here is a departure from, and it is also the CSS default
+    ///     being asserted rather than assumed: <c>overflow-wrap: normal</c> means "let it overflow",
+    ///     and if the word already fitted or already wrapped there would be nothing for the property
+    ///     to change and the whole file would be measuring noise.
+    /// </remarks>
+    [Fact]
+    public void An_unbreakable_word_overflows_its_box_by_default() {
+        var marks = Render(Unbroken, string.Empty, string.Empty);
+
+        Assert.True(marks.Any, "the word was not drawn at all");
+        Assert.Equal(1, marks.Bands);
+        Assert.True(
+            marks.Right > BoxLeft + BoxWidth,
+            $"the word ends at x={marks.Right}, inside a box that ends at {BoxLeft + BoxWidth} — "
+            + "it fits, so nothing below is measuring wrapping"
+        );
+    }
+
+    /// <summary>Both spellings break the word inside the box, and both do the same thing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two assertions and not one.</b> More row bands alone would pass for text that grew;
+    ///     a right edge inside the box alone would pass for text that was clipped or that vanished.
+    ///     Together they are wrapping.
+    /// </remarks>
+    [Theory]
+    [InlineData("overflow-wrap: break-word")]
+    [InlineData("overflow-wrap: anywhere")]
+    public void Breaking_pulls_the_word_inside_the_box_and_onto_a_second_line(string declaration) {
+        var marks = Render(Unbroken, declaration, string.Empty);
+
+        Assert.True(marks.Any, "the word was not drawn at all");
+        Assert.True(marks.Bands >= 2, $"the word stayed on {marks.Bands} line(s)");
+        Assert.True(
+            marks.Right <= BoxLeft + BoxWidth,
+            $"the word still ends at x={marks.Right}, past the box's {BoxLeft + BoxWidth}"
+        );
+    }
+
+    /// <summary><c>anywhere</c> and <c>break-word</c> produce the same picture here.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stated deviation asserted, not a gap left implicit.</b> CSS Sizing § 5.2 separates
+    ///     the two keywords only by their min-content contribution — <c>anywhere</c> lets the
+    ///     intrinsic minimum shrink to one grapheme and <c>break-word</c> does not — and
+    ///     <c>Vixen.Ui.Layout</c> has no intrinsic-minimum stage that consults either. So they are one
+    ///     behaviour, both utilities are registered on purpose, and this is the record of it: if the
+    ///     layout ever grows that stage, this test fails and says where the claim was written down.
+    /// </remarks>
+    [Fact]
+    public void The_two_breaking_keywords_are_one_behaviour_in_this_engine() =>
+        Assert.Equal(
+            Render(Unbroken, "overflow-wrap: break-word", string.Empty),
+            Render(Unbroken, "overflow-wrap: anywhere", string.Empty)
+        );
+
+    /// <summary><c>normal</c> on the text escapes a breaking rule on its container.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What <c>wrap-normal</c> and <c>break-normal</c> are for, and the only arrangement in
+    ///     which either does anything at all.</b> Both emit CSS's initial value, so written on a bare
+    ///     element they are correctly indistinguishable from writing nothing — which is exactly how
+    ///     the consumption gate measures them, and would be the whole story if the property did not
+    ///     inherit. It does, so this is a real opt-out and not a no-op with a name: the same argument
+    ///     <c>text-clip</c> earns its place with.
+    /// </remarks>
+    [Fact]
+    public void Normal_on_the_text_escapes_a_breaking_container() {
+        var inherited = Render(Unbroken, "overflow-wrap: break-word", string.Empty);
+        var escaped = Render(Unbroken, "overflow-wrap: break-word", "overflow-wrap: normal");
+
+        Assert.True(inherited.Bands >= 2, "the container's rule did not reach the text");
+        Assert.Equal(1, escaped.Bands);
+        Assert.True(
+            escaped.Right > BoxLeft + BoxWidth,
+            $"the text ends at x={escaped.Right} and did not escape back to overflowing"
+        );
+    }
+
+    /// <summary><c>text-wrap: nowrap</c> keeps wrappable text on one line.</summary>
+    /// <remarks>
+    ///     CSS Text 4 § 4 makes this the half of <c>white-space</c> that decides wrapping, and
+    ///     <c>UiDocument.WrapsOf</c> reads it beside <c>white-space</c>. Asserted on text that has
+    ///     break opportunities in it and does wrap without the declaration, or the test would hold
+    ///     against an engine that ignored the property.
+    /// </remarks>
+    [Fact]
+    public void Nowrap_keeps_wrappable_text_on_one_line() {
+        var wrapped = Render(Words, string.Empty, string.Empty);
+        var held = Render(Words, "text-wrap: nowrap", string.Empty);
+
+        Assert.True(wrapped.Bands >= 2, $"the text did not wrap to begin with ({wrapped.Bands} band)");
+        Assert.Equal(1, held.Bands);
+        Assert.True(
+            held.Right > BoxLeft + BoxWidth,
+            $"the line ends at x={held.Right}, so it was not held past the box's {BoxLeft + BoxWidth}"
+        );
+    }
+
+    /// <summary><c>text-wrap: wrap</c> on the text escapes a <c>nowrap</c> on its container.</summary>
+    /// <remarks>
+    ///     The opt-out half, and the reason <c>text-wrap</c> is registered as a class rather than only
+    ///     <c>text-nowrap</c>. Same shape as <see cref="Normal_on_the_text_escapes_a_breaking_container" />
+    ///     and for the same reason: the property inherits.
+    /// </remarks>
+    [Fact]
+    public void Wrap_on_the_text_escapes_a_nowrap_container() {
+        var held = Render(Words, "text-wrap: nowrap", string.Empty);
+        var escaped = Render(Words, "text-wrap: nowrap", "text-wrap: wrap");
+
+        Assert.Equal(1, held.Bands);
+        Assert.True(escaped.Bands >= 2, $"the text stayed on {escaped.Bands} line(s)");
+    }
+
+    /// <summary><c>balance</c> and <c>pretty</c> change nothing, which is why no class emits them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The refusal, measured and kept.</b> <c>LineWrapper</c> is greedy first-fit by an
+    ///     argued decision, so both values reach <c>WrapsOf</c>, fall through to "wraps", and produce
+    ///     exactly the lines <c>text-wrap: wrap</c> produces. Registering <c>text-balance</c> and
+    ///     <c>text-pretty</c> would be two classes that resolve, compute, and differ from the default
+    ///     in name only — and the consumption gate could not have caught it, because the property is
+    ///     read. This is what would have to start failing before either class is worth having.
+    /// </remarks>
+    [Theory]
+    [InlineData("balance")]
+    [InlineData("pretty")]
+    public void The_better_break_keywords_are_indistinguishable_from_the_default(string keyword) =>
+        Assert.Equal(
+            Render(Words, string.Empty, string.Empty),
+            Render(Words, $"text-wrap: {keyword}", string.Empty)
+        );
+}

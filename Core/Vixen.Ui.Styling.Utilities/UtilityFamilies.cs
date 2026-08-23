@@ -557,6 +557,55 @@ public static class UtilityFamilies {
             ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap"
         });
 
+        // ⚠ <b>The slant, and it is registered here rather than being another value of `font`
+        // because v4 spells it as two bare words.</b> `italic` and `not-italic` are `font-style`;
+        // `font-*` is the weight scale. A `font-italic` family would be this project inventing a
+        // class name, which is the failure `bg-conic-<angle>` is recorded under.
+        //
+        // ⚠ <b>The reader was already here and only the family was missing, which is the opposite of
+        // this table's usual gap and worth saying so nobody looks for the engine work.</b>
+        // `UiDocument.FontStyleOf` reads the property, `font-style` is in `InheritedProperties`, and
+        // `FontRegistry.Slanted` implements CSS Fonts 4 § 5.2's slant matching in full — italic, then
+        // oblique, then upright. So `italic` picks the italic face of the family when one is
+        // registered and honestly falls back to the upright when none is, exactly as `font-bold`
+        // does for a family with no bold. What is *not* on offer is a synthesised slant: Vixen does
+        // not shear an upright face, and `FontRegistry.Slanted`'s own remark says so.
+        Static("italic", "font-style", "italic");
+        Static("not-italic", "font-style", "normal");
+
+        // ── Wrapping ────────────────────────────────────────────────────────────────────────
+        // ⚠ <b>`overflow-wrap` and not `word-break`, and the two are not interchangeable however
+        // similar the class names look.</b> `UiDocument.WrapModeOf` reads `overflow-wrap` and maps
+        // `anywhere` and `break-word` onto `TextWrapMode.Anywhere`, which `LineWrapper` applies at a
+        // *grapheme* boundary when one unbreakable run is wider than the whole line. That is what
+        // CSS Text 3 § 5.5 says both keywords mean. `word-break: break-all` means something else —
+        // every character is a break opportunity, so a word that would have fitted on the next line
+        // is still split at the end of this one — and nothing reads that property. Registering
+        // `break-all` here would give the same declaration two spellings, one of which is a lie.
+        //
+        // ⚠ <b>Vixen does not distinguish `anywhere` from `break-word`, and both are registered
+        // anyway.</b> CSS Sizing § 5.2 separates them only by their min-content contribution:
+        // `anywhere` lets the intrinsic minimum shrink to one grapheme and `break-word` does not.
+        // `Vixen.Ui.Layout` has no intrinsic-minimum stage that consults either, so the two are one
+        // behaviour here — a stated deviation rather than a missing keyword, and the same shape as
+        // `WrapsOf` answering one of `white-space`'s three questions.
+        Keywords("wrap", "overflow-wrap", new() {
+            ["anywhere"] = "anywhere", ["break-word"] = "break-word", ["normal"] = "normal"
+        });
+
+        // v3's spelling of `wrap-break-word`, which v4 keeps. The same declaration under the name
+        // people have in their fingers, exactly as `start-*` is kept beside `inset-s-*`.
+        Static("break-words", "overflow-wrap", "break-word");
+
+        // ⚠ <b>Tailwind's `break-normal` is two declarations and this is one, and the missing half is
+        // deliberate.</b> v4 emits `overflow-wrap: normal; word-break: normal`. The second is the
+        // initial value of a property nothing in this engine reads, so emitting it would add an
+        // inert property to the gate's ledger and buy a class exactly nothing — a no-op twice over.
+        // The half that is here is not a no-op: `overflow-wrap` inherits, so this is how a child
+        // escapes a `break-words` its container asked for, which is the same argument `text-clip`
+        // earns its place with. When `word-break` gains a reader, the other half belongs here.
+        Static("break-normal", "overflow-wrap", "normal");
+
         // The two halves of `text-overflow` under the prefix v4 gives them. Registered as a second
         // keyword table on `text` rather than as a family of its own, for the reason the type's
         // remarks give: `text-ellipsis` has to be the family `text` with the value `ellipsis`, or the
@@ -568,6 +617,22 @@ public static class UtilityFamilies {
         // container asked for, and there is no other way to write that.
         Keywords("text", "text-overflow", new() {
             ["ellipsis"] = "ellipsis", ["clip"] = "clip"
+        });
+
+        // ⚠ <b>Two of this root's four, and the two that are absent are absent on purpose.</b>
+        // `text-wrap` is CSS Text 4's half of `white-space`, and `UiDocument.WrapsOf` reads it beside
+        // `white-space` — so `text-nowrap` genuinely stops the wrapping and `text-wrap` is the
+        // inherited opt-out from it, the same shape as `text-clip`.
+        //
+        // `text-balance` and `text-pretty` are not registered and must not be. Both ask for a better
+        // *choice* of breaks rather than for breaking to stop: balance minimises the raggedness of
+        // the whole paragraph and pretty forbids a one-word last line. `LineWrapper` is greedy
+        // first-fit by an argued decision — see its remarks — so both would resolve, compute, reach
+        // `WrapsOf`, fall through to "wraps", and produce exactly the lines `text-wrap` produces. Two
+        // classes that differ from the default in name only is the inert family this table's gate
+        // exists to keep out, and it would be invisible to that gate: the property is read.
+        Keywords("text", "text-wrap", new() {
+            ["wrap"] = "wrap", ["nowrap"] = "nowrap"
         });
 
         Keywords("align", "vertical-align", new() {
