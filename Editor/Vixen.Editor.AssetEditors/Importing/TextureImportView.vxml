@@ -1,0 +1,356 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 5, and the panel the ledger nominated as "the direct `<Tabs>`/`<TabItem>` +
+    `<ImportSettingsView>` case those two features were built for". It is: the two tabs, the settings
+    view and the sprite editor are four tags, and what they replace is `Part<Tabs>()`, two
+    `AddTab(…).Panel` locals and six `Add<T>()` calls whose only job was to say where things go.
+
+    ⚠ **The four facts are one snapshot record in one signal, and that is not tidiness — a fact per
+    signal is a stale-binding bug waiting.** "Ships as" is a function of `document.Texture.MaxSize`,
+    which is a plain mutable settings object that no signal watches; the panel finds out it moved
+    because `ImportSettingsView` raises `ValueChanged` and `Refresh` runs. Written as four bindings
+    over four dependencies, the "Ships as" binding would depend on the document and the decoded
+    source — neither of which changes when a *setting* does — and it would go on showing the old
+    format while "Levels" and "Total" beside it updated. One record written by `Refresh` is the
+    wave-1b `PrefabBanner` idiom, and it makes that whole class of mistake unstateable here.
+
+    ⚠ **The ladder keys on the level and *not* on whether it is selected.** A `TextureMipLevel` is an
+    immutable record struct whose value is its identity, which is the `@for` rule for immutable data;
+    the selection is the one thing about a row that changes without the row changing, so it reaches
+    the screen through a binding inside the body — which is exactly what a surviving key leaves
+    running. Putting the selection in the key would have worked and would have torn down and rebuilt
+    two rows on every arrow press for nothing.
+
+    ⚠ **The channel bar is a loop over four constants, and the toggles no longer write each other.**
+    The C# kept a `List<ToggleButton>` so that `SetChannel` could restate all four from the value —
+    "so a caller setting the channels in code and a user pressing a button leave the bar in the same
+    state", which is right and is what a binding *is*. `IsChecked="@Shown(entry.Channel)"` is that
+    sentence, and `change:IsChecked` is the other direction; the list, the loop and `ChannelOf`'s
+    label lookup all go. The write-back cannot loop, because a change made while effects are draining
+    is not reported.
+
+    ⚠ **The alert keeps its last words when it is hidden, so the message is a signal and not a
+    projection.** On a file that decodes, the panel adds `hidden` and writes no message — a whole-tree
+    dump shows `.hidden` over whatever reason was last given — so "what does it say" is a fact about
+    the past. Two signals, written by exactly the paths that used to write the two properties.
+
+    ⚠ **`Levels`, `Channels`, `MipLevel` and `Source` are read back synchronously by callers**, and
+    all four still are: they read a signal's value, which is what a signal write does immediately.
+    What is deferred is only the tree, which is the ledger's shape 3 read the right way round.
+
+    ⚠ **Three one-line element types for the ladder cells**, the ledger's shape 5;
+    `TextureImportView.cs` holds them. `FactName`/`FactValue` are the assembly's, in `Captions.cs`.
+-->
+@component TextureImportView
+@namespace Vixen.Editor.AssetEditors.Importing
+@inherits Vixen.Ui.Controls.Control
+@tag texture-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Core.Imaging
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<!--
+    ⚠ Two tabs over one document, not two documents. The sprite editor edits the same `.meta` the
+    settings do — a slice is rects written into the texture's import settings — so it shares this
+    document's undo stack and its dirty flag rather than opening a second one. `AssetEditorRegistry`'s
+    own rule: two documents over one file are two undo histories over one set of bytes, and whichever
+    saves last wins.
+-->
+<Tabs ref="@Tabs">
+    <TabItem Label="Texture">
+        <Image ref="@Preview" Description="The texture's source pixels" class="texture-preview" />
+
+        <Alert ref="@Undecodable"
+               class="@UndecodableClass"
+               Title="No preview"
+               Message="@UndecodableMessage" />
+
+        <texture-channels>
+            @for (var entry in ChannelButtons) {
+                <ToggleButton key="@entry"
+                              Label="@entry.Label"
+                              IsChecked="@Shown(entry.Channel)"
+                              change:IsChecked="@(on => SetChannel(entry.Channel, on))" />
+            }
+        </texture-channels>
+
+        <texture-facts ref="@Facts">
+            @if (Numbers is not null) {
+                <fact-row>
+                    <FactName Text="Source" />
+                    <FactValue Text="@SourceFact" />
+                </fact-row>
+
+                <fact-row>
+                    <FactName Text="Ships as" />
+                    <FactValue Text="@ShipsAsFact" />
+                </fact-row>
+
+                <fact-row>
+                    <FactName Text="Levels" />
+                    <FactValue Text="@LevelsFact" />
+                </fact-row>
+
+                <fact-row>
+                    <FactName Text="Total" />
+                    <FactValue Text="@TotalFact" />
+                </fact-row>
+            }
+        </texture-facts>
+
+        <texture-ladder ref="@Ladder">
+            @for (var level in Rungs) {
+                <ladder-row key="@level" class="@RungClass(level)">
+                    <LadderLevel Text="@Number(level.Level)" />
+                    <LadderExtent Text="@($"{level.Width}×{level.Height}")" />
+                    <LadderBytes Text="@Measure(level.Bytes)" />
+                </ladder-row>
+            }
+        </texture-ladder>
+
+        <ImportSettingsView ref="@SettingsView" />
+    </TabItem>
+
+    <TabItem Label="Sprites">
+        <SpriteSheetView ref="@Sprites" />
+    </TabItem>
+</Tabs>
+
+@code {
+    /// <summary>The texture being edited.</summary>
+    readonly Signal<TextureImportDocument?> document = new(null);
+
+    /// <summary>Its decoded source pixels, or <see langword="null" /> if nothing could decode it.</summary>
+    readonly Signal<TextureData?> decoded = new(null);
+
+    /// <summary>The four numbers at the top, as one value.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One record and not four signals.</b> See the file header: three of the four are
+    ///     functions of the <i>settings</i>, which are a plain mutable object no signal watches, so
+    ///     four independent bindings would have four different ideas about when to re-run and three
+    ///     of them would be wrong. <see langword="null" /> until the first <see cref="Refresh" />,
+    ///     which is what keeps the block empty before a document arrives.
+    /// </remarks>
+    readonly Signal<TextureFacts?> numbers = new(null);
+
+    /// <summary>The ladder the current settings produce.</summary>
+    readonly Signal<ImmutableArray<TextureMipLevel>> levels = new([]);
+
+    /// <summary>Which level the viewer is asking for.</summary>
+    readonly Signal<int> mip = new(0);
+
+    /// <summary>Which channels it is asking for.</summary>
+    readonly Signal<TextureChannels> channels = new(TextureChannels.All);
+
+    /// <summary>Why the file has no preview, or empty.</summary>
+    /// <inheritdoc cref="numbers" />
+    readonly Signal<string> reason = new(string.Empty);
+
+    /// <summary>Whether the alert is out of the way.</summary>
+    /// <remarks>
+    ///     ⚠ Separate from <see cref="reason" /> because a hidden alert keeps its last message —
+    ///     the panel this replaces added <c>hidden</c> and wrote no message on the decoding path.
+    /// </remarks>
+    readonly Signal<bool> quiet = new(true);
+
+    bool listening;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Where the pixels are drawn once something has uploaded them.</summary>
+    public Image Preview { get; private set; } = null!;
+
+    /// <summary>What the file is, in numbers: extent, format, and what it will ship as.</summary>
+    public UiElement Facts { get; private set; } = null!;
+
+    /// <summary>The mip ladder, one row a level.</summary>
+    public UiElement Ladder { get; private set; } = null!;
+
+    /// <summary>Shown when the file has no decoder in this build, or would not decode.</summary>
+    public Alert Undecodable { get; private set; } = null!;
+
+    /// <summary>The settings, the overrides and the addressable block.</summary>
+    public ImportSettingsView SettingsView { get; private set; } = null!;
+
+    /// <summary>The two halves of a texture: what it ships as, and what is cut out of it.</summary>
+    public Tabs Tabs { get; private set; } = null!;
+
+    /// <summary>The sprite editor, over this same document.</summary>
+    public SpriteSheetView Sprites { get; private set; } = null!;
+
+    /// <summary>The decoded source, or <see langword="null" /> if nothing could decode it.</summary>
+    public TextureData? Source => decoded.Value;
+
+    /// <summary>Which channels the viewer is asking for.</summary>
+    public TextureChannels Channels => channels.Value;
+
+    /// <summary>Which mip level the viewer is asking for.</summary>
+    public int MipLevel => mip.Value;
+
+    /// <summary>The ladder the current settings produce.</summary>
+    public IReadOnlyList<TextureMipLevel> Levels => levels.Value;
+
+    /// <summary>Raised when the channels or the level change, for whatever is uploading the picture.</summary>
+    public event Action<TextureImportView>? ViewChanged;
+
+    /// <summary>Shows a texture.</summary>
+    /// <param name="texture">The document.</param>
+    public void Show(TextureImportDocument texture) {
+        ArgumentNullException.ThrowIfNull(texture);
+
+        document.Value = texture;
+        decoded.Value = TextureLadder.TryDecode(texture.AssetPath, out var why);
+
+        if (why is not null) {
+            reason.Value = why;
+        }
+
+        quiet.Value = why is null;
+
+        SettingsView.Show(texture);
+        Sprites.Show(texture);
+
+        // Every settings edit moves the ladder — a size limit, a format, mips on or off — so the one
+        // event the inspector already raises is what keeps the numbers honest, rather than the panel
+        // polling or the document growing a second change signal.
+        //
+        // ⚠ Subscribed once per view rather than once per Show, because a view shown twice would
+        // otherwise recompute the ladder twice per keystroke, and three times the time after that.
+        if (!listening) {
+            listening = true;
+            SettingsView.Settings.ValueChanged += (_, _) => Refresh();
+        }
+
+        Refresh();
+    }
+
+    /// <summary>Turns a channel on or off.</summary>
+    /// <param name="channel">Which one.</param>
+    /// <param name="shown">Whether to show it.</param>
+    /// <remarks>
+    ///     ⚠ <b>The buttons follow the value rather than the press</b>, so a caller setting the
+    ///     channels in code and a user pressing a button leave the bar in the same state. That was a
+    ///     loop over a kept list of toggles and is now the <c>IsChecked</c> binding, which is the
+    ///     same sentence said once.
+    /// </remarks>
+    public void SetChannel(TextureChannels channel, bool shown) {
+        var updated = shown ? Channels | channel : Channels & ~channel;
+
+        if (updated == Channels) {
+            return;
+        }
+
+        channels.Value = updated;
+
+        ViewChanged?.Invoke(this);
+    }
+
+    /// <summary>Shows a different level of the chain.</summary>
+    /// <param name="level">Which one, clamped to what the ladder has.</param>
+    public void SetMipLevel(int level) {
+        var clamped = Math.Clamp(level, 0, Math.Max(Levels.Count - 1, 0));
+
+        if (clamped == MipLevel) {
+            return;
+        }
+
+        mip.Value = clamped;
+
+        ViewChanged?.Invoke(this);
+    }
+
+    /// <summary>Recomputes the ladder and the facts from the settings as they stand.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Levels" /> and <see cref="MipLevel" /> are right when this returns</b>,
+    ///     because reading a signal's value is what a write to it does immediately; the rows and the
+    ///     numbers are drawn on the next flush, which is `EffectScheduler`'s contract (ADR-007).
+    /// </remarks>
+    public void Refresh() {
+        if (document.Value is not { } texture) {
+            return;
+        }
+
+        var width = decoded.Value?.Width ?? 0;
+        var height = decoded.Value?.Height ?? 0;
+
+        levels.Value = [.. TextureLadder.Build(width, height, texture.Texture)];
+        mip.Value = Math.Clamp(mip.Value, 0, Math.Max(levels.Value.Length - 1, 0));
+
+        var shipped = TextureLadder.Resolve(texture.Texture);
+        var (shippedWidth, shippedHeight) = TextureLadder.Fit(width, height, texture.Texture.MaxSize);
+
+        numbers.Value = new TextureFacts(
+            decoded.Value is null ? "not decoded" : $"{width}×{height} {decoded.Value.Format}",
+            $"{shippedWidth}×{shippedHeight} {shipped}",
+            Number(levels.Value.Length),
+            Measure(TextureLadder.TotalBytes(levels.Value))
+        );
+    }
+
+    // ================================================================== What the markup reads
+
+    /// <inheritdoc cref="numbers" />
+    TextureFacts? Numbers => numbers.Value;
+
+    string SourceFact => Numbers?.Source ?? string.Empty;
+
+    string ShipsAsFact => Numbers?.ShipsAs ?? string.Empty;
+
+    string LevelsFact => Numbers?.Levels ?? string.Empty;
+
+    string TotalFact => Numbers?.Total ?? string.Empty;
+
+    /// <inheritdoc cref="reason" />
+    string UndecodableMessage => reason.Value;
+
+    /// <inheritdoc cref="quiet" />
+    string UndecodableClass => quiet.Value ? "hidden" : string.Empty;
+
+    /// <summary>The ladder's rows, which are the levels themselves.</summary>
+    /// <remarks>
+    ///     ⚠ A <see cref="TextureMipLevel" /> is a readonly record struct, so its value is its
+    ///     identity and it is the key. The selection is not in it on purpose — see the file header.
+    /// </remarks>
+    ImmutableArray<TextureMipLevel> Rungs => levels.Value;
+
+    /// <summary>Whether a rung is the one being previewed.</summary>
+    string RungClass(TextureMipLevel level) => level.Level == mip.Value ? "selected" : string.Empty;
+
+    /// <summary>Whether a channel is being shown.</summary>
+    bool Shown(TextureChannels channel) => (Channels & channel) != 0;
+
+    /// <summary>The four buttons, which are four constants and never change.</summary>
+    /// <remarks>
+    ///     ⚠ Static, so the key of every row is the same object across every rebuild. Written as a
+    ///     loop rather than as four tags because the four differ in two characters and agreeing with
+    ///     each other is the whole of what they have to do — the C# it replaces had a <c>Channel</c>
+    ///     helper saying exactly that.
+    /// </remarks>
+    static ImmutableArray<ChannelButton> ChannelButtons { get; } = [
+        new("R", TextureChannels.Red),
+        new("G", TextureChannels.Green),
+        new("B", TextureChannels.Blue),
+        new("A", TextureChannels.Alpha)
+    ];
+
+    static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>A byte count as something a person reads.</summary>
+    /// <param name="bytes">How many.</param>
+    /// <returns>The text.</returns>
+    /// <remarks>
+    ///     Binary units, because what this is counting is memory a device has to find rather than
+    ///     bytes going down a wire.
+    /// </remarks>
+    internal static string Measure(long bytes) => bytes switch {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => (bytes / 1024d).ToString("0.#", CultureInfo.InvariantCulture) + " KiB",
+        _ => (bytes / (1024d * 1024d)).ToString("0.##", CultureInfo.InvariantCulture) + " MiB"
+    };
+}

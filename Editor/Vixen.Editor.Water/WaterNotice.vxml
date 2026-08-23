@@ -1,0 +1,42 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 5. Why the last gesture did not do anything, where the person who tried it is
+    looking.
+
+    ⚠ **In the panel rather than a log line.** "I drew a lake and nothing appeared" has exactly two
+    causes — an unsaved scene and a write that failed — and both are recoverable in one action. A
+    message in a log the author is not reading is the same as no message, which is doc 20's first bar.
+
+    ⚠ **An `@if` over the message's length rather than over a nullable, and the reason is the
+    surviving-region rule.** An arm's identity is its predicate; "is there a message" is the whole of
+    what the arm depends on, and the message itself reaches the screen through the interpolation
+    inside it, which re-runs while the arm survives. Written as `@if (Message is { } shown)` the arm
+    would be correct for the first refusal and would keep showing it for every later one.
+-->
+@component WaterNotice
+@namespace Vixen.Editor.Water
+@inherits Vixen.Ui.UiElement
+@tag water-notice
+@using Vixen.Ui
+@using Vixen.Ui.Reactive
+
+@if (Message.Length > 0) {
+    <water-refusal>@Message</water-refusal>
+}
+
+@code {
+    readonly Signal<string> message = new(string.Empty);
+
+    /// <summary>What it says, or empty for nothing at all.</summary>
+    public string Notice {
+        get => message.Value;
+        set => message.Value = value ?? string.Empty;
+    }
+
+    /// <summary>Takes the message away.</summary>
+    public void Clear() => message.Value = string.Empty;
+
+    string Message => message.Value;
+}

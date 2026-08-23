@@ -20,5 +20,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
+
+        <!--
+            `UiTest`, for `FactBlockTests` — the shared part's port is asserted by dumping the whole
+            document's rectangles for the hand-written loop and for the part and comparing the two
+            strings, which is what the wave-3 and wave-4 ports were accepted on.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
 </Project>

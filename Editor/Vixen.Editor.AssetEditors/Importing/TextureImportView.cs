@@ -1,15 +1,18 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
 using Vixen.Core.Imaging;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.AssetEditors.Importing;
 
 /// <summary>A texture, open for editing: the pixels, the mip ladder, and the import settings.</summary>
 /// <remarks>
+///     <para>
+///         The panel is <c>TextureImportView.vxml</c>; this file is the accessibility modifier, the two
+///         records the markup reads, and the three elements that exist only so that markup can write an
+///         intrinsic tag's own <c>Text</c>.
+///     </para>
 ///     <para>
 ///         <b>Doc 11 asks for four things and three of them are here in full.</b> Import settings
 ///         and the platform-override matrix are <see cref="ImportSettingsView" />'s; the mip
@@ -21,9 +24,9 @@ namespace Vixen.Editor.AssetEditors.Importing;
 ///         in this assembly has a graphics device: a texture reaches the interface as a number a
 ///         <c>UiRenderer</c> handed out for a registered texture, and registering one means
 ///         uploading it. So the view decodes the file — that much is CPU work and belongs here —
-///         exposes <see cref="Source" />, <see cref="Channels" /> and <see cref="MipLevel" />, and
-///         the application uploads and sets <see cref="Preview" />'s number. It is exactly the split
-///         <c>ScenePresenter</c> already has with the scene panel, and for the same reason.
+///         exposes <c>Source</c>, <c>Channels</c> and <c>MipLevel</c>, and the application uploads and
+///         sets <c>Preview</c>'s number. It is exactly the split <c>ScenePresenter</c> already has with
+///         the scene panel, and for the same reason.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What is decoded is the <i>source</i>, not the artefact.</b> An author editing import
@@ -33,245 +36,53 @@ namespace Vixen.Editor.AssetEditors.Importing;
 ///         needs the artefact store and a second image beside this one, which is not built.
 ///     </para>
 /// </remarks>
-public sealed class TextureImportView : Control {
-    readonly List<ToggleButton> channels = [];
+public sealed partial class TextureImportView;
 
-    TextureImportDocument? document;
-    TextureData? source;
-    int mipLevel;
-    bool listening;
+/// <summary>The four numbers at the top of the texture tab, as one value.</summary>
+/// <param name="Source">What the file is, or that nothing decoded it.</param>
+/// <param name="ShipsAs">What a build would produce from it.</param>
+/// <param name="Levels">How many levels the chain has.</param>
+/// <param name="Total">And what the whole chain costs.</param>
+/// <remarks>
+///     ⚠ <b>A snapshot record in one signal, and the reason is a stale-binding trap rather than
+///     taste.</b> Three of the four are functions of <c>TextureImportSettings</c> — a plain mutable
+///     object that no signal watches, edited through the inspector and reported by its
+///     <c>ValueChanged</c> — so four separate bindings would depend on four different things and
+///     three of them would not include the settings at all. <c>Refresh</c> computes all four
+///     together, which is the only moment any of them is known to be right.
+/// </remarks>
+internal readonly record struct TextureFacts(string Source, string ShipsAs, string Levels, string Total);
 
+/// <summary>One of the four channel toggles, as the <c>@for</c> keys it.</summary>
+/// <param name="Label">The letter on the button.</param>
+/// <param name="Channel">Which channel it turns on and off.</param>
+internal readonly record struct ChannelButton(string Label, TextureChannels Channel);
+
+/// <summary>
+///     ⚠ The ladder's three cells, which exist only so that markup can set an intrinsic tag's own
+///     <c>Text</c>.
+/// </summary>
+/// <remarks>
+///     The panel ledger's shape 5. An interpolation is <c>BuildContext.Text</c>, which appends a
+///     <c>text</c> <i>child</i>, and an attribute on a lowercase tag is a selector attribute rather
+///     than <see cref="UiElement.Text" /> — so <c>row.Add("ladder-level").Text = …</c> has no markup
+///     spelling and a four-line subclass answering to the tag the stylesheet already names is the
+///     whole fix. <c>ladder-level</c>, <c>ladder-extent</c> and <c>ladder-bytes</c> are declared in
+///     <c>AssetEditorTheme.vcss</c> and are unchanged by any of this.
+/// </remarks>
+internal sealed class LadderLevel : UiElement {
     /// <inheritdoc />
-    protected override string TagName => "texture-editor";
+    protected override string TagName => "ladder-level";
+}
 
+/// <inheritdoc cref="LadderLevel" />
+internal sealed class LadderExtent : UiElement {
     /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
+    protected override string TagName => "ladder-extent";
+}
 
-    /// <summary>Where the pixels are drawn once something has uploaded them.</summary>
-    public Image Preview { get; private set; } = null!;
-
-    /// <summary>What the file is, in numbers: extent, format, and what it will ship as.</summary>
-    public UiElement Facts { get; private set; } = null!;
-
-    /// <summary>The mip ladder, one row a level.</summary>
-    public UiElement Ladder { get; private set; } = null!;
-
-    /// <summary>Shown when the file has no decoder in this build, or would not decode.</summary>
-    public Alert Undecodable { get; private set; } = null!;
-
-    /// <summary>The settings, the overrides and the addressable block.</summary>
-    public ImportSettingsView SettingsView { get; private set; } = null!;
-
-    /// <summary>The two halves of a texture: what it ships as, and what is cut out of it.</summary>
-    public Tabs Tabs { get; private set; } = null!;
-
-    /// <summary>The sprite editor, over this same document.</summary>
-    public SpriteSheetView Sprites { get; private set; } = null!;
-
-    /// <summary>The decoded source, or <see langword="null" /> if nothing could decode it.</summary>
-    public TextureData? Source => source;
-
-    /// <summary>Which channels the viewer is asking for.</summary>
-    public TextureChannels Channels { get; private set; } = TextureChannels.All;
-
-    /// <summary>Which mip level the viewer is asking for.</summary>
-    public int MipLevel => mipLevel;
-
-    /// <summary>The ladder the current settings produce.</summary>
-    public IReadOnlyList<TextureMipLevel> Levels { get; private set; } = [];
-
-    /// <summary>Raised when the channels or the level change, for whatever is uploading the picture.</summary>
-    public event Action<TextureImportView>? ViewChanged;
-
+/// <inheritdoc cref="LadderLevel" />
+internal sealed class LadderBytes : UiElement {
     /// <inheritdoc />
-    /// <remarks>
-    ///     ⚠ <b>Two tabs over one document, not two documents.</b> The sprite editor edits the same
-    ///     <c>.meta</c> the settings do — a slice is rects written into the texture's import settings —
-    ///     so it shares this document's undo stack and its dirty flag rather than opening a second
-    ///     one. <c>AssetEditorRegistry</c>'s own rule: two documents over one file are two undo
-    ///     histories over one set of bytes, and whichever saves last wins.
-    /// </remarks>
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        Tabs = Part<Tabs>();
-
-        var texture = Tabs.AddTab("Texture").Panel;
-
-        Preview = texture.Add<Image>();
-        Preview.Description = "The texture's source pixels";
-        Preview.AddClass("texture-preview");
-
-        Undecodable = texture.Add<Alert>();
-        Undecodable.AddClass("hidden");
-        Undecodable.Title = "No preview";
-
-        var bar = texture.Add("texture-channels");
-
-        Channel(bar, "R", TextureChannels.Red);
-        Channel(bar, "G", TextureChannels.Green);
-        Channel(bar, "B", TextureChannels.Blue);
-        Channel(bar, "A", TextureChannels.Alpha);
-
-        Facts = texture.Add("texture-facts");
-        Ladder = texture.Add("texture-ladder");
-        SettingsView = texture.Add<ImportSettingsView>();
-
-        Sprites = Tabs.AddTab("Sprites").Panel.Add<SpriteSheetView>();
-    }
-
-    /// <summary>Shows a texture.</summary>
-    /// <param name="texture">The document.</param>
-    public void Show(TextureImportDocument texture) {
-        ArgumentNullException.ThrowIfNull(texture);
-
-        document = texture;
-        source = TextureLadder.TryDecode(texture.AssetPath, out var reason);
-
-        if (reason is null) {
-            Undecodable.AddClass("hidden");
-        } else {
-            Undecodable.RemoveClass("hidden");
-            Undecodable.Message = reason;
-        }
-
-        SettingsView.Show(texture);
-        Sprites.Show(texture);
-
-        // Every settings edit moves the ladder — a size limit, a format, mips on or off — so the one
-        // event the inspector already raises is what keeps the numbers honest, rather than the panel
-        // polling or the document growing a second change signal.
-        //
-        // ⚠ Subscribed once per view rather than once per Show, because a view shown twice would
-        // otherwise recompute the ladder twice per keystroke, and three times the time after that.
-        if (!listening) {
-            listening = true;
-            SettingsView.Settings.ValueChanged += (_, _) => Refresh();
-        }
-
-        Refresh();
-    }
-
-    /// <summary>Turns a channel on or off.</summary>
-    /// <param name="channel">Which one.</param>
-    /// <param name="shown">Whether to show it.</param>
-    public void SetChannel(TextureChannels channel, bool shown) {
-        var updated = shown ? Channels | channel : Channels & ~channel;
-
-        if (updated == Channels) {
-            return;
-        }
-
-        Channels = updated;
-
-        foreach (var toggle in channels) {
-            // Restated from the value rather than left to the button that was pressed, so a caller
-            // setting the channels in code and a user pressing a button leave the bar in the same
-            // state.
-            toggle.IsChecked = (Channels & ChannelOf(toggle.Label)) != 0;
-        }
-
-        ViewChanged?.Invoke(this);
-    }
-
-    /// <summary>Shows a different level of the chain.</summary>
-    /// <param name="level">Which one, clamped to what the ladder has.</param>
-    public void SetMipLevel(int level) {
-        var clamped = Math.Clamp(level, 0, Math.Max(Levels.Count - 1, 0));
-
-        if (clamped == mipLevel) {
-            return;
-        }
-
-        mipLevel = clamped;
-        Restate();
-
-        ViewChanged?.Invoke(this);
-    }
-
-    /// <summary>Recomputes the ladder and the facts from the settings as they stand.</summary>
-    public void Refresh() {
-        if (document is not { } texture) {
-            return;
-        }
-
-        var width = source?.Width ?? 0;
-        var height = source?.Height ?? 0;
-
-        Levels = TextureLadder.Build(width, height, texture.Texture);
-        mipLevel = Math.Clamp(mipLevel, 0, Math.Max(Levels.Count - 1, 0));
-
-        Clear(Facts);
-
-        var shipped = TextureLadder.Resolve(texture.Texture);
-        var (shippedWidth, shippedHeight) = TextureLadder.Fit(width, height, texture.Texture.MaxSize);
-
-        Fact("Source", source is null ? "not decoded" : $"{width}×{height} {source.Format}");
-        Fact("Ships as", $"{shippedWidth}×{shippedHeight} {shipped}");
-        Fact("Levels", Levels.Count.ToString(CultureInfo.InvariantCulture));
-        Fact("Total", Measure(TextureLadder.TotalBytes(Levels)));
-
-        Restate();
-    }
-
-    void Restate() {
-        Clear(Ladder);
-
-        for (var index = 0; index < Levels.Count; index++) {
-            var level = Levels[index];
-            var row = Ladder.Add("ladder-row");
-
-            if (index == mipLevel) {
-                row.AddClass("selected");
-            }
-
-            row.Add("ladder-level").Text = level.Level.ToString(CultureInfo.InvariantCulture);
-            row.Add("ladder-extent").Text = $"{level.Width}×{level.Height}";
-            row.Add("ladder-bytes").Text = Measure(level.Bytes);
-        }
-    }
-
-    void Channel(UiElement bar, string label, TextureChannels channel) {
-        var toggle = bar.Add<ToggleButton>();
-
-        toggle.Label = label;
-        toggle.IsChecked = (Channels & channel) != 0;
-        toggle.CheckedChanged += (_, shown) => SetChannel(channel, shown);
-
-        channels.Add(toggle);
-    }
-
-    static TextureChannels ChannelOf(string? label) => label switch {
-        "R" => TextureChannels.Red,
-        "G" => TextureChannels.Green,
-        "B" => TextureChannels.Blue,
-        "A" => TextureChannels.Alpha,
-        _ => TextureChannels.None
-    };
-
-    void Fact(string name, string value) {
-        var row = Facts.Add("fact-row");
-
-        row.Add("fact-name").Text = name;
-        row.Add("fact-value").Text = value;
-    }
-
-    static void Clear(UiElement element) {
-        while (element.Children.Count > 0) {
-            element.Children[^1].Remove();
-        }
-    }
-
-    /// <summary>A byte count as something a person reads.</summary>
-    /// <param name="bytes">How many.</param>
-    /// <returns>The text.</returns>
-    /// <remarks>
-    ///     Binary units, because what this is counting is memory a device has to find rather than
-    ///     bytes going down a wire.
-    /// </remarks>
-    internal static string Measure(long bytes) => bytes switch {
-        < 1024 => $"{bytes} B",
-        < 1024 * 1024 => (bytes / 1024d).ToString("0.#", CultureInfo.InvariantCulture) + " KiB",
-        _ => (bytes / (1024d * 1024d)).ToString("0.##", CultureInfo.InvariantCulture) + " MiB"
-    };
+    protected override string TagName => "ladder-bytes";
 }

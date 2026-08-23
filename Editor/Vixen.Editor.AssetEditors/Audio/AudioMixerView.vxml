@@ -35,7 +35,8 @@
     ⚠ **Nine one-line element types, because markup cannot write an intrinsic tag's own `Text`.**
     That is the ledger's shape 5, and `<mixer-strip-name>@column.Name</mixer-strip-name>` is not the
     same tree — it is a `text` child inside the caption instead of the caption's own text, which is a
-    box where there was none. `AudioMixerView.cs` holds the subclasses and the argument.
+    box where there was none. `AudioMixerView.cs` holds eight of them and the argument; `FactName` is
+    the ninth and moved to the assembly's `Captions.cs` in wave 5, once four panels wanted it.
 
     ⚠ **The two dropdowns are still fed from C#, and that is the ledger's build-list item 4.** A
     `Select`'s options live in a popover off the document root rather than among its children, so

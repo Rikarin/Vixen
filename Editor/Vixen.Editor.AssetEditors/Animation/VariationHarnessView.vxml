@@ -30,7 +30,9 @@
     first cell ever selected. Every readout in that arm is a property that goes back to the signal.
 
     ⚠ **Seven one-line element types, because markup cannot write an intrinsic tag's own `Text`.**
-    That is the ledger's shape 5; `VariationHarnessView.cs` holds them and the argument.
+    That is the ledger's shape 5; `VariationHarnessView.cs` holds five of them and the argument, and
+    `FactName`/`FactValue` moved to the assembly's `Captions.cs` in wave 5 once four panels wanted
+    them.
 
     ⚠ **One deliberate difference, recorded rather than fixed.** The hit test is geometric —
     `Bounds.Contains` — so a press that lands outside the matrix but inside a cell's rectangle (a

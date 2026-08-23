@@ -1,0 +1,323 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 5. The panel ledger called this "the purest snapshot in the tree", and it was
+    right: three lists and a status line, all of them a function of one compile.
+
+    ⚠ **It is shape 3's neighbour and not shape 3, and telling the two apart is the whole of the
+    risk assessment.** `BuildSettingsView` stays imperative because its *callers* read it back with
+    no frame between — `Rebuild(); Assert.False(view.BuildButton.Disabled);` — and a bound value is
+    right on the next flush. Here the one production caller is
+    `tabs.AddTab("Compiled").Panel.Add<CompiledSceneView>().Show(scene)` and reads nothing back at
+    all. What *was* read synchronously was three element counts in `CompiledSceneTests`, and those
+    assertions exist for the reason that file states: "a projection that produced the right numbers
+    and drew none of them would pass every test about the numbers." They now run a frame first. The
+    synchronous contract that is real — `Refresh()` returning whether it compiled, and `Content` and
+    `Reported` being right the instant it returns — is unchanged, and is unchanged *because* those
+    three are written before the signals are.
+
+    ⚠ **The status line's title and message are signals rather than projections, and that is not a
+    stylistic choice.** On a successful compile the panel hides the alert and leaves whatever it last
+    said inside it — a whole-tree dump of the shipped panel shows `.hidden` over the words "Not
+    compiled" — so "what does the title say" is *not* a function of the current state. A binding
+    would have had to invent an answer for the hidden case and would have moved those two strings.
+    Two signals written by exactly the two paths that used to write the properties reproduce it to
+    the byte.
+
+    ⚠ **Every `@if` here tests for null and reads through a property.** `@if (Compiled is { } content)`
+    would compile, run, and be right until the second compile: recompiling does not change which arm
+    is live, a surviving arm never re-runs its body, and `content` would stay the first result for
+    ever. That is wave 4's finding, and the four facts are exactly the shape it bites.
+
+    ⚠ **The two lists key on the whole row record, which is the immutable-data half of the `@for`
+    rule** — change a block's byte count and it is a different key, so the old region goes and a new
+    one is built with the new number in it. Both records carry their slot as well as their text,
+    because two diagnostics *can* be identical (four duplicate ids report four times) and
+    `BuildContext.For` cannot reconcile two equal keys in one loop.
+
+    ⚠ **Six one-line element types, because markup cannot write an intrinsic tag's own `Text`** —
+    the ledger's shape 5. `CompiledSceneView.cs` holds them; `FactName` and `FactValue` are the
+    assembly's, in `Captions.cs`.
+-->
+@component CompiledSceneView
+@namespace Vixen.Editor.AssetEditors.Scenes
+@inherits Vixen.Ui.Controls.Control
+@tag compiled-scene
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Editor.Assets
+@using Vixen.Editor.Assets.Scenes
+@using Vixen.Editor.SceneView
+@using Vixen.Engine.Scenes
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<compiled-scene-bar>
+    <Button ref="@Compile" Label="Compile" on:click="@(() => Refresh())" />
+
+    <CompiledSceneLabel Text="Keep names" />
+
+    <CheckBox ref="@KeepNames" IsChecked="true" change:IsChecked="@(_ => Recompile())" />
+</compiled-scene-bar>
+
+<Alert ref="@Status" Title="@StatusTitle" Message="@StatusMessage" class="@StatusClass" />
+
+<compiled-scene-facts ref="@Facts">
+    @if (Content is not null) {
+        <fact-row>
+            <FactName Text="Entities" />
+            <FactValue Text="@EntityCount" />
+        </fact-row>
+
+        <fact-row>
+            <FactName Text="Blocks" />
+            <FactValue Text="@BlockCount" />
+        </fact-row>
+
+        <fact-row>
+            <FactName Text="Component bytes" />
+            <FactValue Text="@ComponentBytes" />
+        </fact-row>
+
+        <fact-row>
+            <FactName Text="Names" />
+            <FactValue Text="@NamesKept" />
+        </fact-row>
+    }
+</compiled-scene-facts>
+
+<compiled-scene-blocks ref="@Blocks">
+    @for (var block in BlockRows) {
+        <compiled-scene-block key="@block">
+            <CompiledSceneArchetype Text="@block.Archetype" />
+            <CompiledSceneCount Text="@block.Count" />
+            <CompiledSceneBytes Text="@block.Bytes" />
+        </compiled-scene-block>
+    }
+</compiled-scene-blocks>
+
+<compiled-scene-diagnostics ref="@Diagnostics">
+    @for (var note in DiagnosticRows) {
+        <compiled-scene-diagnostic key="@note" class="@note.Class">
+            <CompiledSceneSeverity Text="@note.Severity" />
+            <CompiledSceneMessage Text="@note.Message" />
+        </compiled-scene-diagnostic>
+    }
+</compiled-scene-diagnostics>
+
+@code {
+    /// <summary>The last compile's result, or <see langword="null" /> if it failed or has not run.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A signal, and the public property below reads it.</b> Every table on screen is a
+    ///     projection of this and of <see cref="reported" />; writing it is the whole notification,
+    ///     which is what deleted the <c>Draw</c> that used to empty three elements and refill them.
+    /// </remarks>
+    readonly Signal<SceneContent?> compiled = new(null);
+
+    /// <summary>What the last compile said, in the order it said it.</summary>
+    readonly Signal<ImmutableArray<(ImportSeverity Severity, string Message)>> reported = new([]);
+
+    /// <summary>The alert's heading.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Stored rather than derived, because a hidden alert keeps its last words.</b> See the
+    ///     file header: on success the panel adds <c>hidden</c> and writes neither string, so the
+    ///     title of a hidden alert is a fact about the past and no projection of the present state
+    ///     could produce it.
+    /// </remarks>
+    readonly Signal<string> title = new(NotCompiledTitle);
+
+    /// <inheritdoc cref="title" />
+    readonly Signal<string> message = new(NotCompiledMessage);
+
+    /// <summary>Whether the alert is out of the way.</summary>
+    readonly Signal<bool> hidden = new(false);
+
+    SceneDocument? document;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Runs the compiler over the document as it stands.</summary>
+    public Button Compile { get; private set; } = null!;
+
+    /// <summary>Whether the entity names are kept, as a shipping build's would not be.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off changes the answer, which is why it is here rather than assumed.</b> Names are
+    ///     one string per entity in the asset — a real fraction of a large level's compiled size —
+    ///     and a build that strips them produces different bytes and a different total. An author
+    ///     asking "how big is this scene" wants to ask it about the build they ship.
+    /// </remarks>
+    public CheckBox KeepNames { get; private set; } = null!;
+
+    /// <summary>Shown before anything has been compiled, and when a compile failed.</summary>
+    public Alert Status { get; private set; } = null!;
+
+    /// <summary>Entity count, block count and bytes.</summary>
+    public UiElement Facts { get; private set; } = null!;
+
+    /// <summary>One row per block: its archetype, how many entities, and how many bytes.</summary>
+    public UiElement Blocks { get; private set; } = null!;
+
+    /// <summary>What the compiler said, in the order it said it.</summary>
+    public UiElement Diagnostics { get; private set; } = null!;
+
+    /// <summary>The last compile's result, or <see langword="null" /> if it failed or has not run.</summary>
+    public SceneContent? Content => compiled.Value;
+
+    /// <summary>What the last compile reported.</summary>
+    public IReadOnlyList<(ImportSeverity Severity, string Message)> Reported => reported.Value;
+
+    /// <summary>Points the pane at a document. Does not compile it.</summary>
+    /// <param name="scene">The open scene or prefab.</param>
+    /// <remarks>
+    ///     ⚠ <b>Deliberately does not compile.</b> Opening a level would otherwise pay for a full
+    ///     compile before the first frame is drawn, for a tab nobody may look at.
+    /// </remarks>
+    public void Show(SceneDocument scene) {
+        ArgumentNullException.ThrowIfNull(scene);
+
+        document = scene;
+
+        compiled.Value = null;
+        reported.Value = [];
+
+        hidden.Value = false;
+        title.Value = NotCompiledTitle;
+        message.Value = NotCompiledMessage;
+    }
+
+    /// <summary>Compiles the document and says what came of it.</summary>
+    /// <returns>Whether it compiled.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A prefab is compiled as a prefab</b>, so the one-root rule is checked here as the
+    ///         build would check it — <c>SceneCompiler.CompilePrefab</c> refuses two roots and says
+    ///         why. Compiling every document as a scene would make this pane the one place a prefab
+    ///         with two roots looked fine.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The return value and <see cref="Content" /> are right when this returns; the
+    ///         tables are right on the next flush.</b> That is `EffectScheduler`'s contract and not
+    ///         this panel's choice (ADR-007), and it is why the compile is done into locals and
+    ///         published to the signals at the end rather than as it goes.
+    ///     </para>
+    /// </remarks>
+    public bool Refresh() {
+        if (document is not { } scene) {
+            return false;
+        }
+
+        var file = SceneSerializer.ToFile(scene);
+        var names = KeepNames.IsChecked;
+        var found = ImmutableArray.CreateBuilder<(ImportSeverity Severity, string Message)>();
+
+        void Report(ImportSeverity severity, string text) => found.Add((severity, text));
+
+        var content = scene.Writer is PrefabFileWriter
+            ? SceneCompiler.CompilePrefab(file, Report, names)?.Content
+            : SceneCompiler.CompileScene(file, Report, names)?.Content;
+
+        reported.Value = found.ToImmutable();
+        compiled.Value = content;
+
+        if (content is null) {
+            hidden.Value = false;
+            title.Value = "Would not compile";
+
+            message.Value = found.Count == 0
+                ? "The compiler refused it and said nothing, which is a bug in the compiler."
+                : $"{found.Count(entry => entry.Severity == ImportSeverity.Error)} error(s). A build would "
+                + "fail on this scene for the same reasons.";
+        } else {
+            hidden.Value = true;
+        }
+
+        return content is not null;
+    }
+
+    // ================================================================== What the markup runs
+
+    /// <summary>
+    ///     Recompiles when the switch moves, and only when there is something to recompile.
+    /// </summary>
+    /// <remarks>
+    ///     Flipping it before the first compile should not run one, for the same reason
+    ///     <see cref="Show" /> does not.
+    /// </remarks>
+    void Recompile() {
+        if (compiled.Value is not null || reported.Value.Length > 0) {
+            Refresh();
+        }
+    }
+
+    // ================================================================== What the markup reads
+
+    /// <inheritdoc cref="title" />
+    string StatusTitle => title.Value;
+
+    /// <inheritdoc cref="title" />
+    string StatusMessage => message.Value;
+
+    /// <inheritdoc cref="hidden" />
+    string StatusClass => hidden.Value ? "hidden" : string.Empty;
+
+    string EntityCount => Number(Content?.Count ?? 0);
+
+    string BlockCount => Number(Content?.Blocks.Length ?? 0);
+
+    /// <summary>How many bytes the columns hold.</summary>
+    /// <remarks>
+    ///     ⚠ The bytes are the columns' and not the asset's. Positions, rotations, scales, names and
+    ///     ids are tables of the content's own — a fixed cost per entity that no archetype decision
+    ///     moves — so counting them into a block would make every block look alike.
+    /// </remarks>
+    string ComponentBytes =>
+        Content is { } content
+            ? Number(content.Blocks.Sum(block => block.Columns.Sum(column => (long) column.Data.Length)))
+            : string.Empty;
+
+    string NamesKept => Content is { Names.Length: 0 } ? "stripped" : "kept";
+
+    /// <summary>One row per block, as the loop keys them.</summary>
+    ImmutableArray<CompiledBlockRow> BlockRows =>
+        Content is { } content
+            ? [.. content.Blocks.Select(
+                (block, slot) => new CompiledBlockRow(
+                    slot,
+
+                    // ⚠ An empty column set is a real archetype and not a missing one: an entity
+                    // carrying nothing but a transform is in a block whose columns are none, and
+                    // showing it blank reads as a rendering fault.
+                    block.Columns.Length == 0
+                        ? "(transform only)"
+                        : string.Join(", ", block.Columns.Select(column => column.Component)),
+                    $"{block.Entities.Length} entit{(block.Entities.Length == 1 ? "y" : "ies")}",
+                    $"{block.Columns.Sum(column => column.Data.Length)} B"
+                )
+            )]
+            : [];
+
+    /// <summary>And one per complaint.</summary>
+    ImmutableArray<CompiledDiagnosticRow> DiagnosticRows =>
+        [.. reported.Value.Select(
+            (entry, slot) => new CompiledDiagnosticRow(
+                slot,
+                entry.Severity.ToString(),
+                entry.Message,
+                entry.Severity switch {
+                    ImportSeverity.Error => "error",
+                    ImportSeverity.Warning => "warning",
+                    _ => "information"
+                }
+            )
+        )];
+
+    static string Number<T>(T value) where T : IFormattable =>
+        value.ToString(null, CultureInfo.InvariantCulture);
+
+    const string NotCompiledTitle = "Not compiled";
+
+    const string NotCompiledMessage = "Press Compile to see what a build makes of this scene.";
+}

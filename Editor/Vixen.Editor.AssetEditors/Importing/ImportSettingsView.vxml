@@ -6,10 +6,11 @@
     — and was thirteen lines of `OnCreated` plus a `Section` helper whose whole job was to say
     "an expander, expanded, and give me the inside of it".
 
-    ⚠ **`@inherits`, because a caller holds this as its own type.** `ModelImportView` writes
-    `<ImportSettingsView ref="@SettingsView" />` and `TextureImportView` writes
-    `texture.Add<ImportSettingsView>()`; both need a `UiElement`, and the second is a hand-written
-    control this wave is not porting. A `Component` here would have rewritten that file and every
+    ⚠ **`@inherits`, because a caller holds this as its own type.** `ModelImportView` and — since
+    wave 5 — `TextureImportView` both write `<ImportSettingsView ref="@SettingsView" />`, and a `ref`
+    on a capitalised tag hands back the *component* where a `Component` has no element to hold. When
+    this was written the second caller was still `texture.Add<ImportSettingsView>()`, which needs a
+    `UiElement` outright; either way a `Component` here would have rewritten that file and every
     caller of `Edited`, for no gain.
 
     ⚠ **`class="hidden"` on a control tag, which it could not say when this was first written.**
