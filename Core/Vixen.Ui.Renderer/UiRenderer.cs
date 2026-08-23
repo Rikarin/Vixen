@@ -1038,11 +1038,13 @@ public sealed class UiRenderer : IDisposable {
             // the only place in the loop where the group's contents are complete and nothing has
             // sampled them. `SoftwareUiRasterizer` casts its shadow at the same seam, from the same
             // surface, which is what makes the two comparable at all.
+            // ⚠ The scratch is asked for inside rather than here, unlike the blur above it: a shadow
+            // with no blur is a single-tap copy and touches no scratch at all, and a frame whose only
+            // shadows are hard-edged would otherwise allocate a viewport-sized target it never binds.
             if (layer.Shadow is not null
                 && blurPipeline.IsValid
                 && layerSurfaces.TryGetValue(layer.ShadowImage, out var cast)
-                && Scratch(width, height) is { } bounce
-                && ShadowSurface(commands, geometry, layer, target, cast, bounce, surface, scale, region)) {
+                && ShadowSurface(commands, geometry, layer, target, cast, width, height, surface, scale, region)) {
                 shadowed++;
             }
 
@@ -1173,7 +1175,8 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="layer">The group.</param>
     /// <param name="target">Its finished surface — the source, and left untouched.</param>
     /// <param name="cast">The shadow's own surface, which this fills.</param>
-    /// <param name="through">The scratch the first axis lands in.</param>
+    /// <param name="width">The framebuffer width, for the scratch a blurred shadow needs.</param>
+    /// <param name="height">The framebuffer height, for the same.</param>
     /// <param name="surface">The target size in geometry units.</param>
     /// <param name="scale">Framebuffer pixels per geometry unit.</param>
     /// <param name="region">The part of every target these passes are confined to, already widened.</param>
@@ -1212,26 +1215,34 @@ public sealed class UiRenderer : IDisposable {
         in UiLayer layer,
         LayerSurface target,
         LayerSurface cast,
-        LayerSurface through,
+        int width,
+        int height,
         Int2 surface,
         float scale,
         ScissorRect region
     ) {
         if (layer.Shadow is not { } shadow || layer.Composite >= geometry.Draws.Count) {
-            return false;
+            return Blank(commands, cast, region);
         }
 
         var quad = geometry.Draws[layer.Composite];
         var scissor = Scissor(quad.Clip, surface, scale);
 
         if (scissor.Width <= 0 || scissor.Height <= 0) {
-            return false;
+            return Blank(commands, cast, region);
         }
 
         var source = imageDescriptors.TryGetValue(layer.Image, out var registered) ? registered.Sets[slot] : default;
 
-        if (!source.IsValid || !scratchSet.IsValid) {
-            return false;
+        // ⚠ <b><c>scratchSet</c> is deliberately not tested beside this, and pairing the two was
+        // wrong for exactly one frame.</b> The scratch is made lazily by <see cref="Scratch" />, so
+        // its set is invalid until something has asked for one — and the shadow's own request is
+        // below, in the only branch that needs it. Tested here, the first frame whose only composited
+        // group carried a shadow would refuse it, make the scratch on the way past, and start working
+        // on the second frame. That is a defect any fixture with a blurred group in it hides, because
+        // the blur asks first.
+        if (!source.IsValid) {
+            return Blank(commands, cast, region);
         }
 
         var reach = UiLayer.KernelRadius(shadow.Blur, scale);
@@ -1267,6 +1278,10 @@ public sealed class UiRenderer : IDisposable {
 
             cast.State = ResourceState.ShaderRead;
             return true;
+        }
+
+        if (Scratch(width, height) is not { } through || !scratchSet.IsValid) {
+            return Blank(commands, cast, region);
         }
 
         // Across, into the scratch. The group's surface is read, so it stops being a colour target
@@ -1316,6 +1331,52 @@ public sealed class UiRenderer : IDisposable {
 
         cast.State = ResourceState.ShaderRead;
         return true;
+    }
+
+    /// <summary>Leaves a shadow surface defined and empty, for a cast that could not run.</summary>
+    /// <returns>Always false — nothing was cast, and the caller counts casts.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every way out of <see cref="ShadowSurface" /> has to come through here, and the
+    ///         reason is a validation error rather than a picture.</b> The shadow's quad is in the
+    ///         geometry and names a surface <see cref="EnsureSurfaces" /> has already created and
+    ///         registered, so <see cref="SubmitDraw" /> will sample it whatever this method decided. A
+    ///         plain <c>return false</c> leaves the texture in <c>Undefined</c> on the first frame it
+    ///         exists, and the layers report exactly that:
+    ///         <c>"expects VkImage … to be in layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL —
+    ///         instead, current layout is VK_IMAGE_LAYOUT_UNDEFINED"</c>. ⚠ It is a <i>first-frame</i>
+    ///         fault and no other, because the surface is reused and holds the previous frame's
+    ///         contents afterwards — which is the shape of defect that survives every test run twice.
+    ///         Found by breaking the unblurred branch on purpose and reading what the fixture said.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Transparent black, so the quad composites nothing.</b> A shadow that could not be
+    ///         cast should be a frame without a shadow in it, which is the same degradation an absent
+    ///         blur stage or an unregistered image gets. Clearing to anything else would put a
+    ///         rectangle of that colour under the element.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The region is the caller's — the same one the group's own pass used — rather than the
+    ///         whole attachment. Nothing outside it can be sampled by the quad, so clearing more would
+    ///         be paying for texels no draw reads, which is <see cref="Confine" />'s whole argument.
+    ///     </para>
+    /// </remarks>
+    static bool Blank(ICommandList commands, LayerSurface cast, ScissorRect region) {
+        commands.Barrier(new([], [new(cast.Texture, cast.State, ResourceState.ColourTarget)]));
+
+        commands.BeginRenderPass(
+            new(
+                [new(cast.View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 0f))],
+                name: "ui shadow (not cast)",
+                renderArea: region
+            )
+        );
+
+        commands.EndRenderPass();
+        commands.Barrier(new([], [new(cast.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)]));
+
+        cast.State = ResourceState.ShaderRead;
+        return false;
     }
 
     /// <summary>One axis: a pass, the composite quad, and the kernel in a push constant.</summary>
