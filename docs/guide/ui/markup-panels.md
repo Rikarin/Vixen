@@ -165,6 +165,31 @@ code to which an absent key is an answer.
 
 `refs` outside a `@for` is `VXML2013`.
 
+### `on:`, for the keyboard as well as the pointer
+
+```xml
+<row on:click="@Open" on:dblclick.stop="@Rename" />
+<picker on:keydown.capture="@((KeyEvent e) => Keyed(e))" on:textinput="@((TextInputEvent e) => Typed(e))" />
+```
+
+The names are `tap`, `click`, `dblclick`, `longpress`, `pointerdown`, `pointerup`, `pointermove`,
+`dragstart`, `drag`, `dragend`, `keydown`, `keyup` and `textinput`. `keydown` and `keyup` split one
+`KeyEvent` on its action, the way the two pointer names split a `PointerEvent`.
+
+⚠ **`keydown` is a key's *position* and `textinput` is what was typed.** `KeyEvent.Key` is the
+US-QWERTY legend of the physical key, so a handler that reads a letter out of it types `q` where an
+AZERTY keyboard says `a`. Escape, Tab and the arrows are `keydown`; letters are `textinput`.
+
+The modifiers are `.stop`, `.capture`, `.once` and `.self`. **`.capture` is what a panel over a text
+field needs**: it listens on the way *down* the tree, so Down and Enter reach the list before the
+search box inside it treats them as caret movement and submit.
+
+⚠ **A handler that wants the event has to name its parameter's type, and a method group will not
+do.** Which event type a name delivers is the runtime's business, so the type parameter is inferred
+from the handler — and `@Keyed` gives C# nothing to infer it from, however singular `Keyed` is. Write
+`@((KeyEvent e) => Keyed(e))`. A handler that wants no argument — `@Open`, `@(() => Move(1))` — is
+unaffected.
+
 ### `change:`, for a control's value
 
 ```xml
@@ -184,6 +209,13 @@ something: a method call, an undo entry, a write that touches two fields.
 ⚠ **A value arriving from the model does not fire it.** A change made while effects are draining came
 from a binding, so reporting it would be an undo entry for something the user never did. A change
 made by input, or by the panel's own code, does fire it.
+
+⚠ **A selection is a value too, and a collection the control mutates in place is not.**
+`change:Selection` on a `TreeView` throws — `Selection` is a read-only view over a `HashSet` that is
+the same instance before and after every change, so no property system could report it. What a
+control publishes for this is a *snapshot*: `<TreeView change:SelectedNodes="@(nodes => Chose(nodes))" />`
+is the whole of the subscription a panel used to write by hand, and it is quieter than the
+`SelectionChanged` event, which fires again for a click on the row that was already selected.
 
 ### `tag`, for a capitalised tag under another name
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Input;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Reactive;
 using Xunit;
@@ -371,6 +372,27 @@ public class CompositionTests {
 
         var thrown = Assert.Throws<ArgumentException>(() => BuildContext.Build<BadEvent>(document, document.Root));
         Assert.Contains("clcik", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A key press and the character it produced are two names, because they are two
+    ///     events.</b> <c>keydown</c> carries a physical position and <c>textinput</c> carries what
+    ///     the layout and the input method made of it — so a panel wanting Escape reads one and a
+    ///     field wanting letters reads the other, and neither has to be reconstructed from the
+    ///     other. Registering only the first would have made <c>on:keydown</c> the way markup spells
+    ///     "what did they type", which is the bug that is invisible on a QWERTY keyboard.
+    /// </summary>
+    [Fact]
+    public void Keyboard_events_are_three_names_over_two_types() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Keyed>(document, document.Root);
+        var field = component.Root.Children[0];
+
+        field.Raise(new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed });
+        field.Raise(new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Released });
+        field.Raise(new TextInputEvent { Text = "é" });
+
+        Assert.Equal(["down:Escape", "up:Escape", "text:é"], component.Seen);
     }
 
     [Fact]
@@ -853,6 +875,19 @@ public class CompositionTests {
         protected override void Build(BuildContext ctx) {
             var button = ctx.Element(null, "button");
             ctx.On(button, "click", () => Clicks++, "once");
+        }
+    }
+
+    /// <summary>What a picker's markup writes: three keyboard names, one of them on the way down.</summary>
+    sealed class Keyed : Component {
+        public List<string> Seen { get; } = [];
+
+        protected override void Build(BuildContext ctx) {
+            var field = ctx.Element(null, "field");
+
+            ctx.On<KeyEvent>(field, "keydown", args => Seen.Add("down:" + args.Key), "capture");
+            ctx.On<KeyEvent>(field, "keyup", args => Seen.Add("up:" + args.Key));
+            ctx.On<TextInputEvent>(field, "textinput", args => Seen.Add("text:" + args.Text));
         }
     }
 

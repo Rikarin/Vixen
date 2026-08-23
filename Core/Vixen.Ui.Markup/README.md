@@ -242,6 +242,38 @@ rather than answering null, because a null would arrive as a `NullReferenceExcep
 else; `TryGet` is the quiet form. In the use that matters this cannot bite: a row's handler runs long
 after its own row was built.
 
+## `on:keydown.capture`, and the two ways an event name can be missing
+
+`capture` has been in the modifier list since the list was written, and `BuildContext.On` has turned
+it into `RoutingStrategy.Capture` for as long as it has taken modifiers. What made
+`on:keydown.capture` throw was neither: `BuildContext.Subscriptions` had ten entries and every one of
+them was a pointer gesture, so the name resolved to nothing and the runtime said *"'keydown' is not
+an event"* at compose. **The syntax was never the limitation — the table was.** Three editor pickers
+kept a hand-written `AddHandler<KeyEvent>(…, RoutingStrategy.Capture)` in `OnComposed` on the
+strength of a diagnosis that was wrong.
+
+`keydown` and `keyup` are two names over one `KeyEvent`, split on `KeyAction` the way `pointerdown`
+and `pointerup` are split on `PointerAction`: a handler that had to test for itself would fire twice
+per keystroke until somebody noticed. `textinput` is registered beside them, and is not a
+convenience. `KeyEvent.Key` is a physical position by its US-QWERTY legend, so a handler reading a
+letter out of `on:keydown` types `q` when an AZERTY keyboard says `a` — and an author who cannot name
+the event that carries characters will use the one that is there.
+
+⚠ **A handler that wants the event must be an explicitly typed lambda, and a method group will not
+do.** The emitter writes one call —
+
+```csharp
+ctx.On(n1, "keydown", (KeyEvent e) => Keyed(e), "capture");
+```
+
+— for both of `On(…, Action, …)` and `On<TEvent>(…, Action<TEvent>, …)`, because *which* event type
+a name delivers is the table's business and the binder resolves no types. So `TEvent` is inferred
+from the argument, and `@Keyed` supplies nothing to infer it from: a method group has no natural type
+until the delegate's parameter types are known, which is exactly what is being solved for. However
+singular `Keyed` is, `on:keydown="@Keyed"` is *"cannot convert from 'method group' to
+'System.Action'"* — on the handler's own characters, which is at least the right place. `@(() => …)`
+and `@Increment` keep working unchanged; they are `Action`s and want no argument.
+
 ## `change:` is a value binding, and `on:change` could not have been one
 
 `on:` maps a name through a table of `Action<UiElement, Action<UiEvent>, RoutingStrategy>` — a routed
@@ -265,6 +297,15 @@ two-lambda shape `bind:` emits, buying the same three things: the property must 
 readable, and no cast or box appears in the delivery path. It is the tag object rather than
 `BuildContext.Host(…)`, unlike `bind:`, because a `Component` has no `[UiProperty]` and so has to
 fail — which it does, as "cannot convert", on the attribute's own characters.
+
+⚠ **And a selection is a value, which is not the same as saying a control's selection is a
+property.** `change:Selection` on a `TreeView` throws, and correctly: `Selection` is a read-only view
+over a `HashSet` the control mutates in place, so it is the same instance before and after every
+change and nothing riding `PropertyChanged` could ever have reported it. The remedy is not on this
+side of the line — the control publishes a snapshot beside the set, `TreeView.SelectedNodes`, and
+`change:SelectedNodes` then works like any other value. The general rule for a control author is that
+**a collection is only bindable as a value**, and that the value has to be written where the mutation
+happens rather than computed on read.
 
 ⚠ **A change made while the document's effects are draining is not reported**, and that is the one
 rule `change:` does not share with `bind:`. Such a write came *from* a binding, which means it came

@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Vixen.Input;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Markup.Binding;
 using Vixen.Ui.Markup.Emit;
@@ -1566,6 +1567,117 @@ public class EmitterTests {
             Assert.Equal(Path, span.Path);
             Assert.Equal(4, span.StartLinePosition.Line);
         }
+    }
+
+    // ================================================================== on:keydown, and the capture leg
+
+    /// <summary>
+    ///     The three pickers' handler, written as markup: a key taken on the way <i>down</i>, before
+    ///     the field under it turns Down into caret movement.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An explicitly typed lambda, and it is the only spelling that works.</b> The emitter
+    ///     writes <c>ctx.On(target, "keydown", …, "capture")</c> and
+    ///     <see cref="BuildContext" /> overloads that on <c>Action</c> and
+    ///     <c>Action&lt;TEvent&gt;</c>, so what fixes <c>TEvent</c> has to come from the handler —
+    ///     and a lambda that names its parameter's type is the one form that carries it. A method
+    ///     group does not; see
+    ///     <see cref="A_method_group_handler_cannot_type_itself_and_says_so_at_the_handler" />.
+    /// </remarks>
+    const string Keys = """
+                        @component Greeter
+                        @using System.Collections.Generic
+                        @using Vixen.Ui
+
+                        @code {
+                            public List<string> Seen { get; } = [];
+
+                            void Down(KeyEvent args) => Seen.Add("panel:" + args.Key);
+                            void Up(KeyEvent args) => Seen.Add("up:" + args.Key);
+                        }
+
+                        <panel-root on:keydown.capture="@((KeyEvent e) => Down(e))"
+                                    on:keyup="@((KeyEvent e) => Up(e))">
+                            <field />
+                        </panel-root>
+                        """;
+
+    /// <summary>
+    ///     ⚠ <b>The whole of what "<c>on:</c> has no way to say which leg" was wrong about.</b>
+    ///     <c>capture</c> has been in the modifier list and in <see cref="BuildContext.On{TEvent}" />
+    ///     since both were written; what was missing was any <c>keydown</c> entry in the
+    ///     subscription table, so the attribute compiled and threw <i>"'keydown' is not an event"</i>
+    ///     at compose. Reverting the two table entries fails this test at <c>Run</c>.
+    /// </summary>
+    [Fact]
+    public void A_keydown_on_the_capture_leg_runs_before_the_element_it_guards() {
+        var (component, instance, document) = Run(Keys);
+
+        using var owned = document;
+        var seen = (List<string>)Property(instance, "Seen");
+        var field = component.Root.Children.Single().Children.Single();
+
+        // On the field, so the panel is an ancestor: a bubble handler would run after the field's
+        // own, and the pickers' whole reason for capture is that it runs before.
+        field.AddHandler<KeyEvent>((_, args) => seen.Add("field:" + args.Key));
+        field.Raise(new KeyEvent { Key = InputKey.Down, Action = KeyAction.Pressed });
+
+        Assert.Equal(["panel:Down", "field:Down"], seen);
+    }
+
+    /// <summary>
+    ///     And the two names are two names over one event type, the way <c>pointerdown</c> and
+    ///     <c>pointerup</c> are — a release does not reach the <c>keydown</c> handler, so nothing
+    ///     written against one of them has to test <c>KeyAction</c> for itself.
+    /// </summary>
+    [Fact]
+    public void Keydown_and_keyup_split_one_event_on_its_action() {
+        var (component, instance, document) = Run(Keys);
+
+        using var owned = document;
+        var seen = (List<string>)Property(instance, "Seen");
+        var field = component.Root.Children.Single().Children.Single();
+
+        field.Raise(new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Released });
+        Assert.Equal(["up:Enter"], seen);
+
+        field.Raise(new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed });
+        Assert.Equal(["up:Enter", "panel:Enter"], seen);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one place <c>on:</c> is narrower than every other directive, and it is C#'s
+    ///     rule rather than the emitter's.</b> A handler that wants the event has to name its
+    ///     parameter's type, because <c>TEvent</c> is inferred from the argument and a method group
+    ///     supplies nothing to infer it from — the group has no natural type until the delegate's
+    ///     parameter types are known, and here they are exactly what is being solved for. So
+    ///     <c>on:click="@Increment"</c> keeps working (<c>Increment()</c> is an <c>Action</c>) and
+    ///     <c>on:keydown="@Keyed"</c> does not, however singular <c>Keyed</c> is.
+    /// </summary>
+    /// <remarks>
+    ///     Pinned rather than merely written down, and pinned to the <i>author's</i> characters: the
+    ///     message is Roslyn's and it lands inside the quotes, which is the bargain every directive
+    ///     is emitted under. If a later C# widens method-group inference this test starts failing,
+    ///     which is the right way to be told.
+    /// </remarks>
+    [Fact]
+    public void A_method_group_handler_cannot_type_itself_and_says_so_at_the_handler() {
+        const string Source = """
+                              @component Counter
+                              @using Vixen.Ui
+                              @code { void Keyed(KeyEvent args) { } }
+                              <div on:keydown.capture="@Keyed" />
+                              """;
+
+        var error = Errors(Compile(Emit(Source)))[0];
+        var span = error.Location.GetMappedLineSpan();
+
+        Assert.Contains("method group", error.GetMessage(), StringComparison.Ordinal);
+        Assert.Equal(Path, span.Path);
+        Assert.Equal(3, span.StartLinePosition.Line);
+
+        // Column 26 is `Keyed` inside the quotes, one past the `@`.
+        Assert.Equal(26, span.StartLinePosition.Character);
     }
 
     static ImmutableArray<Diagnostic> Errors(Compilation compilation) =>
