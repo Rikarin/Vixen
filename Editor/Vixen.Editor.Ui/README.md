@@ -516,6 +516,15 @@ so a keyed `@for` cannot stand in — item 40 000 has no element), `Timeline` an
 `IPropertyDrawer` (the tree's *shape* is a function of a reflected descriptor). A panel built out of
 any of them is correctly imperative, and signal-backing its model moves no pixel.
 
+⚠ **One half of this is narrower since 2026-08-23, and it is not the half about painting.** "The
+content reaches the screen through a control" stays true of all five: a `DataGrid` column projection
+and a `VirtualizingPanel` row template are still nothing markup can describe. What changed is
+*feeding* the control. `use="@(v => v.SetItems(rows))"` is an ordinary binding — the call is an
+effect, so it re-runs when what it read changes — so `Canvas.Graph = built`, `Inspect(…)` and
+`SetItems(…)` are all sayable now, and a panel that is imperative only because its control is fed by
+a method no longer has to be. Read this shape as being about what a control *draws*, never about how
+it is told.
+
 **2. Markup can bind a gesture but not a value change.** `BuildContext.Subscriptions` holds ten
 names — `tap`, `click`, `dblclick`, `longpress`, the three pointer verbs, and the three drag verbs —
 and its entries are `Action<UiElement, Action<UiEvent>, RoutingStrategy>`: a *routed* handler. Every
