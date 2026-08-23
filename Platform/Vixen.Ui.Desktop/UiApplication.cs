@@ -141,10 +141,10 @@ public sealed class UiApplication : IDisposable {
         // assembly is the only one in the chain allowed to know what a window is.
         windows = new PlatformWindowHost(platform, Document, window);
 
-        if (options.Content is { } content) {
-            var mounted = content();
-            BuildContext.BuildInto(mounted, Document, Document.Root);
-
+        // ⚠ `Mount` first and `Content` second, because a development build supplies the first to
+        // put its components under a `HotReloadHost` — see `UiApplicationOptions.Mount`, which is
+        // the whole of what a `.vxml` reload needs from this assembly.
+        if (Mounted(options) is { } mounted) {
             // ⚠ **On the component's host element, which is not the root and not the component's
             // first tag.** A component draws into a host of its own — `<app-shell>` for a
             // `Shell.vxml` — and that element is what the window has to be told to fill. Without the
@@ -153,6 +153,7 @@ public sealed class UiApplication : IDisposable {
             // window. That is what this sample looked like before the rule existed, and the symptom
             // reads as a layout-engine bug rather than as a missing declaration.
             mounted.Root.AddClass(ContentClass);
+            Content = mounted;
         }
 
         // ⚠ The options' three hooks, subscribed to the three events. They exist twice because the
@@ -225,6 +226,31 @@ public sealed class UiApplication : IDisposable {
             min-height: 0px;
         }
         """;
+
+    /// <summary>Builds the interface, by whichever of the two routes the options named.</summary>
+    Component? Mounted(UiApplicationOptions options) {
+        if (options.Mount is { } mount) {
+            return mount(Document, Document.Root);
+        }
+
+        if (options.Content is not { } content) {
+            return null;
+        }
+
+        var component = content();
+        BuildContext.BuildInto(component, Document, Document.Root);
+
+        return component;
+    }
+
+    /// <summary>The component the interface was built from, once it has been.</summary>
+    /// <remarks>
+    ///     ⚠ Public so that a caller which handed over a <see cref="UiApplicationOptions.Mount" />
+    ///     can find what it mounted without keeping its own reference — and so that a hot reload's
+    ///     handler can tell whether the component it is looking at is still the live one. A
+    ///     *recreated* component is a different object, so this is not it: ask the reload host.
+    /// </remarks>
+    public Component? Content { get; private set; }
 
     /// <summary>The document the loop lays out, draws and dispatches into.</summary>
     /// <remarks>

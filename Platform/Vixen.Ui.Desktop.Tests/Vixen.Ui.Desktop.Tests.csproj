@@ -27,5 +27,14 @@
             That is exactly the run the frame-count option exists to make meaningful.
         -->
         <ProjectReference Include="..\Vixen.Platform.Headless\Vixen.Platform.Headless.csproj" />
+
+        <!--
+            ⚠ **The development-only assembly, referenced by the tests and never by the host.**
+            `UiApplicationOptions.Mount` exists so that an application can put its content under a
+            `HotReloadHost` — and the whole point of the seam is that `Vixen.Ui.Desktop` does not
+            know what one is. A test that asserted the seam without ever putting a real host through
+            it would be asserting that a delegate is a delegate.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.HotReload\Vixen.Ui.HotReload.csproj" />
     </ItemGroup>
 </Project>

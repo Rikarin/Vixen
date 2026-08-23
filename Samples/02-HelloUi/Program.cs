@@ -37,6 +37,11 @@ static class Program {
         // application with nothing to report constructs it in `Content` and never names it again.
         var model = new ShellModel();
 
+        // ⚠ **Assigned inside `Mount` rather than here, because the host needs the document and the
+        // document does not exist until `UiApplication` has made one.** Read afterwards by `Started`,
+        // which runs after the content has been mounted.
+        HotReloadHost? reload = null;
+
         return UiApplication.Run(
             new UiApplicationOptions {
                 Title = "Vixen — Hello UI",
@@ -64,16 +69,47 @@ static class Program {
                 // their theme is installed by the assembly that references them, which is this one.
                 Configure = document => AdvancedTheme.Install(document),
 
-                Content = () => new Shell { Model = model },
+                // ⚠ **`Mount` rather than `Content`, and that one line is the whole of the markup
+                // channel.** A `.vxml` saved while this is running does nothing at all unless a
+                // `HotReloadHost` was tracking the component when it was mounted — the stylesheet
+                // channel is a file watcher and needs none of this, and the markup channel is a
+                // recompile and needs all of it. A shipping application writes `Content` and drops
+                // the reference: see the project file.
+                Mount = (document, root) => {
+                    reload = new HotReloadHost(document);
 
-                Started = Watch,
+                    // ⚠ Held *weakly* by the runtime's handler, which is why `reload` is a local that
+                    // outlives this lambda rather than a temporary. A collected host simply stops
+                    // being reloaded, with nothing to say so.
+                    MetadataUpdate.Register(reload);
+
+                    var shell = reload.Mount<Shell>(root);
+                    shell.Model = model;
+
+                    // ⚠ **And again after every reload, because a component the runtime could not
+                    // patch is *re-created*.** `HotReloadHost.Recreate` builds a fresh instance
+                    // through its parameterless constructor, so a parameter this file assigned is
+                    // not on the new one — and the shell would come up bound to a `ShellModel`
+                    // nothing else holds. A rebuild that only changed `Build` keeps the object and
+                    // this is redundant; there is no way to tell from out here, and re-assigning a
+                    // signal its own value notifies nobody.
+                    reload.Reloaded += _ => {
+                        foreach (var live in reload.Components.OfType<Shell>()) {
+                            live.Model = model;
+                        }
+                    };
+
+                    return shell;
+                },
+
+                Started = application => Watch(application, reload),
                 Stopping = _ => Report(model)
             },
             arguments
         );
     }
 
-    /// <summary>Reloads <c>Theme/shell.vcss</c> while the window is open.</summary>
+    /// <summary>Watches the stylesheet, and reports what either channel does.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Six lines, and they are the authoring loop this sample exists to demonstrate.</b>
@@ -101,14 +137,17 @@ static class Program {
     ///         wired, correct at every step, and silent for ever.
     ///     </para>
     /// </remarks>
-    static void Watch(UiApplication application) {
-        if (Sources() is not { } directory) {
+    static void Watch(UiApplication application, HotReloadHost? reload) {
+        if (reload is null || Sources() is not { } directory) {
             return;
         }
 
         var sheet = Path.Combine(directory, "shell.vcss");
 
-        var watcher = new HotReloadWatcher(new HotReloadHost(application.Document), directory);
+        // ⚠ The *same* host the content was mounted through, not a second one. Two hosts over one
+        // document each know half of it: one has the components and no sheets, the other the sheets
+        // and no components, and each reports success for the half it cannot see.
+        var watcher = new HotReloadWatcher(reload, directory);
         watcher.Load(sheet);
 
         // ⚠ **Which of the two things happened, said out loud, because the difference is invisible
@@ -140,6 +179,13 @@ static class Program {
                 Console.WriteLine($"reloaded {report}");
             }
         };
+
+        // ⚠ **The markup channel reports through the host rather than through the watcher**, because
+        // nothing polls it: the runtime calls `MetadataUpdate` on its own thread once `dotnet watch`
+        // has patched the assembly. Printing it is the only way to tell a rebuild that reloaded from
+        // one that could not — a `Build` that throws leaves the component empty, and an empty panel
+        // and a panel that did not change look identical for the second it takes to notice.
+        reload.Reloaded += report => Console.WriteLine($"reloaded {report}");
     }
 
     /// <summary>Where this project's stylesheets are, if the sample is running from its own tree.</summary>

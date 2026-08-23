@@ -2,6 +2,7 @@
 Vixen.Ui.Desktop.SystemFonts -> static class
 Vixen.Ui.Desktop.UiApplication -> sealed class
 Vixen.Ui.Desktop.UiApplication : System.IDisposable
+Vixen.Ui.Desktop.UiApplication.Content.get -> Vixen.Ui.Composition.Component?
 Vixen.Ui.Desktop.UiApplication.Dispose() -> void
 Vixen.Ui.Desktop.UiApplication.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Desktop.UiApplication.Frame -> System.Action<Vixen.Ui.Desktop.UiApplication, Vixen.Ui.Desktop.UiFrame>?
@@ -29,6 +30,8 @@ Vixen.Ui.Desktop.UiApplicationOptions.InstallSystemFont.get -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.InstallSystemFont.set -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.IsResizable.get -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.IsResizable.set -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.Mount.get -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, Vixen.Ui.Composition.Component>?
+Vixen.Ui.Desktop.UiApplicationOptions.Mount.set -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, Vixen.Ui.Composition.Component>?
 Vixen.Ui.Desktop.UiApplicationOptions.Organisation.get -> string
 Vixen.Ui.Desktop.UiApplicationOptions.Organisation.set -> string
 Vixen.Ui.Desktop.UiApplicationOptions.RootClasses.get -> System.Collections.Generic.IList<string>

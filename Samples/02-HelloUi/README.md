@@ -52,11 +52,35 @@ in it. The boundary costs nothing to keep, and this file is a bootstrap again.
 
 ## The authoring loop
 
-**Edit `Theme/shell.vcss` while the sample is running and the window repaints.** Every element keeps
-its identity across a style reload, so the focus, the scroll offset, the docking arrangement and the
-tree's place in its thousand rows all survive. That is six lines in `Program.cs` — a
-`HotReloadWatcher` over the source directory, polled once a frame — and dropping them plus the
-`Vixen.Ui.HotReload` reference is what a shipping application does.
+```bash
+dotnet watch --project Samples/02-HelloUi
+```
+
+**All three of the engine's reload channels are wired here, and they are three different mechanisms.**
+
+| Save a… | What happens | What survives |
+|---|---|---|
+| `.vcss` | A file watcher reloads the sheet. No rebuild. | Everything — element identity is untouched, so the focus, the scroll offset, the docking arrangement and the tree's place in its thousand rows all stay put. |
+| `.vxml` | `dotnet watch` recompiles it into a new `Build`, the runtime patches the assembly, and `HotReloadHost` re-runs `Build` on the same component objects. | The components and their fields, so their signals — which is most of what "state was preserved" means. **Not** the elements: two `Build` bodies are two different programs. The focus is put back by path. |
+| `.cs`, incompatibly | The component object is re-created too. | Nothing but what the sample re-applies itself. |
+
+Measured on the middle row: a `.vxml` edit reloaded in **766 ms** with
+`Channel = Markup, Components = 1, Succeeded = True` and no restart. The sample prints every report,
+which is the only way to tell a rebuild that reloaded from one that could not — **a `Build` that
+throws leaves the component empty**, and an empty panel and an unchanged panel look identical for the
+second it takes to notice.
+
+⚠ **The markup channel needs one line and does nothing without it.** `UiApplicationOptions.Mount`
+is what puts the shell under a `HotReloadHost`; mounted the ordinary way through `Content`, the host
+tracks nothing, `ReloadComponents` walks an empty list, and **it reports success over zero
+components** — so a `.vxml` save does nothing at all with no diagnostic anywhere. That was this
+sample's state until it was checked. `Content_alone_leaves_the_reload_host_with_nothing_to_do` in
+`Vixen.Ui.Desktop.Tests` is that behaviour written down.
+
+⚠ **A recreated component loses what this file assigned it.** `HotReloadHost` builds a fresh instance
+through the parameterless constructor, so `Shell.Model` is not the `ShellModel` `Program.cs` holds
+any more — which is why the sample re-applies it from `Reloaded`. An application whose components
+take no parameters needs none of that.
 
 ⚠ **Changing a rule takes effect; *deleting* one does not, until the next build.** The sample prints
 which of the two it got on start-up. `shell.vcss` is handed to the build as a `VixenStyleBase`, so
@@ -65,6 +89,10 @@ there is no separate sheet for `HotReloadWatcher.Load` to bind the path to, and 
 top instead. That is the right arrangement for shipping (it is what fixes the layer order and expands
 `@apply`) and the wrong one for taking a rule out at run time. `HotReloadWatcher.Replaces` is the API
 that says which you have, and this is what it is for.
+
+⚠ **A shipping application drops all of it**: the `Vixen.Ui.HotReload` reference, `Mount`, and the
+`Watch` method. `Content` is the shipping form of `Mount`. See that project's own file, which says
+why it is neither trimmable nor AOT-compatible.
 
 Try `--accent` by hand: change `--color-brand` in `Theme/vixen.ui.vcss`, and note that *that* one
 needs a rebuild. Tokens are compiled into the utility sheet at build time; the rules in `shell.vcss`
