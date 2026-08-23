@@ -1,0 +1,565 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 7. Doc 34's first file, and the one that had no panel: the names a shape may
+    have, the tags it may carry, the body plans that require them, and what is wrong with the lot.
+    The ledger sized it M in the seven-panel block with "port the readouts, keep the field rows
+    (shape 2)", and unlike `FontView` — where that instruction turned out to be stale — it is exactly
+    right here, for a reason that is not shape 2 at all.
+
+    ⚠ **The field pane stays C# because it is a `switch` over the *type* of the selection, which is
+    wave 4's trap with the sharpest edge it has.** `Restate` chooses between four shapes of pane by
+    pattern-matching `selected`, and every readout inside the chosen arm reads that arm's pattern
+    variable. Written as `@if` arms, the arm's identity would be the *type* — so moving the selection
+    from one name to another name would not change the arm index, the region would survive, and every
+    binding in it would go on showing the first name for ever. That is exactly
+    `VariationHarnessView`'s bug, and the fix there was to put every readout back through a signal.
+    Doing the same here means four snapshot records, one per arm, plus the five editing controls that
+    write *back* into `selected` — which is a bigger change than this wave should make to a panel
+    whose pane is genuinely a factory. `vocab-fields` is a `ref`'d host and `Restate` fills it, which
+    is `SettingsView`'s pane pattern and `MaterialView`'s.
+
+    ⚠ **The list is markup and its selection is a binding rather than a key, which is
+    `TextureImportView`'s call and the opposite of `QueryView`'s.** A selected row is the same tag
+    with one more class, and a class *can* be bound — so `selected` is not in the key: it reaches the
+    screen through `ClassOf(row)`, which reads the row's own class and a `chosen` signal beside it. A
+    key carrying the flag would work and would tear down and rebuild two rows on every press for
+    nothing. ⚠ **And here it would do worse than nothing**: the hit test holds a list of
+    `(key, entry)` pairs, and a key that changed when the selection moved would leave every pair in
+    that list naming a row that no longer exists.
+
+    ⚠ **The class order is load-bearing and is the hand-written one.** `Row` writes `member` then
+    `missing`, and `Restate` writes `selected` after both — so `ClassOf` composes them in that order
+    and a whole-tree dump prints `.member .missing .selected` exactly as it did. `SetClasses` splits
+    on spaces and adds in order, which is what makes one string enough.
+
+    ⚠ **A heading is a shorter row, and the flag is in the key.** `Heading` builds a `vocab-row` with
+    a `vocab-name` and no `vocab-detail`; every other row has both. That is an `@if` inside the loop
+    body, so the flag has to be in the key or a row that turned into a heading would keep its second
+    cell — and unlike the selection, `Heading` is a fact about what the row *is* rather than about
+    what is chosen, so it never changes without the rest of the record changing too.
+
+    ⚠ **`refs` is here for a hit test and not for a handler**, which is the second use
+    `VariationHarnessView` found. A `vocab-row` is a plain element and plain elements raise no click;
+    the press is resolved by asking each row whether it contains the point, in the order the document
+    declares them. `ElementRefs` refuses to enumerate, which is right: the row list is already the
+    authority on that order, and offering a second one is offering one to get wrong.
+
+    ⚠ **The geometric hit test is kept, bug and all.** A press outside `vocab-list` but inside some
+    row's rectangle selects that row, including a row scrolled out of view. Routing the press through
+    `on:pointerdown` on each row would fix it for free and was the more natural markup; it was not
+    done, for the reason wave 4 gave about the harness matrix — a port that changes behaviour is a
+    defect until argued for, and this belongs in a commit that says so.
+-->
+@component ShapeVocabularyView
+@namespace Vixen.Editor.AssetEditors.Animation
+@inherits Vixen.Ui.Controls.Control
+@tag vocab-editor
+@using System.Collections.Immutable
+@using Vixen.Animation.Constraints
+@using Vixen.Core.Mathematics
+@using Vixen.Ui
+@using Vixen.Ui.Composition
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<vocab-bar ref="@Bar">
+    <Button ref="@AddTerm" Label="Add Name" />
+    <Button ref="@AddTag" Label="Add Tag" />
+    <Button ref="@AddPlan" Label="Add Class" />
+    <Button ref="@AddMember" Label="Add Required Shape" />
+    <Button ref="@Drop" Label="Remove" />
+</vocab-bar>
+
+<vocab-body>
+    <vocab-list ref="@List">
+        @for (var row in Rows) {
+            <vocab-row key="@row" refs="@RowElements" class="@ClassOf(row)">
+                <VocabName Text="@row.Name" />
+
+                @if (!row.Heading) {
+                    <VocabDetail Text="@row.Detail" />
+                }
+            </vocab-row>
+        }
+    </vocab-list>
+
+    <vocab-side>
+        <vocab-fields ref="@Fields" />
+
+        <vocab-report ref="@Report">
+            @if (Problems.Length > 0) {
+                <VocabTitle Text="Problems" />
+            }
+
+            @for (var problem in Problems) {
+                <VocabNote key="@problem" class="@problem.Class" Text="@problem.Message" />
+            }
+        </vocab-report>
+    </vocab-side>
+</vocab-body>
+
+@code {
+    /// <summary>Every declared thing, in one list, headings included.</summary>
+    readonly Signal<ImmutableArray<VocabularyRow>> listed = new([]);
+
+    /// <summary>Which row is chosen, as the slot the loop keys carry, or −1.</summary>
+    readonly Signal<int> chosen = new(-1);
+
+    /// <summary>What is wrong with the file, as the build would say it.</summary>
+    readonly Signal<ImmutableArray<VocabularyProblemRow>> problems = new([]);
+
+    /// <summary>What each hit-testable row is, in the order the document declares them.</summary>
+    readonly List<(VocabularyRow Key, object Entry)> hits = [];
+
+    ShapeVocabularyDocument? document;
+    object? selected;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The bar across the top.</summary>
+    public UiElement Bar { get; private set; } = null!;
+
+    /// <summary>Declares a name a shape may have.</summary>
+    public Button AddTerm { get; private set; } = null!;
+
+    /// <summary>Declares a tag a shape may carry.</summary>
+    public Button AddTag { get; private set; } = null!;
+
+    /// <summary>Declares a body plan. Named <c>AddPlan</c> because <c>UiElement.AddClass</c> exists.</summary>
+    public Button AddPlan { get; private set; } = null!;
+
+    /// <summary>Adds a shape the selected class requires.</summary>
+    public Button AddMember { get; private set; } = null!;
+
+    /// <summary>Removes whatever is selected. Named <c>Drop</c> because <c>UiElement.Remove</c> exists.</summary>
+    public Button Drop { get; private set; } = null!;
+
+    /// <summary>Everything the file declares, in one list.</summary>
+    public UiElement List { get; private set; } = null!;
+
+    /// <summary>The selected row's fields.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A host element <see cref="Restate" /> fills, and the file header carries the
+    ///     argument.</b> The pane is a <c>switch</c> over the selection's <i>type</i>, and an
+    ///     <c>@if</c> arm keyed on a type is wave 4's surviving-region trap at its sharpest: moving
+    ///     from one name to another would not change the arm, so nothing in it would be rebuilt and
+    ///     every field would go on showing the first name. An element owned by no region is safe to
+    ///     clear and refill.
+    /// </remarks>
+    public UiElement Fields { get; private set; } = null!;
+
+    /// <summary>What is wrong with the file, as the build would say it.</summary>
+    public UiElement Report { get; private set; } = null!;
+
+    /// <summary>Every row that can be pressed, by the key the loop reconciled it on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A hit test's handle rather than a handler's</b>, which is <c>refs</c>' second use. A
+    ///     <c>vocab-row</c> is a plain element and raises no click; a list of rows is deliberately not
+    ///     a list of controls.
+    /// </remarks>
+    internal ElementRefs<UiElement> RowElements { get; } = new();
+
+    /// <summary>What is selected, or <see langword="null" />.</summary>
+    public object? Selected => selected;
+
+    partial void OnComposed() {
+        AddHandler<ClickEvent>(static (element, args) => ((ShapeVocabularyView) element).Chosen(args));
+        AddHandler<PointerEvent>(static (element, args) => ((ShapeVocabularyView) element).Pressed(args));
+    }
+
+    /// <summary>Shows a vocabulary.</summary>
+    /// <param name="vocabulary">The document.</param>
+    public void Show(ShapeVocabularyDocument vocabulary) {
+        ArgumentNullException.ThrowIfNull(vocabulary);
+
+        if (document is { } previous) {
+            previous.Changed -= Reload;
+        }
+
+        document = vocabulary;
+        vocabulary.Changed += Reload;
+
+        Reload(vocabulary);
+    }
+
+    /// <summary>Rebuilds from the document.</summary>
+    /// <param name="vocabulary">The document.</param>
+    public void Reload(ShapeVocabularyDocument vocabulary) {
+        ArgumentNullException.ThrowIfNull(vocabulary);
+        Reload();
+    }
+
+    /// <summary>Rebuilds the list.</summary>
+    public void Reload() {
+        hits.Clear();
+
+        if (document is not { } vocabulary) {
+            listed.Value = [];
+
+            Restate();
+            return;
+        }
+
+        // The names a class member may refer to, so a member that refers to something else can be
+        // marked as it is drawn rather than only when the check is run.
+        var declared = new HashSet<string>(
+            vocabulary.Vocabulary.Shapes.Select(static term => term.Name),
+            StringComparer.Ordinal
+        );
+
+        var rows = ImmutableArray.CreateBuilder<VocabularyRow>();
+        var slot = 0;
+
+        rows.Add(Heading(slot++, "Names"));
+
+        foreach (var term in vocabulary.Vocabulary.Shapes) {
+            rows.Add(Row(slot++, term, term.Name, term.Meaning, false, 0));
+        }
+
+        rows.Add(Heading(slot++, "Tags"));
+
+        foreach (var tag in vocabulary.Vocabulary.Tags) {
+            rows.Add(Row(slot++, tag, tag.Tag, tag.Meaning, false, 0));
+        }
+
+        rows.Add(Heading(slot++, "Classes"));
+
+        foreach (var declaredClass in vocabulary.Vocabulary.Classes) {
+            rows.Add(
+                Row(slot++, declaredClass, declaredClass.Name, $"{declaredClass.Members.Length} required shape(s)", false, 0)
+            );
+
+            foreach (var member in declaredClass.Members) {
+                var missing = declared.Count > 0 && !declared.Contains(member.Name);
+
+                rows.Add(
+                    Row(
+                        slot++,
+                        new VocabularyMember(declaredClass, member),
+                        member.Name,
+                        missing ? "not declared above" : $"{member.Kind}{(member.Required ? string.Empty : ", optional")}",
+                        missing,
+                        1
+                    )
+                );
+            }
+        }
+
+        listed.Value = rows.ToImmutable();
+
+        Restate();
+    }
+
+    static VocabularyRow Heading(int slot, string text) => new(slot, true, "header", text, string.Empty);
+
+    VocabularyRow Row(int slot, object entry, string name, string detail, bool missing, int depth) {
+        // ⚠ Composed in the order the hand-written panel wrote them — `member`, then `missing`, and
+        // `selected` after both, which `ClassOf` appends. `Tree()` prints classes in the order they
+        // were added, so an order that read well and differed here would be a dump that differed.
+        var classes = depth > 0
+            ? missing ? "member missing" : "member"
+            : missing ? "missing" : string.Empty;
+
+        var row = new VocabularyRow(slot, false, classes, name, detail);
+
+        hits.Add((row, entry));
+
+        return row;
+    }
+
+    /// <summary>The classes a row wears, which is its own plus the selection.</summary>
+    /// <param name="row">The row.</param>
+    /// <returns>The class attribute's value.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A binding rather than a key, which is what keeps the hit test's pairs valid.</b> The
+    ///     selection is the one thing about a row that changes without the row changing; putting it
+    ///     in the key would change the key, and <see cref="hits" /> holds the old one.
+    /// </remarks>
+    string ClassOf(VocabularyRow row) {
+        if (row.Slot != chosen.Value) {
+            return row.Class;
+        }
+
+        return row.Class.Length > 0 ? row.Class + " selected" : "selected";
+    }
+
+    void Restate() {
+        Fields.Empty();
+
+        var slot = -1;
+
+        foreach (var (key, entry) in hits) {
+            if (Same(entry, selected)) {
+                slot = key.Slot;
+                break;
+            }
+        }
+
+        chosen.Value = slot;
+
+        if (document is not { } vocabulary) {
+            problems.Value = [];
+            return;
+        }
+
+        Fields.Add("vocab-title").Text = vocabulary.Vocabulary.Name;
+
+        if (vocabulary.LoadError is { } error) {
+            Fields.Add("vocab-error").Text = error;
+        }
+
+        Fields.Add("fact-row").Add("fact-name").Text =
+            $"{vocabulary.Vocabulary.Shapes.Length} name(s), {vocabulary.Vocabulary.Tags.Length} tag(s), "
+            + $"{vocabulary.Vocabulary.Classes.Length} class(es)";
+
+        switch (selected) {
+            case ShapeTermRecord term:
+                Term(vocabulary, term);
+                break;
+
+            case ShapeTagRecord tag:
+                Afford(vocabulary, tag);
+                break;
+
+            case ShapeClassRecord declared:
+                Class(vocabulary, declared);
+                break;
+
+            case VocabularyMember member:
+                Member(vocabulary, member);
+                break;
+
+            default:
+                Fields.Add("text").Text = "Select a name, a tag or a class.";
+                break;
+        }
+
+        // ⚠ Always shown, not behind a button. The one mistake this file exists to prevent is one an
+        // author makes while typing a class, and a check they have to remember to press is one they
+        // press after they have finished.
+        var found = vocabulary.Problems();
+        var notes = ImmutableArray.CreateBuilder<VocabularyProblemRow>(found.Count);
+        var line = 0;
+
+        foreach (var problem in found) {
+            notes.Add(new(line++, problem.Fatal ? "fatal" : string.Empty, problem.Message));
+        }
+
+        problems.Value = notes.MoveToImmutable();
+    }
+
+    void Term(ShapeVocabularyDocument vocabulary, ShapeTermRecord term) {
+        Fields.Add("vocab-title").Text = "Name";
+
+        Line("Name", term.Name, value => selected = vocabulary.Edit(term, entry => entry with { Name = value }));
+
+        // ⚠ The meaning is the useful half and the panel says so by giving it the same standing as
+        // the name. A vocabulary of thirty bare words is a list nobody can use to settle an argument.
+        Line("Meaning", term.Meaning, value => selected = vocabulary.Edit(term, entry => entry with { Meaning = value }));
+    }
+
+    void Afford(ShapeVocabularyDocument vocabulary, ShapeTagRecord tag) {
+        Fields.Add("vocab-title").Text = "Tag";
+
+        Line("Tag", tag.Tag, value => selected = vocabulary.Edit(tag, entry => entry with { Tag = value }));
+        Line("Meaning", tag.Meaning, value => selected = vocabulary.Edit(tag, entry => entry with { Meaning = value }));
+    }
+
+    void Class(ShapeVocabularyDocument vocabulary, ShapeClassRecord declared) {
+        Fields.Add("vocab-title").Text = "Class";
+
+        Line("Name", declared.Name, value => selected = vocabulary.Edit(declared, entry => entry with { Name = value }));
+
+        Fields.Add("text").Text =
+            "A body that claims this class has to carry every shape below it. That is what makes one authored "
+            + "contact portable: a clip may assume the names exist.";
+    }
+
+    void Member(ShapeVocabularyDocument vocabulary, VocabularyMember member) {
+        Fields.Add("vocab-title").Text = "Required shape";
+
+        Line(
+            "Name",
+            member.Member.Name,
+            value => selected = vocabulary.Edit(member, entry => entry with { Name = value })
+        );
+
+        var kind = Fields.Add("fact-row");
+        kind.Add("fact-name").Text = "Kind";
+
+        var select = kind.Add("fact-value").Add<Select>();
+
+        foreach (var option in Enum.GetValues<ShapeKind>()) {
+            select.AddOption(option.ToString());
+        }
+
+        select.Value = member.Member.Kind.ToString();
+
+        select.SelectionChanged += (_, value) => {
+            if (Enum.TryParse<ShapeKind>(value, out var picked)) {
+                selected = vocabulary.Edit(member, entry => entry with { Kind = picked });
+            }
+        };
+
+        Vector(
+            "Extents",
+            member.Member.Extents,
+            value => selected = vocabulary.Edit(member, entry => entry with { Extents = value })
+        );
+
+        var required = Fields.Add("fact-row");
+        required.Add("fact-name").Text = "Required";
+
+        var toggle = required.Add("fact-value").Add<ToggleButton>();
+
+        toggle.Label = member.Member.Required ? "a set without it is invalid" : "optional";
+        toggle.IsChecked = member.Member.Required;
+
+        toggle.CheckedChanged += (_, on) => selected = vocabulary.Edit(member, entry => entry with { Required = on });
+    }
+
+    void Line(string label, string value, Action<string> write) {
+        var row = Fields.Add("fact-row");
+
+        row.Add("fact-name").Text = label;
+
+        var box = row.Add("fact-value").Add<TextBox>();
+
+        box.Value = value;
+        box.ValueChanged += (_, text) => write(text ?? string.Empty);
+    }
+
+    void Vector(string label, Vector3 value, Action<Vector3> write) {
+        var row = Fields.Add("fact-row");
+
+        row.Add("fact-name").Text = label;
+
+        var holder = row.Add("fact-value");
+        var current = value;
+
+        Component(holder, current.X, number => write(new(number, current.Y, current.Z)));
+        Component(holder, current.Y, number => write(new(current.X, number, current.Z)));
+        Component(holder, current.Z, number => write(new(current.X, current.Y, number)));
+    }
+
+    static void Component(UiElement holder, float value, Action<float> write) {
+        var box = holder.Add<NumericInput>();
+
+        box.Decimals = 3;
+        box.Number = value;
+        box.NumberChanged += (_, number) => write((float) number);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A member is compared by its class and its record, not by reference to the wrapper.</b>
+    ///     Every rebuild makes a fresh <see cref="VocabularyMember" /> around the same two objects, so
+    ///     reference equality on the wrapper would lose the selection on every keystroke.
+    /// </summary>
+    static bool Same(object? left, object? right) =>
+        left is VocabularyMember first && right is VocabularyMember second
+            ? ReferenceEquals(first.Member, second.Member)
+            : ReferenceEquals(left, right);
+
+    void Chosen(ClickEvent args) {
+        if (document is not { } vocabulary) {
+            return;
+        }
+
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, AddTerm)) {
+                selected = vocabulary.AddTerm();
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, AddTag)) {
+                selected = vocabulary.AddTag();
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, AddPlan)) {
+                selected = vocabulary.AddClass();
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, AddMember)) {
+                // A member belongs to a class, so the button follows the selection into one rather
+                // than asking which — and does nothing when the selection is not in a class at all.
+                if (Owner() is { } owner) {
+                    selected = vocabulary.AddMember(owner);
+                }
+
+                args.Handled = true;
+                return;
+            }
+
+            if (ReferenceEquals(element, Drop)) {
+                Delete(vocabulary);
+                args.Handled = true;
+
+                return;
+            }
+        }
+    }
+
+    /// <summary>Which class the Add Required Shape button would add to, or <see langword="null" />.</summary>
+    public ShapeClassRecord? Owner() =>
+        selected switch {
+            ShapeClassRecord declared => declared,
+            VocabularyMember member => member.Class,
+            _ => null
+        };
+
+    void Delete(ShapeVocabularyDocument vocabulary) {
+        var removed = selected switch {
+            ShapeTermRecord term => vocabulary.Remove(term),
+            ShapeTagRecord tag => vocabulary.Remove(tag),
+            ShapeClassRecord declared => vocabulary.Remove(declared),
+            VocabularyMember member => vocabulary.Remove(member),
+            _ => false
+        };
+
+        if (removed) {
+            selected = null;
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ A row is a plain element and plain elements raise no click, so a press is turned into a
+    ///     selection by asking each row whether it contains the point.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="hits" />' order, because <c>ElementRefs</c> refuses to enumerate.</b> That
+    ///     refusal is right: the row list is already the authority on what order the rows are in, and
+    ///     a second answer is one to get wrong.
+    /// </remarks>
+    void Pressed(PointerEvent args) {
+        if (args.Action != PointerAction.Pressed || args.Button != PointerButton.Primary) {
+            return;
+        }
+
+        foreach (var (key, entry) in hits) {
+            if (RowElements.TryGet(key, out var element) && element.Bounds.Contains(new Vector2(args.X, args.Y))) {
+                selected = entry;
+                Restate();
+
+                args.Handled = true;
+                return;
+            }
+        }
+    }
+
+    // ================================================================== What the markup reads
+
+    ImmutableArray<VocabularyRow> Rows => listed.Value;
+
+    ImmutableArray<VocabularyProblemRow> Problems => problems.Value;
+}

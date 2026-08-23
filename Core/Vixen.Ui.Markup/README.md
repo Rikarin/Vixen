@@ -236,6 +236,40 @@ and drops the entry with the row's region. So the key you look up with is the ex
 `refs` outside a `@for` is `VXML2013`, the mirror of `VXML2010`: there is no key out there to file
 under. One element held once is what `ref` is for.
 
+⚠ **`refs` must be in the loop body itself and not inside an `@if` inside it, and the failure is
+silent.** `VXML2013` reads the markup lexically, so a `refs` in an `@if` arm inside a `@for`
+compiles — and throws at compose time. `BuildContext.For` sets `iteration` around the *synchronous*
+build of a new region and restores it in a `finally`; `BuildContext.Switch` registers its own
+`Bind`, which the scheduler runs **later**, by which time `iteration` is back to what it was. So
+`Refs` finds no key and throws the "'refs' is only meaningful inside an @for" message its own remark
+says nothing generated can reach.
+
+⚠ **What that looks like is not an exception in your face.** The arm's builder is abandoned wherever
+the throw happened, so the element created on the line above `refs` survives with **no classes, no
+bindings and no children**, and everything else on the panel is correct. Wave 7 met it in
+`ShapeVocabularyView`: seven `vocab-row`s, each an empty box, while the side pane and the report
+beside them were byte-perfect.
+
+The workaround is free and is usually the better markup anyway — put the `refs` on the row and the
+`@if` *inside* it:
+
+```xml
+@for (var row in Rows) {
+    <vocab-row key="@row" refs="@RowElements" class="@ClassOf(row)">
+        <VocabName Text="@row.Name" />
+
+        @if (!row.Heading) {
+            <VocabDetail Text="@row.Detail" />
+        }
+    </vocab-row>
+}
+```
+
+The real fix is four lines in `Switch` — save and restore `iteration` the way `For` already does for
+a nested loop, with the same argument: an `@if` arm inside a row belongs to that row's iteration.
+Until that lands, `VXML2013` should also refuse a `refs` under a nested region, because a diagnostic
+is what this needs and a run-time throw that eats the rest of the arm is what it has.
+
 ⚠ **A handle is filled by an effect, so it is empty until the next flush** — the one asymmetry with
 `ref`, which is assigned in the straight-line body. `ElementRefs<T>`'s indexer throws and says so
 rather than answering null, because a null would arrive as a `NullReferenceException` somewhere
