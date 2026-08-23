@@ -321,11 +321,17 @@ every section beside the one before it.
     previous time, because an event is a moment rather than a state. What it moves, it restores.
   - **Audio mixer** (`Audio/`) — a panel over `Vixen.Audio`'s own `MixerAsset`, validated by running
     the real `MixerBuilder` against a real `AudioMixer` rather than by a second set of rules.
-    ⚠ **The one `.vxml` in this folder, and the panel `change:` and `refs` were built for**: a
-    strip's fader handler reads *its own* mute and its mute handler reads *its own* fader, which is
-    one member and many rows for a `ref` (`VXML2010`). The port is held to a whole-tree rectangle
-    dump that is byte-identical to the C# it replaced — see the [panel
+    ⚠ **The panel `change:` and `refs` were built for**: a strip's fader handler reads *its own*
+    mute and its mute handler reads *its own* fader, which is one member and many rows for a `ref`
+    (`VXML2010`). The port is held to a whole-tree rectangle dump that is byte-identical to the C#
+    it replaced — see the [panel
     ledger](../Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be).
+  - **Variation harness** (`Animation/VariationHarnessView.vxml`) — the second `.vxml` here, and the
+    one that shows `refs` is not only for reaching a sibling control. ⚠ **A `harness-cell` is a
+    plain element and plain elements raise no click**, so a grid of seventy cells is deliberately not
+    seventy controls and a press is turned into a selection by asking each cell whether it contains
+    the point. `ElementRefs` refuses to enumerate on purpose — iterate the model and look each row
+    up — which is the shape the hand-written hit test already had. Byte-identical in five states.
   - **Input actions** (`Input/`) — over `Vixen.Input`'s reader and writer, so the file this editor
     writes and the file the source generator reads are the same file by construction.
   - **Font** (`Fonts/`) — `.vxfont`, a document beside the `.ttf` because a fallback chain is a
