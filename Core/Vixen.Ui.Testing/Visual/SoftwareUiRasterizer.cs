@@ -731,6 +731,24 @@ public static class SoftwareUiRasterizer {
                         surface = Blurred(surface, layer.Blur);
                     }
 
+                    // ⚠ <b>Between the two, and the position is forced from both sides.</b> After the
+                    // blur, because <c>blur(σ) drop-shadow(0 0 τ)</c> casts the shadow of the
+                    // <i>blurred</i> element and the two Gaussians do not commute — see
+                    // <see cref="UiLayer.Shadow" />. Before the matrix, because that is where the
+                    // device takes it: `UiRenderer` never writes `UiLayer.Filter` into a surface at
+                    // all, so its shadow is cast from the blurred, untinted one, and taking it from a
+                    // different source here is the divergence `UiCompositingTests` exists to catch.
+                    //
+                    // ⚠ It happens to be the same picture either way — <c>UiDropShadow.Tint</c> has
+                    // zero coefficients, so whatever the group's matrix did to the colour is
+                    // multiplied by nothing and only the alpha survives, which no colour matrix
+                    // touches. Written in the order that is right for a reason rather than the order
+                    // that is right by accident, because the accident stops holding the first time a
+                    // filter function reads alpha.
+                    if (layer.Shadow is { } cast) {
+                        surfaces[layer.ShadowImage] = Filtered(Blurred(surface, cast.Blur), cast.Tint);
+                    }
+
                     // ⚠ <b>At the same seam, in place, and <i>not</i> at the same place the device
                     // does it — which is the one deliberate structural divergence in this file and
                     // the reason it is safe is arithmetic rather than testing.</b> `UiRenderer`
@@ -758,6 +776,15 @@ public static class SoftwareUiRasterizer {
                     // it: the composite draw is the seam, on this path and on the device's.
                     if (layer.MaskCount > 0) {
                         masks[layer.Image] = (layer.MaskFirst, layer.MaskCount);
+
+                        // ⚠ The shadow is masked on the same terms and in the same frame — see
+                        // `UiRenderer.Compose`, which states the divergence from CSS this shares:
+                        // the mask travels with the silhouette, because both executors recover its
+                        // point from the quad's own `uv × size` and the shadow quad's UV is the
+                        // un-displaced one. Recorded and not applied, for the reason two lines up.
+                        if (layer.Shadow is not null) {
+                            masks[layer.ShadowImage] = (layer.MaskFirst, layer.MaskCount);
+                        }
                     }
 
                     // The composite draw sits immediately after the group's own draws and is an

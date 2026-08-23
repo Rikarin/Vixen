@@ -23,9 +23,10 @@
    divergence is documented in docs/plan/43 § D1 and it is the emission, not the model.
 
    ⚠ **What is deliberately not here.** `--container-*`, `--tracking-*`, `--leading-*`,
-   `--inset-shadow-*`, `--drop-shadow-*`, `--text-shadow-*`, `--ease-*`, `--animate-*`,
+   `--inset-shadow-*`, `--text-shadow-*`, `--ease-*`, `--animate-*`,
    `--blur-*`, `--perspective-*` and `--aspect-*` are v4 namespaces no utility family in this
-   engine reads yet. Shipping them would emit variables that resolve and utilities that do not,
+   engine reads yet. `--drop-shadow-*` left this list when `drop-shadow-*` arrived, which is what
+   the last sentence of this paragraph says happens. Shipping them would emit variables that resolve and utilities that do not,
    which is the failure mode docs/plan/43 spends Part 1 measuring. They arrive with their
    families. */
 
@@ -452,4 +453,27 @@
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
     --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+    /* ── Drop shadows ──────────────────────────────────────────────────────
+       v4's own namespace, and not a spelling of the block above. These are the arguments of a
+       `filter: drop-shadow()`, which `UtilityComposition.Filter` wraps and assembles into the one
+       ordered `filter` every filter family writes.
+
+       ⚠ **No commas and no spread.** A `--shadow-*` may be a comma-separated list and five of the
+       seven above are; `filter`'s items are separated by spaces, so a comma in one of these
+       invalidates the whole declaration it lands in — every other filter on the element with it.
+       `drop-shadow()` also has no fourth length: the spread the box shadows use has no meaning for
+       a silhouette, which is why these are shorter than their neighbours rather than sloppier.
+
+       ⚠ **A shadow of the ink and not of the box**, so these are softer and less offset than the
+       `--shadow-*` beside them at the same name. A box shadow is hidden behind the element that
+       casts it and only its edge is seen; a drop shadow of a glyph or an icon is seen all the way
+       in, and the numbers that read as one height for a rectangle read as a smudge for a letter.
+       */
+    --drop-shadow-xs: 0 1px 1px rgb(0 0 0 / 0.05);
+    --drop-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.15);
+    --drop-shadow-md: 0 3px 3px rgb(0 0 0 / 0.12);
+    --drop-shadow-lg: 0 4px 4px rgb(0 0 0 / 0.15);
+    --drop-shadow-xl: 0 9px 7px rgb(0 0 0 / 0.1);
+    --drop-shadow-2xl: 0 25px 25px rgb(0 0 0 / 0.15);
 }

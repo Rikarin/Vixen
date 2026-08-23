@@ -276,7 +276,7 @@ public class UtilityFamilySupportTests {
         // `filter`, which `DrawListBuilder` reads and both executors render. Asserted on `filter`
         // rather than on the fragment, because the fragment alone is what the old row already proved
         // is not evidence of anything.
-        { "blur-2", "filter", "blur(8px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0)" },
+        { "blur-2", "filter", "blur(8px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0) drop-shadow(0 0 transparent)" },
 
         // ⚠ <b>Eight functions where the row above used to expect one, and the seven that joined it
         // are all identities.</b> That is what `UtilityComposition.Filter` assembles: every filter
@@ -289,13 +289,34 @@ public class UtilityFamilySupportTests {
         // ⚠ <b>And the order is fixed here rather than following the class list</b>, because classes
         // on an element are a set. `invert brightness-200` and `brightness-200 invert` are different
         // pictures in CSS and the same element here; v4 picks an order and this picks v4's.
-        { "brightness-125", "filter", "blur(0px) brightness(1.25) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0)" },
-        { "contrast-75", "filter", "blur(0px) brightness(1) contrast(0.75) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0)" },
-        { "grayscale", "filter", "blur(0px) brightness(1) contrast(1) grayscale(1) hue-rotate(0deg) invert(0) saturate(1) sepia(0)" },
-        { "hue-rotate-90", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(90deg) invert(0) saturate(1) sepia(0)" },
-        { "invert", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(1) saturate(1) sepia(0)" },
-        { "saturate-150", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1.5) sepia(0)" },
-        { "sepia-50", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0.5)" },
+        { "brightness-125", "filter", "blur(0px) brightness(1.25) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0) drop-shadow(0 0 transparent)" },
+        { "contrast-75", "filter", "blur(0px) brightness(1) contrast(0.75) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0) drop-shadow(0 0 transparent)" },
+        { "grayscale", "filter", "blur(0px) brightness(1) contrast(1) grayscale(1) hue-rotate(0deg) invert(0) saturate(1) sepia(0) drop-shadow(0 0 transparent)" },
+        { "hue-rotate-90", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(90deg) invert(0) saturate(1) sepia(0) drop-shadow(0 0 transparent)" },
+        { "invert", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(1) saturate(1) sepia(0) drop-shadow(0 0 transparent)" },
+        { "saturate-150", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1.5) sepia(0) drop-shadow(0 0 transparent)" },
+        { "sepia-50", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0.5) drop-shadow(0 0 transparent)" },
+
+        // ⚠ <b>The ninth function, and the row worth reading twice is what it does to the eight above
+        // it.</b> Every one of them now carries a <c>drop-shadow(0 0 transparent)</c> it did not
+        // carry before, because `UtilityComposition.Filter` assembles all nine into every `filter`
+        // any filter family emits and the seven or eight nobody wrote resolve to their identities.
+        // <c>drop-shadow</c>'s identity cannot be a number — there is no offset that means "no
+        // shadow" — so it is a shadow in a colour that cannot be seen, which
+        // <c>DrawListBuilder.Settle</c> discards before it costs a surface.
+        //
+        // ⚠ And it is <i>last</i>, which is v4's order and also the only one this engine could
+        // execute: a drop shadow does not commute with a blur. See `UiLayer.Shadow`.
+        { "drop-shadow-lg", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0) drop-shadow(0 4px 4px rgb(0 0 0 / 0.15))" },
+
+        // ⚠ <b>The keyword, and the row is here to record that it is <i>not</i> the eight functions at
+        // their identities.</b> That spelling would draw the same picture and be a different
+        // declaration — a `var()` chain resolving to `blur(0px) brightness(1) …`, which
+        // `DrawListBuilder.Filter` reads as a real list, composes to the identity and only then
+        // discards in `Settle`. `none` is refused by the list check one step earlier and needs no
+        // fragment at all, which is why this is the one family in the block with nothing in
+        // `Alongside`.
+        { "filter-none", "filter", "none" },
 
         // ⚠ Two families composing into one declaration is the case this theory cannot state — a row
         // here is one class — so it is
@@ -814,6 +835,87 @@ public class UtilityFamilySupportTests {
         Assert.Equal(0f, white.G, 4);
         Assert.Equal(0f, white.B, 4);
         Assert.Equal(1f, white.A);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>drop-shadow-lg</c> reaches the compositor as a shadow and not merely as a longer
+    ///     <c>filter</c> string, which the row in the table above cannot say.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         That row asserts the declaration computes. Every one of the eight filter families
+    ///         computes the same declaration and differs only in one <c>var()</c>, so a
+    ///         <c>drop-shadow</c> whose fragment landed in the wrong slot, or whose function
+    ///         <c>DrawListBuilder.Filter</c> refused, would produce a string that matches character
+    ///         for character and a frame with no shadow in it. Worse, refusal is <i>silent and total</i>
+    ///         — a list carrying a function this cannot execute is dropped whole — so the failure
+    ///         would be every other filter in the engine switching off, which no assertion about a
+    ///         computed string can see.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The blur beside it is the instrument.</b> With one class the test cannot tell a
+    ///         working ninth function from a list that was refused and a group opened by something
+    ///         else; with both, the <c>blur-2</c> is what proves the declaration survived being read
+    ///         at all, and the shadow is what proves the new slot did.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Drop_shadow_reaches_the_compositor_and_does_not_refuse_the_list_around_it() {
+        using var ui = Sheet("drop-shadow-lg", "blur-2", "bg-accent", "w-8", "h-8");
+
+        ui.Create("probe", ui.Document.Root, null, "drop-shadow-lg", "blur-2", "bg-accent", "w-8", "h-8");
+        ui.Frame();
+
+        var push = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.LayerPush
+        );
+
+        // The blur survived, so the list was read rather than refused.
+        Assert.Equal(8f, push.Blur);
+
+        var shadow = Assert.NotNull(push.Shadow);
+
+        // `--drop-shadow-lg: 0 4px 4px rgb(0 0 0 / 0.15)`.
+        Assert.Equal(0f, shadow.Offset.X, 3);
+        Assert.Equal(4f, shadow.Offset.Y, 3);
+        Assert.Equal(4f, shadow.Blur, 3);
+        Assert.Equal(0.15f, shadow.Colour.A, 3);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>filter-none</c> reaches the element as the keyword and opens no group, and the
+    ///     first half is what stops the second half being vacuous.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An element with no <c>filter</c> at all opens no group either, so "no
+    ///         <c>LayerPush</c>" on its own is a sentence about every element in the engine and would
+    ///         pass with this family deleted — which is precisely the state it was in until now. What
+    ///         separates the two is <see cref="UiTest.StyleOf" />: an unregistered class resolves to
+    ///         nothing, the generator emits no rule, and the property is <c>null</c> rather than
+    ///         <c>none</c>. Both assertions together say the declaration arrived <i>and</i> that
+    ///         arriving cost nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>grayscale</c> beside it is the instrument.</b> Without it the fixture is
+    ///         one that could not open a group whatever the styles said — no compositing, a zero-sized
+    ///         box, a stylesheet that failed to load — and every such fixture passes this test. The
+    ///         second element proves the same document does open one when something asks it to.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Filter_none_is_the_keyword_and_costs_no_group() {
+        using var ui = Sheet("filter-none", "grayscale", "bg-accent", "w-8", "h-8");
+
+        var off = ui.Create("off", ui.Document.Root, null, "filter-none", "bg-accent", "w-8", "h-8");
+        ui.Create("on", ui.Document.Root, null, "grayscale", "bg-accent", "w-8", "h-8");
+        ui.Frame();
+
+        Assert.Equal("none", ui.StyleOf(off, "filter"));
+
+        // One, and it is the `grayscale` element's. A second would mean `filter-none` opened one too.
+        Assert.Single(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
     }
 
     /// <summary>

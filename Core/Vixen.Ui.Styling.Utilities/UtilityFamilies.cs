@@ -62,6 +62,16 @@ enum ValueKind : byte {
     /// <summary>A whole <c>box-shadow</c> declaration named by a token: <c>shadow-lg</c>.</summary>
     Shadow,
 
+    /// <summary>A <c>drop-shadow()</c>'s arguments named by a token: <c>drop-shadow-lg</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Its own kind rather than <see cref="Shadow" /> against a second table, because the two
+    ///     are read out of different theme namespaces <i>and</i> one is a whole declaration where the
+    ///     other is one item of a list. See <see cref="ThemeTokens.DropShadow" />: a
+    ///     <c>box-shadow</c> token may hold a comma, and a comma inside <c>filter</c> invalidates the
+    ///     declaration it lands in.
+    /// </remarks>
+    DropShadow,
+
     /// <summary>A gradient stop, which is a colour or a position: <c>from-accent</c>, <c>from-40%</c>.</summary>
     /// <remarks>
     ///     ⚠ Composed — it emits a <see cref="UtilityComposition" /> fragment and no declaration of
@@ -981,6 +991,52 @@ public static class UtilityFamilies {
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
 
+        // ⚠ <b>The ninth family in the block and the only one that sets no fragment, which is what
+        // makes it the odd one and also what makes it correct.</b> `filter-none` is not "every
+        // function at its identity" — that is what an element carrying none of the eight already
+        // gets, and `DrawListBuilder` opens no group for it. It is the keyword `none`, which
+        // `DrawListBuilder.Filter` reads as "not a list" and returns `default` for, so the element
+        // draws unfiltered whatever the eight fragments the cascade handed it say. Emitting the
+        // assembled eight here with every fragment forced to its identity would be a *different*
+        // declaration with the same picture and a `var()` chain nobody can read.
+        //
+        // ⚠ <b>Which of `filter-none` and `blur-2` wins on one element is the cascade's answer and
+        // not this table's, and it is worth knowing that before someone reports it as a bug.</b> Both
+        // rules set `filter`, both have one class's specificity, so the later rule in the generated
+        // sheet wins — which is the order `UtilityGenerator` emits families in, not the order the
+        // classes were written in. Tailwind v4 has the identical ambiguity for the identical reason.
+        // The class earns its place on elements that inherit or `@apply` a filter and want it off,
+        // which is the only case where there is nothing else to write.
+        Keywords("filter", "filter", new Dictionary<string, string>(StringComparer.Ordinal) { ["none"] = "none" });
+
+        // ⚠ <b>The ninth function, and the one that took a compositor change rather than a
+        // constant.</b> The seven above are a 3×4 matrix folded into the composite draw the group was
+        // making anyway — no surface, no pass. A drop shadow is a Gaussian over the group's
+        // <i>alpha</i>, offset, tinted and composited under it: a second viewport-sized surface, two
+        // more render passes and a second quad, on both executors. That is why it did not land beside
+        // them and why `UtilityComposition.Filter` left a hole where it now goes.
+        //
+        // ⚠ <b>A token scale rather than a spacing multiple, which is <c>shadow-*</c>'s arrangement
+        // and not <c>blur-*</c>'s.</b> `blur-2` is a length and means one thing; a drop shadow is an
+        // offset, a blur and an alpha chosen together to read as one height above the surface, and a
+        // scale that let them be picked apart would invite the combinations that do not. See
+        // `ThemeTokens.DropShadow`, and `--drop-shadow-*` in `vixen.default.vcss`.
+        //
+        // ⚠ <b>`drop-shadow-none` is here rather than in the theme</b>, for the reason `shadow-none`
+        // is: turning one off must not depend on somebody having remembered to define it. It sets the
+        // fragment to the same transparent shadow the initial value holds, which
+        // `DrawListBuilder.Settle` drops before it costs a surface — so the class is a real override
+        // in the cascade and costs the frame nothing.
+        Register(new Family(
+            "drop-shadow",
+            ValueKind.DropShadow,
+            [UtilityComposition.DropShadow],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["none"] = UtilityComposition.DropShadow + ":0 0 transparent"
+            },
+            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+        ));
+
         // ── Masks ───────────────────────────────────────────────────────────────────────
         //
         // ⚠ <b>Twenty-five roots now, and what is still missing is `mask-origin-*`,
@@ -1391,6 +1447,13 @@ public static class UtilityFamilies {
 
                 break;
 
+            case ValueKind.DropShadow:
+                foreach (var shadow in First(tokens.DropShadow.Keys)) {
+                    yield return shadow;
+                }
+
+                break;
+
             // Both readings, for the same reason `text-` and `border-` take two: a percentage and a
             // colour are two different fragments, and probing one would leave the other unmeasured.
             case ValueKind.GradientStop:
@@ -1592,6 +1655,7 @@ public static class UtilityFamilies {
             ValueKind.Color => TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations),
             ValueKind.BorderEdge => TryBorderEdge(family, candidate, tokens, declarations),
             ValueKind.Shadow => TryShadow(family, candidate, tokens, declarations),
+            ValueKind.DropShadow => TryDropShadow(family, candidate, tokens, declarations),
             ValueKind.GradientStop => TryGradientStop(family, candidate, tokens, declarations),
             _ => false
         };
@@ -1696,6 +1760,23 @@ public static class UtilityFamilies {
     static bool TryShadow(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
         var key = candidate.Value.Length == 0 ? ThemeTokens.DefaultKey : candidate.Value;
         return tokens.Shadow.TryGetValue(key, out var shadow) && Emit(family, shadow, declarations);
+    }
+
+    /// <summary>A named drop shadow, or the theme's default one for a bare <c>drop-shadow</c>.</summary>
+    /// <remarks>
+    ///     <see cref="TryShadow" />'s shape against the other namespace, and the resemblance is the
+    ///     whole of what it shares — what lands in <paramref name="declarations" /> here is a
+    ///     <c>--tw-*</c> fragment that <c>UtilityComposition.Filter</c> assembles, not a property any
+    ///     engine reads. See <see cref="ThemeTokens.DropShadow" />.
+    /// </remarks>
+    static bool TryDropShadow(
+        Family family,
+        UtilityCandidate candidate,
+        ThemeTokens tokens,
+        List<UtilityDeclaration> declarations
+    ) {
+        var key = candidate.Value.Length == 0 ? ThemeTokens.DefaultKey : candidate.Value;
+        return tokens.DropShadow.TryGetValue(key, out var shadow) && Emit(family, shadow, declarations);
     }
 
     /// <summary>Whether an arbitrary value is CSS at all, and so worth emitting a declaration for.</summary>

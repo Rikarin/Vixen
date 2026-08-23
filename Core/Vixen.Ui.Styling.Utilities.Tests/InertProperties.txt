@@ -76,31 +76,41 @@ scale                        #23  the box scales in four multiplications; the gl
 # what each function does and `Vixen.Graphics.Golden.Tests.UiCompositingTests` for the two paths
 # agreeing. The seven fragments carry no line here, like the gradient stops and the two translations.
 #
-# ⚠ What is *not* closed and is deliberately absent from this list: `drop-shadow()`, and the whole of
-# `backdrop-filter`. Neither has a family emitting anything, so neither is a debt this file can
-# record — a property nothing emits is exactly the mistake the `--blur` line was. Both are absent
-# roots in docs/plan/43's ledger, which is where an absence belongs. What each would take:
+# ⚠ CLOSED for `drop-shadow()` as well, and it is the one of the nine that cost a compositor change.
+# `drop-shadow-*` sets a `--tw-drop-shadow` holding the function's arguments and assembles into the
+# same `filter` the other eight do, *last* — the only position it can have, because it does not
+# commute with `blur()`: a Gaussian of a shadow is not the shadow of a Gaussian. `DrawListBuilder`
+# reads it into a `UiDropShadow`, `UiGeometryBuilder.Layer` outsets the bounds by whichever of the two
+# kernels is wider and emits a second quad *before* the group's own, and both executors blur the
+# group's finished surface into a surface of its own at the same seam. What it did not cost is a
+# shader: `UiDropShadow.Tint` is a `UiColorMatrix` with zero coefficients and the colour in its
+# offsets, so `ui-colour.frag` evaluates `0*c + colour*a` — the tinted silhouette — without being told
+# what it is drawing. The alpha cannot ride a three-row matrix and rides the quad instead. See
+# `Vixen.Ui.Controls.Tests.FilterDropShadowTests` for the shape and
+# `Vixen.Graphics.Golden.Tests.UiCompositingTests` for the two paths agreeing. The fragment carries no
+# line here, like the eight before it.
 #
-#   `drop-shadow-*` is not a colour matrix and does not fit beside one. It is a Gaussian over the
-#   *alpha channel alone*, offset by two lengths, tinted, and composited **under** the layer rather
-#   than over it — so it wants `ui-blur.frag`'s scratch target and two passes plus a third composite,
-#   and it needs `UiGeometryBuilder.Layer` to outset the bounds asymmetrically by the offset as well
-#   as by the kernel. It also does not commute with anything, which is the property the seven colour
-#   functions lean on: a `drop-shadow` before a `grayscale` is a grey shadow and after it is a
-#   coloured one, so the day it lands `DrawCommand.Filter` needs an *ordered* representation rather
-#   than one composed matrix.
+# ⚠ What is *not* closed and is deliberately absent from this list: the whole of `backdrop-filter`.
+# No family emits anything for it, so it is not a debt this file can record — a property nothing emits
+# is exactly the mistake the `--blur` line was. The ten roots are absent in docs/plan/43's ledger,
+# which is where an absence belongs. What it would take, re-measured rather than restated:
 #
-#   `backdrop-*` is a different feature wearing the same names, and the compositor cannot see what it
-#   needs. It reads the destination the group is about to composite *into*, and at the moment a
+#   `backdrop-*` reads the destination the group is about to composite *into*, and at the moment a
 #   group's surface is rendered that destination does not exist yet: `UiRenderer.Compose` records
 #   every group's pass **before** the host's frame pass begins — it has to, because passes do not
 #   nest — so nothing behind the group has been drawn. By the time the composite is submitted the
 #   destination is the colour attachment being written, which is not sampleable without an input
 #   attachment or a copy. `SoftwareUiRasterizer` could do it in three lines, because its recursion
 #   already holds the parent buffer; that asymmetry is the argument rather than a reason to try, since
-#   `UiCompositingTests` requires the two to agree. Closing it needs the backdrop captured as a real
-#   texture before the groups that read it are composed, which is a second walk over the layer tree
-#   and a copy per backdrop group — a different feature, priced differently, and not one line here.
+#   `UiCompositingTests` requires the two to agree.
+#
+#   ⚠ The fix is *not* a read-back, which is what the paragraph above used to imply. The prefix is
+#   replayable and `Submit` already walks exactly the range that would have to be replayed, so what is
+#   needed is a capture pass per backdrop group, `Compose`'s reverse-pre-order walk changed to
+#   post-order so everything behind a group is finished before it, and a new public parameter on
+#   `Compose` carrying what the host has already painted — without which the feature blurs the
+#   interface and not the scene under it. That last part is what makes it a branch rather than a slot.
+#   docs/guide/ui/compositing.md has the sized version.
 
 # ── Borders — A1. The physical four are painted now; the two logical edges are not, so `border-s-*`
 # and `border-e-*` still colour nothing. The widths *are* read, which is why only the colours are here

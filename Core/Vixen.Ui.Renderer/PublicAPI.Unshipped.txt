@@ -33,6 +33,7 @@ Vixen.Ui.Renderer.UiRenderer.Record(Vixen.Graphics.ICommandList commands, in Vix
 Vixen.Ui.Renderer.UiRenderer.Region.get -> int
 Vixen.Ui.Renderer.UiRenderer.Regions.get -> int
 Vixen.Ui.Renderer.UiRenderer.RegisterImage(ulong image, Vixen.Graphics.TextureViewHandle view) -> void
+Vixen.Ui.Renderer.UiRenderer.Shadowed.get -> int
 Vixen.Ui.Renderer.UiRenderer.UiRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Ui.Renderer.UiShaders shaders, Vixen.Rendering.RenderOutput output) -> void
 Vixen.Ui.Renderer.UiRenderer.UnregisterImage(ulong image) -> bool
 Vixen.Ui.Renderer.UiRenderer.Upload(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas) -> void

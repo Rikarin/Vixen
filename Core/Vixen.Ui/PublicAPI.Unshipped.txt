@@ -171,6 +171,8 @@ Vixen.Ui.DrawCommand.Offset.get -> int
 Vixen.Ui.DrawCommand.Offset.init -> int
 Vixen.Ui.DrawCommand.Radius.get -> float
 Vixen.Ui.DrawCommand.Radius.init -> float
+Vixen.Ui.DrawCommand.Shadow.get -> Vixen.Ui.Rendering.UiDropShadow?
+Vixen.Ui.DrawCommand.Shadow.init -> Vixen.Ui.Rendering.UiDropShadow?
 Vixen.Ui.DrawCommand.Slice.get -> Vixen.Core.Mathematics.NineSlice
 Vixen.Ui.DrawCommand.Slice.init -> Vixen.Core.Mathematics.NineSlice
 Vixen.Ui.DrawCommand.Source.get -> Vixen.Core.Mathematics.Rectangle
@@ -583,6 +585,18 @@ Vixen.Ui.Rendering.UiDraw.Kind.get -> Vixen.Ui.BatchKind
 Vixen.Ui.Rendering.UiDraw.Kind.init -> Vixen.Ui.BatchKind
 Vixen.Ui.Rendering.UiDraw.UiDraw() -> void
 Vixen.Ui.Rendering.UiDraw.UiDraw(Vixen.Ui.BatchKind Kind, int First, int Count, int Font, Vixen.Core.Mathematics.Rectangle Clip) -> void
+Vixen.Ui.Rendering.UiDropShadow -> readonly struct
+Vixen.Ui.Rendering.UiDropShadow : System.IEquatable<Vixen.Ui.Rendering.UiDropShadow>
+Vixen.Ui.Rendering.UiDropShadow.Blur.get -> float
+Vixen.Ui.Rendering.UiDropShadow.Blur.init -> float
+Vixen.Ui.Rendering.UiDropShadow.Colour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Rendering.UiDropShadow.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Rendering.UiDropShadow.IsInvisible.get -> bool
+Vixen.Ui.Rendering.UiDropShadow.Offset.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiDropShadow.Offset.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiDropShadow.Tint.get -> Vixen.Ui.Rendering.UiColorMatrix
+Vixen.Ui.Rendering.UiDropShadow.UiDropShadow() -> void
+Vixen.Ui.Rendering.UiDropShadow.UiDropShadow(Vixen.Core.Mathematics.Vector2 Offset, float Blur, Vixen.Core.Mathematics.Color4 Colour) -> void
 Vixen.Ui.Rendering.UiGeometry -> readonly struct
 Vixen.Ui.Rendering.UiGeometry : System.IEquatable<Vixen.Ui.Rendering.UiGeometry>
 Vixen.Ui.Rendering.UiGeometry.Draws.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
@@ -627,6 +641,7 @@ Vixen.Ui.Rendering.UiLayer.Blur.get -> float
 Vixen.Ui.Rendering.UiLayer.Blur.init -> float
 Vixen.Ui.Rendering.UiLayer.Bounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiLayer.Bounds.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiLayer.Composite.get -> int
 Vixen.Ui.Rendering.UiLayer.Count.get -> int
 Vixen.Ui.Rendering.UiLayer.Count.init -> int
 Vixen.Ui.Rendering.UiLayer.Filter.get -> Vixen.Ui.Rendering.UiColorMatrix?
@@ -639,6 +654,10 @@ Vixen.Ui.Rendering.UiLayer.MaskCount.get -> int
 Vixen.Ui.Rendering.UiLayer.MaskCount.init -> int
 Vixen.Ui.Rendering.UiLayer.MaskFirst.get -> int
 Vixen.Ui.Rendering.UiLayer.MaskFirst.init -> int
+Vixen.Ui.Rendering.UiLayer.Shadow.get -> Vixen.Ui.Rendering.UiDropShadow?
+Vixen.Ui.Rendering.UiLayer.Shadow.init -> Vixen.Ui.Rendering.UiDropShadow?
+Vixen.Ui.Rendering.UiLayer.ShadowImage.get -> ulong
+Vixen.Ui.Rendering.UiLayer.ShadowImage.init -> ulong
 Vixen.Ui.Rendering.UiLayer.UiLayer() -> void
 Vixen.Ui.Rendering.UiLayer.UiLayer(int First, int Count, Vixen.Core.Mathematics.Rectangle Bounds, float Alpha) -> void
 Vixen.Ui.Rendering.UiMask -> readonly struct
