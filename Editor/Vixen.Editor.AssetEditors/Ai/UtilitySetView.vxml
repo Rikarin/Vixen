@@ -1,0 +1,482 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 7. doc 37 § Part 5's utility editor: a table of actions with their scores as
+    bars, the selected action's considerations beside it, the readings the arithmetic is done over,
+    and the selected consideration's response curve under both. The ledger sized it M with "port the
+    readouts, keep the field rows (shape 2)", and this panel turned out to have no field rows at all
+    — every cell in it is a readout, so the port is the whole panel.
+
+    ⚠ **`utilityset-*` is styled by nothing, and that is the first thing to know before reading a
+    dump of this panel.** `grep -rl utilityset-action` finds one file in the tree and it is the
+    panel's own source. So every element here computes to zero width, the rectangles in a whole-tree
+    dump are all `0,0 0×800`, and a rectangle comparison — which is what every earlier wave leant on
+    — proves much less here than it did there. The dumps below were therefore read for **tag, class,
+    text and order**, which is the whole of what this panel puts on the screen.
+
+    ⚠ **And that is how the space in `Add("utilityset-action selected")` survived.** `UiElement.Add`
+    takes a tag and *then* a params list of classes; the hand-written panel passed
+    `"utilityset-action selected"` as the **tag**, so the element's name was the eleven-character
+    string with a space in it and `selected` was never a class at all. Nothing styled either
+    spelling, so nothing ever looked wrong. There is no markup spelling for a tag with a space in it
+    — `ComponentEmitter` would not survive one — so the port writes what the C# meant:
+    `<utilityset-action class="selected">`. **This is a deliberate change and it moves no pixel**,
+    because neither the tag nor the class is reachable from any sheet in the tree; it is recorded in
+    the ledger rather than fixed quietly. The same bug was in `utilityset-consideration selected`.
+
+    ⚠ **`Selected` is in both row keys, which is `QueryView`'s call and for one of its two reasons.**
+    A consideration's last cell is `<utilityset-veto>` or `<utilityset-score>` — a *tag* chosen by
+    the data, which cannot be bound — so that flag has to be in the key or wave 4's surviving-region
+    trap keeps the first veto marked for ever. The action row's `selected` is only a class and could
+    have been a binding over a separate signal, the way `TextureImportView`'s ladder does it; it is
+    in the key instead because choosing an action rebuilds the considerations pane and the readings
+    table wholesale anyway, so the two rows a keyed selection tears down are two rows against two
+    panes, and one rule for both lists is worth more here than two saved regions.
+
+    ⚠ **The bar is a nested `@for` and its cell count is in the *outer* key.** Twenty cells rather
+    than one element of a computed width, for the reason the C# gives: a style is computed from the
+    sheet and is not a place a panel writes into. The inner key is the cell's own index, which is as
+    much identity as an empty element has; `key` is not optional even there — `VXML2004` is an error
+    at every depth, which is worth knowing because `Vixen.Ui.Markup`'s README says a `refs` entry
+    "is the item itself when the loop declares none" and that sentence is about `refs` and not about
+    `key`.
+
+    ⚠ **The diagnostics list is the fourth caller of `AnalysisRow`**, which is what wave 6 built it
+    for. The row this panel wrote by hand is the part's own three elements exactly, so the swap is
+    byte-neutral: `analysis-row` is the part's host tag and it stands where `Add("analysis-row")`
+    stood.
+
+    ⚠ **`Compile()` still returns synchronously and the list is right on the next flush** — the
+    ledger's shape 3, checked the way wave 5 says to check it. The two callers outside this file are
+    `UtilitySetEditorFactory.CreateView`, which reads nothing back, and `LiveUtilityTests`, which
+    reads `LiveScore` — a function of the followed model and not of any element. Nothing in the tree
+    reads `Diagnostics.Children` on the line after `Compile()`.
+
+    ⚠ **`readings` stays a plain dictionary and is not a signal.** It is written by `Reading`,
+    `Absorb` and nothing else, both of which call `Refresh` on the next line; making it a
+    `CollectionSignal` would buy a subscription for a value that is only ever read inside `Refresh`
+    while it recomputes all four lists anyway. The four lists are the signals, which is where the
+    panel's reactivity actually is.
+-->
+@component UtilitySetView
+@namespace Vixen.Editor.AssetEditors.Ai
+@inherits Vixen.Ui.Controls.Control
+@tag utilityset-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Ai
+@using Vixen.Ai.Diagnostics
+@using Vixen.Core.Curves
+@using Vixen.Editor.Ai
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<utilityset-body>
+    <utilityset-actions>
+        <PanelTitle Text="Actions" />
+
+        <utilityset-action-list ref="@Actions">
+            @for (var row in ActionRows) {
+                <utilityset-action key="@row" class="@row.Class">
+                    <UtilityName Text="@row.Name" />
+                    <UtilityTask Text="@row.Task" />
+
+                    <utilityset-bar>
+                        @for (var cell in Enumerable.Range(0, row.Cells)) {
+                            <utilityset-cell key="@cell" />
+                        }
+                    </utilityset-bar>
+
+                    <UtilityScore Text="@row.Score" />
+                </utilityset-action>
+            }
+        </utilityset-action-list>
+
+        <utilityset-toolbar>
+            <Button ref="@Build" Label="Compile" />
+        </utilityset-toolbar>
+    </utilityset-actions>
+
+    <utilityset-considerations>
+        <PanelTitle Text="Considerations" />
+
+        <utilityset-consideration-list ref="@Considerations">
+            @for (var row in AxisRows) {
+                <utilityset-consideration key="@row" class="@row.Class">
+                    <UtilityName Text="@row.Name" />
+                    <UtilityReads Text="@row.Reads" />
+                    <UtilityCurveKind Text="@row.Curve" />
+
+                    @if (row.Veto) {
+                        <UtilityVeto Text="@row.Score" />
+                    } else {
+                        <UtilityScore Text="@row.Score" />
+                    }
+                </utilityset-consideration>
+            }
+        </utilityset-consideration-list>
+
+        <PanelTitle Text="Readings" />
+
+        <utilityset-readings ref="@Readings">
+            @for (var row in ReadingRows) {
+                <utilityset-reading key="@row">
+                    <UtilityName Text="@row.Name" />
+                    <UtilityValue Text="@row.Value" />
+                </utilityset-reading>
+            }
+        </utilityset-readings>
+    </utilityset-considerations>
+</utilityset-body>
+
+<utilityset-curve>
+    <PanelTitle Text="Response" />
+
+    <CurveEditor ref="@Curve" />
+</utilityset-curve>
+
+<PanelTitle Text="Diagnostics" />
+
+<utilityset-diagnostics ref="@Diagnostics">
+    @for (var note in DiagnosticRows) {
+        <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
+    }
+</utilityset-diagnostics>
+
+@code {
+    readonly Dictionary<string, float> readings = new(StringComparer.Ordinal);
+
+    /// <summary>The actions, with the score each one is making.</summary>
+    readonly Signal<ImmutableArray<UtilityActionRow>> actions = new([]);
+
+    /// <summary>The selected action's considerations, in the order they multiply.</summary>
+    readonly Signal<ImmutableArray<UtilityAxisRow>> axes = new([]);
+
+    /// <summary>What each input the selected action reads is reading.</summary>
+    readonly Signal<ImmutableArray<UtilityReadingRow>> inputs = new([]);
+
+    /// <summary>What the last compile said, in the order it said it.</summary>
+    readonly Signal<ImmutableArray<AnalysisNote>> notes = new([]);
+
+    AgentDebugModel? live;
+    UtilitySetDocument? document;
+    UtilityActionContent? action;
+    UtilityConsiderationContent? consideration;
+    bool listening;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The actions, with their scores as bars.</summary>
+    public UiElement Actions { get; private set; } = null!;
+
+    /// <summary>The selected action's considerations.</summary>
+    public UiElement Considerations { get; private set; } = null!;
+
+    /// <summary>What each input is reading, which is what the scores are computed from.</summary>
+    public UiElement Readings { get; private set; } = null!;
+
+    /// <summary>The selected consideration's response curve.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>ref</c>, which is the ledger's shape 1.</b> A curve reaches the screen through
+    ///     <c>Apply(AnimationCurve)</c> — the control's own model, drawn by its own paint — so no
+    ///     markup attribute binds it and <see cref="RefreshCurve" /> is the hand-written method,
+    ///     unchanged.
+    /// </remarks>
+    public CurveEditor Curve { get; private set; } = null!;
+
+    /// <summary>What the last compile said.</summary>
+    public UiElement Diagnostics { get; private set; } = null!;
+
+    /// <summary>The button that compiles the set.</summary>
+    public Button Build { get; private set; } = null!;
+
+    /// <summary>The action that is selected, or null.</summary>
+    public UtilityActionContent? Selected => action;
+
+    /// <summary>The consideration that is selected, or null.</summary>
+    public UtilityConsiderationContent? SelectedConsideration => consideration;
+
+    /// <summary>Shows a document.</summary>
+    /// <param name="value">The set.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="value" /> is null.</exception>
+    public void Show(UtilitySetDocument value) {
+        ArgumentNullException.ThrowIfNull(value);
+
+        document = value;
+
+        if (!listening) {
+            document.Changed += _ => Refresh();
+            listening = true;
+        }
+
+        action = document.Model.Content.Actions.Count > 0 ? document.Model.Content.Actions[0] : null;
+        consideration = action?.Considerations.FirstOrDefault();
+
+        Refresh();
+        Compile();
+    }
+
+    /// <summary>Selects an action, and the consideration inside it.</summary>
+    /// <param name="value">The action, or null.</param>
+    /// <param name="axis">Which of its considerations, or null for the first.</param>
+    public void Select(UtilityActionContent? value, UtilityConsiderationContent? axis = null) {
+        action = value;
+        consideration = axis ?? value?.Considerations.FirstOrDefault();
+
+        Refresh();
+    }
+
+    /// <summary>Says what an input is reading, which is what the preview scores from.</summary>
+    /// <param name="name">The key or registered input's name.</param>
+    /// <param name="value">What it reads, in <c>[0,1]</c>.</param>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    public void Reading(string name, float value) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        readings[name] = Math.Clamp(value, 0f, 1f);
+        Refresh();
+    }
+
+    /// <summary>What one input is reading.</summary>
+    /// <param name="name">The key or registered input's name.</param>
+    /// <returns>The reading, or zero.</returns>
+    public float ReadingOf(string name) => readings.GetValueOrDefault(name ?? string.Empty);
+
+    /// <summary>Follows a running agent, so the bars and the readings are its own.</summary>
+    /// <param name="value">The debugger's model, or null to go back to the typed readings.</param>
+    /// <remarks>
+    ///     <para>
+    ///         doc 37 § Part 5: <i>"In play mode the bars and the marker are live for the selected
+    ///         agent."</i> The authoring half stays exactly as it was — an author types what each
+    ///         input reads and the panel does the arithmetic the runtime would — and following an
+    ///         agent replaces those numbers with the agent's own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the chosen action's considerations are live, and that is the snapshot's shape
+    ///         rather than an oversight.</b> A capture records every candidate's <i>score</i> and only
+    ///         the winner's factors, because scoring every action's every axis for the panel would be
+    ///         the cost the decision interval exists to avoid. The bars are all live; the readings
+    ///         table is the winner's.
+    ///     </para>
+    /// </remarks>
+    public void Follow(AgentDebugModel? value) {
+        live = value;
+
+        Refresh();
+    }
+
+    /// <summary>What a named action is scoring on the followed agent, if one is being followed.</summary>
+    /// <param name="name">The action's name.</param>
+    /// <returns>Its score, or null.</returns>
+    public float? LiveScore(string name) {
+        if (live is null || live.Snapshot.Planner != AiPlanner.Utility) {
+            return null;
+        }
+
+        foreach (var row in live.Snapshot.Section(AiDebugSection.Doing)) {
+            if (string.Equals(row.Name, name, StringComparison.Ordinal)) {
+                return row.Number;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Compiles the set and lists what it said.</summary>
+    /// <returns>The set, or null.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The return value is right on this line and the list is right on the next flush</b>,
+    ///     which is <c>EffectScheduler</c>'s contract rather than this panel's choice (ADR-007). The
+    ///     complaints are gathered into a builder and published once, at the end.
+    /// </remarks>
+    public UtilitySet? Compile() {
+        if (document is null) {
+            return null;
+        }
+
+        var set = document.Compile();
+        var found = ImmutableArray.CreateBuilder<AnalysisNote>();
+        var slot = 0;
+
+        foreach (var diagnostic in document.Diagnostics) {
+            found.Add(new(slot++, diagnostic.Node.IsSome ? diagnostic.Node.ToString() : "set", diagnostic.Message));
+        }
+
+        // Said on success too: a list that empties itself when everything is fine cannot be told apart
+        // from one that never ran.
+        if (set is not null && document.Diagnostics.Count == 0) {
+            found.Add(
+                new(
+                    slot,
+                    "set",
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{set.Name} compiles: {set.Count} action(s), commitment {set.CommitmentBonus:0.##}, "
+                        + $"deciding every {set.DecisionInterval:0.##} s."
+                    )
+                )
+            );
+        }
+
+        notes.Value = found.ToImmutable();
+
+        return set;
+    }
+
+    /// <summary>Rebuilds every panel from the document.</summary>
+    public void Refresh() {
+        if (document is null) {
+            return;
+        }
+
+        Absorb();
+        RefreshActions();
+        RefreshConsiderations();
+        RefreshReadings();
+        RefreshCurve();
+    }
+
+    /// <summary>
+    ///     Takes the followed agent's own readings, so the curve preview says where <i>it</i> is
+    ///     sitting on the shape rather than where an author guessed.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The row's number is the reading and its text is the curved score</b> — see
+    ///     <c>AiSnapshots</c>. Writing the curved value in here would put the marker at the answer
+    ///     rather than at the question, which is the one thing this panel exists to show.
+    /// </remarks>
+    void Absorb() {
+        if (live is null || live.Snapshot.Planner != AiPlanner.Utility) {
+            return;
+        }
+
+        var chosen = document!.Model.Content.Actions
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, live.Snapshot.Action.ToString(), StringComparison.Ordinal));
+
+        if (chosen is null) {
+            return;
+        }
+
+        var factors = live.Snapshot.Section(AiDebugSection.Why).ToList();
+
+        for (var index = 0; index < chosen.Considerations.Count && index < factors.Count; index++) {
+            var name = UtilitySetModel.Reads(chosen.Considerations[index]);
+
+            if (name.Length > 0) {
+                readings[name] = Math.Clamp(factors[index].Number, 0f, 1f);
+            }
+        }
+    }
+
+    void RefreshActions() {
+        var rows = ImmutableArray.CreateBuilder<UtilityActionRow>();
+        var slot = 0;
+
+        foreach (var candidate in document!.Model.Content.Actions) {
+            var (previewed, _) = UtilitySetModel.Preview(candidate, readings);
+            var score = LiveScore(candidate.Name) ?? previewed;
+
+            rows.Add(
+                new(
+                    slot++,
+                    candidate == action ? "selected" : string.Empty,
+                    candidate.Name,
+                    candidate.Task,
+                    Cells(score),
+                    score.ToString("0.000", CultureInfo.InvariantCulture)
+                )
+            );
+        }
+
+        actions.Value = rows.ToImmutable();
+    }
+
+    void RefreshConsiderations() {
+        if (action is null) {
+            axes.Value = [];
+            return;
+        }
+
+        var (_, detail) = UtilitySetModel.Preview(action, readings);
+        var rows = ImmutableArray.CreateBuilder<UtilityAxisRow>(action.Considerations.Count);
+
+        for (var index = 0; index < action.Considerations.Count; index++) {
+            var axis = action.Considerations[index];
+
+            // ⚠ A zero is called out rather than merely being a small number, because a zero is a veto
+            // and a veto is the answer to "why is this action never chosen".
+            rows.Add(
+                new(
+                    index,
+                    axis == consideration ? "selected" : string.Empty,
+                    detail[index] <= 0f,
+                    axis.Name,
+                    UtilitySetModel.Reads(axis),
+                    axis.Curve.ToString(),
+                    detail[index].ToString("0.000", CultureInfo.InvariantCulture)
+                )
+            );
+        }
+
+        axes.Value = rows.MoveToImmutable();
+    }
+
+    void RefreshReadings() {
+        if (action is null) {
+            inputs.Value = [];
+            return;
+        }
+
+        var rows = ImmutableArray.CreateBuilder<UtilityReadingRow>();
+        var slot = 0;
+
+        foreach (var name in action.Considerations.Select(UtilitySetModel.Reads).Distinct(StringComparer.Ordinal)) {
+            if (name.Length == 0) {
+                continue;
+            }
+
+            rows.Add(new(slot++, name, ReadingOf(name).ToString("0.00", CultureInfo.InvariantCulture)));
+        }
+
+        inputs.Value = rows.ToImmutable();
+    }
+
+    void RefreshCurve() {
+        if (consideration is null) {
+            return;
+        }
+
+        var shape = consideration.BuildCurve();
+        var curve = new AnimationCurve();
+
+        // Sampled at a fixed rate rather than shown as its own keys: five of the six shapes have no
+        // keys at all, and one preview that reads every shape the same way is what makes the panel's
+        // marker mean the same thing in each of them.
+        for (var step = 0; step <= 32; step++) {
+            var time = step / 32f;
+
+            curve.Add(time, shape.Evaluate(time));
+        }
+
+        Curve.Apply(curve);
+    }
+
+    /// <summary>How many of the bar's twenty cells a score fills.</summary>
+    /// <param name="score">The score, which may exceed one when a weight does.</param>
+    /// <returns>The count.</returns>
+    public static int Cells(float score) => (int) MathF.Round(Math.Clamp(score, 0f, 1f) * 20f);
+
+    // ================================================================== What the markup reads
+
+    ImmutableArray<UtilityActionRow> ActionRows => actions.Value;
+
+    ImmutableArray<UtilityAxisRow> AxisRows => axes.Value;
+
+    ImmutableArray<UtilityReadingRow> ReadingRows => inputs.Value;
+
+    ImmutableArray<AnalysisNote> DiagnosticRows => notes.Value;
+}
