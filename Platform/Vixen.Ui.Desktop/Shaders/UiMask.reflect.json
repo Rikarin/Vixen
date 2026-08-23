@@ -1,0 +1,338 @@
+{
+  "Sets": [
+    {
+      "Set": 0,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "source",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
+          "Name": "sourceSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 2,
+          "Name": "masks",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Fragment",
+          "Members": [
+            {
+              "Name": "masks",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": "MaskEntry",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 0,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "masks.box",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "masks.ramp",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "masks.alphas",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 32,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "masks.stops",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 48,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 64,
+          "IsWritable": false
+        }
+      ]
+    }
+  ],
+  "VertexInputs": [],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "result",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target"
+    }
+  ],
+  "PushConstants": [
+    {
+      "Name": "UiMaskPushConstants",
+      "Offset": 0,
+      "Size": 80,
+      "Stages": "Fragment",
+      "Members": [
+        {
+          "Name": "reserved",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 1,
+            "ArrayLength": null,
+            "StructName": null,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 0,
+          "Size": 16,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
+          "DefaultValue": ""
+        },
+        {
+          "Name": "red",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 1,
+            "ArrayLength": null,
+            "StructName": null,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 16,
+          "Size": 16,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
+          "DefaultValue": ""
+        },
+        {
+          "Name": "green",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 1,
+            "ArrayLength": null,
+            "StructName": null,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 32,
+          "Size": 16,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
+          "DefaultValue": ""
+        },
+        {
+          "Name": "blue",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 1,
+            "ArrayLength": null,
+            "StructName": null,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 48,
+          "Size": 16,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
+          "DefaultValue": ""
+        },
+        {
+          "Name": "list",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 1,
+            "ArrayLength": null,
+            "StructName": null,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 64,
+          "Size": 16,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
+          "DefaultValue": ""
+        }
+      ]
+    }
+  ],
+  "SpecConstants": [],
+  "Permutations": [],
+  "ValueParameters": [],
+  "Parameters": [
+    {
+      "Name": "masks.box",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 0,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "masks.ramp",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 16,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "masks.alphas",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 32,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "masks.stops",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 48,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    }
+  ],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [],
+  "Stages": [
+    "Fragment"
+  ]
+}

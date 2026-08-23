@@ -356,6 +356,13 @@
     -->
     <Project Path="Platform/Vixen.Platform.Ui/Vixen.Platform.Ui.csproj" />
     <Project Path="Platform/Vixen.Platform.Ui.Tests/Vixen.Platform.Ui.Tests.csproj" />
+    <!--
+      The window, the device and the four steps of a frame, for an application whose whole content is
+      a user interface. It is here rather than in Core/ for Vixen.Platform.Ui's reason and one more:
+      it creates the Vulkan device and the swapchain, and both of those are Platform/.
+    -->
+    <Project Path="Platform/Vixen.Ui.Desktop/Vixen.Ui.Desktop.csproj" />
+    <Project Path="Platform/Vixen.Ui.Desktop.Tests/Vixen.Ui.Desktop.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null/Vixen.Graphics.Null.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null.Tests/Vixen.Graphics.Null.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj" />

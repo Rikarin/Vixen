@@ -45,12 +45,12 @@ namespace Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What this does <i>not</i> cover, stated because it was learned the expensive way.</b>
-///         Eight files have to agree about this layout and this test sees two of them. It says nothing
+///         Six files have to agree about this layout and this test sees two of them. It says nothing
 ///         about how a host <i>sizes a buffer</i> around the record — <c>UiRenderer</c> spelled the
 ///         stride <c>80</c> in three places and every assertion here stayed green — and nothing about
-///         the three hand-maintained GLSL copies of the box shader under
-///         <c>Vixen.Graphics.Golden.Tests</c>, <c>Samples/02-HelloUi</c> and the <c>vixen-app</c>
-///         template. Both were caught by <c>Vixen.Graphics.Golden.Tests</c> on a real device instead.
+///         the one hand-maintained GLSL copy of the box shader left, under
+///         <c>Vixen.Graphics.Golden.Tests</c>. Both were caught by that suite on a real device
+///         instead.
 ///         Passing this file is necessary and is not sufficient.
 ///     </para>
 /// </remarks>

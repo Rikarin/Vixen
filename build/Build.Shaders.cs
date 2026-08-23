@@ -102,10 +102,27 @@ partial class Build {
     ///         half catches a shader *added* to one of these files and never committed.
     ///     </para>
     /// </remarks>
-    static readonly string[] EditorSources = ["Ui", "Line", "Mesh", "MeshInstanced"];
-
-    /// <summary>Where the editor's modules live.</summary>
-    AbsolutePath EditorShaderDirectory => RootDirectory / "Editor" / "Vixen.Editor.Host" / "Shaders";
+    /// <remarks>
+    ///     ⚠ <b>A project as well as a name, because there are two of these directories now.</b> The
+    ///     interface's shaders moved out of hand-written GLSL and into a Raven <c>Ui.rvn</c> under
+    ///     <c>Platform/Vixen.Ui.Desktop</c>, which is what every application that is not the editor
+    ///     draws with — and a source this gate did not know about is a source somebody can edit
+    ///     without recompiling, which is exactly the state this whole target exists to make
+    ///     impossible.
+    ///     <para>
+    ///         The two <c>Ui</c> entries are deliberately not one file. The editor's declares five
+    ///         shaders and the host's eight — the three compositing stages are the difference — and
+    ///         they are compiled against different packages. Sharing them means emitting a
+    ///         <c>.rvnlib</c>, which is a build step neither of them has.
+    ///     </para>
+    /// </remarks>
+    static readonly (string Project, string Source)[] EditorSources = [
+        ("Editor/Vixen.Editor.Host", "Ui"),
+        ("Editor/Vixen.Editor.Host", "Line"),
+        ("Editor/Vixen.Editor.Host", "Mesh"),
+        ("Editor/Vixen.Editor.Host", "MeshInstanced"),
+        ("Platform/Vixen.Ui.Desktop", "Ui")
+    ];
 
     /// <summary>
     ///     Every file of the packages a shader can reach, which is what one compilation has to be.
@@ -260,7 +277,12 @@ partial class Build {
                     foreach (var file in into.GlobFiles("*.spv").OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
                         // The backend names a unit `<shader>.<stage>`; the committed file swaps the
                         // shader for the entry's output name and keeps the stage.
-                        produced.Add((file, output + file.Name[shader.Length..]));
+                        //
+                        // ⚠ Prefixed with the directory, like the entries below, because the
+                        // comparison is against the repository root now rather than against one
+                        // shader folder — there are two of those since the interface's own modules
+                        // moved to `Platform/Vixen.Ui.Desktop`.
+                        produced.Add((file, $"Editor/Vixen.Editor.Host/Shaders/{output}{file.Name[shader.Length..]}"));
                     }
                 }
 
@@ -270,8 +292,13 @@ partial class Build {
                 // reflection saying the old layout, which is the exact failure `UiShapeLayoutTests`
                 // is on the other side of.
                 for (var index = 0; index < EditorSources.Length; index++) {
-                    var source = EditorSources[index];
-                    var into = staging / $"src-{index:00}-{source}";
+                    var (project, source) = EditorSources[index];
+                    var directory = RootDirectory / project / "Shaders";
+                    // ⚠ The dots come out as well as the slashes, and that is not tidiness: the
+                    // compiler decides "directory or file" by whether the path has an extension, so
+                    // `src-00-Editor-Vixen.Editor.Host-Ui` is read as a single file called `Host-Ui`
+                    // and refused — with a good message, which is how this was found.
+                    var into = staging / $"src-{index:00}-{project.Replace('/', '-').Replace('.', '-')}-{source}";
 
                     into.CreateOrCleanDirectory();
 
@@ -282,7 +309,7 @@ partial class Build {
                         .EnableNoBuild()
                         .SetApplicationArguments(
                             "compile",
-                            (EditorShaderDirectory / $"{source}.rvn").ToString(),
+                            (directory / $"{source}.rvn").ToString(),
                             into.ToString(),
                             "--target",
                             "spirv",
@@ -293,14 +320,17 @@ partial class Build {
 
                     foreach (var file in into.GlobFiles("*.spv", "*.reflect.json")
                                  .OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
-                        produced.Add((file, file.Name));
+                        // ⚠ The name carries its directory now, because two projects both produce a
+                        // `UiBox.frag.spv` and a flat name would compare the host's module against
+                        // the editor's — which differ, and are meant to.
+                        produced.Add((file, $"{project}/Shaders/{file.Name}"));
                     }
                 }
 
                 var differing = new List<string>();
 
                 foreach (var (file, name) in produced) {
-                    var committed = EditorShaderDirectory / name;
+                    var committed = RootDirectory / name;
 
                     if (UpdateShaders) {
                         file.Copy(committed, ExistsPolicy.FileOverwrite);

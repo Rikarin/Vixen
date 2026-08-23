@@ -1,0 +1,84 @@
+#nullable enable
+Vixen.Ui.Desktop.SystemFonts -> static class
+Vixen.Ui.Desktop.UiApplication -> sealed class
+Vixen.Ui.Desktop.UiApplication : System.IDisposable
+Vixen.Ui.Desktop.UiApplication.Dispose() -> void
+Vixen.Ui.Desktop.UiApplication.Document.get -> Vixen.Ui.UiDocument
+Vixen.Ui.Desktop.UiApplication.Frame -> System.Action<Vixen.Ui.Desktop.UiApplication, Vixen.Ui.Desktop.UiFrame>?
+Vixen.Ui.Desktop.UiApplication.FrameCount.get -> int
+Vixen.Ui.Desktop.UiApplication.Started -> System.Action<Vixen.Ui.Desktop.UiApplication>?
+Vixen.Ui.Desktop.UiApplication.Stop() -> void
+Vixen.Ui.Desktop.UiApplication.Stopping -> System.Action<Vixen.Ui.Desktop.UiApplication>?
+Vixen.Ui.Desktop.UiApplication.Window.get -> Vixen.Platform.IWindow
+Vixen.Ui.Desktop.UiApplicationOptions -> sealed class
+Vixen.Ui.Desktop.UiApplicationOptions.Application.get -> string
+Vixen.Ui.Desktop.UiApplicationOptions.Application.set -> string
+Vixen.Ui.Desktop.UiApplicationOptions.Configure.get -> System.Action<Vixen.Ui.UiDocument>?
+Vixen.Ui.Desktop.UiApplicationOptions.Configure.set -> System.Action<Vixen.Ui.UiDocument>?
+Vixen.Ui.Desktop.UiApplicationOptions.Content.get -> System.Func<Vixen.Ui.Composition.Component>?
+Vixen.Ui.Desktop.UiApplicationOptions.Content.set -> System.Func<Vixen.Ui.Composition.Component>?
+Vixen.Ui.Desktop.UiApplicationOptions.Frame.get -> System.Action<Vixen.Ui.Desktop.UiApplication, Vixen.Ui.Desktop.UiFrame>?
+Vixen.Ui.Desktop.UiApplicationOptions.Frame.set -> System.Action<Vixen.Ui.Desktop.UiApplication, Vixen.Ui.Desktop.UiFrame>?
+Vixen.Ui.Desktop.UiApplicationOptions.Frames.get -> int
+Vixen.Ui.Desktop.UiApplicationOptions.Frames.set -> int
+Vixen.Ui.Desktop.UiApplicationOptions.Ground.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Desktop.UiApplicationOptions.Ground.set -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Desktop.UiApplicationOptions.InstallControlTheme.get -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.InstallControlTheme.set -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.InstallSystemFont.get -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.InstallSystemFont.set -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.IsResizable.get -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.IsResizable.set -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.Organisation.get -> string
+Vixen.Ui.Desktop.UiApplicationOptions.Organisation.set -> string
+Vixen.Ui.Desktop.UiApplicationOptions.RootClasses.get -> System.Collections.Generic.IList<string>
+Vixen.Ui.Desktop.UiApplicationOptions.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Ui.Desktop.UiApplicationOptions.Size.set -> Vixen.Core.Mathematics.Int2
+Vixen.Ui.Desktop.UiApplicationOptions.Started.get -> System.Action<Vixen.Ui.Desktop.UiApplication>?
+Vixen.Ui.Desktop.UiApplicationOptions.Started.set -> System.Action<Vixen.Ui.Desktop.UiApplication>?
+Vixen.Ui.Desktop.UiApplicationOptions.Stopping.get -> System.Action<Vixen.Ui.Desktop.UiApplication>?
+Vixen.Ui.Desktop.UiApplicationOptions.Stopping.set -> System.Action<Vixen.Ui.Desktop.UiApplication>?
+Vixen.Ui.Desktop.UiApplicationOptions.Styles.get -> System.Collections.Generic.IList<string>
+Vixen.Ui.Desktop.UiApplicationOptions.Title.get -> string
+Vixen.Ui.Desktop.UiApplicationOptions.Title.set -> string
+Vixen.Ui.Desktop.UiApplicationOptions.UiApplicationOptions() -> void
+Vixen.Ui.Desktop.UiFrame -> readonly struct
+Vixen.Ui.Desktop.UiFrame : System.IEquatable<Vixen.Ui.Desktop.UiFrame>
+Vixen.Ui.Desktop.UiFrame.Delta.get -> System.TimeSpan
+Vixen.Ui.Desktop.UiFrame.Delta.init -> System.TimeSpan
+Vixen.Ui.Desktop.UiFrame.Now.get -> System.TimeSpan
+Vixen.Ui.Desktop.UiFrame.Now.init -> System.TimeSpan
+Vixen.Ui.Desktop.UiFrame.UiFrame() -> void
+Vixen.Ui.Desktop.UiFrame.UiFrame(System.TimeSpan Now, System.TimeSpan Delta) -> void
+Vixen.Ui.Desktop.UiShaderLibrary -> static class
+Vixen.Ui.Desktop.UiWindowSurface -> sealed class
+Vixen.Ui.Desktop.UiWindowSurface : System.IDisposable
+Vixen.Ui.Desktop.UiWindowSurface.Acquire(Vixen.Graphics.IGraphicsDevice device, out Vixen.Graphics.TextureViewHandle view) -> bool?
+Vixen.Ui.Desktop.UiWindowSurface.Acquired.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Ui.Desktop.UiWindowSurface.Acquired.set -> Vixen.Graphics.TextureViewHandle
+Vixen.Ui.Desktop.UiWindowSurface.Built.get -> (int Version, Vixen.Core.Mathematics.Rectangle Extent)
+Vixen.Ui.Desktop.UiWindowSurface.Built.set -> (int Version, Vixen.Core.Mathematics.Rectangle Extent)
+Vixen.Ui.Desktop.UiWindowSurface.Dispose() -> void
+Vixen.Ui.Desktop.UiWindowSurface.Ensure(Vixen.Graphics.IGraphicsDevice device, Vixen.Ui.Renderer.UiShaders shaders) -> bool
+Vixen.Ui.Desktop.UiWindowSurface.Extent.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Desktop.UiWindowSurface.Frame.get -> Vixen.Ui.Rendering.UiGeometry
+Vixen.Ui.Desktop.UiWindowSurface.Frame.set -> Vixen.Ui.Rendering.UiGeometry
+Vixen.Ui.Desktop.UiWindowSurface.Geometry.get -> Vixen.Ui.Rendering.UiGeometryBuilder
+Vixen.Ui.Desktop.UiWindowSurface.IsDrawing.get -> bool
+Vixen.Ui.Desktop.UiWindowSurface.IsDrawing.set -> bool
+Vixen.Ui.Desktop.UiWindowSurface.IsPrimary.get -> bool
+Vixen.Ui.Desktop.UiWindowSurface.Recreate(Vixen.Graphics.IGraphicsDevice device, bool force = false) -> void
+Vixen.Ui.Desktop.UiWindowSurface.Renderer.get -> Vixen.Ui.Renderer.UiRenderer?
+Vixen.Ui.Desktop.UiWindowSurface.Scale.get -> float
+Vixen.Ui.Desktop.UiWindowSurface.Surface.get -> Vixen.Ui.UiSurface
+Vixen.Ui.Desktop.UiWindowSurface.SwapChain.get -> Vixen.Graphics.ISwapChain?
+Vixen.Ui.Desktop.UiWindowSurface.Tessellate(Vixen.Ui.Text.Rasterizing.GlyphFieldCache glyphs) -> bool
+Vixen.Ui.Desktop.UiWindowSurface.UiWindowSurface(Vixen.Ui.UiSurface surface, Vixen.Platform.IWindow window) -> void
+Vixen.Ui.Desktop.UiWindowSurface.Viewport.get -> Vixen.Core.Mathematics.Int2
+Vixen.Ui.Desktop.UiWindowSurface.Window.get -> Vixen.Platform.IWindow
+const Vixen.Ui.Desktop.UiApplication.ContentClass = "ui-window-content" -> string
+static Vixen.Ui.Desktop.SystemFonts.Candidates() -> System.Collections.Generic.IEnumerable<string>
+static Vixen.Ui.Desktop.SystemFonts.Install(Vixen.Ui.UiDocument document) -> bool
+static Vixen.Ui.Desktop.UiApplication.Run(Vixen.Ui.Desktop.UiApplicationOptions options) -> int
+static Vixen.Ui.Desktop.UiApplication.Run(Vixen.Ui.Desktop.UiApplicationOptions options, params System.ReadOnlySpan<string> arguments) -> int
+static Vixen.Ui.Desktop.UiShaderLibrary.Load(Vixen.Graphics.IGraphicsDevice device) -> Vixen.Ui.Renderer.UiShaders

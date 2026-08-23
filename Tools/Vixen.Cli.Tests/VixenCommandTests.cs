@@ -930,27 +930,53 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.DoesNotContain("Vixen.Sdk", project, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    ///     An application head, and the shaders it needs, written byte for byte rather than decoded
-    ///     as text and written back — a compiled SPIR-V module that went through a string is a
-    ///     device lost rather than a compile error.
-    /// </summary>
+    /// <summary>An application head, and what a scaffolded one is now made of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This asserted that <c>Shaders/ui.vert.spv</c> came out with its SPIR-V magic
+    ///         number intact — a module written byte for byte rather than decoded as text and written
+    ///         back, because one that went through a string is a device lost rather than a compile
+    ///         error. There is no such file any more.</b> <c>vixen-app</c> carried eight committed
+    ///         modules because it carried its own frame loop; it takes <c>Vixen.Ui.Desktop</c> now,
+    ///         which embeds them, so the whole <c>Shaders/</c> folder went with the four hundred lines
+    ///         of C# around it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The binary-round-trip rule is still asserted, and it is asserted where it lives:</b>
+    ///         <c>Vixen.Templates.Tests.ABinaryFileIsCopiedRatherThanSubstitutedInto</c> tests
+    ///         <c>TemplateCatalog.IsTextFile</c> directly, and <c>NoTemplateShipsABinaryFile</c> fails
+    ///         the day a template ships one again — which is the signal to bring an assertion like the
+    ///         old one back, here or there.
+    ///     </para>
+    ///     <para>
+    ///         What is left for this test is the scaffold itself: the two files a new application is,
+    ///         and the absence of the folder it used to have.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public async Task NewApplicationWritesItsCompiledShadersUntouched() {
+    public async Task NewApplicationWritesMarkupAndNoShaders() {
         var where = Path.Combine(root, "App");
 
         var (code, _, _) = await RunFull("new", "app", "Painter", "-o", where);
 
         Assert.Equal(ExitCode.Success, code);
 
-        var module = await File.ReadAllBytesAsync(
-            Path.Combine(where, "Shaders", "ui.vert.spv"),
+        Assert.True(File.Exists(Path.Combine(where, "AppShell.vxml")), "a new application is markup.");
+        Assert.True(File.Exists(Path.Combine(where, "Theme", "vixen.ui.vcss")), "and a stylesheet.");
+
+        Assert.False(
+            Directory.Exists(Path.Combine(where, "Shaders")),
+            "a scaffolded application owns no shader modules: Vixen.Ui.Desktop embeds them."
+        );
+
+        // ⚠ And the one reference that brings all of it — the compiler, the item types, the utility
+        // step and the frame loop. It was five.
+        var project = await File.ReadAllTextAsync(
+            Path.Combine(where, "Painter.csproj"),
             TestContext.Current.CancellationToken
         );
 
-        // The SPIR-V magic number, little-endian, which is the whole point: it is the first thing a
-        // driver reads and the first thing a text round trip destroys.
-        Assert.Equal([0x03, 0x02, 0x23, 0x07], module[..4]);
+        Assert.Contains("Vixen.Ui.Desktop", project, StringComparison.Ordinal);
     }
 
     /// <summary>

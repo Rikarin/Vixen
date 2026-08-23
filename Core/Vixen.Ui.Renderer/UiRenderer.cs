@@ -642,28 +642,36 @@ public sealed class UiRenderer : IDisposable {
         // binding, so a golden image cannot see it. Making the layouts identical makes the question
         // not arise: the set is bound once a frame and no pipeline change can disturb it. Declaring a
         // binding a shader ignores costs nothing.
-        // ⚠ <b>A second range, for the fragment stage, that only two of the pipelines' shaders
-        // declare — and they declare different amounts of it.</b> A pipeline layout may promise more
-        // push constants than a shader reads — the reverse is the error — so the four pipelines that
-        // never look at it are unaffected, `ui-blur.frag` reads the first sixteen bytes as its
-        // kernel, and `ui-colour.frag` reads all forty-eight as three matrix rows. The alternative is
-        // a layout of its own per stage, which is the very thing the paragraph above refuses: two
-        // layouts in one pass is a descriptor set disturbed at the first slot they disagree about.
-        // Disjoint offsets rather than one range spanning both stages, so that `ui.vert`'s block
-        // stays exactly the sixteen bytes it declares today and no committed module has to be
-        // recompiled to keep matching it.
-        // ⚠ Sixty-four bytes in total, which is half the 128 every Vulkan implementation is required
-        // to offer — so widening the fragment range costs nothing anybody has to check for.
+        // ⚠ <b>One range spanning both stages, rather than a disjoint one per stage.</b> It used to be
+        // two — vertex [0, 16] and fragment [16, 112] — which mirrored what the GLSL declared with
+        // `layout(offset = 16)` and stopped working the day the modules became Raven's.
+        //
+        // A Raven shader emits its push-constant block from offset *zero* and has no way to say
+        // otherwise: `ReflectionBuilder.BuildPushConstants` emits one range per shader at zero,
+        // because a Vulkan block is shared by every stage of a pipeline and Raven does not sub-range
+        // it per stage. So `UiBlur` declares [0, 32] and `UiMask` [0, 80] — each with sixteen bytes
+        // of `reserved` in front, standing where the projection is — and a layout promising
+        // [16, 112] rejects all three at pipeline creation.
+        //
+        // ⚠ <b>Widening the fragment range to [0, 128] and leaving the vertex one alone is the
+        // obvious fix and is also invalid</b>, which is worth recording because the validator is the
+        // only thing that says so. Two ranges may overlap, but every `vkCmdPushConstants` covering a
+        // byte must name *every* stage whose range covers it — VUID-vkCmdPushConstants-offset-01796 —
+        // so pushing the projection as `Vertex` alone becomes an error the moment a fragment range
+        // also covers byte zero.
+        //
+        // One range for `Vertex | Fragment` has neither problem: nothing overlaps, every push names
+        // both stages, and a shader is still free to declare less than the layout promises — which is
+        // what lets `UiVertex`'s sixteen bytes, the goldens' GLSL [16, 64], and `UiMask`'s [0, 80] all
+        // sit inside it with no module recompiled.
+        //
+        // ⚠ 128 is exactly the push-constant size the Vulkan specification guarantees on every
+        // device, and `UiMask` is the widest consumer at 16 + 48 + 64. The number is a floor that was
+        // reached rather than a budget that was chosen, so the next thing to want a push constant here
+        // cannot simply be added: it either shares these bytes or moves to the storage buffer
+        // `UiShape` already uses.
         layout = device.CreatePipelineLayout(
-            // ⚠ <b>112 fragment bytes rather than 48, and 16 + 112 = 128 is not a coincidence.</b>
-            // `ui-mask.frag` is the widest consumer — a colour matrix at 48 plus a mask at 64 — and
-            // 128 is exactly the push-constant size the Vulkan specification guarantees on every
-            // device. The number is a floor that was reached rather than a budget that was chosen, so
-            // the next thing to want a push constant here cannot simply be added: it either shares
-            // these bytes or moves to the storage buffer `UiShape` already uses. A shader is free to
-            // read fewer than the layout promises — the reverse is the error — which is what lets one
-            // layout keep serving `ui-blur.frag`'s 16 bytes and `ui-colour.frag`'s 48.
-            new([atlasLayout], [new(ShaderStage.Vertex, 0, 16), new(ShaderStage.Fragment, 16, 112)], "ui")
+            new([atlasLayout], [new(PushStages, 0, 128)], "ui")
         );
 
         // ⚠ Linear filtering and clamped, and never an sRGB view. The atlas holds distances, not
@@ -1510,12 +1518,23 @@ public sealed class UiRenderer : IDisposable {
         commands.BindPipeline(imagePipeline);
 
         Span<float> projection = [2f / surface.X, -2f / surface.Y, -1f, 1f];
-        commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
+        commands.PushConstants(PushStages, 0, MemoryMarshal.AsBytes(projection));
 
         commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, beneathSets[slot]);
         commands.SetScissor(region);
         commands.DrawIndexed(6);
     }
+
+    /// <summary>The stages every push constant here is written for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both, on every call, because the layout declares one range covering both.</b> Vulkan
+    ///     requires a push to name every stage whose range covers the bytes it writes — see the
+    ///     constructor, where the single range is argued — so a projection pushed as
+    ///     <see cref="ShaderStage.Vertex" /> alone is an error even though only the vertex stage reads
+    ///     it. Naming the constant is what stops the next call site from being written the obvious
+    ///     way.
+    /// </remarks>
+    const ShaderStage PushStages = ShaderStage.Vertex | ShaderStage.Fragment;
 
     /// <summary>How many bytes one frame's four full-screen vertices are.</summary>
     const int FullscreenVertexBytes = 4 * 48;
@@ -1984,10 +2003,10 @@ public sealed class UiRenderer : IDisposable {
         commands.BindPipeline(blurPipeline);
 
         Span<float> projection = [2f / surface.X, -2f / surface.Y, -1f, 1f];
-        commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
+        commands.PushConstants(PushStages, 0, MemoryMarshal.AsBytes(projection));
 
         Span<float> kernel = [stepX, stepY, sigma, reach];
-        commands.PushConstants(ShaderStage.Fragment, 16, MemoryMarshal.AsBytes(kernel));
+        commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(kernel));
 
         commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, source);
         commands.SetScissor(scissor);
@@ -2162,7 +2181,7 @@ public sealed class UiRenderer : IDisposable {
             // ⚠ After the first pipeline and then never again. It is written through the bound
             // pipeline's layout, so there is nothing to write it through until one is bound — and
             // because every pipeline shares one layout, a later pipeline change cannot disturb it.
-            commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
+            commands.PushConstants(PushStages, 0, MemoryMarshal.AsBytes(projection));
             bound.Pushed = true;
         }
 
@@ -2187,7 +2206,7 @@ public sealed class UiRenderer : IDisposable {
                 (slot * MaskCapacity) + list.First, list.Count, 0f, 0f
             ];
 
-            commands.PushConstants(ShaderStage.Fragment, 16, MemoryMarshal.AsBytes(block));
+            commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(block));
         } else if (matrix is { } filter) {
             // ⚠ Every time, rather than tracked in `Bindings` the way the projection is. Two filtered
             // groups in one pass carry two different matrices and the second one's is not the first's
@@ -2200,7 +2219,7 @@ public sealed class UiRenderer : IDisposable {
                 filter.Blue.X, filter.Blue.Y, filter.Blue.Z, filter.Blue.W
             ];
 
-            commands.PushConstants(ShaderStage.Fragment, 16, MemoryMarshal.AsBytes(rows));
+            commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(rows));
         }
 
         // ⚠ Per draw rather than once, now that a draw can carry its own texture. The set is the

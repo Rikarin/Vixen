@@ -1203,6 +1203,7 @@ virtual Vixen.Ui.Composition.Component.Style.get -> string?
 virtual Vixen.Ui.Composition.Component.StyleIsScoped.get -> bool
 virtual Vixen.Ui.Composition.Component.TagName.get -> string
 virtual Vixen.Ui.UiElement.ContentHost.get -> Vixen.Ui.UiElement
+virtual Vixen.Ui.UiElement.OnChildAdded(Vixen.Ui.UiElement child) -> void
 virtual Vixen.Ui.UiElement.OnCreated() -> void
 virtual Vixen.Ui.UiElement.OnDraw(Vixen.Ui.DrawContext context) -> void
 virtual Vixen.Ui.UiElement.OnPropertyChanged(Vixen.Ui.UiPropertyKey key) -> void

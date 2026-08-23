@@ -131,8 +131,9 @@ an item.
 ## What is not here
 
 **Nothing draws this.** `Vixen.Ui.Renderer` needs a device and a swapchain, and
-[`Samples/02-HelloUi`](../../02-HelloUi/README.md) is the sample that stands one up in ninety lines
-of `Program.cs`. Joining the two is a window, not a design — and keeping them apart is what lets this
+[`Vixen.Ui.Desktop`](../../../Platform/Vixen.Ui.Desktop/README.md) is what stands one up — one call
+to `UiApplication.Run`, of which [`Samples/02-HelloUi`](../../02-HelloUi/README.md) is the worked
+example. Joining the two is a window, not a design — and keeping them apart is what lets this
 assembly's whole test suite run in a third of a second on a machine with no GPU.
 
 **Nothing connects it.** `Mmo.Client` is headless by design and says so; the binder that fills a

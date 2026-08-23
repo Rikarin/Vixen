@@ -1,0 +1,197 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The interface. Start here.
+
+    ⚠ **This file is the point of the sample.** `.vxml` for the tree, `.vcss` for the tokens and the
+    utility classes for everything a class name can say are how a Vixen interface is written — the
+    same three files a web project has, and nothing here is a special case for being a sample.
+
+    ⚠ **It is an editor shell rather than a gallery, and that is doc 02's choice rather than a whim.**
+    A gallery proves the controls draw; an editor shell proves they *work together* — a menu bar over
+    a docking host, a virtualised tree in one panel, a property grid in another, a form of standard
+    controls in a third, and toasts over the lot.
+
+    ⚠ **A `<Menu>` nested in a `<MenuBar>`, and a `<Menu>` nested in that, are moved to the document's
+    root as they are built** — every overlay is a root child, which is what lets a dropdown spill past
+    the strip that dropped it instead of being clipped by it. The nesting here says what it means and
+    `MenuBar.OnChildAdded` is what makes it true. The same is so of a `<DockPanel>`, which is parked
+    and then placed by the arrangement rather than left where it was written.
+-->
+@component Shell
+@namespace Vixen.Samples.HelloUi
+@tag app-shell
+@using Vixen.Input
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+@using Vixen.Samples.HelloUi.Panels
+
+<!--
+    The window's whole layout, in one line of class names: a column that fills the window, with a
+    menu bar that does not stretch (shell.vcss says so, because it is a fact about the tag) and a
+    docking host that takes what is left.
+-->
+<shell-frame class="flex flex-col grow">
+    <MenuBar>
+        <Menu Label="File">
+            <MenuItem Label="New" ref="@newItem" />
+            <MenuItem Label="Open…" ref="@openItem" />
+            <Separator />
+
+            <Menu Label="Open Recent">
+                <MenuItem Label="shader-graph.vixen" />
+                <MenuItem Label="terrain.vixen" />
+            </Menu>
+
+            <Separator />
+            <MenuItem Label="Save" ref="@saveItem" />
+        </Menu>
+
+        <Menu Label="View">
+            <!--
+                ⚠ `on:click` on the item rather than one handler for the whole bar, which is what the
+                C# this replaces had to do. A menu's dropdown is parented to the root so it can
+                spill, so the bar is *not* an ancestor of its own items: a click bubbles from the
+                item to the menu and then straight to the root, never through the bar. A handler on
+                the bar sees the clicks that *open* the menus and nothing else, and the commands do
+                nothing at all, silently. Written per item, that routing stops being something the
+                author has to know.
+            -->
+            <MenuItem Label="Reset Layout" on:click="@ResetLayout" />
+            <MenuItem Label="Toggle Dark" on:click="@ToggleDark" />
+        </Menu>
+    </MenuBar>
+
+    <DockingHost ref="@docking" class="grow">
+        <DockPanel Id="hierarchy" Title="Hierarchy">
+            <Hierarchy Model="@Model" />
+        </DockPanel>
+
+        <!--
+            The gallery brings its own scroller and a panel scrolls by default, so this says which of
+            the two does it rather than shipping a sample with one inside the other.
+        -->
+        <DockPanel Id="controls" Title="Controls" Scrolls="false">
+            <Gallery Model="@Model" />
+        </DockPanel>
+
+        <DockPanel Id="inspector" Title="Inspector">
+            <Inspector Model="@Model" />
+        </DockPanel>
+    </DockingHost>
+</shell-frame>
+
+<!--
+    ⚠ Outside the frame, so that a toast is not clipped by the docking host and is not laid out by
+    the column. `ToastHost` positions itself against the surface; being a sibling of the shell rather
+    than a child of it is what makes "over the lot" true.
+-->
+<ToastHost ref="@toasts" />
+
+@code {
+    /// <summary>Everything the shell is looking at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One model for the whole shell, handed down.</b> Each panel takes the piece it needs,
+    ///     so a panel can be mounted on its own in a test and this file is the only place that knows
+    ///     the arrangement. It also means none of the panels reference each other.
+    /// </remarks>
+    readonly Signal<ShellModel> model = new(new());
+
+    DockingHost docking = null!;
+    ToastHost toasts = null!;
+
+    MenuItem newItem = null!;
+    MenuItem openItem = null!;
+    MenuItem saveItem = null!;
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever.
+    /// </remarks>
+    public ShellModel Model {
+        get => model.Value;
+        set => model.Value = value;
+    }
+
+    /// <summary>Wires what the markup cannot say, then greets.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What is left here is the honest remainder, and it used to be four times the size.</b>
+    ///     A keyboard shortcut is a method call with two enum arguments and no attribute spelling; an
+    ///     arrangement is an object; the two model callbacks are the shell's contract with its
+    ///     panels. Everything that was C# because a control could not be nested — two menus, four
+    ///     items, three panels and three mounts — is markup above.
+    /// </remarks>
+    partial void OnComposed() {
+        // ⚠ **Set before anything reads them, because a panel's own `OnComposed` may report.** These
+        // two are the whole of the shell's contract with its panels: a panel can say that something
+        // happened and can be asked what the arrangement is, and neither half needs a reference to
+        // the other. A gallery button that reached for the toast host would be two panels agreeing
+        // about a third thing.
+        Model.Notify = (message, variant) => toasts.Show(message, variant);
+        Model.Arrangement = () => docking.Save();
+
+        // ⚠ Shown rather than bound. `ShowShortcut` draws the chord on the right of the row and
+        // registers nothing — there is no command table in this sample, so a menu that claimed ⌘S
+        // did something would be lying about it.
+        newItem.ShowShortcut(InputKey.N, ModifierKeys.Control);
+        openItem.ShowShortcut(InputKey.O, ModifierKeys.Control);
+        saveItem.ShowShortcut(InputKey.S, ModifierKeys.Control);
+
+        // ⚠ **After the panels, not before.** A panel the arrangement does not already mention goes
+        // into the first group, so three panels registered against an empty layout give one group of
+        // three tabs — correct, and not an editor. Applying it afterwards is also the order an
+        // application uses when it has no saved layout to restore.
+        docking.SetLayout(ShellModel.DefaultLayout());
+
+        toasts.Show("Welcome to Vixen", ControlVariant.Primary, TimeSpan.FromSeconds(6));
+
+        // ⚠ The document's tick, not the recogniser's. It raises `UiDocument.Ticked` — which is what
+        // an `Overlay`'s delay and a `Toasts` dismissal hang on — and advances the CSS animator,
+        // without which the `transition` shell.vcss declares on a card sticks at the value it was
+        // leaving rather than moving to the new one. Subscribing here rather than asking the host to
+        // call us is what keeps `Program.cs` a bootstrap: a toast that expires is the toast host's
+        // business and not the frame loop's.
+        Root.Document.Ticked += Expire;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The one thing the build region cannot take care of, and it matters here because
+    ///     <c>OnComposed</c> runs more than once.</b> Effects, bindings and the elements themselves
+    ///     belong to the region and go with it; a handler on the <i>document</i> outlives this
+    ///     component. A markup hot reload unmounts and rebuilds on the same object — so without this,
+    ///     every save would leave another subscription behind, each one ticking the <c>ToastHost</c>
+    ///     of a build that no longer exists.
+    /// </remarks>
+    protected override void OnUnmounted() {
+        Root.Document.Ticked -= Expire;
+
+        base.OnUnmounted();
+    }
+
+    /// <summary>Lets the toasts count down.</summary>
+    void Expire(UiDocument document, TimeSpan now) => toasts.Tick(now);
+
+    void ResetLayout() {
+        docking.SetLayout(ShellModel.DefaultLayout());
+        toasts.Show("Layout reset");
+    }
+
+    /// <summary>Swaps every colour in the control set, with one class on the root.</summary>
+    /// <remarks>
+    ///     <c>ControlTheme.vcss</c> declares its palette twice — <c>root</c> and <c>root.dark</c> —
+    ///     as custom properties, so this changes nothing but which of the two blocks wins, and every
+    ///     control follows because every control reads the tokens.
+    /// </remarks>
+    void ToggleDark() {
+        if (!Root.Document.Root.RemoveClass("dark")) {
+            Root.Document.Root.AddClass("dark");
+        }
+    }
+}

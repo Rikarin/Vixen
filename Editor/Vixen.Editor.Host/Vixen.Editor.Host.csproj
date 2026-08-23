@@ -52,6 +52,18 @@
             and a fixed-step accumulator, and the editor's loop is an interface that redraws when
             something changes. Doc 17's "the app is the executable" is the same argument.
         -->
+        <!--
+            ⚠ **`UiWindowSurface`, which used to be this project's own `EditorPane.cs`.** The
+            repository carried three frame loops and this was the best of them; it moved out rather
+            than being copied out, so the sample and the template inherit multi-window presenting,
+            per-surface gamut publishing and the tessellation cache instead of the editor inheriting
+            anything. What this host does *not* take from that assembly is `UiApplication` — the loop
+            below drives a compositor, a scene presenter per pane and a GPU profiler — or
+            `UiShaderLibrary`, because the editor's UI stages are Raven's and their vertex attributes
+            are at different locations. See `Shaders/Ui.rvn`.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Ui.Desktop\Vixen.Ui.Desktop.csproj" />
+
         <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />

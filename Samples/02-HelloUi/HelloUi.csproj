@@ -8,47 +8,72 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
+
+        <!--
+            ⚠ **This one line is the whole of the UI plumbing, and it used to be forty.** It says
+            "this project has an interface in it", and what arrives is the VXML compiler, the
+            `[UiProperty]` generator, the `.vxml` and `.vcss` item types and the utility-stylesheet
+            step. Outside this repository it is not even a line: `Vixen.Ui` ships its build assets in
+            `buildTransitive/`, so a `PackageReference` anywhere in the graph brings all of it. In
+            here there are no packages and analyzers do not travel through a `ProjectReference`, so
+            `Directory.Build.targets` stands in for one.
+
+            Adding a second `.vxml` beside `Shell.vxml`, or a second `.vcss` beside the theme, is not
+            a project-file change.
+        -->
+        <VixenUi>true</VixenUi>
     </PropertyGroup>
 
     <ItemGroup>
         <!--
-            ⚠ **No Vixen.App and no Vixen.Engine, and that absence is the sample.**
+            ⚠ **No Vixen.Engine and no Vixen.App, and that absence is the sample.**
             docs/plan/02 § Samples calls this one "Vixen.Ui only, no engine — proves the UI/Engine
-            boundary", and a reference to the host would quietly undo it: Vixen.App references
-            Vixen.Engine, so taking the convenient way in would drag a scene, an ECS world and a game
-            loop into an application that is a user interface. Everything Vixen.App would have done —
-            the window, the device, the frame loop — is Program.cs, and it is ninety lines.
+            boundary", and doc 15 makes it what proves the framework standalone before the editor is
+            allowed to depend on it. `CheckArchitecture` asserts the absence, so it cannot be undone
+            by accident.
 
-            `CheckArchitecture` asserts the absence, so this cannot be undone by accident.
+            ⚠ **`Vixen.Ui.Desktop` is not a way round that rule and is the reason the rule is now
+            cheap to keep.** It is a Platform/ assembly whose whole content is a window, a Vulkan
+            device and the four steps of a frame; it references no scene, no ECS world and no game
+            loop. Until it existed, an application that wanted a window had to choose between writing
+            four hundred lines of swapchain handling — which is what this sample's Program.cs used to
+            be — and referencing a host that drags an engine behind it. Everything that file did is
+            `UiApplication` now, and Program.cs is thirty lines.
         -->
-        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
-        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
-        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
-        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Ui.Desktop\Vixen.Ui.Desktop.csproj" />
 
         <!--
-            The platform-to-document join. This sample carried its own copy of it and said, in a
-            comment, that a Vixen.Platform.Ui was where it belonged once the editor became the
-            second consumer. It has.
+            Docking, trees and property grids, which are a second package on purpose: an application
+            that is one window of controls should not link a virtualiser. `AdvancedTheme.Install` is
+            one line in Program.cs, in the assembly that references it.
         -->
-        <ProjectReference Include="..\..\Platform\Vixen.Platform.Ui\Vixen.Platform.Ui.csproj" />
-        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!--
+            ⚠ Dev-only, and referenced here for what the sample is *for*: editing `Theme/shell.vcss`
+            with the window open and watching the interface change is the authoring loop this sample
+            exists to demonstrate. A shipping application drops this reference and the six lines in
+            Program.cs that use it — see `Vixen.Ui.HotReload`'s own project file, which says why it is
+            neither trimmable nor AOT-compatible.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.HotReload\Vixen.Ui.HotReload.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <!--
-            SPIR-V, committed, for the reason Samples/01 gives and one more: `UiRenderer`'s own
-            remarks say the modules are "supplied rather than compiled here" because turning shader
-            source into modules belongs to Raven — which already carries Ui/Msdf.rvn and
-            Ui/RoundedRect.rvn for exactly this. Until that path is wired, a caller hands over
-            whatever it has. These four are the same GLSL the golden-image fixture drives the
-            renderer with, so the sample and the reference pictures cannot disagree about what the
-            shaders do.
+            ⚠ **The sample's own rules, handed to the utility step as its base sheet rather than
+            concatenated afterwards.** `shell.vcss` opens with `@layer base, components, utilities;`
+            and that statement is what fixes the ladder's order, so it has to be emitted *first*: the
+            generated utilities name `utilities` too, and written first they would make it layer zero
+            and let a `@layer components` rule declared later beat them. StyleGen puts every base
+            sheet ahead of what it generates for exactly this reason, and expands the sheet's
+            `@apply` on the way through.
 
-            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the three
-            fragment stages.
+            `Theme/vixen.ui.vcss` is not listed, and must not be: it is the *palette*, found by name
+            rather than by item, and naming it here would emit the `@theme` block as ordinary rules
+            as well as reading it as tokens.
         -->
-        <EmbeddedResource Include="Shaders\*.spv" />
+        <VixenStyleBase Include="Theme/shell.vcss" />
     </ItemGroup>
 
 </Project>

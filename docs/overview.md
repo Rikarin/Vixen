@@ -247,7 +247,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `OkLch.ToSrgb` real gamut mapping | ✅ | Core/Vixen.Core.Mathematics | `GamutMap` does CSS Color 4's binary search on chroma in OkLch, holding hue where a per-channel clamp shifted it. `StyleValueParser` brings wide-gamut authored colours in; `UiGeometryBuilder` maps every emitted colour into the surface's gamut. `GamutMapTests` + `UiGamutTests` |
 | `StyleTree.AppendChild` O(children) | ✅ | Core/Vixen.Ui.Styling | Amortised constant now: a child run reserves capacity beyond its count and doubles on overflow, so copies fall off geometrically. ⚠ The reserved slots hold stale ids and nothing may read them — every reader is bounded by `ChildCount`, not by the arena's length |
 | `Vixen.Ui.Testing` harness + software rasteriser | ✅ | Core/Vixen.Ui.Testing | Selector queries, interactions (taps, drags, `Pinch`), box and visual assertions. Group opacity, a third finger and the remaining box assertions are owed — see the README's *Owed* |
-| `Samples/02-HelloUi` | ✅ | Samples/02-HelloUi | 8 001 elements at 0.436 ms, 0 B — exit criterion met with margin |
+| `Samples/02-HelloUi` | ✅ | Samples/02-HelloUi | 8 001 elements at 0.436 ms, 0 B — exit criterion met with margin. Rewritten in `.vxml`/`.vcss` on `Vixen.Ui.Desktop` (2026-08-23); the hand-rolled 500-line host is gone |
 
 ## 1.8 Raven and shaders
 
