@@ -32,11 +32,18 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         ⚠ <b>What it does not check, stated rather than left to be found.</b> Only three of the
 ///         fourteen columns are computed. The Tailwind side — which roots exist, which classes each one
 ///         covers — needs the package installed and is transcribed data; and which Vixen family answers
-///         a Tailwind root is a judgement, because the two vocabularies collide on six names where they
-///         mean different things (<c>block-*</c> is <c>block-size</c> and Vixen's <c>block</c> is
-///         <c>display</c>; the same for <c>inline-*</c>, <c>bg</c>, <c>border</c>, <c>text</c> and
-///         <c>transition</c>). Those stay hand-kept. The completeness fact below is what stops that
-///         being a hiding place.
+///         a Tailwind root is a judgement, because the two vocabularies collide on names where they can
+///         mean different things (<c>bg</c>, <c>border</c>, <c>text</c> and <c>transition</c> are
+///         <c>background-size</c>, <c>border-collapse</c>, <c>text-wrap</c> and
+///         <c>transition-behavior</c> on the Tailwind side and none of those on Vixen's). Those stay
+///         hand-kept. The completeness fact below is what stops that being a hiding place.
+///     </para>
+///     <para>
+///         ⚠ <b>A collision is a question, not a verdict, and <c>block</c>/<c>inline</c> are the case
+///         that proves it.</b> They were on that list — Tailwind's <c>block-*</c> is <c>block-size</c>
+///         and Vixen's <c>block</c> was <c>display</c> — and the resolution was not to keep them apart
+///         but to make the collision true: the family answers <c>display</c> bare and <c>height</c>
+///         with a value, so both roots legitimately claim it and the join is right in both directions.
 ///     </para>
 /// </remarks>
 public class ParityLedgerTests {
@@ -163,12 +170,16 @@ public class ParityLedgerTests {
              list, several families to a row where Tailwind spells one root as several classes (the
              `display` row claims block, flex, grid, hidden, inline, inline-block and inline-flex).
 
-             ⚠ Check that it really is the same thing Tailwind means before writing it in. Six names
-             collide across the two vocabularies: Tailwind's `block-*` and `inline-*` are `block-size`
-             and `inline-size`, while Vixen's `block` and `inline` are `display`; Tailwind's `bg`,
-             `border`, `text` and `transition` static roots are `background-size`, `border-collapse`,
-             `text-wrap` and `transition-behavior`, none of which Vixen's like-named families emit. A
-             family joined to the wrong root makes the ledger read `works` for a root nothing supports.
+             ⚠ Check that it really is the same thing Tailwind means before writing it in. Tailwind's
+             `bg`, `border`, `text` and `transition` static roots are `background-size`,
+             `border-collapse`, `text-wrap` and `transition-behavior`, none of which Vixen's like-named
+             families emit. A family joined to the wrong root makes the ledger read `works` for a root
+             nothing supports.
+
+             ⚠ A family may legitimately be claimed by more than one row when it answers more than one
+             Tailwind root — `flex` is claimed by three, and `block`/`inline` by the `display` row and
+             their own sizing row, because the bare class is a display value and the valued class is a
+             size. That is a judgement to make deliberately, not a way to quieten this test.
              """
         );
     }

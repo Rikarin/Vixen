@@ -93,9 +93,9 @@ Every one of those was right when it was written. The number is a denominator, s
 | State | Meaning | Roots |
 |---|--:|--:|
 | **works** | Vixen emits it, and a consumer acts on every property it sets | **160** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **51** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **57** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **110** |
+| **absent** | not emitted at all | **104** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -397,13 +397,13 @@ refusal block, which already says so for the same reason.
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
-| Sizing | 15 | 0 | 7 | 0 | 8 | 0 | 0 |
+| Sizing | 15 | 0 | 13 | 0 | 2 | 0 | 0 |
 | Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
 | Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **160** | **51** | **3** | **110** | **3** | **1** |
+| **Total** | **328** | **160** | **57** | **3** | **104** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
 Interactivity at 26 of 39 and Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and
@@ -490,13 +490,76 @@ generated sheet that nothing could ever read, which is the exact shape of debt `
 exists to record — and one nobody could ever close. The ledger's `css` column still lists both,
 because that column is about what Tailwind emits.
 
-⚠ **Sizing reads worse than it was and the roots did not move: the rule did.** It was `7 works, 0
-partial`; it is `0 works, 7 partial`, and nothing regressed. Every one of `w-*`, `h-*`, `size-*`,
-`min-w-*`, `min-h-*`, `max-w-*` and `max-h-*` is read on every property it emits — and none of them
-answers the six viewport-relative keywords Tailwind ships (`w-svw`, `w-lvw`, `w-dvw` and the `-svh`
-pair). The hand survey applied "a keyword set narrower than Tailwind's" to `items` and `overflow` and
-not to `w-*`; the generated column applies it to all of them. **That is the cost of mechanising, paid
-once: the numbers get slightly worse and start meaning the same thing in every row.**
+⚠ **Sizing was `0 works, 7 partial, 8 absent`; it is `0 works, 13 partial, 2 absent`, and the
+category is the one place in this file where the headline number is the least informative thing on
+the row.** Two separate things happened to it and they pull opposite ways.
+
+**The seven partials were one rule, and the rule is closed.** The previous revision of this paragraph
+said Sizing read worse than it was because the mechanism, not the roots, had moved: `w-*`, `h-*`,
+`size-*`, `min-w-*`, `min-h-*`, `max-w-*` and `max-h-*` were read on every property they emit and
+were demoted only for the six viewport-relative keywords Tailwind ships. That was exactly right, and
+it was *one* rule rather than seven: Tailwind names `svw`/`lvw`/`dvw` and `svh`/`lvh`/`dvh` after the
+viewport axis being measured and not after the property being set, so `h-dvw` is `height: 100vw` and
+`w-svh` is `width: 100vh`. The mapping therefore belongs on the value, in `TrySize`, and eight lines
+there moved all seven roots at once.
+
+⚠ **All six spellings collapse to two answers, and that is a fact about this engine rather than a
+shortcut.** CSS Values 4 separates the small, large and dynamic viewports only by what a retracting
+browser toolbar does to them. A Vixen surface has no retractable chrome: `LengthContext` is built
+from `UiSurface`'s width and height and there is no second, smaller rectangle for the small viewport
+to be. So all three name one measurement, `vw`/`vh` is it, and `100dvw` would have put a unit into
+every generated sheet that `StyleValueParser` does not read — the inert-class shape the family table
+is not allowed to add. The units themselves needed nothing: `StyleValueParser` has parsed `vw`/`vh`
+since it existed and `LengthContext.PixelsPer` resolves them.
+
+⚠ **They stayed `partial` anyway, on a second gap that the closing of the first one uncovered.** Every
+sizing row lists a content keyword — `w-min`, `block-fit`, `max-inline-max` — and every one of them
+resolves as a class and moves nothing. `LayoutStyleBuilder.ToEdgeLength` maps the `auto` keyword and
+no other, so `width: min-content` comes back `StyleLength.Undefined` and `SetLength` leaves the
+dimension alone; `LayoutUnit.MaxContent`/`FitContent`/`Stretch` are declared and read by no
+production code, and there is no `LayoutUnit.MinContent` at all. **This is the `value_gap` column
+doing the job it exists for, and it is worth being precise about why no gate could have found it**:
+`width` is read, the class resolves, and both halves of the per-property measurement are green over a
+declaration that does nothing — `visibility`'s dead `collapse` one file over. It was true before this
+revision too and the rows were already `partial` for the viewport keywords, so it cost nothing to
+miss. **The fix is smaller than it looks and is not written down anywhere else, so it is here:** every
+layout algorithm in `Vixen.Ui.Layout` already takes `SizingMode.MaxContent`/`FitContent`/`StretchFit`
+as a node's *own* sizing question — `CalculateLayoutInternal` is invoked as a bare intrinsic probe in
+six places — so what is missing is the mapping from `LayoutUnit` to `SizingMode`, not the layout. One
+new helper beside `HasDefiniteLength` and about eight call sites. `min-content` is the one real gap,
+having no `SizingMode` of its own, and is cheapest resolved eagerly through the existing
+`ComputeMinContentSize` and handed down as a `StretchFit` length.
+
+**The six that moved from `absent` are the writing-mode-relative names, and all six came out
+physical** — `inline-*`, `min-inline-*`, `max-inline-*` on the width trio and `block-*`,
+`min-block-*`, `max-block-*` on the height trio. The block three are the `inset-bs-*` and
+`scroll-mbs-*` argument unchanged: no writing mode, so the block axis is top-to-bottom in every
+configuration and `block-size` would mean `height` on every element that ever resolved it.
+
+⚠ **The inline three are physical for a stronger reason than the block three, not a weaker one, and
+this is the part that the neighbouring precedent gets wrong if read too quickly.** `inset-s-*` and
+`rounded-ss-*` keep v4's logical spelling because `direction: rtl` really does mirror them — an edge
+and a corner are named by *which end* of the inline axis they sit at, and which end that is depends
+on the direction. A size is not named that way. `inline-size` is the extent *along* the inline axis,
+and mirroring an axis does not change how long it is; only a writing mode chooses which axis is
+inline, and there is none. So `inline-size` is `width` under `ltr` and under `rtl` alike, where the
+block mapping is merely safe in every configuration this engine currently has. **And the deciding
+fact is in the code rather than in that reasoning**: `inline-size` and `block-size` occur in this tree
+in exactly one place — `ContainerQuery`, as `container-type` values and query feature names — where
+they are already mapped to width and height with no direction consulted. Nothing interns either as a
+property, so emitting the logical longhand would have resolved, computed and moved nothing.
+
+⚠ **`block` and `inline` are one family each and not two, which was the whole of the "family name
+collides" note those rows used to carry.** Tailwind spells `display: block` and `block-size` with the
+same prefix, and `UtilityFamilies.Register` keeps the first family registered under a name — so a
+`Size("block", "height")` in the sizing section would have been discarded in silence and every
+`block-*` class would have gone on being reported as an unrecognised typo. `StaticOrSize` is the
+registration that holds both: the empty keyword answers the bare class and the value kind answers the
+rest, which is the shape `flex` has had all along for the same reason.
+
+**`max-block-*` is the one of the six that is `partial` on something of its own.** `max-block-lh` is
+one line box, and `lh` is a unit `StyleValueParser` does not read and `LengthContext` could not
+resolve if it did — the context carries a font size and no line height.
 
 ⚠ **The table above is generated, and this paragraph is the third revision of a warning that it is
 not.** It used to say the counts were a hand survey with a date on them, then that the C5 gate had
@@ -528,9 +591,12 @@ exist — `rounded-tl-lg` used to reach the family `rounded` with the value `tl-
 table answered, so the utility was dropped with no diagnostic. That was `absent` with a trap in it
 rather than plain absence. The eight per-corner families have since landed and the column is empty for
 them; it still holds for the rest. **`value_gap`** is the column for a root that emits and is read and
-*still* does not do what it says — the six viewport keywords `w-*` lacks, and the flow-relative
-spellings where Vixen emits physical edges (`mx-*` is `margin-left` + `margin-right`, not
-`margin-inline`, which is identical in LTR and wrong in RTL).
+*still* does not do what it says — the content keywords every sizing root lists and none of them
+honours (`w-min` resolves to `width: min-content`, which the bridge drops on the floor), and the
+flow-relative spellings where Vixen emits physical edges (`mx-*` is `margin-left` + `margin-right`,
+not `margin-inline`, which is identical in LTR and wrong in RTL). This paragraph used to cite the six
+viewport keywords `w-*` lacked; they landed, and what the closure exposed was the gap underneath
+them — which is the column earning its keep rather than an argument against it.
 
 ⚠ **`value_gap` is hand-kept and it feeds the generated `state`, which is the one seam in the
 mechanism worth naming.** A root whose every property is read is `works` unless something says
@@ -546,13 +612,21 @@ the cross product — which roots exist, which classes each covers — is transc
 close that half too and is the remainder of exit criterion 1. The engine side no longer waits on it.
 
 ⚠ **And the join between the two vocabularies is declared, because they collide.** `vixen_family` is
-the column a person maintains, and six names mean different things on either side of it: Tailwind's
-`block-*` and `inline-*` are `block-size` and `inline-size` while Vixen's `block` and `inline` are
-`display`; Tailwind's `bg`, `border`, `text` and `transition` static roots are `background-size`,
+the column a person maintains, and four names still mean different things on either side of it:
+Tailwind's `bg`, `border`, `text` and `transition` static roots are `background-size`,
 `border-collapse`, `text-wrap` and `transition-behavior`, none of which the like-named Vixen families
-emit. Matching them by name would have marked six roots supported that are not. The guard against the
+emit. Matching them by name would mark four roots supported that are not. The guard against the
 column simply being forgotten is `Every_registered_family_is_claimed_by_a_row`: a family that lands
 and is written into no row fails the run, which is exactly the drift that produced this revision.
+
+⚠ **It was six names, and the two that left the list are the interesting ones — they were resolved
+rather than dropped.** Tailwind's `block-*`/`inline-*` are `block-size`/`inline-size` and Vixen's
+`block`/`inline` were `display` and nothing else, so joining them by name would have read `works`
+over a root nothing supported. The families now answer *both* roots — the bare class is the display
+value and the valued class is the size — so the join is legitimate in both directions and the
+`display` row and the two sizing rows each claim them. **The lesson is that a name collision in this
+column is a question and not a verdict**: it means somebody has to look, and looking twice found one
+case where the honest answer was to make the collision true.
 
 ---
 

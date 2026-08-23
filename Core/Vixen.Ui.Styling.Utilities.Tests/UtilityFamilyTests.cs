@@ -283,6 +283,89 @@ public class UtilityFamilyTests {
         Assert.Null(fixture.Declarations("-bg-accent"));
         Assert.Null(fixture.Declarations("-flex-col"));
         Assert.Null(fixture.Declarations("-"));
+
+        // ⚠ The viewport keywords are the case the shape test alone would have passed: `100vh`
+        // begins with a digit exactly as `100%` does, so `-h-dvh` would have emitted
+        // `height: -100vh` on the strength of that first character. They are refused by being
+        // named in `NotNegatable`, which is the only thing that saves `-w-full` either.
+        Assert.Null(fixture.Declarations("-h-dvh"));
+        Assert.Null(fixture.Declarations("-w-svw"));
+        Assert.Null(fixture.Declarations("-max-w-lvw"));
+    }
+
+    [Fact]
+    public void The_six_viewport_keywords_are_two_answers_and_every_sizing_root_gives_them() {
+        // ⚠ One rule, seven roots. Tailwind names `svw`/`lvw`/`dvw` and `svh`/`lvh`/`dvh` after the
+        // viewport axis being *measured*, not after the property being set — so `h-dvw` is a height
+        // of one viewport width, and the mapping belongs on the value rather than in the seven
+        // `Size` registrations. That is what makes this one change rather than seven.
+        //
+        // The three spellings on each axis collapse to one because a Vixen surface has no
+        // retractable UA chrome for the small and large viewports to differ over: `LengthContext`
+        // is built from `UiSurface`'s width and height and there is no second rectangle. Emitting
+        // `100dvw` instead would put a unit in the sheet that `StyleValueParser` cannot read.
+        var fixture = new UtilityFixture();
+
+        foreach (var keyword in new[] { "svw", "lvw", "dvw" }) {
+            Assert.Equal(["width: 100vw"], fixture.Emits($"w-{keyword}"));
+            Assert.Equal(["height: 100vw"], fixture.Emits($"h-{keyword}"));
+            Assert.Equal(["max-width: 100vw"], fixture.Emits($"max-w-{keyword}"));
+        }
+
+        foreach (var keyword in new[] { "svh", "lvh", "dvh" }) {
+            Assert.Equal(["height: 100vh"], fixture.Emits($"h-{keyword}"));
+            Assert.Equal(["width: 100vh"], fixture.Emits($"w-{keyword}"));
+            Assert.Equal(["min-height: 100vh"], fixture.Emits($"min-h-{keyword}"));
+        }
+
+        // `size-*` sets both, so it is the one root where a single class carries the pair.
+        Assert.Equal(["width: 100vw", "height: 100vw"], fixture.Emits("size-dvw"));
+        Assert.Equal(["width: 100vh", "height: 100vh"], fixture.Emits("size-svh"));
+    }
+
+    [Fact]
+    public void The_writing_mode_relative_sizing_roots_are_physical_on_both_axes() {
+        // ⚠ The block three are the `inset-bs-*` argument: no writing mode, so the block axis is
+        // top-to-bottom in every configuration and `block-size` would mean `height` on every
+        // element that resolved it.
+        //
+        // ⚠ The inline three are physical for a *stronger* reason, which is the half that looks
+        // wrong beside `inset-s-*` and `rounded-ss-*`. Those keep the logical spelling because
+        // `direction: rtl` mirrors them — an edge and a corner are named by which end of the inline
+        // axis they sit at. A size is not: `inline-size` is the extent *along* the axis, and
+        // mirroring an axis does not change how long it is. Only a writing mode could make the
+        // inline axis vertical, and there is none — so this mapping is direction-independent where
+        // the block one is merely configuration-independent.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["width: 16px"], fixture.Emits("inline-4"));
+        Assert.Equal(["min-width: 100%"], fixture.Emits("min-inline-full"));
+        Assert.Equal(["max-width: 100vw"], fixture.Emits("max-inline-dvw"));
+
+        Assert.Equal(["height: 16px"], fixture.Emits("block-4"));
+        Assert.Equal(["min-height: 100%"], fixture.Emits("min-block-full"));
+        Assert.Equal(["max-height: 100vh"], fixture.Emits("max-block-dvh"));
+    }
+
+    [Fact]
+    public void Block_and_inline_are_a_display_utility_bare_and_a_sizing_one_with_a_value() {
+        // ⚠ Tailwind spells two roots with one prefix, and `UtilityFamilies.Register` keeps the
+        // first family registered under a name — so these cannot be a `Static` and a `Size` in the
+        // two sections they belong to. A second registration would be dropped without a word and
+        // every `block-*` class would go on being reported as an unrecognised typo, which is the
+        // failure this test is really pinning.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["display: block"], fixture.Emits("block"));
+        Assert.Equal(["display: inline"], fixture.Emits("inline"));
+
+        Assert.Equal(["height: 100%"], fixture.Emits("block-full"));
+        Assert.Equal(["width: 100%"], fixture.Emits("inline-full"));
+
+        // The longer display names still win the prefix split, which is `SplitName` taking the
+        // longest registered name rather than anything these two arrange.
+        Assert.Equal(["display: inline-block"], fixture.Emits("inline-block"));
+        Assert.Equal(["display: inline-flex"], fixture.Emits("inline-flex"));
     }
 
     [Fact]

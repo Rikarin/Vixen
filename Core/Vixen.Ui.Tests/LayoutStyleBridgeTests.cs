@@ -91,6 +91,26 @@ public class LayoutStyleBridgeTests {
     }
 
     [Fact]
+    public void The_viewport_units_the_sizing_utilities_emit_reach_the_dimensions() {
+        // ⚠ This is the far end of `w-dvw` and `h-svh`, and it is asserted here rather than left to
+        // the utility test because the two halves fail independently: the family table can emit a
+        // perfectly good `100vw` into a sheet whose units nothing resolves, which is a class that
+        // generates, cascades and moves nothing. `docs/plan/43` counts the six viewport keywords as
+        // closed on the strength of this path existing — and the same file records, one column over,
+        // that the *content* keywords on those roots have no such far end and are dropped by
+        // `LayoutStyleBuilder.ToEdgeLength`. That is the difference this test is worth having for.
+        var style = new BridgeFixture().Build(
+            "width: 100vw; height: 100vh; max-width: 50vw; min-height: 20vh",
+            LengthContext.ForViewport(1000f, 500f)
+        );
+
+        Assert.Equal(1000f, style.Dimensions[(int) Dimension.Width].Value, Tolerance);
+        Assert.Equal(500f, style.Dimensions[(int) Dimension.Height].Value, Tolerance);
+        Assert.Equal(500f, style.MaxDimensions[(int) Dimension.Width].Value, Tolerance);
+        Assert.Equal(100f, style.MinDimensions[(int) Dimension.Height].Value, Tolerance);
+    }
+
+    [Fact]
     public void Rem_ignores_the_element_s_own_font_size() {
         var deep = LengthContext.ForViewport(1000f, 500f, rootFontSize: 16f).WithFontSize(40f);
         var style = new BridgeFixture().Build("width: 2rem; height: 2em", deep);
