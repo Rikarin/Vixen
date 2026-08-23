@@ -583,17 +583,44 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>A node's padding box, which is the containing block of everything below it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Minus the scrollbar gutter, which is the one place "padding box" is not the whole
+    ///         answer.</b> CSS Position §3 makes the containing block the padding box, and CSS
+    ///         Overflow puts the scrollbar inside that box: an <c>inset: 0</c> child of a scroll
+    ///         container stops at the bar rather than sliding under it. Six families across all three
+    ///         corpora probe exactly this — every <c>*_overflow_scrollbars_*</c> fixture in the block
+    ///         and grid corpora measures the container by putting an <c>inset: 0</c> box in it and
+    ///         reading its size back — so getting it wrong here reads as a scrollbar bug in three
+    ///         algorithms at once rather than as one rule in this function.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Clamped at zero, because a 2pt box reserving a 15pt gutter is a real fixture.</b>
+    ///         <c>block_overflow_scrollbars_overridden_by_size</c> is 2×4 with a 15pt bar on both
+    ///         axes and Chrome gives its child 0×0 — the bar is truncated by the box rather than the
+    ///         box being grown by the bar. Without the clamp the containing block goes negative and
+    ///         the child comes out inside-out.
+    ///     </para>
+    /// </remarks>
     AbsoluteContainingBlock PaddingBoxOf(int node) {
-        var left = StyleResolution.FlexStartBorder(in styles[node], FlexDirection.Row, Direction.Ltr);
-        var right = StyleResolution.FlexEndBorder(in styles[node], FlexDirection.Row, Direction.Ltr);
-        var top = StyleResolution.FlexStartBorder(in styles[node], FlexDirection.Column, Direction.Ltr);
-        var bottom = StyleResolution.FlexEndBorder(in styles[node], FlexDirection.Column, Direction.Ltr);
+        var direction = results[node].Direction;
+        var left = StyleResolution.FlexStartBorder(in styles[node], FlexDirection.Row, Direction.Ltr)
+            + ScrollbarGutterAt(node, Edge.Left, direction);
+        var right = StyleResolution.FlexEndBorder(in styles[node], FlexDirection.Row, Direction.Ltr)
+            + ScrollbarGutterAt(node, Edge.Right, direction);
+        var top = StyleResolution.FlexStartBorder(in styles[node], FlexDirection.Column, Direction.Ltr)
+            + ScrollbarGutterAt(node, Edge.Top, direction);
+        var bottom = StyleResolution.FlexEndBorder(in styles[node], FlexDirection.Column, Direction.Ltr)
+            + ScrollbarGutterAt(node, Edge.Bottom, direction);
+
+        var width = results[node].MeasuredDimensions[(int) Dimension.Width] - left - right;
+        var height = results[node].MeasuredDimensions[(int) Dimension.Height] - top - bottom;
 
         return new AbsoluteContainingBlock(
-            left,
-            top,
-            results[node].MeasuredDimensions[(int) Dimension.Width] - left - right,
-            results[node].MeasuredDimensions[(int) Dimension.Height] - top - bottom
+            MathF.Min(left, MathF.Max(0f, results[node].MeasuredDimensions[(int) Dimension.Width] - right)),
+            MathF.Min(top, MathF.Max(0f, results[node].MeasuredDimensions[(int) Dimension.Height] - bottom)),
+            MathF.Max(0f, width),
+            MathF.Max(0f, height)
         );
     }
 

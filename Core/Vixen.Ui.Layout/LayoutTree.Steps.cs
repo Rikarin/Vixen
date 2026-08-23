@@ -29,13 +29,19 @@ public sealed partial class LayoutTree {
         }
 
         ref var layout = ref results[index];
-        var paddingAndBorderRow = layout.Padding[(int) Edge.Left] + layout.Padding[(int) Edge.Right]
-            + layout.Border[(int) Edge.Left] + layout.Border[(int) Edge.Right];
-        var paddingAndBorderColumn = layout.Padding[(int) Edge.Top] + layout.Padding[(int) Edge.Bottom]
-            + layout.Border[(int) Edge.Top] + layout.Border[(int) Edge.Bottom];
+        // ⚠ The gutter belongs on BOTH sides of this function and for two different reasons: it is
+        // room the content does not get to measure into, and it is room the border box has to carry
+        // afterwards. `leaf_overflow_scrollbars_take_up_space_both_axis` measures 20x10 of Ahem text
+        // and expects 35x25.
+        var insetRow = layout.Padding[(int) Edge.Left] + layout.Padding[(int) Edge.Right]
+            + layout.Border[(int) Edge.Left] + layout.Border[(int) Edge.Right]
+            + StyleResolution.ScrollbarGutterForAxis(in styles[index], FlexDirection.Row);
+        var insetColumn = layout.Padding[(int) Edge.Top] + layout.Padding[(int) Edge.Bottom]
+            + layout.Border[(int) Edge.Top] + layout.Border[(int) Edge.Bottom]
+            + StyleResolution.ScrollbarGutterForAxis(in styles[index], FlexDirection.Column);
 
-        var innerWidth = float.IsNaN(availableWidth) ? availableWidth : MathF.Max(0f, availableWidth - paddingAndBorderRow);
-        var innerHeight = float.IsNaN(availableHeight) ? availableHeight : MathF.Max(0f, availableHeight - paddingAndBorderColumn);
+        var innerWidth = float.IsNaN(availableWidth) ? availableWidth : MathF.Max(0f, availableWidth - insetRow);
+        var innerHeight = float.IsNaN(availableHeight) ? availableHeight : MathF.Max(0f, availableHeight - insetColumn);
 
         if (widthSizingMode == SizingMode.StretchFit && heightSizingMode == SizingMode.StretchFit) {
             // Both sizes are already decided, so there is nothing the content could tell us.
@@ -51,7 +57,7 @@ public sealed partial class LayoutTree {
             FlexDirection.Row,
             direction,
             widthSizingMode is SizingMode.MaxContent or SizingMode.FitContent
-                ? measured.Width + paddingAndBorderRow
+                ? measured.Width + insetRow
                 : availableWidth,
             ownerWidth,
             ownerWidth,
@@ -63,7 +69,7 @@ public sealed partial class LayoutTree {
             FlexDirection.Column,
             direction,
             heightSizingMode is SizingMode.MaxContent or SizingMode.FitContent
-                ? measured.Height + paddingAndBorderColumn
+                ? measured.Height + insetColumn
                 : availableHeight,
             ownerHeight,
             ownerWidth,
@@ -111,8 +117,12 @@ public sealed partial class LayoutTree {
 
         var width = availableWidth;
         if (widthSizingMode is SizingMode.MaxContent or SizingMode.FitContent) {
+            // ⚠ Including the gutter, which is what makes an EMPTY scroll container as wide as its
+            // own scrollbar. `leaf_overflow_scrollbars_overridden_by_max_size` needs it: the box has
+            // no content and no width, so 15 is the only number `max-width: 2px` has to clamp.
             width = layout.Padding[(int) Edge.Left] + layout.Padding[(int) Edge.Right]
-                + layout.Border[(int) Edge.Left] + layout.Border[(int) Edge.Right];
+                + layout.Border[(int) Edge.Left] + layout.Border[(int) Edge.Right]
+                + StyleResolution.ScrollbarGutterForAxis(in styles[index], FlexDirection.Row);
         }
 
         SetMeasuredDimension(index, FlexDirection.Row, direction, width, ownerWidth, ownerWidth, widthSizingMode == SizingMode.StretchFit);
@@ -120,7 +130,8 @@ public sealed partial class LayoutTree {
         var height = availableHeight;
         if (heightSizingMode is SizingMode.MaxContent or SizingMode.FitContent) {
             height = layout.Padding[(int) Edge.Top] + layout.Padding[(int) Edge.Bottom]
-                + layout.Border[(int) Edge.Top] + layout.Border[(int) Edge.Bottom];
+                + layout.Border[(int) Edge.Top] + layout.Border[(int) Edge.Bottom]
+                + StyleResolution.ScrollbarGutterForAxis(in styles[index], FlexDirection.Column);
         }
 
         SetMeasuredDimension(index, FlexDirection.Column, direction, height, ownerHeight, ownerWidth, heightSizingMode == SizingMode.StretchFit);

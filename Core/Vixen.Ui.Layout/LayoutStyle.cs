@@ -85,6 +85,42 @@ public struct LayoutStyle {
     /// <remarks>See <see cref="OverflowX" /> for why the axes are separate.</remarks>
     public Overflow OverflowY;
 
+    /// <summary>How much room a scrollbar takes out of this node, in points.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The axes are crossed, and getting that backwards is the whole bug.</b> The
+    ///         scrollbar an axis needs is drawn along the <i>other</i> one:
+    ///         <see cref="OverflowY" /> is <see cref="Overflow.Scroll" /> means a vertical bar, and a
+    ///         vertical bar eats <i>width</i>. So this reserves
+    ///         <c>OverflowY == Scroll ? ScrollbarWidth : 0</c> across the node and
+    ///         <c>OverflowX == Scroll ? ScrollbarWidth : 0</c> down it. One field for both because
+    ///         CSS has one <c>scrollbar-width</c> and a scrollbar is as thick either way round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It shrinks the content box but does not raise the node's minimum size, and those
+    ///         are two different rules that <see cref="Overflow.Scroll" /> makes look like one.</b>
+    ///         A box cannot be laid out narrower than its own padding and border; it CAN be laid out
+    ///         narrower than its scrollbar, and then the bar simply covers everything.
+    ///         <c>leaf_overflow_scrollbars_overridden_by_size</c> is that fixture exactly — a 2pt box
+    ///         reserving a 15pt gutter comes out 2pt wide, not 15. For the same reason
+    ///         <c>box-sizing: content-box</c> adds padding and border to a specified size and does
+    ///         <i>not</i> add this; the gutter is taken out of the content box rather than pushed
+    ///         outside it.
+    ///     </para>
+    ///     <para>
+    ///         The gutter sits at the inline-END edge of each axis — the right in <c>ltr</c>, the
+    ///         <i>left</i> in <c>rtl</c>, and the bottom either way. <c>grid_scrollbar_rtl</c> is what
+    ///         pins the flip: an <c>rtl</c> scroll container puts its only child at <c>x = 15</c>.
+    ///     </para>
+    ///     <para>
+    ///         Zero is the initial value and also <c>default</c>, so nothing reserves a gutter until
+    ///         something asks. Only <see cref="Overflow.Scroll" /> reads it:
+    ///         <see cref="Overflow.Hidden" /> clips without a bar, which is why declaring a width
+    ///         beside <c>hidden</c> is inert rather than wrong.
+    ///     </para>
+    /// </remarks>
+    public float ScrollbarWidth;
+
     /// <summary>Whether the node is laid out at all.</summary>
     public Display Display;
 

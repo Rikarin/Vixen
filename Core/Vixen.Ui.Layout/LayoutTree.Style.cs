@@ -202,6 +202,25 @@ public sealed partial class LayoutTree {
         MarkDirtyAndPropagate(index);
     }
 
+    /// <summary>Sets how much room this node's scrollbars take out of it.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="width">The scrollbar thickness in points. Zero reserves nothing.</param>
+    /// <remarks>
+    ///     Read only on an axis whose <see cref="Overflow" /> is <see cref="Overflow.Scroll" />, and
+    ///     crosswise: this takes width out of a node that scrolls vertically and height out of one
+    ///     that scrolls horizontally. See <see cref="LayoutStyle.ScrollbarWidth" /> for the two rules
+    ///     it does <i>not</i> reach — the node's own minimum size, and <c>box-sizing</c>.
+    /// </remarks>
+    public void SetScrollbarWidth(LayoutNodeId node, float width) {
+        var index = Validate(node);
+        if (styles[index].ScrollbarWidth.Equals(width)) {
+            return;
+        }
+
+        styles[index].ScrollbarWidth = width;
+        MarkDirtyAndPropagate(index);
+    }
+
     /// <summary>Sets whether the node is laid out at all.</summary>
     /// <param name="node">The node.</param>
     /// <param name="display">The display mode.</param>
@@ -485,6 +504,23 @@ public sealed partial class LayoutTree {
     /// <param name="edge">Which edge.</param>
     /// <returns>The padding.</returns>
     public float GetComputedPadding(LayoutNodeId node, Edge edge) => results[Validate(node)].Padding[(int) edge];
+
+    /// <summary>The scrollbar gutter reserved on one physical edge.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="edge">Which edge.</param>
+    /// <returns>The gutter, which is zero on three of the four edges.</returns>
+    /// <remarks>
+    ///     What a renderer needs to draw the bar in the space layout kept for it, and the reason
+    ///     <see cref="GetComputedPadding" /> alone is no longer enough to reconstruct the content box.
+    ///     The whole gutter sits at one edge — the right in <c>ltr</c> and the left in <c>rtl</c> for
+    ///     the vertical bar, the bottom for the horizontal one — so the other three answer zero.
+    /// </remarks>
+    public float GetComputedScrollbarGutter(LayoutNodeId node, Edge edge) {
+        var index = Validate(node);
+        var direction = results[index].Direction;
+        var axis = edge is Edge.Left or Edge.Right ? FlexDirection.Row : FlexDirection.Column;
+        return StyleResolution.ScrollbarGutterAtEdge(in styles[index], axis, edge, direction);
+    }
 
     /// <summary>The direction the node was laid out in.</summary>
     /// <param name="node">The node.</param>

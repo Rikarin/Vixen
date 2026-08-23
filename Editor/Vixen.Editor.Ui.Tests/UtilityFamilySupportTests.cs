@@ -459,7 +459,8 @@ public class UtilityFamilySupportTests {
         { "outline-offset-0", "outline-offset", "0px" },
 
         // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
-        // maps it onto `Overflow.Scroll` — the two differ only by a scrollbar gutter nothing draws.
+        // maps it onto `Overflow.Scroll` — the two differ only over whether the gutter is reserved
+        // when there is nothing to scroll, and no member of `Overflow` carries that distinction.
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },
@@ -467,10 +468,20 @@ public class UtilityFamilySupportTests {
 
         // ⚠ These were in `Inert` until the per-axis clip landed. `auto` maps onto `Scroll` in the
         // layout's keyword table rather than becoming a fourth member, because CSS gives the two the
-        // same layout and differs only over reserving a scrollbar gutter — which nothing here draws.
+        // same layout and differs only over whether the gutter is reserved when nothing overflows.
         { "overflow-x-auto", "overflow-x", "auto" },
         { "overflow-y-auto", "overflow-y", "auto" },
         { "overflow-y-scroll", "overflow-y", "scroll" },
+
+        // ⚠ The gutter, and the row worth reading beside the six above it. `scrollbar-width` was
+        // filed under "nothing here draws a scrollbar" for as long as those comments were — but the
+        // gutter is not paint, it is room taken out of the content box, and a `Scroll` axis now
+        // reserves it. Lengths rather than the web's `auto | thin | none` because nothing here owns
+        // the widget the keyword is a preference about; `auto` is the 10 points `ControlTheme.vcss`
+        // gives `scrollbar.vertical`.
+        { "scrollbar-auto", "scrollbar-width", "10px" },
+        { "scrollbar-thin", "scrollbar-width", "6px" },
+        { "scrollbar-none", "scrollbar-width", "0px" },
 
         // Interactivity and motion.
         //

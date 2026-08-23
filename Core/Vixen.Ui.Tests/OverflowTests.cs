@@ -51,6 +51,43 @@ public class OverflowTests {
         Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.ClipPush);
 
     [Fact]
+    public void A_scroll_container_reserves_its_scrollbar_out_of_the_room_its_children_get() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .port { display: flex; flex-direction: column; width: 70px; height: 50px;
+                    overflow: scroll; scrollbar-width: 10px; }
+            .fill { height: 8px; }
+            """,
+            document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
+        );
+
+        var stretched = document.Root.Children[0].Children[0];
+
+        // The bar is 10 points down the right-hand side, so a stretched child gets 60, not 70.
+        Assert.Equal(60f, stretched.Width, Tolerance);
+    }
+
+    [Fact]
+    public void The_gutter_is_inert_where_there_is_no_scrollbar_to_reserve_it_for() {
+        // ⚠ <b>The half of this property that is not a gap.</b> `hidden` clips without drawing a
+        // bar, so `scrollbar-width` beside it cannot move a box — which is why 156 of the Taffy
+        // corpus's 336 declarations are correctly ignored rather than refused, and why a utility
+        // layer can set `scrollbar-auto` broadly without moving anything that does not scroll.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .port { display: flex; flex-direction: column; width: 70px; height: 50px;
+                    overflow: hidden; scrollbar-width: 10px; }
+            .fill { height: 8px; }
+            """,
+            document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
+        );
+
+        Assert.Equal(70f, document.Root.Children[0].Children[0].Width, Tolerance);
+    }
+
+    [Fact]
     public void Overflow_y_hidden_clips_the_vertical_axis_and_leaves_the_horizontal_one_alone() {
         using var document = Drawn(
             """

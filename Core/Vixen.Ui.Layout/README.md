@@ -198,10 +198,24 @@ this store and neither could have started following visual order. The tests exis
 change wiring one of them to the layout tree has to argue with a red test.
 
 There is no `Overflow.Auto`. CSS's `auto` and `scroll` establish the same scroll container and differ
-only in whether a scrollbar gutter is reserved, and nothing above this draws a scrollbar of its own —
-so `LayoutStyleBuilder` maps `auto` onto `Scroll` rather than splitting every `== Scroll` here in two.
-The keyword itself survives in the computed style if an engine with gutters ever needs to tell them
-apart.
+only in whether a scrollbar gutter is reserved *when there is nothing to scroll* — so
+`LayoutStyleBuilder` maps `auto` onto `Scroll` rather than splitting every `== Scroll` here in two.
+The keyword itself survives in the computed style if an engine that wants the always/sometimes
+distinction ever needs to tell them apart.
+
+⚠ **The second half of that argument used to be "and nothing above this draws a scrollbar of its
+own", and it was wrong for a reason worth keeping.** The gutter is not a painting concern: a scroll
+container reserves `scrollbar-width` inside its padding box and *every size below it* is computed
+against what is left, so a store with no such field puts `ScrollView`'s content beside the bar at
+the wrong width. 180 of Taffy's fixtures were the bill, and `LayoutStyle.ScrollbarWidth` is the
+field. What survives of the argument is only the `Auto` half above — whether the gutter is reserved
+unconditionally — and that is genuinely a distinction nothing here can act on.
+
+The gutter crosses the axes (`overflow-y` reserves *width*), sits at the inline-end edge, shrinks the
+content box, and does **not** raise the node's minimum size or take part in `box-sizing`. Those last
+two are the traps: see `LayoutStyle.ScrollbarWidth`, and
+`StyleResolution.ContentInsetForAxis`, which exists beside `PaddingAndBorderForAxis` so that each
+call site has to say which of the two it means.
 
 ### What is not implemented, and why
 

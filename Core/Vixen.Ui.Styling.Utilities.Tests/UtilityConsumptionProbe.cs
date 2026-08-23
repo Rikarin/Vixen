@@ -193,6 +193,38 @@ static class UtilityConsumptionProbe {
             """
         ),
 
+        // ⚠ A SCROLLPORT, and the thirteen scenes before it had none — which is not the same
+        // sentence as "one of them scrolls". The `scrolled` scene's `#probe` is a `ScrollView`, and
+        // `ControlTheme.vcss` gives a `scroll-view` `overflow: hidden` with an absolutely positioned
+        // bar laid over the top, because that is how this framework has always drawn one. So no
+        // scene anywhere put `Overflow.Scroll` on `#probe`, and `scrollbar-width` — which is read on
+        // exactly that condition and on no other — measured inert with 180 corpus fixtures asserting
+        // that it is not. That is the failure mode this list's own remark predicts: suspect the
+        // scenes before the reader.
+        //
+        // Deliberately a plain `div` rather than a second `ScrollView`. The question is what the
+        // LAYOUT store does with a scroll container, and going through the control would answer it
+        // through `ControlTheme.vcss`, whose `hidden` is the thing that hid this in the first place.
+        //
+        // ⚠ <b>`#wide` gives up its width and the stack is pushed to the end, and without BOTH of
+        // those this scene sees nothing.</b> `Common` gives every shared child a definite width, and
+        // in `ltr` a gutter moves only the END edges of the content box — so a scene full of
+        // fixed-size children stacked from the top is byte-identical with the gutter and without it,
+        // scroll container or no scroll container. `width: auto` on `#wide` makes the stretch read
+        // the inline content edge; `justify-content: flex-end` makes the stack read the block one.
+        // One per axis, which is what it takes to see a property whose two axes are crossed.
+        new(
+            "scrollport",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 80px; align-items: flex-start; }
+            #probe { display: flex; flex-direction: column; width: 70px; height: 50px;
+                     overflow: scroll; justify-content: flex-end;
+                     background-color: #204080; color: #e0e0e0; }
+            #wide  { width: auto; height: 14px; background-color: #404060; }
+            #after { width: 40px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         // ⚠ Squeezed, and the only scene where anything can actually shrink. `tight` overflows, but
         // overflowing is not the same as shrinking: CSS Flexbox §4.5 floors every item at its
         // automatic minimum, and CSS Sizing §5.2.2 makes a definitely-sized box contribute its own

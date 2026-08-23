@@ -73,9 +73,15 @@ public class TaffyFlexConformanceTests {
     // in the algorithm moved either way. A refusal is not a gap and it is not a pass; it is a
     // fixture asserting nothing, and 408 of them across the three suites were doing that silently.
     // See UnsupportedFixtures.txt for the census and the harness-versus-engine split.
-    const int ExpectedPassing = 2278;
+    //
+    // ⚠ 112 → 36, and this one cost nothing: all 76 became passes and not one line went into
+    // KnownGaps.txt. They are the `scrollbar-width` refusals — 44 in `flex` and the whole of the
+    // `leaf` corpus's 32 — and `LayoutStyle.ScrollbarWidth` reserves the gutter they were about.
+    // Worth noticing against the two entries above it: the same census predicted an engine gap here
+    // rather than a harness one, and an engine gap that is genuinely additive lands clean.
+    const int ExpectedPassing = 2354;
     const int ExpectedFailing = 18;
-    const int ExpectedUnsupported = 112;
+    const int ExpectedUnsupported = 36;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

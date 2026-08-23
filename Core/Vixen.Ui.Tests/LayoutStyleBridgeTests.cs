@@ -121,6 +121,19 @@ public class LayoutStyleBridgeTests {
         Assert.Equal(expected, value.ToString());
     }
 
+    [Theory]
+    [InlineData("scrollbar-width: 15px", 15f)]
+    [InlineData("scrollbar-width: 0", 0f)]
+    [InlineData("scrollbar-width: none", 0f)]
+    [InlineData("scrollbar-width: 1rem", 16f)]
+    [InlineData("color: red", 0f)]
+    public void The_scrollbar_gutter_crosses_the_bridge_as_a_length(string css, float expected) {
+        // ⚠ A length where the web has `auto | thin | none`, because nothing here owns the widget
+        // the web keyword is a preference about — see `LayoutStyleBuilder.ApplyScrollbar`. `none` is
+        // kept because a stylesheet turning a gutter off should not have to spell it `0`.
+        Assert.Equal(expected, new BridgeFixture().Build(css).ScrollbarWidth, Tolerance);
+    }
+
     [Fact]
     public void A_keyword_the_bridge_does_not_know_leaves_the_initial_value_alone() {
         var style = new BridgeFixture().Build("justify-content: legacy-nonsense; align-items: center");

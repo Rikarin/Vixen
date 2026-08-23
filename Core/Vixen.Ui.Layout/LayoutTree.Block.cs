@@ -124,12 +124,25 @@ public sealed partial class LayoutTree {
         float marginAxisRow,
         float marginAxisColumn
     ) {
-        var insetLeft = results[index].Padding[(int) Edge.Left] + results[index].Border[(int) Edge.Left];
-        var insetRight = results[index].Padding[(int) Edge.Right] + results[index].Border[(int) Edge.Right];
-        var insetTop = results[index].Padding[(int) Edge.Top] + results[index].Border[(int) Edge.Top];
-        var insetBottom = results[index].Padding[(int) Edge.Bottom] + results[index].Border[(int) Edge.Bottom];
+        var insetLeft = results[index].Padding[(int) Edge.Left] + results[index].Border[(int) Edge.Left]
+            + ScrollbarGutterAt(index, Edge.Left, direction);
+        var insetRight = results[index].Padding[(int) Edge.Right] + results[index].Border[(int) Edge.Right]
+            + ScrollbarGutterAt(index, Edge.Right, direction);
+        var insetTop = results[index].Padding[(int) Edge.Top] + results[index].Border[(int) Edge.Top]
+            + ScrollbarGutterAt(index, Edge.Top, direction);
+        var insetBottom = results[index].Padding[(int) Edge.Bottom] + results[index].Border[(int) Edge.Bottom]
+            + ScrollbarGutterAt(index, Edge.Bottom, direction);
         var insetRow = insetLeft + insetRight;
         var insetColumn = insetTop + insetBottom;
+
+        // ⚠ The floors below are padding and border WITHOUT the scrollbar gutter, and the difference
+        // is a fixture rather than a nicety. `*_overflow_scrollbars_overridden_by_max_size` puts a
+        // 15pt bar under a `max-height: 4px` and Chrome answers 4: a box may be laid out smaller
+        // than its own scrollbar — the bar simply covers everything — but never smaller than its own
+        // edges. Flooring at `insetRow`/`insetColumn` would let the gutter win an argument the
+        // author's `max-*` is supposed to.
+        var paddingBorderRow = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
+        var paddingBorderColumn = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth);
 
         var collapsibleWithParent = BlockMarginsCollapsibleWithParent(index);
         var isFormattingContextRoot = !collapsibleWithParent;
@@ -215,7 +228,7 @@ public sealed partial class LayoutTree {
 
         var rawHeight = heightSizingMode == SizingMode.StretchFit ? availableHeight - marginAxisColumn : intrinsicHeight;
         var outerHeight = BoundAxis(index, FlexDirection.Column, direction, rawHeight, ownerHeight, ownerWidth);
-        var unboundedHeight = MathF.Max(rawHeight, insetColumn);
+        var unboundedHeight = MathF.Max(rawHeight, paddingBorderColumn);
 
         // A scroll container's fit-content height is the room it was offered, not the room its
         // content wants — the same one-axis reading the flex path applies at its STEP 9.
@@ -227,12 +240,12 @@ public sealed partial class LayoutTree {
                     availableHeight - marginAxisColumn,
                     BoundAxisWithinMinAndMax(index, direction, FlexDirection.Column, intrinsicHeight, ownerHeight, ownerWidth)
                 ),
-                insetColumn
+                paddingBorderColumn
             );
             unboundedHeight = outerHeight;
         }
 
-        SetMeasuredDimension(index, Dimension.Width, outerWidth, MathF.Max(rawWidth, insetRow));
+        SetMeasuredDimension(index, Dimension.Width, outerWidth, MathF.Max(rawWidth, paddingBorderRow));
         SetMeasuredDimension(index, Dimension.Height, outerHeight, unboundedHeight);
 
         // ── align-content, as one subject ───────────────────────────────────────────────────────

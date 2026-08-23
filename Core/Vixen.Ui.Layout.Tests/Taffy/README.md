@@ -22,15 +22,15 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 
 | Category | Fixtures | Pass | Fail | Refused |
 |---|--:|--:|--:|--:|
-| `flex` | 2 352 | 2 254 | 18 | 80 |
-| `leaf` | 56 | 24 | 0 | 32 |
-| `block` | 884 | 788 | 0 | 96 |
+| `flex` | 2 352 | 2 298 | 18 | 36 |
+| `leaf` | 56 | 56 | 0 | 0 |
+| `block` | 884 | 852 | 0 | 32 |
 | `blockflex` | 28 | 28 | 0 | 0 |
 | `blockgrid` | 56 | 56 | 0 | 0 |
-| `grid` | 2 040 | 1 922 | 42 | 76 |
+| `grid` | 2 040 | 1 962 | 42 | 36 |
 | `gridflex` | 24 | 24 | 0 | 0 |
 | `float` | 84 | 0 | 0 | 84 |
-| | **5 524** | **5 096** | **60** | **368** |
+| | **5 524** | **5 276** | **60** | **188** |
 
 Every one of those numbers is asserted — the pass and fail columns by the three conformance suites
 and `TaffyPendingCorporaTests`, the refused column additionally by `TaffyUnsupportedCensusTests`,
@@ -43,7 +43,7 @@ are about 1 381 distinct cases run four ways.
 
 **2 002 of the 2 208 runnable flex fixtures passed on the first run**, on a store built entirely
 against a *different* browser-derived corpus. 176 more are refused for a property this store has no
-field for, and 206 disagreed. **192 of those are now closed and 2 278 of the 2 408 pass** — 112 are
+field for, and 206 disagreed. **192 of those are now closed and 2 354 of the 2 408 pass** — 36 are
 still refused and 18 disagree, which is what the table above counts.
 
 That number was the point. Flexbox already had an oracle — Yoga's 534, green — so the flex corpus is
@@ -199,12 +199,14 @@ so all 48 were refused. The corpus *contains* the test and cannot run it. That i
 oracle's coverage; it is a hole in the bridge, and it is invisible from either side. The rule is held
 by `MarginCollapsingTests` instead, and deleting it leaves all 3 571 corpus tests green.
 
-⚠ **Half of that blind spot has since closed, and the half that did not is the difference the whole
+⚠ **That blind spot closed in two steps with two different causes, which is the difference the whole
 census turns on.** 24 of the 48 are the `_overflow_{x,y}_hidden` variants. `hidden` clips without a
-scrollbar, so it reserves no gutter, so `scrollbar-width` on those boxes cannot move a single number
-— the refusal was the *bridge's* and not the store's, and all 24 now run and pass. The other 24 say
-`scroll`, where the gutter is real and `LayoutStyle` has no field for it; those are still refused
-and are a genuine engine gap. Same property, same paragraph, two completely different things.
+scrollbar, so it reserves no gutter, so `scrollbar-width` on those boxes could not move a single
+number — the refusal was the *bridge's* and not the store's, and those 24 ran and passed with one
+line of harness. The other 24 say `scroll`, where the gutter is real; they were a genuine engine gap
+until `LayoutStyle.ScrollbarWidth` landed, and all 24 pass now too. Same property, same paragraph,
+two completely different things — and the second one took a field, six call sites and a rule about
+absolute positioning that nothing in the paragraph predicted.
 
 ## The fixtures that assert nothing
 
@@ -214,6 +216,14 @@ reaches the algorithm — it cannot fail, and it is not counted as a gap either.
 the refusal count, so nothing drifted silently. What no file recorded was what the refusals were
 **for**, and four gap files described corpora that were nearly closed without mentioning the largest
 bucket of fixtures in the project.
+
+⚠ **The census's own largest entry is now closed, and it is the one result that argues for writing
+census files at all.** `scrollbar-width` accounted for 180 of the 284 engine refusals — more than
+the other four engine buckets put together, and more than any single entry in any of the four gap
+files. Nothing named it before the census did: `BlockKnownGaps.txt` mentioned it in a footnote about
+64 fixtures, and the layout README argued in the `Overflow` enum's own remarks that the distinction
+it turns on could not matter because nothing here paints a scrollbar. That argument was about
+painting. All 180 now pass, with no entry in any gap file.
 
 `UnsupportedFixtures.txt` is that census: every distinct refusal message, per corpus, with the
 fixture count it accounts for, re-derived from an actual run by `TaffyUnsupportedCensusTests` and

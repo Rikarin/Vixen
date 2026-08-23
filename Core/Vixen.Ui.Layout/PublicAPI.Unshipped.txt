@@ -255,6 +255,7 @@ Vixen.Ui.Layout.LayoutStyle.OverflowY -> Vixen.Ui.Layout.Overflow
 Vixen.Ui.Layout.LayoutStyle.Padding -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.Position -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.PositionType -> Vixen.Ui.Layout.PositionType
+Vixen.Ui.Layout.LayoutStyle.ScrollbarWidth -> float
 Vixen.Ui.Layout.LayoutStyle.VerticalAlign -> Vixen.Ui.Layout.VerticalAlign
 Vixen.Ui.Layout.LayoutTree -> sealed class
 Vixen.Ui.Layout.LayoutTree : System.IDisposable
@@ -271,6 +272,7 @@ Vixen.Ui.Layout.LayoutTree.GetComputedBorder(Vixen.Ui.Layout.LayoutNodeId node, 
 Vixen.Ui.Layout.LayoutTree.GetComputedDirection(Vixen.Ui.Layout.LayoutNodeId node) -> Vixen.Ui.Layout.Direction
 Vixen.Ui.Layout.LayoutTree.GetComputedMargin(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
 Vixen.Ui.Layout.LayoutTree.GetComputedPadding(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
+Vixen.Ui.Layout.LayoutTree.GetComputedScrollbarGutter(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
 Vixen.Ui.Layout.LayoutTree.GetContext(Vixen.Ui.Layout.LayoutNodeId node) -> object?
 Vixen.Ui.Layout.LayoutTree.GetFragment(Vixen.Ui.Layout.LayoutNodeId node, int fragment) -> (float Left, float Top, float Width, float Height, Vixen.Ui.Layout.LayoutFragmentEnds Ends)
 Vixen.Ui.Layout.LayoutTree.GetFragmentCount(Vixen.Ui.Layout.LayoutNodeId node) -> int
@@ -336,6 +338,7 @@ Vixen.Ui.Layout.LayoutTree.SetOverflow(Vixen.Ui.Layout.LayoutNodeId node, Vixen.
 Vixen.Ui.Layout.LayoutTree.SetPadding(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength padding) -> void
 Vixen.Ui.Layout.LayoutTree.SetPosition(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength position) -> void
 Vixen.Ui.Layout.LayoutTree.SetPositionType(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.PositionType positionType) -> void
+Vixen.Ui.Layout.LayoutTree.SetScrollbarWidth(Vixen.Ui.Layout.LayoutNodeId node, float width) -> void
 Vixen.Ui.Layout.LayoutTree.SetStyle(Vixen.Ui.Layout.LayoutNodeId node, in Vixen.Ui.Layout.LayoutStyle style) -> void
 Vixen.Ui.Layout.LayoutTree.SetVerticalAlign(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.VerticalAlign verticalAlign) -> void
 Vixen.Ui.Layout.LayoutUnit -> enum : byte
