@@ -3390,6 +3390,14 @@ T:Vixen.Ui.Controls.ValueChangedEvent`1 sweep-pending
 T:Vixen.Ui.Controls.VirtualizingGrid sweep-pending
 T:Vixen.Ui.Controls.VirtualizingPanel sweep-pending
 T:Vixen.Ui.CornerRadii sweep-pending
+T:Vixen.Ui.Desktop.HotReload.DesktopHotReload sweep-pending
+T:Vixen.Ui.Desktop.SystemFonts sweep-pending
+T:Vixen.Ui.Desktop.UiApplication sweep-pending
+T:Vixen.Ui.Desktop.UiApplicationOptions sweep-pending
+T:Vixen.Ui.Desktop.UiDevelopment sweep-pending
+T:Vixen.Ui.Desktop.UiFrame sweep-pending
+T:Vixen.Ui.Desktop.UiShaderLibrary sweep-pending
+T:Vixen.Ui.Desktop.UiWindowSurface sweep-pending
 T:Vixen.Ui.DragEvent sweep-pending
 T:Vixen.Ui.DragStage sweep-pending
 T:Vixen.Ui.DrawBatch sweep-pending
