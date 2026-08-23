@@ -62,7 +62,37 @@ public enum BoundAttributeKind {
     ///     row has that survives a reorder. The two are exclusive by position: <c>VXML2010</c> refuses
     ///     <c>ref</c> inside a loop and <c>VXML2013</c> refuses <c>refs</c> outside one.
     /// </remarks>
-    Refs
+    Refs,
+
+    /// <summary>The element name to create a capitalised tag under, from <c>tag</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Consumed at creation like <see cref="Key" />, not applied afterwards like every
+    ///         other attribute.</b> A tag is interned into the style node when the element is made
+    ///         and there is no setter for it, which is deliberate — a rule that matched
+    ///         <c>scroll-view</c> for one frame and <c>add-component-list</c> for the next would be
+    ///         a cascade that depends on when you looked.
+    ///     </para>
+    ///     <para>
+    ///         <b>Why it is a language feature and not a subclass.</b> <c>@tag</c> is a header, so
+    ///         "the same part under another name" needed a second type; and a control whose tag a
+    ///         stylesheet names — <c>Part&lt;ScrollView&gt;("add-component-list")</c> — needed a
+    ///         subclass, which <c>sealed</c> refuses. Both are one string written at the place it is
+    ///         true.
+    ///     </para>
+    /// </remarks>
+    Tag,
+
+    /// <summary>An expression to run against what the tag made, from <c>use</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The escape for a control fed by a <i>method</i>, which is the half of shape 1 that
+    ///     no amount of property binding reaches.</b> <c>Inspect(descriptor, provider, targets)</c>
+    ///     is three arguments and <c>SetItems(rows)</c> is a collection; neither is a
+    ///     <c>[UiProperty]</c>, so neither <see cref="Parameter" /> nor <see cref="Bind" /> can carry
+    ///     it. Emitted as <c>BuildContext.Use</c>, which is an effect — so it re-runs when what it
+    ///     read changes, and leaves with the region that declared it.
+    /// </remarks>
+    Use
 }
 
 /// <summary>One piece of an attribute's value.</summary>
@@ -143,6 +173,24 @@ public sealed record BoundElement(
             foreach (var attribute in Attributes) {
                 if (attribute.Kind == BoundAttributeKind.Key) {
                     return attribute.Expression;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>The <c>tag</c> attribute, if it has one.</summary>
+    /// <remarks>
+    ///     Read by the emitter <i>before</i> it walks the attribute list, because the tag is an
+    ///     argument to the call that creates the element and every other attribute is a statement
+    ///     after it.
+    /// </remarks>
+    public BoundAttribute? TagOverride {
+        get {
+            foreach (var attribute in Attributes) {
+                if (attribute.Kind == BoundAttributeKind.Tag) {
+                    return attribute;
                 }
             }
 

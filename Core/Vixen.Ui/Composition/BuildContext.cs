@@ -360,7 +360,7 @@ public sealed class BuildContext {
     /// <summary>The scope class the elements being built carry, or null when they are not scoped.</summary>
     /// <remarks>
     ///     The running <see cref="Component" />'s, or the markup-authored element's when the context
-    ///     is composing one. Never both: <see cref="Child{T}" /> saves and restores
+    ///     is composing one. Never both: <see cref="Child{T}(UiElement)" /> saves and restores
     ///     <see cref="owner" /> around a nested component, and a composed element gets a context of
     ///     its own.
     /// </remarks>
@@ -387,7 +387,8 @@ public sealed class BuildContext {
     ///         Either way the host element's tag is the one the type answers to, so
     ///         <c>&lt;Callout /&gt;</c> is styled by <c>callout { … }</c> and
     ///         <c>&lt;ProgressBar /&gt;</c> by <c>progress-bar { … }</c> — the same rule the control
-    ///         library already follows for a control built by hand.
+    ///         library already follows for a control built by hand. The overload taking a
+    ///         <c>tag</c> is markup's <c>tag="…"</c> attribute and says otherwise.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>An element is not entered, and a component is.</b> A component's markup builds
@@ -397,13 +398,41 @@ public sealed class BuildContext {
     ///         its stylesheet's scope class land on elements the caller wrote.
     ///     </para>
     /// </remarks>
-    public T Child<T>(UiElement? parent) where T : IComposable, new() {
+    public T Child<T>(UiElement? parent) where T : IComposable, new() => Child<T>(parent, null);
+
+    /// <summary>The same, under a tag of the caller's choosing.</summary>
+    /// <typeparam name="T">The component type or the element type.</typeparam>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="tag">
+    ///     The element name to create it under, or null to take the one the type answers to.
+    /// </param>
+    /// <returns>What was created.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What markup's <c>tag="…"</c> attribute emits, and the runtime has always had it:
+    ///         <see cref="UiDocument.Adopt(UiElement, string, UiElement, string, System.ReadOnlySpan{string})" /> takes the tag and only falls back to
+    ///         <see cref="UiElement.TagName" />, so <c>panel.Add&lt;WaterZoneFacts&gt;("water-facts")</c>
+    ///         was already legal C#.</b> What did not exist was a spelling of it in a <c>.vxml</c>,
+    ///         which is why <c>Part&lt;ScrollView&gt;("add-component-list")</c> — a control under the
+    ///         tag a stylesheet names — was a shape markup could not write and a sealed control could
+    ///         not be subclassed into.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read once, at creation, and never again.</b> An element's tag is fixed by
+    ///         <see cref="UiElement.Bind" /> — the style tree interns it into the node — so this is
+    ///         not a binding and a later change to whatever the expression read does nothing. Inside
+    ///         an <c>@for</c> that is exactly right and is the same rule keys already follow: a row
+    ///         whose tag depends on the data has to put that data in its <c>key</c>, because a
+    ///         surviving key keeps its element and an element keeps its tag.
+    ///     </para>
+    /// </remarks>
+    public T Child<T>(UiElement? parent, string? tag) where T : IComposable, new() {
         var created = new T();
 
         switch (created) {
             case UiElement element: {
                 var target = parent ?? Anchor;
-                Document.Adopt(element, null, target);
+                Document.Adopt(element, tag, target);
                 RegionOf(target).Add(element);
 
                 if (Scope is { } elementScope) {
@@ -414,7 +443,7 @@ public sealed class BuildContext {
             }
 
             case Component component: {
-                var host = Element(parent, component.TagName);
+                var host = Element(parent, tag ?? component.TagName);
 
                 // ⚠ **The region a component builds into hangs off its host, not off the region
                 // being built** — so clearing the enclosing branch removes the host element and
@@ -627,6 +656,45 @@ public sealed class BuildContext {
     public void Bind(Action assign) {
         ArgumentNullException.ThrowIfNull(assign);
         building.Track(new Effect(assign, Document.Effects));
+    }
+
+    /// <summary>Runs an expression against what a tag made, now and again whenever what it read changes.</summary>
+    /// <typeparam name="T">What the tag made: a control, an element, or a <see cref="Component" />.</typeparam>
+    /// <param name="target">The thing the tag made.</param>
+    /// <param name="action">What to do with it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is markup's <c>use</c>, and it exists because a control fed by a
+    ///         <i>method</i> had no markup spelling at all.</b> A component-tag parameter is a
+    ///         property assignment, so <c>&lt;Slider Value="@x" /&gt;</c> works and
+    ///         <c>panel.Inspect(descriptor, provider, targets)</c>,
+    ///         <c>list.SetItems(rows)</c> and <c>select.AddOption(…)</c> do not — three arguments,
+    ///         a collection, and a call per item are none of them a property. The recorded escape
+    ///         for all three was a four-line subclass exposing the call as a property, which
+    ///         <c>sealed</c> refuses; <c>use</c> is the same idea without the type.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An effect and not a callback, which is the whole of why it is worth having.</b>
+    ///         It is <see cref="Bind(Action)" /> with a subject, so every signal the expression
+    ///         reads is a dependency and the call is made again when one of them changes — which is
+    ///         what makes <c>use="@(v =&gt; v.Inspect(Chosen, Provider, Targets))"</c> a live panel
+    ///         rather than a one-shot. It is registered against the region being built, so a branch
+    ///         or a row that leaves takes it with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which means it must be idempotent, and a call that appends is not.</b>
+    ///         <c>use="@(v =&gt; v.AddOption(…))"</c> adds an option every time the expression's
+    ///         dependencies change. The rule is the one every effect here follows: say what the
+    ///         control should <i>be</i>, not what to do to it — <c>SetItems</c>, not <c>Add</c> —
+    ///         and if the control offers only the appending form, clear it first inside the same
+    ///         expression.
+    ///     </para>
+    /// </remarks>
+    public void Use<T>(T target, Action<T> action) {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(action);
+
+        Bind(() => action(target));
     }
 
     /// <summary>Subscribes a handler to an event by name.</summary>
@@ -1067,7 +1135,7 @@ public sealed class BuildContext {
     /// <summary>The same, for a parent whose region something other than a region ends.</summary>
     /// <remarks>
     ///     ⚠ <b>A component's host, and the mount.</b> Both are ended by a
-    ///     <see cref="Unsubscribe" /> held elsewhere — see <see cref="Child{T}" /> — so linking them
+    ///     <see cref="Unsubscribe" /> held elsewhere — see <see cref="Child{T}(UiElement)" /> — so linking them
     ///     into whatever happened to be building would give them a second owner and, across a
     ///     <see cref="Rebuild" />, a new link on the enclosing region for every reload.
     /// </remarks>

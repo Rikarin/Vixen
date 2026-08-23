@@ -21,13 +21,26 @@ namespace Vixen.Editor.Water;
 /// </remarks>
 public readonly record struct WaterFactLine(int Slot, string Label, string Value);
 
-/// <summary>The zone panel's derived-numbers block.</summary>
-/// <remarks>The part is <c>WaterZoneFacts.vxml</c>, which holds the argument.</remarks>
+/// <summary>A water panel's derived-numbers block.</summary>
+/// <remarks>
+///     <para>The part is <c>WaterZoneFacts.vxml</c>, which holds the argument.</para>
+///     <para>
+///         ⚠ <b>One type under two tags, and it used to be two types.</b> The body panel wants the
+///         same block under <c>water-facts</c> and without a refusal, and a component's host tag was
+///         a compile-time header — so the ledger recorded "the same part under another name" as
+///         unsayable and this file declared a second, near-identical class. What was missing was a
+///         <i>spelling</i>, not a mechanism: <c>UiDocument.Adopt</c> has always taken the tag and
+///         only fallen back to <c>TagName</c>, so <c>panel.Add&lt;WaterZoneFacts&gt;("water-facts")</c>
+///         was already legal C# and markup now says the same thing as <c>tag="water-facts"</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>The refusal row is absent rather than suppressed.</b> A panel that never passes a
+///         reason leaves the <c>@if</c> arm unbuilt, so the body panel's tree is what the second type
+///         produced, element for element — which is what <c>WaterFactsTests</c> asserts by dumping
+///         both.
+///     </para>
+/// </remarks>
 public sealed partial class WaterZoneFacts;
-
-/// <summary>The body panel's.</summary>
-/// <remarks>The part is <c>WaterFacts.vxml</c>.</remarks>
-public sealed partial class WaterFacts;
 
 /// <summary>Why the last gesture did nothing.</summary>
 /// <remarks>The part is <c>WaterNotice.vxml</c>.</remarks>

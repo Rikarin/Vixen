@@ -454,8 +454,18 @@ public sealed class Binder {
         // Saying so here rather than letting Roslyn say it means the message can name the fix.
         if (kind is BoundAttributeKind.Event or BoundAttributeKind.Bind or BoundAttributeKind.Key
                 or BoundAttributeKind.Ref or BoundAttributeKind.Refs or BoundAttributeKind.Changed
+                or BoundAttributeKind.Use
             && value is not [BoundExpressionPart]) {
             Report(MarkupDiagnostics.ExpectedExpressionValue, attribute.Name.Span, written);
+            return null;
+        }
+
+        // ⚠ Refused rather than honoured, because a lowercase tag already *is* the name it wants:
+        // `<div tag="fact-row">` and `<fact-row>` differ by nothing but which of the two the reader
+        // has to check. On a capitalised tag there is no such spelling, which is the whole reason
+        // the attribute exists. See `MarkupDiagnostics.TagOnElement`.
+        if (kind == BoundAttributeKind.Tag && !isComponent) {
+            Report(MarkupDiagnostics.TagOnElement, attribute.Name.Span, tag);
             return null;
         }
 
@@ -581,6 +591,21 @@ public sealed class Binder {
         // element type is Roslyn's error on the characters between the quotes.
         if (string.Equals(written, "refs", StringComparison.Ordinal)) {
             return (BoundAttributeKind.Refs, written, []);
+        }
+
+        // ⚠ Universal in the same sense `class` is — it means the same on a component tag as on a
+        // control tag — but unlike `class` it never reaches the style tree as an attribute, because
+        // it *is* the element's name. See `BoundAttributeKind.Tag`.
+        if (string.Equals(written, "tag", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Tag, written, []);
+        }
+
+        // An expression for `ref`'s reason, and the same freedom: what goes between the quotes is a
+        // lambda whose parameter is whatever the tag made, so `use="@(v => v.Inspect(a, b, c))"` is
+        // typed by C# at the call and a method that does not exist is Roslyn's error on the
+        // characters the author wrote.
+        if (string.Equals(written, "use", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Use, written, []);
         }
 
         var colon = written.IndexOf(':', StringComparison.Ordinal);

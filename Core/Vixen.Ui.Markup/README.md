@@ -305,6 +305,69 @@ says what it is.
 It emits `protected override string TagName => "task-center";` and nothing else, so a component
 written by hand says the same thing the same way.
 
+### `tag=`, which is the same fact at the use site
+
+⚠ **`@tag` is a header, so it says what a part is called *everywhere*, and that turned out to be one
+sentence too many.** `WaterFacts` was `WaterZoneFacts` minus a refusal and under a different tag, so
+`Vixen.Editor.Water` carried two nearly identical types for the want of a spelling. And a control
+under a tag a stylesheet already names — `Part<ScrollView>("add-component-list")` — needed a
+subclass, which most of `Vixen.Ui.Controls` refuses by being `sealed`.
+
+Neither needed a mechanism. `UiDocument.Adopt` has always taken the tag and only fallen back to
+`TagName`, so `panel.Add<WaterZoneFacts>("water-facts")` was already legal C#; what did not exist was
+a `.vxml` spelling. `tag="water-facts"` on a capitalised tag is it, emitted as the second argument
+of `BuildContext.Child<T>`.
+
+```html
+<ScrollView tag="add-component-list" ref="@List" />
+```
+
+⚠ **Refused on a lowercase tag (`VXML2014`), because a lowercase tag already writes its own name.**
+`<div tag="fact-row">` and `<fact-row>` differ by nothing except where a reader has to look, and two
+spellings for one element name is how a sheet comes to be checked against the wrong one — the bug
+`TypeSelectorReachTests` exists for.
+
+⚠ **Read once, at creation.** A tag is interned into the style node by `Adopt` and has no setter, so
+a computed tag is evaluated when the element is made and never again. Inside an `@for` that is the
+key rule and not a new one: a surviving key keeps its element, and an element keeps its tag — so the
+data the tag depends on has to be in the key. Wave 6 found two panels choosing a tag from their data
+and smuggling the flag into the key because a tag could not be written at all; the key is still where
+the flag goes, and now the tag can say what it is.
+
+## `use`, and the control that is fed by a method
+
+A parameter on a capitalised tag is a property assignment. That covers everything a control exposes
+as a property and nothing it exposes as a **method** — `panel.Inspect(descriptor, provider, targets)`
+is three arguments, `list.SetItems(rows)` is a collection, and neither is a `[UiProperty]` for
+`bind:` or `change:` to find.
+
+The escape this document and the editor's panel ledger both recorded for that was a four-line
+subclass exposing the call as a property, and `sealed` refuses it: there are twenty-nine
+`sealed class … : Control` declarations in `Vixen.Ui.Controls`, and `InspectorView` and `ScrollView`
+— the two a wave of panel ports actually stopped on — are among them.
+
+```html
+<InspectorView use="@(view => view.Inspect(Chosen.Descriptor, Chosen.Provider, Chosen.Targets))" />
+```
+
+It emits `ctx.Use(n1, view => …)`, which is `Bind` with a subject: **an effect, not an initialiser**.
+Every signal the expression reads is a dependency, so the control is re-fed when one changes, and the
+whole thing leaves with the region that declared it. The subject is the first argument so that `T` is
+inferred from it before the lambda is read; written the other way round every `use` in the tree would
+have had to spell its parameter's type.
+
+⚠ **Which means it must be idempotent.** Say what the control should *be* — `SetItems`, not `Add` —
+because an appending call will append again the next time a dependency changes.
+
+⚠ **And it is shape 5's escape as a side effect.** An interpolation is a `text` child and an attribute
+on an intrinsic tag reaches the selector arena, so an element's *own* `Text` had no markup spelling
+and the answer was a four-line `UiElement` subclass per caption. `<fact-name use="@(c => c.Text = Label)" />`
+is that without the type. The subclass is still better where it is possible — it is checked at the
+tag and reads as a property — so `use` is the general answer rather than the first one.
+
+⚠ **One `use` per tag**, because attribute names are unique on an element. A lambda with a body does
+several things; two `use`s would also have needed an order, which is a rule nobody wants to remember.
+
 ## `@inherits`, and the two things a `.vxml` can be
 
 Without it the generated class is a `Component`, which is what a `.vxml` is for and is still the

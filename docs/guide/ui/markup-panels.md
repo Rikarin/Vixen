@@ -86,6 +86,10 @@ Neither is an override, so neither costs anything when nobody implements it. `@c
 `class`, `style` and `binding-path` mean the same on a component tag as on an element, and are never
 assigned as properties. On a capitalised tag they reach the element the control drew.
 
+(The other two attributes that are never parameters are [`tag`](#tag-for-a-capitalised-tag-under-another-name)
+and [`use`](#use-for-a-control-fed-by-a-method), which are below because neither reaches the style
+tree: one *is* the element's name and the other never touches the document at all.)
+
 `style` is an *inline style*: a cascade origin that beats every rule, not an attribute a selector can
 match. Use it for the lengths no stylesheet was given.
 
@@ -181,6 +185,70 @@ something: a method call, an undo entry, a write that touches two fields.
 from a binding, so reporting it would be an undo entry for something the user never did. A change
 made by input, or by the panel's own code, does fire it.
 
+### `tag`, for a capitalised tag under another name
+
+A control's element name comes from its type, which is what makes `button { … }` reach every
+`<Button />` without anyone passing a string. `tag` is how a caller says otherwise:
+
+```xml
+<ScrollView tag="add-component-list" ref="@List" />
+<WaterZoneFacts tag="water-facts" />
+```
+
+It is allowed **only on a capitalised tag**, because a lowercase one already writes its own name —
+`<div tag="fact-row">` is `<fact-row>` with the answer somewhere a reader has to go and look for it,
+and two ways to name one element is how a stylesheet comes to be checked against the wrong one.
+Writing it on a plain element is `VXML2014`.
+
+Two shapes wanted this and neither had a spelling. A control whose tag a sheet already names —
+`Part<ScrollView>("add-component-list")` — needed a subclass, and most of the control library is
+`sealed`. And `@tag` is a *header*, so "the same part under another name" meant a second, nearly
+identical `.vxml`; `Vixen.Editor.Water` had two for exactly this and now has one.
+
+⚠ **The tag is read once, when the element is created, and is never a binding.** An element's name is
+interned into its style node at creation and there is no setter for it — a rule that matched
+`scroll-view` on one frame and `add-component-list` on the next is a cascade nobody could reason
+about. So a computed tag is legal and useful, and inside an `@for` it obeys the key rule exactly as
+everything else does:
+
+```xml
+@for (var row in Report.Rows) {
+    <QueryRow key="@(row, row.Selected)" tag="@(row.Selected ? "query-row-selected" : "query-row")" />
+}
+```
+
+A surviving key keeps its element, and an element keeps the tag it was born with — so the flag the
+tag depends on has to be in the key. That is not a limitation of `tag`; it is the same sentence the
+[`@for` key rule](#the-for-key-rule) already says about every binding in a row.
+
+### `use`, for a control fed by a method
+
+A component-tag parameter is a property assignment, so a control fed by *properties* is entirely
+sayable and one fed by a **method** was not sayable at all:
+
+```xml
+<InspectorView use="@(view => view.Inspect(Chosen.Descriptor, Chosen.Provider, Chosen.Targets))" />
+<CategoryList use="@(list => list.SetItems(Visible))" />
+```
+
+`use` takes a lambda whose parameter is whatever the tag made — the control, the element, or the
+`Component` — and runs it as an **effect**. So it is not an initialiser: every signal the expression
+reads is a dependency, and the control is re-fed whenever one of them changes. That is the whole
+value of it, and it is why the property this replaces was usually shadowed by a hand-written
+`Restate` that somebody had to remember to call.
+
+It leaves with the region that declared it, like every other binding: an `@if` arm or a `@for` row
+that goes takes its `use` with it, which a subscription made in `OnComposed` does not.
+
+⚠ **It must be idempotent, because it runs more than once.** Say what the control should *be*, not
+what to do to it: `SetItems`, not `Add`. A `use` that appends will append again the next time one of
+its dependencies changes.
+
+⚠ **It is also the escape when a subclass is impossible.** The four-line wrapper below is the better
+answer whenever it is available — it is checked at the tag, it reads as a property, and it costs
+nothing at run time. `use` is what is left when the control is `sealed`, or when what is needed is a
+call with several arguments rather than one value.
+
 ### Writing an element's own text
 
 An interpolation is a `text` **child**, not the parent's `Text`:
@@ -212,6 +280,17 @@ internal sealed class FactName : UiElement {
 Same tag, same position, same own text, four lines. Reach for a `.vxml` part instead when the thing
 has a *shape* — several elements, or content of its own; a caption has none. `AudioMixerView` uses
 nine of these and `Parts/FactRow.vxml` is the other kind.
+
+⚠ **And [`use`](#use-for-a-control-fed-by-a-method) says it with no type at all**, which is what to
+write when there is no subclass to be had:
+
+```xml
+<fact-name use="@(cell => cell.Text = Label)" />
+```
+
+The four-line subclass is still the better of the two where it is possible: `<FactName Text="@Label" />`
+is checked at the tag and reads as what it is. `use` is the general answer — it reaches a `sealed`
+control, and it reaches a method rather than a property.
 
 ### The `@for` key rule
 

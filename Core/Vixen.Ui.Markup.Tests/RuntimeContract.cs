@@ -140,6 +140,28 @@ static class RuntimeContract {
                                          }
                                      }
 
+                                     // ⚠ **`sealed`, and fed by a method.** This is the panel
+                                     // ledger's sixth shape reduced to a fixture: `InspectorView`
+                                     // is fed by `Inspect(descriptor, provider, targets)` and
+                                     // `ScrollView` is wanted under the tag a stylesheet names,
+                                     // both are sealed, and the escape every other gap in this
+                                     // language settled on — a four-line subclass exposing the call
+                                     // as a property — is exactly what `sealed` refuses.
+                                     //
+                                     // `sealed` is not incidental here. A fixture that could be
+                                     // derived from would let a test pass by writing the subclass
+                                     // the real panels cannot write, which is the claim under test.
+                                     public sealed class Roster : UiElement {
+                                         protected override string TagName => "roster";
+
+                                         public int Inspections { get; private set; }
+
+                                         public void Inspect(string subject, int depth) {
+                                             Inspections++;
+                                             Text = subject + ":" + depth;
+                                         }
+                                     }
+
                                      public class Label : Component {
                                          public string Title { get; set; } = "";
                                          public int Step { get; set; }

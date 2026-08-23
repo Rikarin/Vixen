@@ -449,10 +449,10 @@ Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-wr
 the honest version of that ratio has never been written down. This is it: **every panel in the
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
-**Where it stands.** ~~Twenty~~ ~~Twenty-seven~~ **Thirty-four** `.vxml` files across ~~six~~
-~~seven~~ **eight** assemblies — twenty-eight panels and six shared parts
+**Where it stands.** ~~Twenty~~ ~~Twenty-seven~~ ~~Thirty-four~~ **Thirty-three** `.vxml` files
+across ~~six~~ ~~seven~~ **eight** assemblies — twenty-eight panels and five shared parts
 (`Vixen.Editor.Ui/Parts/FactRow.vxml`, `Vixen.Editor.AssetEditors/AnalysisRow.vxml`,
-`Vixen.Editor.Terrain/FactBlock.vxml`, and water's `WaterZoneFacts`, `WaterFacts` and
+`Vixen.Editor.Terrain/FactBlock.vxml`, and water's `WaterZoneFacts` and
 `WaterNotice`) — against **62 files and ~31,700
 lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
 turn out not to be panels at all, which is the first finding. There are 25 `RegisterPanel` call
@@ -796,7 +796,8 @@ unchanged and the C# factory shrinks a piece at a time.
 
 ✅ **Wave 5 took that way through for five of the six and it is the right prescription.**
 `Vixen.Editor.Terrain/FactBlock.vxml` (`@tag terrain-facts`) serves grass, growth and splines;
-`WaterZoneFacts`, `WaterFacts` and `WaterNotice` serve the two water panels. Every one is
+`WaterZoneFacts` and `WaterNotice` serve the two water panels — the zone part twice, under two
+tags, which was two types until `tag=` landed. Every one is
 `@inherits Vixen.Ui.UiElement` rather than `Control` — a `Control` gives itself `variant-default` and
 `size-md` in `OnCreated` and the plain elements they replace have neither — and each is asserted by
 dumping the whole document's rectangles for the hand-written loop and for the part and comparing the
@@ -816,11 +817,22 @@ neither.
 
 **And two more.**
 
-- **`@tag` is a compile-time directive, so "the same part under another name" is not sayable.**
+- ~~**`@tag` is a compile-time directive, so "the same part under another name" is not sayable.**
   `WaterFacts` is `WaterZoneFacts` minus the refusal and under a different tag, and there is no
   parameter for that. Neither tag is styled by any sheet in the tree — nor is `terrain-facts`,
   `water-notice`, `water-refusal` or `verb-row` — so a single shared type under one tag would have
-  rendered identically and lied in five places about what the panel is made of. Two types.
+  rendered identically and lied in five places about what the panel is made of. Two types.~~
+  ✅ **One type, since 2026-08-23, and this entry was wrong about the mechanism rather than about the
+  taste.** Everything after "there is no parameter for that" is right and still is: a shared type
+  under *one* tag would have lied, so refusing that was correct. What the entry did not check is
+  whether a tag has to come from the type at all — and it does not. `UiDocument.Adopt` takes the tag
+  and only falls back to `TagName`, so `panel.Add<WaterZoneFacts>("water-facts")` was already legal
+  C# on the day this was written; the markup half is now `tag="water-facts"`. `WaterFacts.vxml` is
+  deleted, the body panel calls the zone part under the tag its own structure names, and
+  `WaterFactsTests`' dump of the body block is unchanged — the refusal arm is simply never built,
+  because that caller passes no reason. ⚠ **The lesson is the one the "two recorded gaps are stale"
+  section already teaches**: this was recorded as a language limitation without anyone asking the
+  runtime whether it had the feature.
 - **The refusal row is the one place markup's *natural* spelling is the right one.**
   `element.Add("water-refusal").Add("text").Text = why` is `<water-refusal>@Refusal</water-refusal>`
   exactly, because an interpolation appends a `text` child and that is what the C# built. Shape 5 is
@@ -1012,6 +1024,63 @@ feature with real design questions and is the only one of the three that is not 
 **Nothing was worked around.** `NodeInspector`'s reconciler — 27 lines of `StringBuilder` signature
 building, which exists only to decide whether the tree needs rebuilding and is exactly what a keyed
 loop makes structural — is still there, and is the prize whenever this is unblocked.
+
+#### ✅ Answered 2026-08-23, and the answer is that **nothing was unsealed**
+
+⚠ **The three choices above are the right three and the first one is the wrong one.** Wave 7 took the
+third — a markup directive — plus a thing the list did not contain, and the two of them close both
+panels' blockers with no change to `Vixen.Ui.Controls` at all. Twenty-nine types keep their `sealed`.
+
+The argument against unsealing, in the order it convinced:
+
+1. **The two blockers are two problems, and only one of them is about extension.**
+   `Part<ScrollView>("add-component-list")` does not want a subclass; it wants a *string*. Unsealing
+   `ScrollView` to write `internal sealed class AddComponentList : ScrollView` invents a type whose
+   entire content is a tag name — which is the `WaterFacts` mistake one level up, and this document
+   has already argued that one ("a tag that lies is the thing `TypeSelectorReachTests` exists to
+   catch"). ⚠ **The runtime never needed it:** `UiDocument.Adopt` takes the tag and only *falls back*
+   to `TagName`, so `panel.Add<ScrollView>("add-component-list")` has always been legal C#. What was
+   missing was a `.vxml` spelling, and it is now `tag="add-component-list"` — a universal attribute,
+   refused on a lowercase tag as `VXML2014` because a lowercase tag already writes its own name.
+2. **The other blocker is not about extension either; it is about a *call*.** `Source` was only ever a
+   place to put `Inspect(descriptor, provider, targets)` so that a property assignment could reach it.
+   `use="@(view => view.Inspect(…))"` reaches it directly: `BuildContext.Use` is `Bind` with a
+   subject, so it is an effect — every signal the expression reads is a dependency, the control is
+   re-fed when one changes, and the whole thing leaves with the region that declared it. A wrapper
+   property gets *none* of that for free; every one written so far had a `Restate` somebody had to
+   remember to call.
+3. **A subclass is the wrong shape for this even where it is allowed.** `MixerTitle`, `OptionCell` and
+   `SettingsTab` are all a type invented to hold one line of behaviour, and the ledger has counted the
+   cost twice — "nine of them … about forty lines", "four copies of a tag name is how two of them come
+   to disagree". Unsealing would have made that pattern *more* available. It should be less.
+4. **`sealed` is load-bearing here in a way the paragraph above did not notice.** A control builds its
+   parts in `OnCreated` and answers for its own tag, and `UiDocument.Create<T>`'s remark says why the
+   tag comes from the type: "a caller that had to pass `"button"` alongside `Button` would eventually
+   pass something else, at which point the control is still a `UiElement` and silently unstyled." A
+   subclass is exactly a second place that can disagree. ⚠ Note the tension with the previous point:
+   `tag=` *is* a caller passing a name, so it re-opens that door — deliberately, at one call site,
+   named in the file that uses it, rather than in a type that outlives the reason.
+
+So the correction to this section is: ~~"any panel whose relationship with a control is 'feed it by a
+method' or 'give it my tag' is unportable, and no amount of markup design changes that"~~ — **both
+were markup gaps and markup closed them.** What is genuinely left of `sealed` is a panel that needs to
+*override* a control's behaviour, and no panel in this ledger does.
+
+⚠ **What this section still owes, and it is the part that is not done.** The two panels are unblocked
+and **neither is ported**. `NodeInspector`'s 27-line `StringBuilder` reconciler is still there and is
+still the prize. The one thing wave 7 checked before stopping is the shape-3 question, and the answer
+is favourable: no production caller reads either panel back synchronously — `ShaderGraphView` and
+`VfxGraphView` both call `Settings.Rebuild()` and read nothing — so this is `CompiledSceneView`'s
+situation and not `BuildSettingsView`'s. ⚠ The one thing whoever takes it must solve first is
+`Rebuild`'s last four lines: `RowCount` reads `panel.Rows.Count` *on the line after* `Inspect`, and
+under `use` the inspect is an effect, so "This node has nothing to set." has to be decided from the
+provider rather than from the view.
+
+⚠ **And one thing the sixth shape says that is now false in general.** `use` is also shape 5's escape:
+`<fact-name use="@(cell => cell.Text = Label)" />` writes an intrinsic element's *own* `Text` with no
+subclass and no extra box. The four-line subclass is still the better answer where it is possible —
+`<FactName Text="@Label" />` is checked at the tag and reads as a property — so this changes which
+answer is *general*, not which one to reach for first.
 
 ### Two more things wave 6 measured rather than argued
 

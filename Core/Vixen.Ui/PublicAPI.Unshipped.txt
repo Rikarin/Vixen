@@ -42,6 +42,7 @@ Vixen.Ui.Composition.BuildContext.Bind(System.Action assign) -> void
 Vixen.Ui.Composition.BuildContext.Bind(Vixen.Ui.UiElement target, string name, System.Func<object?> value) -> void
 Vixen.Ui.Composition.BuildContext.Changed<T>(Vixen.Ui.UiElement target, string name, System.Func<T> read, System.Action<T> handler) -> void
 Vixen.Ui.Composition.BuildContext.Child<T>(Vixen.Ui.UiElement? parent) -> T
+Vixen.Ui.Composition.BuildContext.Child<T>(Vixen.Ui.UiElement? parent, string? tag) -> T
 Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build) -> void
@@ -55,6 +56,7 @@ Vixen.Ui.Composition.BuildContext.Switch(Vixen.Ui.UiElement? parent, System.Func
 Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, System.Func<object?> text) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, string text) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.TwoWay<T>(Vixen.Ui.UiElement target, string name, System.Func<T> get, System.Action<T> set) -> void
+Vixen.Ui.Composition.BuildContext.Use<T>(T target, System.Action<T> action) -> void
 Vixen.Ui.Composition.Component -> abstract class
 Vixen.Ui.Composition.Component : Vixen.Ui.Composition.IComposable
 Vixen.Ui.Composition.Component.Component() -> void

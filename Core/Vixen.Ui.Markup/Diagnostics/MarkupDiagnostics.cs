@@ -266,4 +266,29 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary>A <c>tag</c> attribute on a lowercase tag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Refused because it is a second spelling of something the language already
+    ///         says.</b> A lowercase tag is written out as the element name — <c>&lt;fact-row&gt;</c>
+    ///         creates <c>fact-row</c> — so <c>&lt;div tag="fact-row"&gt;</c> is the same tree with
+    ///         the answer in a different place. Two ways to name one thing is how a stylesheet comes
+    ///         to be checked against the wrong one, which is the bug <c>TypeSelectorReachTests</c>
+    ///         was written for.
+    ///     </para>
+    ///     <para>
+    ///         On a capitalised tag there is no other spelling: the tag is a <i>type name</i> and the
+    ///         element's name comes from the type. That asymmetry is the attribute's whole reason to
+    ///         exist, so it is exactly where it is allowed.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor TagOnElement = new(
+        "VXML2014",
+        "'tag' on a plain element",
+        "'tag' renames what a capitalised tag creates, and '{0}' already names its own element. "
+        + "Write the tag you want.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

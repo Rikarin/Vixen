@@ -525,6 +525,218 @@ public class EmitterTests {
         );
     }
 
+    // ================================================================== tag, and use
+
+    /// <summary>
+    ///     ⚠ <b>What <c>@tag</c> could not say, because <c>@tag</c> is a header.</b> A control's
+    ///     element name comes from its type, so <c>Part&lt;ScrollView&gt;("add-component-list")</c> —
+    ///     a control under the tag a stylesheet names — had no markup spelling and no way to be
+    ///     subclassed into one, <c>ScrollView</c> being sealed. The runtime always took the tag:
+    ///     <c>UiDocument.Adopt</c> only falls back to <see cref="UiElement.TagName" />.
+    /// </summary>
+    [Fact]
+    public void A_tag_attribute_renames_what_a_capitalised_tag_creates() {
+        const string Source = """
+                              @component Greeter
+                              <Gauge tag="add-component-list" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var gauge = component.Root.Children.Single();
+
+        Assert.Equal("add-component-list", gauge.Tag);
+
+        // And it is still the control it was. A rename is not a downgrade to a plain element: the
+        // classes it gave itself in `OnCreated` are the evidence, because those run before any
+        // markup attribute is applied and a wrong `Child<T>` overload would have skipped them.
+        Assert.True(gauge.HasClass("variant-default"));
+        Assert.True(gauge.HasClass("size-md"));
+    }
+
+    /// <summary>
+    ///     The other half: a component's host element, which is what makes "the same part under
+    ///     another name" sayable. <c>WaterFacts</c> is a second type for the want of this.
+    /// </summary>
+    [Fact]
+    public void A_tag_attribute_renames_a_components_host_element_too() {
+        const string Source = """
+                              @component Greeter
+                              <Callout tag="water-facts" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var host = component.Root.Children.Single();
+
+        Assert.Equal("water-facts", host.Tag);
+
+        // What the component built is still inside it, which is the thing a wrong host would break.
+        Assert.Equal(["callout-body"], host.Children.Select(child => child.Tag));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Computed, and read exactly once.</b> Wave 6 found two panels choosing a tag from the
+    ///     data — <c>query-row-selected</c>, <c>agent-row-live</c> — and had to smuggle the flag into
+    ///     the <c>key</c> because a tag could not be written at all. It can now, and the key is still
+    ///     what decides: a tag is interned into the style node when the element is made, so a
+    ///     surviving row keeps the tag it was born with and only a changed key makes a new one.
+    /// </summary>
+    [Fact]
+    public void A_computed_tag_is_read_when_the_element_is_made_and_never_again() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string> Flavour { get; } = new("live");
+                              }
+
+                              <div>
+                                  @for (var row in new[] { 1 }) {
+                                      <Gauge key="@(row, Flavour.Value)" tag="@("row-" + Flavour.Value)" />
+                                  }
+                              </div>
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var root = component.Root.Children.Single();
+
+        document.Effects.Flush();
+        Assert.Equal(["row-live"], root.Children.Select(child => child.Tag));
+
+        // The key carries the flavour, so the row is a different row and gets a new element.
+        ((Signal<string>)Property(instance, "Flavour")).Value = "stale";
+        document.Effects.Flush();
+        Assert.Equal(["row-stale"], root.Children.Select(child => child.Tag));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The ledger's sixth shape, closed without unsealing anything.</b> A control fed by a
+    ///     <i>method</i> has no property for a parameter to assign, and the sanctioned escape —
+    ///     a four-line subclass exposing the call as a property — is what <c>sealed</c> refuses.
+    ///     <c>use</c> is that subclass without the type: an <c>Action&lt;T&gt;</c> run as an effect,
+    ///     so the control is re-fed whenever what the expression read changes.
+    /// </summary>
+    [Fact]
+    public void A_sealed_control_fed_by_a_method_is_reachable_from_markup() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string> Subject { get; } = new("transform");
+                              }
+
+                              <Roster use="@(view => view.Inspect(Subject.Value, 2))" />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var roster = component.Root.Children.Single();
+        var inspections = roster.GetType().GetProperty("Inspections")!;
+
+        document.Effects.Flush();
+        Assert.Equal("roster", roster.Tag);
+        Assert.Equal("transform:2", roster.Text);
+        Assert.Equal(1, inspections.GetValue(roster));
+
+        // ⚠ The half that makes it worth having. A one-shot initialiser would leave the panel
+        // showing the first thing it was ever pointed at, which is the defect `Restate` exists to
+        // paper over everywhere this pattern is written by hand.
+        ((Signal<string>)Property(instance, "Subject")).Value = "renderer";
+        document.Effects.Flush();
+
+        Assert.Equal("renderer:2", roster.Text);
+        Assert.Equal(2, inspections.GetValue(roster));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And shape 5 falls out of it.</b> An interpolation is a <c>text</c> <i>child</i> and
+    ///     an attribute on an intrinsic tag goes to the selector arena, so an element's own
+    ///     <c>Text</c> had no markup spelling — <c>&lt;fact-name Text="@Name" /&gt;</c> silently does
+    ///     nothing and <c>&lt;fact-name&gt;@Name&lt;/fact-name&gt;</c> adds a box. Nine subclasses
+    ///     were written in one panel for this. A <c>use</c> writes the property itself, and the
+    ///     element has no children.
+    /// </summary>
+    [Fact]
+    public void A_use_writes_an_intrinsic_elements_own_text_with_no_extra_box() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string> Caption { get; } = new("Terrains to carve");
+                              }
+
+                              <fact-name use="@(cell => cell.Text = Caption.Value)" />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var cell = component.Root.Children.Single();
+
+        document.Effects.Flush();
+        Assert.Equal("Terrains to carve", cell.Text);
+        Assert.Empty(cell.Children);
+
+        ((Signal<string>)Property(instance, "Caption")).Value = "Zones";
+        document.Effects.Flush();
+
+        Assert.Equal("Zones", cell.Text);
+        Assert.Empty(cell.Children);
+    }
+
+    /// <summary>
+    ///     A <c>use</c> is an ordinary effect, so it belongs to the region that declared it: an arm
+    ///     that leaves takes it with it. Without that a <c>use</c> inside an <c>@if</c> would go on
+    ///     feeding an element that is no longer in the tree — the failure regions exist to prevent,
+    ///     and the one a hand-written subscription in <c>OnComposed</c> actually has.
+    /// </summary>
+    [Fact]
+    public void A_use_leaves_with_the_branch_that_declared_it() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<bool> Shown { get; } = new(true);
+                                  public Signal<string> Subject { get; } = new("a");
+                              }
+
+                              <div>
+                                  @if (Shown.Value) {
+                                      <Roster use="@(view => view.Inspect(Subject.Value, 1))" />
+                                  }
+                              </div>
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var root = component.Root.Children.Single();
+
+        document.Effects.Flush();
+        var roster = root.Children.Single();
+        var inspections = roster.GetType().GetProperty("Inspections")!;
+        Assert.Equal(1, inspections.GetValue(roster));
+
+        ((Signal<bool>)Property(instance, "Shown")).Value = false;
+        document.Effects.Flush();
+        Assert.Empty(root.Children);
+
+        // The element is gone; the effect that fed it must be too.
+        ((Signal<string>)Property(instance, "Subject")).Value = "b";
+        document.Effects.Flush();
+        Assert.Equal(1, inspections.GetValue(roster));
+    }
+
     static string Text(UiElement element) => element.Children.Single().Text ?? string.Empty;
 
     static Signal<int> Count(object instance) => (Signal<int>)Property(instance, "Count");
