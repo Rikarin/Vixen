@@ -43,11 +43,14 @@ public sealed partial class UiDocument : IDisposable {
     readonly int whiteSpace;
     readonly int textWrap;
     readonly int overflowWrap;
+    readonly int wordBreak;
     readonly int textOverflow;
     readonly int ellipsis;
     readonly int nowrap;
     readonly int anywhere;
     readonly int breakWord;
+    readonly int breakAll;
+    readonly int keepAll;
     readonly int letterSpacing;
     readonly int lineHeight;
     readonly int zIndex;
@@ -129,11 +132,14 @@ public sealed partial class UiDocument : IDisposable {
         whiteSpace = Styles.Properties.Intern("white-space");
         textWrap = Styles.Properties.Intern("text-wrap");
         overflowWrap = Styles.Properties.Intern("overflow-wrap");
+        wordBreak = Styles.Properties.Intern("word-break");
         textOverflow = Styles.Properties.Intern("text-overflow");
         ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
         anywhere = Styles.Values.Intern("anywhere");
         breakWord = Styles.Values.Intern("break-word");
+        breakAll = Styles.Values.Intern("break-all");
+        keepAll = Styles.Values.Intern("keep-all");
         letterSpacing = Styles.Properties.Intern("letter-spacing");
         lineHeight = Styles.Properties.Intern("line-height");
         zIndex = Styles.Properties.Intern("z-index");
@@ -1648,6 +1654,33 @@ public sealed partial class UiDocument : IDisposable {
         style.TryGet(overflowWrap, out var value) && (value == anywhere || value == breakWord)
             ? TextWrapMode.Anywhere
             : TextWrapMode.Word;
+
+    /// <summary>Whether a line may end inside a word. CSS Text 3 § 5.2's <c>word-break</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second reader beside <see cref="WrapModeOf" /> rather than more values on it,
+    ///         and the two are not the same question however alike the class names look.</b>
+    ///         <c>overflow-wrap</c> is consulted only in the branch where <i>nothing</i> fits, so it
+    ///         cannot move a break that had somewhere else to go; <c>word-break: break-all</c> changes
+    ///         which breaks exist, so a word that would have fitted on the next line is split at the
+    ///         end of this one. Merging them into one enum would have forced a winner for
+    ///         <c>keep-all</c> with <c>anywhere</c> — no break between two Han characters, but still a
+    ///         squeeze when one run is wider than the column — which is a combination CSS defines and
+    ///         a narrow CJK column actually wants.
+    ///     </para>
+    ///     <para>
+    ///         <c>normal</c> is the initial value and needs no test: anything that is not one of the
+    ///         two keywords is it.
+    ///     </para>
+    /// </remarks>
+    internal WordBreakMode WordBreakOf(ComputedStyle style) {
+        if (!style.TryGet(wordBreak, out var value)) {
+            return WordBreakMode.Normal;
+        }
+
+        return value == breakAll ? WordBreakMode.BreakAll :
+            value == keepAll ? WordBreakMode.KeepAll : WordBreakMode.Normal;
+    }
 
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;

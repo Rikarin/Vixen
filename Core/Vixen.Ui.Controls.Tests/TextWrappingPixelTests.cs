@@ -9,7 +9,10 @@ using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
 
-/// <summary><c>overflow-wrap</c> and <c>text-wrap</c>, as the pixels the software rasteriser produced.</summary>
+/// <summary>
+///     <c>overflow-wrap</c>, <c>word-break</c> and <c>text-wrap</c>, as the pixels the software
+///     rasteriser produced.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>These are the tests the consumption gate cannot be, and the argument is
@@ -35,6 +38,15 @@ namespace Vixen.Ui.Controls.Tests;
 ///         <c>TextWrapMode.Anywhere</c> is consulted. A word with a hyphen or a space in it would
 ///         wrap identically with the property and without it, and every assertion below would hold
 ///         against an engine that had never heard of <c>overflow-wrap</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>And <c>word-break</c> needs the fixture the other way round, which is why the two
+///         families cannot share one.</b> <c>break-all</c> is only distinguishable from
+///         <c>overflow-wrap</c> on text that has an ordinary opportunity <i>as well as</i> a long
+///         word — see <see cref="Break_all_fills_the_line_that_overflow_wrap_leaves_ragged" /> — and
+///         <c>keep-all</c> is not distinguishable in Latin at all, because LB28 already forbids the
+///         break it suppresses. It is measured on ideographs, and on the one thing about them a font
+///         with no CJK coverage still gets right: their advances.
 ///     </para>
 /// </remarks>
 public class TextWrappingPixelTests {
@@ -286,4 +298,136 @@ public class TextWrappingPixelTests {
             Render(Words, string.Empty, string.Empty),
             Render(Words, $"text-wrap: {keyword}", string.Empty)
         );
+
+    /// <summary>Twelve Han ideographs, which UAX#14 lets a line end between any two of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>None of the shared test fonts covers a CJK code point, so these draw as
+    ///         <c>.notdef</c> boxes — and that is legitimate <i>here</i> and would not be for most of
+    ///         this file.</b> <c>word-break: keep-all</c> is a rule about where a line may end, not
+    ///         about which glyph is drawn: <c>LineBreaker</c> classifies the characters, and the
+    ///         wrapper needs an advance, which <c>.notdef</c> has — 1214 of this face's 2048 units.
+    ///         So the picture is a row of identical boxes whose <i>arrangement</i> is exactly what is
+    ///         under test, and every relation below is about that arrangement.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What would not survive the substitution is anything about the glyphs</b> — a
+    ///         cursive join, a ligature, a mark's placement — which is why
+    ///         <see cref="The_font_draws_the_letters_this_file_measures" /> guards the Latin fixtures
+    ///         and deliberately does not guard this one. The alternative is a CJK face in the
+    ///         repository for one property, and the measurement does not need it.
+    ///     </para>
+    ///     <para>
+    ///         Twelve rather than six: at this size six fit on one line, and a fixture that does not
+    ///         wrap without the declaration measures nothing with it.
+    ///     </para>
+    /// </remarks>
+    const string Ideographs = "\u4e2d\u6587\u4e2d\u6587\u4e2d\u6587\u4e2d\u6587\u4e2d\u6587\u4e2d\u6587";
+
+    /// <summary><c>word-break: break-all</c> breaks a word that has no opportunity in it.</summary>
+    /// <remarks>
+    ///     The same two assertions <see cref="Breaking_pulls_the_word_inside_the_box_and_onto_a_second_line" />
+    ///     makes, because a picture that only grew or only got clipped satisfies either one alone.
+    ///     What this shares with that test is the outcome and not the mechanism —
+    ///     <see cref="Break_all_fills_the_line_that_overflow_wrap_leaves_ragged" /> is where the two
+    ///     part company.
+    /// </remarks>
+    [Fact]
+    public void Break_all_pulls_an_unbreakable_word_inside_the_box() {
+        var marks = Render(Unbroken, "word-break: break-all", string.Empty);
+
+        Assert.True(marks.Any, "the word was not drawn at all");
+        Assert.True(marks.Bands >= 2, $"the word stayed on {marks.Bands} line(s)");
+        Assert.True(
+            marks.Right <= BoxLeft + BoxWidth,
+            $"the word still ends at x={marks.Right}, past the box's {BoxLeft + BoxWidth}"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>break-all</c> and <c>overflow-wrap: anywhere</c> are two different pictures, and
+    ///     this is the test that would have caught registering one as the other.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Both keep the long word inside the box, so a fixture holding only the long word cannot
+    ///         tell them apart — which is exactly why the text here has a short word in front of it.
+    ///         <c>anywhere</c> is consulted only in the branch where nothing fits, which is reached
+    ///         after <c>"Ag "</c> has already been sent to a line of its own, so the first line keeps
+    ///         its ragged edge. <c>break-all</c> put an opportunity after every letter, so greedy
+    ///         first-fit packs the first line out to the box's edge and everything after it shifts.
+    ///     </para>
+    ///     <para>
+    ///         The right-hand edge is the evidence: the packed paragraph reaches further right than
+    ///         the rescued one, on the same text, in the same box, at the same size.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Break_all_fills_the_line_that_overflow_wrap_leaves_ragged() {
+        const string Mixed = "Ag " + Unbroken;
+
+        var plain = Render(Mixed, string.Empty, string.Empty);
+        var rescued = Render(Mixed, "overflow-wrap: anywhere", string.Empty);
+        var packed = Render(Mixed, "word-break: break-all", string.Empty);
+
+        Assert.True(
+            plain.Right > BoxLeft + BoxWidth,
+            "the text already fitted, so neither declaration has anything to do"
+        );
+
+        Assert.True(rescued.Right <= BoxLeft + BoxWidth, $"anywhere left the text at x={rescued.Right}");
+        Assert.True(packed.Right <= BoxLeft + BoxWidth, $"break-all left the text at x={packed.Right}");
+
+        Assert.NotEqual(rescued, packed);
+        Assert.True(
+            packed.Right > rescued.Right,
+            $"break-all reached x={packed.Right} and anywhere x={rescued.Right} — the first line was "
+            + "not packed, so break-all is behaving as overflow-wrap"
+        );
+    }
+
+    /// <summary><c>word-break: keep-all</c> stops a run of ideographs breaking inside itself.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one keyword in this file that no Latin fixture could measure, and the reason the
+    ///     pair is registered together.</b> UAX#14 offers a break between any two ideographs and
+    ///     between any two Hangul syllables, and offers none at all between two Latin letters — LB28
+    ///     forbids it — so <c>keep-all</c> written over English is correctly indistinguishable from
+    ///     writing nothing. A test in Latin would have passed against an engine that never read the
+    ///     property.
+    /// </remarks>
+    [Fact]
+    public void Keep_all_holds_an_ideographic_run_on_one_line() {
+        var wrapped = Render(Ideographs, string.Empty, string.Empty);
+        var held = Render(Ideographs, "word-break: keep-all", string.Empty);
+
+        Assert.True(wrapped.Bands >= 2, $"the run did not wrap to begin with ({wrapped.Bands} band)");
+        Assert.True(wrapped.Right <= BoxLeft + BoxWidth, $"and it already overflowed, at x={wrapped.Right}");
+
+        Assert.Equal(1, held.Bands);
+        Assert.True(
+            held.Right > BoxLeft + BoxWidth,
+            $"the run ends at x={held.Right}, so it was not held past the box's {BoxLeft + BoxWidth}"
+        );
+    }
+
+    /// <summary><c>break-normal</c> on the text escapes either <c>word-break</c> on its container.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that was missing until <c>word-break</c> gained a reader, and the reason
+    ///     Tailwind's <c>break-normal</c> is two declarations rather than one.</b> <c>word-break</c>
+    ///     inherits, so a <c>break-all</c> on a row reaches the span its text is in — and before this
+    ///     the class emitted the <c>overflow-wrap</c> half alone, which cannot undo it. Asserted
+    ///     against an inherited declaration in both directions, because on a bare element the value is
+    ///     CSS's initial one and is correctly indistinguishable from silence.
+    /// </remarks>
+    [Theory]
+    [InlineData(Unbroken, "word-break: break-all")]
+    [InlineData("\u4e2d\u6587\u4e2d\u6587\u4e2d\u6587\u4e2d\u6587\u4e2d\u6587\u4e2d\u6587", "word-break: keep-all")]
+    public void Normal_on_the_text_escapes_a_word_break_container(string text, string container) {
+        var inherited = Render(text, container, string.Empty);
+        var escaped = Render(text, container, "word-break: normal");
+        var never = Render(text, string.Empty, string.Empty);
+
+        Assert.NotEqual(never, inherited);
+        Assert.Equal(never, escaped);
+    }
 }

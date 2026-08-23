@@ -529,6 +529,7 @@ public partial class UiElement : Composition.IComposable {
         var slant = Document.FontStyleOf(Style);
         var revision = Document.Fonts.Revision;
         var mode = Document.WrapModeOf(Style);
+        var breaking = Document.WordBreakOf(Style);
 
         if (!Document.WrapsOf(Style)) {
             width = float.PositiveInfinity;
@@ -545,6 +546,7 @@ public partial class UiElement : Composition.IComposable {
             && lineStyle == slant
             && lineRevision == revision
             && lineMode == mode
+            && lineBreaking == breaking
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -573,7 +575,7 @@ public partial class UiElement : Composition.IComposable {
             // whatever glyph the font has for it — however wide the box is.
             lines.Add(whole);
         } else {
-            Wrap(Text, whole, width, mode, chain, lines);
+            Wrap(Text, whole, width, mode, breaking, chain, lines);
         }
 
         block = new TextLayout(lines.ToImmutable());
@@ -583,6 +585,7 @@ public partial class UiElement : Composition.IComposable {
         lineStyle = slant;
         lineRevision = revision;
         lineMode = mode;
+        lineBreaking = breaking;
         lineWidth = width;
         lineSize = FontSize;
         lineTracking = LetterSpacing;
@@ -821,6 +824,7 @@ public partial class UiElement : Composition.IComposable {
         TextLine whole,
         float width,
         TextWrapMode mode,
+        WordBreakMode breaking,
         List<FontFace> chain,
         ImmutableArray<TextLine>.Builder into
     ) {
@@ -836,7 +840,7 @@ public partial class UiElement : Composition.IComposable {
         }
 
         var wrapped = new List<WrappedLine>();
-        LineWrapper.Wrap(text, advances, width, wrapped, mode);
+        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking);
 
         foreach (var line in wrapped) {
             // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
@@ -868,6 +872,7 @@ public partial class UiElement : Composition.IComposable {
     FontStyle lineStyle;
     int lineRevision;
     TextWrapMode lineMode;
+    WordBreakMode lineBreaking;
     float lineWidth;
     float lineSize;
     float lineTracking;

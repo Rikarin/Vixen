@@ -75,14 +75,16 @@ public static class LineWrapper {
     /// </param>
     /// <param name="lines">Receives the lines, in order. Cleared first.</param>
     /// <param name="mode">What to do with a word wider than the line.</param>
+    /// <param name="wordBreak">Whether a break inside a word is allowed, forbidden, or UAX#14's call.</param>
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
         List<WrappedLine> lines,
-        TextWrapMode mode = TextWrapMode.Word
+        TextWrapMode mode = TextWrapMode.Word,
+        WordBreakMode wordBreak = WordBreakMode.Normal
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
-        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode);
+        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode, wordBreak);
     }
 
     /// <summary>Wraps a paragraph whose widths the caller measured.</summary>
@@ -91,6 +93,7 @@ public static class LineWrapper {
     /// <param name="maxAdvance">How wide a line may be, in whatever unit the advances are in.</param>
     /// <param name="lines">Receives the lines, in order. Cleared first.</param>
     /// <param name="mode">What to do with a word wider than the line.</param>
+    /// <param name="wordBreak">Whether a break inside a word is allowed, forbidden, or UAX#14's call.</param>
     /// <remarks>
     ///     ⚠ <b>For a paragraph that is not in one font.</b> The overload above measures a
     ///     <see cref="ShapedText" />, which is one face by construction — so a line mixing a Latin
@@ -103,7 +106,8 @@ public static class LineWrapper {
         ReadOnlySpan<float> advances,
         float maxAdvance,
         List<WrappedLine> lines,
-        TextWrapMode mode = TextWrapMode.Word
+        TextWrapMode mode = TextWrapMode.Word,
+        WordBreakMode wordBreak = WordBreakMode.Normal
     ) {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
@@ -115,7 +119,7 @@ public static class LineWrapper {
         }
 
         var opportunities = new List<int>();
-        LineBreaker.Collect(text, opportunities);
+        LineBreaker.Collect(text, opportunities, wordBreak);
 
         var start = 0;
         var candidate = -1;
@@ -184,10 +188,16 @@ public static class LineWrapper {
     /// <param name="shaped">The shaped paragraph.</param>
     /// <param name="maxAdvance">How wide a line may be, in design units.</param>
     /// <param name="mode">What to do with a word wider than the line.</param>
+    /// <param name="wordBreak">Whether a break inside a word is allowed, forbidden, or UAX#14's call.</param>
     /// <returns>The lines, in order.</returns>
-    public static List<WrappedLine> Lines(ShapedText shaped, float maxAdvance, TextWrapMode mode = TextWrapMode.Word) {
+    public static List<WrappedLine> Lines(
+        ShapedText shaped,
+        float maxAdvance,
+        TextWrapMode mode = TextWrapMode.Word,
+        WordBreakMode wordBreak = WordBreakMode.Normal
+    ) {
         var lines = new List<WrappedLine>();
-        Wrap(shaped, maxAdvance, lines, mode);
+        Wrap(shaped, maxAdvance, lines, mode, wordBreak);
 
         return lines;
     }

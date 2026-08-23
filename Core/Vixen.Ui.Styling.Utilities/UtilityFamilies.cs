@@ -600,14 +600,15 @@ public static class UtilityFamilies {
         Static("not-italic", "font-style", "normal");
 
         // ── Wrapping ────────────────────────────────────────────────────────────────────────
-        // ⚠ <b>`overflow-wrap` and not `word-break`, and the two are not interchangeable however
-        // similar the class names look.</b> `UiDocument.WrapModeOf` reads `overflow-wrap` and maps
-        // `anywhere` and `break-word` onto `TextWrapMode.Anywhere`, which `LineWrapper` applies at a
-        // *grapheme* boundary when one unbreakable run is wider than the whole line. That is what
-        // CSS Text 3 § 5.5 says both keywords mean. `word-break: break-all` means something else —
-        // every character is a break opportunity, so a word that would have fitted on the next line
-        // is still split at the end of this one — and nothing reads that property. Registering
-        // `break-all` here would give the same declaration two spellings, one of which is a lie.
+        // ⚠ <b>`overflow-wrap` and `word-break` are two properties and two families, and the two are
+        // not interchangeable however similar the class names look.</b> `UiDocument.WrapModeOf` reads
+        // `overflow-wrap` and maps `anywhere` and `break-word` onto `TextWrapMode.Anywhere`, which
+        // `LineWrapper` applies at a *grapheme* boundary when one unbreakable run is wider than the
+        // whole line. That is what CSS Text 3 § 5.5 says both keywords mean, and it is a decision the
+        // line filler takes only when nothing else fits. `word-break` is read separately by
+        // `UiDocument.WordBreakOf` and changes the opportunity list itself — see `break-all` below.
+        // Keeping them apart is what lets `break-keep` and `wrap-anywhere` be written together and
+        // both mean something, which one merged mode could not have expressed.
         //
         // ⚠ <b>Vixen does not distinguish `anywhere` from `break-word`, and both are registered
         // anyway.</b> CSS Sizing § 5.2 separates them only by their min-content contribution:
@@ -623,14 +624,41 @@ public static class UtilityFamilies {
         // people have in their fingers, exactly as `start-*` is kept beside `inset-s-*`.
         Static("break-words", "overflow-wrap", "break-word");
 
-        // ⚠ <b>Tailwind's `break-normal` is two declarations and this is one, and the missing half is
-        // deliberate.</b> v4 emits `overflow-wrap: normal; word-break: normal`. The second is the
-        // initial value of a property nothing in this engine reads, so emitting it would add an
-        // inert property to the gate's ledger and buy a class exactly nothing — a no-op twice over.
-        // The half that is here is not a no-op: `overflow-wrap` inherits, so this is how a child
-        // escapes a `break-words` its container asked for, which is the same argument `text-clip`
-        // earns its place with. When `word-break` gains a reader, the other half belongs here.
-        Static("break-normal", "overflow-wrap", "normal");
+        // ⚠ <b>`word-break`, and it is not `overflow-wrap` under another name — which is the mistake
+        // that would have closed this cheaply and wrongly.</b> `overflow-wrap` is consulted in
+        // exactly one branch of `LineWrapper`, "nothing fits: one unbreakable run is wider than the
+        // whole line", so it can never move a break that had somewhere else to go. `break-all` makes
+        // every letter offer one, so a word that *would* have fitted on the next line is split at the
+        // end of this one; `break-keep` suppresses the opportunities UAX#14 finds between two CJK
+        // characters and between two Hangul syllables. Both are read by `UiDocument.WordBreakOf` and
+        // applied by `LineBreaker.Collect` — a different stage from `overflow-wrap`, which is why the
+        // two compose rather than competing.
+        //
+        // ⚠ <b>The pair is registered together and neither would have been registered alone.</b>
+        // `break-all` on its own is `wrap-anywhere`'s declaration under a second spelling that lies
+        // about what it does; `break-keep` on its own is a property with one keyword, whose only
+        // opt-out would be to delete the class. See `WordBreakMode` for what each does to the
+        // opportunity list.
+        Static("break-all", "word-break", "break-all");
+
+        // v4 spells `word-break: keep-all` as `break-keep`, not `break-keep-all`. Tailwind's name,
+        // not this project's — the failure `bg-conic-<angle>` is recorded under.
+        Static("break-keep", "word-break", "keep-all");
+
+        // ⚠ <b>Both of Tailwind's declarations, and the second one arrived with its reader.</b> v4
+        // emits `overflow-wrap: normal; word-break: normal`, and this used to emit the first alone,
+        // because `word-break` was a property nothing read and the second half would have been an
+        // inert entry in the gate's ledger. `WordBreakOf` reads it now, `word-break` is in
+        // `InheritedProperties`, and so the half that was missing is exactly the opt-out a child
+        // needs from a `break-all` on its container — the same argument `text-clip` and `wrap-normal`
+        // each earn their place with, and the row's value gap closes with it.
+        Register(new Family(
+            "break-normal",
+            ValueKind.Static,
+            ["overflow-wrap"],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "overflow-wrap:normal" },
+            Alongside: [new UtilityDeclaration("word-break", "normal")]
+        ));
 
         // The two halves of `text-overflow` under the prefix v4 gives them. Registered as a second
         // keyword table on `text` rather than as a family of its own, for the reason the type's

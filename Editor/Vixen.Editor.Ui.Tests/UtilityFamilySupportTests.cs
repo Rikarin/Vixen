@@ -256,6 +256,14 @@ public class UtilityFamilySupportTests {
         { "wrap-normal", "overflow-wrap", "normal" },
         { "break-words", "overflow-wrap", "break-word" },
         { "break-normal", "overflow-wrap", "normal" },
+
+        //   ⚠ `break-all` and `break-keep` are `word-break`, which is a different property at a
+        //   different stage: `overflow-wrap` is consulted only where nothing fits, and `word-break`
+        //   changes which breaks exist. Both rows are here because the union this table exists to
+        //   defeat would otherwise hide `break-keep` behind `break-all` — the two keywords need
+        //   different scripts to be visible in, and only one of them shows up in Latin at all.
+        { "break-all", "word-break", "break-all" },
+        { "break-keep", "word-break", "keep-all" },
         { "text-wrap", "text-wrap", "wrap" },
         { "text-nowrap", "text-wrap", "nowrap" },
 
