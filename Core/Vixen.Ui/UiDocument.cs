@@ -52,6 +52,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int breakAll;
     readonly int keepAll;
     readonly int letterSpacing;
+    readonly int textIndent;
     readonly int lineHeight;
     readonly int zIndex;
     readonly int fontWeight;
@@ -141,6 +142,7 @@ public sealed partial class UiDocument : IDisposable {
         breakAll = Styles.Values.Intern("break-all");
         keepAll = Styles.Values.Intern("keep-all");
         letterSpacing = Styles.Properties.Intern("letter-spacing");
+        textIndent = Styles.Properties.Intern("text-indent");
         lineHeight = Styles.Properties.Intern("line-height");
         zIndex = Styles.Properties.Intern("z-index");
         fontWeight = Styles.Properties.Intern("font-weight");
@@ -1207,9 +1209,24 @@ public sealed partial class UiDocument : IDisposable {
     ///     length the ancestor resolved once.
     /// </param>
     /// <param name="LetterSpacing">The ancestor's resolved letter spacing in pixels.</param>
-    readonly record struct ComputedText(float LineHeight, float LineHeightFactor, float LetterSpacing) {
-        /// <summary>What the root starts with: the font's own line height and no tracking.</summary>
-        public static ComputedText Initial => new(float.NaN, float.NaN, 0f);
+    /// <param name="TextIndent">
+    ///     The ancestor's resolved <c>text-indent</c> in pixels.
+    ///     <para>
+    ///         ⚠ <b>Here rather than in <c>InheritedProperties</c>, and for
+    ///         <see cref="LetterSpacing" />'s reason exactly.</b> The cascade inherits <i>specified</i>
+    ///         values, so a <c>text-indent: 2em</c> on a panel would re-resolve against each
+    ///         descendant's own font size and a heading inside it would be indented twice as far as
+    ///         the author asked.
+    ///     </para>
+    /// </param>
+    readonly record struct ComputedText(
+        float LineHeight,
+        float LineHeightFactor,
+        float LetterSpacing,
+        float TextIndent
+    ) {
+        /// <summary>What the root starts with: the font's own line height, no tracking, no indent.</summary>
+        public static ComputedText Initial => new(float.NaN, float.NaN, 0f, 0f);
     }
 
     void Apply(UiElement element, float parentFontSize, ComputedText parentText, LengthContext metrics) {
@@ -1245,6 +1262,7 @@ public sealed partial class UiDocument : IDisposable {
             : text.LineHeightFactor * element.FontSize;
 
         element.LetterSpacing = text.LetterSpacing;
+        element.TextIndent = text.TextIndent;
 
         // Resolved here rather than read in the draw list, because hit testing needs the same answer
         // and reaching it would mean parsing the same declaration twice per frame from two places
@@ -1292,9 +1310,11 @@ public sealed partial class UiDocument : IDisposable {
         //
         // `.Equals` rather than `==`, because NaN is a legitimate value here and NaN == NaN is false.
         if (!element.AppliedLineHeight.Equals(element.LineHeight)
-            || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)) {
+            || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)
+            || !element.AppliedTextIndent.Equals(element.TextIndent)) {
             element.AppliedLineHeight = element.LineHeight;
             element.AppliedLetterSpacing = element.LetterSpacing;
+            element.AppliedTextIndent = element.TextIndent;
 
             // Only a node that measures itself, which is what having text means — and what
             // `MarkDirty` insists on, on the grounds that nothing else about a node can change
@@ -1328,6 +1348,7 @@ public sealed partial class UiDocument : IDisposable {
         var lineHeight = parent.LineHeight;
         var factor = parent.LineHeightFactor;
         var tracking = parent.LetterSpacing;
+        var indent = parent.TextIndent;
 
         if (style.TryGet(this.lineHeight, out var declared)) {
             var value = reader.Parse(declared);
@@ -1372,7 +1393,22 @@ public sealed partial class UiDocument : IDisposable {
                 : 0f;
         }
 
-        return new ComputedText(lineHeight, factor, tracking);
+        // ⚠ <b>A percentage is refused rather than resolved, and it is the one value of this
+        // property Vixen cannot answer.</b> CSS resolves a `text-indent` percentage against the
+        // *containing block's* width, which is a layout result and is not known in the style pass —
+        // and this pass is where the value has to be computed, because `em` on it has to measure
+        // against the element that wrote it. `LayoutStyleBuilder.TryTextLength` made the same
+        // refusal for the same reason before anything read the property. No utility can emit one:
+        // `indent-*` is the spacing scale and `indent-px` is a pixel.
+        if (style.TryGet(textIndent, out var declared_indent)) {
+            var value = reader.Parse(declared_indent);
+
+            indent = value.Kind == StyleValueKind.Length && value.Unit != StyleUnit.Percent
+                ? value.Number * metrics.WithFontSize(fontSize).PixelsPer(value.Unit)
+                : 0f;
+        }
+
+        return new ComputedText(lineHeight, factor, tracking, indent);
     }
 
     /// <summary>Rebuilds the draw list from the current layout and styles.</summary>

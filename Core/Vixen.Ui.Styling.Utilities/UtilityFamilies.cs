@@ -579,6 +579,19 @@ public static class UtilityFamilies {
         }));
         Spacing("tracking", "letter-spacing");
 
+        // ⚠ <b>`text-indent` was one of Part 0's seven interned-but-unread properties and is now
+        // read, and what it needed was not a reader.</b> `LineWrapper.Wrap` took one width for the
+        // whole paragraph, so an indent had to become a *second* width — the first line is narrower
+        // and the rest are not, which is what an indent is — and the offset then has to travel on
+        // the line, because the draw list, the caret and the hit test all measure from it.
+        // `UiDocument.ResolveText` computes it beside `line-height` and `letter-spacing` rather than
+        // inheriting the specified value, for the same reason those two do: it takes relative units.
+        //
+        // ⚠ The spacing scale rather than a keyword table, which is Tailwind's own: `indent-4` is
+        // four spacing steps and `-indent-4` hangs the first line out to the left, which CSS calls a
+        // hanging indent and `LineWrapper` gets for nothing from the sign.
+        Spacing("indent", "text-indent");
+
         Keywords("whitespace", "white-space", new() {
             ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap"
         });

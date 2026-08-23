@@ -1101,10 +1101,19 @@ public sealed class DrawListBuilder {
             // ⚠ The alignment is per line, not per block. A centred paragraph centres each of its
             // lines within the content box; centring the block and laying the lines out inside it
             // would left-align every line but the widest.
-            var x = left + Indent(element, content - line.Width);
+            //
+            // ⚠ <b>And a `text-indent` is taken out of the room the alignment has to play with,
+            // rather than added to the result.</b> That is what makes the two compose the way CSS
+            // says: an indented right-aligned line still ends flush with the content box's right
+            // edge — the indent narrows the line box from the start edge — and a centred one is
+            // centred in what is left after it. Adding `line.Offset` to `x` afterwards would push a
+            // right-aligned line past the edge by the indent.
+            var x = left + Indent(element, content - line.Width - line.Offset);
             var y = top + block.TopOf(block.Lines.IndexOf(line)) + line.Baseline;
 
-            EmitDecoration(into, line, decoration, decorationColour, x, y, under: true);
+            // The bars go under the glyphs and not under the indent, so they start where the glyphs
+            // do. `PenOf` carries the same offset, which is why the runs below need nothing.
+            EmitDecoration(into, line, decoration, decorationColour, x + line.Offset, y, under: true);
 
             for (var i = 0; i < line.Runs.Length; i++) {
                 var run = line.Runs[i];
@@ -1139,7 +1148,7 @@ public sealed class DrawListBuilder {
                 );
             }
 
-            EmitDecoration(into, line, decoration, decorationColour, x, y, under: false);
+            EmitDecoration(into, line, decoration, decorationColour, x + line.Offset, y, under: false);
         }
     }
 

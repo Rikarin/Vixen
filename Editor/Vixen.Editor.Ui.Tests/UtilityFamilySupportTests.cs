@@ -221,6 +221,14 @@ public class UtilityFamilySupportTests {
         { "leading-8", "line-height", "32px" },
         { "leading-tight", "line-height", "1.25" },
         { "tracking-px", "letter-spacing", "1px" },
+
+        // ⚠ `text-indent` was one of doc 43 Part 0's seven interned-but-unread properties and moved
+        // tables by being implemented rather than by finding a reader: `LineWrapper` had to learn a
+        // *second* width, and `TextLine` an offset the draw list, the caret and the hit test all
+        // honour. The negative row is not symmetry — CSS's hanging indent is a real thing to want,
+        // and it is the sign travelling through the wrapper's arithmetic that makes it work.
+        { "indent-4", "text-indent", "16px" },
+        { "-indent-4", "text-indent", "-16px" },
         { "whitespace-nowrap", "white-space", "nowrap" },
 
         // ⚠ <b>Every keyword of the three wrapping roots, one row each, and the completeness is the

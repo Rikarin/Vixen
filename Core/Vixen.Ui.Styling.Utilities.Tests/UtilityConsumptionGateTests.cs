@@ -29,8 +29,8 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And "interned" is not "acted on" either — the difference was measured at seven
-///         properties.</b> <c>LayoutStyleBuilder</c> interns <c>word-spacing</c> and
-///         <c>text-indent</c> and exposes ids for them that nothing reads; <c>InheritedProperties</c>
+///         properties.</b> <c>LayoutStyleBuilder</c> interns <c>word-spacing</c> and exposes an id
+///         for it that nothing reads; <c>InheritedProperties</c>
 ///         interns another five purely so the cascade knows they inherit. A gate that looked for an
 ///         <c>Intern("…")</c> call would pass every one of those. See
 ///         <see cref="An_interned_property_no_consumer_acts_on_reads_as_inert" />, which holds this
@@ -296,23 +296,29 @@ public class UtilityConsumptionGateTests {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The control experiment, and without it the gate is unfalsifiable.</b>
-    ///         <c>word-spacing</c> and <c>text-indent</c> are interned by <c>LayoutStyleBuilder</c> —
-    ///         they have ids, the cascade carries them, they are in the name table — and
-    ///         <c>docs/plan/43</c> § Part 0 records that nothing in the repository reads either. They
-    ///         are also the two properties no utility family emits, so the gate never meets them in
-    ///         normal operation; they are here precisely because they are the case a cheaper method
-    ///         would get wrong.
+    ///         <c>word-spacing</c> is interned by <c>LayoutStyleBuilder</c> — it has an id, the
+    ///         cascade carries it, it is in the name table — and <c>docs/plan/43</c> § Part 0 records
+    ///         that nothing in the repository reads it. It is also a property no utility family
+    ///         emits, so the gate never meets it in normal operation; it is here precisely because it
+    ///         is the case a cheaper method would get wrong.
     ///     </para>
     ///     <para>
     ///         The first assertion is what makes the second mean something: the property really is in
     ///         the document's table, so "no channel moved" cannot be explained away as the cascade
-    ///         having dropped the declaration. If either of these ever starts being read, this test
-    ///         fails and the remark above needs rewriting rather than the gate.
+    ///         having dropped the declaration. If it ever starts being read, this test fails and the
+    ///         remark above needs rewriting rather than the gate.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>text-indent</c> was the second row here and it was removed by being
+    ///         implemented, which is this test doing its job rather than a hole in it.</b> It sat
+    ///         beside <c>word-spacing</c> for exactly as long as Part 0's finding was true; the day
+    ///         <c>LineWrapper</c> learned a first-line width, the row started failing and had to go.
+    ///         That is what a control experiment is supposed to do when the thing it controls for
+    ///         stops being the case.
     ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("word-spacing", "6px")]
-    [InlineData("text-indent", "12px")]
     public void An_interned_property_no_consumer_acts_on_reads_as_inert(string property, string value) {
         Assert.Contains(property, UtilityConsumptionProbe.Resolved($"{property}: {value}"), StringComparer.Ordinal);
         Assert.Empty(UtilityConsumptionProbe.Channels(property, value));

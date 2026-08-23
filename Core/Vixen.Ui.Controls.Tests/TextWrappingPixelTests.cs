@@ -10,8 +10,8 @@ using Xunit;
 namespace Vixen.Ui.Controls.Tests;
 
 /// <summary>
-///     <c>overflow-wrap</c>, <c>word-break</c> and <c>text-wrap</c>, as the pixels the software
-///     rasteriser produced.
+///     <c>overflow-wrap</c>, <c>word-break</c>, <c>text-wrap</c> and <c>text-indent</c>, as the
+///     pixels the software rasteriser produced.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -408,6 +408,102 @@ public class TextWrappingPixelTests {
             held.Right > BoxLeft + BoxWidth,
             $"the run ends at x={held.Right}, so it was not held past the box's {BoxLeft + BoxWidth}"
         );
+    }
+
+    /// <summary><c>text-indent</c> moves the first line's glyphs and no others'.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A pixel test rather than a draw-list one, because the draw list is satisfied by the
+    ///     wrong half of the feature.</b> An indent is two facts — the first line starts further in,
+    ///     <i>and</i> it wraps earlier — and a command list changes under either alone. What is
+    ///     visible in the picture is that the left-hand edge of the first band moved while the edge of
+    ///     the second did not, which is the pair.
+    /// </remarks>
+    [Fact]
+    public void An_indent_moves_the_first_line_and_leaves_the_second_where_it_was() {
+        var plain = Bands(Indented(Words, "text-indent: 0px"));
+        var pushed = Bands(Indented(Words, "text-indent: 24px"));
+
+        Assert.True(plain.Count >= 2, $"the text did not wrap to begin with ({plain.Count} band)");
+        Assert.Equal(plain.Count, pushed.Count);
+
+        Assert.Equal(plain[0] + 24, pushed[0]);
+        Assert.Equal(plain[1], pushed[1]);
+    }
+
+    /// <summary>And a negative one hangs the first line out to the left of the second.</summary>
+    [Fact]
+    public void A_hanging_indent_pulls_the_first_line_left_of_the_rest() {
+        var hung = Bands(Indented(Words, "text-indent: -12px"));
+
+        Assert.True(hung.Count >= 2, "the text did not wrap, so there is nothing to hang out from");
+        Assert.Equal(hung[1] - 12, hung[0]);
+    }
+
+    /// <summary>The same box as <see cref="Render" />, captured rather than scanned.</summary>
+    /// <remarks>
+    ///     <c>text-indent</c> is computed and inherited — see <c>UiDocument.ResolveText</c> — so it is
+    ///     written on the box and read on the span inside it, which is the arrangement every other
+    ///     test in this file uses and the one a <c>.vxml</c> interpolation forces.
+    /// </remarks>
+    static Bitmap Indented(string text, string outer) {
+        using var ui = UiTest.Create(320f, 200f);
+        ui.Document.Fonts.Register("Test", Font);
+
+        ui.Load(
+            $$"""
+            root  { width: 320px; height: 200px; background-color: #000000; }
+            .box  { position: absolute; left: {{BoxLeft}}px; top: 16px; width: {{BoxWidth}}px;
+                    font-family: Test; font-size: 28px; color: #ffffff; {{outer}} }
+            """
+        );
+
+        var box = ui.Create("div", null, "box", "box");
+        ui.Create("span", box, "text", "text").Text = text;
+        ui.Frame();
+
+        return ui.Capture();
+    }
+
+    /// <summary>The leftmost lit column of each row band, top to bottom.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per band rather than over the whole image, which is the only measurement that can tell
+    ///     an indent from a margin.</b> <see cref="Scan" />'s single <c>Right</c> is a fact about the
+    ///     picture as a whole and moves for both; a list of per-line left edges says <i>which</i> line
+    ///     moved, and the claim is that exactly one did.
+    /// </remarks>
+    static List<int> Bands(Bitmap image) {
+        var edges = new List<int>();
+        var current = -1;
+        var lit = false;
+
+        for (var y = 0; y < image.Height; y++) {
+            var left = -1;
+
+            for (var x = 0; x < image.Width && left < 0; x++) {
+                if (image.Pixels[image.Offset(x, y)] >= 24) {
+                    left = x;
+                }
+            }
+
+            if (left < 0) {
+                if (lit) {
+                    edges.Add(current);
+                }
+
+                lit = false;
+                current = -1;
+                continue;
+            }
+
+            lit = true;
+            current = current < 0 ? left : Math.Min(current, left);
+        }
+
+        if (lit) {
+            edges.Add(current);
+        }
+
+        return edges;
     }
 
     /// <summary><c>break-normal</c> on the text escapes either <c>word-break</c> on its container.</summary>
