@@ -449,8 +449,11 @@ Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-wr
 the honest version of that ratio has never been written down. This is it: **every panel in the
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
-**Where it stands.** ~~Twenty~~ ~~Twenty-seven~~ ~~Thirty-four~~ **Thirty-three** `.vxml` files
-across ~~six~~ ~~seven~~ **eight** assemblies — twenty-eight panels and five shared parts
+**Where it stands.** ~~Twenty~~ ~~Twenty-seven~~ **Thirty-four** `.vxml` files across ~~six~~
+~~seven~~ **nine** assemblies — twenty-eight panels, five shared parts and one test fixture
+(`Vixen.Editor.NodeGraph.Tests/SealedControlHost.vxml`, which is not a panel and is the ninth
+assembly; ⚠ **the count went 34 → 33 → 34 in one commit range** — `WaterFacts.vxml` was deleted when
+`tag=` made a second type unnecessary, and the fixture arrived in its place)
 (`Vixen.Editor.Ui/Parts/FactRow.vxml`, `Vixen.Editor.AssetEditors/AnalysisRow.vxml`,
 `Vixen.Editor.Terrain/FactBlock.vxml`, and water's `WaterZoneFacts` and
 `WaterNotice`) — against **62 files and ~31,700
