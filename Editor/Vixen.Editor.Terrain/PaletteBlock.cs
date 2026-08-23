@@ -22,14 +22,14 @@ namespace Vixen.Editor.Terrain;
 ///         entry was ticked, which is why this part needs no <c>refs</c>.
 ///     </para>
 /// </remarks>
-public readonly record struct PaletteEntry(int Slot, string Name, bool Chosen, string Detail);
+internal readonly record struct PaletteEntry(int Slot, string Name, bool Chosen, string Detail);
 
 /// <summary>The foliage palette the Foliage panel is made of.</summary>
 /// <remarks>
 ///     The part is <c>PaletteBlock.vxml</c>, which holds the argument; this file is the row record
 ///     and the accessibility modifier.
 /// </remarks>
-public sealed partial class PaletteBlock;
+internal sealed partial class PaletteBlock;
 
 /// <summary>The edit-layer stack the Terrain panel is made of.</summary>
 /// <remarks>
@@ -38,4 +38,4 @@ public sealed partial class PaletteBlock;
 ///     under two tags, which is the one thing <c>@tag</c> being a compile-time directive stops a
 ///     single type from expressing.
 /// </remarks>
-public sealed partial class LayerBlock;
+internal sealed partial class LayerBlock;
