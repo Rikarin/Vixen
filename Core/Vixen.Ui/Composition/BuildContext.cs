@@ -871,6 +871,20 @@ public sealed class BuildContext {
     ///     the arm is chosen, and giving the runtime two constructs for swapping a subtree in and
     ///     out would mean two places to get the disposal of a branch's effects wrong.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>An arm inside a <c>@for</c> row builds under that row's iteration key, and getting
+    ///     that wrong was a silent defect until 2026-08-23.</b> <see cref="For{T}" /> sets
+    ///     <c>iteration</c> around the <i>synchronous</i> build of a new region and restores it in a
+    ///     <c>finally</c>; this registers its own <see cref="Bind(Action)" />, which the scheduler
+    ///     runs later — so a <c>refs</c> in an arm found no key and threw the "only meaningful inside
+    ///     an @for" message that <see cref="Refs{TElement}" />'s own remark says nothing generated can
+    ///     reach. It reached it, and what it looked like was not an exception in anybody's face: the
+    ///     arm's builder was abandoned at the throw, so the element on the line above the <c>refs</c>
+    ///     survived with no classes, no bindings and no children while every other panel on the
+    ///     screen was correct. Capturing the key at registration and restoring it round the build is
+    ///     the same bargain <see cref="For{T}" /> already makes for a nested loop, and for the same
+    ///     reason: an arm inside a row belongs to the row.
+    /// </remarks>
     public void Switch(UiElement? parent, Func<int> arm, Action<BuildContext, UiElement, int> build) {
         ArgumentNullException.ThrowIfNull(arm);
         ArgumentNullException.ThrowIfNull(build);
@@ -878,6 +892,10 @@ public sealed class BuildContext {
         var target = parent ?? Anchor;
         var region = Open(target);
         var current = int.MinValue;
+
+        // Whatever loop row this arm was declared in. Captured here, because here is the only moment
+        // it is still on the context: the effect below runs after `For` has put the outer value back.
+        var declared = iteration;
 
         Bind(() => {
             var next = arm();
@@ -892,7 +910,15 @@ public sealed class BuildContext {
                 return;
             }
 
-            In(target, region, () => build(this, target, next));
+            var outer = iteration;
+
+            iteration = declared;
+            try {
+                In(target, region, () => build(this, target, next));
+            } finally {
+                iteration = outer;
+            }
+
             region.Reposition();
         });
     }

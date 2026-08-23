@@ -241,6 +241,56 @@ public class CompositionTests {
         Assert.Equal(kept + 1, component.CellRuns);
     }
 
+    /// <summary>
+    ///     ⚠ A <c>refs</c> inside a branch inside a row files under that row's key, and the whole arm
+    ///     is built.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The defect this pins down was silent in the worst way. <c>For</c> sets the iteration
+    ///         key around the <i>synchronous</i> build of a new region and restores it in a
+    ///         <c>finally</c>; <c>Switch</c> registers its own effect, which the scheduler runs after
+    ///         that — so <c>Refs</c> found no key, threw the "only meaningful inside an @for" message
+    ///         its own remark says nothing generated can reach, and the throw abandoned the arm's
+    ///         builder wherever it happened. The row survived with the element created on the line
+    ///         above the <c>refs</c> and nothing after it: no classes, no bindings, no children.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The markup compiler cannot catch it</b>: <c>VXML2013</c> reads the markup
+    ///         lexically, and a <c>refs</c> in an <c>@if</c> arm inside a <c>@for</c> <i>is</i> inside
+    ///         a loop. So the assertion has to be here. Wave 7's <c>ShapeVocabularyView</c> is where
+    ///         it was met — seven empty boxes where the list should have been.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_refs_inside_a_branch_inside_a_row_is_filed_under_the_rows_key() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<BranchingRefs>(document, document.Root);
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        // The arm builds whole: the element after the `refs` is there and says what it was told.
+        Assert.Equal(["row", "row"], Tags(component.Root));
+        Assert.Equal(["detail"], Tags(component.Root.Children[0]));
+        Assert.Equal("a", component.Root.Children[0].Children[0].Text);
+
+        // And the handle answers under the loop's own key rather than throwing on the way in.
+        Assert.True(component.Cells.TryGet("a", out var first));
+        Assert.Same(component.Root.Children[0].Children[0], first);
+
+        Assert.True(component.Cells.TryGet("b", out var second));
+        Assert.Same(component.Root.Children[1].Children[0], second);
+
+        // Swapping the arm re-files the new element under the same key and drops the old one.
+        component.Detailed.Value = false;
+        document.Effects.Flush();
+
+        Assert.Equal(["brief"], Tags(component.Root.Children[0]));
+        Assert.True(component.Cells.TryGet("a", out var swapped));
+        Assert.Same(component.Root.Children[0].Children[0], swapped);
+    }
+
     [Fact]
     public void An_inserted_item_lands_where_the_sequence_puts_it() {
         using var document = new UiDocument(200f, 200f);
@@ -1073,6 +1123,43 @@ public class CompositionTests {
                 null,
                 () => Shown.Value ? 0 : -1,
                 (inner, parent, _) => inner.Child<Gauge>(parent)
+            );
+    }
+
+    /// <summary>A list whose rows each hold a branch, and a <c>refs</c> inside the branch's arm.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The shape that was silently broken until 2026-08-23.</b> <c>For</c> sets the iteration
+    ///     key around a <i>synchronous</i> build; <c>Switch</c> registers its own effect, which runs
+    ///     after the key has been put back — so the <c>refs</c> found none and threw, and the throw
+    ///     abandoned the rest of the arm rather than reaching anybody. What that looked like was a row
+    ///     that existed with no children and no classes while the rest of the panel was correct.
+    /// </remarks>
+    sealed class BranchingRefs : Component {
+        public Signal<string[]> Items { get; } = new([]);
+
+        public Signal<bool> Detailed { get; } = new(true);
+
+        public ElementRefs<UiElement> Cells { get; } = new();
+
+        protected override void Build(BuildContext ctx) =>
+            ctx.For(
+                null,
+                () => Items.Value,
+                static item => item,
+                (inner, parent, item) => {
+                    var row = inner.Element(parent, "row");
+
+                    inner.Switch(
+                        row,
+                        () => Detailed.Value ? 0 : 1,
+                        (arm, cell, index) => {
+                            var element = arm.Element(cell, index == 0 ? "detail" : "brief");
+
+                            arm.Refs(Cells, element);
+                            element.Text = item;
+                        }
+                    );
+                }
             );
     }
 }

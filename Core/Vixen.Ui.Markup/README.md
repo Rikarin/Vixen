@@ -265,10 +265,17 @@ The workaround is free and is usually the better markup anyway — put the `refs
 }
 ```
 
-The real fix is four lines in `Switch` — save and restore `iteration` the way `For` already does for
-a nested loop, with the same argument: an `@if` arm inside a row belongs to that row's iteration.
-Until that lands, `VXML2013` should also refuse a `refs` under a nested region, because a diagnostic
-is what this needs and a run-time throw that eats the rest of the arm is what it has.
+✅ **Fixed the same day (2026-08-23), and it was four lines in `Switch`**: capture `iteration` where
+the arm is *declared* and restore it around the build, which is the bargain `For` already makes for a
+nested loop and rests on the same sentence — an arm inside a row belongs to the row. So both
+spellings work now, and the one above is preferred on its own merits rather than because the other
+one breaks.
+
+⚠ **The assertion is in `Vixen.Ui.Tests`' `CompositionTests` and not in the markup suite**, because
+`VXML2013` genuinely cannot catch this: it reads the markup lexically, and a `refs` in an `@if` arm
+inside a `@for` *is* inside a loop. `A_refs_inside_a_branch_inside_a_row_is_filed_under_the_rows_key`
+was confirmed to fail against the unfixed `Switch` — with `Text` reading `null`, which is the
+abandoned arm — before it was accepted.
 
 ⚠ **A handle is filled by an effect, so it is empty until the next flush** — the one asymmetry with
 `ref`, which is assigned in the straight-line body. `ElementRefs<T>`'s indexer throws and says so
