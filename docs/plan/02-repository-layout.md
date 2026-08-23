@@ -250,6 +250,12 @@ Platform/
 │                                       #   NOT in Vixen.slnx — needs macOS, Xcode and the ios workload
 ├── Vixen.Platform.Web/                 # net10.0 + Sdk.WebAssembly: JSImport/JSExport, canvas, WebGL2 surface
 │
+├── Vixen.Ui.Desktop/                   # ✅ the window, the device and the four steps of a frame, for an
+│                                       #   application whose whole content is an interface. No engine,
+│                                       #   no scene, no fixed step — which is what makes 02-HelloUi's
+│                                       #   "Vixen.Ui only" rule cost nothing to keep
+├── Vixen.Ui.Desktop.Tests/             #   the loop, run headless with no display server and no driver
+│
 ├── Vixen.Graphics.Vulkan/              # primary
 ├── Vixen.Graphics.Vulkan.Tests/
 ├── Vixen.Graphics.Direct3D12/
@@ -502,7 +508,8 @@ alongside the `Vixen.Ui` ⇸ `Vixen.Engine` one:
 ```
 Samples/
 ├── 01-HelloTriangle/             # RHI only, all six platforms — the platform smoke test
-├── 02-HelloUi/                   # Vixen.Ui only, no engine — proves the UI/Engine boundary
+├── 02-HelloUi/                   # ✅ Vixen.Ui only, no engine — proves the UI/Engine boundary.
+│                                 #   .vxml + .vcss + signals; Program.cs is a thirty-line bootstrap
 ├── 03-PbrShowcase/               # materials, IBL, shadows, post FX
 ├── 04-EcsStressTest/             # 100k entities
 ├── 05-PlatformerGame/            # physics, input, animation, audio, VFX end to end

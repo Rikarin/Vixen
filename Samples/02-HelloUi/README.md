@@ -1,147 +1,103 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) Rikarin
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # 02 — Hello UI
 
-A small editor shell, on a window, with no engine underneath it.
+A small editor shell: a menu bar over a docking host, a virtualised tree in one panel, a property
+grid in another, a gallery of the control set in a third, and toasts over the lot.
 
-```
+```bash
 dotnet run --project Samples/02-HelloUi
-dotnet run --project Samples/02-HelloUi -c Release -- --frames 300
 ```
 
-## What it proves
+**What it is a picture of is how you write a Vixen interface.** Markup for the tree, a stylesheet for
+the tokens and the rules, utility classes for everything a class name can say, and a model made of
+signals. That is the same three files a web project has, and none of it is a special case for being
+a sample.
 
-**An absence.** [docs/plan/02](../../docs/plan/02-repository-layout.md) § Samples describes this one
-as *"Vixen.Ui only, no engine — proves the UI/Engine boundary"*, and
-[doc 15](../../docs/plan/15-risks-and-open-questions.md) makes it the thing that proves the framework
-standalone before the editor is allowed to depend on it.
-
-So there is no `Vixen.App` here. The host that assembly would have provided — the window, the device,
-the swapchain, the frame loop — is `Program.cs`, and it is about a hundred lines. Using `Vixen.App`
-would have been shorter and would have pulled `Vixen.Engine` in behind it, at which point the sample
-would demonstrate nothing. `CheckArchitecture` asserts the absence, so it cannot be undone by
-accident: adding either reference fails the build with a message saying why.
-
-## The four steps of a frame
-
-Only the last one knows what a GPU is:
-
-1. **Pump** — `platform.PumpEvents()` into `PlatformInput.Dispatch`, which turns a `PlatformEvent` into a
-   `PointerEvent`, a `KeyEvent`, a `TextInputEvent` or a `WheelEvent`.
-2. **Update** — the cascade, the font sizes, the layout style, flexbox.
-3. **Draw** — the walk that turns the laid-out tree into a `DrawList`, diffed against last frame's.
-4. **Present** — `UiGeometryBuilder` turns the list into vertices; `UiRenderer` uploads and records
-   them; the swapchain presents.
-
-`Shell.cs` builds the interface and touches none of that. It is a `UiDocument` and nothing else,
-which is the point: the framework has to be usable, and testable, without any of the machinery that
-eventually puts it on a screen.
-
-## What is in it
-
-A menu bar with submenus and shortcut labels, over a `DockingHost` holding three panels:
+## The files, in the order to read them
 
 | | |
 |---|---|
-| **Hierarchy** | A `TreeView` of a thousand nodes, of which about thirty exist as elements. |
-| **Controls** | A scrolling gallery: buttons in every variant, checkboxes including an indeterminate one, a switch, a radio group, text fields, a numeric input, a select, sliders, a progress bar, a spinner, an alert, tabs, an accordion, a breadcrumb and a paginator. |
-| **Inspector** | A `PropertyGrid` over a hand-written type descriptor — the shape `Vixen.Core.Reflection.Generator` emits. |
+| [`Shell.vxml`](Shell.vxml) | The window: a menu bar, a docking host, a toast host. **Start here.** |
+| [`Panels/Gallery.vxml`](Panels/Gallery.vxml) | The control set, as tags. Every value is a two-way binding to a signal. |
+| [`Panels/Hierarchy.vxml`](Panels/Hierarchy.vxml) | A thousand nodes, about thirty of them realised. |
+| [`Panels/Inspector.vxml`](Panels/Inspector.vxml) | A property grid over an ordinary object. |
+| [`Theme/vixen.ui.vcss`](Theme/vixen.ui.vcss) | The tokens. Change the accent here and it changes everywhere. |
+| [`Theme/shell.vcss`](Theme/shell.vcss) | The rules a class name cannot say, and nothing else. |
+| [`ShellModel.cs`](ShellModel.cs) | The state, as signals. |
+| [`Program.cs`](Program.cs) | Thirty lines: what the window is called, and which component to mount. |
 
-Toasts appear over the lot. Panels can be dragged between groups, splitters dragged, tabs closed;
-**View → Reset Layout** puts it back and **View → Toggle Dark** switches the theme by adding one
-class to the root.
+`HelloUi.csproj` is worth a look for what is *not* in it. `<VixenUi>true</VixenUi>` is the whole of
+the UI plumbing — the VXML compiler, the `[UiProperty]` generator, the `.vxml` and `.vcss` item types
+and the utility-stylesheet step all arrive with it. Outside this repository it is not even a line: a
+`PackageReference` brings all of it, because `Vixen.Ui` ships its MSBuild logic in `buildTransitive/`.
 
-On exit it prints the docking arrangement as YAML, which is the round trip
-[doc 14](../../docs/plan/14-roadmap.md) names as Phase 4e's exit criterion, demonstrated by the thing
-it is about.
+## What this sample proves, which is an absence
 
-## `--frames N`
+[Doc 02 § Samples](../../docs/plan/02-repository-layout.md) calls this one "Vixen.Ui only, no engine —
+proves the UI/Engine boundary", and [doc 15](../../docs/plan/15-risks-and-open-questions.md) makes it
+what proves the framework standalone before the editor is allowed to depend on it. So there is no
+`Vixen.App` here — that assembly references `Vixen.Engine` — and `CheckArchitecture` fails the build
+if anybody adds one.
 
-Runs exactly N frames and exits, so the whole stack can be proved to start, present and stop without
-a validation error or a hang — the same argument Samples/01 makes for the flag it introduced.
+⚠ **`Program.cs` used to be five hundred lines because of that rule.** Avoiding the engine's host
+meant writing a Vulkan device, a swapchain, a render graph, an atlas upload, resize coalescing and a
+suboptimal-present rule by hand. All of it is
+[`Vixen.Ui.Desktop`](../../Platform/Vixen.Ui.Desktop/README.md) now — a `Platform/` assembly that is
+a window, a device and four steps of a frame, with no scene, no ECS world and no game loop anywhere
+in it. The boundary costs nothing to keep, and this file is a bootstrap again.
 
-⚠ **No CI step runs it yet.** This paragraph used to say the flag was how CI proved that, and it is
-not: `ci.yml` builds and tests on all three platforms and invokes neither sample. The flag is what a
-CI step would use; nothing uses it. Samples/01 heads its equivalent section "Running it in CI",
-which is a recipe rather than a claim — but nothing runs that one either.
+## The authoring loop
 
-It also prints what the frame cost:
+**Edit `Theme/shell.vcss` while the sample is running and the window repaints.** Every element keeps
+its identity across a style reload, so the focus, the scroll offset, the docking arrangement and the
+tree's place in its thousand rows all survive. That is six lines in `Program.cs` — a
+`HotReloadWatcher` over the source directory, polled once a frame — and dropping them plus the
+`Vixen.Ui.HotReload` reference is what a shipping application does.
 
-```
-287 elements · 192 commands · first frame 590.5 ms · then over 270 frames: mean 0.427 ms, worst 4.901 ms
-```
+Try `--accent` by hand: change `--color-brand` in `Theme/vixen.ui.vcss`, and note that *that* one
+needs a rebuild. Tokens are compiled into the utility sheet at build time; the rules in `shell.vcss`
+are not.
 
-⚠ **The first frame is reported separately because it is not a frame.** It carries the JIT, the font
-load, and the rasterisation of every glyph the interface uses into the MSDF atlas — half a second of
-work that happens exactly once. Folding it into a mean over three hundred frames triples the answer
-while hiding what the answer is about.
+`--frames N` runs exactly N frames and exits, which is how CI proves the whole stack starts, presents
+and stops without a validation error or a hang — on a machine that may have no GPU at all, because
+everything above the RHI runs whether or not a device was ever created. On the way out the sample
+prints the docking arrangement, which is what an application would write to disk.
 
-⚠ **What is timed is the UI frame, not the presented one**: steps 2, 3 and 4a above. Including the
-swapchain would measure the display's refresh rate.
+## Where the markup stops, and why
 
-The measurement above is this machine, in Release, at the sample's own size. Doc 14's budget is
-*5 000 elements under 2 ms*, and this interface is 287 — because the tree virtualises, which is what
-it is there to show. The number at the roadmap's scale is `Vixen.Benchmarks.Ui`'s
-`DocumentBenchmarks`, which has been run: **8 001 elements, 0.436 ms, zero bytes allocated.**
+⚠ **Four controls are wired in `OnComposed` rather than written as tags, and each one is a gap in the
+engine rather than a preference.** A nested tag goes to `UiElement.ContentHost`, and a control that
+does not override it puts children on itself instead of in the slot they belong in — where they draw,
+unregistered, doing nothing:
 
-⚠ **That same suite found that an interaction cost a full cascade** — one class toggled on one row of
-that document was 9.50 ms and 8.87 MB, because `UiDocument.Update` called `StyleEngine.ResolveAll` and
-Phase 4b's `StyleUpdater` had no production caller. It was invisible from this sample: 287 elements
-put the same defect at about a third of a millisecond, which is the case for benchmarking at the
-scale the budget is written for rather than the one in front of you. It is wired up now — the same
-toggle is 0.937 ms and 552 bytes, and the allocation no longer depends on the document's size. See the
-benchmark's [README](../../Benchmarks/Vixen.Benchmarks.Ui/README.md).
+| Control | What builds its contents | What a nested tag would do |
+|---|---|---|
+| `MenuBar` | `AddMenu`, which parents the dropdown to `Document.Root` | Draw a menu inside the bar, clipped by it |
+| `DockingHost` | `AddPanel`, which assigns an id and places it in the layout | Draw a panel the arrangement does not know about |
+| `TreeView` | `Root.Add`, into a model the virtualiser flattens | Draw a row the virtualiser never realises |
+| `RadioGroup`, `Select` | `AddOption`, into a list the control keeps | Draw a choice with no `Value`, no exclusivity, no roving tab index |
 
-## The font
+`Tabs`, `Expander`, `ScrollView` and `Card` do override it, which is why every one of *those* is a
+tag here. It is one property per control, and closing the gap is worth doing.
 
-⚠ **Borrowed from the operating system rather than committed.** The repository has no Latin UI font
-to commit: the fourteen files under `Vixen.Ui.Text.Tests/Fonts` are the Unicode Consortium's shaping
-fixtures — Balinese, Kannada, Lanna — and a sample that drew its buttons in Lanna would be
-demonstrating the shaper rather than the controls.
+## Two layout traps, both found by looking at the picture
 
-`Fonts.cs` looks for a plain TrueType face in the usual places on each platform. **Finding none is
-not a failure**: every label measures zero, and the controls draw their boxes and their chrome
-exactly as before — which is worth knowing about the framework as well as convenient here. Text is a
-thing an element *has*, not a thing the layout requires.
+Neither of these fails, logs, or shows up in a test that does not measure a box — and both read as an
+engine bug rather than as a missing declaration. They are the same trap at two depths.
 
-A real application ships its own font as an asset. That is [doc 08](../../docs/plan/08-asset-pipeline-and-addressables.md)'s
-business.
+**A component draws into a host element of its own.** `Shell.vxml` says `@tag app-shell`, so what is
+under the document's root is `<app-shell>` and not the markup's first tag. CSS's initial
+`flex-direction` is `row` and `flex-grow` is unset, so that element is content-sized in both axes
+unless something says otherwise — and nothing does, because no file mentions it.
 
-## The shaders
-
-Four SPIR-V modules, committed, and the GLSL beside them. `UiRenderer`'s own remarks say the modules
-are *"supplied rather than compiled here"* because turning shader source into modules belongs to
-Raven — which already carries `Ui/Msdf.rvn` and `Ui/RoundedRect.rvn` for exactly this. Until that
-path is wired, a caller hands over what it has.
-
-These are the same four the golden-image fixture drives the renderer with, so the sample and the
-reference pictures cannot disagree about what the shaders do. Regenerating is
-`glslc Shaders/ui.vert -o Shaders/ui.vert.spv`.
-
-## Two spaces, and where they meet
-
-⚠ **The document is laid out in device-independent points; the framebuffer is physical pixels.** On
-this machine the window is 1280×800 points and 2560×1600 pixels, a DPI scale of two, and three things
-have to agree about which space they are in:
-
-| | |
-|---|---|
-| The document, the geometry and the pointer | **points** — `FramebufferSize / DpiScale`, and what SDL already reports positions in |
-| `UiRenderer.Record`'s `surface` | **points** — it is the extent the projection maps onto clip space |
-| `UiRenderer.Record`'s `scale` | how many pixels a point is — the scissor, and only the scissor, is in framebuffer pixels |
-
-Getting the first two wrong draws the whole interface into the top-left quarter of the window;
-getting the third wrong clips every scroll view to a quarter of its rectangle. Both did happen here,
-and the second is the one that has no visible cause: the pointer goes on hitting the controls where
-the *layout* says they are, so a mis-scaled projection reads as a renderer that is mysteriously
-small rather than as a unit mismatch. `UiImageTests.Scaled` is the picture that catches it.
-
-## Known gaps
-
-- ~~**`UiInput` lives here and should not.**~~ Closed. `Vixen.Ui` is a `Core/` assembly and
-  `Vixen.Platform` is not, so the framework cannot depend on what produces its events; the editor
-  became the second consumer and `Vixen.Platform.Ui.PlatformInput` is where the fifty lines went.
-  This sample now references that assembly and has no copy.
-- **The web head is not built.** Doc 10 makes this sample the Web target's real goal; that is Phase
-  10, and it needs `net10.0-browser` and the wasm workload.
-- **Resizing costs an explicit `Refresh`.** Nothing tells an element that its box changed, so the
-  virtualiser has to be told — see `Shell.Resize`. A "layout finished" callback on `UiDocument`
-  closes it.
+- **At the window.** The whole interface rendered in a strip about a hundred pixels wide down the
+  left of a black window. Fixed in the host: `UiApplication` loads a user-agent sheet making the root
+  a column and giving the content host `flex-grow: 1`, the way a browser ships `html, body`.
+- **At each panel.** The hierarchy panel was blank, which reads as the virtualiser having realised no
+  rows — and was the tree realising its rows correctly into a box zero pixels tall. Fixed in
+  [`Theme/shell.vcss`](Theme/shell.vcss), which names the three panel tags, because a host cannot
+  reach an element a component mounted into a `DockPanel`.
