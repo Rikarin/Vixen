@@ -1,0 +1,102 @@
+{
+  "Sets": [
+    {
+      "Set": 0,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "source",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
+          "Name": "sourceSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        }
+      ]
+    }
+  ],
+  "VertexInputs": [],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "result",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target"
+    }
+  ],
+  "PushConstants": [
+    {
+      "Name": "UiBlurPushConstants",
+      "Offset": 0,
+      "Size": 32,
+      "Stages": "Fragment",
+      "Members": [
+        {
+          "Name": "reserved",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 1,
+            "ArrayLength": null,
+            "StructName": null,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 0,
+          "Size": 16,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
+          "DefaultValue": ""
+        },
+        {
+          "Name": "kernel",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 1,
+            "ArrayLength": null,
+            "StructName": null,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 16,
+          "Size": 16,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
+          "DefaultValue": ""
+        }
+      ]
+    }
+  ],
+  "SpecConstants": [],
+  "Permutations": [],
+  "ValueParameters": [],
+  "Parameters": [],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [],
+  "Stages": [
+    "Fragment"
+  ]
+}

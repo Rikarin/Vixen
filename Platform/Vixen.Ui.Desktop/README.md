@@ -87,9 +87,13 @@ the way that hurts**: `UiShaders` degrades a missing stage to a picture rather t
 an application that names four of eight has four features that cascade, resolve, and silently do
 nothing. A host with a shader table to fill is a host where somebody fills half of it.
 
-An application driving the interface from Raven builds its own `UiShaders` and must: Raven puts
-`UiVertex`'s four attributes at locations 3 to 6 rather than 0 to 3, which is what
-`UiShaders.VertexLocations` says. `Vixen.Editor.Host` does exactly that.
+**They are Raven's, from one `Shaders/Ui.rvn`** — compiled by this repository's own compiler and
+gated by `./build.sh CheckShaders`, rather than by whatever `glslc` was on the machine of whoever
+last touched them. That matters more than it sounds: the same eight were committed three times as
+GLSL, and `SharedUiShaderTests` was written after two of the copies had already lost the whole shadow
+path. [`Shaders/README.md`](Shaders/README.md) has the detail, including the three numbers a host has
+to get right — the vertex attribute locations, the push-constant offsets, and the pipeline layout's
+single range — and how each is checked.
 
 ### `SystemFonts`
 
@@ -139,7 +143,11 @@ box with no height.
 
 ## Regenerating the shaders
 
-`glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the seven fragment stages. The
-`.spv` is what ships — editing the `.frag` alone changes nothing — and
-`Vixen.Graphics.Golden.Tests`' `SharedUiShaderTests` compares these byte for byte against the copies
-the reference images were rendered with, and checks that each module is no older than its source.
+```bash
+./build.sh CheckShaders --update-shaders
+```
+
+That recompiles `Shaders/Ui.rvn` and rewrites what differs. The same gate, run without the flag,
+fails when a committed module is not what the compiler produces — so a `.rvn` edited and not
+recompiled cannot sit in a commit. [`Shaders/README.md`](Shaders/README.md) has the one-source
+command and the reasons `--emit-reflection` is not optional.

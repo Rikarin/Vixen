@@ -47,15 +47,45 @@ public class ShaderBindingsGenerator : IIncrementalGenerator {
         true
     );
 
+    /// <summary>The MSBuild property that makes the emitted classes internal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because two assemblies can reflect two different shaders with one name, and one of
+    ///     them can reference the other.</b> The class is named after the shader — <c>UiVertex</c>
+    ///     becomes <c>UiVertexKeys</c> in <c>Vixen.Shaders.Generated</c> — and both
+    ///     <c>Vixen.Editor.Host</c> and <c>Platform/Vixen.Ui.Desktop</c> have a <c>Ui.rvn</c> with a
+    ///     <c>UiVertex</c> in it. They are genuinely different shaders with genuinely different
+    ///     reflection, and the editor references the host, so the two public classes collide: CS0436,
+    ///     which this repository builds as an error.
+    ///     <para>
+    ///         Internal is the right answer rather than a workaround. These constants exist so that
+    ///         the assembly holding the <c>.reflect.json</c> can bind against its own modules; nobody
+    ///         outside it has a use for the attribute locations of a shader it cannot load. Public
+    ///         stays the default because that is what every existing consumer expects.
+    ///     </para>
+    /// </remarks>
+    internal const string InternalProperty = "build_property.VixenShaderBindingsInternal";
+
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context) {
         var files = context.AdditionalTextsProvider
             .Where(static text => text.Path.EndsWith(Suffix, StringComparison.OrdinalIgnoreCase));
 
-        context.RegisterSourceOutput(files, static (production, text) => Generate(production, text));
+        // ⚠ Combined rather than read inside `Generate`, because a generator may only reach the
+        // options through the pipeline — reading them off a captured context is what makes an
+        // incremental generator re-run when nothing it depends on changed.
+        var visibility = context.AnalyzerConfigOptionsProvider.Select(
+            static (options, _) =>
+                options.GlobalOptions.TryGetValue(InternalProperty, out var value)
+                && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+        );
+
+        context.RegisterSourceOutput(
+            files.Combine(visibility),
+            static (production, pair) => Generate(production, pair.Left, pair.Right)
+        );
     }
 
-    static void Generate(SourceProductionContext context, AdditionalText file) {
+    static void Generate(SourceProductionContext context, AdditionalText file, bool isInternal) {
         if (file.GetText(context.CancellationToken)?.ToString() is not { } content) {
             context.ReportDiagnostic(Diagnostic.Create(Unreadable, Location.None, file.Path));
             return;
@@ -65,7 +95,7 @@ public class ShaderBindingsGenerator : IIncrementalGenerator {
 
         try {
             var reflection = ReflectionReader.Read(content);
-            var source = BindingsEmitter.Emit(shaderName, reflection, Path.GetFileName(file.Path));
+            var source = BindingsEmitter.Emit(shaderName, reflection, Path.GetFileName(file.Path), isInternal);
             context.AddSource($"{shaderName}.Bindings.g.cs", SourceText.From(source, Encoding.UTF8));
         } catch (Exception exception) when (exception is not OperationCanceledException) {
             // Reported rather than thrown: an analyzer that throws takes the whole build down with a

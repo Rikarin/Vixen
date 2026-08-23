@@ -3,6 +3,7 @@
 
 using System.Reflection;
 using Vixen.Graphics;
+using Vixen.Shaders.Generated;
 using Vixen.Ui.Renderer;
 
 namespace Vixen.Ui.Desktop;
@@ -25,13 +26,21 @@ namespace Vixen.Ui.Desktop;
 ///         wrong picture. A host that has to name eight modules is a host where somebody names four.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is for a host with hand-written GLSL, which is what these are.</b> An
-///         application driving the interface from Raven — <c>Vixen.Editor.Host</c> does, through
-///         <c>Shaders/Ui.rvn</c> — builds its own <see cref="UiShaders" /> and must, because Raven
-///         puts the vertex attributes somewhere else: a stage declaring three streams reads
-///         <c>UiVertex</c>'s four attributes at locations 3 to 6 rather than 0 to 3, and
-///         <c>UiShaders.VertexLocations</c> is how it says so. Left unset, as here, the
-///         renderer assumes 0 to 3, which is where <c>glslc</c> puts them.
+///         ⚠ <b>These are Raven's, compiled from <c>Shaders/Ui.rvn</c> by this repository's own
+///         compiler.</b> They were hand-written GLSL until 2026-08-23, committed three times and
+///         compiled by whatever <c>glslc</c> was on the machine of whoever last touched them — which
+///         is what <c>SharedUiShaderTests</c> existed to police, after two of the three copies had
+///         already lost the whole shadow path.
+///     </para>
+///     <para>
+///         ⚠ <b>So the vertex attribute locations are not 0 to 3, and that is the one thing a host
+///         cannot guess.</b> Raven's <c>StreamPlan</c> puts a stage's own parameters <i>after</i> the
+///         shader's streams, so <c>Ui.rvn</c>'s three streams push the four vertex attributes to 3
+///         through 6 — and adding a stream moves them again. They are read out of the compiler's own
+///         reflection below rather than written down, because a wrong location is not a validation
+///         error: the pipeline binds nothing to that attribute and the stage reads whatever the
+///         driver left there, which is an interface drawn from uninitialised memory, on one driver,
+///         silently.
 ///     </para>
 /// </remarks>
 public static class UiShaderLibrary {
@@ -48,36 +57,47 @@ public static class UiShaderLibrary {
         ArgumentNullException.ThrowIfNull(device);
 
         return new UiShaders(
-            device.CreateShader(ShaderStage.Vertex, Module("ui.vert.spv"), "ui vertex"),
-            device.CreateShader(ShaderStage.Fragment, Module("ui-box.frag.spv"), "ui box"),
-            device.CreateShader(ShaderStage.Fragment, Module("ui-text.frag.spv"), "ui text"),
-            device.CreateShader(ShaderStage.Fragment, Module("ui-solid.frag.spv"), "ui solid")
+            device.CreateShader(ShaderStage.Vertex, Module("UiVertex.vert.spv"), "ui vertex"),
+            device.CreateShader(ShaderStage.Fragment, Module("UiBox.frag.spv"), "ui box"),
+            device.CreateShader(ShaderStage.Fragment, Module("UiText.frag.spv"), "ui text"),
+            device.CreateShader(ShaderStage.Fragment, Module("UiSolid.frag.spv"), "ui solid")
         ) {
             // The stage that samples a texture — an image, a video frame, a viewport — and also the
             // one `Compose` composites a translucent group's surface back with. See the remark
             // above: its absence is what turns a faded panel opaque.
-            Image = device.CreateShader(ShaderStage.Fragment, Module("ui-image.frag.spv"), "ui image"),
+            Image = device.CreateShader(ShaderStage.Fragment, Module("UiImage.frag.spv"), "ui image"),
 
             // One axis of the separable Gaussian a group's `filter: blur()` is made of, run twice
             // with a different kernel rather than shipped twice.
-            Blur = device.CreateShader(ShaderStage.Fragment, Module("ui-blur.frag.spv"), "ui blur"),
+            Blur = device.CreateShader(ShaderStage.Fragment, Module("UiBlur.frag.spv"), "ui blur"),
 
             // The seven colour functions — grayscale, brightness, invert and the rest. It adds no
             // pass and no surface: the matrix rides the composite draw the group was making anyway.
-            Colour = device.CreateShader(ShaderStage.Fragment, Module("ui-colour.frag.spv"), "ui colour"),
+            Colour = device.CreateShader(ShaderStage.Fragment, Module("UiColour.frag.spv"), "ui colour"),
 
             // ⚠ `mask-image`, and it carries the colour matrix too. A pipeline is bound once per
             // draw, so a group with both a `filter` and a `mask-image` has to be served by one
             // module — which is why supplying this one without `Colour` would be stranger than
             // supplying neither: `grayscale` would then work on masked elements and nowhere else.
-            Mask = device.CreateShader(ShaderStage.Fragment, Module("ui-mask.frag.spv"), "ui mask")
+            Mask = device.CreateShader(ShaderStage.Fragment, Module("UiMask.frag.spv"), "ui mask"),
+
+            // ⚠ Read out of Raven's reflection rather than written down — see the remark on the
+            // class. `Vixen.Shaders.Generators` turns `Shaders/UiVertex.reflect.json` into these four
+            // constants at build time, so a stream added to `Ui.rvn` moves them and nothing in this
+            // file has to notice.
+            Locations = new(
+                UiVertexKeys.PositionLocation,
+                UiVertexKeys.TexcoordLocation,
+                UiVertexKeys.VertexColourLocation,
+                UiVertexKeys.VertexShapeLocation
+            )
         };
     }
 
     /// <summary>Reads one embedded module.</summary>
     /// <remarks>
     ///     ⚠ Found by suffix rather than named outright. The manifest name is the root namespace plus
-    ///     the folder plus the file — <c>Vixen.Ui.Desktop.Shaders.ui.vert.spv</c> — so it is not
+    ///     the folder plus the file — <c>Vixen.Ui.Desktop.Shaders.UiVertex.vert.spv</c> — so it is not
     ///     something a reader would guess and it changes if the assembly is renamed.
     /// </remarks>
     static byte[] Module(string name) {

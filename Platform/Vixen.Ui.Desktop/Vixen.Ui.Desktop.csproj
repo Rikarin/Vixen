@@ -11,6 +11,9 @@
         </Description>
         <PackageTags>ui;application;host;window;swapchain;desktop;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!-- See the CompilerVisibleProperty below, which is where this is argued. -->
+        <VixenShaderBindingsInternal>true</VixenShaderBindingsInternal>
     </PropertyGroup>
 
     <ItemGroup>
@@ -59,23 +62,65 @@
 
     <ItemGroup>
         <!--
-            ⚠ **The SPIR-V lives here now, and that is the point of it living anywhere.** These eight
-            modules were committed three times — Samples/02 carried five, the vixen-app template
-            eight, Vixen.Graphics.Golden.Tests the reference set — and `SharedUiShaderTests` exists
-            because the copies had already drifted: `ui-box.frag` in two of them was sixteen lines
-            short of the shadow path, so a shape asking for a soft shadow got a hard-edged box at
-            full opacity, on one copy, silently.
+            ⚠ **The interface's shaders live here now, and they are Raven's rather than hand-written
+            GLSL.** These eight modules were committed three times as `.frag` and `.vert` — Samples/02
+            carried five, the vixen-app template eight, Vixen.Graphics.Golden.Tests the reference set —
+            and `SharedUiShaderTests` existed because the copies had already drifted: `ui-box.frag` in
+            two of them was sixteen lines short of the shadow path, so a shape asking for a soft
+            shadow got a hard-edged box at full opacity, on one copy, silently.
+
+            `Ui.rvn` is one source for all eight stages, compiled by this repository's own compiler
+            rather than by whatever `glslc` happens to be on somebody's machine. The editor has been
+            driven from a Raven `Ui.rvn` for some time; this is the same file with the three
+            compositing stages — blur, colour matrix, mask — ported into it, so there is now one
+            Raven source for the interface and one hand-maintained GLSL copy left, under
+            `Vixen.Graphics.Golden.Tests`, which is the one the reference images were rendered with.
 
             An application that takes this assembly ships all eight without deciding to, which is the
             behaviour that matters: the four optional stages — image, blur, colour, mask — are the
-            ones whose *absence* is a picture rather than a failure. Leave out `ui-image.frag` and
-            every faded subtree renders opaque; leave out `ui-colour.frag` and `grayscale` silently
-            does nothing. Samples/02 wired four of the eight and had exactly those bugs.
+            ones whose *absence* is a picture rather than a failure. Leave out `UiImage` and every
+            faded subtree renders opaque; leave out `UiColour` and `grayscale` silently does nothing.
+            Samples/02 wired four of the eight and had exactly those bugs.
 
-            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the seven
-            fragment stages. The `.spv` is what ships — editing the `.frag` alone changes nothing.
+            Regenerating: the CheckShaders gate does it, and the command to do one by hand is in
+            Shaders/README.md — because MSBuild will not have the double dash a command line needs
+            anywhere in an XML comment, which is the same reason the editor's shader README carries
+            its own copy.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />
+
+        <!--
+            ⚠ **The bindings generator, and the reason it is here rather than a table of numbers in
+            `UiShaderLibrary`.** It turns each `.reflect.json` into the constants the host binds
+            against — and the one that matters is which vertex attribute location each stage reads.
+            That number is Raven's decision, not this assembly's: `StreamPlan` locates a stage's own
+            parameters *after* the shader's streams, so `Ui.rvn`'s three streams put the four vertex
+            attributes at 3..6 rather than 0..3, and adding a stream moves them again.
+
+            ⚠ A wrong location is not a validation error. The pipeline binds nothing to that attribute
+            and the stage reads whatever the driver left there — an interface drawn from uninitialised
+            memory, on one driver, silently. Reading the number back out of the compiler's own output
+            is what makes that unable to happen.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all" />
+
+        <AdditionalFiles Include="Shaders\*.reflect.json" />
+
+        <!--
+            ⚠ **Internal, because `Vixen.Editor.Host` has a `Ui.rvn` with a `UiVertex` in it too and
+            it references this assembly.** The generator names its class after the shader, so both
+            would emit a public `Vixen.Shaders.Generated.UiVertexKeys` and the editor would not
+            compile: CS0436, which this repository builds as an error.
+
+            The two shaders are genuinely different — the editor's declares five stages and this one
+            eight — so the right answer is not to share a file but to stop publishing constants nobody
+            outside this assembly can use. These say where *these* modules put their attributes; an
+            assembly that cannot load them has no use for the numbers.
+        -->
+        <CompilerVisibleProperty Include="VixenShaderBindingsInternal" />
     </ItemGroup>
 
     <ItemGroup>

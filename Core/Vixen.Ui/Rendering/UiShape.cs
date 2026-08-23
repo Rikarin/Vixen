@@ -31,11 +31,11 @@ namespace Vixen.Ui.Rendering;
 ///         <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c>, the committed <c>UiBox.frag.spv</c> and
 ///         <c>UiBox.reflect.json</c> beside it, and <c>SoftwareUiRasterizer</c>. The four that do not:
 ///         <c>UiRenderer</c>, which needs only the <i>size</i> and once spelled it <c>80</c> in three
-///         places; and two hand-maintained GLSL copies of the box shader — under
-///         <c>Vixen.Graphics.Golden.Tests</c> and <c>Platform/Vixen.Ui.Desktop</c> — each of which
-///         calls the struct <c>Shape</c>. There were three until the sample and the
-///         <c>vixen-app</c> template stopped carrying their own frame loops and took the host's
-///         embedded modules instead.
+///         places; and one hand-maintained GLSL copy of the box shader, under
+///         <c>Vixen.Graphics.Golden.Tests</c>, which calls the struct <c>Shape</c>. There were three
+///         until the sample and the <c>vixen-app</c> template stopped carrying their own frame loops,
+///         and two until <c>Platform/Vixen.Ui.Desktop</c>'s became Raven's — where it is the
+///         <c>UiShape</c> in <c>Shaders/Ui.rvn</c>, named and checked rather than transcribed.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Which test covers which half is worth knowing before changing this.</b>

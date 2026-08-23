@@ -1,0 +1,886 @@
+package Vixen.Ui.Desktop.Shaders
+
+// The interface pipelines: one vertex stage and seven fragment stages over one vertex layout. Two
+// layouts would mean two buffers and two uploads to save sixteen bytes on a vertex count in the
+// thousands; an interface is not a mesh.
+//
+// Eight shaders rather than seven pairs, and that is the shape the host already has: `UiRenderer`
+// takes one vertex module and a fragment module per pipeline. A Raven shader carrying both stages
+// would emit the vertex module seven times over, and seven copies of one stage is seven chances for
+// six of them to be wrong.
+//
+// ⚠ **The stream declarations are the contract between all eight, and their order is the whole of
+// it.** A stream's location is its index in the shader's declaration list, so `UiVertex` writing
+// `uv, colour, shape` and `UiBox` reading `uv, colour, shape` agree without either naming a number —
+// exactly as the GLSL these replace agreed by both spelling `layout(location = 2)`. Adding a stream
+// to one and not the others is the way to break it, and what it produces is a fragment stage reading
+// the vertex stage's next value along.
+//
+// A stream nothing here reads is still declared for that reason: it costs no interface variable —
+// only a stage's *reads* are emitted — and it keeps the ones after it where they are.
+
+/// The per-box record the rounded-rectangle shader reads, matching the host's `UiShape`.
+///
+/// ⚠ One record per box rather than twenty-odd more floats on every vertex. Four elliptical corners
+/// and a three-stop gradient would take the vertex from forty-eight bytes to well past a hundred, and
+/// every glyph in the frame would carry fields no shader reads on them.
+///
+/// ⚠ **The last two lanes are appended and the two repurposed ones were both zero, which makes drift
+/// here silent.** `size.w` was a zero-or-one gradient flag and is now the shape, whose 1 is `Linear`;
+/// `axis.w` was declared padding and is now the interpolation space, whose 0 is the linear-RGB lerp
+/// this shader used to do unconditionally. So a *stale* module reading a current record still draws
+/// two-stop linear gradients perfectly and quietly ignores everything from offset eighty on — it does
+/// not produce garbage anyone would notice. `UiShapeLayoutTests` on the host reads the committed
+/// `UiBox.reflect.json` and compares it field by field with `Vixen.Ui.Rendering.UiShape`, which is the
+/// only thing standing between a layout change and a picture that merely looks plausible.
+///
+/// ⚠ **And this is one of the files that have to agree about it.** `UiRenderer` needs only the size;
+/// `Vixen.Graphics.Golden.Tests` keeps a hand-maintained GLSL copy of this shader that calls the
+/// struct `Shape`, because the reference images were rendered with it. `Vixen.Ui.Rendering.UiShape`'s
+/// own remark carries the census.
+struct UiShape {
+    /// Half width, half height, border thickness, and the gradient shape: 0 none, 1 linear,
+    /// 2 radial, 3 conic.
+    var size: float4
+
+    /// Corner radii clockwise from the top left.
+    var radiiX: float4
+
+    var radiiY: float4
+
+    /// The gradient's direction in the box's own space, a shadow's blur radius, then the
+    /// interpolation space: 0 linear RGB, 1 sRGB, 2 Oklab.
+    var axis: float4
+
+    /// The colour at the last stop.
+    var endColour: float4
+
+    /// The colour at the middle stop, read only when `stops.w` is set.
+    var midColour: float4
+
+    /// Where the three stops sit, then whether the middle one exists.
+    var stops: float4
+}
+
+/// What the four fragment stages share.
+struct Ui {
+    /// The screen-space width of one unit of a value, for antialiasing an analytic shape.
+    ///
+    /// `fwidth`, which neither of Raven's targets spells that way. Taking the width from the geometry
+    /// rather than from a constant is what makes one shader right under any projection and any scale.
+    static func PixelWidth(value: float): float => abs(ddx(value)) + abs(ddy(value))
+
+    /// Coverage across a one-pixel band, from the derivative of the distance itself.
+    static func Coverage(distance: float, width: float): float => saturate(0.5f - distance / width)
+
+    /// Premultiplies a straight-alpha colour, which is what the UI blend state expects.
+    ///
+    /// Straight alpha here would show as a dark halo around every antialiased edge. Having one
+    /// function means a shader either calls it or visibly does not.
+    static func Premultiply(colour: float4): float4 => float4(colour.rgb * colour.a, colour.a)
+}
+
+/// The one vertex stage all four interface pipelines share.
+shader UiVertex {
+    // A push constant rather than a uniform block: it is four floats that change once a frame, and a
+    // descriptor set for that would be a set to allocate, bind and invalidate everything above.
+    [PushConstant] var scale: float2 = float2(1f, 1f)
+    [PushConstant] var offset: float2 = float2(0f, 0f)
+
+    /// Atlas UV for text, offset from the centre for a box.
+    stream var uv: float2
+
+    /// Linear.
+    stream var colour: float4
+
+    /// A shape index, a pixel range, or a coverage.
+    stream var shape: float4
+
+    /// `position` is in document pixels.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float2, texcoord: float2, vertexColour: float4, vertexShape: float4): float4 {
+        uv = texcoord
+        colour = vertexColour
+        shape = vertexShape
+
+        return float4(position * scale + offset, 0f, 1f)
+    }
+}
+
+/// A rounded rectangle, its border and its shadow, as a signed distance evaluated per pixel.
+///
+/// One quad draws any size at any radius with an exact edge; tessellating the corner costs vertices
+/// in proportion to the radius and is still faceted.
+shader UiBox {
+    // ⚠ Declared and never read, and that is deliberate: the interface's four pipelines share one
+    // descriptor set layout — see `UiRenderer`'s own remarks for why — and a binding's index is its
+    // position among the shader's declarations. Without these two the shape buffer would be binding
+    // 0, which is the atlas, and the box would read a texture as a storage buffer.
+    [PerFrame] var atlas: Texture2D
+    [PerFrame] var atlasSampler: Sampler
+
+    [PerFrame] var shapes: Buffer<UiShape>
+
+    /// Offset from the box's centre, in pixels.
+    stream var uv: float2
+
+    stream var colour: float4
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // ⚠ The index the vertex stage put in `shape.x`, rounded rather than truncated. The same at
+        // all four corners of a quad, so interpolating it is exact — until an index large enough
+        // that a float stops holding it exactly, past sixteen million boxes, where the last bit is a
+        // box drawn with another box's radii.
+        val box = shapes[int(shape.x + 0.5f)]
+
+        val halfSize = box.size.xy
+        val distance = BoxDistance(uv, halfSize, CornerRadius(box, uv))
+        val width = max(Ui.PixelWidth(distance), 0.0001f)
+        val blur = box.axis.z
+
+        // A blurred box is a shadow, and its edge is the blur rather than a pixel. Branching here
+        // rather than in a second shader because everything above this line — the corner selection,
+        // the elliptical distance — is the same work, and a shadow that disagreed with its own box
+        // about where the boundary is would sit visibly off it.
+        var coverage = blur > 0f ? ShadowCoverage(distance, blur) : Ui.Coverage(distance, width)
+
+        val thickness = box.size.z
+
+        if (thickness > 0f) {
+            // The border is the band between the edge and `thickness` inside it. Taken as the
+            // difference of two coverages rather than drawn as a second shape, so the two share one
+            // antialiased outer edge and cannot disagree about where it is.
+            coverage -= Ui.Coverage(distance + thickness, width)
+        }
+
+        var fill = colour
+
+        if (box.size.w > 0f) {
+            fill = GradientColour(box, colour, Parameter(box, uv, halfSize))
+        }
+
+        return Ui.Premultiply(float4(fill.rgb, fill.a * coverage))
+    }
+
+    /// Where this pixel sits along the gradient's ramp, before the stop positions are applied.
+    ///
+    /// ⚠ **All three shapes take the same `uv` — the offset from the box's centre in pixels — and none
+    /// of them needs a centre or a radius in the record.** That is what made the whole of A11 fit in
+    /// two more `float4`s: CSS's defaults for `radial-gradient()` and `conic-gradient()` are both
+    /// *at center*, and both of their extents are functions of the box the shader already has. A
+    /// stored centre would have been three more lanes and a third `float4`.
+    func Parameter(box: UiShape, point: float2, halfSize: float2): float {
+        val kind = int(box.size.w + 0.5f)
+
+        if (kind == 2) {
+            // Radial. CSS's default is `ellipse farthest-corner at center`: an ellipse with the
+            // *box's* aspect, scaled to pass through the corner rather than the edge. Dividing by the
+            // half size gives the farthest-side ellipse, on which the corner sits at root two — so
+            // the reciprocal of root two is the whole of `farthest-corner`. Getting that scale wrong
+            // is not obvious: the picture stays round and the ramp simply finishes in the wrong place.
+            val normalised = point / max(halfSize, float2(0.0001f, 0.0001f))
+            return length(normalised) * 0.7071067811865476f
+        }
+
+        if (kind == 3) {
+            // Conic. CSS starts at twelve o'clock and sweeps *clockwise*, and screen space is y-down,
+            // so up is -y and `atan2(x, -y)` is already CSS's angle.
+            //
+            // ⚠ The usual `atan2(y, x)` is wrong here in a way that is easy to over- and then
+            // under-estimate. It does sweep clockwise — y-down flips the sense, so the instinct that
+            // it runs backwards is itself wrong — but its zero sits at three o'clock rather than
+            // twelve. So it is a quarter turn out and nothing else, which is exactly the size of
+            // error that survives review: the picture is unmistakably a conic gradient, just rotated.
+            // `Raven/Library/Ui/Gradient.rvn` has that version, biased by a further half turn.
+            //
+            // Subtracting the axis's own angle is `from <angle>`: the host writes the axis as
+            // (sin θ, -cos θ), whose angle in this same convention is exactly θ.
+            val angle = atan2(point.x, -point.y) - atan2(box.axis.x, -box.axis.y)
+
+            // The difference of two `atan2` lies in (-2π, 2π), so one turn of bias is what makes the
+            // wrap land in [0, 1) rather than leaving half the disc negative and clamped to the first
+            // stop — which would paint one whole side of the box flat.
+            return frac(angle * 0.15915494309189535f + 1f)
+        }
+
+        // ⚠ The gradient runs across the box's own extent along the axis, so the same axis means the
+        // same picture whatever the box's size — which is what lets one style be shared by a column
+        // of buttons of different heights. Normalised by the projection of the half size onto the
+        // axis, because that is how far the axis reaches before it leaves the box.
+        val axis = normalize(box.axis.xy)
+        val reach = abs(axis.x * halfSize.x) + abs(axis.y * halfSize.y)
+
+        return dot(point, axis) / max(reach, 0.0001f) * 0.5f + 0.5f
+    }
+
+    /// The colour at `t`, through the stop positions and in the interpolation space that was asked for.
+    func GradientColour(box: UiShape, near: float4, t: float): float4 {
+        if (box.stops.w > 0f) {
+            // ⚠ Which side of the middle stop, not which side of one half. With `via-40%` the two
+            // halves of the ramp are different lengths, and splitting at 0.5 would draw the middle
+            // colour in the right place with the wrong slope either side of it.
+            if (t < box.stops.y) {
+                return MixStops(box, near, box.midColour, Span(t, box.stops.x, box.stops.y))
+            }
+
+            return MixStops(box, box.midColour, box.endColour, Span(t, box.stops.y, box.stops.z))
+        }
+
+        return MixStops(box, near, box.endColour, Span(t, box.stops.x, box.stops.z))
+    }
+
+    /// Where `t` sits between two stops, flat outside them.
+    ///
+    /// ⚠ A zero-width span is a hard edge rather than a division by zero. `from-50% to-50%` is a legal
+    /// declaration and what it means is a step, so the degenerate case has an answer and does not need
+    /// guarding away with an epsilon that would turn the step into a one-pixel ramp.
+    func Span(t: float, from: float, to: float): float {
+        val width = to - from
+        return width > 0.0001f ? saturate((t - from) / width) : (t < from ? 0f : 1f)
+    }
+
+    /// Mixes two stops in whichever space the record names.
+    func MixStops(box: UiShape, a: float4, b: float4, u: float): float4 {
+        val space = int(box.axis.w + 0.5f)
+
+        if (space == 2) {
+            return float4(OklabMix(a.rgb, b.rgb, u), lerp(a.a, b.a, u))
+        }
+
+        if (space == 1) {
+            // sRGB — CSS's default when a gradient carries no `in <space>` hint, and a *different
+            // picture* from the linear mix below rather than a rounding of it. The midpoint of
+            // black→white lands at 0.5 encoded, which is 0.21 linear: visibly darker than the 0.5
+            // linear a componentwise lerp gives, and it is what a browser draws.
+            return float4(SrgbToLinear(lerp(LinearToSrgb(a.rgb), LinearToSrgb(b.rgb), u)), lerp(a.a, b.a, u))
+        }
+
+        return lerp(a, b, u)
+    }
+
+    /// Interpolates perceptually, which is what `in oklab` and every Tailwind v4 gradient ask for.
+    func OklabMix(a: float3, b: float3, t: float): float3 {
+        return OklabToLinear(lerp(LinearToOklab(a), LinearToOklab(b), t))
+    }
+
+    /// Björn Ottosson's forward transform, matching the host's `Vixen.Core.Mathematics.Oklab`.
+    func LinearToOklab(c: float3): float3 {
+        val l = 0.4122214708f * c.r + 0.5363325363f * c.g + 0.0514459929f * c.b
+        val m = 0.2119034982f * c.r + 0.6806995451f * c.g + 0.1073969566f * c.b
+        val s = 0.0883024619f * c.r + 0.2817188376f * c.g + 0.6299787005f * c.b
+
+        val lc = Cbrt(l)
+        val mc = Cbrt(m)
+        val sc = Cbrt(s)
+
+        return float3(
+            0.2104542553f * lc + 0.7936177850f * mc - 0.0040720468f * sc,
+            1.9779984951f * lc - 2.4285922050f * mc + 0.4505937099f * sc,
+            0.0259040371f * lc + 0.7827717662f * mc - 0.8086757660f * sc
+        )
+    }
+
+    /// And back.
+    func OklabToLinear(c: float3): float3 {
+        val lc = c.x + 0.3963377774f * c.y + 0.2158037573f * c.z
+        val mc = c.x - 0.1055613458f * c.y - 0.0638541728f * c.z
+        val sc = c.x - 0.0894841775f * c.y - 1.2914855480f * c.z
+
+        val l = lc * lc * lc
+        val m = mc * mc * mc
+        val s = sc * sc * sc
+
+        return float3(
+            4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s,
+            -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s,
+            -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s
+        )
+    }
+
+    /// A **signed** cube root.
+    ///
+    /// ⚠ `pow` is NaN for a negative base, and a linear component here genuinely can be negative: the
+    /// palette ships in `oklch` and a swatch outside the sRGB gamut reaches the draw list with a
+    /// component below zero — which is the whole point of carrying colour in linear rather than
+    /// clamping at parse time. Without the sign the midpoint of such a gradient is a NaN pixel, and a
+    /// NaN blended into the target is a hole that reads as a compositing bug. `MathF.Cbrt` on the host
+    /// does the same thing, which is why `Oklab.FromLinear` says so too.
+    func Cbrt(x: float): float => sign(x) * pow(abs(x), 0.3333333333333333f)
+
+    /// The sRGB transfer function, matching the host's `ColorSpace.LinearToSrgb`.
+    func LinearToSrgb(c: float3): float3 => float3(
+        LinearToSrgb1(c.r),
+        LinearToSrgb1(c.g),
+        LinearToSrgb1(c.b)
+    )
+
+    func LinearToSrgb1(value: float): float {
+        return value <= 0.0031308f ? value * 12.92f : 1.055f * pow(max(value, 0f), 1f / 2.4f) - 0.055f
+    }
+
+    /// And back, matching `ColorSpace.SrgbToLinear`.
+    func SrgbToLinear(c: float3): float3 => float3(
+        SrgbToLinear1(c.r),
+        SrgbToLinear1(c.g),
+        SrgbToLinear1(c.b)
+    )
+
+    func SrgbToLinear1(value: float): float {
+        return value <= 0.04045f ? value / 12.92f : pow(max(value + 0.055f, 0f) / 1.055f, 2.4f)
+    }
+
+    /// A shadow's coverage: the same distance, faded over the blur radius instead of over a pixel.
+    ///
+    /// ⚠ `smoothstep` rather than a linear ramp, and it matters. A linear falloff has a corner in it
+    /// at both ends, and a corner in the alpha of a large soft shadow is visible as a ring — the eye
+    /// finds the second derivative of a gradient far more readily than the first. The cubic is not a
+    /// Gaussian either, but it is C1 at both ends, which is the property that makes it look like
+    /// light.
+    func ShadowCoverage(distance: float, blur: float): float => 1f - smoothstep(-blur, blur, distance)
+
+    /// The radius of the corner this pixel is nearest, from the four authored pairs.
+    func CornerRadius(box: UiShape, point: float2): float2 {
+        val top = point.y < 0f
+        val left = point.x < 0f
+
+        // Clockwise from the top left: TL, TR, BR, BL.
+        val index = top ? (left ? 0 : 1) : (left ? 3 : 2)
+        return float2(box.radiiX[index], box.radiiY[index])
+    }
+
+    /// The signed distance to a box with an elliptical corner, negative inside.
+    ///
+    /// `q` is the offset from the corner ellipse's *centre*, which sits a radius in from each edge —
+    /// so `q <= 0` on an axis means this pixel is in the band where the boundary is that straight
+    /// edge, and only the quadrant where both are positive is the ellipse at all. Getting that wrong
+    /// is not a rounding error: measuring from the ellipse's centre where the edge is straight
+    /// reports every pixel down the flat part of the side as being a radius further out than it is,
+    /// and the box comes back with its whole left edge eaten away.
+    ///
+    /// ⚠ In the corner quadrant the ellipse is turned into a circle by scaling, and the distance
+    /// scaled back by the *smaller* semi-axis. The exact distance to an ellipse has no closed form
+    /// and is solved iteratively; this is exact on the axes and within a fraction of a pixel between
+    /// them, which is all a one-pixel antialiasing band can tell apart. Scaling back by the larger
+    /// axis instead leaves the edge soft on the flat side of a wide corner.
+    func BoxDistance(point: float2, halfSize: float2, radius: float2): float {
+        val r = min(max(radius, float2(0f)), halfSize)
+        val q = abs(point) - halfSize + r
+
+        if (r.x <= 0f || r.y <= 0f) {
+            val square = abs(point) - halfSize
+            return length(max(square, float2(0f))) + min(max(square.x, square.y), 0f)
+        }
+
+        if (q.x <= 0f && q.y <= 0f) {
+            // Inside the inner rectangle, where the nearest boundary is whichever straight edge is
+            // closer.
+            return max(q.x - r.x, q.y - r.y)
+        }
+
+        if (q.x <= 0f) {
+            return q.y - r.y
+        }
+
+        if (q.y <= 0f) {
+            return q.x - r.x
+        }
+
+        return (length(q / r) - 1f) * min(r.x, r.y)
+    }
+}
+
+/// Multi-channel signed distance field text.
+///
+/// A single-channel field rounds off corners, because one distance cannot describe two edges meeting
+/// at a point — which is what a serif is made of. Three fields whose median reconstructs the true
+/// shape keep the corner. The median is the whole trick, and it is why the three channels must never
+/// be treated as a colour.
+shader UiText {
+    [PerFrame] var atlas: Texture2D
+    [PerFrame] var atlasSampler: Sampler
+
+    stream var uv: float2
+    stream var colour: float4
+
+    /// x: screen pixels per unit of the field's range.
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // The atlas is sampled linearly and never as sRGB: the values are distances, not light.
+        // Decoding them as colour is the classic mistake and shows as text that is too thin.
+        val field = atlas.Sample(atlasSampler, uv).rgb
+        val distance = Median(field.r, field.g, field.b) - 0.5f
+
+        // One atlas serves every size because the range arrives already scaled by the size being
+        // drawn.
+        val coverage = saturate(distance * max(shape.x, 0.0001f) + 0.5f)
+
+        return Ui.Premultiply(float4(colour.rgb, colour.a * coverage))
+    }
+
+    /// Branchless via min and max: three comparisons and no divergence, where a sort costs more for
+    /// the same answer.
+    func Median(a: float, b: float, c: float): float => max(min(a, b), min(max(a, b), c))
+}
+
+/// Tessellated paths: the one UI primitive that is real geometry rather than a distance field.
+///
+/// A triangle carries no signed distance to its own boundary, so its edge cannot be resolved here the
+/// way a box's or a glyph's is. What it carries instead is a coverage the tessellator interpolated —
+/// one across the interior, running to zero over a half-pixel strip along the outline. That is the
+/// whole of the antialiasing, and it is why this shader reads `shape.x` for the same reason the text
+/// one does.
+shader UiSolid {
+    stream var uv: float2
+    stream var colour: float4
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 => Ui.Premultiply(float4(colour.rgb, colour.a * saturate(shape.x)))
+}
+
+/// A texture drawn into the interface: an image, a video frame, a viewport's render target.
+///
+/// The same two bindings the text shader has, and deliberately so — one descriptor set layout serves
+/// both, so an image costs a set to allocate and nothing to design. What differs is what the sample
+/// *means*: text reads three distance channels and reconstructs a coverage from them, and this reads
+/// a colour and believes it.
+shader UiImage {
+    [PerFrame] var source: Texture2D
+    [PerFrame] var sourceSampler: Sampler
+
+    stream var uv: float2
+
+    /// The tint, linear and straight-alpha.
+    stream var colour: float4
+
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val sampled = source.Sample(sourceSampler, uv)
+
+        // ⚠ The target is premultiplied — that is what the other three pipelines write and what the
+        // blend state expects — and the *source* is premultiplied on exactly one of the two paths
+        // through here. A texture a host uploaded holds straight alpha, so its colour has to be
+        // multiplied by its own coverage on the way out; a composited group's surface was written by
+        // these same pipelines and already has been. Doing it twice darkens every partly covered
+        // texel, which reads as a dark fringe around everything inside the group.
+        val alpha = sampled.a * colour.a
+
+        // ⚠ `shape.x` is what says which, and zero is the straight-alpha case every image quad
+        // already carries — see `UiGeometryBuilder.Layer`, which is the only thing that emits a one.
+        // The out alpha is the same either way: premultiplied is `sampled.a * colour.a` too, because
+        // `sampled.a` *is* the coverage in both encodings. Only the colour's factor differs, so this
+        // is one interpolation rather than two branches.
+        val scale = lerp(alpha, colour.a, shape.x)
+
+        return float4(sampled.rgb * colour.rgb * scale, alpha)
+    }
+}
+
+/// One entry of a `mask-image` list, sixty-four bytes.
+///
+/// ⚠ **A storage buffer and not more push constants, and that is a ceiling rather than a
+/// preference.** `UiMask` already pushes a colour matrix at forty-eight bytes and the vertex stage
+/// pushes sixteen, and 16 + 112 is exactly the 128 the Vulkan specification guarantees on every
+/// device — so a *second* mask would not fit, never mind eight. What rides the push constants is the
+/// index and the count; the entries come through the binding `UiShape` already uses.
+struct MaskEntry {
+    /// The mask box in document pixels: `xy` its centre, `zw` half its size.
+    ///
+    /// ⚠ The element's border box and not the layer's bounds, which a blur has already outset — see
+    /// the host's `UiMask`.
+    var box: float4
+
+    /// `xy` the gradient's direction, `z` the shape, `w` non-zero when the middle stop is read.
+    ///
+    /// ⚠ The shape is `GradientShape`'s own numbering — 1 linear, 2 radial, 3 conic — and *not* a
+    /// zero-based one of this shader's. The enum's zero is `None`, which never reaches here. Writing
+    /// the obvious 0/1/2 instead cost an afternoon: a linear mask arrives as 1, took the radial
+    /// branch, and drew a plausible round fade that only `UiCompositingTests` could tell was wrong.
+    var ramp: float4
+
+    /// `xyz` the three stops' coverages, `w` where the first stop sits.
+    var alphas: float4
+
+    /// `xy` where the middle and last stops sit. `z` the `mask-composite` operator this entry meets
+    /// the entries below it with.
+    ///
+    /// ⚠ That operator is `MaskComposite`'s numbering and its zero is `add`, which is CSS's initial
+    /// value rather than merely the first name in the enum — so an entry nobody set an operator on
+    /// unions.
+    var stops: float4
+}
+
+/// What the three compositing stages share: the colour matrix, and where their push constants sit.
+///
+/// ⚠ **The sixteen bytes of `reserved` in each of them are the vertex stage's projection, and they
+/// are not optional.** Raven emits a shader's whole push-constant block from offset zero and does not
+/// sub-range it per stage — see `ReflectionBuilder.BuildPushConstants` — while a Vulkan push-constant
+/// block is *shared* by every stage of a pipeline, and `UiRenderer` writes the fragment half at
+/// offset 16 for every one of these three. So a stage that declared its kernel or its matrix first
+/// would read the projection as its own data: a blur whose sigma is `-1` and whose reach is `1`, and
+/// a filter whose red row is the viewport scale. Neither is a validation error and neither is blank —
+/// the GLSL these replace said `layout(offset = 16)` and this is the only way to say it here.
+struct UiComposite {
+    /// The colour matrix on premultiplied colour, with the offset scaled by alpha, clamped to
+    /// `[0, a]`.
+    ///
+    /// ⚠ A colour matrix is defined on un-premultiplied colour — `c' = M·(c/a) + o` — and multiplying
+    /// the result back by `a` gives `M·c + o·a`, which needs no division and no guard for `a == 0`.
+    /// Dividing the alpha out to transform "the colour" and multiplying it back is the mistake
+    /// `UiBlur` refuses for the same reason: the colour under a zero alpha is not a colour, and an
+    /// `invert(1)` would turn every transparent texel of a viewport-sized surface opaque white.
+    ///
+    /// ⚠ Clamped to `[0, a]` and not to `[0, 1]`. Premultiplied colour is valid only up to its own
+    /// alpha, and clamping there is exactly clamping the un-premultiplied colour to `[0, 1]`, which
+    /// is what CSS specifies. It is also what makes `brightness(2)` the same picture as the software
+    /// renderer's — `UiColorMatrix.Apply` does this, once, in the same place.
+    static func Filter(sampled: float4, red: float4, green: float4, blue: float4): float3 {
+        val filtered = float3(
+            dot(red.rgb, sampled.rgb) + red.w * sampled.a,
+            dot(green.rgb, sampled.rgb) + green.w * sampled.a,
+            dot(blue.rgb, sampled.rgb) + blue.w * sampled.a
+        )
+
+        return clamp(filtered, float3(0f), float3(sampled.a))
+    }
+}
+
+/// One axis of the separable Gaussian a composited group's `filter: blur()` is made of.
+///
+/// Run twice over a finished layer surface — once across, once down — with a scratch target between,
+/// because a convolution cannot read and write one attachment. What it consumes and produces is
+/// premultiplied colour, which is what every other UI pipeline writes, so there is no un-premultiply
+/// here and there must not be one: a weighted sum of premultiplied samples *is* the premultiplied
+/// weighted sum. Dividing the alpha out to blur "the colour" and multiplying it back gives a halo of
+/// the wrong hue wherever the group's edge meets transparent black, because the colour under a zero
+/// alpha is not a colour.
+///
+/// ⚠ The quad is the group's own composite quad, drawn with this pipeline instead of the image one —
+/// so the vertex stage, the bindings and the projection are all the ones already there, and the only
+/// thing this pass needs that the geometry does not carry is the kernel.
+shader UiBlur {
+    [PerFrame] var source: Texture2D
+    [PerFrame] var sourceSampler: Sampler
+
+    /// The vertex stage's projection. See `UiComposite`.
+    [PushConstant] var reserved: float4 = float4(0f, 0f, 0f, 0f)
+
+    /// `xy` one texel along the axis being swept, in UVs, and zero on the other axis. `z` the
+    /// standard deviation in texels of this surface. `w` how many taps each side of the centre —
+    /// `UiLayer.KernelRadius`, and the same number the software rasterizer takes from the same
+    /// method.
+    [PushConstant] var kernel: float4 = float4(0f, 0f, 1f, 0f)
+
+    stream var uv: float2
+    stream var colour: float4
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val step = kernel.xy
+        val sigma = kernel.z
+        val reach = int(kernel.w)
+
+        val denominator = 2f * sigma * sigma
+
+        // ⚠ Summed over the *whole* kernel, including the taps that will fall outside the surface,
+        // and that asymmetry is the point. Normalising by the taps that landed inside is what a
+        // clamp-to-edge sampler amounts to — it lets the edge row stand in for everything past it —
+        // and near a group that runs to the viewport edge that lifts the result towards the edge's
+        // own colour instead of letting it fade. Dividing by the full sum makes a tap outside
+        // contribute the transparent black that is actually there. It still absorbs the truncation
+        // at `UiLayer.MaximumKernel`, because that tail is inside the surface and simply never
+        // summed.
+        var total = 1f
+
+        for (i in 1 .. reach) {
+            total += 2f * exp(-float(i * i) / denominator)
+        }
+
+        var sum = float4(0f, 0f, 0f, 0f)
+
+        for (i in -reach .. reach) {
+            val at = uv + step * float(i)
+
+            // ⚠ Tested rather than left to the sampler. The sampler is the atlas's — linear and
+            // clamped, shared by every pipeline through one descriptor set layout — so an
+            // out-of-range read would return the edge texel rather than nothing, and this shader
+            // does not get to choose a border colour without a sampler of its own in a set of its
+            // own.
+            if (at.x >= 0f && at.x <= 1f && at.y >= 0f && at.y <= 1f) {
+                val weight = exp(-float(i * i) / denominator) / total
+                sum += source.Sample(sourceSampler, at) * weight
+            }
+        }
+
+        // ⚠ No tint. The composite quad's vertex colour carries the group's opacity, which is applied
+        // once, later, by `UiImage` when the blurred surface is composited into the frame. Applying
+        // it here as well would fade the group by the square of its alpha.
+        return sum
+    }
+}
+
+/// A composited group's surface, put through the colour matrix its `filter` asks for on the way into
+/// the frame.
+///
+/// This is `UiImage` with nine multiplies and three adds in front of it, and it exists as a second
+/// module rather than a branch in that one because of what the alternative would have cost: `UiImage`
+/// draws every viewport, thumbnail and video frame in the interface, so putting a push-constant block
+/// on it would make every one of those pay for a range to be written and would put an unfiltered
+/// group's identity matrix on the wire once per frame per group. A group with a filter is rare; a
+/// pipeline switch for the one draw that has one is not worth avoiding.
+///
+/// ⚠ What it deliberately does *not* have is a pass of its own. A colour matrix is per pixel — no
+/// neighbourhood, so nothing to read out of a second surface — which means it can ride the composite
+/// draw the group was going to make anyway. `UiBlur` gets a scratch target and two passes because a
+/// convolution genuinely cannot read and write one attachment; this would be spending that price for
+/// nothing. See `UiRenderer.Compose`.
+shader UiColour {
+    [PerFrame] var source: Texture2D
+    [PerFrame] var sourceSampler: Sampler
+
+    /// The vertex stage's projection. See `UiComposite`.
+    [PushConstant] var reserved: float4 = float4(0f, 0f, 0f, 0f)
+
+    /// Three rows of a 4x5 colour matrix, each `xyz` the coefficients and `w` the offset. The alpha
+    /// row is `0 0 0 1 0` for all seven functions this represents and the alpha column is zero for
+    /// all seven, so neither is sent. See the host's `UiColorMatrix`.
+    [PushConstant] var red: float4 = float4(1f, 0f, 0f, 0f)
+
+    [PushConstant] var green: float4 = float4(0f, 1f, 0f, 0f)
+
+    [PushConstant] var blue: float4 = float4(0f, 0f, 1f, 0f)
+
+    stream var uv: float2
+    stream var colour: float4
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // ⚠ Premultiplied, always, with no `shape.x` branch — and that is the difference between this
+        // and `UiImage`, which needs one. This pipeline is bound for a composite quad and nothing
+        // else: `UiGeometryBuilder.Layer` is the only thing that emits a surface-backed image draw,
+        // and `UiRenderer.SubmitDraw` reaches this pipeline only for a draw whose layer carries a
+        // filter. A straight-alpha texture can never arrive here, so the flag would be a branch on a
+        // constant.
+        val sampled = source.Sample(sourceSampler, uv)
+        val filtered = UiComposite.Filter(sampled, red, green, blue)
+
+        // The rest is `UiImage`'s premultiplied path verbatim: the group's opacity is the composite
+        // quad's vertex alpha and is applied here, once.
+        val alpha = sampled.a * colour.a
+
+        return float4(filtered * colour.rgb * colour.a, alpha)
+    }
+}
+
+/// A composited group's surface, put through its `filter` colour matrix and then through the coverage
+/// its `mask-image` list asks for, on the way into the frame.
+///
+/// This is `UiColour` with a ramp after it, and it exists as a third module rather than a branch in
+/// that one for the reason that one exists rather than a branch in `UiImage`: a group with a mask is
+/// rare, and a pipeline switch for the one draw that has one is cheaper than a push-constant range
+/// every viewport, thumbnail and video frame in the interface would have to write.
+///
+/// ⚠ It carries the colour matrix as well as the mask, and that is not duplication — it is the only
+/// arrangement that works. A pipeline is chosen once per draw, so a group that has both a `filter`
+/// and a `mask-image` has to be served by one module that does both; two modules would silently drop
+/// whichever one lost the coin toss. `UiRenderer.SubmitDraw` pushes the identity matrix here when the
+/// group has no filter, which costs forty-eight bytes on a draw that was already paying for a switch.
+///
+/// ⚠ **And unlike the colour matrix, where this is applied is not free to differ between the two
+/// executors.** A colour matrix is the same affine map at every pixel, so it commutes with the
+/// Gaussian and with the bilinear sampler, and `SoftwareUiRasterizer` is allowed to fold it into the
+/// finished surface instead. A mask is a scalar that varies with position and commutes with neither:
+/// `m(p)·Σ wᵢsᵢ` is not `Σ wᵢ·m(pᵢ)·sᵢ` wherever the ramp is not flat across the kernel, which is
+/// precisely over a blurred edge. So the seam is fixed on both paths — the composite draw, after the
+/// blur and after the matrix — and `SoftwareUiRasterizer.Composite` says so in the same words.
+shader UiMask {
+    [PerFrame] var source: Texture2D
+    [PerFrame] var sourceSampler: Sampler
+
+    /// ⚠ In the same set and at the same binding `UiBox` reads its shapes from, which is what lets
+    /// one pipeline layout serve every UI pipeline — see `UiRenderer`'s constructor. A composite draw
+    /// binds an *image* descriptor set, whose binding 2 points at the mask buffer rather than at the
+    /// box one, so the index below is absolute within that buffer and already carries the frame's own
+    /// offset.
+    [PerFrame] var masks: Buffer<MaskEntry>
+
+    /// The vertex stage's projection. See `UiComposite`.
+    [PushConstant] var reserved: float4 = float4(0f, 0f, 0f, 0f)
+
+    /// Three rows of a 4x5 colour matrix, as `UiColour` documents them. The identity when the group
+    /// has no `filter`.
+    [PushConstant] var red: float4 = float4(1f, 0f, 0f, 0f)
+
+    [PushConstant] var green: float4 = float4(0f, 1f, 0f, 0f)
+
+    [PushConstant] var blue: float4 = float4(0f, 0f, 1f, 0f)
+
+    /// `x` the first entry's index in `masks`, `y` how many entries. `zw` unused.
+    ///
+    /// ⚠ Floats holding integers, because the whole fragment range is `float4`s and a mixed block
+    /// would have to be laid out by hand on both sides of the wire. Rounded rather than truncated on
+    /// the way back, which is the same `+ 0.5` the shape is read with.
+    [PushConstant] var list: float4 = float4(0f, 0f, 0f, 0f)
+
+    stream var uv: float2
+    stream var colour: float4
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // ⚠ Premultiplied, always, with no `shape.x` branch — `UiColour`'s remark applies here word
+        // for word. This pipeline is bound for a composite quad and nothing else, so a straight-alpha
+        // texture can never arrive and the flag would be a branch on a constant.
+        val sampled = source.Sample(sourceSampler, uv)
+        val filtered = UiComposite.Filter(sampled, red, green, blue)
+
+        // ⚠ **The point comes from the texture coordinate times the surface size, which *is* the
+        // document pixel.** Every layer surface is the size of the viewport — see `UiLayer` — so this
+        // product needs no origin subtracted, which is exactly why `SoftwareUiRasterizer` can compute
+        // the identical number from the identical varying. Using the fragment's own coordinate
+        // instead would be right at a scale of one and wrong at every other, because the surface is
+        // in target texels and the mask box is in document pixels.
+        val size = source.GetDimensions(0)
+        val point = uv * float2(float(size.x), float(size.y))
+
+        val coverage = List(point, int(list.x + 0.5f), int(list.y + 0.5f))
+
+        // ⚠ **All four channels, because the sample is premultiplied.** Scaling coverage on
+        // premultiplied colour is `(rgb·m, a·m)` — the whole vector. The `(rgb, a·m)` an ordinary
+        // straight-alpha image would want is the premultiply mistake `UiImage`'s `shape.x` exists to
+        // prevent, wearing a new hat: leaving `rgb` alone brightens every masked texel towards full
+        // strength as the mask closes, which reads as a glow along the fading edge.
+        val alpha = sampled.a * colour.a * coverage
+
+        return float4(filtered * colour.rgb * colour.a * coverage, alpha)
+    }
+
+    /// The whole list's coverage at a point.
+    ///
+    /// ⚠ **Bottom-up, because `mask-composite` describes how a layer meets what is *under* it.** CSS
+    /// lists mask layers topmost-first, exactly as `background-image` does, and Masking 1 § 5.4 gives
+    /// each layer's operator the already-composed layers below it as its backdrop. So the walk starts
+    /// at the last entry and works forwards, and the operator read at each step is the *source's*.
+    ///
+    /// ⚠ The bottom entry is taken as itself rather than composited against a transparent-black
+    /// backdrop, which is a deliberate departure from one sentence of the specification: under the
+    /// literal reading `intersect` on the bottom layer is `s·0`, and every `mask-t-from-*` Tailwind
+    /// has ever emitted would blank its element. `UiMask.Coverage` on the host argues it at length and
+    /// makes the identical choice.
+    func List(point: float2, first: int, count: int): float {
+        if (count <= 0) {
+            return 1f
+        }
+
+        var result = Coverage(masks[first + count - 1], point)
+
+        for (index in 0 .. count - 2) {
+            // ⚠ Forwards over a reversed index, because Raven's ranges only ascend. The walk has to
+            // run bottom-up and the entries are stored top-down, so what descends is the subscript.
+            val at = count - 2 - index
+            val entry = masks[first + at]
+
+            result = Compose(int(entry.stops.z + 0.5f), Coverage(entry, point), result)
+        }
+
+        return saturate(result)
+    }
+
+    /// One entry's coverage at a point, in document pixels. The host's `UiMask.Coverage` is the
+    /// transcription.
+    func Coverage(entry: MaskEntry, point: float2): float {
+        val progress = Progress(point - entry.box.xy, entry.box.zw, entry.ramp.xy, int(entry.ramp.z + 0.5f))
+
+        if (entry.ramp.w > 0.5f) {
+            if (progress < entry.stops.x) {
+                return lerp(entry.alphas.x, entry.alphas.y, Span(progress, entry.alphas.w, entry.stops.x))
+            }
+
+            return lerp(entry.alphas.y, entry.alphas.z, Span(progress, entry.stops.x, entry.stops.y))
+        }
+
+        return lerp(entry.alphas.x, entry.alphas.z, Span(progress, entry.alphas.w, entry.stops.y))
+    }
+
+    /// How far along its gradient line a point is, from zero at the start to one at the end.
+    ///
+    /// ⚠ The parameterisation is `UiBox.Parameter`'s, to the constant, and the host's
+    /// `UiMask.Coverage` is the third copy. A `mask-image` and a `background-image` written with the
+    /// same gradient have to produce ramps that line up, and the only way to be sure of that is to
+    /// compute the same number the same way.
+    func Progress(offset: float2, halfSize: float2, axis: float2, kind: int): float {
+        if (kind == 2) {
+            // `ellipse farthest-corner at center`: the point over the half size puts the farthest
+            // *side* at one and the corner at root two, so the reciprocal of root two is the whole
+            // of it.
+            val normalised = offset / max(halfSize, float2(0.0001f, 0.0001f))
+            return length(normalised) * 0.7071067811865476f
+        }
+
+        if (kind == 3) {
+            // CSS starts at twelve o'clock and sweeps clockwise; screen space is y-down, so up is -y
+            // and `atan2(x, -y)` is already CSS's angle. The axis's own angle is the `from <angle>`.
+            val angle = atan2(offset.x, -offset.y) - atan2(axis.x, -axis.y)
+            return frac(angle * 0.15915494309189535f + 1f)
+        }
+
+        val direction = dot(axis, axis) > 1e-12f ? normalize(axis) : float2(1f, 0f)
+        val reach = abs(direction.x * halfSize.x) + abs(direction.y * halfSize.y)
+
+        return dot(offset, direction) / max(reach, 0.0001f) * 0.5f + 0.5f
+    }
+
+    /// Where `t` sits between two stops, flat outside them.
+    ///
+    /// A zero-width span is a hard edge rather than a division by zero: `from-50% to-50%` is a legal
+    /// declaration and a step is what it means.
+    func Span(t: float, from: float, to: float): float {
+        val width = to - from
+
+        if (width > 0.0001f) {
+            return saturate((t - from) / width)
+        }
+
+        return t < from ? 0f : 1f
+    }
+
+    /// Porter-Duff on the coverage alone, source over backdrop. The host's `UiMask.Compose` is the
+    /// transcription and the numbering is `MaskComposite`'s: 0 add, 1 subtract, 2 intersect,
+    /// 3 exclude.
+    ///
+    /// ⚠ Not clamped here. `List` clamps once at the end, because clamping every step would turn
+    /// `subtract` into a different operator on any input already outside `[0, 1]` — and the C# side
+    /// has to be free to make the same choice, or the two folds diverge on exactly the lists nobody
+    /// tests.
+    func Compose(operation: int, source: float, backdrop: float): float {
+        if (operation == 1) {
+            return source * (1f - backdrop)
+        }
+
+        if (operation == 2) {
+            return source * backdrop
+        }
+
+        if (operation == 3) {
+            return source * (1f - backdrop) + backdrop * (1f - source)
+        }
+
+        return source + backdrop * (1f - source)
+    }
+}
