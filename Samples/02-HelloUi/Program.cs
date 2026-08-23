@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Desktop;
-using Vixen.Ui.HotReload;
 
 namespace Vixen.Samples.HelloUi;
 
@@ -25,6 +24,14 @@ namespace Vixen.Samples.HelloUi;
 ///         engine behind it. All of that is <c>Vixen.Ui.Desktop</c> now — a Platform/ assembly with a
 ///         window, a device and four steps of a frame in it and no scene anywhere — so the boundary
 ///         costs nothing to keep, and this is a bootstrap again.
+///     </para>
+///     <para>
+///         ⚠ <b>And there is nothing here about hot reload, which is the point of how it is wired.</b>
+///         Editing a <c>.vxml</c> or a <c>.vcss</c> while this is running updates the window, and what
+///         turns that on is the <c>Vixen.Ui.Desktop.HotReload</c> reference in the project file —
+///         conditioned on <c>Debug</c>, so a Release build does not resolve it and nothing in this
+///         file changes. There is no flag to set and no <c>#if</c> to write. It used to be thirty
+///         lines here, and thirty lines every application would have had to copy.
 ///     </para>
 ///     <para>
 ///         <b>Start in <c>Shell.vxml</c>.</b> The interface is markup, a stylesheet and a model of
@@ -64,95 +71,18 @@ static class Program {
                 // their theme is installed by the assembly that references them, which is this one.
                 Configure = document => AdvancedTheme.Install(document),
 
+                // ⚠ **A factory, and in a development build it is also what a hot reload rebuilds
+                // from.** An edit the runtime cannot patch makes the reload host construct a
+                // replacement, and this lambda is the only thing that knows the shell takes a model.
+                // Handed the instance alone a host falls back to the parameterless constructor, and
+                // the shell comes up bound to a `ShellModel` nothing else holds — with the reload
+                // still reporting success, because it did reload.
                 Content = () => new Shell { Model = model },
 
-                Started = Watch,
                 Stopping = _ => Report(model)
             },
             arguments
         );
-    }
-
-    /// <summary>Reloads <c>Theme/shell.vcss</c> while the window is open.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Six lines, and they are the authoring loop this sample exists to demonstrate.</b>
-    ///         Save the stylesheet and the interface repaints with every element's identity intact —
-    ///         the focus, the scroll offset, the docking arrangement and the tree's place in its
-    ///         thousand rows all survive, because a style reload replaces rules rather than rebuilding
-    ///         elements.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A reload <i>replaces</i>, it does not overlay, and that is what makes a deleted
-    ///         rule stop applying.</b> Rules are appended and never removed — an index, a layer order
-    ///         and a declaration arena all assume it — so the engine keeps the text of every sheet and
-    ///         rebuilds from them. <c>Load</c> binds this path to the sheet the document already holds
-    ///         where the text matches, so a save is a replacement at that sheet's own origin rather
-    ///         than a second copy on top that says nothing where a rule was taken out.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Development only.</b> A shipping application drops this method, the
-    ///         <c>Vixen.Ui.HotReload</c> reference and nothing else — see that project's own file,
-    ///         which says why it is neither trimmable nor AOT-compatible.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The source directory, not the output one.</b> <c>AppContext.BaseDirectory</c> is
-    ///         <c>bin/Debug/net10.0</c>, where nobody edits anything: a watcher pointed there is
-    ///         wired, correct at every step, and silent for ever.
-    ///     </para>
-    /// </remarks>
-    static void Watch(UiApplication application) {
-        if (Sources() is not { } directory) {
-            return;
-        }
-
-        var sheet = Path.Combine(directory, "shell.vcss");
-
-        var watcher = new HotReloadWatcher(new HotReloadHost(application.Document), directory);
-        watcher.Load(sheet);
-
-        // ⚠ **Which of the two things happened, said out loud, because the difference is invisible
-        // until it bites.** `Load` binds a path to the sheet the document already holds when the two
-        // texts match, and a save then *replaces* that sheet — so a rule taken out of the file stops
-        // applying. When nothing matches it layers the file on top instead: changing a value still
-        // works, and deleting a rule leaves whatever was underneath still applying, with nothing to
-        // say so.
-        //
-        // ⚠ This sample gets the overlay, and the reason is worth knowing rather than working
-        // around: `shell.vcss` is handed to the build as `VixenStyleBase`, so what the document holds
-        // is the *generated* sheet with this file concatenated into the front of it — there is no
-        // separate sheet whose text could match. That is the right arrangement for shipping (it is
-        // what fixes the layer order and expands `@apply`) and the wrong one for deleting a rule at
-        // run time, and `Replaces` is the API that lets a caller tell a developer which they have.
-        Console.WriteLine(
-            watcher.Replaces(sheet)
-                ? $"watching {sheet} — saves replace the sheet, so deleting a rule takes effect."
-                : $"watching {sheet} — saves layer over the generated sheet, so a *deleted* rule keeps applying "
-                + "until the next build."
-        );
-
-        // ⚠ Applied on the frame loop's own thread rather than in the `FileSystemWatcher` callback.
-        // The element tree has no lock and that callback is on a pool thread; `Poll` is also what
-        // coalesces the three events one save raises — save-to-temp-then-rename, a truncate followed
-        // by a write, a tool that touches the timestamp — into one reload.
-        application.Frame += (_, _) => {
-            foreach (var report in watcher.Poll()) {
-                Console.WriteLine($"reloaded {report}");
-            }
-        };
-    }
-
-    /// <summary>Where this project's stylesheets are, if the sample is running from its own tree.</summary>
-    static string? Sources() {
-        for (var walk = new DirectoryInfo(AppContext.BaseDirectory); walk is not null; walk = walk.Parent) {
-            var theme = Path.Combine(walk.FullName, "Theme");
-
-            if (File.Exists(Path.Combine(theme, "shell.vcss"))) {
-                return theme;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>Prints the arrangement the user left the window in.</summary>

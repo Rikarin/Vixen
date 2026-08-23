@@ -62,6 +62,32 @@ public sealed class UiApplicationOptions {
     /// </remarks>
     public Func<Component>? Content { get; set; }
 
+    /// <summary>Puts the interface into the document, when something other than the default should.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The seam a development-time hot reload needs, and it is an inversion because it
+    ///         has to be.</b> The markup channel rebuilds a component's <c>Build</c> after
+    ///         <c>dotnet watch</c> has recompiled it, and what it rebuilds is whatever a
+    ///         <c>HotReloadHost</c> was told to track — which happens at the moment of mounting.
+    ///         This assembly cannot do that tracking itself: <c>Vixen.Ui.HotReload</c> is a
+    ///         development tool and is neither trimmable nor AOT-compatible, and a shipped
+    ///         application host must not link one. So the application, which already knows whether it
+    ///         is a development build, does the mounting and hands back what it mounted.
+    ///     </para>
+    ///     <para>
+    ///         Given a document and the element to mount into, it returns the component it mounted —
+    ///         which is what <see cref="Content" /> would have produced. Set, it wins and
+    ///         <see cref="Content" /> is not called; <c>Samples/02-HelloUi</c> is the worked example.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Without it, a <c>.vxml</c> saved while the application is running does nothing at
+    ///         all — no diagnostic, no reload — because the reload host tracks no components and
+    ///         <c>ReloadComponents</c> walks an empty list. The stylesheet channel is a file watcher
+    ///         and needs none of this; the markup channel is a recompile and needs all of it.
+    ///     </para>
+    /// </remarks>
+    public Func<UiDocument, UiElement, Component>? Mount { get; set; }
+
     /// <summary>Stylesheets to load, in order, as author sheets.</summary>
     /// <remarks>
     ///     <para>

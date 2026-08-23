@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Desktop.HotReload</RootNamespace>
+        <Description>
+            Development-time hot reload for a Vixen.Ui.Desktop application, turned on by referencing
+            this package and by nothing else. A module initializer fills the two hooks
+            Vixen.Ui.Desktop leaves open, so a .vxml save reloads the running window and a .vcss save
+            repaints it — with no code in the application at all.
+        </Description>
+        <PackageTags>hot-reload;ui;dev;desktop;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            ⚠ Not AOT-compatible and not trimmable, exactly like Vixen.Ui.HotReload and for its
+            reasons: reloading reads a component's fields by name and exists to serve `dotnet watch`,
+            and a published trimmed build has no metadata updates to receive. Saying so here is what
+            stops this from being referenced unconditionally — an application adds it under a Debug
+            condition, and a Release build does not resolve it at all.
+        -->
+        <IsAotCompatible>false</IsAotCompatible>
+        <IsTrimmable>false</IsTrimmable>
+        <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>false</EnableAotAnalyzer>
+        <EnableSingleFileAnalyzer>false</EnableSingleFileAnalyzer>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **The two halves that may not reference each other, joined here.** `Vixen.Ui.HotReload`
+            is under Core/ and may not reference a Platform/ assembly — docs/plan/00's layer rule,
+            which `CheckArchitecture` enforces — so it cannot know what a `UiApplication` is.
+            `Vixen.Ui.Desktop` is shipped and AOT-clean, so it must not reference a development tool.
+            Neither restriction is negotiable and neither side can do this; a third assembly can,
+            because it is under Platform/ and is itself development-only.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Desktop\Vixen.Ui.Desktop.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.HotReload\Vixen.Ui.HotReload.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Desktop.Tests" />
+    </ItemGroup>
+
+</Project>

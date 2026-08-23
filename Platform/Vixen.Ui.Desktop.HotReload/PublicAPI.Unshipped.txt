@@ -1,0 +1,2 @@
+#nullable enable
+Vixen.Ui.Desktop.HotReload.DesktopHotReload -> static class

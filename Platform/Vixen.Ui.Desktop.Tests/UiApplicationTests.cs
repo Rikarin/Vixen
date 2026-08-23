@@ -26,6 +26,7 @@ namespace Vixen.Ui.Desktop.Tests;
 ///         and <see cref="TheContentFillsTheWindow" /> are.
 ///     </para>
 /// </remarks>
+[Collection(SerialUiDevelopment.Name)]
 public class UiApplicationTests {
     /// <summary>An interface with something to measure in it.</summary>
     sealed class Probe : Component {

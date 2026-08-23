@@ -50,13 +50,21 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
 
         <!--
-            ⚠ Dev-only, and referenced here for what the sample is *for*: editing `Theme/shell.vcss`
-            with the window open and watching the interface change is the authoring loop this sample
-            exists to demonstrate. A shipping application drops this reference and the six lines in
-            Program.cs that use it — see `Vixen.Ui.HotReload`'s own project file, which says why it is
-            neither trimmable nor AOT-compatible.
+            ⚠ **This one conditioned reference is the whole of the hot-reload setup.** There is no
+            call to make and nothing in Program.cs about it: the assembly's module initializer fills
+            the two hooks `Vixen.Ui.Desktop` leaves open, so every `UiApplication` in the process
+            mounts its content under a reload host and gets a stylesheet watcher over this directory.
+            Editing a `.vxml` under `dotnet watch` reloads the running window; editing a `.vcss`
+            repaints it with no rebuild at all.
+
+            ⚠ **Conditioned on Debug, which is what makes it safe to be automatic.** A Release build
+            does not resolve the assembly, the initializer never runs, and the hooks stay null — so a
+            shipped application carries neither the dev tool nor a branch that mentions it. Hot
+            reload is not trimmable and not AOT-compatible, and this is how that stays true without
+            an `#if` in anybody's `Main`.
         -->
-        <ProjectReference Include="..\..\Core\Vixen.Ui.HotReload\Vixen.Ui.HotReload.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Ui.Desktop.HotReload\Vixen.Ui.Desktop.HotReload.csproj"
+                          Condition="'$(Configuration)' == 'Debug'" />
     </ItemGroup>
 
     <ItemGroup>

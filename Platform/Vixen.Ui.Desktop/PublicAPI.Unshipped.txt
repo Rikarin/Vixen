@@ -2,6 +2,7 @@
 Vixen.Ui.Desktop.SystemFonts -> static class
 Vixen.Ui.Desktop.UiApplication -> sealed class
 Vixen.Ui.Desktop.UiApplication : System.IDisposable
+Vixen.Ui.Desktop.UiApplication.Content.get -> Vixen.Ui.Composition.Component?
 Vixen.Ui.Desktop.UiApplication.Dispose() -> void
 Vixen.Ui.Desktop.UiApplication.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Desktop.UiApplication.Frame -> System.Action<Vixen.Ui.Desktop.UiApplication, Vixen.Ui.Desktop.UiFrame>?
@@ -29,6 +30,8 @@ Vixen.Ui.Desktop.UiApplicationOptions.InstallSystemFont.get -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.InstallSystemFont.set -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.IsResizable.get -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.IsResizable.set -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.Mount.get -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, Vixen.Ui.Composition.Component>?
+Vixen.Ui.Desktop.UiApplicationOptions.Mount.set -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, Vixen.Ui.Composition.Component>?
 Vixen.Ui.Desktop.UiApplicationOptions.Organisation.get -> string
 Vixen.Ui.Desktop.UiApplicationOptions.Organisation.set -> string
 Vixen.Ui.Desktop.UiApplicationOptions.RootClasses.get -> System.Collections.Generic.IList<string>
@@ -42,6 +45,7 @@ Vixen.Ui.Desktop.UiApplicationOptions.Styles.get -> System.Collections.Generic.I
 Vixen.Ui.Desktop.UiApplicationOptions.Title.get -> string
 Vixen.Ui.Desktop.UiApplicationOptions.Title.set -> string
 Vixen.Ui.Desktop.UiApplicationOptions.UiApplicationOptions() -> void
+Vixen.Ui.Desktop.UiDevelopment -> static class
 Vixen.Ui.Desktop.UiFrame -> readonly struct
 Vixen.Ui.Desktop.UiFrame : System.IEquatable<Vixen.Ui.Desktop.UiFrame>
 Vixen.Ui.Desktop.UiFrame.Delta.get -> System.TimeSpan
@@ -81,4 +85,8 @@ static Vixen.Ui.Desktop.SystemFonts.Candidates() -> System.Collections.Generic.I
 static Vixen.Ui.Desktop.SystemFonts.Install(Vixen.Ui.UiDocument document) -> bool
 static Vixen.Ui.Desktop.UiApplication.Run(Vixen.Ui.Desktop.UiApplicationOptions options) -> int
 static Vixen.Ui.Desktop.UiApplication.Run(Vixen.Ui.Desktop.UiApplicationOptions options, params System.ReadOnlySpan<string> arguments) -> int
+static Vixen.Ui.Desktop.UiDevelopment.Mount.get -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, System.Func<Vixen.Ui.Composition.Component>, Vixen.Ui.Composition.Component>?
+static Vixen.Ui.Desktop.UiDevelopment.Mount.set -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, System.Func<Vixen.Ui.Composition.Component>, Vixen.Ui.Composition.Component>?
+static Vixen.Ui.Desktop.UiDevelopment.Started.get -> System.Action<Vixen.Ui.Desktop.UiApplication>?
+static Vixen.Ui.Desktop.UiDevelopment.Started.set -> System.Action<Vixen.Ui.Desktop.UiApplication>?
 static Vixen.Ui.Desktop.UiShaderLibrary.Load(Vixen.Graphics.IGraphicsDevice device) -> Vixen.Ui.Renderer.UiShaders

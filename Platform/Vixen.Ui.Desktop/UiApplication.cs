@@ -69,6 +69,42 @@ namespace Vixen.Ui.Desktop;
 ///     </code>
 /// </example>
 public sealed class UiApplication : IDisposable {
+    /// <summary>The development assembly, looked for by name once per process.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a <c>[ModuleInitializer]</c> runs when a module is *loaded*, and the CLR
+    ///         loads lazily.</b> <c>Vixen.Ui.Desktop.HotReload</c> exists to fill
+    ///         <see cref="UiDevelopment" />'s hooks and deliberately has no type anybody names — that
+    ///         is what makes referencing it the whole of the opt-in — so nothing ever triggers the
+    ///         load and the initializer never runs. The assembly ships in the output directory and
+    ///         does nothing at all, which is exactly what happened the first time this was wired.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>By name and in a <c>try</c>, which is the whole cost of the arrangement.</b> A
+    ///         Release build does not resolve the reference, so the assembly is not beside the
+    ///         executable and this throws <see cref="FileNotFoundException" /> — the ordinary case,
+    ///         once, at start-up. What it must not do is <i>reference</i> the assembly: that is the
+    ///         thing that would put a non-trimmable development tool into every shipped application.
+    ///     </para>
+    /// </remarks>
+    const string Development = "Vixen.Ui.Desktop.HotReload";
+
+    static UiApplication() {
+        try {
+            var assembly = System.Reflection.Assembly.Load(Development);
+
+            // ⚠ **Loading it is not enough, and this is the line the first attempt was missing.** A
+            // module initializer is triggered by the first *access* to something in the module, the
+            // way a type initializer is — not by the assembly being loaded. Nothing here accesses
+            // anything in it, deliberately, so the assembly sat in the output directory fully loaded
+            // and completely inert. `RunModuleConstructor` is the API that says "run it now".
+            System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(assembly.ManifestModule.ModuleHandle);
+        } catch (Exception exception) when (exception is FileNotFoundException or BadImageFormatException) {
+            // The shipped build. Nothing to do and nothing to say: the hooks stay null and the
+            // application mounts its content the ordinary way.
+        }
+    }
+
     readonly UiApplicationOptions options;
     readonly IPlatform platform;
     readonly IWindow window;
@@ -141,10 +177,10 @@ public sealed class UiApplication : IDisposable {
         // assembly is the only one in the chain allowed to know what a window is.
         windows = new PlatformWindowHost(platform, Document, window);
 
-        if (options.Content is { } content) {
-            var mounted = content();
-            BuildContext.BuildInto(mounted, Document, Document.Root);
-
+        // ⚠ `Mount` first and `Content` second, because a development build supplies the first to
+        // put its components under a `HotReloadHost` — see `UiApplicationOptions.Mount`, which is
+        // the whole of what a `.vxml` reload needs from this assembly.
+        if (Mounted(options) is { } mounted) {
             // ⚠ **On the component's host element, which is not the root and not the component's
             // first tag.** A component draws into a host of its own — `<app-shell>` for a
             // `Shell.vxml` — and that element is what the window has to be told to fill. Without the
@@ -153,6 +189,14 @@ public sealed class UiApplication : IDisposable {
             // window. That is what this sample looked like before the rule existed, and the symptom
             // reads as a layout-engine bug rather than as a missing declaration.
             mounted.Root.AddClass(ContentClass);
+            Content = mounted;
+        }
+
+        // ⚠ **The process-wide start hook, before the options' own.** It is what attaches a
+        // stylesheet watcher in a development build, and an application's own `Started` may
+        // reasonably depend on that having happened — the reverse is not true.
+        if (UiDevelopment.Started is { } observing) {
+            Started += observing;
         }
 
         // ⚠ The options' three hooks, subscribed to the three events. They exist twice because the
@@ -225,6 +269,45 @@ public sealed class UiApplication : IDisposable {
             min-height: 0px;
         }
         """;
+
+    /// <summary>Builds the interface, by whichever of the three routes is available.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The application's own hook wins, then the process's, then the ordinary build.</b> An
+    ///     application that set <see cref="UiApplicationOptions.Mount" /> asked for something
+    ///     specific and gets it; one that did not, in a process where a development assembly filled
+    ///     <see cref="UiDevelopment.Mount" />, gets hot reload without having written a line about
+    ///     it; and a shipped build resolves neither and builds the content.
+    /// </remarks>
+    Component? Mounted(UiApplicationOptions options) {
+        if (options.Content is not { } content) {
+            // ⚠ Still offered to the options' own hook, because an application may legitimately mount
+            // something it did not describe as a factory. `UiDevelopment` is not offered the same,
+            // since it has nothing to build from.
+            return options.Mount?.Invoke(Document, Document.Root);
+        }
+
+        if (options.Mount is { } mount) {
+            return mount(Document, Document.Root);
+        }
+
+        if (UiDevelopment.Mount is { } development) {
+            return development(Document, Document.Root, content);
+        }
+
+        var component = content();
+        BuildContext.BuildInto(component, Document, Document.Root);
+
+        return component;
+    }
+
+    /// <summary>The component the interface was built from, once it has been.</summary>
+    /// <remarks>
+    ///     ⚠ Public so that a caller which handed over a <see cref="UiApplicationOptions.Mount" />
+    ///     can find what it mounted without keeping its own reference — and so that a hot reload's
+    ///     handler can tell whether the component it is looking at is still the live one. A
+    ///     *recreated* component is a different object, so this is not it: ask the reload host.
+    /// </remarks>
+    public Component? Content { get; private set; }
 
     /// <summary>The document the loop lays out, draws and dispatches into.</summary>
     /// <remarks>

@@ -137,9 +137,14 @@ box with no height.
 - **It does not know about docking.** A torn-off panel becomes a second window because
   `PlatformWindowHost` fills `IUiWindowHost` and the document asks for one; nothing here names
   `Vixen.Ui.Controls.Advanced`.
-- **It does not hot-reload.** `Vixen.Ui.HotReload` is a development tool and is neither trimmable nor
-  AOT-compatible; wiring it is six lines in `Started`, which `Samples/02-HelloUi/Program.cs` is the
-  worked example of.
+- **It does not hot-reload, and it does hold the seam open.** `Vixen.Ui.HotReload` is a development
+  tool and is neither trimmable nor AOT-compatible, so a shipped application host must not link one.
+  What this assembly provides is `UiApplicationOptions.Mount`: an application that *is* a development
+  build mounts its own content through a `HotReloadHost` and hands back what it mounted. That
+  inversion is the whole of what a `.vxml` reload needs from here — the stylesheet channel is a file
+  watcher and needs nothing at all. `Samples/02-HelloUi/Program.cs` is the worked example, and
+  ⚠ **without it a `.vxml` save does nothing and reports success**, because a host that tracks no
+  components reloads all of them.
 
 ## Regenerating the shaders
 

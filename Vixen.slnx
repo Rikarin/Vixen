@@ -362,6 +362,12 @@
       it creates the Vulkan device and the swapchain, and both of those are Platform/.
     -->
     <Project Path="Platform/Vixen.Ui.Desktop/Vixen.Ui.Desktop.csproj" />
+    <!--
+      Development-time hot reload, joining two assemblies that may not reference each other:
+      Vixen.Ui.HotReload is under Core/ and may not name a window, and Vixen.Ui.Desktop is shipped
+      and may not name a development tool. Referencing this is the whole of the opt-in.
+    -->
+    <Project Path="Platform/Vixen.Ui.Desktop.HotReload/Vixen.Ui.Desktop.HotReload.csproj" />
     <Project Path="Platform/Vixen.Ui.Desktop.Tests/Vixen.Ui.Desktop.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null/Vixen.Graphics.Null.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null.Tests/Vixen.Graphics.Null.Tests.csproj" />
