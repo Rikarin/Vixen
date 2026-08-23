@@ -1471,12 +1471,18 @@ public sealed class DrawListBuilder {
                     shade = document.ForegroundOf(element);
                     continue;
 
-                case StyleValueKind.Number when item.Number == 0f && count < lengths.Length:
-                    lengths[count++] = 0f;
-                    continue;
-
-                case StyleValueKind.Length when item.Unit != StyleUnit.Percent && count < lengths.Length:
-                    lengths[count++] = item.Number * context.PixelsPer(item.Unit);
+                // ⚠ <b><see cref="LengthContext.ToLength" /> and not
+                // <see cref="LengthContext.PixelsPer" />, which is the trap <see cref="EmitShadow" />
+                // is still in.</b> That method answers <i>zero</i> for a unit that measures no
+                // distance, so a `drop-shadow(90deg 2px black)` read through it is a shadow with a
+                // zero x-offset — invalid CSS silently clamped, which is the one behaviour the rest
+                // of this file refuses. `ToLength` distinguishes "a length that came to nothing"
+                // from "not a length", which is the whole reason it exists. A bare zero is a length
+                // and only that one, and a percentage is a real unit here that this function has no
+                // meaning for, so both fall out of the same test.
+                case StyleValueKind.Number or StyleValueKind.Length
+                    when count < lengths.Length && context.ToLength(item) is { Unit: LayoutUnit.Point } length:
+                    lengths[count++] = length.Value;
                     continue;
 
                 default:

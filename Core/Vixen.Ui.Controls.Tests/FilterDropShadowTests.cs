@@ -393,11 +393,21 @@ public class FilterDropShadowTests {
     ///     silent middle state. A negative blur is invalid CSS. A percentage is not a length. Each
     ///     takes the <c>blur(2px)</c> beside it with it, which is what "refused" means and what makes
     ///     the failure visible.
+    ///     <para>
+    ///         ⚠ <b>The <c>90deg</c> row is the one that would pass on a reader that looked plausible.</b>
+    ///         <c>LengthContext.PixelsPer</c> answers <i>zero</i> for a unit that measures no
+    ///         distance, so an offset read through it becomes a shadow at no offset — invalid CSS
+    ///         silently clamped, which is exactly the outcome every other refusal here exists to
+    ///         prevent. <c>ToLength</c> is what tells "a length that came to nothing" from "not a
+    ///         length", and this row is what says so out loud.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("filter: blur(2px) drop-shadow(2px 2px #000) drop-shadow(4px 4px #000);")]
     [InlineData("filter: blur(2px) drop-shadow(2px 2px -3px #000000);")]
     [InlineData("filter: blur(2px) drop-shadow(50% 2px #000000);")]
+    [InlineData("filter: blur(2px) drop-shadow(90deg 2px #000000);")]
+    [InlineData("filter: blur(2px) drop-shadow(2px 2px 200ms #000000);")]
     [InlineData("filter: blur(2px) drop-shadow(2px);")]
     [InlineData("filter: blur(2px) drop-shadow(1px 2px 3px 4px #000000);")]
     public void A_shape_this_refuses_refuses_the_whole_list(string filter) {
