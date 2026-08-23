@@ -88,7 +88,16 @@ public sealed class UiApplication : IDisposable {
     bool lost;
     bool resized;
 
-    UiApplication(UiApplicationOptions options, IPlatform platform, IWindow window) {
+    /// <summary>Builds an application over a platform and a window somebody else made.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal because the supported entry point is <see cref="Run(UiApplicationOptions)" />,
+    ///     and visible to the tests because the alternative is a suite that cannot run the loop.</b>
+    ///     <c>Vixen.Platform.Headless</c> makes windows that have a size, an id and an event stream
+    ///     and show nobody anything, which is exactly the run <see cref="UiApplicationOptions.Frames" />
+    ///     exists to make meaningful — everything above the RHI executes and nothing needs a display
+    ///     server or a driver.
+    /// </remarks>
+    internal UiApplication(UiApplicationOptions options, IPlatform platform, IWindow window) {
         this.options = options;
         this.platform = platform;
         this.window = window;
@@ -321,7 +330,7 @@ public sealed class UiApplication : IDisposable {
 
     /// <summary>Runs until the window closes, or for <see cref="UiApplicationOptions.Frames" /> frames.</summary>
     /// <returns>A process exit code.</returns>
-    int Run() {
+    internal int Run() {
         var clock = Stopwatch.StartNew();
         var previous = TimeSpan.Zero;
 

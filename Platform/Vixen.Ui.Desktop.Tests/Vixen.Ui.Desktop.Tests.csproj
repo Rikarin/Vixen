@@ -24,7 +24,7 @@
         <!--
             The headless platform, which is what makes a frame loop testable with no display server
             and no GPU: windows that have a size, an id and an event stream and show nobody anything.
-            That is exactly the run the `--frames N` flag exists to make meaningful.
+            That is exactly the run the frame-count option exists to make meaningful.
         -->
         <ProjectReference Include="..\Vixen.Platform.Headless\Vixen.Platform.Headless.csproj" />
     </ItemGroup>

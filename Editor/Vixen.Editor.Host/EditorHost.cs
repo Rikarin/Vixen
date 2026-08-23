@@ -16,6 +16,7 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Terrain;
 using Vixen.Shaders.Generated;
 using Vixen.Ui;
+using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text;
@@ -35,8 +36,18 @@ namespace Vixen.Editor.App;
 ///         <b>Windows, plural, and only the last step multiplies.</b> A panel torn out of the
 ///         arrangement onto the desktop is a second <c>UiSurface</c> of the same document — so it is
 ///         laid out by the same pass, styled by the same cascade and reached by the same reparent
-///         that moved it. What it needs of its own is a swapchain, a renderer and an extent, and an
-///         <see cref="EditorPane" /> is those three.
+///         that moved it. What it needs of its own is a swapchain, a renderer and an extent, and a
+///         <see cref="UiWindowSurface" /> is those three.
+///     </para>
+///     <para>
+///         ⚠ <b>That type is this file's own <c>EditorPane</c>, moved into
+///         <c>Platform/Vixen.Ui.Desktop</c> rather than copied out of it.</b> The repository carried
+///         three frame loops — this one, <c>Samples/02-HelloUi</c>'s and the <c>vixen-app</c>
+///         template's — and this was the only one that could open a second window, republish its
+///         granted colour gamut per surface, and skip tessellating a frame whose drawing had not
+///         changed. So the sample and the template inherit those three things; the editor keeps its
+///         own loop, because what is below is a compositor, a scene presenter per pane and a GPU
+///         profiler, and none of that is what an application whose content is an interface does.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It draws every frame rather than when something changes.</b> An editor that redrew
@@ -66,7 +77,7 @@ sealed class EditorHost : IDisposable {
     readonly PlatformWindowHost windows;
 
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
-    readonly List<EditorPane> panes = [];
+    readonly List<UiWindowSurface> panes = [];
 
     /// <summary>One presenter per scene pane, made on demand and kept while the count holds.</summary>
     /// <remarks>
@@ -260,7 +271,7 @@ sealed class EditorHost : IDisposable {
             //
             // Only the main window's, because only the main window's size is the shell's. Every
             // other surface was resized by the window host as the event arrived, and its swapchain
-            // is rebuilt from the size comparison in `EditorPane.Recreate`.
+            // is rebuilt from the size comparison in `UiWindowSurface.Recreate`.
             if (resized) {
                 resized = false;
 
@@ -452,11 +463,11 @@ sealed class EditorHost : IDisposable {
                 continue;
             }
 
-            panes.Add(new EditorPane(surface, opened));
+            panes.Add(new UiWindowSurface(surface, opened));
         }
     }
 
-    EditorPane? Pane(UiSurface surface) {
+    UiWindowSurface? Pane(UiSurface surface) {
         foreach (var pane in panes) {
             if (ReferenceEquals(pane.Surface, surface)) {
                 return pane;
@@ -559,7 +570,7 @@ sealed class EditorHost : IDisposable {
     ///     resource, and a graph carrying two windows' passes would have to be told they are
     ///     independent — which is a thing to get wrong in exchange for one fewer submission.
     /// </remarks>
-    void Record(EditorPane pane) {
+    void Record(UiWindowSurface pane) {
         var scale = pane.Scale;
         var extent = pane.Extent;
 
@@ -795,20 +806,18 @@ sealed class EditorHost : IDisposable {
     ///     window visibly blinking. Rebuilding and asking again costs one stall and puts a correct
     ///     frame on the screen.
     /// </remarks>
-    bool Acquire(EditorPane pane, out TextureViewHandle view) {
-        var status = pane.SwapChain!.AcquireNextImage(out view);
+    bool Acquire(UiWindowSurface pane, out TextureViewHandle view) {
+        // ⚠ The retry and the rebuild are `UiWindowSurface.Acquire`'s; what stays here is the *lost*
+        // verdict, because losing the device is the whole host's problem rather than one window's —
+        // a pane that answered for it would have to reach back into the field that stops the loop.
+        switch (pane.Acquire(device!, out view)) {
+            case null:
+                lost = true;
+                return false;
 
-        if (status is SwapChainStatus.OutOfDate) {
-            pane.Recreate(device!, force: true);
-            status = pane.SwapChain.AcquireNextImage(out view);
+            case { } answer:
+                return answer;
         }
-
-        if (status is SwapChainStatus.DeviceLost) {
-            lost = true;
-            return false;
-        }
-
-        return status is not SwapChainStatus.OutOfDate;
     }
 
     /// <summary>Makes the pool of presenters match how many panes the scene panel has.</summary>
