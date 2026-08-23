@@ -17,9 +17,9 @@ public sealed partial class WaterModule {
     /// <summary>And the mode's own, which is the body inspector and the draw settings.</summary>
     public const string BodyPanel = WaterMode.PanelId;
 
-    UiElement? zoneFacts;
-    UiElement? waterFacts;
-    UiElement? notice;
+    WaterZoneFacts? zoneFacts;
+    WaterFacts? waterFacts;
+    WaterNotice? notice;
 
     /// <summary>Registers them.</summary>
     void WaterPanels() {
@@ -36,7 +36,7 @@ public sealed partial class WaterModule {
                 zone.EditedDocument = null;
                 zone.Inspect(Mode.Zone);
 
-                zoneFacts = panel.Add("water-zone-facts");
+                zoneFacts = panel.Add<WaterZoneFacts>();
 
                 // ⚠ Redrawn on every change rather than behind a button, because the whole point of
                 // the readout is that it is there *while* the numbers are being typed. A "recompute"
@@ -84,8 +84,8 @@ public sealed partial class WaterModule {
                     ("Preview carve", WaterMode.PreviewCarveCommand)
                 );
 
-                waterFacts = panel.Add("water-facts");
-                notice = panel.Add("water-notice");
+                waterFacts = panel.Add<WaterFacts>();
+                notice = panel.Add<WaterNotice>();
 
                 RefreshWaterFacts();
             }
@@ -99,38 +99,20 @@ public sealed partial class WaterModule {
     ///     whole number of texels is the shoreline crawl § D3 warns about, and it is much cheaper to
     ///     read here than to find in a flythrough.
     /// </remarks>
-    void RefreshZoneFacts() {
-        if (zoneFacts is not { } facts) {
-            return;
-        }
-
-        Clear(facts);
-
-        foreach (var (label, value) in Mode.Zone.Facts()) {
-            Fact(facts, label, value);
-        }
-
-        if (Mode.Zone.Validate() is { } why) {
-            facts.Add("water-refusal").Add("text").Text = why;
-        }
-    }
+    void RefreshZoneFacts() => zoneFacts?.Show(Mode.Zone.Facts(), Mode.Zone.Validate());
 
     /// <summary>What the session has made, and why the last gesture did not.</summary>
     void RefreshWaterFacts() {
-        if (waterFacts is { } facts) {
-            Clear(facts);
-
-            Fact(facts, "Bodies drawn", BodiesCreated.ToString());
-            Fact(facts, "Points laid", Mode.Editing.Points.Count.ToString());
+        waterFacts?.Show([
+            ("Bodies drawn", BodiesCreated.ToString()),
+            ("Points laid", Mode.Editing.Points.Count.ToString()),
 
             // ⚠ The number that answers "why did Carve terrain do nothing". A verb greyed out with no
             // reason beside it is a verb an author decides is broken — doc 20's first bar.
-            Fact(facts, "Terrains to carve", CarvableTerrains.ToString());
-        }
+            ("Terrains to carve", CarvableTerrains.ToString())
+        ]);
 
-        if (notice is { } shown) {
-            Clear(shown);
-        }
+        notice?.Clear();
     }
 
     /// <summary>Says why something did not happen, where the person who tried it is looking.</summary>
@@ -141,12 +123,9 @@ public sealed partial class WaterModule {
     ///     is doc 20's first bar.
     /// </remarks>
     void Report(string message) {
-        if (notice is not { } shown) {
-            return;
+        if (notice is { } shown) {
+            shown.Notice = message;
         }
-
-        Clear(shown);
-        shown.Add("water-refusal").Add("text").Text = message;
     }
 
     /// <summary>Places a zone, and says so when the settings refuse.</summary>

@@ -96,7 +96,7 @@ public sealed partial class TerrainModule {
     UiElement? foliagePalette;
 
     /// <summary>And the growth report's.</summary>
-    UiElement? growthReport;
+    FactBlock? growthReport;
 
     /// <summary>The four panels doc 31's Part 2 describes.</summary>
     void TerrainPanels() {
@@ -231,11 +231,11 @@ public sealed partial class TerrainModule {
                 // ⚠ The ring's size is the number this panel exists to put in front of somebody. A
                 // range doubled is four times the cells, and this is where that becomes a gigabyte —
                 // the same argument the terrain create form makes about eight.
-                var facts = panel.Add("terrain-facts");
+                var facts = panel.Add<FactBlock>();
 
-                settings.ValueChanged += (_, _) => RefreshGrass(facts);
+                settings.ValueChanged += (_, _) => facts.Show(GrassFacts());
 
-                RefreshGrass(facts);
+                facts.Show(GrassFacts());
             }
         );
 
@@ -252,7 +252,7 @@ public sealed partial class TerrainModule {
                 settings.EditedDocument = null;
                 settings.Inspect(growth);
 
-                growthReport = panel.Add("terrain-facts");
+                growthReport = panel.Add<FactBlock>();
 
                 var run = panel.Add<Button>();
 
@@ -276,19 +276,15 @@ public sealed partial class TerrainModule {
                 profile.EditedDocument = null;
                 profile.Inspect(splines);
 
-                var facts = panel.Add("terrain-facts");
+                // ⚠ One statement of the three rows where there were two identical ones. The block
+                // was written out to seed the panel and written out again inside `ValueChanged`,
+                // which is a duplicated *fact* rather than duplicated code: the two copies could
+                // disagree, and a reader had to compare them line by line to find out that they did
+                // not. `SplineFacts` is the fact, and both callers ask it.
+                var facts = panel.Add<FactBlock>();
 
-                Fact(facts, "Reach from centre line", $"{splines.Reach:0.##} m (derived)");
-                Fact(facts, "Paints the ground", splines.Paints ? $"target {splines.PaintTarget}" : "no");
-                Fact(facts, "Places meshes", splines.Places ? $"every {splines.MeshSpacing:0.##} m" : "no");
-
-                profile.ValueChanged += (_, _) => {
-                    Clear(facts);
-
-                    Fact(facts, "Reach from centre line", $"{splines.Reach:0.##} m (derived)");
-                    Fact(facts, "Paints the ground", splines.Paints ? $"target {splines.PaintTarget}" : "no");
-                    Fact(facts, "Places meshes", splines.Places ? $"every {splines.MeshSpacing:0.##} m" : "no");
-                };
+                facts.Show(SplineFacts());
+                profile.ValueChanged += (_, _) => facts.Show(SplineFacts());
 
                 var regenerate = panel.Add<Button>();
 
@@ -299,37 +295,47 @@ public sealed partial class TerrainModule {
                 // edits a spline in the viewport is `SplineEdit`'s and it is not on the gizmo yet;
                 // a panel that silently had no way to author a curve would read as a feature that
                 // does not work rather than as one that is not finished.
-                var owed = panel.Add("terrain-facts");
-
-                Fact(owed, "Curve editing", "in the viewport — SplineEdit, not yet on the gizmo");
+                panel.Add<FactBlock>()
+                    .Show([("Curve editing", "in the viewport — SplineEdit, not yet on the gizmo")]);
             }
         );
     }
 
     /// <summary>What the grass rule costs, derived and labelled as derived.</summary>
     /// <remarks>
-    ///     ⚠ <b>Grass has no mode and no brush, so this is the only place the cost is visible.</b>
-    ///     [§ D8]: a person does not paint grass, they change the rule that produces it — and a rule
-    ///     whose memory is invisible is one somebody turns up until the editor stops.
+    ///     <para>
+    ///         ⚠ <b>Grass has no mode and no brush, so this is the only place the cost is visible.</b>
+    ///         [§ D8]: a person does not paint grass, they change the rule that produces it — and a
+    ///         rule whose memory is invisible is one somebody turns up until the editor stops.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It reads and no longer draws, which is the whole of what the port to
+    ///         <see cref="FactBlock" /> changed here.</b> The rows are the part's, so this is a list
+    ///         of pairs and not four calls that each build three elements — and the same method now
+    ///         serves the first reading and every later one, where a <c>Clear</c> plus a rebuild had
+    ///         to be trusted to agree with itself.
+    ///     </para>
     /// </remarks>
-    void RefreshGrass(UiElement facts) {
-        Clear(facts);
-
+    List<(string Label, string Value)> GrassFacts() {
         var bytes = grass.RingBytes();
 
-        Fact(facts, "Ring size", $"{bytes / (1024.0 * 1024.0):N1} MB (derived)");
-        Fact(facts, "Cells resident", $"{grass.RingBytes(instanceBytes: 1) / grass.BladesPerCell:N0} (derived)");
-        Fact(facts, "Effective density", $"{grass.DensityScale:P0} (derived)");
+        List<(string Label, string Value)> facts = [
+            ("Ring size", $"{bytes / (1024.0 * 1024.0):N1} MB (derived)"),
+            ("Cells resident", $"{grass.RingBytes(instanceBytes: 1) / grass.BladesPerCell:N0} (derived)"),
+            ("Effective density", $"{grass.DensityScale:P0} (derived)")
+        ];
 
         if (!grass.IsEnabled) {
             // ⚠ Said rather than implied. A switch off and a density of zero produce the same field,
             // and somebody looking at an empty hillside needs to know which one they are in.
-            Fact(facts, "Disabled", "no cell is scattered — this is the switch, not the density");
+            facts.Add(("Disabled", "no cell is scattered — this is the switch, not the density"));
         }
 
         if (grass.Validate() is { } refusal) {
-            Fact(facts, "Refused", refusal);
+            facts.Add(("Refused", refusal));
         }
+
+        return facts;
     }
 
     /// <summary>Creates a terrain, or says why it cannot.</summary>
@@ -613,32 +619,43 @@ public sealed partial class TerrainModule {
     }
 
     /// <summary>What the last run produced, said rather than implied.</summary>
-    void RefreshGrowth() {
-        if (growthReport is not { } report) {
-            return;
-        }
+    void RefreshGrowth() => growthReport?.Show(GrowthFacts());
 
-        Clear(report);
-
+    /// <inheritdoc cref="RefreshGrowth" />
+    List<(string Label, string Value)> GrowthFacts() {
         if (!hasGrown) {
-            Fact(report, "Not run yet", "press Grow to sow the region");
-
-            return;
+            return [("Not run yet", "press Grow to sow the region")];
         }
 
-        Fact(report, "Placed", grown.Placed.ToString(CultureInfo.InvariantCulture));
-        Fact(report, "Sown", grown.Sown.ToString(CultureInfo.InvariantCulture));
-        Fact(report, "Sprouted", grown.Sprouted.ToString(CultureInfo.InvariantCulture));
-        Fact(report, "Refused", grown.Refused.ToString(CultureInfo.InvariantCulture));
+        List<(string Label, string Value)> facts = [
+            ("Placed", grown.Placed.ToString(CultureInfo.InvariantCulture)),
+            ("Sown", grown.Sown.ToString(CultureInfo.InvariantCulture)),
+            ("Sprouted", grown.Sprouted.ToString(CultureInfo.InvariantCulture)),
+            ("Refused", grown.Refused.ToString(CultureInfo.InvariantCulture))
+        ];
 
         // ⚠ The cap is the one refusal that has to be shouted. Spread is exponential until shade
         // catches up with it, so a region an author made ten times too large is ten thousand times
         // the plants — and a simulation that quietly stopped sowing reads as a rule that stopped
         // working rather than as a limit that bit.
         if (grown.Capped > 0) {
-            Fact(report, "Capped", $"{grown.Capped} — raise the plant cap or shrink the region");
+            facts.Add(("Capped", $"{grown.Capped} — raise the plant cap or shrink the region"));
         }
+
+        return facts;
     }
+
+    /// <summary>What the spline profile comes to, derived and labelled as derived.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One method because there used to be two copies of these three lines</b>, one seeding
+    ///     the panel and one inside <c>ValueChanged</c>. Two statements of one fact is the defect
+    ///     shape the panel ledger nominated this panel for.
+    /// </remarks>
+    List<(string Label, string Value)> SplineFacts() => [
+        ("Reach from centre line", $"{splines.Reach:0.##} m (derived)"),
+        ("Paints the ground", splines.Paints ? $"target {splines.PaintTarget}" : "no"),
+        ("Places meshes", splines.Places ? $"every {splines.MeshSpacing:0.##} m" : "no")
+    ];
 
     /// <summary>Re-lays every road on the terrain, which is what a profile change means.</summary>
     /// <remarks>

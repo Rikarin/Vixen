@@ -16,6 +16,12 @@ namespace Vixen.Editor.Ui;
 ///     settings window with nine pages builds one; building the other eight would stand up nine
 ///     inspectors over nine settings objects the user has not asked to look at. It is also what makes
 ///     Revert a rebuild rather than nine drawers each having to know how to un-edit themselves.
+///     <para>
+///         ⚠ <b>And it is what the panel ledger's exclusion on this window was about, wrongly.</b>
+///         Markup cannot <i>be</i> an <c>Action&lt;UiElement&gt;</c> — but it never had to be. The
+///         factory needs a host to be invoked <i>into</i>, and <c>&lt;settings-pane ref="@Pane" /&gt;</c>
+///         is one.
+///     </para>
 /// </remarks>
 public sealed record SettingsCategory(string Id, StringId Title, Action<UiElement> Build) {
     /// <summary>Puts this page's settings back to their defaults, or <see langword="null" /> if it cannot.</summary>
@@ -39,6 +45,10 @@ public sealed record SettingsCategory(string Id, StringId Title, Action<UiElemen
 /// <summary>The window behind both Preferences and Project Settings: a rail, a pane, and an Apply.</summary>
 /// <remarks>
 ///     <para>
+///         The panel is <c>SettingsView.vxml</c>; this file is the page record, the accessibility
+///         modifier, and the one button subclass the rail needed.
+///     </para>
+///     <para>
 ///         <b>Doc 20's A4 is "two windows, one mechanism", and this is the mechanism.</b> The only
 ///         difference between Preferences and Project Settings is whose store the pages are over —
 ///         the user's or the project's — so a second implementation of the rail, the search, the
@@ -57,276 +67,53 @@ public sealed record SettingsCategory(string Id, StringId Title, Action<UiElemen
 ///         ⚠ <b>Nothing is written on a keystroke.</b> Doc 20 is explicit: the layout file's rule —
 ///         written on the way down — applies here for the same reason, with an explicit Apply for
 ///         anything that costs something to change. So an edit marks the window dirty,
-///         <see cref="Apply" /> is what commits, and <see cref="Revert" /> rebuilds the page from
-///         what is still on disk.
+///         <c>Apply</c> is what commits, and <c>Revert</c> rebuilds the page from what is still on
+///         disk.
 ///     </para>
 /// </remarks>
-public sealed partial class SettingsView : Control {
-    readonly List<SettingsCategory> categories = [];
-    readonly Dictionary<string, Button> tabs = new(StringComparer.Ordinal);
+public sealed partial class SettingsView;
 
-    string? current;
-    string? filter;
-
+/// <summary>A rail tab, which is a button whose selection a binding is allowed to write.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Shape 5's escape, applied to a flag rather than to <c>Text</c>, and that
+///         generalisation is the useful part.</b> <see cref="UiElement.State" /> is a flag set holding
+///         Hover, Focused, Pressed and Checked, so a binding that assigned it whole would undo
+///         whatever the pointer had just put there — which is why <c>KeyBindingsView</c> and
+///         <c>FlameChartView</c> both keep <c>State |= Checked</c> imperative. A property that owns
+///         <i>one bit</i> of it has no such problem, and is an ordinary target for an ordinary
+///         binding.
+///     </para>
+///     <para>
+///         ⚠ <b>Why the rail could not keep it imperative.</b> The loop's per-row handles come from
+///         <c>refs</c>, which is filled by an effect and is therefore empty until the next flush;
+///         <c>Select</c> is called synchronously, including once from <c>Add</c> before any frame has
+///         run. A restate loop over <c>refs</c> would have silently done nothing the first time and
+///         worked for ever after, which is the worst available failure.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="ButtonBase" /> and not <see cref="Button" />, only because
+///         <see cref="Button" /> is sealed.</b> The two are the same type — <see cref="Button" /> adds
+///         a tag name and nothing else — so this answers to <c>button</c>, carries the same
+///         <c>size-md variant-subtle settings-tab</c>, and
+///         <c>settings-rail &gt; button.settings-tab:checked</c> reaches it unchanged. A whole-tree
+///         dump of the rail before and after the port is identical, which is the test of that claim.
+///     </para>
+/// </remarks>
+internal sealed class SettingsTab : ButtonBase {
     /// <inheritdoc />
-    protected override string TagName => "settings-view";
+    protected override string TagName => "button";
 
-    /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
-
-    /// <summary>The search box over every setting on every page.</summary>
-    public SearchBox Search { get; private set; } = null!;
-
-    /// <summary>The list of pages down the left.</summary>
-    public UiElement Rail { get; private set; } = null!;
-
-    /// <summary>Where the chosen page is built.</summary>
-    public UiElement Pane { get; private set; } = null!;
-
-    /// <summary>The strip along the bottom.</summary>
-    public UiElement Footer { get; private set; } = null!;
-
-    /// <summary>Puts this page back to its defaults.</summary>
-    public Button ResetPage { get; private set; } = null!;
-
-    /// <summary>Throws away what has been typed since the last write.</summary>
-    public Button Revert { get; private set; } = null!;
-
-    /// <summary>Writes it.</summary>
-    public Button Apply { get; private set; } = null!;
-
-    /// <summary>The pages, in the order they were added.</summary>
-    public IReadOnlyList<SettingsCategory> Categories => categories;
-
-    /// <summary>Which page is showing, or <see langword="null" /> before one has been chosen.</summary>
-    public string? Current => current;
-
-    /// <summary>What the search box says, or <see langword="null" /> when it is empty.</summary>
-    public string? Query => filter;
-
-    /// <summary>Whether something has been edited and not yet written.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Set by whoever built the page, because only it knows what an edit is.</b> A settings
-    ///     object is a plain <c>[DataContract]</c> with no change notification of its own — which is
-    ///     the price of it being the same kind of type as everything else the inspector draws, and
-    ///     the same reason <c>ProjectSettingsStore.MarkChanged</c> is explicit.
-    /// </remarks>
-    public bool IsDirty {
-        get;
+    /// <summary>Whether this is the page being shown.</summary>
+    public bool Selected {
+        get => (State & ElementState.Checked) != 0;
 
         set {
-            if (field == value) {
-                return;
-            }
-
-            field = value;
-            Restate();
-        }
-    }
-
-    /// <summary>Raised when the user asks for the edits to be written.</summary>
-    public event Action<SettingsView>? Applied;
-
-    /// <summary>Raised when they ask for them to be thrown away.</summary>
-    /// <remarks>The page is rebuilt afterwards, so a handler only has to reload the model.</remarks>
-    public event Action<SettingsView>? Reverted;
-
-    /// <summary>Raised with the pane whenever the page or the search text changes.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>What makes the search a search over settings rather than over headings.</b> The
-    ///         rail already narrows to the pages whose <see cref="SettingsCategory.Keywords" />
-    ///         match and selects the first of them — which for somebody typing a member name that is
-    ///         on the page they are already looking at changes nothing visible at all, and reads as
-    ///         a search box that does nothing. Narrowing the page itself is the other half, and it
-    ///         cannot be done here: what a page is <i>made of</i> is the caller's — this assembly
-    ///         does not know what an inspector row is, and deliberately does not.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Raised on every change to the box, not only when the page is rebuilt.</b> A page
-    ///         that survives the filter is not rebuilt, so a handler hung on <see cref="Reload" />
-    ///         alone would narrow only when the search happened to move the selection.
-    ///     </para>
-    /// </remarks>
-    public event Action<SettingsView, UiElement>? PageShown;
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        var header = Part("settings-header");
-
-        Search = header.Add<SearchBox>();
-        Search.Placeholder = EditorStrings.SettingsSearch.Text;
-
-        Search.ValueChanged += (_, value) => {
-            filter = string.IsNullOrWhiteSpace(value) ? null : value;
-
-            Rebuild();
-
-            // ⚠ After the rebuild, and unconditionally. `Rebuild` only reloads the pane when the
-            // filter moved the selection off the page that was showing — so typing a member name
-            // that is on the page you are already on would otherwise narrow nothing.
-            PageShown?.Invoke(this, Pane);
-        };
-
-        var body = Part("settings-body");
-
-        Rail = body.Add<UiElement>("settings-rail");
-        Pane = body.Add<UiElement>("settings-pane");
-
-        Footer = Part("settings-footer");
-
-        ResetPage = Command(EditorStrings.SettingsResetPage, ControlVariant.Subtle, ResetCurrent);
-        Footer.Add<UiElement>("settings-spacer");
-
-        Revert = Command(EditorStrings.SettingsRevert, ControlVariant.Subtle, () => {
-                Reverted?.Invoke(this);
-
-                IsDirty = false;
-                Reload();
-            }
-        );
-
-        Apply = Command(EditorStrings.SettingsApply, ControlVariant.Primary, () => {
-                Applied?.Invoke(this);
-                IsDirty = false;
-            }
-        );
-
-        Restate();
-    }
-
-    /// <summary>Adds a page.</summary>
-    /// <param name="category">What it is.</param>
-    /// <returns>The category.</returns>
-    /// <exception cref="ArgumentException">Something is already registered under that id.</exception>
-    public SettingsCategory Add(SettingsCategory category) {
-        ArgumentNullException.ThrowIfNull(category);
-
-        if (categories.Any(existing => string.Equals(existing.Id, category.Id, StringComparison.Ordinal))) {
-            throw new ArgumentException($"A settings page is already registered as '{category.Id}'.", nameof(category));
-        }
-
-        categories.Add(category);
-        Rebuild();
-
-        return category;
-    }
-
-    /// <summary>Shows a page.</summary>
-    /// <param name="id">Its id.</param>
-    /// <returns>Whether there is one by that id.</returns>
-    public bool Select(string id) {
-        ArgumentNullException.ThrowIfNull(id);
-
-        if (Find(id) is null) {
-            return false;
-        }
-
-        current = id;
-        Reload();
-
-        return true;
-    }
-
-    /// <summary>Builds the current page again, from whatever the model now says.</summary>
-    /// <remarks>What Revert does, and what an application calls after reloading a settings store.</remarks>
-    public void Reload() {
-        while (Pane.Children.Count > 0) {
-            Pane.Children[^1].Remove();
-        }
-
-        if (current is not null && Find(current) is { } page) {
-            page.Build(Pane);
-            PageShown?.Invoke(this, Pane);
-        } else {
-            Pane.Add<EmptyState>().Title = EditorStrings.SettingsNoPage.Text;
-        }
-
-        Restate();
-    }
-
-    /// <summary>Rebuilds the rail, honouring the filter, and keeps a page selected.</summary>
-    void Rebuild() {
-        while (Rail.Children.Count > 0) {
-            Rail.Children[^1].Remove();
-        }
-
-        tabs.Clear();
-
-        var visible = categories.Where(Matches).ToList();
-
-        foreach (var page in visible) {
-            var button = Rail.Add<Button>();
-            var id = page.Id;
-
-            button.Label = page.Title.Text;
-            button.Variant = ControlVariant.Subtle;
-            button.AddClass("settings-tab");
-            button.Clicked += _ => Select(id);
-
-            tabs[id] = button;
-        }
-
-        // ⚠ The filter chooses a page as well as narrowing the rail, and that is what makes the
-        // search a search over settings rather than over headings: typing "orbit" should land on the
-        // page that has it, not leave the user to notice that the rail now has one line and click it.
-        if (visible.Count > 0 && (current is null || !visible.Any(page => string.Equals(page.Id, current, StringComparison.Ordinal)))) {
-            Select(visible[0].Id);
-            return;
-        }
-
-        Restate();
-    }
-
-    void ResetCurrent() {
-        if (current is not null && Find(current)?.Reset is { } reset) {
-            reset();
-
-            IsDirty = true;
-            Reload();
-        }
-    }
-
-    Button Command(StringId label, ControlVariant variant, Action run) {
-        var button = Footer.Add<Button>();
-
-        button.Label = label.Text;
-        button.Variant = variant;
-        button.Size = ControlSize.Small;
-        button.Clicked += _ => run();
-
-        return button;
-    }
-
-    SettingsCategory? Find(string id) =>
-        categories.FirstOrDefault(page => string.Equals(page.Id, id, StringComparison.Ordinal));
-
-    bool Matches(SettingsCategory page) {
-        if (filter is null) {
-            return true;
-        }
-
-        if (page.Title.Text.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || page.Id.Contains(filter, StringComparison.OrdinalIgnoreCase)) {
-            return true;
-        }
-
-        return page.Keywords?.Invoke().Any(word => word.Contains(filter, StringComparison.OrdinalIgnoreCase)) ?? false;
-    }
-
-    void Restate() {
-        foreach (var (id, button) in tabs) {
-            if (string.Equals(id, current, StringComparison.Ordinal)) {
-                button.State |= ElementState.Checked;
+            if (value) {
+                State |= ElementState.Checked;
             } else {
-                button.State &= ~ElementState.Checked;
+                State &= ~ElementState.Checked;
             }
         }
-
-        ResetPage.Disabled = current is null || Find(current)?.Reset is null;
-        Revert.Disabled = !IsDirty;
-        Apply.Disabled = !IsDirty;
     }
 }

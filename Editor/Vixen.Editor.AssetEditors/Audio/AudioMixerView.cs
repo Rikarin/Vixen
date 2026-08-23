@@ -140,12 +140,6 @@ internal sealed class MixerSnapshotRow : UiElement {
 }
 
 /// <inheritdoc cref="MixerStripName" />
-internal sealed class FactName : UiElement {
-    /// <inheritdoc />
-    protected override string TagName => "fact-name";
-}
-
-/// <inheritdoc cref="MixerStripName" />
 internal sealed class AnalysisStage : UiElement {
     /// <inheritdoc />
     protected override string TagName => "analysis-stage";

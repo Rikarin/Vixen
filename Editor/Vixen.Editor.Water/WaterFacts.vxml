@@ -1,0 +1,44 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 5. What the drawing session has made, on the body panel.
+
+    ⚠ **A second type where a parameter would have done, and the reason is `@tag`.** This is
+    `WaterZoneFacts` without the refusal and under a different tag name, and a component's host tag is
+    a compile-time directive — there is no spelling of "the same part, called `water-facts` here". The
+    two tags are the panels' own structure and neither is styled by any sheet in the tree, so the
+    honest options were one type with the wrong tag on one of its two uses, or two types. Two types,
+    because a tag that lies is the thing `TypeSelectorReachTests` exists to catch and a reader has
+    only the tag to go on.
+-->
+@component WaterFacts
+@namespace Vixen.Editor.Water
+@inherits Vixen.Ui.UiElement
+@tag water-facts
+@using System.Collections.Immutable
+@using Vixen.Editor.Ui
+@using Vixen.Ui
+@using Vixen.Ui.Reactive
+
+@for (var fact in Rows) {
+    <FactRow key="@fact" Name="@fact.Label" Value="@fact.Value" />
+}
+
+@code {
+    /// <inheritdoc cref="Show" />
+    readonly Signal<ImmutableArray<WaterFactLine>> rows = new([]);
+
+    /// <summary>What the block says, in order.</summary>
+    public IReadOnlyList<WaterFactLine> Facts => rows.Value;
+
+    /// <summary>Replaces the block.</summary>
+    /// <param name="facts">The rows, in the order they should read.</param>
+    public void Show(IEnumerable<(string Label, string Value)> facts) {
+        ArgumentNullException.ThrowIfNull(facts);
+
+        rows.Value = [.. facts.Select((fact, slot) => new WaterFactLine(slot, fact.Label, fact.Value))];
+    }
+
+    ImmutableArray<WaterFactLine> Rows => rows.Value;
+}

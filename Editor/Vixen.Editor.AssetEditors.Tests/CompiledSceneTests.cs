@@ -97,6 +97,14 @@ public sealed class CompiledSceneTests {
 
         // Three archetypes: Health, Health+Armour, and nothing.
         Assert.Equal(3, view.Content.Blocks.Length);
+
+        // ⚠ The numbers are right when `Refresh` returns and the tables are right on the next
+        // flush, which is `EffectScheduler`'s contract rather than this panel's choice (ADR-007).
+        // The two claims are asserted on either side of the frame deliberately: the pane is a
+        // markup panel since wave 5, and what a caller may still read back synchronously is
+        // exactly `Refresh`'s answer, `Content` and `Reported`.
+        harness.Ui.Frame();
+
         Assert.True(view.Status.HasClass("hidden"));
 
         // And the pane drew them, which is the half a claim about the numbers does not make.
@@ -184,6 +192,8 @@ public sealed class CompiledSceneTests {
         Assert.False(view.Refresh());
         Assert.Null(view.Content);
         Assert.Contains(view.Reported, entry => entry.Severity == ImportSeverity.Error);
+
+        harness.Ui.Frame();
 
         // And it is drawn as well as recorded, with the status saying the build would fail too.
         Assert.NotEmpty(view.Diagnostics.Children);

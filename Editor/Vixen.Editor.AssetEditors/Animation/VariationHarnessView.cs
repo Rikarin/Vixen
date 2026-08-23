@@ -89,18 +89,17 @@ internal readonly record struct HarnessSlot(int Variation, int Goal);
 ///         same tag, same position, same own text.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Seven of them, and every one is a caption rather than a row.</b> A <c>.vxml</c> part
+///         ⚠ <b>Five of them, and every one is a caption rather than a row.</b> A <c>.vxml</c> part
 ///         is worth a file when it has a shape — <c>FactRow</c> is four elements and two cells that
 ///         disagree about where the text goes — and these have none.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="FactName" /> and <see cref="FactValue" /> are this assembly's second pair
-///         with those tags</b>, after <c>AudioMixerView</c>'s. They are not hoisted into something
-///         shared here for the reason that block gives: <c>fact-row</c>'s rules live in
-///         <c>AssetEditorTheme.vcss</c> and both panels already agree with them, so a shared
-///         declaration would buy a file and move nothing — and the four callers that could actually
-///         use <c>Vixen.Editor.Ui</c>'s <c>FactRow</c> part are in a different assembly. See the
-///         panel ledger's note on the reference graph.
+///         ⚠ <b>It was seven, and <c>FactName</c>/<c>FactValue</c> moved to <c>Captions.cs</c> in wave
+///         5.</b> This file argued they should not be hoisted, because a shared declaration "would buy
+///         a file and move nothing" — which was true while <c>AudioMixerView</c> and this were the only
+///         two. <c>CompiledSceneView</c> and <c>TextureImportView</c> are the third and fourth, and the
+///         hoist is byte-neutral: same tags, same rules in <c>AssetEditorTheme.vcss</c>, resolved from
+///         the enclosing namespace with no <c>@using</c>.
 ///     </para>
 /// </remarks>
 internal sealed class HarnessVerdict : UiElement {
@@ -130,18 +129,6 @@ internal sealed class HarnessTitle : UiElement {
 internal sealed class HarnessError : UiElement {
     /// <inheritdoc />
     protected override string TagName => "harness-error";
-}
-
-/// <inheritdoc cref="HarnessVerdict" />
-internal sealed class FactName : UiElement {
-    /// <inheritdoc />
-    protected override string TagName => "fact-name";
-}
-
-/// <inheritdoc cref="HarnessVerdict" />
-internal sealed class FactValue : UiElement {
-    /// <inheritdoc />
-    protected override string TagName => "fact-value";
 }
 
 /// <summary>Opens a declared variation run.</summary>

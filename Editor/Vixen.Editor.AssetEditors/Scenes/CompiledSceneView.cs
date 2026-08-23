@@ -1,17 +1,18 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Editor.Assets;
-using Vixen.Editor.Assets.Scenes;
-using Vixen.Editor.SceneView;
-using Vixen.Engine.Scenes;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.AssetEditors.Scenes;
 
 /// <summary>What a build makes of this scene: the blocks, the columns and the complaints.</summary>
 /// <remarks>
+///     <para>
+///         The panel is <c>CompiledSceneView.vxml</c>; this file is the accessibility modifier, the two
+///         records its lists key on, and the handful of elements that exist only so that markup can
+///         write an intrinsic tag's own <c>Text</c>. Same arrangement as <c>AudioMixerView</c> and
+///         <c>VariationHarnessView</c>.
+///     </para>
 ///     <para>
 ///         <b>K1's last unopened door, and the question it answers is one nothing else could.</b> An
 ///         authored <c>.vxscene</c> nests its entities and spells its numbers out; a compiled
@@ -43,196 +44,89 @@ namespace Vixen.Editor.AssetEditors.Scenes;
 ///         button is the trigger, and the pane says when what it is showing was produced.
 ///     </para>
 /// </remarks>
-public sealed class CompiledSceneView : Control {
-    SceneDocument? document;
+public sealed partial class CompiledSceneView;
 
+/// <summary>One block's row, as the <c>@for</c> keys it.</summary>
+/// <param name="Slot">Where it is in the content's block list.</param>
+/// <param name="Archetype">Which components it carries, or that it carries none.</param>
+/// <param name="Count">How many entities are in it, in words.</param>
+/// <param name="Bytes">And how many bytes its columns hold.</param>
+/// <remarks>
+///     ⚠ <b>The whole record is the key, which is the immutable-data half of the <c>@for</c> rule.</b>
+///     Nothing in a block row is signal-backed, so there is no binding inside the body that would
+///     notice a changed number — the value has to <i>be</i> the identity, so that recompiling into a
+///     different byte count is a different key and the region is rebuilt.
+///     <para>
+///         ⚠ <b>And the slot is in it because two rows may otherwise be equal.</b> Blocks are
+///         distinguished by archetype today, but <c>BuildContext.For</c> cannot reconcile two equal
+///         keys in one loop at all, and a panel that threw on a scene shape nobody has written yet is
+///         not worth the four characters saved. See <see cref="CompiledDiagnosticRow" />, where it is
+///         not hypothetical.
+///     </para>
+/// </remarks>
+internal readonly record struct CompiledBlockRow(int Slot, string Archetype, string Count, string Bytes);
+
+/// <summary>One complaint's row.</summary>
+/// <param name="Slot">Where it is in the order the compiler said things.</param>
+/// <param name="Severity">Error, Warning or Information, as the compiler spells it.</param>
+/// <param name="Message">What it said.</param>
+/// <param name="Class">Which of the three colours the severity gets.</param>
+/// <remarks>
+///     ⚠ <b>The slot is load-bearing here.</b> The compiler reports every problem before failing once
+///     — which is this pane's whole argument — so a scene with four duplicate ids produces four
+///     diagnostics, and nothing stops two of them being the same severity and the same sentence. Two
+///     equal keys in one loop is a case <c>BuildContext.For</c> has no answer to.
+/// </remarks>
+internal readonly record struct CompiledDiagnosticRow(int Slot, string Severity, string Message, string Class);
+
+/// <summary>
+///     ⚠ The elements that exist only so that markup can set an intrinsic tag's own <c>Text</c>.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>The panel ledger's shape 5, and the sanctioned escape from it.</b> An interpolation is
+///         <c>BuildContext.Text</c>, which appends a <c>text</c> <i>child</i>; an attribute on a
+///         lowercase tag is <c>BuildContext.Attribute</c>, which is a selector attribute and not
+///         <see cref="UiElement.Text" />. A four-line subclass answering to the tag the stylesheet
+///         already names moves nothing: same tag, same position, same own text.
+///     </para>
+///     <para>
+///         ⚠ <b>Six here and not eight.</b> <c>fact-name</c> and <c>fact-value</c> are the assembly's,
+///         in <c>Captions.cs</c> — four panels write them now, which is the point at which a fourth
+///         private copy of a tag name becomes the one that drifts.
+///     </para>
+/// </remarks>
+internal sealed class CompiledSceneLabel : UiElement {
     /// <inheritdoc />
-    protected override string TagName => "compiled-scene";
+    protected override string TagName => "compiled-scene-label";
+}
 
+/// <inheritdoc cref="CompiledSceneLabel" />
+internal sealed class CompiledSceneArchetype : UiElement {
     /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
+    protected override string TagName => "compiled-scene-archetype";
+}
 
-    /// <summary>Runs the compiler over the document as it stands.</summary>
-    public Button Compile { get; private set; } = null!;
-
-    /// <summary>Whether the entity names are kept, as a shipping build's would not be.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Off changes the answer, which is why it is here rather than assumed.</b> Names are
-    ///     one string per entity in the asset — a real fraction of a large level's compiled size —
-    ///     and a build that strips them produces different bytes and a different total. An author
-    ///     asking "how big is this scene" wants to ask it about the build they ship.
-    /// </remarks>
-    public CheckBox KeepNames { get; private set; } = null!;
-
-    /// <summary>Shown before anything has been compiled, and when a compile failed.</summary>
-    public Alert Status { get; private set; } = null!;
-
-    /// <summary>Entity count, block count and bytes.</summary>
-    public UiElement Facts { get; private set; } = null!;
-
-    /// <summary>One row per block: its archetype, how many entities, and how many bytes.</summary>
-    public UiElement Blocks { get; private set; } = null!;
-
-    /// <summary>What the compiler said, in the order it said it.</summary>
-    public UiElement Diagnostics { get; private set; } = null!;
-
-    /// <summary>The last compile's result, or <see langword="null" /> if it failed or has not run.</summary>
-    public SceneContent? Content { get; private set; }
-
-    /// <summary>What the last compile reported.</summary>
-    public IReadOnlyList<(ImportSeverity Severity, string Message)> Reported => reported;
-
-    readonly List<(ImportSeverity Severity, string Message)> reported = [];
-
+/// <inheritdoc cref="CompiledSceneLabel" />
+internal sealed class CompiledSceneCount : UiElement {
     /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
+    protected override string TagName => "compiled-scene-count";
+}
 
-        var bar = Part("compiled-scene-bar");
+/// <inheritdoc cref="CompiledSceneLabel" />
+internal sealed class CompiledSceneBytes : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "compiled-scene-bytes";
+}
 
-        Compile = bar.Add<Button>();
-        Compile.Label = "Compile";
-        Compile.Clicked += _ => Refresh();
+/// <inheritdoc cref="CompiledSceneLabel" />
+internal sealed class CompiledSceneSeverity : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "compiled-scene-severity";
+}
 
-        bar.Add("compiled-scene-label").Text = "Keep names";
-
-        KeepNames = bar.Add<CheckBox>();
-        KeepNames.IsChecked = true;
-        KeepNames.CheckedChanged += (_, _) => {
-            // Only when there is something to redo — flipping the switch before the first compile
-            // should not run one, for the same reason `Show` does not.
-            if (Content is not null || reported.Count > 0) {
-                Refresh();
-            }
-        };
-
-        Status = Part<Alert>();
-        Status.Title = "Not compiled";
-        Status.Message = "Press Compile to see what a build makes of this scene.";
-
-        Facts = Part("compiled-scene-facts");
-        Blocks = Part("compiled-scene-blocks");
-        Diagnostics = Part("compiled-scene-diagnostics");
-    }
-
-    /// <summary>Points the pane at a document. Does not compile it.</summary>
-    /// <param name="scene">The open scene or prefab.</param>
-    /// <remarks>
-    ///     ⚠ <b>Deliberately does not compile.</b> Opening a level would otherwise pay for a full
-    ///     compile before the first frame is drawn, for a tab nobody may look at.
-    /// </remarks>
-    public void Show(SceneDocument scene) {
-        ArgumentNullException.ThrowIfNull(scene);
-
-        document = scene;
-
-        Content = null;
-        reported.Clear();
-
-        Facts.Empty();
-        Blocks.Empty();
-        Diagnostics.Empty();
-
-        Status.RemoveClass("hidden");
-        Status.Title = "Not compiled";
-        Status.Message = "Press Compile to see what a build makes of this scene.";
-    }
-
-    /// <summary>Compiles the document and redraws.</summary>
-    /// <returns>Whether it compiled.</returns>
-    /// <remarks>
-    ///     ⚠ <b>A prefab is compiled as a prefab</b>, so the one-root rule is checked here as the
-    ///     build would check it — <c>SceneCompiler.CompilePrefab</c> refuses two roots and says why.
-    ///     Compiling every document as a scene would make this pane the one place a prefab with two
-    ///     roots looked fine.
-    /// </remarks>
-    public bool Refresh() {
-        if (document is not { } scene) {
-            return false;
-        }
-
-        reported.Clear();
-        Content = null;
-
-        var file = SceneSerializer.ToFile(scene);
-        var names = KeepNames.IsChecked;
-
-        void Report(ImportSeverity severity, string message) => reported.Add((severity, message));
-
-        Content = scene.Writer is PrefabFileWriter
-            ? SceneCompiler.CompilePrefab(file, Report, names)?.Content
-            : SceneCompiler.CompileScene(file, Report, names)?.Content;
-
-        Draw();
-
-        return Content is not null;
-    }
-
-    void Draw() {
-        Facts.Empty();
-        Blocks.Empty();
-        Diagnostics.Empty();
-
-        foreach (var (severity, message) in reported) {
-            var row = Diagnostics.Add("compiled-scene-diagnostic");
-
-            row.AddClass(severity switch {
-                ImportSeverity.Error => "error",
-                ImportSeverity.Warning => "warning",
-                _ => "information"
-            });
-
-            row.Add("compiled-scene-severity").Text = severity.ToString();
-            row.Add("compiled-scene-message").Text = message;
-        }
-
-        if (Content is not { } content) {
-            Status.RemoveClass("hidden");
-            Status.Title = "Would not compile";
-            Status.Message = reported.Count == 0
-                ? "The compiler refused it and said nothing, which is a bug in the compiler."
-                : $"{reported.Count(entry => entry.Severity == ImportSeverity.Error)} error(s). A build would "
-                + "fail on this scene for the same reasons.";
-
-            return;
-        }
-
-        Status.AddClass("hidden");
-
-        // ⚠ The bytes are the columns' and not the asset's. Positions, rotations, scales, names and
-        // ids are tables of the content's own — a fixed cost per entity that no archetype decision
-        // moves — so counting them into a block would make every block look alike.
-        var bytes = content.Blocks.Sum(block => block.Columns.Sum(column => (long) column.Data.Length));
-
-        Fact("Entities", content.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        Fact("Blocks", content.Blocks.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        Fact("Component bytes", bytes.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        Fact("Names", content.Names.Length == 0 ? "stripped" : "kept");
-
-        foreach (var block in content.Blocks) {
-            var row = Blocks.Add("compiled-scene-block");
-
-            // ⚠ An empty column set is a real archetype and not a missing one: an entity carrying
-            // nothing but a transform is in a block whose columns are none, and showing it blank
-            // reads as a rendering fault.
-            row.Add("compiled-scene-archetype").Text = block.Columns.Length == 0
-                ? "(transform only)"
-                : string.Join(", ", block.Columns.Select(column => column.Component));
-
-            row.Add("compiled-scene-count").Text =
-                $"{block.Entities.Length} entit{(block.Entities.Length == 1 ? "y" : "ies")}";
-
-            row.Add("compiled-scene-bytes").Text =
-                $"{block.Columns.Sum(column => column.Data.Length)} B";
-        }
-    }
-
-    /// <summary>A name and a number, in the shape every other editor's facts take.</summary>
-    void Fact(string name, string value) {
-        var row = Facts.Add("fact-row");
-
-        row.Add("fact-name").Text = name;
-        row.Add("fact-value").Text = value;
-    }
-
+/// <inheritdoc cref="CompiledSceneLabel" />
+internal sealed class CompiledSceneMessage : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "compiled-scene-message";
 }

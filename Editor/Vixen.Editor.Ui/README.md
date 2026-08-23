@@ -449,11 +449,16 @@ Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-wr
 the honest version of that ratio has never been written down. This is it: **every panel in the
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
-**Where it stands.** Twenty `.vxml` files across six assemblies — nineteen panels and one shared
-part, `Parts/FactRow.vxml` — against **62 files and ~31,700
+**Where it stands.** ~~Twenty~~ **Twenty-seven** `.vxml` files across ~~six~~ **seven** assemblies —
+twenty-two panels and five shared parts (`Vixen.Editor.Ui/Parts/FactRow.vxml`,
+`Vixen.Editor.Terrain/FactBlock.vxml`, and water's `WaterZoneFacts`, `WaterFacts` and
+`WaterNotice`) — against **62 files and ~31,700
 lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
 turn out not to be panels at all, which is the first finding. There are 25 `RegisterPanel` call
 sites and 34 `editor.panel.*` ids, so **34 is the denominator**, not 62 and not 120,000 lines.
+⚠ **`Vixen.Editor.Water` is the seventh assembly and it cost two lines of `.csproj` to become one** —
+see the wave-5 note under the six S-sized ports; the first `.vxml` in an assembly needs the markup
+generator and the `Vixen.Ui.targets` import naming it, and not having them is not a diagnostic.
 
 ⚠ **[`docs/overview.md`](../../docs/overview.md) and doc 36 § "F7's number" had both gone stale** —
 they said eleven and three — and are corrected in the same commit as this section. A count nobody
@@ -524,6 +529,18 @@ layout, because an effect running at the write would mutate the tree while the r
 between, and that is the assertion, not an accident: the panel has to be right the instant it is
 asked. **Before signal-backing anything, grep for callers that read it back synchronously.**
 
+⚠ **And then read what the grep found, because wave 5 nearly refused a panel on it.**
+`CompiledSceneView` looks identical to `BuildSettingsView` from here — `CompiledSceneTests` reads
+`view.Blocks.Children.Count` on the line after `Refresh()`, three times. The difference is *who*: the
+one production caller is `tabs.AddTab("Compiled").Panel.Add<CompiledSceneView>().Show(scene)` and
+reads nothing back at all, and the test file itself says why its element assertions exist — "a
+projection that produced the right numbers and drew none of them would pass every test about the
+numbers", which is a claim about coverage rather than about timing. The shape is therefore
+**"a caller reads it back synchronously", not "a test does"**, and the two are worth telling apart:
+the values that were genuinely synchronous — `Refresh()`'s answer, `Content`, `Reported` — still are,
+because signal *reads* are immediate and only the effects are queued. Three assertions gained a
+`Frame()`. `BuildSettingsView` stays imperative because its callers really do read it back.
+
 **4. It is not a panel.** Roughly a third of the "UI" files are presenters that build into a
 caller's element (`ProjectBrowser`, `ViewportLayout`, `SceneHierarchyView`, `ToolbarPresenter`,
 `MenuPresenter`), services with no fixed tree (`DialogService`, `AssetPicker`), registration wiring
@@ -570,6 +587,35 @@ element whose only content is its own text.
 somebody has to declare, so shape 5 is unchanged as a statement about the language — it is the *cost*
 of the escape that turned out to be small, which is why `FlameChartView`'s second withdrawal reason
 is now closed.
+
+⚠ **And the escape is not about `Text`, which is wave 5's correction to this whole block.** Every
+sentence above says "`Text`", and `Text` is only the first thing it was needed for. The general
+statement is: **a binding may not assign a flag set; it may assign a property that owns one bit of
+it.** `UiElement.State` holds Hover, Focused, Pressed and Checked, so `<Button State="…" />` would
+undo whatever the pointer had just put there — which is why `KeyBindingsView` and `FlameChartView`
+both keep `State |= Checked` imperative and say so. `SettingsView`'s rail could not: its handles would
+have come from `refs`, `refs` is filled by an effect, and `Restate` is called synchronously from
+`Select` — including once from `Add` before any frame has run, where the dictionary would have been
+empty and the first tab would silently not have highlighted. So the rail's tab is
+
+```csharp
+internal sealed class SettingsTab : ButtonBase {
+    protected override string TagName => "button";
+
+    public bool Selected {
+        get => (State & ElementState.Checked) != 0;
+        set { if (value) State |= ElementState.Checked; else State &= ~ElementState.Checked; }
+    }
+}
+```
+
+and `Selected="@IsChosen(page)"` is an ordinary binding. Same tag, same `size-md variant-subtle
+settings-tab`, so `settings-rail > button.settings-tab:checked` reaches it unchanged — which is the
+test of whether an escape is an escape or a redesign. ⚠ **`ButtonBase` rather than `Button` only
+because `Button` is sealed**, and the two are the same type: `Button` adds a tag name and nothing
+else. ⚠ **This is also what `FlameChartView`'s reason 3 was actually waiting for** — `refs` was
+nominated for that job and would work there, where the flag is written from a *click handler* rather
+than from a synchronous restate, but the property is the smaller answer and needs no handle at all.
 
 ### The surviving-region rule is not only about `@for`, and that is wave 4's finding
 
@@ -661,6 +707,15 @@ assembly is a question for whoever wants the other three, and the honest answer 
 `Vixen.Editor.Ui` covers terrain, water, blockout and the app's own world panels, which is where the
 six S-sized ports are.
 
+✅ **And that is exactly what happened: wave 5 used the part for terrain and water, and gave the
+other assembly its own two cells.** `Vixen.Editor.AssetEditors/Captions.cs` holds `FactName` and
+`FactValue` — four lines each, the shape-5 escape — and `AudioMixerView`, `VariationHarnessView`,
+`CompiledSceneView` and `TextureImportView` all resolve them from the enclosing namespace with no
+`@using`. ⚠ **Wave 4 argued against hoisting them and was right at the time**: "a shared declaration
+would buy a file and move nothing" is true of two private copies and false of four, because four
+copies of a tag name is how two of them come to disagree about it. The hoist is byte-neutral — same
+tags, same `AssetEditorTheme` rules, and both existing panels' dumps are unchanged.
+
 ⚠ **The rules stay in `AssetEditorTheme.vcss`.** `fact-row`, `fact-name` and `fact-value` are
 declared there, and `frame-editor fact-name` overrides two of them in the same sheet; moving the
 declarations into `EditorTheme` would move them earlier in the load order and change which one wins.
@@ -705,6 +760,54 @@ compresses instead of scrolling. The way through is the one `FactRow` takes: por
 **parts**, each component's host tag being an element the panel already creates, so the tree is
 unchanged and the C# factory shrinks a piece at a time.
 
+✅ **Wave 5 took that way through for five of the six and it is the right prescription.**
+`Vixen.Editor.Terrain/FactBlock.vxml` (`@tag terrain-facts`) serves grass, growth and splines;
+`WaterZoneFacts`, `WaterFacts` and `WaterNotice` serve the two water panels. Every one is
+`@inherits Vixen.Ui.UiElement` rather than `Control` — a `Control` gives itself `variant-default` and
+`size-md` in `OnCreated` and the plain elements they replace have neither — and each is asserted by
+dumping the whole document's rectangles for the hand-written loop and for the part and comparing the
+two strings, in `FactBlockTests` and `WaterFactsTests`.
+
+⚠ **Three things the prescription did not say, and the first one costs an hour if you meet it
+cold.** **The first `.vxml` in an assembly needs two lines of `.csproj` and there is no diagnostic
+when they are missing.** `Vixen.Editor.Water` had never had one, so the generator never ran, the
+`.vxml` was not an item at all, and the build failed with "`WaterZoneFacts` does not contain a
+definition for `Show`" on every member the markup declares — which reads as a mistake in the markup
+and is a mistake in the project file. The two lines are the `Vixen.Ui.Markup.Generators`
+`ProjectReference` as an `Analyzer` and the `Vixen.Ui.targets` import at the bottom of the file;
+`Vixen.Editor.Terrain` and `Vixen.Editor.AssetEditors` each already carry them with a comment saying
+a `PackageReference` to `Vixen.Ui` would have brought both and a `ProjectReference` does not. Worth a
+`VXML` diagnostic, or a `.vxml` in a project with no generator being an MSBuild warning; today it is
+neither.
+
+**And two more.**
+
+- **`@tag` is a compile-time directive, so "the same part under another name" is not sayable.**
+  `WaterFacts` is `WaterZoneFacts` minus the refusal and under a different tag, and there is no
+  parameter for that. Neither tag is styled by any sheet in the tree — nor is `terrain-facts`,
+  `water-notice`, `water-refusal` or `verb-row` — so a single shared type under one tag would have
+  rendered identically and lied in five places about what the panel is made of. Two types.
+- **The refusal row is the one place markup's *natural* spelling is the right one.**
+  `element.Add("water-refusal").Add("text").Text = why` is `<water-refusal>@Refusal</water-refusal>`
+  exactly, because an interpolation appends a `text` child and that is what the C# built. Shape 5 is
+  about a tag's *own* `Text`; where the target is a child, there is no escape needed at all.
+
+⚠ **`Blockout settings` is the sixth and it is a "no", for a reason that is not the `DockPanel`
+rule.** Its seven children are three `world-title`s, three `InspectorView`s and one `Button` — every
+one a single element, so there is no part to make: a part is worth a file when it has a shape, and
+seven things with no shape between them is the panel, which is the thing that may not become a
+component. The whole-panel route was not attempted and the `flex-shrink` warning above is therefore
+still **unverified**: a probe against a bare `DockPanel` measures nothing, because a panel outside a
+`DockingHost` has no box at all. Whoever wants this panel should measure the warning first, in a real
+session — and if it turns out that a `flex-shrink: 0` wrapper scrolls correctly after all, this
+paragraph and the one above it both change.
+
+**`VerbRow` is still not built, and porting a panel that has verbs did not change the answer.** The
+water body panel has five of them across two rows, and `Verbs(panel, …)` is eight lines that build a
+`verb-row` and a button each. A part would need the verb list to be a signal and a callback to run
+the command — more surface than it removes, for a tag no sheet styles. The revisit condition this
+section set has now been met and answered: still no.
+
 ### The ledger
 
 Sizes are the wave-1b unit: four panels, ~1,130 lines of C# removed, ~1,370 of `.vxml` added, one
@@ -718,11 +821,12 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 |---|---|---|---|---|
 | `BuildSettingsView` | snapshot | no, and cannot be — shape 3 | **done, wave 2** | M |
 | `FlameChartView` | snapshot | no | **no — withdrawn a second time (2026-08-23), and two of its three reasons are now wrong.** See below | S/M |
-| `CompiledSceneView` | snapshot | no | **port.** Purest snapshot in the tree; 6 tests, all on the view | M |
+| `CompiledSceneView` | snapshot | no | ~~**port**~~ **done, wave 5 (2026-08-23).** The sizing was right and "purest snapshot" was right; what it got wrong is that this row and `BuildSettingsView`'s look alike from the outside and are not. 238 lines of C# → a 323-line `.vxml` and a 132-line `.cs` of two key records and six captions; **byte-identical in all six dumped states**. See below | M |
 | `VariationHarnessView` | snapshot | no | ~~**port**~~ **done, wave 4 (2026-08-23).** The sizing was right and the reasoning was not: read-only and zero `change:` subscriptions, but it needed `refs` all the same — for the hit test, not for a handler. 230 lines of C# → a `.vxml` and a 60-line `.cs` of one key record and seven captions; byte-identical in five of six dumped states, and the sixth is argued below | S |
-| `SettingsView` | live (view-local) | no | **port — the exclusion is lifted.** See below | M |
-| `TextureImportView` | snapshot | no | **port.** The direct `<Tabs>`/`<TabItem>` + `<ImportSettingsView>` case those two features were built for | M |
-| Blockout settings · Water zone · Water body · Terrain grass/growth/splines | snapshot | no | **port, six small ones.** `TerrainBrushInspector.vxml` is the model; splines has a literal duplicated fact block a `@for` deletes | S each |
+| `SettingsView` | live (view-local) | no | ~~**port — the exclusion is lifted**~~ **done, wave 5 (2026-08-23).** The lift was right about the pane and silent about the rail, which is where the work was: `Restate` writes `State \|= Checked` on one of a *list* of buttons and `refs` cannot serve it. 332 lines → a 344-line `.vxml` and a 119-line `.cs`; byte-identical in eight dumped states including the checked bit and the three `Disabled` flags. See below | M |
+| `TextureImportView` | snapshot | no | ~~**port**~~ **done, wave 5 (2026-08-23).** The `<Tabs>`/`<TabItem>` half was exactly as advertised and cost four tags; the part the sizing did not see is that its four facts had to become *one* snapshot record, because three of them depend on a mutable settings object no signal watches. 277 lines → a 356-line `.vxml` and an 88-line `.cs`; byte-identical in seven dumped states | M |
+| Water zone · Water body · Terrain grass/growth/splines | snapshot | no | ~~**port, six small ones**~~ **five done, wave 5 (2026-08-23).** Ported as *parts*, exactly as the block below this table prescribes, and that prescription is the finding: each is now `panel.Add<FactBlock>()` where it was `panel.Add("terrain-facts")`. Splines' duplicated fact block is gone — into one method rather than a `@for`, which is where it actually lived | S each |
+| Blockout settings | snapshot | no | ~~**port**~~ **no — it has no part with a shape.** Its seven children are three `world-title`s, three `InspectorView`s and a `Button`: every one is a single element, so there is nothing for a part to be, and the only container is the `DockPanel` itself. See below | S |
 | `QueryView` · `GoapDomainView` · `AgentDebuggerView` | snapshot | no | port; leave `CurveEditor`/`NodeCanvas` behind a `ref` | S/M |
 | `CodeEditorView` · `VfxGraphView` · `ShaderGraphView` · `CompositorView` | live | no | port the chrome; the editor/canvas/`KeyValueList` rows stay | S–M |
 | `NodeInspector` · `NodeSearchPopup` · `CommandPalette` · `AddComponentMenu` | snapshot | no | port; each deletes a hand-rolled element pool or reconciler | M |
@@ -808,6 +912,33 @@ had to be *invoked from* the `.vxml` — it needs a host element to be invoked *
 one. `PrefabView.vxml` is the proof: `<TabItem ref="@HierarchyTab" Label="Hierarchy" />` has no
 content and `Show` builds the tree against `HierarchyTab.Panel`. `<settings-pane ref="@Pane" />` is
 the same pattern and simpler — an element owned by no region, so `Reload()`'s clear-and-refill is safe.
+
+✅ **Ported 2026-08-23, and the pane was the easy half exactly as written.** What the lift did not
+mention is the **rail**, which is where the work turned out to be: `Restate` sets
+`button.State |= Checked` on one of a *list* of buttons, `refs` cannot serve a synchronous restate,
+and the answer is the `Selected` property on a four-line `ButtonBase` — written up under shape 5,
+because the generalisation it forces is worth more than this panel. Three other things about the
+port:
+
+- **`Restate` is gone rather than moved.** The three footer `Disabled` flags and the rail's checked
+  bit were one method called from six places, every one of which was somebody remembering to. They
+  are four bindings and four dependencies now.
+- ⚠ **`categories` had to stop being a `List<T>`.** The rail is a projection of the list and the
+  filter, and a list appended to in place is a value change no signal can see — the shape a revision
+  counter gets invented to paper over. It is an `ImmutableArray` in a signal that `Add` replaces,
+  which is the call `AudioMixerView`'s solo set makes for the same reason.
+- **The rail keys on the `SettingsCategory`**, which is an immutable record holding delegates: its
+  value is its identity, and a page that survives a filter change keeps its region and its two live
+  bindings. Nothing in the body reads the loop variable for anything that changes.
+
+⚠ **And one gate had to be corrected rather than satisfied.**
+`StylesheetTests.Every_class_name_in_the_markup_is_a_utility_or_one_of_ours` failed on
+`settings-tab`, and its `Ours` escape hatch had been empty with the note that keeping it empty was
+worth doing — "`EditorTheme` styles the editor's chrome by *tag* almost throughout". "Almost" was
+carrying the weight: `settings-rail > button.settings-tab` needs a class precisely because what it
+styles is a **control**, and a tag selector cannot tell one `button` from another. Every such rule
+was previously reached from C# with `AddClass`, which that gate does not read — so the first panel to
+write one in markup is the first to be accused of a typo. The premise is corrected in place.
 
 ### What to build, in order of leverage
 

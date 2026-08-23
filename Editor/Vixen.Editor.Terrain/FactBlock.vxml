@@ -1,0 +1,69 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 5. The derived-numbers block that the grass, growth and spline panels each
+    built by hand: `Clear(facts)`, then a `Fact(facts, …)` per row.
+
+    ⚠ **A part rather than a panel, and the panel ledger says why in as many words.** All six of the
+    S-sized module panels build *directly into a `DockPanel`*, and `dock-panel.scrolls > *
+    { flex-shrink: 0 }` reaches direct children only — so wrapping a whole panel in one markup
+    component inserts a box that the rule cannot reach, and a tall panel compresses instead of
+    scrolling. A part whose host tag is an element the panel already creates leaves the tree exactly
+    as it was: `panel.Add<FactBlock>()` puts a `terrain-facts` where `panel.Add("terrain-facts")`
+    put one, in the same position, as the same direct child.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and not `Control`.** A `Control` gives itself
+    `variant-default` and `size-md` in `OnCreated`, which the plain element this replaces does not
+    have — two classes nothing styles, and two lines of difference in every dump for ever.
+    `FactRow` made the same call for the same reason.
+
+    ⚠ **`Show` takes a snapshot and there is no revision counter.** These settings objects are plain
+    `[DataContract]`s with no change notification — that is the price of being the same kind of type
+    the inspector draws everywhere else — so the panel is told by `InspectorView.ValueChanged` and
+    hands over the list it computed. One signal holding an immutable array is the whole model;
+    a counter that said "something moved" would be a second answer to a question the array already
+    answers.
+
+    ⚠ **The row's key is the whole record, which is the immutable-data half of the `@for` rule.**
+    Nothing in a `FactRow` is signal-backed, so there is no binding inside the body to notice a
+    changed number: the value has to *be* the identity, and a changed reading is a new key whose
+    region is built fresh. ⚠ And the slot is in the key because two rows may legitimately read the
+    same — "Placed 0" and "Sown 0" differ, but nothing stops a future pair that does not, and
+    `BuildContext.For` cannot reconcile two equal keys in one loop.
+-->
+@component FactBlock
+@namespace Vixen.Editor.Terrain
+@inherits Vixen.Ui.UiElement
+@tag terrain-facts
+@using System.Collections.Immutable
+@using Vixen.Editor.Ui
+@using Vixen.Ui
+@using Vixen.Ui.Reactive
+
+@for (var fact in Rows) {
+    <FactRow key="@fact" Name="@fact.Label" Value="@fact.Value" />
+}
+
+@code {
+    /// <inheritdoc cref="Show" />
+    readonly Signal<ImmutableArray<FactLine>> rows = new([]);
+
+    /// <summary>What the block says, in order.</summary>
+    public IReadOnlyList<FactLine> Facts => rows.Value;
+
+    /// <summary>Replaces what the block says.</summary>
+    /// <param name="facts">The rows, in the order they should read.</param>
+    /// <remarks>
+    ///     ⚠ <b>The rows are right on the next flush, not on this line.</b> Writing a signal only
+    ///     queues (ADR-007). Nothing reads this block back synchronously — a caller that wanted to
+    ///     would be asking the panel what it had just told it.
+    /// </remarks>
+    public void Show(IEnumerable<(string Label, string Value)> facts) {
+        ArgumentNullException.ThrowIfNull(facts);
+
+        rows.Value = [.. facts.Select((fact, slot) => new FactLine(slot, fact.Label, fact.Value))];
+    }
+
+    ImmutableArray<FactLine> Rows => rows.Value;
+}

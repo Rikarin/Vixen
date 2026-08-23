@@ -29,11 +29,24 @@ namespace Vixen.Editor.Ui.Tests;
 public partial class StylesheetTests {
     /// <summary>Class names in the editor's markup that are <c>EditorTheme</c>'s rather than utilities.</summary>
     /// <remarks>
-    ///     Empty, and worth keeping empty: <c>EditorTheme</c> styles the editor's chrome by <i>tag</i>
-    ///     almost throughout — <c>task-row</c>, <c>status-cell</c>, <c>console-message</c> — so a
-    ///     class name in a <c>.vxml</c> is a utility unless somebody deliberately made it otherwise.
+    ///     <para>
+    ///         Nearly empty, and worth keeping nearly empty: <c>EditorTheme</c> styles the editor's
+    ///         chrome by <i>tag</i> almost throughout — <c>task-row</c>, <c>status-cell</c>,
+    ///         <c>console-message</c> — so a class name in a <c>.vxml</c> is a utility unless somebody
+    ///         deliberately made it otherwise.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It was empty until <c>SettingsView</c> was ported, and that is the premise being
+    ///         corrected rather than an exception being carved out.</b> "Almost throughout" was doing
+    ///         real work in that sentence: <c>settings-rail &gt; button.settings-tab</c> has been an
+    ///         <c>EditorTheme</c> rule since the window was written, and it needs a class because the
+    ///         thing it styles is a <i>control</i> — a tag selector cannot tell one <c>button</c> from
+    ///         another. Every such rule in the sheet was previously reached from C# with
+    ///         <c>AddClass</c>, which this gate does not read, so the first panel to write one in
+    ///         markup is the first to be accused of a typo.
+    ///     </para>
     /// </remarks>
-    static readonly HashSet<string> Ours = new(StringComparer.Ordinal);
+    static readonly HashSet<string> Ours = new(StringComparer.Ordinal) { "settings-tab" };
 
     [GeneratedRegex("class=\"([^\"]*)\"")]
     private static partial Regex ClassAttribute { get; }

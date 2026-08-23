@@ -1,0 +1,78 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 5. The zone panel's derived-numbers block: what a resolution actually buys, and
+    what the kernel's own rule refuses.
+
+    ⚠ **A part rather than a panel, for the reason the panel ledger gives.** Both water panels build
+    directly into a `DockPanel`, and `dock-panel.scrolls > * { flex-shrink: 0 }` reaches direct
+    children only — a component wrapped round the whole panel inserts a box the rule cannot reach and
+    a tall panel compresses instead of scrolling. A part whose host tag is an element the panel
+    already creates changes nothing: `panel.Add<WaterZoneFacts>()` stands exactly where
+    `panel.Add("water-zone-facts")` stood.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and not `Control`**, because a `Control` gives itself
+    `variant-default` and `size-md` and the plain element this replaces has neither.
+
+    ⚠ **The refusal is an interpolation and the facts are not, and the asymmetry is the tree's.**
+    `<water-refusal>@Refusal</water-refusal>` appends a `text` child, which is exactly what
+    `facts.Add("water-refusal").Add("text").Text = why` did — so here the markup spelling is the
+    natural one. A `fact-name`'s own `Text` has no markup spelling at all, which is why the rows go
+    through `FactRow`. Ledger shape 5, read in both directions.
+
+    ⚠ **Two signals and no revision counter.** `WaterZoneSettings` is a plain settings object with no
+    change notification, so the panel is told by `InspectorView.ValueChanged` and hands over the
+    snapshot it computed. `Show` writes both at once, which is what keeps the numbers and the refusal
+    from ever describing two different states.
+-->
+@component WaterZoneFacts
+@namespace Vixen.Editor.Water
+@inherits Vixen.Ui.UiElement
+@tag water-zone-facts
+@using System.Collections.Immutable
+@using Vixen.Editor.Ui
+@using Vixen.Ui
+@using Vixen.Ui.Reactive
+
+@for (var fact in Rows) {
+    <FactRow key="@fact" Name="@fact.Label" Value="@fact.Value" />
+}
+
+@if (Refusal.Length > 0) {
+    <water-refusal>@Refusal</water-refusal>
+}
+
+@code {
+    /// <inheritdoc cref="Show" />
+    readonly Signal<ImmutableArray<WaterFactLine>> rows = new([]);
+
+    /// <inheritdoc cref="Show" />
+    readonly Signal<string> refusal = new(string.Empty);
+
+    /// <summary>What the block says, in order.</summary>
+    public IReadOnlyList<WaterFactLine> Facts => rows.Value;
+
+    /// <summary>And what it says the settings refuse, or empty.</summary>
+    public string Refused => refusal.Value;
+
+    /// <summary>Replaces the block.</summary>
+    /// <param name="facts">The rows, in the order they should read.</param>
+    /// <param name="why">What the settings refuse, or <see langword="null" /> for nothing.</param>
+    /// <remarks>
+    ///     ⚠ <b>Redrawn on every change rather than behind a button</b>, because the whole point of
+    ///     the readout is that it is there <i>while</i> the numbers are being typed. A "recompute"
+    ///     button would put the four-megabyte answer one press away from the person who was about to
+    ///     press Create.
+    /// </remarks>
+    public void Show(IEnumerable<(string Label, string Value)> facts, string? why) {
+        ArgumentNullException.ThrowIfNull(facts);
+
+        rows.Value = [.. facts.Select((fact, slot) => new WaterFactLine(slot, fact.Label, fact.Value))];
+        refusal.Value = why ?? string.Empty;
+    }
+
+    ImmutableArray<WaterFactLine> Rows => rows.Value;
+
+    string Refusal => refusal.Value;
+}
