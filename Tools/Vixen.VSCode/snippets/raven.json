@@ -1,0 +1,54 @@
+{
+    "Shader": {
+        "prefix": "shader",
+        "body": [
+            "shader ${1:Name} {",
+            "\t[${2|VertexShader,FragmentShader,ComputeShader|}]",
+            "\t[Semantic(\"${3|SV_Position,SV_Target|}\")]",
+            "\tfunc ${4:Main}(): ${5:float4} {",
+            "\t\t$0",
+            "\t}",
+            "}"
+        ],
+        "description": "A stage. One entry point per shader: a shader carrying both would emit the vertex module once per fragment stage that shares it."
+    },
+    "Stream": {
+        "prefix": "stream",
+        "body": [ "stream var ${1:name}: ${2:float4}" ],
+        "description": "⚠ The contract between a vertex stage and the fragment stages that read it. A stream's location is its index in the declaration list, so adding one to a shader and not its partners moves every location after it — and what that produces is a stage reading the next value along. A stream a stage does not read is still declared, and costs no interface variable."
+    },
+    "Bound resource": {
+        "prefix": "binding",
+        "body": [ "[${1|PerFrame,PerView,PerDraw|}] var ${2:name}: ${3|Texture2D,Sampler,Buffer<T>|}" ],
+        "description": "⚠ A binding's index is its position among the shader's declarations, which is why a declared-and-never-read binding is sometimes load-bearing: leaving one out moves everything after it."
+    },
+    "Push constant": {
+        "prefix": "push",
+        "body": [ "[PushConstant] var ${1:name}: ${2:float4} = ${3:float4(0f, 0f, 0f, 0f)}" ],
+        "description": "⚠ Raven emits a shader's whole block from offset zero and has no layout(offset =). A stage whose data the host writes at a non-zero offset has to declare that many bytes of padding first — see Vixen.Ui.Desktop's Ui.rvn, whose three compositing stages each carry a reserved: float4."
+    },
+    "Range loop": {
+        "prefix": "for",
+        "body": [
+            "for (${1:i} in ${2:0} .. ${3:count - 1}) {",
+            "\t$0",
+            "}"
+        ],
+        "description": "⚠ Ascending only. A walk that has to run the other way is written as a descending subscript over an ascending index."
+    },
+    "Documented function": {
+        "prefix": "func",
+        "body": [
+            "/// ${1:What it does.}",
+            "func ${2:Name}(${3:x}: ${4:float}): ${5:float} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "A function."
+    },
+    "Expression function": {
+        "prefix": "funce",
+        "body": [ "func ${1:Name}(${2:x}: ${3:float}): ${4:float} => $0" ],
+        "description": "The expression form."
+    }
+}

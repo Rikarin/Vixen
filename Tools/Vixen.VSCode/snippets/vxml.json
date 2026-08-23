@@ -1,0 +1,85 @@
+{
+    "Component header": {
+        "prefix": "component",
+        "body": [
+            "@component ${1:Name}",
+            "@namespace ${2:Vixen.Namespace}",
+            "@tag ${3:component-tag}",
+            "@using Vixen.Ui.Controls",
+            "@using Vixen.Ui.Reactive",
+            "",
+            "$0"
+        ],
+        "description": "The file headers. @tag is worth setting: the default is the type name lower-cased and cannot produce a hyphen, so a compound name silently answers to something no stylesheet matches."
+    },
+    "Code block": {
+        "prefix": "code",
+        "body": [
+            "@code {",
+            "\t$0",
+            "}"
+        ],
+        "description": "The component's C#."
+    },
+    "Signal-backed parameter": {
+        "prefix": "param",
+        "body": [
+            "readonly Signal<${1:Model}> ${2:model} = new(new());",
+            "",
+            "/// <summary>${3:What it is showing.}</summary>",
+            "/// <remarks>",
+            "///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a",
+            "///     component, mounts it — which runs <c>Build</c> — and assigns its parameters",
+            "///     <em>afterwards</em>. So every effect this component made has already read the property",
+            "///     once, with whatever the default was, and a plain property assigned later notifies nobody.",
+            "/// </remarks>",
+            "public ${1:Model} ${4:Model} {",
+            "\tget => ${2:model}.Value;",
+            "\tset => ${2:model}.Value = value;",
+            "}"
+        ],
+        "description": "A component parameter that actually updates. A plain property assigned after the mount reaches no effect."
+    },
+    "Keyed loop": {
+        "prefix": "for",
+        "body": [
+            "@for (var ${1:item} in ${2:Items}) {",
+            "\t<${3:row} key=\"@${1:item}\">$0</${3:row}>",
+            "}"
+        ],
+        "description": "⚠ Key on the item's value when the item is immutable data, and on the object only when that object holds signals: a surviving key keeps its region and its body is NOT re-run, so per-item bindings go on reading the value the key first appeared with."
+    },
+    "Conditional": {
+        "prefix": "if",
+        "body": [
+            "@if (${1:condition}) {",
+            "\t$0",
+            "}"
+        ],
+        "description": "⚠ `@if (x is { } y)` does not work: the condition becomes an effect and the body a separate build, so a pattern variable declared in the test is not in scope inside the branch. The fix is a property, not a pattern."
+    },
+    "Element reference": {
+        "prefix": "ref",
+        "body": [ "ref=\"@${1:field}\"" ],
+        "description": "Hands the element back to a member, assigned in the straight-line body and certainly by OnComposed. ⚠ Refused inside a @for — use refs, which is keyed."
+    },
+    "Two-way binding": {
+        "prefix": "bind",
+        "body": [ "bind:${1:Value}=\"@${2:Model}.${3:Field}.Value\"" ],
+        "description": "Two-way over a [UiProperty]. ⚠ The expression must be an assignable lvalue of the property's exact type — a Signal<T> needs its .Value, and the T has to match (string? not string, double not float for NumericInput.Number)."
+    },
+    "Value change": {
+        "prefix": "change",
+        "body": [ "change:${1:Value}=\"@(${2:v} => ${3:Write}(${2:v}))\"" ],
+        "description": "One-way out. Not an event: `on:` maps through a table of routed gestures and no entry in it can hand a handler a value."
+    },
+    "Composed hook": {
+        "prefix": "oncomposed",
+        "body": [
+            "partial void OnComposed() {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Runs once the whole body has run, which is the first moment every ref is assigned. Re-run by a hot reload, because the body contains the assignments."
+    }
+}

@@ -76,6 +76,10 @@ BenchmarkDotNet.Artifacts/
 
 # The documentation site's install and build outputs.
 www/node_modules/
+
+# The VS Code extension: its dependencies and its packaged output.
+Tools/Vixen.VSCode/node_modules/
+Tools/Vixen.VSCode/*.vsix
 www/dist/
 www/.angular/
 www/out-tsc/

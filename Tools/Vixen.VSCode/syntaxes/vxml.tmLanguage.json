@@ -1,0 +1,563 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "VXML",
+    "scopeName": "text.vxml",
+    "comment": "Vixen's markup language. Every C# fragment is scoped meta.embedded.block.csharp so that the C# grammar colours it and VS Code's comment command does the right thing inside it; the same is true of CSS inside <style>. The one rule to remember when editing this file: a '}' closes a directive body only at the element depth its '{' was written at, and TextMate has no way to know the depth, so the bodies here are matched with begin/end and a balanced-brace repeat rather than a single regex.",
+    "patterns": [
+        {
+            "include": "#comment"
+        },
+        {
+            "include": "#header"
+        },
+        {
+            "include": "#code-block"
+        },
+        {
+            "include": "#style-block"
+        },
+        {
+            "include": "#control-flow"
+        },
+        {
+            "include": "#tag"
+        },
+        {
+            "include": "#interpolation"
+        }
+    ],
+    "repository": {
+        "comment": {
+            "name": "comment.block.vxml",
+            "begin": "<!--",
+            "end": "-->",
+            "captures": {
+                "0": {
+                    "name": "punctuation.definition.comment.vxml"
+                }
+            }
+        },
+        "header": {
+            "comment": "The five file headers. They may appear in any order and the tree keeps them in source order, so nothing here assumes one.",
+            "patterns": [
+                {
+                    "match": "^\\s*(@component|@inherits)\\s+([A-Za-z_][\\w.]*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.directive.vxml"
+                        },
+                        "2": {
+                            "name": "entity.name.type.vxml"
+                        }
+                    }
+                },
+                {
+                    "match": "^\\s*(@namespace|@using)\\s+([A-Za-z_][\\w.]*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.directive.vxml"
+                        },
+                        "2": {
+                            "name": "entity.name.namespace.vxml"
+                        }
+                    }
+                },
+                {
+                    "comment": "@tag names an element, and it is the one header whose argument is CSS's vocabulary rather than C#'s \u2014 it can and usually does contain a hyphen.",
+                    "match": "^\\s*(@tag)\\s+([a-z][\\w-]*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.directive.vxml"
+                        },
+                        "2": {
+                            "name": "entity.name.tag.vxml"
+                        }
+                    }
+                }
+            ]
+        },
+        "code-block": {
+            "comment": "@code { ... } is C# and is handed to the C# grammar whole.",
+            "begin": "^\\s*(@code)\\s*(\\{)",
+            "end": "^\\s*(\\})",
+            "beginCaptures": {
+                "1": {
+                    "name": "keyword.control.directive.vxml"
+                },
+                "2": {
+                    "name": "punctuation.section.embedded.begin.vxml"
+                }
+            },
+            "endCaptures": {
+                "1": {
+                    "name": "punctuation.section.embedded.end.vxml"
+                }
+            },
+            "contentName": "meta.embedded.block.csharp",
+            "patterns": [
+                {
+                    "include": "source.cs"
+                }
+            ]
+        },
+        "style-block": {
+            "comment": "<style> and <style scoped> hold VCSS. Scoped to source.vcss rather than source.css so the Vixen at-rules light up here too.",
+            "begin": "(<)(style)(?:\\s+(scoped))?\\s*(>)",
+            "end": "(</)(style)\\s*(>)",
+            "beginCaptures": {
+                "1": {
+                    "name": "punctuation.definition.tag.begin.vxml"
+                },
+                "2": {
+                    "name": "entity.name.tag.vxml"
+                },
+                "3": {
+                    "name": "entity.other.attribute-name.vxml"
+                },
+                "4": {
+                    "name": "punctuation.definition.tag.end.vxml"
+                }
+            },
+            "endCaptures": {
+                "1": {
+                    "name": "punctuation.definition.tag.begin.vxml"
+                },
+                "2": {
+                    "name": "entity.name.tag.vxml"
+                },
+                "3": {
+                    "name": "punctuation.definition.tag.end.vxml"
+                }
+            },
+            "contentName": "meta.embedded.block.css",
+            "patterns": [
+                {
+                    "include": "source.vcss"
+                }
+            ]
+        },
+        "control-flow": {
+            "patterns": [
+                {
+                    "comment": "@if / @for / @switch, whose parenthesised head is C#. @for's head is `var x in expr`, which C# parses as a declaration only inside a real for-each \u2014 so the head is scoped as an expression and `var`/`in` are called out by hand.",
+                    "begin": "(@(?:if|for|switch|while))\\s*(\\()",
+                    "end": "(\\))",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.conditional.vxml"
+                        },
+                        "2": {
+                            "name": "punctuation.section.parens.begin.vxml"
+                        }
+                    },
+                    "endCaptures": {
+                        "1": {
+                            "name": "punctuation.section.parens.end.vxml"
+                        }
+                    },
+                    "contentName": "meta.embedded.block.csharp",
+                    "patterns": [
+                        {
+                            "match": "\\b(var|in)\\b",
+                            "name": "keyword.control.vxml"
+                        },
+                        {
+                            "include": "source.cs"
+                        }
+                    ]
+                },
+                {
+                    "match": "(@else)(?:\\s+(if))?",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.conditional.vxml"
+                        },
+                        "2": {
+                            "name": "keyword.control.conditional.vxml"
+                        }
+                    }
+                },
+                {
+                    "comment": "A `case` label inside an @switch body. Only ever at the start of a line in practice, which is what keeps the word `case` inside a paragraph of text from becoming one.",
+                    "match": "^\\s*(case)\\s+(.+?)\\s*(:)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.conditional.vxml"
+                        },
+                        "2": {
+                            "name": "meta.embedded.block.csharp",
+                            "patterns": [
+                                {
+                                    "include": "source.cs"
+                                }
+                            ]
+                        },
+                        "3": {
+                            "name": "punctuation.separator.vxml"
+                        }
+                    }
+                },
+                {
+                    "match": "^\\s*(default)\\s*(:)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.conditional.vxml"
+                        },
+                        "2": {
+                            "name": "punctuation.separator.vxml"
+                        }
+                    }
+                }
+            ]
+        },
+        "tag": {
+            "patterns": [
+                {
+                    "include": "#tag-close"
+                },
+                {
+                    "include": "#tag-open-component"
+                },
+                {
+                    "include": "#tag-open-element"
+                }
+            ]
+        },
+        "tag-close": {
+            "match": "(</)([A-Za-z_][\\w.-]*)\\s*(>)",
+            "captures": {
+                "1": {
+                    "name": "punctuation.definition.tag.begin.vxml"
+                },
+                "2": {
+                    "name": "entity.name.tag.vxml"
+                },
+                "3": {
+                    "name": "punctuation.definition.tag.end.vxml"
+                }
+            }
+        },
+        "attribute": {
+            "patterns": [
+                {
+                    "include": "#attribute-event"
+                },
+                {
+                    "include": "#attribute-bound"
+                },
+                {
+                    "include": "#attribute-universal"
+                },
+                {
+                    "include": "#attribute-plain"
+                },
+                {
+                    "include": "#attribute-bare"
+                }
+            ]
+        },
+        "attribute-directive": {
+            "comment": "The three prefixed forms. `on:` is a routed gesture and takes dot modifiers; `bind:` is two-way over a [UiProperty]; `change:` is one-way out and is deliberately not an event \u2014 no entry in the event table can hand a handler a value.",
+            "patterns": [
+                {
+                    "match": "\\b(on)(:)([\\w-]+)((?:\\.(?:stop|prevent|capture|once|self))*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.binding.vxml"
+                        },
+                        "2": {
+                            "name": "punctuation.separator.vxml"
+                        },
+                        "3": {
+                            "name": "entity.other.attribute-name.event.vxml"
+                        },
+                        "4": {
+                            "name": "support.function.modifier.vxml"
+                        }
+                    }
+                },
+                {
+                    "match": "\\b(bind|change)(:)([\\w.]+)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.binding.vxml"
+                        },
+                        "2": {
+                            "name": "punctuation.separator.vxml"
+                        },
+                        "3": {
+                            "name": "entity.other.attribute-name.vxml"
+                        }
+                    }
+                }
+            ]
+        },
+        "attribute-universal": {
+            "comment": "The attributes that are never assigned as properties. `class`, `style` and `binding-path` mean the same on a component tag as on an element; `ref`, `refs` and `key` are the language's own and land nowhere in the document at all.",
+            "begin": "\\b(class|style|binding-path|ref|refs|key|slot)\\b\\s*(=)",
+            "beginCaptures": {
+                "1": {
+                    "name": "keyword.other.attribute.vxml"
+                },
+                "2": {
+                    "name": "punctuation.separator.key-value.vxml"
+                }
+            },
+            "end": "(?<=[\"'])|(?=[\\s/>])",
+            "patterns": [
+                {
+                    "include": "#attribute-value"
+                }
+            ]
+        },
+        "attribute-plain": {
+            "comment": "Everything else is a property, and it may be a property *path* \u2014 `LeadingIcon.Geometry` emits `n1.LeadingIcon.Geometry = \u2026`, because the control library has properties that are objects. Nothing here checks that the path exists; the binder's rule is only that it will parse as C#.",
+            "begin": "([A-Za-z_][\\w.-]*)\\s*(=)",
+            "beginCaptures": {
+                "1": {
+                    "name": "entity.other.attribute-name.vxml"
+                },
+                "2": {
+                    "name": "punctuation.separator.key-value.vxml"
+                }
+            },
+            "end": "(?<=[\"'])|(?=[\\s/>])",
+            "patterns": [
+                {
+                    "include": "#attribute-value"
+                }
+            ]
+        },
+        "attribute-value": {
+            "patterns": [
+                {
+                    "comment": "A value that is entirely one explicit expression. Matched before the implicit form because `@(` has to win over `@` \u2014 and before the plain string, because otherwise the quote opens one.",
+                    "begin": "(\\\")\\s*(@)(\\()",
+                    "end": "(\\))\\s*(\\\")",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "punctuation.definition.string.begin.vxml"
+                        },
+                        "2": {
+                            "name": "keyword.control.interpolation.vxml"
+                        },
+                        "3": {
+                            "name": "punctuation.section.parens.begin.vxml"
+                        }
+                    },
+                    "endCaptures": {
+                        "1": {
+                            "name": "punctuation.section.parens.end.vxml"
+                        },
+                        "2": {
+                            "name": "punctuation.definition.string.end.vxml"
+                        }
+                    },
+                    "contentName": "meta.embedded.block.csharp",
+                    "patterns": [
+                        {
+                            "include": "source.cs"
+                        }
+                    ]
+                },
+                {
+                    "comment": "A value that is one implicit expression.",
+                    "begin": "(\\\")\\s*(@)",
+                    "end": "(\\\")",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "punctuation.definition.string.begin.vxml"
+                        },
+                        "2": {
+                            "name": "keyword.control.interpolation.vxml"
+                        }
+                    },
+                    "endCaptures": {
+                        "1": {
+                            "name": "punctuation.definition.string.end.vxml"
+                        }
+                    },
+                    "contentName": "meta.embedded.block.csharp",
+                    "patterns": [
+                        {
+                            "include": "source.cs"
+                        }
+                    ]
+                },
+                {
+                    "comment": "An ordinary quoted value \u2014 which is not necessarily a string. `Variant=\"Subtle\"` is an enum member and `Value=\"0.5\"` is a float; the emitter writes `Literals.Of(\u2026)` and the C# compiler picks the conversion from the target's type, so nothing on this side can tell either. \u26a0 A misspelt enum member is therefore a *run-time* failure.",
+                    "begin": "\"",
+                    "end": "\"",
+                    "name": "string.quoted.double.vxml",
+                    "patterns": [
+                        {
+                            "include": "#interpolation"
+                        }
+                    ]
+                },
+                {
+                    "begin": "'",
+                    "end": "'",
+                    "name": "string.quoted.single.vxml",
+                    "patterns": [
+                        {
+                            "include": "#interpolation"
+                        }
+                    ]
+                }
+            ]
+        },
+        "interpolation": {
+            "patterns": [
+                {
+                    "comment": "@@ is a literal at-sign, and it has to come first or it would open an expression.",
+                    "match": "@@",
+                    "name": "constant.character.escape.vxml"
+                },
+                {
+                    "comment": "@(\u2026) is the explicit form, and the only one that can hold an operator: `@a + b` interpolates only `a`.",
+                    "begin": "(@)(\\()",
+                    "end": "(\\))",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.interpolation.vxml"
+                        },
+                        "2": {
+                            "name": "punctuation.section.parens.begin.vxml"
+                        }
+                    },
+                    "endCaptures": {
+                        "1": {
+                            "name": "punctuation.section.parens.end.vxml"
+                        }
+                    },
+                    "contentName": "meta.embedded.block.csharp",
+                    "patterns": [
+                        {
+                            "include": "source.cs"
+                        }
+                    ]
+                },
+                {
+                    "comment": "Razor's implicit-expression rule: a name, then member accesses, calls and indexers, stopping at the first character that cannot continue one. So `Clicked @count times` reads the way it looks.",
+                    "match": "(@)([A-Za-z_]\\w*(?:\\s*(?:\\.\\s*\\w+|\\([^()]*\\)|\\[[^\\[\\]]*\\]))*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.interpolation.vxml"
+                        },
+                        "2": {
+                            "name": "meta.embedded.block.csharp",
+                            "patterns": [
+                                {
+                                    "include": "source.cs"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        "tag-open-component": {
+            "comment": "An uppercase tag is a component or a control, and this side cannot tell which \u2014 `<Callout />` is a Component and `<ProgressBar />` is a UiElement, and resolving that would need the type resolution the binder exists to avoid. The emitter writes one call for both and C# overload resolution settles it, so one scope covers both here too.",
+            "begin": "(<)([A-Z][\\w.]*)",
+            "beginCaptures": {
+                "1": {
+                    "name": "punctuation.definition.tag.begin.vxml"
+                },
+                "2": {
+                    "name": "entity.name.type.component.vxml"
+                }
+            },
+            "end": "(/?>)",
+            "endCaptures": {
+                "1": {
+                    "name": "punctuation.definition.tag.end.vxml"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#attribute"
+                }
+            ]
+        },
+        "tag-open-element": {
+            "comment": "A lowercase tag is an intrinsic element. The React and Blazor rule, chosen because it is decidable from the characters \u2014 a parser cannot consult a registry of component types, since the types it would look up are being compiled beside it.",
+            "begin": "(<)([a-z_][\\w.-]*)",
+            "beginCaptures": {
+                "1": {
+                    "name": "punctuation.definition.tag.begin.vxml"
+                },
+                "2": {
+                    "name": "entity.name.tag.vxml"
+                }
+            },
+            "end": "(/?>)",
+            "endCaptures": {
+                "1": {
+                    "name": "punctuation.definition.tag.end.vxml"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#attribute"
+                }
+            ]
+        },
+        "attribute-event": {
+            "comment": "`on:` is a routed gesture and takes dot modifiers. `onclick` is accepted as an alias because it is what everyone types first, but `on:` is the syntax and works for every event including the ones with no alias.",
+            "begin": "\\b(on)(:)([\\w-]+)((?:\\.(?:stop|prevent|capture|once|self))*)\\s*(=)",
+            "beginCaptures": {
+                "1": {
+                    "name": "keyword.control.binding.vxml"
+                },
+                "2": {
+                    "name": "punctuation.separator.vxml"
+                },
+                "3": {
+                    "name": "entity.other.attribute-name.event.vxml"
+                },
+                "4": {
+                    "name": "support.function.modifier.vxml"
+                },
+                "5": {
+                    "name": "punctuation.separator.key-value.vxml"
+                }
+            },
+            "end": "(?<=[\"'])|(?=[\\s/>])",
+            "patterns": [
+                {
+                    "include": "#attribute-value"
+                }
+            ]
+        },
+        "attribute-bound": {
+            "comment": "`bind:` is two-way over a [UiProperty]; `change:` is one-way out and is deliberately not an event \u2014 no entry in the event table can hand a handler a value, and the six controls that raise a routed ValueChangedEvent name a different T each.",
+            "begin": "\\b(bind|change)(:)([\\w.]+)\\s*(=)",
+            "beginCaptures": {
+                "1": {
+                    "name": "keyword.control.binding.vxml"
+                },
+                "2": {
+                    "name": "punctuation.separator.vxml"
+                },
+                "3": {
+                    "name": "entity.other.attribute-name.vxml"
+                },
+                "4": {
+                    "name": "punctuation.separator.key-value.vxml"
+                }
+            },
+            "end": "(?<=[\"'])|(?=[\\s/>])",
+            "patterns": [
+                {
+                    "include": "#attribute-value"
+                }
+            ]
+        },
+        "attribute-bare": {
+            "comment": "An attribute with no value \u2014 `scoped` on a <style>, and anything a control reads as a flag.",
+            "match": "\\b[A-Za-z_][\\w.-]*\\b",
+            "name": "entity.other.attribute-name.vxml"
+        }
+    }
+}

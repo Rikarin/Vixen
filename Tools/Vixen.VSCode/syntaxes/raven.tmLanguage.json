@@ -1,0 +1,331 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Raven",
+    "scopeName": "source.raven",
+    "comment": "Vixen's shading language. The keyword lists here are transcribed from `Raven/Vixen.Raven/Parsing/RavenLexer.cs` rather than remembered \u2014 that file is one dictionary and it is the whole of what the lexer treats as a keyword, so a word missing here is a word missing there.",
+    "patterns": [
+        {
+            "include": "#comment"
+        },
+        {
+            "include": "#attribute"
+        },
+        {
+            "include": "#package"
+        },
+        {
+            "include": "#declaration"
+        },
+        {
+            "include": "#string"
+        },
+        {
+            "include": "#number"
+        },
+        {
+            "include": "#keyword"
+        },
+        {
+            "include": "#type"
+        },
+        {
+            "include": "#resource-type"
+        },
+        {
+            "include": "#builtin"
+        },
+        {
+            "include": "#swizzle"
+        },
+        {
+            "include": "#operator"
+        },
+        {
+            "include": "#identifier"
+        }
+    ],
+    "repository": {
+        "comment": {
+            "patterns": [
+                {
+                    "comment": "A triple slash is documentation, and Raven carries a lot of it \u2014 the library's own sources are mostly prose.",
+                    "name": "comment.line.documentation.raven",
+                    "begin": "///",
+                    "end": "$"
+                },
+                {
+                    "name": "comment.line.double-slash.raven",
+                    "begin": "//",
+                    "end": "$"
+                },
+                {
+                    "name": "comment.block.raven",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "attribute": {
+            "patterns": [
+                {
+                    "include": "#attribute-stage"
+                },
+                {
+                    "include": "#attribute-binding"
+                },
+                {
+                    "include": "#attribute-other"
+                }
+            ]
+        },
+        "package": {
+            "match": "\\b(package|import)\\s+([A-Za-z_][\\w.]*)",
+            "captures": {
+                "1": {
+                    "name": "keyword.control.import.raven"
+                },
+                "2": {
+                    "name": "entity.name.namespace.raven"
+                }
+            }
+        },
+        "declaration": {
+            "patterns": [
+                {
+                    "match": "\\b(shader|struct|protocol|enum)\\s+([A-Za-z_]\\w*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.declaration.raven"
+                        },
+                        "2": {
+                            "name": "entity.name.type.raven"
+                        }
+                    }
+                },
+                {
+                    "match": "\\b(func)\\s+([A-Za-z_]\\w*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.declaration.function.raven"
+                        },
+                        "2": {
+                            "name": "entity.name.function.raven"
+                        }
+                    }
+                },
+                {
+                    "comment": "\u26a0 `stream var` is not `var`. A stream is the contract between a vertex stage and the fragment stages that read it, and its location is its index in the declaration list \u2014 so adding one to a shader and not its partners moves every location after it, and what that produces is a stage reading the next value along. Scoped apart from an ordinary variable for that reason.",
+                    "match": "\\b(stream)\\s+(var|val)\\s+([A-Za-z_]\\w*)",
+                    "captures": {
+                        "1": {
+                            "name": "storage.modifier.stream.raven"
+                        },
+                        "2": {
+                            "name": "keyword.declaration.variable.raven"
+                        },
+                        "3": {
+                            "name": "variable.other.stream.raven"
+                        }
+                    }
+                },
+                {
+                    "match": "\\b(var|val)\\s+([A-Za-z_]\\w*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.declaration.variable.raven"
+                        },
+                        "2": {
+                            "name": "variable.other.declaration.raven"
+                        }
+                    }
+                }
+            ]
+        },
+        "string": {
+            "name": "string.quoted.double.raven",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                {
+                    "match": "\\\\.",
+                    "name": "constant.character.escape.raven"
+                }
+            ]
+        },
+        "number": {
+            "patterns": [
+                {
+                    "comment": "The `f` suffix is Raven's float literal and is worth seeing: an unsuffixed literal in a float expression is a place two backends can disagree.",
+                    "match": "\\b\\d+\\.?\\d*(?:[eE][-+]?\\d+)?[fF]?\\b",
+                    "name": "constant.numeric.raven"
+                },
+                {
+                    "match": "\\b0[xX][0-9a-fA-F]+[uU]?\\b",
+                    "name": "constant.numeric.hex.raven"
+                }
+            ]
+        },
+        "keyword": {
+            "patterns": [
+                {
+                    "match": "\\b(if|else|for|while|repeat|switch|case|default|break|continue|return|discard|in|where)\\b",
+                    "name": "keyword.control.raven"
+                },
+                {
+                    "comment": "`compose` is the seam a pipeline leaves for a host to fill \u2014 see `Pipeline/ForwardPlus.rvn`, whose slots have no implementation bound until a caller says which one to use.",
+                    "match": "\\b(compose)\\b",
+                    "name": "keyword.control.compose.raven"
+                },
+                {
+                    "match": "\\b(static|const|override|readonly|inout|groupshared|operator|init|get|set|willSet|didSet)\\b",
+                    "name": "storage.modifier.raven"
+                },
+                {
+                    "match": "\\b(self|base)\\b",
+                    "name": "variable.language.raven"
+                },
+                {
+                    "match": "\\b(true|false)\\b",
+                    "name": "constant.language.boolean.raven"
+                }
+            ]
+        },
+        "type": {
+            "comment": "Scalars, vectors and matrices, exactly as the lexer lists them. \u26a0 `mat2x3` and its siblings are keywords rather than generics, so a name like `mat2x5` is an identifier and not a type \u2014 which is a typo the highlighter shows before the compiler does.",
+            "match": "\\b(bool[234]?|int[234]?|uint[234]?|float[234]?|double[234]?|mat[234](?:x[234])?|void)\\b",
+            "name": "storage.type.primitive.raven"
+        },
+        "resource-type": {
+            "comment": "The bound resources. A `Buffer<T>` and an `RWBuffer<T>` differ by one letter and by whether a barrier is needed, which is worth colouring the same and reading twice.",
+            "match": "\\b(RW)?(Texture(?:1D|2D|3D|Cube)(?:Array)?|Buffer|StructuredBuffer|ByteAddressBuffer|Sampler|SamplerComparison)\\b",
+            "name": "support.type.resource.raven"
+        },
+        "builtin": {
+            "comment": "The intrinsics both backends lower. Not exhaustive on purpose \u2014 an unrecognised call is an ordinary identifier, which is the honest look for a function this file cannot resolve.",
+            "match": "\\b(abs|acos|all|any|asin|atan|atan2|ceil|clamp|cos|cosh|cross|ddx|ddy|degrees|determinant|distance|dot|exp|exp2|faceforward|floor|fma|frac|fwidth|inverse|inversesqrt|isinf|isnan|length|lerp|log|log2|max|min|mix|modf|normalize|pow|radians|reflect|refract|round|saturate|sign|sin|sinh|smoothstep|sqrt|step|tan|tanh|transpose|trunc|GroupMemoryBarrierWithGroupSync|InterlockedAdd|GetDimensions|Sample|SampleLevel|SampleGrad|SampleCmp|Load|Store)\\b(?=\\s*\\()",
+            "name": "support.function.builtin.raven"
+        },
+        "swizzle": {
+            "comment": "`.xyzw`, `.rgba` and `.stpq` after a member dot. Coloured so that `colour.rgb` and `colour.rgbx` do not look alike \u2014 the second is an identifier and a compile error.",
+            "match": "(?<=\\.)(?:[xyzw]{1,4}|[rgba]{1,4}|[stpq]{1,4})\\b",
+            "name": "variable.other.member.swizzle.raven"
+        },
+        "operator": {
+            "patterns": [
+                {
+                    "comment": "`..` is Raven's range, and the loop form is `for (i in a .. b)` \u2014 ascending only, which is why a bottom-up walk is written as a descending subscript over an ascending index.",
+                    "match": "\\.\\.",
+                    "name": "keyword.operator.range.raven"
+                },
+                {
+                    "match": "=>",
+                    "name": "keyword.operator.arrow.raven"
+                },
+                {
+                    "match": "(\\+|-|\\*|/|%|==|!=|<=|>=|<|>|&&|\\|\\||!|\\?|:|=)",
+                    "name": "keyword.operator.raven"
+                }
+            ]
+        },
+        "identifier": {
+            "patterns": [
+                {
+                    "match": "\\b([A-Za-z_]\\w*)(?=\\s*\\()",
+                    "name": "entity.name.function.call.raven"
+                },
+                {
+                    "comment": "A capitalised bare name is a type or a static \u2014 `Ui.Premultiply`, `MaskEntry` \u2014 and lowercase is a value. Nothing here resolves anything, so this is a convention rather than a fact; it is the same convention the whole library follows.",
+                    "match": "\\b[A-Z]\\w*\\b",
+                    "name": "entity.name.type.raven"
+                }
+            ]
+        },
+        "attribute-stage": {
+            "comment": "The entry points. What makes a shader a stage rather than a library of functions \u2014 and a shader with two would emit its vertex module once per fragment stage that shares it, which is why an interface's eight stages are eight shaders over one vertex module.",
+            "begin": "(\\[)(VertexShader|FragmentShader|ComputeShader)\\b",
+            "beginCaptures": {
+                "1": {
+                    "name": "punctuation.definition.annotation.raven"
+                },
+                "2": {
+                    "name": "storage.type.annotation.stage.raven"
+                }
+            },
+            "end": "(\\])",
+            "endCaptures": {
+                "1": {
+                    "name": "punctuation.definition.annotation.raven"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#string"
+                },
+                {
+                    "include": "#number"
+                },
+                {
+                    "include": "#identifier"
+                }
+            ]
+        },
+        "attribute-binding": {
+            "comment": "Where a binding lives: the four-set convention of docs/plan/05. \u26a0 A binding's *index* is its position among the shader's declarations, which is why a declared-and-never-read binding is sometimes load-bearing \u2014 leaving one out moves everything after it, and what that draws is a texture read as a storage buffer.",
+            "begin": "(\\[)(PerFrame|PerView|PerDraw|PushConstant|Bindless|Shared|GroupShared)\\b",
+            "beginCaptures": {
+                "1": {
+                    "name": "punctuation.definition.annotation.raven"
+                },
+                "2": {
+                    "name": "storage.modifier.annotation.binding.raven"
+                }
+            },
+            "end": "(\\])",
+            "endCaptures": {
+                "1": {
+                    "name": "punctuation.definition.annotation.raven"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#string"
+                },
+                {
+                    "include": "#number"
+                },
+                {
+                    "include": "#identifier"
+                }
+            ]
+        },
+        "attribute-other": {
+            "comment": "Everything else, matched by shape rather than by a list \u2014 because `[Permutation]`'s keys and names like `[MaxLights]` or `[CascadeCount]` are a *project's* rather than the compiler's, and a closed list here would grey out the ones a game declares.",
+            "begin": "(\\[)([A-Z]\\w*)\\b",
+            "beginCaptures": {
+                "1": {
+                    "name": "punctuation.definition.annotation.raven"
+                },
+                "2": {
+                    "name": "entity.name.function.annotation.raven"
+                }
+            },
+            "end": "(\\])",
+            "endCaptures": {
+                "1": {
+                    "name": "punctuation.definition.annotation.raven"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#string"
+                },
+                {
+                    "include": "#number"
+                },
+                {
+                    "include": "#identifier"
+                }
+            ]
+        }
+    }
+}

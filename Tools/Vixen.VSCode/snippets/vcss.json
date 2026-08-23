@@ -1,0 +1,36 @@
+{
+    "Theme block": {
+        "prefix": "theme",
+        "body": [
+            "@theme {",
+            "\t--spacing: 4px;",
+            "\t--color-${1:brand}: ${2:oklch(74% 0.13 195)};",
+            "\t$0",
+            "}"
+        ],
+        "description": "A project's design tokens. The file must be called vixen.ui.vcss and there must be exactly one — two would be two palettes. Declaring --color-brand also declares bg-brand, text-brand and border-brand."
+    },
+    "Layer order": {
+        "prefix": "layers",
+        "body": [
+            "@layer base, components, utilities;",
+            "",
+            "@layer ${1:components} {",
+            "",
+            "$0",
+            "",
+            "}"
+        ],
+        "description": "⚠ The statement is not optional in a sheet that is concatenated ahead of the generated utilities. Layer order belongs to whoever names a layer first, so without it `components` becomes layer zero and the ladder comes out wrong."
+    },
+    "Apply": {
+        "prefix": "apply",
+        "body": [ "@apply ${1:flex flex-col gap-2};" ],
+        "description": "Expands utility class names inside a rule, at build time."
+    },
+    "Clear a token namespace": {
+        "prefix": "initial",
+        "body": [ "--${1:color}-*: initial;" ],
+        "description": "How a project says it wants none of a namespace the engine ships. `--color-blue-500: initial` removes exactly one."
+    }
+}

@@ -1,0 +1,109 @@
+{
+    "comments": {
+        "blockComment": [
+            "<!--",
+            "-->"
+        ]
+    },
+    "brackets": [
+        [
+            "<",
+            ">"
+        ],
+        [
+            "{",
+            "}"
+        ],
+        [
+            "(",
+            ")"
+        ],
+        [
+            "[",
+            "]"
+        ]
+    ],
+    "autoClosingPairs": [
+        {
+            "open": "{",
+            "close": "}"
+        },
+        {
+            "open": "(",
+            "close": ")"
+        },
+        {
+            "open": "[",
+            "close": "]"
+        },
+        {
+            "open": "\"",
+            "close": "\"",
+            "notIn": [
+                "comment"
+            ]
+        },
+        {
+            "open": "'",
+            "close": "'",
+            "notIn": [
+                "comment",
+                "string"
+            ]
+        },
+        {
+            "open": "<!--",
+            "close": " -->",
+            "notIn": [
+                "comment",
+                "string"
+            ]
+        }
+    ],
+    "surroundingPairs": [
+        [
+            "{",
+            "}"
+        ],
+        [
+            "(",
+            ")"
+        ],
+        [
+            "[",
+            "]"
+        ],
+        [
+            "\"",
+            "\""
+        ],
+        [
+            "'",
+            "'"
+        ],
+        [
+            "<",
+            ">"
+        ]
+    ],
+    "folding": {
+        "markers": {
+            "start": "^\\s*<!--\\s*#?region\\b",
+            "end": "^\\s*<!--\\s*#?endregion\\b"
+        }
+    },
+    "indentationRules": {
+        "increaseIndentPattern": "<(?!\\?|[^>]*/>)([-_.A-Za-z0-9]+)(?=\\s|>)\\b[^>]*>(?!.*</\\1>)|\\{\\s*$|@(if|else|for|switch|while|code)\\b.*\\{\\s*$",
+        "decreaseIndentPattern": "^\\s*(</[-_.A-Za-z0-9]+\\s*>|\\}|-->)"
+    },
+    "onEnterRules": [
+        {
+            "beforeText": "<(?!\\?|[^>]*/>)([-_.A-Za-z0-9]+)(?=\\s|>)\\b[^>]*>$",
+            "afterText": "^</([-_.A-Za-z0-9]+)\\s*>$",
+            "action": {
+                "indent": "indentOutdent"
+            }
+        }
+    ],
+    "wordPattern": "(-?\\d*\\.\\d\\w*)|([^`~!@$^&*()=+\\[{\\]}\\\\|;'\\\",.<>/?\\s]+)"
+}

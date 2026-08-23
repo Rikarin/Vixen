@@ -1,0 +1,104 @@
+{
+    "name": "vixen",
+    "displayName": "Vixen",
+    "description": "Syntax highlighting for Vixen's three authoring languages: VXML markup, VCSS stylesheets and Raven shaders.",
+    "version": "0.1.0",
+    "publisher": "rikarin",
+    "license": "Apache-2.0",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "keywords": [
+        "vixen",
+        "vxml",
+        "vcss",
+        "raven",
+        "shader"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rikarin/vixen"
+    },
+    "contributes": {
+        "languages": [
+            {
+                "id": "vxml",
+                "aliases": [
+                    "VXML",
+                    "vxml"
+                ],
+                "extensions": [
+                    ".vxml"
+                ],
+                "configuration": "./languages/vxml.json"
+            },
+            {
+                "id": "vcss",
+                "aliases": [
+                    "VCSS",
+                    "vcss"
+                ],
+                "extensions": [
+                    ".vcss"
+                ],
+                "configuration": "./languages/vcss.json"
+            },
+            {
+                "id": "raven",
+                "aliases": [
+                    "Raven",
+                    "raven"
+                ],
+                "extensions": [
+                    ".rvn"
+                ],
+                "configuration": "./languages/raven.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "vxml",
+                "scopeName": "text.vxml",
+                "path": "./syntaxes/vxml.tmLanguage.json",
+                "embeddedLanguages": {
+                    "meta.embedded.block.csharp": "csharp",
+                    "meta.embedded.block.css": "css"
+                }
+            },
+            {
+                "language": "vcss",
+                "scopeName": "source.vcss",
+                "path": "./syntaxes/vcss.tmLanguage.json"
+            },
+            {
+                "language": "raven",
+                "scopeName": "source.raven",
+                "path": "./syntaxes/raven.tmLanguage.json"
+            }
+        ],
+        "snippets": [
+            {
+                "language": "vxml",
+                "path": "./snippets/vxml.json"
+            },
+            {
+                "language": "vcss",
+                "path": "./snippets/vcss.json"
+            },
+            {
+                "language": "raven",
+                "path": "./snippets/raven.json"
+            }
+        ]
+    },
+    "scripts": {
+        "test": "node --test test/grammars.test.mjs"
+    },
+    "devDependencies": {
+        "vscode-oniguruma": "^2.0.1",
+        "vscode-textmate": "^9.0.0"
+    }
+}

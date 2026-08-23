@@ -1,0 +1,101 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "VCSS",
+    "scopeName": "source.vcss",
+    "comment": "Vixen's stylesheet language: CSS, plus the four at-rules the utility generator reads. The Vixen-specific patterns come first and `source.css` is included last, so anything not claimed here is coloured exactly as CSS — which is the point, since VCSS *is* CSS everywhere it does not say otherwise.",
+    "patterns": [
+        { "include": "#theme" },
+        { "include": "#apply" },
+        { "include": "#layer" },
+        { "include": "#variant" },
+        { "include": "#container" },
+        { "include": "#tag-selector" },
+        { "include": "source.css" }
+    ],
+    "repository": {
+        "theme": {
+            "comment": "@theme is where a project's design tokens live, and a token is a custom property — so declaring `--color-brand` both makes `var(--color-brand)` available and tells the generator that `bg-brand`, `text-brand` and `border-brand` exist. That is why the names inside are scoped as definitions rather than as ordinary properties.",
+            "begin": "(@theme)\\s*(\\{)",
+            "end": "(\\})",
+            "beginCaptures": {
+                "1": { "name": "keyword.control.at-rule.theme.vcss" },
+                "2": { "name": "punctuation.section.block.begin.vcss" }
+            },
+            "endCaptures": {
+                "1": { "name": "punctuation.section.block.end.vcss" }
+            },
+            "name": "meta.at-rule.theme.vcss",
+            "patterns": [
+                { "include": "#comment" },
+                {
+                    "comment": "`--color-*: initial` is how a project removes a whole namespace the engine ships, and `--breakpoint-*: initial` how it clears the five page-sized defaults. The star is part of the name.",
+                    "match": "(--[\\w-]*\\*?)\\s*(:)",
+                    "captures": {
+                        "1": { "name": "variable.other.definition.token.vcss" },
+                        "2": { "name": "punctuation.separator.key-value.vcss" }
+                    }
+                },
+                { "include": "source.css#property-values" },
+                { "include": "source.css" }
+            ]
+        },
+
+        "apply": {
+            "comment": "@apply expands utility class names inside a rule. The build expands it on the way through, so the names after it are the same vocabulary a class attribute holds.",
+            "match": "(@apply)\\s+([^;}]*)",
+            "captures": {
+                "1": { "name": "keyword.control.at-rule.apply.vcss" },
+                "2": { "name": "entity.other.attribute-name.class.vcss" }
+            }
+        },
+
+        "layer": {
+            "comment": "Both forms: the statement that fixes the order — `@layer base, components, utilities;` — and the block. ⚠ The statement is the load-bearing one: layer order belongs to whoever names a layer first, so a sheet concatenated ahead of the generated utilities has to say all three or the ladder comes out wrong.",
+            "patterns": [
+                {
+                    "match": "(@layer)\\s+([\\w\\s,.-]+)\\s*(;)",
+                    "captures": {
+                        "1": { "name": "keyword.control.at-rule.layer.vcss" },
+                        "2": { "name": "entity.name.function.layer.vcss" },
+                        "3": { "name": "punctuation.terminator.vcss" }
+                    }
+                },
+                {
+                    "match": "(@layer)\\s+([\\w.-]+)\\s*(?=\\{)",
+                    "captures": {
+                        "1": { "name": "keyword.control.at-rule.layer.vcss" },
+                        "2": { "name": "entity.name.function.layer.vcss" }
+                    }
+                }
+            ]
+        },
+
+        "variant": {
+            "match": "(@variant)\\s+([\\w-]+)",
+            "captures": {
+                "1": { "name": "keyword.control.at-rule.variant.vcss" },
+                "2": { "name": "entity.name.function.variant.vcss" }
+            }
+        },
+
+        "container": {
+            "match": "(@container)\\b",
+            "captures": {
+                "1": { "name": "keyword.control.at-rule.container.vcss" }
+            }
+        },
+
+        "tag-selector": {
+            "comment": "⚠ **The one place VCSS looks wrong in a CSS editor.** Vixen's element names are the control library's — `menu-bar`, `dock-panel`, `progress-bar`, and whatever a component's `@tag` says — so almost every type selector here is a hyphenated name that CSS's own grammar does not know and colours as an unknown tag. Matched at the head of a rule so that it reads as the element name it is.",
+            "match": "(?<![\\w.#:-])([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?=[\\s,.:#\\[>~+{]|$)",
+            "name": "entity.name.tag.vcss"
+        },
+
+        "comment": {
+            "comment": "⚠ CSS comments do not nest and have no escape: the first star-slash closes one. Worth knowing here because a token file's header is usually a long prose block, and a glob pattern written literally inside it ends the comment on its own second line and feeds the rest to the parser as CSS. That has happened.",
+            "name": "comment.block.vcss",
+            "begin": "/\\*",
+            "end": "\\*/"
+        }
+    }
+}
