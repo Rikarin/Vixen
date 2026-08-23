@@ -22,6 +22,7 @@ Vixen.Ui.Styling.Utilities.ThemeTokens.Colors.get -> System.Collections.Generic.
 Vixen.Ui.Styling.Utilities.ThemeTokens.DarkMode.get -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
 Vixen.Ui.Styling.Utilities.ThemeTokens.DarkMode.set -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
 Vixen.Ui.Styling.Utilities.ThemeTokens.Diagnostics.get -> System.Collections.Generic.List<string>
+Vixen.Ui.Styling.Utilities.ThemeTokens.DropShadow.get -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ui.Styling.Utilities.ThemeTokens.FontFamily.get -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ui.Styling.Utilities.ThemeTokens.FontSize.get -> System.Collections.Generic.Dictionary<string, Vixen.Ui.Styling.Utilities.FontSizeToken>
 Vixen.Ui.Styling.Utilities.ThemeTokens.FontWeight.get -> System.Collections.Generic.Dictionary<string, float>
@@ -107,6 +108,7 @@ const Vixen.Ui.Styling.Utilities.ThemeTokens.PixelsPerRem = 16 -> float
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Blur = "--tw-blur" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Brightness = "--tw-brightness" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Contrast = "--tw-contrast" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.DropShadow = "--tw-drop-shadow" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFrom = "--tw-gradient-from" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFromPosition = "--tw-gradient-from-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientStops = "--tw-gradient-stops" -> string

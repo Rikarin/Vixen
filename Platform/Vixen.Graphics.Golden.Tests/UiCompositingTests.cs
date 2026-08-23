@@ -57,6 +57,16 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         is asserted here. Deleting the blur from one executor <i>is</i> caught — that was checked
 ///         too, and it comes out at 12.65% of pixels differing by up to 57 levels.
 ///     </para>
+///     <para>
+///         ⚠ <b>The drop shadow divides the same way, and both halves were measured rather than
+///         assumed.</b> Its <i>displacement</i> is invisible here — the offset is spent in
+///         <c>UiGeometryBuilder.Layer</c>, on a quad both executors then draw, so a shadow moved the
+///         wrong way is moved the wrong way twice and the two agree. That is
+///         <c>Vixen.Ui.Controls.Tests.FilterDropShadowTests</c>' half. Its <i>tint</i> is not:
+///         replacing <c>UiDropShadow.Tint</c> with the identity on the device alone — which is the
+///         untinted copy of the element the machinery makes easiest to produce — comes out at
+///         <b>4.43% of pixels differing by up to 178 levels</b>, checked by breaking it.
+///     </para>
 /// </remarks>
 [Collection("Vulkan")]
 public sealed class UiCompositingTests {
@@ -110,7 +120,7 @@ public sealed class UiCompositingTests {
         // ⚠ Before either renderer runs. A frame that opened no group is one where the whole
         // comparison below is between two flat walks, which would agree whatever the compositing
         // code did — including if it were deleted.
-        Assert.Equal(2, geometry.Layers.Count);
+        Assert.Equal(3, geometry.Layers.Count);
 
         var renderer = new UiRenderer(
             owned.Device,
@@ -149,7 +159,7 @@ public sealed class UiCompositingTests {
         );
 
         // The instrument, before the measurement. See the class remarks.
-        Assert.Equal(2, renderer.Composited);
+        Assert.Equal(3, renderer.Composited);
 
         // ⚠ <b>And the second instrument, because a blur has three separate ways of not happening
         // and all of them draw a correct sharp picture.</b> No blur stage handed over, no
@@ -166,9 +176,13 @@ public sealed class UiCompositingTests {
         // fact rather than a hope, and it is also the only thing that would notice a host handing
         // over no `UiShaders.Colour`, which composites through the image pipeline and says nothing.
         //
-        // ⚠ Two, and the inner one is submitted inside the *outer group's* pass rather than the
-        // frame's. That is the half of the count `Record` alone could not see.
-        Assert.Equal(2, renderer.Filtered);
+        // ⚠ Three, and no two of them are the same shape. The outer group's is submitted by the
+        // frame's pass and the inner group's by the *outer group's*, which is the half of the count
+        // `Record` alone could not see. The third is the drop shadow's quad: a shadow is a tint over
+        // a silhouette, so it reaches the frame through the same colour stage a `grayscale` does —
+        // and a shadow surface composited through the image pipeline instead would be a full-colour
+        // copy of the element under itself, which increments `Shadowed` below and not this.
+        Assert.Equal(3, renderer.Filtered);
 
         // ⚠ <b>And the fourth instrument, for the reason the third one gives and one more.</b> A mask
         // shares all four of a colour matrix's ways of not happening, and it adds a fifth that is
@@ -177,6 +191,15 @@ public sealed class UiCompositingTests {
         // correctly filtered and entirely unmasked — and `Filtered` above would still read two. This
         // is the only assertion that separates those two states.
         Assert.Equal(2, renderer.Masked);
+
+        // ⚠ <b>And the fifth, because a drop shadow has every one of a blur's ways of not happening
+        // and one that is peculiar to it.</b> No `UiShaders.Blur`, no `UiLayer.Shadow`, a group
+        // collapsed before it became a layer — and a host with a blur stage and no colour stage,
+        // which gets no shadow at all because `EnsureSurfaces` declines to allocate a surface whose
+        // tint nothing could apply. Every one of those leaves a correct, shadowless picture, and the
+        // software renderer would have to be broken in the same way for the comparison below to
+        // notice. This is the only assertion that separates a shadow that ran from one that did not.
+        Assert.Equal(1, renderer.Shadowed);
 
         var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
 
@@ -221,7 +244,7 @@ public sealed class UiCompositingTests {
         var withGroups = new UiGeometryBuilder().Build(Groups(), isolated, Viewport);
         var withoutGroups = new UiGeometryBuilder().Build(Groups(isolate: false), flattened, Viewport);
 
-        Assert.Equal(2, withGroups.Layers.Count);
+        Assert.Equal(3, withGroups.Layers.Count);
         Assert.Empty(withoutGroups.Layers);
 
         var a = SoftwareUiRasterizer.Render(withGroups, isolated.Atlas, Side, Side, Background);
@@ -385,6 +408,48 @@ public sealed class UiCompositingTests {
         Pop(list, isolate);
         Pop(list, isolate);
 
+        // ⚠ <b>A third group, at the top level, carrying a drop shadow and nothing else — and every
+        // one of those three words is what the other two groups could not supply.</b>
+        //
+        // ⚠ <b>Top level, so the shadow's quad is submitted by the <i>frame's</i> pass.</b> The two
+        // groups above are one nest, so everything in this fixture except the orange bar has so far
+        // been drawn inside a group's pass. A shadow is two extra passes recorded in `Compose` and a
+        // quad submitted in `Record`, and those halves are wired through different code — the second
+        // one has never been exercised for a composite that is not a nested group's.
+        //
+        // ⚠ <b>Neither blurred nor masked, so the tint has to arrive through
+        // <c>colourPipeline</c>.</b> A shadow on the inner group would reach `ui-mask.frag`, which
+        // carries the matrix as well, and would therefore say nothing about the branch every
+        // unmasked shadow in the engine takes. <c>UiRenderer.EnsureSurfaces</c> chooses between the
+        // two per layer; this is the arm that would otherwise be chosen by nothing.
+        //
+        // ⚠ <b>Offset diagonally and blurred by two, over ground that is already composited.</b> The
+        // displacement puts the silhouette across the outer group's own surface rather than over the
+        // background, so a shadow drawn in the wrong order — after its group, or after the whole
+        // frame — lands somewhere this comparison can see. A zero offset would hide it behind the
+        // element that cast it, which is the fixture mistake that makes a drop shadow untestable.
+        //
+        // ⚠ <b>And a translucent colour, because the alpha is the half of the arithmetic that does
+        // not live in the matrix.</b> <c>UiDropShadow.Tint</c> has three rows and cannot scale alpha,
+        // so it rides the quad — and an executor that put it in both places would square it. At 0.75
+        // against 1.0 that is a difference of sixteen levels over the whole silhouette, which is four
+        // times this comparison's channel bound.
+        Push(
+            list,
+            isolate,
+            64,
+            4,
+            56,
+            18,
+            1f,
+            shadow: new UiDropShadow(new Vector2(5f, 6f), 2f, new Color4(0.02f, 0.02f, 0.04f, 0.75f))
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 64, 4, 56, 18, new Color4(0.55f, 0.85f, 0.95f, 1f), 6, 0));
+        Text(list, font, "D", 70, 18, Color4.White);
+
+        Pop(list, isolate);
+
         list.EndFrame();
         return list;
     }
@@ -442,13 +507,15 @@ public sealed class UiCompositingTests {
         float alpha,
         float blur = 0f,
         UiColorMatrix? filter = null,
-        ReadOnlySpan<UiMask> mask = default
+        ReadOnlySpan<UiMask> mask = default,
+        UiDropShadow? shadow = null
     ) {
         if (isolate) {
             list.Add(
                 new DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, alpha), 0, 0) {
                     Blur = blur,
                     Filter = filter,
+                    Shadow = shadow,
 
                     // ⚠ A range of the draw list's own side buffer, which is the only way a group can
                     // carry a mask now that `mask-image` is a list. See `DrawList.Masks`.

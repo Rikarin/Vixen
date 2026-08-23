@@ -174,14 +174,14 @@ public class FilterBlurTests {
     ///         like a bug in the blur. Drawing it unfiltered is the honest answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two of these rows used to be <c>brightness(0.5)</c> and
-    ///         <c>blur(4px) brightness(0.5)</c>, and their moving out is the whole of what changed.</b>
-    ///         The seven colour functions are read now — see <c>FilterColourTests</c> — so what
-    ///         is left here is the set that genuinely is not: <c>drop-shadow</c>, which is a blur of the
-    ///         alpha channel composited under the layer rather than a matrix, and <c>opacity</c>, which
-    ///         is a filter-list spelling of a thing the group already carries. Keeping the theory and
-    ///         swapping its rows is deliberate: what it asserts is the <i>rule</i>, and the rule
-    ///         outlives any particular function being absent.
+    ///         ⚠ <b>Four of these rows have moved out over two changes, and the theory staying put
+    ///         while its rows empty is the point of it.</b> <c>brightness(0.5)</c> and
+    ///         <c>blur(4px) brightness(0.5)</c> left when the seven colour functions landed — see
+    ///         <c>FilterColourTests</c> — and the two <c>drop-shadow</c> rows left when the shadow did,
+    ///         to <c>FilterDropShadowTests</c>. What it asserts is the <i>rule</i>, and the rule
+    ///         outlives any particular function being absent. What is left of the set that genuinely
+    ///         is not read is <c>opacity()</c>, which is a filter-list spelling of a thing the group
+    ///         already carries, and <c>url()</c>, which would want an SVG filter graph.
     ///     </para>
     ///     <para>
     ///         ⚠ The last two rows are arguments rather than functions, and they are here because a
@@ -194,9 +194,8 @@ public class FilterBlurTests {
     [Theory]
     [InlineData("filter: none;")]
     [InlineData("filter: blur(0px);")]
-    [InlineData("filter: drop-shadow(2px 2px 4px black);")]
     [InlineData("filter: opacity(0.5);")]
-    [InlineData("filter: blur(4px) drop-shadow(0px 0px 2px black);")]
+    [InlineData("filter: blur(4px) opacity(0.5);")]
     [InlineData("filter: brightness(0.5) url(#thing);")]
     [InlineData("filter: blur(nonsense);")]
     [InlineData("filter: brightness(-1);")]

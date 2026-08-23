@@ -323,6 +323,39 @@ public readonly record struct DrawCommand(
     public UiColorMatrix? Filter { get; init; }
 
     /// <summary>
+    ///     The shadow a composited group's <c>filter: drop-shadow()</c> casts from its own alpha, or
+    ///     null where there is none. Unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nullable for <see cref="Filter" />'s reason and a stronger one.</b> A zeroed
+    ///         <see cref="UiDropShadow" /> is a shadow at no offset with no blur in transparent black
+    ///         — which happens to paint nothing, so the default is <i>harmless</i> here where a zeroed
+    ///         matrix is not. It is still nullable, because "no shadow" and "a shadow that came out
+    ///         invisible" are answers <c>DrawListBuilder.Settle</c> has to be able to give
+    ///         separately: the second is what every element carrying an assembled <c>filter</c> reads,
+    ///         and collapsing the two would leave a group open for a function nobody wrote.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Beside <see cref="Blur" /> and not folded into it, and the order between them is
+    ///         <i>not</i> free the way <see cref="Filter" />'s is.</b> That field's last remark turns
+    ///         on a colour matrix and a Gaussian commuting exactly. A Gaussian and a
+    ///         <i>shadow</i> do not: the alpha channel is blurred twice one way round and once the
+    ///         other. Both executors run the shadow over the group's finished surface, after its own
+    ///         blur, which is the order <c>UtilityComposition.Filter</c> assembles — see
+    ///         <see cref="UiDropShadow" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing about it rides <see cref="DrawCommandKind.Shadow" />.</b> That kind is a
+    ///         blurred rounded rectangle the shape of the border box, resolved analytically by
+    ///         <c>ui-box.frag</c>; this is a Gaussian over whatever coverage the subtree actually
+    ///         rasterised, which is a different picture wherever the group is not a plain filled box
+    ///         — text, an icon, a masked child. Two names for one word, in two fields, on purpose.
+    ///     </para>
+    /// </remarks>
+    public UiDropShadow? Shadow { get; init; }
+
+    /// <summary>
     ///     The coverage a composited group's <c>mask-image</c> multiplies its surface by, as a range
     ///     of <see cref="DrawList.Masks" />. Unread on every kind but
     ///     <see cref="DrawCommandKind.LayerPush" />.

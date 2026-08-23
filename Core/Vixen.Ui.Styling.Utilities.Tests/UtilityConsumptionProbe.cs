@@ -108,6 +108,15 @@ static class UtilityConsumptionProbe {
     ///     either column, which is worse than being reported wrong.
     /// </remarks>
     /// <remarks>
+    ///     ⚠ <b><c>--drop-shadow-probe</c> is a second shadow token and not a duplicate of the
+    ///     first.</b> <c>--shadow-*</c> and <c>--drop-shadow-*</c> are different v4 namespaces read
+    ///     by different families into different dictionaries, so one token does not stand for both —
+    ///     without this one, <see cref="UtilityFamilies.Surface" /> yields no <c>drop-shadow-&lt;token&gt;</c>
+    ///     at all and the family is measured on its <c>none</c> keyword alone, which exercises the
+    ///     theme lookup not at all. ⚠ And it carries no comma, deliberately: a <c>box-shadow</c> may
+    ///     be a comma-separated list and an item of <c>filter</c> may not.
+    /// </remarks>
+    /// <remarks>
     ///     ⚠ <b>And <c>--*: initial;</c> before any of it, which keeps the gate measuring what it
     ///     says it measures.</b> The engine ships a default <c>@theme</c> now, so a theme file that
     ///     did not clear it would give every scale dozens of tokens — and
@@ -128,6 +137,7 @@ static class UtilityConsumptionProbe {
             --font-weight-probe: 700;
             --breakpoint-probe: 640px;
             --shadow-probe: 0px 3px 6px rgba(0, 0, 0, 0.5);
+            --drop-shadow-probe: 0px 3px 4px rgba(0, 0, 0, 0.4);
             --dark-mode: media;
         }
         """;

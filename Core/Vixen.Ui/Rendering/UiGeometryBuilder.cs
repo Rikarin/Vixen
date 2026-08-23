@@ -409,7 +409,8 @@ public sealed class UiGeometryBuilder {
                     command.Blur,
                     command.Filter,
                     command.Offset,
-                    command.HasMask ? command.Length : 0
+                    command.HasMask ? command.Length : 0,
+                    command.Shadow
                 )
             );
             return;
@@ -439,8 +440,18 @@ public sealed class UiGeometryBuilder {
         // rectangle, which would let the halo escape a clip the group is inside.
         var ink = Ink(open.Vertex);
 
-        if (open.Blur > 0f) {
-            var reach = UiLayer.KernelRadius(open.Blur, 1f);
+        // ⚠ <b>The wider of the two kernels and not their sum, and it is the shadow's presence that
+        // makes this a <c>max</c> rather than a second outset.</b> A <c>drop-shadow</c> is a Gaussian
+        // over the group's <i>finished surface</i> — see <see cref="UiLayer.Shadow" /> — so its taps
+        // read texels this pass has to have left defined, which is why the outset has to cover it at
+        // all. They read the surface and not the shadow, so the two reaches do not compose: a group
+        // that is `blur(4px) drop-shadow(0 0 2px)` needs twelve pixels of margin and not eighteen.
+        var reach = Math.Max(
+            UiLayer.KernelRadius(open.Blur, 1f),
+            UiLayer.KernelRadius(open.Shadow?.Blur ?? 0f, 1f)
+        );
+
+        if (reach > 0) {
             ink = new Rectangle(ink.X - reach, ink.Y - reach, ink.Width + (2f * reach), ink.Height + (2f * reach));
         }
 
@@ -453,9 +464,44 @@ public sealed class UiGeometryBuilder {
             return;
         }
 
+        // ⚠ <b>Decided before the layer is built, because the shadow can be clipped away while the
+        // group is not, and a layer that named a surface nothing draws would have both executors
+        // allocate one and blur into it for nobody.</b> The displacement is applied to the group's
+        // already-clipped bounds and the result clipped again: a `drop-shadow(0 400px 0)` inside an
+        // `overflow: hidden` panel is a group that composites normally and a shadow that does not
+        // exist. Both executors read <see cref="UiLayer.Shadow" /> as the whole answer, so nulling it
+        // here is the one place that has to decide.
+        var cast = open.Shadow;
+        var shadowBounds = default(Rectangle);
+
+        if (cast is { } shadow) {
+            shadowBounds = Intersect(
+                new Rectangle(bounds.X + shadow.Offset.X, bounds.Y + shadow.Offset.Y, bounds.Width, bounds.Height),
+                Intersect(open.Clip, viewport)
+            );
+
+            if (shadowBounds.Width <= 0f || shadowBounds.Height <= 0f) {
+                cast = null;
+            }
+        }
+
+        // ⚠ Both drawn off the one counter and in this order, so that they are distinct by
+        // construction — see <see cref="UiLayer.ShadowImage" />, which argues against deriving the
+        // second from the first. A group with no shadow consumes one number and not two, which is
+        // what keeps a frame's numbering unchanged by a feature it does not use.
+        var image = LayerImage(layerNumber++);
+        var shadowImage = cast is null ? 0UL : LayerImage(layerNumber++);
+
         var layer = new UiLayer(open.Draw, draws.Count - open.Draw, bounds, open.Alpha) {
-            Image = LayerImage(layerNumber++),
+            Image = image,
             Blur = open.Blur,
+
+            // ⚠ Carried whole, offset included, even though the offset is already spent on the quad
+            // below. Both executors need the blur to produce the surface and neither needs the
+            // offset; carrying it anyway is what lets a reader check the quad's displacement against
+            // the declaration instead of trusting that the builder subtracted the right thing.
+            Shadow = cast,
+            ShadowImage = shadowImage,
 
             // ⚠ <b>Carried, and deliberately with no outset of its own.</b> The blur above grew the
             // ink because a Gaussian moves coverage to texels no vertex touched. A colour matrix
@@ -506,6 +552,60 @@ public sealed class UiGeometryBuilder {
         }
 
         layers.Insert(at, layer);
+
+        // ⚠ <b>The shadow is a second ordinary image draw, emitted <i>before</i> the group's, and
+        // that ordering is the whole of "composited under".</b> Nothing in either executor knows a
+        // shadow from a nested group's composite: both are premultiplied surfaces sampled by a quad,
+        // and paint order is what puts one behind the other. Emitting it after would draw a
+        // silhouette over the element that cast it, which is a solid block of the shadow's colour and
+        // not a subtle error.
+        //
+        // ⚠ <b>The quad is displaced and its texture coordinates are not, which is the whole of
+        // "offset".</b> The surface it samples is the viewport's size and holds the group where the
+        // group is, so a quad drawn at <c>bounds + offset</c> reading <c>bounds</c> is the silhouette
+        // moved. Subtracting the offset from the <i>clipped</i> rectangle rather than from
+        // <c>bounds</c> is what keeps that true after a clip has taken a bite out of it: the UV has
+        // to name the part of the surface this quad actually covers, which is no longer the whole of
+        // what it would have covered.
+        //
+        // ⚠ <b>The alpha is the shadow colour's times the group's own.</b> Both executors scale all
+        // four channels of a premultiplied sample by the quad's alpha — see
+        // <c>SoftwareUiRasterizer.Composite</c> — so this is the one place the colour's alpha can go;
+        // <see cref="UiDropShadow.Tint" /> is a three-row matrix and cannot carry it. A group at
+        // <c>opacity: 0.5</c> with a shadow at 25% gets one eighth, which is what nesting two fades
+        // means.
+        if (cast is { } drop) {
+            var shadowFirst = indices.Count;
+
+            Quad(
+                shadowBounds.X,
+                shadowBounds.Y,
+                shadowBounds.X + shadowBounds.Width,
+                shadowBounds.Y + shadowBounds.Height,
+                new Vector2(
+                    (shadowBounds.X - drop.Offset.X - viewport.X) / viewport.Width,
+                    (shadowBounds.Y - drop.Offset.Y - viewport.Y) / viewport.Height
+                ),
+                new Vector2(
+                    (shadowBounds.X + shadowBounds.Width - drop.Offset.X - viewport.X) / viewport.Width,
+                    (shadowBounds.Y + shadowBounds.Height - drop.Offset.Y - viewport.Y) / viewport.Height
+                ),
+                new Color4(1f, 1f, 1f, open.Alpha * drop.Colour.A),
+                new Vector4(1f, 0f, 0f, 0f)
+            );
+
+            draws.Add(
+                new UiDraw(
+                    BatchKind.Image,
+                    shadowFirst,
+                    indices.Count - shadowFirst,
+                    0,
+                    Intersect(open.Clip, viewport)
+                ) {
+                    Image = shadowImage
+                }
+            );
+        }
 
         // ⚠ <b>The composite is an ordinary image draw, and its <c>Shape.X</c> is one.</b> The layer's
         // surface holds *premultiplied* colour, because that is what every UI pipeline writes and what
@@ -612,7 +712,8 @@ public sealed class UiGeometryBuilder {
         float Blur,
         UiColorMatrix? Filter,
         int MaskFirst,
-        int MaskCount
+        int MaskCount,
+        UiDropShadow? Shadow
     );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>

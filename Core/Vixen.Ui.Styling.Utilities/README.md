@@ -105,8 +105,9 @@ sheet actually references, because three hundred custom properties on every docu
 the handful anyone says `var()` against is a cost with nothing on the other side of it.
 
 ⚠ **What is not shipped, and it is a list rather than an oversight.** `--container-*`, `--tracking-*`,
-`--leading-*`, `--inset-shadow-*`, `--drop-shadow-*`, `--text-shadow-*`, `--ease-*`, `--animate-*`,
-`--blur-*`, `--perspective-*` and `--aspect-*` are v4 namespaces no family here reads. Shipping them
+`--leading-*`, `--inset-shadow-*`, `--text-shadow-*`, `--ease-*`, `--animate-*`,
+`--blur-*`, `--perspective-*` and `--aspect-*` are v4 namespaces no family here reads.
+`--drop-shadow-*` left this list when `drop-shadow-*` arrived, which is what the list is for. Shipping them
 would emit variables that resolve and utilities that do not, which is the failure mode doc 43 spends
 Part 1 measuring. `--font-*` is the one exception: the stacks are carried so a hand-written rule can
 say `var(--font-mono)`, and `font-*` in this engine still resolves a *weight* — wiring the family

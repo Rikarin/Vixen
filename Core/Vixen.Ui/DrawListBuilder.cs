@@ -85,6 +85,7 @@ public sealed class DrawListBuilder {
     readonly int opacity;
     readonly int filter;
     readonly int blurFunction;
+    readonly int dropShadowFunction;
 
     /// <summary>The seven <c>filter</c> functions that are a colour matrix, interned in order.</summary>
     /// <remarks>
@@ -186,6 +187,7 @@ public sealed class DrawListBuilder {
         // ⚠ The keywords table, for the reason `currentColor` below says: a function name arrives
         // from `StyleValueParser` as an identifier, and an identifier is interned there.
         blurFunction = keywords.Intern("blur");
+        dropShadowFunction = keywords.Intern("drop-shadow");
 
         // In `FilterFunction`'s order, which `Filter` indexes by. The names are the parser's own
         // spellings — see `StyleValueParser.ParseFunction`, which interns exactly these seven.
@@ -423,6 +425,7 @@ public sealed class DrawListBuilder {
                 ) {
                     Blur = filters.Blur,
                     Filter = filters.Colour,
+                    Shadow = filters.Shadow,
 
                     // ⚠ The range is claimed even when the group turns out to be discarded a few
                     // lines below, and the entries it named are then simply unreferenced until the
@@ -491,6 +494,7 @@ public sealed class DrawListBuilder {
             ) {
                 Blur = filters.Blur,
                 Filter = filters.Colour,
+                Shadow = filters.Shadow,
 
                 // ⚠ The same range as the push names, and not a second copy of the entries.
                 // `UiGeometryBuilder.Layer` reads the push's copy and never this one — see its
@@ -1141,16 +1145,18 @@ public sealed class DrawListBuilder {
         return mirrored != (alignment == alignedEnd) ? slack : 0f;
     }
 
-    /// <summary>Everything an element's <c>filter</c> asks for, in the two shapes a group can carry.</summary>
+    /// <summary>Everything an element's <c>filter</c> asks for, in the three shapes a group can carry.</summary>
     /// <param name="Blur">The Gaussian's standard deviation in document pixels, or zero.</param>
     /// <param name="Colour">The colour transform, or null where every function was a blur.</param>
+    /// <param name="Shadow">The alpha-silhouette shadow, or null where nobody wrote a visible one.</param>
     /// <remarks>
-    ///     ⚠ <b>Two fields because the executors need two, not because CSS has two.</b> A blur costs a
-    ///     scratch surface, two render passes and a bounds outset; a colour matrix rides the composite
-    ///     draw the group was making anyway. <c>default</c> is "no filter" on both counts, which is
+    ///     ⚠ <b>Three fields because the executors need three, not because CSS has three.</b> A blur
+    ///     costs a scratch surface, two render passes and a bounds outset; a colour matrix rides the
+    ///     composite draw the group was making anyway; a drop shadow costs a surface of its own, two
+    ///     more passes and a second quad. <c>default</c> is "no filter" on all three counts, which is
     ///     what every element that says nothing gets.
     /// </remarks>
-    readonly record struct ElementFilter(float Blur, UiColorMatrix? Colour) {
+    readonly record struct ElementFilter(float Blur, UiColorMatrix? Colour, UiDropShadow? Shadow = null) {
         /// <summary>Whether this is worth opening a group for.</summary>
         /// <remarks>
         ///     ⚠ <b>An identity matrix does not count, and that is a deliberate departure from CSS
@@ -1163,7 +1169,15 @@ public sealed class DrawListBuilder {
         ///     that depends on the isolation, which is what makes the trade safe rather than merely
         ///     cheap: <c>Compositing</c> off already declines every group there is.
         /// </remarks>
-        public bool Any => Blur > 0f || Colour is not null;
+        /// <remarks>
+        ///     ⚠ <b>A transparent shadow does not count, on the same terms as the identity matrix
+        ///     above and for a sharper reason.</b> <c>UtilityComposition.Filter</c> assembles all nine
+        ///     functions into every <c>filter</c> it emits, and <c>drop-shadow</c>'s identity is a
+        ///     shadow painted in <c>transparent</c> — so a bare <c>blur-2</c> carries one, on every
+        ///     blurred element in the engine. Counted, it would buy each of them a second surface and
+        ///     two more passes to composite nothing. See <see cref="UiDropShadow.IsInvisible" />.
+        /// </remarks>
+        public bool Any => Blur > 0f || Colour is not null || Shadow is not null;
     }
 
     /// <summary>Which of the seven colour functions a keyword names. The order is <c>filterFunctions</c>'.</summary>
@@ -1238,15 +1252,27 @@ public sealed class DrawListBuilder {
         // and `4px` as a second function.
         var items = value.Items;
 
-        if (items.Length == 2 && items[0].Kind == StyleValueKind.Keyword) {
+        // ⚠ The keyword alone decides, and it used to be the keyword <i>and</i> a length of two.
+        // `drop-shadow(0 4px 6px black)` is a five-item list whose first item is a keyword, so a
+        // length test here read it as the many-function case, found four items that were not lists
+        // and refused the whole declaration — silently, and only for the one function that is not a
+        // pair. A many-function list can never begin with a keyword: every function parses to a list
+        // of its own, so `items[0].Kind` is `List` whenever there is more than one.
+        if (items[0].Kind == StyleValueKind.Keyword) {
             return Settle(One(document, element, items, default) ?? default);
         }
 
         var accumulated = new ElementFilter();
 
         foreach (var item in items) {
+            // ⚠ <b>At least two and no longer exactly two, and the arity is <see cref="One" />'s to
+            // check.</b> Eight of the nine functions are a keyword and one value; <c>drop-shadow</c>
+            // is a keyword and three or four. An equality here read the whole declaration as
+            // malformed the moment a drop shadow appeared beside anything else — silently, and only
+            // for lists of more than one function, so a lone <c>drop-shadow</c> worked and
+            // <c>blur(4px) drop-shadow(…)</c> drew neither.
             if (item.Kind != StyleValueKind.List
-                || item.Items.Length != 2
+                || item.Items.Length < 2
                 || item.Items[0].Kind != StyleValueKind.Keyword) {
                 return default;
             }
@@ -1272,8 +1298,22 @@ public sealed class DrawListBuilder {
     ///     would be discarding an intermediate — <c>grayscale(0)</c> followed by <c>sepia(1)</c> is a
     ///     sepia, and its first step is the identity. Only the composed answer is allowed to decide.
     /// </remarks>
-    static ElementFilter Settle(ElementFilter read) =>
-        read.Colour is { IsIdentity: true } ? read with { Colour = null } : read;
+    static ElementFilter Settle(ElementFilter read) {
+        if (read.Colour is { IsIdentity: true }) {
+            read = read with { Colour = null };
+        }
+
+        // ⚠ Here rather than in `Shadow`, and for a plainer reason than the matrix's: a
+        // `drop-shadow(0 0 0 transparent)` is the identity the moment it is read and could have been
+        // dropped there. It is dropped here so that the two identities are discarded in one place —
+        // a reader looking for "what does this file consider nothing" finds both, and a third
+        // function's identity has an obvious home.
+        if (read.Shadow is { IsInvisible: true }) {
+            read = read with { Shadow = null };
+        }
+
+        return read;
+    }
 
     /// <summary>Folds one <c>filter</c> function into what has been read so far.</summary>
     /// <returns>Null when the function or its argument is one this refuses.</returns>
@@ -1287,6 +1327,19 @@ public sealed class DrawListBuilder {
     /// </remarks>
     ElementFilter? One(UiDocument document, UiElement element, ReadOnlySpan<StyleValue> pair, ElementFilter into) {
         var keyword = pair[0].Keyword;
+
+        // ⚠ <b>Before the pair is unpacked, because this is the one function that is not a pair.</b>
+        // Everything below reads <c>pair[1]</c> as <i>the</i> argument; <c>drop-shadow</c> has three
+        // or four, and reading the first of them as the whole would be a shadow whose blur and colour
+        // were silently the offset's.
+        if (keyword == dropShadowFunction) {
+            return Shadow(document, element, pair[1..], into);
+        }
+
+        if (pair.Length != 2) {
+            return null;
+        }
+
         var argument = pair[1];
 
         if (keyword == blurFunction) {
@@ -1358,6 +1411,99 @@ public sealed class DrawListBuilder {
         // ⚠ An identity is kept here and dropped by `Settle`, which is the only place that can tell
         // a composed identity from an intermediate one. See its remark.
         return into with { Colour = composed };
+    }
+
+    /// <summary>Reads one <c>drop-shadow()</c>'s arguments into the filter being folded.</summary>
+    /// <param name="document">The document, for <c>currentcolor</c> and the length context.</param>
+    /// <param name="element">The element, for the same two.</param>
+    /// <param name="arguments">The function's items, keyword already stripped. Three or four of them.</param>
+    /// <param name="into">What has been read so far.</param>
+    /// <returns>Null when the arguments are a shape this refuses, which refuses the whole list.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The walk is <see cref="EmitShadow" />'s, deliberately and almost line for line,
+    ///         because the two functions have the same grammar problem and only one of them had
+    ///         solved it.</b> A length, a bare zero and a colour are told apart by kind rather than by
+    ///         position — Filter Effects 1 § 8.4 puts the colour at either end — and
+    ///         <c>currentcolor</c> is resolved here because it is the computed <c>color</c> and the
+    ///         parser cannot see an element. What is <i>not</i> shared is the halving: <c>box-shadow</c>
+    ///         passes half its blur to the box shader because that shader wants a half-extent, and
+    ///         <c>drop-shadow(r)</c> is a Gaussian of σ = r. Both conventions live in this file and
+    ///         only one of them applies here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One shadow per element and a second one refuses the list, which is a real limit
+    ///         and the same one <c>box-shadow</c> keeps.</b> CSS lets <c>filter</c> hold any number of
+    ///         <c>drop-shadow()</c>s and each is a surface and two passes on the device; drawing the
+    ///         first and dropping the rest is the silent-middle-state this whole method exists to
+    ///         avoid. Refusing is what makes the second one a visible change rather than an invisible
+    ///         one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default colour is <c>currentcolor</c> and not black</b>, which is Filter
+    ///         Effects 1 § 8.4's rule and the reason <c>drop-shadow(0 2px 4px)</c> on dark text is
+    ///         a dark shadow and on light text a light one. Defaulting to black would be right on
+    ///         every light theme and wrong on every dark one.
+    ///     </para>
+    /// </remarks>
+    ElementFilter? Shadow(
+        UiDocument document,
+        UiElement element,
+        ReadOnlySpan<StyleValue> arguments,
+        ElementFilter into
+    ) {
+        if (into.Shadow is not null) {
+            return null;
+        }
+
+        var context = document.Viewport.WithFontSize(element.FontSize);
+        Span<float> lengths = [0f, 0f, 0f];
+        var count = 0;
+        Color4? shade = null;
+
+        foreach (var item in arguments) {
+            switch (item.Kind) {
+                case StyleValueKind.Color when shade is null:
+                    shade = item.Color;
+                    continue;
+
+                case StyleValueKind.Keyword when item.Keyword == currentColor && shade is null:
+                    shade = document.ForegroundOf(element);
+                    continue;
+
+                case StyleValueKind.Number when item.Number == 0f && count < lengths.Length:
+                    lengths[count++] = 0f;
+                    continue;
+
+                case StyleValueKind.Length when item.Unit != StyleUnit.Percent && count < lengths.Length:
+                    lengths[count++] = item.Number * context.PixelsPer(item.Unit);
+                    continue;
+
+                default:
+                    return null;
+            }
+        }
+
+        // Two lengths or three, and never fewer — the offset is not optional in the grammar and a
+        // shadow with no offset and no blur is the element drawn twice.
+        if (count < 2) {
+            return null;
+        }
+
+        // ⚠ Refused rather than clamped, for the reason the blur above is: a negative standard
+        // deviation is invalid CSS, and a clamp to zero would draw a hard-edged copy of the element
+        // under itself where a browser would have thrown the declaration away.
+        if (lengths[2] < 0f || !float.IsFinite(lengths[0]) || !float.IsFinite(lengths[1])) {
+            return null;
+        }
+
+        return into with {
+            Shadow = new UiDropShadow(
+                new Vector2(lengths[0], lengths[1]),
+                lengths[2],
+                shade ?? document.ForegroundOf(element)
+            )
+        };
     }
 
     /// <summary>An element's own <c>opacity</c>, before anything above it is multiplied in.</summary>

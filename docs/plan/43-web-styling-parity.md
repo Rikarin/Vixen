@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **141** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **142** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **141** |
+| **absent** | not emitted at all | **140** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -396,14 +396,14 @@ refusal block, which already says so for the same reason.
 | Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
-| Filters | 20 | 9 | 0 | 0 | 11 | 0 | 0 |
+| Filters | 20 | 10 | 0 | 0 | 10 | 0 | 0 |
 | Sizing | 15 | 0 | 7 | 0 | 8 | 0 | 0 |
 | Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
 | Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **141** | **39** | **3** | **141** | **3** | **1** |
+| **Total** | **328** | **142** | **39** | **3** | **140** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
 Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and Layout. Tables and Accessibility
@@ -418,16 +418,39 @@ been the one `partial` in the category. What it cost is a storage buffer for the
 `ui-mask.frag`'s push constants were already at the 128 bytes Vulkan guarantees — see
 `docs/guide/ui/compositing.md`.
 
-⚠ **Filters went from 1 of 20 to 8 of 20 in one change, and the seven that moved cost the frame
-nothing.** `brightness-*`, `contrast-*`, `grayscale-*`, `hue-rotate-*`, `invert-*`, `saturate-*` and
-`sepia-*` are a single 3×4 colour matrix composed on the CPU and applied in the fragment stage of the
-composite draw a group already makes — no second surface, no extra pass, forty-eight bytes of push
-constant. That is the whole reason they landed together and `drop-shadow-*` did not: it is a blur of
-the alpha channel, offset, tinted and composited *under* the layer, so it wants `blur-*`'s machinery
-rather than the matrix's. **The ten `backdrop-*` twins are not one change away either** — they read
-what is *behind* the group, which the compositor does not have: `UiRenderer.Compose` renders every
-group's surface before the host's frame pass has begun, so at the moment a group is drawn there is no
-destination to sample. See `UiRenderer.Compose`'s remarks, which say what would have to change.
+⚠ **Filters is 10 of 20, and the three changes that got it there were three different sizes.** The
+seven colour functions moved first and cost the frame nothing: `brightness-*`, `contrast-*`,
+`grayscale-*`, `hue-rotate-*`, `invert-*`, `saturate-*` and `sepia-*` are a single 3×4 colour matrix
+composed on the CPU and applied in the fragment stage of the composite draw a group already makes —
+no second surface, no extra pass, forty-eight bytes of push constant.
+
+⚠ **`filter-*` was a registration gap and nothing else.** `filter: none` was already read correctly —
+`DrawListBuilder.Filter` refuses anything that is not a list, and two existing tests used it as their
+control — and all that was missing was a family to spell it. Registered as the keyword rather than as
+the eight functions at their identities: those draw the same picture and are not the same
+declaration.
+
+⚠ **`drop-shadow-*` cost a compositor change and is the ninth function.** It is a Gaussian over the
+group's *alpha*, offset, tinted and composited *under* it — a second viewport-sized surface, two more
+render passes and a second quad, on both executors. What it did **not** cost is a shader: a
+`UiColorMatrix` with zero coefficients and the colour in its offsets evaluates `0·c + colour·a`,
+which is the tinted silhouette, so `ui-colour.frag` draws it unchanged. It is written **last** in
+`UtilityComposition.Filter` because it does not commute with `blur()` — the only pair in the list
+that does not — which also means every filter declaration in the engine grew a ninth function whose
+identity is a transparent shadow. See `docs/guide/ui/compositing.md`.
+
+⚠ **The ten `backdrop-*` twins are still not one change away, and the blocker has been re-measured
+rather than restated.** They read what is *behind* the group, and `UiRenderer.Compose` records every
+group's pass before the host's frame pass begins, so at that moment nothing below the group exists;
+by composite time the destination is the colour attachment being written. The fix is **not** a
+read-back — the prefix is replayable, and `Submit` already walks exactly the range that would have to
+be replayed. What it needs is a capture pass per backdrop group, `Compose`'s reverse-pre-order walk
+changed to post-order so that everything behind a group is finished before it, **and a new public
+parameter on `Compose`** carrying what the host has already painted — without which the feature blurs
+the interface and not the scene under it, and composites a translucent copy over the sharp original
+instead of replacing it. That last part is what makes it a branch of its own. `docs/guide/ui/compositing.md`
+§ *The shape of the change, sized* has the whole of it, including the rounded-corner clip it does not
+yet answer.
 
 ⚠ **Sizing reads worse than it was and the roots did not move: the rule did.** It was `7 works, 0
 partial`; it is `0 works, 7 partial`, and nothing regressed. Every one of `w-*`, `h-*`, `size-*`,

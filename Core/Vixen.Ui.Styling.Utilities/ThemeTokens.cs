@@ -107,6 +107,29 @@ public sealed class ThemeTokens {
     /// </remarks>
     public Dictionary<string, string> Shadow { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Drop shadows, as the <c>drop-shadow()</c> arguments they stand for, keyed by suffix.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The function's <i>arguments</i> and not the function, which is where this differs
+    ///         from <see cref="Shadow" /> beside it.</b> A <c>box-shadow</c> token is a whole
+    ///         declaration because that property takes one; a <c>drop-shadow</c> is one item of
+    ///         <c>filter</c>'s ordered list, and the list is assembled by
+    ///         <c>UtilityComposition.Filter</c>. So the token holds <c>0 4px 4px rgb(0 0 0 / 0.15)</c>
+    ///         and the assembler wraps it — the same division <c>--tw-blur</c> already makes, and for
+    ///         the same reason: a fragment holding <c>drop-shadow(…)</c> whole could have no initial
+    ///         value that composes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A namespace of its own and not a member of <see cref="Shadow" />, even though a
+    ///         browser would accept either text in either place.</b> They are different scales in v4
+    ///         and they have to be: a <c>box-shadow</c> may be a comma-separated list and several of
+    ///         the shipped ones are, while <c>filter</c>'s items are separated by spaces and a comma
+    ///         in one would invalidate the whole declaration. <c>--drop-shadow-*</c> read as a
+    ///         <c>--shadow-*</c> would take the whole element's filter down with it.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, string> DropShadow { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Font sizes, keyed by suffix.</summary>
     public Dictionary<string, FontSizeToken> FontSize { get; } = new(StringComparer.Ordinal);
 
@@ -390,6 +413,16 @@ public sealed class ThemeTokens {
             return;
         }
 
+        // ⚠ Before `--shadow-` and not after it, and the order is defensive rather than load-bearing:
+        // `Suffix` matches a prefix, so `--drop-shadow-lg` does not begin with `--shadow-` and the two
+        // cannot collide today. What it guards against is somebody widening `Suffix` to match
+        // anywhere, which is the change that turned `--text-shadow-sm` into a font size — see the
+        // exclusion two branches up, which is the same mistake already made once.
+        if (Suffix(name, "--drop-shadow-") is { } cast) {
+            DropShadow[cast] = value;
+            return;
+        }
+
         if (Suffix(name, "--shadow-") is { } shadow) {
             Shadow[shadow] = value;
             return;
@@ -497,6 +530,7 @@ public sealed class ThemeTokens {
         Drop(Colors, "--color-");
         Drop(Radius, "--radius-");
         Drop(Shadow, "--shadow-");
+        Drop(DropShadow, "--drop-shadow-");
         Drop(FontWeight, "--font-weight-");
         Drop(FontFamily, "--font-");
         Drop(Screens, "--breakpoint-");

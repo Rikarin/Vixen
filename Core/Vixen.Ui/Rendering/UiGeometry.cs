@@ -193,6 +193,61 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </remarks>
     public int MaskCount { get; init; }
 
+    /// <summary>The shadow this group's <c>filter: drop-shadow()</c> casts, or null where there is none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Where this is applied is named, like the mask's and unlike the matrix's, and for
+    ///         a third reason again.</b> A mask is pinned to the composite draw because it does not
+    ///         commute with the Gaussian. A shadow is pinned to the <i>seam</i> — the moment the
+    ///         group's own surface is finished — because it does not commute with the group's own
+    ///         blur: <c>blur(σ) drop-shadow(0 0 τ)</c> blurs the alpha channel twice and
+    ///         <c>drop-shadow(0 0 τ) blur(σ)</c> blurs the whole picture after the shadow is under
+    ///         it, and those are different frames. <b>Both executors blur the finished surface into
+    ///         <see cref="ShadowImage" /> and composite that quad first</b>, which is the order
+    ///         <c>UtilityComposition.Filter</c> assembles.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Bounds" /> is outset by whichever of the two blurs is wider, and that
+    ///         is not an approximation.</b> The shadow's kernel reads the group's surface, so the
+    ///         group's own pass has to leave defined every texel the shadow will sample — outsetting
+    ///         only by <see cref="Blur" /> would have the shadow's outermost taps read whatever the
+    ///         previous frame left there. Taking the wider of the two is exact because the shadow
+    ///         samples the surface and not the shadow, so the two reaches do not add.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The offset is <i>not</i> in <see cref="Bounds" />.</b> The group's own quad has
+    ///         not moved; only the shadow's has, and it carries the displacement in its own vertices
+    ///         with texture coordinates taken from where it would have been. So a
+    ///         <c>drop-shadow(0 40px 0)</c> costs the group's surface nothing and costs the shadow's
+    ///         quad a translation — which is also why the shadow may be clipped away entirely while
+    ///         the group is not.
+    ///     </para>
+    /// </remarks>
+    public UiDropShadow? Shadow { get; init; }
+
+    /// <summary>The number the shadow's surface is named by. Meaningless when <see cref="Shadow" /> is null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second number out of <see cref="UiGeometryBuilder.LayerImage" />'s space rather
+    ///     than a derivation of <see cref="Image" />, and the derivation is the tempting mistake.</b>
+    ///     <c>Image - 1</c> or <c>Image ^ 1</c> would need no counter and would collide with the next
+    ///     group's the moment two groups are adjacent — which is every list. Both numbers come off
+    ///     the same counter and are therefore distinct by construction, the same way two groups are.
+    /// </remarks>
+    public ulong ShadowImage { get; init; }
+
+    /// <summary>Where this group's own composite draw sits in <see cref="UiGeometry.Draws" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A property rather than the arithmetic written out, because the arithmetic changed and
+    ///     the two places that had written it out did not.</b> The composite quad used to be
+    ///     <c>First + Count</c> exactly — the draw immediately after the group's own — and a shadow
+    ///     puts its quad in between. Both executors index it: the software one only to keep walking,
+    ///     which is harmless, and <c>UiRenderer.BlurSurface</c> to find the geometry it convolves
+    ///     with, which is not. A blur that drew the <i>shadow's</i> quad would convolve the group's
+    ///     surface through a displaced rectangle and leave the picture shifted by the shadow's offset
+    ///     — an error that only appears when a blur and a drop shadow are on one element.
+    /// </remarks>
+    public int Composite => First + Count + (Shadow is null ? 0 : 1);
+
     /// <summary>The widest kernel either executor will run, in texels each side of the centre.</summary>
     /// <remarks>
     ///     ⚠ <b>A cap and not a limit on what may be asked for, and the two executors truncate

@@ -171,6 +171,46 @@ public sealed class StyleValueParser {
                     : StyleValue.Unknown;
         }
 
+        // ⚠ <b>The one filter function with more than one argument, and the reason it is the odd one
+        // here is that its arguments are separated by <i>spaces</i>.</b> Every function above splits
+        // into a keyword and exactly one value, which is the shape <see cref="Parse" /> already
+        // produces for a whitespace-separated list — so a two-item list was enough and
+        // <c>DrawListBuilder</c> could read a pair. This is a keyword and three-to-four values, and
+        // the same list carries it: <c>[drop-shadow, x, y, blur?, colour?]</c>.
+        //
+        // ⚠ <b>Validated only for shape, and the grammar is checked one level up.</b> That is not
+        // laziness, it is the arrangement <c>box-shadow</c> already has: <c>EmitShadow</c> walks a
+        // flat list of items and decides what each one is, because two of the answers need the
+        // <i>element</i> — <c>currentcolor</c> is the computed <c>color</c>, and a relative length is
+        // relative to the element's font size. A parser that resolved either would be resolving
+        // something it cannot see, and one that refused them both would refuse the default colour CSS
+        // gives this function. See <c>DrawListBuilder.One</c>, which is the reader.
+        //
+        // ⚠ <b>The order of the arguments is not normalised either.</b> Filter Effects 1 § 8.4 writes
+        // the grammar as <c>[ &lt;color&gt;? &amp;&amp; &lt;length&gt;{2,3} ]</c>, so the colour is
+        // legal at either end. Reordering here would put the parser in the business of knowing which
+        // item is which, which is exactly the knowledge the reader has to have anyway.
+        if (name.Equals("drop-shadow", StringComparison.OrdinalIgnoreCase)) {
+            var parts = SplitTopLevel(arguments);
+
+            if (parts.Count is < 2 or > 4) {
+                return StyleValue.Unknown;
+            }
+
+            var items = new StyleValue[parts.Count + 1];
+            items[0] = StyleValue.FromKeyword(keywords.Intern("drop-shadow"));
+
+            for (var i = 0; i < parts.Count; i++) {
+                items[i + 1] = ParseOne(arguments[parts[i]]);
+
+                if (items[i + 1].Kind == StyleValueKind.Unknown) {
+                    return StyleValue.Unknown;
+                }
+            }
+
+            return StyleValue.FromList(items);
+        }
+
         // ⚠ <b>Six functions and one branch, because their grammar is identical and their <i>meaning</i>
         // is not this method's business.</b> Each takes a <c>&lt;number&gt;</c> or a
         // <c>&lt;percentage&gt;</c>; what one means — a ratio for <c>brightness</c>, a proportion of

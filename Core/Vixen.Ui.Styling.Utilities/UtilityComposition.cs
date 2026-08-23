@@ -319,6 +319,17 @@ public static class UtilityComposition {
     /// <summary>How far a <c>filter: hue-rotate()</c> turns the hue. Zero is unchanged.</summary>
     public const string HueRotate = Prefix + "hue-rotate";
 
+    /// <summary>A <c>filter: drop-shadow()</c>'s arguments: two or three lengths and a colour.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The ninth function, and the only one whose fragment holds more than a number.</b>
+    ///     <c>drop-shadow</c> takes an offset, a blur and a colour that are chosen together — see
+    ///     <see cref="ThemeTokens.DropShadow" /> — so splitting them into four fragments would let a
+    ///     stylesheet compose a height nobody designed. It is still the <i>arguments</i> and not the
+    ///     function, for the reason <see cref="Blur" /> gives: <see cref="Filter" /> writes the
+    ///     function name, so the initial value can be a shadow rather than an empty string.
+    /// </remarks>
+    public const string DropShadow = Prefix + "drop-shadow";
+
     static readonly Dictionary<string, string> Initials = new(StringComparer.Ordinal) {
         [GradientFrom] = "transparent",
         [GradientVia] = "transparent",
@@ -381,6 +392,19 @@ public static class UtilityComposition {
         [Invert] = "0",
         [Saturate] = "1",
         [Sepia] = "0",
+
+        // ⚠ <b>A <i>transparent</i> shadow, because <c>drop-shadow</c> is the one function with no
+        // length that means "unchanged".</b> Every other initial above is a number the function maps
+        // to itself; the nearest thing here would be a zero offset and a zero blur, which is the
+        // element painted a second time exactly under itself and is very much not the identity. A
+        // shadow nobody can see is, and `DrawListBuilder.Settle` drops it before it costs a surface —
+        // see `UiDropShadow.IsInvisible`, which is the reader.
+        //
+        // ⚠ Two lengths and not three. `drop-shadow(0 0 transparent)` and `drop-shadow(0 0 0
+        // transparent)` are the same shadow, and the grammar takes two lengths as readily as three —
+        // so the shorter one is written, because a third zero reads like a blur somebody meant to
+        // fill in.
+        [DropShadow] = "0 0 transparent",
 
         // ⚠ <c>0deg</c> and not <c>0</c>, and here the unit is load-bearing rather than legibility.
         // <c>hue-rotate()</c> takes an <c>&lt;angle&gt;</c>, and `StyleValueParser` refuses a bare
@@ -623,18 +647,26 @@ public static class UtilityComposition {
     ///         writes a <c>filter</c> declaration by hand.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this does <i>not</i> compose with is <c>drop-shadow()</c>.</b> Seven of the
-    ///         eight are a per-pixel colour transform and the eighth is a Gaussian; a drop shadow is
-    ///         neither — it is a blur of the alpha channel, offset and tinted and composited
-    ///         <i>under</i> the layer — so it wants the blur's machinery and a slot of its own rather
-    ///         than a constant here. It is deliberately absent rather than emitted and ignored:
-    ///         <c>DrawListBuilder.Filter</c> refuses a list carrying a function it cannot execute, so
-    ///         adding <c>drop-shadow</c> to this string before there is a reader would silently turn
-    ///         off every other filter in the engine.
+    ///         ⚠ <b><c>drop-shadow()</c> is the ninth and it is <i>last</i>, which is v4's order and
+    ///         is also the only order this engine could execute.</b> Seven of the nine are a
+    ///         per-pixel colour transform and the eighth is a Gaussian; a drop shadow is neither — it
+    ///         is a blur of the alpha channel, offset, tinted and composited <i>under</i> the layer —
+    ///         and it does not commute with the eighth. <c>blur(σ) drop-shadow(τ)</c> casts the shadow
+    ///         of the blurred element and the reverse blurs a picture that already has a shadow under
+    ///         it, so where a colour matrix and a Gaussian may be run in whichever order is cheap,
+    ///         these two may not. Being written last here fixes the choice for every class in the
+    ///         engine; see <c>UiLayer.Shadow</c>, where both executors pin the seam.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It was deliberately absent from this string until there was a reader, and that
+    ///         was not caution for its own sake.</b> <c>DrawListBuilder.Filter</c> refuses a list
+    ///         carrying any function it cannot execute, so adding <c>drop-shadow</c> here a day early
+    ///         would have turned off every other filter in the engine — silently, on every element
+    ///         carrying a <c>blur-*</c> or a <c>grayscale</c>. That is why the reader landed first.
     ///     </para>
     /// </remarks>
     public static string Filter() =>
         $"blur({Reference(Blur)}) brightness({Reference(Brightness)}) contrast({Reference(Contrast)}) "
         + $"grayscale({Reference(Grayscale)}) hue-rotate({Reference(HueRotate)}) invert({Reference(Invert)}) "
-        + $"saturate({Reference(Saturate)}) sepia({Reference(Sepia)})";
+        + $"saturate({Reference(Saturate)}) sepia({Reference(Sepia)}) drop-shadow({Reference(DropShadow)})";
 }
