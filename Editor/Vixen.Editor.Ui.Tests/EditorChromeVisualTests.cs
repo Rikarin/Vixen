@@ -356,11 +356,13 @@ public class EditorChromeVisualTests {
         ///     </para>
         /// </remarks>
         static string TypefacePath() {
-            // ⚠ The host's, not the application's. Doc 36 § P3 split the executable out and the font
-            // went with it — it is what a publish step drops beside the binary, and the application
-            // is a library now. This still said `Vixen.Editor.App` and threw with the old path in the
-            // message, which is a screenshot suite that cannot take a screenshot.
-            const string Relative = "Editor/Vixen.Editor.Host/Fonts/OpenSans-Regular.ttf";
+            // ⚠ The application's, and it is back here rather than under the host because that is
+            // where the resource `Fonts.Install` reads has to live: it asks
+            // `typeof(Fonts).Assembly`, and `Fonts` is `Vixen.Editor.App`'s. Doc 36 § P3's split sent
+            // the file to the executable and left the code behind, so for four weeks the editor
+            // found nothing embedded and quietly drew in Arial, Segoe UI or DejaVu Sans — which is
+            // the very failure the paragraph above says this suite exists to stop.
+            const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
 
             for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));

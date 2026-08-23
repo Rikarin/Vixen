@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Core.Mathematics;
 using Vixen.Editor.App;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
@@ -507,20 +508,71 @@ public sealed class EditorSession : IDisposable {
     /// <param name="text">What the row says.</param>
     /// <returns>The row.</returns>
     /// <remarks>
-    ///     ⚠ <b>Realised, and the parked rows are skipped.</b> The trees virtualise, so the control
-    ///     keeps a pool of rows off screen with stale text in them — and a click at the centre of one
-    ///     of those lands wherever it happens to be parked.
+    ///     <para>
+    ///         ⚠ <b>Realised, and the parked rows are skipped.</b> The trees virtualise, so the
+    ///         control keeps a pool of rows off screen with stale text in them — and a click at the
+    ///         centre of one of those lands wherever it happens to be parked.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Scrolled to as well, because "realised" and "reachable" are not the same
+    ///         thing.</b> A row one past the bottom of the viewport is realised, has honest bounds
+    ///         and is <i>clipped</i>: the scroller does not hit-test outside itself, so a press at
+    ///         its centre reaches the panel behind it and the gesture the caller meant never starts.
+    ///         Nothing throws and no assertion fails at the press — the failure surfaces several
+    ///         steps later as a rename that did not commit or a drag that no field ever saw, which
+    ///         is the most expensive shape a harness bug can take. It is also invisible until the
+    ///         list is one row too long: seven rows of 24 in 156 pixels of viewport put the last
+    ///         one's centre at exactly the clip edge, and <c>Inside</c> is a half-open interval.
+    ///     </para>
+    ///     <para>
+    ///         A row far enough down is not in the pool at all, which used to be the same sentence —
+    ///         "no row saying that is on screen" — as a name the tree has never heard of. It is now
+    ///         the same <i>request</i> as a clipped one instead: <see cref="TreeView.Reveal" />
+    ///         reaches it by node, and the failure is reserved for a name no node carries.
+    ///     </para>
+    ///     <para>
+    ///         Only when the row is not already whole, so a test that never overflows its tree runs
+    ///         the frames it always ran. <c>Reveal</c> moves the minimum that works — the same call
+    ///         the control makes for a keyboard user arrowing off the bottom — and the row is looked
+    ///         up again afterwards because a refresh re-pools them.
+    ///     </para>
     /// </remarks>
     public TreeRow Row(TreeView tree, string text) {
         ArgumentNullException.ThrowIfNull(tree);
 
-        return tree.Rows.FirstOrDefault(row => !row.HasClass("parked") && row.Node?.Text == text)
+        if (Realised(tree, text) is { } shown && IsWhollyInside(tree.Scroller.Bounds, shown.Bounds)) {
+            return shown;
+        }
+
+        // Not reachable where it is — either clipped, or not realised at all because the pool only
+        // covers what is near the viewport. Both are the same request: put it on screen.
+        if (NodesOf(tree).FirstOrDefault(node => node.Text == text) is { } node) {
+            tree.Reveal(node);
+            Settle();
+        }
+
+        return Realised(tree, text)
             ?? throw Fail(
                 $"No row saying '{text}' is on screen. Showing: "
-                + string.Join(", ", tree.Rows.Where(row => !row.HasClass("parked")).Select(row => row.Node?.Text ?? "?"))
+                + string.Join(", ", NodesOf(tree).Select(node => node.Text ?? "?"))
                 + "."
             );
     }
+
+    static TreeRow? Realised(TreeView tree, string text) =>
+        tree.Rows.FirstOrDefault(row => !row.HasClass("parked") && row.Node?.Text == text);
+
+    /// <summary>Whether a row's whole box is inside the viewport that clips it.</summary>
+    /// <remarks>
+    ///     A zero-sized viewport answers false and is left to <see cref="TreeView.Reveal" />, which
+    ///     is a no-op for it — a panel that is not in front has no size, and that is
+    ///     <see cref="Open" />'s business rather than this one's.
+    /// </remarks>
+    static bool IsWhollyInside(Rectangle viewport, Rectangle row) =>
+        row.Left >= viewport.Left
+        && row.Top >= viewport.Top
+        && row.Right <= viewport.Right
+        && row.Bottom <= viewport.Bottom;
 
     /// <summary>Clicks the row showing some text.</summary>
     /// <param name="tree">Which tree.</param>

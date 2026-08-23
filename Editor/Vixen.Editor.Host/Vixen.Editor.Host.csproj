@@ -99,12 +99,14 @@
               Visible="false" />
 
         <!--
-            The interface's face, embedded for the reason `Fonts` gives: a font beside the binary is
-            a font a publish step can drop, and the failure is a window whose every label measures
-            zero. Open Sans under the SIL Open Font License 1.1 — Fonts/OFL.txt is the licence as it
-            ships, and NOTICE names it.
+            ⚠ The interface's face is NOT here, and putting it here is the mistake this comment
+            exists to stop somebody repeating. `Fonts.Embedded` asks
+            `typeof(Fonts).Assembly.GetManifestResourceStream(...)`, and `Fonts` lives in
+            `Vixen.Editor.App` — so a face embedded in this assembly is one that class can never
+            find. It was embedded here for four weeks and the lookup silently answered null the whole
+            time, which drops the editor onto whatever face the machine happens to have. The
+            resource belongs to the assembly whose code reads it: see `Vixen.Editor.App.csproj`.
         -->
-        <EmbeddedResource Include="Fonts\*.ttf" />
 
         <!--
             The bindings generator turns each .reflect.json into the constants this host binds
