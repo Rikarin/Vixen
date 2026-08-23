@@ -3,6 +3,7 @@ Vixen.Ui.HotReload.HotReloadHost -> sealed class
 Vixen.Ui.HotReload.HotReloadHost.Components.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Composition.Component>
 Vixen.Ui.HotReload.HotReloadHost.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.HotReload.HotReloadHost.HotReloadHost(Vixen.Ui.UiDocument document) -> void
+Vixen.Ui.HotReload.HotReloadHost.Mount(System.Func<Vixen.Ui.Composition.Component> create, Vixen.Ui.UiElement parent) -> Vixen.Ui.Composition.Component
 Vixen.Ui.HotReload.HotReloadHost.Mount(System.Type type, Vixen.Ui.UiElement parent) -> Vixen.Ui.Composition.Component
 Vixen.Ui.HotReload.HotReloadHost.Mount<T>(Vixen.Ui.UiElement parent) -> T
 Vixen.Ui.HotReload.HotReloadHost.ReloadComponents() -> Vixen.Ui.HotReload.ReloadReport

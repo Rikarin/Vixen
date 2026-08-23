@@ -56,43 +56,47 @@ in it. The boundary costs nothing to keep, and this file is a bootstrap again.
 dotnet watch --project Samples/02-HelloUi
 ```
 
-**All three of the engine's reload channels are wired here, and they are three different mechanisms.**
+Edit a `.vxml` and the running window updates. Edit a `.vcss` and it repaints without even a rebuild.
+
+**There is nothing in `Program.cs` about any of it.** What turns it on is one conditioned reference
+in `HelloUi.csproj`:
+
+```xml
+<ProjectReference Include="...\Vixen.Ui.Desktop.HotReload..." Condition="'$(Configuration)' == 'Debug'" />
+```
+
+That package's module initializer fills the two hooks `Vixen.Ui.Desktop` leaves open, so every
+application in the process mounts its content under a reload host and watches its own directory. A
+Release build does not resolve the reference, the initializer never runs, and the hooks stay null —
+so a shipped application carries neither the tool nor an `#if` that mentions it. It used to be thirty
+lines here, and thirty lines every application would have had to copy correctly.
 
 | Save a… | What happens | What survives |
 |---|---|---|
-| `.vcss` | A file watcher reloads the sheet. No rebuild. | Everything — element identity is untouched, so the focus, the scroll offset, the docking arrangement and the tree's place in its thousand rows all stay put. |
-| `.vxml` | `dotnet watch` recompiles it into a new `Build`, the runtime patches the assembly, and `HotReloadHost` re-runs `Build` on the same component objects. | The components and their fields, so their signals — which is most of what "state was preserved" means. **Not** the elements: two `Build` bodies are two different programs. The focus is put back by path. |
-| `.cs`, incompatibly | The component object is re-created too. | Nothing but what the sample re-applies itself. |
+| `.vcss` | A file watcher reloads the sheet. `dotnet watch` does not even notice it changed. | Everything — element identity is untouched, so the focus, the scroll offset, the docking arrangement and the tree's place in its thousand rows all stay put. |
+| `.vxml` | `dotnet watch` recompiles it into a new `Build`, the runtime patches the assembly, and `Build` re-runs on the same component objects. | The components and their fields, so their signals. **Not** the elements: two `Build` bodies are two different programs. Focus is put back by path. |
 
-Measured on the middle row: a `.vxml` edit reloaded in **766 ms** with
-`Channel = Markup, Components = 1, Succeeded = True` and no restart. The sample prints every report,
-which is the only way to tell a rebuild that reloaded from one that could not — **a `Build` that
-throws leaves the component empty**, and an empty panel and an unchanged panel look identical for the
-second it takes to notice.
+Measured on the middle row: a `.vxml` edit reloaded in **756 ms** with
+`Channel = Markup, Components = 1, Succeeded = True` and no restart. Every report is printed, which
+is the only way to tell a rebuild that reloaded from one that could not — **a `Build` that throws
+leaves the component empty**, and an empty panel and an unchanged panel look identical for the second
+it takes to notice.
 
-⚠ **The markup channel needs one line and does nothing without it.** `UiApplicationOptions.Mount`
-is what puts the shell under a `HotReloadHost`; mounted the ordinary way through `Content`, the host
-tracks nothing, `ReloadComponents` walks an empty list, and **it reports success over zero
-components** — so a `.vxml` save does nothing at all with no diagnostic anywhere. That was this
-sample's state until it was checked. `Content_alone_leaves_the_reload_host_with_nothing_to_do` in
-`Vixen.Ui.Desktop.Tests` is that behaviour written down.
+⚠ **`Content` is a factory, and that is load-bearing in a development build.** An edit the runtime
+cannot patch makes the reload host construct a replacement, and `() => new Shell { Model = model }`
+is the only thing that knows the shell takes a model. Handed the instance alone a host falls back to
+the parameterless constructor, and the shell comes up bound to a `ShellModel` nothing else holds —
+with the reload still reporting success, because it did reload.
 
-⚠ **A recreated component loses what this file assigned it.** `HotReloadHost` builds a fresh instance
-through the parameterless constructor, so `Shell.Model` is not the `ShellModel` `Program.cs` holds
-any more — which is why the sample re-applies it from `Reloaded`. An application whose components
-take no parameters needs none of that.
+⚠ **A colour token still needs a restart.** `@theme` in `Theme/vixen.ui.vcss` is compiled into the
+generated utility sheet at build time, and that sheet is a `const string` — which hot reload cannot
+patch into existing callers. The rules in `shell.vcss` are not, which is why that file reloads.
 
 ⚠ **Changing a rule takes effect; *deleting* one does not, until the next build.** The sample prints
-which of the two it got on start-up. `shell.vcss` is handed to the build as a `VixenStyleBase`, so
-what the document holds is the generated sheet with this file concatenated into the front of it —
-there is no separate sheet for `HotReloadWatcher.Load` to bind the path to, and it layers the file on
-top instead. That is the right arrangement for shipping (it is what fixes the layer order and expands
-`@apply`) and the wrong one for taking a rule out at run time. `HotReloadWatcher.Replaces` is the API
-that says which you have, and this is what it is for.
-
-⚠ **A shipping application drops all of it**: the `Vixen.Ui.HotReload` reference, `Mount`, and the
-`Watch` method. `Content` is the shipping form of `Mount`. See that project's own file, which says
-why it is neither trimmable nor AOT-compatible.
+which of the two each sheet got on start-up. `shell.vcss` is handed to the build as a
+`VixenStyleBase`, so what the document holds is the generated sheet with this file concatenated into
+the front of it — there is no separate sheet for `HotReloadWatcher.Load` to bind the path to, and it
+layers the file on top instead. `HotReloadWatcher.Replaces` is the API that says which you have.
 
 Try `--accent` by hand: change `--color-brand` in `Theme/vixen.ui.vcss`, and note that *that* one
 needs a rebuild. Tokens are compiled into the utility sheet at build time; the rules in `shell.vcss`

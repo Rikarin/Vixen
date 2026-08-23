@@ -37,6 +37,23 @@
             application starts shipping content.
         -->
         <PackageReference Include="Vixen.Ui.Desktop" Version="VIXEN_PACKAGE_VERSION" />
+
+        <!--
+            ⚠ **Hot reload, and this one conditioned line is all of it.** There is no call to make and
+            nothing in Program.cs about it: the package's module initializer fills the two hooks
+            Vixen.Ui.Desktop leaves open, so this application mounts its content under a reload host
+            and watches its own directory for stylesheets. Edit AppShell.vxml under `dotnet watch` and
+            the running window updates; edit Theme/vixen.ui.vcss's neighbours and it repaints with no
+            rebuild at all.
+
+            ⚠ **Conditioned on Debug, which is what makes it safe to be automatic.** Hot reload reads
+            fields by name and is neither trimmable nor AOT-compatible. A Release build does not
+            resolve this reference, the initializer never runs, and the hooks stay null — so a shipped
+            application carries neither the tool nor an `#if` that mentions it.
+        -->
+        <PackageReference Include="Vixen.Ui.Desktop.HotReload"
+                          Version="VIXEN_PACKAGE_VERSION"
+                          Condition="'$(Configuration)' == 'Debug'" />
     </ItemGroup>
 
 </Project>

@@ -61,7 +61,7 @@ public sealed class HotReloadHost {
     public T Mount<T>(UiElement parent) where T : Component, new() {
         ArgumentNullException.ThrowIfNull(parent);
 
-        return (T) Track(new T(), parent);
+        return (T) Track(new T(), parent, static () => new T());
     }
 
     /// <summary>Builds a component whose type is only known at run time, and keeps track of it.</summary>
@@ -92,12 +92,36 @@ public sealed class HotReloadHost {
             throw new ArgumentException($"'{type}' cannot be created without arguments.", nameof(type));
         }
 
-        return Track(component, parent);
+        return Track(component, parent, () => (Component) Activator.CreateInstance(type)!);
     }
 
-    Component Track(Component component, UiElement parent) {
+    /// <summary>Tracks a component somebody else constructed, and how to construct another.</summary>
+    /// <param name="create">
+    ///     Makes this component. Called now to nothing — the instance is supplied — and again by a
+    ///     reload that has to replace it.
+    /// </param>
+    /// <param name="parent">Where it hangs.</param>
+    /// <returns>The component.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The overload a host in front of an application framework needs, and the reason it
+    ///     takes a factory rather than an instance alone.</b> <c>UiApplicationOptions.Content</c> is
+    ///     already a <c>Func&lt;Component&gt;</c> — an application writes
+    ///     <c>() =&gt; new Shell { Model = model }</c> — so the factory that built the first instance
+    ///     is exactly the one that should build its replacement. Handed only the instance, a recreate
+    ///     would fall back to the parameterless constructor and drop `Model` on the floor, and the
+    ///     application would have to notice and re-apply it from <c>Reloaded</c>. This is what makes
+    ///     that unnecessary.
+    /// </remarks>
+    public Component Mount(Func<Component> create, UiElement parent) {
+        ArgumentNullException.ThrowIfNull(create);
+        ArgumentNullException.ThrowIfNull(parent);
+
+        return Track(create(), parent, create);
+    }
+
+    Component Track(Component component, UiElement parent, Func<Component>? create) {
         var context = BuildContext.BuildInto(component, Document, parent);
-        entries.Add(new(component, context, parent));
+        entries.Add(new(component, context, parent, create));
         return component;
     }
 
@@ -303,18 +327,24 @@ public sealed class HotReloadHost {
     /// </summary>
     /// <returns>Whether a fresh instance was made and built.</returns>
     /// <remarks>
-    ///     ⚠ A type with no public parameterless constructor cannot be recreated from here — the
-    ///     caller supplied the old instance and this has nothing to supply the new one's arguments
-    ///     from. Answered <see langword="false" /> so the original failure is what gets reported,
+    ///     ⚠ A type with no public parameterless constructor cannot be recreated from here *unless the
+    ///     caller supplied a factory* — see <see cref="Mount(Func{Component}, UiElement)" />, which is
+    ///     how an application hands over the one that built the first instance. Without it this has
+    ///     nothing to supply the new one's arguments from. Answered <see langword="false" /> so the original failure is what gets reported,
     ///     rather than a second exception about reflection that says nothing about the edit. The same
     ///     goes for a replacement whose own <c>Build</c> throws: the first exception is the one that
     ///     describes the edit.
     /// </remarks>
     bool Recreate(int index) {
-        var type = entries[index].Component.GetType();
+        var entry = entries[index];
+        var type = entry.Component.GetType();
 
         try {
-            if (Activator.CreateInstance(type) is not Component replacement) {
+            // ⚠ The factory the caller supplied, when there is one, and the type only when there is
+            // not. A component with constructor arguments or with parameters its caller assigned has
+            // no other way back — see `Entry.Create`, and `HotReloadHost.Mount(Func<Component>, …)`,
+            // which is the overload that carries it.
+            if ((entry.Create is { } create ? create() : Activator.CreateInstance(type)) is not Component replacement) {
                 return false;
             }
 
@@ -371,7 +401,10 @@ public sealed class HotReloadHost {
 
         var context = BuildContext.BuildInto(replacement, Document, entry.Parent);
         Document.Move(replacement.Root, position);
-        entries[index] = new(replacement, context, entry.Parent);
+        // ⚠ The factory carries over. A component replaced once can be replaced again, and the
+        // second replacement has to know what the first one did — otherwise the parameters survive
+        // exactly one incompatible edit.
+        entries[index] = new(replacement, context, entry.Parent, entry.Create);
     }
 
     // ================================================================== State
@@ -520,5 +553,16 @@ public sealed class HotReloadHost {
         return report;
     }
 
-    readonly record struct Entry(Component Component, BuildContext Context, UiElement Parent);
+    /// <param name="Component">The tracked component.</param>
+    /// <param name="Context">The build region it owns, which is what a rebuild disposes and remakes.</param>
+    /// <param name="Parent">Where it hangs.</param>
+    /// <param name="Create">
+    ///     How to make a replacement, or <see langword="null" /> to construct one from the type.
+    ///     ⚠ <b>This is what lets a component with constructor arguments — or with parameters its
+    ///     caller assigned — survive being re-created.</b> Without it <see cref="Recreate" /> can only
+    ///     call <c>Activator.CreateInstance</c>, so the new instance comes up with every parameter at
+    ///     its default and the panel is bound to a model nothing else holds. Nothing reports that: the
+    ///     reload succeeds and the interface is simply wrong.
+    /// </param>
+    readonly record struct Entry(Component Component, BuildContext Context, UiElement Parent, Func<Component>? Create);
 }

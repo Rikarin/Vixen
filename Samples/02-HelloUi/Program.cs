@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Desktop;
-using Vixen.Ui.HotReload;
 
 namespace Vixen.Samples.HelloUi;
 
@@ -27,6 +26,14 @@ namespace Vixen.Samples.HelloUi;
 ///         costs nothing to keep, and this is a bootstrap again.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And there is nothing here about hot reload, which is the point of how it is wired.</b>
+///         Editing a <c>.vxml</c> or a <c>.vcss</c> while this is running updates the window, and what
+///         turns that on is the <c>Vixen.Ui.Desktop.HotReload</c> reference in the project file —
+///         conditioned on <c>Debug</c>, so a Release build does not resolve it and nothing in this
+///         file changes. There is no flag to set and no <c>#if</c> to write. It used to be thirty
+///         lines here, and thirty lines every application would have had to copy.
+///     </para>
+///     <para>
 ///         <b>Start in <c>Shell.vxml</c>.</b> The interface is markup, a stylesheet and a model of
 ///         signals. This file says what the window is called and nothing about what is in it.
 ///     </para>
@@ -36,11 +43,6 @@ static class Program {
         // The interface's state, made here so that the sample can print what became of it. An
         // application with nothing to report constructs it in `Content` and never names it again.
         var model = new ShellModel();
-
-        // ⚠ **Assigned inside `Mount` rather than here, because the host needs the document and the
-        // document does not exist until `UiApplication` has made one.** Read afterwards by `Started`,
-        // which runs after the content has been mounted.
-        HotReloadHost? reload = null;
 
         return UiApplication.Run(
             new UiApplicationOptions {
@@ -69,136 +71,18 @@ static class Program {
                 // their theme is installed by the assembly that references them, which is this one.
                 Configure = document => AdvancedTheme.Install(document),
 
-                // ⚠ **`Mount` rather than `Content`, and that one line is the whole of the markup
-                // channel.** A `.vxml` saved while this is running does nothing at all unless a
-                // `HotReloadHost` was tracking the component when it was mounted — the stylesheet
-                // channel is a file watcher and needs none of this, and the markup channel is a
-                // recompile and needs all of it. A shipping application writes `Content` and drops
-                // the reference: see the project file.
-                Mount = (document, root) => {
-                    reload = new HotReloadHost(document);
+                // ⚠ **A factory, and in a development build it is also what a hot reload rebuilds
+                // from.** An edit the runtime cannot patch makes the reload host construct a
+                // replacement, and this lambda is the only thing that knows the shell takes a model.
+                // Handed the instance alone a host falls back to the parameterless constructor, and
+                // the shell comes up bound to a `ShellModel` nothing else holds — with the reload
+                // still reporting success, because it did reload.
+                Content = () => new Shell { Model = model },
 
-                    // ⚠ Held *weakly* by the runtime's handler, which is why `reload` is a local that
-                    // outlives this lambda rather than a temporary. A collected host simply stops
-                    // being reloaded, with nothing to say so.
-                    MetadataUpdate.Register(reload);
-
-                    var shell = reload.Mount<Shell>(root);
-                    shell.Model = model;
-
-                    // ⚠ **And again after every reload, because a component the runtime could not
-                    // patch is *re-created*.** `HotReloadHost.Recreate` builds a fresh instance
-                    // through its parameterless constructor, so a parameter this file assigned is
-                    // not on the new one — and the shell would come up bound to a `ShellModel`
-                    // nothing else holds. A rebuild that only changed `Build` keeps the object and
-                    // this is redundant; there is no way to tell from out here, and re-assigning a
-                    // signal its own value notifies nobody.
-                    reload.Reloaded += _ => {
-                        foreach (var live in reload.Components.OfType<Shell>()) {
-                            live.Model = model;
-                        }
-                    };
-
-                    return shell;
-                },
-
-                Started = application => Watch(application, reload),
                 Stopping = _ => Report(model)
             },
             arguments
         );
-    }
-
-    /// <summary>Watches the stylesheet, and reports what either channel does.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Six lines, and they are the authoring loop this sample exists to demonstrate.</b>
-    ///         Save the stylesheet and the interface repaints with every element's identity intact —
-    ///         the focus, the scroll offset, the docking arrangement and the tree's place in its
-    ///         thousand rows all survive, because a style reload replaces rules rather than rebuilding
-    ///         elements.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A reload <i>replaces</i>, it does not overlay, and that is what makes a deleted
-    ///         rule stop applying.</b> Rules are appended and never removed — an index, a layer order
-    ///         and a declaration arena all assume it — so the engine keeps the text of every sheet and
-    ///         rebuilds from them. <c>Load</c> binds this path to the sheet the document already holds
-    ///         where the text matches, so a save is a replacement at that sheet's own origin rather
-    ///         than a second copy on top that says nothing where a rule was taken out.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Development only.</b> A shipping application drops this method, the
-    ///         <c>Vixen.Ui.HotReload</c> reference and nothing else — see that project's own file,
-    ///         which says why it is neither trimmable nor AOT-compatible.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The source directory, not the output one.</b> <c>AppContext.BaseDirectory</c> is
-    ///         <c>bin/Debug/net10.0</c>, where nobody edits anything: a watcher pointed there is
-    ///         wired, correct at every step, and silent for ever.
-    ///     </para>
-    /// </remarks>
-    static void Watch(UiApplication application, HotReloadHost? reload) {
-        if (reload is null || Sources() is not { } directory) {
-            return;
-        }
-
-        var sheet = Path.Combine(directory, "shell.vcss");
-
-        // ⚠ The *same* host the content was mounted through, not a second one. Two hosts over one
-        // document each know half of it: one has the components and no sheets, the other the sheets
-        // and no components, and each reports success for the half it cannot see.
-        var watcher = new HotReloadWatcher(reload, directory);
-        watcher.Load(sheet);
-
-        // ⚠ **Which of the two things happened, said out loud, because the difference is invisible
-        // until it bites.** `Load` binds a path to the sheet the document already holds when the two
-        // texts match, and a save then *replaces* that sheet — so a rule taken out of the file stops
-        // applying. When nothing matches it layers the file on top instead: changing a value still
-        // works, and deleting a rule leaves whatever was underneath still applying, with nothing to
-        // say so.
-        //
-        // ⚠ This sample gets the overlay, and the reason is worth knowing rather than working
-        // around: `shell.vcss` is handed to the build as `VixenStyleBase`, so what the document holds
-        // is the *generated* sheet with this file concatenated into the front of it — there is no
-        // separate sheet whose text could match. That is the right arrangement for shipping (it is
-        // what fixes the layer order and expands `@apply`) and the wrong one for deleting a rule at
-        // run time, and `Replaces` is the API that lets a caller tell a developer which they have.
-        Console.WriteLine(
-            watcher.Replaces(sheet)
-                ? $"watching {sheet} — saves replace the sheet, so deleting a rule takes effect."
-                : $"watching {sheet} — saves layer over the generated sheet, so a *deleted* rule keeps applying "
-                + "until the next build."
-        );
-
-        // ⚠ Applied on the frame loop's own thread rather than in the `FileSystemWatcher` callback.
-        // The element tree has no lock and that callback is on a pool thread; `Poll` is also what
-        // coalesces the three events one save raises — save-to-temp-then-rename, a truncate followed
-        // by a write, a tool that touches the timestamp — into one reload.
-        application.Frame += (_, _) => {
-            foreach (var report in watcher.Poll()) {
-                Console.WriteLine($"reloaded {report}");
-            }
-        };
-
-        // ⚠ **The markup channel reports through the host rather than through the watcher**, because
-        // nothing polls it: the runtime calls `MetadataUpdate` on its own thread once `dotnet watch`
-        // has patched the assembly. Printing it is the only way to tell a rebuild that reloaded from
-        // one that could not — a `Build` that throws leaves the component empty, and an empty panel
-        // and a panel that did not change look identical for the second it takes to notice.
-        reload.Reloaded += report => Console.WriteLine($"reloaded {report}");
-    }
-
-    /// <summary>Where this project's stylesheets are, if the sample is running from its own tree.</summary>
-    static string? Sources() {
-        for (var walk = new DirectoryInfo(AppContext.BaseDirectory); walk is not null; walk = walk.Parent) {
-            var theme = Path.Combine(walk.FullName, "Theme");
-
-            if (File.Exists(Path.Combine(theme, "shell.vcss"))) {
-                return theme;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>Prints the arrangement the user left the window in.</summary>

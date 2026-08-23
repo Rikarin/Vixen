@@ -28,9 +28,13 @@ namespace Vixen.Ui.Desktop.Tests;
 ///         and it is the reason this file exists.
 ///     </para>
 /// </remarks>
+[Collection(SerialUiDevelopment.Name)]
 public class HotReloadSeamTests {
     sealed class Probe : Component {
         public int Builds { get; private set; }
+
+        /// <summary>Which construction this is, so a replacement can be told from the original.</summary>
+        public int Tag { get; init; }
 
         protected override void Build(BuildContext ctx) {
             Builds++;
@@ -115,6 +119,108 @@ public class HotReloadSeamTests {
         Assert.Same(probes[0], reload.Components[0]);
         Assert.Same(before, probes[0].Root);
         Assert.NotEmpty(probes[0].Root.Children);
+    }
+
+    /// <summary>The process-wide hook mounts an application that asked for nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is what makes hot reload a project reference rather than a paragraph of
+    ///     bootstrap.</b> `Vixen.Ui.Desktop.HotReload` fills `UiDevelopment` from a module
+    ///     initializer, so an application that writes only `Content` still gets its components
+    ///     tracked. Set by hand here, because a test that relied on the real assembly's initializer
+    ///     would be asserting the order two assemblies happen to load in.
+    /// </remarks>
+    [Fact]
+    public void The_process_wide_hook_mounts_an_application_that_asked_for_nothing() {
+        var probe = new Probe();
+        HotReloadHost? reload = null;
+
+        UiDevelopment.Mount = (document, root, content) => {
+            reload = new HotReloadHost(document);
+            return reload.Mount(content, root);
+        };
+
+        try {
+            var options = new UiApplicationOptions {
+                Title = "test",
+                Frames = 1,
+                InstallSystemFont = false,
+                Content = () => probe
+            };
+
+            var platform = new HeadlessPlatform();
+            var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(800, 600) });
+
+            using var application = new UiApplication(options, platform, window);
+            application.Run();
+
+            Assert.NotNull(reload);
+            Assert.Single(reload!.Components);
+            Assert.Same(probe, reload.Components[0]);
+        } finally {
+            // ⚠ Static, so a test that left it set would turn hot reload on for every test after it.
+            UiDevelopment.Mount = null;
+        }
+    }
+
+    /// <summary>An application's own hook still wins over the process's.</summary>
+    [Fact]
+    public void An_applications_own_mount_beats_the_process_wide_one() {
+        var mine = new Probe();
+        var theirs = new Probe();
+
+        UiDevelopment.Mount = (document, root, _) => {
+            BuildContext.BuildInto(theirs, document, root);
+            return theirs;
+        };
+
+        try {
+            var options = new UiApplicationOptions {
+                Title = "test",
+                Frames = 1,
+                InstallSystemFont = false,
+                Content = () => new Probe(),
+                Mount = (document, root) => {
+                    BuildContext.BuildInto(mine, document, root);
+                    return mine;
+                }
+            };
+
+            var platform = new HeadlessPlatform();
+            var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(800, 600) });
+
+            using var application = new UiApplication(options, platform, window);
+            application.Run();
+
+            Assert.Same(mine, application.Content);
+            Assert.Equal(0, theirs.Builds);
+        } finally {
+            UiDevelopment.Mount = null;
+        }
+    }
+
+    /// <summary>A re-created component is built by the factory, so its parameters survive.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The thing that used to force every application to re-apply its own parameters from
+    ///     `Reloaded`.</b> An edit the runtime cannot patch makes the host construct a replacement,
+    ///     and construction through `Activator.CreateInstance` gives every parameter its default —
+    ///     so the panel comes up bound to a model nothing else holds, and the reload reports success
+    ///     because it did reload. Handing the host the `Content` factory is what fixes it, and this
+    ///     is the assertion that says so.
+    /// </remarks>
+    [Fact]
+    public void A_recreated_component_is_built_by_the_factory_it_was_mounted_with() {
+        var document = new UiDocument(800, 600);
+        var reload = new HotReloadHost(document);
+
+        var made = 0;
+        var mounted = (Probe) reload.Mount(() => new Probe { Tag = ++made }, document.Root);
+
+        Assert.Equal(1, mounted.Tag);
+
+        var report = reload.Replace(mounted, () => new Probe { Tag = ++made });
+
+        Assert.True(report.Succeeded, string.Join("; ", report.Errors));
+        Assert.Equal(2, ((Probe) reload.Components[0]).Tag);
     }
 
     /// <summary>Without the hook the host is empty, which is the state this whole seam fixed.</summary>
