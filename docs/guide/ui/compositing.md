@@ -3,9 +3,9 @@ title: Compositing groups
 slug: ui/compositing
 kind: guide
 area: Core
-summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()` and the seven colour functions, why a group is not the same as fading each element, why a colour matrix costs neither a surface nor a pass where a blur costs both, when the pass is skipped as an exact identity, what the surfaces cost, and what `drop-shadow`, `backdrop-filter` and gradient text would each still need on top of it.
-api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix]
-tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, backdrop-filter]
+summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur costs both, why a mask's seam is fixed on both executors where a matrix's is free, when the pass is skipped as an exact identity, what the surfaces cost, and what `drop-shadow`, `backdrop-filter` and gradient text would each still need on top of it.
+api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiMask]
+tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, backdrop-filter, mask, mask-image]
 since: 0.2
 status: preview
 related: [ui/gradients, ui/utility-composition]
@@ -179,6 +179,60 @@ paragraph above spends on commuting with the blur.
 blurred-and-missing-a-shadow, which is the rule `box-shadow` already keeps. So does
 `brightness(-1)`, which is invalid CSS, and `hue-rotate(90)`, which is a bare number where an angle
 is required.
+
+### `mask-image`
+
+A gradient can fade a group out instead of dimming it:
+
+```css
+.overflowing { mask-image: linear-gradient(to bottom, black 70%, transparent); }
+```
+
+```html
+<div class="mask-linear-from-70%">…</div>
+```
+
+Only the **alpha** of the mask gradient is read — `mask-mode` resolves to `alpha` for every image
+that is not an SVG `<mask>` — so `linear-gradient(to bottom, black, transparent)` and
+`linear-gradient(to bottom, #ff0000, #00ff0000)` are the same mask. Linear, radial and conic all
+work, with the same geometry `background-image` uses, so a mask and a background written with the
+same gradient line up exactly.
+
+Like a colour matrix and unlike a blur, a mask is per pixel: it adds **no second surface, no extra
+pass and no bounds outset**, and it rides the composite draw as `ui-mask.frag`. A masked group is
+never collapsed, for the reason a filtered one is not — a faded-out rectangle is not a fainter
+rectangle.
+
+⚠ **The one thing a mask does that a colour matrix does not is fail to commute.** A matrix is the
+same affine map at every pixel, so it passes through a Gaussian and through a bilinear tap, which is
+why the two executors are free to apply it in different places. A mask is a scalar that *varies*
+with position: `m(p)·Σ wᵢsᵢ` is not `Σ wᵢ·m(pᵢ)·sᵢ` wherever the ramp is not flat across the kernel —
+which is exactly over a blurred edge. So the seam is fixed rather than free. **Both executors apply
+the mask at the composite draw, after the blur and after the matrix**, reading the same texture
+coordinate. Folding it into the surface on either path would draw a ring of the wrong brightness just
+inside a blurred edge, and `UiCompositingTests` is the only thing that would notice.
+
+⚠ **The mask box is the element's border box, not `UiLayer.Bounds`.** The bounds are the group's ink
+and a blur has already outset them; resolving the ramp against them would slide the gradient sideways
+the moment somebody added `blur-sm` beside the mask.
+
+⚠ **A mask the engine cannot resolve masks nothing**, which is the opposite of what an unpaintable
+`background-image` does. A missing background leaves the element its own colour; a mask that failed
+*closed* would erase it, and a blank rectangle is indistinguishable from a layout collapse. Masking 1
+§ 4.1 says the same.
+
+⚠ **One mask image, and that is what the absent `mask-*` roots have in common.** `mask-t-from-*` and
+its seven siblings are per-edge ramps Tailwind combines with `mask-composite: intersect`, which needs
+a mask *list* on `UiLayer`. `mask-origin-*`, `mask-position-*`, `mask-size-*` and `mask-repeat-*`
+describe placing a mask image inside a box it does not already fill, which a gradient sized to the
+border box does not need. `mask-type-*` applies to SVG `<mask>` elements, which this engine has none
+of. `bg-clip-text` is a separate matter again — see doc 43, which names the text-coverage surface it
+is waiting on.
+
+`UiRenderer.Masked` is what says a mask happened, and it is worth having for `Filtered`'s reason plus
+one: `ui-mask.frag` serves masked groups *and* carries the colour matrix, so a renderer that picked
+the colour pipeline by mistake would draw a correctly filtered, entirely unmasked group — and
+`Filtered` would still count it.
 
 ### What `drop-shadow` and `backdrop-*` would still need
 

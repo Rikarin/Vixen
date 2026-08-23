@@ -699,6 +699,56 @@ public static class UtilityFamilies {
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
 
+        // ── Masks ───────────────────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>Nine roots of Tailwind's twenty-odd <c>mask-*</c>, and what is missing is missing for
+        // one reason: this engine composites <i>one</i> mask image.</b> `mask-t-from-*` and its seven
+        // siblings are per-edge ramps that Tailwind combines with `mask-composite: intersect`, and
+        // `mask-origin-*`, `mask-position-*`, `mask-size-*` and `mask-repeat-*` all describe where a
+        // mask image is placed relative to a box it does not already fill. A gradient sized to the
+        // border box needs none of the second group and cannot express the first. Registering any of
+        // them would emit a property nothing reads, which is exactly what the consumption gate is
+        // for. See `InertProperties.txt` and doc 43.
+        //
+        // ⚠ <b>Every one of these is an assembler as well as a contributor, which is the colour
+        // filters' arrangement rather than the gradient stops'.</b> `from-accent` alone paints
+        // nothing until a `bg-linear-*` says what shape to paint; `mask-linear-from-50%` alone has to
+        // mask, because there is no separate "turn masking on" class in v4 and forgetting one would
+        // look exactly like the utility being broken.
+        Mask("mask-linear-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, Linear);
+        Mask("mask-linear-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, Linear);
+        Mask("mask-radial-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, Radial);
+        Mask("mask-radial-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, Radial);
+        Mask("mask-conic-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, Conic);
+        Mask("mask-conic-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, Conic);
+
+        // ⚠ <b>The two angles, and they set a fragment rather than writing the whole function.</b>
+        // `mask-linear-45 mask-linear-from-30%` is two classes that have to agree about one
+        // `mask-image`, which is the situation the fragments exist for — the same one
+        // `translate-x-2 translate-y-4` is in. `CountTemplate` appends the unit for
+        // `hue-rotate`'s reason: `StyleValueParser` refuses a bare number where an angle belongs, and
+        // a bare one here would invalidate the whole assembled declaration.
+        Register(new Family(
+            "mask-linear",
+            ValueKind.CountTemplate,
+            [UtilityComposition.MaskLinearAngle],
+            Template: "{0}deg",
+            Alongside: [new UtilityDeclaration("mask-image", Linear)]
+        ));
+
+        Register(new Family(
+            "mask-conic",
+            ValueKind.CountTemplate,
+            [UtilityComposition.MaskConicAngle],
+            Template: "{0}deg",
+            Alongside: [new UtilityDeclaration("mask-image", Conic)]
+        ));
+
+        // ⚠ Its own family rather than a keyword on one of the above, because `mask-none` has to work
+        // where nothing else set a mask — a keyword hanging off `mask-linear` would need the author to
+        // have written a `mask-linear-*` first.
+        Static("mask-none", "mask-image", "none");
+
         // A token names a whole declaration rather than a number, because a shadow is a designed
         // thing: its offset, blur and alpha are chosen together to read as one height above the
         // surface. `shadow-none` is here rather than in the theme so that turning one off never
@@ -1878,6 +1928,38 @@ public static class UtilityFamilies {
         Register(new Family(name, ValueKind.Radius, properties));
 
     /// <summary>Registers a composed family: a colour fragment, a position fragment, and no declaration.</summary>
+    /// <summary>A linear mask, swept by <c>--tw-mask-linear-angle</c>.</summary>
+    static string Linear => UtilityComposition.MaskImage("linear", UtilityComposition.Reference(UtilityComposition.MaskLinearAngle));
+
+    /// <summary>A round mask. CSS's default is a centred farthest-corner ellipse, which is what Tailwind means.</summary>
+    static string Radial => UtilityComposition.MaskImage("radial", string.Empty);
+
+    /// <summary>A swept mask, started by <c>--tw-mask-conic-angle</c>.</summary>
+    static string Conic => UtilityComposition.MaskImage("conic", $"from {UtilityComposition.Reference(UtilityComposition.MaskConicAngle)}");
+
+    /// <summary>One mask stop: a colour or a position, and the <c>mask-image</c> that reads it.</summary>
+    /// <param name="name">The class prefix.</param>
+    /// <param name="colour">The fragment a colour goes into.</param>
+    /// <param name="position">The fragment a percentage goes into.</param>
+    /// <param name="image">The assembled <c>mask-image</c> this shape wants.</param>
+    /// <remarks>
+    ///     ⚠ <b><see cref="ValueKind.GradientStop" /> rather than a kind of its own, and it is the
+    ///     right one for a reason beyond convenience.</b> That kind is what routes a percentage to
+    ///     <paramref name="position" /> and a colour to <paramref name="colour" />, which is exactly
+    ///     the split a mask stop needs: <c>mask-linear-from-50%</c> is a position and
+    ///     <c>mask-linear-from-black</c> is a colour. Only the alpha of the colour survives into
+    ///     <c>UiMask</c>, but that is the renderer's business and not the parser's — a mask written
+    ///     with <c>#00000080</c> means half coverage and has to reach the engine intact to say so.
+    /// </remarks>
+    static void Mask(string name, string colour, string position, string image) =>
+        Register(new Family(
+            name,
+            ValueKind.GradientStop,
+            [colour],
+            Position: position,
+            Alongside: [new UtilityDeclaration("mask-image", image)]
+        ));
+
     static void GradientStop(string name, string colour, string position, params UtilityDeclaration[] alongside) =>
         Register(new Family(
             name,

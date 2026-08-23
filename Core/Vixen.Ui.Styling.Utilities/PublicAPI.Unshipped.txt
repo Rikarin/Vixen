@@ -117,6 +117,12 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientViaPosition = "--tw-
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Grayscale = "--tw-grayscale" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.HueRotate = "--tw-hue-rotate" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Invert = "--tw-invert" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskConicAngle = "--tw-mask-conic-angle" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskFrom = "--tw-mask-from" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskFromPosition = "--tw-mask-from-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskLinearAngle = "--tw-mask-linear-angle" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskTo = "--tw-mask-to" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskToPosition = "--tw-mask-to-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingColor = "--tw-ring-color" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingWidth = "--tw-ring-width" -> string
@@ -133,6 +139,7 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.Filter() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Fragments.get -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Styling.Utilities.UtilityComposition.InitialValueOf(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.IsFragment(string property) -> bool
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskImage(string shape, string geometry) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Ring() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.StopList(bool via) -> string

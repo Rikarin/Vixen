@@ -56,7 +56,14 @@
             so there is no reason but forgetting for an application not to ship it, and forgetting
             looks like `grayscale` doing nothing.
 
-            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the six
+            ⚠ `ui-mask.frag` is the fourth, and it is `ui-colour.frag` with a coverage ramp after
+            it: the composite of a group whose `mask-image` fades it out. It carries the colour
+            matrix too, because a pipeline is chosen once per draw and a group with both a `filter`
+            and a `mask-image` has to be served by one module — so shipping this one and not
+            `ui-colour.frag` would leave `grayscale` working only on masked elements. It adds no pass
+            and no surface either. Forgetting it looks like `mask-*` doing nothing.
+
+            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the seven
             fragment stages.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />

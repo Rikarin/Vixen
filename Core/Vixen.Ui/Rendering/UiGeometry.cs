@@ -147,6 +147,36 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </remarks>
     public UiColorMatrix? Filter { get; init; }
 
+    /// <summary>The coverage this group's <c>mask-image</c> multiplies its surface by, or null.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Where this is applied <i>is</i> specified, which is the whole difference between
+    ///         it and <see cref="Filter" /> one paragraph up.</b> That field can be left to each
+    ///         executor's convenience because a colour matrix is the same map at every pixel and so
+    ///         passes through both a Gaussian and a bilinear tap. A mask is a scalar that varies with
+    ///         position and passes through neither: <c>m(p)·Σ wᵢsᵢ</c> is not <c>Σ wᵢ·m(pᵢ)·sᵢ</c>.
+    ///         So the seam is named rather than left open — <b>both executors apply the mask in the
+    ///         composite draw</b>, after the blur and after the matrix, from the composite quad's own
+    ///         texture coordinate. A mask folded into the surface by one of them would be a different
+    ///         picture wherever the ramp crosses a blurred edge, which is precisely where anyone
+    ///         would put one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mask's box is carried inside <see cref="UiMask" /> and is not
+    ///         <see cref="Bounds" />.</b> These bounds are the group's ink and have already been
+    ///         outset by <see cref="Blur" />; CSS resolves <c>mask-image</c> against the border box,
+    ///         which has not. Reading the bounds here would make a ramp shift when a blur was added
+    ///         beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Null and not a zeroed mask — a zeroed <see cref="UiMask" /> covers nothing, so a
+    ///         consumer that mistook the default for the absence would erase the group rather than
+    ///         draw it plainly. A consumer that ignores this field composites the group unmasked,
+    ///         which is the same bargain <see cref="Blur" /> and <see cref="Filter" /> make.
+    ///     </para>
+    /// </remarks>
+    public UiMask? Mask { get; init; }
+
     /// <summary>The widest kernel either executor will run, in texels each side of the centre.</summary>
     /// <remarks>
     ///     ⚠ <b>A cap and not a limit on what may be asked for, and the two executors truncate

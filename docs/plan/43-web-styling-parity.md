@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **93** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **38** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **101** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **190** |
+| **absent** | not emitted at all | **181** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -352,6 +352,38 @@ mechanism invented to serve it would be shaped by the easiest consumer rather th
 #28 has to build the general thing anyway. The precedent is F5: `text-overflow: ellipsis` was left
 undone rather than approximated, and the cost of that decision has been zero.
 
+#### What the mask work settled, and why `bg-clip-text` still has to wait
+
+⚠ **#28 landed, `mask-image` landed with it, and `bg-clip-text` is still blocked — by option 3's
+half that neither of them built.** The offscreen path exists now: a group gets a viewport-sized
+surface, it ends in `ShaderRead` holding premultiplied colour, and `ui-mask.frag` composites it
+through a per-pixel coverage. It is tempting to read that as "the mask mechanism is here, so clip the
+background to the text layer", and that reading is wrong.
+
+**A layer surface holds rendered colour, and in the Tailwind idiom the glyphs have none.**
+`bg-clip-text` is written `bg-linear-to-r from-x to-y bg-clip-text text-transparent` — the text is
+*deliberately* transparent, so a group containing it composites to nothing at all. Using it as a
+mask multiplies the background by zero everywhere and draws an empty box. The surface says what the
+subtree *painted*; `bg-clip-text` needs what the subtree *covered*, and those are the same number
+only for opaque ink.
+
+So what is still missing is precisely the thing § 3 named and did not get: **a text-coverage target**
+— the glyph run rendered as coverage, independent of the run's colour. That is a distinct capability
+from `UiMask`, which is an analytic ramp over a box and has no way to express a glyph. Concretely it
+needs a pass that binds `ui-text.frag` with the colour forced to white, a surface to put it in, and a
+`UiLayer` that names a *coverage* source separately from its colour source.
+
+Two further things are absent and would be needed for the general form, and both are recorded against
+their own rows: an ordered filter list on `UiLayer` (today it carries a `Blur`, a `Filter` and a
+`Mask` as discrete fields, which is enough because their order is fixed by the specification), and
+`mask-composite`, without which two mask sources cannot be intersected.
+
+**Recommendation stands, with the blocker now named rather than implied: `bg-clip-text` is absent
+until a text-coverage surface exists.** It is not a `mask-*` root, `bg-clip` is not a registered
+family, and registering one would emit a `background-clip` the engine cannot read — which is the
+shape the consumption gate exists to refuse. See the `background-clip` entry in the `shadowed_by`
+refusal block, which already says so for the same reason.
+
 ### By category
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
@@ -361,7 +393,7 @@ undone rather than approximated, and the cost of that decision has been zero.
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 6 | 3 | 0 | 25 | 0 | 0 |
 | Borders | 34 | 15 | 5 | 0 | 14 | 0 | 0 |
-| Effects | 33 | 3 | 0 | 0 | 30 | 0 | 0 |
+| Effects | 33 | 11 | 1 | 0 | 21 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
 | Filters | 20 | 8 | 0 | 0 | 12 | 0 | 0 |
@@ -371,7 +403,7 @@ undone rather than approximated, and the cost of that decision has been zero.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **93** | **38** | **3** | **190** | **3** | **1** |
+| **Total** | **328** | **101** | **39** | **3** | **181** | **3** | **1** |
 
 Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
 Layout follow it. Tables and Accessibility still have **no working root at all**, and Interactivity

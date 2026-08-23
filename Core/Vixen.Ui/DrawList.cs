@@ -321,6 +321,32 @@ public readonly record struct DrawCommand(
     ///     </para>
     /// </remarks>
     public UiColorMatrix? Filter { get; init; }
+
+    /// <summary>
+    ///     The coverage a composited group's <c>mask-image</c> multiplies its surface by, or null
+    ///     where there is none. Unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nullable for <see cref="Filter" />'s reason and a sharper version of it.</b> A
+    ///         zeroed <see cref="UiMask" /> has zero coverage at every stop, so a command that said
+    ///         nothing about a mask would ask for the element to be erased entirely — the same trap as
+    ///         a zeroed colour matrix, except that the wrong answer is a blank rectangle rather than a
+    ///         black one, and a blank rectangle is much easier to mistake for a layout bug.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A third field rather than a member of <see cref="Filter" />, because a mask is not
+    ///         a filter in CSS and does not compose like one.</b> <c>filter</c> is an ordered list
+    ///         whose colour functions fold into one matrix; <c>mask-image</c> is a separate property
+    ///         applied to the <i>result</i> of the filter. The order between them is fixed by the
+    ///         specification rather than by arithmetic, which is the opposite of the situation between
+    ///         <see cref="Blur" /> and <see cref="Filter" /> — see that field's last remark, whose
+    ///         commutation argument does <b>not</b> extend here. A mask varies with position, so it
+    ///         passes through neither a Gaussian nor a bilinear tap; <see cref="UiMask" /> spells out
+    ///         the consequence, which is that both executors apply it at the composite draw.
+    ///     </para>
+    /// </remarks>
+    public UiMask? Mask { get; init; }
 }
 
 /// <summary>A frame's worth of drawing, and whether it differs from the last one.</summary>

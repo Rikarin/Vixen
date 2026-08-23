@@ -19,7 +19,7 @@ framework into every renderer.
 
 | Type | What it does |
 |---|---|
-| `UiShaders` | The modules a frame is drawn with, supplied rather than compiled — four required, `Image`, `Blur` and `Colour` optional |
+| `UiShaders` | The modules a frame is drawn with, supplied rather than compiled — four required, `Image`, `Blur`, `Colour` and `Mask` optional |
 | `UiRenderer` | Pipelines, buffers, the atlas texture, and recording a frame |
 | `UiRenderFeature` | A `RootRenderFeature` so a `RenderSystem` can reach one |
 | `UiSurface` | One interface as the renderer sees it: geometry, atlas, size, order |
@@ -99,10 +99,10 @@ interface draws hundreds of boxes of different sizes per frame, so the batched f
 stays — which is what the editor's `Ui.rvn` is, and what a library shader would have to become before
 it could be used here.
 
-### The three optional stages, and what their absence looks like
+### The four optional stages, and what their absence looks like
 
-`Image`, `Blur` and `Colour` are `init` properties rather than positional parameters, so a host that
-hands over none of them keeps the four-argument constructor. Their absences are not equally serious
+`Image`, `Blur`, `Colour` and `Mask` are `init` properties rather than positional parameters, so a
+host that hands over none of them keeps the four-argument constructor. Their absences are not equally serious
 and it is worth knowing which is which.
 
 **No `Image` is the bad one.** It is the stage `Compose` composites a group's surface back with, so
@@ -128,6 +128,20 @@ rather than run as a filter pass of its own. A blurred group needs a scratch tar
 passes because a convolution cannot read and write one attachment; a per-pixel matrix has nothing to
 read from a neighbour. What it costs is one pipeline switch and forty-eight bytes of push constant
 on a draw that was happening anyway.
+
+**No `Mask` is the same story with one extra trap.** It is the composite of a group whose
+`mask-image` fades it out, and without it the group composites through `Image` unmasked. `Masked` is
+what says so. ⚠ The trap is that this stage carries the colour matrix *as well*: a pipeline is chosen
+once per draw, so a group with both a `filter` and a `mask-image` has to be served by one module that
+does both. A host that supplies `Mask` and not `Colour` therefore gets `grayscale` working on masked
+elements and nowhere else, which is a stranger picture than either stage being absent — supply both
+or neither.
+
+⚠ **It costs no pass and no surface either**, on the colour matrix's terms. What it costs is a
+pipeline switch and a hundred and twelve bytes of push constant — the matrix's forty-eight plus the
+mask's sixty-four. That is what set the pipeline layout's fragment range, and 16 + 112 is 128, which
+is exactly what Vulkan guarantees. The next thing to want a push constant here has to share those
+bytes or move to the storage buffer.
 
 ⚠ **`Vixen.Editor.Host` supplies `Image` and neither of the other two**, so the editor composites,
 does not blur, and does not filter. The obstacle is the same for both and it is push-constant layout

@@ -81,6 +81,16 @@ public class UtilityFamilyTests {
     [InlineData("shadow", "box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3)")]
     [InlineData("shadow-lg", "box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.45)")]
     [InlineData("shadow-none", "box-shadow: none")]
+    [InlineData("mask-none", "mask-image: none")]
+    // ⚠ The assembled `mask-image` is what these rows are really about. Each stop family sets one
+    // fragment and emits the whole declaration beside it, so `mask-linear-from-50%` masks on its own
+    // and `mask-linear-45 mask-linear-from-50% mask-linear-to-90%` composes: three rules writing the
+    // identical `mask-image` and differing only in which fragment they set. The `var()` fallbacks are
+    // the reason one class works alone — see `UtilityComposition.MaskImage`.
+    [InlineData(
+        "mask-linear-from-50%",
+        "--tw-mask-from-position: 50%|mask-image: linear-gradient(var(--tw-mask-linear-angle, 180deg), var(--tw-mask-from, black) var(--tw-mask-from-position, 0%), var(--tw-mask-to, transparent) var(--tw-mask-to-position, 100%))"
+    )]
     // Transitions.
     [InlineData("duration-200", "transition-duration: 200ms")]
     [InlineData("ease-in-out", "transition-timing-function: ease-in-out")]
