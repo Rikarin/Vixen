@@ -229,6 +229,26 @@ public class UtilityFamilySupportTests {
         // and it is the sign travelling through the wrapper's arithmetic that makes it work.
         { "indent-4", "text-indent", "16px" },
         { "-indent-4", "text-indent", "-16px" },
+
+        // ⚠ <b>All nine keywords of `font-variant-numeric`, and this is the family where the union
+        // hides the most.</b> Every one of them is a different OpenType tag — `tnum`, `pnum`,
+        // `onum`, `lnum`, `zero`, `ordn`, `frac`, `afrc` — so a mapping table with one wrong entry
+        // asks the shaper for the wrong feature and looks, in the picture, exactly like a font that
+        // does not have the right one. The tags themselves are asserted in
+        // `Vixen.Ui.Tests.FontFeatureStyleTests`; these rows are the half that says the class
+        // resolves. ⚠ Only four of the nine are *visible* even in a face that has them all — Open
+        // Sans already draws lining proportional figures, so `lining-nums` and `proportional-nums`
+        // are correctly invisible in it, and no embedded face implements `afrc` at all.
+        { "normal-nums", "font-variant-numeric", "normal" },
+        { "ordinal", "font-variant-numeric", "ordinal" },
+        { "slashed-zero", "font-variant-numeric", "slashed-zero" },
+        { "lining-nums", "font-variant-numeric", "lining-nums" },
+        { "oldstyle-nums", "font-variant-numeric", "oldstyle-nums" },
+        { "proportional-nums", "font-variant-numeric", "proportional-nums" },
+        { "tabular-nums", "font-variant-numeric", "tabular-nums" },
+        { "diagonal-fractions", "font-variant-numeric", "diagonal-fractions" },
+        { "stacked-fractions", "font-variant-numeric", "stacked-fractions" },
+
         { "whitespace-nowrap", "white-space", "nowrap" },
 
         // ⚠ <b>Every keyword of the three wrapping roots, one row each, and the completeness is the

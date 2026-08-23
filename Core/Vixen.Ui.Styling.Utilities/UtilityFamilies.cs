@@ -612,6 +612,52 @@ public static class UtilityFamilies {
         Static("italic", "font-style", "italic");
         Static("not-italic", "font-style", "normal");
 
+        // ── Numeric figures ─────────────────────────────────────────────────────────────────
+        // ⚠ <b>Every keyword of this property is one OpenType feature, and the blocker was never the
+        // property.</b> `TextShaper.ShapeRun` ended `font.Shaper.Shape(buffer, [])` — the array was
+        // empty because nothing plumbed one — so `tabular-nums` would have resolved, computed,
+        // reached the shaper and been dropped on the floor. The array is threaded now, and the part
+        // that would have shipped broken is `ShapingCache`'s key: it was the font and the string, so
+        // a paragraph of tabular figures and one of proportional figures would have shared whichever
+        // entry was shaped first. See `FontFeatureSet`, which exists to be that key.
+        //
+        // ⚠ <b>Nine `Static` families rather than one keyword table, because v4 spells them as bare
+        // words</b> — `tabular-nums`, not `nums-tabular`. Inventing the second spelling is the
+        // failure `bg-conic-<angle>` is recorded under.
+        //
+        // ⚠ <b>What this does not do, stated rather than left to be found: two of them on one element
+        // keep the last.</b> Tailwind composes these through nine `--tw-*` fragments, so
+        // `class="tabular-nums slashed-zero"` gets both; here each class emits the whole property and
+        // the cascade keeps the later declaration. CSS's own grammar takes a list, so
+        // `[font-variant-numeric:tabular-nums_slashed-zero]` does get both — the gap is in the
+        // composition, not in the reader. Recorded as a value gap on the row rather than papered over.
+        Static("normal-nums", "font-variant-numeric", "normal");
+        Static("ordinal", "font-variant-numeric", "ordinal");
+        Static("slashed-zero", "font-variant-numeric", "slashed-zero");
+        Static("lining-nums", "font-variant-numeric", "lining-nums");
+        Static("oldstyle-nums", "font-variant-numeric", "oldstyle-nums");
+        Static("proportional-nums", "font-variant-numeric", "proportional-nums");
+        Static("tabular-nums", "font-variant-numeric", "tabular-nums");
+        Static("diagonal-fractions", "font-variant-numeric", "diagonal-fractions");
+        Static("stacked-fractions", "font-variant-numeric", "stacked-fractions");
+
+        // ⚠ <b>`font-features-*` is deliberately NOT registered, and the reason changed on this pass.</b>
+        // The blocker it shared with the nine families above is gone: `font-feature-settings` is read
+        // end to end — `UiDocument.ResolveText` parses the list, `TextShaper` hands it to HarfBuzz and
+        // `ShapingCache` is keyed on it — and it is reachable today through the arbitrary-property
+        // hatch, `[font-feature-settings:"tnum"_1]`. What stops the *family* is the instrument rather
+        // than the engine, and it is worth writing down because it looks like laziness.
+        //
+        // v4's family is arbitrary-only: there is no `font-features-tnum`, so it contributes nothing
+        // to `UtilityFamilies.Surface`, which enumerates a family's keywords and its theme scale.
+        // A family with no surface is one `UtilityConsumptionGateTests` never meets — it would pass
+        // vacuously, for ever, and the parity ledger's emission column would stay empty while the
+        // family worked. Adding one arbitrary probe to the surface was tried and does not close it:
+        // the only values of this property that *do* anything contain quotes, by CSS's own grammar,
+        // and a generated rule whose selector is `.font-features-\["onum"_1\]` does not match the
+        // element the probe puts the class on. So the gap is class-name escaping in the probe, which
+        // is a change to the measuring instrument and not to this table. Recorded on the row.
+
         // ── Wrapping ────────────────────────────────────────────────────────────────────────
         // ⚠ <b>`overflow-wrap` and `word-break` are two properties and two families, and the two are
         // not interchangeable however similar the class names look.</b> `UiDocument.WrapModeOf` reads
@@ -1539,6 +1585,7 @@ public static class UtilityFamilies {
             foreach (var value in ValuesFor(family, tokens)) {
                 Consider($"{name}-{value}");
             }
+
         }
 
         return probes;

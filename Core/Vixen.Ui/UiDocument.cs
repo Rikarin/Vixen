@@ -53,6 +53,8 @@ public sealed partial class UiDocument : IDisposable {
     readonly int keepAll;
     readonly int letterSpacing;
     readonly int textIndent;
+    readonly int fontFeatureSettings;
+    readonly int fontVariantNumeric;
     readonly int lineHeight;
     readonly int zIndex;
     readonly int fontWeight;
@@ -143,6 +145,8 @@ public sealed partial class UiDocument : IDisposable {
         keepAll = Styles.Values.Intern("keep-all");
         letterSpacing = Styles.Properties.Intern("letter-spacing");
         textIndent = Styles.Properties.Intern("text-indent");
+        fontFeatureSettings = Styles.Properties.Intern("font-feature-settings");
+        fontVariantNumeric = Styles.Properties.Intern("font-variant-numeric");
         lineHeight = Styles.Properties.Intern("line-height");
         zIndex = Styles.Properties.Intern("z-index");
         fontWeight = Styles.Properties.Intern("font-weight");
@@ -1219,14 +1223,27 @@ public sealed partial class UiDocument : IDisposable {
     ///         the author asked.
     ///     </para>
     /// </param>
+    /// <param name="Features">
+    ///     The OpenType features <c>font-feature-settings</c> and <c>font-variant-numeric</c> between
+    ///     them asked for.
+    ///     <para>
+    ///         ⚠ <b>Resolved once per style pass rather than read in <c>UiElement.Block</c>, and that
+    ///         is not the reason the other three are here.</b> Neither property takes a relative unit,
+    ///         so specified-value inheritance through <c>InheritedProperties</c> would have been
+    ///         correct — and would have made every <c>Block()</c> call parse a feature list, twice a
+    ///         frame per element, to produce the same answer. The parse happens where the cascade
+    ///         changes instead, and what travels is the finished set.
+    ///     </para>
+    /// </param>
     readonly record struct ComputedText(
         float LineHeight,
         float LineHeightFactor,
         float LetterSpacing,
-        float TextIndent
+        float TextIndent,
+        FontFeatureSet Features
     ) {
         /// <summary>What the root starts with: the font's own line height, no tracking, no indent.</summary>
-        public static ComputedText Initial => new(float.NaN, float.NaN, 0f, 0f);
+        public static ComputedText Initial => new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None);
     }
 
     void Apply(UiElement element, float parentFontSize, ComputedText parentText, LengthContext metrics) {
@@ -1263,6 +1280,7 @@ public sealed partial class UiDocument : IDisposable {
 
         element.LetterSpacing = text.LetterSpacing;
         element.TextIndent = text.TextIndent;
+        element.FontFeatures = text.Features;
 
         // Resolved here rather than read in the draw list, because hit testing needs the same answer
         // and reaching it would mean parsing the same declaration twice per frame from two places
@@ -1311,10 +1329,12 @@ public sealed partial class UiDocument : IDisposable {
         // `.Equals` rather than `==`, because NaN is a legitimate value here and NaN == NaN is false.
         if (!element.AppliedLineHeight.Equals(element.LineHeight)
             || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)
-            || !element.AppliedTextIndent.Equals(element.TextIndent)) {
+            || !element.AppliedTextIndent.Equals(element.TextIndent)
+            || !ReferenceEquals(element.AppliedFontFeatures, element.FontFeatures)) {
             element.AppliedLineHeight = element.LineHeight;
             element.AppliedLetterSpacing = element.LetterSpacing;
             element.AppliedTextIndent = element.TextIndent;
+            element.AppliedFontFeatures = element.FontFeatures;
 
             // Only a node that measures itself, which is what having text means — and what
             // `MarkDirty` insists on, on the grounds that nothing else about a node can change
@@ -1349,6 +1369,7 @@ public sealed partial class UiDocument : IDisposable {
         var factor = parent.LineHeightFactor;
         var tracking = parent.LetterSpacing;
         var indent = parent.TextIndent;
+        var features = parent.Features;
 
         if (style.TryGet(this.lineHeight, out var declared)) {
             var value = reader.Parse(declared);
@@ -1408,7 +1429,84 @@ public sealed partial class UiDocument : IDisposable {
                 : 0f;
         }
 
-        return new ComputedText(lineHeight, factor, tracking, indent);
+        // ⚠ <b>Both are read off this element's own computed style rather than from the parent's
+        // answer, and that is the difference between them and the three above.</b> Neither takes a
+        // relative unit, so both are in `InheritedProperties` and the cascade has already handed
+        // them down — which is what lets a child declare one of the two and keep the other. Building
+        // the set from `parent.Features` instead would make `font-feature-settings` on a child erase
+        // a `font-variant-numeric` it inherited, because there is one slot and two properties.
+        //
+        // ⚠ <b>The order the two are added in is CSS Fonts 4 § 6.4's rather than a choice.</b>
+        // `font-variant-numeric` says what the text *is*; `font-feature-settings` is the low-level
+        // escape hatch and says what the shaper is *told*, so it goes second and a hand-written
+        // `"tnum" 0` can switch off what `tabular-nums` asked for — `FontFeatureSet.Of` keeps the
+        // later of two entries for one tag.
+        var hasNumeric = style.TryGet(fontVariantNumeric, out var numeric);
+        var hasSettings = style.TryGet(fontFeatureSettings, out var settings);
+
+        if (hasNumeric || hasSettings) {
+            var wanted = new List<FontFeature>();
+
+            if (hasNumeric) {
+                NumericFeatures(Styles.Values.NameOf(numeric), wanted);
+            }
+
+            if (hasSettings) {
+                SettingsFeatures(Styles.Values.NameOf(settings), wanted);
+            }
+
+            features = FontFeatureSet.Of(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(wanted));
+        } else {
+            features = FontFeatureSet.None;
+        }
+
+        return new ComputedText(lineHeight, factor, tracking, indent, features);
+    }
+
+    /// <summary>The OpenType features CSS Fonts 4 § 6.6 gives each <c>font-variant-numeric</c> keyword.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every keyword of this property is one OpenType feature, which is why it and
+    ///     <c>font-feature-settings</c> are one item and not two.</b> The property is a friendlier
+    ///     spelling of the escape hatch, and once the shaper is being handed an array at all, both
+    ///     are the same change. <c>normal</c>, and anything else with no reading, contributes
+    ///     nothing — which is the property's initial value and the correct answer for a typo.
+    /// </remarks>
+    static void NumericFeatures(string keywords, List<FontFeature> into) {
+        foreach (var range in keywords.AsSpan().Split(' ')) {
+            var keyword = keywords.AsSpan()[range].Trim();
+
+            var tag = keyword switch {
+                "ordinal" => "ordn",
+                "slashed-zero" => "zero",
+                "lining-nums" => "lnum",
+                "oldstyle-nums" => "onum",
+                "proportional-nums" => "pnum",
+                "tabular-nums" => "tnum",
+                "diagonal-fractions" => "frac",
+                "stacked-fractions" => "afrc",
+                _ => null
+            };
+
+            if (tag is not null) {
+                into.Add(new FontFeature(FontFeature.Pack(tag), 1u));
+            }
+        }
+    }
+
+    /// <summary>Reads a <c>font-feature-settings</c> list.</summary>
+    /// <remarks>
+    ///     ⚠ A malformed entry is dropped and the ones beside it are kept, rather than the whole
+    ///     declaration being refused. CSS would throw the declaration away at parse time; ExCSS has
+    ///     already accepted it by the time it reaches here, so the choice is between honouring what
+    ///     parses and honouring nothing — and a stylesheet with one bad tag in a list of four should
+    ///     not silently lose the other three.
+    /// </remarks>
+    static void SettingsFeatures(string settings, List<FontFeature> into) {
+        foreach (var range in settings.AsSpan().Split(',')) {
+            if (FontFeature.TryParse(settings.AsSpan()[range], out var feature)) {
+                into.Add(feature);
+            }
+        }
     }
 
     /// <summary>Rebuilds the draw list from the current layout and styles.</summary>

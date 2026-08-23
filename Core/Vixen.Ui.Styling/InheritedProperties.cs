@@ -71,6 +71,16 @@ public sealed class InheritedProperties {
         "font-stretch",
         "font-variant",
 
+        // ⚠ These two are here rather than beside `line-height` because neither takes a relative
+        // unit: a feature list is a list of four-character tags and a keyword table, so the
+        // specified value and the computed one are the same string and inheriting it is exactly
+        // CSS. What `UiDocument.ResolveText` does with them is parse — once per style pass, off
+        // this element's own computed style, so a child that declares one of the two keeps the
+        // other. See its remarks: building the set from the parent's answer instead would give the
+        // two properties one slot to fight over.
+        "font-feature-settings",
+        "font-variant-numeric",
+
         // ⚠ `line-height`, `letter-spacing` and `text-indent` are CSS-inherited and are deliberately
         // *not* here, for the same reason `font-size` is not: all three take relative units, and
         // inheriting the text `1.5em` would resolve it against the descendant's font size rather than

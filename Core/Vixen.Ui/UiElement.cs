@@ -180,6 +180,15 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     public float TextIndent { get; internal set; }
 
+    /// <summary>The OpenType features its text is shaped with.</summary>
+    /// <remarks>
+    ///     <c>font-feature-settings</c> and <c>font-variant-numeric</c> between them, resolved once
+    ///     per style pass — see <c>UiDocument.ResolveText</c>. <see cref="FontFeatureSet.None" /> for
+    ///     text that asked for nothing, which is almost all of it, and it is a singleton so the
+    ///     common case costs a reference comparison.
+    /// </remarks>
+    public FontFeatureSet FontFeatures { get; internal set; } = FontFeatureSet.None;
+
     /// <summary>Where it sits among its siblings when they overlap.</summary>
     /// <remarks>
     ///     <para>
@@ -573,6 +582,7 @@ public partial class UiElement : Composition.IComposable {
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
             && lineIndent.Equals(TextIndent)
+            && ReferenceEquals(lineFeatures, FontFeatures)
             && lineLeading.Equals(LineHeight)) {
             return block;
         }
@@ -618,6 +628,7 @@ public partial class UiElement : Composition.IComposable {
         lineSize = FontSize;
         lineTracking = LetterSpacing;
         lineIndent = TextIndent;
+        lineFeatures = FontFeatures;
         lineLeading = LineHeight;
 
         return block;
@@ -831,7 +842,7 @@ public partial class UiElement : Composition.IComposable {
             runs.Add(
                 new TextRun(
                     span.Font,
-                    Document.Shaping.Shape(span.Font, piece),
+                    Document.Shaping.Shape(span.Font, piece, features: FontFeatures),
                     FontSize,
                     LetterSpacing,
                     LineHeight,
@@ -921,6 +932,13 @@ public partial class UiElement : Composition.IComposable {
     float lineSize;
     float lineTracking;
     float lineIndent;
+
+    // ⚠ Reference equality, not `Equals`, and it is sound because `ResolveText` produces one
+    // instance per style pass and hands the same one to every element that resolved alike. Two
+    // equal sets built in different passes compare unequal here, which costs one rebuild of a
+    // block whose features did not change — and never the other way round, which is the direction
+    // that would draw stale glyphs.
+    FontFeatureSet? lineFeatures;
     float lineLeading;
 
     void OnTextChanged(string? previous, string? current) {
@@ -1298,6 +1316,9 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>And the indent, which changes what the element measures just as the other two do.</summary>
     internal float AppliedTextIndent { get; set; } = float.NaN;
+
+    /// <summary>And the features, which change the glyphs and therefore the width.</summary>
+    internal FontFeatureSet? AppliedFontFeatures { get; set; }
 
     internal void Attach(UiElement child) {
         children.Add(child);
