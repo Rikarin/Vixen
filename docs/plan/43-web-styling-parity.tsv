@@ -240,7 +240,7 @@ Backgrounds	bg-radial-*	functional	bg-radial-[at_50%]	background-image	bg-radial
 Effects	mask-size-*	functional	mask-size-[auto]	mask-size					absent				
 Effects	mask-position-*	functional	mask-position-[center]	mask-position					absent				
 Typography	font-features-*	functional	font-features-[normal]	font-feature-settings					absent			not shadowed: `UtilityParser` decides the arbitrary value before `SplitName` is consulted, so this parses to the unregistered name `font-features`	
-Filters	filter-*	functional	filter-none	filter					absent				
+Filters	filter-*	functional	filter-none	filter	filter	filter	filter		works			The keyword root, and the one filter family that sets no fragment: `filter-none` emits `filter: none`, which `DrawListBuilder.Filter` refuses at the list check and therefore opens no group. Registered rather than assembled — the eight functions at their identities would be a different declaration with the same picture. Which of `filter-none` and `blur-2` wins on one element is the cascade's answer, as it is in v4	filter-none
 Filters	backdrop-filter-*	functional	backdrop-filter-none	backdrop-filter					absent				
 Flexbox and Grid	flex-shrink-*	functional	flex-shrink-0	flex-shrink					absent	flex		refused on policy: `flex-shrink` is read and `shrink-*` already emits it. § D5 lists `flex-shrink-*` among v4's `compat/legacy-utilities.ts` set, superseded by `shrink-*`.	
 Flexbox and Grid	flex-grow-*	functional	flex-grow-0	flex-grow					absent	flex		refused on policy: `flex-grow` is read and `grow-*` already emits it. § D5 lists `flex-grow-*` among v4's compatibility utilities, superseded by `grow-*`.	

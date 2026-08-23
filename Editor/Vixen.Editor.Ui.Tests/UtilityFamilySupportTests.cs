@@ -261,6 +261,15 @@ public class UtilityFamilySupportTests {
         { "saturate-150", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1.5) sepia(0)" },
         { "sepia-50", "filter", "blur(0px) brightness(1) contrast(1) grayscale(0) hue-rotate(0deg) invert(0) saturate(1) sepia(0.5)" },
 
+        // ⚠ <b>The keyword, and the row is here to record that it is <i>not</i> the eight functions at
+        // their identities.</b> That spelling would draw the same picture and be a different
+        // declaration — a `var()` chain resolving to `blur(0px) brightness(1) …`, which
+        // `DrawListBuilder.Filter` reads as a real list, composes to the identity and only then
+        // discards in `Settle`. `none` is refused by the list check one step earlier and needs no
+        // fragment at all, which is why this is the one family in the block with nothing in
+        // `Alongside`.
+        { "filter-none", "filter", "none" },
+
         // ⚠ Two families composing into one declaration is the case this theory cannot state — a row
         // here is one class — so it is
         // <see cref="Two_filter_families_compose_into_one_declaration_and_one_matrix" /> instead.
@@ -742,6 +751,41 @@ public class UtilityFamilySupportTests {
         Assert.Equal(0f, white.G, 4);
         Assert.Equal(0f, white.B, 4);
         Assert.Equal(1f, white.A);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>filter-none</c> reaches the element as the keyword and opens no group, and the
+    ///     first half is what stops the second half being vacuous.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An element with no <c>filter</c> at all opens no group either, so "no
+    ///         <c>LayerPush</c>" on its own is a sentence about every element in the engine and would
+    ///         pass with this family deleted — which is precisely the state it was in until now. What
+    ///         separates the two is <see cref="UiTest.StyleOf" />: an unregistered class resolves to
+    ///         nothing, the generator emits no rule, and the property is <c>null</c> rather than
+    ///         <c>none</c>. Both assertions together say the declaration arrived <i>and</i> that
+    ///         arriving cost nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>grayscale</c> beside it is the instrument.</b> Without it the fixture is
+    ///         one that could not open a group whatever the styles said — no compositing, a zero-sized
+    ///         box, a stylesheet that failed to load — and every such fixture passes this test. The
+    ///         second element proves the same document does open one when something asks it to.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Filter_none_is_the_keyword_and_costs_no_group() {
+        using var ui = Sheet("filter-none", "grayscale", "bg-accent", "w-8", "h-8");
+
+        var off = ui.Create("off", ui.Document.Root, null, "filter-none", "bg-accent", "w-8", "h-8");
+        ui.Create("on", ui.Document.Root, null, "grayscale", "bg-accent", "w-8", "h-8");
+        ui.Frame();
+
+        Assert.Equal("none", ui.StyleOf(off, "filter"));
+
+        // One, and it is the `grayscale` element's. A second would mean `filter-none` opened one too.
+        Assert.Single(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
     }
 
     /// <summary>

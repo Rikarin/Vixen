@@ -836,6 +836,24 @@ public static class UtilityFamilies {
             Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
 
+        // ⚠ <b>The ninth family in the block and the only one that sets no fragment, which is what
+        // makes it the odd one and also what makes it correct.</b> `filter-none` is not "every
+        // function at its identity" — that is what an element carrying none of the eight already
+        // gets, and `DrawListBuilder` opens no group for it. It is the keyword `none`, which
+        // `DrawListBuilder.Filter` reads as "not a list" and returns `default` for, so the element
+        // draws unfiltered whatever the eight fragments the cascade handed it say. Emitting the
+        // assembled eight here with every fragment forced to its identity would be a *different*
+        // declaration with the same picture and a `var()` chain nobody can read.
+        //
+        // ⚠ <b>Which of `filter-none` and `blur-2` wins on one element is the cascade's answer and
+        // not this table's, and it is worth knowing that before someone reports it as a bug.</b> Both
+        // rules set `filter`, both have one class's specificity, so the later rule in the generated
+        // sheet wins — which is the order `UtilityGenerator` emits families in, not the order the
+        // classes were written in. Tailwind v4 has the identical ambiguity for the identical reason.
+        // The class earns its place on elements that inherit or `@apply` a filter and want it off,
+        // which is the only case where there is nothing else to write.
+        Keywords("filter", "filter", new Dictionary<string, string>(StringComparer.Ordinal) { ["none"] = "none" });
+
         // ── Masks ───────────────────────────────────────────────────────────────────────
         //
         // ⚠ <b>Twenty-five roots now, and what is still missing is `mask-origin-*`,
