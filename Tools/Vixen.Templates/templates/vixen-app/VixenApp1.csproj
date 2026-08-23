@@ -50,7 +50,13 @@
             a group whose stylesheet asked for `filter: blur()`. Dropping it does not fail — the
             group composites unblurred — so its absence looks like the filter not working.
 
-            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the five
+            ⚠ `ui-colour.frag` is the third, and the cheapest of them: it is the composite of a group
+            whose `filter` carries `grayscale`, `brightness`, `invert` or any of the other four
+            colour functions. It adds no pass and no surface — the matrix rides the composite draw —
+            so there is no reason but forgetting for an application not to ship it, and forgetting
+            looks like `grayscale` doing nothing.
+
+            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the six
             fragment stages.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />

@@ -57,6 +57,34 @@ public readonly record struct UiShaders(
     /// </remarks>
     public ShaderHandle Blur { get; init; }
 
+    /// <summary>The composite of a group whose <c>filter</c> carries a colour transform.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Optional on the same terms as <see cref="Blur" />, and the consequence is again a
+    ///         picture rather than a failure.</b> A host with no colour stage composites every group
+    ///         through <see cref="Image" /> instead, which draws it in full colour: the surfaces are
+    ///         still rendered, the opacities are still right, and a <c>filter: grayscale(1)</c> in a
+    ///         stylesheet draws untouched. <c>UiRenderer.Filtered</c> is what says so out loud, and it
+    ///         is the reason that count exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A module of its own rather than a branch in <see cref="Image" />, and the reason
+    ///         is what the branch would cost everything else.</b> <c>ui-image.frag</c> draws every
+    ///         viewport, thumbnail and video frame the interface has; giving it a push-constant block
+    ///         would put an identity matrix on the wire for all of them. A group with a filter is
+    ///         rare enough that one pipeline switch for the one draw that has one is the cheaper
+    ///         side.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No second surface and no extra pass, which is the whole design and is worth
+    ///         stating where a reader will meet it.</b> The matrix is per pixel, so unlike
+    ///         <see cref="Blur" /> it has nothing to read from a neighbour and can be folded into the
+    ///         composite draw the group was going to make anyway — see <c>UiRenderer.Compose</c>, whose
+    ///         viewport-sized targets a filter does not add to.
+    ///     </para>
+    /// </remarks>
+    public ShaderHandle Colour { get; init; }
+
     /// <summary>
     ///     Where the vertex stage reads <c>UiVertex</c>'s four attributes: position, texture,
     ///     colour, then shape.
@@ -182,6 +210,22 @@ public sealed class UiRenderer : IDisposable {
 
     readonly PipelineHandle imagePipeline;
 
+    /// <summary>The composite pipeline a filtered group uses instead of <see cref="imagePipeline" />.</summary>
+    readonly PipelineHandle colourPipeline;
+
+    /// <summary>The colour matrix each composed group's composite draw has to be put through.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than on <see cref="UiDraw" />, and the difference is fifty-two bytes on
+    ///     every draw in every frame against a dictionary with as many entries as the frame has
+    ///     filtered groups — which is almost always none.</b> A composite draw is an ordinary
+    ///     <see cref="BatchKind.Image" /> naming its surface by number, so <see cref="SubmitDraw" />
+    ///     already has the only key it needs; putting the matrix on the draw would widen a struct
+    ///     the frame holds thousands of to carry a value a handful of them ever set.
+    ///     ⚠ Rebuilt by <see cref="Compose" /> each frame rather than accumulated, so a group that
+    ///     stopped being filtered cannot leave its matrix behind for the next frame to find.
+    /// </remarks>
+    readonly Dictionary<ulong, UiColorMatrix> layerFilters = [];
+
     /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
     /// <remarks>
     ///     ⚠ <b>A buffer of its own precisely so that it never has to be rewritten.</b> The image
@@ -306,6 +350,19 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>How many of those groups <see cref="Compose" /> also ran a blur over.</summary>
     int blurred;
 
+    /// <summary>How many composite draws the frame put a colour matrix through.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reset by <see cref="Compose" /> and incremented by <see cref="SubmitDraw" />, which
+    ///     is the one arrangement that counts each of a frame's filtered composites exactly once.</b>
+    ///     A group's composite is submitted by whichever pass contains it — the frame's, recorded in
+    ///     <see cref="Record" />, or a parent group's, recorded inside <see cref="Compose" /> — so
+    ///     resetting in <see cref="Record" /> would throw away every nested one, and resetting in
+    ///     <see cref="SubmitDraw" /> is not a thing. The pair are documented as called together and
+    ///     in that order; a host that calls neither leaves <see cref="layerFilters" /> empty and this
+    ///     at zero, which is the honest answer for a frame with no composited group in it.
+    /// </remarks>
+    int filtered;
+
     BufferHandle atlasStaging;
     int atlasWidth;
     int atlasHeight;
@@ -370,16 +427,20 @@ public sealed class UiRenderer : IDisposable {
         // binding, so a golden image cannot see it. Making the layouts identical makes the question
         // not arise: the set is bound once a frame and no pipeline change can disturb it. Declaring a
         // binding a shader ignores costs nothing.
-        // ⚠ <b>A second range, for the fragment stage, that only the blur pipeline's shader
-        // declares.</b> A pipeline layout may promise more push constants than a shader reads —
-        // the reverse is the error — so the four pipelines that never look at it are unaffected,
-        // and the alternative is a layout of its own for the blur, which is the very thing the
-        // paragraph above refuses: two layouts in one pass is a descriptor set disturbed at the
-        // first slot they disagree about. Disjoint offsets rather than one range spanning both
-        // stages, so that `ui.vert`'s block stays exactly the sixteen bytes it declares today and
-        // no committed module has to be recompiled to keep matching it.
+        // ⚠ <b>A second range, for the fragment stage, that only two of the pipelines' shaders
+        // declare — and they declare different amounts of it.</b> A pipeline layout may promise more
+        // push constants than a shader reads — the reverse is the error — so the four pipelines that
+        // never look at it are unaffected, `ui-blur.frag` reads the first sixteen bytes as its
+        // kernel, and `ui-colour.frag` reads all forty-eight as three matrix rows. The alternative is
+        // a layout of its own per stage, which is the very thing the paragraph above refuses: two
+        // layouts in one pass is a descriptor set disturbed at the first slot they disagree about.
+        // Disjoint offsets rather than one range spanning both stages, so that `ui.vert`'s block
+        // stays exactly the sixteen bytes it declares today and no committed module has to be
+        // recompiled to keep matching it.
+        // ⚠ Sixty-four bytes in total, which is half the 128 every Vulkan implementation is required
+        // to offer — so widening the fragment range costs nothing anybody has to check for.
         layout = device.CreatePipelineLayout(
-            new([atlasLayout], [new(ShaderStage.Vertex, 0, 16), new(ShaderStage.Fragment, 16, 16)], "ui")
+            new([atlasLayout], [new(ShaderStage.Vertex, 0, 16), new(ShaderStage.Fragment, 16, 48)], "ui")
         );
 
         // ⚠ Linear filtering and clamped, and never an sRGB view. The atlas holds distances, not
@@ -403,6 +464,13 @@ public sealed class UiRenderer : IDisposable {
         // rather than throwing here — see `UiShaders.Blur`.
         if (shaders.Blur.IsValid) {
             blurPipeline = Pipeline(shaders.Blur, output, "ui blur");
+        }
+
+        // And again for the colour matrix — see `UiShaders.Colour`. A host without it composites its
+        // filtered groups through `imagePipeline`, in full colour, which is a picture rather than a
+        // fault.
+        if (shaders.Colour.IsValid) {
+            colourPipeline = Pipeline(shaders.Colour, output, "ui colour");
         }
 
         layerFormat = output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm;
@@ -445,6 +513,29 @@ public sealed class UiRenderer : IDisposable {
     ///     <see cref="Composited" /> exists to plug one level up.
     /// </remarks>
     public int Blurred => blurred;
+
+    /// <summary>How many composite draws the last <see cref="Record" /> put a colour matrix through.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The observer a silently-skipped colour filter has, and it has one more way of
+    ///         being skipped than a blur does.</b> The three <see cref="Blurred" /> lists all apply —
+    ///         no <c>UiShaders.Colour</c>, no <c>UiLayer.Filter</c>, a group collapsed before it
+    ///         became a layer — and a fourth is peculiar to this: the frame draws <i>identically</i>
+    ///         with the filter missing whenever the group's contents happen not to exercise the
+    ///         matrix. A <c>grayscale</c> over a panel that is already grey is a correct picture
+    ///         either way, so a screenshot cannot tell, and neither can a comparison of the two
+    ///         executors. This can.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per <i>draw</i> and not per group, and it therefore spans both halves of the
+    ///         frame.</b> A group's composite is submitted once, but it is submitted by whichever
+    ///         pass contains it — the frame's, in <see cref="Record" />, or a parent group's, inside
+    ///         <see cref="Compose" /> — so the count is reset once, by <see cref="Compose" />, and
+    ///         then accumulated across both. A composite that was scissored away contributes nothing
+    ///         here for the same reason it contributes nothing to <see cref="Draws" />.
+    ///     </para>
+    /// </remarks>
+    public int Filtered => filtered;
 
     /// <summary>How many descriptor sets registering images has ever allocated.</summary>
     /// <remarks>
@@ -579,12 +670,54 @@ public sealed class UiRenderer : IDisposable {
     ///         group itself, which is the order the dependency runs in — an outer group's pass
     ///         <i>samples</i> its children's surfaces.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A colour filter costs this method nothing, and that is a claim about the two
+    ///         paragraphs above rather than about the matrix.</b> <see cref="UiLayer.Filter" /> is not
+    ///         read here at all beyond being copied into <see cref="layerFilters" />: it adds no pass,
+    ///         no surface, no barrier and no widening of <see cref="Confine" />'s region, because a
+    ///         per-pixel transform has nothing to read from a neighbour and can therefore be folded
+    ///         into the composite draw the group was going to make anyway — see
+    ///         <see cref="SubmitDraw" />. A blurred group costs a shared scratch and two more passes
+    ///         and needs its bounds outset; a filtered one costs a pipeline switch and forty-eight
+    ///         bytes. Anything that made the second look like the first would be paying a
+    ///         neighbourhood operation's price for something that is not one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And this is where <c>backdrop-filter</c> stops, which is worth writing down here
+    ///         rather than in a plan document, because the reason is the shape of this method.</b> A
+    ///         backdrop filter reads what is <i>behind</i> the layer — the destination the group is
+    ///         about to composite into — and at the moment a group's surface is rendered that
+    ///         destination has not been drawn. It cannot have been: the paragraph two up says these
+    ///         passes are recorded <i>before</i> the caller's own begins, because a pass cannot be
+    ///         opened inside one, so nothing painted below the group exists yet. Nor is the composite
+    ///         a way round it — by then the destination is the colour attachment being written, which
+    ///         is not sampleable without an input attachment or a copy out of the pass, and neither
+    ///         exists in this layer's command list.
+    ///         <para>
+    ///             ⚠ <b>The trap it sets is that <c>SoftwareUiRasterizer</c> could do it in three
+    ///             lines</b> — its recursion already holds the parent's buffer while it runs the
+    ///             group's — so a backdrop filter written there alone would look implemented and would
+    ///             fail <c>UiCompositingTests</c> as a compositing divergence rather than as a missing
+    ///             feature. What closing it actually needs is the backdrop captured into a real
+    ///             texture before the groups that read it are composed: a second walk over the layer
+    ///             tree to find which groups have one, an ordering constraint saying everything behind
+    ///             each of them is finished first, and a copy per backdrop group. That is a different
+    ///             feature with a different price, not a slot in the matrix.
+    ///         </para>
+    ///     </para>
     /// </remarks>
     public void Compose(ICommandList commands, in UiGeometry geometry, Int2 surface, float scale = 1f) {
         ArgumentNullException.ThrowIfNull(commands);
 
         composed = 0;
         blurred = 0;
+        filtered = 0;
+
+        // ⚠ Cleared here and not where it is filled, so that every early return below leaves the map
+        // empty rather than holding the *previous* frame's answers keyed by numbers this frame's
+        // layers may well reuse — `UiGeometryBuilder.LayerImage` counts down from the top for every
+        // frame, so a group in the same position gets the same number.
+        layerFilters.Clear();
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
             return;
@@ -606,6 +739,23 @@ public sealed class UiRenderer : IDisposable {
 
         EnsureSurfaces(geometry, width, height);
         composed = geometry.Layers.Count;
+
+        // ⚠ In a loop of its own and before the passes, because it is read by `Record` rather than
+        // here — a group's composite draw is submitted by whichever pass contains it, and that pass
+        // may be another group's, recorded earlier in the walk below. Filling the map as each group's
+        // own pass came round would mean a nested group's composite was submitted before the entry
+        // that describes it existed.
+        // ⚠ The identity is not stored. A `grayscale(0)` is a real filter as far as the draw list is
+        // concerned — CSS isolates for it — but putting it through the colour pipeline would cost a
+        // pipeline switch and a push to compute the sample back, and `Filtered` would then count a
+        // draw nothing happened to.
+        if (colourPipeline.IsValid) {
+            foreach (var layer in geometry.Layers) {
+                if (layer.Filter is { } matrix && !matrix.IsIdentity) {
+                    layerFilters[layer.Image] = matrix;
+                }
+            }
+        }
 
         for (var index = geometry.Layers.Count - 1; index >= 0; index--) {
             var layer = geometry.Layers[index];
@@ -911,7 +1061,18 @@ public sealed class UiRenderer : IDisposable {
         ReadOnlySpan<float> projection,
         ref Bindings bound
     ) {
-        var pipeline = PipelineFor(draw.Kind);
+        // ⚠ <b>Looked up before the pipeline is chosen, because it <i>is</i> the choice.</b> A
+        // composite draw whose group carries a colour matrix goes through `ui-colour.frag` instead of
+        // `ui-image.frag`; everything else, including a composite with no filter and an ordinary
+        // image that happens to share a number with nothing, goes through the image pipeline. The
+        // map is empty on almost every frame, so the common path is one `Count` test.
+        var matrix = layerFilters.Count > 0
+            && draw.Kind == BatchKind.Image
+            && layerFilters.TryGetValue(draw.Image, out var entry)
+                ? entry
+                : default(UiColorMatrix?);
+
+        var pipeline = matrix is null ? PipelineFor(draw.Kind) : colourPipeline;
 
         if (!pipeline.IsValid) {
             // An image with no image shader. Skipped rather than drawn with another pipeline,
@@ -939,6 +1100,21 @@ public sealed class UiRenderer : IDisposable {
             // because every pipeline shares one layout, a later pipeline change cannot disturb it.
             commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
             bound.Pushed = true;
+        }
+
+        if (matrix is { } filter) {
+            // ⚠ Every time, rather than tracked in `Bindings` the way the projection is. Two filtered
+            // groups in one pass carry two different matrices and the second one's is not the first's
+            // — so a `Pushed` flag here would draw the second group with the first's filter, which is
+            // a picture that looks like a filter working. Push constants are the cheapest thing in
+            // the API and there are at most a handful of these draws in a frame.
+            Span<float> rows = [
+                filter.Red.X, filter.Red.Y, filter.Red.Z, filter.Red.W,
+                filter.Green.X, filter.Green.Y, filter.Green.Z, filter.Green.W,
+                filter.Blue.X, filter.Blue.Y, filter.Blue.Z, filter.Blue.W
+            ];
+
+            commands.PushConstants(ShaderStage.Fragment, 16, MemoryMarshal.AsBytes(rows));
         }
 
         // ⚠ Per draw rather than once, now that a draw can carry its own texture. The set is the
@@ -973,6 +1149,14 @@ public sealed class UiRenderer : IDisposable {
         commands.SetScissor(scissor);
         commands.DrawIndexed(draw.Count, firstIndex: draw.First);
         Draws++;
+
+        // ⚠ After the draw and after every early return above it, for the reason `Blurred` gives:
+        // a filter that did not happen must not be able to look like one that did, and three of the
+        // returns between here and the top are reachable for a filtered composite — no registered
+        // set, a scissor that clipped it away, a colour pipeline the host never handed over.
+        if (matrix is not null) {
+            filtered++;
+        }
     }
 
     /// <summary>Makes sure there is a surface per group, at the size the frame is being drawn at.</summary>

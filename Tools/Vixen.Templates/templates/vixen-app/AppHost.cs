@@ -341,7 +341,15 @@ sealed class AppHost : IDisposable {
                 // out is milder than leaving out the image stage — the group still composites, at the
                 // right opacity, merely sharp — but the symptom is the same shape: a class that
                 // resolves, cascades, and appears not to work.
-                Blur = device.CreateShader(ShaderStage.Fragment, Module("ui-blur.frag.spv"), "ui blur")
+                Blur = device.CreateShader(ShaderStage.Fragment, Module("ui-blur.frag.spv"), "ui blur"),
+
+                // ⚠ <b>And the seven colour functions, which cost less than either of the two above
+                // and are left out for the same reason they would be missed.</b> This is the stage a
+                // group whose stylesheet asked for `grayscale`, `brightness-125`, `invert` or any of
+                // the rest composites through. Unlike the blur it adds no pass and no surface — the
+                // matrix rides the composite draw — so there is no reason but forgetting for an
+                // application not to ship it, and forgetting looks like `grayscale` doing nothing.
+                Colour = device.CreateShader(ShaderStage.Fragment, Module("ui-colour.frag.spv"), "ui colour")
             },
             new Vixen.Rendering.RenderOutput([swapChain.Format])
         );

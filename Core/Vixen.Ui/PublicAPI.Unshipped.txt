@@ -137,6 +137,8 @@ Vixen.Ui.DrawCommand.DrawCommand() -> void
 Vixen.Ui.DrawCommand.DrawCommand(Vixen.Ui.DrawCommandKind Kind, float X, float Y, float Width, float Height, Vixen.Core.Mathematics.Color4 Color, float Radius, float Thickness) -> void
 Vixen.Ui.DrawCommand.FillRule.get -> Vixen.Ui.PathFillRule
 Vixen.Ui.DrawCommand.FillRule.init -> Vixen.Ui.PathFillRule
+Vixen.Ui.DrawCommand.Filter.get -> Vixen.Ui.Rendering.UiColorMatrix?
+Vixen.Ui.DrawCommand.Filter.init -> Vixen.Ui.Rendering.UiColorMatrix?
 Vixen.Ui.DrawCommand.Font.get -> int
 Vixen.Ui.DrawCommand.Font.init -> int
 Vixen.Ui.DrawCommand.FontSize.get -> float
@@ -535,6 +537,19 @@ Vixen.Ui.Rendering.PathVertex.PathVertex() -> void
 Vixen.Ui.Rendering.PathVertex.PathVertex(Vixen.Core.Mathematics.Vector2 Position, float Coverage) -> void
 Vixen.Ui.Rendering.PathVertex.Position.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.PathVertex.Position.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiColorMatrix -> readonly struct
+Vixen.Ui.Rendering.UiColorMatrix : System.IEquatable<Vixen.Ui.Rendering.UiColorMatrix>
+Vixen.Ui.Rendering.UiColorMatrix.Apply(Vixen.Core.Mathematics.Color4 colour) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Rendering.UiColorMatrix.Blue.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiColorMatrix.Blue.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiColorMatrix.Green.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiColorMatrix.Green.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiColorMatrix.IsIdentity.get -> bool
+Vixen.Ui.Rendering.UiColorMatrix.Red.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiColorMatrix.Red.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiColorMatrix.Then(in Vixen.Ui.Rendering.UiColorMatrix next) -> Vixen.Ui.Rendering.UiColorMatrix
+Vixen.Ui.Rendering.UiColorMatrix.UiColorMatrix() -> void
+Vixen.Ui.Rendering.UiColorMatrix.UiColorMatrix(Vixen.Core.Mathematics.Vector4 Red, Vixen.Core.Mathematics.Vector4 Green, Vixen.Core.Mathematics.Vector4 Blue) -> void
 Vixen.Ui.Rendering.UiDraw -> readonly struct
 Vixen.Ui.Rendering.UiDraw : System.IEquatable<Vixen.Ui.Rendering.UiDraw>
 Vixen.Ui.Rendering.UiDraw.Clip.get -> Vixen.Core.Mathematics.Rectangle
@@ -595,6 +610,8 @@ Vixen.Ui.Rendering.UiLayer.Bounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiLayer.Bounds.init -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiLayer.Count.get -> int
 Vixen.Ui.Rendering.UiLayer.Count.init -> int
+Vixen.Ui.Rendering.UiLayer.Filter.get -> Vixen.Ui.Rendering.UiColorMatrix?
+Vixen.Ui.Rendering.UiLayer.Filter.init -> Vixen.Ui.Rendering.UiColorMatrix?
 Vixen.Ui.Rendering.UiLayer.First.get -> int
 Vixen.Ui.Rendering.UiLayer.First.init -> int
 Vixen.Ui.Rendering.UiLayer.Image.get -> ulong
@@ -1035,6 +1052,14 @@ static Vixen.Ui.Rendering.PathFlattener.Flatten(System.Collections.Generic.IRead
 static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.FillFringe(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, float width, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.Stroke(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, float width, Vixen.Ui.LineJoin join, Vixen.Ui.LineCap cap, float tolerance, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles, float miterLimit = 4, float fringe = 0) -> void
+static Vixen.Ui.Rendering.UiColorMatrix.Brightness(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
+static Vixen.Ui.Rendering.UiColorMatrix.Contrast(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
+static Vixen.Ui.Rendering.UiColorMatrix.Grayscale(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
+static Vixen.Ui.Rendering.UiColorMatrix.HueRotate(float degrees) -> Vixen.Ui.Rendering.UiColorMatrix
+static Vixen.Ui.Rendering.UiColorMatrix.Identity.get -> Vixen.Ui.Rendering.UiColorMatrix
+static Vixen.Ui.Rendering.UiColorMatrix.Invert(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
+static Vixen.Ui.Rendering.UiColorMatrix.Saturate(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
+static Vixen.Ui.Rendering.UiColorMatrix.Sepia(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
 static Vixen.Ui.Rendering.UiGeometryBuilder.LayerImage(int index) -> ulong
 static Vixen.Ui.Rendering.UiLayer.KernelRadius(float blur, float scale) -> int
 static Vixen.Ui.SvgPath.Parse(string data) -> Vixen.Ui.PathBuilder
@@ -1046,6 +1071,7 @@ static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, 
 static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static Vixen.Ui.UiPropertyRegistry.TryFindFor(Vixen.Ui.UiElement element, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static readonly Vixen.Ui.LayoutStyleBuilder.CssInitial -> Vixen.Ui.Layout.LayoutStyle
+static readonly Vixen.Ui.Rendering.UiColorMatrix.Luminance -> Vixen.Core.Mathematics.Vector3
 static readonly Vixen.Ui.UiElement.AccessKeyProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.FocusableProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.IsFocusScopeProperty -> Vixen.Ui.UiPropertyKey

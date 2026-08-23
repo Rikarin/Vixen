@@ -188,6 +188,43 @@ public static class UtilityComposition {
     /// </remarks>
     public const string Blur = Prefix + "blur";
 
+    // ── The seven colour functions ──────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>Seven fragments and one property, and this is the case the paragraph above `Blur` said
+    // was coming.</b> `filter` is an ordered list, so `grayscale blur-2 brightness-125` has to come
+    // out as one declaration holding three functions in a fixed order — and eight families each
+    // emitting a whole `filter` would let the cascade pick one and drop the other seven, silently.
+    // The fragments are what make them compose; `Filter()` is where the order is decided.
+    //
+    // ⚠ <b>The order in `Filter()` is Tailwind v4's own and is *not* the order the classes are
+    // written in, which is a real limit rather than an oversight.</b> CSS applies the list left to
+    // right, so `invert brightness-200` and `brightness-200 invert` are different pictures; a
+    // utility system whose classes are unordered — `class="invert brightness-200"` and
+    // `class="brightness-200 invert"` are the same element — cannot express both. v4 fixes the order
+    // in its assembler and so does this. Someone who needs the other order writes the `filter`
+    // declaration by hand, which is what the arbitrary-property syntax is for.
+
+    /// <summary>How much a <c>filter: brightness()</c> scales the colour. One is unchanged.</summary>
+    public const string Brightness = Prefix + "brightness";
+
+    /// <summary>How much a <c>filter: contrast()</c> pushes away from mid grey. One is unchanged.</summary>
+    public const string Contrast = Prefix + "contrast";
+
+    /// <summary>How far a <c>filter: grayscale()</c> drains the colour. Zero is unchanged.</summary>
+    public const string Grayscale = Prefix + "grayscale";
+
+    /// <summary>How far a <c>filter: invert()</c> flips the colour. Zero is unchanged.</summary>
+    public const string Invert = Prefix + "invert";
+
+    /// <summary>How much a <c>filter: saturate()</c> scales the distance from grey. One is unchanged.</summary>
+    public const string Saturate = Prefix + "saturate";
+
+    /// <summary>How far a <c>filter: sepia()</c> ages the colour. Zero is unchanged.</summary>
+    public const string Sepia = Prefix + "sepia";
+
+    /// <summary>How far a <c>filter: hue-rotate()</c> turns the hue. Zero is unchanged.</summary>
+    public const string HueRotate = Prefix + "hue-rotate";
+
     static readonly Dictionary<string, string> Initials = new(StringComparer.Ordinal) {
         [GradientFrom] = "transparent",
         [GradientVia] = "transparent",
@@ -218,7 +255,28 @@ public static class UtilityComposition {
         // `ring-accent` draw a ring nobody asked for.
         [RingWidth] = "0px",
         [RingColor] = "currentcolor",
-        [Blur] = "0px"
+        [Blur] = "0px",
+
+        // ⚠ <b>Each initial is the identity of <i>its own</i> function, which is one for four of
+        // them and zero for three, and getting one of the seven the wrong way round is a filter
+        // nobody wrote being applied to every element that wrote any of the others.</b> That is the
+        // failure mode this table exists to make impossible and the reason the values are here
+        // rather than inside `Filter()`: `brightness(0)` is black and `grayscale(1)` is grey, so a
+        // `grayscale` on its own would turn the box black, and a `brightness-125` on its own would
+        // turn it grey, and both would look like the other family being broken.
+        [Brightness] = "1",
+        [Contrast] = "1",
+        [Grayscale] = "0",
+        [Invert] = "0",
+        [Saturate] = "1",
+        [Sepia] = "0",
+
+        // ⚠ <c>0deg</c> and not <c>0</c>, and here the unit is load-bearing rather than legibility.
+        // <c>hue-rotate()</c> takes an <c>&lt;angle&gt;</c>, and `StyleValueParser` refuses a bare
+        // number for it — see `ParseFunction`, which will not guess degrees. A plain zero would make
+        // the whole assembled declaration invalid for every element that set none of the seven,
+        // which is every element that writes a `blur-*`.
+        [HueRotate] = "0deg"
     };
 
     static readonly List<string> Names;
@@ -336,7 +394,7 @@ public static class UtilityComposition {
     /// </remarks>
     public static string Ring() => $"0 0 0 {Reference(RingWidth)} {Reference(RingColor)}";
 
-    /// <summary>The <c>filter</c> declaration a <c>blur-*</c> assembles into.</summary>
+    /// <summary>The <c>filter</c> declaration the eight filter families assemble into.</summary>
     /// <returns>The assembled value.</returns>
     /// <remarks>
     ///     <para>
@@ -349,12 +407,34 @@ public static class UtilityComposition {
     ///         unset fragment costs the list one function that does nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this does <i>not</i> yet compose with is the rest of <c>filter</c>.</b> There
-    ///         is one function in the list because there is one function the engine reads — see
-    ///         <c>DrawListBuilder.Blur</c>, which refuses a <c>filter</c> carrying anything else
-    ///         rather than honouring the part it understands. A second family adds a constant, an
-    ///         initial and a slot in this string; it does not change the shape.
+    ///         ⚠ <b>Eight functions, always all eight, and seven of them are doing nothing on almost
+    ///         every element that carries this declaration.</b> That is what the initials in
+    ///         <see cref="Initials" /> buy and it is deliberate: the alternative is emitting only the
+    ///         functions somebody wrote, which a per-class generator cannot do — a <c>blur-2</c> and a
+    ///         <c>grayscale</c> are two rules with two selectors, and neither knows the other exists.
+    ///         See this class's opening remarks, which is the same argument the gradient stops make.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The order is Tailwind v4's and is fixed here, so <c>invert brightness-200</c> and
+    ///         <c>brightness-200 invert</c> are the same picture where CSS would make them
+    ///         different.</b> Classes on an element are a set, not a sequence, so no utility system
+    ///         can offer both — v4 picks an order and documents it, and this picks the same one so
+    ///         that a sheet ported from Tailwind renders the same. Someone who needs the other order
+    ///         writes a <c>filter</c> declaration by hand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does <i>not</i> compose with is <c>drop-shadow()</c>.</b> Seven of the
+    ///         eight are a per-pixel colour transform and the eighth is a Gaussian; a drop shadow is
+    ///         neither — it is a blur of the alpha channel, offset and tinted and composited
+    ///         <i>under</i> the layer — so it wants the blur's machinery and a slot of its own rather
+    ///         than a constant here. It is deliberately absent rather than emitted and ignored:
+    ///         <c>DrawListBuilder.Filter</c> refuses a list carrying a function it cannot execute, so
+    ///         adding <c>drop-shadow</c> to this string before there is a reader would silently turn
+    ///         off every other filter in the engine.
     ///     </para>
     /// </remarks>
-    public static string Filter() => $"blur({Reference(Blur)})";
+    public static string Filter() =>
+        $"blur({Reference(Blur)}) brightness({Reference(Brightness)}) contrast({Reference(Contrast)}) "
+        + $"grayscale({Reference(Grayscale)}) hue-rotate({Reference(HueRotate)}) invert({Reference(Invert)}) "
+        + $"saturate({Reference(Saturate)}) sepia({Reference(Sepia)})";
 }

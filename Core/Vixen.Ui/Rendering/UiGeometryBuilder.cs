@@ -398,7 +398,9 @@ public sealed class UiGeometryBuilder {
     /// </remarks>
     void Layer(in DrawCommand command, Rectangle clip, Rectangle viewport) {
         if (command.Kind == DrawCommandKind.LayerPush) {
-            opening.Add(new Opening(draws.Count, vertices.Count, command.Color.A, clip, command.Blur));
+            opening.Add(
+                new Opening(draws.Count, vertices.Count, command.Color.A, clip, command.Blur, command.Filter)
+            );
             return;
         }
 
@@ -442,7 +444,15 @@ public sealed class UiGeometryBuilder {
 
         var layer = new UiLayer(open.Draw, draws.Count - open.Draw, bounds, open.Alpha) {
             Image = LayerImage(layerNumber++),
-            Blur = open.Blur
+            Blur = open.Blur,
+
+            // ⚠ <b>Carried, and deliberately with no outset of its own.</b> The blur above grew the
+            // ink because a Gaussian moves coverage to texels no vertex touched. A colour matrix
+            // moves none: it is a function of the texel it is written to, so a group that is
+            // `grayscale` and nothing else covers exactly the rectangle it covered before, and
+            // growing the bounds "to be safe" would spend surface on pixels that are provably
+            // transparent — `UiColorMatrix.Apply` maps transparent black to transparent black.
+            Filter = open.Filter
         };
 
         // ⚠ <b>Inserted in pre-order rather than appended, and the number is a counter rather than the
@@ -551,7 +561,21 @@ public sealed class UiGeometryBuilder {
     public static ulong LayerImage(int index) => ulong.MaxValue - (ulong) index;
 
     /// <summary>A group that has been pushed and not yet popped.</summary>
-    readonly record struct Opening(int Draw, int Vertex, float Alpha, Rectangle Clip, float Blur);
+    /// <remarks>
+    ///     ⚠ <b>The filter is carried from the <i>push</i>, and <see cref="UiGeometryBuilder.Layer" />
+    ///     never looks at the pop's copy.</b> `DrawListBuilder.Emit` writes the same values onto both
+    ///     brackets, so reading either is right today — and the push is the one that has to be read,
+    ///     because a pop with no push is dropped and a `LayerPop` a caller assembled by hand carries
+    ///     whatever it carries. The same argument the entry clip already makes a few lines up.
+    /// </remarks>
+    readonly record struct Opening(
+        int Draw,
+        int Vertex,
+        float Alpha,
+        Rectangle Clip,
+        float Blur,
+        UiColorMatrix? Filter
+    );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>
     /// <remarks>

@@ -3,9 +3,9 @@ title: Compositing groups
 slug: ui/compositing
 kind: guide
 area: Core
-summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity` and `filter: blur()`, why a group is not the same as fading each element, when the pass is skipped as an exact identity, what the surfaces cost, and what a transform and gradient text would each still need on top of it.
-api: [T:Vixen.Ui.Rendering.UiLayer]
-tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters]
+summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()` and the seven colour functions, why a group is not the same as fading each element, why a colour matrix costs neither a surface nor a pass where a blur costs both, when the pass is skipped as an exact identity, what the surfaces cost, and what `drop-shadow`, `backdrop-filter` and gradient text would each still need on top of it.
+api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix]
+tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, backdrop-filter]
 since: 0.2
 status: preview
 related: [ui/gradients, ui/utility-composition]
@@ -17,12 +17,18 @@ A **composited group** is a subtree of the interface that is drawn into a surfac
 blended back into the frame as a single image. `UiLayer` is the record that describes one: which
 draws belong to it, how big its surface has to be, and what it is faded by.
 
-Two things open a group: an element whose `opacity` is below one, and an element with a
-`filter: blur()`. The difference between them is worth stating up front, because it is why the
-second one could not be approximated while the compositor was being built. An opacity *can* be
-faded element by element — badly, but visibly — whereas a blur is a function of the rasterised
-subtree, so with no surface there is nothing to convolve and the only honest answer is the
-unblurred picture.
+Two things open a group: an element whose `opacity` is below one, and an element with a `filter`.
+The difference between them is worth stating up front, because it is why the second one could not be
+approximated while the compositor was being built. An opacity *can* be faded element by element —
+badly, but visibly — whereas a filter is a function of the rasterised subtree. With no surface there
+is nothing to convolve, and pushing a colour matrix down onto each command instead would be right on
+a bare panel and wrong the moment two of the group's children overlap with partial coverage: CSS
+transforms the group's *rendered result*, which is why Filter Effects 1 § 5 makes any `filter` other
+than `none` a stacking context.
+
+⚠ **The two filters cost wildly different things and the guide separates them throughout.** A blur
+needs a scratch target, two more passes and a wider bound; a colour matrix needs a pipeline switch on
+a draw that was happening anyway.
 
 The pieces, top to bottom:
 
@@ -31,7 +37,7 @@ The pieces, top to bottom:
 | `DrawListBuilder` | Brackets a translucent element's subtree with `LayerPush` / `LayerPop` |
 | `DrawBatcher` | Gives each bracket a `BatchKind.Layer` batch of its own, never merged |
 | `UiGeometryBuilder` | Resolves the brackets into `UiGeometry.Layers`, outsets the bounds by a blur, and emits the compositing quad |
-| `UiRenderer.Compose` | Renders each group's pass on the device, and sweeps a blur over the ones that ask |
+| `UiRenderer.Compose` | Renders each group's pass on the device, sweeps a blur over the ones that ask, and hands each group's colour matrix to its composite draw |
 | `SoftwareUiRasterizer` | Executes the plan on the CPU, which is where the visual baselines render |
 
 ## What it is for
@@ -126,11 +132,81 @@ rather than on each primitive:
 `UiShaders.Blur` handed over, no `UiLayer.Blur` on the geometry, a kernel radius that came out zero —
 and all three produce a correct, composited, sharp picture.
 
-⚠ **Only a lone `blur()` is read, and anything else in a `filter` refuses the whole declaration.**
-`filter: brightness(.5) blur(4px)` draws unfiltered rather than blurred-at-the-wrong-exposure, which
-is the rule `box-shadow` already keeps. The rest of `filter` and all of `backdrop-filter` are absent
-roots in `docs/plan/43`; `backdrop-filter` in particular needs the frame *under* a group, which the
-compositor does not keep.
+### The seven colour functions
+
+`brightness`, `contrast`, `grayscale`, `invert`, `saturate`, `sepia` and `hue-rotate` are read too,
+and they are **not** the same kind of thing as a blur:
+
+```css
+.thumbnail:disabled { filter: grayscale(1) brightness(.8); }
+```
+
+Each is a per-pixel colour transform, so several of them in one declaration compose into a single
+`UiColorMatrix` — three rows of four floats, the coefficients and an offset per output channel — and
+that matrix rides on `UiLayer.Filter`. What follows from *not* being a neighbourhood operation is the
+whole design:
+
+- **No second surface and no extra pass.** The matrix is applied in the fragment stage of the
+  composite draw the group was going to make anyway. On the device that is `ui-colour.frag` bound
+  instead of `ui-image.frag`, with the matrix in forty-eight bytes of push constant; in
+  `SoftwareUiRasterizer` it is a pass over the finished surface at the same seam the blur runs at.
+  The two places differ and the picture does not — see below.
+- **No bounds outset.** A colour matrix moves no coverage, so `UiLayer.Bounds` is the ink and nothing
+  more. `UiColorMatrix.Apply` maps transparent black to transparent black, so growing the rectangle
+  would only add pixels that are provably empty.
+- **A filtered group is never collapsed**, for the same reason a blurred one is not: a grey
+  rectangle is not a fainter rectangle.
+- **The order among them is honoured.** `invert(1) brightness(2)` is not `brightness(2) invert(1)`,
+  and `UiColorMatrix.Then` composes left to right, which is CSS's order. ⚠ The order between a
+  colour function and a `blur()` is *not* carried, because it cannot matter: a Gaussian is a weighted
+  sum whose weights total one and the matrix is affine in premultiplied colour, so the two commute
+  exactly.
+
+`UiRenderer.Filtered` is what says it happened, and it is worth more than `Blurred` is. A blur that
+did not run leaves a sharp picture — a different picture. A matrix that did not run leaves the
+*right* picture wherever the group's colours happen to sit near the matrix's fixed points, so no
+screenshot and no comparison of the two executors can see it.
+
+⚠ **The arithmetic is in the engine's linear working space and a browser's is in sRGB.** Filter
+Effects 1 § 8.5 runs the shorthand functions with `color-interpolation-filters: sRGB`; Vixen is
+linear from the parser down. A `grayscale-50` here is therefore slightly darker than the same class
+in a browser. Matching exactly would mean an encode and a decode per pixel on both executors, to
+reproduce a rule the spec itself calls a legacy default — and it would cost the linearity the
+paragraph above spends on commuting with the blur.
+
+⚠ **A `filter` carrying a function the engine cannot run refuses the whole declaration.**
+`filter: drop-shadow(2px 2px 4px black) blur(4px)` draws unfiltered rather than
+blurred-and-missing-a-shadow, which is the rule `box-shadow` already keeps. So does
+`brightness(-1)`, which is invalid CSS, and `hue-rotate(90)`, which is a bare number where an angle
+is required.
+
+### What `drop-shadow` and `backdrop-*` would still need
+
+Two of Tailwind's filter roots are deliberately absent, and they are absent for different reasons.
+
+**`drop-shadow-*` is not a colour matrix and does not fit beside one.** It is a Gaussian over the
+*alpha channel alone*, offset by two lengths, tinted, and composited **under** the layer rather than
+over it. It wants the blur's scratch target and passes plus a third composite, and it needs
+`UiGeometryBuilder.Layer` to outset the bounds asymmetrically — by the offset as well as by the
+kernel. It also does not commute with anything: a `drop-shadow` before a `grayscale` is a grey shadow
+and after it is a coloured one, so landing it means `UiLayer` carrying an *ordered* filter list
+rather than one composed matrix.
+
+**`backdrop-*` is a different feature wearing the same names, and the compositor cannot see what it
+needs.** It reads the destination the group is about to composite *into*. At the moment a group's
+surface is rendered that destination has not been drawn: `UiRenderer.Compose` records every group's
+pass **before** the host's frame pass begins — it has to, because passes do not nest — so nothing
+painted below the group exists yet. By the time the composite is submitted the destination is the
+colour attachment being written, which is not sampleable without an input attachment or a copy out
+of the pass, and this renderer's command list has neither.
+
+⚠ **The trap it sets is that `SoftwareUiRasterizer` could do it in three lines**, because its
+recursion already holds the parent's buffer while it runs the group's. A backdrop filter written
+there alone would look implemented and would surface as a *compositing divergence* in
+`UiCompositingTests` rather than as a missing feature. Closing it properly means capturing the
+backdrop into a real texture before the groups that read it are composed: a second walk over the
+layer tree, an ordering constraint saying everything behind each backdrop group is finished first,
+and a copy per such group.
 
 ### What the surfaces cost
 

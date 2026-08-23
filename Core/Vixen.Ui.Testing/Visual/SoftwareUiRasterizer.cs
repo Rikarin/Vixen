@@ -670,6 +670,26 @@ public static class SoftwareUiRasterizer {
                         surface = Blurred(surface, layer.Blur);
                     }
 
+                    // ⚠ <b>At the same seam, in place, and <i>not</i> at the same place the device
+                    // does it — which is the one deliberate structural divergence in this file and
+                    // the reason it is safe is arithmetic rather than testing.</b> `UiRenderer`
+                    // applies the matrix in the composite's fragment stage, because that costs it no
+                    // pass and no second surface; a convolution has no such option and a per-pixel
+                    // transform does. Both give the same picture because the transform is affine in
+                    // premultiplied colour: `M(Σ wᵢ sᵢ) = Σ wᵢ M(sᵢ)`, so it commutes exactly with
+                    // both the Gaussian above and the bilinear sampler below, and the tint the
+                    // composite multiplies in afterwards is a scalar that commutes with everything.
+                    // ⚠ The clamp in `UiColorMatrix.Apply` is the part that does *not* commute, which
+                    // is why it happens once, last, on both paths rather than per tap.
+                    //
+                    // ⚠ Over the whole viewport-sized surface and not over `layer.Bounds`, because
+                    // the two have to be the same picture and the device's fragment stage cannot
+                    // choose. It is free of consequence: the matrix maps transparent black to
+                    // transparent black, so every texel outside the group's ink is unchanged.
+                    if (layer.Filter is { } matrix && !matrix.IsIdentity) {
+                        surface = Filtered(surface, matrix);
+                    }
+
                     surfaces[layer.Image] = surface;
 
                     // The composite draw sits immediately after the group's own draws and is an
@@ -752,6 +772,35 @@ public static class SoftwareUiRasterizer {
             var result = new float[surface.Length];
 
             Sweep(scratch, result, reach, weights, horizontal: false);
+
+            return result;
+        }
+
+        /// <summary>A colour matrix over a finished layer surface, as <c>ui-colour.frag</c> does it.</summary>
+        /// <param name="surface">The group's contents, premultiplied.</param>
+        /// <param name="matrix">The transform.</param>
+        /// <returns>A new surface. The one handed in is left alone.</returns>
+        /// <remarks>
+        ///     ⚠ <b>A new buffer rather than a rewrite in place, and it costs an allocation to buy the
+        ///     same shape <see cref="Blurred" /> has.</b> The blur cannot be in place — a convolution
+        ///     reads neighbours — so it returns a new array, and a filter that mutated its argument
+        ///     would leave the caller with two functions that look interchangeable and are not. The
+        ///     device's cost is not this: its transform is nine multiplies in a fragment shader that
+        ///     was already running, and this file's job is the picture rather than the cost.
+        /// </remarks>
+        static float[] Filtered(float[] surface, in UiColorMatrix matrix) {
+            var result = new float[surface.Length];
+
+            for (var offset = 0; offset < surface.Length; offset += 4) {
+                var filtered = matrix.Apply(
+                    new Color4(surface[offset], surface[offset + 1], surface[offset + 2], surface[offset + 3])
+                );
+
+                result[offset] = filtered.R;
+                result[offset + 1] = filtered.G;
+                result[offset + 2] = filtered.B;
+                result[offset + 3] = filtered.A;
+            }
 
             return result;
         }

@@ -194,19 +194,19 @@ Typography	decoration-*	functional	decoration-0	text-decoration-thickness					ab
 Transitions and Animation	animate-*	functional	animate-bounce	animation					absent				
 Filters	blur-*	functional	blur-2xl	filter	blur	--tw-blur,filter	filter		works			A8/#28 closed: --tw-blur assembles into filter, and the compositor blurs the group's surface	
 Filters	backdrop-blur-*	functional	backdrop-blur-2xl	-webkit-backdrop-filter,backdrop-filter					absent				
-Filters	brightness-*	functional	brightness-0	filter					absent				
+Filters	brightness-*	functional	brightness-0	filter	brightness	--tw-brightness,filter	filter		works			A8 continued: --tw-brightness assembles into the same filter declaration blur-* does, and the compositor puts the group's surface through the matrix at composite time — no second surface and no extra pass	brightness-50 brightness-100 brightness-125
 Filters	backdrop-brightness-*	functional	backdrop-brightness-0	-webkit-backdrop-filter,backdrop-filter					absent				
-Filters	contrast-*	functional	contrast-0	filter					absent				
+Filters	contrast-*	functional	contrast-0	filter	contrast	--tw-contrast,filter	filter		works			A8 continued: --tw-contrast assembles into the same filter declaration blur-* does, and the compositor puts the group's surface through the matrix at composite time — no second surface and no extra pass	contrast-50 contrast-100 contrast-125
 Filters	backdrop-contrast-*	functional	backdrop-contrast-0	-webkit-backdrop-filter,backdrop-filter					absent				
-Filters	grayscale-*	functional	grayscale-0	filter					absent				
+Filters	grayscale-*	functional	grayscale-0	filter	grayscale	--tw-grayscale,filter	filter		works			A8 continued: --tw-grayscale assembles into the same filter declaration blur-* does, and the compositor puts the group's surface through the matrix at composite time — no second surface and no extra pass	grayscale grayscale-50
 Filters	backdrop-grayscale-*	functional	backdrop-grayscale-0	-webkit-backdrop-filter,backdrop-filter					absent				
-Filters	hue-rotate-*	functional	hue-rotate-0	filter					absent				
+Filters	hue-rotate-*	functional	hue-rotate-0	filter	hue-rotate	--tw-hue-rotate,filter	filter		works			A8 continued: --tw-hue-rotate assembles into the same filter declaration blur-* does, and the compositor puts the group's surface through the matrix at composite time — no second surface and no extra pass	hue-rotate-90 hue-rotate-180
 Filters	backdrop-hue-rotate-*	functional	backdrop-hue-rotate-0	-webkit-backdrop-filter,backdrop-filter					absent				
-Filters	invert-*	functional	invert-0	filter					absent				
+Filters	invert-*	functional	invert-0	filter	invert	--tw-invert,filter	filter		works			A8 continued: --tw-invert assembles into the same filter declaration blur-* does, and the compositor puts the group's surface through the matrix at composite time — no second surface and no extra pass	invert invert-20
 Filters	backdrop-invert-*	functional	backdrop-invert-0	-webkit-backdrop-filter,backdrop-filter					absent				
-Filters	saturate-*	functional	saturate-0	filter					absent				
+Filters	saturate-*	functional	saturate-0	filter	saturate	--tw-saturate,filter	filter		works			A8 continued: --tw-saturate assembles into the same filter declaration blur-* does, and the compositor puts the group's surface through the matrix at composite time — no second surface and no extra pass	saturate-50 saturate-150
 Filters	backdrop-saturate-*	functional	backdrop-saturate-0	-webkit-backdrop-filter,backdrop-filter					absent				
-Filters	sepia-*	functional	sepia-0	filter					absent				
+Filters	sepia-*	functional	sepia-0	filter	sepia	--tw-sepia,filter	filter		works			A8 continued: --tw-sepia assembles into the same filter declaration blur-* does, and the compositor puts the group's surface through the matrix at composite time — no second surface and no extra pass	sepia sepia-50
 Filters	backdrop-sepia-*	functional	backdrop-sepia-0	-webkit-backdrop-filter,backdrop-filter					absent				
 Filters	drop-shadow-*	functional	drop-shadow-2xl	filter					absent				drop-shadow-none
 Filters	backdrop-opacity-*	functional	backdrop-opacity-0	-webkit-backdrop-filter,backdrop-filter					absent				

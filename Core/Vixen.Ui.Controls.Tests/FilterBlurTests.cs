@@ -165,21 +165,43 @@ public class FilterBlurTests {
         Assert.InRange(centre, 254, 255);
     }
 
-    /// <summary>Nothing but a lone <c>blur()</c> is read, and the rest of <c>filter</c> is still owed.</summary>
+    /// <summary>A <c>filter</c> carrying a function nothing implements is refused whole.</summary>
     /// <remarks>
-    ///     ⚠ <b>Refused whole rather than applied in part, which is <c>EmitShadow</c>'s rule.</b> A
-    ///     <c>filter</c> carrying a function this engine does not implement would, if the blur in it
-    ///     were honoured alone, draw a blurred element at the wrong brightness — and look like a bug
-    ///     in the blur. Drawing it unfiltered is the honest answer and the one the ledger in
-    ///     <c>InertProperties.txt</c> is about.
+    ///     <para>
+    ///         ⚠ <b>Refused whole rather than applied in part, which is <c>EmitShadow</c>'s rule.</b>
+    ///         A <c>filter</c> carrying a function this engine does not implement would, if the blur in
+    ///         it were honoured alone, draw a blurred element that is missing something — and look
+    ///         like a bug in the blur. Drawing it unfiltered is the honest answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two of these rows used to be <c>brightness(0.5)</c> and
+    ///         <c>blur(4px) brightness(0.5)</c>, and their moving out is the whole of what changed.</b>
+    ///         The seven colour functions are read now — see <c>FilterColourTests</c> — so what
+    ///         is left here is the set that genuinely is not: <c>drop-shadow</c>, which is a blur of the
+    ///         alpha channel composited under the layer rather than a matrix, and <c>opacity</c>, which
+    ///         is a filter-list spelling of a thing the group already carries. Keeping the theory and
+    ///         swapping its rows is deliberate: what it asserts is the <i>rule</i>, and the rule
+    ///         outlives any particular function being absent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The last two rows are arguments rather than functions, and they are here because a
+    ///         reader that clamped instead of refusing would pass every other row. <c>brightness(-1)</c>
+    ///         is invalid CSS and <c>hue-rotate(90)</c> is a bare number where an angle is required;
+    ///         both are the kind of thing a stylesheet gets wrong once, and both must take the whole
+    ///         declaration with them rather than quietly becoming zero.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("filter: none;")]
     [InlineData("filter: blur(0px);")]
-    [InlineData("filter: brightness(0.5);")]
-    [InlineData("filter: blur(4px) brightness(0.5);")]
+    [InlineData("filter: drop-shadow(2px 2px 4px black);")]
+    [InlineData("filter: opacity(0.5);")]
+    [InlineData("filter: blur(4px) drop-shadow(0px 0px 2px black);")]
+    [InlineData("filter: brightness(0.5) url(#thing);")]
     [InlineData("filter: blur(nonsense);")]
-    public void Anything_but_a_lone_blur_leaves_the_element_unfiltered(string filter) {
+    [InlineData("filter: brightness(-1);")]
+    [InlineData("filter: hue-rotate(90);")]
+    public void Anything_carrying_a_function_the_engine_cannot_run_leaves_the_element_unfiltered(string filter) {
         using var ui = Square(filter);
 
         Assert.Empty(ui.Geometry.Layers);
