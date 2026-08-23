@@ -147,7 +147,15 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </remarks>
     public UiColorMatrix? Filter { get; init; }
 
-    /// <summary>The coverage this group's <c>mask-image</c> multiplies its surface by, or null.</summary>
+    /// <summary>Where this group's mask list starts in <see cref="UiGeometry.Masks" />.</summary>
+    /// <remarks>
+    ///     ⚠ Meaningless when <see cref="MaskCount" /> is zero, and deliberately not made nullable to
+    ///     say so: a range is two numbers whether or not it is empty, and a nullable index would be a
+    ///     third way of spelling the same emptiness that <see cref="MaskCount" /> already spells.
+    /// </remarks>
+    public int MaskFirst { get; init; }
+
+    /// <summary>How many entries of <see cref="UiGeometry.Masks" /> this group is masked by.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Where this is applied <i>is</i> specified, which is the whole difference between
@@ -162,20 +170,28 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         would put one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The mask's box is carried inside <see cref="UiMask" /> and is not
+    ///         ⚠ <b>A list, and composing it is part of that seam rather than something an executor
+    ///         may do earlier.</b> Folding the entries into one coverage <i>before</i> the composite
+    ///         draw is fine — it is a per-pixel function of the same texture coordinate — but
+    ///         applying different entries at different seams is not, and neither is applying one of
+    ///         them to the surface. See <see cref="UiMask.Coverage(System.ReadOnlySpan{UiMask},Vixen.Core.Mathematics.Vector2)" />,
+    ///         which is the fold both executors run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Each entry's box is carried inside <see cref="UiMask" /> and is not
     ///         <see cref="Bounds" />.</b> These bounds are the group's ink and have already been
     ///         outset by <see cref="Blur" />; CSS resolves <c>mask-image</c> against the border box,
     ///         which has not. Reading the bounds here would make a ramp shift when a blur was added
     ///         beside it.
     ///     </para>
     ///     <para>
-    ///         ⚠ Null and not a zeroed mask — a zeroed <see cref="UiMask" /> covers nothing, so a
+    ///         ⚠ Zero and not one zeroed entry — a zeroed <see cref="UiMask" /> covers nothing, so a
     ///         consumer that mistook the default for the absence would erase the group rather than
     ///         draw it plainly. A consumer that ignores this field composites the group unmasked,
     ///         which is the same bargain <see cref="Blur" /> and <see cref="Filter" /> make.
     ///     </para>
     /// </remarks>
-    public UiMask? Mask { get; init; }
+    public int MaskCount { get; init; }
 
     /// <summary>The widest kernel either executor will run, in texels each side of the centre.</summary>
     /// <remarks>
@@ -246,4 +262,22 @@ public readonly record struct UiGeometry(
     ///     </para>
     /// </remarks>
     public IReadOnlyList<UiLayer> Layers { get; init; } = [];
+
+    /// <summary>Every masked group's mask list, back to back, named by <see cref="UiLayer.MaskFirst" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Flat, because that is the shape the device needs.</b> A mask list cannot ride the
+    ///         push constants — <c>ui-mask.frag</c> already pushes a colour matrix at 48 bytes and one
+    ///         mask at 64, and 16 + 112 is exactly the 128 Vulkan guarantees — so the entries go to a
+    ///         storage buffer and the draw pushes an index and a count. A flat array is one
+    ///         <c>device.Write</c>; a list per layer would be one per group, and the shader would need
+    ///         an indirection it has no way to express.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Init-only for <see cref="Layers" />' reason: a frame with no mask — which is nearly
+    ///         all of them — is entitled to say nothing about them, and every host and test that
+    ///         builds geometry by hand keeps its four-argument constructor.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<UiMask> Masks { get; init; } = [];
 }

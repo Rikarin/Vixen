@@ -184,6 +184,27 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     static readonly int ShapeBytes = Marshal.SizeOf<UiShape>();
 
+    /// <summary>How many <c>mask-image</c> layers one frame may carry, across every masked group.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A frame budget and not a per-group one, and a frame that exceeds it composites the
+    ///     groups past the line <i>unmasked</i> rather than wrongly.</b> Eight layers is the most one
+    ///     group can ask for — see <c>GradientReader.MostLayers</c> — so this is sixteen fully masked
+    ///     groups in one frame, against an interface where a masked group at all is rare. The
+    ///     fail-open answer is the one <c>DrawListBuilder</c> already gives an unreadable mask, and
+    ///     for the same reason: a mask that failed closed would erase the group, which is
+    ///     indistinguishable from a layout collapse.
+    /// </remarks>
+    const int MaskCapacity = 128;
+
+    /// <summary>How many floats one entry of <see cref="maskEntries" /> is.</summary>
+    /// <remarks>
+    ///     Four <c>vec4</c>s, exactly as <c>ui-mask.frag</c>'s <c>MaskEntry</c> declares them. ⚠ The
+    ///     packing is written out by hand in <see cref="SubmitDraw" />'s neighbour
+    ///     <see cref="MaskBlock" /> rather than blitted from <see cref="UiMask" />, because that
+    ///     struct's field order is C#'s business and std430's is the wire's.
+    /// </remarks>
+    const int MaskFloats = 16;
+
     /// <summary>How many bytes one frame's region of each buffer is.</summary>
     /// <remarks>Per region, not per buffer: each buffer is this many bytes times <see cref="slots" />.</remarks>
     int vertexCapacity;
@@ -259,23 +280,43 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     readonly Dictionary<ulong, UiColorMatrix> layerFilters = [];
 
-    /// <summary>Each masked group's coverage, keyed by surface number the way the filters are.</summary>
+    /// <summary>Each masked group's mask list, keyed by surface number the way the filters are.</summary>
     /// <remarks>
     ///     ⚠ Rebuilt by <see cref="Compose" /> each frame for <see cref="layerFilters" />' reason, and
     ///     read by <see cref="SubmitDraw" /> at the same moment <c>SoftwareUiRasterizer</c> reads its
     ///     own copy — which is the seam <see cref="UiMask" /> requires both executors to share.
+    ///     ⚠ A range into <see cref="maskEntries" /> and not the entries themselves: they are already
+    ///     on the device by the time this is filled, written by <see cref="UploadGeometry" /> in one
+    ///     copy beside the boxes.
     /// </remarks>
-    readonly Dictionary<ulong, UiMask> layerMasks = [];
+    readonly Dictionary<ulong, (int First, int Count)> layerMasks = [];
 
     /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
     /// <remarks>
-    ///     ⚠ <b>A buffer of its own precisely so that it never has to be rewritten.</b> The image
-    ///     shader never reads the binding; the layout only declares it, so what it points at has to
-    ///     exist and nothing more. Pointing it at the box buffer would mean rewriting every image set
-    ///     each time that buffer grew, for a binding nothing reads — one allocation that outlives
-    ///     every frame buys the question away.
+    ///     <para>
+    ///         ⚠ <b>A buffer of its own precisely so that it never has to be rewritten, and it is
+    ///         now the one buffer that <i>is</i> read through an image set.</b> The image shader
+    ///         still ignores the binding — the layout only declares it — but <c>ui-mask.frag</c>
+    ///         reads its mask list out of it, and a composite draw binds an image set. Pointing this
+    ///         at the box buffer instead would mean rewriting every image set each time that buffer
+    ///         grew; one allocation that outlives every frame buys the question away.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Fixed capacity, and that is what keeps the sets valid rather than a convenience.</b>
+    ///         A buffer that grew would be a new handle, and every image set in the ring would be
+    ///         pointing at freed memory on the frame it grew — the exact hazard <see cref="staleBoxes" />
+    ///         exists to manage for the boxes, reintroduced on a path that has no marking. Sized once
+    ///         for <see cref="MaskCapacity" /> entries per frame in flight, it is a few tens of
+    ///         kilobytes and it is never replaced.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Allocated in the constructor rather than on first use, which the dummy it replaced
+    ///         did not need to be.</b> <see cref="UploadGeometry" /> writes this frame's mask entries
+    ///         and runs <i>before</i> <see cref="Compose" /> registers any layer surface, so the first
+    ///         masked frame would otherwise write to a handle nothing had created yet.
+    ///     </para>
     /// </remarks>
-    BufferHandle imageBoxes;
+    readonly BufferHandle maskEntries;
 
     /// <summary>What a composited group's surface is rendered into and sampled back through.</summary>
     /// <param name="Texture">The surface, the size of the whole viewport.</param>
@@ -537,6 +578,13 @@ public sealed class UiRenderer : IDisposable {
         if (shaders.Mask.IsValid) {
             maskPipeline = Pipeline(shaders.Mask, output, "ui mask");
         }
+
+        // ⚠ Once, at full size, and never again — see the field. Every image descriptor set in the
+        // ring points here for the whole life of the renderer, so a replacement would be a set
+        // pointing at freed memory on a frame nothing marked stale.
+        maskEntries = device.CreateBuffer(
+            new(MaskFloats * 4 * MaskCapacity * slots, BufferUsage.Storage, MemoryAccess.HostUpload, "ui masks")
+        );
 
         layerFormat = output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm;
     }
@@ -841,8 +889,12 @@ public sealed class UiRenderer : IDisposable {
         // `UiLayer.Mask` at all, because unlike a `grayscale(0)` it is not worth a group.
         if (maskPipeline.IsValid) {
             foreach (var layer in geometry.Layers) {
-                if (layer.Mask is { } shape) {
-                    layerMasks[layer.Image] = shape;
+                // ⚠ The ceiling is checked here rather than at the upload, because this is the map
+                // the draw reads: a group whose entries did not fit has to composite *unmasked*, and
+                // leaving it in the map with a range past the written region would have it composite
+                // by whatever the previous frame left in the buffer. See `MaskCapacity`.
+                if (layer.MaskCount > 0 && layer.MaskFirst + layer.MaskCount <= MaskCapacity) {
+                    layerMasks[layer.Image] = (layer.MaskFirst, layer.MaskCount);
                 }
             }
         }
@@ -1164,9 +1216,9 @@ public sealed class UiRenderer : IDisposable {
 
         var mask = layerMasks.Count > 0
             && draw.Kind == BatchKind.Image
-            && layerMasks.TryGetValue(draw.Image, out var shape)
-                ? shape
-                : default(UiMask?);
+            && layerMasks.TryGetValue(draw.Image, out var range)
+                ? range
+                : default((int First, int Count)?);
 
         // ⚠ <b>The mask wins, because it is the only one of the three modules that does both jobs.</b>
         // Choosing `colourPipeline` for a group that has a matrix *and* a mask would drop the mask
@@ -1207,24 +1259,25 @@ public sealed class UiRenderer : IDisposable {
             bound.Pushed = true;
         }
 
-        if (mask is { } coverage) {
+        if (mask is { } list) {
             // ⚠ <b>The matrix goes out here too, as the identity when the group has no filter.</b>
-            // `ui-mask.frag` reads all 112 bytes unconditionally, so a mask-only group that pushed
-            // only its mask would leave the matrix rows holding whatever the last filtered draw put
-            // there — the group would come out tinted by its predecessor. That is a defect which
-            // needs two groups in one frame to appear, and so survives every single-group test.
+            // `ui-mask.frag` reads its matrix rows unconditionally, so a mask-only group that pushed
+            // only its list would leave them holding whatever the last filtered draw put there — the
+            // group would come out tinted by its predecessor. That is a defect which needs two groups
+            // in one frame to appear, and so survives every single-group test.
             var identity = matrix ?? UiColorMatrix.Identity;
 
-            // The packing `ui-mask.frag` declares: three matrix rows, the box, the ramp, then the
-            // three coverages with the first stop, then the remaining two stops.
+            // The packing `ui-mask.frag` declares: three matrix rows, then the index and the count.
+            // ⚠ <b>The index is absolute within the buffer and carries this frame's own region with
+            // it.</b> The binding covers the whole allocation rather than one frame's slice — a
+            // ring of offsets would be a descriptor rewrite per frame on sets that are shared with
+            // every image in the interface — so the arithmetic that picks the frame happens here,
+            // once per masked draw, and `UploadGeometry` writes at the matching offset.
             Span<float> block = [
                 identity.Red.X, identity.Red.Y, identity.Red.Z, identity.Red.W,
                 identity.Green.X, identity.Green.Y, identity.Green.Z, identity.Green.W,
                 identity.Blue.X, identity.Blue.Y, identity.Blue.Z, identity.Blue.W,
-                coverage.Centre.X, coverage.Centre.Y, coverage.Half.X, coverage.Half.Y,
-                coverage.Axis.X, coverage.Axis.Y, (float) coverage.Shape, coverage.Via ? 1f : 0f,
-                coverage.Alphas.X, coverage.Alphas.Y, coverage.Alphas.Z, coverage.Stops.From,
-                coverage.Stops.Via, coverage.Stops.To, 0f, 0f
+                (slot * MaskCapacity) + list.First, list.Count, 0f, 0f
             ];
 
             commands.PushConstants(ShaderStage.Fragment, 16, MemoryMarshal.AsBytes(block));
@@ -1355,16 +1408,6 @@ public sealed class UiRenderer : IDisposable {
 
         scratch = new LayerSurface(texture, device.CreateTextureView(texture), Image: 0);
 
-        // The storage binding the shared layout declares and the blur shader ignores — see `Write`,
-        // and `imageBoxes` for why it is a buffer of its own. Made here as well as in
-        // `RegisterImage`, because "a layer was registered first" is true today and is not a thing
-        // this method should have to know.
-        if (!imageBoxes.IsValid) {
-            imageBoxes = device.CreateBuffer(
-                new(ShapeBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "ui image boxes")
-            );
-        }
-
         scratchSet = device.CreateDescriptorSet(atlasLayout, "ui blur scratch");
         Write(scratchSet, scratch.View);
 
@@ -1426,14 +1469,6 @@ public sealed class UiRenderer : IDisposable {
     public void RegisterImage(ulong image, TextureViewHandle view) {
         ArgumentOutOfRangeException.ThrowIfZero(image);
 
-        if (!imageBoxes.IsValid) {
-            // One shape's worth, because the size is what a storage binding needs and nothing reads
-            // past it. See the field for why it is not the box buffer.
-            imageBoxes = device.CreateBuffer(
-                new(ShapeBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "ui image boxes")
-            );
-        }
-
         if (imageDescriptors.TryGetValue(image, out var existing)) {
             // ⚠ Marked and not one of them written, this one included. A host registers between
             // frames, which is *before* `UploadGeometry` advances `slot` — so at this moment `slot`
@@ -1486,10 +1521,14 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>Writes the three bindings an image set declares.</summary>
     /// <remarks>
-    ///     ⚠ <b>Binding 2 is written even though the image shader never reads it.</b> The layout is
-    ///     shared with the box pipeline — see the pipeline layout's own remarks for why all of them
-    ///     are one — and a set that leaves a declared binding unwritten is a validation error on the
-    ///     frame it is bound, not on the frame it was made.
+    ///     ⚠ <b>Binding 2 is written for two reasons now, and only one of them is the old one.</b>
+    ///     The image shader still never reads it and the layout still declares it — a set that leaves
+    ///     a declared binding unwritten is a validation error on the frame it is bound, not on the
+    ///     frame it was made. But a composite draw binds one of these sets, and <c>ui-mask.frag</c>
+    ///     reads its mask list through exactly this binding, so what it points at is load-bearing
+    ///     rather than merely present.
+    ///     ⚠ The whole allocation and not one frame's slice: see <see cref="maskEntries" />, whose
+    ///     fixed size is what lets a set written once stay correct for every frame after it.
     /// </remarks>
     void Write(DescriptorSetHandle set, TextureViewHandle view) =>
         device.UpdateDescriptorSet(
@@ -1497,7 +1536,7 @@ public sealed class UiRenderer : IDisposable {
             [
                 DescriptorWrite.Texture(0, view),
                 DescriptorWrite.SamplerAt(1, sampler),
-                DescriptorWrite.Storage(2, imageBoxes, 0, ShapeBytes)
+                DescriptorWrite.Storage(2, maskEntries, 0, MaskFloats * 4 * MaskCapacity * slots)
             ]
         );
 
@@ -1572,8 +1611,12 @@ public sealed class UiRenderer : IDisposable {
             device.Destroy(boxes);
         }
 
-        if (imageBoxes.IsValid) {
-            device.Destroy(imageBoxes);
+        // ⚠ Destroyed beside the buffers it was allocated with, which is the discipline
+        // `colourPipeline` was found missing yesterday: created beside `blurPipeline` and never
+        // destroyed beside it. The guard stays even though the constructor always allocates, because
+        // a throw part-way through construction is the one path that reaches here without it.
+        if (maskEntries.IsValid) {
+            device.Destroy(maskEntries);
         }
 
         DestroyAtlas();
@@ -1662,6 +1705,25 @@ public sealed class UiRenderer : IDisposable {
             device.Write(boxes, (long) slot * boxCapacity, MemoryMarshal.AsBytes<UiShape>(shapeBytes));
         }
 
+        // ⚠ Here rather than in `Compose`, beside the boxes and for their reason: this is the call
+        // that has just advanced `slot`, so this frame's region is the one no submitted frame is
+        // still reading. `Compose` runs after it and only records which range each group owns.
+        var maskCount = Math.Min(geometry.Masks.Count, MaskCapacity);
+
+        if (maskCount > 0) {
+            var block = new float[maskCount * MaskFloats];
+
+            for (var index = 0; index < maskCount; index++) {
+                MaskBlock(geometry.Masks[index], block.AsSpan(index * MaskFloats, MaskFloats));
+            }
+
+            device.Write(
+                maskEntries,
+                (long) slot * MaskCapacity * MaskFloats * 4,
+                MemoryMarshal.AsBytes<float>(block)
+            );
+        }
+
         // Copied through arrays because the geometry is exposed as `IReadOnlyList`, which is what
         // lets the builder hand out its own buffers without a defensive copy per frame. A `List<T>`
         // the renderer could take a span over is the improvement, and it is owed.
@@ -1673,6 +1735,48 @@ public sealed class UiRenderer : IDisposable {
 
         device.Write(vertices, (long) slot * vertexCapacity, MemoryMarshal.AsBytes<UiVertex>(vertexBytes));
         device.Write(indices, (long) slot * indexCapacity, MemoryMarshal.AsBytes<uint>(indexBytes));
+    }
+
+    /// <summary>Writes one mask into the sixteen floats <c>ui-mask.frag</c>'s <c>MaskEntry</c> is.</summary>
+    /// <param name="mask">The mask.</param>
+    /// <param name="into">Exactly <see cref="MaskFloats" /> floats.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Written out rather than blitted, because <see cref="UiMask" />'s field order is
+    ///         C#'s business and std430's is the wire's.</b> The record has a <c>bool</c> and two
+    ///         enums in it; a <c>MemoryMarshal.Cast</c> over it would compile, produce a block of the
+    ///         right length on this machine, and be a mask drawn from the wrong bytes the first time
+    ///         a field was reordered or the layout rules differed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The shape goes out as <see cref="GradientShape" />'s own number and the operator
+    ///         as <see cref="MaskComposite" />'s.</b> Neither is renumbered here and the shader
+    ///         branches on the same values. Renumbering one of them to something "cleaner" on the way
+    ///         out is the afternoon <c>ui-mask.frag</c>'s <c>ramp</c> comment records: a linear mask
+    ///         arriving as a radial one draws a plausible round fade that nothing but
+    ///         <c>UiCompositingTests</c> can see is wrong.
+    ///     </para>
+    /// </remarks>
+    static void MaskBlock(in UiMask mask, Span<float> into) {
+        into[0] = mask.Centre.X;
+        into[1] = mask.Centre.Y;
+        into[2] = mask.Half.X;
+        into[3] = mask.Half.Y;
+
+        into[4] = mask.Axis.X;
+        into[5] = mask.Axis.Y;
+        into[6] = (float) mask.Shape;
+        into[7] = mask.Via ? 1f : 0f;
+
+        into[8] = mask.Alphas.X;
+        into[9] = mask.Alphas.Y;
+        into[10] = mask.Alphas.Z;
+        into[11] = mask.Stops.From;
+
+        into[12] = mask.Stops.Via;
+        into[13] = mask.Stops.To;
+        into[14] = (float) mask.Composite;
+        into[15] = 0f;
     }
 
     /// <summary>Points one frame's descriptor set at that frame's region of the box buffer.</summary>

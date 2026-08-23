@@ -5,11 +5,45 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Ui.Rendering;
 
+/// <summary>How one entry of a mask list combines with the entries below it.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The numbering is the wire format and <see cref="Add" /> is deliberately zero.</b>
+///         <c>ui-mask.frag</c> reads this out of the storage buffer as an integer and branches on it,
+///         so the values here are not an implementation detail of the enum — they are the contract.
+///         <c>GradientShape</c> is the cautionary tale: its zero is <c>None</c>, the shader was
+///         written against a zero-based numbering of its own, and every linear mask took the radial
+///         branch and drew a plausible round fade. This enum has no <c>None</c> for that reason, and
+///         its zero is the operator CSS Masking 1 § 5.4 gives as the initial value — so a default
+///         <see cref="UiMask" /> composites the way an unstated <c>mask-composite</c> does rather
+///         than in whichever way the first name happened to sort.
+///     </para>
+///     <para>
+///         Each operator is Porter-Duff on the coverage alone, with the entry as the source and the
+///         already-composed entries below it as the backdrop. There is no colour here to composite —
+///         see <see cref="UiMask" />'s first remark — so the four are four one-line expressions
+///         rather than four blend equations.
+///     </para>
+/// </remarks>
+public enum MaskComposite {
+    /// <summary><c>source-over</c>: <c>s + b(1 - s)</c>. CSS's initial value.</summary>
+    Add = 0,
+
+    /// <summary><c>source-out</c>: <c>s(1 - b)</c> — the entry, with everything below it punched out.</summary>
+    Subtract = 1,
+
+    /// <summary><c>source-in</c>: <c>s·b</c> — what Tailwind's edge ramps combine with.</summary>
+    Intersect = 2,
+
+    /// <summary><c>xor</c>: <c>s(1 - b) + b(1 - s)</c>.</summary>
+    Exclude = 3
+}
+
 /// <summary>The per-pixel coverage a composited group's <c>mask-image</c> multiplies its surface by.</summary>
 /// <param name="Centre">The mask box's centre, in document pixels.</param>
 /// <param name="Half">Half the mask box's size, in document pixels.</param>
 /// <param name="Axis">
-///     The gradient's direction. Its length is not read — <see cref="Coverage" /> normalises it — but
+///     The gradient's direction. Its length is not read — <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" /> normalises it — but
 ///     its <i>angle</i> is, and for <see cref="GradientShape.Conic" /> it is the <c>from &lt;angle&gt;</c>.
 /// </param>
 /// <param name="Alphas">The three stops' coverages: <c>X</c> the from, <c>Y</c> the via, <c>Z</c> the to.</param>
@@ -80,12 +114,31 @@ public readonly record struct UiMask(
     GradientShape Shape,
     bool Via
 ) {
+    /// <summary>How this entry combines with the entries below it in the same list.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Init-only and defaulting to <see cref="MaskComposite.Add" />, which is CSS's
+    ///         initial value and not merely the first name in the enum.</b> A <see cref="UiMask" />
+    ///         written by a test or a host that has never heard of lists composites the way a
+    ///         one-entry <c>mask-image</c> with no <c>mask-composite</c> beside it does — see
+    ///         <see cref="Compose" />, under which every operator is the identity on a list of one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On the entry rather than on the list, because CSS puts it there.</b>
+    ///         <c>mask-composite</c> is a per-layer property: <c>mask-composite: add, intersect</c>
+    ///         is two operators for two layers, and a list that carried one operator could not
+    ///         express it. It also means the field travels with the entry through the storage buffer
+    ///         instead of needing a parallel array the shader would have to index twice.
+    ///     </para>
+    /// </remarks>
+    public MaskComposite Composite { get; init; }
+
     /// <summary>A mask that hides everything, which is what an unresolvable <c>mask-image</c> is not.</summary>
     /// <remarks>
     ///     ⚠ Present so that the <i>refusal</i> path has somewhere to point and deliberately not used
     ///     by it. CSS's answer to a <c>mask-image</c> it cannot fetch is to mask nothing — an
     ///     unloadable mask must not black out the element — so <c>DrawListBuilder</c> drops the
-    ///     declaration and leaves <see cref="DrawCommand.Mask" /> null. This is here for tests that
+    ///     declaration and emits no list entry for it. This is here for tests that
     ///     need the degenerate case by name.
     /// </remarks>
     public static UiMask Hidden => new(
@@ -171,6 +224,74 @@ public readonly record struct UiMask(
             ? Math.Clamp((t - from) / width, 0f, 1f)
             : t < from ? 0f : 1f;
     }
+
+    /// <summary>The coverage a whole mask list gives at a point.</summary>
+    /// <param name="masks">The list, in CSS order: the topmost layer first.</param>
+    /// <param name="point">Where to evaluate it, in document pixels.</param>
+    /// <returns>The composed coverage, clamped to <c>[0, 1]</c>. One for an empty list.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A transcription of <c>ui-mask.frag</c>'s <c>mask_list</c>, down to the direction
+    ///         of the loop, and <c>UiCompositingTests</c> is the only thing that holds the two
+    ///         together.</b> The same bargain <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" /> already makes with
+    ///         <c>mask_coverage</c>, and a list makes it matter more rather than less: two
+    ///         implementations of a fold can agree on every entry and still disagree on the order
+    ///         they fold in, which shows up only where the operators are not commutative — which is
+    ///         three of the four.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Bottom-up, because <c>mask-composite</c> describes how a layer meets what is
+    ///         <i>under</i> it.</b> CSS lists mask layers topmost-first, exactly as
+    ///         <c>background-image</c> does, and Masking 1 § 5.4 gives each layer's operator the
+    ///         already-composed layers below it as its backdrop. So the walk starts at the last
+    ///         entry and works forwards, and the operator that is read at each step is the
+    ///         <i>source's</i> — never the backdrop's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bottom entry is taken as itself, and this is a deliberate departure from one
+    ///         sentence of the specification.</b> Read literally, the bottom layer composites against
+    ///         a transparent-black backdrop, which makes <c>intersect</c> — <c>s·0</c> — erase
+    ///         everything. That reading cannot be the one browsers implement, because
+    ///         <c>mask-composite: intersect</c> is what Tailwind emits for every one of its edge
+    ///         ramps and those ramps visibly work; under the literal reading every
+    ///         <c>mask-t-from-*</c> in the world would blank its element. Starting from the bottom
+    ///         entry itself makes all four operators the identity on a list of one, which is the
+    ///         property that actually has to hold: adding <c>mask-composite</c> to a single-layer
+    ///         mask must not change the picture.
+    ///     </para>
+    /// </remarks>
+    public static float Coverage(ReadOnlySpan<UiMask> masks, Vector2 point) {
+        if (masks.Length == 0) {
+            return 1f;
+        }
+
+        var result = masks[^1].Coverage(point);
+
+        for (var index = masks.Length - 2; index >= 0; index--) {
+            result = Compose(masks[index].Composite, masks[index].Coverage(point), result);
+        }
+
+        return Math.Clamp(result, 0f, 1f);
+    }
+
+    /// <summary>Combines one entry's coverage with the coverage of everything below it.</summary>
+    /// <param name="composite">The <i>source's</i> operator.</param>
+    /// <param name="source">This entry's coverage.</param>
+    /// <param name="backdrop">The composed coverage of the entries below it.</param>
+    /// <returns>The combined coverage.</returns>
+    /// <remarks>
+    ///     Porter-Duff on the coverage alone. ⚠ Not clamped here — <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" /> clamps
+    ///     once at the end, because clamping every step would quietly turn <c>subtract</c> into a
+    ///     different operator on any input a caller had already pushed outside <c>[0, 1]</c>, and
+    ///     the shader has to be able to make the same choice.
+    /// </remarks>
+    public static float Compose(MaskComposite composite, float source, float backdrop) =>
+        composite switch {
+            MaskComposite.Subtract => source * (1f - backdrop),
+            MaskComposite.Intersect => source * backdrop,
+            MaskComposite.Exclude => (source * (1f - backdrop)) + (backdrop * (1f - source)),
+            _ => source + (backdrop * (1f - source))
+        };
 
     static float Lerp(float a, float b, float t) => a + ((b - a) * t);
 }

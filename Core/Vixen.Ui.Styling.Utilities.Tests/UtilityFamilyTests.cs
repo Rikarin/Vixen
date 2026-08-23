@@ -87,10 +87,47 @@ public class UtilityFamilyTests {
     // and `mask-linear-45 mask-linear-from-50% mask-linear-to-90%` composes: three rules writing the
     // identical `mask-image` and differing only in which fragment they set. The `var()` fallbacks are
     // the reason one class works alone — see `UtilityComposition.MaskImage`.
+    //
+    // ⚠ <b>And the `mask-image` names three layers, of which this class fills one.</b> The other two
+    // resolve to an opaque gradient, which is the identity under the `intersect` on the next line —
+    // that pair is what lets `mask-linear-from-50% mask-radial-to-80%` compose instead of one of them
+    // silently winning the cascade. `DrawListBuilder.Reduce` drops the untouched layers before a group
+    // is opened, so the arrangement costs nothing at the pixels.
     [InlineData(
         "mask-linear-from-50%",
-        "--tw-mask-from-position: 50%|mask-image: linear-gradient(var(--tw-mask-linear-angle, 180deg), var(--tw-mask-from, black) var(--tw-mask-from-position, 0%), var(--tw-mask-to, transparent) var(--tw-mask-to-position, 100%))"
+        "--tw-mask-from-position: 50%|--tw-mask-linear: linear-gradient(var(--tw-mask-linear-angle, 180deg), var(--tw-mask-from, black) var(--tw-mask-from-position, 0%), var(--tw-mask-to, transparent) var(--tw-mask-to-position, 100%))|mask-image: var(--tw-mask-linear, linear-gradient(#fff, #fff)), var(--tw-mask-radial, linear-gradient(#fff, #fff)), var(--tw-mask-conic, linear-gradient(#fff, #fff))|mask-composite: intersect"
     )]
+    // ⚠ <b>An edge ramp, which is the shape twelve of the roots have and the one that needed a mask
+    // list.</b> It writes all four edge gradients and not only the one it drives, so
+    // `mask-t-from-50% mask-b-from-50%` composes — the two rules write the same `--tw-mask-linear`
+    // and each edge inside it resolves to whatever its own class set. `to top` and not `to bottom`:
+    // `mask-t-*` fades the element out *at the top*.
+    [InlineData(
+        "mask-t-from-50%",
+        "--tw-mask-top-from-position: 50%"
+        + "|--tw-mask-top: linear-gradient(to top, var(--tw-mask-top-from, black) var(--tw-mask-top-from-position, 0%), var(--tw-mask-top-to, transparent) var(--tw-mask-top-to-position, 100%))"
+        + "|--tw-mask-right: linear-gradient(to right, var(--tw-mask-right-from, black) var(--tw-mask-right-from-position, 0%), var(--tw-mask-right-to, transparent) var(--tw-mask-right-to-position, 100%))"
+        + "|--tw-mask-bottom: linear-gradient(to bottom, var(--tw-mask-bottom-from, black) var(--tw-mask-bottom-from-position, 0%), var(--tw-mask-bottom-to, transparent) var(--tw-mask-bottom-to-position, 100%))"
+        + "|--tw-mask-left: linear-gradient(to left, var(--tw-mask-left-from, black) var(--tw-mask-left-from-position, 0%), var(--tw-mask-left-to, transparent) var(--tw-mask-left-to-position, 100%))"
+        + "|--tw-mask-linear: var(--tw-mask-top, linear-gradient(#fff, #fff)), var(--tw-mask-right, linear-gradient(#fff, #fff)), var(--tw-mask-bottom, linear-gradient(#fff, #fff)), var(--tw-mask-left, linear-gradient(#fff, #fff))"
+        + "|mask-image: var(--tw-mask-linear, linear-gradient(#fff, #fff)), var(--tw-mask-radial, linear-gradient(#fff, #fff)), var(--tw-mask-conic, linear-gradient(#fff, #fff))"
+        + "|mask-composite: intersect"
+    )]
+    // ⚠ Two position fragments from one class, which is why `Family.Positions` is several: `mask-x-*`
+    // is the left ramp *and* the right one, and a single fragment could only have set one of them.
+    [InlineData(
+        "mask-x-from-50%",
+        "--tw-mask-left-from-position: 50%"
+        + "|--tw-mask-right-from-position: 50%"
+        + "|--tw-mask-top: linear-gradient(to top, var(--tw-mask-top-from, black) var(--tw-mask-top-from-position, 0%), var(--tw-mask-top-to, transparent) var(--tw-mask-top-to-position, 100%))"
+        + "|--tw-mask-right: linear-gradient(to right, var(--tw-mask-right-from, black) var(--tw-mask-right-from-position, 0%), var(--tw-mask-right-to, transparent) var(--tw-mask-right-to-position, 100%))"
+        + "|--tw-mask-bottom: linear-gradient(to bottom, var(--tw-mask-bottom-from, black) var(--tw-mask-bottom-from-position, 0%), var(--tw-mask-bottom-to, transparent) var(--tw-mask-bottom-to-position, 100%))"
+        + "|--tw-mask-left: linear-gradient(to left, var(--tw-mask-left-from, black) var(--tw-mask-left-from-position, 0%), var(--tw-mask-left-to, transparent) var(--tw-mask-left-to-position, 100%))"
+        + "|--tw-mask-linear: var(--tw-mask-top, linear-gradient(#fff, #fff)), var(--tw-mask-right, linear-gradient(#fff, #fff)), var(--tw-mask-bottom, linear-gradient(#fff, #fff)), var(--tw-mask-left, linear-gradient(#fff, #fff))"
+        + "|mask-image: var(--tw-mask-linear, linear-gradient(#fff, #fff)), var(--tw-mask-radial, linear-gradient(#fff, #fff)), var(--tw-mask-conic, linear-gradient(#fff, #fff))"
+        + "|mask-composite: intersect"
+    )]
+    [InlineData("mask-intersect", "mask-composite: intersect")]
     // Transitions.
     [InlineData("duration-200", "transition-duration: 200ms")]
     [InlineData("ease-in-out", "transition-timing-function: ease-in-out")]

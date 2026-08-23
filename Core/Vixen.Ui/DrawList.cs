@@ -323,20 +323,37 @@ public readonly record struct DrawCommand(
     public UiColorMatrix? Filter { get; init; }
 
     /// <summary>
-    ///     The coverage a composited group's <c>mask-image</c> multiplies its surface by, or null
-    ///     where there is none. Unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
+    ///     The coverage a composited group's <c>mask-image</c> multiplies its surface by, as a range
+    ///     of <see cref="DrawList.Masks" />. Unread on every kind but
+    ///     <see cref="DrawCommandKind.LayerPush" />.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Nullable for <see cref="Filter" />'s reason and a sharper version of it.</b> A
-    ///         zeroed <see cref="UiMask" /> has zero coverage at every stop, so a command that said
-    ///         nothing about a mask would ask for the element to be erased entirely — the same trap as
-    ///         a zeroed colour matrix, except that the wrong answer is a blank rectangle rather than a
-    ///         black one, and a blank rectangle is much easier to mistake for a layout bug.
+    ///         ⚠ <b>A range of the side buffer and not a field, because <c>mask-image</c> is a
+    ///         <i>list</i>.</b> Nine of Tailwind's mask roots need one entry and twelve more —
+    ///         <c>mask-t-from-*</c> and its siblings — need up to four, composed by
+    ///         <c>mask-composite</c>. A single nullable field could hold the first group and could
+    ///         not hold the second, and widening it to a collection would have cost the frame diff
+    ///         its value comparison: see <see cref="DrawList.Masks" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A third field rather than a member of <see cref="Filter" />, because a mask is not
-    ///         a filter in CSS and does not compose like one.</b> <c>filter</c> is an ordered list
+    ///         ⚠ <b><see cref="Offset" /> and <see cref="Length" /> rather than a pair of their own,
+    ///         which is the convention those two already state.</b> A <c>LayerPush</c> has no glyphs,
+    ///         no path and no box style, so its side buffer is unambiguously this one — the same way
+    ///         a box's is <see cref="DrawList.Boxes" /> and a text run's is
+    ///         <see cref="DrawList.Glyphs" />. A third pair would have widened every command in the
+    ///         frame to describe a kind that is a handful of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty and not a zeroed <see cref="UiMask" />, which is the same trap the old
+    ///         nullable field guarded.</b> A zeroed mask has zero coverage at every stop, so a
+    ///         command that said nothing about a mask would ask for the element to be erased
+    ///         entirely — a blank rectangle, which is much easier to mistake for a layout bug than
+    ///         the black one a zeroed colour matrix gives.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Beside <see cref="Filter" /> rather than a member of it, because a mask is not a
+    ///         filter in CSS and does not compose like one.</b> <c>filter</c> is an ordered list
     ///         whose colour functions fold into one matrix; <c>mask-image</c> is a separate property
     ///         applied to the <i>result</i> of the filter. The order between them is fixed by the
     ///         specification rather than by arithmetic, which is the opposite of the situation between
@@ -346,7 +363,7 @@ public readonly record struct DrawCommand(
     ///         the consequence, which is that both executors apply it at the composite draw.
     ///     </para>
     /// </remarks>
-    public UiMask? Mask { get; init; }
+    public bool HasMask => Kind == DrawCommandKind.LayerPush && Length > 0;
 }
 
 /// <summary>A frame's worth of drawing, and whether it differs from the last one.</summary>
@@ -373,6 +390,8 @@ public sealed class DrawList {
     readonly List<PathSegment> previousSegments = [];
     readonly List<BoxStyle> boxes = [];
     readonly List<BoxStyle> previousBoxes = [];
+    readonly List<UiMask> masks = [];
+    readonly List<UiMask> previousMasks = [];
     readonly List<FontFace> fonts = [];
     readonly List<DrawBatch> batches = [];
 
@@ -395,6 +414,26 @@ public sealed class DrawList {
     ///     real interface is a small minority of them.
     /// </remarks>
     public IReadOnlyList<BoxStyle> Boxes => boxes;
+
+    /// <summary>Every mask of every composited group, back to back.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A side buffer rather than a field on the command, and the reason is the frame
+    ///         diff rather than the size of the struct.</b> <c>mask-image</c> is a list, so the
+    ///         obvious shape is a collection on <see cref="DrawCommand" /> — and a collection there
+    ///         would be compared by reference, so a frame that rebuilt an identical list would count
+    ///         as a change and <see cref="Version" /> would rise every single frame. That is the one
+    ///         thing the version exists not to do. In the side buffer the entries are compared the
+    ///         way the glyphs and the box styles are: element by element, by value.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>CSS order, topmost layer first, exactly as written.</b> The fold that turns a
+    ///         range of this into one coverage runs bottom-up — see <see cref="UiMask.Coverage(System.ReadOnlySpan{UiMask},Vixen.Core.Mathematics.Vector2)" /> —
+    ///         and reversing the entries here instead would put the reversal somewhere the two
+    ///         executors could disagree about.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<UiMask> Masks => masks;
 
     /// <summary>The faces the text commands refer to, in the order they were first used.</summary>
     public IReadOnlyList<FontFace> Fonts => fonts;
@@ -437,6 +476,10 @@ public sealed class DrawList {
         previousBoxes.Clear();
         previousBoxes.AddRange(boxes);
         boxes.Clear();
+
+        previousMasks.Clear();
+        previousMasks.AddRange(masks);
+        masks.Clear();
 
         // The fonts are not kept for comparison, because a command referring to a different face
         // refers to it by a different index and the commands are compared. Rebuilt each frame so
@@ -517,6 +560,19 @@ public sealed class DrawList {
         return boxes.Count - 1;
     }
 
+    /// <summary>Puts a group's mask list in the side buffer.</summary>
+    /// <param name="list">The masks, topmost layer first.</param>
+    /// <returns>Where they start, for the <see cref="DrawCommandKind.LayerPush" /> that refers to them.</returns>
+    public int AddMasks(ReadOnlySpan<UiMask> list) {
+        var offset = masks.Count;
+
+        foreach (var mask in list) {
+            masks.Add(mask);
+        }
+
+        return offset;
+    }
+
     /// <summary>Puts a path in the side buffer.</summary>
     /// <param name="path">The path.</param>
     /// <returns>Where it starts, for the command that refers to it.</returns>
@@ -577,7 +633,8 @@ public sealed class DrawList {
         if (commands.Count != previous.Count
             || glyphs.Count != previousGlyphs.Count
             || segments.Count != previousSegments.Count
-            || boxes.Count != previousBoxes.Count) {
+            || boxes.Count != previousBoxes.Count
+            || masks.Count != previousMasks.Count) {
             return true;
         }
 
@@ -611,6 +668,16 @@ public sealed class DrawList {
         // the commands alone would report the frame unchanged and keep drawing the old gradient.
         for (var i = 0; i < boxes.Count; i++) {
             if (boxes[i] != previousBoxes[i]) {
+                return true;
+            }
+        }
+
+        // ⚠ And once more for the masks, which is the loop a `mask-image` being animated needs: a
+        // group whose ramp is being tuned emits the same `LayerPush` over the same range every frame
+        // and moves only the stop positions. Without this the version would say the frame had not
+        // changed and a renderer trusting it would keep compositing yesterday's fade.
+        for (var i = 0; i < masks.Count; i++) {
+            if (masks[i] != previousMasks[i]) {
                 return true;
             }
         }

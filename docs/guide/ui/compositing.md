@@ -3,9 +3,9 @@ title: Compositing groups
 slug: ui/compositing
 kind: guide
 area: Core
-summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur costs both, why a mask's seam is fixed on both executors where a matrix's is free, when the pass is skipped as an exact identity, what the surfaces cost, and what `drop-shadow`, `backdrop-filter` and gradient text would each still need on top of it.
-api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiMask]
-tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, backdrop-filter, mask, mask-image]
+summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur costs both, why a mask's seam is fixed on both executors where a matrix's is free, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, and what `drop-shadow`, `backdrop-filter` and gradient text would each still need on top of it.
+api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite]
+tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, backdrop-filter, mask, mask-image, mask-composite]
 since: 0.2
 status: preview
 related: [ui/gradients, ui/utility-composition]
@@ -221,13 +221,74 @@ the moment somebody added `blur-sm` beside the mask.
 *closed* would erase it, and a blank rectangle is indistinguishable from a layout collapse. Masking 1
 § 4.1 says the same.
 
-⚠ **One mask image, and that is what the absent `mask-*` roots have in common.** `mask-t-from-*` and
-its seven siblings are per-edge ramps Tailwind combines with `mask-composite: intersect`, which needs
-a mask *list* on `UiLayer`. `mask-origin-*`, `mask-position-*`, `mask-size-*` and `mask-repeat-*`
-describe placing a mask image inside a box it does not already fill, which a gradient sized to the
-border box does not need. `mask-type-*` applies to SVG `<mask>` elements, which this engine has none
-of. `bg-clip-text` is a separate matter again — see doc 43, which names the text-coverage surface it
-is waiting on.
+### A list of masks, and `mask-composite`
+
+`mask-image` is a **list**, and so is `UiLayer`: it carries a range of `UiGeometry.Masks` rather than
+one mask. `mask-composite` says how each layer meets the layers below it.
+
+```css
+.corners {
+    mask-image: linear-gradient(to top, #000 50%, transparent),
+                linear-gradient(to left, #000 50%, transparent);
+    mask-composite: intersect;
+}
+```
+
+```html
+<div class="mask-t-from-50% mask-l-from-50%">…</div>
+```
+
+The four operators are Porter-Duff on the coverage alone, with the layer as the source and the
+already-composed layers under it as the backdrop: `add` is `s + b(1 - s)`, `subtract` is `s(1 - b)`,
+`intersect` is `s·b`, `exclude` is `s(1 - b) + b(1 - s)`.
+
+⚠ **The default is `add`, which is CSS's initial value and not what generated stylesheets look
+like.** Every `mask-*` utility writes `intersect` explicitly, so a reader who learned the property
+from Tailwind's output would guess wrong. The reason the utilities write it is worth knowing, because
+it is what makes them compose at all: each class fills one layer of the same three-layer `mask-image`
+and the layers nobody filled resolve to a fully opaque gradient — and an opaque layer is the identity
+under `intersect` and *only* under `intersect`. Under `add` an opaque layer forces full coverage
+everywhere, so the mask would do nothing at all.
+
+⚠ **The list is folded bottom-up, and only `subtract` can tell.** CSS lists mask layers topmost
+first, and Masking 1 § 5.4 gives each layer's operator the composed layers below it as its backdrop —
+so the walk starts at the last entry. Three of the four operators are symmetric in their two
+arguments, so a fold run the wrong way would produce the identical picture under `add`, `intersect`
+and `exclude`; `s(1 - b)` is the one that is not `b(1 - s)`.
+
+⚠ **The bottom entry is taken as itself, which departs from one sentence of the specification.** Read
+literally, the bottom layer composites against a transparent-black backdrop, which makes `intersect`
+— `s·0` — erase everything. That cannot be what browsers do, because `mask-composite: intersect` is
+what Tailwind emits for every one of its edge ramps and those ramps visibly work. Starting from the
+bottom entry itself makes all four operators the identity on a list of one, which is the property
+that has to hold: adding `mask-composite` to a single-layer mask must not change the picture.
+
+⚠ **Layers that provably say nothing are dropped before the group is opened, not in an executor.** A
+mask is what *makes* an element a composited group, so a list that reduces to nothing has to reduce
+to nothing while the group is still being decided on — otherwise a `mask-t-from-*` that happened to be
+fully opaque would cost a viewport-sized surface and a composite pass to draw a picture identical to
+the one that needed neither. `DrawListBuilder.Reduce` does it, and it does the two reductions that are
+true of every input: an opaque `intersect` layer is the identity wherever it sits, and an opaque
+*bottom* layer is the identity when the layer above it intersects.
+
+⚠ **A list is capped at eight layers and one unreadable layer refuses the whole declaration.** Six is
+what the utility layer can generate — four edge ramps plus a radial and a conic — and past eight the
+list is refused rather than truncated, because truncation drops the layers at one end and produces a
+mask that nearly works. Dropping one bad layer out of the middle is worse still: it changes the
+arithmetic of every operator around it, and a missing `subtract` leaves the thing it was meant to
+punch out.
+
+⚠ **The entries ride a storage buffer, not push constants.** One entry is sixty-four bytes and
+`ui-mask.frag` already pushes a colour matrix at forty-eight; with the vertex stage's sixteen that
+came to exactly the 128 bytes Vulkan guarantees. So the draw pushes an index and a count and the
+entries come through the descriptor binding `UiShape` already uses — see the renderer's README for
+why that buffer has a fixed capacity.
+
+⚠ **What is still absent, and now for one reason rather than two.** `mask-origin-*`,
+`mask-position-*`, `mask-size-*` and `mask-repeat-*` describe placing a mask image inside a box it
+does not already fill, which a gradient sized to the border box does not need. `mask-type-*` applies
+to SVG `<mask>` elements, which this engine has none of. `bg-clip-text` is a separate matter again —
+see doc 43, which names the text-coverage surface it is waiting on.
 
 `UiRenderer.Masked` is what says a mask happened, and it is worth having for `Filtered`'s reason plus
 one: `ui-mask.frag` serves masked groups *and* carries the colour matrix, so a renderer that picked

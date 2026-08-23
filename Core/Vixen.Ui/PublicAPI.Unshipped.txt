@@ -143,6 +143,7 @@ Vixen.Ui.DrawCommand.Font.get -> int
 Vixen.Ui.DrawCommand.Font.init -> int
 Vixen.Ui.DrawCommand.FontSize.get -> float
 Vixen.Ui.DrawCommand.FontSize.init -> float
+Vixen.Ui.DrawCommand.HasMask.get -> bool
 Vixen.Ui.DrawCommand.HasStyle.get -> bool
 Vixen.Ui.DrawCommand.Height.get -> float
 Vixen.Ui.DrawCommand.Height.init -> float
@@ -156,8 +157,6 @@ Vixen.Ui.DrawCommand.Kind.get -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommand.Kind.init -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommand.Length.get -> int
 Vixen.Ui.DrawCommand.Length.init -> int
-Vixen.Ui.DrawCommand.Mask.get -> Vixen.Ui.Rendering.UiMask?
-Vixen.Ui.DrawCommand.Mask.init -> Vixen.Ui.Rendering.UiMask?
 Vixen.Ui.DrawCommand.MiterLimit.get -> float
 Vixen.Ui.DrawCommand.MiterLimit.init -> float
 Vixen.Ui.DrawCommand.Offset.get -> int
@@ -211,6 +210,7 @@ Vixen.Ui.DrawList.Add(Vixen.Ui.DrawCommand command) -> void
 Vixen.Ui.DrawList.AddBox(Vixen.Ui.BoxStyle style) -> int
 Vixen.Ui.DrawList.AddFont(Vixen.Ui.Text.FontFace font) -> int
 Vixen.Ui.DrawList.AddGlyphs(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> run) -> int
+Vixen.Ui.DrawList.AddMasks(System.ReadOnlySpan<Vixen.Ui.Rendering.UiMask> list) -> int
 Vixen.Ui.DrawList.AddPath(Vixen.Ui.PathBuilder path) -> int
 Vixen.Ui.DrawList.Batched.get -> int
 Vixen.Ui.DrawList.Batches.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawBatch>
@@ -223,6 +223,7 @@ Vixen.Ui.DrawList.DrawList() -> void
 Vixen.Ui.DrawList.EndFrame() -> bool
 Vixen.Ui.DrawList.Fonts.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace>
 Vixen.Ui.DrawList.Glyphs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.PositionedGlyph>
+Vixen.Ui.DrawList.Masks.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiMask>
 Vixen.Ui.DrawList.Segments.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.PathSegment>
 Vixen.Ui.DrawList.Version.get -> int
 Vixen.Ui.DrawListBuilder -> sealed class
@@ -529,6 +530,12 @@ Vixen.Ui.Rendering.IconField.Region.get -> Vixen.Ui.Text.Rasterizing.AtlasRegion
 Vixen.Ui.Rendering.IconField.Region.init -> Vixen.Ui.Text.Rasterizing.AtlasRegion
 Vixen.Ui.Rendering.IconField.ScreenPixelRange.get -> float
 Vixen.Ui.Rendering.IconField.ScreenPixelRange.init -> float
+Vixen.Ui.Rendering.MaskComposite -> enum : int
+Vixen.Ui.Rendering.MaskComposite.Add = 0 -> Vixen.Ui.Rendering.MaskComposite
+Vixen.Ui.Rendering.MaskComposite.Exclude = 3 -> Vixen.Ui.Rendering.MaskComposite
+Vixen.Ui.Rendering.MaskComposite.Intersect = 2 -> Vixen.Ui.Rendering.MaskComposite
+Vixen.Ui.Rendering.MaskComposite.MaskComposite() -> void
+Vixen.Ui.Rendering.MaskComposite.Subtract = 1 -> Vixen.Ui.Rendering.MaskComposite
 Vixen.Ui.Rendering.PathFlattener -> static class
 Vixen.Ui.Rendering.PathTessellator -> static class
 Vixen.Ui.Rendering.PathVertex -> readonly struct
@@ -576,6 +583,8 @@ Vixen.Ui.Rendering.UiGeometry.Indices.get -> System.Collections.Generic.IReadOnl
 Vixen.Ui.Rendering.UiGeometry.Indices.init -> System.Collections.Generic.IReadOnlyList<uint>
 Vixen.Ui.Rendering.UiGeometry.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiLayer>
 Vixen.Ui.Rendering.UiGeometry.Layers.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiLayer>
+Vixen.Ui.Rendering.UiGeometry.Masks.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiMask>
+Vixen.Ui.Rendering.UiGeometry.Masks.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiMask>
 Vixen.Ui.Rendering.UiGeometry.Shapes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape>
 Vixen.Ui.Rendering.UiGeometry.Shapes.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape>
 Vixen.Ui.Rendering.UiGeometry.UiGeometry() -> void
@@ -618,8 +627,10 @@ Vixen.Ui.Rendering.UiLayer.First.get -> int
 Vixen.Ui.Rendering.UiLayer.First.init -> int
 Vixen.Ui.Rendering.UiLayer.Image.get -> ulong
 Vixen.Ui.Rendering.UiLayer.Image.init -> ulong
-Vixen.Ui.Rendering.UiLayer.Mask.get -> Vixen.Ui.Rendering.UiMask?
-Vixen.Ui.Rendering.UiLayer.Mask.init -> Vixen.Ui.Rendering.UiMask?
+Vixen.Ui.Rendering.UiLayer.MaskCount.get -> int
+Vixen.Ui.Rendering.UiLayer.MaskCount.init -> int
+Vixen.Ui.Rendering.UiLayer.MaskFirst.get -> int
+Vixen.Ui.Rendering.UiLayer.MaskFirst.init -> int
 Vixen.Ui.Rendering.UiLayer.UiLayer() -> void
 Vixen.Ui.Rendering.UiLayer.UiLayer(int First, int Count, Vixen.Core.Mathematics.Rectangle Bounds, float Alpha) -> void
 Vixen.Ui.Rendering.UiMask -> readonly struct
@@ -630,6 +641,8 @@ Vixen.Ui.Rendering.UiMask.Axis.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.UiMask.Axis.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.UiMask.Centre.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.UiMask.Centre.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiMask.Composite.get -> Vixen.Ui.Rendering.MaskComposite
+Vixen.Ui.Rendering.UiMask.Composite.init -> Vixen.Ui.Rendering.MaskComposite
 Vixen.Ui.Rendering.UiMask.Coverage(Vixen.Core.Mathematics.Vector2 point) -> float
 Vixen.Ui.Rendering.UiMask.Half.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.UiMask.Half.init -> Vixen.Core.Mathematics.Vector2
@@ -1086,6 +1099,8 @@ static Vixen.Ui.Rendering.UiColorMatrix.Saturate(float amount) -> Vixen.Ui.Rende
 static Vixen.Ui.Rendering.UiColorMatrix.Sepia(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
 static Vixen.Ui.Rendering.UiGeometryBuilder.LayerImage(int index) -> ulong
 static Vixen.Ui.Rendering.UiLayer.KernelRadius(float blur, float scale) -> int
+static Vixen.Ui.Rendering.UiMask.Compose(Vixen.Ui.Rendering.MaskComposite composite, float source, float backdrop) -> float
+static Vixen.Ui.Rendering.UiMask.Coverage(System.ReadOnlySpan<Vixen.Ui.Rendering.UiMask> masks, Vixen.Core.Mathematics.Vector2 point) -> float
 static Vixen.Ui.Rendering.UiMask.Hidden.get -> Vixen.Ui.Rendering.UiMask
 static Vixen.Ui.SvgPath.Parse(string data) -> Vixen.Ui.PathBuilder
 static Vixen.Ui.SvgPath.TryParse(string? data) -> Vixen.Ui.PathBuilder?

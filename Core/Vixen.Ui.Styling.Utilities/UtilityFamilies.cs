@@ -99,11 +99,18 @@ public static class UtilityFamilies {
     ///     of longhands from where it puts a width — <c>border-t-2</c> is <c>border-top-width</c> and
     ///     <c>border-t-accent</c> is <c>border-top-color</c>. Null on every other kind.
     /// </param>
-    /// <param name="Position">
+    /// <param name="Positions">
     ///     Where a <see cref="ValueKind.GradientStop" /> family puts a percentage, which is a
     ///     different fragment from where it puts a colour — <c>from-accent</c> is
     ///     <c>--tw-gradient-from</c> and <c>from-40%</c> is <c>--tw-gradient-from-position</c>. Null
     ///     on every other kind.
+    ///     <para>
+    ///         ⚠ <b>Several, for the same reason <see cref="Properties" /> is several.</b>
+    ///         <c>mask-x-from-50%</c> is one class setting the near stop of <i>both</i> the left and
+    ///         the right edge ramp, and a single fragment here could only have set one of them — the
+    ///         element would fade on one side and not the other, which reads as the utility half
+    ///         working rather than as a missing field.
+    ///     </para>
     /// </param>
     /// <param name="Alongside">
     ///     Declarations emitted verbatim whenever the family resolves, whatever its value.
@@ -152,7 +159,7 @@ public static class UtilityFamilies {
         string[] Properties,
         Dictionary<string, string>? Keywords = null,
         string[]? ColorProperties = null,
-        string? Position = null,
+        string[]? Positions = null,
         UtilityDeclaration[]? Alongside = null,
         string? Template = null,
         string? Scope = null
@@ -763,26 +770,55 @@ public static class UtilityFamilies {
 
         // ── Masks ───────────────────────────────────────────────────────────────────────
         //
-        // ⚠ <b>Nine roots of Tailwind's twenty-odd <c>mask-*</c>, and what is missing is missing for
-        // one reason: this engine composites <i>one</i> mask image.</b> `mask-t-from-*` and its seven
-        // siblings are per-edge ramps that Tailwind combines with `mask-composite: intersect`, and
-        // `mask-origin-*`, `mask-position-*`, `mask-size-*` and `mask-repeat-*` all describe where a
-        // mask image is placed relative to a box it does not already fill. A gradient sized to the
-        // border box needs none of the second group and cannot express the first. Registering any of
-        // them would emit a property nothing reads, which is exactly what the consumption gate is
-        // for. See `InertProperties.txt` and doc 43.
+        // ⚠ <b>Twenty-five roots now, and what is still missing is `mask-origin-*`,
+        // `mask-position-*`, `mask-size-*` and `mask-repeat-*` — all four of which describe where a
+        // mask image is placed relative to a box it does not already fill.</b> A gradient sized to
+        // the border box needs none of them, and registering one would emit a property nothing reads,
+        // which is exactly what the consumption gate is for. See `InertProperties.txt` and doc 43.
+        //
+        // ⚠ <b>`mask-t-from-*` and its eleven siblings are here because `UiLayer` carries a mask
+        // <i>list</i>.</b> They are per-edge ramps that only mean anything combined, and combining
+        // them is what `mask-composite` does — so nine of these roots waited on the list rather than
+        // on anything about gradients.
         //
         // ⚠ <b>Every one of these is an assembler as well as a contributor, which is the colour
         // filters' arrangement rather than the gradient stops'.</b> `from-accent` alone paints
         // nothing until a `bg-linear-*` says what shape to paint; `mask-linear-from-50%` alone has to
         // mask, because there is no separate "turn masking on" class in v4 and forgetting one would
         // look exactly like the utility being broken.
-        Mask("mask-linear-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, Linear);
-        Mask("mask-linear-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, Linear);
-        Mask("mask-radial-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, Radial);
-        Mask("mask-radial-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, Radial);
-        Mask("mask-conic-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, Conic);
-        Mask("mask-conic-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, Conic);
+        Mask("mask-linear-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, UtilityComposition.MaskLinear, Linear);
+        Mask("mask-linear-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, UtilityComposition.MaskLinear, Linear);
+        Mask("mask-radial-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, UtilityComposition.MaskRadial, Radial);
+        Mask("mask-radial-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, UtilityComposition.MaskRadial, Radial);
+        Mask("mask-conic-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, UtilityComposition.MaskConic, Conic);
+        Mask("mask-conic-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, UtilityComposition.MaskConic, Conic);
+
+        // ⚠ <b>The twelve edge ramps, and `mask-x-*` and `mask-y-*` are pairs rather than shorthands
+        // for a wider box.</b> `mask-x-from-50%` sets the near stop of the left ramp *and* of the
+        // right one — two entries in the list, intersected — which is why `Family.Positions` is
+        // several rather than one. A shorthand that widened a single ramp would fade one side and
+        // brighten the other.
+        MaskEdgeRamp("mask-t-from", ["top"], near: true);
+        MaskEdgeRamp("mask-t-to", ["top"], near: false);
+        MaskEdgeRamp("mask-r-from", ["right"], near: true);
+        MaskEdgeRamp("mask-r-to", ["right"], near: false);
+        MaskEdgeRamp("mask-b-from", ["bottom"], near: true);
+        MaskEdgeRamp("mask-b-to", ["bottom"], near: false);
+        MaskEdgeRamp("mask-l-from", ["left"], near: true);
+        MaskEdgeRamp("mask-l-to", ["left"], near: false);
+        MaskEdgeRamp("mask-x-from", ["left", "right"], near: true);
+        MaskEdgeRamp("mask-x-to", ["left", "right"], near: false);
+        MaskEdgeRamp("mask-y-from", ["top", "bottom"], near: true);
+        MaskEdgeRamp("mask-y-to", ["top", "bottom"], near: false);
+
+        // ⚠ <b>The operator, as four keywords, and it is worth having even though every mask utility
+        // already writes one.</b> `intersect` is what the families emit because it is what makes an
+        // unfilled layer harmless; an author combining a radial and a conic deliberately may well
+        // want `subtract` or `exclude` instead, and there is no other way to say so from a class.
+        Static("mask-add", "mask-composite", "add");
+        Static("mask-subtract", "mask-composite", "subtract");
+        Static("mask-intersect", "mask-composite", "intersect");
+        Static("mask-exclude", "mask-composite", "exclude");
 
         // ⚠ <b>The two angles, and they set a fragment rather than writing the whole function.</b>
         // `mask-linear-45 mask-linear-from-30%` is two classes that have to agree about one
@@ -795,7 +831,7 @@ public static class UtilityFamilies {
             ValueKind.CountTemplate,
             [UtilityComposition.MaskLinearAngle],
             Template: "{0}deg",
-            Alongside: [new UtilityDeclaration("mask-image", Linear)]
+            Alongside: MaskAlongside(UtilityComposition.MaskLinear, Linear)
         ));
 
         Register(new Family(
@@ -803,7 +839,7 @@ public static class UtilityFamilies {
             ValueKind.CountTemplate,
             [UtilityComposition.MaskConicAngle],
             Template: "{0}deg",
-            Alongside: [new UtilityDeclaration("mask-image", Conic)]
+            Alongside: MaskAlongside(UtilityComposition.MaskConic, Conic)
         ));
 
         // ⚠ Its own family rather than a keyword on one of the above, because `mask-none` has to work
@@ -1359,7 +1395,10 @@ public static class UtilityFamilies {
         var value = candidate.Arbitrary ?? candidate.Value;
 
         if (value.EndsWith('%') && float.TryParse(value[..^1], CultureInfo.InvariantCulture, out _)) {
-            declarations.Add(new UtilityDeclaration(family.Position!, value));
+            foreach (var position in family.Positions!) {
+                declarations.Add(new UtilityDeclaration(position, value));
+            }
+
             return true;
         }
 
@@ -2003,7 +2042,8 @@ public static class UtilityFamilies {
     /// <param name="name">The class prefix.</param>
     /// <param name="colour">The fragment a colour goes into.</param>
     /// <param name="position">The fragment a percentage goes into.</param>
-    /// <param name="image">The assembled <c>mask-image</c> this shape wants.</param>
+    /// <param name="layer">The <c>mask-image</c> layer fragment this shape fills.</param>
+    /// <param name="image">The assembled gradient that goes in it.</param>
     /// <remarks>
     ///     ⚠ <b><see cref="ValueKind.GradientStop" /> rather than a kind of its own, and it is the
     ///     right one for a reason beyond convenience.</b> That kind is what routes a percentage to
@@ -2013,21 +2053,103 @@ public static class UtilityFamilies {
     ///     <c>UiMask</c>, but that is the renderer's business and not the parser's — a mask written
     ///     with <c>#00000080</c> means half coverage and has to reach the engine intact to say so.
     /// </remarks>
-    static void Mask(string name, string colour, string position, string image) =>
+    static void Mask(string name, string colour, string position, string layer, string image) =>
+        MaskFamily(name, [colour], [position], layer, image);
+
+    /// <summary>The declarations every <c>mask-*</c> family emits beside whatever it was given.</summary>
+    /// <param name="layer">The <c>mask-image</c> layer fragment this family fills.</param>
+    /// <param name="image">The gradient that goes in it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three declarations and not one, and the <c>mask-composite</c> is the one that is
+    ///         easy to think optional.</b> The layer fragment says what this class draws; the
+    ///         <c>mask-image</c> says the list is three layers of which this is one; and the
+    ///         <c>intersect</c> is what makes the two layers nobody filled — opaque, by their initial
+    ///         value — change nothing. Without it the list composites with CSS's initial <c>add</c>,
+    ///         under which an opaque layer forces full coverage everywhere and the mask does exactly
+    ///         nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>intersect</c> is also what Tailwind writes</b>, on every one of its mask
+    ///         utilities, for this reason. It is not CSS's default — that is <c>add</c>, which
+    ///         <c>DrawListBuilder</c> honours for a hand-written <c>mask-image</c> list with nothing
+    ///         beside it.
+    ///     </para>
+    /// </remarks>
+    static UtilityDeclaration[] MaskAlongside(string layer, string image) => [
+        new(layer, image),
+        new("mask-image", UtilityComposition.MaskLayers()),
+        new("mask-composite", "intersect")
+    ];
+
+    /// <summary>One mask stop family: colour fragments, position fragments, and the layer they fill.</summary>
+    static void MaskFamily(string name, string[] colours, string[] positions, string layer, string image) =>
         Register(new Family(
             name,
             ValueKind.GradientStop,
-            [colour],
-            Position: position,
-            Alongside: [new UtilityDeclaration("mask-image", image)]
+            colours,
+            Positions: positions,
+            Alongside: MaskAlongside(layer, image)
         ));
+
+    /// <summary>One edge-ramp family, which is <see cref="MaskFamily" /> over one or two edges.</summary>
+    /// <param name="name">The class prefix, such as <c>mask-t-from</c>.</param>
+    /// <param name="edges">Which edges it drives. Two for <c>mask-x-*</c> and <c>mask-y-*</c>.</param>
+    /// <param name="near">Whether it sets the ramp's near stop rather than its far one.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every edge's gradient is emitted, not only the ones this class drives, and that is
+    ///         what makes two edge classes compose.</b> `mask-t-from-50% mask-b-from-50%` is two rules
+    ///         writing the same <c>--tw-mask-linear</c>; whichever the cascade picks, it names all
+    ///         four edge fragments, and each of those resolves to whatever its own class set or to an
+    ///         opaque gradient if nothing did. Emitting only the driven edge would make the second
+    ///         class delete the first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the edges take the <i>linear</i> layer.</b> See
+    ///         <c>UtilityComposition.MaskEdgeLayers</c>: a <c>mask-t-*</c> beside a
+    ///         <c>mask-linear-*</c> is a conflict rather than a composition, which is Tailwind's
+    ///         behaviour and is what having one linear slot means.
+    ///     </para>
+    /// </remarks>
+    static void MaskEdgeRamp(string name, string[] edges, bool near) {
+        var colours = new string[edges.Length];
+        var positions = new string[edges.Length];
+        var alongside = new List<UtilityDeclaration>();
+
+        for (var index = 0; index < edges.Length; index++) {
+            colours[index] = near
+                ? UtilityComposition.MaskEdgeFrom(edges[index])
+                : UtilityComposition.MaskEdgeTo(edges[index]);
+
+            positions[index] = near
+                ? UtilityComposition.MaskEdgeFromPosition(edges[index])
+                : UtilityComposition.MaskEdgeToPosition(edges[index]);
+        }
+
+        foreach (var edge in UtilityComposition.MaskEdges) {
+            alongside.Add(new UtilityDeclaration(UtilityComposition.MaskEdge(edge), UtilityComposition.MaskEdgeImage(edge)));
+        }
+
+        alongside.AddRange(MaskAlongside(UtilityComposition.MaskLinear, UtilityComposition.MaskEdgeLayers()));
+
+        Register(new Family(
+            name,
+            ValueKind.GradientStop,
+            colours,
+            Positions: positions,
+            Alongside: [.. alongside]
+        ));
+    }
+
+
 
     static void GradientStop(string name, string colour, string position, params UtilityDeclaration[] alongside) =>
         Register(new Family(
             name,
             ValueKind.GradientStop,
             [colour],
-            Position: position,
+            Positions: [position],
             Alongside: alongside.Length == 0 ? null : alongside
         ));
 

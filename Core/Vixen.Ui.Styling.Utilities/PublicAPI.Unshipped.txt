@@ -117,10 +117,14 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientViaPosition = "--tw-
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Grayscale = "--tw-grayscale" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.HueRotate = "--tw-hue-rotate" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Invert = "--tw-invert" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskConic = "--tw-mask-conic" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskConicAngle = "--tw-mask-conic-angle" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskFrom = "--tw-mask-from" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskFromPosition = "--tw-mask-from-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskLinear = "--tw-mask-linear" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskLinearAngle = "--tw-mask-linear-angle" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskOpaque = "linear-gradient(#fff, #fff)" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskRadial = "--tw-mask-radial" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskTo = "--tw-mask-to" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.MaskToPosition = "--tw-mask-to-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
@@ -139,7 +143,15 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.Filter() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Fragments.get -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Styling.Utilities.UtilityComposition.InitialValueOf(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.IsFragment(string property) -> bool
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdge(string edge) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeFrom(string edge) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeFromPosition(string edge) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeImage(string edge) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeLayers() -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeTo(string edge) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdgeToPosition(string edge) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskImage(string shape, string geometry) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskLayers() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Ring() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.StopList(bool via) -> string
@@ -154,3 +166,4 @@ static Vixen.Ui.Styling.Utilities.UtilityParser.TryParse(string candidate, out V
 static Vixen.Ui.Styling.Utilities.Variants.IsArbitrary(Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool
 static Vixen.Ui.Styling.Utilities.Variants.StateVariants.get -> System.Collections.Generic.IReadOnlyCollection<string>
 static Vixen.Ui.Styling.Utilities.Variants.TryResolve(string variant, Vixen.Ui.Styling.Utilities.ThemeTokens tokens, out Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool
+static readonly Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdges -> string[]
