@@ -578,17 +578,41 @@ public partial class TypeSelectorReachTests {
         return engine;
     }
 
-    static IReadOnlyList<string> SourceFiles(string pattern) {
-        var separator = Path.DirectorySeparatorChar;
+    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pruned during the walk rather than filtered after it, and the difference is eleven
+    ///     minutes.</b> The obvious spelling — <c>EnumerateFiles(root, pattern, AllDirectories)</c>
+    ///     followed by a <c>Where</c> on the path — still visits every file it then discards, and
+    ///     <c>.claude/worktrees/</c> held <b>56 full checkouts of this repository</b> on the machine
+    ///     where that was measured. Three patterns over fifty-seven copies of the tree is not a
+    ///     filter problem, it is a traversal problem, and a gate that costs eleven minutes is one
+    ///     somebody eventually deletes.
+    ///     <para>
+    ///         ⚠ <c>.claude</c> is also the difference between a test about this repository and a
+    ///         test about whatever else is on the disk: a worktree is a full checkout of arbitrary
+    ///         other work, and this sweep failed a gate run by finding the very <c>World-title</c> it
+    ///         exists to prevent in a tree where that fix had not landed yet — a true statement about
+    ///         a tree nobody was asking about.
+    ///     </para>
+    /// </remarks>
+    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
 
-        return [
-            .. Directory.EnumerateFiles(RepositoryRoot(), pattern, SearchOption.AllDirectories)
-                .Where(path => !path.Contains($"{separator}bin{separator}", StringComparison.Ordinal)
-                    && !path.Contains($"{separator}obj{separator}", StringComparison.Ordinal)
-                    && !path.Contains($"{separator}.claude{separator}", StringComparison.Ordinal)
-                    && !path.Contains($"{separator}.git{separator}", StringComparison.Ordinal))
-                .Order(StringComparer.Ordinal)
-        ];
+    static List<string> SourceFiles(string pattern) {
+        List<string> found = [];
+        Walk(RepositoryRoot(), pattern, found);
+        found.Sort(StringComparer.Ordinal);
+
+        return found;
+    }
+
+    static void Walk(string directory, string pattern, List<string> into) {
+        into.AddRange(Directory.EnumerateFiles(directory, pattern));
+
+        foreach (var child in Directory.EnumerateDirectories(directory)) {
+            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
+                Walk(child, pattern, into);
+            }
+        }
     }
 
     static string Lower(string name) => name.ToLowerInvariant();
