@@ -31,8 +31,9 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         ⚠ <b>The thing this corpus is here to judge is margin collapsing</b>, because that is the
 ///         difference between block layout and a flex column with <c>align-items: stretch</c>, and
 ///         approximating it would have passed a great many of these fixtures while being wrong about
-///         the ones anybody would notice. 264 of the 884 are <c>margin_y_*</c>; 216 pass and the
-///         other 48 are refused for <c>scrollbar-width</c>. None fails.
+///         the ones anybody would notice. 264 of the 884 are <c>margin_y_*</c>, and all 264 now pass:
+///         the last 24 were the <c>*_blocked_by_overflow_*_scroll</c> variants, refused until
+///         <see cref="LayoutStyle.ScrollbarWidth" /> existed. None fails and none is refused.
 ///     </para>
 /// </remarks>
 public class TaffyBlockConformanceTests {
@@ -51,9 +52,14 @@ public class TaffyBlockConformanceTests {
     // passes. They were `scrollbar-width` on `overflow: hidden` boxes, which reserves no gutter and
     // so could never have moved a box — `TaffyStyleMap` was refusing an inert declaration and taking
     // every other property the fixture set down with it. See UnsupportedFixtures.txt.
-    const int ExpectedPassing = 816;
+    //
+    // ⚠ 96 → 32, and this half was the engine's. The other 64 wrote `scrollbar-width` on a box that
+    // really does scroll, where the gutter moves every number inside it; `LayoutStyle.ScrollbarWidth`
+    // reserves it now and all 64 became passes with nothing filed against them. What is left is
+    // block's 16 `text-align`, 8 `display: flow-root`, 4 `float` and 4 `align-content: safe end`.
+    const int ExpectedPassing = 880;
     const int ExpectedFailing = 0;
-    const int ExpectedUnsupported = 96;
+    const int ExpectedUnsupported = 32;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 
@@ -140,20 +146,21 @@ public class TaffyBlockConformanceTests {
         Assert.Equal(264, collapsing.Count);
         Assert.Empty(failures);
 
-        // ⚠ <b>THIS COUNT WAS 48 AND IT WAS HALF A BRIDGE PROBLEM, WHICH IS THE BEST DEMONSTRATION
-        // IN THE CORPUS OF WHY A REFUSAL NEEDS A REASON AND NOT A NUMBER.</b> All 48 of the
-        // `*_blocked_by_overflow_*` fixtures were refused for `scrollbar-width`, and the comment
-        // here said what everyone would say: this store reserves no gutter, so it cannot reproduce
-        // the geometry Chrome recorded. That was true of exactly half of them. The 24
-        // `_overflow_{x,y}_hidden` variants clip WITHOUT a scrollbar — there is no gutter to
-        // reserve, the declaration is inert, and Chrome's geometry was reproducible all along. They
-        // pass. The 24 that say `scroll` are the real engine gap and are still refused. See
-        // UnsupportedFixtures.txt.
+        // ⚠ <b>THIS COUNT WAS 48, THEN 24, AND IS NOW ZERO — AND THE TWO STEPS DOWN HAD DIFFERENT
+        // CAUSES, WHICH IS THE BEST DEMONSTRATION IN THE CORPUS OF WHY A REFUSAL NEEDS A REASON AND
+        // NOT A NUMBER.</b> All 48 of the `*_blocked_by_overflow_*` fixtures were refused for
+        // `scrollbar-width`, under a comment saying what everyone would say: this store reserves no
+        // gutter, so it cannot reproduce the geometry Chrome recorded. That was true of exactly
+        // half. The 24 `_overflow_{x,y}_hidden` variants clip WITHOUT a scrollbar, so the
+        // declaration was inert and Chrome's geometry had been reproducible all along — a BRIDGE
+        // gap. The 24 that say `scroll` were the real ENGINE gap, and `LayoutStyle.ScrollbarWidth`
+        // has closed it: the gutter is reserved, and all 24 pass without a number moving anywhere
+        // else in this family.
         //
         // The *rule* remains covered from a second direction regardless: `Overflow` other than
         // `visible` blocks a collapse, which `MarginCollapsingTests` asserts directly.
-        Assert.Equal(24, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Unsupported));
-        Assert.Equal(240, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Pass));
+        Assert.Equal(0, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Unsupported));
+        Assert.Equal(264, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Pass));
     }
 
     /// <summary>Strips the border-box/content-box and ltr/rtl suffix Taffy appends to every fixture.</summary>

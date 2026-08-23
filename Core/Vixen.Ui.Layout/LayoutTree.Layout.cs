@@ -470,15 +470,15 @@ public sealed partial class LayoutTree {
         var mainAxisOwnerSize = isMainAxisRow ? ownerWidth : ownerHeight;
         var crossAxisOwnerSize = isMainAxisRow ? ownerHeight : ownerWidth;
 
-        var paddingAndBorderAxisMain = StyleResolution.PaddingAndBorderForAxis(in styles[index], mainAxis, direction, ownerWidth);
-        var paddingAndBorderAxisCross = StyleResolution.PaddingAndBorderForAxis(in styles[index], crossAxis, direction, ownerWidth);
-        var leadingPaddingAndBorderCross = StyleResolution.FlexStartPaddingAndBorder(in styles[index], crossAxis, direction, ownerWidth);
+        var contentInsetAxisMain = StyleResolution.ContentInsetForAxis(in styles[index], mainAxis, direction, ownerWidth);
+        var contentInsetAxisCross = StyleResolution.ContentInsetForAxis(in styles[index], crossAxis, direction, ownerWidth);
+        var leadingContentInsetCross = StyleResolution.FlexStartContentInset(in styles[index], crossAxis, direction, ownerWidth);
 
         var sizingModeMainDim = isMainAxisRow ? widthSizingMode : heightSizingMode;
         var sizingModeCrossDim = isMainAxisRow ? heightSizingMode : widthSizingMode;
 
-        var paddingAndBorderAxisRow = isMainAxisRow ? paddingAndBorderAxisMain : paddingAndBorderAxisCross;
-        var paddingAndBorderAxisColumn = isMainAxisRow ? paddingAndBorderAxisCross : paddingAndBorderAxisMain;
+        var contentInsetAxisRow = isMainAxisRow ? contentInsetAxisMain : contentInsetAxisCross;
+        var contentInsetAxisColumn = isMainAxisRow ? contentInsetAxisCross : contentInsetAxisMain;
 
         // STEP 2: DETERMINE AVAILABLE SIZE IN MAIN AND CROSS DIRECTIONS
         var availableInnerWidth = AvailableInnerDimension(
@@ -486,7 +486,7 @@ public sealed partial class LayoutTree {
             direction,
             Dimension.Width,
             availableWidth - marginAxisRow,
-            paddingAndBorderAxisRow,
+            contentInsetAxisRow,
             ownerWidth,
             ownerWidth
         );
@@ -496,7 +496,7 @@ public sealed partial class LayoutTree {
             direction,
             Dimension.Height,
             availableHeight - marginAxisColumn,
-            paddingAndBorderAxisColumn,
+            contentInsetAxisColumn,
             ownerHeight,
             ownerWidth
         );
@@ -590,10 +590,10 @@ public sealed partial class LayoutTree {
             // STEP 5: RESOLVING FLEXIBLE LENGTHS ON MAIN AXIS
             var sizeBasedOnContent = false;
             if (sizingModeMainDim != SizingMode.StretchFit) {
-                var minInnerWidth = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - paddingAndBorderAxisRow;
-                var maxInnerWidth = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - paddingAndBorderAxisRow;
-                var minInnerHeight = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction) - paddingAndBorderAxisColumn;
-                var maxInnerHeight = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction) - paddingAndBorderAxisColumn;
+                var minInnerWidth = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - contentInsetAxisRow;
+                var maxInnerWidth = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - contentInsetAxisRow;
+                var minInnerHeight = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction) - contentInsetAxisColumn;
+                var maxInnerHeight = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction) - contentInsetAxisColumn;
 
                 var minInnerMainDim = isMainAxisRow ? minInnerWidth : minInnerHeight;
                 var maxInnerMainDim = isMainAxisRow ? maxInnerWidth : maxInnerHeight;
@@ -639,7 +639,7 @@ public sealed partial class LayoutTree {
             var cyclicGutter = cyclicGap * int.Max(0, line.ItemCount - 1);
 
             if (cyclicGutter > 0f) {
-                var gapless = availableInnerMainDim + paddingAndBorderAxisMain;
+                var gapless = availableInnerMainDim + contentInsetAxisMain;
                 contentMainDimBeforeCyclicGap = float.IsNaN(contentMainDimBeforeCyclicGap)
                     ? gapless
                     : MathF.Max(contentMainDimBeforeCyclicGap, gapless);
@@ -717,11 +717,11 @@ public sealed partial class LayoutTree {
                         index,
                         crossAxis,
                         direction,
-                        line.CrossDim + paddingAndBorderAxisCross,
+                        line.CrossDim + contentInsetAxisCross,
                         crossAxisOwnerSize,
                         ownerWidth
                     )
-                    - paddingAndBorderAxisCross;
+                    - contentInsetAxisCross;
             }
 
             if (!isNodeFlexWrap && sizingModeCrossDim == SizingMode.StretchFit) {
@@ -733,11 +733,11 @@ public sealed partial class LayoutTree {
                         index,
                         crossAxis,
                         direction,
-                        line.CrossDim + paddingAndBorderAxisCross,
+                        line.CrossDim + contentInsetAxisCross,
                         crossAxisOwnerSize,
                         ownerWidth
                     )
-                    - paddingAndBorderAxisCross;
+                    - contentInsetAxisCross;
             }
 
             // STEP 7: CROSS-AXIS ALIGNMENT
@@ -749,7 +749,7 @@ public sealed partial class LayoutTree {
                         continue;
                     }
 
-                    var leadingCrossDim = leadingPaddingAndBorderCross;
+                    var leadingCrossDim = leadingContentInsetCross;
                     var alignItem = ResolveChildAlignment(index, child);
 
                     if (alignItem == Align.Stretch
@@ -853,8 +853,8 @@ public sealed partial class LayoutTree {
                 availableInnerHeight,
                 crossAxisOwnerSize,
                 ownerWidth,
-                paddingAndBorderAxisCross,
-                leadingPaddingAndBorderCross,
+                contentInsetAxisCross,
+                leadingContentInsetCross,
                 currentDepth
             );
         }
@@ -899,10 +899,10 @@ public sealed partial class LayoutTree {
         } else if (sizingModeMainDim == SizingMode.FitContent && mainOverflow == Overflow.Scroll) {
             var scrolledMain = MathF.Max(
                 MathF.Min(
-                    availableInnerMainDim + paddingAndBorderAxisMain,
+                    availableInnerMainDim + contentInsetAxisMain,
                     BoundAxisWithinMinAndMax(index, direction, mainAxis, maxLineMainDim, mainAxisOwnerSize, ownerWidth)
                 ),
-                paddingAndBorderAxisMain
+                StyleResolution.PaddingAndBorderForAxis(in styles[index], mainAxis, direction, ownerWidth)
             );
 
             SetMeasuredDimension(index, FlexAxis.DimensionOf(mainAxis), scrolledMain, scrolledMain);
@@ -914,24 +914,24 @@ public sealed partial class LayoutTree {
                 index,
                 crossAxis,
                 direction,
-                totalLineCrossDim + paddingAndBorderAxisCross,
+                totalLineCrossDim + contentInsetAxisCross,
                 crossAxisOwnerSize,
                 ownerWidth
             );
         } else if (sizingModeCrossDim == SizingMode.FitContent && crossOverflow == Overflow.Scroll) {
             var scrolledCross = MathF.Max(
                 MathF.Min(
-                    availableInnerCrossDim + paddingAndBorderAxisCross,
+                    availableInnerCrossDim + contentInsetAxisCross,
                     BoundAxisWithinMinAndMax(
                         index,
                         direction,
                         crossAxis,
-                        totalLineCrossDim + paddingAndBorderAxisCross,
+                        totalLineCrossDim + contentInsetAxisCross,
                         crossAxisOwnerSize,
                         ownerWidth
                     )
                 ),
-                paddingAndBorderAxisCross
+                StyleResolution.PaddingAndBorderForAxis(in styles[index], crossAxis, direction, ownerWidth)
             );
 
             SetMeasuredDimension(index, FlexAxis.DimensionOf(crossAxis), scrolledCross, scrolledCross);

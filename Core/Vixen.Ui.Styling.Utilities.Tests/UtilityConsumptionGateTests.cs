@@ -405,6 +405,21 @@ public class UtilityConsumptionGateTests {
     public void The_clipped_scene_can_observe_an_ellipsis() =>
         Assert.Contains("paint", UtilityConsumptionProbe.Channels("text-overflow", "ellipsis"), StringComparer.Ordinal);
 
+    /// <summary>The scrollport scene can observe a scrollbar gutter.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named after the scene rather than the property, like the ellipsis above it, because
+    ///     the thing that can break is the scene.</b> <c>scrollbar-width</c> is read on exactly one
+    ///     condition — <see cref="Overflow.Scroll" /> on the axis — and until <c>scrollport</c> was
+    ///     added no scene put that on <c>#probe</c>. The <c>scrolled</c> scene looks as though it
+    ///     would: its probe is a <c>ScrollView</c>. But <c>ControlTheme.vcss</c> gives a
+    ///     <c>scroll-view</c> <c>overflow: hidden</c> and lays an absolutely positioned bar over the
+    ///     top, so the store sees a box that clips, and a gutter with 180 corpus fixtures behind it
+    ///     measured inert.
+    /// </remarks>
+    [Fact]
+    public void The_scrollport_scene_can_observe_a_scrollbar_gutter() =>
+        Assert.Contains("layout", UtilityConsumptionProbe.Channels("scrollbar-width", "10px"), StringComparer.Ordinal);
+
     /// <summary>What the run measured, printed whether it passed or not.</summary>
     /// <remarks>
     ///     ⚠ <b>The allow-list is only a deterrent if somebody sees it.</b> A silent pass is how a list

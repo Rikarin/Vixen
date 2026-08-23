@@ -274,6 +274,130 @@ static class StyleResolution {
             + FlexEndPaddingAndBorder(in style, axis, direction, widthSize);
     }
 
+    /// <summary>The scrollbar gutter across an axis, all of it at one edge.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="axis">The axis whose SIZE the gutter comes out of.</param>
+    /// <returns>The gutter, or zero.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The overflow it reads is the one at right angles to the axis it is measuring.</b> A
+    ///     horizontal axis is a width, and what takes width away is the VERTICAL scrollbar, which is
+    ///     there because <see cref="LayoutStyle.OverflowY" /> scrolls. Reading
+    ///     <c>OverflowX</c> for a row because both words sound horizontal transposes every scroll
+    ///     container in the tree, and <c>leaf_overflow_scrollbars_take_up_space_x_axis</c> — which
+    ///     scrolls across and expects the extra 15 points DOWN — is the fixture that says so.
+    /// </remarks>
+    public static float ScrollbarGutterForAxis(in LayoutStyle style, FlexDirection axis) {
+        var overflow = FlexAxis.IsRow(axis) ? style.OverflowY : style.OverflowX;
+        return overflow == Overflow.Scroll && style.ScrollbarWidth > 0f ? style.ScrollbarWidth : 0f;
+    }
+
+    /// <summary>The scrollbar gutter at one physical edge of an axis.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="axis">The axis whose size the gutter comes out of.</param>
+    /// <param name="edge">The edge being asked about.</param>
+    /// <param name="direction">The writing direction.</param>
+    /// <returns>The whole gutter if it lands on that edge, otherwise zero.</returns>
+    /// <remarks>
+    ///     The bar is at the inline END of its axis: the right in <c>ltr</c> and the left in
+    ///     <c>rtl</c> for a vertical bar, the bottom either way for a horizontal one. It is never
+    ///     split between the edges the way a centred gutter would be, so exactly one of the two
+    ///     answers is non-zero.
+    /// </remarks>
+    public static float ScrollbarGutterAtEdge(in LayoutStyle style, FlexDirection axis, Edge edge, Direction direction) =>
+        edge == FlexAxis.InlineEndEdge(axis, direction) ? ScrollbarGutterForAxis(in style, axis) : 0f;
+
+    /// <summary>Padding, border and scrollbar gutter at the writing-direction start of an axis.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="axis">The axis.</param>
+    /// <param name="direction">The writing direction.</param>
+    /// <param name="widthSize">What a percentage padding is a fraction of.</param>
+    /// <returns>The total.</returns>
+    /// <remarks>
+    ///     Identical to <see cref="InlineStartPaddingAndBorder" /> today and named separately anyway,
+    ///     because the two mean different things and only one of them stays true if a future
+    ///     <c>scrollbar-gutter: both-edges</c> ever puts a gutter here.
+    /// </remarks>
+    public static float InlineStartContentInset(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+        InlineStartPaddingAndBorder(in style, axis, direction, widthSize)
+        + ScrollbarGutterAtEdge(in style, axis, FlexAxis.InlineStartEdge(axis, direction), direction);
+
+    /// <summary>Padding, border and scrollbar gutter at the writing-direction end of an axis.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="axis">The axis.</param>
+    /// <param name="direction">The writing direction.</param>
+    /// <param name="widthSize">What a percentage padding is a fraction of.</param>
+    /// <returns>The total.</returns>
+    public static float InlineEndContentInset(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+        InlineEndPaddingAndBorder(in style, axis, direction, widthSize)
+        + ScrollbarGutterAtEdge(in style, axis, FlexAxis.InlineEndEdge(axis, direction), direction);
+
+    /// <summary>Padding, border and scrollbar gutter at the flow start of an axis.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="axis">The axis.</param>
+    /// <param name="direction">The writing direction.</param>
+    /// <param name="widthSize">What a percentage padding is a fraction of.</param>
+    /// <returns>The total.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Flow start and inline start are not the same edge, and the gutter follows the writing
+    ///     direction rather than the flow.</b> A <c>row-reverse</c> container lays its items out from
+    ///     the right, but its vertical scrollbar is still on the right in <c>ltr</c> — so on that
+    ///     container the gutter lands here, at the flow START, and this is why the question is asked
+    ///     by edge rather than answered by position.
+    /// </remarks>
+    public static float FlexStartContentInset(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+        FlexStartPaddingAndBorder(in style, axis, direction, widthSize)
+        + ScrollbarGutterAtEdge(in style, axis, FlexAxis.FlexStartEdge(axis), direction);
+
+    /// <summary>Padding, border and scrollbar gutter at the flow end of an axis.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="axis">The axis.</param>
+    /// <param name="direction">The writing direction.</param>
+    /// <param name="widthSize">What a percentage padding is a fraction of.</param>
+    /// <returns>The total.</returns>
+    /// <remarks>See <see cref="FlexStartContentInset" /> for why this is not simply the gutter.</remarks>
+    public static float FlexEndContentInset(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+        FlexEndPaddingAndBorder(in style, axis, direction, widthSize)
+        + ScrollbarGutterAtEdge(in style, axis, FlexAxis.FlexEndEdge(axis), direction);
+
+    /// <summary>Everything between the border box and the content box, across a whole axis.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="axis">The axis.</param>
+    /// <param name="direction">The writing direction.</param>
+    /// <param name="widthSize">What a percentage padding is a fraction of.</param>
+    /// <returns>The total.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This and <see cref="PaddingAndBorderForAxis" /> differ by the scrollbar gutter,
+    ///         and choosing between them is not a matter of taste.</b> Subtract THIS to find the room
+    ///         a node's children have, and add it back to turn a content size into a border-box one.
+    ///         Use the other one for the two places CSS says a gutter does not reach: the floor a box
+    ///         may never be clamped below (<c>BoundAxis</c>), and the amount
+    ///         <c>box-sizing: content-box</c> adds to a specified size
+    ///         (<see cref="WithBoxSizing" />).
+    ///     </para>
+    ///     <para>
+    ///         Both fixtures are in the corpus and they disagree in opposite directions.
+    ///         <c>leaf_overflow_scrollbars_take_up_space_both_axis</c> measures 20×10 of text and
+    ///         expects 35×25, so the gutter is in the size. <c>..._overridden_by_size</c> asks for
+    ///         2×4 and expects 2×4, so the gutter is not in the floor.
+    ///     </para>
+    /// </remarks>
+    public static float ContentInsetForAxis(in LayoutStyle style, FlexDirection axis, Direction direction, float widthSize) =>
+        PaddingAndBorderForAxis(in style, axis, direction, widthSize) + ScrollbarGutterForAxis(in style, axis);
+
+    /// <summary>Everything between the border box and the content box, across a dimension.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="dimension">The dimension.</param>
+    /// <param name="direction">The writing direction.</param>
+    /// <param name="widthSize">What a percentage padding is a fraction of.</param>
+    /// <returns>The total.</returns>
+    /// <remarks>See <see cref="ContentInsetForAxis" /> for when this is the wrong one to reach for.</remarks>
+    public static float ContentInsetForDimension(in LayoutStyle style, Dimension dimension, Direction direction, float widthSize) {
+        var axis = dimension == Dimension.Width ? FlexDirection.Row : FlexDirection.Column;
+        return PaddingAndBorderForDimension(in style, dimension, direction, widthSize)
+            + ScrollbarGutterForAxis(in style, axis);
+    }
+
     /// <summary>Both borders across an axis.</summary>
     /// <param name="style">The style.</param>
     /// <param name="axis">The axis.</param>
@@ -449,6 +573,13 @@ static class StyleResolution {
     /// <param name="widthSize">What a percentage padding is a fraction of.</param>
     /// <param name="direction">The writing direction.</param>
     /// <returns>The border-box length, or NaN.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Padding and border, and deliberately not the scrollbar gutter.</b>
+    ///     <c>box-sizing: content-box</c> grows the border box by the edges the author did not count;
+    ///     a scrollbar is not one of them, because it is taken out of the content box rather than
+    ///     added outside it. <c>leaf_overflow_scrollbars_overridden_by_size__content_box_ltr</c> asks
+    ///     for a 2pt content box beside a 15pt gutter and Chrome answers 2, not 17.
+    /// </remarks>
     public static float WithBoxSizing(
         in LayoutStyle style,
         float value,

@@ -54,9 +54,14 @@ public class TaffyGridConformanceTests {
     // existed, hidden behind a `scrollbar-width` refusal on the only fixtures that exercise it; the
     // other 4 are the first fixtures in this corpus to need a writing mode on `LayoutStyle`, which
     // was previously untestable because the attribute was refused. See UnsupportedFixtures.txt.
-    const int ExpectedPassing = 2002;
+    //
+    // ⚠ 76 → 36 for `scrollbar-width`, and all 40 became passes. Grid needed two rules the other
+    // algorithms did not: `RecordAbsoluteGridAreas` had to put the gutter inside the padding edge an
+    // `auto` grid line resolves to, and the RTL mirror in `PlaceGridItemBoxes` had to have its
+    // origin clamped into a box narrower than its own scrollbar. See UnsupportedFixtures.txt.
+    const int ExpectedPassing = 2042;
     const int ExpectedFailing = 42;
-    const int ExpectedUnsupported = 76;
+    const int ExpectedUnsupported = 36;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

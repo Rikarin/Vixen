@@ -292,7 +292,7 @@ Layout	overscroll	static	overscroll-auto	overscroll-behavior	overscroll	overscro
 Layout	overscroll-x	static	overscroll-x-auto	overscroll-behavior-x	overscroll-x	overscroll-behavior-x	overscroll-behavior-x		works				overscroll-x-auto overscroll-x-contain overscroll-x-none
 Layout	overscroll-y	static	overscroll-y-auto	overscroll-behavior-y	overscroll-y	overscroll-behavior-y	overscroll-behavior-y		works				overscroll-y-auto overscroll-y-contain overscroll-y-none
 Interactivity	scroll	static	scroll-auto	scroll-behavior	scroll	scroll-behavior	scroll-behavior		works				scroll-auto scroll-smooth
-Interactivity	scrollbar	static	scrollbar-auto	scrollbar-width					absent				scrollbar-auto scrollbar-thin scrollbar-none
+Interactivity	scrollbar	static	scrollbar-auto	scrollbar-width	scrollbar	scrollbar-width	scrollbar-width		works				scrollbar-auto scrollbar-thin scrollbar-none
 Interactivity	scrollbar-gutter	static	scrollbar-gutter-auto	scrollbar-gutter					absent				scrollbar-gutter-auto scrollbar-gutter-stable scrollbar-gutter-both
 Typography	truncate	static	truncate	overflow,text-overflow,white-space	truncate	overflow,text-overflow,white-space	overflow,text-overflow,white-space		works				truncate
 Typography	text-overflow	static	text-ellipsis	text-overflow	text	color,font-size,line-height,text-align,text-overflow,text-wrap	color,font-size,line-height,text-align,text-overflow,text-wrap		works			text-ellipsis and text-clip are keywords on the family `text`; overflow-ellipsis is v3 spelling that v4 removed	text-ellipsis text-clip

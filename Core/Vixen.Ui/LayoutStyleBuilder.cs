@@ -302,6 +302,7 @@ public sealed class LayoutStyleBuilder {
         ApplyDimensions(style, in context, ref result);
         ApplyEdges(style, in context, ref result);
         ApplyGaps(style, in context, ref result);
+        ApplyScrollbar(style, in context, ref result);
         ApplyPlacements(style, ref result);
 
         return result;
@@ -670,6 +671,39 @@ public sealed class LayoutStyleBuilder {
         SetLength(style, names.ColumnGap, in context, ref result.Gap[(int) Gutter.Column]);
     }
 
+    /// <summary>Writes the scrollbar gutter.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A length here, where CSS has a three-valued keyword, and the difference is
+    ///         deliberate.</b> The web's <c>scrollbar-width</c> is <c>auto | thin | none</c> because
+    ///         the browser owns the widget and only the page's preference is negotiable. Nothing here
+    ///         owns one — <c>ScrollView</c> builds its own bar and knows how thick it is — so the
+    ///         useful value is the thickness itself. <c>none</c> is spelled <c>0</c> and the keyword
+    ///         is accepted for it, because a stylesheet turning a gutter off should not have to know
+    ///         that.
+    ///     </para>
+    ///     <para>
+    ///         Inert unless an axis is a scroll container, which is what makes this safe to put in a
+    ///         utility layer: <c>scrollbar-15</c> on a box that clips or spills moves nothing. See
+    ///         <see cref="LayoutStyle.ScrollbarWidth" />.
+    ///     </para>
+    /// </remarks>
+    void ApplyScrollbar(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
+        if (!TryValue(style, names.ScrollbarWidth, out var value)) {
+            return;
+        }
+
+        if (value.Kind == StyleValueKind.Keyword && value.Keyword == keywords.None) {
+            result.ScrollbarWidth = 0f;
+            return;
+        }
+
+        var length = context.ToLength(value);
+        if (length.IsDefined && length.Unit == LayoutUnit.Point) {
+            result.ScrollbarWidth = MathF.Max(0f, length.Value);
+        }
+    }
+
     /// <summary>Applies one family's physical and logical longhands.</summary>
     /// <remarks>
     ///     The logical pair is written to the <c>Start</c> and <c>End</c> slots rather than being
@@ -965,6 +999,7 @@ public sealed class LayoutStyleBuilder {
             WordSpacing = table.Intern("word-spacing");
             TextIndent = table.Intern("text-indent");
             Gap = table.Intern("gap");
+            ScrollbarWidth = table.Intern("scrollbar-width");
             RowGap = table.Intern("row-gap");
             ColumnGap = table.Intern("column-gap");
 
@@ -1027,6 +1062,7 @@ public sealed class LayoutStyleBuilder {
         public int WordSpacing { get; }
         public int TextIndent { get; }
         public int Gap { get; }
+        public int ScrollbarWidth { get; }
         public int RowGap { get; }
         public int ColumnGap { get; }
         public int GridTemplateColumns { get; }
@@ -1058,6 +1094,7 @@ public sealed class LayoutStyleBuilder {
     sealed class Keywords {
         public Keywords(NameTable table) {
             Auto = table.Intern("auto");
+            None = table.Intern("none");
 
             Directions = new Dictionary<int, Direction> {
                 [table.Intern("inherit")] = Direction.Inherit,
@@ -1188,6 +1225,7 @@ public sealed class LayoutStyleBuilder {
         }
 
         public int Auto { get; }
+        public int None { get; }
         public Dictionary<int, VerticalAlign> VerticalAligns { get; }
         public Dictionary<int, Direction> Directions { get; }
         public Dictionary<int, FlexDirection> FlexDirections { get; }

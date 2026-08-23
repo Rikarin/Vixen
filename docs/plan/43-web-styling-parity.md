@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **159** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **160** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **51** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **111** |
+| **absent** | not emitted at all | **110** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -389,7 +389,7 @@ refusal block, which already says so for the same reason.
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
 | Layout | 49 | 22 | 8 | 0 | 15 | 3 | 1 |
-| Interactivity | 39 | 26 | 0 | 1 | 12 | 0 | 0 |
+| Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 11 | 6 | 0 | 17 | 0 | 0 |
 | Borders | 34 | 24 | 6 | 0 | 4 | 0 | 0 |
@@ -403,7 +403,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **159** | **51** | **3** | **111** | **3** | **1** |
+| **Total** | **328** | **160** | **51** | **3** | **110** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
 Interactivity at 26 of 39 and Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and
@@ -950,7 +950,7 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
 | `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
 | `origin-*` | **refused** | `transform-origin` moves no channel, and cannot: it needs a transform whose fixed point matters, and `translate` — the one transform the engine implements — is origin-independent. `scale` and `rotate` are refused under **#23** |
-| `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` and `scrollbar-*` remain deferred |
+| `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` remains deferred, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
 ⚠ **The `origin-*` refusal is the one worth reading, because a scene cannot fix it.** Every other
 inert verdict this document has recorded turned out at least *possibly* to be a missing arrangement —
@@ -2477,8 +2477,8 @@ still in, mapped onto the glyph rasteriser's own switch rather than onto the CSS
 choosing between grayscale and subpixel AA is a real thing an editor theme wants to say.
 
 **3 · Scroll-container CSS** — **32 roots**: the 22 `scroll-m-*`/`scroll-p-*`, plus `snap-*`,
-`overscroll-*`, `scroll-behavior` and `scrollbar-*`. ✅ **Discharged for 22 of the 32 by A18; ten stay
-deferred.** The argument was right and one word of its premise was wrong, which is worth keeping
+`overscroll-*`, `scroll-behavior` and `scrollbar-*`. ✅ **Discharged for 23 of the 32 — 22 by A18 and
+`scrollbar` with the layout store's scrollbar gutter; nine stay deferred.** The argument was right and one word of its premise was wrong, which is worth keeping
 rather than editing away.
 
 The argument: `scroll-margin` means something only to a scroll container that honours it, so writing
@@ -2506,10 +2506,20 @@ dependency.
   algorithm, which is a feature rather than a read: a scroll that comes to rest has to choose a
   snap position among the candidates in its subtree, and nothing computes candidates. ⚠ This one
   really is "the behaviour comes first", and it is the only one of the four that is.
-- **`scrollbar-width` / `scrollbar-color` / `scrollbar-gutter`** — `ScrollBar` is a child element
-  this control creates and themes through `scrollbar { … }`, `--track-color` and `--thumb-color`.
-  A CSS property that restyled it would be a second way to say what the theme already says, and
-  `scrollbar-gutter` is a distinction `Overflow` deliberately does not carry (see `LayoutEnums`).
+- **`scrollbar-color` / `scrollbar-gutter`** — `ScrollBar` is a child element this control creates
+  and themes through `scrollbar { … }`, `--track-color` and `--thumb-color`. A CSS property that
+  restyled it would be a second way to say what the theme already says, so `scrollbar-thumb-*` and
+  `scrollbar-track-*` stay absent. `scrollbar-gutter` is a distinction `Overflow` deliberately does
+  not carry — `auto` and `stable` differ only in whether the gutter is reserved when there is
+  nothing to scroll, and there is no `Overflow.Auto` to hang that on (see `LayoutEnums`).
+- ⚠ **`scrollbar-width` was in that list and should not have been, and the reason is the one this
+  document keeps rediscovering: the argument was about PAINTING.** A gutter is not a restyling of
+  the bar; it is room taken out of the content box, and every size below a scroll container is
+  computed against what is left. 180 of Taffy's fixtures asserted that and were being skipped.
+  `LayoutStyle.ScrollbarWidth` reserves it now and the `scrollbar` root reads **works**.
+  ⚠ It needed a new probe scene to be seen — `ControlTheme.vcss` gives `scroll-view`
+  `overflow: hidden` with the bar laid over the top, so no scene in the gate had a scroll container
+  in it and the property measured inert with 180 fixtures behind it.
 
 **4 · `position: fixed` and `sticky`** — doc 09 excludes `fixed` on the grounds that there is no
 viewport in a game overlay. That argument holds for `fixed` and **does not hold for `sticky`**: a

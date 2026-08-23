@@ -1277,6 +1277,24 @@ public static class UtilityFamilies {
             ["auto"] = "auto", ["hidden"] = "hidden", ["visible"] = "visible", ["scroll"] = "scroll"
         });
 
+        // ⚠ <b>Lengths where the web has keywords, because the two are answering different
+        // questions.</b> A browser's `scrollbar-width: auto | thin | none` is a page's *preference*
+        // about a widget the browser owns and draws; nothing here owns one, so the useful value is
+        // the thickness, and `LayoutStyle.ScrollbarWidth` is a float of points. The three class
+        // names stay Tailwind's so a stylesheet reads the same, and each resolves to a number.
+        //
+        // ⚠ `auto` is 10 because that is what `scrollbar.vertical` is in `ControlTheme.vcss`. The
+        // point of this family is to reserve room for the bar `ScrollView` actually builds, and a
+        // gutter that disagrees with the bar is worse than no gutter at all — it is the same wrong
+        // width, plus a gap. If the theme's 10 moves, this moves with it.
+        //
+        // ⚠ Inert unless the box scrolls, and that is the property doing its job rather than a
+        // hole: `Overflow.Hidden` clips without a bar, so there is nothing to reserve for. See
+        // `LayoutStyle.ScrollbarWidth`.
+        Keywords("scrollbar", "scrollbar-width", new() {
+            ["auto"] = "10px", ["thin"] = "6px", ["none"] = "0px"
+        });
+
         // The ratio keywords have to be pairs rather than numbers: the layout reads `16 / 9` with a
         // parser of its own, and `aspect-16/9` cannot be written as a class because the parser reads
         // a top-level slash as an opacity long before the family sees it.

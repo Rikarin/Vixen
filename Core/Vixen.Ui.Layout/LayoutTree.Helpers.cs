@@ -132,8 +132,8 @@ public sealed partial class LayoutTree {
             return borderBoxWidth / ratio;
         }
 
-        var acrossInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
-        var downInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
+        var acrossInset = StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
+        var downInset = StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
 
         return (MathF.Max(0f, borderBoxWidth - acrossInset) / ratio) + downInset;
     }
@@ -152,8 +152,8 @@ public sealed partial class LayoutTree {
             return borderBoxHeight * ratio;
         }
 
-        var acrossInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
-        var downInset = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
+        var acrossInset = StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
+        var downInset = StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
 
         return (MathF.Max(0f, borderBoxHeight - downInset) * ratio) + acrossInset;
     }
@@ -490,6 +490,27 @@ public sealed partial class LayoutTree {
     Overflow OverflowOn(int index, Dimension dimension) =>
         dimension == Dimension.Width ? styles[index].OverflowX : styles[index].OverflowY;
 
+    /// <summary>The scrollbar gutter this node reserves at one physical edge.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The companion to <c>results[index].Padding[edge] + results[index].Border[edge]</c>,
+    ///         which is how block, grid, inline and the two leaf paths all ask for their own edges.
+    ///         Those two arrays are resolved once and stored physically; this is not stored, because
+    ///         it needs no resolving — the gutter is an absolute length and the only thing that
+    ///         varies is which edge it lands on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Add it to the inset, never to <see cref="LayoutResult.Padding" /> itself.</b>
+    ///         Folding it into the stored arrays would make every one of those sites correct in one
+    ///         edit and would also make <see cref="GetComputedPadding" /> report a padding the
+    ///         stylesheet never wrote, which is the number a renderer paints the background inset by.
+    ///     </para>
+    /// </remarks>
+    float ScrollbarGutterAt(int index, Edge edge, Direction direction) {
+        var axis = edge is Edge.Left or Edge.Right ? FlexDirection.Row : FlexDirection.Column;
+        return StyleResolution.ScrollbarGutterAtEdge(in styles[index], axis, edge, direction);
+    }
+
     /// <summary>
     ///     The automatic minimum main size from CSS Flexbox §4.5, or NaN when none applies.
     /// </summary>
@@ -720,7 +741,7 @@ public sealed partial class LayoutTree {
             return 0f;
         }
 
-        return MathF.Max(0f, width - StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth));
+        return MathF.Max(0f, width - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth));
     }
 
     /// <summary>As <see cref="ProbeContentWidth" />, for the block axis.</summary>
@@ -734,7 +755,7 @@ public sealed partial class LayoutTree {
             return 0f;
         }
 
-        return MathF.Max(0f, height - StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth));
+        return MathF.Max(0f, height - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth));
     }
 
     float ComputeMinContentSizeUncached(int index, FlexDirection requestedAxis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
@@ -753,8 +774,8 @@ public sealed partial class LayoutTree {
         // the side. That is not a control compensating for a bug — it is this rule being missing.
         if (OverflowOn(index, FlexAxis.DimensionOf(requestedAxis)) != Overflow.Visible) {
             var clipDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
-            return StyleResolution.FlexStartPaddingAndBorder(in styles[index], requestedAxis, clipDirection, ownerWidth)
-                + StyleResolution.FlexEndPaddingAndBorder(in styles[index], requestedAxis, clipDirection, ownerWidth);
+            return StyleResolution.FlexStartContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth)
+                + StyleResolution.FlexEndContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth);
         }
 
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
@@ -781,8 +802,8 @@ public sealed partial class LayoutTree {
 
             var leafDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
             var leafPaddingAndBorder =
-                StyleResolution.FlexStartPaddingAndBorder(in styles[index], requestedAxis, leafDirection, ownerWidth)
-                + StyleResolution.FlexEndPaddingAndBorder(in styles[index], requestedAxis, leafDirection, ownerWidth);
+                StyleResolution.FlexStartContentInset(in styles[index], requestedAxis, leafDirection, ownerWidth)
+                + StyleResolution.FlexEndContentInset(in styles[index], requestedAxis, leafDirection, ownerWidth);
 
             return (wantRow ? size.Width : size.Height) + leafPaddingAndBorder;
         }
@@ -831,10 +852,10 @@ public sealed partial class LayoutTree {
             crossMax = MathF.Max(crossMax, childCross);
         }
 
-        mainTotal += StyleResolution.FlexStartPaddingAndBorder(in styles[index], nodeMainAxis, direction, ownerWidth)
-            + StyleResolution.FlexEndPaddingAndBorder(in styles[index], nodeMainAxis, direction, ownerWidth);
-        crossMax += StyleResolution.FlexStartPaddingAndBorder(in styles[index], nodeCrossAxis, direction, ownerWidth)
-            + StyleResolution.FlexEndPaddingAndBorder(in styles[index], nodeCrossAxis, direction, ownerWidth);
+        mainTotal += StyleResolution.FlexStartContentInset(in styles[index], nodeMainAxis, direction, ownerWidth)
+            + StyleResolution.FlexEndContentInset(in styles[index], nodeMainAxis, direction, ownerWidth);
+        crossMax += StyleResolution.FlexStartContentInset(in styles[index], nodeCrossAxis, direction, ownerWidth)
+            + StyleResolution.FlexEndContentInset(in styles[index], nodeCrossAxis, direction, ownerWidth);
 
         var nodeMainIsRow = FlexAxis.IsRow(nodeMainAxis);
         return wantRow ? nodeMainIsRow ? mainTotal : crossMax : nodeMainIsRow ? crossMax : mainTotal;

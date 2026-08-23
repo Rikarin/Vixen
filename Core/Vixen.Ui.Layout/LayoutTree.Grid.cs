@@ -100,12 +100,25 @@ public sealed partial class LayoutTree {
         float marginAxisRow,
         float marginAxisColumn
     ) {
-        var insetLeft = results[index].Padding[(int) Edge.Left] + results[index].Border[(int) Edge.Left];
-        var insetRight = results[index].Padding[(int) Edge.Right] + results[index].Border[(int) Edge.Right];
-        var insetTop = results[index].Padding[(int) Edge.Top] + results[index].Border[(int) Edge.Top];
-        var insetBottom = results[index].Padding[(int) Edge.Bottom] + results[index].Border[(int) Edge.Bottom];
+        var insetLeft = results[index].Padding[(int) Edge.Left] + results[index].Border[(int) Edge.Left]
+            + ScrollbarGutterAt(index, Edge.Left, direction);
+        var insetRight = results[index].Padding[(int) Edge.Right] + results[index].Border[(int) Edge.Right]
+            + ScrollbarGutterAt(index, Edge.Right, direction);
+        var insetTop = results[index].Padding[(int) Edge.Top] + results[index].Border[(int) Edge.Top]
+            + ScrollbarGutterAt(index, Edge.Top, direction);
+        var insetBottom = results[index].Padding[(int) Edge.Bottom] + results[index].Border[(int) Edge.Bottom]
+            + ScrollbarGutterAt(index, Edge.Bottom, direction);
         var insetRow = insetLeft + insetRight;
         var insetColumn = insetTop + insetBottom;
+
+        // ⚠ The floors below are padding and border WITHOUT the scrollbar gutter, and the difference
+        // is a fixture rather than a nicety. `*_overflow_scrollbars_overridden_by_max_size` puts a
+        // 15pt bar under a `max-height: 4px` and Chrome answers 4: a box may be laid out smaller
+        // than its own scrollbar — the bar simply covers everything — but never smaller than its own
+        // edges. Flooring at `insetRow`/`insetColumn` would let the gutter win an argument the
+        // author's `max-*` is supposed to.
+        var paddingBorderRow = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
+        var paddingBorderColumn = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth);
 
         var columnGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Row, ownerWidth);
         var rowGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Column, ownerWidth);
@@ -181,7 +194,7 @@ public sealed partial class LayoutTree {
             unboundedWidth = definiteWidth;
         } else {
             outerWidth = BoundAxis(index, FlexDirection.Row, direction, contentWidth + insetRow, ownerWidth, ownerWidth);
-            unboundedWidth = MathF.Max(contentWidth + insetRow, insetRow);
+            unboundedWidth = MathF.Max(contentWidth + insetRow, paddingBorderRow);
 
             // ⚠ <b>A fit-content container that did not fit re-sizes its tracks, and one that did
             // must not.</b> CSS Sizing §5.1 makes fit-content the max-content size clamped to the
@@ -189,7 +202,7 @@ public sealed partial class LayoutTree {
             // bites, the tracks were sized against a width the container does not have, and an
             // `1fr` column would keep the width it wanted rather than shrinking.
             var fitCeiling = widthSizingMode == SizingMode.FitContent && !float.IsNaN(availableWidth)
-                ? MathF.Max(availableWidth - marginAxisRow, insetRow)
+                ? MathF.Max(availableWidth - marginAxisRow, paddingBorderRow)
                 : float.PositiveInfinity;
 
             var clamped = MathF.Min(outerWidth, fitCeiling);
@@ -286,7 +299,7 @@ public sealed partial class LayoutTree {
 
         var unboundedHeight = heightSizingMode == SizingMode.StretchFit
             ? definiteHeight
-            : MathF.Max(contentHeight + insetColumn, insetColumn);
+            : MathF.Max(contentHeight + insetColumn, paddingBorderColumn);
 
         innerHeight = MathF.Max(0f, outerHeight - insetColumn);
 
@@ -333,7 +346,19 @@ public sealed partial class LayoutTree {
         PositionTracks(in columnAxis, styles[index].JustifyContent);
         PositionTracks(in rowAxis, JustifyOf(styles[index].AlignContent));
 
-        PlaceGridItemBoxes(index, in columnAxis, in rowAxis, direction, innerWidth, innerHeight, insetLeft, insetTop, currentDepth);
+        // ⚠ THE ORIGIN IS CLAMPED INTO THE BOX, and only a scrollbar gutter can push it out of one.
+        // `insetLeft` and `insetTop` are the content box's origin, and every other contributor to
+        // them is already inside the border box by construction — a box is never laid out narrower
+        // than its own padding and border. The gutter is the exception: `Overflow.Scroll` reserves
+        // 15 points inside a `width: 2px` box, and CSS truncates the bar at the box rather than
+        // growing the box to fit it. `innerWidth` has already bottomed out at zero, so without this
+        // the RTL mirror in `PlaceGridItemBoxes` — `insetLeft + innerWidth - …` — would start from
+        // 15 and put the item outside its own container. `grid_overflow_scrollbars_overridden_by_*`
+        // are three families of exactly that, all `_rtl`, and Chrome puts the item at 2.
+        var originLeft = MathF.Min(insetLeft, MathF.Max(0f, outerWidth - insetRight));
+        var originTop = MathF.Min(insetTop, MathF.Max(0f, outerHeight - insetBottom));
+
+        PlaceGridItemBoxes(index, in columnAxis, in rowAxis, direction, innerWidth, innerHeight, originLeft, originTop, currentDepth);
 
         RecordAbsoluteGridAreas(
             index,
@@ -344,8 +369,8 @@ public sealed partial class LayoutTree {
             explicitColumns,
             explicitRows,
             innerWidth,
-            insetLeft,
-            insetTop
+            originLeft,
+            originTop
         );
 
         if (styles[index].PositionType != PositionType.Static || currentDepth == 1) {
@@ -889,10 +914,20 @@ public sealed partial class LayoutTree {
         float insetLeft,
         float insetTop
     ) {
-        var borderLeft = results[index].Border[(int) Edge.Left];
-        var borderTop = results[index].Border[(int) Edge.Top];
-        var paddingBoxRight = results[index].MeasuredDimensions[(int) Dimension.Width] - results[index].Border[(int) Edge.Right];
-        var paddingBoxBottom = results[index].MeasuredDimensions[(int) Dimension.Height] - results[index].Border[(int) Edge.Bottom];
+        // ⚠ The scrollbar gutter is inside this rectangle, exactly as it is in `PaddingBoxOf` —
+        // an `auto` grid line for an out-of-flow child resolves to the container's padding edge, and
+        // CSS Overflow puts the bar inside that edge. `grid_absolute_resolved_insets` is the fixture
+        // and it is worth reading in both directions: the `top: 100%; left: 100%` child lands at 165
+        // rather than 180 in `ltr`, and the `left: 0` child lands at 35 rather than 20 in `rtl`,
+        // because the bar changes sides and the origin moves instead of the far edge.
+        var borderLeft = results[index].Border[(int) Edge.Left] + ScrollbarGutterAt(index, Edge.Left, direction);
+        var borderTop = results[index].Border[(int) Edge.Top] + ScrollbarGutterAt(index, Edge.Top, direction);
+        var paddingBoxRight = results[index].MeasuredDimensions[(int) Dimension.Width]
+            - results[index].Border[(int) Edge.Right]
+            - ScrollbarGutterAt(index, Edge.Right, direction);
+        var paddingBoxBottom = results[index].MeasuredDimensions[(int) Dimension.Height]
+            - results[index].Border[(int) Edge.Bottom]
+            - ScrollbarGutterAt(index, Edge.Bottom, direction);
 
         foreach (var child in ChildIds(index)) {
             if (styles[child].Display == Display.None || styles[child].PositionType != PositionType.Absolute) {

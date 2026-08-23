@@ -21,8 +21,8 @@ public sealed partial class LayoutTree {
         float availableInnerWidth,
         bool performLayout
     ) {
-        var leadingPaddingAndBorderMain = StyleResolution.FlexStartPaddingAndBorder(in styles[index], mainAxis, direction, ownerWidth);
-        var trailingPaddingAndBorderMain = StyleResolution.FlexEndPaddingAndBorder(in styles[index], mainAxis, direction, ownerWidth);
+        var leadingContentInsetMain = StyleResolution.FlexStartContentInset(in styles[index], mainAxis, direction, ownerWidth);
+        var trailingContentInsetMain = StyleResolution.FlexEndContentInset(in styles[index], mainAxis, direction, ownerWidth);
         var gap = StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim);
         var mainDimension = FlexAxis.DimensionOf(mainAxis);
 
@@ -30,7 +30,7 @@ public sealed partial class LayoutTree {
         if (sizingModeMainDim == SizingMode.FitContent && line.RemainingFreeSpace > 0f) {
             var min = StyleResolution.ResolvedMinDimension(in styles[index], mainDimension, mainAxisOwnerSize, ownerWidth, direction);
             if (styles[index].MinDimensions[(int) mainDimension].IsDefined && !float.IsNaN(min)) {
-                var minAvailableMainDim = min - leadingPaddingAndBorderMain - trailingPaddingAndBorderMain;
+                var minAvailableMainDim = min - leadingContentInsetMain - trailingContentInsetMain;
                 var occupied = availableInnerMainDim - line.RemainingFreeSpace;
                 line.RemainingFreeSpace = MathF.Max(0f, minAvailableMainDim - occupied);
             } else {
@@ -73,7 +73,7 @@ public sealed partial class LayoutTree {
             }
         }
 
-        line.MainDim = leadingPaddingAndBorderMain + leadingMainDim;
+        line.MainDim = leadingContentInsetMain + leadingMainDim;
         line.CrossDim = 0f;
 
         var maxAscent = 0f;
@@ -137,7 +137,7 @@ public sealed partial class LayoutTree {
             }
         }
 
-        line.MainDim += trailingPaddingAndBorderMain;
+        line.MainDim += trailingContentInsetMain;
 
         if (isBaseline) {
             line.CrossDim = maxAscent + maxDescent;
@@ -160,23 +160,23 @@ public sealed partial class LayoutTree {
         float availableInnerHeight,
         float crossAxisOwnerSize,
         float ownerWidth,
-        float paddingAndBorderAxisCross,
-        float leadingPaddingAndBorderCross,
+        float contentInsetAxisCross,
+        float leadingContentInsetCross,
         int currentDepth
     ) {
         var crossDimension = FlexAxis.DimensionOf(crossAxis);
         var leadPerLine = 0f;
-        var currentLead = leadingPaddingAndBorderCross;
+        var currentLead = leadingContentInsetCross;
         var extraSpacePerLine = 0f;
 
         var unclampedCrossDim = sizingModeCrossDim == SizingMode.StretchFit
-            ? availableInnerCrossDim + paddingAndBorderAxisCross
+            ? availableInnerCrossDim + contentInsetAxisCross
             : HasDefiniteLength(index, crossDimension, crossAxisOwnerSize)
                 ? ResolvedDimension(index, crossDimension, crossAxisOwnerSize, ownerWidth, direction)
-                : totalLineCrossDim + paddingAndBorderAxisCross;
+                : totalLineCrossDim + contentInsetAxisCross;
 
         var innerCrossDim =
-            BoundAxis(index, crossAxis, direction, unclampedCrossDim, crossAxisOwnerSize, ownerWidth) - paddingAndBorderAxisCross;
+            BoundAxis(index, crossAxis, direction, unclampedCrossDim, crossAxisOwnerSize, ownerWidth) - contentInsetAxisCross;
         var remaining = innerCrossDim - totalLineCrossDim;
         var alignContent = remaining >= 0f ? styles[index].AlignContent : FallbackAlign(styles[index].AlignContent);
 

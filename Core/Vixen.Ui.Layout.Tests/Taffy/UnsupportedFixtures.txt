@@ -31,8 +31,9 @@
 #   · An ENGINE gap. The store genuinely has no field for it. Belongs here with a reason, exactly
 #     like a line in a gap file.
 #
-# Of the 408, **124 were harness and 284 were engine — 30% against 70%.** All 124 are closed; what
-# remains below is the 284, plus `float`'s own corpus, which is tallied rather than skipped.
+# Of the 408, **124 were harness and 284 were engine — 30% against 70%.** All 124 are closed, and so
+# are 180 of the 284: `scrollbar-width` was the largest bucket in the file and it is gone. What
+# remains below is 104, plus `float`'s own corpus, which is tallied rather than skipped.
 #
 # Closing them was worth what it was supposed to be worth. 92 of the 124 went straight to green,
 # which is 92 fixtures' worth of correctness evidence that already existed and was being thrown
@@ -55,9 +56,11 @@
 # corpus writes `scrollbar-width="15"` on 336 elements; 156 of them clip with `overflow: hidden`,
 # where there is no scrollbar and therefore no gutter, so the declaration cannot move a box and
 # accepting it is the correct translation rather than a lenience. The other 180 elements really do
-# scroll, the store has no field for their gutter, and their refusal stands. (The bucket below also
-# comes to 180, in FIXTURES rather than elements. Coincidence — the two counts are not the same
-# quantity, and a fixture can hold several of either kind.)
+# scroll, and their refusal stood until the store grew `LayoutStyle.ScrollbarWidth` — see the ENGINE
+# heading below, which is now closed too. (That bucket also came to 180, in FIXTURES rather than
+# elements. Coincidence — the two counts are not the same quantity, and a fixture can hold several
+# of either kind.) `TaffyStyleMap` no longer asks the question at all: it applies the value on every
+# box and lets `Overflow` decide, which is what the split was always about.
 #   → 104 converted: 76 pass, 28 fail. The 28 are `measure_child_with_flex_shrink_hidden` and six
 #     `grid_span_*_indefinite_hidden` families, and neither has anything to do with a gutter — both
 #     are arithmetic that only shows on an item which OPTS OUT of a content-based automatic minimum,
@@ -88,24 +91,35 @@
 #
 # ══ ENGINE ═══════════════════════════════════════════════════════════════════════════════════════
 
-# ── SCROLLBAR GUTTERS ── 180 ──
+# ── SCROLLBAR GUTTERS ── CLOSED, 180 ──
 #
-# A `Scroll` box reserves `scrollbar-width` points inside its padding box on the axis that scrolls,
-# and every downstream size is computed against what is left. `LayoutStyle` has no such field and
-# `Overflow` deliberately has no `Auto` member to distinguish the always-reserved case from the
-# reserve-when-overflowing one — see the enum's own remarks, which argue that nothing in this
-# framework draws a scrollbar so no consumer could act on the distinction. That argument is about
-# PAINTING and this is about LAYOUT, and these 180 fixtures are the bill for it: `ScrollView` builds
-# its own scrollbar, and the content beside it is the wrong width by exactly the bar.
+# Kept as a heading with no rows under it, because the prediction it recorded is worth checking
+# against what happened. It said: additive rather than structural, one `float ScrollbarWidth` on
+# `LayoutStyle`, subtracted from the content box on each axis whose `Overflow` is `Scroll`, wherever
+# the padding box is resolved. **All 180 pass and not one line went into a gap file** — the only
+# bucket in this census to convert whole.
 #
-# Additive rather than structural. One `float ScrollbarWidth` on `LayoutStyle`, subtracted from the
-# content box on each axis whose `Overflow` is `Scroll`, wherever the padding box is resolved. The
-# corpus is unanimous at `15`, so it exercises the arithmetic and not the parsing.
-
-    64  block      scrollbar-width
-    44  flex       scrollbar-width
-    40  grid       scrollbar-width
-    32  leaf       scrollbar-width
+# ⚠ Three things the prediction did not have, and each of them is a fixture rather than a nicety.
+#
+#   · THE AXES CROSS. `overflow-y: scroll` puts a bar down the side, and a bar down the side eats
+#     WIDTH. `leaf_overflow_scrollbars_take_up_space_x_axis` scrolls across and expects the extra 15
+#     points DOWN. Reading `OverflowX` for the row axis transposes every scroll container at once.
+#   · THE GUTTER IS NOT A FLOOR, though padding and border are. A box may be laid out narrower than
+#     its own scrollbar — the bar simply covers everything — but never narrower than its own edges.
+#     `*_overflow_scrollbars_overridden_by_{size,max_size}` is a 2×4 box reserving 15 on both axes
+#     and Chrome answers 2×4, so `BoundAxis`, `WithBoxSizing` and the four fit-content floors keep
+#     padding and border while everything else moved to a content inset. That split is the whole
+#     reason `StyleResolution` grew a second family of helpers rather than one field being added to
+#     the first.
+#   · IT IS INSIDE THE ABSOLUTE CONTAINING BLOCK. `inset: 0` stops at the bar, and six families
+#     across three corpora measure the gutter by putting exactly such a box in a scroll container
+#     and reading its size back — so the rule that looks like it belongs to `position: absolute` is
+#     the one that decides whether the *scrollbar* fixtures pass. `grid_absolute_resolved_insets`
+#     needed it a second time in `RecordAbsoluteGridAreas`, where an `auto` grid line resolves to
+#     the same padding edge.
+#
+# `Overflow` still has no `Auto` member and still does not need one: the corpus writes `scroll`,
+# which always reserves, and the enum's remarks argue the rest.
 
 # ── SAFE ALIGNMENT (CSS Box Alignment §4.4) ── 76 ──
 #
@@ -212,8 +226,13 @@
 #
 # ══ TOTAL ════════════════════════════════════════════════════════════════════════════════════════
 #
-# 368 of the 5 524 fixtures are refused: 284 skipped by the three conformance suites, 84 tallied by
+# 188 of the 5 524 fixtures are refused: 104 skipped by the three conformance suites, 84 tallied by
 # `TaffyPendingCorporaTests`. Asserted, and asserted to be non-zero — a census that can quietly
 # census nothing is the failure this file was written about.
+#
+# ⚠ 368 → 188, and 180 of those 180 went to green. Read that against the 124 harness gaps, where 32
+# of 124 went red: a bucket recorded as ENGINE is a claim that the store cannot express the fixture,
+# and when the claim is right, implementing it produces no surprises. The harness buckets were the
+# ones hiding defects, because those fixtures had been runnable all along.
 
-total  368
+total  188
