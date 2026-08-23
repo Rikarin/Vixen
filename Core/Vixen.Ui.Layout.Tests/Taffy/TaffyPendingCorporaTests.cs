@@ -65,7 +65,7 @@ public class TaffyPendingCorporaTests {
     [Theory]
     [MemberData(nameof(Corpora))]
     public void Corpus_stands_at_its_baseline(string category, int passed, int failed, int unsupported) {
-        var (tally, report) = TaffyCensus.Run(category, 10);
+        var (tally, _, report) = TaffyCensus.Run(category, 10);
 
         Assert.True(
             (passed, failed, unsupported) == (tally.Passed, tally.Failed, tally.Unsupported),

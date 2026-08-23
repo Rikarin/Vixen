@@ -41,20 +41,40 @@ sealed class TaffyUnsupportedException(string feature) : Exception($"unsupported
 ///         thousands, and every one of them would look like a flexbox bug.
 ///     </para>
 /// </remarks>
-/// <summary>The facts about a box that decide what <c>start</c> and <c>end</c> point at.</summary>
+/// <summary>The facts about a box that its own attributes decide, and that its neighbours' mapping needs.</summary>
+/// <remarks>
+///     ⚠ <b><see cref="Scrolls" /> and <see cref="IsLeaf" /> are not about <c>start</c> and <c>end</c>
+///     like the other four, and they are here because they are the two facts that decide whether an
+///     attribute is <i>inert</i>.</b> A property whose value cannot move a single box is not a gap in
+///     the store, and refusing it costs a fixture that would otherwise assert everything else it
+///     sets. See <c>UnsupportedFixtures.txt</c> § HARNESS for the two that qualify and why nothing
+///     else does.
+/// </remarks>
 /// <param name="IsColumn">Whether its main axis is the block axis, which puts the cross axis inline.</param>
 /// <param name="IsReverse">Whether its main axis runs backwards.</param>
 /// <param name="WrapReverse">Whether its cross axis runs backwards.</param>
 /// <param name="Rtl">Whether its inline axis runs right to left.</param>
-readonly record struct TaffyBox(bool IsColumn, bool IsReverse, bool WrapReverse, bool Rtl) {
-    public static TaffyBox From(IReadOnlyDictionary<string, string> attributes) {
+/// <param name="Scrolls">Whether either axis is a scroll container, which is what reserves a gutter.</param>
+/// <param name="IsLeaf">Whether it has no children, so nothing inside it can see its axes.</param>
+readonly record struct TaffyBox(
+    bool IsColumn,
+    bool IsReverse,
+    bool WrapReverse,
+    bool Rtl,
+    bool Scrolls,
+    bool IsLeaf
+) {
+    public static TaffyBox From(TaffyInput input) {
+        var attributes = input.Attributes;
         var direction = attributes.GetValueOrDefault("flex-direction", "row");
 
         return new TaffyBox(
             direction.StartsWith("column", StringComparison.Ordinal),
             direction.EndsWith("-reverse", StringComparison.Ordinal),
             attributes.GetValueOrDefault("flex-wrap") == "wrap-reverse",
-            attributes.GetValueOrDefault("direction") == "rtl"
+            attributes.GetValueOrDefault("direction") == "rtl",
+            attributes.GetValueOrDefault("overflow-x") == "scroll" || attributes.GetValueOrDefault("overflow-y") == "scroll",
+            input.Children.Count == 0
         );
     }
 }
@@ -289,14 +309,55 @@ static class TaffyStyleMap {
             case "grid-column-start": tree.SetGridPlacement(node, Edge.Left, Placement(name, value)); break;
             case "grid-column-end": tree.SetGridPlacement(node, Edge.Right, Placement(name, value)); break;
 
+            // ── Inert here, and refused only where it is not ─────────────────────────────────────
+            // ⚠ These two arms are the difference between "the store cannot do this" and "this
+            // fixture never asked it to", and conflating them cost 124 fixtures their assertions —
+            // 30% of every refusal in the corpus. See UnsupportedFixtures.txt.
+
+            // ⚠ A scrollbar gutter is reserved by a SCROLL CONTAINER, not by the property. Chrome
+            // reserves `scrollbar-width` on `overflow: scroll` and on an overflowing `auto`, and on
+            // nothing else — `overflow: hidden` clips without a scrollbar, so the gutter is zero and
+            // the declaration cannot move a box. The corpus writes `scrollbar-width="15"` on 336
+            // elements and 156 of them are `overflow: hidden`, where accepting it is not a lenience
+            // but the correct answer. Where either axis really does scroll the store has no field
+            // for the gutter and the refusal stands.
+            case "scrollbar-width":
+                if (self.Scrolls) {
+                    throw new TaffyUnsupportedException(name);
+                }
+
+                break;
+
+            // ⚠ `writing-mode` turns the box's axes, and on a childless box very nearly the only
+            // thing that can see them is its own intrinsic measurement — which TaffyAhemMeasure has
+            // modelled since it was written, by swapping which physical axis it treats as inline.
+            // Every one of the corpus's 24 `vertical-lr` elements is such a leaf, so the vertical
+            // branch of that measure function was reachable in principle and dead in fact: the
+            // attribute loop threw before `SetMeasureFunction` was ever called. A box with children
+            // genuinely needs a writing mode in LayoutStyle, which there is not one of, so that
+            // keeps its refusal.
+            //
+            // ⚠ "Very nearly" is doing real work in that sentence and the four `grid_relayout_`
+            // `vertical_text` fixtures are what it costs. A leaf's CONTAINER also states its
+            // constraint in flow-relative terms: Chrome gives a turned grid item the ROW height as
+            // its inline constraint, and this store, which has no writing mode to consult, gives it
+            // the COLUMN width. So accepting the attribute here buys 16 fixtures that were asserting
+            // nothing and exposes 4 that disagree. Both halves are the point; see GridKnownGaps.txt,
+            // which now names the first thing in this corpus that really needs a writing mode on
+            // LayoutStyle.
+            case "writing-mode":
+                if (value != "vertical-lr" || !self.IsLeaf) {
+                    throw new TaffyUnsupportedException($"{name}: {value}");
+                }
+
+                break;
+
             // ── Everything Vixen has no field for ───────────────────────────────────────────────
             // Refused by name so that a failure report says which property is missing rather than
             // which number is wrong. B1 and B2 deleted most of these lines as they landed.
             case "float":
             case "clear":
             case "text-align":
-            case "scrollbar-width":
-            case "writing-mode":
 
             // ⚠ Named areas are not a track list and are deliberately still refused even though B2
             // landed. `grid-template-areas` declares named *lines* that `grid-row-start: header`

@@ -15,7 +15,18 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1 974 of the 2 120 grid, blockgrid and gridflex fixtures pass, 14 fail and 132 are refused.
+# 2 002 of the 2 120 grid, blockgrid and gridflex fixtures pass, 42 fail and 76 are refused.
+#
+# ⚠ THOSE THREE NUMBERS MOVED WITHOUT A LINE OF GRID LAYOUT CHANGING, and the failing one moved
+# UPWARDS. 56 fixtures that had been refused on `scrollbar-width` and `writing-mode` — a gutter
+# nothing reserves and a writing mode the measure function had modelled all along — now run. 28 of
+# them pass; the other 28 are the two headings at the bottom of this file. 24 of those are §12
+# arithmetic that has been wrong for as long as it has existed with nothing visible to catch it, and
+# the remaining 4 are the first fixtures in this corpus to ask for a writing mode at all — a feature
+# that could not have been asked for while the attribute carrying it was refused. The
+# census of what is still refused, and the reason each bucket gives, is in UnsupportedFixtures.txt
+# beside this file. It did not exist before, which is why this line could say "132 are refused" for
+# months without anybody asking 132 what.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
 # with every one of its failures outside block formatting. Grid has not — but the features this
@@ -418,3 +429,74 @@ grid_available_space_smaller_than_min_content
 #   distinction §12 does not currently carry into the inline pass. Genuinely cyclic; the fixture is
 #   named after Chrome's own bug tracker, which is its own comment on how settled the answer is.
 chrome_issue_325928327
+
+
+# ── §5.2.2's SCROLLABLE-OVERFLOW EXCLUSION IS APPLIED TO THE MIN-CONTENT CONTRIBUTION, NOT ONLY TO
+#    THE AUTOMATIC MINIMUM ── six families, 24 fixtures ──
+#
+# ⚠ <b>NEWLY VISIBLE, NOT NEWLY BROKEN, AND THE MECHANISM BY WHICH IT WAS INVISIBLE IS THE POINT OF
+# THE WHOLE HEADING.</b> Every fixture here writes `scrollbar-width="15"` beside `overflow: hidden`.
+# The gutter is reserved by a scroll container and `hidden` is not one, so the declaration could
+# never have moved a box — but TaffyStyleMap refused it, and refusing one inert property threw away
+# the fixture's assertions about a completely different rule. These 24 are what was underneath. See
+# UnsupportedFixtures.txt.
+#
+# `grid_span_2_min_content_auto_indefinite_hidden` is the whole story in six boxes. Two columns,
+# `min-content auto`, spanned by a text of two four-character words. Chrome: 40 and 40. Vixen: 0 and
+# 80. The same fixture WITHOUT the `overflow` — `grid_span_2_min_content_auto_indefinite`, four
+# lines different — is green at Chrome's 20 and 60, so §12.5's spanning distribution is right and
+# the disagreement is one input to it.
+#
+# Work the two by hand and they separate cleanly. Visible: the item's minimum contribution is 40, so
+# round 1 (intrinsic minima, both tracks) splits it 20/20 and round 3 gives the `auto` track the
+# remaining 40. Hidden: §6.6 zeroes the automatic minimum — correctly, that is what a scroll
+# container means — so round 1 distributes nothing, round 2 (§12.5 step 3.2, `min-content` and
+# `max-content` MINIMA only) should hand the first track the item's MIN-CONTENT CONTRIBUTION of 40,
+# and round 3 gives the other 40 to `auto`. Chrome's 40/40 is exactly that. Vixen's round 2
+# distributes zero, so everything lands in the `auto` track.
+#
+# ⚠ It distributes zero because the item's min-content contribution is ALSO zero, from
+# `ComputeMinContentSizeUncached`'s first clause: a box whose axis is not `overflow: visible`
+# returns its own padding and border and nothing else. That clause is CSS Sizing §5.2.2 as applied
+# to the AUTOMATIC MINIMUM SIZE — `min-width: auto` on a scroll container is 0 — and
+# `AutomaticMinimumIsZero` in LayoutTree.Grid already implements it separately and correctly. Applied to the
+# min-content SIZE as well, it is applied twice, and the second application is the one that steals
+# the `min-content` track's share. A scroll container's min-content size is still its contents' —
+# which is why `width: min-content` on an `overflow: auto` div is not zero in any browser.
+#
+# ⚠ AND THE CLAUSE'S OWN COMMENT SAYS IT HAS NO WITNESS: "Nothing in either corpus asks for this,
+# and the editor is what found it." That was true when it was written and is now false, and it was
+# only ever true because the fixtures that ask were refused. The editor case it was written for —
+# the docking chain, every box `overflow: hidden`, a shell 2 385 points wide inside a 1 100-point
+# window — is real and must keep working, so the fix is NOT to delete the clause. It is to give the
+# two questions two answers: the automatic minimum keeps the zero, the min-content contribution does
+# not. `MinContentContribution` is already the seam between them.
+grid_span_2_min_content_auto_indefinite_hidden
+grid_span_2_min_content_fit_content_10px_indefinite_hidden
+grid_span_2_min_content_fit_content_30px_indefinite_hidden
+grid_span_2_min_content_fit_content_80px_indefinite_hidden
+grid_span_6_all_non_flex_indefinite_hidden
+grid_span_13_most_non_flex_with_minmax_indefinite_hidden
+
+# ── A TURNED WRITING MODE IS THE CONTAINER'S BUSINESS TOO ── one family ──
+#
+# ⚠ Also newly visible, and this one is the honest cost of the argument that made it visible.
+# `writing-mode: vertical-lr` is now accepted on a childless box, because the only thing that could
+# see a leaf's turned axes was thought to be its own intrinsic measurement — and `TaffyAhemMeasure`
+# has modelled that since the day it was written, swapping which physical axis it treats as inline.
+# Sixteen of the corpus's twenty vertical-text fixtures agree, and had been asserting nothing.
+#
+# These four are the counterexample, and they are a fair one. `grid_relayout_vertical_text` puts a
+# turned text in a `min-content` column of a grid whose row is a stated 40px. Chrome sizes the item
+# against the ROW — the row is the item's inline axis once it is turned, 40 points is four Ahem
+# characters, two two-character words per line, seven words, four lines, so the column is 40 wide.
+# This store hands it the COLUMN as the inline constraint, because §12 asks for a width and a height
+# and `LayoutStyle` has no writing mode to tell it which of those is the item's inline axis. 40x60
+# against 20x70.
+#
+# So the refusal was hiding sixteen green fixtures and four red ones, and the four are worth more
+# than the sixteen: they name precisely what a writing mode would have to be for, which is not text
+# measurement at all. It is which axis a container states a constraint in. That is a field on
+# `LayoutStyle` and a swap at every point where §12, §9 and block layout convert between physical
+# and flow-relative — a real feature, and the first fixture in this corpus to ask for it.
+grid_relayout_vertical_text

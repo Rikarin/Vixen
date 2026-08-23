@@ -17,17 +17,24 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 | `TaffyFixtureRunner` | Builds a `LayoutTree`, lays it out, compares to a tenth of a pixel. |
 | `KnownGaps.txt` | The flex fixtures Vixen gets wrong, with a diagnosis each. |
 | `BlockKnownGaps.txt` | The same for block, and the shape of that file is itself the result. |
+| `GridKnownGaps.txt` | The same for grid. |
+| `UnsupportedFixtures.txt` | The fixtures that assert **nothing**, by reason and by corpus. |
 
-| Category | Fixtures | Status |
-|---|--:|---|
-| `flex` | 2 352 | judged per fixture — 2 058 pass |
-| `leaf` | 56 | judged per fixture — 24 pass, 32 refused |
-| `block` | 884 | judged per fixture — **722 pass**, 120 refused, 42 known gaps |
-| `blockflex` | 28 | judged per fixture — 24 pass, 4 refused |
-| `float` | 84 | pending: floats, and they were never waiting on `display` |
-| `grid` | 2 040 | pending B2 |
-| `gridflex` | 24 | pending B2 |
-| `blockgrid` | 56 | pending B2 |
+| Category | Fixtures | Pass | Fail | Refused |
+|---|--:|--:|--:|--:|
+| `flex` | 2 352 | 2 254 | 18 | 80 |
+| `leaf` | 56 | 24 | 0 | 32 |
+| `block` | 884 | 788 | 0 | 96 |
+| `blockflex` | 28 | 28 | 0 | 0 |
+| `blockgrid` | 56 | 56 | 0 | 0 |
+| `grid` | 2 040 | 1 922 | 42 | 76 |
+| `gridflex` | 24 | 24 | 0 | 0 |
+| `float` | 84 | 0 | 0 | 84 |
+| | **5 524** | **5 096** | **60** | **368** |
+
+Every one of those numbers is asserted — the pass and fail columns by the three conformance suites
+and `TaffyPendingCorporaTests`, the refused column additionally by `TaffyUnsupportedCensusTests`,
+which requires each bucket to match `UnsupportedFixtures.txt` line for line.
 
 Each fixture name ends in one of four suffixes — `__{border,content}_box_{ltr,rtl}` — so the 5 524
 are about 1 381 distinct cases run four ways.
@@ -36,7 +43,8 @@ are about 1 381 distinct cases run four ways.
 
 **2 002 of the 2 208 runnable flex fixtures passed on the first run**, on a store built entirely
 against a *different* browser-derived corpus. 176 more are refused for a property this store has no
-field for, and 206 disagreed. **48 of those are now closed and 2 074 pass.**
+field for, and 206 disagreed. **192 of those are now closed and 2 278 of the 2 408 pass** — 112 are
+still refused and 18 disagree, which is what the table above counts.
 
 That number was the point. Flexbox already had an oracle — Yoga's 534, green — so the flex corpus is
 a **known-good target**: if the harness were wrong, it would be visibly wrong here, where the answer
@@ -187,9 +195,40 @@ float would narrow a line.
 ⚠ **And the corpus turned out to have a blind spot of a kind the last audit did not have a name
 for.** 48 of the block fixtures test that `overflow` blocks a margin collapse — Chrome's answers are
 in the file — and every one of them also sets `scrollbar-width`, which this store has no field for,
-so all 48 are refused. The corpus *contains* the test and cannot run it. That is not a hole in the
+so all 48 were refused. The corpus *contains* the test and cannot run it. That is not a hole in the
 oracle's coverage; it is a hole in the bridge, and it is invisible from either side. The rule is held
 by `MarginCollapsingTests` instead, and deleting it leaves all 3 571 corpus tests green.
+
+⚠ **Half of that blind spot has since closed, and the half that did not is the difference the whole
+census turns on.** 24 of the 48 are the `_overflow_{x,y}_hidden` variants. `hidden` clips without a
+scrollbar, so it reserves no gutter, so `scrollbar-width` on those boxes cannot move a single number
+— the refusal was the *bridge's* and not the store's, and all 24 now run and pass. The other 24 say
+`scroll`, where the gutter is real and `LayoutStyle` has no field for it; those are still refused
+and are a genuine engine gap. Same property, same paragraph, two completely different things.
+
+## The fixtures that assert nothing
+
+⚠ **A skip reads as a pass in every summary anyone looks at, and 408 of these did.** The three
+conformance suites turn a `TaffyUnsupportedException` into `Assert.Skip`, so the fixture never
+reaches the algorithm — it cannot fail, and it is not counted as a gap either. The suites *did* pin
+the refusal count, so nothing drifted silently. What no file recorded was what the refusals were
+**for**, and four gap files described corpora that were nearly closed without mentioning the largest
+bucket of fixtures in the project.
+
+`UnsupportedFixtures.txt` is that census: every distinct refusal message, per corpus, with the
+fixture count it accounts for, re-derived from an actual run by `TaffyUnsupportedCensusTests` and
+compared line for line. A second test asserts the census is not a census of *nothing* — a corpus
+that failed to reach the output directory, or a style map that stopped throwing, would otherwise
+make both sides agree on an empty list and go green.
+
+⚠ **The split it forces is worth more than the total.** A refusal is either a **harness** gap — a
+value the map never learned, on a feature the store has — or an **engine** gap. The first kind is
+worth nothing to anyone and costs the whole fixture, including every unrelated property it sets. Of
+the original 408 the ratio was **124 harness against 284 engine**, which nobody would have guessed
+in either direction. All 124 are closed: 92 became passes, and 32 became newly *visible* failures,
+filed under three new headings in the gap files. Two of those three are arithmetic that had been
+wrong since it was written, with the only fixtures that exercise it refused on an unrelated
+property.
 
 ## The Ahem measure function
 
