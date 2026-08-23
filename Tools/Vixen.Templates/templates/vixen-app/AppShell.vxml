@@ -8,9 +8,11 @@
     vocabulary; `@clicks.Value` is a signal read, and the element that reads it is the only element
     that updates when it changes.
 
-    ⚠ **Nothing in `VixenApp1.csproj` makes this compile.** A `PackageReference` to
-    `Vixen.Ui.Controls` brings the VXML compiler, the `.vxml` and `.vcss` item types and the utility
-    stylesheet step with it. Add a second `.vxml` beside this one and it compiles too.
+    ⚠ **Nothing in `VixenApp1.csproj` makes this compile.** The one `PackageReference` there —
+    `Vixen.Ui.Desktop` — depends on `Vixen.Ui.Controls`, which depends on `Vixen.Ui`, whose package
+    carries its MSBuild logic in `buildTransitive/`: so the VXML compiler, the `.vxml` and `.vcss`
+    item types and the utility stylesheet step all arrive by themselves. Add a second `.vxml` beside
+    this one and it compiles too.
 -->
 @component AppShell
 @namespace VixenApp1

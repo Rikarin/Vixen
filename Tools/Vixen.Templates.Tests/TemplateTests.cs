@@ -186,21 +186,53 @@ public class TemplateTests {
     ///     rather than a compile error. <see cref="TemplateCatalog" /> decides by looking for a NUL
     ///     byte, which is how `git` answers the same question.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This asserted the rule through a template's own files until 2026-08-23, and now
+    ///         it cannot: no template ships a binary file any more.</b> <c>vixen-app</c> carried
+    ///         eight <c>.spv</c> modules because it carried its own frame loop; it takes
+    ///         <c>Vixen.Ui.Desktop</c> now, which embeds them, so the whole <c>Shaders/</c> folder
+    ///         went with the four hundred lines of C# around it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the rule is asserted directly rather than through an example, and saying that
+    ///         out loud is the point.</b> The alternative was to keep the loop over <c>.spv</c> files
+    ///         and let it iterate zero times — a test that passes, reports nothing, and reads in a
+    ///         diff exactly like one that is checking something. The <c>Assert.Contains</c> at the
+    ///         end of the old version existed to stop precisely that, and it is what failed and
+    ///         brought this comment about.
+    ///     </para>
+    ///     <para>
+    ///         A template will ship a binary again — an icon, a font, a compiled asset — and the day
+    ///         it does, the pass-through half is worth restoring on top of this.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void CompiledShadersComeThroughUntouched() {
-        var app = Template("vixen-app");
+    public void ABinaryFileIsCopiedRatherThanSubstitutedInto() {
+        // ⚠ A NUL in the middle, with the source name on both sides of it. `IsTextFile` is the one
+        // decision the substitution turns on — see `TemplateCatalog.Instantiate`, which calls
+        // `Substitute` only for a file this answers true for — so testing it is testing the rule.
+        // The substitution itself is `internal` to Vixen.Editor.Core and is not reachable from here.
+        Assert.False(TemplateCatalog.IsTextFile("VixenApp1\0VixenApp1"u8));
+        Assert.True(TemplateCatalog.IsTextFile("VixenApp1 is the name"u8));
+    }
 
-        var before = app.Instantiate(app.SourceName, "0.0.0");
-        var after = app.Instantiate("SomethingRatherLonger", "9.9.9-preview.1");
-
-        foreach (var file in after.Where(entry => entry.Path.EndsWith(".spv", StringComparison.Ordinal))) {
-            Assert.Equal(
-                before.Single(entry => entry.Path == file.Path).Content,
-                file.Content
+    /// <summary>No template ships a binary file, which is why the theory above cannot use one.</summary>
+    /// <remarks>
+    ///     ⚠ Asserted rather than assumed, so that adding one is a deliberate act with a failing test
+    ///     in front of it — and so that <see cref="ABinaryFileIsCopiedRatherThanSubstitutedInto" />'s
+    ///     remarks cannot quietly become false.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Templates))]
+    public void NoTemplateShipsABinaryFile(string id) {
+        foreach (var file in Template(id).Instantiate("Kestrel", "1.2.3")) {
+            Assert.True(
+                TemplateCatalog.IsTextFile(file.Content),
+                $"{id}/{file.Path} is binary. Restore the pass-through half of "
+                + $"{nameof(ABinaryFileIsCopiedRatherThanSubstitutedInto)} over it, and delete this test."
             );
         }
-
-        Assert.Contains(after, entry => entry.Path.EndsWith(".spv", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -289,7 +321,10 @@ public class TemplateTests {
 
         Assert.DoesNotContain("Include=\"Vixen.Engine\"", project, StringComparison.Ordinal);
         Assert.DoesNotContain("Include=\"Vixen.App\"", project, StringComparison.Ordinal);
-        Assert.Contains("Include=\"Vixen.Ui.Controls\"", project, StringComparison.Ordinal);
+        // ⚠ One reference where there used to be five, and the substance of the change rather than
+        // an incidental tidy: `Vixen.Ui.Desktop` is the window, the device and the frame loop, and
+        // it brings the control set — and therefore the whole markup toolchain — behind it.
+        Assert.Contains("Include=\"Vixen.Ui.Desktop\"", project, StringComparison.Ordinal);
     }
 
     /// <summary>

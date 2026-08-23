@@ -106,24 +106,30 @@ makes `vixen-app` "the practical test that the `Vixen.Ui` ⇸ `Vixen.Engine` bou
 references neither — and in particular it does not reference `Vixen.App`, which would reach
 `Vixen.Engine` the easy way and quietly undo the demonstration. A test asserts the absence.
 
-What that host would have done is `Program.cs` and `AppHost.cs`, and the loop is four steps worth
-naming: pump the platform's events into the document, run the layout and draw passes, turn the draw
-list into geometry, record that geometry into a frame. Only the last of the four knows what a GPU
-is — which is why `--frames N` means something on a machine with no Vulkan at all.
+What that host would have done is [`Vixen.Ui.Desktop`](../../Platform/Vixen.Ui.Desktop/README.md),
+and the loop is four steps worth naming: pump the platform's events into the document, run the layout
+and draw passes, turn the draw list into geometry, record that geometry into a frame. Only the last
+of the four knows what a GPU is — which is why `--frames N` means something on a machine with no
+Vulkan at all.
 
-It carries four SPIR-V modules, byte for byte the ones `Samples/02-HelloUi` and the golden-image
-fixtures use. That is the state of the world rather than a design: turning shader source into modules
-belongs to Raven, and until that path is wired a caller hands the renderer whatever it has.
+⚠ **That assembly is why the absence above is now free.** The template used to carry the loop itself
+— `AppHost.cs`, `AppDocument.cs`, `AppInput.cs`, `AppFonts.cs` and eight committed SPIR-V modules,
+four hundred lines a scaffolded project owned and nobody wanted — because the alternative was
+referencing a host that drags a scene, an ECS world and a fixed-step accumulator behind it. Avoiding
+`Vixen.App` used to cost four hundred lines; it costs one `PackageReference` now, and the template is
+two files.
 
 ### The interface is markup, and the project file says nothing about it
 
 ⚠ **`AppShell.vxml` and `Theme/vixen.ui.vcss` are what a new application starts from**, because
 `.vxml`, `.vcss` and the utility classes are the intended way to write a Vixen interface and a
-template that shipped three hand-written C# files taught the opposite. `AppDocument.cs` is what is
-left of the C#: it makes the document, loads the generated sheet and mounts the component.
+template that shipped three hand-written C# files taught the opposite. `Program.cs` is what is left
+of the C#: it names the window, hands `UiApplication` the generated stylesheet and says which
+component to mount.
 
 ⚠ **`Painter.csproj` gained nothing for any of it.** The VXML compiler, the two item types and the
-utility stylesheet step all arrive with `<PackageReference Include="Vixen.Ui.Controls" />`, because
+utility stylesheet step all arrive with the one `<PackageReference Include="Vixen.Ui.Desktop" />` —
+it depends on `Vixen.Ui.Controls`, which depends on `Vixen.Ui` — because
 `Vixen.Ui` and `Vixen.Ui.Styling.Utilities` ship their MSBuild logic in `buildTransitive/`. Adding a
 second `.vxml`, a second `.vcss` or a folder of them is not a project-file change, and
 `TheApplicationTemplateIsWrittenInMarkup` asserts the project file stays empty of them — a glob or an

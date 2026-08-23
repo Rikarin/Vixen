@@ -9,64 +9,34 @@
 
     <ItemGroup>
         <!--
-            ⚠ No Vixen.App and no Vixen.Engine, and that absence is the point of this template.
-            Vixen.App references Vixen.Engine, so taking the convenient host would drag a scene, an
-            ECS world and a fixed-step accumulator into an application that is a user interface.
-            Everything that host would have done — the window, the device, the frame loop — is
-            Program.cs and AppHost.cs, and it is two hundred lines you own and can edit.
+            ⚠ **One reference, and it is the whole of the application's plumbing.**
+            `Vixen.Ui.Desktop` is the window, the Vulkan device and the four steps of a frame, and it
+            brings `Vixen.Ui.Controls` — and therefore the control set, the VXML compiler, the
+            `.vxml` and `.vcss` item types and the utility stylesheet step — behind it.
 
-            There is also no Vixen.Sdk here: an application with no Assets/ folder has nothing to
-            import and no content to build, so the SDK would add two no-op build steps and a tool
-            dependency for nothing. Add it — `<Project Sdk="Vixen.Sdk/x.y.z">` — the day this
+            ⚠ **This used to be five package references and four hundred lines of C#**, because
+            everything below `UiApplication` was a file in the template: a swapchain, a render graph,
+            an atlas upload, a resize coalescer, a suboptimal-present rule and a font hunter. All of
+            it is somebody else's problem now, and the two files left are the two files an
+            application is actually about.
+
+            ⚠ **No Vixen.App and no Vixen.Engine, and that absence is still the point.** Vixen.App
+            references Vixen.Engine, so taking the convenient host would drag a scene, an ECS world
+            and a fixed-step accumulator into an application that is a user interface. What changed
+            is that avoiding it is now free rather than four hundred lines.
+
+            ⚠ **And there is nothing here for `AppShell.vxml` or `Theme/vixen.ui.vcss`, which is the
+            point rather than an omission.** `Vixen.Ui` carries its MSBuild logic in
+            `buildTransitive/`, so the VXML compiler, the two item types and the utility stylesheet
+            step all arrive with the reference above. Adding a second `.vxml`, a second `.vcss` or a
+            whole folder of them is not a project-file change.
+
+            ⚠ **There is no Vixen.Sdk here either**: an application with no Assets/ folder has
+            nothing to import and no content to build, so the SDK would add two no-op build steps and
+            a tool dependency for nothing. Add it — `<Project Sdk="Vixen.Sdk/x.y.z">` — the day this
             application starts shipping content.
-
-            ⚠ **And there is nothing here for `AppShell.vxml` or `Theme/vixen.ui.vcss` either, which
-            is the point rather than an omission.** `Vixen.Ui.Controls` depends on `Vixen.Ui`, whose
-            package carries its MSBuild logic in `buildTransitive/` — so the VXML compiler, the
-            `.vxml` and `.vcss` item types and the utility stylesheet step all arrive with the
-            reference above. Adding a second `.vxml`, a second `.vcss` or a whole folder of them is
-            not a project-file change.
         -->
-        <PackageReference Include="Vixen.Ui.Controls" Version="VIXEN_PACKAGE_VERSION" />
-        <PackageReference Include="Vixen.Ui.Renderer" Version="VIXEN_PACKAGE_VERSION" />
-        <PackageReference Include="Vixen.Graphics.RenderGraph" Version="VIXEN_PACKAGE_VERSION" />
-        <PackageReference Include="Vixen.Platform.Desktop" Version="VIXEN_PACKAGE_VERSION" />
-        <PackageReference Include="Vixen.Graphics.Vulkan" Version="VIXEN_PACKAGE_VERSION" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <!--
-            The five modules UiRenderer draws with, as SPIR-V, committed. Turning shader source into
-            modules belongs to Raven; until that path is wired a caller hands the renderer whatever
-            it has, and these are byte for byte the ones the engine's own samples and golden-image
-            fixtures use.
-
-            ⚠ `ui-image.frag` is here even though a new application draws no images, because it is
-            also the stage `UiRenderer.Compose` composites a translucent group's surface back with.
-            Dropping it does not disable images, it makes every faded subtree render opaque — see
-            AppHost's remark where the shaders are built.
-
-            ⚠ `ui-blur.frag` is the second axis of the same argument: it is what `Compose` runs over
-            a group whose stylesheet asked for `filter: blur()`. Dropping it does not fail — the
-            group composites unblurred — so its absence looks like the filter not working.
-
-            ⚠ `ui-colour.frag` is the third, and the cheapest of them: it is the composite of a group
-            whose `filter` carries `grayscale`, `brightness`, `invert` or any of the other four
-            colour functions. It adds no pass and no surface — the matrix rides the composite draw —
-            so there is no reason but forgetting for an application not to ship it, and forgetting
-            looks like `grayscale` doing nothing.
-
-            ⚠ `ui-mask.frag` is the fourth, and it is `ui-colour.frag` with a coverage ramp after
-            it: the composite of a group whose `mask-image` fades it out. It carries the colour
-            matrix too, because a pipeline is chosen once per draw and a group with both a `filter`
-            and a `mask-image` has to be served by one module — so shipping this one and not
-            `ui-colour.frag` would leave `grayscale` working only on masked elements. It adds no pass
-            and no surface either. Forgetting it looks like `mask-*` doing nothing.
-
-            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the seven
-            fragment stages.
-        -->
-        <EmbeddedResource Include="Shaders\*.spv" />
+        <PackageReference Include="Vixen.Ui.Desktop" Version="VIXEN_PACKAGE_VERSION" />
     </ItemGroup>
 
 </Project>

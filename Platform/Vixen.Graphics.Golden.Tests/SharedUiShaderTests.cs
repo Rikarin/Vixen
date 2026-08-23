@@ -10,11 +10,11 @@ namespace Vixen.Graphics.Golden.Tests;
 /// <remarks>
 ///     <para>
 ///         <b>An invariant three projects were asserting in prose and nothing was checking.</b>
-///         <c>Samples/02-HelloUi</c>'s project file says of these files: "These four are the same GLSL
-///         the golden-image fixture drives the renderer with, so the sample and the reference pictures
-///         cannot disagree about what the shaders do." That sentence was false when it was read on
-///         2026-08-09 — <c>ui-box.frag</c> here was sixteen lines longer than the other two, and the
-///         missing lines were the whole shadow path.
+///         <c>Samples/02-HelloUi</c>'s project file used to say of these files: "These four are the
+///         same GLSL the golden-image fixture drives the renderer with, so the sample and the
+///         reference pictures cannot disagree about what the shaders do." That sentence was false
+///         when it was read on 2026-08-09 — <c>ui-box.frag</c> there was sixteen lines longer than
+///         the other two, and the missing lines were the whole shadow path.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The divergence was worse than a missing feature, which is why this is a test and not a
@@ -27,7 +27,7 @@ namespace Vixen.Graphics.Golden.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The <c>.spv</c> is what actually ships, and editing the <c>.frag</c> alone changes
-///         nothing.</b> Both consumers embed <c>Shaders\*.spv</c>, so the committed SPIR-V is the
+///         nothing.</b> The host embeds <c>Shaders\*.spv</c>, so the committed SPIR-V is the
 ///         artefact and the GLSL beside it is only its source of record. Regenerate with
 ///         <c>glslc Shaders/ui-box.frag -o Shaders/ui-box.frag.spv</c> from the project directory
 ///         after any change here. This test deliberately compares the <b>source</b> and not the
@@ -37,9 +37,23 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <see cref="TheCommittedModuleIsNewerThanItsSource" />, which can.
 ///     </para>
 ///     <para>
-///         The real fix is generating all three from one source, or driving the UI renderer from
-///         <c>Raven/Library/Ui</c> the way <c>UiRenderer</c>'s remarks say it eventually should. Until
-///         then, three files are maintained by hand and this is what says so out loud.
+///         ⚠ <b>There are two copies now rather than three, and the reduction is the fix rather than
+///         a weakening of the test.</b> <c>Samples/02-HelloUi</c> and the <c>vixen-app</c> template
+///         each carried their own set because each carried its own frame loop; both take
+///         <c>Vixen.Ui.Desktop</c> now, which embeds the modules and hands them to
+///         <c>UiRenderer</c> through <c>UiShaderLibrary</c>. So the one remaining copy is the one an
+///         application actually ships, and a divergence has one place left to happen.
+///     </para>
+///     <para>
+///         ⚠ <b>And that copy is now the <i>complete</i> set, which the sample's never was.</b> It
+///         shipped five of the eight — no blur and no colour stage — so <c>filter</c> and
+///         <c>mask-image</c> in a stylesheet cascaded, resolved and did nothing. Absence is still
+///         allowed by <see cref="EveryCopyOfAUiShaderIsIdentical" /> and is no longer exercised.
+///     </para>
+///     <para>
+///         The real fix is generating both from one source, or driving the UI renderer from
+///         <c>Raven/Library/Ui</c> the way <c>UiRenderer</c>'s remarks say it eventually should.
+///         Until then, two files are maintained by hand and this is what says so out loud.
 ///     </para>
 /// </remarks>
 public class SharedUiShaderTests {
@@ -50,8 +64,7 @@ public class SharedUiShaderTests {
     /// </remarks>
     static readonly string[] Copies = [
         Path.Combine("Platform", "Vixen.Graphics.Golden.Tests", "Shaders"),
-        Path.Combine("Samples", "02-HelloUi", "Shaders"),
-        Path.Combine("Tools", "Vixen.Templates", "templates", "vixen-app", "Shaders"),
+        Path.Combine("Platform", "Vixen.Ui.Desktop", "Shaders"),
     ];
 
     /// <summary>Every UI shader this suite renders with is byte-identical wherever else it is shipped.</summary>
@@ -66,20 +79,21 @@ public class SharedUiShaderTests {
     ///         ⚠ <b>Absence is allowed and difference is not, which is a weaker contract than "the same
     ///         set" on purpose.</b> <s>The template ships four of these and the sample five: it has no
     ///         <c>ui-image.frag</c> because a new application draws no images until someone adds one.</s>
-    ///         Both of them have that one now — it is the stage <c>UiRenderer.Compose</c> composites a
-    ///         group back with, so it is not optional for anything with an <c>opacity</c> in its theme
-    ///         — and it is <c>ui-blur.frag</c> and <c>ui-colour.frag</c> that the sample is missing,
-    ///         because the sample wires no <c>UiShaders.Image</c> and therefore composites nothing to
-    ///         blur or tint. Demanding the full set would either fail forever or push a shader into a
-    ///         project to satisfy a test. What is never legitimate is a copy that exists and
-    ///         disagrees.
+    ///         <s>Both of them have that one now, and it is <c>ui-blur.frag</c> and
+    ///         <c>ui-colour.frag</c> that the sample is missing.</s> Neither project ships any of them:
+    ///         both take <c>Vixen.Ui.Desktop</c>, which embeds the complete set of eight, so the
+    ///         allowance is not exercised by anything today. It is kept rather than tightened because
+    ///         demanding the full set would fail the day a consumer legitimately ships a subset — and
+    ///         because the four optional stages *are* optional to <c>UiShaders</c>. What is never
+    ///         legitimate is a copy that exists and disagrees.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The <c>compared &gt; 0</c> assertion at the bottom is why a new shader has to be
     ///         added to at least one other project in the same change.</b> A row here whose file
     ///         exists only in this suite compares against nothing, and a theory that compares nothing
-    ///         is the failure mode the whole file is about. <c>ui-colour.frag</c> ships in the
-    ///         template for that reason as much as for the template's own sake.
+    ///         is the failure mode the whole file is about — and it is a live risk now that there is
+    ///         one copy rather than two, because a stale path in <c>Copies</c> would leave every row
+    ///         of this theory asserting nothing at all while passing.
     ///     </para>
     /// </remarks>
     [Theory]
@@ -91,7 +105,7 @@ public class SharedUiShaderTests {
     [InlineData("ui-solid.frag")]
     [InlineData("ui-text.frag")]
     [InlineData("ui.vert")]
-    public void TheSampleAndTheTemplateShipTheShaderThisSuiteRendersWith(string name) {
+    public void TheApplicationHostShipsTheShaderThisSuiteRendersWith(string name) {
         var root = RepositoryRoot();
         var canonical = Path.Combine(root, Copies[0], name);
 
