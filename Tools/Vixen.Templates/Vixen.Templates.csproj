@@ -25,6 +25,18 @@
         <EnableDefaultItems>false</EnableDefaultItems>
 
         <!--
+            ⚠ The same argument one item type further along, and `EnableDefaultItems` does not reach
+            it. `templates/vixen-app/AppShell.vxml` is markup belonging to a project this one does
+            not build — it is a file to copy — so it is correctly not compiler input here, and
+            VX4001 in the repository's `Directory.Build.targets` would otherwise report the only
+            legitimate uncompiled `.vxml` in the tree as a wiring mistake. It is not one: outside
+            this repository the scaffolded project's `PackageReference` to `Vixen.Ui.Desktop` brings
+            the `.vxml` item type with it, which is what `VixenApp1.csproj`'s own comments spend a
+            paragraph on.
+        -->
+        <VixenUiMarkupCheck>false</VixenUiMarkupCheck>
+
+        <!--
             ⚠ Also load-bearing. NuGet's default exclusions drop anything beginning with a dot, and
             every template in this package is identified by a `.template.config/` directory — without
             this the package builds, installs, and contains no templates at all.

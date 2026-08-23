@@ -57,5 +57,17 @@
             <_Parameter1>VixenUiBuildTargets</_Parameter1>
             <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Ui/build/Vixen.Ui.targets</_Parameter2>
         </AssemblyAttribute>
+
+        <!--
+            ⚠ The repository's own stand-in for a PackageReference, which is where VX4001 lives and
+            has to live: the failure it reports is that Vixen.Ui.targets was never imported, so a
+            check inside that file could not see it. The fixture project hands this path to
+            DirectoryBuildTargetsPath — MSBuild's own auto-import reads that property — so the file
+            is evaluated at the position it holds for every project in this tree.
+        -->
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>VixenRepositoryTargets</_Parameter1>
+            <_Parameter2>$(MSBuildThisFileDirectory)../../Directory.Build.targets</_Parameter2>
+        </AssemblyAttribute>
     </ItemGroup>
 </Project>

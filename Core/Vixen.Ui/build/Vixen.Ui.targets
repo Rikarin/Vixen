@@ -73,4 +73,60 @@
         <CompilerVisibleProperty Include="ProjectDir" />
     </ItemGroup>
 
+    <!--
+        ==============================================================================================
+        ⚠ **VX4002 — the glob ran and nothing is on the other end of it, which is the worse of the two
+        ways to be half-wired.**
+
+        A project with *neither* the import nor the generator at least has a `.vxml` that is not an
+        item, and `Directory.Build.targets`'s VX4001 is what says so. A project with the import and
+        no generator is the shape `Vixen.Editor.NodeGraph` was in: the `Import` had been added for
+        the `**/*.vcss` glob above — under a comment saying "there is no `.vxml` in this project, so
+        the other half of the .targets is inert here" — so the day a `.vxml` appeared the glob made
+        it `AdditionalFiles`, no analyzer read it, and the build failed with "does not contain a
+        definition for" on every member the markup declares. Identical symptom, and the file the
+        compiler blames is the hand-written half of a partial class that is correct.
+
+        **The check is one item and one comparison, and both halves of it are load-bearing.** The
+        `.vxml` has to be *compiler input* — an `AdditionalFiles` item, which is what the glob above
+        produces — and `Vixen.Ui.Markup.Generators.dll` has to be in `@(Analyzer)`, which is the one
+        place the two worlds meet. Inside this repository the generator arrives as a
+        `ProjectReference` with `OutputItemType="Analyzer"`; outside it, it travels in the package's
+        `analyzers/dotnet/cs/`. Both are `@(Analyzer)` items by the time `ResolveReferences` has
+        finished, so a check that reads that item is a check that is true in both worlds — verified
+        by asking a real build for `-getItem:Analyzer` rather than by reading the SDK.
+
+        ⚠ **After `ResolveReferences` and before `CoreCompile`, and neither end of that is optional.**
+        `@(Analyzer)` is empty until `ResolveReferences` has run — a check earlier than that reports
+        every project as broken — and after `CoreCompile` the thirty C# errors have already been
+        printed and this one is the last line of a wall nobody reads to the bottom of.
+
+        An error rather than a warning, for the reason the whole diagnostic exists: the build is
+        going to fail anyway, and it is going to fail naming the wrong file. A warning ahead of that
+        wall buys a line in a log. Worse, a `.vxml` with *no* hand-written partner compiles cleanly
+        and produces no component at all — silence, discovered at run time — so there is no reading
+        of this state in which the build is fine.
+        ==============================================================================================
+    -->
+    <Target Name="VixenCheckMarkupCompilerIsLoaded"
+            BeforeTargets="CoreCompile"
+            DependsOnTargets="ResolveReferences"
+            Condition="'$(VixenUiMarkupCheck)' != 'false'">
+        <ItemGroup>
+            <_VixenMarkupInput Include="@(AdditionalFiles)" Condition="'%(Extension)' == '.vxml'" />
+            <_VixenMarkupCompiler Include="@(Analyzer)"
+                                  Condition="'%(Filename)%(Extension)' == 'Vixen.Ui.Markup.Generators.dll'" />
+        </ItemGroup>
+
+        <!--
+            Reported against the `.csproj` and not against the markup, which is the entire point:
+            every other message this state produces names a `.vxml` or the `.cs` beside it, and the
+            mistake is in neither.
+        -->
+        <Error Condition="'@(_VixenMarkupInput)' != '' AND '@(_VixenMarkupCompiler)' == ''"
+               Code="VX4002"
+               File="$(MSBuildProjectFullPath)"
+               Text="Vixen: this project hands @(_VixenMarkupInput->Count()) .vxml file(s) to the compiler — @(_VixenMarkupInput->'%(Identity)', ', ') — and the VXML compiler is not loaded, so nothing reads them and the classes they declare will not exist. Vixen.Ui.targets is imported here, which is what made them AdditionalFiles, but nothing in this compilation's analyzer list is Vixen.Ui.Markup.Generators.dll. Inside the Vixen repository the one line that fixes it is &lt;VixenUi&gt;true&lt;/VixenUi&gt; in this project's first PropertyGroup, which brings the item types and both generators; outside it, a PackageReference to Vixen.Ui carries the generator in analyzers/dotnet/cs and nothing needs saying. If markup here is deliberately not compiled, set &lt;VixenUiMarkupCheck&gt;false&lt;/VixenUiMarkupCheck&gt; and write down why." />
+    </Target>
+
 </Project>
