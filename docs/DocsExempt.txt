@@ -1591,6 +1591,8 @@ T:Vixen.Editor.ShaderGraph.ShaderNode sweep-pending
 T:Vixen.Editor.ShaderGraph.ShaderNodeLibrary sweep-pending
 T:Vixen.Editor.ShaderGraph.ShaderProperties sweep-pending
 T:Vixen.Editor.ShaderGraph.ShaderStageInput sweep-pending
+T:Vixen.Editor.Terrain.FactBlock sweep-pending
+T:Vixen.Editor.Terrain.FactLine sweep-pending
 T:Vixen.Editor.Testing.EditorSession sweep-pending
 T:Vixen.Editor.Testing.EditorSessionException sweep-pending
 T:Vixen.Editor.Testing.EditorSessionOptions sweep-pending
@@ -1650,6 +1652,10 @@ T:Vixen.Editor.Ui.ToolbarEntry sweep-pending
 T:Vixen.Editor.Ui.ToolbarGroup sweep-pending
 T:Vixen.Editor.Ui.ToolbarPresenter sweep-pending
 T:Vixen.Editor.Ui.ToolbarSeparator sweep-pending
+T:Vixen.Editor.Water.WaterFactLine sweep-pending
+T:Vixen.Editor.Water.WaterFacts sweep-pending
+T:Vixen.Editor.Water.WaterNotice sweep-pending
+T:Vixen.Editor.Water.WaterZoneFacts sweep-pending
 T:Vixen.Engine.Behaviors.Behavior sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLateUpdateSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLifecycleSystem sweep-pending
