@@ -889,6 +889,22 @@ water body panel has five of them across two rows, and `Verbs(panel, …)` is ei
 the command — more surface than it removes, for a tag no sheet styles. The revisit condition this
 section set has now been met and answered: still no.
 
+### ⚠ "Byte-identical in N dumped states" is a wave note, not a test
+
+Nine rows below and half the prose above claim a port was byte-identical in three, six, seven, eight,
+nine, fifteen or sixteen dumped states. **Three test files in the whole editor dump a tree**, and all
+three belong to the shared parts: `FactRowTests`, `FactBlockTests`, `WaterFactsTests`. Every other
+dump was a throwaway harness, run once, compared by eye or by `diff`, and deleted — which is exactly
+what wave 5's note about `CompiledSceneView` asked for and is *not* what a reader of this table would
+assume. Nothing in the tree re-checks any of them, so a later change that moves those pixels is a
+change no gate will notice.
+
+Found while converting `RemoteInspectorClient` (build item 8), whose row claims eight of nine states:
+its committed guard is `PortedPanelTests`, which asserts behaviour and not geometry. The claims are
+believed — each was made by somebody who ran the comparison — and they are **evidence about a
+commit**, not coverage. Whoever next wants one of these to hold should promote the harness rather
+than trust the sentence, and the three that exist are the pattern to copy.
+
 ### The ledger
 
 Sizes are the wave-1b unit: four panels, ~1,130 lines of C# removed, ~1,370 of `.vxml` added, one
