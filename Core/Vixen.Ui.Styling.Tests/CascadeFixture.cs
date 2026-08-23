@@ -28,12 +28,13 @@ sealed class CascadeFixture {
     /// <param name="name">Its <c>container-name</c>, or empty.</param>
     /// <param name="kind">Which axes it may be asked about.</param>
     /// <remarks>
-    ///     ⚠ <b>This is the wiring doc 43 § D3 still owes, written out by hand.</b> Nothing in
-    ///     <c>UiDocument</c> calls <see cref="ContainerScopes.Enter" /> yet, so a test that built a
-    ///     document and expected <c>@container</c> to answer would be asserting against a feature no
-    ///     layout feeds — and would pass for the wrong reason the day somebody wired it up wrongly.
-    ///     Driving the sizes here asserts the cascade half on its own terms: given a box of this size,
-    ///     does the query resolve to this value.
+    ///     ⚠ <b><c>UiDocument.Recontain</c> does this for a live document, and this stays by hand on
+    ///     purpose.</b> There is no layout in this project, so driving the sizes here is the only way
+    ///     to ask the cascade's own question: given a box of <i>this</i> size, does the query resolve
+    ///     to this value. Reaching for the document instead would make every case below depend on a
+    ///     flexbox pass agreeing about a width, and a failure would no longer say which half broke —
+    ///     which is why the end-to-end assertions live in <c>ContainerWiringTests</c> over in
+    ///     <c>Vixen.Ui.Tests</c> and are a separate set rather than a replacement for these.
     /// </remarks>
     public void Contain(
         StyleNodeId element,

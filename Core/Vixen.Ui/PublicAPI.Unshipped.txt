@@ -810,6 +810,7 @@ Vixen.Ui.UiDocument.CompactStyles() -> bool
 Vixen.Ui.UiDocument.ComponentAt(Vixen.Ui.UiElement element) -> Vixen.Ui.Composition.Component?
 Vixen.Ui.UiDocument.Compositing.get -> bool
 Vixen.Ui.UiDocument.Compositing.set -> bool
+Vixen.Ui.UiDocument.ContainerScopesEntered.get -> int
 Vixen.Ui.UiDocument.Create(string tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
 Vixen.Ui.UiDocument.CreateSurface(float width, float height, float dpiScale = 1, Vixen.Ui.UiElement? owner = null) -> Vixen.Ui.UiSurface
@@ -1037,6 +1038,7 @@ const Vixen.Ui.FontRegistry.RegularWeight = 400 -> int
 const Vixen.Ui.LengthContext.InitialFontSize = 16 -> float
 const Vixen.Ui.Rendering.PathTessellator.DefaultMiterLimit = 4 -> float
 const Vixen.Ui.Rendering.UiLayer.MaximumKernel = 64 -> int
+const Vixen.Ui.UiDocument.ContainerScopeCeiling = 4096 -> int
 const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
 override Vixen.Ui.UiPropertyKey.ToString() -> string
 static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string

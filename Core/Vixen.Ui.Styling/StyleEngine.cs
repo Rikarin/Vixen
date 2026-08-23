@@ -138,13 +138,18 @@ public sealed class StyleEngine {
 
     /// <summary>Every container chain the document has, and what <c>@container</c> answers in each.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half of container queries that is built, and it answers nothing until something
-    ///     measures a box and calls <see cref="ContainerScopes.Enter" />.</b> The cascade reads an
-    ///     element's container scope the way it reads its surface scope, and a document whose layout
-    ///     has never entered a container leaves every element at <see cref="ContainerScopes.Root" /> —
-    ///     where no query has an eligible container and every one of them is therefore false. That is
-    ///     the conservative answer rather than a silent one only because the wiring is named: see
-    ///     doc 43 § D3.
+    ///     ⚠ <b>It answers nothing until something measures a box and calls
+    ///     <see cref="ContainerScopes.Enter" />.</b> The cascade reads an element's container scope
+    ///     the way it reads its surface scope, and a document whose layout has never entered a
+    ///     container leaves every element at <see cref="ContainerScopes.Root" /> — where no query has
+    ///     an eligible container and every one of them is therefore false.
+    ///     <para>
+    ///         <c>UiDocument.Recontain</c> is the caller for a live document: it reads
+    ///         <c>container-type</c> off each element's computed style at the end of every
+    ///         <c>Arrange</c> and enters a scope per container from its measured content box. An
+    ///         engine driven without one — which is what most of the styling tests are — still has to
+    ///         enter its own scopes, and that is what <c>CascadeFixture.Contain</c> does.
+    ///     </para>
     /// </remarks>
     public ContainerScopes ContainerScopes { get; }
 
