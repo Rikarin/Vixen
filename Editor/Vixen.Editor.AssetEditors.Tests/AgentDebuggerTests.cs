@@ -111,6 +111,10 @@ public class AgentDebuggerViewTests {
 
         view.Show(model);
 
+        // ⚠ A frame, for `QueryViewTests`' reason: eight lists that were `Empty`-then-refill are
+        // eight signals now, and a signal write only queues.
+        ui.Frame();
+
         Assert.Single(view.Agents.Children);
         Assert.NotEmpty(view.Header.Children);
         Assert.NotEmpty(view.Doing.Children);
@@ -132,11 +136,15 @@ public class AgentDebuggerViewTests {
         var view = ui.Document.Root.Add<AgentDebuggerView>();
 
         view.Show(model);
+        ui.Frame();
 
         var rows = view.Doing.Children.Count;
 
+        Assert.NotEqual(0, rows);
+
         view.Refresh();
         view.Refresh();
+        ui.Frame();
 
         Assert.Equal(rows, view.Doing.Children.Count);
     }

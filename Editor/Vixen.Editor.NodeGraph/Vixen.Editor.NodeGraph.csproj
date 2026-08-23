@@ -73,6 +73,25 @@
         <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            And the VXML compiler, by the same route and for the same reason: analyzers do not flow
+            through a ProjectReference, and a PackageReference to Vixen.Ui would have brought this
+            one with the .targets below.
+
+            ⚠ **This project had the import and not this line, which is the worst of the three
+            states.** Doc 36 § F7 wave 5 recorded that the first `.vxml` in an assembly costs two
+            lines and that missing them is not a diagnostic; here the *glob* was already running —
+            imported for `**/*.vcss` — so `NodeSearchPopup.vxml` became an item that no generator
+            ever read, and the build failed with "does not contain a definition for" on every member
+            the markup declares. The comment at the bottom of this file said "there is no `.vxml` in
+            this project, so the other half of the .targets is inert here", which was true when it
+            was written and is the sentence that makes this trap survivable: it says exactly what
+            changed.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
@@ -86,7 +105,11 @@
         message it throws names this import for that reason.
 
         At the bottom of the file, because the glob has to run after DefaultItemExcludes is final.
-        There is no `.vxml` in this project, so the other half of the .targets is inert here.
+
+        ⚠ **And the `**/*.vxml` half is live now, which it was not when this comment was written.**
+        `NodeSearchPopup.vxml` and `NodeInspector.vxml` are items of this project, so the generator
+        `ProjectReference` above is what makes the glob mean anything — the import alone produces
+        items nothing compiles.
     -->
     <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 

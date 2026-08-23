@@ -1,0 +1,381 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 6. doc 37 § Part 5 § Shared's agent inspector: eight lists over one
+    `AgentDebugModel`, and the panel with the most `Empty(…)`-then-refill in this assembly — the
+    hand-written `Refresh` emptied eight elements and rebuilt them all on **every editor update**,
+    because `AgentDebuggerPanel.Live` calls it from `context.OnUpdate`. That is what the port
+    deletes: an unchanged model now moves nothing, because an unchanged snapshot is an unchanged key.
+
+    ⚠ **Four lists share one host tag and one row tag**, and each is still its own `@for`. Doing,
+    Why, Data and Senses are four `agent-rows` elements filled by the same `Rows(into, section)`
+    helper; a single loop over a concatenation would have been fewer characters and would have put
+    four sections in one region, where a change in Senses rebuilds Doing.
+
+    ⚠ **`agent-row` versus `agent-row-live` is a tag and not a class**, so the choice is an `@if`
+    inside the loop body and `Active` has to be in the key — wave 4's rule. A key that carried only
+    the name and the value would leave the highlight on whichever row was live when the panel opened,
+    which on a flapping agent is exactly the defect this panel exists to show.
+
+    ⚠ **The header is a list with holes in it, not a fixed row.** `agent-reason` is added only when
+    the snapshot has one, so the header is a `@for` over one record's worth of cells rather than six
+    tags in a row: an `@if` around a single `<AgentReason />` would have been the same tree, and is
+    what this does — the five that are always there are written out, and the sixth is the `@if`.
+
+    ⚠ **Both buttons stay `ref`s, because their handlers are somebody else's.**
+    `AgentDebuggerPanel` writes `Continue.Clicked += _ => Resume()` from outside the view, and
+    `Open.Clicked` calls back into `OpenAsset()`. `on:click` here would move the wiring into the
+    panel and change which assembly knows what a running `AiSystem` is — a redesign wearing a port's
+    clothes.
+-->
+@component AgentDebuggerView
+@namespace Vixen.Editor.AssetEditors.Ai
+@inherits Vixen.Ui.Controls.Control
+@tag agent-debugger
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Ai.Diagnostics
+@using Vixen.Core
+@using Vixen.Editor.Ai
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<agent-debugger-body>
+    <agent-debugger-agents>
+        <PanelTitle Text="Agents" />
+
+        <agent-list ref="@Agents">
+            @for (var agent in AgentRows) {
+                <agent-row key="@agent">
+                    <AgentName Text="@agent.Name" />
+
+                    @if (agent.Selected) {
+                        <AgentMark Text="•" />
+                    }
+                </agent-row>
+            }
+        </agent-list>
+    </agent-debugger-agents>
+
+    <agent-debugger-detail>
+        <agent-header ref="@Header">
+            @if (HasHead) {
+                <AgentPlanner Text="@HeadPlanner" />
+                <AgentAsset Text="@HeadAsset" />
+                <AgentAction Text="@HeadAction" />
+                <AgentStatus Text="@HeadStatus" />
+                <AgentOrigin Text="@HeadOrigin" />
+
+                @if (HasReason) {
+                    <AgentReason Text="@HeadReason" />
+                }
+            }
+        </agent-header>
+
+        <agent-toolbar>
+            <Button ref="@Continue" Label="Continue" />
+            <Button ref="@Open" Label="Open asset" />
+        </agent-toolbar>
+
+        <PanelTitle Text="Doing" />
+
+        <agent-rows ref="@Doing">
+            @for (var row in DoingRows) {
+                @if (row.Active) {
+                    <agent-row-live key="@row">
+                        <AgentName Text="@row.Name" />
+                        <AgentValue Text="@row.Value" />
+                    </agent-row-live>
+                } else {
+                    <agent-row key="@row">
+                        <AgentName Text="@row.Name" />
+                        <AgentValue Text="@row.Value" />
+                    </agent-row>
+                }
+            }
+        </agent-rows>
+
+        <PanelTitle Text="Why" />
+
+        <agent-rows ref="@Why">
+            @for (var row in WhyRows) {
+                @if (row.Active) {
+                    <agent-row-live key="@row">
+                        <AgentName Text="@row.Name" />
+                        <AgentValue Text="@row.Value" />
+                    </agent-row-live>
+                } else {
+                    <agent-row key="@row">
+                        <AgentName Text="@row.Name" />
+                        <AgentValue Text="@row.Value" />
+                    </agent-row>
+                }
+            }
+        </agent-rows>
+
+        <PanelTitle Text="Data" />
+
+        <agent-rows ref="@Data">
+            @for (var row in DataRows) {
+                @if (row.Active) {
+                    <agent-row-live key="@row">
+                        <AgentName Text="@row.Name" />
+                        <AgentValue Text="@row.Value" />
+                    </agent-row-live>
+                } else {
+                    <agent-row key="@row">
+                        <AgentName Text="@row.Name" />
+                        <AgentValue Text="@row.Value" />
+                    </agent-row>
+                }
+            }
+        </agent-rows>
+
+        <PanelTitle Text="Senses" />
+
+        <agent-rows ref="@Senses">
+            @for (var row in SenseRows) {
+                @if (row.Active) {
+                    <agent-row-live key="@row">
+                        <AgentName Text="@row.Name" />
+                        <AgentValue Text="@row.Value" />
+                    </agent-row-live>
+                } else {
+                    <agent-row key="@row">
+                        <AgentName Text="@row.Name" />
+                        <AgentValue Text="@row.Value" />
+                    </agent-row>
+                }
+            }
+        </agent-rows>
+
+        <PanelTitle Text="Findings" />
+
+        <agent-findings ref="@Findings">
+            @for (var finding in FindingRows) {
+                <agent-finding key="@finding">
+                    <AgentSymptom Text="@finding.Symptom" />
+                    <AgentDetail Text="@finding.Detail" />
+                </agent-finding>
+            }
+        </agent-findings>
+
+        <PanelTitle Text="Log" />
+
+        <agent-log ref="@Log">
+            @for (var record in LogRows) {
+                <agent-log-row key="@record">
+                    <AgentTick Text="@record.Tick" />
+                    <AgentName Text="@record.Action" />
+                    <AgentStatus Text="@record.Status" />
+                    <AgentDetail Text="@record.Reason" />
+                </agent-log-row>
+            }
+        </agent-log>
+    </agent-debugger-detail>
+</agent-debugger-body>
+
+@code {
+    /// <summary>Every agent in the world, one row each.</summary>
+    readonly Signal<ImmutableArray<AgentListRow>> agents = new([]);
+
+    /// <summary>What the selected agent is, in one line — or nothing shown at all.</summary>
+    readonly Signal<AgentHeadRow?> head = new(null);
+
+    /// <summary>The four sections, each keyed and each its own region.</summary>
+    readonly Signal<ImmutableArray<AgentSectionRow>> doing = new([]);
+
+    /// <inheritdoc cref="doing" />
+    readonly Signal<ImmutableArray<AgentSectionRow>> why = new([]);
+
+    /// <inheritdoc cref="doing" />
+    readonly Signal<ImmutableArray<AgentSectionRow>> data = new([]);
+
+    /// <inheritdoc cref="doing" />
+    readonly Signal<ImmutableArray<AgentSectionRow>> senses = new([]);
+
+    /// <summary>What is visibly wrong with it.</summary>
+    readonly Signal<ImmutableArray<AgentFindingRow>> findings = new([]);
+
+    /// <summary>What it has decided lately, oldest first.</summary>
+    readonly Signal<ImmutableArray<AgentLogRow>> log = new([]);
+
+    AgentDebugModel? model;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Every agent in the world, one row each.</summary>
+    public UiElement Agents { get; private set; } = null!;
+
+    /// <summary>What the selected agent is, in one line.</summary>
+    public UiElement Header { get; private set; } = null!;
+
+    /// <summary>What it is doing: the active path, the scored candidates, the plan.</summary>
+    public UiElement Doing { get; private set; } = null!;
+
+    /// <summary>Why.</summary>
+    public UiElement Why { get; private set; } = null!;
+
+    /// <summary>Its data: the blackboard, live.</summary>
+    public UiElement Data { get; private set; } = null!;
+
+    /// <summary>Its senses.</summary>
+    public UiElement Senses { get; private set; } = null!;
+
+    /// <summary>What is visibly wrong with it.</summary>
+    public UiElement Findings { get; private set; } = null!;
+
+    /// <summary>What it has decided lately, oldest first.</summary>
+    public UiElement Log { get; private set; } = null!;
+
+    /// <summary>Lets a stopped agent go.</summary>
+    public Button Continue { get; private set; } = null!;
+
+    /// <summary>Opens the asset the selected agent is running, scrolled to what it is doing.</summary>
+    /// <remarks>
+    ///     doc 37 § Part 5 § Shared. ⚠ <b>It reports what to open rather than opening it</b>, through
+    ///     <see cref="Opening" /> — this panel knows an agent's <c>Symbol</c> and its active node, and
+    ///     it does not know where the project keeps its files or which host owns the tab strip. A view
+    ///     that reached for a document service would be a view that cannot be tested without one.
+    /// </remarks>
+    public Button Open { get; private set; } = null!;
+
+    /// <summary>What to open, and where in it: the asset's name and the live node's index.</summary>
+    public event Action<Symbol, int>? Opening;
+
+    /// <summary>The model it is showing, or null.</summary>
+    public AgentDebugModel? Model => model;
+
+    /// <summary>Shows a model, and follows it from then on.</summary>
+    /// <param name="value">The model.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="value" /> is null.</exception>
+    public void Show(AgentDebugModel value) {
+        ArgumentNullException.ThrowIfNull(value);
+
+        model = value;
+
+        Refresh();
+    }
+
+    /// <summary>
+    ///     Says which asset the selected agent is running and where in it, for whoever owns the tabs.
+    /// </summary>
+    /// <returns>Whether there was anything to open.</returns>
+    public bool OpenAsset() {
+        if (model is null || !model.Snapshot.Asset.IsSome) {
+            return false;
+        }
+
+        // ⚠ The *live* node, not the selected one: an author pressing this wants the tree scrolled to
+        // what the agent is doing, which is the whole reason the button is on this panel rather than
+        // in the asset browser.
+        Opening?.Invoke(model.Snapshot.Asset, model.ActivePath.Count > 0 ? model.ActivePath[^1] : 0);
+
+        return true;
+    }
+
+    /// <summary>Rebuilds every list from the model.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Called from <c>context.OnUpdate</c> every editor frame, which is why the keys matter
+    ///     more here than anywhere else in the wave.</b> Eight <c>Empty</c>-then-refill loops used to
+    ///     run per frame whether or not the agent had moved; eight signal writes now produce eight
+    ///     unchanged arrays, every key survives, and nothing is rebuilt at all.
+    /// </remarks>
+    public void Refresh() {
+        if (model is null) {
+            return;
+        }
+
+        agents.Value = [
+            .. model.Agents.Select(
+                (entity, slot) => new AgentListRow(slot, entity.ToString(), entity == model.Selected)
+            )
+        ];
+
+        var snapshot = model.Snapshot;
+
+        head.Value = new(
+            snapshot.Planner.ToString(),
+            snapshot.Asset.ToString(),
+            snapshot.Action.ToString(),
+            model.Halted ? "halted" : snapshot.Status.ToString(),
+            model.Origin.ToString(),
+            snapshot.Reason.Length > 0,
+            snapshot.Reason
+        );
+
+        doing.Value = Rows(AiDebugSection.Doing);
+        why.Value = Rows(AiDebugSection.Why);
+        data.Value = Rows(AiDebugSection.Data);
+        senses.Value = Rows(AiDebugSection.Senses);
+
+        findings.Value = [
+            .. model.SelectedFindings()
+                .Select((finding, slot) => new AgentFindingRow(slot, finding.Symptom.ToString(), finding.ToString()))
+        ];
+
+        log.Value = [
+            .. model.Log.Select(
+                (record, slot) => new AgentLogRow(
+                    slot,
+                    record.Tick.ToString(CultureInfo.InvariantCulture),
+                    record.Action.ToString(),
+                    record.Status.ToString(),
+                    record.Reason.IsSome ? record.Reason.ToString() : string.Empty
+                )
+            )
+        ];
+    }
+
+    ImmutableArray<AgentSectionRow> Rows(AiDebugSection section) =>
+        model is null
+            ? []
+            : [
+                .. model.Section(section)
+                    .Select((row, slot) => new AgentSectionRow(slot, row.Active, row.Name, row.Value))
+            ];
+
+    // ================================================================== What the markup reads
+
+    ImmutableArray<AgentListRow> AgentRows => agents.Value;
+
+    /// <summary>
+    ///     ⚠ <b>A shape and never a value, which is wave 4's rule and the trap this panel walked
+    ///     into first.</b> The header's arm survives every refresh once a model has been shown — the
+    ///     predicate is "is there a snapshot", and re-photographing the world does not change it — so
+    ///     a <c>@if (Head is { } shown)</c> with <c>shown.Planner</c> under it would have frozen all
+    ///     six cells at whatever the agent was doing on the frame the panel opened. Every cell goes
+    ///     back through one of the six properties below, and each of those reads the signal.
+    /// </summary>
+    bool HasHead => head.Value is not null;
+
+    /// <inheritdoc cref="HasHead" />
+    bool HasReason => head.Value?.HasReason ?? false;
+
+    string HeadPlanner => head.Value?.Planner ?? string.Empty;
+
+    string HeadAsset => head.Value?.Asset ?? string.Empty;
+
+    string HeadAction => head.Value?.Action ?? string.Empty;
+
+    string HeadStatus => head.Value?.Status ?? string.Empty;
+
+    string HeadOrigin => head.Value?.Origin ?? string.Empty;
+
+    string HeadReason => head.Value?.Reason ?? string.Empty;
+
+    ImmutableArray<AgentSectionRow> DoingRows => doing.Value;
+
+    ImmutableArray<AgentSectionRow> WhyRows => why.Value;
+
+    ImmutableArray<AgentSectionRow> DataRows => data.Value;
+
+    ImmutableArray<AgentSectionRow> SenseRows => senses.Value;
+
+    ImmutableArray<AgentFindingRow> FindingRows => findings.Value;
+
+    ImmutableArray<AgentLogRow> LogRows => log.Value;
+}

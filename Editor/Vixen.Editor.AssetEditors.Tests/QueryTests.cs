@@ -199,6 +199,13 @@ public class QueryViewTests {
 
         view.Show(document);
 
+        // ⚠ A frame, because the lists are a projection of four signals and writing a signal only
+        // queues (ADR-007). These assertions are here for the reason `CompiledSceneTests` states —
+        // "a projection that produced the right numbers and drew none of them would pass every test
+        // about the numbers" — which is a claim about coverage rather than about timing. The
+        // synchronous contract that is real is `Compile()`'s return value, and it still is.
+        ui.Frame();
+
         Assert.Single(view.Generators.Children);
         Assert.Equal(2, view.Tests.Children.Count);
         Assert.NotEmpty(view.Preview.Children);
@@ -218,11 +225,15 @@ public class QueryViewTests {
         var view = ui.Document.Root.Add<QueryView>();
 
         view.Show(document);
+        ui.Frame();
 
         var tests = view.Tests.Children.Count;
 
+        Assert.Equal(2, tests);
+
         view.Refresh();
         view.Refresh();
+        ui.Frame();
 
         Assert.Equal(tests, view.Tests.Children.Count);
     }

@@ -50,3 +50,69 @@ internal sealed class FactValue : UiElement {
     /// <inheritdoc />
     protected override string TagName => "fact-value";
 }
+
+/// <summary>The two cells a diagnostics row is made of.</summary>
+/// <remarks>
+///     <para>
+///         <see cref="FactName" />'s reason, for the other triple this assembly repeats.
+///         <c>analysis-row</c>/<c>analysis-stage</c>/<c>analysis-message</c> is built by hand in nine
+///         panels here; <c>AnalysisRow.vxml</c> is the row, and these are the cells it writes the
+///         text of.
+///     </para>
+///     <para>
+///         ⚠ <b>Hoisted out of <c>AudioMixerView.cs</c>, which is where wave 3 declared them and said
+///         they should move.</b> Its note read "hoisting it into a part is a job for whoever ports the
+///         second of them, because doing it here would move pixels in a panel this change has not
+///         measured" — wave 6 is that porter, and the move is byte-neutral because it is a namespace
+///         change and not a tag change.
+///     </para>
+/// </remarks>
+internal sealed class AnalysisStage : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "analysis-stage";
+}
+
+/// <inheritdoc cref="AnalysisStage" />
+internal sealed class AnalysisMessage : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "analysis-message";
+}
+
+/// <summary>One line of what a compiler said, as an <c>AnalysisRow</c>'s <c>@for</c> keys it.</summary>
+/// <param name="Slot">Where it is in the order the compiler said things.</param>
+/// <param name="Stage">Which part of the pipeline spoke, or which node.</param>
+/// <param name="Message">What it said.</param>
+/// <remarks>
+///     <para>
+///         Shared for <see cref="AnalysisStage" />'s reason: nine panels here build the same row, and
+///         each of them would otherwise declare the same three fields under a different name.
+///     </para>
+///     <para>
+///         ⚠ <b>The whole record is the key and the slot is load-bearing.</b> A compiler that reports
+///         every problem before failing once — which is what these lists exist to show — can say the
+///         same sentence about two nodes, and <c>BuildContext.For</c> cannot reconcile two equal keys
+///         in one loop.
+///     </para>
+/// </remarks>
+internal readonly record struct AnalysisNote(int Slot, string Stage, string Message);
+
+/// <summary>A section heading inside a panel, as an element a <c>.vxml</c> can write the text of.</summary>
+/// <remarks>
+///     <para>
+///         <see cref="FactName" />'s reason again, for the caption this assembly repeats most:
+///         <c>panel.Add("panel-title").Text = "Diagnostics"</c> is written twenty-three times across
+///         the AI, behaviour-tree and utility editors.
+///     </para>
+///     <para>
+///         ⚠ <b>A tag and not a class, which is what the call sites already say.</b>
+///         <c>EditorTheme</c> has one <c>panel-title</c> rule and it is
+///         <c>viewport-panel &gt; .panel-title</c> — a <i>class</i> selector, reached only from
+///         <c>ViewportChrome</c>'s <c>AddClass</c>. Every panel in this assembly writes the tag
+///         instead, which nothing styles; that asymmetry is preserved rather than tidied, because
+///         giving these headings the class would restyle five panels in a commit about markup.
+///     </para>
+/// </remarks>
+internal sealed class PanelTitle : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "panel-title";
+}
