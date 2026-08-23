@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using System.Text.RegularExpressions;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -80,8 +79,6 @@ static class ParityLedger {
     ///     is better than picking the state that flatters, and the row says what it would take to fix.
     /// </remarks>
     public static readonly string[] States = ["works", "partial", "inert", "absent", "composed", "unknown"];
-
-    static readonly Regex LogicalAxis = new(@"(^|-)(inline|block)($|-)", RegexOptions.Compiled);
 
     /// <summary>Finds the ledger, walking up from the test binary to the repository root.</summary>
     public static string Locate() {
