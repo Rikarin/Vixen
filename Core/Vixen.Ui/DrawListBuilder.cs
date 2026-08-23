@@ -47,6 +47,17 @@ public sealed class DrawListBuilder {
 
     readonly int backgroundImage;
     readonly GradientReader gradients;
+
+    /// <summary><c>mask-image</c>, read by <see cref="MaskFor" /> and by nothing else.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one <c>mask-*</c> longhand that is read, and the others are absent rather than
+    ///     ignored.</b> <c>mask-position</c>, <c>mask-size</c>, <c>mask-origin</c>, <c>mask-repeat</c>
+    ///     and <c>mask-composite</c> all describe where a mask <i>image</i> is placed and how several
+    ///     of them combine; a gradient sized to the border box needs none of them, and honouring one
+    ///     without the rest would place a mask the next property could not move. See
+    ///     <c>InertProperties.txt</c>, which records them as absent for that reason.
+    /// </remarks>
+    readonly int maskImage;
     readonly int textColor;
     readonly OverflowReader overflow;
     readonly int visibility;
@@ -93,6 +104,12 @@ public sealed class DrawListBuilder {
         // `from-*` is. Reading one and skipping the other would be a coin toss dressed as a choice.
         backgroundImage = properties.Intern("background-image");
         gradients = new GradientReader(values, parser);
+
+        // ⚠ Read through the *same* `GradientReader`, which is the whole reason a mask gradient and a
+        // background gradient written the same way line up. A second reader tuned for masks would be
+        // a second set of refusals to keep in step, and `mask-image: linear-gradient(...)` is the
+        // identical production — only what is taken out of the result differs.
+        maskImage = properties.Intern("mask-image");
 
         // ⚠ The longhands, never the shorthands, and *all* of them. A shorthand is expanded before
         // it is interned — by ExCSS while parsing when the value is literal, and by
@@ -311,7 +328,15 @@ public sealed class DrawListBuilder {
         // two of the group's children overlap with partial coverage, because CSS transforms the
         // group's *rendered* result and not each thing in it. Filter Effects 1 § 5 says so outright:
         // any `filter` other than `none` makes the element a stacking context.
-        var group = Compositing && (own < 1f || filters.Any) ? into.Count : -1;
+        // ⚠ <b>The third reason to open a group, and non-optional on exactly the blur's terms.</b>
+        // A mask multiplies the *rendered* subtree's coverage, so pushing it down onto each command's
+        // alpha would be right on a bare panel and wrong wherever two children overlap: two half-
+        // covered things masked separately and then blended do not give the blend masked once. CSS
+        // agrees — Masking 1 § 5 makes any `mask` other than `none` a stacking context, in the same
+        // sentence shape Filter Effects uses for `filter`.
+        var mask = MaskFor(element, width, height);
+
+        var group = Compositing && (own < 1f || filters.Any || mask is not null) ? into.Count : -1;
 
         if (group >= 0) {
             into.Add(
@@ -326,7 +351,8 @@ public sealed class DrawListBuilder {
                     0f
                 ) {
                     Blur = filters.Blur,
-                    Filter = filters.Colour
+                    Filter = filters.Colour,
+                    Mask = mask
                 }
             );
         }
@@ -365,7 +391,10 @@ public sealed class DrawListBuilder {
         // nothing to do with. The single-command case is not rare enough to leave to chance either,
         // since a `blur-*` or a `grayscale` on a bare panel is one background rectangle and nothing
         // else, which is precisely the shape this branch catches.
-        if (!filters.Any && drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
+        // ⚠ `mask is null` joins the guard for the filter's reason word for word: a masked rectangle
+        // is not a fainter rectangle either, and a single background rectangle under a `mask-*` is
+        // exactly the shape this branch catches.
+        if (!filters.Any && mask is null && drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
             into.Collapse(group, inherited * own);
             return;
         }
@@ -382,7 +411,8 @@ public sealed class DrawListBuilder {
                 0f
             ) {
                 Blur = filters.Blur,
-                Filter = filters.Colour
+                Filter = filters.Colour,
+                Mask = mask
             }
         );
     }
@@ -1240,6 +1270,80 @@ public sealed class DrawListBuilder {
         corners.IsUniformCircular(out _)
             ? command
             : command with { Offset = into.AddBox(BoxStyle.Rounded(corners)), Length = 1 };
+
+    /// <summary>The coverage this element's <c>mask-image</c> asks for, or null where there is none.</summary>
+    /// <param name="element">The element being drawn.</param>
+    /// <param name="width">Its border box's width, in document pixels.</param>
+    /// <param name="height">Its border box's height.</param>
+    /// <returns>A mask, or null when there is nothing to mask by.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A mask this cannot resolve masks <i>nothing</i>, which is the opposite of the
+    ///         refusal <see cref="EmitGradient" /> makes one method down, and the asymmetry is CSS's
+    ///         rather than this file's.</b> A background gradient that cannot be painted is left out
+    ///         and the element keeps its own colour: the picture is missing something. A mask that
+    ///         cannot be resolved, left out the same way, would leave the element <i>unmasked</i> —
+    ///         also the picture missing something. But a mask that failed <i>closed</i> would erase
+    ///         the element outright, and an author staring at a blank rectangle has no way to tell a
+    ///         bad gradient from a layout collapse. Masking 1 § 4.1 says the same thing for the same
+    ///         reason: a mask resource that cannot be fetched is ignored.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fully opaque ramp returns null rather than an identity mask, and it has to
+    ///         happen here rather than in an executor.</b> Returning one would open a group — and the
+    ///         group is the expensive half: a viewport-sized surface, a pass, and a composite, spent
+    ///         on a mask that changes no pixel. <c>UiColorMatrix</c>'s identity is dropped by
+    ///         <see cref="Settle" /> at exactly the same point and for exactly this reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A degenerate box returns null too, and testing the box rather than the axis is
+    ///         deliberate.</b> A radial mask has no axis at all — <see cref="BackgroundGradient.Axis" />
+    ///         returns zero for one legitimately — so a guard written against the axis would delete
+    ///         every round mask while looking like it guarded a division.
+    ///     </para>
+    /// </remarks>
+    UiMask? MaskFor(UiElement element, float width, float height) {
+        if (!element.Style.TryGet(maskImage, out var id)) {
+            return null;
+        }
+
+        var gradient = gradients.Read(id);
+
+        if (!gradient.IsPaintable || width <= 0f || height <= 0f) {
+            return null;
+        }
+
+        var axis = gradient.Axis(width, height);
+
+        if (gradient.Shape == GradientShape.Linear && axis == Vector2.Zero) {
+            return null;
+        }
+
+        var half = new Vector2(width * 0.5f, height * 0.5f);
+
+        // ⚠ <b>The border box, in document pixels, and it is the element's own — not the group's.</b>
+        // `UiLayer.Bounds` is the ink and has already been outset by a blur; resolving the ramp
+        // against that would slide it the moment somebody added `blur-sm` beside the mask. See
+        // `UiMask`, which carries the box for this reason.
+        var centre = new Vector2(element.AbsoluteLeft + half.X, element.AbsoluteTop + half.Y);
+
+        // ⚠ <b>Alphas alone, and the three colours are dropped on the floor here rather than
+        // downstream.</b> `mask-mode` resolves to `alpha` for every image that is not an SVG
+        // `<mask>`, so `linear-gradient(to right, black, transparent)` and
+        // `linear-gradient(to right, #ff0000, #00ff0000)` are the same mask. Carrying the colours to
+        // find that out later would be carrying a field whose only correct use is being ignored.
+        var mask = new UiMask(
+            centre,
+            half,
+            axis,
+            new Vector3(gradient.Start.A, gradient.Via.A, gradient.End.A),
+            gradient.Stops,
+            gradient.Shape,
+            gradient.HasVia
+        );
+
+        return mask.IsOpaque ? null : mask;
+    }
 
     /// <summary>Paints the <c>background-image</c> layer, when it is a gradient this engine draws.</summary>
     /// <remarks>

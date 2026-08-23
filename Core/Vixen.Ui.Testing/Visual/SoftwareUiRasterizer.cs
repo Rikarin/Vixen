@@ -145,7 +145,8 @@ public static class SoftwareUiRasterizer {
         IReadOnlyList<UiShape> shapes,
         GlyphAtlas atlas,
         Bounds clip,
-        float[]? surface
+        float[]? surface,
+        UiMask? mask
     ) {
         var area = Edge(a.Position, b.Position, c.Position);
 
@@ -222,7 +223,7 @@ public static class SoftwareUiRasterizer {
                     // draws nothing, because an image quad's `shape.x` is zero. That is the behaviour
                     // this renderer has always had for images and it is not being changed here.
                     BatchKind.Image when surface is not null =>
-                        Composite(surface, width, height, texture, colour),
+                        Composite(surface, width, height, texture, colour, mask),
                     _ => Solid(colour, shape)
                 };
 
@@ -571,14 +572,39 @@ public static class SoftwareUiRasterizer {
     ///         transcription is otherwise literal.
     ///     </para>
     /// </remarks>
-    static Color4 Composite(float[] surface, int width, int height, Vector2 uv, Color4 tint) {
+    static Color4 Composite(float[] surface, int width, int height, Vector2 uv, Color4 tint, UiMask? mask) {
         var sampled = SampleSurface(surface, width, height, uv);
 
+        // ⚠ <b>Here, at the composite, and <i>not</i> at the seam the blur and the colour matrix are
+        // applied at — which is the one place this file deliberately does not follow next door's
+        // arrangement.</b> `UiLayer.Filter` is folded into the finished surface a few lines above
+        // because a colour matrix is the same affine map at every pixel and therefore commutes with
+        // both the Gaussian and the bilinear tap below. A mask does not: it is a scalar that varies
+        // with position, so `m(p)·Σ wᵢsᵢ` and `Σ wᵢ·m(pᵢ)·sᵢ` are different numbers wherever the ramp
+        // is not flat across the kernel — which is exactly over a blurred edge. Applying it here is
+        // what makes this agree with `ui-mask.frag`, which has no choice about where it applies it.
+        //
+        // ⚠ <b>The point comes from the same <c>uv</c> the sample did</b>, times the surface size,
+        // because every layer surface is the viewport's size and so that product *is* the document
+        // pixel — the identical expression the shader evaluates. Taking the loop's `x` and `y`
+        // instead would be right today and would stop being right the first time a composite quad
+        // was not laid out one-to-one.
+        var coverage = mask is { } shape
+            ? Math.Clamp(shape.Coverage(new Vector2(uv.X * width, uv.Y * height)), 0f, 1f)
+            : 1f;
+
+        // ⚠ <b>All four channels, because the sample is premultiplied.</b> Scaling coverage on
+        // premultiplied colour is `(rgb·m, a·m)`; the `(rgb, a·m)` an ordinary straight-alpha image
+        // would want is the premultiply mistake `ui-image.frag`'s `varying_shape.x` exists to
+        // prevent. Leaving `rgb` alone here brightens every masked texel towards full strength as the
+        // mask closes, which reads as a glow along the fading edge.
+        var scale = tint.A * coverage;
+
         return new Color4(
-            sampled.X * tint.A,
-            sampled.Y * tint.A,
-            sampled.Z * tint.A,
-            sampled.W * tint.A
+            sampled.X * scale,
+            sampled.Y * scale,
+            sampled.Z * scale,
+            sampled.W * scale
         );
     }
 
@@ -640,6 +666,19 @@ public static class SoftwareUiRasterizer {
     /// </remarks>
     sealed class Frame(UiGeometry geometry, GlyphAtlas atlas, int width, int height) {
         readonly Dictionary<ulong, float[]> surfaces = [];
+
+        /// <summary>Each composited group's mask, keyed the way its surface is.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A second dictionary beside <see cref="surfaces" /> rather than a pass beside
+        ///     <c>Blurred</c> and <c>Filtered</c>, and the shape is <c>UiRenderer.layerFilters</c>'
+        ///     on purpose.</b> A mask cannot be folded into a surface — see <see cref="UiMask" /> —
+        ///     so it has to survive until the composite draw reads it, which is precisely what
+        ///     keying it by <c>UiLayer.Image</c> buys. The device does the same lookup in
+        ///     <c>SubmitDraw</c>, so the two paths find the mask at the same moment as well as apply
+        ///     it at the same moment.
+        /// </remarks>
+        readonly Dictionary<ulong, UiMask> masks = [];
+
         int next;
 
         /// <summary>Executes a range of draws into one surface.</summary>
@@ -691,6 +730,13 @@ public static class SoftwareUiRasterizer {
                     }
 
                     surfaces[layer.Image] = surface;
+
+                    // ⚠ Recorded rather than applied, which is the whole of the difference between a
+                    // mask and the two transforms above it. Nothing here may touch the surface with
+                    // it: the composite draw is the seam, on this path and on the device's.
+                    if (layer.Mask is { } shape) {
+                        masks[layer.Image] = shape;
+                    }
 
                     // The composite draw sits immediately after the group's own draws and is an
                     // ordinary image naming this surface, so the loop picks it up on the next turn.
@@ -859,6 +905,10 @@ public static class SoftwareUiRasterizer {
                 ? found
                 : null;
 
+            var mask = draw.Kind == BatchKind.Image && masks.TryGetValue(draw.Image, out var shape)
+                ? shape
+                : default(UiMask?);
+
             for (var i = draw.First; i + 2 < draw.First + draw.Count; i += 3) {
                 Triangle(
                     target,
@@ -871,7 +921,8 @@ public static class SoftwareUiRasterizer {
                     geometry.Shapes,
                     atlas,
                     clip,
-                    surface
+                    surface,
+                    mask
                 );
             }
         }

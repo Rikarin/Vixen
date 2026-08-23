@@ -107,6 +107,44 @@ public static class UtilityComposition {
     /// </remarks>
     public const string GradientStops = Prefix + "gradient-stops";
 
+    // ── The mask stops ──────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>A second set rather than the gradient's, and they cannot be shared however alike they
+    // look.</b> An element may carry a background gradient and a mask at once — <c>bg-linear-to-r
+    // from-accent to-surface-3 mask-linear-from-70%</c> is an ordinary thing to write — and one set
+    // of fragments would make the mask's stops overwrite the background's silently.
+    //
+    // ⚠ <b>And the initials are the other way up from the gradient's, because a mask's job is the
+    // opposite of a fill's.</b> A gradient with no stops set should paint nothing, so both of its
+    // ends default to <c>transparent</c>. A mask with no stops set must show everything, so its near
+    // end defaults to <c>black</c> — opaque, and therefore fully covering — and only its far end is
+    // <c>transparent</c>. Copying the gradient's pair here would make a bare <c>mask-linear-45</c>
+    // erase the element.
+
+    /// <summary>The mask ramp's first stop colour. Only its alpha is read.</summary>
+    public const string MaskFrom = Prefix + "mask-from";
+
+    /// <summary>The mask ramp's last stop colour. Only its alpha is read.</summary>
+    public const string MaskTo = Prefix + "mask-to";
+
+    /// <summary>Where the mask ramp's first stop sits.</summary>
+    public const string MaskFromPosition = Prefix + "mask-from-position";
+
+    /// <summary>Where the mask ramp's last stop sits.</summary>
+    public const string MaskToPosition = Prefix + "mask-to-position";
+
+    /// <summary>A linear mask's direction.</summary>
+    /// <remarks>
+    ///     ⚠ <c>180deg</c> — CSS's own default for <c>linear-gradient()</c>, which is <c>to bottom</c>
+    ///     — so <c>mask-linear-from-50%</c> on its own fades downwards rather than refusing to
+    ///     resolve. Separate from <see cref="MaskConicAngle" /> because the two defaults differ and a
+    ///     shared fragment would give whichever shape was written second the other's zero.
+    /// </remarks>
+    public const string MaskLinearAngle = Prefix + "mask-linear-angle";
+
+    /// <summary>Where a conic mask's sweep starts.</summary>
+    public const string MaskConicAngle = Prefix + "mask-conic-angle";
+
     // ── The translation ─────────────────────────────────────────────────────────────────────
     //
     // ⚠ Two fragments and *one* property, which is the difference between this pair and the gradient
@@ -233,6 +271,15 @@ public static class UtilityComposition {
         [GradientViaPosition] = "50%",
         [GradientToPosition] = "100%",
 
+        // See the mask fragments' own remark for why the near end is opaque where the gradient's is
+        // not: a mask that defaulted to `transparent` at both ends would erase whatever set it.
+        [MaskFrom] = "black",
+        [MaskTo] = "transparent",
+        [MaskFromPosition] = "0%",
+        [MaskToPosition] = "100%",
+        [MaskLinearAngle] = "180deg",
+        [MaskConicAngle] = "0deg",
+
         // ⚠ <b><c>0px</c> rather than <c>0</c>, and the unit is <i>not</i> doing the work it looks
         // like it is doing — measured, because the plausible reason is wrong.</b> The obvious story is
         // that <see cref="Vixen.Ui.Styling.StyleValue.CanInterpolate" /> compares units, so a
@@ -330,6 +377,33 @@ public static class UtilityComposition {
     ///     class of bug actually arrives.
     /// </remarks>
     public static string Reference(string fragment) => $"var({fragment}, {InitialValueOf(fragment)})";
+
+    /// <summary>One mask assembler: the shape, its geometry, and the two-stop ramp.</summary>
+    /// <param name="shape"><c>linear</c>, <c>radial</c> or <c>conic</c>.</param>
+    /// <param name="geometry">What goes before the stops, or nothing.</param>
+    /// <returns>The <c>mask-image</c> value.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>No <c>in oklab</c>, and its absence is deliberate where the gradient assembler's
+    ///         presence is.</b> An interpolation space says what is halfway between two <i>colours</i>,
+    ///         and a mask reads only alpha — every space the engine has lerps the alpha channel
+    ///         plainly, so a hint here would be a token that changes nothing and invites the reader to
+    ///         think it might. See <c>UiMask</c>, which carries no space for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two stops and no <c>via</c>.</b> The engine's mask carries a middle stop and
+    ///         nothing generates one: Tailwind has no <c>mask-*-via-*</c>, so adding a family here
+    ///         would be inventing API. A hand-written <c>mask-image</c> with three stops is read
+    ///         correctly all the same.
+    ///     </para>
+    /// </remarks>
+    public static string MaskImage(string shape, string geometry) {
+        var stops = $"{Reference(MaskFrom)} {Reference(MaskFromPosition)}, {Reference(MaskTo)} {Reference(MaskToPosition)}";
+
+        return geometry.Length == 0
+            ? $"{shape}-gradient({stops})"
+            : $"{shape}-gradient({geometry}, {stops})";
+    }
 
     /// <summary>The comma-separated stop list a gradient function takes.</summary>
     /// <param name="via">Whether the middle stop is included.</param>

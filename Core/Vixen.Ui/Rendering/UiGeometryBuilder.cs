@@ -399,7 +399,7 @@ public sealed class UiGeometryBuilder {
     void Layer(in DrawCommand command, Rectangle clip, Rectangle viewport) {
         if (command.Kind == DrawCommandKind.LayerPush) {
             opening.Add(
-                new Opening(draws.Count, vertices.Count, command.Color.A, clip, command.Blur, command.Filter)
+                new Opening(draws.Count, vertices.Count, command.Color.A, clip, command.Blur, command.Filter, command.Mask)
             );
             return;
         }
@@ -452,7 +452,26 @@ public sealed class UiGeometryBuilder {
             // `grayscale` and nothing else covers exactly the rectangle it covered before, and
             // growing the bounds "to be safe" would spend surface on pixels that are provably
             // transparent — `UiColorMatrix.Apply` maps transparent black to transparent black.
-            Filter = open.Filter
+            Filter = open.Filter,
+
+            // ⚠ <b>Carried un-outset for the colour matrix's reason and clipped for neither's.</b> A
+            // mask only ever *removes* coverage, so it can no more grow the ink than a matrix can —
+            // and it must not shrink the bounds either, however tempting that is on a ramp that
+            // reaches zero halfway across. The bounds are what both executors allocate and clear; a
+            // mask that narrowed them would be deciding the group's extent from a coverage the
+            // *composite* applies, which the surface's own contents know nothing about.
+            //
+            // ⚠ <b>Rebased onto the viewport's origin, which is the one thing about it that is not
+            // simply carried.</b> `DrawListBuilder` works in absolute document coordinates and knows
+            // nothing of the viewport; the composite quad's UV, twelve lines down, is deliberately
+            // *relative* to the viewport because the surface covers the viewport rather than the
+            // document. Both executors recover the mask's point as `uv × size`, so the box has to be
+            // in the same space that product lands in. Left absolute, a mask would sit correctly on
+            // every viewport whose origin is zero — which is every test and most frames — and slide
+            // by the origin on the ones where it is not.
+            Mask = open.Mask is { } shape
+                ? shape with { Centre = shape.Centre - new Vector2(viewport.X, viewport.Y) }
+                : null
         };
 
         // ⚠ <b>Inserted in pre-order rather than appended, and the number is a counter rather than the
@@ -574,7 +593,8 @@ public sealed class UiGeometryBuilder {
         float Alpha,
         Rectangle Clip,
         float Blur,
-        UiColorMatrix? Filter
+        UiColorMatrix? Filter,
+        UiMask? Mask
     );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>

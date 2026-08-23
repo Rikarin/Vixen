@@ -28,6 +28,7 @@ Vixen.Ui.Renderer.UiRenderer.Dispose() -> void
 Vixen.Ui.Renderer.UiRenderer.Draws.get -> int
 Vixen.Ui.Renderer.UiRenderer.Filtered.get -> int
 Vixen.Ui.Renderer.UiRenderer.ImageSets.get -> int
+Vixen.Ui.Renderer.UiRenderer.Masked.get -> int
 Vixen.Ui.Renderer.UiRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Core.Mathematics.Int2 surface, float scale = 1) -> void
 Vixen.Ui.Renderer.UiRenderer.Region.get -> int
 Vixen.Ui.Renderer.UiRenderer.Regions.get -> int
@@ -47,6 +48,8 @@ Vixen.Ui.Renderer.UiShaders.Image.get -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Image.init -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Locations.get -> Vixen.Rendering.VertexLocations
 Vixen.Ui.Renderer.UiShaders.Locations.init -> Vixen.Rendering.VertexLocations
+Vixen.Ui.Renderer.UiShaders.Mask.get -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Mask.init -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Solid.get -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Solid.init -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Text.get -> Vixen.Graphics.ShaderHandle

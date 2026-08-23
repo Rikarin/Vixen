@@ -85,6 +85,32 @@ public readonly record struct UiShaders(
     /// </remarks>
     public ShaderHandle Colour { get; init; }
 
+    /// <summary>The composite of a group whose <c>mask-image</c> fades it out.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Optional on <see cref="Colour" />'s terms, and its absence looks like <c>mask-*</c>
+    ///         doing nothing.</b> A host without this stage composites masked groups through
+    ///         <see cref="Image" /> — the surfaces are still rendered and the opacities are still
+    ///         right, and the mask simply is not applied. <c>UiRenderer.Masked</c> is what says so out
+    ///         loud.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It carries the colour matrix as well as the mask, and that is forced rather than
+    ///         chosen.</b> A pipeline is bound once per draw, so a group with both a <c>filter</c> and
+    ///         a <c>mask-image</c> must be served by one module that does both — two modules would
+    ///         silently drop whichever lost. The consequence for a host is worth stating: supplying
+    ///         this and not <see cref="Colour" /> makes <c>grayscale</c> work on masked elements and
+    ///         nowhere else, which is a stranger picture than either stage being absent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No second surface and no extra pass.</b> A mask is per pixel, so like the colour
+    ///         matrix it rides the composite draw the group was going to make anyway. Where it
+    ///         differs is that its <i>seam</i> is fixed rather than free: see <see cref="UiMask" />,
+    ///         which is where the arithmetic is argued.
+    ///     </para>
+    /// </remarks>
+    public ShaderHandle Mask { get; init; }
+
     /// <summary>
     ///     Where the vertex stage reads <c>UiVertex</c>'s four attributes: position, texture,
     ///     colour, then shape.
@@ -213,6 +239,13 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>The composite pipeline a filtered group uses instead of <see cref="imagePipeline" />.</summary>
     readonly PipelineHandle colourPipeline;
 
+    /// <summary>The composite pipeline a masked group uses instead of either of the other two.</summary>
+    /// <remarks>
+    ///     ⚠ It supersedes <see cref="colourPipeline" /> rather than joining it: a group with both a
+    ///     mask and a matrix goes through this one, which does both. See <see cref="UiShaders.Mask" />.
+    /// </remarks>
+    readonly PipelineHandle maskPipeline;
+
     /// <summary>The colour matrix each composed group's composite draw has to be put through.</summary>
     /// <remarks>
     ///     ⚠ <b>Here rather than on <see cref="UiDraw" />, and the difference is fifty-two bytes on
@@ -225,6 +258,14 @@ public sealed class UiRenderer : IDisposable {
     ///     stopped being filtered cannot leave its matrix behind for the next frame to find.
     /// </remarks>
     readonly Dictionary<ulong, UiColorMatrix> layerFilters = [];
+
+    /// <summary>Each masked group's coverage, keyed by surface number the way the filters are.</summary>
+    /// <remarks>
+    ///     ⚠ Rebuilt by <see cref="Compose" /> each frame for <see cref="layerFilters" />' reason, and
+    ///     read by <see cref="SubmitDraw" /> at the same moment <c>SoftwareUiRasterizer</c> reads its
+    ///     own copy — which is the seam <see cref="UiMask" /> requires both executors to share.
+    /// </remarks>
+    readonly Dictionary<ulong, UiMask> layerMasks = [];
 
     /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
     /// <remarks>
@@ -363,6 +404,16 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     int filtered;
 
+    /// <summary>How many composite draws the last <see cref="Record" /> put a mask through.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The observer a silently-skipped mask has, and it needs one for a reason the colour
+    ///     matrix's fourth case only hints at.</b> All four of <see cref="filtered" />'s ways to be
+    ///     skipped apply — no <c>UiShaders.Mask</c>, no <c>UiLayer.Mask</c>, a group collapsed before
+    ///     it became a layer, and contents the ramp happens not to touch. The comparison of the two
+    ///     executors cannot see any of them either, because both read the same plan. This can.
+    /// </remarks>
+    int masked;
+
     BufferHandle atlasStaging;
     int atlasWidth;
     int atlasHeight;
@@ -440,7 +491,15 @@ public sealed class UiRenderer : IDisposable {
         // ⚠ Sixty-four bytes in total, which is half the 128 every Vulkan implementation is required
         // to offer — so widening the fragment range costs nothing anybody has to check for.
         layout = device.CreatePipelineLayout(
-            new([atlasLayout], [new(ShaderStage.Vertex, 0, 16), new(ShaderStage.Fragment, 16, 48)], "ui")
+            // ⚠ <b>112 fragment bytes rather than 48, and 16 + 112 = 128 is not a coincidence.</b>
+            // `ui-mask.frag` is the widest consumer — a colour matrix at 48 plus a mask at 64 — and
+            // 128 is exactly the push-constant size the Vulkan specification guarantees on every
+            // device. The number is a floor that was reached rather than a budget that was chosen, so
+            // the next thing to want a push constant here cannot simply be added: it either shares
+            // these bytes or moves to the storage buffer `UiShape` already uses. A shader is free to
+            // read fewer than the layout promises — the reverse is the error — which is what lets one
+            // layout keep serving `ui-blur.frag`'s 16 bytes and `ui-colour.frag`'s 48.
+            new([atlasLayout], [new(ShaderStage.Vertex, 0, 16), new(ShaderStage.Fragment, 16, 112)], "ui")
         );
 
         // ⚠ Linear filtering and clamped, and never an sRGB view. The atlas holds distances, not
@@ -471,6 +530,12 @@ public sealed class UiRenderer : IDisposable {
         // fault.
         if (shaders.Colour.IsValid) {
             colourPipeline = Pipeline(shaders.Colour, output, "ui colour");
+        }
+
+        // And again for the mask — see `UiShaders.Mask`. A host without it composites masked groups
+        // unmasked, which is a picture rather than a failure, and `Masked` is what reports it.
+        if (shaders.Mask.IsValid) {
+            maskPipeline = Pipeline(shaders.Mask, output, "ui mask");
         }
 
         layerFormat = output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm;
@@ -536,6 +601,15 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     /// </remarks>
     public int Filtered => filtered;
+
+    /// <summary>How many composite draws the last <see cref="Record" /> put a mask through.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted separately from <see cref="Filtered" /> even though one pipeline serves
+    ///     both.</b> A group with a mask and a matrix increments both, because both were applied; a
+    ///     single count would make "the mask ran" and "the matrix ran" indistinguishable on exactly
+    ///     the draw where the two-in-one shader is most likely to have dropped one of them.
+    /// </remarks>
+    public int Masked => masked;
 
     /// <summary>How many descriptor sets registering images has ever allocated.</summary>
     /// <remarks>
@@ -712,12 +786,14 @@ public sealed class UiRenderer : IDisposable {
         composed = 0;
         blurred = 0;
         filtered = 0;
+        masked = 0;
 
         // ⚠ Cleared here and not where it is filled, so that every early return below leaves the map
         // empty rather than holding the *previous* frame's answers keyed by numbers this frame's
         // layers may well reuse — `UiGeometryBuilder.LayerImage` counts down from the top for every
         // frame, so a group in the same position gets the same number.
         layerFilters.Clear();
+        layerMasks.Clear();
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
             return;
@@ -749,10 +825,24 @@ public sealed class UiRenderer : IDisposable {
         // concerned — CSS isolates for it — but putting it through the colour pipeline would cost a
         // pipeline switch and a push to compute the sample back, and `Filtered` would then count a
         // draw nothing happened to.
-        if (colourPipeline.IsValid) {
+        if (colourPipeline.IsValid || maskPipeline.IsValid) {
             foreach (var layer in geometry.Layers) {
                 if (layer.Filter is { } matrix && !matrix.IsIdentity) {
                     layerFilters[layer.Image] = matrix;
+                }
+            }
+        }
+
+        // ⚠ In the same shape and for the same reason, and separately because the two pipelines are
+        // not the same optional stage. A host with a colour stage and no mask stage must still get
+        // its matrices; a host with the reverse must still get its masks — and a group carrying both
+        // needs `maskPipeline`, which is the only module that does both. The identity is dropped one
+        // level up, in `DrawListBuilder`, rather than here: an opaque mask never becomes a
+        // `UiLayer.Mask` at all, because unlike a `grayscale(0)` it is not worth a group.
+        if (maskPipeline.IsValid) {
+            foreach (var layer in geometry.Layers) {
+                if (layer.Mask is { } shape) {
+                    layerMasks[layer.Image] = shape;
                 }
             }
         }
@@ -1072,7 +1162,22 @@ public sealed class UiRenderer : IDisposable {
                 ? entry
                 : default(UiColorMatrix?);
 
-        var pipeline = matrix is null ? PipelineFor(draw.Kind) : colourPipeline;
+        var mask = layerMasks.Count > 0
+            && draw.Kind == BatchKind.Image
+            && layerMasks.TryGetValue(draw.Image, out var shape)
+                ? shape
+                : default(UiMask?);
+
+        // ⚠ <b>The mask wins, because it is the only one of the three modules that does both jobs.</b>
+        // Choosing `colourPipeline` for a group that has a matrix *and* a mask would drop the mask
+        // silently — the picture would be a correctly filtered, entirely unmasked group, which looks
+        // like the mask never parsed. That precedence is also what makes the matrix unconditional in
+        // the push below: it goes out as the identity when there is no filter.
+        var pipeline = mask is not null
+            ? maskPipeline
+            : matrix is null
+                ? PipelineFor(draw.Kind)
+                : colourPipeline;
 
         if (!pipeline.IsValid) {
             // An image with no image shader. Skipped rather than drawn with another pipeline,
@@ -1102,7 +1207,28 @@ public sealed class UiRenderer : IDisposable {
             bound.Pushed = true;
         }
 
-        if (matrix is { } filter) {
+        if (mask is { } coverage) {
+            // ⚠ <b>The matrix goes out here too, as the identity when the group has no filter.</b>
+            // `ui-mask.frag` reads all 112 bytes unconditionally, so a mask-only group that pushed
+            // only its mask would leave the matrix rows holding whatever the last filtered draw put
+            // there — the group would come out tinted by its predecessor. That is a defect which
+            // needs two groups in one frame to appear, and so survives every single-group test.
+            var identity = matrix ?? UiColorMatrix.Identity;
+
+            // The packing `ui-mask.frag` declares: three matrix rows, the box, the ramp, then the
+            // three coverages with the first stop, then the remaining two stops.
+            Span<float> block = [
+                identity.Red.X, identity.Red.Y, identity.Red.Z, identity.Red.W,
+                identity.Green.X, identity.Green.Y, identity.Green.Z, identity.Green.W,
+                identity.Blue.X, identity.Blue.Y, identity.Blue.Z, identity.Blue.W,
+                coverage.Centre.X, coverage.Centre.Y, coverage.Half.X, coverage.Half.Y,
+                coverage.Axis.X, coverage.Axis.Y, (float) coverage.Shape, coverage.Via ? 1f : 0f,
+                coverage.Alphas.X, coverage.Alphas.Y, coverage.Alphas.Z, coverage.Stops.From,
+                coverage.Stops.Via, coverage.Stops.To, 0f, 0f
+            ];
+
+            commands.PushConstants(ShaderStage.Fragment, 16, MemoryMarshal.AsBytes(block));
+        } else if (matrix is { } filter) {
             // ⚠ Every time, rather than tracked in `Bindings` the way the projection is. Two filtered
             // groups in one pass carry two different matrices and the second one's is not the first's
             // — so a `Pushed` flag here would draw the second group with the first's filter, which is
@@ -1156,6 +1282,10 @@ public sealed class UiRenderer : IDisposable {
         // set, a scissor that clipped it away, a colour pipeline the host never handed over.
         if (matrix is not null) {
             filtered++;
+        }
+
+        if (mask is not null) {
+            masked++;
         }
     }
 
@@ -1409,6 +1539,18 @@ public sealed class UiRenderer : IDisposable {
 
         if (blurPipeline.IsValid) {
             device.Destroy(blurPipeline);
+        }
+
+        // ⚠ Both of these were leaking until the mask landed: `colourPipeline` was created beside
+        // `blurPipeline` and never destroyed beside it. Optional stages are the easy ones to forget
+        // here, because the guard that creates them has no counterpart down here unless someone
+        // writes one.
+        if (colourPipeline.IsValid) {
+            device.Destroy(colourPipeline);
+        }
+
+        if (maskPipeline.IsValid) {
+            device.Destroy(maskPipeline);
         }
 
         device.Destroy(boxPipeline);

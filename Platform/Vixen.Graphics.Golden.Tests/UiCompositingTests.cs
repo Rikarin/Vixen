@@ -122,7 +122,8 @@ public sealed class UiCompositingTests {
             ) {
                 Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
                 Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
-                Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment)
+                Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+                Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
             },
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
@@ -168,6 +169,14 @@ public sealed class UiCompositingTests {
         // ⚠ Two, and the inner one is submitted inside the *outer group's* pass rather than the
         // frame's. That is the half of the count `Record` alone could not see.
         Assert.Equal(2, renderer.Filtered);
+
+        // ⚠ <b>And the fourth instrument, for the reason the third one gives and one more.</b> A mask
+        // shares all four of a colour matrix's ways of not happening, and it adds a fifth that is
+        // peculiar to the two-in-one pipeline: `maskPipeline` serves masked groups *and* carries the
+        // matrix, so a `SubmitDraw` that preferred `colourPipeline` would draw both of these groups
+        // correctly filtered and entirely unmasked — and `Filtered` above would still read two. This
+        // is the only assertion that separates those two states.
+        Assert.Equal(2, renderer.Masked);
 
         var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
 
@@ -292,7 +301,11 @@ public sealed class UiCompositingTests {
         const float Inner = 0.5f;
         const float InnerBlur = 3f;
 
-        Push(list, isolate, 8, 24, 112, 96, Outer, filter: OuterFilter);
+        // ⚠ <b>A mask on the outer group, and it runs to nearly nothing at the far edge on purpose.</b>
+        // A mask that only dimmed the group slightly would be a difference the tolerance could
+        // absorb; a ramp with real dynamic range across the group's own box is what makes a
+        // disagreement about *where* the mask is resolved show up as pixels rather than as rounding.
+        Push(list, isolate, 8, 24, 112, 96, Outer, filter: OuterFilter, mask: Ramp(8, 24, 112, 96, 1f, 0.1f));
 
         // ⚠ Two overlapping children of the outer group, and the overlap is the whole point: isolated,
         // they do not show through each other; faded separately, they do. Both rounded, so the pixels
@@ -315,7 +328,17 @@ public sealed class UiCompositingTests {
         // and a nineteen-tap kernel on a hundred-and-twenty-eight-pixel fixture — wide enough that the
         // halo lands well outside the group's unblurred silhouette, and short of the truncation at
         // `UiLayer.MaximumKernel`, which is a case worth having somewhere and not here.
-        Push(list, isolate, 44, 56, 72, 60, Inner, InnerBlur, InnerFilter);
+        // ⚠ <b>And a round one on the inner group, which is the group that is also blurred — so this
+        // is the assertion that the two executors agree about the mask's <i>seam</i> and not merely
+        // about its arithmetic.</b> A mask does not commute with a Gaussian, so an executor that
+        // folded the mask into the surface before convolving it would differ from one that applied it
+        // at the composite everywhere the ramp is not flat across the kernel: a ring of the wrong
+        // brightness just inside the blurred edge. That is the one divergence `UiMask`'s rule exists
+        // to prevent, and this is the only thing in the repository that can see it.
+        //
+        // ⚠ Radial rather than linear, so that the pair of masks in this fixture do not share a shape
+        // — a `mask_progress` wired to one branch for every kind would otherwise draw both correctly.
+        Push(list, isolate, 44, 56, 72, 60, Inner, InnerBlur, InnerFilter, Round(44, 56, 72, 60, 1f, 0.15f));
 
         // The nested group's own overlapping pair, offset from the outer one's so that the two
         // groups' ink is not the same rectangle — a surface sized from the wrong group's bounds
@@ -386,17 +409,50 @@ public sealed class UiCompositingTests {
         float height,
         float alpha,
         float blur = 0f,
-        UiColorMatrix? filter = null
+        UiColorMatrix? filter = null,
+        UiMask? mask = null
     ) {
         if (isolate) {
             list.Add(
                 new DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, alpha), 0, 0) {
                     Blur = blur,
-                    Filter = filter
+                    Filter = filter,
+                    Mask = mask
                 }
             );
         }
     }
+
+    /// <summary>A linear ramp across a box, as <c>DrawListBuilder</c> would build one for it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Constructed here rather than parsed from CSS, because this suite has no style engine
+    ///     — and that is the same reason the matrices next door are built from
+    ///     <see cref="UiColorMatrix" /> factories.</b> What is being compared is two executors, so the
+    ///     mask has to reach both of them from one place; whether <c>mask-image</c> resolves to this
+    ///     mask is <c>MaskGradientTests</c>' question and is asked against pixels there.
+    /// </remarks>
+    static UiMask Ramp(float x, float y, float width, float height, float from, float to) =>
+        new(
+            new Vector2(x + (width / 2f), y + (height / 2f)),
+            new Vector2(width / 2f, height / 2f),
+            new Vector2(1f, 0f),
+            new Vector3(from, 0f, to),
+            GradientStops.Default,
+            GradientShape.Linear,
+            Via: false
+        );
+
+    /// <summary>A round ramp from the centre of a box outwards.</summary>
+    static UiMask Round(float x, float y, float width, float height, float from, float to) =>
+        new(
+            new Vector2(x + (width / 2f), y + (height / 2f)),
+            new Vector2(width / 2f, height / 2f),
+            Vector2.Zero,
+            new Vector3(from, 0f, to),
+            GradientStops.Default,
+            GradientShape.Radial,
+            Via: false
+        );
 
     static void Pop(DrawList list, bool isolate) {
         if (isolate) {
