@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Vixen.Input;
+using Vixen.Ui.Composition;
 using Vixen.Ui.Styling;
 using Xunit;
 
@@ -407,5 +409,141 @@ public class TreeViewTests {
 
         Assert.True(tree.Scroller.ScrollTop > 0f);
         Assert.NotNull(tree.RowOf(last));
+    }
+
+    // ── The selection as a value, which is what markup can name ──────────────
+
+    /// <summary>
+    ///     ⚠ <b>Before anything is selected it is an <i>empty</i> array and not a defaulted one</b>,
+    ///     which is the whole reason <c>OnCreated</c> publishes. <c>default(ImmutableArray&lt;T&gt;)</c>
+    ///     wraps a null and throws on the first <c>foreach</c> — a trap that would only ever fire in
+    ///     the panel nobody had clicked in yet.
+    /// </summary>
+    [Fact]
+    public void The_selection_is_an_empty_value_before_anything_is_selected() {
+        using var fixture = new AdvancedFixture();
+        var tree = Populated(fixture);
+
+        Assert.False(tree.SelectedNodes.IsDefault);
+        Assert.Empty(tree.SelectedNodes);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>What <c>change:SelectedNodes="@(nodes =&gt; …)"</c> emits, run rather than described.</b>
+    ///     The two lambdas are the emitter's shape exactly — the reader names the property and types
+    ///     the handler — so this fails at compose if the property is not registered, and reports the
+    ///     wrong count if <c>Restate</c> does not write it.
+    /// </summary>
+    [Fact]
+    public void A_change_binding_can_name_the_selection() {
+        using var fixture = new AdvancedFixture();
+        var watcher = BuildContext.Build<SelectionWatcher>(fixture.Document, fixture.Document.Root);
+        var tree = watcher.Tree;
+
+        tree.Root.Add("a");
+        tree.Root.Add("b");
+        tree.Refresh();
+        fixture.Update();
+
+        tree.Select(tree.Visible[0]);
+        Assert.Same(tree.Visible[0], Assert.Single(Assert.Single(watcher.Seen)));
+
+        // ⚠ And a click on the row that is already the only one selected is not a change, where
+        // `SelectionChanged` fires for it. That is the difference worth having: a panel writing an
+        // undo entry from this one does not post an entry per click on the same row.
+        tree.Select(tree.Visible[0]);
+        Assert.Single(watcher.Seen);
+
+        tree.Select(tree.Visible[1]);
+        Assert.Equal(2, watcher.Seen.Count);
+    }
+
+    /// <summary>
+    ///     And <c>Selection</c> itself is still not a property, which is not an oversight. A
+    ///     <see cref="HashSet{T}" /> behind a read-only view is the same instance before and after
+    ///     every change, so nothing riding <c>PropertyChanged</c> could ever have reported it — the
+    ///     control keeps it because its own <c>Contains</c> checks run on it, and publishes a value
+    ///     beside it.
+    /// </summary>
+    [Fact]
+    public void The_read_only_view_is_still_not_a_property_and_says_so() {
+        using var fixture = new AdvancedFixture();
+
+        var thrown = Assert.Throws<ArgumentException>(
+            () => BuildContext.Build<BadWatcher>(fixture.Document, fixture.Document.Root)
+        );
+
+        Assert.Contains("'tree-view' has no property called 'Selection'", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The other leg: assigning it is how code and a <c>bind:</c> say "these nodes", and it goes
+    ///     through the same repaint a click does rather than leaving the rows disagreeing with the
+    ///     set.
+    /// </summary>
+    [Fact]
+    public void Assigning_the_selection_selects_and_repaints() {
+        using var fixture = new AdvancedFixture();
+        var tree = Populated(fixture, roots: 3, children: 0);
+
+        var raised = 0;
+        tree.SelectionChanged += _ => raised++;
+
+        tree.SelectedNodes = [tree.Visible[1], tree.Visible[2]];
+
+        Assert.Equal(2, tree.Selection.Count);
+        Assert.Contains(tree.Visible[1], tree.Selection);
+        Assert.Contains(tree.Visible[2], tree.Selection);
+        Assert.Equal(1, raised);
+
+        Assert.True((tree.Rows[1].State & ElementState.Checked) != 0);
+        Assert.Equal(ElementState.None, tree.Rows[0].State & ElementState.Checked);
+
+        // ⚠ The re-entrant write did not double back: `Restate` publishes, sees the set it was just
+        // given, and writes nothing — so the property still holds what was assigned.
+        Assert.Equal(2, tree.SelectedNodes.Length);
+
+        // A Shift-click after an assignment extends from the last node written, the way it extends
+        // from the last node clicked.
+        tree.Select(tree.Visible[0], ModifierKeys.Shift);
+        Assert.Equal(3, tree.Selection.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a single-select tree cannot be talked into holding two.</b> Every gesture clears
+    ///     the selection before writing it, so a control left holding two rows it never agreed to
+    ///     would keep them until something else was clicked — the assignment takes the last, which is
+    ///     what a click on each in turn would have left.
+    /// </summary>
+    [Fact]
+    public void Assigning_two_nodes_to_a_single_select_tree_keeps_the_last() {
+        using var fixture = new AdvancedFixture();
+        var tree = Populated(fixture, roots: 3, children: 0);
+
+        tree.MultiSelect = false;
+        tree.SelectedNodes = [tree.Visible[0], tree.Visible[1]];
+
+        Assert.Same(tree.Visible[1], Assert.Single(tree.Selection));
+        Assert.Same(tree.Visible[1], Assert.Single(tree.SelectedNodes));
+    }
+
+    /// <summary>What a <c>&lt;TreeView change:SelectedNodes="@(…)" /&gt;</c> compiles to.</summary>
+    sealed class SelectionWatcher : Component {
+        public TreeView Tree { get; private set; } = null!;
+
+        public List<ImmutableArray<TreeNode>> Seen { get; } = [];
+
+        protected override void Build(BuildContext ctx) {
+            Tree = ctx.Child<TreeView>(null);
+            ctx.Changed(Tree, "SelectedNodes", () => Tree.SelectedNodes, nodes => Seen.Add(nodes));
+        }
+    }
+
+    /// <summary>And what <c>change:Selection</c> compiles to, which is a name nothing registered.</summary>
+    sealed class BadWatcher : Component {
+        protected override void Build(BuildContext ctx) {
+            var tree = ctx.Child<TreeView>(null);
+            ctx.Changed(tree, "Selection", () => tree.Selection, static _ => { });
+        }
     }
 }

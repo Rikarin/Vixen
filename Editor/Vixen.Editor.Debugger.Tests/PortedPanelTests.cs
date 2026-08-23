@@ -405,12 +405,13 @@ public sealed class PortedPanelTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>Apply needs a selection <i>and</i> a member name, and the two arrive by different
-    ///     routes.</b> The selection is the tree's, reported through <c>SelectionChanged</c> into a
-    ///     signal because a <c>TreeView</c>'s selection is not a <c>[UiProperty]</c> and
-    ///     <c>change:Selection</c> throws; the member name is a <c>change:Value</c> on a
-    ///     <c>TextBox</c>. Both have to land for the button to light, which is why this asserts
-    ///     each half greyed on its own.
+    ///     ⚠ <b>Apply needs a selection <i>and</i> a member name, and both now arrive by the same
+    ///     route.</b> Wave 6 wrote the selection through a <c>SelectionChanged</c> subscription in
+    ///     <c>OnComposed</c>, because <c>change:Selection</c> threw — the read-only view over a
+    ///     <c>HashSet</c> is not a <c>[UiProperty]</c> and could not have been one. It is
+    ///     <c>change:SelectedNodes</c> now, beside the <c>change:Value</c> on the member box, and
+    ///     this test is what says the port kept the behaviour: both halves have to land for the
+    ///     button to light, so each is asserted greyed on its own.
     /// </summary>
     [Fact]
     public void Apply_lights_only_with_a_selection_and_a_member() {

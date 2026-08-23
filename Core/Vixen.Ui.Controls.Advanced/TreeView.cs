@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Input;
@@ -194,6 +195,16 @@ public sealed partial class TreeView : Control {
     /// <inheritdoc cref="RenameOnSecondClick" select="remarks" />
     TreeNode? renaming;
 
+    /// <summary>Whether <see cref="SelectedNodes" /> is being published rather than assigned.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One flag rather than two code paths, because the property is written from both
+    ///     ends.</b> <see cref="Restate" /> writes it to report what the pointer and the keyboard
+    ///     did; a caller or a <c>bind:</c> writes it to <i>ask</i> for a selection. Only the second
+    ///     may run <see cref="SelectionAssigned" />, and telling them apart by comparing values
+    ///     cannot work — the two writes are the same value by construction.
+    /// </remarks>
+    bool publishing;
+
     TreeNode? dropTarget;
     DropPosition dropPosition;
     int rowHeightId;
@@ -259,6 +270,36 @@ public sealed partial class TreeView : Control {
 
     /// <summary>What is selected.</summary>
     public IReadOnlyCollection<TreeNode> Selection => selection;
+
+    /// <summary>The same selection as a value, which is the form markup can name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>change:Selection</c> could never have worked, and this is why rather than a
+    ///         workaround for it.</b> <c>change:</c> and <c>bind:</c> both resolve a name through
+    ///         <c>UiPropertyRegistry</c> and both ride <see cref="UiElement.PropertyChanged" />; a
+    ///         <see cref="HashSet{T}" /> behind a read-only view is neither registered nor
+    ///         comparable, and is the same instance before and after every change, so no property
+    ///         system could have reported it. What was missing was a <i>value</i>, not a
+    ///         subscription — and <see cref="Selection" /> stays exactly as it was because the sets
+    ///         and the <c>Contains</c> checks around it are what the control itself runs on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written by <see cref="Restate" /> only when the set actually differs</b>, which
+    ///         makes it strictly quieter than <see cref="SelectionChanged" /> — that event fires
+    ///         every time <see cref="Select" /> is called, including on a click that reselects the
+    ///         one row already selected. A panel binding an undo entry to it would post one per
+    ///         click; this one does not fire.
+    ///     </para>
+    ///     <para>
+    ///         Assigning it selects: the setter is the way to say "these nodes" from code or from a
+    ///         <c>bind:</c>, and it goes through the same <see cref="Restate" /> a click does, so the
+    ///         rows repaint and <see cref="SelectionChanged" /> is raised. The order within the array
+    ///         is <see cref="Selection" />'s, which is the set's — not the drawing order, because a
+    ///         node whose parent has been collapsed is still selected and has no drawing order.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(SelectionAssigned))]
+    public partial ImmutableArray<TreeNode> SelectedNodes { get; set; }
 
     /// <summary>Whether more than one node may be selected at a time.</summary>
     [UiProperty(Default = true)]
@@ -360,6 +401,11 @@ public sealed partial class TreeView : Control {
         DropIndicator = Part("tree-drop-indicator");
         DropIndicator.AddClass("hidden");
 
+
+        // ⚠ An empty array before anything is selected, because `default(ImmutableArray<T>)` is not
+        // an empty one — it wraps a null and throws on the first `foreach`. Nothing has subscribed
+        // to `PropertyChanged` this early, so the one write costs a notification nobody hears.
+        Publish();
 
         AddHandler<KeyEvent>(static (element, args) => ((TreeView) element).Keyed(args));
         AddHandler<PointerEvent>(static (element, args) => ((TreeView) element).Pointed(args));
@@ -681,7 +727,95 @@ public sealed partial class TreeView : Control {
             }
         }
 
+        // ⚠ Before the event and not after, so that a `change:SelectedNodes` handler and a
+        // `SelectionChanged` handler see the same tree — the rows are already repainted and the set
+        // is already final, whichever of the two runs first.
+        Publish();
+
         SelectionChanged?.Invoke(this);
+    }
+
+    /// <summary>Copies the selection into <see cref="SelectedNodes" /> if it has really moved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The test is what makes the property worth having.</b> Every write of an
+    ///     <see cref="ImmutableArray{T}" /> is a change as far as
+    ///     <see cref="EqualityComparer{T}" /> is concerned — its equality is the underlying array's
+    ///     identity, so a fresh snapshot of an unchanged set would report a change every time
+    ///     anything called <see cref="Select" />. Comparing here rather than leaning on the
+    ///     generated setter is also cheaper: no array is allocated when nothing moved, which is the
+    ///     common case for a click on an already-selected row.
+    /// </remarks>
+    void Publish() {
+        if (Same(SelectedNodes)) {
+            return;
+        }
+
+        publishing = true;
+
+        try {
+            SelectedNodes = [.. selection];
+        } finally {
+            publishing = false;
+        }
+    }
+
+    /// <summary>Whether an array holds exactly the selected nodes, in any order.</summary>
+    /// <remarks>
+    ///     Both sides are sets — <see cref="selection" /> is one and the array is copied out of it —
+    ///     so equal counts plus one-way containment is equality. Order is deliberately not compared:
+    ///     a <see cref="HashSet{T}" /> reuses the slot a removal freed, so its enumeration order can
+    ///     move without the membership moving, and a reorder is not something a consumer of a
+    ///     selection can act on.
+    /// </remarks>
+    bool Same(ImmutableArray<TreeNode> nodes) {
+        if (nodes.IsDefault || nodes.Length != selection.Count) {
+            return false;
+        }
+
+        foreach (var node in nodes) {
+            if (!selection.Contains(node)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Takes a written <see cref="SelectedNodes" /> as an instruction to select those nodes.</summary>
+    /// <param name="previous">What it was.</param>
+    /// <param name="current">What it has been set to.</param>
+    /// <remarks>
+    ///     ⚠ <b>Re-entrant on purpose, and the guard is what keeps it finite.</b> This calls
+    ///     <see cref="Restate" />, which calls <see cref="Publish" />, which writes the property
+    ///     again — the second write is skipped by <see cref="Same" /> because the set now matches,
+    ///     and would be ignored by <see cref="publishing" /> even if it were not.
+    /// </remarks>
+    void SelectionAssigned(ImmutableArray<TreeNode> previous, ImmutableArray<TreeNode> current) {
+        if (publishing) {
+            return;
+        }
+
+        selection.Clear();
+
+        if (!current.IsDefaultOrEmpty) {
+            if (MultiSelect) {
+                foreach (var node in current) {
+                    selection.Add(node);
+                }
+            } else {
+                // ⚠ A single-select tree may not be talked into holding two. `Select` refuses the
+                // modifiers that would do it, and an assignment that did not would leave the control
+                // in a state no gesture can produce and — since every gesture clears first — no
+                // gesture can leave either.
+                selection.Add(current[^1]);
+            }
+        }
+
+        // The last one written is what a Shift-click after this extends from, which is the same rule
+        // `Select` follows for the node it was handed.
+        anchor = current.IsDefaultOrEmpty ? null : current[^1];
+
+        Restate();
     }
 
     void CommitRename(TreeRow row, bool commit) {

@@ -29,12 +29,14 @@
     `state=`/`disabled=` as an extra line per element in all nine states rather than trusting the
     rectangles.
 
-    ⚠ **`Selected` is the view's own signal and not the tree's, and `change:Selection` was tried
-    first.** It compiles and throws at compose time — "'tree-view' has no property called
-    'Selection'" — because `change:` is `bind:`'s property lookup with a handler, and a `TreeView`'s
-    selection is an `IReadOnlyList<TreeNode>` the control keeps rather than a `[UiProperty]`. That is
-    shape 1 seen from the event side, and the escape is the documented one: a `ref` plus a
-    subscription in `OnComposed`, writing a signal the `Disabled` binding reads.
+    ⚠ **`Selected` is the view's own signal and not the tree's, and it is fed by
+    `change:SelectedNodes`.** Wave 6 tried `change:Selection` and got "'tree-view' has no property
+    called 'Selection'" at compose, and concluded that a selection could not be a `[UiProperty]` at
+    all. Half of that was right: `Selection` is a `HashSet` behind a read-only view, the same
+    instance before and after every change, so nothing riding `PropertyChanged` could ever report it.
+    What was missing was a *value*, which `TreeView.SelectedNodes` now is — so the `ref` plus
+    `OnComposed` subscription this panel used to need is one attribute, and one that fires strictly
+    less often than `SelectionChanged` did: a click on the row already selected is not a change.
 -->
 @component RemoteInspectorView
 @namespace Vixen.Editor.Debugger
@@ -66,11 +68,13 @@
 
 <remote-body>
     <!--
-        ⚠ A `ref` and nothing else, which is the ledger's shape 1. A `TreeView`'s rows are `TreeNode`
-        data painted by `Refresh()`; there is no element for markup to describe and no attribute that
-        could bind one, so `Entities()` below is the hand-written method unchanged.
+        ⚠ A `ref` for the rows and an attribute for the selection, which is the ledger's shape 1 with
+        one half of it now closed. A `TreeView`'s rows are `TreeNode` data painted by `Refresh()`;
+        there is no element for markup to describe and no attribute that could bind one, so
+        `Entities()` below is the hand-written method unchanged. The *selection* is a value, and
+        `change:` names values.
     -->
-    <TreeView ref="@Tree" />
+    <TreeView ref="@Tree" change:SelectedNodes="@(_ => Chose())" />
 
     <remote-counters ref="@CounterPane">
         @for (var counter in CounterRows) {
@@ -102,8 +106,11 @@
 
     /// <summary>Which entity the tree has selected.</summary>
     /// <remarks>
-    ///     ⚠ <b>The view's own signal, because the selection is the control's and is not a
-    ///     property.</b> See the file header.
+    ///     ⚠ <b>Still the view's own signal, and now for the remaining reason rather than the old
+    ///     one.</b> <c>TreeView.SelectedNodes</c> is a property and <c>change:</c> reaches it — but
+    ///     what the <c>Disabled</c> bindings need is the <see cref="RemoteEntity" /> hanging off the
+    ///     first selected node's <c>Tag</c>, which is this panel's projection and not the control's.
+    ///     See the file header.
     /// </remarks>
     readonly Signal<RemoteEntity?> chosen = new(null);
 
@@ -163,19 +170,6 @@
     /// <summary>Advances the connection.</summary>
     /// <param name="elapsed">How much time has passed.</param>
     public void Tick(TimeSpan elapsed) => connection.Value?.Poll(elapsed);
-
-    /// <summary>
-    ///     ⚠ <b>The one subscription markup could not carry, and <c>change:</c> is right to refuse
-    ///     it.</b> <c>change:Selection</c> is what this wanted and it throws at compose time —
-    ///     "'tree-view' has no property called 'Selection'" — because <c>change:</c> is <c>bind:</c>'s
-    ///     property lookup with a handler, and a <c>TreeView</c>'s selection is a
-    ///     <c>IReadOnlyList&lt;TreeNode&gt;</c> the control keeps, not a <c>[UiProperty]</c>. That is
-    ///     the same fact that makes the tree itself shape 1, seen from the event side: the selection
-    ///     is not a value the control publishes, it is state inside a control that paints its own
-    ///     rows. So the handler is a `ref` plus a subscription, which is what
-    ///     <c>PluginManagerView</c> and <c>KeyBindingsView</c> do and explain.
-    /// </summary>
-    partial void OnComposed() => Tree.SelectionChanged += _ => Chose();
 
     /// <summary>
     ///     ⚠ <c>OnUnmounted</c> and not an <c>OnRemoved</c> override, because the generated

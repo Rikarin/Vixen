@@ -81,7 +81,30 @@ public sealed class BuildContext {
                 element.AddHandler<DragEvent>(
                     (_, args) => { if (args.Stage is DragStage.Completed or DragStage.Cancelled) { handler(args); } },
                     strategy
-                )
+                ),
+
+            // ⚠ Two names over one event type, the shape `pointerdown`/`pointerup` already has and
+            // for the same reason: a handler that had to test `args.Action` itself would be a
+            // handler that fires twice per keystroke until somebody notices. `KeyAction` is the only
+            // thing separating them, so the table is where the test belongs.
+            ["keydown"] = (element, handler, strategy) =>
+                element.AddHandler<KeyEvent>(
+                    (_, args) => { if (args.Action == KeyAction.Pressed) { handler(args); } },
+                    strategy
+                ),
+            ["keyup"] = (element, handler, strategy) =>
+                element.AddHandler<KeyEvent>(
+                    (_, args) => { if (args.Action == KeyAction.Released) { handler(args); } },
+                    strategy
+                ),
+
+            // ⚠ Registered in the same breath as the two above, because the alternative is the
+            // France bug. `KeyEvent.Key` is a physical position by its US-QWERTY legend, so
+            // `on:keydown` read for a letter is a text box that types `q` on an AZERTY keyboard —
+            // and an author who cannot name the event that carries characters reaches for the one
+            // that is there. The two exist together so the right one is always available.
+            ["textinput"] = (element, handler, strategy) =>
+                element.AddHandler<TextInputEvent>((_, args) => handler(args), strategy)
         };
 
     /// <summary>The region currently being built into, per parent element.</summary>
@@ -650,11 +673,27 @@ public sealed class BuildContext {
     /// <param name="modifiers">As above.</param>
     /// <exception cref="ArgumentException">The name is not one the runtime knows.</exception>
     /// <remarks>
-    ///     ⚠ <b><typeparamref name="TEvent" /> is a filter, not the subscription.</b> What is
-    ///     subscribed to is decided by the name's entry in the table — which for <c>click</c> is a
-    ///     different event type depending on whether the target is a control — and an argument of
-    ///     another type is dropped. So the default <see cref="UiEvent" /> is what markup emits, and
-    ///     a handler that narrows is asking for a subset of what the name delivers.
+    ///     <para>
+    ///         ⚠ <b><typeparamref name="TEvent" /> is a filter, not the subscription.</b> What is
+    ///         subscribed to is decided by the name's entry in the table — which for <c>click</c> is
+    ///         a different event type depending on whether the target is a control — and an argument
+    ///         of another type is dropped. So <see cref="UiEvent" /> is what a handler taking no
+    ///         argument gets, and a handler that narrows is asking for a subset of what the name
+    ///         delivers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>From markup the handler has to be an explicitly typed lambda —
+    ///         <c>on:keydown.capture="@((KeyEvent e) => Keyed(e))"</c> — and a method group does not
+    ///         work.</b> The emitter writes one call for both overloads and cannot name the event
+    ///         type, because which type a name delivers is this table's business rather than the
+    ///         compiler's; so <typeparamref name="TEvent" /> is inferred from the argument, and a
+    ///         method group offers nothing to infer it from. Its natural type needs the delegate's
+    ///         parameter types, which are exactly what is being solved for. The failure is Roslyn's
+    ///         <i>"cannot convert from 'method group' to 'System.Action'"</i>, landing on the
+    ///         handler's own characters in the <c>.vxml</c> — legible, but not obviously about
+    ///         inference, which is why it is written down here and pinned by
+    ///         <c>EmitterTests.A_method_group_handler_cannot_type_itself_and_says_so_at_the_handler</c>.
+    ///     </para>
     /// </remarks>
     public void On<TEvent>(UiElement target, string name, Action<TEvent> handler, params string[] modifiers)
         where TEvent : UiEvent {
