@@ -592,10 +592,19 @@ nine files. **A part is worth a file when it has a shape; a caption has none.** 
 part because it is four elements and two cells that disagree about where the text goes; these are one
 element whose only content is its own text.
 
-⚠ **What this does *not* buy is an intrinsic tag written in lowercase.** The subclass is still a type
-somebody has to declare, so shape 5 is unchanged as a statement about the language — it is the *cost*
-of the escape that turned out to be small, which is why `FlameChartView`'s second withdrawal reason
-is now closed.
+⚠ ~~**What this does *not* buy is an intrinsic tag written in lowercase.** The subclass is still a
+type somebody has to declare, so shape 5 is unchanged as a statement about the language — it is the
+*cost* of the escape that turned out to be small~~, which is why `FlameChartView`'s second withdrawal
+reason is now closed.
+
+✅ **Shape 5 *is* changed as a statement about the language, since 2026-08-23.**
+`<fact-name use="@(cell => cell.Text = Label)" />` writes an intrinsic element's own `Text`, with no
+type declared and no extra box: `use` runs an `Action<T>` against what the tag made, as an effect. So
+"markup cannot write an element's own `Text`" is now false, and what is left of shape 5 is a
+*preference*: `<FactName Text="@Label" />` is checked at the tag and reads as the property assignment
+it is, so the four-line subclass stays the first answer for a caption and `use` is the answer where
+there is no subclass to be had — a `sealed` control, or a call with three arguments. Nothing here was
+rewritten; the nine captions and the two `Captions.cs` cells are still the better spelling.
 
 ⚠ **And the escape is not about `Text`, which is wave 5's correction to this whole block.** Every
 sentence above says "`Text`", and `Text` is only the first thing it was needed for. The general
@@ -1137,7 +1146,12 @@ would close it and the modifier list is already parsed.
    to be added from C#. ⚠ **`AudioMixerView` shows the workaround and it is a good one:** wrap the
    control in a four-line element whose `Choices` is a *property*, because binding a property is an
    ordinary effect that re-runs with the region it was declared in. That is `OptionCell`, and it is
-   why this item is a convenience rather than a blocker now.
+   why this item is a convenience rather than a blocker now. ⚠ **And `use` is the same thing without
+   the type**, with one caveat `OptionCell` does not have: a `use` re-runs, so it must say what the
+   control should *be* rather than append to it — and `Select` offers `AddOption` and `ClearOptions`
+   and no setter, so the honest spelling today is
+   `use="@(s => { s.ClearOptions(); foreach (…) { s.AddOption(…); } })"`, which works and reads badly.
+   This stays on the list, and what it is owed is now precise: a `Select.SetOptions`.
 5. ~~**Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.**~~ **`FactRow` is built** and has
    four callers. `VerbRow` earns nothing yet — `verb-row` has no rule in any sheet. `Section` was
    blocked on the `World-title` casing bug, which is fixed, so it is now merely unbuilt. What the
@@ -1145,12 +1159,13 @@ would close it and the modifier list is already parsed.
    *part* is not the only way markup can write an intrinsic element's own text inside a loop, a
    four-line `UiElement` subclass with a `TagName` override is, and it is the cheaper one whenever
    the thing being written is a caption rather than a row.
-6. **Un-`sealed` controls, or a way to feed a sealed one from markup.** Wave 6's finding and now the
-   top of this list by count: two panels stopped on it, twenty-nine `sealed class … : Control`
-   declarations are behind it, and every escape this document records — shape 5's caption subclass,
-   `OptionCell`, `SettingsTab` — is a subclass. The cheapest form is to unseal the two types a panel
-   actually needs to wrap; the general form is a markup directive meaning "run this when the region
-   builds", which is the only one of the two that is a language change.
+6. ~~**Un-`sealed` controls, or a way to feed a sealed one from markup.**~~ **Built 2026-08-23 as
+   `tag=` and `use`, and the "cheapest form" this item recommends is the one that was not taken.**
+   Unsealing the two types is cheap and buys a type per tag name, which is the thing the ledger
+   already argues against everywhere else. `tag="add-component-list"` says the string at the place it
+   is true, and `use="@(v => v.Inspect(…))"` is the directive — an effect, so it re-runs and leaves
+   with its region, which is strictly more than the wrapper property would have been. Neither panel
+   is ported yet; both are unblocked. See the block under "`sealed` is the sixth shape".
 7. **`on:` with a routing strategy — `on:keydown.capture`.** Three pickers subscribe on the capture
    leg so that Down and Enter are taken before a search box treats them as caret movement and
    submit, and `BuildContext.Subscriptions`' entries already carry a `RoutingStrategy` that no
