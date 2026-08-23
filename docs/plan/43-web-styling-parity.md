@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **101** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **123** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **181** |
+| **absent** | not emitted at all | **159** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -388,8 +388,8 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 18 | 8 | 0 | 19 | 3 | 1 |
-| Interactivity | 39 | 1 | 1 | 1 | 36 | 0 | 0 |
+| Layout | 49 | 21 | 8 | 0 | 16 | 3 | 1 |
+| Interactivity | 39 | 20 | 1 | 1 | 17 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 6 | 3 | 0 | 25 | 0 | 0 |
 | Borders | 34 | 15 | 5 | 0 | 14 | 0 | 0 |
@@ -403,7 +403,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **101** | **39** | **3** | **181** | **3** | **1** |
+| **Total** | **328** | **123** | **39** | **3** | **159** | **3** | **1** |
 
 Flexbox and Grid is now the strongest category — 20 of 34, up from 10 — and Spacing, Borders and
 Layout follow it. Tables and Accessibility still have **no working root at all**, and Interactivity
@@ -880,7 +880,7 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
 | `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
 | `origin-*` | **refused** | `transform-origin` moves no channel, and cannot: it needs a transform whose fixed point matters, and `translate` — the one transform the engine implements — is origin-independent. `scale` and `rotate` are refused under **#23** |
-| `scroll-*` | **deferred, re-homed** | Part 8 § 3. Scrolling is `ScrollView`, not a property on a box; the behaviour lands in **A18** and the 32 roots follow it |
+| `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` and `scrollbar-*` remain deferred |
 
 ⚠ **The `origin-*` refusal is the one worth reading, because a scene cannot fix it.** Every other
 inert verdict this document has recorded turned out at least *possibly* to be a missing arrangement —
@@ -2197,7 +2197,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 conditional-group id since per-surface media landed; see F11. ⚠ The real finding was next door: see § D6 | cascade | — | done |
 | A16 🟡 | Container queries. ⚠ **The cascade half landed** — `ContainerConditions`, `ContainerScopes`, `ContainerQuery`, a second group id on `StyleRule`, two scope slots on `StyleTree`, one integer test in the cascade, 34 computed-value tests. ⚠ **And it closed a silent drop**: ExCSS parses `@container` into a `ContainerRule`, so it never reached `LoadUnknown` and was discarded with no diagnostic, while two docs said it warned. **Owed**: the `UiDocument` wiring (nothing calls `ContainerScopes.Enter`, so every query is false in a live document), the layout coercion for containers sized by their contents, and the `@sm:` variants — gated on the first two so the consumption gate has something that observes them. Containment is *free* for a normal-flow block, whose inline size is already `SizingMode.StretchFit`. See § D3 | cascade + layout | 0.15 | 0.6 |
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
-| A18 🟢 | Scroll properties as `ScrollView` inputs rather than CSS | `Vixen.Ui.Controls` | — | 0.3 |
+| A18 ✅ | **Scroll properties as `ScrollView` inputs rather than CSS — done, and the control it was waiting for had been there the whole time.** The deferral's premise was that "scrolling in this engine is `ScrollView`" and that the behaviour had to land first; `ScrollView` was already 397 lines with bars, wheel, keyboard, a focus hook and a `ScrollIntoView`, used by `TreeView`, `DataGrid`, `CodeEditor`, both virtualisers and six editor panels. What was absent was not the feature but the four *readers*, and they are four now: `scroll-margin-*` off the target and `scroll-padding-*` off the container (CSS Scroll Snap §6 — the two come off different elements, and a reader that took both off one passes every test where the numbers match), `scroll-behavior` as an exponential ease off `UiDocument.Ticked`, and `overscroll-behavior*` as the one thing that decides whether a wheel at the stop chains outwards. **22 roots, all `works`**; the four block roots (`scroll-mbs/mbe`, `scroll-pbs/pbe`) stay absent for `space-y`'s reason, and `snap-*` and `scrollbar-*` are still deferred. ⚠ **Two findings worth more than the families.** The insets emit four longhands where `m-*` emits one shorthand, because ExCSS expands `margin` while parsing and has never heard of `scroll-margin` — v4's spelling would have resolved, computed and moved nothing, which is `inset`'s hole and would have been invisible from the class. And the gate could not see any of it until the probe grew a `scrolled` scene with *nested* views and three driven phases: one scroll container measures half the properties inert because the declaration only lands on `#probe`, and one approach direction measures half the edges inert because `ScrollIntoView` moves the minimum and the other branch never runs | `ScrollView`, `UtilityFamilies` | — | done |
 | A19 🟢 | `text-decoration`, `text-transform`, `font-variant-numeric`, `font-stretch` | `Vixen.Ui.Text` | — | 0.4 |
 | A20 ✅ | **Run the `Animator`** — built on the style engine, `Observe` from the updater, `Advance` on the tick, `Apply` before the consumers read (F10). **Landed with F11**, which the same seam turned up: `UiDocument` never handed the cascade a `MediaContext` either, so every breakpoint, every `dark:` under the media strategy and every `color-gamut` query was dead | `StyleEngine`, `UiDocument` | **#46** | done |
 | | | | **A total** | **6.4** |
@@ -2328,12 +2328,39 @@ still in, mapped onto the glyph rasteriser's own switch rather than onto the CSS
 choosing between grayscale and subpixel AA is a real thing an editor theme wants to say.
 
 **3 · Scroll-container CSS** — **32 roots**: the 22 `scroll-m-*`/`scroll-p-*`, plus `snap-*`,
-`overscroll-*`, `scroll-behavior` and `scrollbar-*`. 🟡 **Deferred, not excluded, and re-homed.**
-Scrolling in this engine is `ScrollView`, a control, not a property on a box; `scroll-margin` means
-something only to a scroll container that honours it. A18 implements the *behaviour* against
-`ScrollView` and the utilities become properties it reads. Writing the families first would add 32
-inert roots — a tenth of the whole index — which is precisely the pattern this document exists to
-stop.
+`overscroll-*`, `scroll-behavior` and `scrollbar-*`. ✅ **Discharged for 22 of the 32 by A18; ten stay
+deferred.** The argument was right and one word of its premise was wrong, which is worth keeping
+rather than editing away.
+
+The argument: `scroll-margin` means something only to a scroll container that honours it, so writing
+the families first would have added 32 inert roots — a tenth of the whole index — and that is exactly
+the pattern this document exists to stop. That held, and the gate proved it would have: registered
+against no reader, every one of these measures zero channels.
+
+⚠ **The premise that was wrong was "the behaviour comes first".** It read as though `ScrollView` had
+to be built. It did not — it was already the control this section names, 397 lines of it, with two
+bars, wheel and keyboard handling, a routed focus hook and a `ScrollIntoView`, driven by `TreeView`,
+`DataGrid`, `CodeEditor`, both virtualisers and six editor panels. **What was missing was never the
+behaviour; it was four property reads inside a control that already did all of it.** The re-homing
+was therefore the whole of A18 and the estimate was mostly spent on the *gate*, not the feature. The
+lesson generalises past this section: "deferred until the feature lands" and "deferred until somebody
+checks whether the feature landed" look identical in a table, and only one of them is a real
+dependency.
+
+**What is still out**, and each for its own reason rather than for this section's:
+
+- **`scroll-mbs-*`, `scroll-mbe-*`, `scroll-pbs-*`, `scroll-pbe-*`** — the block pair, absent for
+  `space-y-*`'s reason (§ F9): nothing interns a `-block-start`/`-block-end` longhand, and
+  `Vixen.Ui.Layout` has no writing mode for one to differ from `-top`/`-bottom` in. The *inline* pair
+  is in, because `ScrollView.InsetOf` folds it against `direction` itself.
+- **`snap-*`** — `scroll-snap-type`, `scroll-snap-align` and `scroll-snap-stop` need a snapping
+  algorithm, which is a feature rather than a read: a scroll that comes to rest has to choose a
+  snap position among the candidates in its subtree, and nothing computes candidates. ⚠ This one
+  really is "the behaviour comes first", and it is the only one of the four that is.
+- **`scrollbar-width` / `scrollbar-color` / `scrollbar-gutter`** — `ScrollBar` is a child element
+  this control creates and themes through `scrollbar { … }`, `--track-color` and `--thumb-color`.
+  A CSS property that restyled it would be a second way to say what the theme already says, and
+  `scrollbar-gutter` is a distinction `Overflow` deliberately does not carry (see `LayoutEnums`).
 
 **4 · `position: fixed` and `sticky`** — doc 09 excludes `fixed` on the grounds that there is no
 viewport in a game overlay. That argument holds for `fixed` and **does not hold for `sticky`**: a
@@ -2353,8 +2380,8 @@ inventory with an unexplained hole in it is how a subset gets rationalised the n
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
    rather than `CheckArchitecture`, for the reason Part 5 gives, and "acts on" rather than "interns"
-   for the reason Part 0 measured at seven properties. Today: **6 properties, 6 allow-listed** out of
-   108 emitted, with 91 acted on and 11 composed — and the allow-list expires on its condition.
+   for the reason Part 0 measured at seven properties. Today: **5 properties, 5 allow-listed** out of
+   131 emitted, with 107 acted on and 19 composed — and the allow-list expires on its condition.
 3. **`UtilityFamilySupportTests` has a row per root, resolved against a real element**, and its
    `Inert` table is empty or every entry names its task. It is the only artefact in this survey built
    by resolving elements rather than by reading source, and it is where a finding goes to become a

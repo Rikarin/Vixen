@@ -515,13 +515,19 @@ classes that resolve, compute a value, and change nothing a person can see, whic
   (`#23`): a rotated box is not a rectangle and a scaled one holds glyphs shaped at the wrong size.
   So `origin-*` cannot be observed here even in principle, and the probe's `translated` scene — added
   for exactly this class of property — confirms it: zero channels, at every value.
-- **`scroll-*`** — v4's `scroll-m-*`, `scroll-p-*` and `scroll-behavior`, 32 roots with `snap-*` and
-  `overscroll-*`. Deferred rather than refused, and **re-homed**: scrolling in this engine is
-  `ScrollView`, a control that owns its bars and offsets its content, not a property on a box, and
-  `scroll-margin` means something only to a scroll container that honours it. Per-axis `overflow` and
-  `overflow: auto` landed recently, and what they do is *clip* — a clip is not a scrollbar, and
-  `overflow-y-auto` cuts the content off with nothing offering to scroll it. So the behaviour comes
-  first (doc 43 A18) and the utilities become properties `ScrollView` reads. See doc 43 Part 8 § 3.
+- **`scroll-*`** — ✅ **22 of the 32 are written**, and the deferral's own wording is why they took a
+  while. It said the behaviour had to come first; scrolling in this engine is `ScrollView`, a control
+  that owns its bars and offsets its content, and `scroll-margin` means something only to a scroll
+  container that honours it — all true, and all read as though `ScrollView` were unbuilt. It was
+  finished, and the gap was four property reads inside it. `scroll-m-*`, `scroll-p-*` and their axes
+  are read by `ScrollIntoView` (the margin off the target, the padding off the container);
+  `scroll-behavior` eases off `UiDocument.Ticked`; `overscroll-*` decides whether a wheel that has run
+  out chains outwards. ⚠ The point the original bullet made still stands and is now the *other* half:
+  per-axis `overflow` and `overflow: auto` *clip*, a clip is not a scrollbar, and `overflow-y-auto` on
+  a plain `div` still cuts the content off with nothing offering to scroll it — put a `ScrollView`
+  there. Still out: the four block roots (`scroll-mbs-*` and friends, for `space-y-*`'s reason),
+  `snap-*`, which needs a snapping algorithm rather than a reader, and `scrollbar-*`, which would be a
+  second way to say what `scrollbar { … }` already says. See doc 43 Part 8 § 3 and A18.
 
 **`space` and `divide` are built**, and they were the two worth building: every longhand they emit is
 already read. Both are unlike every other family in the table — Tailwind implements them as a rule

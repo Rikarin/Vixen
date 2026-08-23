@@ -101,6 +101,38 @@ them:
   scrolling, popup placement and drag previews are made of, and it costs a walk rather than a cascade
   and a relayout.
 
+## What `ScrollView` reads out of the cascade
+
+⚠ **It reads no `overflow`, and it does read four scroll families.** The distinction is the whole of
+doc 43 A18 and is worth stating here rather than only in the source. `overflow` on a box is what
+*conjures* a scrollbar in CSS; here the bars are children this control creates, so which bars a view
+offers is a property of the control and `overflow-x` on some other element is a clip and nothing more.
+The consequence is blunt: `overflow-y: auto` on a plain `div` cuts its content off and offers no way
+to reach it. Put a `ScrollView` there.
+
+The four it does read say nothing about *whether* something scrolls — only where a scroll lands, how
+it gets there and what happens at the end, which are questions that presuppose a scroll container:
+
+| Property | Read off | What it does |
+|---|---|---|
+| `scroll-margin-*` | the **target** of `ScrollIntoView` | leaves that much room around it when the view stops |
+| `scroll-padding-*` | the **view** | insets the viewport the same scroll is measured against |
+| `scroll-behavior` | the view | `smooth` eases programmatic scrolls off `UiDocument.Ticked` |
+| `overscroll-behavior`, `-x`, `-y` | the view | whether a wheel at the stop chains to what contains it |
+
+⚠ **The first two come off different elements and that is CSS, not a shortcut** (Scroll Snap §6). A
+reader that took both off one element passes every test in which the two happen to be equal. The
+logical edges are folded against `direction` here rather than by the layout, because a scroll offset
+is not a layout pass and no pass ever sees them; `ScrollViewTests` asserts the `rtl` half.
+
+⚠ **`scroll-behavior: smooth` is not applied to the wheel or to a drag on the bar**, and both of those
+call `Settle()` to abandon an easing already in flight. Direct manipulation that lags the finger by a
+time constant reads as a dropped frame, which is why browsers exempt it too.
+
+⚠ **`overscroll-contain` and `overscroll-none` do the same thing here.** In CSS they differ only over
+the rubber-band and pull-to-refresh at the boundary, and this engine has neither, so there is nothing
+for `none` to additionally suppress. Both stop the chain, which is the half the class is written for.
+
 ## The theme
 
 **The sheet is `ControlTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in

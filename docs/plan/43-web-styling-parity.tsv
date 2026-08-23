@@ -74,28 +74,28 @@ Transforms	skew-y-*	functional	skew-y-0	transform					absent
 Transforms	transform-*	functional	transform-3d	transform-style					absent				transform-flat transform-3d
 Transforms	zoom-*	functional	zoom-50	zoom					absent				
 Interactivity	cursor-*	functional	cursor-alias	cursor	cursor	cursor	cursor		partial			7 of 8 listed keywords resolve: missing cursor-help	cursor-auto cursor-default cursor-pointer cursor-wait cursor-text cursor-move cursor-help cursor-not-allowed
-Interactivity	scroll-m-*	functional	scroll-m-0	scroll-margin					absent				scroll-m-px
-Interactivity	scroll-mx-*	functional	scroll-mx-0	scroll-margin-inline					absent				scroll-mx-px
-Interactivity	scroll-my-*	functional	scroll-my-0	scroll-margin-block					absent				scroll-my-px
-Interactivity	scroll-ms-*	functional	scroll-ms-0	scroll-margin-inline-start					absent				scroll-ms-px
-Interactivity	scroll-me-*	functional	scroll-me-0	scroll-margin-inline-end					absent				scroll-me-px
+Interactivity	scroll-m-*	functional	scroll-m-0	scroll-margin	scroll-m	scroll-margin-bottom,scroll-margin-left,scroll-margin-right,scroll-margin-top	scroll-margin-bottom,scroll-margin-left,scroll-margin-right,scroll-margin-top		works				scroll-m-px
+Interactivity	scroll-mx-*	functional	scroll-mx-0	scroll-margin-inline	scroll-mx	scroll-margin-left,scroll-margin-right	scroll-margin-left,scroll-margin-right		works				scroll-mx-px
+Interactivity	scroll-my-*	functional	scroll-my-0	scroll-margin-block	scroll-my	scroll-margin-bottom,scroll-margin-top	scroll-margin-bottom,scroll-margin-top		works				scroll-my-px
+Interactivity	scroll-ms-*	functional	scroll-ms-0	scroll-margin-inline-start	scroll-ms	scroll-margin-inline-start	scroll-margin-inline-start		works				scroll-ms-px
+Interactivity	scroll-me-*	functional	scroll-me-0	scroll-margin-inline-end	scroll-me	scroll-margin-inline-end	scroll-margin-inline-end		works				scroll-me-px
 Interactivity	scroll-mbs-*	functional	scroll-mbs-0	scroll-margin-block-start					absent				scroll-mbs-px
 Interactivity	scroll-mbe-*	functional	scroll-mbe-0	scroll-margin-block-end					absent				scroll-mbe-px
-Interactivity	scroll-mt-*	functional	scroll-mt-0	scroll-margin-top					absent				scroll-mt-px
-Interactivity	scroll-mr-*	functional	scroll-mr-0	scroll-margin-right					absent				scroll-mr-px
-Interactivity	scroll-mb-*	functional	scroll-mb-0	scroll-margin-bottom					absent				scroll-mb-px
-Interactivity	scroll-ml-*	functional	scroll-ml-0	scroll-margin-left					absent				scroll-ml-px
-Interactivity	scroll-p-*	functional	scroll-p-0	scroll-padding					absent				scroll-p-px
-Interactivity	scroll-px-*	functional	scroll-px-0	scroll-padding-inline					absent				scroll-px-px
-Interactivity	scroll-py-*	functional	scroll-py-0	scroll-padding-block					absent				scroll-py-px
-Interactivity	scroll-ps-*	functional	scroll-ps-0	scroll-padding-inline-start					absent				scroll-ps-px
-Interactivity	scroll-pe-*	functional	scroll-pe-0	scroll-padding-inline-end					absent				scroll-pe-px
+Interactivity	scroll-mt-*	functional	scroll-mt-0	scroll-margin-top	scroll-mt	scroll-margin-top	scroll-margin-top		works				scroll-mt-px
+Interactivity	scroll-mr-*	functional	scroll-mr-0	scroll-margin-right	scroll-mr	scroll-margin-right	scroll-margin-right		works				scroll-mr-px
+Interactivity	scroll-mb-*	functional	scroll-mb-0	scroll-margin-bottom	scroll-mb	scroll-margin-bottom	scroll-margin-bottom		works				scroll-mb-px
+Interactivity	scroll-ml-*	functional	scroll-ml-0	scroll-margin-left	scroll-ml	scroll-margin-left	scroll-margin-left		works				scroll-ml-px
+Interactivity	scroll-p-*	functional	scroll-p-0	scroll-padding	scroll-p	scroll-padding-bottom,scroll-padding-left,scroll-padding-right,scroll-padding-top	scroll-padding-bottom,scroll-padding-left,scroll-padding-right,scroll-padding-top		works				scroll-p-px
+Interactivity	scroll-px-*	functional	scroll-px-0	scroll-padding-inline	scroll-px	scroll-padding-left,scroll-padding-right	scroll-padding-left,scroll-padding-right		works				scroll-px-px
+Interactivity	scroll-py-*	functional	scroll-py-0	scroll-padding-block	scroll-py	scroll-padding-bottom,scroll-padding-top	scroll-padding-bottom,scroll-padding-top		works				scroll-py-px
+Interactivity	scroll-ps-*	functional	scroll-ps-0	scroll-padding-inline-start	scroll-ps	scroll-padding-inline-start	scroll-padding-inline-start		works				scroll-ps-px
+Interactivity	scroll-pe-*	functional	scroll-pe-0	scroll-padding-inline-end	scroll-pe	scroll-padding-inline-end	scroll-padding-inline-end		works				scroll-pe-px
 Interactivity	scroll-pbs-*	functional	scroll-pbs-0	scroll-padding-block-start					absent				scroll-pbs-px
 Interactivity	scroll-pbe-*	functional	scroll-pbe-0	scroll-padding-block-end					absent				scroll-pbe-px
-Interactivity	scroll-pt-*	functional	scroll-pt-0	scroll-padding-top					absent				scroll-pt-px
-Interactivity	scroll-pr-*	functional	scroll-pr-0	scroll-padding-right					absent				scroll-pr-px
-Interactivity	scroll-pb-*	functional	scroll-pb-0	scroll-padding-bottom					absent				scroll-pb-px
-Interactivity	scroll-pl-*	functional	scroll-pl-0	scroll-padding-left					absent				scroll-pl-px
+Interactivity	scroll-pt-*	functional	scroll-pt-0	scroll-padding-top	scroll-pt	scroll-padding-top	scroll-padding-top		works				scroll-pt-px
+Interactivity	scroll-pr-*	functional	scroll-pr-0	scroll-padding-right	scroll-pr	scroll-padding-right	scroll-padding-right		works				scroll-pr-px
+Interactivity	scroll-pb-*	functional	scroll-pb-0	scroll-padding-bottom	scroll-pb	scroll-padding-bottom	scroll-padding-bottom		works				scroll-pb-px
+Interactivity	scroll-pl-*	functional	scroll-pl-0	scroll-padding-left	scroll-pl	scroll-padding-left	scroll-padding-left		works				scroll-pl-px
 Typography	list-*	functional	list-decimal	list-style-type					absent				
 Typography	list-image-*	functional	list-image-none	list-style-image					absent				
 Layout	columns-*	functional	columns-1	columns					absent				
@@ -288,10 +288,10 @@ Flexbox and Grid	justify-self	static	justify-self-auto	justify-self	justify-self
 Layout	overflow	static	overflow-auto	overflow	overflow	overflow	overflow		partial			4 of 5 keywords: missing overflow-clip; 4 of 5 listed keywords resolve: missing overflow-clip	overflow-auto overflow-hidden overflow-clip overflow-visible overflow-scroll
 Layout	overflow-x	static	overflow-x-auto	overflow-x	overflow-x	overflow-x	overflow-x		partial			4 of 5 keywords: missing overflow-x-clip; 4 of 5 listed keywords resolve: missing overflow-x-clip	overflow-x-auto overflow-x-hidden overflow-x-clip overflow-x-visible overflow-x-scroll
 Layout	overflow-y	static	overflow-y-auto	overflow-y	overflow-y	overflow-y	overflow-y		partial			4 of 5 keywords: missing overflow-y-clip; 4 of 5 listed keywords resolve: missing overflow-y-clip	overflow-y-auto overflow-y-hidden overflow-y-clip overflow-y-visible overflow-y-scroll
-Layout	overscroll	static	overscroll-auto	overscroll-behavior					absent				overscroll-auto overscroll-contain overscroll-none
-Layout	overscroll-x	static	overscroll-x-auto	overscroll-behavior-x					absent				overscroll-x-auto overscroll-x-contain overscroll-x-none
-Layout	overscroll-y	static	overscroll-y-auto	overscroll-behavior-y					absent				overscroll-y-auto overscroll-y-contain overscroll-y-none
-Interactivity	scroll	static	scroll-auto	scroll-behavior					absent				scroll-auto scroll-smooth
+Layout	overscroll	static	overscroll-auto	overscroll-behavior	overscroll	overscroll-behavior	overscroll-behavior		works				overscroll-auto overscroll-contain overscroll-none
+Layout	overscroll-x	static	overscroll-x-auto	overscroll-behavior-x	overscroll-x	overscroll-behavior-x	overscroll-behavior-x		works				overscroll-x-auto overscroll-x-contain overscroll-x-none
+Layout	overscroll-y	static	overscroll-y-auto	overscroll-behavior-y	overscroll-y	overscroll-behavior-y	overscroll-behavior-y		works				overscroll-y-auto overscroll-y-contain overscroll-y-none
+Interactivity	scroll	static	scroll-auto	scroll-behavior	scroll	scroll-behavior	scroll-behavior		works				scroll-auto scroll-smooth
 Interactivity	scrollbar	static	scrollbar-auto	scrollbar-width					absent				scrollbar-auto scrollbar-thin scrollbar-none
 Interactivity	scrollbar-gutter	static	scrollbar-gutter-auto	scrollbar-gutter					absent				scrollbar-gutter-auto scrollbar-gutter-stable scrollbar-gutter-both
 Typography	truncate	static	truncate	overflow,text-overflow,white-space	truncate	overflow,text-overflow,white-space	overflow,text-overflow,white-space		works				truncate

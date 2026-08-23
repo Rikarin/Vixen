@@ -145,6 +145,29 @@ public class UtilityFamilySupportTests {
         { "m-2", "margin-top", "8px" },
         { "me-1", "margin-inline-end", "4px" },
 
+        // ⚠ <b>Scroll insets — doc 43 A18, and note what the shorthand rows are <i>not</i>.</b>
+        // `scroll-m-2` emits four longhands where `m-2` emits the one shorthand `margin`, because
+        // ExCSS expands `margin` on the way in and has never heard of `scroll-margin`. So a row here
+        // asserting `scroll-m-2` → `scroll-margin` would be asserting the emission that does not
+        // work; the per-edge value is the one that reaches `ScrollView`. The logical pair keeps CSS's
+        // spelling for the reason `ms-*` does — `ScrollView.InsetOf` folds it against `direction` —
+        // and there are no `scroll-mbs-*`/`scroll-pbs-*` rows because the block pair is registered by
+        // nobody, exactly as `inset-bs-*` records below.
+        { "scroll-m-2", "scroll-margin-top", "8px" },
+        { "scroll-mt-1", "scroll-margin-top", "4px" },
+        { "scroll-mx-2", "scroll-margin-left", "8px" },
+        { "scroll-ms-2", "scroll-margin-inline-start", "8px" },
+        { "scroll-p-2", "scroll-padding-top", "8px" },
+        { "scroll-pb-1", "scroll-padding-bottom", "4px" },
+        { "scroll-pe-2", "scroll-padding-inline-end", "8px" },
+
+        // The three keyword families that go with them. `scroll-smooth` is the one worth a row of its
+        // own: it is the only member of any of these that changes *when* something happens rather
+        // than where, and `ScrollView` animates it off `UiDocument.Ticked`.
+        { "scroll-smooth", "scroll-behavior", "smooth" },
+        { "overscroll-contain", "overscroll-behavior", "contain" },
+        { "overscroll-y-none", "overscroll-behavior-y", "none" },
+
         // Sizing.
         { "w-full", "width", "100%" },
         { "h-4", "height", "16px" },
