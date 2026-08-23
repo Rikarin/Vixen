@@ -106,8 +106,30 @@ static class Program {
             return;
         }
 
+        var sheet = Path.Combine(directory, "shell.vcss");
+
         var watcher = new HotReloadWatcher(new HotReloadHost(application.Document), directory);
-        watcher.Load(Path.Combine(directory, "shell.vcss"));
+        watcher.Load(sheet);
+
+        // ⚠ **Which of the two things happened, said out loud, because the difference is invisible
+        // until it bites.** `Load` binds a path to the sheet the document already holds when the two
+        // texts match, and a save then *replaces* that sheet — so a rule taken out of the file stops
+        // applying. When nothing matches it layers the file on top instead: changing a value still
+        // works, and deleting a rule leaves whatever was underneath still applying, with nothing to
+        // say so.
+        //
+        // ⚠ This sample gets the overlay, and the reason is worth knowing rather than working
+        // around: `shell.vcss` is handed to the build as `VixenStyleBase`, so what the document holds
+        // is the *generated* sheet with this file concatenated into the front of it — there is no
+        // separate sheet whose text could match. That is the right arrangement for shipping (it is
+        // what fixes the layer order and expands `@apply`) and the wrong one for deleting a rule at
+        // run time, and `Replaces` is the API that lets a caller tell a developer which they have.
+        Console.WriteLine(
+            watcher.Replaces(sheet)
+                ? $"watching {sheet} — saves replace the sheet, so deleting a rule takes effect."
+                : $"watching {sheet} — saves layer over the generated sheet, so a *deleted* rule keeps applying "
+                + "until the next build."
+        );
 
         // ⚠ Applied on the frame loop's own thread rather than in the `FileSystemWatcher` callback.
         // The element tree has no lock and that callback is on a pool thread; `Poll` is also what

@@ -15,9 +15,9 @@ definitions and 19 scenes across six zones, 142 tests, a fleet that runs thirty 
 and holds every budget, and a HUD written in VXML with a stylesheet generated from one theme file.
 
 ⚠ **Nothing draws the HUD and nothing connects it**, and both absences are deliberate — see
-[`Mmo.Ui`](Mmo.Ui/README.md) § What is not here. A window is `Samples/02-HelloUi`'s ninety lines of
-`Program.cs`; keeping it out is what lets the whole interface suite run in a third of a second on a
-machine with no GPU.
+[`Mmo.Ui`](Mmo.Ui/README.md) § What is not here. A window is `Vixen.Ui.Desktop`'s
+job and one call to `UiApplication.Run`; keeping it out is what lets the whole interface suite run in
+a third of a second on a machine with no GPU.
 
 | | Sees | |
 |---|---|---|

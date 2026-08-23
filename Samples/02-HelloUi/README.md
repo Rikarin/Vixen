@@ -58,6 +58,14 @@ tree's place in its thousand rows all survive. That is six lines in `Program.cs`
 `HotReloadWatcher` over the source directory, polled once a frame — and dropping them plus the
 `Vixen.Ui.HotReload` reference is what a shipping application does.
 
+⚠ **Changing a rule takes effect; *deleting* one does not, until the next build.** The sample prints
+which of the two it got on start-up. `shell.vcss` is handed to the build as a `VixenStyleBase`, so
+what the document holds is the generated sheet with this file concatenated into the front of it —
+there is no separate sheet for `HotReloadWatcher.Load` to bind the path to, and it layers the file on
+top instead. That is the right arrangement for shipping (it is what fixes the layer order and expands
+`@apply`) and the wrong one for taking a rule out at run time. `HotReloadWatcher.Replaces` is the API
+that says which you have, and this is what it is for.
+
 Try `--accent` by hand: change `--color-brand` in `Theme/vixen.ui.vcss`, and note that *that* one
 needs a rebuild. Tokens are compiled into the utility sheet at build time; the rules in `shell.vcss`
 are not.

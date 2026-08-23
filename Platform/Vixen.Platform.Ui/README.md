@@ -16,7 +16,9 @@ things with nowhere to be written.
 
 Turns a `PlatformEvent` into the document's own events. It existed twice before this assembly did,
 once in `Samples/02-HelloUi` and once in `Vixen.Editor.App`, and each copy carried a comment saying
-that a `Vixen.Platform.Ui` was where it belonged once there was a second consumer. There was.
+that a `Vixen.Platform.Ui` was where it belonged once there was a second consumer. There was. There
+are three now — the third is `Vixen.Ui.Desktop`, which is where the sample's copy of the *frame loop*
+went for the same reason.
 
 Two things in it are an afternoon each and are worth not re-deriving:
 
