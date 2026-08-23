@@ -118,8 +118,15 @@ public sealed class GateServiceTests : IDisposable {
         var answer = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
         var token = answer.Value!.Token;
 
+        // ⚠ Chosen against the character that is there rather than written as a constant, because a
+        // constant is only a tamper when the token disagrees with it. This was `token[..^2] + "00"`,
+        // which for a token already ending in "00" handed `Authenticate` the untouched token and got
+        // `Valid` — a real one-in-a-few-thousand failure that read as a flaky signature check.
+        var tampered = token[..^1] + (token[^1] == 'A' ? 'B' : 'A');
+        Assert.NotEqual(token, tampered);
+
         Assert.Equal(TokenStatus.Valid, Gate.Authenticate("Bearer " + token, out _));
-        Assert.Equal(TokenStatus.Forged, Gate.Authenticate(token[..^2] + "00", out _));
+        Assert.Equal(TokenStatus.Forged, Gate.Authenticate(tampered, out _));
         Assert.Equal(TokenStatus.Malformed, Gate.Authenticate("not a token", out _));
         Assert.Equal(TokenStatus.Malformed, Gate.Authenticate(null, out _));
     }
