@@ -81,22 +81,11 @@ public sealed partial class TerrainModule : IEditorPlugin {
     /// </remarks>
     string ScenePath => Scene.Writer is SceneFileWriter file ? file.Path : string.Empty;
 
-    /// <summary>One "label: value" row in a derived-facts readout.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The copy is gone, and the assembly reference it was avoiding was already here.</b>
-    ///     This used to be four lines of element building duplicated from the application's own, on
-    ///     the argument that a shared helper would cost a reference for four lines. It would not:
-    ///     this module already references <c>Vixen.Editor.Ui</c> for <c>EditorShell</c>, and
-    ///     <see cref="FactRow" /> is the same four lines with the one thing markup cannot say —
-    ///     <c>fact-name</c>'s own <c>Text</c> — held behind a <c>ref</c>, so a panel ported to
-    ///     <c>.vxml</c> can write <c>&lt;FactRow /&gt;</c> in a <c>@for</c> and get this tree.
-    /// </remarks>
-    static void Fact(UiElement into, string label, string value) {
-        var row = into.Add<FactRow>();
-
-        row.Name = label;
-        row.Value = value;
-    }
+    // ⚠ `Fact(into, label, value)` used to be here and has no callers left. It was four lines that
+    // added a `FactRow` — wave 5's answer to the same four lines having been duplicated from the
+    // application's own — and every one of its call sites is now a `@for` inside `FactBlock`,
+    // `LayerBlock` or `PaletteBlock`. `Clear(element)` in `TerrainModulePanels` went the same way and
+    // for the same reason: a signal replaces a list, so nothing empties a container by hand any more.
 
     /// <inheritdoc />
     public void Activate(PluginContext context) {

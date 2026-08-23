@@ -754,10 +754,8 @@ public sealed partial class TerrainModule {
         }
     }
 
-    /// <summary>Empties a rows container before it is refilled.</summary>
-    static void Clear(UiElement element) {
-        while (element.Children.Count > 0) {
-            element.Children[^1].Remove();
-        }
-    }
+    // ⚠ `Clear(element)` used to be here — "empties a rows container before it is refilled" — and has
+    // no callers left. Every container it emptied is a part now, and a part's rows are a signal: the
+    // keyed `@for` reconciles what changed and drops what left, so there is nothing to empty. That is
+    // the clear-and-refill the ledger says a port is supposed to delete rather than move.
 }
