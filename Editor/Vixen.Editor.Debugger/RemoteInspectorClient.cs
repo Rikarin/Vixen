@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers;
-using System.Collections.Immutable;
 using Vixen.Net;
 using Vixen.Net.Transport;
 using Vixen.Ui.Reactive;
@@ -74,18 +73,17 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
     readonly Signal<bool> fetching = new(false);
     readonly CollectionSignal<RemoteEntity> entities = new();
 
-    // ⚠ An `ImmutableDictionary` in a `Signal` rather than a `Dictionary`, and it is `SettingsView`'s
-    // `categories` lesson in the other collection shape: a dictionary written in place is a value
-    // change no signal can see, which is exactly the hole a revision counter gets invented to paper
-    // over. Replacing the map is the notification, and `ImmutableDictionary<string, double>` already
-    // *is* the `IReadOnlyDictionary<string, double>` the public property promises.
+    // ⚠ A `SignalDictionary`, which is the map shape wave 6 wanted and did not find. It used to be a
+    // `Signal<ImmutableDictionary<string, double>>` — correct, because replacing the map *is* the
+    // notification, and it allocated a rebalanced spine of tree nodes every time a build said its
+    // frame rate had moved. `Poll` runs from the panel's tick, so that was per counter per frame.
     //
-    // ⚠ There is no `CollectionSignal` for a map, which is the one thing this port wanted and did
-    // not find. `SetItem` allocates a node per counter update where an in-place write allocated
-    // nothing; at the handful of counters a build reports that is not worth a new reactive
-    // primitive, and it would be at a thousand.
-    readonly Signal<ImmutableDictionary<string, double>> counters =
-        new(ImmutableDictionary.Create<string, double>(StringComparer.Ordinal));
+    // ⚠ **The equality short-circuit survives the change and had to.** `SetItem` with a value the
+    // map already held returned the same instance, so the `Signal`'s reference comparison saw
+    // nothing move and woke nobody; `SignalDictionary` checks the value comparer per key and reaches
+    // the same answer without the copy. A build reporting an unchanged number still costs the panel
+    // nothing, which is the property that makes a per-frame poll affordable at all.
+    readonly SignalDictionary<string, double> counters = new(StringComparer.Ordinal);
 
     readonly ITransport transport;
     readonly ArrayBufferWriter<byte> outgoing = new(1024);
@@ -157,10 +155,16 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
 
     /// <summary>The live counters, by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Replaced rather than written into.</b> See the field: a map mutated in place is a
-    ///     change no signal can see.
+    ///     ⚠ <b>A <see cref="SignalDictionary{TKey,TValue}" />, which already <i>is</i> an
+    ///     <c>IReadOnlyDictionary&lt;string, double&gt;</c></b> — so the property's type is unchanged
+    ///     and reading a key, a count or the key set inside a binding subscribes, exactly as
+    ///     <see cref="Entities" /> does. ⚠ What did change is that this is a <b>live view and not a
+    ///     snapshot</b>: it used to hand out an immutable map that could be held across frames, and
+    ///     holding this one across frames reads whatever the map says later. Nothing in the tree does
+    ///     — the counter pane projects it to a sorted array inside its binding — and a caller that
+    ///     wants a snapshot takes one.
     /// </remarks>
-    public IReadOnlyDictionary<string, double> Counters => counters.Value;
+    public IReadOnlyDictionary<string, double> Counters => counters;
 
     /// <summary>The last few things that happened, oldest first.</summary>
     /// <remarks>⚠ Not signal-backed; nothing binds it. See the field.</remarks>
@@ -322,7 +326,7 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
 
             case InspectorMessage.Counter:
                 if (InspectorProtocol.TryReadCounter(payload, out var counter)) {
-                    counters.Value = counters.Value.SetItem(counter.Name, counter.Value);
+                    counters[counter.Name] = counter.Value;
                     Changed?.Invoke(this);
                 }
 
@@ -400,7 +404,7 @@ public sealed class RemoteInspectorClient : ITransportEvents, IDisposable {
 
         entities.Clear();
         staging.Clear();
-        counters.Value = ImmutableDictionary.Create<string, double>(StringComparer.Ordinal);
+        counters.Clear();
     }
 
     void Note(string line) {

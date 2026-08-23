@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.Inlin
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
-related: [editor/inspectors-in-markup, ui/key-value-list]
+related: [editor/inspectors-in-markup, ui/key-value-list, ui/reactive-collections]
 ---
 
 ## What it is
@@ -435,5 +435,6 @@ cost a frame.
 
 * [Inspectors in markup](../editor/inspectors-in-markup.md) — a `.vxml` bound to an editing target by name
 * [Key/value lists](key-value-list.md) — the control the row loops above used to be written by hand
+* [Reactive collections](reactive-collections.md) — what a `@for` binds to when the rows are mutated rather than reprojected
 * [`BuildContext`](/docs/api/vixen.ui.composition/buildcontext) — what both flavours build with
 * [`Component`](/docs/api/vixen.ui.composition/component) — the default base, and what it cannot do

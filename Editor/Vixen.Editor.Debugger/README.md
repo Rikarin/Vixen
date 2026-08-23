@@ -96,6 +96,15 @@ entity tree is rebuilt on the frame thread, so the panel reading it never needs 
 the ordinary case on a device; half-reading its messages would show an empty tree that looks exactly
 like a build with no entities in it.
 
+⚠ **`Counters` is a `SignalDictionary` and used to be a `Signal<ImmutableDictionary<string,
+double>>`.** Both are correct — replacing the map *is* the notification — and the immutable one
+rebuilt a balanced tree's spine every time a build said its frame rate had moved, which with `Poll`
+on the panel's tick was per counter per frame. The in-place write allocates nothing and keeps the
+equality short-circuit that makes the poll affordable: a reading the map already holds notifies
+nobody. ⚠ The property's type is unchanged, so the panel's binding is too, but what it hands out is
+now a **live view rather than a snapshot** — read it inside the binding, do not hold it across
+frames.
+
 ⚠ **The format is hand-written rather than JSON**, because the far end is a phone on a phone's
 uplink. Every field is a length-prefixed string or a fixed-width little-endian number, which is a
 reader in forty lines on both sides — and a truncated message is refused rather than read past,

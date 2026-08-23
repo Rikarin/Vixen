@@ -111,6 +111,26 @@ Vixen.Ui.Reactive.Signal<T>.Update<TState>(TState state, System.Func<T, TState, 
 Vixen.Ui.Reactive.Signal<T>.Value.get -> T
 Vixen.Ui.Reactive.Signal<T>.Value.set -> T
 Vixen.Ui.Reactive.SignalComparer -> static class
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue> -> sealed class
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue> : System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<TKey, TValue>>
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue> : System.Collections.Generic.IReadOnlyCollection<System.Collections.Generic.KeyValuePair<TKey, TValue>>
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue> : System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue> : System.Collections.IEnumerable
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue> : Vixen.Ui.Reactive.ReactiveNode
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.Clear() -> void
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.ContainsKey(TKey key) -> bool
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.Count.get -> int
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.GetEnumerator() -> System.Collections.Generic.Dictionary<TKey, TValue>.Enumerator
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.Keys.get -> System.Collections.Generic.Dictionary<TKey, TValue>.KeyCollection
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.Peek() -> System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.Remove(TKey key) -> bool
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.SignalDictionary(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<TKey, TValue>> initial, System.Collections.Generic.IEqualityComparer<TKey>? keyComparer = null, System.Collections.Generic.IEqualityComparer<TValue>? valueComparer = null) -> void
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.SignalDictionary(System.Collections.Generic.IEqualityComparer<TKey>? keyComparer = null, System.Collections.Generic.IEqualityComparer<TValue>? valueComparer = null) -> void
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.TryGetValue(TKey key, out TValue value) -> bool
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.TryPeek(TKey key, out TValue value) -> bool
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.Values.get -> System.Collections.Generic.Dictionary<TKey, TValue>.ValueCollection
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.this[TKey key].get -> TValue
+Vixen.Ui.Reactive.SignalDictionary<TKey, TValue>.this[TKey key].set -> TValue
 static Vixen.Ui.Reactive.EffectScheduler.Default.get -> Vixen.Ui.Reactive.EffectScheduler
 static Vixen.Ui.Reactive.ReactiveGraph.Batch(System.Action action) -> void
 static Vixen.Ui.Reactive.ReactiveGraph.InBatch.get -> bool
