@@ -1,0 +1,213 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The control set, as markup.
+
+    ⚠ **This file is what "as comfortable as web development" is supposed to mean.** Every control
+    below is a tag, every value is a signal read, every layout decision is a class name, and there is
+    no C# in it beyond the state the controls are bound to. The C# version of this panel was a
+    hundred and thirty lines of `var x = parent.Add<T>(); x.Property = …;`.
+
+    ⚠ **`bind:Value` is two-way and `change:Value` is one-way out**, and the difference matters more
+    than it looks. `bind:` writes the model when the control changes *and* writes the control when
+    the model changes; `change:` only reports. A slider bound with `change:` alone does not follow a
+    model changed from elsewhere — which is right for something the user is dragging and wrong for
+    anything a menu command can also set.
+-->
+@component Gallery
+@namespace Vixen.Samples.HelloUi.Panels
+@tag gallery-panel
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<!--
+    ⚠ `flex-basis: 0` is the half of `grow` that a reader forgets. A flex item's basis is its content
+    by default, so a tall column of cards inside a fixed-height panel would size the scroller to the
+    content and there would be nothing to scroll. `basis-0` makes the scroller take the panel's
+    height and the content overflow it, which is what a scroller is.
+-->
+<ScrollView class="gallery grow basis-0 p-3">
+    <scroll-column class="flex flex-col gap-3 pr-3">
+
+        <Card>
+            <card-heading class="text-lg font-semibold">Buttons</card-heading>
+
+            <!--
+                ⚠ Keyed on the variant, which is a value rather than an object. A key that survives
+                an update keeps its region and its body is *not* re-run, so keying immutable data on
+                its value is right and keying it on an index is the bug `VXML2004` warns about. The
+                opposite rule applies to an object that holds signals — key on the object then, or
+                every row rebinds to a fresh copy.
+            -->
+            <button-row class="flex flex-row gap-2">
+                @for (var variant in Variants) {
+                    <Button key="@variant"
+                            Label="@variant.ToString()"
+                            Variant="@variant"
+                            on:click="@(() => Pressed(variant))" />
+                }
+            </button-row>
+        </Card>
+
+        <Card>
+            <card-heading class="text-lg font-semibold">State</card-heading>
+
+            <CheckBox Label="Cast shadows" bind:IsChecked="@Model.CastsShadows.Value" />
+
+            <!--
+                ⚠ Indeterminate is a third state and not a second boolean, which is why it is set
+                rather than bound: "some of the selection casts shadows" is a fact about a selection,
+                and the control is what can express it. Clicking it resolves to checked.
+            -->
+            <CheckBox Label="Receive shadows" IsIndeterminate="true" />
+
+            <Switch Label="Wireframe" bind:IsChecked="@Model.Wireframe.Value" />
+
+            <!--
+                ⚠ `RadioGroup` builds its choices through `AddOption` and keeps its own list of them,
+                so a `<RadioButton>` child would draw and never be part of the group — no roving tab
+                index, no exclusivity, no `Value`. That is the same `ContentHost` gap `Shell.vxml`
+                names, and it is why this one control is wired in `OnComposed`.
+            -->
+            <RadioGroup ref="@quality" bind:Value="@Model.Quality.Value" />
+        </Card>
+
+        <Card>
+            <card-heading class="text-lg font-semibold">Fields</card-heading>
+
+            <TextBox Placeholder="Name" bind:Value="@Model.Name.Value" />
+            <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
+            <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
+
+            <!-- `Select` has `AddOption` too, and the same gap. -->
+            <Select ref="@blend" Placeholder="Blend mode" bind:Value="@Model.Blend.Value" />
+
+            <Slider bind:Value="@Model.Detail.Value" />
+            <RangeSlider Low="0.2" High="0.8" />
+
+            <field-readout class="text-xs text-slate-400">
+                @Model.Name.Value · @Model.Blend.Value · detail @Detail
+            </field-readout>
+        </Card>
+
+        <Card>
+            <card-heading class="text-lg font-semibold">Feedback</card-heading>
+
+            <!--
+                Two things that move by themselves, so that a run of this sample is never a still
+                picture — which is what makes a dropped frame or a stalled clock visible rather than
+                something to take on trust.
+            -->
+            <ProgressBar class="text-brand" Value="@Model.Progress.Value" />
+            <Spinner Phase="@Model.Phase.Value" />
+
+            <Alert Variant="Danger"
+                   Title="Shader failed to compile"
+                   Message="Ui/Msdf.rvn(42): expected ';'" />
+        </Card>
+
+        <!--
+            ⚠ `Tabs` and `Expander` *do* override `ContentHost`, which is why these two are written
+            as tags and the four controls above are not. It is a one-property difference and it is
+            the whole difference between a control that can be written in markup and one that cannot.
+        -->
+        <Tabs>
+            <TabItem Label="Surface">Metallic-roughness</TabItem>
+            <TabItem Label="Shading">Standard</TabItem>
+            <TabItem Label="Layers">None</TabItem>
+        </Tabs>
+
+        <Expander Label="Advanced">
+            <expander-note class="text-sm text-slate-400">Nothing here yet.</expander-note>
+        </Expander>
+
+        <Pagination PageCount="12" />
+    </scroll-column>
+</ScrollView>
+
+@code {
+    /// <summary>The five appearances a button has.</summary>
+    /// <remarks>
+    ///     A field rather than a literal in the loop, because a <c>@for</c>'s collection expression is
+    ///     re-evaluated by the effect that drives it — a new array per evaluation would compare
+    ///     unequal and rebuild every row on every flush.
+    /// </remarks>
+    static readonly ControlVariant[] Variants = [
+        ControlVariant.Default,
+        ControlVariant.Primary,
+        ControlVariant.Success,
+        ControlVariant.Danger,
+        ControlVariant.Subtle
+    ];
+
+    readonly Signal<ShellModel> model = new(new());
+
+    RadioGroup quality = null!;
+    Select blend = null!;
+
+    /// <summary>What it is showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody.
+    /// </remarks>
+    public ShellModel Model {
+        get => model.Value;
+        set => model.Value = value;
+    }
+
+    /// <summary>The slider's value, rounded, for the readout beside it.</summary>
+    /// <remarks>
+    ///     ⚠ A property rather than an expression in the markup, and not for tidiness: <c>@</c> in
+    ///     content follows Razor's implicit-expression rule and stops at the first character that
+    ///     cannot continue a member access — so <c>@Model.Detail.Value.ToString("0.00")</c> reads
+    ///     fine and <c>@(a + b)</c> needs its parentheses. A named property never needs the reader to
+    ///     know which.
+    /// </remarks>
+    string Detail => Model.Detail.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    partial void OnComposed() {
+        quality.AddOption("low", "Low");
+        quality.AddOption("medium", "Medium");
+        quality.AddOption("high", "High");
+
+        blend.AddOption("opaque", "Opaque");
+        blend.AddOption("cutout", "Cutout");
+        blend.AddOption("blend", "Blend");
+
+        // ⚠ After the options exist. `Value` names a choice, and a group told to select one before
+        // that choice has been added selects nothing and reports null — which the two-way binding
+        // then writes back to the model, quietly replacing the default with an empty one.
+        quality.Value = Model.Quality.Value;
+        blend.Value = Model.Blend.Value;
+
+        Root.Document.Ticked += Advance;
+    }
+
+    /// <inheritdoc />
+    protected override void OnUnmounted() {
+        // ⚠ The one thing the region cannot take care of. Effects, bindings and elements are the
+        // build region's and are disposed with it; a handler on the *document* outlives this panel,
+        // and a forgotten one keeps a dead component's signals alive for the life of the process.
+        Root.Document.Ticked -= Advance;
+
+        base.OnUnmounted();
+    }
+
+    /// <summary>Moves the two things that move.</summary>
+    void Advance(UiDocument document, TimeSpan now) {
+        var seconds = (float) now.TotalSeconds;
+
+        Model.Phase.Value = seconds % 1f;
+        Model.Progress.Value = (MathF.Sin(seconds) * 0.5f) + 0.5f;
+    }
+
+    void Pressed(ControlVariant variant) =>
+        Model.Notify(
+            $"{variant} pressed",
+            variant == ControlVariant.Danger ? ControlVariant.Danger : ControlVariant.Default
+        );
+}

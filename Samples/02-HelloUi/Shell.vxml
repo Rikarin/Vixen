@@ -1,0 +1,210 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The interface. Start here.
+
+    ⚠ **This file is the point of the sample.** `.vxml` for the tree, `.vcss` for the tokens and the
+    utility classes for everything a class name can say are how a Vixen interface is written — the
+    same three files a web project has, and nothing here is a special case for being a sample. A
+    `<Button>` is the control library's `Button`; `class="flex flex-col grow"` is the Tailwind
+    vocabulary; `@Model.Dark.Value` is a signal read, and the element that reads it is the only
+    element that updates when it changes.
+
+    ⚠ **It is an editor shell rather than a gallery, and that is doc 02's choice rather than a whim.**
+    A gallery proves the controls draw; an editor shell proves they *work together* — a menu bar over
+    a docking host, a virtualised tree in one panel, a property grid in another, a form of standard
+    controls in a third, and toasts over the lot.
+
+    ⚠ **Three things below are C# in `OnComposed` rather than tags, and each is a gap rather than a
+    preference.** `MenuBar`, `DockingHost` and `TreeView` build their contents through `AddMenu`,
+    `AddPanel` and `Root.Add` — none of them overrides `UiElement.ContentHost`, so a nested tag would
+    land on the control itself instead of in the slot it belongs in and simply not appear. `Tabs`,
+    `Expander`, `ScrollView` and `Card` do override it, which is why every one of those *is* a tag
+    here. Closing the gap is one property per control and is worth doing; until it is, `ref` plus
+    `OnComposed` is what the markup language documents for exactly this.
+-->
+@component Shell
+@namespace Vixen.Samples.HelloUi
+@tag app-shell
+@using Vixen.Input
+@using Vixen.Ui
+@using Vixen.Ui.Composition
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+@using Vixen.Samples.HelloUi.Panels
+
+<!--
+    The window's whole layout, in one line of class names: a column that fills the window, with a
+    menu bar that does not stretch (shell.vcss says so, because it is a fact about the tag) and a
+    docking host that takes what is left.
+-->
+<shell-frame class="flex flex-col grow">
+    <MenuBar ref="@menus" />
+    <DockingHost ref="@docking" class="grow" />
+</shell-frame>
+
+<!--
+    ⚠ Outside the frame, so that a toast is not clipped by the docking host and is not laid out by
+    the column. `ToastHost` positions itself against the surface; being a sibling of the shell rather
+    than a child of it is what makes "over the lot" true.
+-->
+<ToastHost ref="@toasts" />
+
+@code {
+    /// <summary>Everything the shell is looking at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One model for the whole shell, handed down.</b> Each panel takes the piece it needs,
+    ///     so a panel can be mounted on its own in a test and this file is the only place that knows
+    ///     the arrangement. It also means none of the panels reference each other.
+    /// </remarks>
+    readonly Signal<ShellModel> model = new(new());
+
+    MenuBar menus = null!;
+    DockingHost docking = null!;
+    ToastHost toasts = null!;
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever.
+    /// </remarks>
+    public ShellModel Model {
+        get => model.Value;
+        set => model.Value = value;
+    }
+
+    /// <summary>Wires the three controls that cannot be written as tags, then greets.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>OnComposed</c> and not the constructor.</b> It runs once the whole body above has
+    ///     run, which is the first moment <c>menus</c>, <c>docking</c> and <c>toasts</c> are all
+    ///     assigned — a <c>ref</c> is one straight-line assignment in <c>Build</c>, so reading one
+    ///     earlier reads null. It is also re-run by a hot reload, because the body contains the
+    ///     assignments and a reload re-runs the body.
+    /// </remarks>
+    partial void OnComposed() {
+        // ⚠ **Set before the panels are built, because a panel's own `OnComposed` may report.**
+        // These two are the whole of the shell's contract with its panels: a panel can say that
+        // something happened and can be asked what the arrangement is, and neither half needs a
+        // reference to the other. A gallery button that reached for the toast host directly would
+        // be two panels agreeing about a third thing.
+        Model.Notify = (message, variant) => toasts.Show(message, variant);
+        Model.Arrangement = () => docking.Save();
+
+        BuildMenus();
+        BuildPanels();
+
+        toasts.Show("Welcome to Vixen", ControlVariant.Primary, TimeSpan.FromSeconds(6));
+
+        // ⚠ The document's tick, not the recogniser's. It raises `UiDocument.Ticked` — which is what
+        // an `Overlay`'s delay and a `Toasts` dismissal hang on — and advances the CSS animator,
+        // without which the `transition` shell.vcss declares on a card sticks at the value it was
+        // leaving rather than moving to the new one. Subscribing here rather than asking the host to
+        // call us is what keeps `Program.cs` a bootstrap: a toast that expires is the toast host's
+        // business and not the frame loop's.
+        Root.Document.Ticked += (_, now) => toasts.Tick(now);
+    }
+
+    /// <summary>The File and View menus.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The handler is on the menu, not on the bar</b>, and that is not the arrangement a
+    ///     routed event usually wants. <c>MenuBar.AddMenu</c> hangs its dropdown off
+    ///     <c>Document.Root</c> — and <c>Menu.AddSubmenu</c> does the same — precisely so a menu can
+    ///     spill past whatever dropped it without being clipped by it. The bar is therefore
+    ///     <i>not</i> an ancestor of its own items, so a click on a <c>MenuItem</c> bubbles to the
+    ///     menu and then straight to the root, never through the bar. A handler on the bar sees the
+    ///     clicks that <i>open</i> the menus and nothing else, so the commands do nothing at all,
+    ///     silently.
+    /// </remarks>
+    void BuildMenus() {
+        var file = Listen(menus.AddMenu("File"));
+        file.AddItem("New").ShowShortcut(InputKey.N, ModifierKeys.Control);
+        file.AddItem("Open…").ShowShortcut(InputKey.O, ModifierKeys.Control);
+        file.AddSeparator();
+
+        var recent = Listen(file.AddSubmenu("Open Recent"));
+        recent.AddItem("shader-graph.vixen");
+        recent.AddItem("terrain.vixen");
+
+        file.AddSeparator();
+        file.AddItem("Save").ShowShortcut(InputKey.S, ModifierKeys.Control);
+
+        var view = Listen(menus.AddMenu("View"));
+        view.AddItem("Reset Layout");
+        view.AddItem("Toggle Dark");
+    }
+
+    /// <summary>Makes a menu report the command chosen from it.</summary>
+    Menu Listen(Menu menu) {
+        menu.AddHandler<ClickEvent>(
+            (_, args) => {
+                // An item that opens a submenu was not a command being chosen — the click is what
+                // opens the submenu, and reporting it would announce "Open Recent" as if it were.
+                if (args.Source is MenuItem { Submenu: null, Label: { } label }) {
+                    Chose(label);
+                }
+            }
+        );
+
+        return menu;
+    }
+
+    void Chose(string label) {
+        switch (label) {
+            case "Reset Layout":
+                docking.SetLayout(ShellModel.DefaultLayout());
+                toasts.Show("Layout reset");
+
+                break;
+
+            case "Toggle Dark":
+                // The root's class, which is what `ControlTheme.vcss`'s `root.dark { … }` block
+                // selects — so one class name swaps every colour in the control set.
+                if (!Root.Document.Root.RemoveClass("dark")) {
+                    Root.Document.Root.AddClass("dark");
+                }
+
+                break;
+
+            default:
+                toasts.Show(label);
+                break;
+        }
+    }
+
+    /// <summary>The three panels, each of which is a <c>.vxml</c> of its own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The arrangement is applied <i>after</i> the panels, not before.</b> <c>AddPanel</c>
+    ///     puts a panel the arrangement does not already mention into the first group, so registering
+    ///     three panels against an empty layout gives one group of three tabs — correct, and not an
+    ///     editor. Applying it afterwards is also the order an application uses when it has no saved
+    ///     layout to restore.
+    /// </remarks>
+    void BuildPanels() {
+        Mount(docking.AddPanel("hierarchy", "Hierarchy"), new Hierarchy { Model = Model });
+
+        // The gallery brings its own scroller and a panel scrolls by default, so this says which of
+        // the two does it rather than shipping a sample with one inside the other.
+        var controls = docking.AddPanel("controls", "Controls");
+        controls.Scrolls = false;
+        Mount(controls, new Gallery { Model = Model });
+
+        Mount(docking.AddPanel("inspector", "Inspector"), new Inspector { Model = Model });
+
+        docking.SetLayout(ShellModel.DefaultLayout());
+    }
+
+    /// <summary>Builds a component into a panel the docking host owns.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one place this file reaches for <c>BuildContext</c> directly, and it is the same
+    ///     gap the three <c>ref</c>s above are.</b> A <c>DockPanel</c> is made by <c>AddPanel</c>
+    ///     rather than by a tag, so there is no tag to nest the panel's content under — the moment
+    ///     <c>DockingHost</c> can adopt a <c>&lt;DockPanel&gt;</c> child, all four of these become
+    ///     markup and this method goes away.
+    /// </remarks>
+    static void Mount(DockPanel panel, Component content) =>
+        BuildContext.BuildInto(content, panel.Document, panel);
+}

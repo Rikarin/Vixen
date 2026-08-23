@@ -1,0 +1,43 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A property grid over an ordinary object.
+
+    ⚠ **The grid draws itself from a *descriptor*, not from the markup.** That is the point of it: an
+    application that had to write a row per property would not need a property grid. So this file is
+    two tags and one line of wiring, and everything interesting is in `Material.cs` — which is the
+    shape `Vixen.Core.Reflection.Generator` emits for a `[DataContract]` type, written out by hand so
+    that a reader can see what the generator would have produced.
+-->
+@component Inspector
+@namespace Vixen.Samples.HelloUi.Panels
+@tag inspector-panel
+@using Vixen.Core.Reflection
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<PropertyGrid ref="@grid" />
+
+@code {
+    readonly Signal<ShellModel> model = new(new());
+
+    PropertyGrid grid = null!;
+
+    /// <summary>What it is showing.</summary>
+    public ShellModel Model {
+        get => model.Value;
+        set => model.Value = value;
+    }
+
+    partial void OnComposed() {
+        // ⚠ **Registered here rather than in a static constructor, and registered at all because the
+        // registry is process-wide.** `Vixen.Rendering` already claims the alias "Material" for
+        // `MaterialDescriptor` — it refused this one at start-up and said so, which is the conflict
+        // detection earning its keep: an alias is what saved data and tooling refer to a type by, so
+        // two types answering to one name is a corruption waiting for somebody to load a file.
+        TypeRegistry.Register(Material.Describe());
+
+        grid.Inspect(Model.Material);
+    }
+}

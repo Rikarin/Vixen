@@ -1,20 +1,19 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Ui;
 using Vixen.Ui.Text;
 
-namespace Vixen.Samples.HelloUi;
+namespace Vixen.Ui.Desktop;
 
 /// <summary>Finds a face to draw with on whatever machine this is.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Borrowed from the operating system rather than committed, and the reason is that
-///         the repository has no Latin UI font to commit.</b> The fourteen files under
-///         <c>Vixen.Ui.Text.Tests/Fonts</c> are the Unicode Consortium's shaping fixtures — Balinese,
-///         Kannada, Lanna — and a sample that drew its buttons in Lanna would be demonstrating the
-///         shaper rather than the controls. Adding a font to the tree is a licence entry and a few
-///         hundred kilobytes for something only a sample needs.
+///         ⚠ <b>Borrowed from the operating system, which is a starting point and not a shipping
+///         answer.</b> An application that ships decides what it looks like: it carries its own face
+///         as an asset and registers it against <c>UiDocument.Fonts</c> itself, because "whatever
+///         Arial the machine happens to have" is not a design. This is what a sample does, what a
+///         freshly scaffolded application does on its first run, and what an application does before
+///         its own asset has loaded.
 ///     </para>
 ///     <para>
 ///         <b>Nothing found is not a failure.</b> A machine with none of these leaves the document
@@ -23,12 +22,14 @@ namespace Vixen.Samples.HelloUi;
 ///         convenient here: text is a thing an element has, not a thing the layout requires.
 ///     </para>
 ///     <para>
-///         An application ships its own font as an asset. That is doc 08's business and it is what a
-///         game does; this is what a sample does.
+///         This existed three times before it existed once: <c>Samples/02-HelloUi</c>'s
+///         <c>Fonts</c>, the <c>vixen-app</c> template's <c>AppFonts</c>, and — with a committed face
+///         in front of it — <c>Vixen.Editor.App</c>'s <c>Fonts</c>. The three candidate lists had
+///         already begun to differ.
 ///     </para>
 /// </remarks>
-static class Fonts {
-    /// <summary>Registers a face under the family the theme asks for, if one can be found.</summary>
+public static class SystemFonts {
+    /// <summary>Registers a face as the document's default, if one can be found.</summary>
     /// <param name="document">The document.</param>
     /// <returns>Whether one was found.</returns>
     public static bool Install(UiDocument document) {
@@ -42,16 +43,16 @@ static class Fonts {
             try {
                 var face = FontFace.Load(File.ReadAllBytes(path), name: Path.GetFileNameWithoutExtension(path));
 
-                // Registered as the default rather than under a name, because the theme never says
-                // `font-family` — a control set that named a family would be one whose text
-                // disappeared on every machine that did not have it.
+                // Registered as the default rather than under a name, because the control theme
+                // never says `font-family` — a control set that named a family would be one whose
+                // text disappeared on every machine that did not have it.
                 document.Fonts.Register(face.Name, face);
                 document.Fonts.Default = face;
 
                 return true;
             } catch (InvalidDataException) {
-                // A file with the right extension that this parser does not accept — a collection,
-                // a variable font with an outline format it does not read. Try the next one rather
+                // A file with the right extension that this parser does not accept — a collection, a
+                // variable font with an outline format it does not read. Try the next one rather
                 // than stopping: the list exists precisely because no single path is reliable.
             }
         }
@@ -62,10 +63,10 @@ static class Fonts {
     /// <summary>Where a plain TrueType UI face tends to live, best first.</summary>
     /// <remarks>
     ///     ⚠ <b>Deliberately not <c>.ttc</c> collections.</b> macOS's system faces are collections —
-    ///     <c>Helvetica.ttc</c>, <c>SFNS.ttf</c> as a variable font — and this parser reads a single
-    ///     face. The supplemental directory is where the plain files are.
+    ///     <c>Helvetica.ttc</c>, and <c>SFNS.ttf</c> as a variable font — and this parser reads a
+    ///     single face. The supplemental directory is where the plain files are.
     /// </remarks>
-    static IEnumerable<string> Candidates() {
+    public static IEnumerable<string> Candidates() {
         if (OperatingSystem.IsMacOS()) {
             yield return "/System/Library/Fonts/Supplemental/Arial.ttf";
             yield return "/System/Library/Fonts/Supplemental/Verdana.ttf";

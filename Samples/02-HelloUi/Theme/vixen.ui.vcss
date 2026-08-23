@@ -1,0 +1,68 @@
+/* SPDX-FileCopyrightText: Copyright (c) Rikarin
+   SPDX-License-Identifier: Apache-2.0
+
+   The application's design tokens. Start here when you want it to look different.
+
+   ⚠ **The name is the convention and the whole of the configuration.** The build step globs for a
+   file called vixen.ui.vcss anywhere under the project, finds this, and every class name in every
+   .vxml and every .cs in the project resolves against it. One per project — two would be two
+   palettes, which is the thing a token model exists to prevent, so the build refuses rather than
+   picking.
+
+   ⚠ **The glob is described rather than written out, and that is not fastidiousness about prose.**
+   CSS comments do not nest and they have no escape: the first star-slash in a comment closes it, so
+   the pattern spelled literally would end this comment on its own second line and feed the
+   paragraph you are reading to the parser as CSS. That happened, in the template this file is
+   modelled on — "the", "to" and "is" were compiled as type selectors for as long as it was written
+   that way.
+
+   ⚠ **A project with no theme file still has tokens.** Everything below layers over the palette the
+   engine ships — Tailwind v4's own twenty-six ramps in oklch — so bg-slate-800 works in a project
+   that wrote nothing. `--color-*: initial;` is how an application that wants none of them says so,
+   and `--color-blue-500: initial;` removes exactly one.
+
+   A token is a custom property, so declaring --color-brand does two things at once: it makes
+   var(--color-brand) available to hand-written CSS, and it tells the generator that bg-brand,
+   text-brand and border-brand exist. */
+
+@theme {
+    /* 4px, which makes p-2 eight and p-4 sixteen and everybody able to see that one is twice the
+       other. It is also the engine's default, so this line is a statement rather than a change —
+       and it is the one to edit when the whole interface should breathe more. */
+    --spacing: 4px;
+
+    /* ⚠ The two colours this sample calls its own, and they are named after what they *are* rather
+       than after what they look like. `--color-brand` renamed to teal is one line here; every
+       `text-brand` in the markup keeps meaning "the accent", which is the argument that made a
+       token model win over writing the hex where it is used. */
+    --color-brand: oklch(74% 0.13 195);
+    --color-brand-dim: oklch(58% 0.10 195);
+
+    /* The chrome. Deliberately a *warm* dark rather than a neutral one: a tool window that sits next
+       to a viewport reads as a hole cut in the screen when it is pure grey. */
+    --color-chrome: #16181d;
+    --color-chrome-raised: #1f2229;
+
+    --radius-sm: 2px;
+    --radius: 4px;
+    --radius-md: 6px;
+    --radius-lg: 10px;
+
+    --text-xs: 11px;
+    --text-xs--line-height: 15px;
+    --text-sm: 12px;
+    --text-sm--line-height: 16px;
+    --text-base: 13px;
+    --text-base--line-height: 19px;
+    --text-lg: 16px;
+    --text-lg--line-height: 22px;
+
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+
+    /* A shadow is a designed thing: its offset, blur and alpha are chosen together to read as one
+       height above the surface, which is why a token is a whole declaration rather than numbers to
+       assemble at the use site. */
+    --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.45);
+}

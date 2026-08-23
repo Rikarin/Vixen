@@ -49,6 +49,22 @@ public sealed partial class Card : Control {
     /// <summary>Where the card's content goes.</summary>
     public UiElement Body { get; private set; } = null!;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>So that <c>&lt;Card&gt;…&lt;/Card&gt;</c> in markup means what it looks like.</b>
+    ///     Without this a nested tag lands on the card itself rather than in the body, which is one
+    ///     element outside the padding and outside <c>card-body</c>'s <c>gap</c> — a card whose
+    ///     contents are visibly not in it, with nothing to say so. It is <see cref="Body" /> rather
+    ///     than the header because a card is nearly always just a body; a header is one line of
+    ///     C# through <see cref="Header" />, or its own tag once one exists.
+    ///     <para>
+    ///         ⚠ The null guard is <c>Tabs</c>' and it is load-bearing for the same reason:
+    ///         <c>ContentHost</c> can be read before <see cref="OnCreated" /> has run, and answering
+    ///         with an uninitialised <see cref="Body" /> is a null reference at the first nested tag.
+    ///     </para>
+    /// </remarks>
+    protected override UiElement ContentHost => Body ?? this;
+
     /// <summary>The strip above the body, created the first time it is asked for.</summary>
     public UiElement Header => header ??= Prepend("card-header");
 

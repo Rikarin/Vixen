@@ -1,0 +1,75 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A thousand nodes, about thirty of them realised.
+
+    ⚠ **The tree is the one control in the sample whose contents are deliberately not markup.** A
+    `@for` builds an element per item, which is the right answer for the five buttons in the gallery
+    and the wrong one for a thousand rows: a virtualiser exists precisely so that the number of
+    elements follows the size of the *viewport* rather than the size of the data. `TreeView` takes a
+    model and realises what fits, so what this file hands it is the model.
+
+    ⚠ **That is a different thing from `TreeView` not being writable in markup, and both are true.**
+    `Root.Add(…)` is how a node is made — nothing overrides `ContentHost` — so even a ten-node tree
+    would be wired here rather than nested.
+-->
+@component Hierarchy
+@namespace Vixen.Samples.HelloUi.Panels
+@tag hierarchy-panel
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<TreeView ref="@tree" />
+
+@code {
+    readonly Signal<ShellModel> model = new(new());
+
+    TreeView tree = null!;
+
+    /// <summary>What it is showing.</summary>
+    public ShellModel Model {
+        get => model.Value;
+        set => model.Value = value;
+    }
+
+    partial void OnComposed() {
+        var scene = tree.Root.Add("Scene");
+        var lights = scene.Add("Lights");
+
+        lights.Add("Key");
+        lights.Add("Fill");
+        lights.Add("Rim");
+
+        var geometry = scene.Add("Geometry");
+
+        // ⚠ Deliberately more rows than anybody will scroll through, because that is the claim being
+        // demonstrated: the tree holds a thousand nodes and realises about thirty. A sample with ten
+        // rows proves that a tree draws, which nobody doubted.
+        for (var i = 0; i < 1_000; i++) {
+            geometry.Add($"Rock_{i:D4}");
+        }
+
+        tree.Refresh();
+
+        // ⚠ Through the view rather than by setting `IsExpanded`. Expanding is what makes a node's
+        // children visible, and what is visible is what the virtualiser realises — so it is the
+        // view's operation, and the model's flag is the view's to write.
+        tree.Expand(scene);
+        tree.Expand(lights);
+
+        tree.Activated += (_, node) => Model.Notify($"Opened {node.Text}", ControlVariant.Default);
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>There is deliberately no resize handling here, and there used to be.</b> The C#
+    ///     version of this panel called <c>tree.Refresh()</c> from the shell's <c>Resize</c>, with a
+    ///     comment saying that nothing tells an element its box changed and that a "layout finished"
+    ///     callback on <c>UiDocument</c> would close the gap. That callback exists —
+    ///     <c>UiDocument.LayoutFinished</c> — and <c>VirtualPanel</c> subscribes to it itself, so the
+    ///     tree realises against the viewport it actually has on every pass that changed anything.
+    ///     Refreshing from out here as well would be a second answer to a question already answered,
+    ///     on the one path where re-entering a layout pass is easiest to get wrong.
+    /// </remarks>
+}

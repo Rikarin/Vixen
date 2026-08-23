@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Desktop</RootNamespace>
+        <Description>
+            The window, the device and the four steps of a frame, for an application whose whole
+            content is a user interface. Vixen.Ui draws into a list and Vixen.Graphics puts a list on
+            a screen; this is the loop between them, and it existed three times — in Samples/02, in
+            the vixen-app template and in the editor's host — before it existed once.
+        </Description>
+        <PackageTags>ui;application;host;window;swapchain;desktop;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **No Vixen.Engine and no Vixen.App, and the absence is load-bearing rather than
+            incidental.** docs/plan/00 § Layer discipline calls the Vixen.Ui ⇸ Vixen.Engine boundary
+            the single most important one in the codebase, and this assembly is the thing that used
+            to make people cross it: an application that wanted a window and a frame loop had a
+            choice between writing four hundred lines and referencing a host that drags a scene, an
+            ECS world and a fixed-step accumulator behind it. Now it has a third option, and
+            CheckArchitecture asserts that Samples/02-HelloUi still takes it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+
+        <!--
+            ⚠ **For `ControlTheme.Install`, and it is a real dependency rather than a convenience.**
+            A browser ships a user-agent stylesheet and nobody calls that a layering mistake: without
+            one a `<Button>` is an unstyled box, and every application that wanted the control set to
+            look like the control set had to remember one line. It is a *user-agent* sheet, so
+            everything an application loads afterwards out-specifies it by origin — see
+            `UiApplicationOptions.InstallControlTheme`, which is how an application that wants none of
+            it says so.
+
+            `Vixen.Ui.Controls.Advanced` is deliberately NOT here: docking, trees and property grids
+            are a second package, and an application that wants them installs `AdvancedTheme` through
+            `UiApplicationOptions.Configure` — one line, in the assembly that already references it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+
+        <!--
+            Platform events turned into document events, and a docking host's request for a floating
+            window turned into a real one. Both halves are needed here: a host with no PlatformInput
+            dispatches nothing, and one with no PlatformWindowHost is a host that cannot open a
+            second window — which is the difference between this and the three copies it replaces,
+            two of which could not.
+        -->
+        <ProjectReference Include="..\Vixen.Platform.Ui\Vixen.Platform.Ui.csproj" />
+        <ProjectReference Include="..\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **The SPIR-V lives here now, and that is the point of it living anywhere.** These eight
+            modules were committed three times — Samples/02 carried five, the vixen-app template
+            eight, Vixen.Graphics.Golden.Tests the reference set — and `SharedUiShaderTests` exists
+            because the copies had already drifted: `ui-box.frag` in two of them was sixteen lines
+            short of the shadow path, so a shape asking for a soft shadow got a hard-edged box at
+            full opacity, on one copy, silently.
+
+            An application that takes this assembly ships all eight without deciding to, which is the
+            behaviour that matters: the four optional stages — image, blur, colour, mask — are the
+            ones whose *absence* is a picture rather than a failure. Leave out `ui-image.frag` and
+            every faded subtree renders opaque; leave out `ui-colour.frag` and `grayscale` silently
+            does nothing. Samples/02 wired four of the eight and had exactly those bugs.
+
+            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the seven
+            fragment stages. The `.spv` is what ships — editing the `.frag` alone changes nothing.
+        -->
+        <EmbeddedResource Include="Shaders\*.spv" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Desktop.Tests" />
+    </ItemGroup>
+
+</Project>

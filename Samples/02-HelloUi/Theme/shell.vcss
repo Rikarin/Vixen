@@ -1,0 +1,133 @@
+/*
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The rules a utility class cannot say, and nothing else.
+
+    ⚠ Every rule here is one for a reason a class name could not carry: a custom property the control
+    library reads, a default for a *tag* rather than for an element, or a relationship between two
+    states. Anything that is "this element, this property, this value" belongs in Shell.vxml as a
+    utility — a rule in this file is a rule somebody has to find before they can change it.
+
+    ⚠ **In `@layer components`, and the statement above the block is not optional.** Layer *order*
+    belongs to whoever names a layer first, and this text is concatenated ahead of the generated
+    utility sheet — so without that line `components` would be layer zero, `base` and `utilities`
+    would be declared after it, and the ladder would come out `components, base, utilities` with
+    `base` in the middle. Naming all three here says the order once; the generated sheet restates the
+    same line and a re-declaration never moves a layer.
+
+    ⚠ **This is an *author* sheet and the control theme is a *user-agent* one.** So nothing here has
+    to out-specify anything: a plain `menu-bar { … }` beats `ControlTheme.vcss`'s own rule because of
+    where it came from, not because of what it selects. The layer above settles this sheet's argument
+    with its own utilities, and nothing else.
+
+    ⚠ **Saving this file with the sample running repaints it.** `HotReloadWatcher` is watching this
+    directory — see Program.cs — and a stylesheet reload keeps every element's identity, so the focus,
+    the scroll offset and the docking arrangement all survive. That is the loop this sample is for.
+*/
+
+@layer base, components, utilities;
+
+@layer components {
+
+/* ── The window's own two elements ──────────────────────────────────────────────────────────── */
+
+/*
+    The root is the one element no markup owns — Program.cs puts two classes on it — so the ground
+    colour is a token rather than a literal, and it is the same one UiApplicationOptions.Ground is
+    given. Those two have to agree: the clear colour is what a `backdrop-filter` starts from, and a
+    root painted a different shade would put a rectangle of the wrong colour under every glass panel.
+*/
+root {
+    /*
+        ⚠ The control theme's own token rather than `--color-chrome`, so that the View ▸ Toggle Dark
+        command actually changes the window's ground and not only the panels on it. `root.dark` in
+        `ControlTheme.vcss` redefines `--surface-sunken`; a literal here — or this sample's own
+        `--color-chrome`, which has one value — would leave a light window behind a dark interface.
+    */
+    background-color: var(--surface-sunken);
+}
+
+/* ── Defaults per tag, which a utility cannot express ───────────────────────────────────────── */
+
+/*
+    ⚠ A menu bar must not stretch. It is a flex item in a column, so without this it takes an equal
+    share of the height and the docking host gets what is left — which is a menu bar half the window
+    tall, and looks like a layout engine bug rather than a missing line.
+*/
+menu-bar {
+    flex-shrink: 0;
+    padding: 2px 4px;
+    border-width: 0 0 1px 0;
+    border-color: var(--border);
+    background-color: var(--surface);
+}
+
+/*
+    ProgressBar's fill takes the element's foreground when nothing sets --fill-color, which is what
+    lets a `text-brand` in the markup colour a bar. The *track* has no such fallback, so it is set
+    once here rather than on every bar.
+*/
+progress-bar {
+    --track-color: #2a2e36;
+}
+
+/*
+    ⚠ **The three panel components' host elements, and this rule is not optional.**
+
+    A component draws into a host element of its own — `@tag hierarchy-panel` is why that element is
+    called what it is — so what a `DockPanel` actually contains is not the `<TreeView>` in the markup
+    but this, with the tree inside it. Nothing styles an element no file mentions, and CSS's initial
+    `flex-direction` is `row` with `flex-grow` unset, so without these two declarations the host comes
+    out content-sized in both axes and the panel is *empty*: the tree is there, laid out at zero
+    height, drawn as nothing.
+
+    ⚠ It is worth knowing what that failure looks like, because it looks like the wrong thing. The
+    hierarchy panel showed a blank rectangle, which reads as the virtualiser having realised no rows
+    — a plausible and completely wrong diagnosis. The tree had realised its rows correctly into a box
+    zero pixels tall.
+
+    ⚠ `min-height: 0` is the third one, and it bites later rather than immediately. A flex item's
+    minimum size is its content, so a scroller inside one of these cannot shrink below the height of
+    everything in it: the panel grows past the window instead of scrolling, and the scrollbar it
+    draws has nothing to do.
+*/
+hierarchy-panel,
+inspector-panel,
+gallery-panel {
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0px;
+}
+
+/*
+    And the controls inside them, for the same reason one level down: a `DockPanel` is a column, and
+    a tree or a grid that did not grow would draw at its content height with the panel's background
+    below it.
+*/
+tree-view,
+property-grid {
+    flex-grow: 1;
+}
+
+property-grid {
+    padding: 8px;
+}
+
+/* ── A relationship between two states, which is the other thing a class cannot say ─────────── */
+
+/*
+    ⚠ The gallery's cards lift on hover, and the transition is declared rather than animated by hand.
+    `UiDocument.Tick` is what advances it — a frame loop that forgot the clock leaves a declared
+    transition holding the property at the value it was leaving instead of moving to the new one, so
+    this rule is also the cheapest visible check that the loop is right.
+*/
+.gallery card {
+    transition: background-color 120ms ease-out;
+}
+
+.gallery card:hover {
+    background-color: var(--surface-raised);
+}
+
+}
