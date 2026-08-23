@@ -1,0 +1,329 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 7. A font asset's panel: the face's own facts, the four atlas settings, the
+    fallback chain, and how much of each Unicode block that chain covers. The ledger sized it M with
+    "port the readouts, keep the field rows (shape 2)" — and shape 2 is closed, so the field rows are
+    ported too and there is nothing imperative left in the panel but the glyph page.
+
+    ⚠ **`FontAtlasView` stays exactly as it was, and it is the ledger's shape 1 in its purest
+    form.** It has no children at all: every glyph on it is a stroked path in `OnDraw`, so there is
+    no tree for markup to describe and signal-backing `First`/`Count` would move nothing. It is a
+    `ref` and `Choose()` is the hand-written method, unchanged.
+
+    ⚠ **`BlockChooser`'s options are still added from C#, which is build-list item 4.** `AddOption`
+    is a method and the options are not the control's children — they live in a popover hanging off
+    the document root — so `ClearOptions`/`AddOption` stay in `Reload` behind the `ref`. What did
+    change is the subscription: `change:Value` is `bind:`'s property lookup with a handler, and
+    `Select.Value` is a `[UiProperty]` whose `Changed` callback is the very thing that raises
+    `SelectionChanged`, so the two are the same notification and the `OnComposed` workaround earlier
+    waves needed is not wanted here.
+
+    ⚠ **The four atlas settings are written out rather than looped, and that is the deliberate
+    call.** A `@for` over four descriptors would need each descriptor to carry its own writer, and a
+    record holding a delegate is a key whose equality is a delegate's — which is the one kind of key
+    the `@for` rule has no good answer for. Four rows written out is sixteen lines and no key at all.
+
+    ⚠ **The five settings are one snapshot record in one signal**, which is `TextureImportView`'s
+    finding and applies here for the same reason: every one of them is a field on `FontAsset`, a
+    plain mutable object no signal watches, and the panel finds out it moved because `Edit` raises
+    `Changed` and `Reload` runs. Five signals over five fields would each depend on the document and
+    none of them on the edit.
+
+    ⚠ **`fact-name` is written with a caption and `fact-value` is not, and the asymmetry is the
+    hand-written panel's.** `row.Add("fact-name").Text = label` sets the cell's own text — the
+    ledger's shape 5, so `<FactName Text="…" />` — while `row.Add("fact-value").Add("text").Text =
+    value` puts the words in a `text` *child*, which is exactly what an interpolation builds. So
+    `<fact-value>@row.Value</fact-value>` is the natural spelling and is the right one. Reconciling
+    the two would be a layout change and not a tidy-up; `Parts/FactRow.vxml` makes the same
+    distinction and for the same reason.
+
+    ⚠ **This panel is one of the three `FactRow` cannot reach**, and the reason is the reference
+    graph rather than the code: `Parts/FactRow.vxml` is in `Vixen.Editor.Ui`, which
+    `Vixen.Editor.AssetEditors` does not reference and should not start to for a row. `FactName` in
+    this assembly's own `Captions.cs` is the answer wave 5 gave, and the tags — declared in
+    `AssetEditorTheme.vcss` — are the contract either way.
+-->
+@component FontView
+@namespace Vixen.Editor.AssetEditors.Fonts
+@inherits Vixen.Ui.Controls.Control
+@tag font-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<font-bar>
+    <FactName Text="Block" />
+    <Select ref="@BlockChooser" change:Value="@(_ => Choose())" />
+</font-bar>
+
+<font-body>
+    <FontAtlasView ref="@Atlas" />
+
+    <font-side ref="@Side">
+        <font-facts ref="@Facts">
+            <FontTitle Text="@Name" />
+
+            @for (var row in FaceFacts) {
+                <fact-row key="@row">
+                    <FactName Text="@row.Name" />
+                    <fact-value>@row.Value</fact-value>
+                </fact-row>
+            }
+
+            <fact-row>
+                <FactName Text="Pixel size" />
+
+                <fact-value>
+                    <NumericInput Decimals="0"
+                                  Number="@Settings.PixelSize"
+                                  change:Number="@(value => Write("Set Pixel Size", asset => asset.PixelSize = (float) value))" />
+                </fact-value>
+            </fact-row>
+
+            <fact-row>
+                <FactName Text="Padding" />
+
+                <fact-value>
+                    <NumericInput Decimals="0"
+                                  Number="@Settings.Padding"
+                                  change:Number="@(value => Write("Set Padding", asset => asset.Padding = (int) value))" />
+                </fact-value>
+            </fact-row>
+
+            <fact-row>
+                <FactName Text="Atlas width" />
+
+                <fact-value>
+                    <NumericInput Decimals="0"
+                                  Number="@Settings.AtlasWidth"
+                                  change:Number="@(value => Write("Set Atlas Width", asset => asset.AtlasWidth = (int) value))" />
+                </fact-value>
+            </fact-row>
+
+            <fact-row>
+                <FactName Text="Atlas height" />
+
+                <fact-value>
+                    <NumericInput Decimals="0"
+                                  Number="@Settings.AtlasHeight"
+                                  change:Number="@(value => Write("Set Atlas Height", asset => asset.AtlasHeight = (int) value))" />
+                </fact-value>
+            </fact-row>
+
+            <fact-row>
+                <FactName Text="Distance field" />
+
+                <fact-value>
+                    <CheckBox IsChecked="@Settings.DistanceField"
+                              change:IsChecked="@(on => Write("Set Distance Field", asset => asset.DistanceField = on))" />
+                </fact-value>
+            </fact-row>
+        </font-facts>
+
+        <font-chain ref="@Chain">
+            <FontTitle Text="Fallback chain" />
+
+            @for (var row in ChainRows) {
+                <FontChainLine key="@row" class="@row.Class" Text="@row.Text" />
+            }
+        </font-chain>
+
+        <font-blocks ref="@Blocks">
+            <FontTitle Text="Coverage" />
+
+            @for (var row in BlockRows) {
+                <fact-row key="@row" class="@row.Class">
+                    <FactName Text="@row.Name" />
+                    <fact-value>@row.Value</fact-value>
+                </fact-row>
+            }
+        </font-blocks>
+    </font-side>
+</font-body>
+
+@code {
+    /// <summary>What the file calls itself.</summary>
+    readonly Signal<string> title = new(string.Empty);
+
+    /// <summary>What the face says about itself, which is read-only and comes from the file.</summary>
+    readonly Signal<ImmutableArray<FontFactRow>> facts = new([]);
+
+    /// <summary>The four atlas settings and the distance-field flag, as one snapshot.</summary>
+    readonly Signal<FontSettings> settings = new(new(48f, 0, 0, 0, false));
+
+    /// <summary>The chain, then whatever is wrong with it.</summary>
+    readonly Signal<ImmutableArray<FontChainRow>> chain = new([]);
+
+    /// <summary>How much of each block the chain covers.</summary>
+    readonly Signal<ImmutableArray<FontBlockRow>> coverage = new([]);
+
+    FontDocument? document;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The glyph page.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>ref</c>, and the ledger's shape 1 with nothing left over.</b> Every glyph on it
+    ///     is a stroked path in <c>OnDraw</c> and it has no children at all, so there is nothing for
+    ///     markup to describe and no value a binding could carry to the screen.
+    /// </remarks>
+    public FontAtlasView Atlas { get; private set; } = null!;
+
+    /// <summary>The column beside it.</summary>
+    public UiElement Side { get; private set; } = null!;
+
+    /// <summary>The face's own facts and the atlas settings.</summary>
+    public UiElement Facts { get; private set; } = null!;
+
+    /// <summary>The fallback chain.</summary>
+    public UiElement Chain { get; private set; } = null!;
+
+    /// <summary>How much of each block the chain covers.</summary>
+    public UiElement Blocks { get; private set; } = null!;
+
+    /// <summary>Which block the page is showing.</summary>
+    public Select BlockChooser { get; private set; } = null!;
+
+    /// <summary>Shows a font.</summary>
+    /// <param name="font">The document.</param>
+    public void Show(FontDocument font) {
+        ArgumentNullException.ThrowIfNull(font);
+
+        if (document is { } previous) {
+            previous.Changed -= Reload;
+        }
+
+        document = font;
+        font.Changed += Reload;
+
+        Atlas.Font = font;
+        Reload(font);
+    }
+
+    /// <summary>Rebuilds everything from the document.</summary>
+    /// <param name="font">The document.</param>
+    public void Reload(FontDocument font) {
+        ArgumentNullException.ThrowIfNull(font);
+
+        title.Value = font.Font.Name;
+
+        var found = ImmutableArray.CreateBuilder<FontFactRow>();
+        var slot = 0;
+
+        if (font.Face is { } face) {
+            found.Add(new(slot++, "Family", face.Name));
+            found.Add(new(slot++, "Units per em", face.UnitsPerEm.ToString(CultureInfo.InvariantCulture)));
+            found.Add(new(slot++, "Glyphs", face.GlyphCount.ToString(CultureInfo.InvariantCulture)));
+            found.Add(new(slot++, "Line height", face.Metrics.LineHeight.ToString(CultureInfo.InvariantCulture)));
+
+            found.Add(
+                new(slot, "Variable", face.IsVariable ? string.Join(", ", face.Axes.Select(axis => axis.Tag)) : "no")
+            );
+        } else {
+            found.Add(new(slot, "Family", "no face loaded"));
+        }
+
+        facts.Value = found.ToImmutable();
+
+        settings.Value = new(
+            font.Font.PixelSize,
+            font.Font.Padding,
+            font.Font.AtlasWidth,
+            font.Font.AtlasHeight,
+            font.Font.DistanceField
+        );
+
+        var lines = ImmutableArray.CreateBuilder<FontChainRow>();
+        var line = 0;
+
+        lines.Add(
+            new(line++, string.Empty, font.Face is { } primary ? $"1. {primary.Name}" : "1. (no face)")
+        );
+
+        for (var index = 0; index < font.Fallbacks.Count; index++) {
+            lines.Add(new(line++, string.Empty, $"{index + 2}. {font.Fallbacks[index].Name}"));
+        }
+
+        foreach (var problem in font.Problems) {
+            lines.Add(new(line++, "error", problem));
+        }
+
+        chain.Value = lines.ToImmutable();
+
+        var blocks = ImmutableArray.CreateBuilder<FontBlockRow>();
+        var block = 0;
+        var options = BlockChooser.Value;
+
+        BlockChooser.ClearOptions();
+
+        foreach (var covered in font.Coverage()) {
+            blocks.Add(
+                new(
+                    block++,
+                    covered.Covered == 0 ? "error" : covered.Covered < covered.Assigned ? "warning" : string.Empty,
+                    covered.Name,
+                    covered.Assigned == 0
+                        ? "—"
+                        : string.Create(
+                            CultureInfo.InvariantCulture,
+                            $"{covered.Covered}/{covered.Assigned}  ({covered.Fraction * 100f:0}%)"
+                        )
+                )
+            );
+
+            BlockChooser.AddOption(covered.Name);
+        }
+
+        coverage.Value = blocks.ToImmutable();
+
+        var listed = font.Coverage();
+
+        BlockChooser.Value = options ?? (listed.Count > 0 ? listed[0].Name : null);
+        Choose();
+    }
+
+    /// <summary>Points the glyph page at whichever block the picker names.</summary>
+    void Choose() {
+        if (document is not { } font || BlockChooser.Value is not { Length: > 0 } chosen) {
+            return;
+        }
+
+        foreach (var covered in font.Coverage()) {
+            if (!string.Equals(covered.Name, chosen, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            Atlas.First = covered.First;
+            Atlas.Count = covered.Last - covered.First + 1;
+
+            return;
+        }
+    }
+
+    /// <summary>One undoable edit to the asset behind the panel.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The write-back cannot loop.</b> Every one of these raises <c>Changed</c>, which runs
+    ///     <see cref="Reload(FontDocument)" />, which writes <see cref="settings" /> — and the binding
+    ///     that assignment re-runs is the one whose <c>change:</c> handler this is. It terminates
+    ///     because a change made while effects are draining is not reported, which is the rule
+    ///     `TextureImportView`'s channel bar rests on too.
+    /// </remarks>
+    void Write(string what, Action<FontAsset> edit) => document?.Edit(what, edit);
+
+    // ================================================================== What the markup reads
+
+    string Name => title.Value;
+
+    ImmutableArray<FontFactRow> FaceFacts => facts.Value;
+
+    FontSettings Settings => settings.Value;
+
+    ImmutableArray<FontChainRow> ChainRows => chain.Value;
+
+    ImmutableArray<FontBlockRow> BlockRows => coverage.Value;
+}
