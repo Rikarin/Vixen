@@ -119,7 +119,8 @@ disagrees with that ledger is this page being stale, not the ledger being wrong.
 | `text-<align>`, `text-<size>`, `text-<colour>`, `font-`, `leading-`, `tracking-`, `whitespace-`, **`align-`** | `align-middle`/`-text-top`/`-text-bottom`/`-sub`/`-super` — the property is read, those five values are refused at the bridge for want of a font strut |
 | **`underline`**, **`overline`**, **`line-through`**, **`no-underline`**, **`underline-offset-`**, **`decoration-<n>`**, **`decoration-auto`/`-from-font`**, **`decoration-solid`/`-double`**, **`decoration-<colour>`** | `decoration-dotted`/`-dashed`/`-wavy` — not registered, for `divide-dashed`'s reason: there is no dash pattern to draw one with, and all three would paint a solid line |
 | `bg-`, `opacity-`, `shadow-`, `ring-`, `fill-`, `stroke-`, **`translate-x/y-`** | `blur-`, `scale-`, `rotate-` |
-| `rounded-`, and the per-corner `rounded-t`/`-r`/`-b`/`-l`/`-tl`/`-tr`/`-br`/`-bl` | |
+| `rounded-`, and the per-corner `rounded-t`/`-r`/`-b`/`-l`/`-tl`/`-tr`/`-br`/`-bl`; **the logical `rounded-s`/`-e`/`-ss`/`-se`/`-ee`/`-es`** | |
+| **`outline`/`outline-<n>`**, **`outline-<colour>`**, **`outline-offset-<n>`**, **`outline-solid`/`-none`/`outline-hidden`** | `outline-dashed`/`-dotted`/`-double` — not registered, for `divide-dashed`’s reason: no dash pattern, and a doubled ring is two rings |
 | `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`, both widths and colours; **`border-bs`/`-be`**, both; `border-s`/`-e` widths | `border-s-<colour>` and `border-e-<colour>` — the *inline* logical pair never reached the draw list |
 | **`divide-x-`**, **`divide-y-`**, **`divide-<colour>`** | `divide-solid`/`-dashed`/`-dotted`/`-double`, `divide-x-reverse`, `divide-y-reverse` — not registered; nothing reads `border-style`, and the reverse pair needs `calc()` |
 | `overflow-hidden`, `overflow-scroll`, `overflow-auto`, **`overflow-x-*`**, **`overflow-y-*`**, `truncate` | |
@@ -132,9 +133,12 @@ interns `-inline-start`/`-inline-end` and mirrors them under `direction: rtl` �
 point of writing them. `inset-bs-*`/`inset-be-*` and `border-bs-*`/`border-be-*` emit the *physical*
 `top`, `bottom`, `border-top-*` and `border-bottom-*`, because nothing interns the block longhands
 and `Vixen.Ui.Layout` has no writing mode for the block axis to be anything but top-to-bottom. Same
-trade as `space-y-*`. ⚠ The six logical **radii** — `rounded-ss-*` and friends — are absent rather
-than mapped, and that is the same reasoning reaching the opposite answer: a radius corner is named on
-the inline axis, so a physical corner would be right only under `direction: ltr`.
+trade as `space-y-*`. ⚠ The six logical **radii** — `rounded-ss-*` and friends — are the third
+case and neither of the first two: a radius corner is named on *both* axes at once, so a physical
+corner would be right only under `direction: ltr`. They keep the logical longhands and
+`DrawListBuilder.Corners` resolves them against `direction` at paint time, mirroring the inline
+half of each name and leaving the block half alone. `rounded-ss` is therefore the top-left corner
+under `ltr` and the top-right under `rtl`, which is what `ps-2` does one property over.
 
 ⚠ **`space-*` and `divide-*` are the only families whose rule is about the children**, and the two
 things worth knowing before reaching for them are both divergences from Tailwind v4. The rule is

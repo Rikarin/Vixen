@@ -754,6 +754,62 @@ public static class UtilityFamilies {
         // assumed: it resolves into four longhands and moves no channel in any scene. A
         // `divide-dashed` that computed a value and drew a solid line is precisely the inert family
         // `UtilityConsumptionGateTests` exists to keep out.
+        // ── The outline ─────────────────────────────────────────────────────────────────────
+        //
+        // ⚠ <b>An outline is not a thin border and it is not the ring either.</b> `ring-*` is a
+        // `box-shadow` — v4's own reading, see `UtilityComposition.Ring` — and this is CSS's second
+        // ring property: drawn outside the border box, taking no space in the layout, following the
+        // border radius outward. `DrawListBuilder.EmitOutline` draws it as a `Border` command on a
+        // rectangle grown by `outline-offset + outline-width`, which is the same shader and the same
+        // geometry the border already used.
+        //
+        // ⚠ <b>`BorderEdge` for `border`'s reason: one prefix, told apart by the value's shape.</b>
+        // `outline-2` is a width and `outline-accent` is a colour. The bare `outline` is one pixel,
+        // which is v4.
+        BorderEdge("outline", ["outline-width"], ["outline-color"]);
+
+        // ⚠ <b>No `outline-style: solid` alongside the width, where v4 emits one — and this is the
+        // one place the table deliberately diverges from Tailwind rather than following it.</b> v4
+        // writes `outline-style: var(--tw-outline-style)` on every width class because a browser
+        // defaults `outline-style` to `none` and would paint nothing. This engine's border model has
+        // no style at all — `border-width` alone paints, because `border-style` is emitted by
+        // nothing and read by nothing — and `EmitOutline` is built to match it: a width is what
+        // makes a ring. Emitting the extra longhand would buy nothing and cost fidelity in the other
+        // direction, because `Family.Alongside` is appended on *every* resolution of a family, so
+        // `outline-accent` would have carried a `solid` v4 does not emit for it and painted a ring
+        // nobody asked for.
+        //
+        // ⚠ <b>`outline-dashed`, `-dotted` and `-double` are absent, and they are absent under
+        // exactly the measurement `divide-solid` and `decoration-dotted` are.</b> There is no dash
+        // pattern in `Vixen.Ui` and a doubled ring is two rings; all three would resolve, compute a
+        // value and draw one solid ring, which is the inert family `UtilityConsumptionGateTests`
+        // exists to keep out. `solid` and `none` are here because `EmitOutline` genuinely reads both
+        // — `solid` is the ring and `none` is the absence of it — so `outline-style` is a property
+        // the engine acts on rather than one it stores. That is the same line `decoration-solid`
+        // and `decoration-double` are registered on and `decoration-wavy` is not.
+        Keywords("outline", "outline-style", new() {
+            ["solid"] = "solid", ["none"] = "none"
+        });
+
+        // ⚠ <b>`outline-hidden` is v4's spelling and here it is `outline-none` exactly, which is a
+        // loss worth naming rather than papering over.</b> In v4 the class removes the visible ring
+        // *and* restores a transparent two-pixel one inside `@media (forced-colors: active)`, so a
+        // Windows high-contrast user keeps a focus indicator the sighted default hid. `MediaQuery`
+        // has no forced-colors feature and this engine has no forced-colors mode for one to
+        // describe, so the second half has nowhere to go and the class collapses to the first. It is
+        // registered anyway because the visible half is real, is read, and is the idiom every v4
+        // sheet writes for "take the focus ring off" — refusing it would leave the common case
+        // spelled only by the v3 name.
+        Static("outline-hidden", "outline-style", "none");
+
+        // ⚠ <b>A keyword table and not `Spacing`, because these are pixels and not spacing steps —
+        // `border-*`'s argument one property over.</b> An outline is a hairline that happens to sit
+        // a hairline away; scaling its offset with the theme's spacing base would mean a larger base
+        // silently pushed every focus ring off its control.
+        Keywords("outline-offset", "outline-offset", new() {
+            ["0"] = "0px", ["1"] = "1px", ["2"] = "2px", ["4"] = "4px", ["8"] = "8px"
+        });
+
         Between("divide-x", ValueKind.BorderEdge, ["border-inline-end-width"]);
         Between("divide-y", ValueKind.BorderEdge, ["border-bottom-width"]);
         Between("divide", ValueKind.Color, ["border-color"]);
@@ -779,6 +835,30 @@ public static class UtilityFamilies {
         Radius("rounded-r", "border-top-right-radius", "border-bottom-right-radius");
         Radius("rounded-b", "border-bottom-right-radius", "border-bottom-left-radius");
         Radius("rounded-l", "border-top-left-radius", "border-bottom-left-radius");
+
+        // ⚠ <b>The six logical radii, and they are a reader rather than a rename — which is the
+        // opposite of what the block-axis families above are.</b> `inset-bs-*`, `space-y-*` and
+        // `border-bs-*` all emit the *physical* longhand, because the block axis is top-to-bottom in
+        // every configuration this engine can be in and there is no writing mode to flip it. A
+        // radius corner is named on both axes at once, and the inline half is one this engine really
+        // does mirror: `rounded-ss` is the top-left corner under `direction: ltr` and the top-right
+        // under `rtl`. So `border-top-left-radius` would have been right exactly half the time, and
+        // these four longhands are interned and resolved against `direction` in
+        // `DrawListBuilder.Corners` instead — the same property `StyleResolution.LeftEdge` resolves
+        // the logical insets with, so `rounded-ss-lg` rounds the same corner `ps-2` pads.
+        //
+        // ⚠ <b>A side here is two corners on the inline axis, where `rounded-t`'s two are on the
+        // block axis.</b> `rounded-s` is the whole start side — the top-start and bottom-start
+        // corners — which is `border-start-start-radius` and `border-end-start-radius`. The leading
+        // half of each name is the block axis and the trailing half the inline one, so it is the
+        // *second* half that `-s` and `-e` are naming.
+        Radius("rounded-ss", "border-start-start-radius");
+        Radius("rounded-se", "border-start-end-radius");
+        Radius("rounded-ee", "border-end-end-radius");
+        Radius("rounded-es", "border-end-start-radius");
+
+        Radius("rounded-s", "border-start-start-radius", "border-end-start-radius");
+        Radius("rounded-e", "border-start-end-radius", "border-end-end-radius");
 
         Radius("rounded", "border-radius");
 

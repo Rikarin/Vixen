@@ -538,6 +538,46 @@ static class UtilityConsumptionProbe {
             """
         ),
 
+        // ⚠ <b>Ringed: the probe already carries an outline, and this is `decorated`'s lesson
+        // applied before the fact rather than after it.</b> Three of the four `outline-*` longhands
+        // only *modify* a ring — a width, a colour and an offset are all answers to "which ring" —
+        // and the injected declaration is the only declaration, so on a probe with no outline
+        // `outline-color: #fff` correctly moves nothing at all. Same shape as
+        // `text-decoration-thickness`, same count: three readers and a green gate that would have
+        // called them dead.
+        //
+        // ⚠ <b>`outline-style` is the one that needs the ring to be here for the opposite reason.</b>
+        // Its two registered values are `solid` and `none`; `solid` is what a width already means in
+        // this engine, so injecting it changes nothing anywhere and could not. `none` is observable
+        // exactly where there is a ring to remove, which is here. The verdict is a union over every
+        // value a family can emit — see `Take` — so one scene carrying an outline is what makes the
+        // pair measurable at all, and a scene with a *bare* width would not have done it.
+        //
+        // ⚠ <b>The offset is a non-zero one on purpose.</b> With `outline-offset: 0` in the baseline,
+        // the injected `outline-offset-0` is the value already there and moves nothing — the exact
+        // accident that made `transition-property` unmeasurable in `animated` for a week. Two pixels
+        // here leaves every one of the family's five values different from the baseline except one.
+        //
+        // ⚠ <b>And the host is roomy, which is the part a rectangle-shaped scene gets wrong.</b> An
+        // outline is drawn *outside* the border box and takes no space in the layout, so a probe
+        // packed against its host's edge would have its ring painted over the viewport boundary and
+        // the rasterised difference between a 1px and an 8px ring would be mostly off-screen. The
+        // draw list is compared rather than the pixels here, so this is belt and braces — but the
+        // scene is also the one a pixel test will reach for next.
+        new(
+            "ringed",
+            """
+            #host  { display: flex; flex-direction: row; width: 200px; height: 80px;
+                     align-items: center; justify-content: center; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 60px; height: 24px;
+                     background-color: #204080; color: #e0e0e0;
+                     border-width: 2px; border-color: #c02020; border-radius: 3px;
+                     outline-width: 2px; outline-color: #40c040; outline-offset: 2px; }
+            .kid   { width: 8px; height: 8px; }
+            #after { width: 30px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         // ⚠ <b>Scrolled, and it is the only scene in which anything scrolls at all.</b> The seventh
         // time this list has been the thing missing rather than the engine, and the first where the
         // arrangement had to *do* something between frames as well as be shaped a certain way.

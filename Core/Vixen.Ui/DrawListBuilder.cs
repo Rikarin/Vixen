@@ -45,6 +45,33 @@ public sealed class DrawListBuilder {
     /// <summary>The four <c>border-*-radius</c> longhands, clockwise from the top left.</summary>
     readonly int[] borderRadii;
 
+    /// <summary>The four logical corner radii, in the physical order they take under <c>ltr</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Indexed to match <see cref="borderRadii" /> under <c>direction: ltr</c> and not under
+    ///     <c>rtl</c>, which is the whole reason this array is separate rather than merged in at
+    ///     load.</b> <c>border-start-start-radius</c> is the top-left corner in one direction and the
+    ///     top-right in the other, so which physical corner a logical longhand feeds is not known
+    ///     until an element is in hand — see <see cref="Corners" />.
+    /// </remarks>
+    readonly int[] logicalRadii;
+
+    /// <summary>The four <c>outline-*</c> longhands.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An outline is not a thin border, and the three ways it differs are all in
+    ///     <see cref="EmitOutline" /> rather than here.</b> It is drawn <i>outside</i> the border box
+    ///     rather than inside it, it takes no space in the layout — <c>Vixen.Ui.Layout</c> is never
+    ///     told about it, which is what makes that true rather than approximately true — and it
+    ///     follows the border radius outward instead of sharing it.
+    /// </remarks>
+    readonly int outlineWidth;
+
+    readonly int outlineStyle;
+    readonly int outlineColor;
+    readonly int outlineOffset;
+
+    /// <summary>The <c>outline-style: none</c> keyword. Its sibling <c>hidden</c> is the visibility one.</summary>
+    readonly int styleNone;
+
     readonly int backgroundImage;
     readonly GradientReader gradients;
 
@@ -174,6 +201,39 @@ public sealed class DrawListBuilder {
             properties.Intern("border-bottom-right-radius"),
             properties.Intern("border-bottom-left-radius")
         ];
+
+        // ⚠ <b>The block half of each name is physical here and only the inline half is resolved,
+        // and that asymmetry is deliberate rather than unfinished.</b> `Vixen.Ui.Layout` has no
+        // writing mode, so the block axis is top-to-bottom in every configuration the engine can be
+        // in and the leading `start`/`end` of each pair *is* top/bottom. The trailing half is the
+        // inline axis, which `direction: rtl` genuinely mirrors — the same property
+        // `StyleResolution.LeftEdge` mirrors the logical insets with — so it is the only half that
+        // needs an element to resolve. Written in the `ltr` order so the array indexes line up with
+        // `borderRadii` in the common case and `Corners` swaps a pair for `rtl`.
+        logicalRadii = [
+            properties.Intern("border-start-start-radius"),
+            properties.Intern("border-start-end-radius"),
+            properties.Intern("border-end-end-radius"),
+            properties.Intern("border-end-start-radius")
+        ];
+        // ⚠ <b>No <c>outline</c> shorthand, for the reason the border longhands above give — ExCSS
+        // expands it while parsing — and no <c>outline-style</c> *value* table beyond the two
+        // keywords that switch the ring off.</b> Every other keyword draws a solid ring, which is
+        // the same bargain `border-style` is not allowed to make and is allowed here for a reason
+        // worth stating: no utility can produce one. `outline-dashed`, `-dotted` and `-double` are
+        // not registered — there is no dash pattern in `Vixen.Ui` — so the only way to reach a
+        // refused keyword is to hand-write it in a `.vcss`, where drawing solid is CSS's own
+        // fallback behaviour for a style the UA cannot render rather than a family that lies.
+        outlineWidth = properties.Intern("outline-width");
+        outlineStyle = properties.Intern("outline-style");
+        outlineColor = properties.Intern("outline-color");
+        outlineOffset = properties.Intern("outline-offset");
+        // ⚠ `outline-style: hidden` is spelled with the same id `visibility: hidden` is, because
+        // `values` interns one table of keyword text and the two properties genuinely say the same
+        // word. Reading `hidden` here rather than interning a second one is not a shortcut: a value
+        // id is the text, and which property it was written on is the caller's business.
+        styleNone = values.Intern("none");
+
         textColor = properties.Intern("color");
         overflow = new OverflowReader(properties, values);
 
@@ -574,6 +634,23 @@ public sealed class DrawListBuilder {
             // CSS paints them in — a child overlapping the edge covers the border, and a background
             // never covers its own.
             EmitBorder(document, element, into, x, y, width, height, corners, radius, alpha);
+
+            // ⚠ <b>After the border and — the part that matters — <i>before</i> the overflow clip
+            // this element is about to push.</b> `overflow: hidden` clips an element's content and
+            // its descendants; it does not clip the element's own outline, which is drawn outside
+            // the box the clip is made from. Emitting this two blocks lower, inside the clip, would
+            // have removed the whole ring on every scrolling container in the editor — invisibly,
+            // because a clipped-away ring and an unemitted one are the same picture.
+            //
+            // ⚠ <b>What this does not do is CSS's painting order, and the difference is real but
+            // small.</b> CSS Painting §3 paints every outline in the stacking context *after* every
+            // box in it, so an outline is on top of a later sibling that overlaps it; here it is
+            // painted with its own element and a later sibling covers it. Matching the spec needs a
+            // deferred list the whole tree walk appends to, which is the same machinery
+            // `box-shadow` would need and does not have either. It shows only where a ring and a
+            // sibling overlap, which is where `outline-offset` has already been asked to reach
+            // under a neighbour.
+            EmitOutline(element, into, x, y, width, height, corners, alpha);
         }
 
         var axes = overflow.Of(element.Style);
@@ -763,6 +840,142 @@ public sealed class DrawListBuilder {
                 )
             );
         }
+    }
+
+    /// <summary>Emits an element's outline: a ring outside the border box that costs the layout nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole feature is a <see cref="DrawCommandKind.Border" /> command on a bigger
+    ///         rectangle, and reusing that kind rather than adding one is the load-bearing decision
+    ///         here.</b> The box shader already resolves a ring as the difference of two coverages —
+    ///         the shape, and the shape pushed <c>thickness</c> inwards — so a rectangle grown by
+    ///         <c>offset + width</c> with a thickness of <c>width</c> produces a band occupying
+    ///         exactly <c>[border edge + offset, border edge + offset + width]</c>, which is CSS UI 4
+    ///         § 3.4's outline. A new <see cref="DrawCommandKind" /> would have needed a shader
+    ///         branch, a <see cref="Rendering.UiGeometryBuilder" /> case, a
+    ///         <c>SoftwareUiRasterizer</c> case and a fourth copy of the same distance field, to draw
+    ///         a picture the existing one already draws.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing here touches the layout, and that is the property the reuse could most
+    ///         easily have broken.</b> An outline does not take space: <c>Vixen.Ui.Layout</c> is never
+    ///         told about <c>outline-width</c>, no <c>GetComputedBorder</c> is consulted, and the
+    ///         rectangle is grown at paint time out of the box the layout already finished. So a ring
+    ///         appearing on focus moves nothing on the screen — which is the entire reason CSS has a
+    ///         second ring property at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The corner radius grows with the ring, except where it is zero.</b> CSS UI 4 makes
+    ///         the outline follow the border curve, so the outer radius is the border radius plus the
+    ///         distance the ring was pushed out — but a square corner stays square however far out it
+    ///         goes, rather than acquiring a curve the box it traces does not have. Both halves are
+    ///         what browsers do and the second is the one that looks wrong if you skip it: every
+    ///         unrounded box in the editor would have grown soft corners the moment it took focus.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>outline-style</c> is read for exactly two keywords and every other value draws
+    ///         solid.</b> <c>none</c> and <c>hidden</c> switch the ring off — CSS UI 4 makes them
+    ///         synonyms on an outline, unlike on a border — and that pair is what <c>outline-none</c>
+    ///         and <c>outline-hidden</c> compile to. <b>The forced-colors half of Tailwind's
+    ///         <c>outline-hidden</c> is not expressible here and is not emulated:</b> v4 pairs the
+    ///         <c>none</c> with a transparent two-pixel ring inside
+    ///         <c>@media (forced-colors: active)</c>, and <c>MediaQuery</c> has no forced-colors
+    ///         feature to evaluate, so the class collapses to <c>outline-none</c> exactly. Said here
+    ///         because the two spellings being indistinguishable is the thing a reader will otherwise
+    ///         assume is a bug.
+    ///     </para>
+    /// </remarks>
+    void EmitOutline(
+        UiElement element,
+        DrawList into,
+        float x,
+        float y,
+        float width,
+        float height,
+        CornerRadii corners,
+        float alpha
+    ) {
+        if (element.Style.TryGet(outlineStyle, out var style) && (style == styleNone || style == hidden)) {
+            return;
+        }
+
+        var thickness = OutlineLength(element, outlineWidth);
+
+        if (thickness <= 0f) {
+            return;
+        }
+
+        // ⚠ <b>Falls back to the text colour and not to a fixed one, because that is what
+        // <c>outline-color</c>'s initial value means.</b> CSS UI 4 gives it <c>auto</c>, which is the
+        // UA's focus colour where the UA has one and <c>currentColor</c> where it does not; this
+        // engine has no focus colour of its own, so the foreground is the whole of the answer.
+        // `Fade` is applied last so a group's opacity reaches the ring the same way it reaches the
+        // border.
+        var stroke = Color(element, outlineColor) ?? Color(element, textColor) ?? Color4.Black;
+
+        // ⚠ Negative offsets are real and are not clamped. `-outline-offset-2` pulls the ring inside
+        // the border box, which CSS allows and which is how a ring is drawn on an element that has
+        // no room outside it. What *is* clamped is the resulting rectangle: pulled in far enough the
+        // ring inverts, and a negative width is a shape the geometry builder cannot make.
+        var grow = OutlineLength(element, outlineOffset) + thickness;
+
+        var ringWidth = width + (2f * grow);
+        var ringHeight = height + (2f * grow);
+
+        if (ringWidth <= 0f || ringHeight <= 0f) {
+            return;
+        }
+
+        var grown = new CornerRadii(
+            Grow(corners.TopLeft, grow),
+            Grow(corners.TopRight, grow),
+            Grow(corners.BottomRight, grow),
+            Grow(corners.BottomLeft, grow)
+        );
+
+        into.Add(
+            Styled(
+                new DrawCommand(
+                    DrawCommandKind.Border,
+                    x - grow,
+                    y - grow,
+                    ringWidth,
+                    ringHeight,
+                    Fade(stroke, alpha),
+                    grown.IsUniformCircular(out var uniform) ? uniform : 0f,
+                    thickness
+                ),
+                into,
+                grown
+            )
+        );
+
+        // A square corner stays square, and only a corner that already had a curve grows one. The
+        // component-wise max is what keeps a shrinking ring — a negative offset — from folding a
+        // small radius through zero into a curve bending the other way.
+        static Vector2 Grow(Vector2 corner, float by) => new(
+            corner.X > 0f ? MathF.Max(corner.X + by, 0f) : 0f,
+            corner.Y > 0f ? MathF.Max(corner.Y + by, 0f) : 0f
+        );
+    }
+
+    /// <summary>One <c>outline-*</c> length, in absolute pixels.</summary>
+    /// <remarks>
+    ///     Absolute lengths only, which is <see cref="Radius" />'s rule and is complete rather than
+    ///     partial for these two properties: CSS UI 4 gives <c>outline-width</c> a <c>&lt;length&gt;</c>
+    ///     and three keywords, gives <c>outline-offset</c> a bare <c>&lt;length&gt;</c>, and allows a
+    ///     percentage on neither. Every value the utility families can emit is a pixel count.
+    /// </remarks>
+    float OutlineLength(UiElement element, int property) {
+        if (!element.Style.TryGet(property, out var id)) {
+            return 0f;
+        }
+
+        var value = parser.Parse(id);
+
+        return value.Kind == StyleValueKind.Length && value.Unit is StyleUnit.Pixels or StyleUnit.None
+            ? value.Number
+            : 0f;
     }
 
     /// <summary>Emits an element's text, if it has any and there is a font for it.</summary>
@@ -1510,20 +1723,56 @@ public sealed class DrawListBuilder {
 
     /// <summary>An element's four corner radii, each elliptical.</summary>
     /// <remarks>
-    ///     ⚠ <b>A corner arrives as <i>two</i> lengths — <c>8px 8px</c> — even when the stylesheet
-    ///     wrote one</b>, because that is what the shorthand expands to. Both are read now: the pair
-    ///     is the horizontal and vertical radius of an ellipse, which is CSS's
-    ///     <c>border-radius: 40px / 20px</c> and what a pill-shaped button whose height is not its
-    ///     width actually needs. Taking the first and dropping the second drew every such corner as a
-    ///     circle.
+    ///     <para>
+    ///         ⚠ <b>A corner arrives as <i>two</i> lengths — <c>8px 8px</c> — even when the stylesheet
+    ///         wrote one</b>, because that is what the shorthand expands to. Both are read now: the pair
+    ///         is the horizontal and vertical radius of an ellipse, which is CSS's
+    ///         <c>border-radius: 40px / 20px</c> and what a pill-shaped button whose height is not its
+    ///         width actually needs. Taking the first and dropping the second drew every such corner as a
+    ///         circle.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The logical longhand wins over the physical one, which is CSS Cascade's rule read
+    ///         the only way this cascade can read it.</b> CSS settles a conflict between
+    ///         <c>border-start-start-radius</c> and <c>border-top-left-radius</c> by declaration
+    ///         order, because they are two properties writing one used value. This cascade stores a
+    ///         property-to-value map with no order in it, so declaration order is not recoverable
+    ///         here — and the same problem was already settled for the logical insets, where
+    ///         <c>StyleResolution.LeftEdge</c> gives the logical edge precedence outright. Following
+    ///         it costs the rarer conflict and keeps one rule in the engine rather than two.
+    ///     </para>
     /// </remarks>
-    CornerRadii Corners(UiElement element) =>
-        new(
+    CornerRadii Corners(UiElement element) {
+        // ⚠ Stack-allocated, because this runs for every element in the frame and the overwhelming
+        // majority of them have no radius at all. A `Vector2[4]` here was four hundred allocations a
+        // frame in the editor to describe corners that are almost always zero.
+        Span<Vector2> physical = [
             Radius(element, borderRadii[0]),
             Radius(element, borderRadii[1]),
             Radius(element, borderRadii[2]),
             Radius(element, borderRadii[3])
-        );
+        ];
+
+        // ⚠ Read before the loop rather than inside it, and read even when no logical radius is set,
+        // because `TryGet` on a miss is the cheap half — four misses are four dictionary probes and
+        // the overwhelming majority of elements take exactly that path.
+        var mirrored = element.Style.TryGet(direction, out var flow) && flow == rtl;
+
+        for (var corner = 0; corner < 4; corner++) {
+            if (!element.Style.TryGet(logicalRadii[corner], out _)) {
+                continue;
+            }
+
+            // ⚠ <b>The mirror is a swap of the two corners on a row, not a reversal of the array.</b>
+            // Reversing would send `start-start` to the *bottom*-right, which is the block axis — and
+            // the block axis does not flip, because there is no writing mode to flip it. Only the
+            // inline half of each name moves: 0↔1 across the top and 3↔2 across the bottom.
+            var target = mirrored ? corner switch { 0 => 1, 1 => 0, 2 => 3, _ => 2 } : corner;
+            physical[target] = Radius(element, logicalRadii[corner]);
+        }
+
+        return new CornerRadii(physical[0], physical[1], physical[2], physical[3]);
+    }
 
     /// <summary>One corner's horizontal and vertical radius.</summary>
     /// <remarks>

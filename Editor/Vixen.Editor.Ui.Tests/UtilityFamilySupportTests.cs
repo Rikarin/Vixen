@@ -330,6 +330,42 @@ public class UtilityFamilySupportTests {
         { "rounded-tl-panel", "border-top-left-radius", "5px" },
         { "rounded-tl-control", "border-top-left-radius", "4px" },
 
+        // ⚠ <b>The six logical radii, and what these rows can and cannot say.</b> They assert the
+        // cascade carries the logical longhand — which is the half that was missing, since nothing
+        // interned these four names at all — and they deliberately do not assert which physical
+        // corner it lands on, because that is not a fact about the cascade. It is decided at paint
+        // time against `direction`, and the test that pins it is
+        // `RasterizerTests.A_logical_corner_radius_is_resolved_against_the_direction`, which reads
+        // pixels under both directions. A row here claiming a corner would be claiming the `ltr`
+        // answer is the only answer, which is the mistake the whole feature exists to avoid.
+        { "rounded-ss-lg", "border-start-start-radius", "8px" },
+        { "rounded-se-[6px]", "border-start-end-radius", "6px" },
+        { "rounded-ee-lg", "border-end-end-radius", "8px" },
+        { "rounded-es-[2px]", "border-end-start-radius", "2px" },
+        { "rounded-s-[6px]", "border-start-start-radius", "6px" },
+        { "rounded-s-[6px]", "border-end-start-radius", "6px" },
+        { "rounded-e-[6px]", "border-start-end-radius", "6px" },
+        { "rounded-e-[6px]", "border-end-end-radius", "6px" },
+
+        // ⚠ <b>The outline, which is not the ring and not a border.</b> `outline-2` is a width and
+        // `outline-accent` is a colour, one prefix told apart by the value's shape — `border`'s
+        // ambiguity, and `ring`'s. The bare `outline` is one pixel, which is v4.
+        //
+        // ⚠ <b>No `outline-style` row beside the width, and its absence is the assertion.</b> v4
+        // emits `outline-style: var(--tw-outline-style)` on every width class because a browser
+        // defaults the style to `none`; this engine's border model has no style at all and
+        // `EmitOutline` matches it, so a width alone is a ring. A row here would be asserting a
+        // declaration the family deliberately does not emit.
+        { "outline", "outline-width", "1px" },
+        { "outline-2", "outline-width", "2px" },
+        { "outline-[3px]", "outline-width", "3px" },
+        { "outline-accent", "outline-color", "#2f6ecd" },
+        { "outline-solid", "outline-style", "solid" },
+        { "outline-none", "outline-style", "none" },
+        { "outline-hidden", "outline-style", "none" },
+        { "outline-offset-2", "outline-offset", "2px" },
+        { "outline-offset-0", "outline-offset", "0px" },
+
         // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
         // maps it onto `Overflow.Scroll` — the two differ only by a scrollbar gutter nothing draws.
         { "truncate", "overflow", "hidden" },

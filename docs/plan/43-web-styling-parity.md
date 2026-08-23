@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **140** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **39** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **149** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **40** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **142** |
+| **absent** | not emitted at all | **132** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -392,7 +392,7 @@ refusal block, which already says so for the same reason.
 | Interactivity | 39 | 20 | 1 | 1 | 17 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 9 | 4 | 0 | 21 | 0 | 0 |
-| Borders | 34 | 15 | 5 | 0 | 14 | 0 | 0 |
+| Borders | 34 | 24 | 6 | 0 | 4 | 0 | 0 |
 | Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
@@ -403,7 +403,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **140** | **39** | **3** | **142** | **3** | **1** |
+| **Total** | **328** | **149** | **40** | **3** | **132** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
 Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and Layout. Tables and Accessibility
@@ -2221,9 +2221,12 @@ outline-color  user-select  vertical-align
 transition-property  transition-duration  transition-timing-function
 ```
 
-⚠ **That list is the survey's, kept as written.** Nine of the eighteen have since been retired —
+⚠ **That list is the survey's, kept as written.** Ten of the eighteen have since been retired —
 `grid-column`, `grid-template-columns`, `vertical-align`, the three `transition-*`, the two
-translations and `--blur` — and two more changed their names rather than their state, because `--scale` and
+translations, `--blur` and now `outline-color`, which came off when the outline got a reader of its
+own rather than by the route § D5 predicted: the debt was recorded against `ring-*`, `ring-*` stopped
+emitting it, and the property then arrived for real as one of `outline`'s four longhands —
+and two more changed their names rather than their state, because `--scale` and
 `--rotate` were never properties any engine would read. `InertProperties.txt` is the live version; this
 is what the survey found.
 
