@@ -105,8 +105,26 @@
         // leaving rather than moving to the new one. Subscribing here rather than asking the host to
         // call us is what keeps `Program.cs` a bootstrap: a toast that expires is the toast host's
         // business and not the frame loop's.
-        Root.Document.Ticked += (_, now) => toasts.Tick(now);
+        Root.Document.Ticked += Expire;
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The one thing the build region cannot take care of, and it matters here because
+    ///     <c>OnComposed</c> runs more than once.</b> Effects, bindings and the elements themselves
+    ///     belong to the region and go with it; a handler on the <i>document</i> outlives this
+    ///     component. A markup hot reload unmounts and rebuilds on the same object — so without this,
+    ///     every save would leave another subscription behind, each one ticking the <c>ToastHost</c>
+    ///     of a build that no longer exists.
+    /// </remarks>
+    protected override void OnUnmounted() {
+        Root.Document.Ticked -= Expire;
+
+        base.OnUnmounted();
+    }
+
+    /// <summary>Lets the toasts count down.</summary>
+    void Expire(UiDocument document, TimeSpan now) => toasts.Tick(now);
 
     /// <summary>The File and View menus.</summary>
     /// <remarks>

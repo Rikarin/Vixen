@@ -28,7 +28,7 @@ a sample.
 | [`Theme/vixen.ui.vcss`](Theme/vixen.ui.vcss) | The tokens. Change the accent here and it changes everywhere. |
 | [`Theme/shell.vcss`](Theme/shell.vcss) | The rules a class name cannot say, and nothing else. |
 | [`ShellModel.cs`](ShellModel.cs) | The state, as signals. |
-| [`Program.cs`](Program.cs) | Thirty lines: what the window is called, and which component to mount. |
+| [`Program.cs`](Program.cs) | A thirty-line `Main` — what the window is called, and which component to mount — plus the sample's two development conveniences. |
 
 `HelloUi.csproj` is worth a look for what is *not* in it. `<VixenUi>true</VixenUi>` is the whole of
 the UI plumbing — the VXML compiler, the `[UiProperty]` generator, the `.vxml` and `.vcss` item types
