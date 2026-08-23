@@ -88,6 +88,13 @@
             this project, so the other half of the .targets is inert here", which was true when it
             was written and is the sentence that makes this trap survivable: it says exactly what
             changed.
+
+            ⚠ **And a comment is no longer the only thing standing between the next assembly and
+            that hour.** This exact state — `AdditionalFiles` full of `.vxml` and no markup generator
+            in `@(Analyzer)` — is VX4002, reported by the `.targets` imported at the bottom of this
+            file, before `CoreCompile` and therefore instead of the wall of C# errors rather than
+            underneath it. Delete this reference and the build says so in one line naming this
+            project file.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
                           OutputItemType="Analyzer"
