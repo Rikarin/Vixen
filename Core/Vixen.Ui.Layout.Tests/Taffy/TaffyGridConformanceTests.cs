@@ -47,9 +47,16 @@ public class TaffyGridConformanceTests {
 
     // ⚠ Committed counts, not lower bounds — see the identical comment in the flex and block suites.
     // A gap that closes has to be taken off GridKnownGaps.txt in the same commit as it closes.
-    const int ExpectedPassing = 1974;
-    const int ExpectedFailing = 14;
-    const int ExpectedUnsupported = 132;
+    //
+    // ⚠ 132 → 76 unsupported, and grid is where that trade was least comfortable: 28 of the 56
+    // became passes and the other 28 became two new headings in GridKnownGaps.txt. Neither heading
+    // is a regression. 24 of the 28 are §12 arithmetic that has been wrong for as long as it has
+    // existed, hidden behind a `scrollbar-width` refusal on the only fixtures that exercise it; the
+    // other 4 are the first fixtures in this corpus to need a writing mode on `LayoutStyle`, which
+    // was previously untestable because the attribute was refused. See UnsupportedFixtures.txt.
+    const int ExpectedPassing = 2002;
+    const int ExpectedFailing = 42;
+    const int ExpectedUnsupported = 76;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

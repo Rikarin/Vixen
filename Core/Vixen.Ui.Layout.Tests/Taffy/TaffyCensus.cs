@@ -13,6 +13,18 @@ sealed record TaffyTally(int Passed, int Failed, int Unsupported) {
     public int Total => Passed + Failed + Unsupported;
 }
 
+/// <param name="Tally">The three outcomes, counted.</param>
+/// <param name="Refusals">How many fixtures each distinct refusal message accounts for.</param>
+/// <param name="Report">The first few disagreements, as text.</param>
+/// <remarks>
+///     ⚠ <b><see cref="Refusals" /> used to be computed here and thrown away, and that was the whole
+///     of the hole this record closes.</b> The three conformance suites assert the <i>number</i> of
+///     refusals and nothing else, so 408 fixtures could assert nothing at all while every summary
+///     read green and no file anywhere said what they were waiting for. See
+///     <c>UnsupportedFixtures.txt</c>, which this feeds.
+/// </remarks>
+sealed record TaffyCensusResult(TaffyTally Tally, IReadOnlyDictionary<string, int> Refusals, string Report);
+
 /// <summary>Runs a whole category and counts the three outcomes.</summary>
 /// <remarks>
 ///     ⚠ <b>This is how the corpora for unimplemented modes are represented, and the alternative was
@@ -28,7 +40,7 @@ sealed record TaffyTally(int Passed, int Failed, int Unsupported) {
 ///     goes up, which makes the same test a progress meter rather than dead weight.
 /// </remarks>
 static class TaffyCensus {
-    public static (TaffyTally Tally, string Report) Run(string category, int reportLimit = 25) {
+    public static TaffyCensusResult Run(string category, int reportLimit = 25) {
         var fixtures = TaffyCorpus.Load(category);
         var passed = 0;
         var failed = 0;
@@ -72,6 +84,6 @@ static class TaffyCensus {
             header.AppendLine(CultureInfo.InvariantCulture, $"  unsupported {count,5}  {feature}");
         }
 
-        return (tally, header + report.ToString());
+        return new TaffyCensusResult(tally, byFeature, header + report.ToString());
     }
 }

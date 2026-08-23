@@ -64,7 +64,7 @@ static class TaffyFixtureRunner {
 
     static LayoutNodeId Build(LayoutTree tree, TaffyInput input, TaffyBox parent, bool isRoot) {
         var node = tree.CreateNode();
-        var self = TaffyBox.From(input.Attributes);
+        var self = TaffyBox.From(input);
         TaffyStyleMap.ApplyCssInitialValues(tree, node, isRoot);
 
         foreach (var (name, value) in input.Attributes) {
@@ -104,7 +104,7 @@ static class TaffyFixtureRunner {
         for (var index = 0; index < input.Children.Count; index++) {
             var childInput = input.Children[index];
             var child = Build(tree, childInput, self, isRoot: false);
-            var childBox = TaffyBox.From(childInput.Attributes);
+            var childBox = TaffyBox.From(childInput);
 
             if (selfRelativeItems is not null && !childInput.Attributes.ContainsKey("align-self")) {
                 tree.SetAlignSelf(child, TaffyStyleMap.AlignItemsForChild(selfRelativeItems, self, childBox));

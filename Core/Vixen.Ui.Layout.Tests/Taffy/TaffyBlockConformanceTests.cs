@@ -46,9 +46,14 @@ public class TaffyBlockConformanceTests {
 
     // ⚠ Committed counts, not lower bounds — see the identical comment in the flex suite. A gap that
     // closes has to be taken off BlockKnownGaps.txt in the same commit as it closes.
-    const int ExpectedPassing = 788;
+    //
+    // ⚠ 124 → 96 unsupported without a line of block layout changing, and all 28 of them became
+    // passes. They were `scrollbar-width` on `overflow: hidden` boxes, which reserves no gutter and
+    // so could never have moved a box — `TaffyStyleMap` was refusing an inert declaration and taking
+    // every other property the fixture set down with it. See UnsupportedFixtures.txt.
+    const int ExpectedPassing = 816;
     const int ExpectedFailing = 0;
-    const int ExpectedUnsupported = 124;
+    const int ExpectedUnsupported = 96;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 
@@ -135,13 +140,20 @@ public class TaffyBlockConformanceTests {
         Assert.Equal(264, collapsing.Count);
         Assert.Empty(failures);
 
-        // ⚠ The 48 refused are the `collapse_through_blocked_by_overflow_*` families, and they are
-        // refused for `scrollbar-width` rather than for anything to do with collapsing — this store
-        // reserves no scrollbar gutter, so it cannot reproduce the geometry Chrome recorded. The
-        // *rule* they test is covered: `Overflow` other than `visible` blocks a collapse, which
-        // `MarginCollapsingTests` asserts directly and which the 216 below never reach.
-        Assert.Equal(48, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Unsupported));
-        Assert.Equal(216, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Pass));
+        // ⚠ <b>THIS COUNT WAS 48 AND IT WAS HALF A BRIDGE PROBLEM, WHICH IS THE BEST DEMONSTRATION
+        // IN THE CORPUS OF WHY A REFUSAL NEEDS A REASON AND NOT A NUMBER.</b> All 48 of the
+        // `*_blocked_by_overflow_*` fixtures were refused for `scrollbar-width`, and the comment
+        // here said what everyone would say: this store reserves no gutter, so it cannot reproduce
+        // the geometry Chrome recorded. That was true of exactly half of them. The 24
+        // `_overflow_{x,y}_hidden` variants clip WITHOUT a scrollbar — there is no gutter to
+        // reserve, the declaration is inert, and Chrome's geometry was reproducible all along. They
+        // pass. The 24 that say `scroll` are the real engine gap and are still refused. See
+        // UnsupportedFixtures.txt.
+        //
+        // The *rule* remains covered from a second direction regardless: `Overflow` other than
+        // `visible` blocks a collapse, which `MarginCollapsingTests` asserts directly.
+        Assert.Equal(24, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Unsupported));
+        Assert.Equal(240, outcomes.Count(entry => entry.Result.Outcome == TaffyOutcome.Pass));
     }
 
     /// <summary>Strips the border-box/content-box and ltr/rtl suffix Taffy appends to every fixture.</summary>

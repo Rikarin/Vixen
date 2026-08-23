@@ -8,7 +8,14 @@
 # TaffyBlockConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts, so a line cannot quietly widen and a fix cannot quietly land.
 #
-# 764 of the 884 block fixtures pass, plus 24 of the 28 blockflex. NONE fail and 120 are refused.
+# 788 of the 884 block fixtures pass, plus ALL 28 blockflex. NONE fail and 96 are refused.
+#
+# ⚠ That was 764 + 24 with 124 refused, and the 28 that moved moved on the harness rather than on
+# the algorithm: they wrote `scrollbar-width` on an `overflow: hidden` box, which reserves no gutter
+# and could not have changed a single number, and TaffyStyleMap refused the whole fixture over it.
+# Every one of the 28 went straight to green. Block is the corpus where that trade was free; flex
+# and grid each paid for it with newly visible failures, which is the honest half of the story and
+# is written up in their files.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, AND THE RESULT IS NOW EMPTY. Every block and blockflex
 # fixture that reaches arithmetic agrees with Chrome; what is left below the line is the refusal
@@ -33,16 +40,33 @@
 
 # ── What is REFUSED rather than failing, and why each is honest ──
 #
-# 120 block fixtures and 4 blockflex never reach arithmetic. Listed here for the record because a
-# refusal is a scoping decision and should be as visible as a failure:
+# ⚠ THIS SECTION WAS THE ONLY ONE OF ITS KIND IN THE PROJECT, AND IT WAS ALSO WRONG IN TWO PLACES.
+# Block was the one corpus whose refusals were written down at all; flex and grid recorded a bare
+# count and nothing else, and between the three of them 408 fixtures asserted nothing under a
+# heading that said the corpora were nearly closed. The census now lives in UnsupportedFixtures.txt
+# beside this file, covers all eight corpora, and is asserted rather than described. What follows is
+# block's slice of it, kept here because a reader of this file should not have to open another one.
 #
-#   88  scrollbar-width  — LayoutStyle has no scrollbar width, so a scroll container reserves no
+# 96 block fixtures never reach arithmetic. No blockflex fixture is refused any more.
+#
+#   64  scrollbar-width  — LayoutStyle has no scrollbar width, so a scroll container reserves no
 #                          gutter. That is a real omission and it is doc 43 § F3's, not B1's.
-#   16  text-align       — inline alignment. Doc 43 § B3.
-#    8  display:flow-root — a block box that always establishes a formatting context. One line to
-#                          add once there is a reason to spell it; `overflow: hidden` already gets
-#                          the same behaviour out of this implementation today.
+#                          ⚠ Was 88. The other 24 were `overflow: hidden`, where there is no
+#                          scrollbar to reserve a gutter for and the declaration is inert; the
+#                          refusal was the harness's, not the store's, and they all pass.
+#   16  text-align       — the legacy `-webkit-{left,right,center}` values, which align a block
+#                          container's BLOCK-LEVEL children. Not the inline formatting context;
+#                          this line used to say "inline alignment. Doc 43 § B3." and B3 landed
+#                          without touching them, because they are a property of block layout.
+#    8  display:flow-root — a block box that always establishes a formatting context. ⚠ This line
+#                          used to add "`overflow: hidden` already gets the same behaviour out of
+#                          this implementation today", which is true and is not a reason to alias
+#                          the keyword: `block_flow_root_margin_non_collapse` is a flow root with
+#                          `overflow: visible`, and mapping it to Block gets that one wrong. Four
+#                          of the eight need floats as well.
 #    4  align-content: safe end — `safe` alignment has no expression in this store's Align enum.
+#                          `safe` is an overflow FALLBACK rather than a position, so there is
+#                          nowhere to record it, and the fixture is named `_overflow`.
 #    4  float            — doc 43's 84 float fixtures, plus these four. See the remarks on
 #                          LayoutTree.Block for where floats would attach and why nothing here
 #                          forecloses them.

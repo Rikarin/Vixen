@@ -67,9 +67,15 @@ public class TaffyFlexConformanceTests {
     // other way here, in Yoga's 534, or in the block and grid corpora — but only after the same field
     // was taken out of STEP 3's overflow test, which is §9.3's sum and not §9.7's; leaving it there
     // cost four fixtures and one Yoga fixture. See KnownGaps.txt's §9.7 heading.
-    const int ExpectedPassing = 2242;
-    const int ExpectedFailing = 14;
-    const int ExpectedUnsupported = 152;
+    //
+    // ⚠ 152 → 112 unsupported on agent/unsupported-fixtures, and that number is the one to read
+    // sceptically: 36 of the 40 became passes and 4 became a NEW heading in KnownGaps.txt. Nothing
+    // in the algorithm moved either way. A refusal is not a gap and it is not a pass; it is a
+    // fixture asserting nothing, and 408 of them across the three suites were doing that silently.
+    // See UnsupportedFixtures.txt for the census and the harness-versus-engine split.
+    const int ExpectedPassing = 2278;
+    const int ExpectedFailing = 18;
+    const int ExpectedUnsupported = 112;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

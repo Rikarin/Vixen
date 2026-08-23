@@ -1,0 +1,219 @@
+# Taffy fixtures that assert nothing, and the exact reason each one gives.
+#
+# ⚠ THIS FILE EXISTS BECAUSE A SKIP READS AS A PASS, and 408 of them did.
+#
+# `KnownGaps.txt`, `BlockKnownGaps.txt` and `GridKnownGaps.txt` list fixtures that LAY OUT and
+# disagree with Chrome. This file lists the other kind: fixtures `TaffyStyleMap` refuses outright,
+# which the three conformance suites turn into `Assert.Skip`. Those never reach the algorithm, so
+# they cannot fail — and every summary anyone reads counts a skip beside a pass rather than beside a
+# gap. The three suites did pin the refusal COUNT, which is why nothing could drift silently; what
+# no file recorded was what the refusals were FOR. Four gap files said the corpora were nearly
+# closed and none of them mentioned the 408.
+#
+# So: every distinct `TaffyUnsupportedException` message, per corpus, with the number of fixtures it
+# accounts for. `TaffyUnsupportedCensusTests` re-derives all of it from an actual run and requires
+# this file to match line for line, so a bucket cannot grow, shrink or appear without being written
+# down here.
+#
+# Each line is `count  corpus  reason`, the reason verbatim as the exception carries it. Unlike the
+# gap files, a line here covers whole fixtures rather than a base name, so the counts are already
+# multiplied by the four `__{border,content}_box_{ltr,rtl}` variants.
+#
+#
+# ══ THE SPLIT THAT MATTERS ═══════════════════════════════════════════════════════════════════════
+#
+# A refusal is one of two completely different things, and the number of them was the same before
+# anyone looked:
+#
+#   · A HARNESS gap. The fixture writes a property value `TaffyStyleMap` never learned to translate,
+#     and `Vixen.Ui.Layout` can express the fixture perfectly well. Costs the whole fixture — every
+#     other property it sets stops being asserted too — and is worth nothing to anyone.
+#   · An ENGINE gap. The store genuinely has no field for it. Belongs here with a reason, exactly
+#     like a line in a gap file.
+#
+# Of the 408, **124 were harness and 284 were engine — 30% against 70%.** All 124 are closed; what
+# remains below is the 284, plus `float`'s own corpus, which is tallied rather than skipped.
+#
+# Closing them was worth what it was supposed to be worth. 92 of the 124 went straight to green,
+# which is 92 fixtures' worth of correctness evidence that already existed and was being thrown
+# away. The other 32 went red, and every one of them is a defect this corpus had been carrying
+# silently — filed under new headings in `KnownGaps.txt` and `GridKnownGaps.txt`. Two of the three
+# were pre-existing arithmetic that no visible fixture happened to exercise, which is the reason to
+# do this rather than a cost of doing it.
+#
+#
+# ══ HARNESS — CLOSED ═════════════════════════════════════════════════════════════════════════════
+#
+# Nothing is listed under this heading, and that is its point: a harness gap is not a thing to
+# record, it is a thing to fix. Both of these are in `TaffyStyleMap.Apply` and both turn on the same
+# question — CAN THIS DECLARATION MOVE A BOX? — rather than on leniency.
+#
+# ── `scrollbar-width` on a box that does not scroll ── 104 fixtures ──
+#
+# The gutter is reserved by a SCROLL CONTAINER, not by the property. Chrome reserves it for
+# `overflow: scroll`, and for an `overflow: auto` that actually overflows, and for nothing else. The
+# corpus writes `scrollbar-width="15"` on 336 elements; 156 of them clip with `overflow: hidden`,
+# where there is no scrollbar and therefore no gutter, so the declaration cannot move a box and
+# accepting it is the correct translation rather than a lenience. The other 180 elements really do
+# scroll, the store has no field for their gutter, and their refusal stands. (The bucket below also
+# comes to 180, in FIXTURES rather than elements. Coincidence — the two counts are not the same
+# quantity, and a fixture can hold several of either kind.)
+#   → 104 converted: 76 pass, 28 fail. The 28 are `measure_child_with_flex_shrink_hidden` and six
+#     `grid_span_*_indefinite_hidden` families, and neither has anything to do with a gutter — both
+#     are arithmetic that only shows on an item which OPTS OUT of a content-based automatic minimum,
+#     which is what `overflow: hidden` does and what `scrollbar-width` was hiding. New headings in
+#     `KnownGaps.txt` and `GridKnownGaps.txt`.
+#
+# ── `writing-mode: vertical-lr` on a leaf ── 20 fixtures ──
+#
+# ⚠ This one was a finished consumer that nothing called. `TaffyAhemMeasure` has modelled vertical
+# text since it was written — it swaps which physical axis it treats as inline, and
+# `TaffyFixtureRunner.Build` reads the attribute to set the flag — but the attribute loop threw
+# before `SetMeasureFunction` was ever reached, so that entire branch was dead. Every one of the
+# corpus's 24 `vertical-lr` elements is a childless `<text>`.
+#   → 20 converted: 16 pass, 4 fail. The four that fail are `grid_relayout_vertical_text`, and they
+#     are the honest limit of the argument: a leaf's own measurement is not the ONLY thing that can
+#     see its axes, because its container states the constraint in flow-relative terms too. A grid
+#     hands a turned item its column width as an inline constraint; Chrome hands it the row height.
+#     `LayoutStyle` has no writing mode to tell the container which. Filed in `GridKnownGaps.txt`.
+#
+# ⚠ Nothing else qualified, and the near misses are worth naming so nobody re-litigates them.
+# `align-content: safe end` is not `align-content: end` — `safe` falls back to start alignment when
+# the item overflows, which is precisely what 15 of the 19 families are named for. `display:
+# flow-root` is not `display: block` — the whole content of the keyword is that it establishes a
+# formatting context, and `EstablishesBlockFormattingContext` reads `overflow` and inline-level-ness
+# and nothing else. Mapping either of those would produce a wrong answer on the exact fixture that
+# tests it, which is a hack and not a translation.
+#
+#
+# ══ ENGINE ═══════════════════════════════════════════════════════════════════════════════════════
+
+# ── SCROLLBAR GUTTERS ── 180 ──
+#
+# A `Scroll` box reserves `scrollbar-width` points inside its padding box on the axis that scrolls,
+# and every downstream size is computed against what is left. `LayoutStyle` has no such field and
+# `Overflow` deliberately has no `Auto` member to distinguish the always-reserved case from the
+# reserve-when-overflowing one — see the enum's own remarks, which argue that nothing in this
+# framework draws a scrollbar so no consumer could act on the distinction. That argument is about
+# PAINTING and this is about LAYOUT, and these 180 fixtures are the bill for it: `ScrollView` builds
+# its own scrollbar, and the content beside it is the wrong width by exactly the bar.
+#
+# Additive rather than structural. One `float ScrollbarWidth` on `LayoutStyle`, subtracted from the
+# content box on each axis whose `Overflow` is `Scroll`, wherever the padding box is resolved. The
+# corpus is unanimous at `15`, so it exercises the arithmetic and not the parsing.
+
+    64  block      scrollbar-width
+    44  flex       scrollbar-width
+    40  grid       scrollbar-width
+    32  leaf       scrollbar-width
+
+# ── SAFE ALIGNMENT (CSS Box Alignment §4.4) ── 76 ──
+#
+# `safe` is an overflow FALLBACK, not a position: an item aligned `safe end` sits at the end edge
+# until doing so would push its start edge out of the alignment container, at which point it aligns
+# to start instead and overflows the other way. `Align` and `Justify` carry the position only, so
+# there is nowhere to record the fallback, and mapping `safe end` onto `FlexEnd` is wrong on exactly
+# the fixtures that test it — 15 of these 19 families are named `_overflow`.
+#
+# ⚠ The four named `_no_overflow` are the ones where `safe` and unsafe provably agree, and they are
+# refused with the rest on purpose. There is no way to know at TRANSLATION time whether a box will
+# overflow; only the algorithm knows, and by then the style is already set. Accepting them because
+# their names say they are safe would be reading the answer off the fixture.
+#
+# Additive, and smaller than the count suggests: one bit beside the position, and one comparison at
+# each of the four places §4.4 is applied — `align-content`, `align-self`, `justify-content` and
+# `justify-self` — that swaps the position for start when the free space is negative.
+
+    12  flex       align-self: safe end
+    12  flex       justify-content: safe end
+     8  grid       align-self: safe end
+     8  grid       justify-content: safe end
+     4  block      align-content: safe end
+     4  flex       align-content: safe end
+     4  flex       align-self: safe center
+     4  flex       justify-content: safe center
+     4  grid       align-content: safe center
+     4  grid       align-content: safe end
+     4  grid       justify-content: safe center
+     4  grid       justify-self: safe center
+     4  grid       justify-self: safe end
+
+# ── FLOATS ── 88 ──
+#
+# The one layout mode with a whole corpus of its own and no implementation, and the reason it did
+# not arrive with block layout is stated in `TaffyPendingCorporaTests`: these fixtures are refused
+# on the `float` attribute rather than on `display`, so they were never waiting on a keyword. Every
+# one of them names a block container this store lays out correctly right up to the point where a
+# float would narrow a line box.
+#
+# ⚠ The 84 in the `float` corpus are TALLIED rather than skipped — `TaffyPendingCorporaTests` runs
+# every one of them and pins `(0, 0, 84)`, so a crash or a hang in that path is visible today. They
+# are listed here anyway, because the point of this file is the whole ledger and a reader counting
+# refusals should not have to know which of two mechanisms records each one. The 4 in `block` are
+# real skips: `block_flow_root_avoids_sibling_float`, which needs a float AND a flow root.
+#
+# Structural, and the largest single item owed: an exclusion list threaded through inline line-box
+# construction, plus `clear`, plus the interaction with margin collapsing that
+# `block_flow_root_contains_float` is about.
+
+    84  float      float
+     4  block      float
+
+# ── LEGACY `text-align` ON A BLOCK CONTAINER ── 16 ──
+#
+# `-webkit-center`, `-webkit-left` and `-webkit-right` are the legacy values that align a block
+# container's BLOCK-LEVEL children, not just its inline content — the behaviour `<center>` had, kept
+# alive because pages depend on it. Chrome implements them and Taffy translates them into a
+# `TextAlign` on the block algorithm; this store has neither the property nor the step in
+# `LayoutTree.Block` that would read it. `block_text_align_center_rtl` additionally pins that the
+# legacy keywords are physical and do not flip with `direction`.
+#
+# Additive: a three-valued enum on `LayoutStyle`, read once where a block child's inline offset is
+# decided. Worth noting that it is unrelated to the inline formatting context — these fixtures are
+# about boxes, and `InlineKnownGaps.txt` is where actual text alignment would be owed.
+
+    16  block      text-align
+
+# ── `display: flow-root` ── 8 ──
+#
+# A block container that always establishes a block formatting context, whatever its `overflow`
+# says. `EstablishesBlockFormattingContext` derives the answer from `overflow` and from
+# inline-level-ness, which is the complete rule for every other keyword and cannot express this one:
+# a `flow-root` with `overflow: visible` must still stop its children's margins escaping, and
+# `block_flow_root_margin_non_collapse` is that fixture exactly.
+#
+# ⚠ Half of these need floats regardless — `block_flow_root_contains_float` is a flow root whose
+# whole job is to contain one — so closing this keyword alone converts 4 of the 8.
+#
+# Additive: a `FlowRoot` member on `Display`, one clause in `EstablishesBlockFormattingContext`, and
+# `is Block or FlowRoot` wherever `Display.Block` is currently tested for outer block-ness. It is a
+# public enum, so it costs an API line and a documented member rather than being free.
+
+     8  block      display: flow-root
+
+
+# ── THE REFUSALS THAT NEVER FIRE ── 0 ──
+#
+# ⚠ Worth recording precisely because they are absent, and because they are the ones a reader
+# guesses at. `TaffyStyleMap` also refuses `min-content sizing`, `fit-content()` and `fr units` from
+# its `Length` helper, and `grid-template-areas` and `clear` by name. Not one of them accounts for a
+# single fixture. `min-content`, `fit-content()` and `fr` reach the corpus only inside track lists,
+# which go through `TaffyTrackListParser` and are fully supported; no fixture writes any of the
+# three as a `width`, a `height`, an inset or a `flex-basis`, which is the only path into `Length`.
+# `grid-template-areas` appears nowhere in the corpus at all. `clear` appears 32 times and every one
+# of them is in the `float` corpus, whose fixtures are all refused already and record `float` as the
+# reason — so `clear` is real debt that is invisible here because a bigger one shadows it, which is
+# a third category and the reason this heading is not just a curiosity.
+#
+# They are kept as arms rather than deleted: a refreshed corpus that starts writing one has to be
+# skipped rather than mis-parsed. What makes that safe is that the census below is asserted bucket
+# by bucket, so the day one of them fires it appears here as a new line and the suite goes red.
+#
+#
+# ══ TOTAL ════════════════════════════════════════════════════════════════════════════════════════
+#
+# 368 of the 5 524 fixtures are refused: 284 skipped by the three conformance suites, 84 tallied by
+# `TaffyPendingCorporaTests`. Asserted, and asserted to be non-zero — a census that can quietly
+# census nothing is the failure this file was written about.
+
+total  368

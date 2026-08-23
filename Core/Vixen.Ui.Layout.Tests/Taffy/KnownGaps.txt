@@ -2,9 +2,13 @@
 #
 # Every name here is a fixture that LAYS OUT and disagrees with Chrome. That is a different thing
 # from the fixtures TaffyStyleMap refuses, which ask for a property this store has no field for and
-# are skipped with a reason; those are not listed. It is also a different thing from a translation
-# bug — thirteen of the original failures were this bridge conflating `start` with `flex-start`, and
-# those were fixed rather than listed. Anything written down here is believed to be Vixen's.
+# are skipped with a reason; those are counted and reasoned about in UnsupportedFixtures.txt beside
+# this file, ⚠ WHICH IS A FILE THAT DID NOT EXIST UNTIL 408 FIXTURES HAD BEEN ASSERTING NOTHING FOR
+# THE WHOLE LIFE OF THIS CORPUS. This header used to say "those are not listed" and leave it there,
+# which is exactly the omission that let a skip read as a pass. It is also a different thing from a
+# translation bug — thirteen of the original failures were this bridge conflating `start` with
+# `flex-start`, and those were fixed rather than listed. Anything written down here is believed to
+# be Vixen's.
 #
 # Names are given without the __{border,content}_box_{ltr,rtl} suffix, so one line covers up to four
 # fixtures — and not always all four. Three lines here cover two apiece, and ⚠ THIS SENTENCE USED TO
@@ -22,7 +26,12 @@
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
 #
-# 206 at the corpus's first run; 14 now. Six rules closed the first 144: CSS Sizing §5.2.2's distinction
+# 206 at the corpus's first run; 18 now — and the four that arrived most recently arrived by being
+# LOOKED AT rather than by breaking. They were refused on `scrollbar-width` and had never run. A
+# number in this file going up is not automatically bad news, and a number going up because a skip
+# turned into a measurement is the only kind of bad news worth having.
+#
+# Six rules closed the first 144: CSS Sizing §5.2.2's distinction
 # between a min-content size and a min-content contribution, §5.1's min-over-max precedence,
 # §4.1's transfer of a minimum or a maximum ACROSS the aspect ratio into the other axis,
 # CSS Flexbox §9.7's distinction between the sum lines are BROKEN by and the sum free space is
@@ -425,3 +434,36 @@ align_baseline_multiline_column2
 # bevy_issue_7976_reduced passes, and the only difference is that it has no percentage child.
 bevy_issue_7976_3_level
 bevy_issue_7976_4_level
+
+# ── THE FLEX BASE SIZE OF A MEASURED ITEM IS TAKEN UNDER THE CONTAINER'S AVAILABLE SIZE, NOT AT
+#    MAX-CONTENT ── one family, and it only shows when §4.5 is opted out ──
+#
+# ⚠ <b>NEWLY VISIBLE, NOT NEWLY BROKEN.</b> `measure_child_with_flex_shrink_hidden` had never run:
+# it writes `scrollbar-width="15"` beside `overflow: hidden`, and TaffyStyleMap refused the whole
+# fixture on a declaration that reserves no gutter and could not have moved a box. See
+# UnsupportedFixtures.txt for the other 120 that were in the same position.
+#
+# A 100pt row holding a 50pt box and a text of five ten-character words. Chrome: 9 and 91. Vixen:
+# 33 and 67. The arithmetic says exactly where the disagreement is. §9.2 step 3E makes the flex base
+# size of a content-sized item its MAX-CONTENT size, which here is 500; shrinking 450 across
+# weighted bases of 50 and 500 gives 9.09 and 90.9, which is Chrome's answer to the point.
+# ComputeFlexBasisForChild instead hands the child the container's own available width as a
+# FitContent offer — the `if (!isMainAxisRow || mainOverflow != Overflow.Scroll)` clause in
+# LayoutTree.Steps, whose comment says in as many words "the specification says nothing about
+# `overflow` here; every major browser does this" — so the text measures at 100, and shrinking 50
+# across bases of 50 and 100 gives 33.3 and 66.7. Which is what came out.
+#
+# ⚠ THE REASON NO OTHER FIXTURE CATCHES IT IS THE PART WORTH KEEPING. Both readings give the same
+# answer whenever §4.5's automatic minimum applies, because the item is floored at its min-content
+# size either way — `measure_child_with_flex_shrink`, the same fixture without the `overflow`, is
+# green under both. An item only sees the difference by OPTING OUT of the automatic minimum, and the
+# way to opt out is `overflow` other than `visible`, which is the exact attribute pairing that had
+# never been translated. One property's refusal was hiding the only witness to another property's
+# arithmetic.
+#
+# Not a one-line fix, and the existing comment is why: that clause is deliberate and is load-bearing
+# for Yoga's 534, which are the fixtures Vixen's flex algorithm was originally judged against.
+# Chrome's own behaviour is the spec's. The honest shape is to keep the offer for the measurement
+# but record the unclamped max-content size separately as the base — the same separation
+# LayoutResult.UnclampedMeasuredDimensions already made once, one question further out.
+measure_child_with_flex_shrink_hidden
