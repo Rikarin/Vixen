@@ -68,6 +68,20 @@ public readonly struct StyleLength : IEquatable<StyleLength> {
     /// <summary>Whether this is a length that resolves to a number against a containing size.</summary>
     public bool IsResolvable => Unit is LayoutUnit.Point or LayoutUnit.Percent;
 
+    /// <summary>Whether this length is one of CSS Sizing § 5's three content keywords.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Resolve" /> answers NaN for these, and that is not the same as "unset".</b>
+    ///     A containing size cannot settle a content keyword because the answer is a property of the
+    ///     subtree, so it is resolved a step earlier — <c>LayoutTree.Intrinsic.cs</c> measures the
+    ///     node and substitutes a <see cref="LayoutUnit.Point" /> before the algorithm reads the
+    ///     slot. This predicate is what tells it there is something to substitute.
+    ///     <para>
+    ///         <see cref="LayoutUnit.Stretch" /> is not one of them: it names the space left over
+    ///         rather than the content, so no measurement of the subtree produces it.
+    ///     </para>
+    /// </remarks>
+    public bool IsContentBased => Unit is LayoutUnit.MinContent or LayoutUnit.MaxContent or LayoutUnit.FitContent;
+
     /// <summary>Resolves against a containing size, or NaN if it does not resolve.</summary>
     /// <param name="referenceLength">The containing size a percentage is a fraction of.</param>
     /// <returns>The resolved length, or NaN.</returns>

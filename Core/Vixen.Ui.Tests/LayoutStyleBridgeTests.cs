@@ -96,9 +96,14 @@ public class LayoutStyleBridgeTests {
         // the utility test because the two halves fail independently: the family table can emit a
         // perfectly good `100vw` into a sheet whose units nothing resolves, which is a class that
         // generates, cascades and moves nothing. `docs/plan/43` counts the six viewport keywords as
-        // closed on the strength of this path existing — and the same file records, one column over,
-        // that the *content* keywords on those roots have no such far end and are dropped by
-        // `LayoutStyleBuilder.ToEdgeLength`. That is the difference this test is worth having for.
+        // closed on the strength of this path existing.
+        //
+        // ⚠ The same file used to record, one column over, that the *content* keywords on those
+        // roots had no such far end and were dropped by `LayoutStyleBuilder.ToEdgeLength`. They have
+        // one now — see the two tests below — and it is a longer one, which is why theirs is
+        // asserted on a resolved BOX rather than on a `StyleLength`. A viewport unit is a number by
+        // the time it leaves this file; `min-content` is still a keyword, and a test that stopped
+        // here would have passed over a declaration that nothing measured.
         var style = new BridgeFixture().Build(
             "width: 100vw; height: 100vh; max-width: 50vw; min-height: 20vh",
             LengthContext.ForViewport(1000f, 500f)
@@ -108,6 +113,78 @@ public class LayoutStyleBridgeTests {
         Assert.Equal(500f, style.Dimensions[(int) Dimension.Height].Value, Tolerance);
         Assert.Equal(500f, style.MaxDimensions[(int) Dimension.Width].Value, Tolerance);
         Assert.Equal(100f, style.MinDimensions[(int) Dimension.Height].Value, Tolerance);
+    }
+
+    /// <summary>Three ten-point words: 30 across on one line, 10 across on three.</summary>
+    static LayoutSize MeasureThreeWords(in MeasureRequest request) {
+        const float word = 10f;
+        const int words = 3;
+
+        var width = request.WidthMode switch {
+            MeasureMode.Exactly => request.AvailableWidth,
+            MeasureMode.AtMost => MathF.Max(word, MathF.Min(request.AvailableWidth, words * word)),
+            _ => words * word
+        };
+
+        var perLine = MathF.Max(1f, MathF.Floor(width / word));
+
+        return new LayoutSize(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : MathF.Ceiling(words / perLine) * 10f);
+    }
+
+    /// <summary>Lays a styled box with three words in it out inside a 500-point block container.</summary>
+    static (float Width, float Height) BoxFor(string declarations) {
+        var style = new BridgeFixture().Build(declarations, LengthContext.ForViewport(1000f, 500f));
+
+        using var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetDisplay(root, Display.Block);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(500f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(500f));
+
+        var box = tree.CreateNode();
+        tree.SetStyle(box, in style);
+        tree.AddChild(root, box);
+
+        var text = tree.CreateNode();
+        tree.SetMeasureFunction(text, MeasureThreeWords);
+        tree.AddChild(box, text);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        return (tree.GetWidth(box), tree.GetHeight(box));
+    }
+
+    [Theory]
+    [InlineData("width: min-content", 10f)]
+    [InlineData("width: max-content", 30f)]
+    [InlineData("width: fit-content", 30f)]
+    [InlineData("max-width: min-content", 10f)]
+    [InlineData("min-width: max-content; width: 5px", 30f)]
+    public void The_content_keywords_the_sizing_utilities_emit_move_the_box(string declarations, float expected) {
+        // ⚠ THE ASSERTION IS ON A BOX AND NOT ON A `StyleLength`, and that is the whole point of the
+        // test. `width: min-content` arrived in `LayoutStyle.Dimensions` as a well-formed keyword
+        // long before it did anything: `Resolve` answers NaN for one, so `SetLength` left the
+        // dimension alone and every reader downstream took the declaration for its own absence.
+        // Thirteen Tailwind sizing roots resolved, cascaded and moved nothing, and both the utility
+        // gate and the cascade tests were green over all of them. Nothing short of laying the box
+        // out can tell the two states apart.
+        //
+        // The container is 500 wide and the box is in normal flow, so CSS 2.1 §10.3.3 would give an
+        // `auto` width the whole of it. Every number below is therefore one the old behaviour could
+        // not have produced.
+        Assert.Equal(expected, BoxFor(declarations).Width, Tolerance);
+    }
+
+    [Fact]
+    public void A_content_keyword_on_the_block_axis_is_measured_at_the_width_the_inline_axis_settled() {
+        // The two halves of one declaration, in the order CSS Sizing § 4.1 resolves them: ten across
+        // puts one word on each of three lines, so the content-based height is thirty rather than
+        // the one line a height measured against the container's 500 would have found.
+        var box = BoxFor("width: min-content; height: max-content");
+
+        Assert.Equal(10f, box.Width, Tolerance);
+        Assert.Equal(30f, box.Height, Tolerance);
     }
 
     [Fact]

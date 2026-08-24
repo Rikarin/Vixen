@@ -49,6 +49,7 @@ boxes and the strut. See
 | `LayoutTree.Grid*`, `GridTrackSize`, `TrackArena` | The third: CSS Grid §8 placement, §12 track sizing, `fr`/`minmax`/`fit-content`/`repeat`, and the variable-length track lists that made a second arena necessary. |
 | `LayoutTree.Inline`, `VerticalAlign` | The fourth: CSS 2.1 §9.4.2 line boxes, §10.3.9 shrink-to-fit, §10.8.1 baselines and vertical alignment. |
 | `LayoutTree.Fragments`, `LayoutFragment`, `FragmentArena` | CSS Display §2.2 fragmentation, and the third arena — the only one on the *output* side. What relaxed *one node produces one box*, and the zero default that kept every existing consumer of `GetLeft` unchanged. |
+| `LayoutTree.Intrinsic` | CSS Sizing § 5's `min-content`/`max-content`/`fit-content` on the six size slots. A bottom-up pre-pass that measures the node and substitutes a `Point` before the algorithm runs, because a parent settles a child's width before it hands it down and there is no seam downstream of every such read. |
 | `LayoutTree.Order` | §5.4 `order`, the one part that is not Yoga's. One redirection: the algorithm reaches children only through `ChildIds`, so sorting what that returns is the whole property. |
 | `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
 | `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block, grid and float **were** judged by. Every category now runs per fixture, and nothing in any of the eight is refused. |
@@ -224,7 +225,12 @@ call site has to say which of the two it means.
 - Yoga's errata flags and experimental features — a default configuration turns none of them on, so
   porting them would be porting dead branches.
 - The separate min-content measure callback. Its fallback — asking the ordinary measure function
-  under `AtMost 0` — is what a text measurer answers with its longest word anyway.
+  under `AtMost 0` — is what a text measurer answers with its longest word anyway, and it is what
+  `LayoutTree.Intrinsic` uses to answer `width: min-content`.
+- `LayoutUnit.Stretch`. It is carried in the enum and resolved by nothing: no utility emits it, and
+  the two generated fixtures that set it want different answers from the same keyword —
+  `Stretch_width` the containing block's width, `Stretch_flex_basis_column` its own content's height.
+  Both pass while it behaves as `undefined`, each falling through to a different default.
 
 ## Block layout, and what a second algorithm cost
 
@@ -535,8 +541,10 @@ and crashtests plus one useful subdirectory whose fixtures size their boxes in `
 
 One reachable oracle is named and **not** taken: `css/css-sizing/keyword-sizes-on-inline-block.html`
 is written in Ahem, whose glyphs are 1em × 1em by specification and which this repo already models in
-`Taffy/TaffyAhemMeasure.cs` — so it is reproducible despite being a text test. Its blocker is
-`min-content`/`max-content`/`fit-content` as *keyword sizes*, which `StyleLength` does not carry.
+`Taffy/TaffyAhemMeasure.cs` — so it is reproducible despite being a text test. Its blocker used to be
+`min-content`/`max-content`/`fit-content` as *keyword sizes*, which `StyleLength` did not carry; it
+does now (`LayoutTree.Intrinsic`), so what is left is the import itself rather than a missing
+feature.
 
 `InlineKnownGaps.txt` is shaped differently from its three siblings for the same reason: with no
 corpus there are no fixture names to list, so it lists **rules**, each marked as implemented,

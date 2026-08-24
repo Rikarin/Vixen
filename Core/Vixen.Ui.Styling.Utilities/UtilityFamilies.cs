@@ -188,8 +188,8 @@ public static class UtilityFamilies {
         // whose empty keyword is the display value and whose value kind is the sizing one, which is
         // the same shape `flex` has for the same reason. The sizing half is written up beside the
         // other four logical roots, under `── Sizing ──` below.
-        StaticOrSize("block", "display", "block", "height");
-        StaticOrSize("inline", "display", "inline", "width");
+        StaticOrSize("block", "display", "block", "height", "100vh");
+        StaticOrSize("inline", "display", "inline", "width", "100vw");
         Static("inline-block", "display", "inline-block");
         Static("flex", "display", "flex");
         Static("inline-flex", "display", "inline-flex");
@@ -528,13 +528,24 @@ public static class UtilityFamilies {
         Between("space-y", ValueKind.Spacing, ["margin-bottom"]);
 
         // ── Sizing ──────────────────────────────────────────────────────────────────────────
-        Size("w", "width");
-        Size("h", "height");
+        //
+        // ⚠ <b>`screen` is the one sizing value that depends on the PROPERTY and not on the value,
+        // which is why it is registered per family where the six viewport keywords are not.</b>
+        // Tailwind names `svw`/`dvh` and their four siblings after the viewport axis being
+        // *measured*, so `h-dvw` really is `height: 100vw` and one rule in `TrySize` answers every
+        // family. `screen` is named after nothing: `w-screen` is the viewport's width and
+        // `h-screen` is its height, from the same word. `TrySize` sees only the value, so it cannot
+        // tell them apart — and answering both with `100%` (which is what it did) is wrong in
+        // exactly the case anyone writes the class for, because a percentage resolves against the
+        // containing block and a viewport unit against the surface. Inside any ancestor that is not
+        // full size the two disagree.
+        SizeToScreen("w", "100vw", "width");
+        SizeToScreen("h", "100vh", "height");
         Size("size", "width", "height");
-        Size("min-w", "min-width");
-        Size("min-h", "min-height");
-        Size("max-w", "max-width");
-        Size("max-h", "max-height");
+        SizeToScreen("min-w", "100vw", "min-width");
+        SizeToScreen("min-h", "100vh", "min-height");
+        SizeToScreen("max-w", "100vw", "max-width");
+        SizeToScreen("max-h", "100vh", "max-height");
 
         // ⚠ <b>The six writing-mode-relative sizing roots, and all six are physical — including the
         // inline three, which is the half that looks wrong and is not.</b> The block three go the way
@@ -566,10 +577,10 @@ public static class UtilityFamilies {
         // `block-size` with the same prefix and `Register` keeps the first family under a name — a
         // `Size("block", "height")` written here would be discarded without a word and every
         // `block-*` class would go on being reported as a typo.
-        Size("min-inline", "min-width");
-        Size("max-inline", "max-width");
-        Size("min-block", "min-height");
-        Size("max-block", "max-height");
+        SizeToScreen("min-inline", "100vw", "min-width");
+        SizeToScreen("max-inline", "100vw", "max-width");
+        SizeToScreen("min-block", "100vh", "min-height");
+        SizeToScreen("max-block", "100vh", "max-height");
 
         // ── Position ────────────────────────────────────────────────────────────────────────
         Static("static", "position", "static");
@@ -2423,6 +2434,11 @@ public static class UtilityFamilies {
             case "full":
                 result = "100%";
                 return true;
+            // ⚠ <b>The families that measure one axis never get here</b>: each registers `screen` in
+            // its keyword table as `100vw` or `100vh`, and `Resolve` reads that first. What is left
+            // is `size-*` and the inset roots, which measure both axes at once and for which
+            // Tailwind ships no `screen` class at all — a percentage of the containing block is what
+            // they answered before this and nothing claims it is the viewport.
             case "screen":
                 result = "100%";
                 return true;
@@ -2591,9 +2607,11 @@ public static class UtilityFamilies {
     ///         replaced.
     ///     </para>
     /// </remarks>
-    static void StaticOrSize(string name, string staticProperty, string staticValue, string sizeProperty) =>
+    /// <param name="screen">The viewport extent along the sizing property's axis. See <see cref="SizeToScreen" />.</param>
+    static void StaticOrSize(string name, string staticProperty, string staticValue, string sizeProperty, string screen) =>
         Register(new Family(name, ValueKind.Size, [sizeProperty], new Dictionary<string, string>(StringComparer.Ordinal) {
-            [string.Empty] = $"{staticProperty}:{staticValue}"
+            [string.Empty] = $"{staticProperty}:{staticValue}",
+            ["screen"] = screen
         }));
 
     static void Keywords(
@@ -2712,6 +2730,22 @@ public static class UtilityFamilies {
 
     static void Size(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Size, properties));
+
+    /// <summary>A sizing family that also answers <c>screen</c>, on the axis its property measures.</summary>
+    /// <param name="name">The utility prefix.</param>
+    /// <param name="screen">The viewport extent along that axis: <c>100vw</c> or <c>100vh</c>.</param>
+    /// <param name="properties">What it sets. All on the one axis, or the answer would be two values.</param>
+    /// <remarks>
+    ///     ⚠ <b>Through the keyword table rather than through <see cref="TrySize" />, because
+    ///     <see cref="Resolve" /> consults keywords first and <see cref="TrySize" /> never sees the
+    ///     property.</b> The value carries no colon, so the keyword branch emits it into every one of
+    ///     the family's properties — which is why they must share an axis. <c>size-*</c> is the one
+    ///     sizing root that does not, and Tailwind has no <c>size-screen</c> for it to answer.
+    /// </remarks>
+    static void SizeToScreen(string name, string screen, params string[] properties) =>
+        Register(new Family(name, ValueKind.Size, properties, new Dictionary<string, string>(StringComparer.Ordinal) {
+            ["screen"] = screen
+        }));
 
     /// <summary>Registers one axis of the composed translation: a fragment, and the assembly.</summary>
     /// <param name="name">The utility prefix.</param>

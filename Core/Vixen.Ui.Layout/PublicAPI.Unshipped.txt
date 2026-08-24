@@ -367,12 +367,13 @@ Vixen.Ui.Layout.LayoutTree.SetStyle(Vixen.Ui.Layout.LayoutNodeId node, in Vixen.
 Vixen.Ui.Layout.LayoutTree.SetVerticalAlign(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.VerticalAlign verticalAlign) -> void
 Vixen.Ui.Layout.LayoutUnit -> enum : byte
 Vixen.Ui.Layout.LayoutUnit.Auto = 3 -> Vixen.Ui.Layout.LayoutUnit
-Vixen.Ui.Layout.LayoutUnit.FitContent = 5 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.FitContent = 6 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LayoutUnit.LayoutUnit() -> void
-Vixen.Ui.Layout.LayoutUnit.MaxContent = 4 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.MaxContent = 5 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.MinContent = 4 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LayoutUnit.Percent = 2 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LayoutUnit.Point = 1 -> Vixen.Ui.Layout.LayoutUnit
-Vixen.Ui.Layout.LayoutUnit.Stretch = 6 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.Stretch = 7 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LayoutUnit.Undefined = 0 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LegacyTextAlign -> enum : byte
 Vixen.Ui.Layout.LegacyTextAlign.Center = 2 -> Vixen.Ui.Layout.LegacyTextAlign
@@ -421,6 +422,7 @@ Vixen.Ui.Layout.PositionType.Static = 0 -> Vixen.Ui.Layout.PositionType
 Vixen.Ui.Layout.StyleLength -> readonly struct
 Vixen.Ui.Layout.StyleLength : System.IEquatable<Vixen.Ui.Layout.StyleLength>
 Vixen.Ui.Layout.StyleLength.Equals(Vixen.Ui.Layout.StyleLength other) -> bool
+Vixen.Ui.Layout.StyleLength.IsContentBased.get -> bool
 Vixen.Ui.Layout.StyleLength.IsDefined.get -> bool
 Vixen.Ui.Layout.StyleLength.IsResolvable.get -> bool
 Vixen.Ui.Layout.StyleLength.Resolve(float referenceLength) -> float
