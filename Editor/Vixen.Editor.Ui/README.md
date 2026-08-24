@@ -886,7 +886,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `NodeSearchPopup` · `CommandPalette` | snapshot | no | ~~**port; each deletes a hand-rolled element pool or reconciler**~~ **done, wave 6 (2026-08-23).** The pool was the point and it was worse than "churn": it only ever *grew*, so a list that had once shown twelve rows carried the surplus under `display: none` **still labelled with the previous query's results**. 601 lines → two `.vxml` (565) and two `.cs` (288), with 31 and 26 lines of pooling gone. Every visible element byte-identical in fifteen dumped states; the only differences are the parked rows, which no longer exist | M |
 | `NodeInspector` · `AddComponentMenu` | snapshot | no | ~~**port**~~ **stopped, wave 6 — both blocked by the same cause, and it is not a markup gap.** Shape 1's escape is "keep the control behind a `ref`", and where the control is fed by a *method* the sanctioned workaround is the mixer's four-line wrapper subclass. `InspectorView` and `ScrollView` are both `sealed`, so neither panel can be written. See below | M |
 | `RemoteInspectorView` | **live** | ~~no~~ **yes, additively** | ~~**port; signal-back `RemoteInspectorClient` additively, per `DeviceManager`**~~ **done, wave 6 (2026-08-23).** The sizing and the worked example were both right. What the row did not say is that this is the panel where the signals pay most: `Poll` runs from the tick, so `Restate` relabelled a button, rewrote a sentence, rebuilt the entity tree and re-ran a pool **sixty times a second whether or not the far end had said anything**. 293 lines → a 341-line `.vxml` and a 75-line `.cs`; byte-identical in eight of nine dumped states, the ninth being the parked counter rows | M |
-| `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | ~~**port the readouts, keep the field rows (shape 2)**~~ **all seven done, wave 7 (2026-08-23/24).** The sizing was right about the block being the biggest one left and wrong about what "keep the field rows" means, in three different ways at once — it is stale for one panel, right-for-the-wrong-reason for two, and an understatement for a third. 2,256 lines of panel C# → seven `.vxml` (2,504) and six `.cs` (1,023, of which 244 are `FontAtlasView` unchanged and ~180 are the four factories that never moved). Byte-identical in **twenty-eight dumped states**, with two deliberate exceptions argued below. See below | M |
+| `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | ~~**port the readouts, keep the field rows (shape 2)**~~ **all seven done, wave 7 (2026-08-23/24).** The sizing was right about the block being the biggest one left and wrong about what "keep the field rows" means, in three different ways at once — it is stale for one panel, right-for-the-wrong-reason for two, and an understatement for a third. 2,256 lines of panel C# → seven `.vxml` (2,504) and six `.cs` (1,023, of which 244 are `FontAtlasView` unchanged and ~180 are the four factories that never moved). Byte-identical in **twenty-seven dumped states** for the five asset-editor panels, plus **three** hand-written-versus-part dump comparisons committed in `PaletteBlockTests` for the two terrain ones — with two deliberate exceptions, both in one panel and both argued below. See below | M |
 | `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output | M |
 | `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | ~~**defer.**~~ The half that was unportable was the field rows, which `change:` now expresses; `AnimationGraphView` still has no tests at all and still goes last | ~~L–XL~~ M–L |
 | `AudioMixerView` | snapshot | no | ~~**no**~~ ~~**port**~~ **done, wave 3 (2026-08-23).** 541 lines of C# → a 250-line `.vxml`, a 60-line `.cs` of records and captions, and a whole-tree rectangle dump in three states that is byte-identical to what it replaced | ~~XL~~ M |
@@ -1070,6 +1070,26 @@ leg — so the three pickers' `AddHandler<KeyEvent>(…, RoutingStrategy.Capture
 a search box turning Down into caret movement, cannot be written as an attribute. Worked around in
 `OnComposed`, named here because the next picker will hit it too. An `on:keydown.capture` modifier
 would close it and the modifier list is already parsed.
+
+### How wave 7's dumps were taken, and the one thing the instrument got wrong
+
+⚠ **Every dump carries a per-element flags block, because `UiTest.Tree()` cannot see
+`ElementState`.** It prints tag, id, classes, rectangle and text — so a `Disabled` button, a
+`:checked` toggle and a hovered row are all indistinguishable from their opposites in it, which is
+exactly where a port is riskiest. The harness walked the document a second time writing
+`tag state=… Label=… Disabled=… IsChecked=… Number=…` per element, and the two halves were compared
+together. `PaletteBlockTests` keeps that shape permanently for the terrain parts; the panel dumps
+were taken against the hand-written code and then against the port, and are not committed, because
+comparing them requires the code they replaced.
+
+⚠ **And the instrument had one false positive worth knowing about, because the next wave will see
+it.** A shared `.vxml` part is a *type*, so it has public properties the plain element it replaced
+did not — `AnalysisRow.Message` above all. A reflection-driven flags block prints those, so a panel
+that moves onto `AnalysisRow` shows a differing flags line per row while its `Tree()` half is
+identical to the byte. That happened in two panels here (`UtilitySetView`, `StandardFrameView`) and
+was resolved by asserting separately that **no `Tree()` line differs at all** — twelve flags lines
+moved in `StandardFrameView` and zero tree lines did. Read a part-adoption diff that way rather than
+widening the tolerance.
 
 ### "Keep the field rows" was wrong four ways, and that is wave 7's finding
 
