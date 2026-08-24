@@ -25,16 +25,34 @@ namespace Vixen.Ui.Tests;
 ///         an untranslated box: it fails, on the assertion it is supposed to fail on.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>rotate</c> and <c>scale</c> are refused, and there are no tests here for them
-///         because there is nothing to test.</b> A <c>DrawCommand</c> is an axis-aligned rectangle and
-///         the clip stack intersects rectangles, so a rotated box cannot be represented and a rotated
-///         clip is not a rectangle at all — the per-axis <c>overflow</c> trick of pushing one pair of
-///         edges to <c>DrawListBuilder.UnboundedClip</c> works precisely because what comes out is
-///         still axis-aligned. Scaling is the box in four multiplications and the picture in none:
-///         glyph advances are shaped at <c>run.Size</c> during layout, so a scaled subtree needs
-///         re-shaping, which would make a transform affect layout — the one thing CSS Transforms 1 §3
-///         says it must never do. Both are recorded in <c>InertProperties.txt</c> under the properties
-///         CSS actually has, so the day a compositor arrives the gate's expiry check is what says so.
+///         ⚠ <b><c>rotate</c> and <c>scale</c> were refused here, and the refusal has been retired
+///         because the thing it was waiting for arrived.</b> What it said was true of the renderer it
+///         was written against: a <c>DrawCommand</c> is an axis-aligned rectangle, the clip stack
+///         intersects rectangles, and glyph advances are shaped at <c>run.Size</c> during layout, so
+///         there was no per-command form of a rotation and no honest way to scale a picture. Its last
+///         sentence named the way out — "both need the offscreen compositor <c>DrawListBuilder</c>'s
+///         opacity remark already owes" — and that compositor now exists, with five things opening
+///         groups through it.
+///     </para>
+///     <para>
+///         ⚠ <b>Every clause of the refusal survives; none of them blocks any more, because the group
+///         moved where they apply.</b> The subtree still rasterises into its surface axis-aligned,
+///         every command in it still a rectangle and every clip in it still a rectangle — a
+///         transformed element's own <c>overflow: hidden</c> cuts in its local space, which is
+///         precisely what CSS Transforms 1 §3 asks for. Glyphs are still shaped once at their layout
+///         size, and the <i>surface</i> is scaled rather than the text re-shaped, which is what keeps
+///         the transform out of layout. Only the composite quad's four vertices move, and an affine
+///         map is exactly the class for which both executors' linear interpolation of a texture
+///         coordinate is exact — so the feature cost no shader and no vertex format. See
+///         <c>UiTransform</c> and docs/guide/ui/compositing.md.
+///     </para>
+///     <para>
+///         ⚠ <b>The tests for the two live in two files, and the split is not arbitrary.</b> What a
+///         rotation <i>is</i> can only be asserted against pixels, because any transform opens a group
+///         and so changes the draw list identically whatever the matrix says — that is
+///         <c>Vixen.Ui.Controls.Tests.TransformPaintTests</c>, whose probes are chosen to fail for the
+///         neighbouring transform. What is asserted <i>here</i> is the property the picture cannot
+///         show: that the pointer agrees with it.
 ///     </para>
 /// </remarks>
 public class TransformTests {
@@ -327,5 +345,250 @@ public class TransformTests {
         document.Update();
 
         Assert.Equal(100f, slide.AbsoluteLeft, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A rotation is clicked where it is painted, and this is the test the whole feature is
+    ///     judged by.</b> The translation's own version of this is at the top of the file and its
+    ///     remark applies word for word: painted in the new place and clickable in the old one moves
+    ///     every observable a draw list has, so it passes a consumption gate and it is a broken
+    ///     interface. A rotation cannot borrow the trick that makes it unstateable for
+    ///     <c>translate</c> — there is no accumulated rectangle a rotated box could be folded into —
+    ///     so the two consumers hold one matrix instead, and this is what checks they hold the same
+    ///     one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The negative probe is the load-bearing half, exactly as it is for the translation.</b>
+    ///     A long bar rotated a quarter turn overlaps its own untransformed box across the middle, so
+    ///     a point near the centre hits under either reading. The two probes here are at the ends: one
+    ///     that only the turned bar covers, and one that only the upright bar covered.
+    /// </remarks>
+    [Fact]
+    public void A_rotation_moves_the_box_it_draws_and_the_box_it_is_clicked_on() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .bar { position: absolute; left: 100px; top: 140px; width: 80px; height: 20px;
+                   background-color: #111; rotate: 90deg; }
+            """,
+            document => document.Root.Add("div", classNames: "bar")
+        );
+
+        var bar = document.Root.Children[0];
+
+        // Layout is untouched: the box is still where it was put, and `Bounds` still reports it.
+        Assert.Equal(100f, bar.AbsoluteLeft, Tolerance);
+        Assert.Equal(140f, bar.AbsoluteTop, Tolerance);
+
+        // The bar is 80x20 about its centre (140, 150). Turned, it occupies x in [130,150] and
+        // y in [110,190]. A point near the top of the turned bar is inside it, and thirty points above
+        // the untransformed box, which never reached y = 120.
+        Assert.Same(bar, document.HitTest(140f, 120f));
+
+        // And a point at the untransformed bar's left end, which the turned one has vacated. `Root` is
+        // what it falls through to — the same shape the translation's test uses.
+        Assert.Same(document.Root, document.HitTest(105f, 150f));
+    }
+
+    /// <summary>A scale is clicked at its painted size, on both sides of the box it grew out of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two probes again, and the second is not symmetric with the first.</b> A grown element
+    ///     covers everything it used to, so every point that hit before still hits — asserting only
+    ///     that would pass an implementation that ignored <c>scale</c> entirely. The point outside the
+    ///     original box is the whole assertion, and the shrunk case is what proves the arithmetic runs
+    ///     in both directions rather than just growing a bound.
+    /// </remarks>
+    [Fact]
+    public void A_scale_is_clicked_at_the_size_it_is_drawn() {
+        using var grown = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .big { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                   background-color: #111; scale: 200%; }
+            """,
+            document => document.Root.Add("div", classNames: "big")
+        );
+
+        var big = grown.Root.Children[0];
+
+        // 40x40 about (120, 120), so it paints x in [80,160]. A point at 150 is outside the authored
+        // box and inside the painted one.
+        Assert.Same(big, grown.HitTest(150f, 120f));
+        Assert.Same(grown.Root, grown.HitTest(170f, 120f));
+
+        using var shrunk = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .small { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                     background-color: #111; scale: 50%; }
+            """,
+            document => document.Root.Add("div", classNames: "small")
+        );
+
+        var small = shrunk.Root.Children[0];
+
+        // Painted x in [110,130]. The authored box reached 140 and the painted one does not.
+        Assert.Same(small, shrunk.HitTest(120f, 120f));
+        Assert.Same(shrunk.Root, shrunk.HitTest(135f, 120f));
+    }
+
+    /// <summary>A transformed parent's children are clicked where the parent put them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The child carries no transform of its own, which is what makes this a test of the walk
+    ///     rather than of the reader.</b> <c>Accumulate</c> deliberately does not push the matrix down
+    ///     — the child's <c>AbsoluteLeft</c> is untransformed — so the only thing that can put the
+    ///     pointer in the right place is the recursion having mapped it on the way through the parent.
+    ///     An implementation that applied the inverse inside <c>Contains</c> instead of at the top of
+    ///     the walk would pass every single-element test above and fail this one.
+    /// </remarks>
+    [Fact]
+    public void A_transformed_parent_moves_where_its_children_are_clicked() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .outer { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                     background-color: #111; scale: 200%; }
+            .inner { position: absolute; left: 0px; top: 0px; width: 10px; height: 10px;
+                     background-color: #222; }
+            """,
+            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+        );
+
+        var outer = document.Root.Children[0];
+        var inner = outer.Children[0];
+
+        // The child is at (100,100)-(110,110) untransformed, and the parent scales about (120,120), so
+        // it paints (80,80)-(100,100).
+        Assert.Equal(100f, inner.AbsoluteLeft, Tolerance);
+        Assert.Same(inner, document.HitTest(90f, 90f));
+
+        // Its authored corner now belongs to the parent, not to it.
+        Assert.Same(outer, document.HitTest(105f, 105f));
+    }
+
+    /// <summary>Nested transforms compose, and the pointer composes with them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Non-uniform on the outside and a rotation on the inside, on purpose.</b> A uniform
+    ///     scale commutes with a rotation, so a fixture built from two of those would pass an
+    ///     implementation that composed them in the wrong order — which is the mistake a nested walk
+    ///     invites, because the inverses have to be applied outermost first. Here the two do not
+    ///     commute and the wrong order lands somewhere else.
+    /// </remarks>
+    [Fact]
+    public void Nested_transforms_compose_for_the_pointer() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .outer { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                     background-color: #111; scale: 2 1; }
+            .inner { position: absolute; left: 100px; top: 100px; width: 20px; height: 4px;
+                     background-color: #222; rotate: 90deg; }
+            """,
+            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+        );
+
+        var outer = document.Root.Children[0];
+        var inner = outer.Children[0];
+
+        // An absolutely positioned child is placed from its containing block's origin, so the inner
+        // bar lands at (200,200) and is 20x4 about its centre (210,202).
+        Assert.Equal(200f, inner.AbsoluteLeft, Tolerance);
+
+        // Its own quarter turn makes it x in [208,212], y in [192,212]. The outer scale is 2x in x
+        // about (120,120) and 1x in y, which sends that to x in [296,304], y unchanged.
+        //
+        // ⚠ Both probes are chosen against the *rotation being dropped*, which is what a composition
+        // applied in the wrong order most often degenerates to. Without it the bar would be the wide
+        // one, x in [280,320] and y in [200,204]: this point is inside the composed answer and above
+        // that one.
+        Assert.Same(inner, document.HitTest(300f, 195f));
+
+        // ...and this one is inside the un-rotated reading and outside the composed one. It reaches
+        // neither the bar nor the parent, whose own painted box is x in [80,160].
+        Assert.Same(document.Root, document.HitTest(285f, 202f));
+    }
+
+    /// <summary>An element scaled to nothing is neither drawn nor clickable.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because either alone is a bug of its own.</b> A <c>scale-0</c> that still
+    ///     took the pointer would be an invisible control swallowing clicks over its old box — the
+    ///     worst version of the disagreement this whole file is about, since nothing on screen explains
+    ///     it. One that vanished from the draw list but stayed in the hit test is exactly that; one
+    ///     that stayed in both is <c>scale-0</c> not working at all.
+    /// </remarks>
+    [Fact]
+    public void A_zero_scale_is_neither_painted_nor_clicked() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .gone { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                    background-color: #111; scale: 0; }
+            """,
+            document => document.Root.Add("div", classNames: "gone")
+        );
+
+        Assert.DoesNotContain(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Rectangle);
+        Assert.Same(document.Root, document.HitTest(120f, 120f));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An unreadable <c>rotate</c> or <c>scale</c> leaves the element alone, and the
+    ///     three-axis form of <c>rotate</c> is refused whole rather than half-read.</b> CSS Transforms
+    ///     2 §3 also spells a rotation as an axis and an angle — <c>rotate: x 45deg</c> — which is out
+    ///     of the plane this engine has depth for. Picking the angle out of it and applying it about z
+    ///     would turn every one of those into a forty-five degree spin, which is not a degraded picture
+    ///     but a different one, and is the sort of thing that looks like the feature working.
+    /// </summary>
+    [Theory]
+    [InlineData("rotate: none")]
+    [InlineData("rotate: 45")]
+    [InlineData("rotate: x 45deg")]
+    [InlineData("rotate: nonsense")]
+    [InlineData("scale: none")]
+    [InlineData("scale: nonsense")]
+    public void A_transform_with_no_reading_leaves_the_element_alone(string declaration) {
+        using var document = Drawn(
+            $$"""
+              root { width: 400px; height: 300px; }
+              .still { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                       background-color: #111; {{declaration}}; }
+              """,
+            document => document.Root.Add("div", classNames: "still")
+        );
+
+        var still = document.Root.Children[0];
+
+        Assert.Null(still.Transform);
+        Assert.Same(still, document.HitTest(120f, 120f));
+        Assert.Same(document.Root, document.HitTest(150f, 120f));
+    }
+
+    /// <summary>The three angle units CSS has besides degrees all arrive as degrees.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted through the same quarter turn rather than against a matrix, because what
+    ///     matters is that the four spellings are one value.</b> Values 1 § 6.1 fixes the ratios
+    ///     between them, so there is nothing to resolve later and no context to resolve it in — which
+    ///     is why the conversion is in the parser rather than here. Before it was, <c>0.25turn</c>
+    ///     parsed as <c>Unknown</c> and the element simply did not turn.
+    /// </remarks>
+    [Theory]
+    [InlineData("90deg")]
+    [InlineData("100grad")]
+    [InlineData("0.25turn")]
+    [InlineData("1.5707963rad")]
+    public void Every_angle_unit_reaches_the_same_quarter_turn(string angle) {
+        using var document = Drawn(
+            $$"""
+              root { width: 400px; height: 300px; }
+              .bar { position: absolute; left: 100px; top: 140px; width: 80px; height: 20px;
+                     background-color: #111; rotate: {{angle}}; }
+              """,
+            document => document.Root.Add("div", classNames: "bar")
+        );
+
+        var bar = document.Root.Children[0];
+
+        Assert.Same(bar, document.HitTest(140f, 120f));
+        Assert.Same(document.Root, document.HitTest(105f, 150f));
     }
 }

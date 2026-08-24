@@ -412,7 +412,8 @@ public sealed class UiGeometryBuilder {
                     command.HasMask ? command.Length : 0,
                     command.Shadow,
                     command.Backdrop,
-                    new Rectangle(command.X, command.Y, command.Width, command.Height)
+                    new Rectangle(command.X, command.Y, command.Width, command.Height),
+                    command.Transform
                 )
             );
             return;
@@ -457,7 +458,40 @@ public sealed class UiGeometryBuilder {
             ink = new Rectangle(ink.X - reach, ink.Y - reach, ink.Width + (2f * reach), ink.Height + (2f * reach));
         }
 
-        var bounds = Intersect(ink, Intersect(open.Clip, viewport));
+        // ⚠ <b>The clip is pulled back through the transform before it narrows anything, and the
+        // viewport is not.</b> The two look like one rectangle here and are two different facts. An
+        // ancestor's `overflow: hidden` cuts the *transformed* result — Transforms 1 § 3 and Filter
+        // Effects 1 § 5 agree that ancestors clip in their own space — so what this group may keep is
+        // whatever *lands* inside the clip, which is the clip's pre-image and not the clip. Narrowing
+        // by the clip itself would cut a rotated panel's corner off before the rotation had swung it
+        // into view: a bite out of the picture on the side the clip happens to be, present only when
+        // the element is near an edge, which is as hard to see as a bug gets. The scissor on the draw
+        // below still cuts the transformed quad by the real rectangle, so nothing escapes the clip —
+        // this only decides how much of the surface is worth keeping.
+        //
+        // ⚠ <b>The viewport stays where it is, and that is a real limit rather than an oversight.</b>
+        // The surface is the viewport's size and holds the group at the coordinates it always had —
+        // see <see cref="UiLayer" /> — so content that was never on screen was never rasterised into
+        // it and no transform can bring it back. An element mostly outside the viewport, scaled down
+        // to fit, shows only the part that was already visible. Recovering it would mean sizing the
+        // surface to the pre-image instead, which is the per-group translation this design spent the
+        // viewport's memory to avoid. Written down in docs/guide/ui/compositing.md rather than
+        // discovered.
+        var reachable = Intersect(open.Clip, viewport);
+
+        if (open.Transform is { } placed) {
+            if (placed.Invert() is not { } undo) {
+                // A degenerate transform — `scale: 0`, or one axis of it. The group paints no pixels,
+                // so there is no surface worth allocating and nothing to composite. Dropped here for
+                // the empty group's reason, and matching what `UiDocument.HitTest` does with the same
+                // matrix: an element that cannot be seen does not take the pointer either.
+                return;
+            }
+
+            reachable = Intersect(undo.Bounds(reachable), viewport);
+        }
+
+        var bounds = Intersect(ink, reachable);
 
         if (bounds.Width <= 0f || bounds.Height <= 0f) {
             // The group inked nothing the clip lets through. There is no surface worth allocating and
@@ -479,7 +513,7 @@ public sealed class UiGeometryBuilder {
         if (cast is { } shadow) {
             shadowBounds = Intersect(
                 new Rectangle(bounds.X + shadow.Offset.X, bounds.Y + shadow.Offset.Y, bounds.Width, bounds.Height),
-                Intersect(open.Clip, viewport)
+                reachable
             );
 
             if (shadowBounds.Width <= 0f || shadowBounds.Height <= 0f) {
@@ -494,11 +528,29 @@ public sealed class UiGeometryBuilder {
         // than leaving an empty rectangle is <c>cast</c>'s arrangement above and for its reason: both
         // executors read <see cref="UiLayer.Backdrop" /> as the whole answer, and one that named a
         // surface no quad draws would have each of them allocate one and capture into it for nobody.
-        var behind = open.Backdrop;
+        // ⚠ <b>And nulled outright when the group is transformed, which is the one interaction of
+        // this feature that is refused rather than implemented.</b> Every other thing a group does
+        // survives a transform for free, because each of them happens in the surface's own space and
+        // the matrix is spent afterwards on the composite quad: a blur convolves the surface, a colour
+        // matrix is per pixel, a mask is read from the composite's own untransformed coordinate, and a
+        // drop shadow displaces in local space and is carried along. CSS orders them the same way —
+        // filter, then mask, then transform — so all four come out right without being told.
+        //
+        // A backdrop does not, and the reason is that it is the one surface holding something the
+        // group did not draw. `UiRenderer.Capture` replays the draw-list prefix into a surface and both
+        // executors read it at the coordinates the quad covers, so a *rotated* backdrop quad would have
+        // to sample a rotated window of the captured picture — four texture coordinates that are no
+        // longer an axis-aligned rectangle, a capture region that is no longer `BackdropBounds`, and a
+        // clip to the border box that is no longer a rectangle either. Sampling the untransformed patch
+        // instead would show the scene from where the element *was* rather than from where it is, which
+        // under a rotation is simply the wrong picture. Dropped here, once, where `cast` and the empty
+        // group are already dropped, so that both executors go on reading `UiLayer.Backdrop` as the
+        // whole answer.
+        var behind = open.Transform is null ? open.Backdrop : null;
         var backdropBounds = default(Rectangle);
 
         if (behind is not null) {
-            backdropBounds = Intersect(open.Box, Intersect(open.Clip, viewport));
+            backdropBounds = Intersect(open.Box, reachable);
 
             if (backdropBounds.Width <= 0f || backdropBounds.Height <= 0f) {
                 behind = null;
@@ -544,7 +596,12 @@ public sealed class UiGeometryBuilder {
             // ⚠ The range is filled below rather than here, because the entries have to be rebased
             // onto the viewport's origin on the way in and `masks.Count` is where they will land.
             MaskFirst = masks.Count,
-            MaskCount = open.MaskCount
+            MaskCount = open.MaskCount,
+
+            // ⚠ Carried un-applied, because the three quads below have already spent it on their
+            // vertices. The one consumer is `UiRenderer.BlurSurface`, which needs to know that the
+            // composite quad no longer covers the surface it is convolving — see `UiLayer.Transform`.
+            Transform = open.Transform
         };
 
         // ⚠ <b>Copied into this frame's own buffer rather than pointing back into the draw list's,
@@ -672,7 +729,14 @@ public sealed class UiGeometryBuilder {
                     (shadowBounds.Y + shadowBounds.Height - drop.Offset.Y - viewport.Y) / viewport.Height
                 ),
                 new Color4(1f, 1f, 1f, open.Alpha * drop.Colour.A),
-                new Vector4(1f, 0f, 0f, 0f)
+                new Vector4(1f, 0f, 0f, 0f),
+
+                // ⚠ Positions transformed, texture coordinates not — and the displacement above stays
+                // in the surface's space, which is what makes the order right. CSS applies the filter
+                // and then the transform, so a rotated panel's shadow is offset in the panel's own
+                // frame and swings round with it, rather than always falling to the same corner of the
+                // screen. Both readings look identical at zero degrees.
+                open.Transform
             );
 
             draws.Add(
@@ -710,9 +774,19 @@ public sealed class UiGeometryBuilder {
                 (bounds.Y + bounds.Height - viewport.Y) / viewport.Height
             ),
             new Color4(1f, 1f, 1f, open.Alpha),
-            new Vector4(1f, 0f, 0f, 0f)
+            new Vector4(1f, 0f, 0f, 0f),
+
+            // ⚠ <b>This is the transform.</b> Four positions moved, four texture coordinates left
+            // alone, and a picture that was rasterised upright arrives rotated or scaled. Nothing
+            // downstream is told: the software rasteriser interpolates the coordinate by barycentrics
+            // and the device by its own rasteriser, and both are exact for an affine.
+            open.Transform
         );
 
+        // ⚠ The scissor is the ancestor clip *untransformed*, which is the other half of the pre-image
+        // above. The clip belongs to an ancestor and cuts in the ancestor's space, so the rectangle
+        // here is the real one; what the pre-image decided was only how much of the surface was worth
+        // keeping on the way in.
         draws.Add(
             new UiDraw(BatchKind.Image, first, indices.Count - first, 0, Intersect(open.Clip, viewport)) {
                 Image = layer.Image
@@ -804,7 +878,8 @@ public sealed class UiGeometryBuilder {
         int MaskCount,
         UiDropShadow? Shadow,
         UiBackdrop? Backdrop,
-        Rectangle Box
+        Rectangle Box,
+        UiTransform? Transform
     );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>
@@ -1526,6 +1601,28 @@ public sealed class UiGeometryBuilder {
     }
 
     /// <summary>Four vertices and six indices, wound the same way every time.</summary>
+    /// <remarks>
+    ///     ⚠ <b><paramref name="placed" /> moves the four positions and leaves the four texture
+    ///     coordinates exactly where they were, and that asymmetry is the whole of how a transform is
+    ///     painted.</b> The coordinates name a place in a surface the group was rasterised into
+    ///     untransformed; the positions say where that picture goes. Transforming both would be a
+    ///     no-op, and transforming the coordinates alone would sample a rotated window onto an
+    ///     upright picture.
+    ///     <para>
+    ///         ⚠ <b>Exact rather than approximate, and only for an affine.</b> Both executors
+    ///         interpolate the coordinate linearly across the two triangles — the software one by
+    ///         barycentrics in <c>SoftwareUiRasterizer.Triangle</c>, the device by the rasteriser's own
+    ///         — and the composition of an affine map with a linear interpolation is that same
+    ///         interpolation, so the two triangles agree along the shared diagonal and no seam appears.
+    ///         A projective map would not have that property and would need a <c>w</c> this vertex
+    ///         format has nowhere to put; see <see cref="UiTransform" /> for why the type cannot
+    ///         express one.
+    ///     </para>
+    ///     <para>
+    ///         Null is the ordinary case and costs one null check per quad, on a path that already
+    ///         does a gamut lookup per quad.
+    ///     </para>
+    /// </remarks>
     void Quad(
         float left,
         float top,
@@ -1534,7 +1631,8 @@ public sealed class UiGeometryBuilder {
         Vector2 textureMin,
         Vector2 textureMax,
         Color4 color,
-        Vector4 shape
+        Vector4 shape,
+        UiTransform? placed = null
     ) {
         var start = (uint)vertices.Count;
 
@@ -1542,10 +1640,22 @@ public sealed class UiGeometryBuilder {
         // four times would be four early-out tests to reach one answer.
         color = Show(color);
 
-        vertices.Add(new UiVertex(new Vector2(left, top), textureMin, color, shape));
-        vertices.Add(new UiVertex(new Vector2(right, top), new Vector2(textureMax.X, textureMin.Y), color, shape));
-        vertices.Add(new UiVertex(new Vector2(right, bottom), textureMax, color, shape));
-        vertices.Add(new UiVertex(new Vector2(left, bottom), new Vector2(textureMin.X, textureMax.Y), color, shape));
+        var topLeft = new Vector2(left, top);
+        var topRight = new Vector2(right, top);
+        var bottomRight = new Vector2(right, bottom);
+        var bottomLeft = new Vector2(left, bottom);
+
+        if (placed is { } matrix) {
+            topLeft = matrix.Apply(topLeft);
+            topRight = matrix.Apply(topRight);
+            bottomRight = matrix.Apply(bottomRight);
+            bottomLeft = matrix.Apply(bottomLeft);
+        }
+
+        vertices.Add(new UiVertex(topLeft, textureMin, color, shape));
+        vertices.Add(new UiVertex(topRight, new Vector2(textureMax.X, textureMin.Y), color, shape));
+        vertices.Add(new UiVertex(bottomRight, textureMax, color, shape));
+        vertices.Add(new UiVertex(bottomLeft, new Vector2(textureMin.X, textureMax.Y), color, shape));
 
         indices.Add(start);
         indices.Add(start + 1);

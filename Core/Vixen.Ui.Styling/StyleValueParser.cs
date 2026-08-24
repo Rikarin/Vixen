@@ -648,6 +648,21 @@ public sealed class StyleValueParser {
             _ when suffix.Equals("deg", StringComparison.OrdinalIgnoreCase) =>
                 StyleValue.FromLength(number, StyleUnit.Degrees),
 
+            // ⚠ The other three angle units are converted here rather than carried, which is the one
+            // place in this switch a unit does not survive parsing — and it is deliberate. Values 1
+            // § 6.1 makes `deg`, `grad`, `rad` and `turn` four spellings of one dimension with fixed
+            // ratios between them, unlike `em` or `%`, which need a context this assembly does not
+            // have. So there is nothing to resolve later and no reason for a consumer to carry four
+            // cases. It also keeps interpolation working across them: the animator requires both
+            // endpoints to share a unit, so a transition from `0.25turn` to `180deg` would otherwise
+            // silently snap in exactly the way this enum's own remark warns about for `em`.
+            _ when suffix.Equals("grad", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number * 0.9f, StyleUnit.Degrees),
+            _ when suffix.Equals("rad", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number * (180f / MathF.PI), StyleUnit.Degrees),
+            _ when suffix.Equals("turn", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number * 360f, StyleUnit.Degrees),
+
             // Relative units are recognised and carried unresolved. `rem` is tested before `em`
             // because the second is a suffix of the first, and an ordinary switch on strings would
             // hide that — here the order is the correctness argument, so it is worth seeing.

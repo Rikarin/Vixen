@@ -120,7 +120,7 @@ public sealed class UiCompositingTests {
         // ⚠ Before either renderer runs. A frame that opened no group is one where the whole
         // comparison below is between two flat walks, which would agree whatever the compositing
         // code did — including if it were deleted.
-        Assert.Equal(5, geometry.Layers.Count);
+        Assert.Equal(6, geometry.Layers.Count);
 
         var renderer = new UiRenderer(
             owned.Device,
@@ -171,18 +171,25 @@ public sealed class UiCompositingTests {
         );
 
         // The instrument, before the measurement. See the class remarks.
-        Assert.Equal(5, renderer.Composited);
+        Assert.Equal(6, renderer.Composited);
 
         // ⚠ <b>And the second instrument, because a blur has three separate ways of not happening
         // and all of them draw a correct sharp picture.</b> No blur stage handed over, no
         // `UiLayer.Blur` on the geometry, a `KernelRadius` that came out zero — each leaves
         // `Composited` at two and the comparison below passing, since the software renderer would
         // then be being compared against a device that agreed with it about doing nothing.
-        // ⚠ Two, and they are two different kinds of blur over two different pictures: the inner
-        // group's own surface, and the fourth group's *backdrop*. A renderer that ran only the first
-        // would leave a sharp scene behind the glass panel, which is a picture a comparison can see
-        // only because the panel sits over content that has structure in it.
-        Assert.Equal(2, renderer.Blurred);
+        // ⚠ Three, and they are three different kinds of blur over three different pictures: the
+        // inner group's own surface, the fourth group's *backdrop*, and the fifth group's rotated
+        // surface. A renderer that ran only the first would leave a sharp scene behind the glass
+        // panel, which is a picture a comparison can see only because the panel sits over content
+        // that has structure in it.
+        //
+        // ⚠ The third is counted here and swept differently there: a transformed group takes
+        // `BlurSurface`'s full-region path rather than drawing through its own composite quad, and
+        // this count is what says the fallback still blurred rather than quietly returning false.
+        // Every early return in that method is a blur that did not happen, and an unblurred rotated
+        // panel is a perfectly plausible-looking picture.
+        Assert.Equal(3, renderer.Blurred);
 
         // ⚠ <b>And the counter without which the whole backdrop is invisible to this file.</b> With
         // nothing behind an element every backdrop filter is the identity, so a capture that never
@@ -293,7 +300,7 @@ public sealed class UiCompositingTests {
         var withGroups = new UiGeometryBuilder().Build(Groups(), isolated, Viewport);
         var withoutGroups = new UiGeometryBuilder().Build(Groups(isolate: false), flattened, Viewport);
 
-        Assert.Equal(5, withGroups.Layers.Count);
+        Assert.Equal(6, withGroups.Layers.Count);
         Assert.Empty(withoutGroups.Layers);
 
         var a = SoftwareUiRasterizer.Render(withGroups, isolated.Atlas, Side, Side, Background);
@@ -603,6 +610,54 @@ public sealed class UiCompositingTests {
 
         Pop(list, isolate);
 
+        // ⚠ <b>A fifth group, rotated and blurred, and the pairing of those two is the only reason it
+        // is here.</b> A transform on its own would say very little: the matrix is baked into the
+        // composite quad's four vertex positions by <c>UiGeometryBuilder</c>, so both executors draw
+        // it through the path they draw every quad through — the device's rasteriser and
+        // <c>SoftwareUiRasterizer.Triangle</c>'s barycentrics — and there is no second implementation
+        // for them to disagree about. What each transform <i>is</i> is asserted against pixels in
+        // <c>Vixen.Ui.Controls.Tests.TransformPaintTests</c>, which needs no device.
+        //
+        // ⚠ <b>The blur is what makes the two paths differ, and it is a divergence this fixture is
+        // the only thing that can see.</b> <c>UiRenderer.BlurSurface</c> convolves a group's surface
+        // by drawing <i>through</i> its composite quad, which is correct only while the quad and the
+        // surface share a space — and under a transform they do not. So a rotated group falls back to
+        // the full-region sweep, and a renderer that did not would convolve a rotated footprint of an
+        // upright picture: everything outside the tilted quad left sharp, with a hard diagonal across
+        // the halo. <c>SoftwareUiRasterizer</c> convolves the whole buffer and would be unaffected,
+        // which is precisely why only a two-executor comparison catches it.
+        //
+        // ⚠ Thirty degrees rather than a right angle, so that the quad is genuinely off-axis: every
+        // multiple of ninety leaves an axis-aligned rectangle, which is the one family of transforms
+        // under which the wrong sweep is still correct.
+        //
+        // ⚠ <b>And a non-uniform scale composed in, so the matrix is not a similarity.</b> A rotation
+        // alone preserves lengths, so a path that had normalised the matrix — or applied it to the
+        // quad's centre and size rather than to its corners — would come out identical. This one
+        // shears the sampled grid, which is where a per-vertex texture coordinate and a
+        // per-quad one stop agreeing.
+        //
+        // ⚠ Well clear of the other four groups' ink, because the point is the halo's shape rather
+        // than how it blends: a tilted blur over a busy ground is a comparison whose failures are hard
+        // to attribute.
+        Push(
+            list,
+            isolate,
+            76,
+            92,
+            44,
+            28,
+            0.9f,
+            InnerBlur,
+            transform: UiTransform.Scale(1.25f, 0.8f, new Vector2(98f, 106f))
+                .Then(UiTransform.Rotation(30f, new Vector2(98f, 106f)))
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 76, 92, 44, 28, Fade(new Color4(0.9f, 0.45f, 0.8f, 1f), isolate, 0.9f), 6, 0));
+        Text(list, font, "E", 84, 112, Fade(Color4.White, isolate, 0.9f));
+
+        Pop(list, isolate);
+
         list.EndFrame();
         return list;
     }
@@ -662,7 +717,8 @@ public sealed class UiCompositingTests {
         UiColorMatrix? filter = null,
         ReadOnlySpan<UiMask> mask = default,
         UiDropShadow? shadow = null,
-        UiBackdrop? backdrop = null
+        UiBackdrop? backdrop = null,
+        UiTransform? transform = null
     ) {
         if (isolate) {
             list.Add(
@@ -671,6 +727,7 @@ public sealed class UiCompositingTests {
                     Filter = filter,
                     Shadow = shadow,
                     Backdrop = backdrop,
+                    Transform = transform,
 
                     // ⚠ A range of the draw list's own side buffer, which is the only way a group can
                     // carry a mask now that `mask-image` is a list. See `DrawList.Masks`.

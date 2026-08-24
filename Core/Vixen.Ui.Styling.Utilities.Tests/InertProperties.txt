@@ -13,7 +13,7 @@
 # property, and the number is where the debt is recorded. Every line below is a class somebody can
 # write today that resolves, computes a value, and changes nothing at all.
 
-# ── Transforms — A7. HALF CLOSED, and the half that closed took the other half's name with it.
+# ── Transforms — A7. CLOSED, in two goes, and the two failed in different ways worth keeping.
 #
 # What was here was four lines: `--rotate`, `--scale`, `--translate-x`, `--translate-y`. Every one of
 # them was a debt recorded against a property that does not exist. `--scale` is not CSS; no engine
@@ -29,28 +29,70 @@
 # lets the two classes coexist instead of the later rule silently zeroing the other axis. The two
 # fragments are accounted for through the assembler and carry no lines, like the gradient stops.
 #
-# The two below are the genuine remainder, and they are now filed under the properties CSS has.
-#
-# ⚠ Neither is a missing reader, which is the thing worth knowing before somebody "closes" them the
-# cheap way. `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so:
+# ⚠ NOW FULLY CLOSED, and the way the last two closed is the most useful thing in this file: the
+# refusal was correct, every clause of it is still true, and none of them blocked any more. What it
+# said was:
 #
 #   `rotate` cannot be represented at all. A rotated box is not a rectangle, and a rotated *clip* is
-#   not one either — the per-axis overflow trick of pushing one pair of edges to `UnboundedClip`
-#   works precisely because the result is still axis-aligned. Approximating a rotation by its
-#   bounding box would make `rotate-45` draw a 45-point square where a 32-point one was asked for,
-#   which reads as a rendering bug rather than as a missing feature. Refused, like `GradientRefusal`.
+#   not one either. `scale` is representable as a box and not as a *picture* — glyph advances are
+#   shaped at `run.Size` during layout, so a scaled subtree needs re-shaping, which would make a
+#   transform affect layout. Closing either needs the renderer to composite a transformed subtree —
+#   an offscreen target and a matrix, which is the same compositor `DrawListBuilder`'s opacity
+#   remark already says is owed.
 #
-#   `scale` is representable as a box and not as a *picture*. Scaling the rectangle is four
-#   multiplications; scaling what is in it is not. Glyph advances are shaped at `run.Size` during
-#   layout and `DrawCommand.FontSize` carries the size they were shaped at, so a scaled subtree needs
-#   re-shaping — which would make a transform affect layout, the one thing CSS Transforms 1 §3 says it
-#   must never do. Border widths, radii and shadow offsets are the same story one field at a time.
-#   Scaling the box alone gives a box of the right size holding text of the wrong one.
+# That last sentence was the whole of it, and it stopped being a refusal the moment the compositor
+# landed for `opacity`. Nobody noticed, because a refusal is read as a verdict and not as a
+# condition — this is the second time on this page (see `--scale`) that a line survived the thing
+# that retired it. ⚠ **A standing refusal whose premise names another feature has an expiry date, and
+# this file cannot check that one.** The property-level expiry above only fires once someone has
+# already written the reader.
 #
-# Closing either needs the renderer to composite a transformed subtree — an offscreen target and a
-# matrix, which is the same compositor `DrawListBuilder`'s opacity remark already says is owed.
-rotate                       #23  a rotated box is not a rectangle, and neither is its clip
-scale                        #23  the box scales in four multiplications; the glyphs in it do not
+# What it took, and every clause survives inside it. A transform opens a composited group — the fifth
+# thing that does, after opacity, filter, mask and backdrop, and CSS agrees that this is the seam:
+# Transforms 1 §3 makes any transform other than `none` a stacking context, in the sentence shape
+# Filter Effects uses for `filter`.
+#
+#   A `DrawCommand` is *still* an axis-aligned rectangle, and no rotated one was invented. The subtree
+#   rasterises into its surface upright, at the coordinates it always had, and only the four vertices
+#   of the *composite quad* move. A rotated clip is *still* not a rectangle and is still never asked
+#   for: a transformed element's own `overflow: hidden` cuts in its local space, which is exactly what
+#   §3 specifies, and an ancestor's clip stays an axis-aligned scissor in the ancestor's space, which
+#   is also what §3 specifies. The bounding-box approximation the refusal warned against is not used
+#   to paint anything — `UiTransform.Bounds` decides how much surface to keep, and the picture inside
+#   it is drawn exactly.
+#
+#   Glyphs are *still* shaped once, at their layout size, and nothing was re-shaped. The surface is
+#   scaled rather than the text, which is what keeps the transform out of layout — and it is also
+#   what a browser does for a composited transform. The stated cost of that is fidelity, not
+#   correctness: text scaled well past 1 is soft rather than re-hinted. That is a gap worth naming
+#   and is not a consumption one, so it has no line here.
+#
+# ⚠ What it did *not* cost is worth as much as what it did. No shader, no vertex format, no executor
+# branch for the composite itself. Both executors already interpolate a quad's texture coordinate
+# linearly across its two triangles, and an affine map is exactly the class for which that is exact
+# rather than approximate — so moving four positions and leaving four coordinates alone *is* the
+# transform. `perspective` is a different feature for that reason and not merely a bigger one: a
+# projective map needs a `w` this vertex format has nowhere to put.
+#
+# ⚠ Two places did have to be told, and both are the same shape. `UiRenderer.BlurSurface` and
+# `ShadowSurface` convolve a group's surface by drawing *through* its composite quad, which is only
+# correct while the quad and the surface share a space — under a transform they do not, so both fall
+# back to the full-region sweep already written for backdrops. And `backdrop-filter` is refused on a
+# transformed group rather than approximated: it is the one surface holding something the group did
+# not draw, so a rotated backdrop quad would have to sample a rotated window of a captured picture.
+# Recorded in `UiGeometryBuilder.Layer`, where it is dropped, and in docs/plan/43 as A7's remainder.
+#
+# See `UiTransform`, `Vixen.Ui.Tests.TransformTests` for the pointer agreeing with the picture,
+# `Vixen.Ui.Controls.Tests.TransformPaintTests` for what each transform *is* — probes chosen to fail
+# for the neighbouring transform, because any transform opens a group and so moves every observable
+# the draw list has — and `Vixen.Graphics.Golden.Tests.UiCompositingTests` for the two paths agreeing.
+#
+# ⚠ Still absent and *not* a missing reader, so no line here either: `transform` itself. There is no
+# `<transform-function>` parser — no `matrix()`, `rotate()`, `scale()`, `skew()` — and no list-of-
+# functions in `StyleValue`, so `skew-*` and the whole `transform: …` shorthand are a parser away
+# rather than a renderer away. The 3D family is further out: `perspective`, `transform-style` and
+# `backface-visibility` need a third axis and a projective composite, which `UiTransform` is
+# deliberately unable to express.
 
 # ── Filters — A8. CLOSED for blur, and it was the same shape as the transforms above: `blur-2` wrote
 # a number into `--blur`, a name of this engine's own invention that no assembler and no engine — this

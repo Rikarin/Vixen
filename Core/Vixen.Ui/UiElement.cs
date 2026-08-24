@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
+using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
 
@@ -1180,7 +1181,43 @@ public partial class UiElement : Composition.IComposable {
     public float AbsoluteTop { get; internal set; }
 
     /// <summary>Where it is in document space, after the last layout pass.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its untransformed box, and that stays true under <see cref="Transform" />.</b> A
+    ///     rotated element is not a rectangle, so there is no honest rectangle this could return for
+    ///     one; what it returns is the box layout gave it, which is what every existing caller — arrow
+    ///     navigation, scroll-into-view, the editor's overlays — actually wants. A caller that needs
+    ///     the painted extent asks <see cref="UiTransform.Bounds" /> for it and gets a bound rather
+    ///     than a box, which is the distinction worth making the caller state.
+    /// </remarks>
     public Rectangle Bounds => new(AbsoluteLeft, AbsoluteTop, Width, Height);
+
+    /// <summary>The affine its <c>rotate</c> and <c>scale</c> paint it under, or null for neither.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Paint and hit testing only — layout has never seen it and must not.</b> CSS
+    ///         Transforms 1 §3 applies a transform after layout, so this element still occupies
+    ///         <see cref="Bounds" />, its siblings do not move for it, and its parent does not resize
+    ///         around it. <c>UiDocument.Accumulate</c> composes it and deliberately does not pass it
+    ///         down: the children accumulate from the untransformed position and are carried along by
+    ///         this element's composited group instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null and not <see cref="UiTransform.Identity" />, and the distinction is a
+    ///         viewport-sized surface.</b> A non-null value is what makes
+    ///         <c>DrawListBuilder</c> open a composited group for the subtree, which costs a surface
+    ///         and a render pass; <c>rotate: 0deg</c> is written far too often for that to be spent on
+    ///         a picture that is identical either way. <see cref="TransformReader" /> collapses an
+    ///         identity composition back to null for exactly that.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Six floats on every element, which is a cost this class does not normally pay.</b>
+    ///         The alternative is for the hit test to re-read the two properties off the computed style
+    ///         on every element of every pointer move — this is a nullable struct precisely so the
+    ///         common answer is a null check rather than two dictionary lookups. It is stored rather
+    ///         than recomputed for the same reason <see cref="AbsoluteLeft" /> is.
+    ///     </para>
+    /// </remarks>
+    public UiTransform? Transform { get; internal set; }
 
     /// <summary>
     ///     Whether a pointer can land on it. <c>pointer-events: none</c> and

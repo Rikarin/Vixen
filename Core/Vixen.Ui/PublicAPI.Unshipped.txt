@@ -185,6 +185,8 @@ Vixen.Ui.DrawCommand.SourceSlice.get -> Vixen.Core.Mathematics.NineSlice
 Vixen.Ui.DrawCommand.SourceSlice.init -> Vixen.Core.Mathematics.NineSlice
 Vixen.Ui.DrawCommand.Thickness.get -> float
 Vixen.Ui.DrawCommand.Thickness.init -> float
+Vixen.Ui.DrawCommand.Transform.get -> Vixen.Ui.Rendering.UiTransform?
+Vixen.Ui.DrawCommand.Transform.init -> Vixen.Ui.Rendering.UiTransform?
 Vixen.Ui.DrawCommand.Width.get -> float
 Vixen.Ui.DrawCommand.Width.init -> float
 Vixen.Ui.DrawCommand.X.get -> float
@@ -681,6 +683,8 @@ Vixen.Ui.Rendering.UiLayer.Shadow.init -> Vixen.Ui.Rendering.UiDropShadow?
 Vixen.Ui.Rendering.UiLayer.ShadowDraw.get -> int
 Vixen.Ui.Rendering.UiLayer.ShadowImage.get -> ulong
 Vixen.Ui.Rendering.UiLayer.ShadowImage.init -> ulong
+Vixen.Ui.Rendering.UiLayer.Transform.get -> Vixen.Ui.Rendering.UiTransform?
+Vixen.Ui.Rendering.UiLayer.Transform.init -> Vixen.Ui.Rendering.UiTransform?
 Vixen.Ui.Rendering.UiLayer.UiLayer() -> void
 Vixen.Ui.Rendering.UiLayer.UiLayer(int First, int Count, Vixen.Core.Mathematics.Rectangle Bounds, float Alpha) -> void
 Vixen.Ui.Rendering.UiMask -> readonly struct
@@ -717,6 +721,28 @@ Vixen.Ui.Rendering.UiShape.Stops.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.UiShape() -> void
 Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Vector2 gradientAxis, float blur = 0) -> void
 Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Ui.GradientShape shape, Vixen.Ui.GradientSpace space, Vixen.Core.Mathematics.Vector2 gradientAxis, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Color4 gradientVia, bool hasVia, Vixen.Ui.GradientStops stops, float blur = 0) -> void
+Vixen.Ui.Rendering.UiTransform -> readonly struct
+Vixen.Ui.Rendering.UiTransform : System.IEquatable<Vixen.Ui.Rendering.UiTransform>
+Vixen.Ui.Rendering.UiTransform.Apply(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiTransform.Bounds(Vixen.Core.Mathematics.Rectangle rectangle) -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiTransform.Determinant.get -> float
+Vixen.Ui.Rendering.UiTransform.Dx.get -> float
+Vixen.Ui.Rendering.UiTransform.Dx.init -> float
+Vixen.Ui.Rendering.UiTransform.Dy.get -> float
+Vixen.Ui.Rendering.UiTransform.Dy.init -> float
+Vixen.Ui.Rendering.UiTransform.Invert() -> Vixen.Ui.Rendering.UiTransform?
+Vixen.Ui.Rendering.UiTransform.IsIdentity.get -> bool
+Vixen.Ui.Rendering.UiTransform.M11.get -> float
+Vixen.Ui.Rendering.UiTransform.M11.init -> float
+Vixen.Ui.Rendering.UiTransform.M12.get -> float
+Vixen.Ui.Rendering.UiTransform.M12.init -> float
+Vixen.Ui.Rendering.UiTransform.M21.get -> float
+Vixen.Ui.Rendering.UiTransform.M21.init -> float
+Vixen.Ui.Rendering.UiTransform.M22.get -> float
+Vixen.Ui.Rendering.UiTransform.M22.init -> float
+Vixen.Ui.Rendering.UiTransform.Then(in Vixen.Ui.Rendering.UiTransform then) -> Vixen.Ui.Rendering.UiTransform
+Vixen.Ui.Rendering.UiTransform.UiTransform() -> void
+Vixen.Ui.Rendering.UiTransform.UiTransform(float M11, float M12, float M21, float M22, float Dx, float Dy) -> void
 Vixen.Ui.Rendering.UiVertex -> readonly struct
 Vixen.Ui.Rendering.UiVertex : System.IEquatable<Vixen.Ui.Rendering.UiVertex>
 Vixen.Ui.Rendering.UiVertex.Color.get -> Vixen.Core.Mathematics.Color4
@@ -1042,6 +1068,7 @@ Vixen.Ui.UiElement.Text.get -> string?
 Vixen.Ui.UiElement.Text.set -> string?
 Vixen.Ui.UiElement.TextIndent.get -> float
 Vixen.Ui.UiElement.Top.get -> float
+Vixen.Ui.UiElement.Transform.get -> Vixen.Ui.Rendering.UiTransform?
 Vixen.Ui.UiElement.UiElement() -> void
 Vixen.Ui.UiElement.Width.get -> float
 Vixen.Ui.UiElement.ZIndex.get -> int
@@ -1185,6 +1212,9 @@ static Vixen.Ui.Rendering.UiLayer.KernelRadius(float blur, float scale) -> int
 static Vixen.Ui.Rendering.UiMask.Compose(Vixen.Ui.Rendering.MaskComposite composite, float source, float backdrop) -> float
 static Vixen.Ui.Rendering.UiMask.Coverage(System.ReadOnlySpan<Vixen.Ui.Rendering.UiMask> masks, Vixen.Core.Mathematics.Vector2 point) -> float
 static Vixen.Ui.Rendering.UiMask.Hidden.get -> Vixen.Ui.Rendering.UiMask
+static Vixen.Ui.Rendering.UiTransform.Identity.get -> Vixen.Ui.Rendering.UiTransform
+static Vixen.Ui.Rendering.UiTransform.Rotation(float degrees, Vixen.Core.Mathematics.Vector2 about) -> Vixen.Ui.Rendering.UiTransform
+static Vixen.Ui.Rendering.UiTransform.Scale(float x, float y, Vixen.Core.Mathematics.Vector2 about) -> Vixen.Ui.Rendering.UiTransform
 static Vixen.Ui.SvgPath.Parse(string data) -> Vixen.Ui.PathBuilder
 static Vixen.Ui.SvgPath.TryParse(string? data) -> Vixen.Ui.PathBuilder?
 static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize

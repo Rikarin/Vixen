@@ -1348,21 +1348,59 @@ public static class UtilityFamilies {
         // wrong name. See the closed block in `InertProperties.txt`.
         //
         // The two translations are composed now — a fragment each, and one `translate` between them
-        // — and the engine reads `translate` in `UiDocument.Accumulate`. `scale` and `rotate` emit
-        // the properties CSS actually has, and nothing reads either yet; their debt is recorded
-        // against those names, so the day a reader arrives the gate's expiry check is what says so.
+        // — and the engine reads `translate` in `UiDocument.Accumulate`.
+        //
+        // ⚠ <b>And `scale` and `rotate` are read now too, which retired the refusal that used to be
+        // the rest of this remark.</b> Both are composed into a `UiTransform` in the same accumulation
+        // pass, `DrawListBuilder` opens a composited group for either, and the matrix is spent on the
+        // composite quad's four vertices — so a `DrawCommand` is still an axis-aligned rectangle and
+        // a clip is still a rectangle, which is what the refusal was protecting. See the closed block
+        // in `InertProperties.txt`, which is worth reading before adding to this section: the refusal
+        // was never wrong, its premise was "once the offscreen compositor exists", and it outlived
+        // that by a week because nobody re-read it.
         Translate("translate-x", UtilityComposition.TranslateX);
         Translate("translate-y", UtilityComposition.TranslateY);
 
         // ⚠ <b>A percentage, because Tailwind's scale runs in hundredths.</b> `scale-150` is one and
         // a half, not a hundred and fifty — v4 emits `scale: 150%` and CSS reads a percentage on this
         // property as a ratio. Emitting the bare count, which is what `Number` did into `--scale`,
-        // would make `scale-150` mean a hundred and fifty times the size the day something read it.
+        // would make `scale-150` mean a hundred and fifty times the size.
         CountTemplate("scale", "{0}%", "scale");
+
+        // ⚠ <b>Per-axis, on the translations' mechanism exactly, and it needed the reader before it
+        // could be honest.</b> These two were refused as "shadowed by `scale`, which is itself
+        // inert" — a per-axis family over a refused property being inert by construction. That is
+        // no longer the case, and the composition is the same one the translations use for the same
+        // reason: CSS's `scale` takes both axes in one declaration, so `scale-x-150 scale-y-50` has
+        // to arrive as one of them. The fragments' initial value is <b>one</b> and not zero — see
+        // `UtilityComposition`, where getting that wrong would make a lone `scale-x-*` collapse the
+        // other axis to nothing.
+        Scale("scale-x", UtilityComposition.ScaleX);
+        Scale("scale-y", UtilityComposition.ScaleY);
 
         // ⚠ And an angle, for the same class of reason: `rotate: 45` is not a value CSS has. The unit
         // is the whole difference between a declaration a browser honours and one it drops.
         CountTemplate("rotate", "{0}deg", "rotate");
+
+        // ⚠ <b>The third refusal this section retired, and the only one that was refused as
+        // <i>unobservable</i> rather than merely unread.</b> Doc 43 § C6 struck `origin-*` because
+        // "`transform-origin` moves no channel, and cannot: it needs a transform whose fixed point
+        // matters, and `translate` — the one transform the engine implements — is origin-independent."
+        // Both halves were true and the second stopped being so with `rotate` and `scale`: a rotation
+        // about a corner is a different picture from one about the centre, which is asserted against
+        // pixels in `TransformPaintTests`. The refusal named its own condition and nothing was
+        // watching for it — the third time on this page.
+        Keywords("origin", "transform-origin", new() {
+            ["center"] = "center",
+            ["top"] = "top",
+            ["top-right"] = "top right",
+            ["right"] = "right",
+            ["bottom-right"] = "bottom right",
+            ["bottom"] = "bottom",
+            ["bottom-left"] = "bottom left",
+            ["left"] = "left",
+            ["top-left"] = "top left"
+        });
 
         // ── Transitions ─────────────────────────────────────────────────────────────────────
         Register(new Family("transition", ValueKind.Static, ["transition-property"], new Dictionary<string, string>(StringComparer.Ordinal) {
@@ -1452,12 +1490,21 @@ public static class UtilityFamilies {
         //   either, since F6 refused pseudo-elements rather than building them.
         //
         //   <b>2. The property is inert and already allow-listed, so the shadowed root inherits a
-        //   debt rather than adding one.</b> `scale-x/y/z-*` and `rotate-x/y/z-*`. `scale` and
-        //   `rotate` are `#23` in `InertProperties.txt`, refused at the draw list because a rotated
-        //   box is not a rectangle and a scaled subtree needs re-shaping; a per-axis family over a
-        //   refused property is inert by construction. The three `-z` and two 3D rotations are
-        //   further out still: `transform` and `perspective` are not interned anywhere and measure
-        //   inert too.
+        //   debt rather than adding one.</b> ⚠ <b>This category is now EMPTY, and how it emptied is
+        //   the warning worth keeping.</b> It held `scale-x/y/z-*` and `rotate-x/y/z-*` on the
+        //   grounds that `scale` and `rotate` were `#23` in `InertProperties.txt` — "a per-axis
+        //   family over a refused property is inert by construction", which was sound reasoning over
+        //   a premise that had expired. Both properties are read now, `scale-x-*` and `scale-y-*`
+        //   are registered above, and nothing in this file or in the gate could have said so: a
+        //   refusal that *cites* another refusal inherits its expiry date, and no test checks either.
+        //
+        //   What is left of the six is not category 2. `scale-z-*`, `rotate-x/y/z-*` and
+        //   `translate-z-*` are category 4: v4 emits them through `transform: rotateX(45deg)`, and
+        //   there is no `<transform-function>` parser here — no `matrix()`, no `rotate()`, no list of
+        //   functions in `StyleValue` — so they are a parser away rather than a renderer away. The
+        //   three-dimensional ones additionally need an axis and a projective composite that
+        //   `UiTransform` is deliberately unable to express. `skew-*` is in the same position for the
+        //   same reason.
         //
         //   ⚠ <b>3. The property is READ, and the value is refused — so the gate stays green over a
         //   class that paints nothing.</b> The dangerous kind, and the one this table has to catch
@@ -2672,6 +2719,25 @@ public static class UtilityFamilies {
             ValueKind.Size,
             [fragment],
             Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
+        ));
+
+    /// <summary>Registers one axis of a composed <c>scale</c>.</summary>
+    /// <param name="name">The utility prefix.</param>
+    /// <param name="fragment">The <c>--tw-*</c> name this axis writes.</param>
+    /// <remarks>
+    ///     ⚠ <see cref="Translate" />'s shape with one difference that matters:
+    ///     <see cref="ValueKind.CountTemplate" /> rather than <see cref="ValueKind.Size" />, because a
+    ///     scale's count is a percentage and not a length. <c>scale-x-150</c> is one and a half;
+    ///     resolving it through the spacing scale, which is what <c>Size</c> does, would make it six
+    ///     hundred pixels of nothing.
+    /// </remarks>
+    static void Scale(string name, string fragment) =>
+        Register(new Family(
+            name,
+            ValueKind.CountTemplate,
+            [fragment],
+            Template: "{0}%",
+            Alongside: [new UtilityDeclaration("scale", UtilityComposition.Scaling())]
         ));
 
     static void Number(string name, params string[] properties) =>

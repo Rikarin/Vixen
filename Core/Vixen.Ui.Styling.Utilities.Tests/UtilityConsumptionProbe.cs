@@ -37,7 +37,7 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 /// </remarks>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This list is the gate's standing weakness, and it has been wrong six times where the
+///         ⚠ <b>This list is the gate's standing weakness, and it has been wrong seven times where the
 ///         gate's logic has been wrong none.</b> A family measures inert when no scene puts it in the
 ///         situation it needs — which is indistinguishable, from inside the probe, from a family the
 ///         engine genuinely does not read. <b>So a green ledger is a claim about these arrangements,
@@ -57,6 +57,11 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         reference <c>Vixen.Ui.Controls</c>. Needed the reference and a child icon.</item>
 ///         <item><c>overflow-x</c>/<c>overflow-y</c> — inert for real, but the scene that would have
 ///         noticed them becoming real did not exist until the clip landed.</item>
+///         <item><c>transform-origin</c> — the property names a transform's fixed point, and no scene
+///         had a transform whose fixed point mattered. <c>translated</c> could not have been it: a
+///         translation is origin-independent by construction, which is why doc 43 § C6 called this one
+///         <i>unobservable</i> rather than unread. Needed <c>turned</c>, and needed <c>rotate</c> and
+///         <c>scale</c> to be implemented first.</item>
 ///     </list>
 ///     <para>
 ///         ⚠ <b>The shape to watch for: a new engine feature usually needs a new scene, and the person
@@ -557,6 +562,36 @@ static class UtilityConsumptionProbe {
             #host  { display: flex; flex-direction: row; width: 120px; height: 46px; overflow: hidden; }
             #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
                      translate: 12px 6px;
+                     border-width: 2px; border-color: #c02020;
+                     background-color: #204080; color: #e0e0e0; }
+            #after { width: 96px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
+        // ⚠ <b>A probe that is already rotated, which is the only situation <c>transform-origin</c>
+        // can be seen in — and the sixth instance of the lesson the five scenes around it record.</b>
+        // The property names the fixed point of a transform. With no transform there is no fixed
+        // point, so moving it changes nothing, and the family measures inert however good the reader
+        // is. `translated` next door cannot supply it either, and that is the sharp part: a
+        // translation moves every point of a box by the same vector, so its result is
+        // origin-*independent* by construction. Doc 43 § C6 refused `origin-*` on exactly that
+        // observation and called the property "unobservable" rather than "unread" — which was right
+        // about `translate` and stopped being right the moment `rotate` and `scale` were implemented.
+        //
+        // ⚠ <b>So this scene is not a workaround for a gate that cannot see; it is the arrangement in
+        // which the question means anything.</b> It landed in the same commit as the reader rather
+        // than after it, which is the order `inlined` established and the one that stops this file
+        // reporting a gap that has already closed.
+        //
+        // The rotation is deliberately not a multiple of ninety degrees — a quarter turn about the
+        // centre and a quarter turn about a corner differ by a translation, which the paint signature
+        // sees, but the odd angle also moves the group's ink bounds and so cannot be mistaken for one.
+        new(
+            "turned",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; overflow: hidden; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                     rotate: 20deg; scale: 110%;
                      border-width: 2px; border-color: #c02020;
                      background-color: #204080; color: #e0e0e0; }
             #after { width: 96px; height: 20px; background-color: #a0a040; }

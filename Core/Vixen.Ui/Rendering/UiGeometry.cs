@@ -289,6 +289,42 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </remarks>
     public Rectangle BackdropBounds { get; init; }
 
+    /// <summary>The affine this group's <c>rotate</c> and <c>scale</c> place its surface under.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Already spent on the composite quad's vertices, and carried anyway for one
+    ///         consumer and one reader.</b> Unlike <see cref="Filter" /> or <see cref="Shadow" />,
+    ///         nothing has to <i>apply</i> this: <c>UiGeometryBuilder.Layer</c> emits the composite
+    ///         quad's four positions already transformed, and both executors then draw a quad the way
+    ///         they draw every quad — the software one interpolates the texture coordinate
+    ///         barycentrically and the device rasterises two triangles. An affine map is exactly the
+    ///         class for which that interpolation is exact, so the whole feature costs no shader, no
+    ///         vertex format and no executor branch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The consumer is <c>UiRenderer.BlurSurface</c>, and it is the one place a transform
+    ///         cannot be left baked in.</b> That method convolves the group's surface by drawing
+    ///         <i>through</i> the composite quad's geometry — cheaper than a full-screen sweep, and
+    ///         correct only while the quad and the surface are in the same space. Under a transform
+    ///         they are not: the surface holds the group untransformed and the quad no longer covers
+    ///         it, so a `blur-*` on a rotated panel would convolve a rotated footprint of an
+    ///         axis-aligned picture. The renderer reads this field to fall back to the full-screen
+    ///         sweep it already has for backdrops, which is correct at any transform and merely
+    ///         slower.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Bounds" /> stays untransformed, and must.</b> It is the region of the
+    ///         surface the group inks and the region both executors clear and blur — all of which
+    ///         happen before the transform exists. The transformed extent appears only as the
+    ///         composite quad's positions.
+    ///     </para>
+    ///     <para>
+    ///         Null and not the identity, for <see cref="Filter" />'s reason and
+    ///         <see cref="UiTransform" />'s.
+    ///     </para>
+    /// </remarks>
+    public UiTransform? Transform { get; init; }
+
     /// <summary>Where this group's own composite draw sits in <see cref="UiGeometry.Draws" />.</summary>
     /// <remarks>
     ///     ⚠ <b>A property rather than the arithmetic written out, because the arithmetic changed and

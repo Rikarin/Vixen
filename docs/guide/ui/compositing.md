@@ -3,9 +3,9 @@ title: Compositing groups
 slug: ui/compositing
 kind: guide
 area: Core
-summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, how a backdrop filter is a replay of the draw-list prefix rather than a read-back and what that cost the compositor's walk, and what gradient text would still need on top of it.
-api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiBackdrop, T:Vixen.Ui.Renderer.UiBackdropSource, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite]
-tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, drop-shadow, backdrop-filter, mask, mask-image, mask-composite]
+summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, how a backdrop filter is a replay of the draw-list prefix rather than a read-back and what that cost the compositor's walk, what gradient text would still need on top of it, and how `rotate` and `scale` ride the composite quad's four vertices for the price of no shader at all.
+api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiBackdrop, T:Vixen.Ui.Renderer.UiBackdropSource, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite, T:Vixen.Ui.Rendering.UiTransform]
+tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, filters, grayscale, colour-matrix, drop-shadow, backdrop-filter, mask, mask-image, mask-composite, transform, rotate, scale]
 since: 0.2
 status: preview
 related: [ui/gradients, ui/utility-composition]
@@ -17,9 +17,12 @@ A **composited group** is a subtree of the interface that is drawn into a surfac
 blended back into the frame as a single image. `UiLayer` is the record that describes one: which
 draws belong to it, how big its surface has to be, and what it is faded by.
 
-Two things open a group: an element whose `opacity` is below one, and an element with a `filter`.
-The difference between them is worth stating up front, because it is why the second one could not be
-approximated while the compositor was being built. An opacity *can* be faded element by element —
+Five things open a group: an element whose `opacity` is below one, an element with a `filter`, one
+with a `mask`, one with a `backdrop-filter`, and one with a `rotate` or a `scale`.
+
+The difference between the first two is worth stating up front, because it is why the second could
+not be approximated while the compositor was being built. An opacity *can* be faded element by
+element —
 badly, but visibly — whereas a filter is a function of the rasterised subtree. With no surface there
 is nothing to convolve, and pushing a colour matrix down onto each command instead would be right on
 a bare panel and wrong the moment two of the group's children overlap with partial coverage: CSS
@@ -34,7 +37,7 @@ The pieces, top to bottom:
 
 | Where | What it does |
 |---|---|
-| `DrawListBuilder` | Brackets a translucent element's subtree with `LayerPush` / `LayerPop` |
+| `DrawListBuilder` | Brackets a translucent, filtered, masked or transformed subtree with `LayerPush` / `LayerPop` |
 | `DrawBatcher` | Gives each bracket a `BatchKind.Layer` batch of its own, never merged |
 | `UiGeometryBuilder` | Resolves the brackets into `UiGeometry.Layers`, outsets the bounds by a blur, and emits the compositing quad |
 | `UiRenderer.Compose` | Renders each group's pass on the device, sweeps a blur over the ones that ask, and hands each group's colour matrix to its composite draw |
@@ -537,6 +540,82 @@ change `UiLayer` argues against, and it cannot be pooled away: every group's sur
 when the frame's own pass samples it. What has changed is the *case* for making it — the time
 argument is now mostly spent, so what is left to buy is memory alone.
 
+### `rotate` and `scale`
+
+A transform is the fifth thing that opens a group, and the only one where the group is not an
+isolation but a change of coordinates:
+
+```css
+.badge { rotate: -12deg; scale: 110%; }
+```
+
+**A `DrawCommand` is an axis-aligned rectangle, and none of them was rotated.** That is worth stating
+first because it was the standing reason this could not be done. The subtree rasterises into the
+group's surface exactly as it always did — upright, every command a rectangle, every clip a rectangle
+— and the matrix is spent on the four vertex positions of the *composite quad*. CSS agrees that this
+is the seam: Transforms 1 § 3 makes any transform other than `none` a stacking context, in the
+sentence shape Filter Effects uses for `filter`.
+
+⚠ **It costs no shader and no vertex format.** Both executors already interpolate a quad's texture
+coordinate linearly across its two triangles, and an affine map is exactly the class for which that
+interpolation is *exact* rather than approximate — so the two triangles agree along the shared
+diagonal and no seam appears. Moving four positions and leaving four coordinates alone is the whole
+of it. `perspective` is a different feature rather than a bigger one, for the same reason: a
+projective map needs a `w` this vertex format has nowhere to put, which is why `UiTransform` is a 2D
+affine and cannot express one.
+
+**Layout never sees it, and neither does the subtree's own geometry.** `UiDocument.Accumulate`
+composes the matrix per element and deliberately does not pass it down — children accumulate from the
+untransformed position and are carried along by the group. A scaled element keeps the space layout
+gave it, so `scale: 150%` overflows its row rather than widening it, which is what Transforms 1 § 3
+requires. It is also what keeps glyphs out of it: text is shaped once at its layout size and the
+*surface* is scaled, never re-shaped.
+
+⚠ **The pointer is transformed too, and in one line.** `UiDocument.HitTest` maps the point through
+the inverse at the top of the walk, before anything looks at it, so `Contains` and `Cut` go on
+comparing the absolute rectangles they always compared. Nested transforms compose because the
+recursion does. A transformed element whose hit test was untransformed is a control you can see and
+cannot click, which is worse than an unimplemented one — `Vixen.Ui.Tests.TransformTests` is what holds
+the two together.
+
+**A degenerate transform paints nothing.** `scale: 0` has no inverse, so the subtree is skipped
+outright — the same treatment `opacity: 0` gets, and the hit test refuses it through the same
+singular matrix rather than leaving an invisible control taking clicks.
+
+#### What a transform costs, and the two places it is not free
+
+⚠ **A viewport-sized surface and a render pass per transformed element.** This is the real price and
+it is the same one `opacity` pays. It is fine for a panel and expensive for a list of rotated
+chevrons; there is no per-command fast path, because there is no rotated `DrawCommand` to fast-path
+to. An identity — `rotate: 0deg`, `scale: 100%` — is collapsed back to nothing before a group is
+opened, which matters because those are written constantly.
+
+⚠ **A blur or a drop shadow on a transformed group takes a slower sweep.** `UiRenderer.BlurSurface`
+and `ShadowSurface` convolve a group's surface by drawing *through* its composite quad, which is
+correct only while the quad and the surface share a space — under a transform they do not. Both fall
+back to the full-region sweep already written for backdrops: correct at any transform, and it costs
+the whole target rather than the group's rectangle. `SoftwareUiRasterizer` convolves the whole buffer
+either way, so this is a divergence only `UiCompositingTests` can see, and it is in that fixture.
+
+⚠ **`backdrop-filter` is refused on a transformed group** rather than approximated. It is the one
+surface holding something the group did not draw, so a rotated backdrop quad would have to sample a
+rotated window of a captured picture — four texture coordinates that are no longer an axis-aligned
+rectangle, and a capture region that is no longer the border box. Sampling the untransformed patch
+instead would show the scene from where the element *was*. `UiGeometryBuilder.Layer` drops the
+backdrop and the group composites normally.
+
+⚠ **A transform cannot bring on-screen what was never rasterised.** The surface is the viewport's
+size and holds the group at the coordinates it always had, so an element mostly outside the viewport
+and scaled down to fit shows only the part that was already visible. An *ancestor's* clip does not
+have this problem — the clip is pulled back through the transform before it narrows the group's
+bounds, so a rotated panel near a clipped edge keeps the corner the rotation swings into view.
+
+**Not implemented:** `transform` itself, and `skew-*` with it. There is no `<transform-function>`
+parser — no `matrix()`, `rotate()`, `scale()` or `skew()`, and no list-of-functions in `StyleValue` —
+so those are a parser away rather than a renderer away. The 3D family (`perspective`,
+`transform-style`, `backface-visibility`, the `-z` axes) needs a third axis and a projective
+composite as well.
+
 ### What a group does not change
 
 **Positions.** `UiDocument.Accumulate` is where the draw list, hit testing and arrow navigation agree
@@ -544,6 +623,10 @@ about where an element is. A composited subtree keeps its document coordinates �
 consequence of the viewport-sized surface above — so a click still lands on the element it looks like
 it landed on. There is a test for it rather than only an argument, because the argument stops being
 true the moment somebody shrinks a surface to its group to save memory.
+
+⚠ `rotate` and `scale` are the exception and prove the rule: they *do* move where a click lands, and
+they are the only group cause that does. What keeps them honest is not that positions are untouched
+but that one matrix is applied in both places — see the section above.
 
 **The clip stack.** A group's compositing quad carries the scissor that was in force where the group
 opened, so a group inside `overflow: hidden` composites inside it. A group's own `overflow` clip is

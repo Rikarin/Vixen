@@ -387,6 +387,37 @@ public readonly record struct DrawCommand(
     public UiBackdrop? Backdrop { get; init; }
 
     /// <summary>
+    ///     The affine a composited group's <c>rotate</c> and <c>scale</c> place its surface under, or
+    ///     null where there is none. Unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On the group and not on each command, which is what makes a transform representable
+    ///         at all.</b> A <see cref="DrawCommand" /> is an axis-aligned rectangle and there is no
+    ///         rotating one — that is not an omission to be fixed, it is what the kinds mean, and it is
+    ///         why this was refused for as long as there was nowhere else to put it. A composited group
+    ///         gives it somewhere else: the subtree rasterises into a surface at exactly the
+    ///         coordinates it always had, every command in it still axis-aligned and every clip in it
+    ///         still a rectangle, and the matrix moves the four vertices of the <i>composite</i>. CSS
+    ///         agrees that this is the right seam — Transforms 1 § 3 makes any transform other than
+    ///         <c>none</c> a stacking context, in the sentence shape Filter Effects uses for
+    ///         <c>filter</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Absolute, with <c>transform-origin</c> already folded in</b>, so that neither this
+    ///         type nor its consumers carry a second opinion about where an element turns about. See
+    ///         <see cref="UiTransform" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nullable for <see cref="Filter" />'s reason, and the default is worse here than
+    ///         there.</b> A zeroed <see cref="UiTransform" /> collapses the group to a point, so a
+    ///         consumer that read a default as "no transform" would draw nothing at all rather than
+    ///         something slightly wrong.
+    ///     </para>
+    /// </remarks>
+    public UiTransform? Transform { get; init; }
+
+    /// <summary>
     ///     The coverage a composited group's <c>mask-image</c> multiplies its surface by, as a range
     ///     of <see cref="DrawList.Masks" />. Unread on every kind but
     ///     <see cref="DrawCommandKind.LayerPush" />.

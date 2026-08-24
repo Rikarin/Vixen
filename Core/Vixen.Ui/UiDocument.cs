@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
@@ -64,6 +65,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int oblique;
     readonly OverflowReader overflow;
     readonly TranslationReader translation;
+    readonly TransformReader transform;
     /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
     /// <remarks>
     ///     A floor rather than a pure ratio, because the ratio alone would compact a four-element
@@ -156,6 +158,7 @@ public sealed partial class UiDocument : IDisposable {
         oblique = Styles.Values.Intern("oblique");
         overflow = new OverflowReader(Styles.Properties, Styles.Values);
         translation = new TranslationReader(Styles.Properties, Styles.Values, Styles.Names);
+        transform = new TransformReader(Styles.Properties, Styles.Values, Styles.Names);
         none = Styles.Values.Intern("none");
         InternCursors();
         InternContainers();
@@ -1852,6 +1855,36 @@ public sealed partial class UiDocument : IDisposable {
     }
 
     UiElement? HitTest(UiElement element, float x, float y) {
+        // ⚠ <b>The pointer is moved into the element's own space before anything else looks at it,
+        // and that one line is the whole of hit testing a transform.</b> A `rotate` or a `scale`
+        // paints this element and its subtree through a matrix; the untransformed geometry is still
+        // exactly where `Accumulate` left it, so mapping the point back through the inverse puts it
+        // in the space every rectangle below this line is already expressed in. `Contains`, `Cut` and
+        // the whole recursion are untouched — they go on comparing absolute rectangles, because after
+        // this line the point is absolute too.
+        //
+        // ⚠ <b>Nested transforms compose because the recursion does.</b> A rotated child of a scaled
+        // parent has its point mapped by the parent's inverse on the way in and by its own below
+        // that, which is the inverse of the composition the geometry builder paints with — the outer
+        // group's surface holds the inner group's already-transformed composite quad. Neither side
+        // knows about the other; they agree because both are the same matrix applied at the same
+        // point in the same walk.
+        //
+        // ⚠ <b>A degenerate transform swallows the subtree, and that is the correct answer rather
+        // than a guard.</b> `scale: 0` paints zero pixels, so no point on the screen is a click on it;
+        // `UiTransform.Invert` returns null and the walk stops here. Falling through to the
+        // untransformed box instead would leave a control that cannot be seen still taking the
+        // pointer, which is the invisible-hit-target bug from the other direction.
+        if (element.Transform is { } placed) {
+            if (placed.Invert() is not { } undo) {
+                return null;
+            }
+
+            var local = undo.Apply(new Vector2(x, y));
+            x = local.X;
+            y = local.Y;
+        }
+
         var inside = Contains(element, x, y);
 
         // ⚠ Being outside an element is not a reason to skip its children. `overflow: visible` is
@@ -1950,6 +1983,28 @@ public sealed partial class UiDocument : IDisposable {
 
         element.AbsoluteLeft = x + element.Left + element.OffsetX + dx;
         element.AbsoluteTop = y + element.Top + element.OffsetY + dy;
+
+        // ⚠ <b>`rotate` and `scale` land here too, and pointedly <i>not</i> in the sum above.</b> A
+        // translation is a position and can be added to one; a rotation and a scale change the box's
+        // shape, so there is no pair of numbers that could carry them and no accumulated rectangle
+        // that could describe the result. What the paragraphs above buy for `translate` — one value,
+        // two consumers, nothing to get out of step — is bought here a different way: one *matrix*,
+        // composed once with its origin already folded in, which the geometry builder applies to a
+        // composited group's four composite vertices and the hit test applies inverted to the
+        // pointer. Two applications of one matrix rather than two readings of one property.
+        //
+        // ⚠ <b>Read after the position is assembled, because the origin needs it.</b>
+        // `transform-origin` defaults to the border box's centre and the matrix is absolute, so
+        // `TransformReader.Of` reads `AbsoluteLeft`/`AbsoluteTop` — which are one line old at this
+        // point and would be a frame stale one line up.
+        //
+        // ⚠ <b>And deliberately not accumulated into the children.</b> The recursion below passes the
+        // *untransformed* position on, so a rotated panel's children lay out and hit-test where they
+        // always did and are carried along by the parent's group instead. That is what makes nested
+        // transforms compose for nothing — the inner group's composite quad is transformed by the
+        // inner matrix and then rasterised into the outer group's surface, which the outer matrix
+        // transforms in turn — and it is what stops a transform leaking into layout.
+        element.Transform = transform.Of(element, metrics);
 
         // ⚠ The children accumulate from the translated parent, so a transform moves the subtree —
         // CSS Transforms 1 §3, and the reason a translated panel takes its contents with it rather

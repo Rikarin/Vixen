@@ -1325,7 +1325,19 @@ public sealed class UiRenderer : IDisposable {
             && BlurSurface(
                 commands,
                 geometry,
-                layer.Composite,
+
+                // ⚠ <b>A transformed group is swept full-screen instead of through its own quad, and
+                // that is a correctness fallback rather than a tuning choice.</b> This method
+                // convolves the surface by drawing the named quad over it, which works only while the
+                // quad covers the part of the surface being blurred. `UiGeometryBuilder` bakes the
+                // matrix into the composite quad's four positions — see `UiLayer.Transform` — so under
+                // a `rotate-*` or a `scale-*` the quad has left the surface's space entirely, and
+                // sweeping through it would convolve a rotated footprint of an upright picture and
+                // leave everything outside it unblurred. The negative index is the full-region sweep
+                // `Capture` already uses for a backdrop, which is correct at any transform; it costs
+                // the whole target rather than the group's rectangle, on a frame that has asked for a
+                // blurred rotated panel.
+                layer.Transform is null ? layer.Composite : -1,
                 layer.Blur,
                 layer.Image,
                 target,
@@ -1815,8 +1827,21 @@ public sealed class UiRenderer : IDisposable {
             return Blank(commands, cast, region);
         }
 
+        // ⚠ <b>A transformed group is swept full-screen here for `BlurSurface`'s reason, and this is
+        // the second of the two places that has to know.</b> The silhouette is built in the surface's
+        // own space — un-displaced, upright, exactly as the group was rasterised — and the composite
+        // quad has left that space once the matrix is baked into its vertices. Sweeping through it
+        // would fill a rotated footprint and leave the rest of the silhouette empty, so a rotated
+        // panel's drop shadow would be a wedge. The displacement and the rotation are then applied
+        // where they belong, on the shadow's own quad, which `UiGeometryBuilder` transformed.
+        var fullscreen = layer.Transform is not null;
+
+        if (fullscreen && !fullscreenVertices.IsValid) {
+            return Blank(commands, cast, region);
+        }
+
         var quad = geometry.Draws[layer.Composite];
-        var scissor = Scissor(quad.Clip, surface, scale);
+        var scissor = fullscreen ? region : Scissor(quad.Clip, surface, scale);
 
         if (scissor.Width <= 0 || scissor.Height <= 0) {
             return Blank(commands, cast, region);
@@ -1854,7 +1879,7 @@ public sealed class UiRenderer : IDisposable {
                 )
             );
 
-            Sweep(commands, cast, quad, fullscreen: false, scissor, region, source, surface, 0f, 0f, sigma, 0);
+            Sweep(commands, cast, quad, fullscreen, scissor, region, source, surface, 0f, 0f, sigma, 0);
 
             commands.Barrier(
                 new(
@@ -1886,7 +1911,7 @@ public sealed class UiRenderer : IDisposable {
             )
         );
 
-        Sweep(commands, through, quad, fullscreen: false, scissor, region, source, surface, 1f / layerWidth, 0f, sigma, reach);
+        Sweep(commands, through, quad, fullscreen, scissor, region, source, surface, 1f / layerWidth, 0f, sigma, reach);
 
         // And down, into the shadow's own surface — which is where this differs from a blur, whose
         // second axis lands back where it started.
@@ -1902,7 +1927,7 @@ public sealed class UiRenderer : IDisposable {
 
         through.State = ResourceState.ShaderRead;
 
-        Sweep(commands, cast, quad, fullscreen: false, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
+        Sweep(commands, cast, quad, fullscreen, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
 
         // ⚠ Both in one barrier, and the group's surface is put *back* to being a colour target
         // rather than left readable. The loop that called this ends with one barrier taking it from

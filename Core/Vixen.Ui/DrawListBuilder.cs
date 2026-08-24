@@ -507,7 +507,43 @@ public sealed class DrawListBuilder {
         // knows what is under it.
         var backdrop = Backdrop(document, element);
 
-        var group = Compositing && (own < 1f || filters.Any || masks > 0 || backdrop is not null)
+        // ⚠ <b>The fifth reason to open a group, and the only one where the group is not an isolation
+        // but a change of coordinates.</b> The other four leave the subtree where it is and transform
+        // what came out of it; this one leaves what came out of it alone and moves it. What they share
+        // is the reason a surface is needed at all: a `DrawCommand` is an axis-aligned rectangle, so
+        // there is no per-command form of a rotation to push down — the same shape of argument as a
+        // colour matrix, arriving at the same seam from the other side.
+        //
+        // ⚠ <b>Read off the element rather than resolved here, because the hit test needs the same
+        // matrix and neither of them may own it.</b> `UiDocument.Accumulate` composes it once per
+        // pass, origin folded in; a transform painted from one composition and clicked through another
+        // is the failure `TransformTests` exists to make unstateable.
+        //
+        // ⚠ <b>And it is `Compositing`-gated with the rest, which is a real consequence rather than
+        // an oversight.</b> With compositing off there is no surface, so a rotated element paints
+        // unrotated — the same bargain the other four make, and the same one `UiLayer.Blur`'s remark
+        // describes for a consumer that ignores it. The hit test is not gated, so it would then be
+        // clicked where it is *not* drawn; that is stated in the guide rather than papered over,
+        // because the flag exists for tests that want a draw list with no brackets in it.
+        var placed = element.Transform;
+
+        // ⚠ <b>A degenerate transform skips the subtree outright, on `opacity: 0`'s terms and for a
+        // sharper reason.</b> `scale: 0` — and `scale: 1 0`, and any composition that collapses to a
+        // line — maps every point of the element to zero area, so there is nothing it could paint.
+        // Dropping it later, where the group is resolved, is *not* the same thing and was measured
+        // wrong: the subtree's own draws are appended as the walk descends, so a group discarded at
+        // the geometry stage leaves them behind and the element paints at full size, unscaled, which
+        // is the opposite of what was asked for. `scale-0` is a real class and a common way to hide
+        // something, so this is the ordinary path rather than an edge case.
+        //
+        // ⚠ Ungated by `Compositing`, unlike the group below, because this is not a compositing
+        // decision. An element scaled to nothing is invisible on any renderer, and the hit test
+        // refuses it through the same singular matrix — see `UiDocument.HitTest`.
+        if (placed is { } collapsed && collapsed.Invert() is null) {
+            return;
+        }
+
+        var group = Compositing && (own < 1f || filters.Any || masks > 0 || backdrop is not null || placed is not null)
             ? into.Count
             : -1;
 
@@ -527,6 +563,7 @@ public sealed class DrawListBuilder {
                     Filter = filters.Colour,
                     Shadow = filters.Shadow,
                     Backdrop = backdrop,
+                    Transform = placed,
 
                     // ⚠ The range is claimed even when the group turns out to be discarded a few
                     // lines below, and the entries it named are then simply unreferenced until the
@@ -590,9 +627,16 @@ public sealed class DrawListBuilder {
         // collapsed group has no surface *and no bracket*, so there is nothing left to say which
         // prefix of the frame the backdrop was to be captured from. A single background rectangle
         // under a `backdrop-blur-*` is precisely the shape of every glass panel there is.
+        // ⚠ `placed is null` joins the guard for the filter's reason and the starkest version of it: a
+        // rotated rectangle is not a fainter rectangle, and the collapse throws away the *bracket* —
+        // so a group folded here would lose the only thing carrying the matrix and paint the element
+        // square, at full strength, in the place it was not asked to be. A single background rectangle
+        // under a `rotate-*` or a `scale-*` is precisely the shape this branch catches, which is to say
+        // it is the commonest transformed element there is.
         if (!filters.Any
             && masks == 0
             && backdrop is null
+            && placed is null
             && drawn == 1
             && DrawList.Fadeable(into.Commands[group + 1])) {
             into.Collapse(group, inherited * own);
@@ -614,6 +658,7 @@ public sealed class DrawListBuilder {
                 Filter = filters.Colour,
                 Shadow = filters.Shadow,
                 Backdrop = backdrop,
+                Transform = placed,
 
                 // ⚠ The same range as the push names, and not a second copy of the entries.
                 // `UiGeometryBuilder.Layer` reads the push's copy and never this one — see its
