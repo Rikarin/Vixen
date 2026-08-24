@@ -238,6 +238,45 @@ public sealed class AddComponentMenuDumpTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>The key handler is on the picker's own element and not on a root beside it, which
+    ///     is the whole of what <c>&lt;self /&gt;</c> bought and is what nothing here could see.</b>
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Added because the test above does not distinguish the two, and that was checked
+    ///     rather than assumed.</b> <c>Arrowing_down_moves_the_highlight_and_rebuilds_no_row</c>
+    ///     presses Down while the focus is on the <c>SearchBox</c>, so the capture route runs
+    ///     root → picker → box — and a handler written on <c>&lt;SearchBox&gt;</c> instead of on
+    ///     <c>&lt;self /&gt;</c> is on that route as its target. Moving the attribute there leaves
+    ///     every other test in this file green; it was tried, and it passed.
+    ///
+    ///     The case that separates them is the one the four pickers stayed hand-written for: a key
+    ///     arriving while the focus is somewhere else in the panel. The list is not under the box,
+    ///     so a handler on the box is not on this route and the host is.
+    /// </remarks>
+    [Fact]
+    public void A_key_arriving_over_the_list_reaches_the_host_and_not_a_root_beside_it() {
+        using var editor = Selected();
+
+        var picker = Open(editor);
+
+        editor.Settle();
+
+        Assert.True(picker.Rows.Count > 1, "the fixture should offer more than one line");
+        Assert.True(picker.Rows[0].Selected);
+
+        var args = new KeyEvent { Key = Vixen.Input.InputKey.Down, Action = KeyAction.Pressed };
+
+        picker.List.Raise(args);
+        editor.Settle();
+
+        Assert.False(picker.Rows[0].Selected);
+        Assert.True(picker.Rows[1].Selected);
+
+        // Taken on the way down, which is the other half of being on the capture leg.
+        Assert.True(args.Handled);
+    }
+
+    /// <summary>
     ///     <c>Part&lt;ScrollView&gt;("add-component-list")</c>, said in markup, and still a scroller.
     /// </summary>
     /// <remarks>

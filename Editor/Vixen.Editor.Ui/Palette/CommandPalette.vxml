@@ -28,9 +28,21 @@
     about taste, and the two `hidden` rules this adds to the theme are what that advice asks for.
     The rendered result is the same and the dumps say so.
 
-    ⚠ **The two `AddHandler`s stay in `OnComposed`**, for `NodeSearchPopup`'s reason: the key handler
-    is on the **capture** leg, before the search box turns Down into caret movement, and
-    `BuildContext.Subscriptions` has no spelling for a routing strategy.
+    ⚠ ~~**The two `AddHandler`s stay in `OnComposed`**, for `NodeSearchPopup`'s reason: the key
+    handler is on the **capture** leg, before the search box turns Down into caret movement, and
+    `BuildContext.Subscriptions` has no spelling for a routing strategy.~~ **The key handler is
+    `<self on:keydown.capture>` since 2026-08-24**, and the stated reason was wrong twice: `capture`
+    was always a modifier and `keydown` is in the table since 2026-08-23. What was actually missing
+    was a tag for the host — the handler is on `this`, and a `.vxml`'s roots are its *children*, so
+    moving it onto `<SearchBox>` would have stopped hearing keys pressed over the list. `<self />` is
+    that tag. **No `.handled`**: this palette must not act on a key something downstream already
+    consumed — see the `Keyed` remarks.
+
+    The `ClickEvent` handler stays hand-written, and the reason is narrow rather than a gap.
+    `on:click` subscribes `ClickEvent` *and* `TapEvent` (`ControlMarkup`), and while a
+    `@((ClickEvent e) => …)` handler drops the tap leg in `On`'s type test, the tap subscription is
+    still made. That is a live subscription this panel did not have; it costs nothing and proves
+    nothing, so the one-line `AddHandler<ClickEvent>` stays as the narrower statement.
 -->
 @component CommandPalette
 @namespace Vixen.Editor.Ui
@@ -42,6 +54,8 @@
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive
 @using Vixen.Ui.Styling
+
+<self on:keydown.capture="@((KeyEvent e) => Keyed(e))" />
 
 <SearchBox ref="@Field" change:Value="@(_ => Refresh())" />
 
@@ -240,7 +254,10 @@
 
     /// <inheritdoc cref="NodeSearchPopup" />
     /// <remarks>
-    ///     ⚠ <b>Capture, which is what keeps these two out of the markup.</b> See the file header.
+    ///     ⚠ <b>The key handler is gone from here.</b> It is
+    ///     <c>&lt;self on:keydown.capture&gt;</c> in the markup above, on the same element this
+    ///     subscribed — see the file header. What is left is the overlay's own modes, the two
+    ///     strings, and the activation listener.
     /// </remarks>
     partial void OnComposed() {
         IsFocusScope = true;
@@ -250,10 +267,19 @@
         Field.Placeholder = EditorStrings.PalettePlaceholder.Text;
         EmptyPart.Text = EditorStrings.PaletteEmpty.Text;
 
-        AddHandler<KeyEvent>(static (element, args) => ((CommandPalette) element).Keyed(args), RoutingStrategy.Capture);
         AddHandler<ClickEvent>(static (element, args) => ((CommandPalette) element).Chosen(args));
     }
 
+    /// <summary>Down, Up and Enter, taken before the search box treats them as text editing.</summary>
+    /// <param name="args">The key press.</param>
+    /// <remarks>
+    ///     ⚠ <b>No <c>.handled</c> on the binding, deliberately.</b> This runs on the capture leg
+    ///     and <i>marks</i> the event handled; it has no business acting on one something else
+    ///     already consumed. The two panels that do take <c>.handled</c> —
+    ///     <c>KeyBindingsView</c> and <c>InputActionsView</c> — are recording a chord and have to
+    ///     see the key the dispatcher just ran a command for. A palette that did the same would run
+    ///     its highlighted command on a keystroke another handler had claimed.
+    /// </remarks>
     void Keyed(KeyEvent args) {
         if (args.Action != KeyAction.Pressed) {
             return;

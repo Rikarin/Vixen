@@ -1,0 +1,665 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 9. An action asset, open for editing: maps, actions, bindings and control
+    schemes, with press-the-key-you-want as a mode rather than a modal.
+
+    ⚠ **The last of the five capture-leg pickers, and the only one that had no `.vxml` at all.** The
+    other four were ported in wave 6 and kept a hand-written `AddHandler<KeyEvent>` because a
+    component's markup roots are its host's *children*; this one was never started, so the whole
+    chrome was still `OnCreated`. `<self on:keydown.capture.handled>` is the line the wave was
+    waiting for and the chrome came with it.
+
+    ⚠ **`.handled`, and this is one of only two panels in the tree that should have it.** The
+    modifier makes a handler run on events something downstream has already dealt with, which is a
+    behaviour change and not a free upgrade. It is right here for `KeyBindingsView`'s reason:
+    `CommandDispatcher` is attached to the document, so a panel recording *the key you pressed* has
+    to see that key whether or not it is already bound to a command. The three pickers —
+    `CommandPalette`, `NodeSearchPopup`, `AddComponentMenu` — must **not** have it: they act on the
+    key, and acting on one another handler has claimed is how a palette runs a command nobody chose.
+
+    ⚠ **The fields column stays imperative, and it is the ledger's shape 1 four times over.**
+    `Restate` builds a different form per selection — `Line` puts a `TextBox` in a `fact-row`,
+    `Choice` puts a `Select` in one and then calls `AddOption` once per enum member, `Resolved`
+    writes a parse result into a third — and `AddOption` is a call per item that no attribute
+    carries. A `@for` over "the fields of whatever is selected" would need a model that does not
+    exist here; what does exist is five branches of C# choosing which rows to build. `Fields` keeps
+    its `ref` and its `Children[^1].Remove()` loop.
+
+    ⚠ **So does the tree.** `Reload` walks maps → actions → bindings adding `TreeNode`s with a `Tag`
+    each and calling `Tree.Expand` on the way, which is a control fed by methods rather than a list
+    of elements. `TreeView` is `ref` + `OnComposed` in every other panel that has one for exactly
+    this reason.
+
+    ⚠ **The diagnostics list *is* markup, and it is the one thing this port moves onto a part.**
+    `Report` built `analysis-row` / `analysis-stage` / `analysis-message` by hand — the three lines
+    nine panels in this assembly wrote — and `AnalysisRow` is the part wave 6 hoisted out of them.
+    `AnalysisRow`'s host tag *is* `analysis-row` and it sets the two cells' own `Text`, so the rows
+    stand where they stood; `ChromeDumpTests.The_analysis_row_is_the_four_lines_every_report_wrote`
+    is the committed byte-comparison of the part against those four lines, and it covers this panel
+    as much as the three that adopted the part in wave 8.
+
+    ⚠ **What this file does *not* have is a before-and-after dump, and the reason is worth stating
+    rather than glossing.** The other ports in this table compare the hand-written tree against the
+    ported one; there is nothing to compare here, because the panel it replaces had **no view test
+    at all** — `AuthoringTests` exercises `InputActionsDocument` and never builds the view. So
+    `InputActionsViewDumpTests` asserts the chrome against the tree `OnCreated` is *described* as
+    building (tags, order, parentage, and the six labels a tree dump cannot see) rather than against
+    a recorded dump of it. That is weaker than a byte comparison and is the most this port can
+    honestly claim.
+
+    ⚠ **`Tree.SelectionChanged` is kept rather than becoming `change:SelectedNodes`, and that is a
+    behaviour argument rather than an oversight.** The two are not the same notification: the ledger
+    says `change:` is "quieter than the `SelectionChanged` event, which fires again for a click on
+    the row that was already selected". This panel turns *listening off* in that handler, so with
+    `change:SelectedNodes` a second click on the already-selected row would leave the mode running
+    where today it stops it. A port that moves a mode is a defect until argued for, and there is
+    nothing here to argue.
+-->
+@component InputActionsView
+@namespace Vixen.Editor.AssetEditors.Input
+@inherits Vixen.Ui.Controls.Control
+@tag input-editor
+@using System.Collections.Immutable
+@using Vixen.Editor.Core
+@using Vixen.Input
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<self on:keydown.capture.handled="@((KeyEvent e) => Keyed(e))" />
+
+<input-bar>
+    <Button ref="@AddMap" Label="Add Map" Size="Small" Variant="Subtle" />
+    <Button ref="@AddAction" Label="Add Action" Size="Small" Variant="Subtle" />
+    <Button ref="@AddBinding" Label="Add Binding" Size="Small" Variant="Subtle" />
+    <Button ref="@AddScheme" Label="Add Scheme" Size="Small" Variant="Subtle" />
+    <Button ref="@Delete" Label="Remove" Size="Small" Variant="Subtle" />
+    <ToggleButton ref="@Listen" Label="Listen" />
+</input-bar>
+
+<input-body>
+    <TreeView ref="@Tree" MultiSelect="false" />
+
+    <input-side ref="@Side">
+        <input-fields ref="@Fields" />
+
+        <analysis-list ref="@Diagnostics">
+            @for (var note in reported.Value) {
+                <AnalysisRow key="@note" Stage="@note.Where" Message="@note.Message" class="error" />
+            }
+        </analysis-list>
+    </input-side>
+</input-body>
+
+@code {
+    /// <summary>One complaint the loader made, keyed on what it says.</summary>
+    /// <param name="Where">The line and column, which is what the stage cell shows.</param>
+    /// <param name="Message">What was wrong.</param>
+    /// <remarks>
+    ///     ⚠ <b>A projection rather than the diagnostic itself, for <c>CommandPalette</c>'s reason:
+    ///     what the row draws is its identity.</b> Keying on the loader's own type would rebuild
+    ///     every row whenever a field the row does not show changed, and a record struct of two
+    ///     strings compares by value — so re-reading a file that still has the same two complaints
+    ///     moves no element.
+    /// </remarks>
+    readonly record struct Note(string Where, string Message);
+
+    /// <summary>What reading the file said, in the order it said it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="Signal{T}" /> because the <c>@for</c> above reads it.</b> A plain field
+    ///     would be read once while the region was built and never again — the defect wave 7 shipped
+    ///     with <c>@if (QualityRows == 0)</c> over an <c>int</c> — so the list would show whatever
+    ///     the first load produced for the life of the panel. <c>InputActionsViewDumpTests</c>
+    ///     re-loads a document with a different set of complaints and asserts the rows follow.
+    /// </remarks>
+    readonly Signal<ImmutableArray<Note>> reported = new([]);
+
+    InputActionsDocument? document;
+    InputRow selected;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => true;
+
+    /// <summary>The maps, actions and bindings.</summary>
+    public TreeView Tree { get; private set; } = null!;
+
+    /// <summary>The column beside it.</summary>
+    public UiElement Side { get; private set; } = null!;
+
+    /// <summary>The selected row's fields.</summary>
+    public UiElement Fields { get; private set; } = null!;
+
+    /// <summary>What reading the file had to say.</summary>
+    public UiElement Diagnostics { get; private set; } = null!;
+
+    /// <summary>Adds a map.</summary>
+    public Button AddMap { get; private set; } = null!;
+
+    /// <summary>Adds an action to the selected map.</summary>
+    public Button AddAction { get; private set; } = null!;
+
+    /// <summary>Adds a binding to the selected action.</summary>
+    public Button AddBinding { get; private set; } = null!;
+
+    /// <summary>Adds a control scheme.</summary>
+    public Button AddScheme { get; private set; } = null!;
+
+    /// <summary>Removes whatever is selected.</summary>
+    public Button Delete { get; private set; } = null!;
+
+    /// <summary>Records the next control pressed into the selected binding.</summary>
+    public ToggleButton Listen { get; private set; } = null!;
+
+    /// <summary>Whether the panel is waiting for a control to be pressed.</summary>
+    public bool IsListening => Listen.IsChecked;
+
+    /// <summary>What is selected.</summary>
+    public InputRow Selected => selected;
+
+    /// <summary>The tree's selection and the activation listener, once the <c>ref</c>s exist.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The key handler is <i>not</i> here, and that is the whole of this port's point.</b>
+    ///     It is <c>&lt;self on:keydown.capture.handled&gt;</c> above, on the same element
+    ///     <c>AddHandler</c> put it on. What is left is the two subscriptions that have no markup
+    ///     spelling: <c>SelectionChanged</c> because <c>change:SelectedNodes</c> is a different
+    ///     notification (see the file header), and <c>ClickEvent</c> because <c>on:click</c> would
+    ///     bring a <c>TapEvent</c> subscription with it that this panel never wanted.
+    /// </remarks>
+    partial void OnComposed() {
+        Tree.SelectionChanged += _ => {
+            selected = Tree.Selection.FirstOrDefault()?.Tag is InputRow row ? row : default;
+
+            // Moving the selection while listening would record into a binding nobody was looking
+            // at, which is the one way this mode can do something surprising.
+            Listen.IsChecked = false;
+            Restate();
+        };
+
+        AddHandler<ClickEvent>(static (element, args) => ((InputActionsView) element).Chosen(args));
+    }
+
+    /// <summary>Shows an action asset.</summary>
+    /// <param name="asset">The document.</param>
+    public void Show(InputActionsDocument asset) {
+        ArgumentNullException.ThrowIfNull(asset);
+
+        if (document is { } previous) {
+            previous.Changed -= Reload;
+        }
+
+        document = asset;
+        asset.Changed += Reload;
+
+        Reload(asset);
+    }
+
+    /// <summary>Rebuilds the tree from the document.</summary>
+    /// <param name="asset">The document.</param>
+    public void Reload(InputActionsDocument asset) {
+        ArgumentNullException.ThrowIfNull(asset);
+
+        while (Tree.Root.Children.Count > 0) {
+            Tree.Root.Remove(Tree.Root.Children[^1]);
+        }
+
+        foreach (var map in asset.Actions.Maps) {
+            var node = Tree.Root.Add(map.Name, new InputRow(map.Name));
+            Tree.Expand(node);
+
+            foreach (var action in map.Actions) {
+                var child = Tree.Root.Children[^1].Add(
+                    $"{action.Name}  ·  {action.Type} / {action.ControlType}",
+                    new InputRow(map.Name, action.Name)
+                );
+
+                Tree.Expand(child);
+
+                for (var index = 0; index < action.Bindings.Count; index++) {
+                    var binding = action.Bindings[index];
+
+                    child.Add(Describe(binding), new InputRow(map.Name, action.Name, index));
+                }
+            }
+        }
+
+        if (asset.Actions.ControlSchemes.Count > 0) {
+            var schemes = Tree.Root.Add("Control Schemes", new InputRow(string.Empty));
+            Tree.Expand(schemes);
+
+            foreach (var scheme in asset.Actions.ControlSchemes) {
+                schemes.Add(
+                    $"{scheme.Name}  ·  {string.Join(", ", scheme.Devices.Select(device => device.Device))}",
+                    new InputRow(string.Empty, Scheme: scheme.Name)
+                );
+            }
+        }
+
+        Tree.Refresh();
+        Restate();
+        Report(asset);
+    }
+
+    /// <summary>What one binding's row says.</summary>
+    static string Describe(InputBindingData binding) =>
+        binding.Composite == InputCompositeKind.None
+            ? binding.Path.Length > 0 ? binding.Path : "(no control)"
+            : $"{binding.Composite}: {string.Join(", ", binding.Parts.Select(part => $"{part.Part}={part.Path}"))}";
+
+    /// <summary>Publishes what the loader said, which the <c>@for</c> draws.</summary>
+    /// <param name="asset">The document.</param>
+    /// <remarks>
+    ///     ⚠ <b>One signal write rather than a loop that removes and adds elements.</b> The rows are
+    ///     keyed on their own text, so re-reading a file whose complaints have not changed rebuilds
+    ///     nothing at all — where the hand-written form cleared the list and built it again on every
+    ///     load, including the loads that changed nothing.
+    /// </remarks>
+    void Report(InputActionsDocument asset) =>
+        reported.Value = [
+            .. asset.LoadDiagnostics.Select(
+                diagnostic => new Note($"{diagnostic.Line}:{diagnostic.Column}", diagnostic.Message)
+            )
+        ];
+
+    /// <summary>Rebuilds the fields for whatever is selected.</summary>
+    public void Restate() {
+        while (Fields.Children.Count > 0) {
+            Fields.Children[^1].Remove();
+        }
+
+        if (document is not { } asset) {
+            return;
+        }
+
+        if (selected.Scheme is { Length: > 0 }) {
+            SchemeFields(asset, selected.Scheme!);
+
+            return;
+        }
+
+        if (selected.Map is not { Length: > 0 }) {
+            Fields.Add("text").Text = "Select a map, an action or a binding.";
+
+            return;
+        }
+
+        if (asset.Actions.Maps.FirstOrDefault(map => string.Equals(map.Name, selected.Map, StringComparison.Ordinal))
+            is not { } found) {
+            return;
+        }
+
+        if (selected.Action is not { Length: > 0 }) {
+            Fields.Add("input-title").Text = "Action Map";
+            Line("Name", found.Name, value => Rename(asset, found.Name, value));
+
+            return;
+        }
+
+        if (found.Actions.FirstOrDefault(entry => string.Equals(entry.Name, selected.Action, StringComparison.Ordinal))
+            is not { } action) {
+            return;
+        }
+
+        if (selected.Binding < 0) {
+            ActionFields(asset, found.Name, action);
+
+            return;
+        }
+
+        if (selected.Binding < action.Bindings.Count) {
+            BindingFields(asset, found.Name, action, selected.Binding);
+        }
+    }
+
+    void ActionFields(InputActionsDocument asset, string map, InputActionData action) {
+        Fields.Add("input-title").Text = "Action";
+
+        Line(
+            "Name",
+            action.Name,
+            value => asset.EditAction("Rename Action", map, action.Name, found => found with { Name = value })
+        );
+
+        Choice(
+            "Type",
+            action.Type,
+            value => asset.EditAction("Set Action Type", map, action.Name, found => found with { Type = value })
+        );
+
+        Choice(
+            "Value",
+            action.ControlType,
+            value => asset.EditAction("Set Control Type", map, action.Name, found => found with { ControlType = value })
+        );
+    }
+
+    void BindingFields(InputActionsDocument asset, string map, InputActionData action, int index) {
+        var binding = action.Bindings[index];
+
+        Fields.Add("input-title").Text = "Binding";
+
+        Choice(
+            "Composite",
+            binding.Composite,
+            value => asset.SetBinding(
+                "Set Composite",
+                map,
+                action.Name,
+                index,
+                value == InputCompositeKind.None
+                    ? binding with { Composite = value, Parts = [] }
+                    : binding with { Composite = value, Path = string.Empty, Parts = Parts(value) }
+            )
+        );
+
+        if (binding.Composite == InputCompositeKind.None) {
+            Line(
+                "Path",
+                binding.Path,
+                value => asset.SetBinding("Set Binding Path", map, action.Name, index, binding with { Path = value })
+            );
+
+            Resolved(binding.Path);
+        } else {
+            for (var part = 0; part < binding.Parts.Count; part++) {
+                var position = part;
+                var entry = binding.Parts[part];
+
+                Line(
+                    entry.Part,
+                    entry.Path,
+                    value => asset.SetBinding(
+                        "Set Binding Path",
+                        map,
+                        action.Name,
+                        index,
+                        binding with {
+                            Parts = [.. binding.Parts.Select((existing, slot) =>
+                                slot == position ? existing with { Path = value } : existing)]
+                        }
+                    )
+                );
+            }
+        }
+
+        Line(
+            "Groups",
+            binding.Groups ?? string.Empty,
+            value => asset.SetBinding(
+                "Set Binding Groups",
+                map,
+                action.Name,
+                index,
+                binding with { Groups = value.Length > 0 ? value : null }
+            )
+        );
+
+        Line(
+            "Interactions",
+            binding.Interactions ?? string.Empty,
+            value => asset.SetBinding(
+                "Set Interactions",
+                map,
+                action.Name,
+                index,
+                binding with { Interactions = value.Length > 0 ? value : null }
+            )
+        );
+
+        Line(
+            "Processors",
+            binding.Processors ?? string.Empty,
+            value => asset.SetBinding(
+                "Set Processors",
+                map,
+                action.Name,
+                index,
+                binding with { Processors = value.Length > 0 ? value : null }
+            )
+        );
+    }
+
+    /// <summary>Says whether a path names a control this build knows, which is the check nothing else does.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A path that does not parse is a binding that never fires and reports nothing at
+    ///     runtime.</b> The loader's diagnostics catch it at load; showing it beside the field is what
+    ///     catches it while somebody is still typing.
+    /// </remarks>
+    void Resolved(string path) {
+        var row = Fields.Add("fact-row");
+        row.Add("fact-name").Text = "Resolves";
+
+        var value = row.Add("fact-value").Add("text");
+
+        if (InputControlPath.TryParse(path, out var control)) {
+            value.Text = InputControlPath.Describe(control);
+        } else {
+            value.Text = "no control of that name";
+            row.AddClass("error");
+        }
+    }
+
+    /// <summary>The parts a composite starts with, named as the runtime's reader expects.</summary>
+    static InputBindingPartData[] Parts(InputCompositeKind composite) => composite switch {
+        InputCompositeKind.Axis1D => [new("negative", string.Empty), new("positive", string.Empty)],
+        InputCompositeKind.Vector2 => [
+            new("up", string.Empty), new("down", string.Empty),
+            new("left", string.Empty), new("right", string.Empty)
+        ],
+        InputCompositeKind.ButtonWithModifiers => [new("modifier", string.Empty), new("button", string.Empty)],
+        _ => []
+    };
+
+    void SchemeFields(InputActionsDocument asset, string scheme) {
+        if (asset.Actions.ControlSchemes.FirstOrDefault(entry => string.Equals(entry.Name, scheme, StringComparison.Ordinal))
+            is not { } found) {
+            return;
+        }
+
+        Fields.Add("input-title").Text = "Control Scheme";
+        Line("Name", found.Name, value => asset.EditScheme(found.Name, entry => entry with { Name = value }));
+
+        foreach (var device in Enum.GetValues<InputDeviceKind>()) {
+            if (device == InputDeviceKind.None) {
+                continue;
+            }
+
+            var row = Fields.Add("fact-row");
+            row.Add("fact-name").Text = device.ToString();
+
+            var toggle = row.Add("fact-value").Add<CheckBox>();
+            toggle.IsChecked = found.Devices.Any(entry => entry.Device == device);
+
+            toggle.CheckedChanged += (_, on) => asset.EditScheme(
+                found.Name,
+                entry => entry with {
+                    Devices = on
+                        ? [.. entry.Devices, new InputDeviceRequirementData(device)]
+                        : [.. entry.Devices.Where(requirement => requirement.Device != device)]
+                }
+            );
+        }
+    }
+
+    static void Rename(InputActionsDocument asset, string map, string name) {
+        if (name.Length == 0 || string.Equals(map, name, StringComparison.Ordinal)) {
+            return;
+        }
+
+        asset.Replace(
+            "Rename Action Map",
+            asset.Actions with {
+                Maps = [.. asset.Actions.Maps.Select(entry =>
+                    string.Equals(entry.Name, map, StringComparison.Ordinal) ? entry with { Name = name } : entry)]
+            }
+        );
+    }
+
+    void Line(string label, string value, Action<string> write) {
+        var row = Fields.Add("fact-row");
+        row.Add("fact-name").Text = label;
+
+        var box = row.Add("fact-value").Add<TextBox>();
+
+        box.Value = value;
+        box.ValueChanged += (_, text) => write(text ?? string.Empty);
+    }
+
+    void Choice<T>(string label, T value, Action<T> write) where T : struct, Enum {
+        var row = Fields.Add("fact-row");
+        row.Add("fact-name").Text = label;
+
+        var select = row.Add("fact-value").Add<Select>();
+
+        foreach (var option in Enum.GetValues<T>()) {
+            select.AddOption(option.ToString());
+        }
+
+        select.Value = value.ToString();
+
+        select.SelectionChanged += (_, chosen) => {
+            if (Enum.TryParse<T>(chosen, out var parsed)) {
+                write(parsed);
+            }
+        };
+    }
+
+    /// <summary>Records the pressed control, on the capture leg and ahead of the dispatcher.</summary>
+    /// <param name="args">The key press.</param>
+    /// <remarks>
+    ///     ⚠ <b><c>handled</c> is why the binding above carries the modifier.</b> Without it,
+    ///     pressing S to bind S would run whatever S is bound to in the editor and this would never
+    ///     see the key — the dispatcher is on the document and gets there first.
+    /// </remarks>
+    void Keyed(KeyEvent args) {
+        if (!IsListening || args.Action != KeyAction.Pressed) {
+            return;
+        }
+
+        // Escape leaves the mode rather than being recorded, for `KeyBindingsView`'s reason: a
+        // capture with no way out is one whoever started it cannot stop.
+        if (args.Key == InputKey.Escape) {
+            Listen.IsChecked = false;
+            args.Handled = true;
+
+            return;
+        }
+
+        Record(InputControlPath.Format(InputControl.Key(args.Key)));
+        args.Handled = true;
+    }
+
+    /// <summary>Writes a recorded path into whatever is selected, and leaves the mode.</summary>
+    /// <param name="path">The control's path.</param>
+    /// <remarks>
+    ///     ⚠ <b>Into a composite's <i>first empty</i> part when one is selected.</b> Binding a WASD
+    ///     vector is four presses, and a mode that made you click each part between them would be
+    ///     four times as many clicks as keys.
+    /// </remarks>
+    public void Record(string path) {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
+        if (document is not { } asset || selected.Binding < 0) {
+            return;
+        }
+
+        if (asset.Actions.Maps.FirstOrDefault(map => string.Equals(map.Name, selected.Map, StringComparison.Ordinal))
+                is not { } found
+            || found.Actions.FirstOrDefault(entry => string.Equals(entry.Name, selected.Action, StringComparison.Ordinal))
+                is not { } action
+            || selected.Binding >= action.Bindings.Count) {
+            return;
+        }
+
+        var binding = action.Bindings[selected.Binding];
+
+        if (binding.Composite == InputCompositeKind.None) {
+            asset.SetBinding("Bind Control", found.Name, action.Name, selected.Binding, binding with { Path = path });
+            Listen.IsChecked = false;
+
+            return;
+        }
+
+        var slot = binding.Parts.ToList().FindIndex(part => part.Path.Length == 0);
+
+        if (slot < 0) {
+            Listen.IsChecked = false;
+
+            return;
+        }
+
+        asset.SetBinding(
+            "Bind Control",
+            found.Name,
+            action.Name,
+            selected.Binding,
+            binding with {
+                Parts = [.. binding.Parts.Select((part, index) => index == slot ? part with { Path = path } : part)]
+            }
+        );
+
+        // Stays on while parts remain, which is what makes WASD four presses rather than four
+        // clicks and four presses.
+        Listen.IsChecked = binding.Parts.Count(part => part.Path.Length == 0) > 1;
+    }
+
+    void Chosen(ClickEvent args) {
+        if (document is not { } asset) {
+            return;
+        }
+
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, AddMap)) {
+                asset.AddMap("New Map");
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, AddAction) && selected.Map is { Length: > 0 } target) {
+                asset.AddAction(target, "New Action");
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, AddBinding) && selected.Action is { Length: > 0 }) {
+                asset.AddBinding(selected.Map!, selected.Action!, new(string.Empty));
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, AddScheme)) {
+                asset.AddScheme("New Scheme");
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, Delete)) {
+                RemoveSelection(asset);
+                args.Handled = true;
+
+                return;
+            }
+        }
+    }
+
+    void RemoveSelection(InputActionsDocument asset) {
+        var map = selected.Map ?? string.Empty;
+        var action = selected.Action ?? string.Empty;
+
+        if (selected.Scheme is { Length: > 0 } scheme) {
+            asset.RemoveScheme(scheme);
+        } else if (selected.Binding >= 0) {
+            asset.RemoveBinding(map, action, selected.Binding);
+        } else if (action.Length > 0) {
+            asset.RemoveAction(map, action);
+        } else if (map.Length > 0) {
+            asset.RemoveMap(map);
+        }
+    }
+}

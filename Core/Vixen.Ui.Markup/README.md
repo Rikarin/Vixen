@@ -342,6 +342,22 @@ count follows the data and is right in the test with two rows. `Binder.atTopLeve
 `SyntaxList` overload of `BindContent`, which every nested content goes through and the document's
 own does not.
 
+⚠ **And a *rebuild* was the same bug one level up, which the top-level rule does not cover.**
+`BuildContext.Rebuild` clears the host's children and re-enters `Build` on the same
+`component.Root` — which is precisely what `Host(this)` returns — so a `.vxml` save re-subscribed
+the host and one press counted twice, then three times. Every other element a body binds a handler
+to is one the body *made*, and clearing the region removes the element with its subscriptions
+attached; the host is the one target that outlives the composition. So `On` collects a
+`RemoveHandler` per `Listen` — a *list*, because `click` subscribes twice — and tracks one
+disposable for them against the region being built. `EventSubscription.Undo` is that list, internal
+because a table entry only ever adds to it by calling `Listen`. Pinned by
+`EmitterTests.Self_does_not_subscribe_the_host_again_when_a_component_is_rebuilt`.
+
+⚠ **An `@inherits` class could not reach it**, which is why the five editor pickers were never
+affected: that flavour composes in `OnCreated`, and `UiElement.Remove` is terminal — a removed
+element throws on any further use, so it cannot be adopted a second time and its body runs exactly
+once per instance. The exposure was the plain-`Component` flavour, whose host is reused by design.
+
 **`handled` is the modifier that could not live in `BuildContext.On`.** `stop`, `once` and `self` are
 filters around a handler `On` already owns; whether the router calls a handler *at all* once
 something has marked the event handled is `UiElement.AddHandler`'s third argument, which only the
