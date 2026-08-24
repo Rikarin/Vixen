@@ -18,25 +18,8 @@ the content that follows it flows *around* it. It is the oldest layout tool CSS 
 one whose behaviour is least like anything else in the box model: a float is out of flow, and unlike
 an absolutely positioned box it still changes where other boxes go.
 
-```csharp
-tree.SetFloat(sidebar, FloatSide.Left);
-tree.SetClear(footer, Clear.Both);
-```
-
-Or, in a `.vcss`:
-
-```css
-#sidebar { float: left; width: 180px; }
-#footer  { clear: both; }
-```
-
-Or with the utility classes: `float-left`, `float-right`, `float-none`, `clear-left`, `clear-right`,
-`clear-both`, `clear-none`.
-
-## What floating a box does
-
-Setting `float` to anything but `FloatSide.None` does four things at once, and CSS 2.1 spreads them
-over three sections, which is why the property surprises people:
+Setting <xref:Vixen.Ui.Layout.FloatSide> to anything but `None` does four things at once, and CSS 2.1
+spreads them over three sections, which is why the property surprises people:
 
 | | Rule |
 |---|---|
@@ -45,50 +28,111 @@ over three sections, which is why the property surprises people:
 | §9.4.1 | It becomes a **block formatting context root**, so its margins collapse with nothing and the floats inside it are invisible outside it. |
 | §10.3.5 | Its `auto` width becomes **shrink-to-fit** rather than fill. |
 
-The last one is the one people trip over. A `div` with no width fills its container; float it and it
+The last one is the one people trip over. A box with no width fills its container; float it and it
 collapses to the width of its contents.
 
-## The exclusion list
+<xref:Vixen.Ui.Layout.Clear> is the other half. It moves the box that declares it, not the floats it
+names: the box's top border edge is pushed down until it is below the bottom margin edge of every
+earlier float on the named side.
 
-Everything §9.5 does is expressed through one structure: the **exclusion list** a block formatting
-context carries. Each entry is a placed float's *margin* box, in the formatting context root's
-content coordinates.
+## What it is for
 
-Three things read that list, and they read it for three different reasons.
+Three jobs, and only the first is what the property is famous for.
 
-**Placing the next float.** A float goes as far to its side as it can at the current block position;
-if the band left free there is too narrow, it drops to the bottom of the float that is in its way and
-tries again. Floats therefore stack sideways until they run out of room and then wrap, which is what
-makes a row of floated cards behave like a row of cards.
+**Wrapping text around a picture.** ⚠ This is the one that does **not** work yet — see *What is not
+implemented* below. It is the reason to know the feature exists and the reason not to reach for it
+here.
 
-**A formatting context root beside a float.** This is the rule that is not widely known: a float
-overlaps the border box of an ordinary block-level sibling and shortens only the *line* boxes inside
-it — but a sibling that establishes a formatting context of its own may not overlap the float's
-margin box at all. So adding `overflow: hidden` or `display: flow-root` to a box beside a float
-changes it from "the text wraps around the float" to "the whole box moves".
+**Laying boxes out side by side until they run out of room.** A row of floated cards wraps to a new
+row when the next one will not fit, without a flex container and without a media query. Flexbox and
+grid do this better and are what a new panel should use; floats are what a stylesheet ported from the
+web will already contain.
+
+**Making a container hold what is inside it.** A formatting context root's automatic height is tall
+enough to contain its floats. That is the whole content of `display: flow-root`, and the reason the
+"clearfix" hack existed before the keyword did.
+
+## Using it
+
+Both properties are one setter each, and both take the physical CSS 2.1 keyword:
+
+```csharp compile
+using Vixen.Ui.Layout;
+
+public static class FloatedSidebar {
+    public static LayoutNodeId Build(LayoutTree tree) {
+        // A flow root, so that it contains the float rather than collapsing to nothing.
+        var page = tree.CreateNode();
+        tree.SetDisplay(page, Display.FlowRoot);
+        tree.SetDimension(page, Dimension.Width, StyleLength.Points(300));
+
+        var sidebar = tree.CreateNode();
+        tree.SetDisplay(sidebar, Display.Block);
+        tree.SetFloat(sidebar, FloatSide.Left);
+        tree.SetDimension(sidebar, Dimension.Width, StyleLength.Points(100));
+        tree.SetDimension(sidebar, Dimension.Height, StyleLength.Points(80));
+        tree.AddChild(page, sidebar);
+
+        // An ordinary block: its border box ignores the float and starts at x = 0.
+        var body = tree.CreateNode();
+        tree.SetDisplay(body, Display.Block);
+        tree.SetDimension(body, Dimension.Height, StyleLength.Points(40));
+        tree.AddChild(page, body);
+
+        // A formatting context root: §9.5 forbids the overlap, so this one narrows beside the float.
+        var aside = tree.CreateNode();
+        tree.SetDisplay(aside, Display.FlowRoot);
+        tree.SetDimension(aside, Dimension.Height, StyleLength.Points(20));
+        tree.AddChild(page, aside);
+
+        // Clearance: below the float whatever the margins would otherwise have said.
+        var footer = tree.CreateNode();
+        tree.SetDisplay(footer, Display.Block);
+        tree.SetClear(footer, Clear.Both);
+        tree.SetDimension(footer, Dimension.Height, StyleLength.Points(30));
+        tree.AddChild(page, footer);
+
+        return page;
+    }
+}
+```
+
+In a `.vcss` the same thing is the CSS you would expect:
 
 ```css
-/* Text wraps around the float; the div's own border box starts at x = 0. */
-#note { }
+#page    { display: flow-root; width: 300px; }
+#sidebar { float: left; width: 100px; height: 80px; }
+#aside   { display: flow-root; height: 20px; }
+#footer  { clear: both; height: 30px; }
+```
 
-/* The div itself is pushed clear of the float, and narrows to what is left. */
-#note { display: flow-root; }
+The utility classes are `float-left`, `float-right`, `float-none`, `clear-left`, `clear-right`,
+`clear-both` and `clear-none`.
+
+## Examples
+
+### A formatting context root moves and a plain block does not
+
+This is the rule that is not widely known, and it is the difference between the `body` and the
+`aside` above. A float overlaps the border box of an ordinary block-level sibling and shortens only
+the *line* boxes inside it; a sibling that establishes a formatting context of its own may not
+overlap the float's margin box at all.
+
+```csharp no-compile="a fragment; `tree` and `note` are the ones built above"
+// Text wraps around the float; the box's own border box still starts at x = 0.
+tree.SetDisplay(note, Display.Block);
+
+// The box itself is pushed clear of the float, and narrows to what is left.
+tree.SetDisplay(note, Display.FlowRoot);
 ```
 
 If the box has a stated width and that width does not fit in the band beside the float, it goes
 *below* the float instead of narrowing.
 
-**Containing them.** A formatting context root's `auto` height is tall enough to hold the floats
-inside it — §10.6.3. This is the whole content of the `flow-root` keyword in practice, and the reason
-the "clearfix" hack existed before it.
+### Clearance is not a margin
 
-## Clearance is not a margin
-
-`clear` moves the box that declares it, not the floats it names. The box's top border edge is pushed
-down until it is below the bottom margin edge of every earlier float on the named side, by inserting
-**clearance** between the box's top margin and its top border.
-
-Clearance behaves differently from a margin in two ways that matter:
+`clear` inserts **clearance** between the box's top margin and its top border, and clearance behaves
+differently from a margin in two ways that matter.
 
 **It spends the margin rather than adding to it.** A box whose top margin had collapsed all the way
 out through its container's top edge has a hypothetical position of zero, so clearance replaces the
@@ -105,9 +149,8 @@ the clearance is inserted into the middle of it, with the box's border edges at 
 behaviour most people mean by the word, and it is missing: inline layout has no exclusion awareness,
 so a paragraph beside a float is laid out at the container's full inner width and its text runs
 under the float. Everything above — placement, formatting-context avoidance, clearance, containment —
-works and is checked against 92 Chrome-derived fixtures. None of those 92 has any text in it, which
-is how the gap survived being measured. It is recorded in `InlineKnownGaps.txt` and in
-`Taffy/FloatKnownGaps.txt`.
+works and is checked against 92 Chrome-derived fixtures. **None of those 92 has any text in it**,
+which is how the gap survived being measured.
 
 ⚠ **The logical keywords are absent.** `FloatSide` and `Clear` hold CSS 2.1's physical keywords, and
 those do not flip with `Direction` — a `float: left` is on the left in an RTL container too. CSS
@@ -119,10 +162,29 @@ and aliasing it onto `Left` would be correct in LTR and wrong in RTL inside the 
 margin needs the used width of the layout the float's origin is about to start, so the origin reads
 the stated margin instead.
 
-## Cost
+⚠ **A float-bearing tree pays for the measurement cache.** A cache hit returns a node's size without
+re-running its layout, and a block container's layout has the side effect of appending its floats to
+the formatting context around it. So the cache is bypassed whenever the tree contains a `float` or a
+`clear`, decided by one scan of the style array per pass. A tree with neither is unaffected.
 
-A tree with no `float` and no `clear` anywhere pays nothing: the layout pass scans the style array
-once, and every float path is skipped. A tree that *does* contain one pays twice — each block child
-is measured once to discover its collapsible margins before it can be placed, and the layout cache is
-bypassed for the whole pass, because a cache hit returns a size without placing the floats every
-later box reads.
+## See also
+
+- [Inline layout](inline-layout.md) — line boxes, and the half of §9.5 that belongs to them.
+- [Box alignment](box-alignment.md) — the other rule that turns on which box establishes a
+  formatting context.
+- [Utility composition](utility-composition.md) — the `float-*` and `clear-*` classes, and why four
+  of Tailwind's are deliberately missing.
+- `Core/Vixen.Ui.Layout.Tests/Taffy/FloatKnownGaps.txt` — empty of failures, and mostly a page about
+  why that is a weak result.
+- `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` — the line-box half, with the shape of the fix.
+
+### What the corpora do and do not cover
+
+92 Chrome-derived fixtures cover floats and all 92 pass: the 84 in `Taffy/Corpus/float.xml` and 8
+`block_flow_root_*_float` families in the block corpus. All 16 RTL variants pass, and both
+box-sizing variants of each.
+
+⚠ `grep -c '<text' Taffy/Corpus/float.xml` is **0**. The corpus named after the feature is entirely
+block-level, so the 92 are evidence about placement, clearance, containment and formatting-context
+avoidance, and evidence about nothing else. There is no oracle anywhere in the 5 524 fixtures for a
+float beside inline content.
