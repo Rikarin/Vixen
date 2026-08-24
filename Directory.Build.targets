@@ -110,4 +110,82 @@
                       PrivateAssets="all" />
   </ItemGroup>
 
+  <!--
+    ================================================================================================
+    ⚠ **VX4001 — a `.vxml` on disk that nothing compiles, which until now was not a diagnostic and
+    was instead thirty C# errors about the wrong file.**
+
+    `Vixen.Editor.Water` had never had a `.vxml`, so it had never had the wiring, so when the first
+    three arrived the generator did not run, they were not items at all, and the build failed with
+    "`WaterZoneFacts` does not contain a definition for `Show`" once per member the markup declares.
+    Every one of those messages names the hand-written half of a partial class that is *correct*.
+    The mistake is in the project file, and nothing said so; the standing advice was to
+    `grep -c Vixen.Ui.Markup.Generators` the `.csproj` before writing an assembly's first `.vxml`,
+    which is a prescription that only exists because the build was silent.
+
+    ⚠ **And "the build fails, loudly, eventually" is the *good* case.** A `.vxml` with no
+    hand-written partner has nothing to fail to compile against: the file is simply not read, the
+    component does not exist, and the build succeeds. That is the shape `Core/Vixen.Ui`'s own
+    `.csproj` records as having happened — "a `.vxml` beside a `Program.cs` was silently not
+    compiled". Silence is what this target is for; the noisy case is a bonus.
+
+    **This lives here and not in `Vixen.Ui.targets`, and there is no choice about it.** The whole
+    failure is that `Vixen.Ui.targets` was never imported, so a check inside it is a check inside
+    the thing that is missing. `Directory.Build.targets` is imported by every project in this tree
+    whatever it says about itself, which is the only place a "you did not wire this up" check can
+    stand. ⚠ **The consequence is that it is an in-repo check only, and that is a real limitation
+    rather than an oversight**: outside this repository a project with a `.vxml` and no reference to
+    any `Vixen.Ui` package imports nothing of ours and there is no hook to put this in. What saves
+    package consumers is that they cannot reach this state by halves — `Vixen.Ui` ships its build
+    assets in `buildTransitive/`, so the reference that brings the types brings the glob and the
+    generator together, and the only way to have the one without the other is to say
+    `EnableVixenMarkup=false` on purpose. VX4002 in `Vixen.Ui.targets` covers the rest, and that one
+    does travel.
+
+    **The glob is at evaluation time and the comparison is in a target, deliberately.** Globbing
+    here rather than inside the target puts the enumeration in the same pass — and the same
+    per-directory cache — as the `**/*.cs` glob that has already walked this tree, instead of paying
+    for a second recursive walk of every project on every build. Comparing inside a target is what
+    makes the answer trustworthy: `AdditionalFiles` is final by `CoreCompile` and is not final at
+    the end of evaluation, and this file is imported after the fifteen projects that still write
+    their own `Import` at the bottom of their body.
+
+    ⚠ `DefaultItemExcludes` and `DefaultExcludesInProjectFolder`, spelled out, for the reason the
+    panel ledger names: `Vixen.Editor.Ui.Tests` copies another project's markup into its output as
+    fixtures, and a glob that forgets `bin/` finds every one of them and blames a project that never
+    authored a `.vxml`.
+    ================================================================================================
+  -->
+  <ItemGroup>
+    <_VixenMarkupOnDisk Include="**/*.vxml" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+  </ItemGroup>
+
+  <!--
+    `EnableVixenMarkup=false` is already the switch that says "do not compile markup here" — it is
+    what turns the glob in `Vixen.Ui.targets` off — so a project that has said it has said this too
+    and must not then be told off for the consequence. `VixenUiMarkupCheck` is the narrower escape,
+    for a project that holds `.vxml` which is *not its own*: see `Tools/Vixen.Templates`, whose
+    markup is a file to copy into somebody else's project rather than a component of this one.
+  -->
+  <Target Name="VixenCheckMarkupIsCompilerInput"
+          BeforeTargets="CoreCompile"
+          Condition="'$(VixenUiMarkupCheck)' != 'false' AND '$(EnableVixenMarkup)' != 'false' AND '@(_VixenMarkupOnDisk)' != ''">
+    <ItemGroup>
+      <!--
+        Full paths on both sides. `AdditionalFiles` reaches here spelled however whoever added it
+        felt like spelling it — the glob's own entries are relative, a hand-written one may be
+        absolute, and on a `Link`ed item the identity is not a path on disk at all — so an `Exclude`
+        that compares identities compares two different notations for the same file and reports a
+        project that is perfectly wired.
+      -->
+      <_VixenMarkupIsInput Include="@(AdditionalFiles->'%(FullPath)')" />
+      <_VixenMarkupUncompiled Include="@(_VixenMarkupOnDisk->'%(FullPath)')" Exclude="@(_VixenMarkupIsInput)" />
+    </ItemGroup>
+
+    <Error Condition="'@(_VixenMarkupUncompiled)' != ''"
+           Code="VX4001"
+           File="$(MSBuildProjectFullPath)"
+           Text="Vixen: @(_VixenMarkupUncompiled->Count()) .vxml file(s) in this project are not compiler input — @(_VixenMarkupUncompiled->'%(Identity)', ', ') — so the VXML compiler never sees them and the classes they declare will not exist. This project globs no markup: it neither imports Vixen.Ui.targets nor sets VixenUi. What happens next is either a wall of C# errors naming the hand-written half of a partial class that is correct, or, for a .vxml with no hand-written half, nothing at all. The one line that fixes it is &lt;VixenUi&gt;true&lt;/VixenUi&gt; in this project's first PropertyGroup — Directory.Build.targets turns that into the .vxml and .vcss item types and the two UI generators. It does not add a reference to Vixen.Ui itself; the generated code calls that, so the project needs one. If the markup here is deliberately not compiled — a template, a fixture — set &lt;VixenUiMarkupCheck&gt;false&lt;/VixenUiMarkupCheck&gt; and write down why." />
+  </Target>
+
 </Project>

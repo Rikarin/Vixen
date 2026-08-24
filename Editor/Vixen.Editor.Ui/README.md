@@ -450,24 +450,51 @@ the honest version of that ratio has never been written down. This is it: **ever
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
 **Where it stands.** ~~Twenty~~ ~~Twenty-seven~~ **Thirty-four** `.vxml` files across ~~six~~
-~~seven~~ **eight** assemblies — twenty-eight panels and six shared parts
+~~seven~~ **nine** assemblies — twenty-eight panels, five shared parts and one test fixture
+(`Vixen.Editor.NodeGraph.Tests/SealedControlHost.vxml`, which is not a panel and is the ninth
+assembly; ⚠ **the count went 34 → 33 → 34 in one commit range** — `WaterFacts.vxml` was deleted when
+`tag=` made a second type unnecessary, and the fixture arrived in its place)
 (`Vixen.Editor.Ui/Parts/FactRow.vxml`, `Vixen.Editor.AssetEditors/AnalysisRow.vxml`,
-`Vixen.Editor.Terrain/FactBlock.vxml`, and water's `WaterZoneFacts`, `WaterFacts` and
+`Vixen.Editor.Terrain/FactBlock.vxml`, and water's `WaterZoneFacts` and
 `WaterNotice`) — against **62 files and ~31,700
 lines** of editor C# that construct UI. Sixty-two is not sixty-two panels — a third of those files
 turn out not to be panels at all, which is the first finding. There are 25 `RegisterPanel` call
 sites and 34 `editor.panel.*` ids, so **34 is the denominator**, not 62 and not 120,000 lines.
-⚠ **`Vixen.Editor.Water` is the seventh assembly and it cost two lines of `.csproj` to become one** —
-see the wave-5 note under the six S-sized ports; the first `.vxml` in an assembly needs the markup
-generator and the `Vixen.Ui.targets` import naming it, and not having them is not a diagnostic.
-⚠ **`Vixen.Editor.NodeGraph` is the eighth, and it had one of the two lines, which is worse than
-having neither.** The `Vixen.Ui.targets` import was already there for the `**/*.vcss` glob — with a
+⚠ ~~**`Vixen.Editor.Water` is the seventh assembly and it cost two lines of `.csproj` to become one**
+— see the wave-5 note under the six S-sized ports; the first `.vxml` in an assembly needs the markup
+generator and the `Vixen.Ui.targets` import naming it, and not having them is not a diagnostic.~~
+⚠ ~~**`Vixen.Editor.NodeGraph` is the eighth, and it had one of the two lines, which is worse than
+having neither.**~~ The `Vixen.Ui.targets` import was already there for the `**/*.vcss` glob — with a
 comment saying "there is no `.vxml` in this project, so the other half of the .targets is inert
-here" — so the moment one appeared the glob made it an item and no generator read it. The failure is
-identical to having no import at all and reads as a mistake in the markup; the comment that said
-what the file assumed is the only reason it took a minute rather than an hour. **Wave 6's
+here" — so the moment one appeared the glob made it an item and no generator read it. ~~The failure
+is identical to having no import at all and reads as a mistake in the markup~~; the comment that said
+what the file assumed is the only reason it took a minute rather than an hour. ~~**Wave 6's
 prescription: before writing an assembly's first `.vxml`, `grep -c Vixen.Ui.Markup.Generators` its
-`.csproj` and expect 1.**
+`.csproj` and expect 1.**~~
+
+✅ **All three struck 2026-08-23: it is two diagnostics now, and it is one line rather than two.**
+`VX4001` is a `.vxml` on disk that is not compiler input, checked in `Directory.Build.targets`
+because a check inside `Vixen.Ui.targets` is a check inside the thing that was never imported.
+`VX4002` is a `.vxml` that *is* an `AdditionalFiles` item with no `Vixen.Ui.Markup.Generators.dll` in
+`@(Analyzer)` — the NodeGraph shape — and lives in `Vixen.Ui.targets`, so it travels to package
+consumers as well. Both are **errors** naming the `.csproj` and the one line that fixes it, both are
+built and sabotage-verified by `BuildIntegrationTests`, and the escape for markup that is
+deliberately uncompiled is `<VixenUiMarkupCheck>false</VixenUiMarkupCheck>` (one project needs it:
+`Tools/Vixen.Templates`, whose `.vxml` belongs to a scaffold it copies rather than builds).
+
+⚠ **Three things the wave-6 note got wrong, and each is worth more than the fix.**
+
+- **Not a `VXML` code.** That space belongs to a generator that has read the file, and the whole
+  content of this failure is that none ran. `VX4001`/`VX4002` are MSBuild diagnostics in
+  `docs/manual/diagnostic-codes.md`, in the `VX4000` range already reserved for UI markup.
+- **Not a warning.** A warning ahead of a wall of C# errors buys a log line — and in the case nobody
+  had met, there is no wall: ⚠ **a `.vxml` with no hand-written partner does not fail at all.** It is
+  simply not read, the class does not exist, and the build succeeds. That is the state the two
+  diagnostics exist for, more than the noisy one.
+- **Not two lines.** `<VixenUi>true</VixenUi>` has been the whole of it since `Directory.Build.targets`
+  became the in-repo stand-in for the package. Twelve projects still hand-write the import and the
+  two analyzer references — the count in that file's own comment says fifteen and is stale — and
+  converting them now deletes duplication rather than fixing a trap.
 
 ⚠ **[`docs/overview.md`](../../docs/overview.md) and doc 36 § "F7's number" had both gone stale** —
 they said eleven and three — and are corrected in the same commit as this section. A count nobody
@@ -491,6 +518,15 @@ so a keyed `@for` cannot stand in — item 40 000 has no element), `Timeline` an
 (`AddTrack`/`AddSpan`, `Canvas.Graph = …`, plus their own culled element pools), and
 `IPropertyDrawer` (the tree's *shape* is a function of a reflected descriptor). A panel built out of
 any of them is correctly imperative, and signal-backing its model moves no pixel.
+
+⚠ **One half of this is narrower since 2026-08-23, and it is not the half about painting.** "The
+content reaches the screen through a control" stays true of all five: a `DataGrid` column projection
+and a `VirtualizingPanel` row template are still nothing markup can describe. What changed is
+*feeding* the control. `use="@(v => v.SetItems(rows))"` is an ordinary binding — the call is an
+effect, so it re-runs when what it read changes — so `Canvas.Graph = built`, `Inspect(…)` and
+`SetItems(…)` are all sayable now, and a panel that is imperative only because its control is fed by
+a method no longer has to be. Read this shape as being about what a control *draws*, never about how
+it is told.
 
 **2. Markup can bind a gesture but not a value change.** `BuildContext.Subscriptions` holds ten
 names — `tap`, `click`, `dblclick`, `longpress`, the three pointer verbs, and the three drag verbs —
@@ -592,10 +628,19 @@ nine files. **A part is worth a file when it has a shape; a caption has none.** 
 part because it is four elements and two cells that disagree about where the text goes; these are one
 element whose only content is its own text.
 
-⚠ **What this does *not* buy is an intrinsic tag written in lowercase.** The subclass is still a type
-somebody has to declare, so shape 5 is unchanged as a statement about the language — it is the *cost*
-of the escape that turned out to be small, which is why `FlameChartView`'s second withdrawal reason
-is now closed.
+⚠ ~~**What this does *not* buy is an intrinsic tag written in lowercase.** The subclass is still a
+type somebody has to declare, so shape 5 is unchanged as a statement about the language — it is the
+*cost* of the escape that turned out to be small~~, which is why `FlameChartView`'s second withdrawal
+reason is now closed.
+
+✅ **Shape 5 *is* changed as a statement about the language, since 2026-08-23.**
+`<fact-name use="@(cell => cell.Text = Label)" />` writes an intrinsic element's own `Text`, with no
+type declared and no extra box: `use` runs an `Action<T>` against what the tag made, as an effect. So
+"markup cannot write an element's own `Text`" is now false, and what is left of shape 5 is a
+*preference*: `<FactName Text="@Label" />` is checked at the tag and reads as the property assignment
+it is, so the four-line subclass stays the first answer for a caption and `use` is the answer where
+there is no subclass to be had — a `sealed` control, or a call with three arguments. Nothing here was
+rewritten; the nine captions and the two `Captions.cs` cells are still the better spelling.
 
 ⚠ **And the escape is not about `Text`, which is wave 5's correction to this whole block.** Every
 sentence above says "`Text`", and `Text` is only the first thing it was needed for. The general
@@ -796,31 +841,45 @@ unchanged and the C# factory shrinks a piece at a time.
 
 ✅ **Wave 5 took that way through for five of the six and it is the right prescription.**
 `Vixen.Editor.Terrain/FactBlock.vxml` (`@tag terrain-facts`) serves grass, growth and splines;
-`WaterZoneFacts`, `WaterFacts` and `WaterNotice` serve the two water panels. Every one is
+`WaterZoneFacts` and `WaterNotice` serve the two water panels — the zone part twice, under two
+tags, which was two types until `tag=` landed. Every one is
 `@inherits Vixen.Ui.UiElement` rather than `Control` — a `Control` gives itself `variant-default` and
 `size-md` in `OnCreated` and the plain elements they replace have neither — and each is asserted by
 dumping the whole document's rectangles for the hand-written loop and for the part and comparing the
 two strings, in `FactBlockTests` and `WaterFactsTests`.
 
-⚠ **Three things the prescription did not say, and the first one costs an hour if you meet it
+⚠ ~~**Three things the prescription did not say, and the first one costs an hour if you meet it
 cold.** **The first `.vxml` in an assembly needs two lines of `.csproj` and there is no diagnostic
-when they are missing.** `Vixen.Editor.Water` had never had one, so the generator never ran, the
+when they are missing.**~~ `Vixen.Editor.Water` had never had one, so the generator never ran, the
 `.vxml` was not an item at all, and the build failed with "`WaterZoneFacts` does not contain a
 definition for `Show`" on every member the markup declares — which reads as a mistake in the markup
-and is a mistake in the project file. The two lines are the `Vixen.Ui.Markup.Generators`
-`ProjectReference` as an `Analyzer` and the `Vixen.Ui.targets` import at the bottom of the file;
+and is a mistake in the project file. ~~The two lines are the `Vixen.Ui.Markup.Generators`
+`ProjectReference` as an `Analyzer` and the `Vixen.Ui.targets` import at the bottom of the file~~;
 `Vixen.Editor.Terrain` and `Vixen.Editor.AssetEditors` each already carry them with a comment saying
-a `PackageReference` to `Vixen.Ui` would have brought both and a `ProjectReference` does not. Worth a
-`VXML` diagnostic, or a `.vxml` in a project with no generator being an MSBuild warning; today it is
-neither.
+a `PackageReference` to `Vixen.Ui` would have brought both and a `ProjectReference` does not. ~~Worth
+a `VXML` diagnostic, or a `.vxml` in a project with no generator being an MSBuild warning; today it
+is neither.~~ ✅ **`VX4001` and `VX4002`, both errors, since 2026-08-23 — and the line count was
+wrong too: it is `<VixenUi>true</VixenUi>` and nothing else.** See the strike under "Where it
+stands".
 
 **And two more.**
 
-- **`@tag` is a compile-time directive, so "the same part under another name" is not sayable.**
+- ~~**`@tag` is a compile-time directive, so "the same part under another name" is not sayable.**
   `WaterFacts` is `WaterZoneFacts` minus the refusal and under a different tag, and there is no
   parameter for that. Neither tag is styled by any sheet in the tree — nor is `terrain-facts`,
   `water-notice`, `water-refusal` or `verb-row` — so a single shared type under one tag would have
-  rendered identically and lied in five places about what the panel is made of. Two types.
+  rendered identically and lied in five places about what the panel is made of. Two types.~~
+  ✅ **One type, since 2026-08-23, and this entry was wrong about the mechanism rather than about the
+  taste.** Everything after "there is no parameter for that" is right and still is: a shared type
+  under *one* tag would have lied, so refusing that was correct. What the entry did not check is
+  whether a tag has to come from the type at all — and it does not. `UiDocument.Adopt` takes the tag
+  and only falls back to `TagName`, so `panel.Add<WaterZoneFacts>("water-facts")` was already legal
+  C# on the day this was written; the markup half is now `tag="water-facts"`. `WaterFacts.vxml` is
+  deleted, the body panel calls the zone part under the tag its own structure names, and
+  `WaterFactsTests`' dump of the body block is unchanged — the refusal arm is simply never built,
+  because that caller passes no reason. ⚠ **The lesson is the one the "two recorded gaps are stale"
+  section already teaches**: this was recorded as a language limitation without anyone asking the
+  runtime whether it had the feature.
 - **The refusal row is the one place markup's *natural* spelling is the right one.**
   `element.Add("water-refusal").Add("text").Text = why` is `<water-refusal>@Refusal</water-refusal>`
   exactly, because an interpolation appends a `text` child and that is what the C# built. Shape 5 is
@@ -841,6 +900,22 @@ water body panel has five of them across two rows, and `Verbs(panel, …)` is ei
 `verb-row` and a button each. A part would need the verb list to be a signal and a callback to run
 the command — more surface than it removes, for a tag no sheet styles. The revisit condition this
 section set has now been met and answered: still no.
+
+### ⚠ "Byte-identical in N dumped states" is a wave note, not a test
+
+Nine rows below and half the prose above claim a port was byte-identical in three, six, seven, eight,
+nine, fifteen or sixteen dumped states. **Three test files in the whole editor dump a tree**, and all
+three belong to the shared parts: `FactRowTests`, `FactBlockTests`, `WaterFactsTests`. Every other
+dump was a throwaway harness, run once, compared by eye or by `diff`, and deleted — which is exactly
+what wave 5's note about `CompiledSceneView` asked for and is *not* what a reader of this table would
+assume. Nothing in the tree re-checks any of them, so a later change that moves those pixels is a
+change no gate will notice.
+
+Found while converting `RemoteInspectorClient` (build item 8), whose row claims eight of nine states:
+its committed guard is `PortedPanelTests`, which asserts behaviour and not geometry. The claims are
+believed — each was made by somebody who ran the comparison — and they are **evidence about a
+commit**, not coverage. Whoever next wants one of these to hold should promote the harness rather
+than trust the sentence, and the three that exist are the pattern to copy.
 
 ### The ledger
 
@@ -865,7 +940,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `CodeEditorView` · `VfxGraphView` · `ShaderGraphView` · `CompositorView` | live | no | port the chrome; the editor/canvas/`KeyValueList` rows stay | S–M |
 | `NodeSearchPopup` · `CommandPalette` | snapshot | no | ~~**port; each deletes a hand-rolled element pool or reconciler**~~ **done, wave 6 (2026-08-23).** The pool was the point and it was worse than "churn": it only ever *grew*, so a list that had once shown twelve rows carried the surplus under `display: none` **still labelled with the previous query's results**. 601 lines → two `.vxml` (565) and two `.cs` (288), with 31 and 26 lines of pooling gone. Every visible element byte-identical in fifteen dumped states; the only differences are the parked rows, which no longer exist | M |
 | `NodeInspector` · `AddComponentMenu` | snapshot | no | ~~**port**~~ **stopped, wave 6 — both blocked by the same cause, and it is not a markup gap.** Shape 1's escape is "keep the control behind a `ref`", and where the control is fed by a *method* the sanctioned workaround is the mixer's four-line wrapper subclass. `InspectorView` and `ScrollView` are both `sealed`, so neither panel can be written. See below | M |
-| `RemoteInspectorView` | **live** | ~~no~~ **yes, additively** | ~~**port; signal-back `RemoteInspectorClient` additively, per `DeviceManager`**~~ **done, wave 6 (2026-08-23).** The sizing and the worked example were both right. What the row did not say is that this is the panel where the signals pay most: `Poll` runs from the tick, so `Restate` relabelled a button, rewrote a sentence, rebuilt the entity tree and re-ran a pool **sixty times a second whether or not the far end had said anything**. 293 lines → a 341-line `.vxml` and a 75-line `.cs`; byte-identical in eight of nine dumped states, the ninth being the parked counter rows | M |
+| `RemoteInspectorView` | **live** | ~~no~~ **yes, additively** | ~~**port; signal-back `RemoteInspectorClient` additively, per `DeviceManager`**~~ **done, wave 6 (2026-08-23).** The sizing and the worked example were both right. What the row did not say is that this is the panel where the signals pay most: `Poll` runs from the tick, so `Restate` relabelled a button, rewrote a sentence, rebuilt the entity tree and re-ran a pool **sixty times a second whether or not the far end had said anything**. 293 lines → a 341-line `.vxml` and a 75-line `.cs`; byte-identical in eight of nine dumped states, the ninth being the parked counter rows. **Wave 7 finished it twice over**: the counters are a `SignalDictionary` rather than a `Signal<ImmutableDictionary<…>>`, so a per-frame counter update allocates nothing, and the `OnComposed` that subscribed to the tree's selection is gone — `change:SelectedNodes` is the whole of it | M |
 | `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | port the readouts, keep the field rows (shape 2) | M |
 | `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output | M |
 | `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | ~~**defer.**~~ The half that was unportable was the field rows, which `change:` now expresses; `AnimationGraphView` still has no tests at all and still goes last | ~~L–XL~~ M–L |
@@ -1013,6 +1088,74 @@ feature with real design questions and is the only one of the three that is not 
 building, which exists only to decide whether the tree needs rebuilding and is exactly what a keyed
 loop makes structural — is still there, and is the prize whenever this is unblocked.
 
+#### ✅ Answered 2026-08-23, and the answer is that **nothing was unsealed**
+
+⚠ **The three choices above are the right three and the first one is the wrong one.** Wave 7 took the
+third — a markup directive — plus a thing the list did not contain, and the two of them close both
+panels' blockers with no change to `Vixen.Ui.Controls` at all. Twenty-nine types keep their `sealed`.
+
+The argument against unsealing, in the order it convinced:
+
+1. **The two blockers are two problems, and only one of them is about extension.**
+   `Part<ScrollView>("add-component-list")` does not want a subclass; it wants a *string*. Unsealing
+   `ScrollView` to write `internal sealed class AddComponentList : ScrollView` invents a type whose
+   entire content is a tag name — which is the `WaterFacts` mistake one level up, and this document
+   has already argued that one ("a tag that lies is the thing `TypeSelectorReachTests` exists to
+   catch"). ⚠ **The runtime never needed it:** `UiDocument.Adopt` takes the tag and only *falls back*
+   to `TagName`, so `panel.Add<ScrollView>("add-component-list")` has always been legal C#. What was
+   missing was a `.vxml` spelling, and it is now `tag="add-component-list"` — a universal attribute,
+   refused on a lowercase tag as `VXML2014` because a lowercase tag already writes its own name.
+2. **The other blocker is not about extension either; it is about a *call*.** `Source` was only ever a
+   place to put `Inspect(descriptor, provider, targets)` so that a property assignment could reach it.
+   `use="@(view => view.Inspect(…))"` reaches it directly: `BuildContext.Use` is `Bind` with a
+   subject, so it is an effect — every signal the expression reads is a dependency, the control is
+   re-fed when one changes, and the whole thing leaves with the region that declared it. A wrapper
+   property gets *none* of that for free; every one written so far had a `Restate` somebody had to
+   remember to call.
+3. **A subclass is the wrong shape for this even where it is allowed.** `MixerTitle`, `OptionCell` and
+   `SettingsTab` are all a type invented to hold one line of behaviour, and the ledger has counted the
+   cost twice — "nine of them … about forty lines", "four copies of a tag name is how two of them come
+   to disagree". Unsealing would have made that pattern *more* available. It should be less.
+4. **`sealed` is load-bearing here in a way the paragraph above did not notice.** A control builds its
+   parts in `OnCreated` and answers for its own tag, and `UiDocument.Create<T>`'s remark says why the
+   tag comes from the type: "a caller that had to pass `"button"` alongside `Button` would eventually
+   pass something else, at which point the control is still a `UiElement` and silently unstyled." A
+   subclass is exactly a second place that can disagree. ⚠ Note the tension with the previous point:
+   `tag=` *is* a caller passing a name, so it re-opens that door — deliberately, at one call site,
+   named in the file that uses it, rather than in a type that outlives the reason.
+
+So the correction to this section is: ~~"any panel whose relationship with a control is 'feed it by a
+method' or 'give it my tag' is unportable, and no amount of markup design changes that"~~ — **both
+were markup gaps and markup closed them.** What is genuinely left of `sealed` is a panel that needs to
+*override* a control's behaviour, and no panel in this ledger does.
+
+⚠ **The claim is held to the two named types rather than argued.**
+`Editor/Vixen.Editor.NodeGraph.Tests/SealedControlHost.vxml` is a `.vxml` whose two tags are the real
+`InspectorView` and the real `ScrollView` — a fixture that could be derived from would let the test
+pass by writing the subclass the actual panels cannot write — and `SealedControlTests` reads it:
+`add-component-list` is the list's tag and still a scroller, the inspector is fed by
+`view.Inspect(descriptor, provider, targets)` (`NodeInspector.Rebuild`'s own call, arguments and all),
+and pointing it somewhere else re-runs it. The test project gained the markup wiring in one line —
+`<VixenUi>true</VixenUi>` — which is worth noticing on its own: the "two lines of `.csproj`" this
+document warns about twice have been one line since `Directory.Build.targets` learned to stand in for
+the package.
+
+⚠ **What this section still owes, and it is the part that is not done.** The two panels are unblocked
+and **neither is ported**. `NodeInspector`'s 27-line `StringBuilder` reconciler is still there and is
+still the prize. The one thing wave 7 checked before stopping is the shape-3 question, and the answer
+is favourable: no production caller reads either panel back synchronously — `ShaderGraphView` and
+`VfxGraphView` both call `Settings.Rebuild()` and read nothing — so this is `CompiledSceneView`'s
+situation and not `BuildSettingsView`'s. ⚠ The one thing whoever takes it must solve first is
+`Rebuild`'s last four lines: `RowCount` reads `panel.Rows.Count` *on the line after* `Inspect`, and
+under `use` the inspect is an effect, so "This node has nothing to set." has to be decided from the
+provider rather than from the view.
+
+⚠ **And one thing the sixth shape says that is now false in general.** `use` is also shape 5's escape:
+`<fact-name use="@(cell => cell.Text = Label)" />` writes an intrinsic element's *own* `Text` with no
+subclass and no extra box. The four-line subclass is still the better answer where it is possible —
+`<FactName Text="@Label" />` is checked at the tag and reads as a property — so this changes which
+answer is *general*, not which one to reach for first.
+
 ### Two more things wave 6 measured rather than argued
 
 ⚠ **The pool's hover is real, `FlameChartView` was right about it, and now there is a number.**
@@ -1039,17 +1182,61 @@ they differ at all: no visible element moved a pixel in any of the forty states 
 ⚠ **And `change:` refuses a `TreeView`'s selection, correctly.** `change:Selection` compiles and
 throws at compose time — "'tree-view' has no property called 'Selection'" — because `change:` is
 `bind:`'s property lookup with a handler and a selection is state inside a control that paints its
-own rows, not a `[UiProperty]`. That is shape 1 seen from the event side, and the remedy is the one
+own rows, not a `[UiProperty]`. That is shape 1 seen from the event side, and ~~the remedy is the one
 already documented: a `ref` plus a subscription in `OnComposed`, writing a signal the `Disabled`
-binding reads.
+binding reads.~~
 
-⚠ **`OnComposed` is also where a *capture-leg* handler has to live**, which is a limitation nothing
+✅ **The diagnosis is right, the remedy was wrong, and the difference is whose side the fix is on
+(2026-08-23).** `change:Selection` still throws and always will — but a `ref` and an `OnComposed`
+were never the answer, because `Selection` is a read-only view over a `HashSet` **mutated in place**:
+the same instance before and after every change, so nothing built on `PropertyChanged` could ever
+have reported it. What was missing was a *value*. `TreeView.SelectedNodes` is an
+`[UiProperty] ImmutableArray<TreeNode>` snapshot published by `Restate` **only when the set really
+differs**, so `change:SelectedNodes` is one attribute — and it is *quieter* than the
+`SelectionChanged` event it replaces, which fires again for a click on the row that was already
+selected. `RemoteInspectorView.vxml` is ported and its whole `OnComposed` is gone;
+`PortedPanelTests.Apply_lights_only_with_a_selection_and_a_member` fails without the attribute.
+
+⚠ **The rule for a control author, which is the part worth more than the panel:** *a collection is
+bindable only as a value, written where the mutation happens.* `DataGrid` and `NodeCanvas` are the
+identical shape — a `HashSet`, a read-only view, an event and one restate funnel — and the same four
+members apply verbatim. Still owed.
+
+⚠ ~~**`OnComposed` is also where a *capture-leg* handler has to live**, which is a limitation nothing
 had hit before. `BuildContext.Subscriptions`' entries are
-`Action<UiElement, Action<UiEvent>, RoutingStrategy>` and the `on:` syntax has no way to say which
-leg — so the three pickers' `AddHandler<KeyEvent>(…, RoutingStrategy.Capture)`, which is what stops
+`Action<UiElement, Action<UiEvent>, RoutingStrategy>` and **the `on:` syntax has no way to say which
+leg** — so the three pickers' `AddHandler<KeyEvent>(…, RoutingStrategy.Capture)`, which is what stops
 a search box turning Down into caret movement, cannot be written as an attribute. Worked around in
 `OnComposed`, named here because the next picker will hit it too. An `on:keydown.capture` modifier
-would close it and the modifier list is already parsed.
+would close it and the modifier list is already parsed.~~
+
+⚠ **Wrong, and instructively so: `on:` could always say which leg.** `capture` was in
+`Binder.EventModifiers` *and* honoured by `BuildContext.On`, which reads
+`modifiers.Contains("capture") ? RoutingStrategy.Capture : RoutingStrategy.Bubble`. What the table
+had no entry for was **`keydown`**, so the attribute threw *"'keydown' is not an event"* at compose
+and the symptom was read as a syntax gap. This is the "two recorded gaps are stale" lesson a third
+time: the sentence "the modifier list is already parsed" was in the note, and nobody followed it one
+step further to ask what else the line could be failing on. `keydown`, `keyup` and `textinput` are
+registered now (2026-08-23) — `textinput` because `KeyEvent.Key` is a *physical* US-QWERTY position,
+so an author with no name for the event carrying characters reads letters out of `on:keydown` and
+ships the AZERTY bug.
+
+⚠ **And a typed `on:` handler must be an explicitly typed lambda.**
+`on:keydown.capture="@((KeyEvent e) => Keyed(e))"` works; `@Keyed` for a `void Keyed(KeyEvent)` fails
+with "cannot convert from 'method group' to 'System.Action'". That is C#'s rule rather than an
+emitter choice: one call is written for both `On` overloads and the emitter cannot name the event
+type — the table owns that — so `TEvent` is inferred from the argument, and a method group has no
+natural type until the delegate's parameters are known. `@Increment` and `@(() => …)` are unaffected,
+being `Action`s.
+
+⚠ **So the pickers are still not ported, and the reason has moved to a bigger place.** All five
+capture-leg handlers in the tree — `CommandPalette`, `NodeSearchPopup`, `AddComponentMenu`,
+`KeyBindingsView`, `InputActionsView` — call `AddHandler` on **`this`**, the component's own element.
+An `@inherits` file's markup roots are *children* of the host and `ComponentEmitter.Target` can only
+ever name one of those, so `on:keydown.capture` on the `<SearchBox>` is a different element with
+different route coverage: a key arriving while the focus is anywhere else in the panel would no
+longer be seen. A port would be a behaviour change, which is a defect until argued for. ⚠ Two of the
+five also want `handledEventsToo: true`, which `on:` has no modifier for either.
 
 ### What to build, in order of leverage
 
@@ -1068,7 +1255,12 @@ would close it and the modifier list is already parsed.
    to be added from C#. ⚠ **`AudioMixerView` shows the workaround and it is a good one:** wrap the
    control in a four-line element whose `Choices` is a *property*, because binding a property is an
    ordinary effect that re-runs with the region it was declared in. That is `OptionCell`, and it is
-   why this item is a convenience rather than a blocker now.
+   why this item is a convenience rather than a blocker now. ⚠ **And `use` is the same thing without
+   the type**, with one caveat `OptionCell` does not have: a `use` re-runs, so it must say what the
+   control should *be* rather than append to it — and `Select` offers `AddOption` and `ClearOptions`
+   and no setter, so the honest spelling today is
+   `use="@(s => { s.ClearOptions(); foreach (…) { s.AddOption(…); } })"`, which works and reads badly.
+   This stays on the list, and what it is owed is now precise: a `Select.SetOptions`.
 5. ~~**Shared `<Section>`, `<FactRow>` and `<VerbRow>` components.**~~ **`FactRow` is built** and has
    four callers. `VerbRow` earns nothing yet — `verb-row` has no rule in any sheet. `Section` was
    blocked on the `World-title` casing bug, which is fixed, so it is now merely unbuilt. What the
@@ -1076,22 +1268,37 @@ would close it and the modifier list is already parsed.
    *part* is not the only way markup can write an intrinsic element's own text inside a loop, a
    four-line `UiElement` subclass with a `TagName` override is, and it is the cheaper one whenever
    the thing being written is a caption rather than a row.
-6. **Un-`sealed` controls, or a way to feed a sealed one from markup.** Wave 6's finding and now the
-   top of this list by count: two panels stopped on it, twenty-nine `sealed class … : Control`
-   declarations are behind it, and every escape this document records — shape 5's caption subclass,
-   `OptionCell`, `SettingsTab` — is a subclass. The cheapest form is to unseal the two types a panel
-   actually needs to wrap; the general form is a markup directive meaning "run this when the region
-   builds", which is the only one of the two that is a language change.
-7. **`on:` with a routing strategy — `on:keydown.capture`.** Three pickers subscribe on the capture
-   leg so that Down and Enter are taken before a search box treats them as caret movement and
-   submit, and `BuildContext.Subscriptions`' entries already carry a `RoutingStrategy` that no
-   attribute can name. The modifier list is already parsed, so this is a table lookup rather than a
-   design.
-8. **A `CollectionSignal` for a map.** `RemoteInspectorClient`'s counters are a
-   `Signal<ImmutableDictionary<string, double>>`, which is correct and allocates a node per counter
-   update where an in-place write allocated nothing. At the handful of counters a build reports that
-   is the right trade and it would not be at a thousand — so this is a convenience until something
-   reports a thousand.
+6. ~~**Un-`sealed` controls, or a way to feed a sealed one from markup.**~~ **Built 2026-08-23 as
+   `tag=` and `use`, and the "cheapest form" this item recommends is the one that was not taken.**
+   Unsealing the two types is cheap and buys a type per tag name, which is the thing the ledger
+   already argues against everywhere else. `tag="add-component-list"` says the string at the place it
+   is true, and `use="@(v => v.Inspect(…))"` is the directive — an effect, so it re-runs and leaves
+   with its region, which is strictly more than the wrapper property would have been. Neither panel
+   is ported yet; both are unblocked. See the block under "`sealed` is the sixth shape".
+7. ~~**`on:` with a routing strategy — `on:keydown.capture`.**~~ **Built 2026-08-23, and it was not
+   the routing strategy — that always worked. It was that the `Subscriptions` table had no keyboard
+   entry at all.** `keydown`, `keyup` and `textinput` are registered. ⚠ **What is left is a different
+   item and it now blocks more than this one did: a markup spelling for the component's *own*
+   element.** All five capture-leg handlers in the tree subscribe on `this`, an `@inherits` file's
+   markup roots are children of the host, and `ComponentEmitter.Target` can only name a child — so
+   every one of those ports would change which element the route reaches. The shape is a `<self />`
+   pseudo-tag whose attributes emit against `this`; two of the five also need a `handledEventsToo`
+   modifier.
+8. ~~**A `CollectionSignal` for a map.**~~ **Built 2026-08-23 as `SignalDictionary<TKey, TValue>`,
+   and the sizing was right about the trade and wrong about what would trigger it.** It was not the
+   thousandth counter; it is that the type is under three hundred lines once you decline to build a
+   change log — and a map has no use for one, because `@for` cannot bind to a dictionary at all (its
+   order is its hashing), so what a reconciler keys on is a *sorted projection* and the log would be
+   written every update and read by nobody. ⚠ **One node for the whole map**, which is
+   `CollectionSignal<T>`'s choice and is the right one here for a reason specific to maps: a binding
+   that reads a key *that is not there yet* still has to wake when it appears, so per-key nodes would
+   have to be created on read as well as write and kept after removal — an unbounded set keyed by
+   whatever strings a caller invents. The coarse edge over-approximates and cannot under-approximate,
+   so the cost is a re-run and never a stale answer. ⚠ **`SignalDictionary`, not `DictionarySignal`**:
+   CA1710 requires an `IReadOnlyDictionary` implementor to end in `Dictionary`, and `CollectionSignal`
+   escapes the same rule only because `IReadOnlyList<T>` is not on it. `RemoteInspectorClient`'s
+   counters are converted and the panel's nine states dump identically. ⚠ And the conversion turned
+   `Counters` from a snapshot into a **live view**, which is the one behavioural difference.
 
 ## Localisation
 

@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Vixen.Input;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Markup.Binding;
 using Vixen.Ui.Markup.Emit;
@@ -523,6 +524,218 @@ public class EmitterTests {
             document.Styles.Loader.Diagnostics,
             diagnostic => diagnostic.Reason.Contains("brace", StringComparison.Ordinal)
         );
+    }
+
+    // ================================================================== tag, and use
+
+    /// <summary>
+    ///     ⚠ <b>What <c>@tag</c> could not say, because <c>@tag</c> is a header.</b> A control's
+    ///     element name comes from its type, so <c>Part&lt;ScrollView&gt;("add-component-list")</c> —
+    ///     a control under the tag a stylesheet names — had no markup spelling and no way to be
+    ///     subclassed into one, <c>ScrollView</c> being sealed. The runtime always took the tag:
+    ///     <c>UiDocument.Adopt</c> only falls back to <see cref="UiElement.TagName" />.
+    /// </summary>
+    [Fact]
+    public void A_tag_attribute_renames_what_a_capitalised_tag_creates() {
+        const string Source = """
+                              @component Greeter
+                              <Gauge tag="add-component-list" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var gauge = component.Root.Children.Single();
+
+        Assert.Equal("add-component-list", gauge.Tag);
+
+        // And it is still the control it was. A rename is not a downgrade to a plain element: the
+        // classes it gave itself in `OnCreated` are the evidence, because those run before any
+        // markup attribute is applied and a wrong `Child<T>` overload would have skipped them.
+        Assert.True(gauge.HasClass("variant-default"));
+        Assert.True(gauge.HasClass("size-md"));
+    }
+
+    /// <summary>
+    ///     The other half: a component's host element, which is what makes "the same part under
+    ///     another name" sayable. <c>WaterFacts</c> is a second type for the want of this.
+    /// </summary>
+    [Fact]
+    public void A_tag_attribute_renames_a_components_host_element_too() {
+        const string Source = """
+                              @component Greeter
+                              <Callout tag="water-facts" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var host = component.Root.Children.Single();
+
+        Assert.Equal("water-facts", host.Tag);
+
+        // What the component built is still inside it, which is the thing a wrong host would break.
+        Assert.Equal(["callout-body"], host.Children.Select(child => child.Tag));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Computed, and read exactly once.</b> Wave 6 found two panels choosing a tag from the
+    ///     data — <c>query-row-selected</c>, <c>agent-row-live</c> — and had to smuggle the flag into
+    ///     the <c>key</c> because a tag could not be written at all. It can now, and the key is still
+    ///     what decides: a tag is interned into the style node when the element is made, so a
+    ///     surviving row keeps the tag it was born with and only a changed key makes a new one.
+    /// </summary>
+    [Fact]
+    public void A_computed_tag_is_read_when_the_element_is_made_and_never_again() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string> Flavour { get; } = new("live");
+                              }
+
+                              <div>
+                                  @for (var row in new[] { 1 }) {
+                                      <Gauge key="@(row, Flavour.Value)" tag="@("row-" + Flavour.Value)" />
+                                  }
+                              </div>
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var root = component.Root.Children.Single();
+
+        document.Effects.Flush();
+        Assert.Equal(["row-live"], root.Children.Select(child => child.Tag));
+
+        // The key carries the flavour, so the row is a different row and gets a new element.
+        ((Signal<string>)Property(instance, "Flavour")).Value = "stale";
+        document.Effects.Flush();
+        Assert.Equal(["row-stale"], root.Children.Select(child => child.Tag));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The ledger's sixth shape, closed without unsealing anything.</b> A control fed by a
+    ///     <i>method</i> has no property for a parameter to assign, and the sanctioned escape —
+    ///     a four-line subclass exposing the call as a property — is what <c>sealed</c> refuses.
+    ///     <c>use</c> is that subclass without the type: an <c>Action&lt;T&gt;</c> run as an effect,
+    ///     so the control is re-fed whenever what the expression read changes.
+    /// </summary>
+    [Fact]
+    public void A_sealed_control_fed_by_a_method_is_reachable_from_markup() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string> Subject { get; } = new("transform");
+                              }
+
+                              <Roster use="@(view => view.Inspect(Subject.Value, 2))" />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var roster = component.Root.Children.Single();
+        var inspections = roster.GetType().GetProperty("Inspections")!;
+
+        document.Effects.Flush();
+        Assert.Equal("roster", roster.Tag);
+        Assert.Equal("transform:2", roster.Text);
+        Assert.Equal(1, inspections.GetValue(roster));
+
+        // ⚠ The half that makes it worth having. A one-shot initialiser would leave the panel
+        // showing the first thing it was ever pointed at, which is the defect `Restate` exists to
+        // paper over everywhere this pattern is written by hand.
+        ((Signal<string>)Property(instance, "Subject")).Value = "renderer";
+        document.Effects.Flush();
+
+        Assert.Equal("renderer:2", roster.Text);
+        Assert.Equal(2, inspections.GetValue(roster));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And shape 5 falls out of it.</b> An interpolation is a <c>text</c> <i>child</i> and
+    ///     an attribute on an intrinsic tag goes to the selector arena, so an element's own
+    ///     <c>Text</c> had no markup spelling — <c>&lt;fact-name Text="@Name" /&gt;</c> silently does
+    ///     nothing and <c>&lt;fact-name&gt;@Name&lt;/fact-name&gt;</c> adds a box. Nine subclasses
+    ///     were written in one panel for this. A <c>use</c> writes the property itself, and the
+    ///     element has no children.
+    /// </summary>
+    [Fact]
+    public void A_use_writes_an_intrinsic_elements_own_text_with_no_extra_box() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string> Caption { get; } = new("Terrains to carve");
+                              }
+
+                              <fact-name use="@(cell => cell.Text = Caption.Value)" />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var cell = component.Root.Children.Single();
+
+        document.Effects.Flush();
+        Assert.Equal("Terrains to carve", cell.Text);
+        Assert.Empty(cell.Children);
+
+        ((Signal<string>)Property(instance, "Caption")).Value = "Zones";
+        document.Effects.Flush();
+
+        Assert.Equal("Zones", cell.Text);
+        Assert.Empty(cell.Children);
+    }
+
+    /// <summary>
+    ///     A <c>use</c> is an ordinary effect, so it belongs to the region that declared it: an arm
+    ///     that leaves takes it with it. Without that a <c>use</c> inside an <c>@if</c> would go on
+    ///     feeding an element that is no longer in the tree — the failure regions exist to prevent,
+    ///     and the one a hand-written subscription in <c>OnComposed</c> actually has.
+    /// </summary>
+    [Fact]
+    public void A_use_leaves_with_the_branch_that_declared_it() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<bool> Shown { get; } = new(true);
+                                  public Signal<string> Subject { get; } = new("a");
+                              }
+
+                              <div>
+                                  @if (Shown.Value) {
+                                      <Roster use="@(view => view.Inspect(Subject.Value, 1))" />
+                                  }
+                              </div>
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var root = component.Root.Children.Single();
+
+        document.Effects.Flush();
+        var roster = root.Children.Single();
+        var inspections = roster.GetType().GetProperty("Inspections")!;
+        Assert.Equal(1, inspections.GetValue(roster));
+
+        ((Signal<bool>)Property(instance, "Shown")).Value = false;
+        document.Effects.Flush();
+        Assert.Empty(root.Children);
+
+        // The element is gone; the effect that fed it must be too.
+        ((Signal<string>)Property(instance, "Subject")).Value = "b";
+        document.Effects.Flush();
+        Assert.Equal(1, inspections.GetValue(roster));
     }
 
     static string Text(UiElement element) => element.Children.Single().Text ?? string.Empty;
@@ -1354,6 +1567,117 @@ public class EmitterTests {
             Assert.Equal(Path, span.Path);
             Assert.Equal(4, span.StartLinePosition.Line);
         }
+    }
+
+    // ================================================================== on:keydown, and the capture leg
+
+    /// <summary>
+    ///     The three pickers' handler, written as markup: a key taken on the way <i>down</i>, before
+    ///     the field under it turns Down into caret movement.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An explicitly typed lambda, and it is the only spelling that works.</b> The emitter
+    ///     writes <c>ctx.On(target, "keydown", …, "capture")</c> and
+    ///     <see cref="BuildContext" /> overloads that on <c>Action</c> and
+    ///     <c>Action&lt;TEvent&gt;</c>, so what fixes <c>TEvent</c> has to come from the handler —
+    ///     and a lambda that names its parameter's type is the one form that carries it. A method
+    ///     group does not; see
+    ///     <see cref="A_method_group_handler_cannot_type_itself_and_says_so_at_the_handler" />.
+    /// </remarks>
+    const string Keys = """
+                        @component Greeter
+                        @using System.Collections.Generic
+                        @using Vixen.Ui
+
+                        @code {
+                            public List<string> Seen { get; } = [];
+
+                            void Down(KeyEvent args) => Seen.Add("panel:" + args.Key);
+                            void Up(KeyEvent args) => Seen.Add("up:" + args.Key);
+                        }
+
+                        <panel-root on:keydown.capture="@((KeyEvent e) => Down(e))"
+                                    on:keyup="@((KeyEvent e) => Up(e))">
+                            <field />
+                        </panel-root>
+                        """;
+
+    /// <summary>
+    ///     ⚠ <b>The whole of what "<c>on:</c> has no way to say which leg" was wrong about.</b>
+    ///     <c>capture</c> has been in the modifier list and in <see cref="BuildContext.On{TEvent}" />
+    ///     since both were written; what was missing was any <c>keydown</c> entry in the
+    ///     subscription table, so the attribute compiled and threw <i>"'keydown' is not an event"</i>
+    ///     at compose. Reverting the two table entries fails this test at <c>Run</c>.
+    /// </summary>
+    [Fact]
+    public void A_keydown_on_the_capture_leg_runs_before_the_element_it_guards() {
+        var (component, instance, document) = Run(Keys);
+
+        using var owned = document;
+        var seen = (List<string>)Property(instance, "Seen");
+        var field = component.Root.Children.Single().Children.Single();
+
+        // On the field, so the panel is an ancestor: a bubble handler would run after the field's
+        // own, and the pickers' whole reason for capture is that it runs before.
+        field.AddHandler<KeyEvent>((_, args) => seen.Add("field:" + args.Key));
+        field.Raise(new KeyEvent { Key = InputKey.Down, Action = KeyAction.Pressed });
+
+        Assert.Equal(["panel:Down", "field:Down"], seen);
+    }
+
+    /// <summary>
+    ///     And the two names are two names over one event type, the way <c>pointerdown</c> and
+    ///     <c>pointerup</c> are — a release does not reach the <c>keydown</c> handler, so nothing
+    ///     written against one of them has to test <c>KeyAction</c> for itself.
+    /// </summary>
+    [Fact]
+    public void Keydown_and_keyup_split_one_event_on_its_action() {
+        var (component, instance, document) = Run(Keys);
+
+        using var owned = document;
+        var seen = (List<string>)Property(instance, "Seen");
+        var field = component.Root.Children.Single().Children.Single();
+
+        field.Raise(new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Released });
+        Assert.Equal(["up:Enter"], seen);
+
+        field.Raise(new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed });
+        Assert.Equal(["up:Enter", "panel:Enter"], seen);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one place <c>on:</c> is narrower than every other directive, and it is C#'s
+    ///     rule rather than the emitter's.</b> A handler that wants the event has to name its
+    ///     parameter's type, because <c>TEvent</c> is inferred from the argument and a method group
+    ///     supplies nothing to infer it from — the group has no natural type until the delegate's
+    ///     parameter types are known, and here they are exactly what is being solved for. So
+    ///     <c>on:click="@Increment"</c> keeps working (<c>Increment()</c> is an <c>Action</c>) and
+    ///     <c>on:keydown="@Keyed"</c> does not, however singular <c>Keyed</c> is.
+    /// </summary>
+    /// <remarks>
+    ///     Pinned rather than merely written down, and pinned to the <i>author's</i> characters: the
+    ///     message is Roslyn's and it lands inside the quotes, which is the bargain every directive
+    ///     is emitted under. If a later C# widens method-group inference this test starts failing,
+    ///     which is the right way to be told.
+    /// </remarks>
+    [Fact]
+    public void A_method_group_handler_cannot_type_itself_and_says_so_at_the_handler() {
+        const string Source = """
+                              @component Counter
+                              @using Vixen.Ui
+                              @code { void Keyed(KeyEvent args) { } }
+                              <div on:keydown.capture="@Keyed" />
+                              """;
+
+        var error = Errors(Compile(Emit(Source)))[0];
+        var span = error.Location.GetMappedLineSpan();
+
+        Assert.Contains("method group", error.GetMessage(), StringComparison.Ordinal);
+        Assert.Equal(Path, span.Path);
+        Assert.Equal(3, span.StartLinePosition.Line);
+
+        // Column 26 is `Keyed` inside the quotes, one past the `@`.
+        Assert.Equal(26, span.StartLinePosition.Character);
     }
 
     static ImmutableArray<Diagnostic> Errors(Compilation compilation) =>

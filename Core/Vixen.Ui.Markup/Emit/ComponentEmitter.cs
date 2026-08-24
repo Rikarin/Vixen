@@ -373,13 +373,24 @@ public sealed class ComponentEmitter {
         var name = $"n{names++}";
 
         if (element.IsComponent) {
+            // ⚠ **The tag override is an argument, so it has to be worked out before the element
+            // exists** — which is why `tag` is read off the element here rather than reached in
+            // `EmitAttribute` with everything else. A tag is interned into the style node by
+            // `UiDocument.Adopt` and there is no setter for it; an attribute applied afterwards
+            // would have had to be a second element.
+            var renamed = element.TagOverride switch {
+                { IsDynamic: false } fixedTag => Quote(fixedTag.Literal ?? string.Empty),
+                { } computed => Local(computed),
+                _ => null
+            };
+
             // The tag name is a type name, so it is emitted as one, under its own span — which is
             // how an unknown component becomes "no such type" squiggled on the tag the author
             // wrote, with nothing here having had to resolve a type.
             Mapped(
                 new(element.Tag, element.TagPosition),
                 $"var {name} = {context}.Child<",
-                $">({parent});"
+                renamed is null ? $">({parent});" : $">({parent}, {renamed});"
             );
         } else {
             Line($"var {name} = {context}.Element({parent}, {Quote(element.Tag)});");
@@ -407,6 +418,22 @@ public sealed class ComponentEmitter {
         );
     }
 
+    /// <summary>Evaluates a computed <c>tag</c> into a local, and hands back the local's name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Once, into a variable, and that is the semantics rather than an emitter
+    ///     convenience.</b> The expression is read at the moment the element is created and never
+    ///     again — a tag is not a binding, because a rule that matched one name this frame and
+    ///     another the next is a cascade nobody can reason about. A row whose tag depends on its
+    ///     data therefore has to say so in its <c>key</c>: a surviving key keeps its element, and an
+    ///     element keeps the tag it was made with.
+    /// </remarks>
+    string Local(BoundAttribute tag) {
+        var local = $"__t{names++}";
+        Mapped2(tag.Value, $"var {local} = ", ";");
+
+        return local;
+    }
+
     /// <summary>
     ///     The element an attribute applies to. For a component that is its root: <c>class</c> on
     ///     <c>&lt;Callout&gt;</c> styles the element the component drew, not the component object.
@@ -431,6 +458,24 @@ public sealed class ComponentEmitter {
         switch (attribute.Kind) {
             case BoundAttributeKind.Key:
                 // Consumed by the enclosing loop, which needs it before the element exists.
+                break;
+
+            case BoundAttributeKind.Tag:
+                // Consumed by `EmitElement`, for the same reason: it is an argument to the call that
+                // makes the element, not a statement after it.
+                break;
+
+            case BoundAttributeKind.Use when attribute.Expression is { } action:
+                // ⚠ The tag object and not `Target(element, name)`, which is `ref`'s choice and made
+                // for `ref`'s reason: what a `use` wants to reach is the thing the tag named — a
+                // control's `Inspect`, a component's own method — where `class` and `on:` want the
+                // element it drew. Which of the two `n1` is was settled by C# at the `Child<T>`.
+                //
+                // ⚠ And `Use` takes the subject as its first argument so that `T` is inferred from
+                // it before the lambda is read. Written the other way round the parameter of
+                // `v => v.Inspect(…)` would have nothing to infer from, and every `use` in the tree
+                // would need its type spelled out.
+                Mapped(action, $"{context}.Use({name}, ", ");");
                 break;
 
             case BoundAttributeKind.Ref when attribute.Expression is { } member:

@@ -43,7 +43,7 @@ is the same argument the [log event register](log-events.md) makes, for the same
 | VX1000 – VX1999 | Asset import — importers, the pipeline, the asset database | **in use** |
 | VX2000 – VX2999 | Content build — the plan, the packer, the catalog | **in use** |
 | VX3000 – VX3999 | Shaders and Raven integration (Raven's own are `RVNxxxx`) | reserved |
-| VX4000 – VX4999 | UI markup and styling — VXML, VCSS | reserved |
+| VX4000 – VX4999 | UI markup and styling — VXML, VCSS | **in use** |
 | VX8000 – VX8999 | Platform packaging — APK, iOS bundle, `wwwroot` | **in use** |
 | VX9000 – VX9999 | The tools themselves — invocation, environment | **in use** |
 
@@ -56,12 +56,26 @@ is the same argument the [log event register](log-events.md) makes, for the same
 | `VX2001` | The build plan found something: an address nothing can resolve, a group nothing defines, a dependency that would not be packed. | `vixen content build` |
 | `VX2002` | The content builder found something while packing. | `vixen content build` |
 | `VX2003` | The shader bundle build found something: a manifest that will not read, a variant that will not compile, a variant no shader answers to. | `vixen content build` |
+| `VX4001` | A `.vxml` is on disk in a project that globs no markup, so nothing compiles it. | `Directory.Build.targets`, in this repository only |
+| `VX4002` | A `.vxml` is compiler input and the VXML compiler is not in `@(Analyzer)`. | `Vixen.Ui.targets`, everywhere it is imported |
 | `VX8001` | A pinned native binary has not been restored. | `MoltenVK.targets`, on an iOS build |
 | `VX8002` | A restored native archive exports none of the entry points it was linked for. | `MoltenVK.targets`, on an iOS build |
 | `VX9001` | The tool could not run: no project where one was expected, or an unusable argument. | every command |
 
 Severity is not part of the code. `VX1001` is an error, a warning or information depending on what the
 importer said, because the importer is what knows.
+
+⚠ **`VX4001` and `VX4002` are `VX` and not `VXML`, and the split is the point rather than an
+inconsistency.** Everything in the `VXML` space is a claim about a `.vxml`'s contents, made by a
+Roslyn generator that has read it. These two are claims that the generator *never ran* — one because
+the file is not compiler input, one because it is and no analyzer is loaded — so there is no
+generator to emit them and nothing to register in `AnalyzerReleases`. They are MSBuild's, they land
+on the `.csproj` and not on the markup, and that is where the mistake is: every message this state
+used to produce named the hand-written half of a partial class that was correct. Both are errors, on
+the argument that the alternative is a warning printed ahead of thirty C# errors about the wrong
+file, or — for a `.vxml` with no hand-written half — a build that succeeds with the component
+missing. `<VixenUiMarkupCheck>false</VixenUiMarkupCheck>` is the escape, and each message names it;
+`Tools/Vixen.Templates` is the one project in the tree that takes it.
 
 ⚠ **`advisory` is a fourth word, and it is a claim about the run rather than about the finding.**
 `vixen import --advisory` — which only `Vixen.Sdk`'s pre-compile pass passes, because it runs before

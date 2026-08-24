@@ -18,7 +18,14 @@ public sealed partial class WaterModule {
     public const string BodyPanel = WaterMode.PanelId;
 
     WaterZoneFacts? zoneFacts;
-    WaterFacts? waterFacts;
+
+    /// <summary>
+    ///     ⚠ <b>The same part as <see cref="zoneFacts" />, under the tag this panel's structure
+    ///     names.</b> It was a second type until the markup channel grew a spelling for a host tag;
+    ///     see <see cref="WaterZoneFacts" />. The body panel passes no refusal, so the arm that draws
+    ///     one is never built.
+    /// </summary>
+    WaterZoneFacts? waterFacts;
     WaterNotice? notice;
 
     /// <summary>Registers them.</summary>
@@ -84,7 +91,7 @@ public sealed partial class WaterModule {
                     ("Preview carve", WaterMode.PreviewCarveCommand)
                 );
 
-                waterFacts = panel.Add<WaterFacts>();
+                waterFacts = panel.Add<WaterZoneFacts>("water-facts");
                 notice = panel.Add<WaterNotice>();
 
                 RefreshWaterFacts();
@@ -110,7 +117,7 @@ public sealed partial class WaterModule {
             // ⚠ The number that answers "why did Carve terrain do nothing". A verb greyed out with no
             // reason beside it is a verb an author decides is broken — doc 20's first bar.
             ("Terrains to carve", CarvableTerrains.ToString())
-        ]);
+        ], null);
 
         notice?.Clear();
     }

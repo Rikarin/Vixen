@@ -25,6 +25,8 @@ Vixen.Ui.Markup.Binding.BoundAttributeKind.Key = 3 -> Vixen.Ui.Markup.Binding.Bo
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Parameter = 0 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Ref = 4 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Refs = 6 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Tag = 7 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Use = 8 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundBranch -> sealed record
 Vixen.Ui.Markup.Binding.BoundBranch : System.IEquatable<Vixen.Ui.Markup.Binding.BoundBranch>
 Vixen.Ui.Markup.Binding.BoundBranch.Body.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
@@ -73,6 +75,7 @@ Vixen.Ui.Markup.Binding.BoundElement.IsComponent.init -> bool
 Vixen.Ui.Markup.Binding.BoundElement.Key.get -> Vixen.Ui.Markup.Binding.BoundExpression?
 Vixen.Ui.Markup.Binding.BoundElement.Tag.get -> string
 Vixen.Ui.Markup.Binding.BoundElement.Tag.init -> string
+Vixen.Ui.Markup.Binding.BoundElement.TagOverride.get -> Vixen.Ui.Markup.Binding.BoundAttribute?
 Vixen.Ui.Markup.Binding.BoundElement.TagPosition.get -> Vixen.Core.Syntax.Text.LinePositionSpan
 Vixen.Ui.Markup.Binding.BoundElement.TagPosition.init -> Vixen.Core.Syntax.Text.LinePositionSpan
 Vixen.Ui.Markup.Binding.BoundExpression -> sealed record
@@ -587,6 +590,7 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ProjectedKey -> Vi
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.RefInLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.RefsOutsideLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.SyntaxError -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.TagOnElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnbalancedDelimiter -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnclosedElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnclosedStyleBlock -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

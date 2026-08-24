@@ -81,7 +81,30 @@ public sealed class BuildContext {
                 element.AddHandler<DragEvent>(
                     (_, args) => { if (args.Stage is DragStage.Completed or DragStage.Cancelled) { handler(args); } },
                     strategy
-                )
+                ),
+
+            // ⚠ Two names over one event type, the shape `pointerdown`/`pointerup` already has and
+            // for the same reason: a handler that had to test `args.Action` itself would be a
+            // handler that fires twice per keystroke until somebody notices. `KeyAction` is the only
+            // thing separating them, so the table is where the test belongs.
+            ["keydown"] = (element, handler, strategy) =>
+                element.AddHandler<KeyEvent>(
+                    (_, args) => { if (args.Action == KeyAction.Pressed) { handler(args); } },
+                    strategy
+                ),
+            ["keyup"] = (element, handler, strategy) =>
+                element.AddHandler<KeyEvent>(
+                    (_, args) => { if (args.Action == KeyAction.Released) { handler(args); } },
+                    strategy
+                ),
+
+            // ⚠ Registered in the same breath as the two above, because the alternative is the
+            // France bug. `KeyEvent.Key` is a physical position by its US-QWERTY legend, so
+            // `on:keydown` read for a letter is a text box that types `q` on an AZERTY keyboard —
+            // and an author who cannot name the event that carries characters reaches for the one
+            // that is there. The two exist together so the right one is always available.
+            ["textinput"] = (element, handler, strategy) =>
+                element.AddHandler<TextInputEvent>((_, args) => handler(args), strategy)
         };
 
     /// <summary>The region currently being built into, per parent element.</summary>
@@ -360,7 +383,7 @@ public sealed class BuildContext {
     /// <summary>The scope class the elements being built carry, or null when they are not scoped.</summary>
     /// <remarks>
     ///     The running <see cref="Component" />'s, or the markup-authored element's when the context
-    ///     is composing one. Never both: <see cref="Child{T}" /> saves and restores
+    ///     is composing one. Never both: <see cref="Child{T}(UiElement)" /> saves and restores
     ///     <see cref="owner" /> around a nested component, and a composed element gets a context of
     ///     its own.
     /// </remarks>
@@ -387,7 +410,8 @@ public sealed class BuildContext {
     ///         Either way the host element's tag is the one the type answers to, so
     ///         <c>&lt;Callout /&gt;</c> is styled by <c>callout { … }</c> and
     ///         <c>&lt;ProgressBar /&gt;</c> by <c>progress-bar { … }</c> — the same rule the control
-    ///         library already follows for a control built by hand.
+    ///         library already follows for a control built by hand. The overload taking a
+    ///         <c>tag</c> is markup's <c>tag="…"</c> attribute and says otherwise.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>An element is not entered, and a component is.</b> A component's markup builds
@@ -397,13 +421,41 @@ public sealed class BuildContext {
     ///         its stylesheet's scope class land on elements the caller wrote.
     ///     </para>
     /// </remarks>
-    public T Child<T>(UiElement? parent) where T : IComposable, new() {
+    public T Child<T>(UiElement? parent) where T : IComposable, new() => Child<T>(parent, null);
+
+    /// <summary>The same, under a tag of the caller's choosing.</summary>
+    /// <typeparam name="T">The component type or the element type.</typeparam>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="tag">
+    ///     The element name to create it under, or null to take the one the type answers to.
+    /// </param>
+    /// <returns>What was created.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What markup's <c>tag="…"</c> attribute emits, and the runtime has always had it:
+    ///         <see cref="UiDocument.Adopt(UiElement, string, UiElement, string, System.ReadOnlySpan{string})" /> takes the tag and only falls back to
+    ///         <see cref="UiElement.TagName" />, so <c>panel.Add&lt;WaterZoneFacts&gt;("water-facts")</c>
+    ///         was already legal C#.</b> What did not exist was a spelling of it in a <c>.vxml</c>,
+    ///         which is why <c>Part&lt;ScrollView&gt;("add-component-list")</c> — a control under the
+    ///         tag a stylesheet names — was a shape markup could not write and a sealed control could
+    ///         not be subclassed into.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read once, at creation, and never again.</b> An element's tag is fixed by
+    ///         <see cref="UiElement.Bind" /> — the style tree interns it into the node — so this is
+    ///         not a binding and a later change to whatever the expression read does nothing. Inside
+    ///         an <c>@for</c> that is exactly right and is the same rule keys already follow: a row
+    ///         whose tag depends on the data has to put that data in its <c>key</c>, because a
+    ///         surviving key keeps its element and an element keeps its tag.
+    ///     </para>
+    /// </remarks>
+    public T Child<T>(UiElement? parent, string? tag) where T : IComposable, new() {
         var created = new T();
 
         switch (created) {
             case UiElement element: {
                 var target = parent ?? Anchor;
-                Document.Adopt(element, null, target);
+                Document.Adopt(element, tag, target);
                 RegionOf(target).Add(element);
 
                 if (Scope is { } elementScope) {
@@ -414,7 +466,7 @@ public sealed class BuildContext {
             }
 
             case Component component: {
-                var host = Element(parent, component.TagName);
+                var host = Element(parent, tag ?? component.TagName);
 
                 // ⚠ **The region a component builds into hangs off its host, not off the region
                 // being built** — so clearing the enclosing branch removes the host element and
@@ -629,6 +681,45 @@ public sealed class BuildContext {
         building.Track(new Effect(assign, Document.Effects));
     }
 
+    /// <summary>Runs an expression against what a tag made, now and again whenever what it read changes.</summary>
+    /// <typeparam name="T">What the tag made: a control, an element, or a <see cref="Component" />.</typeparam>
+    /// <param name="target">The thing the tag made.</param>
+    /// <param name="action">What to do with it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is markup's <c>use</c>, and it exists because a control fed by a
+    ///         <i>method</i> had no markup spelling at all.</b> A component-tag parameter is a
+    ///         property assignment, so <c>&lt;Slider Value="@x" /&gt;</c> works and
+    ///         <c>panel.Inspect(descriptor, provider, targets)</c>,
+    ///         <c>list.SetItems(rows)</c> and <c>select.AddOption(…)</c> do not — three arguments,
+    ///         a collection, and a call per item are none of them a property. The recorded escape
+    ///         for all three was a four-line subclass exposing the call as a property, which
+    ///         <c>sealed</c> refuses; <c>use</c> is the same idea without the type.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An effect and not a callback, which is the whole of why it is worth having.</b>
+    ///         It is <see cref="Bind(Action)" /> with a subject, so every signal the expression
+    ///         reads is a dependency and the call is made again when one of them changes — which is
+    ///         what makes <c>use="@(v =&gt; v.Inspect(Chosen, Provider, Targets))"</c> a live panel
+    ///         rather than a one-shot. It is registered against the region being built, so a branch
+    ///         or a row that leaves takes it with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which means it must be idempotent, and a call that appends is not.</b>
+    ///         <c>use="@(v =&gt; v.AddOption(…))"</c> adds an option every time the expression's
+    ///         dependencies change. The rule is the one every effect here follows: say what the
+    ///         control should <i>be</i>, not what to do to it — <c>SetItems</c>, not <c>Add</c> —
+    ///         and if the control offers only the appending form, clear it first inside the same
+    ///         expression.
+    ///     </para>
+    /// </remarks>
+    public void Use<T>(T target, Action<T> action) {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(action);
+
+        Bind(() => action(target));
+    }
+
     /// <summary>Subscribes a handler to an event by name.</summary>
     /// <param name="target">The element.</param>
     /// <param name="name">The event name, as written after <c>on:</c>.</param>
@@ -650,11 +741,27 @@ public sealed class BuildContext {
     /// <param name="modifiers">As above.</param>
     /// <exception cref="ArgumentException">The name is not one the runtime knows.</exception>
     /// <remarks>
-    ///     ⚠ <b><typeparamref name="TEvent" /> is a filter, not the subscription.</b> What is
-    ///     subscribed to is decided by the name's entry in the table — which for <c>click</c> is a
-    ///     different event type depending on whether the target is a control — and an argument of
-    ///     another type is dropped. So the default <see cref="UiEvent" /> is what markup emits, and
-    ///     a handler that narrows is asking for a subset of what the name delivers.
+    ///     <para>
+    ///         ⚠ <b><typeparamref name="TEvent" /> is a filter, not the subscription.</b> What is
+    ///         subscribed to is decided by the name's entry in the table — which for <c>click</c> is
+    ///         a different event type depending on whether the target is a control — and an argument
+    ///         of another type is dropped. So <see cref="UiEvent" /> is what a handler taking no
+    ///         argument gets, and a handler that narrows is asking for a subset of what the name
+    ///         delivers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>From markup the handler has to be an explicitly typed lambda —
+    ///         <c>on:keydown.capture="@((KeyEvent e) => Keyed(e))"</c> — and a method group does not
+    ///         work.</b> The emitter writes one call for both overloads and cannot name the event
+    ///         type, because which type a name delivers is this table's business rather than the
+    ///         compiler's; so <typeparamref name="TEvent" /> is inferred from the argument, and a
+    ///         method group offers nothing to infer it from. Its natural type needs the delegate's
+    ///         parameter types, which are exactly what is being solved for. The failure is Roslyn's
+    ///         <i>"cannot convert from 'method group' to 'System.Action'"</i>, landing on the
+    ///         handler's own characters in the <c>.vxml</c> — legible, but not obviously about
+    ///         inference, which is why it is written down here and pinned by
+    ///         <c>EmitterTests.A_method_group_handler_cannot_type_itself_and_says_so_at_the_handler</c>.
+    ///     </para>
     /// </remarks>
     public void On<TEvent>(UiElement target, string name, Action<TEvent> handler, params string[] modifiers)
         where TEvent : UiEvent {
@@ -1067,7 +1174,7 @@ public sealed class BuildContext {
     /// <summary>The same, for a parent whose region something other than a region ends.</summary>
     /// <remarks>
     ///     ⚠ <b>A component's host, and the mount.</b> Both are ended by a
-    ///     <see cref="Unsubscribe" /> held elsewhere — see <see cref="Child{T}" /> — so linking them
+    ///     <see cref="Unsubscribe" /> held elsewhere — see <see cref="Child{T}(UiElement)" /> — so linking them
     ///     into whatever happened to be building would give them a second owner and, across a
     ///     <see cref="Rebuild" />, a new link on the enclosing region for every reload.
     /// </remarks>

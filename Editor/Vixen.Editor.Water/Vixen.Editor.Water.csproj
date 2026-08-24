@@ -83,12 +83,15 @@
             Vixen.Ui would bring it and a ProjectReference does not. Doc 36 § F7 wave 5 — the two
             water panels' readout blocks are written in the markup language the UI framework is for.
 
-            ⚠ **The first `.vxml` in an assembly costs these two lines and nothing after that.** Not
-            having them is not a diagnostic: the generator simply never runs, the `.vxml` is not an
-            item, and the hand-written half of the partial class fails to compile with "does not
-            contain a definition for" on every member the markup declares. That reads as a mistake in
-            the markup and is a mistake in the project file, and it is why `Vixen.Editor.Terrain` and
-            `Vixen.Editor.AssetEditors` each carry the same pair with the same comment.
+            ⚠ **The first `.vxml` in an assembly costs these two lines and nothing after that.**
+            Missing them used to be silent — the generator never ran, the `.vxml` was not an item,
+            and the hand-written half of the partial class failed to compile with "does not contain
+            a definition for" on every member the markup declares, which reads as a mistake in the
+            markup and is a mistake in the project file. This assembly is where that happened, and
+            it is why `Vixen.Editor.Terrain` and `Vixen.Editor.AssetEditors` each carry the same pair
+            with the same comment. **It is a diagnostic now**: VX4001 in the repository's
+            `Directory.Build.targets` if neither line is here, VX4002 in `Vixen.Ui.targets` if the
+            import is and this reference is not. Both name the `.csproj` rather than the markup.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
                           OutputItemType="Analyzer"

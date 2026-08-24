@@ -64,11 +64,17 @@ namespace Vixen.Editor.Debugger.Tests;
 ///             connection coming up is supposed to move — and nothing else.
 ///         </item>
 ///         <item>
-///             <c>RemoteInspectorClient.counters</c> back as a <c>Dictionary</c> written in place
-///             fails <see cref="A_counter_that_arrives_and_then_moves_reaches_the_pane" /> and
+///             <c>RemoteInspectorClient.counters</c> back as a plain <c>Dictionary</c> written in
+///             place fails <see cref="A_counter_that_arrives_and_then_moves_reaches_the_pane" /> and
 ///             <see cref="Detaching_removes_the_counter_rows_rather_than_parking_them" />, and
-///             nothing else. That is the <c>ImmutableDictionary</c> earning its allocation: a map
-///             mutated in place is a change no signal can see.
+///             nothing else — re-checked after the map moved off <c>ImmutableDictionary</c>, and
+///             still exactly those two. ⚠ <b>The claim the sabotage makes is narrower than it looks
+///             and the map is what changed.</b> It used to say the <c>ImmutableDictionary</c> earned
+///             its allocation, because a map mutated in place is a change no signal can see; the map
+///             is a <c>SignalDictionary</c> now, which is mutated in place and <i>is</i> the signal,
+///             so what these two tests assert is the notification and not the copy. That the copy is
+///             gone is measured in <c>Vixen.Ui.Reactive.Tests.SignalDictionaryTests</c>, where a
+///             byte count can say so and a rectangle cannot.
 ///         </item>
 ///     </list>
 ///     <para>
@@ -405,12 +411,13 @@ public sealed class PortedPanelTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>Apply needs a selection <i>and</i> a member name, and the two arrive by different
-    ///     routes.</b> The selection is the tree's, reported through <c>SelectionChanged</c> into a
-    ///     signal because a <c>TreeView</c>'s selection is not a <c>[UiProperty]</c> and
-    ///     <c>change:Selection</c> throws; the member name is a <c>change:Value</c> on a
-    ///     <c>TextBox</c>. Both have to land for the button to light, which is why this asserts
-    ///     each half greyed on its own.
+    ///     ⚠ <b>Apply needs a selection <i>and</i> a member name, and both now arrive by the same
+    ///     route.</b> Wave 6 wrote the selection through a <c>SelectionChanged</c> subscription in
+    ///     <c>OnComposed</c>, because <c>change:Selection</c> threw — the read-only view over a
+    ///     <c>HashSet</c> is not a <c>[UiProperty]</c> and could not have been one. It is
+    ///     <c>change:SelectedNodes</c> now, beside the <c>change:Value</c> on the member box, and
+    ///     this test is what says the port kept the behaviour: both halves have to land for the
+    ///     button to light, so each is asserted greyed on its own.
     /// </summary>
     [Fact]
     public void Apply_lights_only_with_a_selection_and_a_member() {

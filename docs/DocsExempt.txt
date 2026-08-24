@@ -1653,7 +1653,6 @@ T:Vixen.Editor.Ui.ToolbarGroup sweep-pending
 T:Vixen.Editor.Ui.ToolbarPresenter sweep-pending
 T:Vixen.Editor.Ui.ToolbarSeparator sweep-pending
 T:Vixen.Editor.Water.WaterFactLine sweep-pending
-T:Vixen.Editor.Water.WaterFacts sweep-pending
 T:Vixen.Editor.Water.WaterNotice sweep-pending
 T:Vixen.Editor.Water.WaterZoneFacts sweep-pending
 T:Vixen.Engine.Behaviors.Behavior sweep-pending
@@ -3532,9 +3531,6 @@ T:Vixen.Ui.PositionedGlyph sweep-pending
 T:Vixen.Ui.Reactive.AsyncComputed`2 sweep-pending
 T:Vixen.Ui.Reactive.AsyncStatus sweep-pending
 T:Vixen.Ui.Reactive.AsyncValue`1 sweep-pending
-T:Vixen.Ui.Reactive.CollectionChange sweep-pending
-T:Vixen.Ui.Reactive.CollectionChangeKind sweep-pending
-T:Vixen.Ui.Reactive.CollectionSignal`1 sweep-pending
 T:Vixen.Ui.Reactive.Computed`1 sweep-pending
 T:Vixen.Ui.Reactive.Effect sweep-pending
 T:Vixen.Ui.Reactive.EffectScheduler sweep-pending

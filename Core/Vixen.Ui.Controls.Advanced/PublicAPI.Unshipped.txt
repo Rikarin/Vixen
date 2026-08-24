@@ -1043,6 +1043,7 @@ Vixen.Ui.Controls.Advanced.TreeView.ClearAllowDrag() -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearMultiSelect() -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearRenameOnActivate() -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearRenameOnSecondClick() -> void
+Vixen.Ui.Controls.Advanced.TreeView.ClearSelectedNodes() -> void
 Vixen.Ui.Controls.Advanced.TreeView.DropIndicator.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.TreeView.Expand(System.Collections.Generic.IEnumerable<Vixen.Ui.Controls.Advanced.TreeNode> nodes, bool expanded = true) -> void
 Vixen.Ui.Controls.Advanced.TreeView.Expand(Vixen.Ui.Controls.Advanced.TreeNode node, bool expanded = true) -> void
@@ -1068,6 +1069,8 @@ Vixen.Ui.Controls.Advanced.TreeView.RowOf(Vixen.Ui.Controls.Advanced.TreeNode no
 Vixen.Ui.Controls.Advanced.TreeView.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TreeRow>
 Vixen.Ui.Controls.Advanced.TreeView.Scroller.get -> Vixen.Ui.Controls.ScrollView
 Vixen.Ui.Controls.Advanced.TreeView.Select(Vixen.Ui.Controls.Advanced.TreeNode? node, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
+Vixen.Ui.Controls.Advanced.TreeView.SelectedNodes.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Controls.Advanced.TreeNode>
+Vixen.Ui.Controls.Advanced.TreeView.SelectedNodes.set -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Controls.Advanced.TreeNode>
 Vixen.Ui.Controls.Advanced.TreeView.Selection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.TreeNode>
 Vixen.Ui.Controls.Advanced.TreeView.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.TreeView>?
 Vixen.Ui.Controls.Advanced.TreeView.TreeView() -> void
@@ -1332,6 +1335,7 @@ static readonly Vixen.Ui.Controls.Advanced.TreeView.AllowDragProperty -> Vixen.U
 static readonly Vixen.Ui.Controls.Advanced.TreeView.MultiSelectProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.TreeView.RenameOnActivateProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.TreeView.RenameOnSecondClickProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.TreeView.SelectedNodesProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.FlipVerticallyProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.RenderScaleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.ShowGizmoProperty -> Vixen.Ui.UiPropertyKey

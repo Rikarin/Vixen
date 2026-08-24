@@ -322,6 +322,49 @@ public class BinderTests {
         Assert.Empty(Ids("@component A\n<slot name=\"footer\" />"));
     }
 
+    /// <summary>
+    ///     ⚠ <b>Refused on a lowercase tag, because the language already says it.</b>
+    ///     <c>&lt;fact-row&gt;</c> is the element name written out, so <c>&lt;div tag="fact-row"&gt;</c>
+    ///     is the same tree with the answer somewhere a reader has to go and look for it — and two
+    ///     ways to name one thing is how a stylesheet comes to be checked against the wrong one.
+    ///     On a capitalised tag there is no other spelling, which is where it is allowed.
+    /// </summary>
+    [Fact]
+    public void A_tag_attribute_belongs_on_a_capitalised_tag_and_nowhere_else() {
+        Assert.Contains("VXML2014", Ids("@component A\n<div tag=\"fact-row\" />"));
+        Assert.Empty(Ids("@component A\n<Callout tag=\"fact-row\" />"));
+
+        var callout = FirstElement("@component A\n<Callout tag=\"fact-row\" />");
+        var tag = Assert.Single(callout.Attributes.Where(a => a.Kind == BoundAttributeKind.Tag));
+
+        Assert.Equal("fact-row", tag.Literal);
+    }
+
+    /// <summary>
+    ///     A <c>use</c> is a lambda, so a quoted value is a mistake worth naming here rather than
+    ///     letting Roslyn report "cannot convert string to Action&lt;T&gt;" against generated code.
+    /// </summary>
+    [Fact]
+    public void A_use_wants_an_expression() {
+        Assert.Contains("VXML2003", Ids("@component A\n<Roster use=\"Inspect\" />"));
+
+        var roster = FirstElement("@component A\n<Roster use=\"@(v => v.Inspect())\" />");
+        var use = Assert.Single(roster.Attributes.Where(a => a.Kind == BoundAttributeKind.Use));
+
+        // Parentheses and all — `@(…)` hands the binder what is between the `@` and the end of the
+        // expression, and a parenthesised lambda still converts at the call.
+        Assert.Equal("(v => v.Inspect())", use.Expression!.Text);
+    }
+
+    /// <summary>
+    ///     And on a plain element, which is what makes it shape 5's escape as well: an element's own
+    ///     <c>Text</c> has no other markup spelling.
+    /// </summary>
+    [Fact]
+    public void A_use_is_allowed_on_a_plain_element() {
+        Assert.Empty(Ids("@component A\n<fact-name use=\"@(cell => cell.Text = Name)\" />"));
+    }
+
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
 

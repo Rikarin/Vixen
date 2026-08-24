@@ -82,6 +82,13 @@ public sealed class WaterFactsTests : IDisposable {
         Assert.Equal(handWritten, part);
     }
 
+    /// <summary>
+    ///     ⚠ <b>And it is now the <i>zone</i> part under a second tag, which is the claim.</b> There
+    ///     were two near-identical types here because a component's host tag was a compile-time
+    ///     header; the tag has always been an argument to <c>UiDocument.Adopt</c>, so one type serves
+    ///     both panels and the dump is what says the tree did not move. The refusal arm is unbuilt
+    ///     rather than hidden, because this caller passes no reason.
+    /// </summary>
     [Fact]
     public void The_body_part_builds_the_tree_the_hand_written_loop_did() {
         (string Label, string Value)[] rows = [
@@ -97,9 +104,9 @@ public sealed class WaterFactsTests : IDisposable {
         });
 
         var part = Dump(() => {
-            var block = test.Document.Root.Add<WaterFacts>();
+            var block = test.Document.Root.Add<WaterZoneFacts>("water-facts");
 
-            block.Show(rows);
+            block.Show(rows, null);
 
             return block;
         });
@@ -173,7 +180,7 @@ public sealed class WaterFactsTests : IDisposable {
     [Fact]
     public void The_parts_are_the_elements_the_panels_created_rather_than_boxes_around_them() {
         var zone = test.Document.Root.Add<WaterZoneFacts>();
-        var body = test.Document.Root.Add<WaterFacts>();
+        var body = test.Document.Root.Add<WaterZoneFacts>("water-facts");
         var notice = test.Document.Root.Add<WaterNotice>();
 
         test.Frames(2);

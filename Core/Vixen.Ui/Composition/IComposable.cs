@@ -15,7 +15,7 @@ namespace Vixen.Ui.Composition;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>An empty interface, and it is carrying its weight.</b>
-///         <see cref="BuildContext.Child{T}" /> could take <c>where T : new()</c> and sort the two
+///         <see cref="BuildContext.Child{T}(UiElement)" /> could take <c>where T : new()</c> and sort the two
 ///         out at runtime; the constraint is what makes <c>&lt;Stopwatch /&gt;</c> — a real type
 ///         that is neither — a compile error on the tag the author wrote, which is the whole bargain
 ///         the markup channel is built on.
