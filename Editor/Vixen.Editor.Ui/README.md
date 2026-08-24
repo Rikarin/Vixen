@@ -862,6 +862,16 @@ water body panel has five of them across two rows, and `Verbs(panel, …)` is ei
 the command — more surface than it removes, for a tag no sheet styles. The revisit condition this
 section set has now been met and answered: still no.
 
+⚠ **Asked a third time by wave 7 and answered the same, with one number that sharpens it.** The
+Terrain panel has seven verbs across two `verb-row`s and Foliage has two, so `Verbs(panel, …)` now
+has the most callers of any helper in that module — which is the case that would normally argue
+*for* a part. It still does not, and the reason has moved from "not enough callers" to something
+firmer: every one of those buttons is `Shell.Commands.Execute(command)`, so a part would have to
+take the shell, or a callback per verb, and a verb list that a caller assigns after construction is
+a frame behind where three lines of C# are not. `StandardFrameView` has the counter-example in the
+same wave — its one `verb-row` holds a single button whose handler is the panel's own method, and
+that is `<verb-row><Button on:click="…" /></verb-row>`, which needs no part at all.
+
 ### The ledger
 
 Sizes are the wave-1b unit: four panels, ~1,130 lines of C# removed, ~1,370 of `.vxml` added, one
