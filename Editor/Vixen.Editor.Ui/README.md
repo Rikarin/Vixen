@@ -449,8 +449,9 @@ Doc 36 § F7's number was "three `.vxml` files against ~120,000 lines of hand-wr
 the honest version of that ratio has never been written down. This is it: **every panel in the
 editor, surveyed once, so that a wave picks its work instead of discovering it.**
 
-**Where it stands.** ~~Twenty~~ ~~Twenty-seven~~ ~~Thirty-four~~ **Forty-one** `.vxml` files across
-~~six~~ ~~seven~~ **nine** assemblies — thirty-three panels, seven shared parts
+**Where it stands.** ~~Twenty~~ ~~Twenty-seven~~ ~~Thirty-four~~ ~~Forty-one~~ **Forty-eight**
+`.vxml` files across
+~~six~~ ~~seven~~ **nine** assemblies — ~~thirty-three~~ **forty** panels, seven shared parts
 (`Vixen.Editor.Ui/Parts/FactRow.vxml`, `Vixen.Editor.AssetEditors/AnalysisRow.vxml`,
 `Vixen.Editor.Terrain`'s `FactBlock`, `LayerBlock` and `PaletteBlock`, and water's
 `WaterZoneFacts` and `WaterNotice`) and one test fixture
@@ -806,8 +807,16 @@ so the triple is `Vixen.Editor.AssetEditors/AnalysisRow.vxml` (`@tag analysis-ro
 Vixen.Ui.UiElement`) with its two cells and a shared `AnalysisNote` record in `Captions.cs`. The
 mixer moved onto it in the same commit and its dump was re-taken to check: **unchanged**, because
 the part's host tag *is* the `analysis-row` the loop built. Nine panels in that assembly build this
-row by hand; ~~three~~ **five** of them are on the part now — wave 7 added `UtilitySetView` and
-`StandardFrameView`, the latter with both of its lists.
+row by hand; ~~three~~ ~~five~~ **eight** of them are on the part now — wave 7 added `UtilitySetView`
+and `StandardFrameView`, the latter with both of its lists, and wave 8 added `VfxGraphView`,
+`ShaderGraphView` (also with both of its lists) and `CompositorView`.
+
+⚠ **And the part had no dump test of its own until wave 8, which is the thing to notice about it.**
+Five panels were building their output out of it on the strength of one sentence in a commit
+message. `ChromeDumpTests.The_analysis_row_is_the_four_lines_every_report_wrote` is the gate now:
+both forms in the same place, tree and flags compared as strings, plus an assertion that the two
+cells are still `Children[0]` and `Children[^1]` — because that is how `ShaderGraphTests` reads them,
+and a part that wrapped either cell would pass a comparison against itself and fail those.
 
 ⚠ **A caller with a *severity* has to hold it somewhere, and that is the one seam in the part.**
 `class` is deliberately not a parameter, so a caller writes `class="@note.Class"` — which means its
@@ -966,12 +975,12 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | Water zone · Water body · Terrain grass/growth/splines | snapshot | no | ~~**port, six small ones**~~ **five done, wave 5 (2026-08-23).** Ported as *parts*, exactly as the block below this table prescribes, and that prescription is the finding: each is now `panel.Add<FactBlock>()` where it was `panel.Add("terrain-facts")`. Splines' duplicated fact block is gone — into one method rather than a `@for`, which is where it actually lived | S each |
 | Blockout settings | snapshot | no | ~~**port**~~ **no — it has no part with a shape.** Its seven children are three `world-title`s, three `InspectorView`s and a `Button`: every one is a single element, so there is nothing for a part to be, and the only container is the `DockPanel` itself. See below | S |
 | `QueryView` · `GoapDomainView` · `AgentDebuggerView` | snapshot | no | ~~**port; leave `CurveEditor`/`NodeCanvas` behind a `ref`**~~ **done, wave 6 (2026-08-23).** The sizing was right and the `ref` instruction was right; what it got wrong is calling all three snapshots the same shape. Two of them choose a *tag* from the data — `query-row-selected`, `agent-row-live` — and a tag is not a class and cannot be bound, so the flag has to be in the **key**. 861 lines of C# → three `.vxml` (1,132 lines) and three `.cs` of records and captions (506); **byte-identical in all sixteen dumped states** | S/M |
-| `CodeEditorView` · `VfxGraphView` · `ShaderGraphView` · `CompositorView` | live | no | port the chrome; the editor/canvas/`KeyValueList` rows stay | S–M |
+| `CodeEditorView` · `VfxGraphView` · `ShaderGraphView` · `CompositorView` | live | no | ~~port the chrome; the editor/canvas/`KeyValueList` rows stay~~ **all four done, wave 8 (2026-08-24).** The instruction was right and the sizing missed the biggest single win in it: three of the four had a `Report` that rebuilt `analysis-row`s **by hand**, four elements at a time, a wave after `AnalysisRow` was extracted for exactly that. 1,336 lines of C# → 923 of `.vxml` and 361 of `.cs` (two accessibility modifiers and four factories that never moved). What the row says about "the chrome" is also wrong for `CodeEditorView`, whose chrome is *one element*: the port there is `PreviewCodeEditorView`'s four, and it is the tree's first `.vxml` that `@inherits` another `.vxml`. See below | S–M |
 | `NodeSearchPopup` · `CommandPalette` | snapshot | no | ~~**port; each deletes a hand-rolled element pool or reconciler**~~ **done, wave 6 (2026-08-23).** The pool was the point and it was worse than "churn": it only ever *grew*, so a list that had once shown twelve rows carried the surplus under `display: none` **still labelled with the previous query's results**. 601 lines → two `.vxml` (565) and two `.cs` (288), with 31 and 26 lines of pooling gone. Every visible element byte-identical in fifteen dumped states; the only differences are the parked rows, which no longer exist | M |
-| `NodeInspector` · `AddComponentMenu` | snapshot | no | ~~**port**~~ **stopped, wave 6 — both blocked by the same cause, and it is not a markup gap.** Shape 1's escape is "keep the control behind a `ref`", and where the control is fed by a *method* the sanctioned workaround is the mixer's four-line wrapper subclass. `InspectorView` and `ScrollView` are both `sealed`, so neither panel can be written. See below | M |
+| `NodeInspector` · `AddComponentMenu` | snapshot | no | ~~**port**~~ ~~**stopped, wave 6 — both blocked by the same cause, and it is not a markup gap.** Shape 1's escape is "keep the control behind a `ref`", and where the control is fed by a *method* the sanctioned workaround is the mixer's four-line wrapper subclass. `InspectorView` and `ScrollView` are both `sealed`, so neither panel can be written.~~ **both done, wave 8 (2026-08-24), and the blocker was two different things wearing one word.** `use` fed the inspector and `tag=` named the list; nothing was unsealed. 703 lines of C# → 780 of `.vxml` and 179 of `.cs`. The prize was real: `NodeInspector`'s 27-line `StringBuilder` signature is **12 lines** now, and they are two questions the provider already answered — `Describes` plus a selection-sequence compare. `AddComponentMenu` gave up 31 lines of pooling, and its pool was the fourth of wave 6's four to keep the previous query's labels under `display: none`. See below | M |
 | `RemoteInspectorView` | **live** | ~~no~~ **yes, additively** | ~~**port; signal-back `RemoteInspectorClient` additively, per `DeviceManager`**~~ **done, wave 6 (2026-08-23).** The sizing and the worked example were both right. What the row did not say is that this is the panel where the signals pay most: `Poll` runs from the tick, so `Restate` relabelled a button, rewrote a sentence, rebuilt the entity tree and re-ran a pool **sixty times a second whether or not the far end had said anything**. 293 lines → a 341-line `.vxml` and a 75-line `.cs`; byte-identical in eight of nine dumped states, the ninth being the parked counter rows. **Wave 7 finished it twice over**: the counters are a `SignalDictionary` rather than a `Signal<ImmutableDictionary<…>>`, so a per-frame counter update allocates nothing, and the `OnComposed` that subscribed to the tree's selection is gone — `change:SelectedNodes` is the whole of it | M |
 | `Terrain` main · `Terrain foliage` · `MaterialView` · `FontView` · `StandardFrameView` · `ShapeVocabularyView` · `UtilitySetView` | mixed | no | ~~**port the readouts, keep the field rows (shape 2)**~~ **all seven done, wave 7 (2026-08-23/24).** The sizing was right about the block being the biggest one left and wrong about what "keep the field rows" means, four ways at once — stale for `FontView`, right-for-the-wrong-reason for `MaterialView` and again, differently, for `ShapeVocabularyView`, an understatement for `StandardFrameView`, and inapplicable to `UtilitySetView`, which has no field rows at all. 2,256 lines of panel C# → seven `.vxml` (2,504) and six `.cs` (1,023, of which 244 are `FontAtlasView` unchanged and ~180 are the four factories that never moved). Byte-identical in **twenty-seven dumped states** for the five asset-editor panels, plus **three** hand-written-versus-part dump comparisons committed in `PaletteBlockTests` for the two terrain ones — with two deliberate exceptions, both in one panel and both argued below. See below | M |
-| `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output | M |
+| `ComponentsView` | snapshot | no | chrome only — the foldout bodies are `IPropertyDrawer` output. ⚠ **Wave 8 reached it and stopped, and the sizing is what it got wrong.** "Chrome only" is three elements here — `component-list`, `component-drop-indicator` and the Add button — and the work is the *foldout loop* the row does not mention: one `Expander` per bridge, each with a `Document.Move(glyph, 1)` putting its icon between the chevron the header made and the header's own label, a routed `DragEvent` handler per header, and a `Sections` projection that `Drop` scans with `ReferenceEquals` while `Aim` does bounds arithmetic against `<components>` as the positioned ancestor. Four tests drive it with a real pointer drag. That is an M for the loop and an S for the chrome, and taking the S alone would move nothing | M |
 | `MoveSetView` · `ProxyShapeView` · `SequenceView` · `BehaviorTreeView` · `SpriteSheetView` · `AnimationGraphView` | mixed | no | ~~**defer.**~~ The half that was unportable was the field rows, which `change:` now expresses; `AnimationGraphView` still has no tests at all and still goes last | ~~L–XL~~ M–L |
 | `AudioMixerView` | snapshot | no | ~~**no**~~ ~~**port**~~ **done, wave 3 (2026-08-23).** 541 lines of C# → a 250-line `.vxml`, a 60-line `.cs` of records and captions, and a whole-tree rectangle dump in three states that is byte-identical to what it replaced | ~~XL~~ M |
 | `AnimationClipView` | snapshot | no | **no** — `Timeline.AddTrack`/`AddSpan` + `CurveEditor` is the whole panel | L |
@@ -1169,15 +1178,35 @@ and pointing it somewhere else re-runs it. The test project gained the markup wi
 document warns about twice have been one line since `Directory.Build.targets` learned to stand in for
 the package.
 
-⚠ **What this section still owes, and it is the part that is not done.** The two panels are unblocked
-and **neither is ported**. `NodeInspector`'s 27-line `StringBuilder` reconciler is still there and is
-still the prize. The one thing wave 7 checked before stopping is the shape-3 question, and the answer
-is favourable: no production caller reads either panel back synchronously — `ShaderGraphView` and
-`VfxGraphView` both call `Settings.Rebuild()` and read nothing — so this is `CompiledSceneView`'s
-situation and not `BuildSettingsView`'s. ⚠ The one thing whoever takes it must solve first is
-`Rebuild`'s last four lines: `RowCount` reads `panel.Rows.Count` *on the line after* `Inspect`, and
-under `use` the inspect is an effect, so "This node has nothing to set." has to be decided from the
-provider rather than from the view.
+⚠ ~~**What this section still owes, and it is the part that is not done.** The two panels are
+unblocked and **neither is ported**.~~ ✅ **Both are ported (wave 8, 2026-08-24)**, and the two things
+this paragraph told whoever took them were both right.
+
+- The shape-3 answer held: no production caller reads either panel back synchronously, so this was
+  `CompiledSceneView`'s situation. Three *tests* did, and gained a frame each, exactly as
+  `CompiledSceneView`'s three did in wave 5.
+- `Rebuild`'s last four lines were the thing to solve first, and the answer is
+  `provider.Descriptor.Members.Count == 0 && provider.Connected.Count == 0`. The rows are built from
+  those members, so it is the same fact one step earlier — and a fact about the node rather than
+  about whether a frame has passed. The one case where the two disagree is a `[CustomInspector]` for
+  `GraphNode` drawing no rows; there is none, and a graph node is the last type that would get one.
+
+⚠ **And the 27 lines became 12, which is the number this section was owed.** `Signature` existed to
+answer "have the rows stopped being the right rows", and the answer was already written twice: the
+tree is `@if`/`@for` regions, which reconcile themselves, and
+`NodePortEditProvider.Describes(graph, nodes)` is *exactly* "are these nodes all of this type and
+wired the way the rows assume" — the check `Rebuild` already ran before showing anything. What
+`Describes` cannot see is the selection becoming a different set of nodes, and that is a
+sequence compare. ⚠ It is also **less eager than the signature was**: the signature listed every
+input port including the ones that carry no typed value, so a wire arriving at a texture port
+rebuilt a panel whose rows cannot mention it.
+
+⚠ **`AddComponentMenu` wanted neither `use` nor a subclass; it wanted `tag=` and a keyed loop.** The
+correction above is right that the two blockers were two problems. The pool it deletes was the
+fourth of wave 6's four and failed the same way — surplus rows parked with `display: none`, still
+labelled with the previous query's components. `Rows` is read off the tree now
+(`List.Content.Children.OfType<AddComponentRow>()`, which is where `ComponentsView.Sections` gets its
+foldouts), because a `ref` in a loop is `VXML2010` and `refs` is keyed rather than listed.
 
 ⚠ **And one thing the sixth shape says that is now false in general.** `use` is also shape 5's escape:
 `<fact-name use="@(cell => cell.Text = Label)" />` writes an intrinsic element's *own* `Text` with no
@@ -1327,6 +1356,51 @@ equal, so no dump moved. `FrameViewTests` is the assertion.
 `change:Number` deleted from the pixel-size row, `Disabled` pinned to `false` on the graph button,
 and `QualityRows == 0` put back. A test written to prove a port correct will prove it correct.
 
+### The flags block is `UiTest`'s now, and every wave-8 dump is committed
+
+⚠ **"The panel dumps … are not committed, because comparing them requires the code they replaced" is
+the sentence wave 8 was sent to stop writing.** Three files in the whole editor dumped a tree when
+that was written; there are **seven** now, and every panel this wave touched has one. The objection
+is answerable and the answer is four lines: *keep* the code they replaced, in the test, as the
+reference builder. `FactRowTests` has always done it, `NodeInspectorDumpTests` does it for a whole
+panel — `HandWritten` is `NodeInspector.Rebuild` as it stood, and eleven states run both and compare
+two strings — and `ChromeDumpTests` does it for `AnalysisRow`, which five panels had been building
+output out of with **no dump test of its own**.
+
+⚠ **The flags block is a method on `UiTest` rather than a harness that is thrown away.**
+`UiTest.Flags(root)` walks a subtree and prints nine values a tree dump cannot see — `State`,
+`Disabled`, `ReadOnly`, `IsChecked`, `IsExpanded`, `Label`, `Value`, `Placeholder`, `Number` —
+and `UiTest.Tree(root)` scopes the existing dump to one element so a panel can be compared without
+the document around it. Three test assemblies use them; wave 7 wrote the same walk three times and
+deleted it three times.
+
+- ⚠ **A fixed list of names, read by reflection, and not every public property.** That is wave 7's
+  false positive fixed at the source: reflection over the whole surface makes the dump move whenever
+  a control or a shared part gains a property, which is what made twelve flags lines move in
+  `StandardFrameView` while zero tree lines did. Nine names move only when one of nine values does.
+- ⚠ **A false flag prints nothing and a number always prints.** A line per control saying
+  `Disabled=False` hides the one that says True. A regression is visible either way: a token that
+  should be there and is not is as much a diff as one that changed.
+- ⚠ **`[RequiresUnreferencedCode]`, because the walk is reflective and `Vixen.Ui.Testing` is
+  trim-analysed.** The attribute is the honest form of the trade and costs its callers nothing —
+  test projects do not run the analyser.
+
+⚠ **And the standing blind-spot list above was worked rather than read.** Every wave-8 dump drives
+its panel through a *control*: `AddComponentMenuDumpTests` types into the search field and presses
+Down, `ChromeDumpTests` toggles Generated-code twice and Play twice and renames two different
+property nodes through the same surviving `@if` arm, and `NodeInspectorDumpTests` types into a port
+row and wires the port a row belongs to. ⚠ **Two of them were sabotage-verified** — deleting
+`change:Value` from the picker's search box fails exactly the two tests that claim to cover it, and
+no others — and one existing assertion turned out to be unfailable:
+`row.Arrow.HasClass("parked")` looked for the class on a row's chevron, where it was never written.
+
+⚠ **A binding over a plain field is a build failure in one shape, and it is worth knowing which.**
+`@if (named.Value is { } naming)` puts the pattern variable in the *predicate's* scope, and the arm's
+body is a separate lambda — so a readout inside the arm that names it is `CS0103`, on the attribute's
+own characters. That is the wave-4 trap turned into a compile error for the `is { }` spelling, and it
+is the only spelling that gets one: `@if (Rows == 0)` over a plain `int` still compiles and still
+runs once.
+
 ### "Keep the field rows" was wrong four ways, and that is wave 7's finding
 
 ⚠ **One instruction covered seven panels and did not fit any of them.** The row above read "port the
@@ -1415,6 +1489,32 @@ and it was confirmed to fail against the unfixed `Switch` before it was accepted
   is either a modifier meaning "not for the first value" or build-list item 4, an `AddOption` markup
   can name — at which point the whole ordering question goes away, because the options and the value
   would both be bindings and a binding's own write is not reported.
+
+### Two reasons a handler stays in `OnComposed`, and only one of them was ever the reason
+
+⚠ **`NodeSearchPopup.vxml` says its capture-leg key handler is hand-written because
+"`BuildContext.Subscriptions`' entries carry a `RoutingStrategy` that no `on:` attribute has a
+spelling for", and that is false and was false when it was written.** The markup README's own
+`on:keydown.capture` section says so: `capture` has been in the modifier list since the list existed,
+`keydown` and `keyup` are in the table, and `keydown` already filters to `KeyAction.Pressed` — which
+is the exact guard those handlers open with. Three editor pickers kept a hand-written `AddHandler`
+on the strength of a diagnosis that had already been corrected one directory away.
+
+The two reasons that *are* real, both met porting `AddComponentMenu`:
+
+- ⚠ **A handler on the component's own host element has no markup spelling.** `on:` is an attribute
+  on a tag, and a `.vxml` body has no tag for the thing it is building. The picker's key handler is
+  subscribed on `this` — above every row, which is the whole point of taking Down and Enter before
+  the search box treats them as caret movement and submit — so it cannot be an attribute on anything.
+  That is a real gap and a small one: a header, or `on:` on the `@component` line, would close it.
+- ⚠ **`on:click` is a `TapEvent` and a control's activation is a `ClickEvent`.** They are two sealed
+  types: `BuildContext.Subscriptions["click"]` registers `AddHandler<TapEvent>`, and
+  `Control.Raise(new ClickEvent …)` is what `ButtonBase.Activate` produces. So a markup `on:click`
+  hears a pointer tap and **misses a keyboard activation** — and `Activate()` is what every editor
+  test presses a button with. Panels whose click handler walks the source chain (the picker's rows,
+  the three graph editors' transports) keep `AddHandler<ClickEvent>` for that reason and not for the
+  routing one. ⚠ Whether the two should be one event is a question for `Vixen.Ui`, not for a port;
+  what a port must not do is quietly swap them.
 
 ### What to build, in order of leverage
 
