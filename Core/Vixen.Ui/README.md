@@ -1067,6 +1067,23 @@ a tap, which is what `ClickEvent` exists to be. So `BuildContext.Subscribe` lets
 say so, and `Vixen.Ui.Controls` does it from a module initializer. Without that a `<Button on:click>`
 works for everybody who tests with a mouse and for nobody who does not use one.
 
+⚠ **And it subscribes to *both*, rather than choosing by the element's type.** ~~Choosing was the
+first shape — `element is Control` took the activation and anything else took the tap~~ — and it was
+wrong in a way that is invisible from the `<Button>` end: only `ButtonBase` and `ColorSwatch` raise a
+`ClickEvent`, so `<Card on:click>`, `<Panel on:click>` and every other one of the thirty-odd plain
+`Control`s bound a handler nothing could ever raise. The silent failure the type test was there to
+avoid had been moved rather than removed. What stops one press counting twice is
+`Control.RaisesActivation`, asked of the element the tap landed on and everything between that and
+the listener — a control that reports its own activation has already told the handler, and anything
+else has not, so its tap *is* the click. The walk matters because a button's label is a child
+element and the hit test lands on it.
+
+**`EventSubscription`, not a `RoutingStrategy`, is what a table entry is handed.** `stop`, `once` and
+`self` are filters `On` applies around a handler it already owns; `capture` and `handled` are not —
+they are arguments to `UiElement.AddHandler`, and only the entry can pass them. Entries call
+`EventSubscription.Listen<T>` rather than `AddHandler` so that forgetting the second one is not
+something that compiles.
+
 **A component names its host tag.** `Component.TagName` defaults to the type's name in lower case
 and is overridable for the reason `UiElement.TagName` is: a default taken from a type name cannot
 produce a hyphen, and `task-center` is not spelled `taskcenter` in anybody's stylesheet. In markup

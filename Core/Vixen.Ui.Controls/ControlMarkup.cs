@@ -17,11 +17,24 @@ namespace Vixen.Ui.Controls;
 ///         that is said.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Decided per element rather than per name.</b> A <c>&lt;div on:click&gt;</c> still
-///         wants the tap: an element that is not a control raises no <see cref="ClickEvent" />, so
-///         binding one to it would be a handler that never runs — silently, which is the failure
-///         worth spending a type test to avoid. The test is one <c>is</c> at build time, not per
-///         event.
+///         ⚠ <b>Both events, on every element, rather than one chosen by the element's type.</b>
+///         Choosing was the shape this had until it was found to be undecidable at build time: only
+///         <see cref="ButtonBase" /> and <c>ColorSwatch</c> raise a <see cref="ClickEvent" />, so
+///         <c>&lt;Card on:click&gt;</c>, <c>&lt;Panel on:click&gt;</c> and every other one of the
+///         thirty-odd plain <see cref="Control" />s bound a handler that could never run — the
+///         silent failure the type test was meant to avoid, moved rather than removed. Subscribing
+///         to both is also what the DOM does, where <c>click</c> is one event that a press and a
+///         keypress both produce.
+///     </para>
+///     <para>
+///         ⚠ <b>What keeps one press from counting twice is <see cref="Control.RaisesActivation" />,
+///         asked of the element the tap started on and every element between that and the listener.</b>
+///         A control that reports its own activation has already told the handler, so its tap is
+///         left alone; anything else has not, so its tap <i>is</i> the click. The walk is needed
+///         because a button's label is a child element and the hit test lands on it — and it is
+///         what makes a <c>&lt;Card on:click&gt;</c> containing a button hear one press once,
+///         through the activation that bubbles rather than through the tap the button marked
+///         handled.
 ///     </para>
 /// </remarks>
 static class ControlMarkup {
@@ -43,41 +56,65 @@ static class ControlMarkup {
     internal static void Register() {
         BuildContext.Subscribe(
             "click",
-            (element, handler, strategy) => {
-                if (element is Control) {
-                    element.AddHandler<ClickEvent>((_, args) => handler(args), strategy);
-                    return;
-                }
+            (element, handler, how) => {
+                how.Listen<ClickEvent>(element, (_, args) => handler(args));
 
-                element.AddHandler<TapEvent>((_, args) => handler(args), strategy);
+                how.Listen<TapEvent>(
+                    element,
+                    (listener, args) => {
+                        if (!Reported(listener, args.Source)) {
+                            handler(args);
+                        }
+                    }
+                );
             }
         );
 
         BuildContext.Subscribe(
             "dblclick",
-            (element, handler, strategy) => {
-                if (element is Control) {
-                    element.AddHandler<ClickEvent>(
-                        (_, args) => {
-                            if (args.Count >= 2) {
-                                handler(args);
-                            }
-                        },
-                        strategy
-                    );
-
-                    return;
-                }
-
-                element.AddHandler<TapEvent>(
+            (element, handler, how) => {
+                how.Listen<ClickEvent>(
+                    element,
                     (_, args) => {
                         if (args.Count >= 2) {
                             handler(args);
                         }
-                    },
-                    strategy
+                    }
+                );
+
+                how.Listen<TapEvent>(
+                    element,
+                    (listener, args) => {
+                        if (args.Count >= 2 && !Reported(listener, args.Source)) {
+                            handler(args);
+                        }
+                    }
                 );
             }
         );
+    }
+
+    /// <summary>Whether the activation this tap produced has already been reported to the handler.</summary>
+    /// <param name="listener">The element the <c>on:click</c> was written on.</param>
+    /// <param name="source">Where the tap landed, which for a button is its label part.</param>
+    /// <returns>Whether a <see cref="ClickEvent" /> is on its way, or has already been.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Stops at <paramref name="listener" />, and that is the whole of the rule.</b> An
+    ///     activating control <i>above</i> the listener is not this tap's business — the listener is
+    ///     inside it and the activation will not reach down — so a walk to the root would silence a
+    ///     perfectly good <c>&lt;div on:click&gt;</c> that happens to live inside a menu item.
+    /// </remarks>
+    static bool Reported(UiElement listener, UiElement? source) {
+        for (var element = source; element is not null; element = element.Parent) {
+            if (element is Control { RaisesActivation: true }) {
+                return true;
+            }
+
+            if (ReferenceEquals(element, listener)) {
+                break;
+            }
+        }
+
+        return false;
     }
 }

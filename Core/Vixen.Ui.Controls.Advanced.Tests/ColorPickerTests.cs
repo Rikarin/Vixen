@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Ui.Composition;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -293,6 +294,36 @@ public class ColorPickerTests {
         Assert.Equal(new Color4(0f, 0f, 1f, 1f), picker.Value);
     }
 
+    /// <summary>
+    ///     ⚠ <b>And exactly once, which is a swatch's business and not only the picker's.</b> A
+    ///     swatch is the one control outside <c>ButtonBase</c> that raises its own
+    ///     <c>ClickEvent</c> — it draws itself and has no label — and a markup <c>on:click</c>
+    ///     listens for the tap as well, because most controls raise no activation at all. So a
+    ///     swatch that did not declare <c>RaisesActivation</c> would report one press twice, which
+    ///     for a palette is a colour applied and then applied again over whatever came between.
+    /// </summary>
+    [Fact]
+    public void A_palette_swatch_reports_one_press_once() {
+        using var fixture = new AdvancedFixture();
+        var picker = Picker(fixture);
+
+        picker.SetPalette(new Color4(1f, 0f, 0f, 1f), new Color4(0f, 0f, 1f, 1f));
+        fixture.Update();
+
+        var swatch = picker.Palette.Children.OfType<ColorSwatch>().ElementAt(1);
+        var clicks = 0;
+
+        // The call `<ColorSwatch on:click="@Pick" />` compiles to, made against a real context
+        // rather than by adding a handler — what is on trial is the runtime's reading of the name.
+        var host = new Nothing();
+        BuildContext.BuildInto(host, fixture.Document, fixture.Document.Root)
+            .On(swatch, "click", () => clicks++);
+
+        fixture.Click(swatch);
+
+        Assert.Equal(1, clicks);
+    }
+
     [Fact]
     public void The_same_colour_is_not_saved_twice() {
         using var fixture = new AdvancedFixture();
@@ -377,6 +408,11 @@ public class ColorPickerTests {
         // looping.
         picker.Value = new Color4(1f, 0f, 0f, 1f);
         Assert.Equal(1, changes);
+    }
+
+    /// <summary>A component that draws nothing, so that a test can hold a real build context.</summary>
+    sealed class Nothing : Component {
+        protected override void Build(BuildContext ctx) { }
     }
 }
 

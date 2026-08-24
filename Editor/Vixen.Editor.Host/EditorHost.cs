@@ -285,6 +285,12 @@ sealed class EditorHost : IDisposable {
                 editor.Shell.Document.Update();
             }
 
+            // ⚠ After the update, because the cursor is a computed style and the hover the pointer
+            // moved this frame is what decides whose. One of the two places this call has to be —
+            // the other is `UiApplication` — and a host that forgets it is a host where every
+            // `cursor-*` class in every theme resolves correctly and shows nothing.
+            PlatformCursor.Apply(windows);
+
             // ⚠ Between the two, and it is not arbitrary. A viewport measures itself in render pixels
             // from a box the layout pass is what produces, and the axis cross it draws comes from the
             // camera this brings up to date — so either side of this pair puts the picture a frame

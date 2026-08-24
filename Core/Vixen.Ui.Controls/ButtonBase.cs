@@ -121,6 +121,10 @@ public abstract partial class ButtonBase : Control {
     /// </remarks>
     protected virtual bool ActivatesOnEnter => true;
 
+    /// <inheritdoc />
+    /// <remarks>Everything here activates: that is what a <see cref="ButtonBase" /> is.</remarks>
+    protected internal override bool RaisesActivation => true;
+
     /// <summary>Activates it as though it had been clicked.</summary>
     /// <remarks>
     ///     The entry point for a test, a script, an access key and an automation peer — all of which

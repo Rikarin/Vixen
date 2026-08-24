@@ -4,7 +4,7 @@ slug: ui/markup-panels
 kind: guide
 area: Core
 summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref and refs for the parts they read, change: for the values they edit, and the key rule — for @for and for @if alike — that decides whether a row updates at all.
-api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1]
+api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1, T:Vixen.Ui.Composition.EventSubscription]
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
@@ -180,9 +180,34 @@ The names are `tap`, `click`, `dblclick`, `longpress`, `pointerdown`, `pointerup
 US-QWERTY legend of the physical key, so a handler that reads a letter out of it types `q` where an
 AZERTY keyboard says `a`. Escape, Tab and the arrows are `keydown`; letters are `textinput`.
 
-The modifiers are `.stop`, `.capture`, `.once` and `.self`. **`.capture` is what a panel over a text
-field needs**: it listens on the way *down* the tree, so Down and Enter reach the list before the
-search box inside it treats them as caret movement and submit.
+The modifiers are `.stop`, `.capture`, `.once`, `.self` and `.handled`. **`.capture` is what a panel
+over a text field needs**: it listens on the way *down* the tree, so Down and Enter reach the list
+before the search box inside it treats them as caret movement and submit. **`.handled` is for a
+listener that wants to know an event happened rather than to act on it** — a focus manager, a
+diagnostic overlay, a panel that closes on any press — because an event something downstream has
+marked handled does not otherwise reach a handler at all.
+
+### `<self />`, for a handler on the component's own element
+
+```xml
+@component NodeSearchPopup
+
+<self on:keydown.capture="@((KeyEvent e) => Keyed(e))" />
+<SearchBox />
+<result-list />
+```
+
+A `.vxml`'s markup roots are *children* of the element the component is building, so an attribute
+written on the first of them is a different element with different route coverage: a key arriving
+while the focus is on the result list would never reach it. `<self />` is the tag for the thing there
+was no tag for. It creates nothing — its attributes apply to the host — so `class`, `style`, `on:`
+and `bind:` all mean on it what they mean on a `<div>`, and it works the same in a plain component
+and in an `@inherits` file.
+
+⚠ **Top level only, and the `@for` case is why it is an error rather than a warning.** It emits
+against the host, so a copy inside a loop subscribes the same element once per row — five items,
+five handlers, one click counted five times, and the count follows the data. Nested inside an
+ordinary tag it is merely a lie about where it is. `VXML2015` refuses both.
 
 ⚠ **A handler that wants the event has to name its parameter's type, and a method group will not
 do.** Which event type a name delivers is the runtime's business, so the type parameter is inferred

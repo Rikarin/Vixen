@@ -158,8 +158,27 @@ public class BinderTests {
     [InlineData("@component A\n<div on:click.stopp=\"@Go\" />", "VXML2007")]
     [InlineData("@component A\n<Callout data-id=\"1\" />", "VXML2008")]
     [InlineData("@component A\n@code { int a; }", "VXML2009")]
+    [InlineData("@component A\n<div><self on:click=\"@Go\" /></div>", "VXML2015")]
+    [InlineData("@component A\n@if (x) { <self on:click=\"@Go\" /> }", "VXML2015")]
+    [InlineData("@component A\n@for (var i in xs) { <self key=\"@i\" on:click=\"@Go\" /> }", "VXML2015")]
     public void The_structural_mistakes_a_C_sharp_compiler_would_never_see(string source, string expected) =>
         Assert.Contains(expected, Ids(source));
+
+    /// <summary>
+    ///     ⚠ <b><c>&lt;self /&gt;</c> at the top level is the whole of where it is allowed, and the
+    ///     loop case is why the rule is an error.</b> It emits against the host, so a copy inside an
+    ///     <c>@for</c> subscribes the same element once per row — and the duplicate count follows
+    ///     the data, so it is right in the test with two rows and wrong in the panel with forty. It
+    ///     also needs no <c>key</c>, because it creates nothing for a reconciler to keep.
+    /// </summary>
+    [Fact]
+    public void Self_belongs_at_the_top_level_and_needs_no_key() {
+        Assert.Empty(Ids("@component A\n<self on:click=\"@Go\" />\n<div />"));
+
+        // Not VXML2011 either — the loop's missing-key rule is about elements a reconciler has to
+        // keep, and `<self />` is not one.
+        Assert.DoesNotContain("VXML2011", Ids("@component A\n@for (var i in xs) { <self on:click=\"@Go\" /> }"));
+    }
 
     /// <summary>
     ///     <c>class</c> is universal: it names style classes, which a component's root element has

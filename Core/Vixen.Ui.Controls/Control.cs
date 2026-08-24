@@ -94,6 +94,30 @@ public abstract partial class Control : UiElement {
     /// </remarks>
     protected virtual bool AcceptsFocus => true;
 
+    /// <summary>Whether a tap on this control is reported as a <see cref="ClickEvent" /> of its own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What <c>on:click</c> asks before it counts a tap, and the one thing a control
+    ///         author has to say when they call <see cref="RaiseClick" />.</b> A markup
+    ///         <c>on:click</c> listens for both the activation and the tap, because most controls
+    ///         are not <see cref="ButtonBase" /> and raise no activation at all —
+    ///         <c>&lt;Card on:click&gt;</c> has to work. A control that <i>does</i> raise one would
+    ///         therefore report a single press twice, so it says so here and the tap is left alone.
+    ///     </para>
+    ///     <para>
+    ///         <b>Answered for the element the tap started on, not for the one listening.</b> A
+    ///         button's label is a child element and the hit test lands on it, so the question is
+    ///         asked up the chain — which is also what makes <c>&lt;Card on:click&gt;</c> hear a
+    ///         button inside it exactly once, through the activation that bubbles.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>True means "this kind of control reports activation", not "it did this time".</b>
+    ///         A disabled button raises nothing and still answers true, which is correct: a tap on a
+    ///         disabled control is not a click, and counting it as one is the bug this replaces.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual bool RaisesActivation => false;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();

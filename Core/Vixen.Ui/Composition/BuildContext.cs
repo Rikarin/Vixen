@@ -9,6 +9,41 @@ using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Composition;
 
+/// <summary>How an <c>on:</c> binding attaches itself, for the table that decides what a name means.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A pair rather than a <see cref="RoutingStrategy" />, and the second half is why.</b>
+///         Everything else an <c>on:</c> modifier says — <c>stop</c>, <c>once</c>, <c>self</c> — is a
+///         filter <see cref="BuildContext.On{TEvent}" /> can apply around a handler it already owns.
+///         Whether the handler is called <i>at all</i> once something downstream has marked the
+///         event handled is <see cref="UiElement.AddHandler{T}" />'s third argument, which only the
+///         subscription itself can pass. So the entry has to be told, and a table whose entries took
+///         a bare strategy could never spell <c>on:pointerdown.handled</c>.
+///     </para>
+///     <para>
+///         <b>Use <see cref="Listen{T}" /> rather than calling <c>AddHandler</c>.</b> An entry that
+///         passed the strategy and forgot the flag would compile, work for every binding without the
+///         modifier, and silently ignore it for the ones that asked — which is the failure mode this
+///         whole seam exists to avoid. One call carries both.
+///     </para>
+/// </remarks>
+public readonly record struct EventSubscription {
+    /// <summary>Which leg of the route to listen on.</summary>
+    public RoutingStrategy Strategy { get; init; }
+
+    /// <summary>Whether to run even after something has marked the event handled.</summary>
+    public bool HandledEventsToo { get; init; }
+
+    /// <summary>Subscribes a handler the way this says to.</summary>
+    /// <typeparam name="T">The event type.</typeparam>
+    /// <param name="element">The element to listen on.</param>
+    /// <param name="handler">What to run.</param>
+    public void Listen<T>(UiElement element, Action<UiElement, T> handler) where T : UiEvent {
+        ArgumentNullException.ThrowIfNull(element);
+        element.AddHandler(handler, Strategy, HandledEventsToo);
+    }
+}
+
 /// <summary>
 ///     What a <see cref="Component" />'s <c>Build</c> constructs with, and what
 ///     <c>Vixen.Ui.Markup</c> emits calls to.
@@ -42,60 +77,60 @@ public sealed class BuildContext {
     ///     background document graph. Registration is rare and reads are one lookup per markup
     ///     handler, so the cheap thing to make safe is the write.
     /// </remarks>
-    static readonly ConcurrentDictionary<string, Action<UiElement, Action<UiEvent>, RoutingStrategy>> Subscriptions =
+    static readonly ConcurrentDictionary<string, Action<UiElement, Action<UiEvent>, EventSubscription>> Subscriptions =
         new(StringComparer.Ordinal) {
-            ["tap"] = (element, handler, strategy) =>
-                element.AddHandler<TapEvent>((_, args) => handler(args), strategy),
-            ["click"] = (element, handler, strategy) =>
-                element.AddHandler<TapEvent>((_, args) => handler(args), strategy),
-            ["dblclick"] = (element, handler, strategy) =>
-                element.AddHandler<TapEvent>((_, args) => { if (args.Count >= 2) { handler(args); } }, strategy),
-            ["longpress"] = (element, handler, strategy) =>
-                element.AddHandler<LongPressEvent>((_, args) => handler(args), strategy),
-            ["pointerdown"] = (element, handler, strategy) =>
-                element.AddHandler<PointerEvent>(
-                    (_, args) => { if (args.Action == PointerAction.Pressed) { handler(args); } },
-                    strategy
+            ["tap"] = (element, handler, how) =>
+                how.Listen<TapEvent>(element, (_, args) => handler(args)),
+            ["click"] = (element, handler, how) =>
+                how.Listen<TapEvent>(element, (_, args) => handler(args)),
+            ["dblclick"] = (element, handler, how) =>
+                how.Listen<TapEvent>(element, (_, args) => { if (args.Count >= 2) { handler(args); } }),
+            ["longpress"] = (element, handler, how) =>
+                how.Listen<LongPressEvent>(element, (_, args) => handler(args)),
+            ["pointerdown"] = (element, handler, how) =>
+                how.Listen<PointerEvent>(
+                    element,
+                    (_, args) => { if (args.Action == PointerAction.Pressed) { handler(args); } }
                 ),
-            ["pointerup"] = (element, handler, strategy) =>
-                element.AddHandler<PointerEvent>(
-                    (_, args) => { if (args.Action == PointerAction.Released) { handler(args); } },
-                    strategy
+            ["pointerup"] = (element, handler, how) =>
+                how.Listen<PointerEvent>(
+                    element,
+                    (_, args) => { if (args.Action == PointerAction.Released) { handler(args); } }
                 ),
-            ["pointermove"] = (element, handler, strategy) =>
-                element.AddHandler<PointerEvent>(
-                    (_, args) => { if (args.Action == PointerAction.Moved) { handler(args); } },
-                    strategy
+            ["pointermove"] = (element, handler, how) =>
+                how.Listen<PointerEvent>(
+                    element,
+                    (_, args) => { if (args.Action == PointerAction.Moved) { handler(args); } }
                 ),
-            ["dragstart"] = (element, handler, strategy) =>
-                element.AddHandler<DragEvent>(
-                    (_, args) => { if (args.Stage == DragStage.Started) { handler(args); } },
-                    strategy
+            ["dragstart"] = (element, handler, how) =>
+                how.Listen<DragEvent>(
+                    element,
+                    (_, args) => { if (args.Stage == DragStage.Started) { handler(args); } }
                 ),
-            ["drag"] = (element, handler, strategy) =>
-                element.AddHandler<DragEvent>(
-                    (_, args) => { if (args.Stage == DragStage.Moved) { handler(args); } },
-                    strategy
+            ["drag"] = (element, handler, how) =>
+                how.Listen<DragEvent>(
+                    element,
+                    (_, args) => { if (args.Stage == DragStage.Moved) { handler(args); } }
                 ),
-            ["dragend"] = (element, handler, strategy) =>
-                element.AddHandler<DragEvent>(
-                    (_, args) => { if (args.Stage is DragStage.Completed or DragStage.Cancelled) { handler(args); } },
-                    strategy
+            ["dragend"] = (element, handler, how) =>
+                how.Listen<DragEvent>(
+                    element,
+                    (_, args) => { if (args.Stage is DragStage.Completed or DragStage.Cancelled) { handler(args); } }
                 ),
 
             // ⚠ Two names over one event type, the shape `pointerdown`/`pointerup` already has and
             // for the same reason: a handler that had to test `args.Action` itself would be a
             // handler that fires twice per keystroke until somebody notices. `KeyAction` is the only
             // thing separating them, so the table is where the test belongs.
-            ["keydown"] = (element, handler, strategy) =>
-                element.AddHandler<KeyEvent>(
-                    (_, args) => { if (args.Action == KeyAction.Pressed) { handler(args); } },
-                    strategy
+            ["keydown"] = (element, handler, how) =>
+                how.Listen<KeyEvent>(
+                    element,
+                    (_, args) => { if (args.Action == KeyAction.Pressed) { handler(args); } }
                 ),
-            ["keyup"] = (element, handler, strategy) =>
-                element.AddHandler<KeyEvent>(
-                    (_, args) => { if (args.Action == KeyAction.Released) { handler(args); } },
-                    strategy
+            ["keyup"] = (element, handler, how) =>
+                how.Listen<KeyEvent>(
+                    element,
+                    (_, args) => { if (args.Action == KeyAction.Released) { handler(args); } }
                 ),
 
             // ⚠ Registered in the same breath as the two above, because the alternative is the
@@ -103,8 +138,8 @@ public sealed class BuildContext {
             // `on:keydown` read for a letter is a text box that types `q` on an AZERTY keyboard —
             // and an author who cannot name the event that carries characters reaches for the one
             // that is there. The two exist together so the right one is always available.
-            ["textinput"] = (element, handler, strategy) =>
-                element.AddHandler<TextInputEvent>((_, args) => handler(args), strategy)
+            ["textinput"] = (element, handler, how) =>
+                how.Listen<TextInputEvent>(element, (_, args) => handler(args))
         };
 
     /// <summary>The region currently being built into, per parent element.</summary>
@@ -552,8 +587,11 @@ public sealed class BuildContext {
     /// <summary>Teaches the runtime an event name, or changes what one already means.</summary>
     /// <param name="name">The name, as written after <c>on:</c>.</param>
     /// <param name="subscribe">
-    ///     How to subscribe: given the element, what to call, and which leg of the route to listen
-    ///     on. The handler it is given already applies the <c>on:</c> modifiers.
+    ///     How to subscribe: given the element, what to call, and an <see cref="EventSubscription" />
+    ///     saying how to attach it. The handler it is given already applies the <c>on:</c> modifiers
+    ///     that are filters; the ones that are not — the routing leg, and whether an already-handled
+    ///     event still arrives — are what the third argument carries, and an entry passes them on by
+    ///     calling <see cref="EventSubscription.Listen{T}" /> rather than <c>AddHandler</c>.
     /// </param>
     /// <remarks>
     ///     <para>
@@ -570,7 +608,7 @@ public sealed class BuildContext {
     ///         invisible to everyone who tests with a mouse.
     ///     </para>
     /// </remarks>
-    public static void Subscribe(string name, Action<UiElement, Action<UiEvent>, RoutingStrategy> subscribe) {
+    public static void Subscribe(string name, Action<UiElement, Action<UiEvent>, EventSubscription> subscribe) {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(subscribe);
 
@@ -782,9 +820,16 @@ public sealed class BuildContext {
         var once = modifiers.Contains("once", StringComparer.Ordinal);
         var self = modifiers.Contains("self", StringComparer.Ordinal);
         var stop = modifiers.Contains("stop", StringComparer.Ordinal);
-        var strategy = modifiers.Contains("capture", StringComparer.Ordinal)
-            ? RoutingStrategy.Capture
-            : RoutingStrategy.Bubble;
+        var how = new EventSubscription {
+            Strategy = modifiers.Contains("capture", StringComparer.Ordinal)
+                ? RoutingStrategy.Capture
+                : RoutingStrategy.Bubble,
+
+            // ⚠ The one modifier that cannot be applied here, so it is passed on rather than read.
+            // `stop`, `once` and `self` all filter a handler this owns; `handled` decides whether
+            // the router calls it in the first place, which is a property of the registration.
+            HandledEventsToo = modifiers.Contains("handled", StringComparer.Ordinal)
+        };
 
         var spent = false;
 
@@ -801,7 +846,7 @@ public sealed class BuildContext {
             }
         }
 
-        subscribe(target, Invoke, strategy);
+        subscribe(target, Invoke, how);
     }
 
     /// <summary>Binds a property in both directions.</summary>

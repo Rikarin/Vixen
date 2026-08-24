@@ -459,6 +459,13 @@ public sealed class UiApplication : IDisposable {
             Document.Tick(now);
 
             Document.Update();
+
+            // ⚠ After the update, because the cursor is a computed style and the hover the pointer
+            // moved this frame is what decides whose. One of the two places this call has to be —
+            // the other is `EditorHost` — and a host that forgets it is a host where every
+            // `cursor-*` class in every theme resolves correctly and shows nothing.
+            PlatformCursor.Apply(windows);
+
             Document.Draw();
 
             Sync();

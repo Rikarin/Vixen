@@ -2304,8 +2304,6 @@ T:Vixen.Physics.Shapes.ShapeId sweep-pending
 T:Vixen.Physics.Shapes.ShapeKind sweep-pending
 T:Vixen.Platform.ApplicationState sweep-pending
 T:Vixen.Platform.ClipboardImage sweep-pending
-T:Vixen.Platform.CursorMode sweep-pending
-T:Vixen.Platform.CursorShape sweep-pending
 T:Vixen.Platform.Desktop.DesktopClipboard sweep-pending
 T:Vixen.Platform.Desktop.DesktopDialogs sweep-pending
 T:Vixen.Platform.Desktop.DesktopDisplays sweep-pending
@@ -3701,7 +3699,6 @@ T:Vixen.Ui.TextLine sweep-pending
 T:Vixen.Ui.TextRun sweep-pending
 T:Vixen.Ui.TransformEvent sweep-pending
 T:Vixen.Ui.TransformStage sweep-pending
-T:Vixen.Ui.UiCursor sweep-pending
 T:Vixen.Ui.UiDocument sweep-pending
 T:Vixen.Ui.UiElement sweep-pending
 T:Vixen.Ui.UiEvent sweep-pending

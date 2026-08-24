@@ -372,7 +372,15 @@ public sealed class ComponentEmitter {
     void EmitElement(BoundElement element, string context, string parent) {
         var name = $"n{names++}";
 
-        if (element.IsComponent) {
+        if (element.IsSelf) {
+            // ⚠ **`Host(this)` and not `Root`, for the reason `Target` is a call.** A `@inherits`
+            // file's class *is* a `UiElement` and a plain component's is not, so the one expression
+            // that names "the element this markup is building into" in both is the overload pair —
+            // and which one it resolves to is the C# compiler's business, by the time it has a type.
+            // Nothing else about the tag is special: every attribute below applies to a `UiElement`
+            // exactly as it would to a `<div>`.
+            Line($"var {name} = {RuntimeNamespace}.BuildContext.Host(this);");
+        } else if (element.IsComponent) {
             // ⚠ **The tag override is an argument, so it has to be worked out before the element
             // exists** — which is why `tag` is read off the element here rather than reached in
             // `EmitAttribute` with everything else. A tag is interned into the style node by

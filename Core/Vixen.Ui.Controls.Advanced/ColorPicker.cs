@@ -270,6 +270,14 @@ public sealed partial class ColorSwatch : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The one control outside <c>ButtonBase</c> that raises its own <see cref="ClickEvent" />,
+    ///     which is exactly what this has to say — or a markup <c>on:click</c> on a swatch would
+    ///     count the activation and the tap that produced it as two presses.
+    /// </remarks>
+    protected override bool RaisesActivation => true;
+
     /// <summary>What it shows.</summary>
     public Color4 Color { get; internal set; }
 

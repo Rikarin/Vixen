@@ -291,4 +291,28 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary><c>&lt;self /&gt;</c> somewhere other than the component's top level.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The loop case is the one worth an error rather than a warning.</b>
+    ///         <c>&lt;self /&gt;</c> emits against the host, so a copy of it inside an <c>@for</c>
+    ///         subscribes the <i>same</i> element once per row — five items, five handlers, one
+    ///         click counted five times — and the count follows the data, so it is right in the
+    ///         test with two rows and wrong in the panel with forty.
+    ///     </para>
+    ///     <para>
+    ///         Nested inside an ordinary tag it is merely a lie about where it is: an author who
+    ///         wrote <c>&lt;div&gt;&lt;self on:click=… /&gt;&lt;/div&gt;</c> meant the div. One rule
+    ///         refuses both, and the place it is allowed is the place it reads as what it does.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor MisplacedSelf = new(
+        "VXML2015",
+        "'self' is not at the top level",
+        "'<self />' names the component's own element, so it belongs at the top level of the markup "
+        + "— not inside another tag, an @if or an @for.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

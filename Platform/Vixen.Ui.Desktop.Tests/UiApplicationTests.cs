@@ -176,6 +176,49 @@ public class UiApplicationTests {
         Assert.True(childrenAtStop > 0, "the document had no children when Stopping ran.");
     }
 
+    /// <summary>The window is told what the pointer is over, once a frame, by the loop.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted on <see cref="IWindow.CursorShape" />, and the loop is what is on trial
+    ///     rather than the mapping.</b> <c>UiDocument.Cursor</c> resolved <c>cursor: pointer</c>
+    ///     correctly for as long as it has existed and no host ever read it, so every
+    ///     <c>cursor-*</c> class in every theme changed nothing a user could see — and a test that
+    ///     asked the document would have passed on every one of those days. The pointer is moved
+    ///     from a <see cref="UiApplication.Frame" /> handler because that is the only way in: the
+    ///     headless platform produces no input of its own, and a cursor asserted without a hover is
+    ///     a cursor asserted against <see cref="UiCursor.Auto" />.
+    /// </remarks>
+    [Fact]
+    public void TheLoopTellsTheWindowWhatThePointerIsOver() {
+        var probe = new Probe();
+
+        var options = new UiApplicationOptions {
+            Title = "test",
+            Size = new Int2(1280, 800),
+            Frames = 3,
+            InstallSystemFont = false,
+            Content = () => probe
+        };
+
+        options.Styles.Add("probe-panel { width: 200px; height: 100px; cursor: pointer; }");
+
+        var platform = new HeadlessPlatform();
+        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(1280, 800) });
+        var application = new UiApplication(options, platform, window);
+
+        // On the second frame, so the first has laid the panel out and there is something to be
+        // over. The pointer goes to the middle of the panel, which is the top-left of the window.
+        application.Frame += (running, _) => {
+            if (running.FrameCount == 1) {
+                running.Document.Dispatch(new PointerEvent { X = 100f, Y = 50f, Action = PointerAction.Moved });
+            }
+        };
+
+        application.Run();
+
+        Assert.Same(probe.Panel, application.Document.Hovered);
+        Assert.Equal(CursorShape.Hand, window.CursorShape);
+    }
+
     /// <summary>A close request stops the loop.</summary>
     /// <remarks>
     ///     ⚠ <b>Subscribed through the <i>event</i> rather than through the options, and the difference

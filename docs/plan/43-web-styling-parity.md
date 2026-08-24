@@ -425,11 +425,22 @@ Two are sized and not started: `snap` and `snap (keywords)`, which want 250–40
 and, harder, an end-of-gesture the wheel and the scrollbar drag do not have. The remaining four are
 the scrollbar cluster, which is one feature and is owned elsewhere.
 
-⚠ **The one finding here that is nobody's root and everybody's problem: `UiDocument.Cursor` has no
+⚠ ~~**The one finding here that is nobody's root and everybody's problem: `UiDocument.Cursor` has no
 consumer in the tree.** `cursor` measures `works` because the probe reads `CursorOf` directly, and it
 is genuinely read — but nothing calls `SetCursor` on a window from it, so no `cursor-*` class of any
 value changes what the user sees. That is a gap in the *host*, family-wide and equally true of
-`cursor-pointer`, and this file has no column that can say so.
+`cursor-pointer`, and this file has no column that can say so.~~
+
+✅ **Closed 2026-08-24.** `Vixen.Platform.Ui.PlatformCursor.Apply` maps `UiDocument.Cursor` onto
+`IWindow.CursorShape` — to the window the *hovered* element's surface is in, not the main one — and
+both frame loops call it after `Document.Update()`. `cursor: none` hides the pointer through
+`CursorMode`, and only from `Normal`, so a game in mouse-look keeps the pointer it took. ⚠ **The
+finding's own lesson survives the fix and is the transferable part: a consumption probe that asks the
+framework is not a consumption probe.** Every test for this is written against `IWindow.CursorShape`,
+because a test that asked `document.Cursor` would have passed on every day of the year this was
+broken. Not gated on `PlatformCapabilities.Cursor`, deliberately — the flag is about hiding and
+confining, `CursorShape` is on every window, and the only platform a test can open a window on is the
+headless one, which advertises `MultiWindow` and nothing else.
 
 ⚠ **Effects went from 12 of 33 to 24 of 33 on one change, and every root that moved was waiting on
 the same thing: a mask *list*.** `mask-t-from-*` and its eleven siblings are per-edge ramps that only

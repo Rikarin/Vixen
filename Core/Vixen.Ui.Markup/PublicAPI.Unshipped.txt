@@ -72,6 +72,7 @@ Vixen.Ui.Markup.Binding.BoundElement.Children.get -> System.Collections.Immutabl
 Vixen.Ui.Markup.Binding.BoundElement.Children.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
 Vixen.Ui.Markup.Binding.BoundElement.IsComponent.get -> bool
 Vixen.Ui.Markup.Binding.BoundElement.IsComponent.init -> bool
+Vixen.Ui.Markup.Binding.BoundElement.IsSelf.get -> bool
 Vixen.Ui.Markup.Binding.BoundElement.Key.get -> Vixen.Ui.Markup.Binding.BoundExpression?
 Vixen.Ui.Markup.Binding.BoundElement.Tag.get -> string
 Vixen.Ui.Markup.Binding.BoundElement.Tag.init -> string
@@ -459,6 +460,7 @@ Vixen.Ui.Markup.Syntax.VxmlSyntaxNode : Vixen.Core.Syntax.SyntaxNode
 Vixen.Ui.Markup.Syntax.VxmlSyntaxNode.Kind.get -> Vixen.Ui.Markup.Syntax.SyntaxKind
 abstract Vixen.Ui.Markup.Syntax.VxmlSyntaxNode.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
 abstract Vixen.Ui.Markup.Syntax.VxmlSyntaxNode.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult?
+const Vixen.Ui.Markup.Binding.BoundElement.SelfTag = "self" -> string
 const Vixen.Ui.Markup.Emit.ComponentEmitter.RuntimeNamespace = "global::Vixen.Ui.Composition" -> string
 override Vixen.Ui.Markup.Syntax.AttributeSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
 override Vixen.Ui.Markup.Syntax.AttributeSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
@@ -583,6 +585,7 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpression
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpressionValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InvalidParameterName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MismatchedEndTag -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MisplacedSelf -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingComponentDirective -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingKey -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.NamedSlotOnElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
