@@ -1101,9 +1101,9 @@ was resolved by asserting separately that **no `Tree()` line differs at all** �
 moved in `StandardFrameView` and zero tree lines did. Read a part-adoption diff that way rather than
 widening the tolerance.
 
-⚠ **And a dump has two blind spots that no amount of states fixes, both of which wave 7 had to close
-with ordinary tests.** They are worth naming because every wave so far has treated the dump as the
-whole of the evidence.
+⚠ **And a dump has three blind spots that no number of states fixes, all of which wave 7 had to
+close with ordinary tests.** They are worth naming because every wave so far has treated the dump as
+the whole of the evidence, and the third one was carrying a live defect.
 
 - **A dump drives the panel from the model, so it only ever exercises the *binding* leg.** Every
   state above was reached with `document.Edit(…)` or `Show(…)` and compared the tree that came out —
