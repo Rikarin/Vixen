@@ -1645,6 +1645,126 @@ public class EmitterTests {
         Assert.Equal(["up:Enter", "panel:Enter"], seen);
     }
 
+    // ================================================================== <self />, and on:…​.handled
+
+    /// <summary>
+    ///     The picker's handler, on the element the picker <i>is</i> — with a second root beside the
+    ///     first, because that is what the attribute on a root could not cover.
+    /// </summary>
+    const string Own = """
+                       @component Greeter
+                       @using System.Collections.Generic
+                       @using Vixen.Ui
+
+                       @code {
+                           public List<string> Seen { get; } = [];
+
+                           void Down(KeyEvent args) => Seen.Add("host:" + args.Key);
+                       }
+
+                       <self on:keydown.capture="@((KeyEvent e) => Down(e))" />
+                       <search-box />
+                       <result-list />
+                       """;
+
+    /// <summary>
+    ///     ⚠ <b>The gap five capture-leg handlers across three editor pickers stayed hand-written
+    ///     for.</b> A component's markup roots are its host's <i>children</i>, so
+    ///     <c>on:keydown.capture</c> written on the first of them is a different element with
+    ///     different route coverage — a key arriving while the focus is on anything else in the
+    ///     panel never reaches it. The list below is the second root, and a handler on the first one
+    ///     would not hear this at all.
+    /// </summary>
+    [Fact]
+    public void Self_subscribes_the_component_s_own_element_and_not_its_first_root() {
+        var (component, instance, document) = Run(Own);
+
+        using var owned = document;
+        var seen = (List<string>)Property(instance, "Seen");
+
+        // Two children, not three: `<self />` names an element that already exists rather than
+        // making one, which is also what stops it appearing in the layout.
+        Assert.Equal(2, component.Root.Children.Count);
+        Assert.Equal(["search-box", "result-list"], component.Root.Children.Select(child => child.Tag));
+
+        component.Root.Children[1].Raise(new KeyEvent { Key = InputKey.Down, Action = KeyAction.Pressed });
+
+        Assert.Equal(["host:Down"], seen);
+    }
+
+    /// <summary>And on an <c>@inherits</c> class, where the host is the object itself.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One emitted expression covers both flavours, which is the reason it is
+    ///     <c>Host(this)</c> and not <c>Root</c>.</b> A <c>@inherits</c> class <i>is</i> a
+    ///     <see cref="UiElement" /> and a plain component's is not; <c>Host</c> is overloaded on the
+    ///     two and C# picks, the same bargain <c>Target</c> and <c>Inner</c> already make.
+    /// </remarks>
+    [Fact]
+    public void Self_on_an_inherits_class_is_the_element_itself() {
+        using var document = new UiDocument(400f, 400f);
+
+        var meter = (UiElement)Add(
+            document,
+            """
+            @component Meter
+            @inherits Vixen.Ui.UiElement
+
+            @code {
+                public int Presses { get; private set; }
+            }
+
+            <self class="meter" on:tap="@(() => Presses++)" />
+            <bar />
+            """
+        );
+
+        Assert.Single(meter.Children);
+        Assert.True(meter.HasClass("meter"));
+
+        meter.Raise(new TapEvent { Count = 1 });
+        Assert.Equal(1, Property(meter, "Presses"));
+    }
+
+    /// <summary>A component with a handler on its own element that also wants handled events.</summary>
+    const string Nosy = """
+                        @component Greeter
+                        @using System.Collections.Generic
+                        @using Vixen.Ui
+
+                        @code {
+                            public List<string> Seen { get; } = [];
+                        }
+
+                        <panel-root on:pointerdown="@(() => Seen.Add("plain"))"
+                                    on:pointerdown.handled="@(() => Seen.Add("nosy"))">
+                            <field />
+                        </panel-root>
+                        """;
+
+    /// <summary>
+    ///     ⚠ <b>The modifier that could not be written in <c>BuildContext.On</c>, and the reason the
+    ///     subscription table's entries take an <c>EventSubscription</c>.</b> <c>stop</c>,
+    ///     <c>once</c> and <c>self</c> are filters around a handler <c>On</c> already owns; whether
+    ///     a handler is called at all once something downstream has marked the event handled is
+    ///     decided by <c>UiElement.AddHandler</c>, which only the table entry can pass. Two of the
+    ///     five hand-written picker handlers want it.
+    /// </summary>
+    [Fact]
+    public void A_handled_binding_still_hears_an_event_something_else_dealt_with() {
+        var (component, instance, document) = Run(Nosy);
+
+        using var owned = document;
+        var seen = (List<string>)Property(instance, "Seen");
+        var field = component.Root.Children.Single().Children.Single();
+
+        field.AddHandler<PointerEvent>((_, args) => args.Handled = true);
+        field.Raise(new PointerEvent { Action = PointerAction.Pressed });
+
+        // The plain one is skipped by the router and the nosy one is not, which is the whole of the
+        // difference and is invisible to a test where nothing marks anything.
+        Assert.Equal(["nosy"], seen);
+    }
+
     /// <summary>
     ///     ⚠ <b>The one place <c>on:</c> is narrower than every other directive, and it is C#'s
     ///     rule rather than the emitter's.</b> A handler that wants the event has to name its

@@ -75,8 +75,94 @@ public class MarkupTests {
         Assert.Equal(1, component.Clicks);
     }
 
+    /// <summary>
+    ///     And by Space, by an access key and by <c>Activate()</c> — the four ways
+    ///     <c>ButtonBase</c> lists. <c>Activate()</c> matters most of the four here, because it is
+    ///     what every editor test presses a button with, so a binding that missed it would be a
+    ///     binding no ported panel's test could see was broken.
+    /// </summary>
+    [Fact]
+    public void A_click_binding_hears_space_an_access_key_and_a_programmatic_activation() {
+        using var fixture = new ControlFixture();
+        var component = BuildContext.Build<Pressable>(fixture.Document, fixture.Document.Root);
+        var button = (Button) component.Root.Children[0];
 
+        fixture.Update();
+        fixture.Document.Focus(button);
 
+        // Space activates on release, which is what the two calls are.
+        fixture.Type(InputKey.Space);
+        Assert.Equal(1, component.Clicks);
+
+        // Alt and a letter, through the document, rather than an `AccessKeyEvent` raised by hand —
+        // the document is what decides which element an access key names, and a test that skipped it
+        // would pass against a button nothing could ever reach.
+        button.AccessKey = 'S';
+        fixture.KeyDown(InputKey.S, ModifierKeys.Alt);
+        Assert.Equal(2, component.Clicks);
+
+        button.Activate();
+        Assert.Equal(3, component.Clicks);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And on a control that raises no activation, which is most of them.</b>
+    ///     <c>ButtonBase</c> and <c>ColorSwatch</c> are the only two types in the whole set that
+    ///     raise a <c>ClickEvent</c>; <see cref="Card" />, <see cref="Panel" />, a row, a badge and
+    ///     the thirty others do not. A runtime that bound <c>on:click</c> to the activation because
+    ///     the element was a <c>Control</c> gave every one of those a handler that could never run —
+    ///     silently, which is the failure this whole table exists to avoid.
+    /// </summary>
+    [Fact]
+    public void A_click_binding_on_a_control_that_raises_no_activation_still_hears_the_tap() {
+        using var fixture = new ControlFixture(css: "card { width: 200px; height: 100px; }");
+        var component = BuildContext.Build<Boxed>(fixture.Document, fixture.Document.Root);
+
+        fixture.Update();
+        fixture.Click(component.Card);
+
+        Assert.Equal(1, component.Clicks);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a container hears a button inside it exactly once.</b> Both halves are live at
+    ///     the same time here: the activation bubbles up from the button and the tap that produced
+    ///     it bubbles up behind it, so a runtime that counted both would report one press as two —
+    ///     which is the reason the tap is asked whether the activation already told anybody.
+    /// </summary>
+    [Fact]
+    public void A_click_binding_on_a_container_counts_a_button_inside_it_once() {
+        using var fixture = new ControlFixture();
+        var component = BuildContext.Build<Clickable>(fixture.Document, fixture.Document.Root);
+
+        fixture.Update();
+        fixture.Click(component.Button);
+
+        Assert.Equal(1, component.Clicks);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a disabled button is not a click, neither on itself nor on what contains it.</b>
+    ///     A disabled control raises no activation <i>and</i> does not mark the tap handled — it
+    ///     returns before both — so the tap arrives at the container looking exactly like an
+    ///     ordinary one.
+    /// </summary>
+    [Fact]
+    public void A_disabled_button_is_not_a_click_for_itself_or_for_its_container() {
+        using var fixture = new ControlFixture();
+        var component = BuildContext.Build<Clickable>(fixture.Document, fixture.Document.Root);
+        var pressable = BuildContext.Build<Pressable>(fixture.Document, fixture.Document.Root);
+
+        component.Button.Disabled = true;
+        ((Button) pressable.Root.Children[0]).Disabled = true;
+
+        fixture.Update();
+        fixture.Click(component.Button);
+        fixture.Click(pressable.Root.Children[0]);
+
+        Assert.Equal(0, component.Clicks);
+        Assert.Equal(0, pressable.Clicks);
+    }
 
 
     // ================================================================== change: and refs
@@ -295,6 +381,38 @@ public class MarkupTests {
             button.Label = "Press";
 
             ctx.On(BuildContext.Host(button), "click", () => Clicks++);
+        }
+    }
+
+    /// <summary>
+    ///     One <c>on:click</c> on a bare <see cref="Card" /> — the shape a web author writes without
+    ///     thinking about it, and the one that used to bind a handler nothing could ever raise.
+    /// </summary>
+    sealed class Boxed : Component {
+        public int Clicks { get; private set; }
+
+        public Card Card { get; private set; } = null!;
+
+        protected override void Build(BuildContext ctx) {
+            Card = ctx.Child<Card>(null);
+            ctx.On(BuildContext.Host(Card), "click", () => Clicks++);
+        }
+    }
+
+    /// <summary>The same, with a button inside it, which is where one press can become two.</summary>
+    sealed class Clickable : Component {
+        public int Clicks { get; private set; }
+
+        public Card Card { get; private set; } = null!;
+
+        public Button Button { get; private set; } = null!;
+
+        protected override void Build(BuildContext ctx) {
+            Card = ctx.Child<Card>(null);
+            Button = ctx.Child<Button>(BuildContext.Inner(Card));
+            Button.Label = "Press";
+
+            ctx.On(BuildContext.Host(Card), "click", () => Clicks++);
         }
     }
 

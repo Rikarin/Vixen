@@ -68,6 +68,14 @@ Vixen.Ui.Composition.ElementRefs<TElement>.Count.get -> int
 Vixen.Ui.Composition.ElementRefs<TElement>.ElementRefs() -> void
 Vixen.Ui.Composition.ElementRefs<TElement>.TryGet(object key, out TElement? element) -> bool
 Vixen.Ui.Composition.ElementRefs<TElement>.this[object key].get -> TElement
+Vixen.Ui.Composition.EventSubscription -> readonly struct
+Vixen.Ui.Composition.EventSubscription : System.IEquatable<Vixen.Ui.Composition.EventSubscription>
+Vixen.Ui.Composition.EventSubscription.EventSubscription() -> void
+Vixen.Ui.Composition.EventSubscription.HandledEventsToo.get -> bool
+Vixen.Ui.Composition.EventSubscription.HandledEventsToo.init -> bool
+Vixen.Ui.Composition.EventSubscription.Listen<T>(Vixen.Ui.UiElement element, System.Action<Vixen.Ui.UiElement, T> handler) -> void
+Vixen.Ui.Composition.EventSubscription.Strategy.get -> Vixen.Ui.RoutingStrategy
+Vixen.Ui.Composition.EventSubscription.Strategy.init -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.Composition.IComposable -> interface
 Vixen.Ui.Composition.Literals -> static class
 Vixen.Ui.Composition.ScopedStyles -> static class
@@ -1172,7 +1180,7 @@ static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.Composition.Component com
 static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
-static Vixen.Ui.Composition.BuildContext.Subscribe(string name, System.Action<Vixen.Ui.UiElement, System.Action<Vixen.Ui.UiEvent>, Vixen.Ui.RoutingStrategy> subscribe) -> void
+static Vixen.Ui.Composition.BuildContext.Subscribe(string name, System.Action<Vixen.Ui.UiElement, System.Action<Vixen.Ui.UiEvent>, Vixen.Ui.Composition.EventSubscription> subscribe) -> void
 static Vixen.Ui.Composition.Literals.Of(bool shape, string text) -> bool
 static Vixen.Ui.Composition.Literals.Of(bool? shape, string text) -> bool?
 static Vixen.Ui.Composition.Literals.Of(double shape, string text) -> double

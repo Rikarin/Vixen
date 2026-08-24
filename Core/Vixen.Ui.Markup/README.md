@@ -315,9 +315,45 @@ singular `Keyed` is, `on:keydown="@Keyed"` is *"cannot convert from 'method grou
 'System.Action'"* — on the handler's own characters, which is at least the right place. `@(() => …)`
 and `@Increment` keep working unchanged; they are `Action`s and want no argument.
 
+## `<self />`, and the one modifier that is not a filter
+
+The picker story had a second half, and it outlasted `keydown`. All five capture-leg handlers in the
+tree subscribe on **`this`** — the component's own element — and a `.vxml`'s markup roots are that
+element's *children*, so `on:keydown.capture` moved onto the first root is a different element with
+different route coverage: a key arriving while the focus is on anything else in the panel stops
+reaching it. That is a behaviour change dressed as a port, which is why the pickers stayed
+hand-written after the table was fixed.
+
+`<self />` is the tag for the thing there was no tag for. It is one branch in `EmitElement`:
+
+```csharp
+var n0 = global::Vixen.Ui.Composition.BuildContext.Host(this);
+```
+
+— and then every attribute below it emits exactly as it would on a `<div>`, because it is a
+`UiElement` variable like any other. `Host(this)` rather than `Root` for the reason `Target` is a
+call: a `@inherits` class *is* a `UiElement` and a plain component's is not, the two overloads cover
+both, and C# picks. `BoundElement.IsSelf` is the marker, so the binder resolves no types and the
+emitter reads no strings.
+
+⚠ **`VXML2015` refuses it anywhere but the component's top level.** Inside an `@for` it subscribes
+the host once per row — the handler is on one element and the loop runs N times, so the duplicate
+count follows the data and is right in the test with two rows. `Binder.atTopLevel` is cleared by the
+`SyntaxList` overload of `BindContent`, which every nested content goes through and the document's
+own does not.
+
+**`handled` is the modifier that could not live in `BuildContext.On`.** `stop`, `once` and `self` are
+filters around a handler `On` already owns; whether the router calls a handler *at all* once
+something has marked the event handled is `UiElement.AddHandler`'s third argument, which only the
+subscription-table entry can pass. So the table's value type went from
+`Action<UiElement, Action<UiEvent>, RoutingStrategy>` to
+`Action<UiElement, Action<UiEvent>, EventSubscription>`, and entries call `EventSubscription.Listen`
+rather than `AddHandler` — an entry that passed the strategy and dropped the flag would compile, work
+for every binding that did not ask, and silently ignore the ones that did.
+
 ## `change:` is a value binding, and `on:change` could not have been one
 
-`on:` maps a name through a table of `Action<UiElement, Action<UiEvent>, RoutingStrategy>` — a routed
+`on:` maps a name through a table of `Action<UiElement, Action<UiEvent>, EventSubscription>` — a routed
 gesture. **No entry in it can hand a handler a value**, so `on:change` was never a missing
 registration. Six controls do also raise a routed `ValueChangedEvent<T>`, but they are six of about
 thirty and name a different `T` each, so one name could not have subscribed to them either.

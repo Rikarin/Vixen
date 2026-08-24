@@ -1287,14 +1287,24 @@ type — the table owns that — so `TEvent` is inferred from the argument, and 
 natural type until the delegate's parameters are known. `@Increment` and `@(() => …)` are unaffected,
 being `Action`s.
 
-⚠ **So the pickers are still not ported, and the reason has moved to a bigger place.** All five
+⚠ ~~**So the pickers are still not ported, and the reason has moved to a bigger place.** All five
 capture-leg handlers in the tree — `CommandPalette`, `NodeSearchPopup`, `AddComponentMenu`,
 `KeyBindingsView`, `InputActionsView` — call `AddHandler` on **`this`**, the component's own element.
 An `@inherits` file's markup roots are *children* of the host and `ComponentEmitter.Target` can only
 ever name one of those, so `on:keydown.capture` on the `<SearchBox>` is a different element with
 different route coverage: a key arriving while the focus is anywhere else in the panel would no
 longer be seen. A port would be a behaviour change, which is a defect until argued for. ⚠ Two of the
-five also want `handledEventsToo: true`, which `on:` has no modifier for either.
+five also want `handledEventsToo: true`, which `on:` has no modifier for either.~~
+
+✅ **Both built 2026-08-24, and the diagnosis above was right about both.** `<self />` is a reserved
+lowercase tag that emits `BuildContext.Host(this)` and then applies its attributes to that variable
+like any other element — so `<self on:keydown.capture="@((KeyEvent e) => Keyed(e)) />"` is the same
+element the hand-written `AddHandler` was on, not a root beside it. `VXML2015` refuses it anywhere
+but the component's top level, because inside an `@for` it would subscribe the host once per row.
+`.handled` is the fifth modifier, and it needed the subscription table's value type to change:
+`stop`, `once` and `self` are filters `BuildContext.On` applies itself, while `handled` is
+`AddHandler`'s third argument and only a table entry can pass it — hence `EventSubscription` and
+`EventSubscription.Listen`. **All five pickers are unblocked; none is ported in this branch.**
 
 ### How wave 7's dumps were taken, and the one thing the instrument got wrong
 
@@ -1502,19 +1512,28 @@ on the strength of a diagnosis that had already been corrected one directory awa
 
 The two reasons that *are* real, both met porting `AddComponentMenu`:
 
-- ⚠ **A handler on the component's own host element has no markup spelling.** `on:` is an attribute
+- ⚠ ~~**A handler on the component's own host element has no markup spelling.** `on:` is an attribute
   on a tag, and a `.vxml` body has no tag for the thing it is building. The picker's key handler is
   subscribed on `this` — above every row, which is the whole point of taking Down and Enter before
   the search box treats them as caret movement and submit — so it cannot be an attribute on anything.
-  That is a real gap and a small one: a header, or `on:` on the `@component` line, would close it.
-- ⚠ **`on:click` is a `TapEvent` and a control's activation is a `ClickEvent`.** They are two sealed
+  That is a real gap and a small one: a header, or `on:` on the `@component` line, would close it.~~
+  ✅ **`<self />`, 2026-08-24.** The shape guessed at was right; what it got wrong is only that the
+  `@component` line could carry it — the lexer takes that directive as a keyword plus exactly one
+  name, so a tag was the cheaper answer. See the `<self />` block above.
+- ⚠ ~~**`on:click` is a `TapEvent` and a control's activation is a `ClickEvent`.** They are two sealed
   types: `BuildContext.Subscriptions["click"]` registers `AddHandler<TapEvent>`, and
   `Control.Raise(new ClickEvent …)` is what `ButtonBase.Activate` produces. So a markup `on:click`
   hears a pointer tap and **misses a keyboard activation** — and `Activate()` is what every editor
-  test presses a button with. Panels whose click handler walks the source chain (the picker's rows,
-  the three graph editors' transports) keep `AddHandler<ClickEvent>` for that reason and not for the
-  routing one. ⚠ Whether the two should be one event is a question for `Vixen.Ui`, not for a port;
-  what a port must not do is quietly swap them.
+  test presses a button with.~~ **Stale when it was written, and wrong twice over.**
+  `Vixen.Ui.Controls/ControlMarkup.cs` has replaced the `click` entry from a module initializer since
+  2026-07-31, so a markup `on:click` on a `<Button>` has heard Space, Enter, an access key and
+  `Activate()` for as long as capitalised tags have named controls. ⚠ **What was actually broken was
+  the other half of the same line**: the replacement chose by `element is Control`, and only
+  `ButtonBase` and `ColorSwatch` raise a `ClickEvent` — so `<Card on:click>`, `<Panel on:click>` and
+  every other plain `Control` bound a handler nothing could raise, which is the *same* silent failure
+  one type down. Fixed 2026-08-24: both events are subscribed on every element and
+  `Control.RaisesActivation` keeps one press from counting twice. Panels whose click handler walks
+  the source chain (the picker's rows, the three graph editors' transports) can be `on:click` now.
 
 ### What to build, in order of leverage
 
@@ -1563,13 +1582,14 @@ The two reasons that *are* real, both met porting `AddComponentMenu`:
    is ported yet; both are unblocked. See the block under "`sealed` is the sixth shape".
 7. ~~**`on:` with a routing strategy — `on:keydown.capture`.**~~ **Built 2026-08-23, and it was not
    the routing strategy — that always worked. It was that the `Subscriptions` table had no keyboard
-   entry at all.** `keydown`, `keyup` and `textinput` are registered. ⚠ **What is left is a different
+   entry at all.** `keydown`, `keyup` and `textinput` are registered. ⚠ ~~**What is left is a different
    item and it now blocks more than this one did: a markup spelling for the component's *own*
    element.** All five capture-leg handlers in the tree subscribe on `this`, an `@inherits` file's
    markup roots are children of the host, and `ComponentEmitter.Target` can only name a child — so
    every one of those ports would change which element the route reaches. The shape is a `<self />`
    pseudo-tag whose attributes emit against `this`; two of the five also need a `handledEventsToo`
-   modifier.
+   modifier.~~ **Both built 2026-08-24, as `<self />` and `on:….handled`, and the guessed shape was
+   the built one.** The five pickers are unblocked and none is ported here.
 8. ~~**A `CollectionSignal` for a map.**~~ **Built 2026-08-23 as `SignalDictionary<TKey, TValue>`,
    and the sizing was right about the trade and wrong about what would trigger it.** It was not the
    thousandth counter; it is that the type is under three hundred lines once you decline to build a

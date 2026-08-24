@@ -48,7 +48,15 @@ public sealed class Binder {
     ];
 
     /// <summary>Modifiers an <c>on:</c> binding may carry.</summary>
-    static readonly string[] EventModifiers = ["stop", "prevent", "capture", "once", "self"];
+    /// <remarks>
+    ///     ⚠ <b><c>handled</c> is the one that cannot be implemented in <c>BuildContext.On</c>.</b>
+    ///     The other four are filters and flags around a handler this already owns; whether an event
+    ///     is delivered <i>at all</i> once something has marked it handled is decided by
+    ///     <c>UiElement.AddHandler</c>, which is the subscription table's call and not this one's.
+    ///     That is why the table's entries take an <c>EventSubscription</c> rather than a
+    ///     <c>RoutingStrategy</c>.
+    /// </remarks>
+    static readonly string[] EventModifiers = ["stop", "prevent", "capture", "once", "self", "handled"];
 
     readonly SourceText text;
     readonly string filePath;
@@ -78,6 +86,16 @@ public sealed class Binder {
     /// <summary>Whether the file declared <c>@inherits</c>, so its class is an element.</summary>
     /// <remarks>Read before the content is bound, because <c>&lt;slot&gt;</c> means less on one.</remarks>
     bool isElement;
+
+    /// <summary>Whether the content being bound is the component's own top level.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only <c>&lt;self /&gt;</c> asks, and it has to.</b> A <c>&lt;self /&gt;</c> inside an
+    ///     <c>@for</c> subscribes the host once per row — the handler is on one element and the loop
+    ///     runs N times — which is not a thing anybody means and is invisible until the fourth
+    ///     duplicate. Nested inside a <c>&lt;div&gt;</c> it is merely a lie about where it is. One
+    ///     rule refuses both.
+    /// </remarks>
+    bool atTopLevel;
 
     Binder(SourceText text, string filePath, DiagnosticBag diagnostics) {
         this.text = text;
@@ -145,7 +163,9 @@ public sealed class Binder {
             }
         }
 
+        atTopLevel = true;
         var content = BindContent(markup);
+        atTopLevel = false;
 
         // Recursively: a component whose whole markup sits inside an `@if` is not empty, and an
         // emptiness check that only looked at the top level would say it was.
@@ -207,13 +227,26 @@ public sealed class Binder {
 
     // ================================================================== Content
 
+    /// <remarks>
+    ///     ⚠ <b>Every nested content is bound through this overload and only the document's own goes
+    ///     through the other, which is what makes <see cref="atTopLevel" /> one line rather than a
+    ///     save-and-restore in each of the four things that can contain markup.</b> A
+    ///     <c>MarkupBlockSyntax</c> — the braces after <c>@if</c> or <c>@for</c> — comes through here
+    ///     too, and correctly: a brace block is always somebody's body.
+    /// </remarks>
     ImmutableArray<BoundNode> BindContent(SyntaxList<MarkupSyntax> content) {
         var nodes = ImmutableArray.CreateBuilder<MarkupSyntax>(content.Count);
         foreach (var node in content) {
             nodes.Add(node);
         }
 
-        return BindContent(nodes);
+        var outer = atTopLevel;
+        atTopLevel = false;
+
+        var bound = BindContent(nodes);
+        atTopLevel = outer;
+
+        return bound;
     }
 
     ImmutableArray<BoundNode> BindContent(IEnumerable<MarkupSyntax> content) {
@@ -287,6 +320,18 @@ public sealed class Binder {
 
         if (string.Equals(tag, "slot", StringComparison.Ordinal)) {
             return BindSlot(element, attributes);
+        }
+
+        if (string.Equals(tag, BoundElement.SelfTag, StringComparison.Ordinal)) {
+            // ⚠ Reported and then bound anyway, rather than returning here. The emitter writes it
+            // against the host wherever it is, so an author who wrote it in the wrong place gets one
+            // error about the place rather than that error plus every consequence of the attributes
+            // it carried going nowhere.
+            if (!atTopLevel) {
+                Report(MarkupDiagnostics.MisplacedSelf, element.StartTag.Name.Span);
+            }
+
+            return new BoundElement(tag, false, attributes, BindContent(element.Content), Position(element.StartTag.Name));
         }
 
         if (inLoop && !attributes.Any(a => a.Kind == BoundAttributeKind.Key)) {

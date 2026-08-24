@@ -782,6 +782,7 @@ override Vixen.Ui.Controls.Breadcrumb.TagName.get -> string
 override Vixen.Ui.Controls.BreadcrumbItem.TagName.get -> string
 override Vixen.Ui.Controls.Button.TagName.get -> string
 override Vixen.Ui.Controls.ButtonBase.OnCreated() -> void
+override Vixen.Ui.Controls.ButtonBase.RaisesActivation.get -> bool
 override Vixen.Ui.Controls.Card.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Card.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Card.OnCreated() -> void
@@ -1053,6 +1054,7 @@ virtual Vixen.Ui.Controls.ButtonBase.ActivatesOnEnter.get -> bool
 virtual Vixen.Ui.Controls.ButtonBase.Label.get -> string?
 virtual Vixen.Ui.Controls.ButtonBase.Label.set -> string?
 virtual Vixen.Ui.Controls.Control.AcceptsFocus.get -> bool
+virtual Vixen.Ui.Controls.Control.RaisesActivation.get -> bool
 virtual Vixen.Ui.Controls.Overlay.IsOutside(Vixen.Ui.UiElement? hit) -> bool
 virtual Vixen.Ui.Controls.Overlay.OnClosed(Vixen.Ui.Controls.CloseReason reason) -> void
 virtual Vixen.Ui.Controls.Overlay.OnOpened() -> void

@@ -167,6 +167,28 @@ public sealed record BoundElement(
     ImmutableArray<BoundNode> Children,
     LinePositionSpan TagPosition
 ) : BoundNode {
+    /// <summary>The one reserved lowercase tag that is not an element.</summary>
+    public const string SelfTag = "self";
+
+    /// <summary>Whether this is <c>&lt;self /&gt;</c>, which names the host rather than a child.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The thing a <c>.vxml</c> body has no other spelling for.</b> <c>on:</c> is an
+    ///         attribute on a tag and a component's markup roots are its host's <i>children</i>, so
+    ///         a handler on the component's own element — which is where a picker takes Down and
+    ///         Enter before the search box treats them as caret movement — could not be written at
+    ///         all. Five capture-leg handlers across three editor pickers stayed hand-written for
+    ///         exactly that.
+    ///     </para>
+    ///     <para>
+    ///         It is not a component even though it builds no element of its own, because
+    ///         everything else about it is an element: its attributes are <c>class</c>,
+    ///         <c>style</c>, <c>on:</c> and <c>bind:</c> applied to a <c>UiElement</c>, which is
+    ///         what <see cref="IsComponent" /> being false already means to the emitter.
+    ///     </para>
+    /// </remarks>
+    public bool IsSelf => !IsComponent && string.Equals(Tag, SelfTag, StringComparison.Ordinal);
+
     /// <summary>The <c>key</c> attribute's expression, if it has one.</summary>
     public BoundExpression? Key {
         get {

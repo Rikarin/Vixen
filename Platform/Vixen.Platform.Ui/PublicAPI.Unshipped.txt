@@ -1,4 +1,5 @@
 #nullable enable
+Vixen.Platform.Ui.PlatformCursor -> static class
 Vixen.Platform.Ui.PlatformInput -> static class
 Vixen.Platform.Ui.PlatformUiWindow -> sealed class
 Vixen.Platform.Ui.PlatformUiWindow : System.IDisposable
@@ -29,6 +30,8 @@ Vixen.Platform.Ui.PlatformWindowHost.TryResolve(uint windowId, out Vixen.Ui.UiSu
 Vixen.Platform.Ui.PlatformWindowHost.TryWindow(Vixen.Ui.UiSurface surface, out Vixen.Platform.IWindow? window) -> bool
 Vixen.Platform.Ui.PlatformWindowHost.Windows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.Ui.PlatformUiWindow>
 const Vixen.Platform.Ui.PlatformInput.WheelLineHeight = 48 -> float
+static Vixen.Platform.Ui.PlatformCursor.Apply(Vixen.Platform.Ui.PlatformWindowHost host) -> Vixen.Platform.IWindow?
+static Vixen.Platform.Ui.PlatformCursor.ToShape(Vixen.Ui.UiCursor cursor) -> Vixen.Platform.CursorShape
 static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, Vixen.Ui.UiSurface surface, in Vixen.Platform.PlatformEvent platformEvent, float wheelLineHeight = 48) -> bool
 static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, in Vixen.Platform.PlatformEvent platformEvent) -> bool
 static Vixen.Platform.Ui.PlatformWindowHost.IsReachable(System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayInfo> displays, float x, float y, float width, float height) -> bool
