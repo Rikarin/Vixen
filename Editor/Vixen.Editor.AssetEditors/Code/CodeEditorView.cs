@@ -23,84 +23,15 @@ namespace Vixen.Editor.AssetEditors.Code;
 ///         Save — because parsing per keystroke is a parse per keystroke and a document that did it
 ///         for you could not be talked out of it.
 ///     </para>
+///     <para>
+///         The pane is <c>CodeEditorView.vxml</c>; this file is the accessibility modifier and
+///         the two factories, on the arrangement <c>FactRow</c> and <c>NodeInspector</c> use. The
+///         emitter's partial carries no modifier, and this type is <c>public</c> because
+///         <c>PreviewCodeEditorView</c> derives from it and because the shader editor's factory
+///         hands one out.
+///     </para>
 /// </remarks>
-public class CodeEditorView : Control {
-    CodeDocument? document;
-
-    /// <inheritdoc />
-    protected override string TagName => "code-editor-pane";
-
-    /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
-
-    /// <summary>The editor.</summary>
-    public CodeEditor Editor { get; private set; } = null!;
-
-    /// <summary>The document being edited, or <see langword="null" />.</summary>
-    public CodeDocument? Edited => document;
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        Editor = Part<CodeEditor>();
-    }
-
-    /// <summary>Shows a document.</summary>
-    /// <param name="code">The document.</param>
-    public virtual void Show(CodeDocument code) {
-        ArgumentNullException.ThrowIfNull(code);
-
-        if (document is { } previous) {
-            previous.Analysed -= Restate;
-        }
-
-        document = code;
-
-        // The tokenizer before the buffer: assigning a buffer resets every cached highlighting
-        // state, so setting it second would tokenize the whole file twice on open.
-        Editor.Tokenizer = code.Tokenizer;
-        Editor.Buffer = code.Buffer;
-
-        code.Analysed += Restate;
-        Analyse();
-    }
-
-    /// <summary>Runs the document's analysis and puts the result in the gutter.</summary>
-    /// <returns>How many errors it found.</returns>
-    public int Analyse() {
-        if (document is not { } code) {
-            return 0;
-        }
-
-        code.Reanalyse();
-        return Errors;
-    }
-
-    /// <summary>How many errors the last analysis found.</summary>
-    public int Errors {
-        get {
-            var count = 0;
-
-            foreach (var diagnostic in document?.Diagnostics ?? []) {
-                if (diagnostic.Severity == CodeSeverity.Error) {
-                    count++;
-                }
-            }
-
-            return count;
-        }
-    }
-
-    /// <summary>Called after the document has been analysed.</summary>
-    /// <param name="code">The document.</param>
-    protected virtual void Restate(CodeDocument code) {
-        ArgumentNullException.ThrowIfNull(code);
-        // A span, so the control does not have to be handed a list it might keep. The document's
-        // own list is the one thing that outlives a repaint.
-        Editor.SetDiagnostics([.. code.Diagnostics]);
-    }
-}
+public partial class CodeEditorView;
 
 /// <summary>A code editor with a pane beside it showing what the file describes.</summary>
 /// <remarks>
@@ -121,190 +52,15 @@ public class CodeEditorView : Control {
 ///         user-agent origin still escapes it; that is a real hole and the fix is a second
 ///         <c>UiDocument</c> rendered into a texture.
 ///     </para>
+///     <para>
+///         The pane is <c>PreviewCodeEditorView.vxml</c>; this file is the accessibility
+///         modifier. ⚠ It is the first <c>.vxml</c> in the tree that derives from another, and
+///         the arrangement costs nothing: the emitter's element scaffold builds in
+///         <c>OnCreated</c> and calls <c>base.OnCreated()</c> first, so the base's
+///         <c>code-editor</c> is child nought and this one's pane follows it.
+///     </para>
 /// </remarks>
-public sealed class PreviewCodeEditorView : CodeEditorView {
-    int sheet = -1;
-
-    /// <summary>The pane beside the editor.</summary>
-    public UiElement Pane { get; private set; } = null!;
-
-    /// <summary>Where the preview's own elements go.</summary>
-    public UiElement Surface { get; private set; } = null!;
-
-    /// <summary>What the pane says about what it is showing.</summary>
-    public UiElement Status { get; private set; } = null!;
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        Pane = Part("preview-pane");
-        Status = Pane.Add("preview-status");
-        Surface = Pane.Add("preview-surface");
-    }
-
-    /// <inheritdoc />
-    public override void Show(CodeDocument code) {
-        base.Show(code);
-        Rebuild();
-    }
-
-    /// <summary>Rebuilds the preview from the document as it stands.</summary>
-    public void Rebuild() {
-        while (Surface.Children.Count > 0) {
-            Surface.Children[^1].Remove();
-        }
-
-        switch (Edited) {
-            case MarkupDocument markup:
-                Structure(markup);
-                break;
-
-            case StyleSheetDocument styles:
-                Cascade(styles);
-                break;
-
-            default:
-                Status.Text = "Nothing here has a preview.";
-                break;
-        }
-    }
-
-    /// <inheritdoc />
-    protected override void Restate(CodeDocument code) {
-        base.Restate(code);
-        Rebuild();
-    }
-
-    void Structure(MarkupDocument markup) {
-        if (markup.Component is not { } component) {
-            Status.Text = "This file declares no component, so there is nothing to lay out.";
-            Status.AddClass("errors");
-
-            return;
-        }
-
-        Status.RemoveClass("errors");
-
-        Status.Text = $"{component.Name} — structure only. Expressions and @code need the generator.";
-
-        foreach (var node in component.Content) {
-            Draw(Surface, node);
-        }
-    }
-
-    /// <summary>Turns one bound node into elements.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Every tag becomes a plain element with that tag name</b>, rather than a control of
-    ///     that type. Resolving <c>&lt;Button&gt;</c> to <c>Vixen.Ui.Controls.Button</c> means a
-    ///     tag-to-type table, and the binder deliberately does not have one — a component may use
-    ///     types from any assembly the generated code will reference, which is a set nothing knows
-    ///     until the project is compiled. A plain element with the right tag still takes the right
-    ///     stylesheet rules, which is most of what the pane is being looked at for.
-    /// </remarks>
-    static void Draw(UiElement parent, BoundNode node) {
-        switch (node) {
-            case BoundText text:
-                parent.Add("text").Text = text.Text;
-                break;
-
-            case BoundInterpolation interpolation:
-                // The expression's source, in braces, rather than nothing: an author needs to see
-                // that a value goes here and roughly how wide it will be.
-                parent.Add("text").Text = "{" + interpolation.Expression.Text + "}";
-                break;
-
-            case BoundElement element: {
-                var created = parent.Add(element.Tag);
-
-                foreach (var attribute in element.Attributes) {
-                    if (string.Equals(attribute.Name, "class", StringComparison.OrdinalIgnoreCase)
-                        && attribute.Literal is { } classes) {
-                        foreach (var name in classes.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
-                            created.AddClass(name);
-                        }
-                    }
-                }
-
-                foreach (var child in element.Children) {
-                    Draw(created, child);
-                }
-
-                break;
-            }
-
-            case BoundIf branch: {
-                // Every branch drawn, one after another, because which one is taken is a run-time
-                // question and showing none of them would hide most of a conditional component.
-                foreach (var arm in branch.Branches) {
-                    foreach (var child in arm.Body) {
-                        Draw(parent, child);
-                    }
-                }
-
-                foreach (var child in branch.Else) {
-                    Draw(parent, child);
-                }
-
-                break;
-            }
-
-            case BoundFor loop: {
-                // Once, not n times: the collection is a run-time value and repeating a body an
-                // arbitrary number of times would be a picture of a guess.
-                foreach (var child in loop.Body) {
-                    Draw(parent, child);
-                }
-
-                break;
-            }
-
-            default:
-                break;
-        }
-    }
-
-    void Cascade(StyleSheetDocument styles) {
-        Status.RemoveClass("errors");
-        Status.Text = "Live cascade over the sample tree below.";
-
-        // A small tree of the tags a stylesheet is most often written against, so there is something
-        // for the rules to land on. A pane that showed an empty rectangle until the author wrote
-        // markup somewhere else would not be a preview of anything.
-        var card = Surface.Add("panel", null, "preview-sample");
-        card.Add("text").Text = "Heading";
-
-        var body = card.Add("panel");
-        body.Add("text").Text = "Body text in the sample tree.";
-        body.Add<Button>().Label = "Button";
-
-        if (sheet < 0) {
-            // ⚠ Fully qualified, and it has to be. `Ui.` here is relative to the enclosing `Vixen.`,
-            // and the moment this assembly gained a reference that puts `Vixen.Editor.Ui` in scope it
-            // bound to that instead — a compile error that names a namespace nobody edited. A
-            // relative qualification is a name whose meaning depends on the project file.
-            sheet = Document.Load(styles.Text, Vixen.Ui.Styling.StyleOrigin.Author);
-        } else {
-            // Replaced rather than loaded again: a sheet per keystroke is a style engine that grows
-            // for as long as the file is open, and the rules of the ones before it never stop
-            // applying.
-            Document.Styles.Replace(sheet, styles.Text);
-        }
-    }
-
-    /// <summary>How many elements the preview built.</summary>
-    public int ElementCount => Count(Surface) - 1;
-
-    static int Count(UiElement element) {
-        var total = 1;
-
-        foreach (var child in element.Children) {
-            total += Count(child);
-        }
-
-        return total;
-    }
-}
+public sealed partial class PreviewCodeEditorView;
 
 /// <summary>Opens a Raven shader.</summary>
 public sealed class ShaderEditorFactory : IAssetEditorFactory {

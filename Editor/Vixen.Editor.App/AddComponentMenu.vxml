@@ -33,12 +33,21 @@
     style is not, so the two forms are not comparable. The rule this port is held to is that a port
     which moves pixels is a defect until argued for, and there is nothing here to argue.
 
-    ⚠ **The two `AddHandler`s stay in `OnComposed`**, which is `NodeSearchPopup`'s note and the same
-    limitation: the key handler is subscribed on the **capture** leg — before the search box treats
-    Down, Up and Enter as caret movement and submit — and `BuildContext.Subscriptions`' entries carry
-    a `RoutingStrategy` that no `on:` attribute has a spelling for. The click handler keeps it
-    company because it walks the source chain, which is what makes a click on a row's own label land
-    on the row.
+    ⚠ **The two `AddHandler`s stay in `OnComposed`, and `NodeSearchPopup`'s reason for the same
+    thing is stale.** That file says `BuildContext.Subscriptions`' entries carry a `RoutingStrategy`
+    no `on:` attribute has a spelling for; the markup README's own `on:keydown.capture` section
+    corrects exactly that — `capture` has always been a modifier, `keydown` and `keyup` are in the
+    table now, and `keydown` already filters to `KeyAction.Pressed`. The real reasons here are two
+    different ones:
+
+      - **A handler on the component's *own host element* has no markup spelling.** `on:` is an
+        attribute on a tag, and a `.vxml` body has no tag for the thing it is building — the key
+        handler is subscribed on `this`, above every row, which is the whole point of taking Down and
+        Enter before the search box treats them as caret movement and submit.
+      - **`on:click` is a `TapEvent` and a control raises a `ClickEvent`.** `Control.Raise(new
+        ClickEvent…)` is what `ButtonBase.Activate` produces, so a markup `on:click` on a row would
+        hear a pointer tap and not a keyboard activation. The click handler also walks the source
+        chain, which is what makes a click on a row's own label land on the row.
 -->
 @component AddComponentMenu
 @namespace Vixen.Editor.App

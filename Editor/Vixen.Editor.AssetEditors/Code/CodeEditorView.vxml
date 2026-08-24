@@ -1,0 +1,101 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 8. The code editor pane: a `CodeEditor`, and a document behind it.
+
+    ⚠ **One element of chrome, and that is the honest size of this row.** The panel ledger paired
+    this file with three graph editors under "port the chrome"; here the chrome is a single part, and
+    what the port buys is not brevity but that the tree is declared where the panel is read. The four
+    elements worth declaring are in `PreviewCodeEditorView.vxml` beside this, which derives from it.
+
+    ⚠ **`CodeEditor` is fed by properties with hand-written setters rather than by `[UiProperty]`,
+    and they are assigned in an order that matters** — the tokenizer before the buffer, because
+    assigning a buffer resets every cached highlighting state. So `Show` stays a method rather than
+    becoming two parameters: two bindings have no order anybody can read, and the one here is the
+    difference between tokenizing the file once and twice.
+
+    ⚠ **`SetDiagnostics` is a method taking a span**, which is `use`'s case — and it is deliberately
+    *not* used. `Restate` is `protected virtual` and the subclass overrides it; an effect would run
+    on the frame after the analysis rather than inside the call the subclass is extending, and
+    `Analyse()` returns the count on the line after. Shape 3, on a caller that really does read back.
+-->
+@component CodeEditorView
+@namespace Vixen.Editor.AssetEditors.Code
+@inherits Vixen.Ui.Controls.Control
+@tag code-editor-pane
+@using Vixen.Ui.Controls.Advanced
+
+<CodeEditor ref="@Editor" />
+
+@code {
+    CodeDocument? document;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The editor.</summary>
+    public CodeEditor Editor { get; private set; } = null!;
+
+    /// <summary>The document being edited, or <see langword="null" />.</summary>
+    public CodeDocument? Edited => document;
+
+    /// <summary>Shows a document.</summary>
+    /// <param name="code">The document.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="code" /> is null.</exception>
+    public virtual void Show(CodeDocument code) {
+        ArgumentNullException.ThrowIfNull(code);
+
+        if (document is { } previous) {
+            previous.Analysed -= Restate;
+        }
+
+        document = code;
+
+        // The tokenizer before the buffer: assigning a buffer resets every cached highlighting
+        // state, so setting it second would tokenize the whole file twice on open.
+        Editor.Tokenizer = code.Tokenizer;
+        Editor.Buffer = code.Buffer;
+
+        code.Analysed += Restate;
+        Analyse();
+    }
+
+    /// <summary>Runs the document's analysis and puts the result in the gutter.</summary>
+    /// <returns>How many errors it found.</returns>
+    public int Analyse() {
+        if (document is not { } code) {
+            return 0;
+        }
+
+        code.Reanalyse();
+
+        return Errors;
+    }
+
+    /// <summary>How many errors the last analysis found.</summary>
+    public int Errors {
+        get {
+            var count = 0;
+
+            foreach (var diagnostic in document?.Diagnostics ?? []) {
+                if (diagnostic.Severity == CodeSeverity.Error) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>Called after the document has been analysed.</summary>
+    /// <param name="code">The document.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="code" /> is null.</exception>
+    protected virtual void Restate(CodeDocument code) {
+        ArgumentNullException.ThrowIfNull(code);
+
+        // A span, so the control does not have to be handed a list it might keep. The document's
+        // own list is the one thing that outlives a repaint.
+        Editor.SetDiagnostics([.. code.Diagnostics]);
+    }
+}

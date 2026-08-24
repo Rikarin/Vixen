@@ -1,0 +1,243 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 8. An effect, open for editing: the graph, the selected block, and the effect
+    running.
+
+    ⚠ **The chrome, and one loop that is not chrome.** Doc 11's row for this asset is "node graph +
+    live preview viewport", and the three columns are declared here — but `Report` was a tail-removal
+    loop rebuilding a list of `analysis-row`s by hand, four elements at a time, and that is a `@for`
+    over `AnalysisRow`, the part wave 6 extracted for exactly this. Five panels in this assembly are
+    on it; this is the sixth.
+
+    ⚠ **`AnalysisNote` carries a `Slot` and the key is the whole record.** Two stages can produce the
+    same sentence — a load diagnostic and a compile diagnostic reporting one broken file is the case —
+    and without the slot the second would collide with the first and the list would silently be one
+    row short. `Captions.cs` says so where the record is declared.
+
+    ⚠ **`Play` is `change:IsChecked`, and that is the leg wave 7's dumps never touched.**
+    `ToggleBase.IsChecked` is a `[UiProperty]`, so `change:` is `bind:`'s write-back leg with a
+    handler — no `ref`, no `OnComposed`, and it hears whatever wrote the property rather than only
+    the control's own event.
+
+    ⚠ **The two transport buttons keep their routed handler in `OnComposed`, and the reason is not
+    the one `NodeSearchPopup` gives.** `on:click` maps to `TapEvent`; a control's activation raises
+    `ClickEvent` (`Control.Raise(new ClickEvent…)`), and they are two sealed types. A markup
+    `on:click` here would hear a pointer tap and miss `Activate()`, which is what every test in this
+    assembly presses a button with.
+
+    ⚠ **`Preview`, `Readout` and `Settings` are fed by methods and stay so.** `Preview.Step(delta)`
+    is pulled by whoever owns the frame — a timer this view started would outlive the view and step a
+    simulation nothing is drawing — and `Settings.Rebuild()` is `NodeInspector`'s, which is markup of
+    its own since this wave.
+-->
+@component VfxGraphView
+@namespace Vixen.Editor.AssetEditors.Vfx
+@inherits Vixen.Ui.Controls.Control
+@tag vfx-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Editor.NodeGraph
+@using Vixen.Editor.VfxGraph
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<NodeGraphView ref="@GraphView" />
+
+<vfx-side ref="@Side">
+    <vfx-transport>
+        <Button ref="@Build" Label="Compile" />
+        <Button ref="@Restart" Label="Restart" />
+        <ToggleButton ref="@Play"
+                      Label="Play"
+                      IsChecked="true"
+                      change:IsChecked="@(on => Preview.IsPlaying = on)" />
+    </vfx-transport>
+
+    <VfxPreviewView ref="@Preview" />
+    <vfx-readout ref="@Readout" />
+
+    <NodeInspector ref="@Settings" EmptyMessage="Select a block to edit its numbers." />
+
+    <analysis-list ref="@Diagnostics">
+        @for (var note in reported.Value) {
+            <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
+        }
+    </analysis-list>
+</vfx-side>
+
+@code {
+    /// <summary>What the last compile said, in the order it said it.</summary>
+    readonly Signal<ImmutableArray<AnalysisNote>> reported = new([]);
+
+    VfxDocument? document;
+    bool listening;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The canvas.</summary>
+    public NodeGraphView GraphView { get; private set; } = null!;
+
+    /// <summary>The column beside it.</summary>
+    public UiElement Side { get; private set; } = null!;
+
+    /// <summary>The selected block's settings.</summary>
+    public NodeInspector Settings { get; private set; } = null!;
+
+    /// <summary>The effect, running.</summary>
+    public VfxPreviewView Preview { get; private set; } = null!;
+
+    /// <summary>The button that compiles the graph and restarts the preview.</summary>
+    public Button Build { get; private set; } = null!;
+
+    /// <summary>The button that starts the effect again.</summary>
+    public Button Restart { get; private set; } = null!;
+
+    /// <summary>The one that pauses it.</summary>
+    public ToggleButton Play { get; private set; } = null!;
+
+    /// <summary>What the preview has to say about itself.</summary>
+    public UiElement Readout { get; private set; } = null!;
+
+    /// <summary>What compiling said.</summary>
+    public UiElement Diagnostics { get; private set; } = null!;
+
+    /// <summary>Shows an effect.</summary>
+    /// <param name="effect">The document.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="effect" /> is null.</exception>
+    public void Show(VfxDocument effect) {
+        ArgumentNullException.ThrowIfNull(effect);
+
+        if (document is { } previous) {
+            previous.Compiled -= Report;
+        }
+
+        document = effect;
+
+        GraphView.Registry = effect.Registry;
+        GraphView.EditedDocument = effect;
+        GraphView.Graph = effect.Graph;
+
+        Settings.View = GraphView;
+        Settings.EditedDocument = effect;
+
+        // ⚠ The canvas's selection handler is subscribed once per view and the document's per
+        // document, because a view outlives the file it was first shown — the same split
+        // `CompositorView` makes and for the same reason.
+        if (!listening) {
+            listening = true;
+            GraphView.SelectionChanged += _ => Settings.Rebuild();
+        }
+
+        effect.Compiled += Report;
+
+        Settings.Rebuild();
+
+        // ⚠ Compiled on open rather than waiting to be asked, which is the opposite of the rule
+        // `Compile` states for an *edit*. Opening is not an edit: an author who has just double
+        // clicked an effect wants to see it, and a preview that stayed empty until a button was
+        // found reads as an effect that produces nothing.
+        Compile();
+    }
+
+    /// <summary>Compiles the graph, restarts the preview, and lists what compiling said.</summary>
+    /// <returns>The number of complaints.</returns>
+    public int Compile() {
+        document?.Compile();
+
+        Preview.System = document?.Preview;
+        Preview.Restart();
+
+        return document?.Diagnostics.Count ?? 0;
+    }
+
+    /// <summary>Steps the preview and brings its readout up to date.</summary>
+    /// <param name="delta">How long the last frame took.</param>
+    /// <remarks>
+    ///     ⚠ <b>Pulled by whoever owns the frame, not driven from inside the control.</b> A panel's
+    ///     factory runs again on every reopen, so a timer this view started would outlive the view
+    ///     and step a simulation nothing is drawing.
+    /// </remarks>
+    public void Tick(TimeSpan delta) {
+        Preview.Step(delta);
+        Readout.Text = Preview.Readout();
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>A closed panel has to let go of the document.</b> A panel's factory runs again on
+    ///     every reopen, so the view that was closed is still subscribed to a document that outlives
+    ///     it — and the reopened view's first compile then called <see cref="Report" /> on a view
+    ///     whose elements have left the tree, which threw and took the editor down. Closing the tab
+    ///     is what ends the subscription; the document was never the view's to own.
+    ///     <para>
+    ///         ⚠ <b><c>OnUnmounted</c> rather than <c>OnRemoved</c></b>, because the emitter owns
+    ///         <c>OnRemoved</c> — it is where the composition is disposed — and writing one here is a
+    ///         duplicate-member error from Roslyn rather than a markup diagnostic.
+    ///     </para>
+    /// </remarks>
+    partial void OnUnmounted() {
+        if (document is { } effect) {
+            effect.Compiled -= Report;
+            document = null;
+        }
+    }
+
+    partial void OnComposed() =>
+        AddHandler<ClickEvent>(static (element, args) => ((VfxGraphView) element).Chosen(args));
+
+    void Report(VfxDocument effect) {
+        List<AnalysisNote> notes = [];
+
+        foreach (var diagnostic in effect.LoadDiagnostics) {
+            notes.Add(new(notes.Count, diagnostic.Id, diagnostic.Message));
+        }
+
+        foreach (var diagnostic in effect.Diagnostics) {
+            notes.Add(new(notes.Count, diagnostic.Id, diagnostic.Message));
+        }
+
+        // Said on success too, for the reason the compositor's list gives: a list that empties
+        // itself when everything is fine cannot be told apart from one that never ran.
+        if (effect.Artefact is { } artefact) {
+            notes.Add(new(
+                notes.Count,
+                "effect",
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{artefact.Graph.Spawners.Length} spawner(s), {artefact.Graph.Initializers.Length} initializer(s), "
+                    + $"{artefact.Graph.Updaters.Length} updater(s), {artefact.Graph.Capacity} particles, "
+                    + $"{artefact.Graph.BytesPerParticle} B each."
+                )
+            ));
+
+            notes.Add(new(
+                notes.Count,
+                "shader",
+                $"{artefact.Shader.Name}: {artefact.Shader.Bindings.Count} binding(s)."
+            ));
+        }
+
+        reported.Value = [.. notes];
+    }
+
+    void Chosen(ClickEvent args) {
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, Build)) {
+                Compile();
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, Restart)) {
+                Preview.Restart();
+                args.Handled = true;
+
+                return;
+            }
+        }
+    }
+}

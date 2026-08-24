@@ -1,0 +1,366 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 8. A shader graph, open for editing: the canvas, the emitted Raven, and what
+    compiling said.
+
+    ⚠ **Three tail-removal loops become two `@for`s and one `@if`, and the `@if` is the interesting
+    one.** `Restate` rebuilt a `fact-row` with a `TextBox` in it every time the selection moved, and
+    the box's `ValueChanged` was re-subscribed with it. That is `change:Value` inside the arm now:
+    the subscription belongs to the region, so it leaves when the arm does and there is nothing to
+    unsubscribe.
+
+    ⚠ **`PropertyName` is a `ref` in an arm, so it is read through `IsRemoved`.** The markup README
+    says a `ref` whose arm leaves keeps pointing at the element it was given rather than being
+    cleared — clearing would mean the region knowing the member's name — and `UiElement.IsRemoved`
+    answers the question instead. The property's contract is "null when nothing named is selected",
+    which is what `ShaderGraphTests` asserts first.
+
+    ⚠ **Two sibling `analysis-list`s, distinguished by nothing but order.** That was true of the
+    hand-written panel too and is worth saying out loud: `Properties` and `Diagnostics` have the same
+    tag, and the tests index `row.Children[0]` and `row.Children[^1]` inside them — so the rows are
+    `AnalysisRow`, whose two cells are exactly those two children.
+
+    ⚠ **`hidden` is a bound class rather than two calls.** `ShowCode.CheckedChanged` wrote
+    `Pane.AddClass`/`RemoveClass`; `change:IsChecked` writes a signal and the class is a function of
+    it. The consequence is the ledger's shape 3 — the pane is hidden on the *next* frame — and every
+    caller already frames: `ShaderGraphTests` has `harness.Ui.Frame()` on the line after each toggle,
+    because it is asserting a laid-out width.
+
+    ⚠ **The click handler stays in `OnComposed`.** `on:click` maps to `TapEvent` and a control's
+    activation raises `ClickEvent` — two sealed types — so a markup `on:click` would hear a pointer
+    tap and miss `Activate()`, which is what the tests press a button with.
+-->
+@component ShaderGraphView
+@namespace Vixen.Editor.AssetEditors.Shading
+@inherits Vixen.Ui.Controls.Control
+@tag shadergraph-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Editor.NodeGraph
+@using Vixen.Editor.ShaderGraph
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<NodeGraphView ref="@GraphView" />
+
+<shadergraph-source ref="@Pane" class="@(showing.Value ? "" : "hidden")">
+    <!-- The same tokenizer the shader editor uses, so generated Raven and hand-written Raven are
+         highlighted by one list of keywords rather than by two that drift. -->
+    <CodeEditor ref="@Generated" Tokenizer="@CStyleTokenizer.Raven" ReadOnly="true" />
+</shadergraph-source>
+
+<shadergraph-side ref="@Side">
+    <shadergraph-transport>
+        <Button ref="@Build" Label="Compile" />
+        <ToggleButton ref="@ShowCode"
+                      Label="Generated code"
+                      change:IsChecked="@(on => showing.Value = on)" />
+    </shadergraph-transport>
+
+    <NodeInspector ref="@Settings" EmptyMessage="Select a node to edit its values." />
+
+    <shadergraph-property ref="@PropertyRow">
+        @if (named.Value is not null) {
+            <fact-row>
+                <FactName Text="Property" />
+
+                <FactValue>
+                    <TextBox ref="@box"
+                             Value="@Named"
+                             Placeholder="@Placeholder"
+                             change:Value="@(value => Rename(value))" />
+                </FactValue>
+            </fact-row>
+
+            <node-inspector-summary use="@(cell => cell.Text = Summary)" />
+        }
+    </shadergraph-property>
+
+    <analysis-list ref="@Properties">
+        @for (var note in declared.Value) {
+            <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
+        }
+    </analysis-list>
+
+    <analysis-list ref="@Diagnostics">
+        @for (var note in reported.Value) {
+            <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
+        }
+    </analysis-list>
+</shadergraph-side>
+
+@code {
+    /// <summary>Whether the generated Raven is showing.</summary>
+    readonly Signal<bool> showing = new(false);
+
+    /// <summary>The selected property node, or nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A snapshot rather than the node.</b> The arm's predicate is "is a property node
+    ///     selected", and by the wave-4 rule a surviving arm never re-runs its body — so moving from
+    ///     one property node to another keeps the region and every readout inside it has to go back
+    ///     through this signal. A pattern variable holding the <c>GraphNode</c> would show the first
+    ///     one that was ever selected, for ever, and the whole existing suite would pass.
+    /// </remarks>
+    readonly Signal<Naming?> named = new(null);
+
+    /// <summary>What the emitted shader declares.</summary>
+    readonly Signal<ImmutableArray<AnalysisNote>> declared = new([]);
+
+    /// <summary>And what compiling said.</summary>
+    readonly Signal<ImmutableArray<AnalysisNote>> reported = new([]);
+
+    ShaderGraphDocument? document;
+    TextBox? box;
+    bool listening;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The canvas.</summary>
+    public NodeGraphView GraphView { get; private set; } = null!;
+
+    /// <summary>The pane the emitted shader is shown in.</summary>
+    public UiElement Pane { get; private set; } = null!;
+
+    /// <summary>The emitted shader, read-only.</summary>
+    public CodeEditor Generated { get; private set; } = null!;
+
+    /// <summary>The column beside the canvas.</summary>
+    public UiElement Side { get; private set; } = null!;
+
+    /// <summary>The button that compiles the graph.</summary>
+    public Button Build { get; private set; } = null!;
+
+    /// <summary>The toggle that shows the generated Raven.</summary>
+    public ToggleButton ShowCode { get; private set; } = null!;
+
+    /// <summary>The selected node's settings.</summary>
+    public NodeInspector Settings { get; private set; } = null!;
+
+    /// <summary>Where the selected property node's name is edited.</summary>
+    public UiElement PropertyRow { get; private set; } = null!;
+
+    /// <summary>The box that renames it, or <see langword="null" /> when nothing named is selected.</summary>
+    /// <remarks>
+    ///     ⚠ The <c>IsRemoved</c> test is the price of <c>ref</c> in an <c>@if</c>: a ref in an arm
+    ///     that leaves is left pointing at the element rather than being cleared, and this property's
+    ///     contract is that it is null when there is nothing to rename.
+    /// </remarks>
+    public TextBox? PropertyName => box is { IsRemoved: false } ? box : null;
+
+    /// <summary>What the emitted shader declares.</summary>
+    public UiElement Properties { get; private set; } = null!;
+
+    /// <summary>What compiling said.</summary>
+    public UiElement Diagnostics { get; private set; } = null!;
+
+    /// <summary>Shows a graph.</summary>
+    /// <param name="shader">The document.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="shader" /> is null.</exception>
+    public void Show(ShaderGraphDocument shader) {
+        ArgumentNullException.ThrowIfNull(shader);
+
+        if (document is { } previous) {
+            previous.Compiled -= Report;
+        }
+
+        document = shader;
+
+        GraphView.Registry = shader.Registry;
+        GraphView.EditedDocument = shader;
+        GraphView.Graph = shader.Graph;
+
+        Settings.View = GraphView;
+        Settings.EditedDocument = shader;
+
+        // ⚠ The canvas's selection handler is subscribed once per view and the document's per
+        // document, because a view outlives the file it was first shown — the same split
+        // `CompositorView` makes and for the same reason.
+        if (!listening) {
+            listening = true;
+
+            GraphView.SelectionChanged += _ => {
+                Settings.Rebuild();
+                Restate();
+            };
+        }
+
+        shader.Compiled += Report;
+
+        Settings.Rebuild();
+        Restate();
+
+        // ⚠ Compiled on open rather than waiting to be asked, which is the opposite of the rule
+        // `Compile` states for an *edit*. Opening is not an edit: an author who has just double
+        // clicked a graph wants to know whether it compiles, and a panel that said nothing until a
+        // button was found reads as a graph with nothing wrong with it.
+        Compile();
+    }
+
+    /// <summary>Compiles the graph, shows the Raven it emitted, and lists what was said.</summary>
+    /// <returns>The number of complaints, of both kinds.</returns>
+    public int Compile() {
+        if (document is not { } shader) {
+            return 0;
+        }
+
+        shader.Compile();
+
+        return shader.Diagnostics.Count + shader.SourceDiagnostics.Count;
+    }
+
+    /// <summary>Rebuilds the row that renames whatever property node is selected.</summary>
+    public void Restate() {
+        if (document is not { } shader
+            || GraphView.Selection.Count != 1
+            || !shader.Graph.TryGet(GraphView.Selection.First(), out var node)
+            || !shader.Registry.TryGet(node.Type, out var definition)
+            || definition.Create() is not IShaderPropertyNode declaring) {
+            named.Value = null;
+
+            return;
+        }
+
+        named.Value = new(
+            node.Id,
+            node.TextOf(ShaderProperties.Key),
+            declaring.DefaultProperty,
+            declaring.PropertyType
+        );
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>A closed panel has to let go of the document, and this is the only place it can.</b> A
+    ///     panel's factory runs again on every reopen, so the view that was closed is still subscribed
+    ///     to a document that outlives it — and the next compile then calls <see cref="Report" /> on
+    ///     elements that have left the tree, which is an exception rather than a stale picture. The
+    ///     document is not the view's to own; closing the tab is what ends the subscription.
+    ///     <para>
+    ///         ⚠ <b><c>OnUnmounted</c> rather than <c>OnRemoved</c></b>, because the emitter owns
+    ///         <c>OnRemoved</c> — it is where the composition is disposed.
+    ///     </para>
+    /// </remarks>
+    partial void OnUnmounted() {
+        if (document is { } shader) {
+            shader.Compiled -= Report;
+            document = null;
+        }
+    }
+
+    partial void OnComposed() =>
+        AddHandler<ClickEvent>(static (element, args) => ((ShaderGraphView) element).Chosen(args));
+
+    /// <summary>What the selected property node is called now.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three readbacks rather than one pattern variable, and the compiler insisted.</b>
+    ///     <c>@if (named.Value is { } naming)</c> puts <c>naming</c> in the predicate's scope and the
+    ///     arm's body is a separate lambda, so the body cannot see it — <c>CS0103</c>, on the
+    ///     attribute's own characters. That is the wave-4 trap turned into a build failure for this
+    ///     one shape: a readout inside a surviving arm must go back through the signal, and here it
+    ///     cannot do anything else. The arm's predicate is "is a property node selected", which does
+    ///     not change when the selection moves from one to another.
+    /// </remarks>
+    string Named => named.Value?.Name ?? "";
+
+    /// <inheritdoc cref="Named" />
+    string Placeholder => named.Value?.Placeholder ?? "";
+
+    /// <summary>The sentence under the rename box, which is a function of what is selected.</summary>
+    string Summary =>
+        named.Value is { } naming
+            ? $"Declared as {naming.Type}. Two nodes under one name are one binding."
+            : "";
+
+    /// <summary>What a typed name does, which is the graph's own command.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The node is read out of the signal rather than closed over.</b> Same wave-4 rule as
+    ///     the readouts: this handler lives in the arm, the arm survives a move from one property node
+    ///     to another, and a captured <c>GraphNode</c> would rename whichever one was selected first.
+    /// </remarks>
+    void Rename(string? value) {
+        if (document is { } shader && named.Value is { } naming) {
+            shader.Stack.Execute(
+                new SetPortTextCommand(shader.Graph, naming.Node, ShaderProperties.Key, value ?? string.Empty, shader)
+            );
+        }
+    }
+
+    void Report(ShaderGraphDocument shader) {
+        Generated.Source = shader.Source?.Source ?? string.Empty;
+        Generated.SetDiagnostics([.. shader.SourceDiagnostics]);
+
+        List<AnalysisNote> properties = [];
+
+        foreach (var property in shader.Source?.Properties ?? []) {
+            properties.Add(new(properties.Count, property.Type, property.Name));
+        }
+
+        declared.Value = [.. properties];
+
+        List<AnalysisNote> notes = [];
+
+        foreach (var diagnostic in shader.LoadDiagnostics) {
+            notes.Add(new(notes.Count, "file", $"{diagnostic.Id}: {diagnostic.Message}"));
+        }
+
+        foreach (var diagnostic in shader.Diagnostics) {
+            notes.Add(new(notes.Count, "graph", $"{diagnostic.Id}: {diagnostic.Message}"));
+        }
+
+        foreach (var diagnostic in shader.SourceDiagnostics) {
+            // The line number, because that is where it is in the pane beside this — and it is the
+            // only thing an author can act on until the emitter records which node wrote which span.
+            notes.Add(new(notes.Count, "raven", $"line {diagnostic.Line + 1}: {diagnostic.Message}"));
+        }
+
+        // Said on success too, for the reason the compositor's list gives: a list that empties itself
+        // when everything is fine cannot be told apart from one that never ran.
+        if (shader.Source is { } source && shader.SourceDiagnostics.Count == 0) {
+            notes.Add(new(
+                notes.Count,
+                "shader",
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{source.Name} compiles: {shader.Graph.Nodes.Count} node(s), "
+                    + $"{source.Properties.Length} uniform(s), {Lines(source.Source)} lines of Raven."
+                )
+            ));
+        }
+
+        reported.Value = [.. notes];
+    }
+
+    static int Lines(string source) {
+        var count = 1;
+
+        foreach (var character in source) {
+            if (character == '\n') {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    void Chosen(ClickEvent args) {
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, Build)) {
+                Compile();
+                args.Handled = true;
+
+                return;
+            }
+        }
+    }
+
+    /// <summary>The selected property node, as everything in the arm reads it.</summary>
+    /// <param name="Node">Which node is being renamed.</param>
+    /// <param name="Name">What it is called now.</param>
+    /// <param name="Placeholder">What it is called when it is called nothing.</param>
+    /// <param name="Type">What it is declared as.</param>
+    sealed record Naming(NodeId Node, string Name, string Placeholder, string Type);
+}
