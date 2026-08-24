@@ -72,6 +72,7 @@ Vixen.Ui.Testing.UiTest.Create(string tag, Vixen.Ui.UiElement? parent = null, st
 Vixen.Ui.Testing.UiTest.Dispose() -> void
 Vixen.Ui.Testing.UiTest.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Testing.UiTest.Drag(float fromX, float fromY, float toX, float toY, int steps = 8) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.Flags(Vixen.Ui.UiElement root) -> string
 Vixen.Ui.Testing.UiTest.Frame() -> void
 Vixen.Ui.Testing.UiTest.FrameCount.get -> int
 Vixen.Ui.Testing.UiTest.Frames(int count) -> void
@@ -99,6 +100,7 @@ Vixen.Ui.Testing.UiTest.StyleOf(Vixen.Ui.UiElement element, string property) -> 
 Vixen.Ui.Testing.UiTest.Tab(bool backwards = false) -> bool
 Vixen.Ui.Testing.UiTest.Ticked -> System.Action?
 Vixen.Ui.Testing.UiTest.Tree() -> string
+Vixen.Ui.Testing.UiTest.Tree(Vixen.Ui.UiElement root) -> string
 Vixen.Ui.Testing.UiTest.TypeText(string text) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTest.Updated -> System.Action?
 Vixen.Ui.Testing.UiTest.Wheel(float deltaX, float deltaY) -> Vixen.Ui.UiElement?

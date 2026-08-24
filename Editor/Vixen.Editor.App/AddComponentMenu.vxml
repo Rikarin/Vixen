@@ -1,0 +1,487 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 8. What the Add Component button drops: a search, then categories, then what
+    is in one.
+
+    ⚠ **This is the other panel the ledger's sixth shape stopped at, and it wanted a *string*.**
+    `Part<ScrollView>("add-component-list")` asks for a control under a tag the control does not
+    have; `ScrollView` is `sealed`, so the sanctioned four-line subclass had no base class — and a
+    subclass whose entire content is a tag name is the `WaterFacts` mistake anyway. `tag=` on a
+    capitalised tag is the whole of it, emitted as the second argument of `BuildContext.Child<T>`,
+    which `UiDocument.Adopt` has always taken.
+
+    ⚠ **What the port deletes is the fourth of wave 6's pools, and it was the same trap.** `Build`
+    grew a `List<AddComponentRow>` to the high-water mark of every list the picker had ever shown
+    and parked the surplus with `display: none` — leaving elements in the tree still labelled with
+    the *previous* query's components, indefinitely. A keyed `@for` has as many rows as there are
+    lines. 31 lines of pooling and restyling go.
+
+    ⚠ **The highlight is a binding and the row's identity is not.** `Selected="@(row.Index ==
+    Highlighted)"` is an effect inside the row's own region, so arrowing down changes no key and
+    rebuilds no row — `SettingsView`'s rail and `NodeSearchPopup`'s list, exactly. Putting the
+    highlight in the key would have destroyed and rebuilt two elements per arrow press.
+
+    ⚠ **Four signals, because four things independently decide what the list is**: what is on offer,
+    which category is open, what has been typed, and where the highlight is. The lines themselves are
+    *derived* rather than stored — a fifth signal holding them would be a cache with two writers, and
+    the bug that produces is a list that disagrees with the query that made it.
+
+    ⚠ **The empty notice keeps its inline `display` rather than becoming a class.** `.hidden` would
+    have read better and would have changed the dump: a class is printed by a tree dump and an inline
+    style is not, so the two forms are not comparable. The rule this port is held to is that a port
+    which moves pixels is a defect until argued for, and there is nothing here to argue.
+
+    ⚠ **The two `AddHandler`s stay in `OnComposed`, and `NodeSearchPopup`'s reason for the same
+    thing is stale.** That file says `BuildContext.Subscriptions`' entries carry a `RoutingStrategy`
+    no `on:` attribute has a spelling for; the markup README's own `on:keydown.capture` section
+    corrects exactly that — `capture` has always been a modifier, `keydown` and `keyup` are in the
+    table now, and `keydown` already filters to `KeyAction.Pressed`. The real reasons here are two
+    different ones:
+
+      - **A handler on the component's *own host element* has no markup spelling.** `on:` is an
+        attribute on a tag, and a `.vxml` body has no tag for the thing it is building — the key
+        handler is subscribed on `this`, above every row, which is the whole point of taking Down and
+        Enter before the search box treats them as caret movement and submit.
+      - **`on:click` is a `TapEvent` and a control raises a `ClickEvent`.** `Control.Raise(new
+        ClickEvent…)` is what `ButtonBase.Activate` produces, so a markup `on:click` on a row would
+        hear a pointer tap and not a keyboard activation. The click handler also walks the source
+        chain, which is what makes a click on a row's own label land on the row.
+-->
+@component AddComponentMenu
+@namespace Vixen.Editor.App
+@inherits Vixen.Ui.Controls.Overlay
+@tag add-component-menu
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Editor.SceneView
+@using Vixen.Input
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+@using Vixen.Ui.Styling
+
+<SearchBox ref="@Field" Placeholder="Search components…" change:Value="@(_ => Typed())" />
+
+<ScrollView tag="add-component-list" ref="@List">
+    @for (var row in Lines) {
+        <AddComponentRow key="@row"
+                         Index="@row.Index"
+                         Label="@row.Label"
+                         Detail="@row.Detail"
+                         Opening="@row.Arrow"
+                         Selected="@(row.Index == Highlighted)"
+                         Focusable="false"
+                         class="@row.Class" />
+    }
+</ScrollView>
+
+<AddComponentEmpty ref="@EmptyPart" Text="Nothing matches" style="display: @Emptiness" />
+
+@code {
+    /// <summary>One thing the picker can offer.</summary>
+    /// <param name="Bridge">What is added when the line is chosen.</param>
+    /// <param name="Category">Which group it is filed under.</param>
+    internal readonly record struct Entry(IComponentBridge Bridge, string Category);
+
+    /// <summary>One line, as the <c>@for</c> keys it.</summary>
+    /// <param name="Index">Where it is in the list, which is what a click reports.</param>
+    /// <param name="Label">What it says.</param>
+    /// <param name="Detail">The quiet word on the right.</param>
+    /// <param name="Arrow">Whether it opens something, and which way.</param>
+    /// <param name="Category">The category it opens, or null for a line that adds something.</param>
+    /// <param name="Add">What it adds, or null for a line that opens a category.</param>
+    /// <remarks>
+    ///     ⚠ <b>Keyed on the whole record, which is the immutable-data half of the <c>@for</c>
+    ///     rule.</b> Every field of it is a value, so a re-queried list is a different set of keys and
+    ///     the rows are rebuilt with the new text in them. Only the highlight is a binding, because
+    ///     only the highlight is a property that changes without the line changing.
+    ///     <para>
+    ///         ⚠ <b><c>Index</c> is in the key on purpose.</b> Two categories can hold one component
+    ///         name, and a list that re-ranked without rebuilding would keep the row and report the
+    ///         wrong index from its click.
+    ///     </para>
+    /// </remarks>
+    internal readonly record struct Line(
+        int Index,
+        string Label,
+        string Detail,
+        RowArrow Arrow,
+        string? Category,
+        Entry? Add
+    ) {
+        /// <summary>The class the line wears, which is the way back or nothing.</summary>
+        public string Class => Arrow == RowArrow.Out ? "back" : "";
+    }
+
+    /// <summary>Everything this opening may add.</summary>
+    readonly Signal<ImmutableArray<Entry>> offer = new([]);
+
+    /// <summary>Which category is open, or null for the top level.</summary>
+    readonly Signal<string?> opened = new(null);
+
+    /// <summary>What has been typed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A signal beside <c>Field.Value</c> rather than a read of it.</b> A
+    ///     <c>SearchBox</c>'s value is a control's state and not a signal, so a <c>@for</c> that
+    ///     read it would have no dependency on it and would never re-run — the audit every binding
+    ///     in this file was put through. <c>change:Value</c> is what keeps the two in step, and it
+    ///     hears more than the control's own event does.
+    /// </remarks>
+    readonly Signal<string> query = new("");
+
+    /// <summary>Which row the arrows have landed on.</summary>
+    readonly Signal<int> highlight = new(0);
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>What is typed into it.</summary>
+    public SearchBox Field { get; private set; } = null!;
+
+    /// <summary>Where the lines go.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A real scroll region rather than <c>overflow: scroll</c> on a plain element.</b> The
+    ///     layout understands the keyword and clips to it; what turns clipping into a wheel, a bar
+    ///     and a keyboard is <see cref="ScrollView" />, and the list this drops is however many
+    ///     components a project has. Under the tag the stylesheet already names, which is what
+    ///     <c>tag=</c> is for — <c>add-component-list</c> carries the cap on how tall it grows.
+    /// </remarks>
+    public ScrollView List { get; private set; } = null!;
+
+    /// <summary>What it says when a query matches nothing.</summary>
+    public UiElement EmptyPart { get; private set; } = null!;
+
+    /// <summary>Which category is open, or <see langword="null" /> for the top level.</summary>
+    public string? Category => opened.Value;
+
+    /// <summary>Raised with what was chosen.</summary>
+    public event Action<IComponentBridge>? Chose;
+
+    /// <summary>What the picker is showing, as the lines a test can read.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the tree rather than out of a handle table.</b> A <c>ref</c> in a loop body
+    ///     is <c>VXML2010</c> and <c>refs</c> is keyed rather than listed, so the ordered list of rows
+    ///     is the children of the scroller's content — which is where <c>ComponentsView.Sections</c>
+    ///     gets its foldouts from, and for the same reason. There are no parked rows to filter out any
+    ///     more; <see cref="AddComponentRow.Index" /> is kept because callers filter on it.
+    /// </remarks>
+    public IReadOnlyList<AddComponentRow> Rows => [.. List.Content.Children.OfType<AddComponentRow>()];
+
+    /// <summary>How many lines are showing, whatever kind they are.</summary>
+    public int LineCount => Lines.Length;
+
+    /// <summary>Everything this opening may add, whatever is currently on screen.</summary>
+    /// <remarks>
+    ///     The whole offer rather than the visible slice of it, because "what can be added to this
+    ///     entity" is a question about the entity and the registry, and the categories and the query
+    ///     are a way of getting at the answer rather than part of it.
+    /// </remarks>
+    public IReadOnlyList<Entry> Offered => offer.Value;
+
+    /// <summary>Drops the picker under a button, showing what may be added.</summary>
+    /// <param name="anchor">The Add Component button.</param>
+    /// <param name="entries">What is on offer, in no particular order.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="anchor" /> or <paramref name="entries" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>As wide as the button, written as an inline width.</b> The button is stretched across
+    ///     the inspector and the drop under it is the same gesture continued; a popup that came out
+    ///     140 pixels wide under a 300-pixel control reads as a different, smaller thing having
+    ///     happened. No rule can say this — the button's width is whatever the panel is this frame —
+    ///     so it is measured and written, which is what <c>AssetGrid</c> does with a tile size for the
+    ///     same reason.
+    /// </remarks>
+    public void OpenUnder(UiElement anchor, IEnumerable<Entry> entries) {
+        ArgumentNullException.ThrowIfNull(anchor);
+        ArgumentNullException.ThrowIfNull(entries);
+
+        offer.Value = [.. entries];
+        opened.Value = null;
+        highlight.Value = 0;
+
+        // ⚠ Cleared on every open, for the reason `CommandPalette.OpenPalette` gives: a picker that
+        // remembered the last query makes the common case start by deleting somebody else's word.
+        // `change:Value` hears this and clears `query` with it.
+        Field.Value = string.Empty;
+        query.Value = string.Empty;
+
+        SetStyle("width", anchor.Width.ToString("0.##", CultureInfo.InvariantCulture) + "px");
+
+        Placement = Vixen.Ui.Controls.Placement.Bottom;
+        Open(anchor);
+
+        Document.Focus(Field);
+    }
+
+    /// <inheritdoc />
+    protected override void OnOpened() {
+        base.OnOpened();
+        Document.Focus(Field);
+    }
+
+    /// <summary>Shows what is in a category, or the categories if given nothing.</summary>
+    /// <param name="category">Which one, or <see langword="null" /> to go back to the top.</param>
+    public void Show(string? category) {
+        opened.Value = category;
+        highlight.Value = 0;
+    }
+
+    /// <summary>Chooses the highlighted line: opens a category, or adds a component.</summary>
+    /// <returns>Whether there was one.</returns>
+    public bool Accept() {
+        var lines = Lines;
+
+        if (Highlighted < 0 || Highlighted >= lines.Length) {
+            return false;
+        }
+
+        var line = lines[Highlighted];
+
+        if (line.Add is { } entry) {
+            // ⚠ Closed before the component is added, for `CommandPalette.Accept`'s reason: adding
+            // rebuilds the inspector under the picker, and a popup still standing over a panel whose
+            // elements have all been replaced is a popup anchored to nothing.
+            Close(CloseReason.Committed);
+            Chose?.Invoke(entry.Bridge);
+
+            return true;
+        }
+
+        if (line.Category is null) {
+            return false;
+        }
+
+        // ⚠ The query is cleared going into a category rather than kept. There is only ever a
+        // category showing when the query is empty — typing drops the scope, see `Typed` — so this is
+        // the "Back" case, and coming back to a filtered list nobody typed would be a list that is
+        // missing things for no visible reason.
+        Field.Value = string.Empty;
+        query.Value = string.Empty;
+
+        Show(line.Category.Length == 0 ? null : line.Category);
+
+        return true;
+    }
+
+    /// <summary>Moves the highlight, wrapping at both ends.</summary>
+    /// <param name="delta">By how many lines.</param>
+    public void Move(int delta) {
+        var count = Lines.Length;
+
+        if (count == 0) {
+            return;
+        }
+
+        highlight.Value = (((Highlighted + delta) % count) + count) % count;
+    }
+
+    // ================================================================== What the markup reads
+
+    /// <summary>What the picker is showing, derived rather than stored.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Recomputed on every read, which is what makes it right.</b> A stored list would be a
+    ///     cache written from four places, and the failure that produces is a list that disagrees with
+    ///     the query beside it. It is read once per effect run rather than once per frame, and the
+    ///     work is a sort over however many components a project has.
+    /// </remarks>
+    ImmutableArray<Line> Lines {
+        get {
+            if (query.Value.Length > 0) {
+                return Matches(query.Value);
+            }
+
+            return opened.Value is { } category ? Contents(category) : Categories();
+        }
+    }
+
+    /// <summary>Which line the arrows have landed on, or -1 when there are none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Clamped on the read rather than on the write.</b> The list is derived, so there is no
+    ///     moment at which it "changes" for a writer to clamp against — and a highlight stored past
+    ///     the end of a shorter list is exactly the state that used to make `Rebuild`'s clamp
+    ///     necessary.
+    /// </remarks>
+    int Highlighted {
+        get {
+            var count = Lines.Length;
+
+            return count == 0 ? -1 : Math.Clamp(highlight.Value, 0, count - 1);
+        }
+    }
+
+    /// <summary>The empty notice's display, which is the picker's one inline style.</summary>
+    string Emptiness => Lines.Length == 0 ? "flex" : "none";
+
+    /// <summary>The categories, by name, each with what is in it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A category holding one thing is still a category.</b> Flattening it would make the top
+    ///     level a mixture of headings and components with an arrow deciding which is which — the
+    ///     shape this arrangement exists to get away from — and it would move as a project adds a
+    ///     second one. The count is the one fact a heading can carry that a name cannot, and it is
+    ///     what says whether going in is worth a click.
+    /// </remarks>
+    ImmutableArray<Line> Categories() {
+        var slot = 0;
+
+        return [
+            .. offer.Value
+                .Select(entry => entry.Category)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+                .Select(name => new Line(
+                    slot++,
+                    name,
+                    Within(name).Count().ToString(CultureInfo.CurrentCulture),
+                    RowArrow.Into,
+                    name,
+                    null
+                ))
+        ];
+    }
+
+    /// <summary>What is filed under a category, plus the line back out of it.</summary>
+    /// <remarks>
+    ///     The empty string is the sentinel for "the top level", because the back line is a category
+    ///     line and a category line carries a name.
+    /// </remarks>
+    ImmutableArray<Line> Contents(string category) {
+        var slot = 1;
+
+        return [
+            new Line(0, "All categories", "", RowArrow.Out, "", null),
+
+            // ⚠ Inside "Audio" every line is in Audio, so repeating it is a column of one word; the
+            // kind is the only thing worth saying, and only for the one kind that is not a component.
+            .. Within(category)
+                .Select(entry => new Line(
+                    slot++,
+                    entry.Bridge.DisplayName,
+                    entry.Bridge.Kind == AuthoringKind.Behavior ? "Script" : "",
+                    RowArrow.None,
+                    null,
+                    entry
+                ))
+        ];
+    }
+
+    IEnumerable<Entry> Within(string category) =>
+        offer.Value
+            .Where(entry => string.Equals(entry.Category, category, StringComparison.Ordinal))
+            .OrderBy(entry => entry.Bridge.DisplayName, StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>Everything whose name matches, across every category.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Ranked so that a prefix beats a substring.</b> Typing "cam" for <c>Camera</c> and
+    ///     getting <c>Virtual Camera Body</c> first is a list that has to be read anyway, which is the
+    ///     thing typing was meant to avoid. Ordinal-ignore-case rather than a fuzzy match, because a
+    ///     component name is a thing somebody is spelling rather than approximating — the palette is
+    ///     where fuzzy belongs, and it is one chord away.
+    ///     <para>
+    ///         ⚠ <b>The category is on the right while searching</b>, because in a result list it is
+    ///         the only thing telling two similarly-named components apart.
+    ///     </para>
+    /// </remarks>
+    ImmutableArray<Line> Matches(string typed) {
+        var slot = 0;
+
+        return [
+            .. offer.Value
+                .Select(entry => (Entry: entry, Rank: Rank(entry.Bridge.DisplayName, typed)))
+                .Where(scored => scored.Rank >= 0)
+                .OrderBy(scored => scored.Rank)
+                .ThenBy(scored => scored.Entry.Bridge.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+                .Select(scored => new Line(
+                    slot++,
+                    scored.Entry.Bridge.DisplayName,
+                    scored.Entry.Category,
+                    RowArrow.None,
+                    null,
+                    scored.Entry
+                ))
+        ];
+    }
+
+    static int Rank(string name, string typed) =>
+        name.StartsWith(typed, StringComparison.CurrentCultureIgnoreCase) ? 0
+        : name.Contains(typed, StringComparison.CurrentCultureIgnoreCase) ? 1
+        : -1;
+
+    /// <remarks>
+    ///     ⚠ The category is dropped the moment anything is typed. A search inside "Audio" that
+    ///     silently answered from three components while the name being typed is a physics one is a
+    ///     search box that appears to be broken — and the alternative, a scope somebody has to notice
+    ///     and clear, is a mode.
+    /// </remarks>
+    void Typed() {
+        query.Value = Field.Value ?? string.Empty;
+        opened.Value = null;
+        highlight.Value = 0;
+    }
+
+    partial void OnComposed() {
+        IsFocusScope = true;
+        LightDismiss = true;
+        CloseOnEscape = true;
+
+        EmptyPart.Text = "Nothing matches";
+
+        AddHandler<KeyEvent>(static (element, args) => ((AddComponentMenu) element).Keyed(args), RoutingStrategy.Capture);
+        AddHandler<ClickEvent>(static (element, args) => ((AddComponentMenu) element).Chosen(args));
+    }
+
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed) {
+            return;
+        }
+
+        switch (args.Key) {
+            case InputKey.Down:
+                Move(1);
+                break;
+
+            case InputKey.Up:
+                Move(-1);
+                break;
+
+            case InputKey.Enter or InputKey.KeypadEnter:
+                Accept();
+                break;
+
+            // ⚠ Left goes back out of a category and Escape still closes the whole thing, which is
+            // the arrangement a menu has. Backspace is not used for it: the field is what has the
+            // focus, and taking its Backspace would make the one key somebody presses to fix a typo
+            // throw away the scope instead.
+            case InputKey.Left when opened.Value is not null && query.Value.Length == 0:
+                Show(null);
+                break;
+
+            case InputKey.Right when opened.Value is null && query.Value.Length == 0
+                                     && Highlighted >= 0
+                                     && Lines[Highlighted].Category is { Length: > 0 } into:
+                Show(into);
+                break;
+
+            default:
+                return;
+        }
+
+        // ⚠ Handled on the capture leg, before the field sees it. A search box treats Enter as
+        // "submit" and the arrows as caret movement, and both would fight the list.
+        args.Handled = true;
+    }
+
+    void Chosen(ClickEvent args) {
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (element is not AddComponentRow { Index: >= 0 } row) {
+                continue;
+            }
+
+            highlight.Value = row.Index;
+            Accept();
+
+            args.Handled = true;
+            return;
+        }
+    }
+}
