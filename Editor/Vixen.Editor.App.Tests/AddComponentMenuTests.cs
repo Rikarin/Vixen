@@ -167,7 +167,13 @@ public class AddComponentMenuTests {
         // The category is called "Audio" and `AudioSource` is written out as "Audio Source", so the
         // query matches components *whose names contain it* and never the heading itself.
         Assert.Contains("Audio Source", found);
-        Assert.DoesNotContain(picker.Rows.Where(row => row.Index >= 0), row => row.Arrow.HasClass("parked"));
+        // ⚠ On the row rather than on its chevron, which is where the class was ever written.
+        // `row.Arrow.HasClass("parked")` was the assertion here and it could not fail: `parked` went
+        // on the `AddComponentRow` and the arrow is an `Icon` inside it. The pool it was written
+        // against is gone (doc 36 § F7 wave 8), so this now says the stronger thing it always meant —
+        // and `AddComponentMenuDumpTests.Narrowing_the_query_leaves_nothing_behind` says it against
+        // the tree, where a hidden element still counts.
+        Assert.DoesNotContain(picker.Rows.Where(row => row.Index >= 0), row => row.HasClass("parked"));
         Assert.All(found, name => Assert.Contains(picker.Offered, entry => entry.Bridge.DisplayName == name));
     }
 
