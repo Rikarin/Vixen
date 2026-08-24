@@ -48,6 +48,21 @@
     `StandardFrameView` outside this file at all. Recorded rather than removed, because a public
     number this panel promises is not a wave-7 decision to revoke.
 
+    ⚠ **The empty-table sentence asks `QualityKnobs.Length == 0` and not `QualityRows == 0`, and the
+    difference is the whole of whether it works.** `QualityRows` is a plain `int` — a public counter
+    this panel promises — so a `@if` reading it registers **no signal dependency at all**: the arm
+    would be chosen once, at compose time, and never re-evaluated. It would have been chosen wrongly
+    too, because `Show` runs before the first flush, so the table is already full when the arm is
+    first picked and the sentence would never appear again however empty the table got.
+    `QualityKnobs` reads the signal, which is what makes the arm re-run. The two are always equal —
+    a group heading is only ever added immediately before a row — so nothing else changes.
+
+    ⚠ **This is the general rule and it is easy to break by accident: a binding may only read a
+    signal.** A field the panel also writes looks identical at the call site and is invisible to the
+    compiler, and a whole-tree dump will not catch it either unless a dumped state happens to cross
+    the branch — this one crossed it in none of six. `FrameViewTests` asserts the empty table
+    directly, for that reason.
+
     ⚠ **The scroll region's shape is load-bearing and was measured on device.** `frame-knobs` is not a
     `ScrollView` of its own: a nested scroll region's content is `align-self: flex-start` with
     `min-width: 100%`, so its rows size against their own content's width and the fixed-width
@@ -115,7 +130,7 @@
                 }
             }
 
-            @if (QualityRows == 0) {
+            @if (QualityKnobs.Length == 0) {
                 <TextLine Text="Nothing above the engine table states a value for this tier." />
             }
         </frame-knobs>

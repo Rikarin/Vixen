@@ -1120,9 +1120,26 @@ whole of the evidence.
   branches in the panel and tick them off**; "all N states matched" is a claim about N, not about the
   panel.
 
-⚠ **Both test files were confirmed to fail against a deliberately broken binding before being
-accepted** — `change:Number` deleted from the pixel-size row, and `Disabled` pinned to `false` on the
-graph button. A test written to prove a port correct will prove it correct.
+⚠ **And a third blind spot, which is the one that actually caught a defect: a dumped state that never
+crosses a branch says nothing about the binding on it.** `StandardFrameView`'s empty-quality-table
+sentence was first written `@if (QualityRows == 0)`. `QualityRows` is a plain `int` — a public
+counter the panel promises — so **the arm registered no signal dependency at all**:
+`BuildContext.Switch` wraps its condition in a `Bind`, and a condition that reads no signal is
+evaluated once and never again. It would also have been evaluated *wrongly*, because `Show` runs
+before the first flush, so the table was already full when the arm was first picked and the sentence
+could never have appeared however empty the table later got. All six dumped states had knobs in the
+table, so the ported panel matched the hand-written one to the byte while carrying a binding that
+could not work.
+
+⚠ **The general rule is one line and it is easy to break by accident: a binding may only read a
+signal.** A plain field the panel also writes looks identical at the call site, the compiler cannot
+see the difference, and a dump only catches it if a state happens to cross the branch. The fix here
+is one word — `QualityKnobs.Length == 0`, which reads the signal — and the two counts are always
+equal, so no dump moved. `FrameViewTests` is the assertion.
+
+⚠ **All three test files were confirmed to fail against the defect before being accepted** —
+`change:Number` deleted from the pixel-size row, `Disabled` pinned to `false` on the graph button,
+and `QualityRows == 0` put back. A test written to prove a port correct will prove it correct.
 
 ### "Keep the field rows" was wrong four ways, and that is wave 7's finding
 
