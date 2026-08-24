@@ -47,6 +47,11 @@ public sealed partial class LayoutTree {
         // container's own children.
         RefreshFloatPresence();
 
+        // Likewise for CSS Sizing § 5's content keywords, and likewise before the first box is
+        // touched — the answer to `width: max-content` is a measurement, and a parent settles a
+        // child's width before it ever hands it down. See LayoutTree.Intrinsic.cs.
+        RefreshContentSizePresence();
+
         floatExclusions.Clear();
         floatScopeStart = 0;
         floatOriginX = 0f;
@@ -66,6 +71,28 @@ public sealed partial class LayoutTree {
             return;
         }
 
+        // ⚠ The `finally` is not defensive tidying. A content keyword is resolved by rewriting the
+        // node's own style with the number that was measured for it, and the caller has to get its
+        // declarations back — a measure function that throws must not leave `GetStyle` answering
+        // with a width nobody set. See LayoutTree.Intrinsic.cs.
+        try {
+            if (treeHasContentSizes) {
+                ResolveContentSizes(index, ownerWidth, ownerHeight, ownerDirection);
+            }
+
+            LayoutResolvedTree(index, ownerWidth, ownerHeight, ownerDirection);
+        } finally {
+            RestoreContentBasedLengths();
+        }
+    }
+
+    /// <summary>The root's own sizing decision, and the pass it starts.</summary>
+    /// <remarks>
+    ///     Split out of <see cref="CalculateLayout" /> only so that the content-keyword resolution
+    ///     can run between the tree's guards and the first read of the root's own width without
+    ///     putting a hundred lines inside a <c>try</c>.
+    /// </remarks>
+    void LayoutResolvedTree(int index, float ownerWidth, float ownerHeight, Direction ownerDirection) {
         ref var style = ref styles[index];
         var direction = StyleResolution.ResolveDirection(in style, ownerDirection);
 

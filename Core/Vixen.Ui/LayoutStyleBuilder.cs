@@ -628,13 +628,36 @@ public sealed class LayoutStyleBuilder {
         return true;
     }
 
+    /// <summary>Writes the six size slots, which are the only ones a content keyword may land in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="SetSizeLength" /> and not <see cref="SetLength" />, and the split is the
+    ///         grammar rather than a convenience.</b> CSS Sizing § 5's <c>min-content</c>,
+    ///         <c>max-content</c> and <c>fit-content</c> are values of <c>width</c>, <c>height</c> and
+    ///         their four bounds and of nothing else — a <c>margin: max-content</c> or a
+    ///         <c>gap: fit-content</c> is not a narrower thing than CSS allows, it is invalid. Sharing
+    ///         one converter with the edges would have accepted both and handed
+    ///         <c>Vixen.Ui.Layout</c> a keyword in a slot whose reader has no measurement to answer it
+    ///         with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>flex-basis</c> keeps the edge converter, deliberately.</b> It takes the same
+    ///         three keywords in CSS, and the store has a <see cref="LayoutUnit" /> for them — but a
+    ///         basis is a size on the container's MAIN axis, which is not known until layout runs and
+    ///         is not a fact about the declaration. <c>LayoutTree.Intrinsic.cs</c> resolves per
+    ///         dimension, so it has nothing to hand back here; mapping the keyword would put a value
+    ///         in the slot that resolves to NaN, which is the dead-declaration shape this change
+    ///         exists to remove. <c>basis-min</c> and its siblings are recorded against that in
+    ///         <c>docs/plan/43</c> rather than quietly emitted.
+    ///     </para>
+    /// </remarks>
     void ApplyDimensions(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
-        SetLength(style, names.Width, in context, ref result.Dimensions[(int) Dimension.Width]);
-        SetLength(style, names.Height, in context, ref result.Dimensions[(int) Dimension.Height]);
-        SetLength(style, names.MinWidth, in context, ref result.MinDimensions[(int) Dimension.Width]);
-        SetLength(style, names.MinHeight, in context, ref result.MinDimensions[(int) Dimension.Height]);
-        SetLength(style, names.MaxWidth, in context, ref result.MaxDimensions[(int) Dimension.Width]);
-        SetLength(style, names.MaxHeight, in context, ref result.MaxDimensions[(int) Dimension.Height]);
+        SetSizeLength(style, names.Width, in context, ref result.Dimensions[(int) Dimension.Width]);
+        SetSizeLength(style, names.Height, in context, ref result.Dimensions[(int) Dimension.Height]);
+        SetSizeLength(style, names.MinWidth, in context, ref result.MinDimensions[(int) Dimension.Width]);
+        SetSizeLength(style, names.MinHeight, in context, ref result.MinDimensions[(int) Dimension.Height]);
+        SetSizeLength(style, names.MaxWidth, in context, ref result.MaxDimensions[(int) Dimension.Width]);
+        SetSizeLength(style, names.MaxHeight, in context, ref result.MaxDimensions[(int) Dimension.Height]);
         SetLength(style, names.FlexBasis, in context, ref result.FlexBasis);
     }
 
@@ -772,11 +795,36 @@ public sealed class LayoutStyleBuilder {
         }
     }
 
+    void SetSizeLength(ComputedStyle style, int property, in LengthContext context, ref StyleLength target) {
+        if (property != NameTable.None && TryValue(style, property, out var value)) {
+            Set(ToSizeLength(value, in context), ref target);
+        }
+    }
+
     /// <summary>A length, or <c>auto</c>, which is a length as far as layout is concerned.</summary>
     StyleLength ToEdgeLength(StyleValue value, in LengthContext context) =>
         value.Kind == StyleValueKind.Keyword && value.Keyword == keywords.Auto
             ? StyleLength.Auto
             : context.ToLength(value);
+
+    /// <summary>The same, plus CSS Sizing § 5's three content keywords.</summary>
+    /// <remarks>
+    ///     ⚠ <b>These do not go through <see cref="LengthContext.ToLength" /> and could not.</b> That
+    ///     resolves a written unit against a font size and a viewport, and neither of those settles
+    ///     <c>max-content</c> — the answer is a measurement of the element's own subtree, which only
+    ///     layout can take. So the keyword is carried across as a <see cref="LayoutUnit" /> and
+    ///     <c>LayoutTree.Intrinsic.cs</c> turns it into a number in a pre-pass. Before that existed,
+    ///     every one of these came back <see cref="StyleLength.Undefined" /> here and
+    ///     <see cref="Set" /> left the dimension alone — thirteen Tailwind sizing roots' worth of
+    ///     classes that resolved, cascaded and moved nothing.
+    /// </remarks>
+    StyleLength ToSizeLength(StyleValue value, in LengthContext context) {
+        if (value.Kind == StyleValueKind.Keyword && keywords.ContentSizes.TryGetValue(value.Keyword, out var unit)) {
+            return StyleLength.Keyword(unit);
+        }
+
+        return ToEdgeLength(value, in context);
+    }
 
     /// <summary>Writes a length only if it was understood.</summary>
     /// <remarks>
@@ -1108,6 +1156,12 @@ public sealed class LayoutStyleBuilder {
             Auto = table.Intern("auto");
             None = table.Intern("none");
 
+            ContentSizes = new Dictionary<int, LayoutUnit> {
+                [table.Intern("min-content")] = LayoutUnit.MinContent,
+                [table.Intern("max-content")] = LayoutUnit.MaxContent,
+                [table.Intern("fit-content")] = LayoutUnit.FitContent
+            };
+
             Directions = new Dictionary<int, Direction> {
                 [table.Intern("inherit")] = Direction.Inherit,
                 [table.Intern("ltr")] = Direction.Ltr,
@@ -1263,6 +1317,7 @@ public sealed class LayoutStyleBuilder {
 
         public int Auto { get; }
         public int None { get; }
+        public Dictionary<int, LayoutUnit> ContentSizes { get; }
         public Dictionary<int, VerticalAlign> VerticalAligns { get; }
         public Dictionary<int, Direction> Directions { get; }
         public Dictionary<int, FlexDirection> FlexDirections { get; }

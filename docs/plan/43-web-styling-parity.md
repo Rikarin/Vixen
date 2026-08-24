@@ -92,8 +92,8 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **166** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **61** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **178** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **49** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
 | **absent** | not emitted at all | **96** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
@@ -397,13 +397,13 @@ refusal block, which already says so for the same reason.
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 5 | 2 | 0 | 16 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
-| Sizing | 15 | 0 | 13 | 0 | 2 | 0 | 0 |
+| Sizing | 15 | 12 | 1 | 0 | 2 | 0 | 0 |
 | Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
 | Transitions and Animation | 6 | 2 | 1 | 0 | 3 | 0 | 0 |
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **166** | **61** | **1** | **96** | **3** | **1** |
+| **Total** | **328** | **178** | **49** | **1** | **96** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
 Interactivity at 26 of 39 and Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and
@@ -501,9 +501,9 @@ generated sheet that nothing could ever read, which is the exact shape of debt `
 exists to record — and one nobody could ever close. The ledger's `css` column still lists both,
 because that column is about what Tailwind emits.
 
-⚠ **Sizing was `0 works, 7 partial, 8 absent`; it is `0 works, 13 partial, 2 absent`, and the
-category is the one place in this file where the headline number is the least informative thing on
-the row.** Two separate things happened to it and they pull opposite ways.
+⚠ **Sizing was `0 works, 7 partial, 8 absent`, then `0 works, 13 partial, 2 absent`; it is now
+`12 works, 1 partial, 2 absent`.** Three separate things happened to it, in three revisions, and the
+headline number was the least informative thing on the row for two of them.
 
 **The seven partials were one rule, and the rule is closed.** The previous revision of this paragraph
 said Sizing read worse than it was because the mechanism, not the roots, had moved: `w-*`, `h-*`,
@@ -523,23 +523,66 @@ every generated sheet that `StyleValueParser` does not read — the inert-class 
 is not allowed to add. The units themselves needed nothing: `StyleValueParser` has parsed `vw`/`vh`
 since it existed and `LengthContext.PixelsPer` resolves them.
 
-⚠ **They stayed `partial` anyway, on a second gap that the closing of the first one uncovered.** Every
-sizing row lists a content keyword — `w-min`, `block-fit`, `max-inline-max` — and every one of them
-resolves as a class and moves nothing. `LayoutStyleBuilder.ToEdgeLength` maps the `auto` keyword and
-no other, so `width: min-content` comes back `StyleLength.Undefined` and `SetLength` leaves the
-dimension alone; `LayoutUnit.MaxContent`/`FitContent`/`Stretch` are declared and read by no
-production code, and there is no `LayoutUnit.MinContent` at all. **This is the `value_gap` column
-doing the job it exists for, and it is worth being precise about why no gate could have found it**:
-`width` is read, the class resolves, and both halves of the per-property measurement are green over a
-declaration that does nothing — `visibility`'s dead `collapse` one file over. It was true before this
-revision too and the rows were already `partial` for the viewport keywords, so it cost nothing to
-miss. **The fix is smaller than it looks and is not written down anywhere else, so it is here:** every
-layout algorithm in `Vixen.Ui.Layout` already takes `SizingMode.MaxContent`/`FitContent`/`StretchFit`
-as a node's *own* sizing question — `CalculateLayoutInternal` is invoked as a bare intrinsic probe in
-six places — so what is missing is the mapping from `LayoutUnit` to `SizingMode`, not the layout. One
-new helper beside `HasDefiniteLength` and about eight call sites. `min-content` is the one real gap,
-having no `SizingMode` of its own, and is cheapest resolved eagerly through the existing
-`ComputeMinContentSize` and handed down as a `StretchFit` length.
+⚠ **They stayed `partial` on a second gap that the closing of the first one uncovered, and that gap
+is now closed too.** Every sizing row lists a content keyword — `w-min`, `block-fit`,
+`max-inline-max` — and every one of them used to resolve as a class and move nothing.
+`LayoutStyleBuilder.ToEdgeLength` mapped the `auto` keyword and no other, so `width: min-content`
+came back `StyleLength.Undefined` and `SetLength` left the dimension alone;
+`LayoutUnit.MaxContent`/`FitContent` were declared and read by no production code, and there was no
+`LayoutUnit.MinContent` at all. **That is the `value_gap` column doing the job it exists for, and it
+is worth being precise about why no gate could have found it**: `width` is read, the class resolves,
+and both halves of the per-property measurement are green over a declaration that does nothing —
+`visibility`'s dead `collapse` one file over.
+
+⚠ **The estimate that stood here was wrong in its central claim, and the way it was wrong is the
+useful part.** It said the layout was already there and only a `LayoutUnit`-to-`SizingMode` mapping
+was missing — "one new helper beside `HasDefiniteLength` and about eight call sites". The sizing modes
+are real, but they describe *a request made of a node*, not *a size written on one*, and the gap
+between those two is where the work actually was. A hook on the node's own layout was built first and
+it fails on the commonest case there is: `WalkBlockChildren` asks `HasDefiniteLength(child, …)` and
+settles the child's width **before** handing it down, so a substitution performed on the way into the
+child arrives after the only reader that mattered. `ConstrainMinSizeForMode` and the grid track sizer
+read a child's bounds equally early. There is no single seam downstream of every such read.
+
+**What landed instead is a whole-tree pre-pass**, `Core/Vixen.Ui.Layout/LayoutTree.Intrinsic.cs`. It
+runs at the top of `CalculateLayout`, walks the tree **bottom-up** — a node's content size is a fact
+about its children, so a child still holding a keyword would be measured as though it had no size —
+measures whatever asked to be measured, and writes each answer into the node's own style as an
+ordinary `LayoutUnit.Point`. Flex, block, grid, inline, `BoundAxis` and the absolute path then read a
+number and know nothing about any of it; the written values are put back from a `finally` at the end
+of the pass, so `GetStyle` still answers with the declaration. Neutralising a node's own keywords
+before its probes run is both the recursion guard and the specification — a box's min-content size is
+measured with its own intrinsic bounds out of the way, or the definition eats itself. All six slots
+are covered, which mattered: eight of the thirteen roots are a `min-*` or a `max-*`.
+
+⚠ **On the block axis the three keywords are one number, and that is CSS Sizing § 5.1 rather than a
+shortcut.** There is no narrowest height — only the height the content takes at the inline size it
+has — so `h-min`, `h-max` and `h-fit` agree and the store measures once. Asking for a height with
+nothing to spare would in any case be answered by `MeasureNodeWithFixedSize`, which returns zero for a
+fixed request of zero.
+
+⚠ **`LayoutUnit.Stretch` is carried and deliberately not resolved.** Nothing in
+`Vixen.Ui.Styling.Utilities` emits it, and the two generated fixtures that set it disagree about what
+it should mean: `Stretch_width` wants the containing block's width, `Stretch_flex_basis_column` wants
+its own content's height. Both pass today because the keyword behaves as `undefined` and each falls
+through to a different default. Resolving it would close one by opening the other, for no class.
+
+⚠ **The corpora could not see any of this and still cannot.** Every content keyword in the Taffy
+fixtures is either on `<viewport>`, where it means an indefinite available size that never reaches
+`StyleLength`, or inside a `grid-template-*` track list, which the track sizer reads through
+`GridTrackSize`. The layout suite is byte-identical across the change — 6234 passed, 0 skipped, 0
+failed, before and after — and the cases that judge the feature are hand-written in
+`ContentSizingTests` and `LayoutStyleBridgeTests`, on **resolved boxes**. A test that asserted the
+keyword had reached `LayoutStyle` would have passed the whole time.
+
+⚠ **`w-screen` and `h-screen` were both `100%` and are now `100vw` and `100vh`.** A percentage
+resolves against the containing block and a viewport unit against the surface, so the two disagree
+inside any ancestor that is not full size — which is exactly when an author reaches for the class.
+`screen` is the one sizing value whose answer depends on the **property** rather than on the value, so
+unlike the six viewport keywords it cannot live in `TrySize`, which never sees the property. It is
+registered per family by `SizeToScreen`, through the keyword table that `Resolve` consults first.
+`size-*` and the inset roots keep the percentage: they measure both axes at once, and Tailwind ships
+no `screen` class for either.
 
 **The six that moved from `absent` are the writing-mode-relative names, and all six came out
 physical** — `inline-*`, `min-inline-*`, `max-inline-*` on the width trio and `block-*`,
@@ -568,9 +611,18 @@ same prefix, and `UtilityFamilies.Register` keeps the first family registered un
 registration that holds both: the empty keyword answers the bare class and the value kind answers the
 rest, which is the shape `flex` has had all along for the same reason.
 
-**`max-block-*` is the one of the six that is `partial` on something of its own.** `max-block-lh` is
-one line box, and `lh` is a unit `StyleValueParser` does not read and `LengthContext` could not
-resolve if it did — the context carries a font size and no line height.
+**`max-block-*` is the one row in the category still `partial`, and it is `partial` on something of
+its own.** `max-block-lh` is one line box, and `lh` is a unit `StyleValueParser` does not read and
+`LengthContext` could not resolve if it did — the context carries a font size and no line height.
+Nothing in its `value_gap` says so: the demotion comes from the measurement, because the `classes`
+column lists a class that does not resolve.
+
+⚠ **`basis-min`, `basis-max` and `basis-fit` are refused rather than swept in, and the `basis-*` row
+now says why.** `TrySize` answers all three, but a flex basis is a size on the *container's* main
+axis, which is not a fact about the declaration and which `LayoutTree.Intrinsic.cs` — resolving per
+dimension — has nothing to hand back for. Mapping the keyword in the bridge would have put a value in
+the slot that resolves to NaN, which is the dead-declaration shape this whole section is about. None
+of the three is a documented Tailwind class in the first place.
 
 ⚠ **The table above is generated, and this paragraph is the third revision of a warning that it is
 not.** It used to say the counts were a hand survey with a date on them, then that the C5 gate had
@@ -602,12 +654,13 @@ exist — `rounded-tl-lg` used to reach the family `rounded` with the value `tl-
 table answered, so the utility was dropped with no diagnostic. That was `absent` with a trap in it
 rather than plain absence. The eight per-corner families have since landed and the column is empty for
 them; it still holds for the rest. **`value_gap`** is the column for a root that emits and is read and
-*still* does not do what it says — the content keywords every sizing root lists and none of them
-honours (`w-min` resolves to `width: min-content`, which the bridge drops on the floor), and the
-flow-relative spellings where Vixen emits physical edges (`mx-*` is `margin-left` + `margin-right`,
-not `margin-inline`, which is identical in LTR and wrong in RTL). This paragraph used to cite the six
-viewport keywords `w-*` lacked; they landed, and what the closure exposed was the gap underneath
-them — which is the column earning its keep rather than an argument against it.
+*still* does not do what it says — the flow-relative spellings where Vixen emits physical edges
+(`mx-*` is `margin-left` + `margin-right`, not `margin-inline`, which is identical in LTR and wrong in
+RTL). This paragraph has now cited two Sizing gaps that were closed after it named them: first the six
+viewport keywords `w-*` lacked, and then the content keywords every sizing root listed and none of
+them honoured — `w-min` resolved to `width: min-content` and the bridge dropped it on the floor. Both
+were invisible to every gate in the tree, both were written down here, and both were fixed from this
+column. That is the column earning its keep rather than an argument against it.
 
 ⚠ **`value_gap` is hand-kept and it feeds the generated `state`, which is the one seam in the
 mechanism worth naming.** A root whose every property is read is `works` unless something says

@@ -45,6 +45,25 @@ public class UtilityFamilyTests {
     [InlineData("h-auto", "height: auto")]
     [InlineData("min-w-0", "min-width: 0px")]
     [InlineData("max-h-full", "max-height: 100%")]
+
+    // ⚠ `screen` is the one sizing value whose answer depends on the property. `w-screen` is the
+    // viewport's WIDTH and `h-screen` is its HEIGHT, from the same word — so this pair has to be
+    // asserted together or a family that answered `100vw` to both would pass on the first row. Both
+    // said `100%` until the registrations grew an axis: a percentage resolves against the containing
+    // block, which inside any ancestor that is not full size is a different number.
+    [InlineData("w-screen", "width: 100vw")]
+    [InlineData("h-screen", "height: 100vh")]
+    [InlineData("min-h-screen", "min-height: 100vh")]
+    [InlineData("max-w-screen", "max-width: 100vw")]
+    [InlineData("max-inline-screen", "max-width: 100vw")]
+    [InlineData("min-block-screen", "min-height: 100vh")]
+
+    // The three content keywords are values and not properties, so one rule in `TrySize` answers
+    // every family — the far end of them is `LayoutStyleBridgeTests`, which lays a box out.
+    [InlineData("w-min", "width: min-content")]
+    [InlineData("h-max", "height: max-content")]
+    [InlineData("max-w-fit", "max-width: fit-content")]
+    [InlineData("min-inline-min", "min-width: min-content")]
     // Position.
     [InlineData("absolute", "position: absolute")]
     [InlineData("z-10", "z-index: 10")]

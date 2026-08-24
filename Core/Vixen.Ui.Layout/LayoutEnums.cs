@@ -22,6 +22,16 @@ public enum LayoutUnit : byte {
     /// <summary>Decided by the algorithm: content size, or the space left over.</summary>
     Auto,
 
+    /// <summary>The smallest the content can be without overflowing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This store has no separate min-content measure callback, so a min-content request is
+    ///     an ordinary one with nothing to spare on the axis</b> — <see cref="MeasureMode.AtMost" />
+    ///     against zero, which is what makes a text measurer answer with its longest word. The three
+    ///     content keywords are therefore one mechanism with three requests rather than three
+    ///     mechanisms; see <c>LayoutTree.Intrinsic.cs</c>.
+    /// </remarks>
+    MinContent,
+
     /// <summary>As wide as the content wants to be, ignoring available space.</summary>
     MaxContent,
 
@@ -29,6 +39,15 @@ public enum LayoutUnit : byte {
     FitContent,
 
     /// <summary>Fill the available space.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Carried and not implemented, deliberately.</b> Nothing in the styling layer emits it
+    ///     — CSS Sizing 4's <c>stretch</c> has no Tailwind sizing class behind it — and the two Yoga
+    ///     fixtures that set it, <c>Stretch_width</c> and <c>Stretch_flex_basis_column</c>, pin
+    ///     answers that disagree with each other about what it should mean: the first wants the
+    ///     containing block's width and the second wants its own content's height. Resolving it the
+    ///     way <see cref="MaxContent" /> and its two siblings are resolved would close one and open
+    ///     the other. See <c>LayoutTree.Intrinsic.cs</c>.
+    /// </remarks>
     Stretch
 }
 
