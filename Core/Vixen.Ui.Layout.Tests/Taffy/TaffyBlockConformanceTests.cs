@@ -20,13 +20,18 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         had.
 ///     </para>
 ///     <para>
-///         <b>812 of the 884 <c>block</c> fixtures pass and all 28 <c>blockflex</c>.</b> 72 are
-///         refused for a property this store has no field for — <c>scrollbar-width</c> and
-///         <c>float</c>, and nothing else — and <b>none disagree</b>.
-///         The 20 that used to were all inside <c>LayoutTree.Absolute.cs</c>, in one
-///         <c>aspect-ratio</c> bucket that predated block layout and that a flex parent hit
+///         <b>All 884 <c>block</c> fixtures pass and all 28 <c>blockflex</c>. None fails and none is
+///         refused.</b> The 20 that used to disagree were all inside <c>LayoutTree.Absolute.cs</c>,
+///         in one <c>aspect-ratio</c> bucket that predated block layout and that a flex parent hit
 ///         identically; they closed with the flex and grid copies of the same rule. Not one was ever
-///         in block formatting itself, and the committed failure count is now zero.
+///         in block formatting itself. The 72 that used to be refused went in three batches —
+///         <c>scrollbar-width</c>, then <c>safe</c> alignment with legacy <c>text-align</c> and
+///         <c>display: flow-root</c>, then the last 8 with floats.
+///
+///         ⚠ Read the zero the way <c>UnsupportedFixtures.txt</c> says to. This corpus reached it by
+///         two different routes and only one of them is evidence: fixtures that were already running
+///         and were made to agree, against fixtures that had never run because the store had no field
+///         for what they wrote. Every one of the last 8 is the second kind.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The thing this corpus is here to judge is margin collapsing</b>, because that is the
@@ -54,9 +59,16 @@ public class TaffyBlockConformanceTests {
     // this count lost only 24 of its own, because the other 4 — `block_flow_root_contains_float` —
     // stopped being refused for the keyword and started being refused for the float they also need.
     // A bucket emptying is not the same as fixtures converting; see UnsupportedFixtures.txt § CLOSED.
-    const int ExpectedPassing = 904;
+    //
+    // ⚠ 8 → 0, and this is the bucket that shows what the distinction was FOR. The last eight were
+    // `block_flow_root_avoids_sibling_float` and `block_flow_root_contains_float`, and four of them
+    // had already moved once — refused for `display: flow-root` until the keyword landed, then
+    // refused for the float they also need. They did not convert on the day the keyword arrived; they
+    // changed which missing feature they name. Both families pass now, and they are the only part of
+    // the float work checked against a corpus that was not written for it.
+    const int ExpectedPassing = 912;
     const int ExpectedFailing = 0;
-    const int ExpectedUnsupported = 8;
+    const int ExpectedUnsupported = 0;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

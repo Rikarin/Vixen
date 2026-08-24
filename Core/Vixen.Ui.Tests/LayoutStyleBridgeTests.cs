@@ -136,6 +136,19 @@ public class LayoutStyleBridgeTests {
     // ⚠ Not an alias for `block`: a flow root establishes a block formatting context whatever its
     // `overflow` says, which is the whole content of the keyword. See `Display.FlowRoot`.
     [InlineData("display: flow-root", "Display", "FlowRoot")]
+    [InlineData("float: left", "Float", "Left")]
+    [InlineData("float: right", "Float", "Right")]
+    [InlineData("float: none", "Float", "None")]
+    [InlineData("clear: left", "Clear", "Left")]
+    [InlineData("clear: both", "Clear", "Both")]
+
+    // ⚠ The logical keywords are NOT mapped, and the case below asserts that rather than leaving it
+    // to be discovered. `float: inline-start` resolving to `Left` would be right in an LTR container
+    // and wrong in an RTL one, in the same declaration — `FloatSide` is CSS 2.1 §9.5's physical
+    // keyword set and does not flip with `direction`. An unmapped keyword leaves the initial value,
+    // which is the documented behaviour two tests down.
+    [InlineData("float: inline-start", "Float", "None")]
+    [InlineData("clear: inline-end", "Clear", "None")]
     [InlineData("box-sizing: border-box", "BoxSizing", "BorderBox")]
     [InlineData("direction: rtl", "Direction", "Rtl")]
     public void A_keyword_becomes_its_enum(string css, string field, string expected) {

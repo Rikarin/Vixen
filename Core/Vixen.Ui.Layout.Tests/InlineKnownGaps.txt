@@ -256,7 +256,33 @@ text-overflow: ellipsis           ⚠ Parley was proposed for this and REFUTED �
                                   directory up: `layout/layout_text.cc` and its siblings are LGPL.
 line-clamp                        the same, one level up
 bidirectional reordering          `Vixen.Ui.Text` has `BidiAlgorithm` and this walk does not call it
-float interaction with lines      floats are unimplemented; see the block section of the README
+float interaction with lines      ⚠ **FLOATS ARE IMPLEMENTED NOW AND THIS ENTRY GOT BIGGER RATHER
+                                  THAN SMALLER, WHICH IS THE POINT OF READING IT.** `LayoutStyle`
+                                  has `Float` and `Clear`, `LayoutTree.Floats.cs` keeps a live
+                                  exclusion list per formatting context, and all 92 float fixtures
+                                  in the Taffy corpora pass. None of that reaches this file:
+                                  `WalkInlineLines` never asks the exclusion list anything, so a
+                                  line box beside a float is laid out at the container's full inner
+                                  width and the text runs straight under the float. That is §9.5's
+                                  main clause and the only behaviour a non-specialist would name if
+                                  asked what a float does.
+                                  ⚠ It survived because the oracle cannot see it. `Corpus/float.xml`
+                                  contains no `<text>` element at all — `grep -c` is 0 — so all 84
+                                  of its fixtures are block-level, and the corpus that is named
+                                  after the feature does not test the feature's headline rule. The
+                                  92 green fixtures are evidence about placement, clearance,
+                                  containment and formatting-context avoidance, and evidence about
+                                  nothing here.
+                                  What it needs: `FloatBandAt` is already the right shape and is
+                                  already called by block layout — a line box would ask it for the
+                                  band at the line's own top and height, take the narrowed width as
+                                  its available inline size, and re-ask after a line grows taller
+                                  than the probe assumed. The exclusion list is in the formatting
+                                  context's coordinates and inline layout would need the same
+                                  origin threading `WalkBlockChildren` does.
+                                  ⚠ No oracle for it in any committed corpus. See
+                                  `Taffy/FloatKnownGaps.txt`, which is empty of failures and is
+                                  mostly a page about this.
 `inline-grid`                     would be an alias today, which is what B3 exists to avoid
 `ComputeMinContentSizeUncached`   ⚠ has no inline branch, exactly as it has no grid branch — a
                                   container asked for its min-content size sums its children along

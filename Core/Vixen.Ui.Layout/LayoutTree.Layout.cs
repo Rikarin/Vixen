@@ -42,6 +42,17 @@ public sealed partial class LayoutTree {
         // Before anything takes a child span: sorting can move the arena. See LayoutTree.Order.cs.
         FlushChildOrder();
 
+        // Whether any float path runs at all this pass. One scan, before the first box is touched:
+        // see LayoutTree.Floats.cs for why the question has to be asked of the tree and not of a
+        // container's own children.
+        RefreshFloatPresence();
+
+        floatExclusions.Clear();
+        floatScopeStart = 0;
+        floatOriginX = 0f;
+        floatOriginY = 0f;
+        floatContextWidth = 0f;
+
         generation++;
 
         // ⚠ <b>`display: none` generates no box, and that is true of the box the caller handed us
@@ -196,6 +207,19 @@ public sealed partial class LayoutTree {
                     break;
                 }
             }
+        }
+
+        // ⚠ <b>A cache hit does not place floats, and a float that is not placed is not merely slow —
+        // it is absent from the exclusion list every later box reads.</b> The cache answers with a
+        // node's SIZE; a block container's layout also has the side effect of appending its floats to
+        // the formatting context around it, and replaying six numbers cannot replay that. The same
+        // node is also legitimately laid out at two different float origins in one pass — the probe
+        // and the real pass in `WalkBlockChildren` are exactly that — so the entry is not even keyed
+        // on something that distinguishes them. Bypassing is the honest fix; a float-bearing tree pays
+        // for it, and `treeHasFloats` is what keeps every other tree from doing so.
+        if (treeHasFloats) {
+            cached = -1;
+            cachedIsLayout = false;
         }
 
         if (!needToVisit && cached >= 0) {

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Text;
 using Xunit;
@@ -54,39 +55,101 @@ public class TaffyUnsupportedCensusTests {
     }
 
     /// <summary>
-    ///     That the census can never be a census of nothing.
+    ///     That the census is empty because nothing was refused, not because nothing ran.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Ask what this instrument prints on the day it does not run.</b> Every failure mode
-    ///     that would make the census empty — a corpus that did not reach the output directory, a
-    ///     <c>TaffyStyleMap</c> that stopped throwing, a file that was emptied instead of edited —
-    ///     produces a green
-    ///     <see cref="Every_refusal_is_recorded_with_its_reason_and_its_corpus" /> if both sides
-    ///     agree on nothing. So the floor is asserted separately and from the measurement rather than
-    ///     from the file: refusals exist, they exist in more than one corpus, and they have more than
-    ///     one distinct reason between them.
+    ///     <para>
+    ///         ⚠ <b>Ask what this instrument prints on the day it does not run.</b> Every failure mode
+    ///         that would make the census empty — a corpus that did not reach the output directory, a
+    ///         <c>TaffyStyleMap</c> that stopped throwing, a file emptied instead of edited — produces
+    ///         a green <see cref="Every_refusal_is_recorded_with_its_reason_and_its_corpus" />,
+    ///         because both sides agree on nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>THIS TEST HAS NOW BEEN REWRITTEN TWICE BY ITS OWN SUCCESS, AND THE SECOND REWRITE
+    ///         IS THE ONE THAT MATTERS.</b> It began as "more than one distinct reason", which the
+    ///         corpus consumed on 2026-08-22 by converging on <c>float</c> alone. It became "the
+    ///         reason set is exactly <c>float</c>", which the corpus consumed the next day by
+    ///         implementing floats. Both were proxies for "the census is rich", and a proxy that
+    ///         success eats is not a guard. So this is no longer a statement about the refusals at
+    ///         all — there are none to make a statement about — and it is not
+    ///         <c>Assert.Empty(measured)</c> either, which is the trivially true thing a deleted
+    ///         corpus also satisfies.
+    ///     </para>
+    ///     <para>
+    ///         It is three positive claims about a run that really happened:
+    ///         <b>every one of the 5 524 fixtures reached a real outcome</b> — passed or failed, so
+    ///         the count of things that asserted something is the whole corpus and not zero;
+    ///         <b>every corpus contributed</b>, so no single file can be missing; and <b>the refusal
+    ///         machinery is still live</b>, proved by feeding it a value it does not know and
+    ///         requiring it to refuse. That last one is the answer to the question in the first
+    ///         paragraph: a <c>TaffyStyleMap</c> that had stopped throwing would pass every other
+    ///         assertion in this file and fail this one.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_census_is_not_empty_and_did_not_census_nothing() {
+    public void The_census_is_empty_because_nothing_is_refused_and_not_because_nothing_ran() {
         var measured = Measure();
 
-        Assert.NotEmpty(measured);
-        Assert.True(measured.Sum(bucket => bucket.Count) > 0, "no fixture was refused at all, which no run has ever produced");
-        Assert.True(measured.Select(bucket => bucket.Category).Distinct(StringComparer.Ordinal).Count() > 1, "one corpus refused everything");
+        Assert.Empty(measured);
 
-        // ⚠ This read `Distinct().Count() > 1` until 2026-08-23, and it was the right assertion right
-        // up to the moment it stopped being one: the corpus converged on a SINGLE remaining reason
-        // when `scrollbar-width`, `safe` alignment, legacy `text-align` and half of `flow-root` all
-        // landed in one day. A proxy for "the census is rich" that success consumes is a proxy, not a
-        // guard — so it is replaced by the stronger statement rather than lowered to `> 0`. Every
-        // refusal left in the corpus is `float`; a new reason appearing, or `float` ceasing to be
-        // refused, both fail here and both are things somebody should have to look at.
-        Assert.Equal(["float"], measured.Select(bucket => bucket.Reason).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
-        Assert.All(measured, bucket => Assert.False(string.IsNullOrWhiteSpace(bucket.Reason), "a refusal with no reason is a census of nothing wearing a number"));
+        // ⚠ The load-bearing half. `Unsupported == 0` on its own is what a corpus of zero fixtures
+        // reports; `Passed + Failed == 5524` is not, and neither is a per-corpus floor.
+        var asserted = 0;
 
-        // And the corpus behind it really was walked, all eight files of it.
+        foreach (var category in TaffyCorpus.Categories) {
+            var tally = TaffyCensus.Run(category, 0).Tally;
+
+            Assert.True(tally.Passed + tally.Failed > 0, $"the '{category}' corpus asserted nothing at all");
+            Assert.Equal(0, tally.Unsupported);
+            Assert.Equal(TaffyCorpus.Load(category).Count, tally.Total);
+
+            asserted += tally.Passed + tally.Failed;
+        }
+
+        Assert.Equal(5524, asserted);
         Assert.Equal(5524, TaffyCorpus.Categories.Sum(category => TaffyCorpus.Load(category).Count));
+
+        // ⚠ And the map can still say no. `TaffyStyleMap` keeps refusal arms for values no fixture
+        // writes today — `grid-template-areas`, the flow-relative `float` and `clear` keywords,
+        // `min-content` as a length — precisely so that a refreshed corpus which starts writing one
+        // is SKIPPED rather than mis-parsed into a silent pass. Nothing else in this directory would
+        // notice if those arms were deleted, because nothing else in this directory reaches one.
+        var refused = TaffyFixtureRunner.Run(Probe("float", "inline-start"));
+
+        Assert.Equal(TaffyOutcome.Unsupported, refused.Outcome);
+        Assert.Contains("float", refused.Detail, StringComparison.Ordinal);
+
+        Assert.Equal(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("clear", "inline-end")).Outcome);
+        Assert.Equal(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("grid-template-areas", "\"a b\"")).Outcome);
+
+        // ⚠ …and it says no for the RIGHT reason. A map that threw `TaffyUnsupportedException` at
+        // everything would satisfy the three lines above, so one declaration the map really does
+        // understand has to come back through the same path as a genuine outcome.
+        Assert.NotEqual(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("float", "left")).Outcome);
     }
+
+    /// <summary>A one-box fixture that sets a single declaration, for asking the map a question.</summary>
+    /// <remarks>
+    ///     The expectation is deliberately unsatisfiable, so a <c>Pass</c> can never be mistaken for a
+    ///     refusal: the only outcomes this can produce are <c>Unsupported</c> and <c>Fail</c>, and the
+    ///     assertions above are all about which.
+    /// </remarks>
+    static TaffyFixture Probe(string attribute, string value) =>
+        new(
+            "probe",
+            $"probe_{attribute}",
+            UseRounding: true,
+            float.NaN,
+            float.NaN,
+            new TaffyInput(
+                IsText: false,
+                Text: null,
+                new Dictionary<string, string> { ["display"] = "block", [attribute] = value }.ToFrozenDictionary(StringComparer.Ordinal),
+                []
+            ),
+            new TaffyExpected(-1f, -1f, -1f, -1f, [])
+        );
 
     static IReadOnlyList<Bucket> Measure() =>
         TaffyCorpus

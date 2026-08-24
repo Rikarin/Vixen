@@ -227,6 +227,17 @@ a rectangle with one pair of edges past the viewport expresses exactly.
 Scrolling is `ScrollView`, a control that owns its bars and offsets its content — so a panel that
 needs to reach what it clipped needs one of those, and the utility alone will hide the rest.
 
+⚠ **`float-*` and `clear-*` are short two classes each, and the two are missing on purpose.**
+Tailwind v4's `float-start` / `float-end` and `clear-start` / `clear-end` emit the *logical*
+`inline-start` and `inline-end`, which CSS resolves against the writing mode. `FloatSide` and
+`Clear` hold CSS 2.1 §9.5's **physical** keywords, which do not flip with `direction` — the layout
+corpus proves it by shipping RTL variants of ten `float_bfc_*` families whose expectations are
+identical to their LTR twins. That leaves three shapes and only one honest one: emit the logical
+keyword and let the bridge drop it, which is a class that resolves and does nothing; alias it onto
+`left`, which is right in LTR and wrong in RTL inside the same declaration; or leave it unspelt and
+record the gap. This is the third, and it is why both roots read `partial` in the parity ledger with
+`value_gap` naming the four class names rather than reading `works`.
+
 **A shadow token is a whole declaration, not a set of numbers to assemble.** A shadow is a designed
 thing: its offset, blur and alpha are chosen together to read as one height above the surface, and a
 scale that let them be picked apart would invite exactly the combinations that do not. `shadow-none`

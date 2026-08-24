@@ -1,0 +1,62 @@
+# Float fixtures in Taffy's corpus that Vixen does not yet get right.
+#
+# Same rules as the three gap files beside it: a name here is a fixture that LAYS OUT and disagrees
+# with Chrome, given without the __{border,content}_box_{ltr,rtl} suffix, so one line covers up to
+# four fixtures. TaffyFloatConformanceTests asserts both that every failure is listed here AND that
+# the totals are the committed counts, so a line cannot quietly widen and a fix cannot quietly land.
+#
+# ⚠ **THIS FILE IS EMPTY AND THAT IS A WEAK RESULT, NOT A STRONG ONE — READ IT THE SAME WAY
+# UnsupportedFixtures.txt SAYS TO READ THE OTHER CLEAN CONVERSIONS.** All 84 of these fixtures were
+# ENGINE gaps: the store had no `float` field, so nothing here had ever been run, and the algorithm
+# was written against these exact numbers over about a day. Of course they pass. A corpus that was
+# already running and then went green would be evidence about the algorithm; a corpus that had never
+# run and went green is evidence that somebody read the expectations, which is all it can be.
+#
+# The claim this corpus can honestly support is narrower and worth stating exactly:
+#
+#   · §9.5.1 placement, §9.5's non-overlap rule for formatting context roots, §9.5.2 clearance and
+#     §10.6.3's contains-its-floats height are implemented and agree with Chrome on 84 fixtures,
+#     including all 16 RTL variants and both box-sizing variants of each.
+#   · The 8 `block_flow_root_*_float` fixtures in the block corpus agree too, which is the only part
+#     of this that was cross-checked against a corpus written for something else.
+#
+# ⚠ **What it says nothing whatever about is INLINE interaction, which is the half of §9.5 everyone
+# means by "floats".** `grep -c '<text' Corpus/float.xml` is 0. Not one fixture in this corpus puts
+# text beside a float, so not one of them exercises the rule a float is famous for: shortening the
+# line boxes that pass it. `LayoutTree.Inline` has no exclusion awareness at all, and a paragraph
+# beside a float will run straight under it today. That is real, it is unmeasured by anything here,
+# and it is filed in `InlineKnownGaps.txt` rather than left to be inferred from an empty file.
+#
+#
+# ── OWED, WITH NO FIXTURE IN ANY CORPUS TO PIN IT ────────────────────────────────────────────────
+#
+# ⚠ Kept here rather than in a commit message, because a reader who sees 84/84 and an empty gap list
+# will otherwise conclude floats are finished. These are the places the implementation knowingly
+# answers something other than what CSS 2.1 says, each because no fixture in 5 524 asks.
+#
+# float-beside-inline-content     §9.5's main event, above. `InlineKnownGaps.txt` owns it.
+#
+# float-in-auto-centred-block     `LayoutTree.Block`'s float origin reads an `auto` inline margin as
+#                                 its stated value rather than its resolved one, because resolving
+#                                 it needs the used width of the very layout the origin is about to
+#                                 start. A float inside a block centred by `margin: 0 auto` lands at
+#                                 the uncentred edge. Every float in the corpus is in a block with
+#                                 stated or zero margins.
+#
+# float-margin-collapse-through   A float's own top margin is included in its margin box, which is
+#                                 right, but the corpus never writes one — `grep 'float=' -A0` finds
+#                                 no floated box with a `margin-top`. The arithmetic is reasoned,
+#                                 not measured.
+#
+# float-percentage-height         A float with `height: 50%` resolves against its containing block
+#                                 like any other block box here. Chrome does the same, but no
+#                                 fixture asks, and floats are one of the places where the
+#                                 definite-size rules are easy to get wrong.
+#
+# right-float-narrows-bfc-root    `AvoidFloats` handles a band constrained on the RIGHT symmetrically
+#                                 with one constrained on the left, and no fixture exercises it: all
+#                                 ten `float_bfc_*` families float LEFT, in their RTL variant as much
+#                                 as their LTR one. `float="right"` appears in this corpus twice —
+#                                 `float_simple` and `float_clear_no_preceding_float` — and neither
+#                                 puts a formatting context root beside the float. So the left half of
+#                                 that branch is measured 40 times and the right half zero.

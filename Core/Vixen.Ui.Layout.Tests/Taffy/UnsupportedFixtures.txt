@@ -31,11 +31,27 @@
 #   · An ENGINE gap. The store genuinely has no field for it. Belongs here with a reason, exactly
 #     like a line in a gap file.
 #
-# Of the 408, **124 were harness and 284 were engine — 30% against 70%.** All 124 are closed, and so
-# are 276 of the 284: `scrollbar-width` (180), the `safe` alignment families (76), legacy
-# `text-align` (16) and half of `display: flow-root` (4). What remains below is `float` and nothing
-# else — 8 skipped by the block suite, plus `float`'s own corpus, which is tallied rather than
-# skipped.
+# Of the 408, **124 were harness and 284 were engine — 30% against 70%.** All 408 are closed.
+#
+#   · The harness 124: `scrollbar-width` on a box that does not scroll (104) and `writing-mode` on
+#     a leaf (20).
+#   · The engine 284: `scrollbar-width` on a box that does (180), the `safe` alignment families
+#     (76), legacy `text-align` (16), `display: flow-root` (8) and `float` in the block corpus (4).
+#
+# ⚠ Those five engine numbers are the buckets AS THEY STOOD, and one of them moved before it closed:
+# 4 of the 8 `flow-root` fixtures also needed a float, so when the keyword landed they became float
+# refusals rather than passes, and the block corpus's float bucket went from 4 to 8. Adding the
+# columns twice is how a reader ends up with 412; the movement is why they do not simply add.
+#
+# ⚠ And the `float` corpus's own 84 were never among the 408 at all. They were TALLIED rather than
+# skipped — `TaffyPendingCorporaTests` ran every one of them and pinned `(0, 0, 84)` — so they were
+# listed under FLOATS for completeness and could not be counted as skips. They converted with the
+# rest, which is where 92 comes from and 408 does not grow to 492.
+#
+# ⚠ **NOTHING IS LISTED BELOW ANY HEADING IN THIS FILE, AND THAT IS THE STATE IT WAS WRITTEN TO WARN
+# ABOUT.** A census of nothing and a census that did not run print the same page. Read the TOTAL
+# section at the foot before concluding anything from the emptiness — it says what the guard was
+# replaced with, and why `Assert.Empty` on this file's contents is not that guard.
 #
 # Closing them was worth what it was supposed to be worth. 92 of the 124 went straight to green,
 # which is 92 fixtures' worth of correctness evidence that already existed and was being thrown
@@ -146,30 +162,32 @@
 # `Overflow` still has no `Auto` member and still does not need one: the corpus writes `scroll`,
 # which always reserves, and the enum's remarks argue the rest.
 
-# ── FLOATS ── 92 ──
+# ── FLOATS ── was 92, now 0 ──
 #
-# The one layout mode with a whole corpus of its own and no implementation, and the reason it did
-# not arrive with block layout is stated in `TaffyPendingCorporaTests`: these fixtures are refused
-# on the `float` attribute rather than on `display`, so they were never waiting on a keyword. Every
-# one of them names a block container this store lays out correctly right up to the point where a
-# float would narrow a line box.
+# The last bucket, and the only one that was ever a whole layout MODE rather than a property. It said
+# what it needed: "an exclusion list threaded through inline line-box construction, plus `clear`,
+# plus the interaction with margin collapsing that `block_flow_root_contains_float` is about."
+#   → 92 converted: 92 pass, 0 fail. `FloatSide` and `Clear` on `LayoutStyle`,
+#     `LayoutTree.Floats.cs` for the exclusion list, and four sites in `LayoutTree.Block`.
 #
-# ⚠ The 84 in the `float` corpus are TALLIED rather than skipped — `TaffyPendingCorporaTests` runs
-# every one of them and pins `(0, 0, 84)`, so a crash or a hang in that path is visible today. They
-# are listed here anyway, because the point of this file is the whole ledger and a reader counting
-# refusals should not have to know which of two mechanisms records each one. The 8 in `block` are
-# real skips: `block_flow_root_avoids_sibling_float` and `block_flow_root_contains_float`, each of
-# which needs a float AND a flow root. ⚠ The second family was 4 of the 8 `display: flow-root`
-# refusals until the keyword landed; it did not become a pass, it changed which of two missing
-# features it names. A bucket shrinking is not the same as fixtures converting, and this is the one
-# place in this file where the two come apart.
+# ⚠ **It was right about two of the three and WRONG ABOUT THE FIRST, which is the most useful thing
+# this heading has to say.** There is no exclusion list in inline line-box construction, because not
+# one of the 84 fixtures needs one: `grep -c '<text' Corpus/float.xml` is 0. The whole corpus is
+# block-level — floats placed against each other, formatting context roots refusing to overlap them,
+# clearance, and containment — and the rule everybody means by "float", a line box shortening as it
+# passes one, is not tested anywhere in the 5 524. `LayoutTree.Inline` still has no idea floats
+# exist. That is owed, it is filed in `InlineKnownGaps.txt`, and NOTHING IN ANY CORPUS WOULD CATCH
+# IT — which is exactly the kind of claim this file was created to stop people inferring from a
+# zero.
 #
-# Structural, and the largest single item owed: an exclusion list threaded through inline line-box
-# construction, plus `clear`, plus the interaction with margin collapsing that
-# `block_flow_root_contains_float` is about.
-
-    84  float      float
-     8  block      float
+# ⚠ The 84 were TALLIED rather than skipped, and that distinction ends here: they are judged
+# individually now by `TaffyFloatConformanceTests`, the way block and grid were when they landed. The
+# 8 in `block` were real skips — `block_flow_root_avoids_sibling_float` and
+# `block_flow_root_contains_float` — and they are the only part of the float work that was checked
+# against a corpus written for something else. ⚠ Four of those 8 were 4 of the 8 `display: flow-root`
+# refusals until the keyword landed; they did not become a pass then, they changed which of two
+# missing features they name, and they became a pass now. A bucket shrinking is not the same as
+# fixtures converting, and this is the one place in the file where the two came apart.
 
 
 # ══ CLOSED ═══════════════════════════════════════════════════════════════════════════════════════
@@ -253,29 +271,47 @@
 # single fixture. `min-content`, `fit-content()` and `fr` reach the corpus only inside track lists,
 # which go through `TaffyTrackListParser` and are fully supported; no fixture writes any of the
 # three as a `width`, a `height`, an inset or a `flex-basis`, which is the only path into `Length`.
-# `grid-template-areas` appears nowhere in the corpus at all. `clear` appears 32 times and every one
-# of them is in the `float` corpus, whose fixtures are all refused already and record `float` as the
-# reason — so `clear` is real debt that is invisible here because a bigger one shadows it, which is
-# a third category and the reason this heading is not just a curiosity.
+# `grid-template-areas` appears nowhere in the corpus at all. `clear` appeared 32 times, every one of
+# them in the `float` corpus, whose fixtures were all refused already and recorded `float` as the
+# reason — so `clear` was real debt that was invisible here because a bigger one shadowed it, which
+# is a third category and the reason this heading was never just a curiosity. ⚠ It is now the ONLY
+# heading in this file with rows it can still produce, since `float` and `clear` are implemented and
+# what remains refused under those two names are the flow-relative keywords `inline-start` and
+# `inline-end`, which need a writing mode nothing here has.
 #
 # They are kept as arms rather than deleted: a refreshed corpus that starts writing one has to be
-# skipped rather than mis-parsed. What makes that safe is that the census below is asserted bucket
-# by bucket, so the day one of them fires it appears here as a new line and the suite goes red.
+# skipped rather than mis-parsed. What used to make that safe was that the census below is asserted
+# bucket by bucket, so the day one of them fires it appears as a new line and the suite goes red.
+# ⚠ That is no longer sufficient on its own, because an empty census cannot demonstrate that its
+# instrument still works — so `TaffyUnsupportedCensusTests` now feeds the map `float: inline-start`,
+# `clear: inline-end` and a `grid-template-areas` directly and requires all three to be refused.
 #
 #
 # ══ TOTAL ════════════════════════════════════════════════════════════════════════════════════════
 #
-# 92 of the 5 524 fixtures are refused: 8 skipped by the three conformance suites, 84 tallied by
-# `TaffyPendingCorporaTests`. Asserted, and asserted to be non-zero — a census that can quietly
-# census nothing is the failure this file was written about.
+# 0 of the 5 524 fixtures are refused. Every one of them reaches the algorithm and asserts something.
 #
-# ⚠ 368 → 92. Every refusal left in this file is `float`, and one feature is now the whole of the
-# remaining debt. Of the 276 that left, 272 became passing fixtures and 4 changed which missing
-# feature they name; nothing has ever left this file by being deleted.
+# ⚠ **AN EMPTY CENSUS IS THE MOST DANGEROUS STATE THIS FILE HAS EVER BEEN IN, AND THAT IS NOT A
+# FLOURISH.** Everything the file was written to prevent — 408 fixtures asserting nothing while every
+# summary read green — produces exactly this page. So the guard was rewritten rather than retired,
+# for the second time in two days: `The_census_is_empty_because_nothing_is_refused_and_not_because_
+# nothing_ran` no longer says anything about refusals at all. It says that 5 524 fixtures reached a
+# pass or a fail, that every one of the eight corpora contributed some of them, and that the map can
+# still refuse when it is handed something it does not know. A corpus that failed to reach the output
+# directory fails all three; `Assert.Empty` on the census would have passed.
 #
-# ⚠ Read the clean conversion as the WEAK result it is. All 276 were ENGINE gaps — a claim that the
-# store cannot express the fixture — so the code was written against them and was never going to
-# disagree with them. The 124 HARNESS gaps were the ones hiding defects: 32 of those went red,
-# because those fixtures had been runnable all along and nobody had checked their arithmetic.
+# ⚠ 408 → 0, and the arithmetic of how is the point rather than the destination. 368 became passing
+# fixtures. 32 became FAILING ones and are filed in `KnownGaps.txt` and `GridKnownGaps.txt`. 8
+# changed which missing feature they name before converting. Nothing has ever left this file by
+# being deleted, and every heading it ever had is still above this line with its count zeroed.
+#
+# ⚠ Read the clean conversions as the WEAK results they are — this is the file's oldest lesson and
+# the last bucket is its clearest example. All 284 ENGINE gaps converted at 284 pass / 0 fail,
+# because an engine gap is a claim that the store cannot express the fixture, so the code gets
+# written against the fixture and was never going to disagree with it. The 124 HARNESS gaps were the
+# ones hiding defects, and 32 of them went red, because those fixtures had been runnable all along
+# and nobody had checked their arithmetic. 84 of the last 92 were engine gaps of the purest kind: a
+# whole corpus that had never once executed. They tell you the author read the expectations. What
+# they do not tell you is whether floats work, and `FloatKnownGaps.txt` is a page about why not.
 
-total  92
+total  0

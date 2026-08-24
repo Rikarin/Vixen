@@ -188,6 +188,66 @@ public enum LegacyTextAlign : byte {
     Right
 }
 
+/// <summary>Which side a box floats to, per CSS 2.1 §9.5.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A float is out of flow but not out of the picture, which is what makes it unlike
+///         <see cref="PositionType.Absolute" />.</b> An absolute box is removed and forgotten: nothing
+///         else moves because of it. A float is removed from the flow and then <i>shortens</i> what is
+///         left — the line boxes beside it, the border box of any sibling that establishes a
+///         formatting context of its own, and the height of the block formatting context that
+///         contains it. So the store cannot record it as a positioning scheme and stop there; it has
+///         to keep a live exclusion list for the whole formatting context, which is what
+///         <c>LayoutTree.Floats</c> is.
+///     </para>
+///     <para>
+///         ⚠ <b>Floating a box also makes it a block formatting context root and a block-level box.</b>
+///         §9.7's table turns any <c>display</c> other than <c>none</c> into a block-level equivalent
+///         once <c>float</c> is set, and §9.4.1 makes it a context root — which is why
+///         <c>EstablishesBlockFormattingContext</c> reads this field and why a float's margins never
+///         collapse with anything.
+///     </para>
+/// </remarks>
+public enum FloatSide : byte {
+    /// <summary>Not floated: the box stays in normal flow.</summary>
+    None,
+
+    /// <summary><c>float: left</c> — against the left content edge, or the last left float's right edge.</summary>
+    Left,
+
+    /// <summary><c>float: right</c> — against the right content edge, or the last right float's left edge.</summary>
+    Right
+}
+
+/// <summary>Which floats a box refuses to sit beside, per CSS 2.1 §9.5.2.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b><c>clear</c> does not move floats; it moves the box that declares it.</b> The box's top
+///         border edge is pushed down until it is below the bottom margin edge of every earlier float
+///         on the named side, by inserting <i>clearance</i> between the box's top margin and its top
+///         border. Clearance is not a margin: it does not collapse, and the margin it displaces is
+///         spent rather than carried forward.
+///     </para>
+///     <para>
+///         ⚠ <b>Physical, and they do not flip with <see cref="Direction" />.</b> §9.5.2's keywords
+///         name the same two sides <see cref="FloatSide" /> does, and neither pair is
+///         writing-mode-relative in CSS 2.1.
+///     </para>
+/// </remarks>
+public enum Clear : byte {
+    /// <summary>Nothing is cleared: the box sits wherever margin collapsing put it.</summary>
+    None,
+
+    /// <summary><c>clear: left</c> — below every earlier left float.</summary>
+    Left,
+
+    /// <summary><c>clear: right</c> — below every earlier right float.</summary>
+    Right,
+
+    /// <summary><c>clear: both</c> — below every earlier float on either side.</summary>
+    Both
+}
+
 /// <summary>How a node is positioned relative to its parent.</summary>
 public enum PositionType : byte {
     /// <summary>In flow, and <c>inset</c> is ignored.</summary>

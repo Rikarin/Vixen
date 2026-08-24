@@ -8,7 +8,13 @@
 # TaffyBlockConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts, so a line cannot quietly widen and a fix cannot quietly land.
 #
-# 812 of the 884 block fixtures pass, plus ALL 28 blockflex. NONE fail and 72 are refused.
+# ALL 884 block fixtures pass, plus ALL 28 blockflex. NONE fails and NONE is refused.
+#
+# ⚠ The last 72 refusals closed in three batches, and the last 8 of them were floats:
+# `block_flow_root_avoids_sibling_float` and `block_flow_root_contains_float`, which needed a float
+# AND a flow root. Four of those 8 had already moved buckets once — refused for `display: flow-root`
+# until the keyword landed, then refused for the float. See UnsupportedFixtures.txt, which is now an
+# empty census and explains at length why that is not the same as a finished one.
 #
 # ⚠ That was 764 + 24 with 124 refused, and the 28 that moved moved on the harness rather than on
 # the algorithm: they wrote `scrollbar-width` on an `overflow: hidden` box, which reserves no gutter
