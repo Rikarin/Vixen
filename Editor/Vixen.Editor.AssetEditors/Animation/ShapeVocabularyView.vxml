@@ -46,6 +46,18 @@
     declares them. `ElementRefs` refuses to enumerate, which is right: the row list is already the
     authority on that order, and offering a second one is offering one to get wrong.
 
+    ⚠ **And the `@if` is *inside* the row rather than around it, which is why this file is worth
+    reading if a `refs` ever misbehaves.** The obvious shape — a heading arm and a detail arm, each
+    with its own `<vocab-row key refs class>` — is what was written first, and it compiled and drew
+    seven empty boxes. `BuildContext.For` sets the iteration key around a *synchronous* build and
+    `Switch` registers a deferred effect, so a `refs` in an arm found no key and threw, abandoning
+    the arm's builder after the element and before its classes, bindings and children. Fixed in
+    `BuildContext.Switch` the same day (2026-08-23) and asserted by
+    `CompositionTests.A_refs_inside_a_branch_inside_a_row_is_filed_under_the_rows_key`, so both
+    spellings work now — this one is kept because one row element with a conditional second cell is
+    the better markup regardless, and because the heading arm was duplicating the whole row to change
+    one child.
+
     ⚠ **The geometric hit test is kept, bug and all.** A press outside `vocab-list` but inside some
     row's rectangle selects that row, including a row scrolled out of view. Routing the press through
     `on:pointerdown` on each row would fix it for free and was the more natural markup; it was not
