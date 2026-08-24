@@ -35,9 +35,19 @@
     ⚠ **The diagnostics list *is* markup, and it is the one thing this port moves onto a part.**
     `Report` built `analysis-row` / `analysis-stage` / `analysis-message` by hand — the three lines
     nine panels in this assembly wrote — and `AnalysisRow` is the part wave 6 hoisted out of them.
-    The host tag is `analysis-row`, so the rows stand exactly where they stood. ⚠ Wave 7's note
-    applies: a part is a *type*, so the flags dump gains a `Stage=`/`Message=` line per row while the
-    tree dump does not move. `InputActionsViewDumpTests` asserts the tree half is byte-identical.
+    `AnalysisRow`'s host tag *is* `analysis-row` and it sets the two cells' own `Text`, so the rows
+    stand where they stood; `ChromeDumpTests.The_analysis_row_is_the_four_lines_every_report_wrote`
+    is the committed byte-comparison of the part against those four lines, and it covers this panel
+    as much as the three that adopted the part in wave 8.
+
+    ⚠ **What this file does *not* have is a before-and-after dump, and the reason is worth stating
+    rather than glossing.** The other ports in this table compare the hand-written tree against the
+    ported one; there is nothing to compare here, because the panel it replaces had **no view test
+    at all** — `AuthoringTests` exercises `InputActionsDocument` and never builds the view. So
+    `InputActionsViewDumpTests` asserts the chrome against the tree `OnCreated` is *described* as
+    building (tags, order, parentage, and the six labels a tree dump cannot see) rather than against
+    a recorded dump of it. That is weaker than a byte comparison and is the most this port can
+    honestly claim.
 
     ⚠ **`Tree.SelectionChanged` is kept rather than becoming `change:SelectedNodes`, and that is a
     behaviour argument rather than an oversight.** The two are not the same notification: the ledger
