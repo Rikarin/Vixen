@@ -7,7 +7,25 @@
     ⚠ **`@inherits`, and here it is not a preference.** `EditorShell` writes
     `panel.Add<KeyBindingsView>()`, keeps the result in `Shell.Keyboard`, and
     `EditorSettingsPanels.WireKeymapFiles` sets `view.Import.Disabled` on it. The panel also puts a
-    handler on *itself* — see `OnComposed` — which a `Component` has no element to do.
+    handler on *itself*, which a `Component` has no element to do.
+
+    ⚠ **That self-handler is `<self on:keydown.capture.handled>` since 2026-08-24, and this is one
+    of the two panels in the tree that wants `.handled`.** The modifier is not a free upgrade — it
+    makes a handler run on events something downstream has already dealt with — and the reason this
+    panel needs it is the reason it is on the capture leg at all: `CommandDispatcher` is attached to
+    the document, so recording Ctrl+S has to be seen *whether or not* the chord is already bound to
+    "save scene". A picker that took `.handled` would fire on keystrokes another panel had claimed;
+    `CommandPalette`, `NodeSearchPopup` and `AddComponentMenu` therefore did not get it.
+    `InputActionsView` is the other one that did.
+
+    ⚠ **And the `keyed` guard went with it, which is a fact about `<self />` rather than about this
+    panel.** The guard existed because `AddHandler` has no removal paired to it and the doc said a
+    hot reload re-enters `OnComposed`. `ctx.On` now registers the `RemoveHandler` against the region
+    being built, so a second composition replaces the subscription instead of adding to it — see
+    `EmitterTests.Self_does_not_subscribe_the_host_again_when_a_component_is_rebuilt`, which failed
+    (three presses counted for two) before that was arranged. An `@inherits` class could not have
+    reached the bug anyway: it composes in `OnCreated` and `UiElement.Remove` is terminal, so its
+    body runs once per instance. The guard was defending against the `Component` flavour's case.
 
     ⚠ **`KeyMap` and `CommandRegistry` are left alone, and that is a finding rather than a
     shortcut.** The brief for this wave said each wave-1b model needed signal-backing; for these two
@@ -45,6 +63,8 @@
 @using Vixen.Ui.Controls.Advanced
 @using Vixen.Ui.Reactive
 @using Vixen.Ui.Styling
+
+<self on:keydown.capture.handled="@((KeyEvent e) => Keyed(e))" />
 
 <keybindings-toolbar ref="@Toolbar">
     <SearchBox ref="@Search" Placeholder="@EditorStrings.KeysFilter.Text" />
@@ -119,7 +139,6 @@
     KeyMap? keys;
 
     string? filter;
-    bool keyed;
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
@@ -400,16 +419,17 @@
                 : EditorStrings.KeysReady.Text;
     }
 
-    /// <summary>
-    ///     The grid's columns, the two boxes' subscriptions and the capture-leg key handler, once the
-    ///     <c>ref</c>s exist.
-    /// </summary>
+    /// <summary>The grid's columns and the two boxes' subscriptions, once the <c>ref</c>s exist.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>keyed</c> guards the one line here that is not idempotent, and it has to.</b>
-    ///     <c>OnComposed</c> is emitted inside the build and a hot reload re-enters it — every
-    ///     <c>ref</c> then points at a new element, so re-adding the columns and re-subscribing to
-    ///     the new grid is right. <see cref="UiElement.AddHandler{T}" /> is on <i>this</i> element,
-    ///     which a rebuild does not replace, and there is no <c>RemoveHandler</c> to pair with it.
+    ///     ⚠ ~~<b><c>keyed</c> guards the one line here that is not idempotent, and it has to.</b>~~
+    ///     <b>The line it guarded has left this method</b> — the capture-leg key handler is
+    ///     <c>&lt;self on:keydown.capture.handled&gt;</c> in the markup above — <b>and the guard has
+    ///     gone with it.</b> Everything left is idempotent by construction: re-running it re-adds
+    ///     columns to and re-subscribes to whatever the <c>ref</c>s now point at, which is right.
+    ///     What made the handler different was that it was on <i>this</i> element, which a rebuild
+    ///     does not replace, with no <c>RemoveHandler</c> paired to it. A markup <c>on:</c> binding
+    ///     now registers that removal against the region being built, so the framework owns the
+    ///     pairing rather than each panel remembering a flag.
     /// </remarks>
     partial void OnComposed() {
         Search.ValueChanged += Filtered;
@@ -432,20 +452,6 @@
         // Double-clicking a row is how every keybinding editor starts a capture, and it is the one
         // gesture somebody tries before reading the strip.
         Grid.Activated += Activated;
-
-        if (!keyed) {
-            keyed = true;
-
-            // ⚠ On the capture leg and before the dispatcher, which is the whole of what capture
-            // mode is. `CommandDispatcher` is attached to the document and would otherwise run
-            // whatever the pressed chord is already bound to — so recording Ctrl+S would save the
-            // scene.
-            AddHandler<KeyEvent>(
-                static (element, args) => ((KeyBindingsView) element).Keyed(args),
-                RoutingStrategy.Capture,
-                handledEventsToo: true
-            );
-        }
 
         if (commands is not null) {
             Presets.Value = keys?.PresetName ?? KeyMapPresets.Vixen;

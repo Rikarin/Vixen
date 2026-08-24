@@ -1725,6 +1725,65 @@ public class EmitterTests {
         Assert.Equal(1, Property(meter, "Presses"));
     }
 
+    /// <summary>
+    ///     ⚠ <b>A second composition of the same instance does not subscribe the host twice, and
+    ///     <c>&lt;self /&gt;</c> is the only tag for which that had to be arranged.</b> Every other
+    ///     element a markup body binds a handler to is <i>made</i> by that body, so disposing the
+    ///     composition removes the element and the subscription goes with it.
+    ///     <c>BuildContext.Host(this)</c> names an element that outlives the composition — an
+    ///     <c>@inherits</c> panel taken out of one document and added to another runs
+    ///     <c>OnCreated</c> again on the same object, because <c>UiDocument.Adopt</c> calls it every
+    ///     time — so without a removal paired to the subscription the handler count follows the
+    ///     number of times the panel has been opened.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The two flavours differ here and only one of them can reach it.</b> An
+    ///     <c>@inherits</c> class composes in <c>OnCreated</c>, and <c>UiElement.Remove</c> is
+    ///     terminal — a removed element throws on any further use — so its body runs exactly once
+    ///     per instance and <c>&lt;self /&gt;</c> is safe there by construction. That is what the
+    ///     four ported pickers are, which is why porting them needed no guard. A plain
+    ///     <c>Component</c> is the case that bites: <c>BuildContext.Rebuild</c> clears the host's
+    ///     children and re-enters <c>Build</c> on <b>the same</b> <c>component.Root</c>, which is
+    ///     precisely what <c>Host(component)</c> returns.
+    /// </remarks>
+    [Fact]
+    public void Self_does_not_subscribe_the_host_again_when_a_component_is_rebuilt() {
+        var type = Load(
+            """
+            @component Greeter
+            @using Vixen.Ui
+
+            @code {
+                public int Presses { get; private set; }
+            }
+
+            <self on:tap="@(() => Presses++)" />
+            <bar />
+            """,
+            "Greeter"
+        );
+
+        using var document = new UiDocument(400f, 400f);
+
+        var component = (Component)Activator.CreateInstance(type)!;
+        var context = BuildContext.BuildInto(component, document, document.Root);
+
+        component.Root.Raise(new TapEvent { Count = 1 });
+        Assert.Equal(1, Property(component, "Presses"));
+
+        // What a `.vxml` save does: the children go and the body runs again against the same host.
+        context.Rebuild(component);
+
+        // One child, so the body really did re-run rather than no-op.
+        Assert.Single(component.Root.Children);
+
+        component.Root.Raise(new TapEvent { Count = 1 });
+
+        // Two in total, not three: the rebuild replaced the host's subscription rather than adding
+        // a second one beside it.
+        Assert.Equal(2, Property(component, "Presses"));
+    }
+
     /// <summary>A component with a handler on its own element that also wants handled events.</summary>
     const string Nosy = """
                         @component Greeter

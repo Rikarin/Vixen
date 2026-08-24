@@ -34,6 +34,18 @@ public readonly record struct EventSubscription {
     /// <summary>Whether to run even after something has marked the event handled.</summary>
     public bool HandledEventsToo { get; init; }
 
+    /// <summary>How to undo whatever <see cref="Listen{T}" /> did, collected as it does it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A list rather than one action, because an entry may subscribe more than once.</b>
+    ///     <c>click</c> listens for a <c>ClickEvent</c> <i>and</i> a <see cref="TapEvent" />, so a
+    ///     single undo would leave one of them attached — which is worse than none, being the half
+    ///     that still fires.
+    ///
+    ///     ⚠ And a reference field on a struct that is copied by value on purpose: an entry is
+    ///     handed a copy and every copy appends to the same list.
+    /// </remarks>
+    internal List<Action>? Undo { get; init; }
+
     /// <summary>Subscribes a handler the way this says to.</summary>
     /// <typeparam name="T">The event type.</typeparam>
     /// <param name="element">The element to listen on.</param>
@@ -41,6 +53,7 @@ public readonly record struct EventSubscription {
     public void Listen<T>(UiElement element, Action<UiElement, T> handler) where T : UiEvent {
         ArgumentNullException.ThrowIfNull(element);
         element.AddHandler(handler, Strategy, HandledEventsToo);
+        Undo?.Add(() => element.RemoveHandler(handler));
     }
 }
 
@@ -820,6 +833,16 @@ public sealed class BuildContext {
         var once = modifiers.Contains("once", StringComparer.Ordinal);
         var self = modifiers.Contains("self", StringComparer.Ordinal);
         var stop = modifiers.Contains("stop", StringComparer.Ordinal);
+
+        // ⚠ Collected so the region can undo the subscription, which matters for exactly one target
+        // and is free for every other. A handler bound to an element the body *made* needs no
+        // removal — clearing the region removes the element and the subscription goes with it — but
+        // `<self />` names `Host(this)`, which the body did not make and a rebuild does not replace.
+        // `BuildContext.Rebuild` clears the host's children and re-enters `Build` on the same root,
+        // so without this a `.vxml` save doubled the host's handlers and one press counted twice.
+        // Pinned by `EmitterTests.Self_does_not_subscribe_the_host_again_when_a_component_is_rebuilt`.
+        List<Action> undo = [];
+
         var how = new EventSubscription {
             Strategy = modifiers.Contains("capture", StringComparer.Ordinal)
                 ? RoutingStrategy.Capture
@@ -828,7 +851,8 @@ public sealed class BuildContext {
             // ⚠ The one modifier that cannot be applied here, so it is passed on rather than read.
             // `stop`, `once` and `self` all filter a handler this owns; `handled` decides whether
             // the router calls it in the first place, which is a property of the registration.
-            HandledEventsToo = modifiers.Contains("handled", StringComparer.Ordinal)
+            HandledEventsToo = modifiers.Contains("handled", StringComparer.Ordinal),
+            Undo = undo
         };
 
         var spent = false;
@@ -847,6 +871,18 @@ public sealed class BuildContext {
         }
 
         subscribe(target, Invoke, how);
+
+        // ⚠ One entry for however many handlers the table entry attached — `click` attaches two —
+        // and `Unsubscribe` runs it once, which is what a region stopped and then cleared needs.
+        building.Track(
+            new Unsubscribe(
+                () => {
+                    foreach (var remove in undo) {
+                        remove();
+                    }
+                }
+            )
+        );
     }
 
     /// <summary>Binds a property in both directions.</summary>

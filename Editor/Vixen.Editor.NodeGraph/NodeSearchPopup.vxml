@@ -31,10 +31,21 @@
     behaviour is hover following the *slot*, so after a keystroke it was drawing a hover over a row
     that had become a different node type. Neither is right; one of them is at least not misleading.
 
-    ⚠ **The two `AddHandler`s stay in `OnComposed`.** `on:click` would serve the rows, but the key
+    ⚠ ~~**The two `AddHandler`s stay in `OnComposed`.** `on:click` would serve the rows, but the key
     handler is subscribed on the **capture** leg — before the search box treats Down and Enter as
     caret movement and submit — and `BuildContext.Subscriptions` has no spelling for a routing
-    strategy. Named as a markup limitation in wave 6's report rather than worked around silently.
+    strategy. Named as a markup limitation in wave 6's report rather than worked around silently.~~
+    **The stated limitation never existed**, and this file is where the wrong diagnosis was written
+    down and then copied into two others: `capture` has been in `Binder.EventModifiers` since the
+    list existed and `BuildContext.On` has always turned it into `RoutingStrategy.Capture`. What the
+    line actually failed on was the *name* — `keydown` had no table entry until 2026-08-23 — and
+    behind that a second, real gap: the handler is on `this`, and a `.vxml`'s roots are its
+    *children*, so no attribute in this file could reach it.
+
+    ✅ **`<self on:keydown.capture>`, 2026-08-24.** The `ClickEvent` handler stays hand-written for a
+    reason of its own: `on:click` subscribes `TapEvent` beside `ClickEvent` (`ControlMarkup`), and
+    although a `@((ClickEvent e) => …)` handler discards the tap in `On`'s type test, the extra
+    subscription is real. One line of `AddHandler<ClickEvent>` says the narrower thing exactly.
 -->
 @component NodeSearchPopup
 @namespace Vixen.Editor.NodeGraph
@@ -46,6 +57,8 @@
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive
 @using Vixen.Ui.Styling
+
+<self on:keydown.capture="@((KeyEvent e) => Keyed(e))" />
 
 <SearchBox ref="@Field" Placeholder="Create node" change:Value="@(_ => Refresh())" />
 
@@ -158,19 +171,17 @@
     }
 
     /// <remarks>
-    ///     ⚠ <b>Capture, and that is why these two are here rather than in the markup.</b> The arrows
-    ///     and Enter must be taken before the search box treats them as caret movement and submit,
-    ///     and <c>BuildContext.Subscriptions</c>' entries carry a <c>RoutingStrategy</c> that no
-    ///     <c>on:</c> attribute has a spelling for. The click handler keeps it company because it
-    ///     walks the source chain rather than sitting on a row, which is what makes a click on a
-    ///     row's own label land on the row.
+    ///     ⚠ <b>The key handler has left this method</b>, and the reason it was ever here is struck
+    ///     out in the file header: <c>capture</c> was never the thing <c>on:</c> could not say. It is
+    ///     <c>&lt;self on:keydown.capture&gt;</c> above, on the same element. The click handler stays
+    ///     because it walks the source chain rather than sitting on a row — and because
+    ///     <c>on:click</c> would bring a <c>TapEvent</c> subscription with it.
     /// </remarks>
     partial void OnComposed() {
         IsFocusScope = true;
         LightDismiss = true;
         CloseOnEscape = true;
 
-        AddHandler<KeyEvent>(static (element, args) => ((NodeSearchPopup) element).Keyed(args), RoutingStrategy.Capture);
         AddHandler<ClickEvent>(static (element, args) => ((NodeSearchPopup) element).Chosen(args));
     }
 
