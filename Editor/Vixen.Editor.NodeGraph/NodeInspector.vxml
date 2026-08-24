@@ -1,0 +1,332 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 8. The selected nodes' inline values, as rows beside the canvas.
+
+    ⚠ **This is the panel the ledger's sixth shape stopped at, and what unblocked it is `use`.**
+    `panel.Inspect(descriptor, provider, targets)` is a *call* with three arguments — no property, so
+    no parameter and no `bind:` could reach it — and `InspectorView` is `sealed`, so the sanctioned
+    four-line wrapper had no base class to derive from. `use="@(view => Feed(view))"` is
+    `BuildContext.Use`, which is `Bind` with a subject: an effect, so the control is re-fed when what
+    the expression read changes and the whole thing leaves with the region that declared it. Nothing
+    was unsealed.
+
+    ⚠ **What this deletes is the 27-line `StringBuilder` signature**, which existed only to decide
+    whether the rows had to be rebuilt or merely re-read. Two things replace it and neither is new
+    code: the tree itself is `@if`/`@for` regions, which reconcile themselves; and the one question
+    that is genuinely left — "do these nodes still have the wiring the rows were built for" — is
+    `NodePortEditProvider.Describes`, which the provider already answers and which `Rebuild` already
+    called. See `Changed` below.
+
+    ⚠ **"This node has nothing to set." is decided from the provider, not from the view.** The
+    hand-written last four lines read `panel.Rows.Count` on the line *after* `Inspect`; under `use`
+    the inspect is an effect and has not run yet, so the count would be nought in every state and the
+    sentence would appear under a full panel. `provider.Descriptor.Members` is the same fact one step
+    earlier — the rows are built from it — and it is a fact about the node rather than about whether
+    a frame has passed. The one case where the two disagree is a `[CustomInspector]` for `GraphNode`
+    that draws no rows, which would say nothing where the old panel said "nothing to set"; there is
+    no such inspector and a graph node is the last type that would get one.
+
+    ⚠ **The fact rows are built inline rather than out of `Parts/FactRow.vxml`.** That part is in
+    `Vixen.Editor.Ui`, which this assembly does not reference and should not start to for a row — the
+    ledger's "three of the six are out of reach" note, and this is a fourth. The four lines here are
+    the four lines the part replaces, in the same order, so `node-inspector fact-value` still reaches
+    them.
+
+    ⚠ **Every `@if` arm reads back through `shown`, which is the wave-4 rule.** A `@if` opens a
+    region and a surviving arm never re-runs its body, so an arm whose predicate is "is there a
+    notice" would keep showing the *first* notice for ever if the readout had closed over it. Each
+    `use` goes back to `shown.Value`, so each is an effect that re-runs when the snapshot moves. The
+    only thing closed over is a `@for` key, which is what a key is for.
+-->
+@component NodeInspector
+@namespace Vixen.Editor.NodeGraph
+@inherits Vixen.Ui.UiElement
+@tag node-inspector
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Editor.Core
+@using Vixen.Editor.Inspector
+@using Vixen.Ui
+@using Vixen.Ui.Reactive
+
+@if (shown.Value.Title is { Length: > 0 }) {
+    <node-inspector-title use="@(cell => cell.Text = shown.Value.Title)" />
+}
+
+@if (shown.Value.Summary is { Length: > 0 }) {
+    <node-inspector-summary use="@(cell => cell.Text = shown.Value.Summary)" />
+}
+
+@if (shown.Value.Provider is not null) {
+    <InspectorView ref="@panel" use="@(view => Feed(view))" />
+}
+
+@for (var port in shown.Value.Connected) {
+    <fact-row key="@port">
+        <fact-name use="@(cell => cell.Text = port)" />
+        <fact-value>from a connection</fact-value>
+    </fact-row>
+}
+
+@if (shown.Value.Notice is { Length: > 0 }) {
+    <text use="@(cell => cell.Text = shown.Value.Notice)" />
+}
+
+@code {
+    /// <summary>What the panel is showing, as one value everything above reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One signal rather than five, because the six states are one decision.</b> Which of
+    ///     them applies is answered once, in <see cref="Describe" />, and the arms above are a
+    ///     rendering of the answer — where five independent signals would let two of them be true at
+    ///     the same time.
+    /// </remarks>
+    readonly Signal<Inspecting> shown = new(Inspecting.Nothing);
+
+    NodeGraphView? view;
+    InspectorView? panel;
+
+    /// <summary>The view whose selection is shown.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Assigning subscribes, because the same number can now be typed in two places.</b> A
+    ///     port's value is editable on the node as well as here, and a panel that only refreshed when
+    ///     the selection changed would sit there showing the number the port had before the field on
+    ///     the canvas was dragged.
+    /// </remarks>
+    public NodeGraphView? View {
+        get => view;
+        set {
+            if (ReferenceEquals(view, value)) {
+                return;
+            }
+
+            if (view is not null) {
+                view.GraphChanged -= Changed;
+            }
+
+            view = value;
+
+            if (view is not null) {
+                view.GraphChanged += Changed;
+            }
+        }
+    }
+
+    /// <summary>The document edits are recorded against, or <see langword="null" /> for none.</summary>
+    public EditorDocument? EditedDocument { get; set; }
+
+    /// <summary>What the panel says when nothing is selected.</summary>
+    public string EmptyMessage { get; set; } = "Select a node to edit its settings.";
+
+    /// <summary>The inspector drawing the rows, or <see langword="null" /> when it is not showing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Exposed because it is the panel: a host that wants to reach the drawers, the clipboard
+    ///         or the search box reaches them here rather than through a forwarding property per
+    ///         member.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>IsRemoved</c> test is the price of <c>ref</c> in an <c>@if</c>.</b> A ref
+    ///         in an arm that leaves is left pointing at the element it was given rather than being
+    ///         cleared — the markup README says so, and says why: clearing would mean the region
+    ///         knowing the member's name. So the arm's departure is read off the element, which is
+    ///         the question <c>IsRemoved</c> exists to answer.
+    ///     </para>
+    /// </remarks>
+    public InspectorView? Panel => panel is { IsRemoved: false } ? panel : null;
+
+    /// <summary>How many rows are showing.</summary>
+    public int RowCount => Panel?.Rows.Count ?? 0;
+
+    /// <summary>Re-reads the values of the rows that are already there.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="Rebuild" />, and the difference matters every frame.</b> Dragging a
+    ///     number field on a node raises the model's change once per frame, and rebuilding would
+    ///     remove and re-create the rows that many times — in a framework where removal is final, so
+    ///     the elements would accumulate for as long as the drag lasted.
+    /// </remarks>
+    public void Refresh() => Panel?.Reload();
+
+    /// <summary>Rebuilds the rows for whatever is selected.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Several nodes are allowed, and only when they are the same type wired the same
+    ///         way.</b> That is the one thing <c>EditTarget</c> cannot check for a graph — every node
+    ///         is a <see cref="GraphNode" />, so a selection of an Add and a Multiply looks uniform to
+    ///         it — and a union of two types' ports would be a panel where half the fields silently
+    ///         apply to one of the two.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It writes a signal, so the rows are right on the next frame rather than on this
+    ///         one.</b> That is <c>EffectScheduler</c>'s contract and the ledger's shape 3. No
+    ///         production caller reads this panel back synchronously — <c>ShaderGraphView</c> and
+    ///         <c>VfxGraphView</c> call it and read nothing — which is what made the port allowed;
+    ///         the tests that did were given the frame they were missing.
+    ///     </para>
+    /// </remarks>
+    public void Rebuild() => shown.Value = Describe();
+
+    /// <remarks>
+    ///     ⚠ <b>A value change refreshes and a structural one rebuilds, and telling them apart is
+    ///     what this is for.</b> Wiring something into a selected node's port turns that row from a
+    ///     field into "from a connection", which no amount of re-reading values will do; dragging a
+    ///     number does not, and rebuilding for it once a frame is what <see cref="Refresh" /> exists
+    ///     to avoid.
+    ///     <para>
+    ///         ⚠ <b>This used to be a 27-line <c>StringBuilder</c> signature and is now two questions
+    ///         the provider already answers.</b> <c>Describes</c> is exactly "are these nodes all of
+    ///         this type and wired the way the rows assume" — the check <c>Rebuild</c> already made
+    ///         before showing anything — and the only thing it cannot see is the selection itself
+    ///         changing to a different set of nodes, which is a sequence comparison. Written out as a
+    ///         string the two were one fact spelled a third way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is also slightly *less* eager than the signature was, on purpose.</b> The
+    ///         signature listed every input port including the ones that carry no typed value, so a
+    ///         wire arriving at a texture port rebuilt a panel whose rows cannot mention it.
+    ///         <c>Describes</c> skips those for the same reason <c>For</c> does.
+    ///     </para>
+    /// </remarks>
+    void Changed(NodeGraphView changed) {
+        var current = shown.Peek();
+
+        if (current.Provider is { } provider
+            && Same(changed.Selection, current.Nodes)
+            && provider.Describes(changed.Graph, current.Nodes)) {
+            Refresh();
+
+            return;
+        }
+
+        Rebuild();
+    }
+
+    /// <summary>Whether the selection is still the nodes the rows were built for, in order.</summary>
+    static bool Same(IReadOnlyCollection<NodeId> selection, ImmutableArray<GraphNode> nodes) {
+        if (selection.Count != nodes.Length) {
+            return false;
+        }
+
+        var index = 0;
+
+        foreach (var id in selection) {
+            if (nodes[index++].Id != id) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Which of the six states applies, and everything it needs.</summary>
+    Inspecting Describe() {
+        if (View is not { } shownView) {
+            return Inspecting.Nothing with { Notice = EmptyMessage };
+        }
+
+        List<GraphNode> selected = [];
+
+        foreach (var id in shownView.Selection) {
+            if (shownView.Graph.TryGet(id, out var node)) {
+                selected.Add(node);
+            }
+        }
+
+        if (selected.Count == 0) {
+            return Inspecting.Nothing with { Notice = EmptyMessage };
+        }
+
+        var type = selected[0].Type;
+
+        foreach (var node in selected) {
+            if (!string.Equals(node.Type, type, StringComparison.Ordinal)) {
+                return Inspecting.Nothing with { Notice = "Several kinds of node selected." };
+            }
+        }
+
+        if (shownView.Definition(type) is not { } definition) {
+            return Inspecting.Nothing with {
+                Notice = $"'{type}' is not a node type this build has."
+            };
+        }
+
+        var provider = NodePortEditProvider.For(
+            shownView.Graph,
+            definition,
+            selected[0].Id,
+            shownView.IsReadOnly
+        );
+
+        // ⚠ Two nodes of one type can be wired differently, and there is no set of rows that is
+        // honest for both: a port that is connected on one and free on the other is a field that
+        // would silently apply to half the selection.
+        if (!provider.Describes(shownView.Graph, selected)) {
+            return Inspecting.Nothing with {
+                Title = definition.Title,
+                Notice = "These nodes are wired differently, so there is no set of fields that fits both."
+            };
+        }
+
+        ImmutableArray<string> connected = [.. provider.Connected.Select(port => port.Name)];
+
+        return new(
+            selected.Count > 1
+                ? $"{definition.Title} ({selected.Count.ToString(CultureInfo.InvariantCulture)})"
+                : definition.Title,
+            definition.Summary,
+            provider.Descriptor.Members.Count == 0 && connected.Length == 0
+                ? "This node has nothing to set."
+                : "",
+            provider,
+            [.. selected],
+            connected
+        );
+    }
+
+    /// <summary>What <c>use</c> runs: the call the panel is fed by, and the document it edits.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The document is assigned here rather than as a parameter, and that is the binding
+    ///     audit's answer for it.</b> <see cref="EditedDocument" /> is a plain property with no signal
+    ///     behind it, so <c>EditedDocument="@EditedDocument"</c> would be an effect with no
+    ///     dependency: read once when the arm builds, never again. Inside <c>Feed</c> it is written on
+    ///     every re-feed, which is what the hand-written <c>Rebuild</c> did.
+    /// </remarks>
+    void Feed(InspectorView into) {
+        into.EditedDocument = EditedDocument;
+
+        if (shown.Value.Provider is { } provider) {
+            into.Inspect(provider.Descriptor, provider, [.. shown.Value.Nodes]);
+        } else {
+            into.Inspect();
+        }
+    }
+
+    partial void OnUnmounted() => View = null;
+
+    /// <summary>One state of the panel, as the arms above read it.</summary>
+    /// <param name="Title">The node type's name, or empty where there is no heading.</param>
+    /// <param name="Summary">What the type is for, or empty.</param>
+    /// <param name="Notice">The one sentence shown instead of, or under, the rows.</param>
+    /// <param name="Provider">How the ports are reached, or null when there are no rows.</param>
+    /// <param name="Nodes">What the rows edit.</param>
+    /// <param name="Connected">The input ports fed by a wire, by name.</param>
+    /// <remarks>
+    ///     ⚠ <b>The two arrays are <see cref="ImmutableArray{T}" /> so that the empty state compares
+    ///     equal to itself.</b> <c>Signal&lt;T&gt;</c> gates on
+    ///     <c>EqualityComparer&lt;T&gt;.Default</c>, and an empty <c>ImmutableArray</c> is one
+    ///     instance — so a graph change while nothing is selected writes the same value and wakes no
+    ///     effect, where two <c>GraphNode[]</c> of length nought would have been two objects.
+    /// </remarks>
+    sealed record Inspecting(
+        string Title,
+        string Summary,
+        string Notice,
+        NodePortEditProvider? Provider,
+        ImmutableArray<GraphNode> Nodes,
+        ImmutableArray<string> Connected
+    ) {
+        /// <summary>A panel showing nothing at all, which is what one that was never rebuilt shows.</summary>
+        public static readonly Inspecting Nothing = new("", "", "", null, [], []);
+    }
+}

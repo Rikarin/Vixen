@@ -285,6 +285,14 @@ public class PortValueTests : IDisposable {
     }
 
     // ── Beside the node ──────────────────────────────────────────────────────
+    //
+    // ⚠ Every `inspector.Rebuild()` below is followed by a frame, which it did not use to need.
+    // `NodeInspector` is `.vxml` since doc 36 § F7 wave 8, so `Rebuild` writes a signal and the
+    // rows arrive when the effects drain — `EffectScheduler`'s contract and the panel ledger's
+    // shape 3. The ledger's own rule for this is that the shape is "a *caller* reads it back
+    // synchronously, not a test", and no production caller does: `ShaderGraphView` and
+    // `VfxGraphView` both call `Rebuild` and read nothing. So the frame goes here, exactly as
+    // `CompiledSceneView`'s three assertions gained one in wave 5.
 
     /// <remarks>
     ///     The same regression as on the node, in the panel that had it first: a boolean, an integer
@@ -297,6 +305,7 @@ public class PortValueTests : IDisposable {
 
         View.Select([settings.Id]);
         inspector.Rebuild();
+        fixture.Update();
 
         // Enabled and Count. A flow port carries no value and is not offered a row at all.
         Assert.Equal(2, inspector.RowCount);
@@ -311,6 +320,7 @@ public class PortValueTests : IDisposable {
 
         View.Select([node.Id]);
         inspector.Rebuild();
+        fixture.Update();
 
         Assert.Equal(2, inspector.RowCount);
         Assert.Contains(Inside<NumericInput>(inspector), box => box.Number == 0.25d);
@@ -325,6 +335,7 @@ public class PortValueTests : IDisposable {
 
         View.Select([node.Id]);
         inspector.Rebuild();
+        fixture.Update();
 
         Fields(node.Id, "A").Boxes[0].Number = 0.75f;
         fixture.Update();
@@ -348,6 +359,7 @@ public class PortValueTests : IDisposable {
 
         View.Select([sink.Id]);
         inspector.Rebuild();
+        fixture.Update();
 
         Assert.NotEmpty(Inside<NumericInput>(inspector));
 

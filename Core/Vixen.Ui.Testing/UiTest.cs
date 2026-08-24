@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
@@ -563,11 +565,127 @@ public sealed class UiTest : IDisposable {
     ///     asking that question reads them.
     /// </remarks>
     /// <returns>The tree.</returns>
-    public string Tree() {
+    public string Tree() => Tree(Document.Root);
+
+    /// <summary>The tree under one element, written out the same way.</summary>
+    /// <param name="root">Where to start. Included in the dump.</param>
+    /// <returns>The tree.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="root" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The rectangles are still absolute</b>, which is what makes two dumps of the same
+    ///     subtree comparable only when it was built in the same place. That is deliberate and is the
+    ///     property every panel-port comparison in the editor relies on: a part that draws the same
+    ///     shape a pixel to the left is a defect, and relative coordinates would hide it.
+    /// </remarks>
+    public string Tree(UiElement root) {
+        ArgumentNullException.ThrowIfNull(root);
+
         var text = new StringBuilder();
-        Describe(Document.Root, 0, text);
+
+        Describe(root, 0, text);
+
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>What <see cref="Tree(UiElement)" /> cannot see: the values a control holds.</summary>
+    /// <param name="root">Where to start. Included in the dump.</param>
+    /// <returns>One line per element that has any of them, and nothing for the elements that do not.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="root" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A tree dump is blind to everything that is not a tag, a class, a rectangle or a
+    ///         <see cref="UiElement.Text" />.</b> A checked toggle, a disabled button, a button's
+    ///         <c>Label</c>, a numeric input's <c>Number</c> and a text field's <c>Value</c> all draw
+    ///         through a control's own parts, so a port that lost one of them is byte-identical in
+    ///         every state anybody dumped. Doc 36 § F7 wave 8 added this because the editor's panel
+    ///         ports had been proving less than their write-ups claimed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fixed list of names, read by reflection, rather than every public property.</b>
+    ///         Reflection over the whole surface makes the dump move whenever a control gains a
+    ///         property, which turns a real diff into noise nobody reads; a fixed list moves only when
+    ///         one of these nine values does. The names are matched on any type that has them, so one
+    ///         call covers a <c>Button</c>, a <c>CheckBox</c>, a <c>NumericInput</c> and an
+    ///         <c>Expander</c> without naming any of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="UiElement.State" /> is included and is a pointer-dependent flag
+    ///         set.</b> Hover is written by a pointer dispatch, so a dump taken with the pointer
+    ///         resting over the panel is not the same as one taken with it elsewhere — which is a
+    ///         property of the thing being measured rather than of the measurement, and is the
+    ///         difference wave 6 recorded between a pooled row's hover and a keyed one's.
+    ///     </para>
+    /// </remarks>
+    [RequiresUnreferencedCode(
+        "Reads nine properties by name off whatever control an element turns out to be; trimming may remove them."
+    )]
+    public string Flags(UiElement root) {
+        ArgumentNullException.ThrowIfNull(root);
+
+        var text = new StringBuilder();
+
+        foreach (var element in Descendants(root)) {
+            // Most-derived first, and by name rather than `GetProperty`, because a control that
+            // shadows a base property with `new` makes the single-name lookup throw.
+            var properties = element.GetType().GetProperties();
+            var written = 0;
+
+            foreach (var name in FlagNames) {
+                var property = Array.Find(
+                    properties,
+                    candidate => string.Equals(candidate.Name, name, StringComparison.Ordinal)
+                                 && candidate.CanRead
+                                 && candidate.GetIndexParameters().Length == 0
+                );
+
+                if (property is null || Value(property.GetValue(element)) is not { } value) {
+                    continue;
+                }
+
+                if (written++ == 0) {
+                    text.Append(Describe(element));
+                }
+
+                text.Append(' ').Append(name).Append('=').Append(value);
+            }
+
+            if (written > 0) {
+                text.AppendLine();
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    ///     The nine a tree dump cannot see, in the order somebody reading a panel's state wants them.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Order is fixed rather than alphabetical</b>, so that two dumps of the same element
+    ///     are comparable as strings: a set whose order depended on what reflection returned would
+    ///     differ between runtimes.
+    /// </remarks>
+    static readonly string[] FlagNames = [
+        "State", "Disabled", "ReadOnly", "IsChecked", "IsExpanded", "Label", "Value", "Placeholder", "Number"
+    ];
+
+    /// <summary>How one of them reads, or nothing at all when it is at its default.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A false flag prints nothing and a number always prints.</b> A line per control saying
+    ///     <c>Disabled=False</c> is noise that hides the one that says True; a <c>Number</c> of nought
+    ///     is a value somebody typed. Either way a regression is visible — a token that should be
+    ///     there and is not is as much a diff as one that changed.
+    /// </remarks>
+    static string? Value(object? read) => read switch {
+        null => null,
+        bool flag => flag ? "True" : null,
+        ElementState state => state == ElementState.None ? null : state.ToString(),
+        string { Length: 0 } => null,
+        string content => "\"" + content + "\"",
+        double number => number.ToString("0.###", CultureInfo.InvariantCulture),
+        float number => number.ToString("0.###", CultureInfo.InvariantCulture),
+        _ => read.ToString() is { Length: > 0 } other ? other : null
+    };
 
     /// <inheritdoc />
     public void Dispose() => Document.Dispose();

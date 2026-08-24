@@ -50,5 +50,10 @@
         <!-- A graph file is YAML in practice, and the round-trip doc 11 asks for is only a real test
              if it goes through a serializer rather than through the shape conversion alone. -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!-- `UiTest.Tree` and `UiTest.Flags`, which is how `NodeInspectorDumpTests` holds the ported
+             panel to the one it replaced. `UiTest.Adopt` takes the fixture's own document, so the
+             harness is not a second one beside it. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
 </Project>
