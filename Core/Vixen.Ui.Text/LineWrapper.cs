@@ -75,14 +75,18 @@ public static class LineWrapper {
     /// </param>
     /// <param name="lines">Receives the lines, in order. Cleared first.</param>
     /// <param name="mode">What to do with a word wider than the line.</param>
+    /// <param name="wordBreak">Whether a break inside a word is allowed, forbidden, or UAX#14's call.</param>
+    /// <param name="indent">How much narrower the first line is. CSS's <c>text-indent</c>.</param>
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
         List<WrappedLine> lines,
-        TextWrapMode mode = TextWrapMode.Word
+        TextWrapMode mode = TextWrapMode.Word,
+        WordBreakMode wordBreak = WordBreakMode.Normal,
+        float indent = 0f
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
-        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode);
+        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode, wordBreak, indent);
     }
 
     /// <summary>Wraps a paragraph whose widths the caller measured.</summary>
@@ -91,6 +95,12 @@ public static class LineWrapper {
     /// <param name="maxAdvance">How wide a line may be, in whatever unit the advances are in.</param>
     /// <param name="lines">Receives the lines, in order. Cleared first.</param>
     /// <param name="mode">What to do with a word wider than the line.</param>
+    /// <param name="wordBreak">Whether a break inside a word is allowed, forbidden, or UAX#14's call.</param>
+    /// <param name="indent">
+    ///     How much narrower the <i>first</i> line is than the rest. CSS's <c>text-indent</c>, in the
+    ///     same unit as the advances; negative for a hanging indent, which makes the first line the
+    ///     wide one.
+    /// </param>
     /// <remarks>
     ///     ⚠ <b>For a paragraph that is not in one font.</b> The overload above measures a
     ///     <see cref="ShapedText" />, which is one face by construction — so a line mixing a Latin
@@ -103,7 +113,9 @@ public static class LineWrapper {
         ReadOnlySpan<float> advances,
         float maxAdvance,
         List<WrappedLine> lines,
-        TextWrapMode mode = TextWrapMode.Word
+        TextWrapMode mode = TextWrapMode.Word,
+        WordBreakMode wordBreak = WordBreakMode.Normal,
+        float indent = 0f
     ) {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
@@ -115,11 +127,18 @@ public static class LineWrapper {
         }
 
         var opportunities = new List<int>();
-        LineBreaker.Collect(text, opportunities);
+        LineBreaker.Collect(text, opportunities, wordBreak);
 
         var start = 0;
         var candidate = -1;
         var index = 0;
+
+        // ⚠ <b>The first line is narrower, and the lines after it are not — which is what an indent
+        // <i>is</i>, and is the half a caller could not add afterwards.</b> Shifting a finished first
+        // line by the indent leaves it wrapped to the wrong width, so it runs past the box's edge by
+        // exactly the indent. A hanging indent is the same arithmetic with the sign reversed: the
+        // first line is wider than the rest and starts to the left of them.
+        var room = maxAdvance - indent;
 
         while (index < opportunities.Count) {
             var here = opportunities[index];
@@ -137,12 +156,13 @@ public static class LineWrapper {
             if (here < text.Length && LineBreaker.IsMandatory(text, here)) {
                 lines.Add(Line(text, advances, start, here, mandatory: true));
                 start = here;
+                room = maxAdvance;
                 candidate = -1;
                 index++;
                 continue;
             }
 
-            if (Width(text, advances, start, here) <= maxAdvance) {
+            if (Width(text, advances, start, here) <= room) {
                 candidate = here;
                 index++;
                 continue;
@@ -155,23 +175,26 @@ public static class LineWrapper {
                 // then break in the wrong place for the rest of the paragraph.
                 lines.Add(Line(text, advances, start, candidate, mandatory: false));
                 start = candidate;
+                room = maxAdvance;
                 candidate = -1;
                 continue;
             }
 
             // Nothing fits: one unbreakable run is wider than the whole line.
             if (mode == TextWrapMode.Anywhere) {
-                var forced = Squeeze(text, advances, start, here, maxAdvance);
+                var forced = Squeeze(text, advances, start, here, room);
 
                 if (forced > start) {
                     lines.Add(Line(text, advances, start, forced, mandatory: false));
                     start = forced;
+                    room = maxAdvance;
                     continue;
                 }
             }
 
             lines.Add(Line(text, advances, start, here, mandatory: false));
             start = here;
+            room = maxAdvance;
             index++;
         }
 
@@ -184,10 +207,16 @@ public static class LineWrapper {
     /// <param name="shaped">The shaped paragraph.</param>
     /// <param name="maxAdvance">How wide a line may be, in design units.</param>
     /// <param name="mode">What to do with a word wider than the line.</param>
+    /// <param name="wordBreak">Whether a break inside a word is allowed, forbidden, or UAX#14's call.</param>
     /// <returns>The lines, in order.</returns>
-    public static List<WrappedLine> Lines(ShapedText shaped, float maxAdvance, TextWrapMode mode = TextWrapMode.Word) {
+    public static List<WrappedLine> Lines(
+        ShapedText shaped,
+        float maxAdvance,
+        TextWrapMode mode = TextWrapMode.Word,
+        WordBreakMode wordBreak = WordBreakMode.Normal
+    ) {
         var lines = new List<WrappedLine>();
-        Wrap(shaped, maxAdvance, lines, mode);
+        Wrap(shaped, maxAdvance, lines, mode, wordBreak);
 
         return lines;
     }

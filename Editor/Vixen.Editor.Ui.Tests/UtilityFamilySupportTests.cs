@@ -221,6 +221,34 @@ public class UtilityFamilySupportTests {
         { "leading-8", "line-height", "32px" },
         { "leading-tight", "line-height", "1.25" },
         { "tracking-px", "letter-spacing", "1px" },
+
+        // ⚠ `text-indent` was one of doc 43 Part 0's seven interned-but-unread properties and moved
+        // tables by being implemented rather than by finding a reader: `LineWrapper` had to learn a
+        // *second* width, and `TextLine` an offset the draw list, the caret and the hit test all
+        // honour. The negative row is not symmetry — CSS's hanging indent is a real thing to want,
+        // and it is the sign travelling through the wrapper's arithmetic that makes it work.
+        { "indent-4", "text-indent", "16px" },
+        { "-indent-4", "text-indent", "-16px" },
+
+        // ⚠ <b>All nine keywords of `font-variant-numeric`, and this is the family where the union
+        // hides the most.</b> Every one of them is a different OpenType tag — `tnum`, `pnum`,
+        // `onum`, `lnum`, `zero`, `ordn`, `frac`, `afrc` — so a mapping table with one wrong entry
+        // asks the shaper for the wrong feature and looks, in the picture, exactly like a font that
+        // does not have the right one. The tags themselves are asserted in
+        // `Vixen.Ui.Tests.FontFeatureStyleTests`; these rows are the half that says the class
+        // resolves. ⚠ Only four of the nine are *visible* even in a face that has them all — Open
+        // Sans already draws lining proportional figures, so `lining-nums` and `proportional-nums`
+        // are correctly invisible in it, and no embedded face implements `afrc` at all.
+        { "normal-nums", "font-variant-numeric", "normal" },
+        { "ordinal", "font-variant-numeric", "ordinal" },
+        { "slashed-zero", "font-variant-numeric", "slashed-zero" },
+        { "lining-nums", "font-variant-numeric", "lining-nums" },
+        { "oldstyle-nums", "font-variant-numeric", "oldstyle-nums" },
+        { "proportional-nums", "font-variant-numeric", "proportional-nums" },
+        { "tabular-nums", "font-variant-numeric", "tabular-nums" },
+        { "diagonal-fractions", "font-variant-numeric", "diagonal-fractions" },
+        { "stacked-fractions", "font-variant-numeric", "stacked-fractions" },
+
         { "whitespace-nowrap", "white-space", "nowrap" },
 
         // ⚠ <b>Every keyword of the three wrapping roots, one row each, and the completeness is the
@@ -256,6 +284,14 @@ public class UtilityFamilySupportTests {
         { "wrap-normal", "overflow-wrap", "normal" },
         { "break-words", "overflow-wrap", "break-word" },
         { "break-normal", "overflow-wrap", "normal" },
+
+        //   ⚠ `break-all` and `break-keep` are `word-break`, which is a different property at a
+        //   different stage: `overflow-wrap` is consulted only where nothing fits, and `word-break`
+        //   changes which breaks exist. Both rows are here because the union this table exists to
+        //   defeat would otherwise hide `break-keep` behind `break-all` — the two keywords need
+        //   different scripts to be visible in, and only one of them shows up in Latin at all.
+        { "break-all", "word-break", "break-all" },
+        { "break-keep", "word-break", "keep-all" },
         { "text-wrap", "text-wrap", "wrap" },
         { "text-nowrap", "text-wrap", "nowrap" },
 

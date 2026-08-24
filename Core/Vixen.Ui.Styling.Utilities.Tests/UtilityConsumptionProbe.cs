@@ -98,12 +98,33 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         byte-identical.
 ///     </para>
 /// </param>
+/// <param name="Figured">
+///     Whether the probe carries a <c>#figures</c> span of digits in a face that implements the
+///     OpenType features <c>font-variant-numeric</c> names. False for every scene but <c>figured</c>.
+///     <para>
+///         ⚠ <b>The ninth instance of this list's lesson, and the first where what was missing was a
+///         <i>font</i> rather than a shape or a control state.</b> Every keyword of
+///         <c>font-variant-numeric</c> is one OpenType feature — <c>tnum</c>, <c>onum</c>,
+///         <c>zero</c>, <c>frac</c>, <c>ordn</c> — and TestShapeLana implements none of them, so the
+///         whole family would have measured inert with the reader finished, the feature array
+///         threaded and HarfBuzz correctly doing nothing with a tag the face has never heard of.
+///         The same shape as <c>font-style</c> resolving <c>italic</c> against a family with no
+///         italic, which is what the third face two hundred lines down is for.
+///     </para>
+///     <para>
+///         ⚠ <b>And digits, which is the other half.</b> Every scene's text is
+///         <c>"Ag jq Wm il"</c>; a numeric feature applied to a string with no figures in it changes
+///         nothing, so the face alone would not have been enough. <c>0123456789</c> in a span of its
+///         own, on a flag, leaving the other fourteen scenes byte-identical.
+///     </para>
+/// </param>
 sealed record ProbeScene(
     string Name,
     string Css,
     bool Scrolling = false,
     bool Unbroken = false,
-    bool Edited = false
+    bool Edited = false,
+    bool Figured = false
 );
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
@@ -616,6 +637,41 @@ static class UtilityConsumptionProbe {
             #after { width: 30px; height: 20px; background-color: #a0a040; }
             """,
             Unbroken: true
+        ),
+
+        // ⚠ <b>Figured: digits, in the one embedded face that implements a numeric OpenType
+        // feature.</b> The ninth instance of the lesson `gridded`, `inlined`, `primed`,
+        // `translated`, `clipped`, `masked`, `decorated`, `overlong` and `edited` each record, and
+        // it is worth saying which half was missing because both were. `font-variant-numeric`'s
+        // keywords are `tnum`, `pnum`, `onum`, `lnum`, `zero`, `ordn`, `frac` and `afrc`;
+        // TestShapeLana — which is every other scene's only face — implements not one of them, and
+        // no scene's text contains a digit for one to apply to. So the family would have measured
+        // inert with `UiDocument.ResolveText` reading the property, `TextShaper` handing HarfBuzz
+        // the array and HarfBuzz correctly ignoring a tag the font has never heard of: three
+        // finished pieces and a green gate calling all of them dead.
+        //
+        // ⚠ The declaration lands on `#probe` and the digits are in a child, so this measures the
+        // inheritance at the same time — the same arrangement `decorated` and `overlong` use, and
+        // for the same reason: `font-variant-numeric` is in `InheritedProperties`, and `tabular-nums`
+        // is written on a table row whose figures are in cells essentially always.
+        //
+        // ⚠ `#figures` is the only element in any scene in the `Figured` family, and that is
+        // deliberate: putting Open Sans on `#host` would re-measure every typography property in the
+        // table against a face nobody chose.
+        new(
+            "figured",
+            """
+            #host    { display: flex; flex-direction: row; width: 240px; height: 90px; align-items: flex-start; }
+            #probe   { display: flex; flex-direction: row; flex-wrap: wrap; width: 200px;
+                       background-color: #204080; color: #e0e0e0; }
+            .kid     { width: 8px; height: 8px; }
+            #wide    { width: 8px; height: 8px; }
+            #label   { width: 40px; }
+            #short   { width: 40px; }
+            #figures { font-family: Figured; font-size: 20px; }
+            #after   { width: 30px; height: 20px; background-color: #a0a040; }
+            """,
+            Figured: true
         ),
 
         // ⚠ <b>Decorated: the probe already carries an underline, and without that the four
@@ -1260,6 +1316,15 @@ static class UtilityConsumptionProbe {
             long_.Text = "Wmilqjagwmilqjag";
         }
 
+        // Digits, in the one face here that has numeric features. Tabular figures are a *different
+        // width* from proportional ones and old-style figures a different height, so every keyword
+        // of `font-variant-numeric` moves the layout and the paint of this span — and none of them
+        // could move anything in a string of letters, whatever the face.
+        if (scene.Figured) {
+            var figures = document.Create("span", body, "figures");
+            figures.Text = "0123456789";
+        }
+
         // The focused field. `Focus` is called after the value is set rather than before, because a
         // field with no value takes the other caret branch and the branch is chosen at draw time
         // from whatever the value is then — see the scene's own remark.
@@ -1537,6 +1602,12 @@ static class UtilityConsumptionProbe {
         document.Fonts.Register("Probe", Regular, 400);
         document.Fonts.Register("Probe", Bold, 700);
         document.Fonts.Register("Probe", Italic, 400, FontStyle.Italic);
+
+        // ⚠ A second *family*, and it is only ever asked for by the `figured` scene. Registering it
+        // under `Probe` would have changed which face draws every string in every scene, which is
+        // thirteen re-baselined signatures for the sake of one property — the same argument the
+        // `overlong` scene's flag makes one level up.
+        document.Fonts.Register("Figured", Figures, 400);
         document.Fonts.Default = Regular;
     }
 
@@ -1544,10 +1615,23 @@ static class UtilityConsumptionProbe {
     static readonly Text.FontFace Bold = LoadFont("bold");
     static readonly Text.FontFace Italic = LoadFont("italic");
 
-    static Text.FontFace LoadFont(string name) {
+    /// <summary>Open Sans, the only face here with the features <c>font-variant-numeric</c> names.</summary>
+    static readonly Text.FontFace Figures = LoadFont("figures", "OpenSans-Regular.ttf");
+
+    /// <summary>The same face, for the one test that measures the keywords one at a time.</summary>
+    /// <remarks>
+    ///     ⚠ Exposed rather than loaded twice, because a <see cref="Text.FontFace" /> is a parse and a
+    ///     native allocation and two of them would also be two shaping caches' worth of glyph ids that
+    ///     mean nothing to each other. <c>NumericFigureVisibilityTests</c> is the caller: it asks
+    ///     which of the nine keywords this face can actually show, which is a fact about the scene
+    ///     list's coverage and therefore belongs beside it.
+    /// </remarks>
+    public static Text.FontFace FiguredFace => Figures;
+
+    static Text.FontFace LoadFont(string name, string file = "TestShapeLana.ttf") {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly()
-                .GetManifestResourceStream("Vixen.Ui.Styling.Utilities.Tests.Fonts.TestShapeLana.ttf")
-            ?? throw new InvalidOperationException("the test font is not embedded");
+                .GetManifestResourceStream($"Vixen.Ui.Styling.Utilities.Tests.Fonts.{file}")
+            ?? throw new InvalidOperationException($"the test font '{file}' is not embedded");
 
         using var memory = new MemoryStream();
         stream.CopyTo(memory);

@@ -3656,6 +3656,8 @@ T:Vixen.Ui.Text.EastAsianWidthClass sweep-pending
 T:Vixen.Ui.Text.ExtendedPictographicClass sweep-pending
 T:Vixen.Ui.Text.FontAxis sweep-pending
 T:Vixen.Ui.Text.FontFace sweep-pending
+T:Vixen.Ui.Text.FontFeature sweep-pending
+T:Vixen.Ui.Text.FontFeatureSet sweep-pending
 T:Vixen.Ui.Text.FontMetrics sweep-pending
 T:Vixen.Ui.Text.FontVariation sweep-pending
 T:Vixen.Ui.Text.GlyphPlacement sweep-pending
@@ -3694,6 +3696,7 @@ T:Vixen.Ui.Text.TextItemizer sweep-pending
 T:Vixen.Ui.Text.TextShaper sweep-pending
 T:Vixen.Ui.Text.TextWrapMode sweep-pending
 T:Vixen.Ui.Text.WordBreakClass sweep-pending
+T:Vixen.Ui.Text.WordBreakMode sweep-pending
 T:Vixen.Ui.Text.WordBreaker sweep-pending
 T:Vixen.Ui.Text.WrappedLine sweep-pending
 T:Vixen.Ui.TextInputEvent sweep-pending

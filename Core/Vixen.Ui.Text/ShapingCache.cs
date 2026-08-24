@@ -64,6 +64,7 @@ public sealed class ShapingCache {
     /// <param name="text">The paragraph.</param>
     /// <param name="direction">Its base direction.</param>
     /// <param name="variation">Where along its axes a variable font is being read.</param>
+    /// <param name="features">The OpenType features it is shaped with, or null for the face's own.</param>
     /// <returns>
     ///     The shaped paragraph. Shared with every other caller that asked for the same thing, so it
     ///     must be treated as immutable.
@@ -72,12 +73,13 @@ public sealed class ShapingCache {
         FontFace font,
         string text,
         ParagraphDirection direction = ParagraphDirection.Auto,
-        FontVariation? variation = null
+        FontVariation? variation = null,
+        FontFeatureSet? features = null
     ) {
         ArgumentNullException.ThrowIfNull(font);
         ArgumentNullException.ThrowIfNull(text);
 
-        var key = new Key(font, text, direction, variation ?? FontVariation.None);
+        var key = new Key(font, text, direction, variation ?? FontVariation.None, features ?? FontFeatureSet.None);
 
         if (entries.TryGetValue(key, out var node)) {
             Hits++;
@@ -87,7 +89,7 @@ public sealed class ShapingCache {
         }
 
         Misses++;
-        var shaped = TextShaper.Shape(font, text, direction, key.Variation);
+        var shaped = TextShaper.Shape(font, text, direction, key.Variation, key.Features);
 
         // Evict before inserting, so the cache never holds capacity + 1 even momentarily.
         if (entries.Count >= capacity) {
@@ -119,19 +121,36 @@ public sealed class ShapingCache {
     ///     the first weight asked for and keeps answering it, which looks like a font that refuses to
     ///     animate.
     /// </remarks>
-    readonly record struct Key(FontFace Font, string Text, ParagraphDirection Direction, FontVariation Variation) {
+    /// <remarks>
+    ///     ⚠ <b>And the feature set is here for the same reason the variation position is, and it is
+    ///     the half of <c>font-feature-settings</c> most likely to have shipped broken.</b> A feature
+    ///     array changes which glyphs come back — that is what asking for one <i>means</i> — so the
+    ///     same string in the same face with <c>"tnum" 1</c> and without it is two shapings. Left out,
+    ///     the first paragraph drawn wins and every later one silently gets its glyphs: a table of
+    ///     tabular figures beside a paragraph of proportional ones would share whichever the draw
+    ///     order happened to reach first, and it would look like the property working intermittently.
+    /// </remarks>
+    readonly record struct Key(
+        FontFace Font,
+        string Text,
+        ParagraphDirection Direction,
+        FontVariation Variation,
+        FontFeatureSet Features
+    ) {
         public bool Equals(Key other) =>
             ReferenceEquals(Font, other.Font)
             && Direction == other.Direction
             && string.Equals(Text, other.Text, StringComparison.Ordinal)
-            && Variation.Equals(other.Variation);
+            && Variation.Equals(other.Variation)
+            && Features.Equals(other.Features);
 
         public override int GetHashCode() =>
             HashCode.Combine(
                 System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Font),
                 StringComparer.Ordinal.GetHashCode(Text),
                 Direction,
-                Variation
+                Variation,
+                Features
             );
     }
 

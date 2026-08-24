@@ -802,11 +802,12 @@ Vixen.Ui.TextLine.CaretIndexAt(float x) -> int
 Vixen.Ui.TextLine.CaretOffset(int index) -> float
 Vixen.Ui.TextLine.Height.get -> float
 Vixen.Ui.TextLine.Length.get -> int
+Vixen.Ui.TextLine.Offset.get -> float
 Vixen.Ui.TextLine.PenOf(int run) -> float
 Vixen.Ui.TextLine.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> into) -> void
 Vixen.Ui.TextLine.Runs.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun>
 Vixen.Ui.TextLine.Start.get -> int
-Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs, float width = NaN) -> void
+Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs, float width = NaN, float offset = 0) -> void
 Vixen.Ui.TextLine.Width.get -> float
 Vixen.Ui.TextRun -> sealed record
 Vixen.Ui.TextRun : System.IEquatable<Vixen.Ui.TextRun>
@@ -999,6 +1000,7 @@ Vixen.Ui.UiElement.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.UiElement.Ellipsized(float contentWidth) -> Vixen.Ui.TextLayout?
 Vixen.Ui.UiElement.Focusable.get -> bool
 Vixen.Ui.UiElement.Focusable.set -> bool
+Vixen.Ui.UiElement.FontFeatures.get -> Vixen.Ui.Text.FontFeatureSet
 Vixen.Ui.UiElement.FontSize.get -> float
 Vixen.Ui.UiElement.GetStyle(string property) -> string?
 Vixen.Ui.UiElement.HasClass(string className) -> bool
@@ -1036,6 +1038,7 @@ Vixen.Ui.UiElement.TabIndex.set -> int
 Vixen.Ui.UiElement.Tag.get -> string
 Vixen.Ui.UiElement.Text.get -> string?
 Vixen.Ui.UiElement.Text.set -> string?
+Vixen.Ui.UiElement.TextIndent.get -> float
 Vixen.Ui.UiElement.Top.get -> float
 Vixen.Ui.UiElement.UiElement() -> void
 Vixen.Ui.UiElement.Width.get -> float

@@ -43,7 +43,12 @@ public sealed class TextLayout {
         for (var i = 0; i < lines.Length; i++) {
             tops[i] = y;
             y += lines[i].Height;
-            widest = MathF.Max(widest, lines[i].Width);
+
+            // ⚠ The offset counts towards the block's width, and the width alone does not. An
+            // indented first line occupies its indent as surely as it occupies its glyphs, so a
+            // shrink-to-fit box measured on `Width` alone would come out an indent too narrow and
+            // clip the end of the line it was measuring.
+            widest = MathF.Max(widest, lines[i].Offset + lines[i].Width);
         }
 
         Height = y;

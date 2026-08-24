@@ -50,9 +50,12 @@ namespace Vixen.Ui.Styling;
 ///         is rather than collapsing both to pixels.
 ///     </para>
 ///     <para>
-///         The gap stays open for <c>word-spacing</c> and <c>text-indent</c>, which nothing reads
-///         yet. Computing a value no consumer looks at would be work with no way to be wrong, and
-///         they can join the others on the day something wants them.
+///         The gap stays open for <c>word-spacing</c>, which nothing reads yet. Computing a value no
+///         consumer looks at would be work with no way to be wrong, and it can join the others on the
+///         day something wants it. ⚠ <c>text-indent</c> was in that sentence until
+///         <c>LineWrapper</c> learned a first-line width, and it did <i>not</i> join this list when
+///         it gained a reader: it takes relative units, so it is computed and inherited beside
+///         <c>line-height</c> and <c>letter-spacing</c> for the reason the note below gives.
 ///     </para>
 /// </remarks>
 public sealed class InheritedProperties {
@@ -68,10 +71,21 @@ public sealed class InheritedProperties {
         "font-stretch",
         "font-variant",
 
-        // ⚠ `line-height` and `letter-spacing` are CSS-inherited and are deliberately *not* here,
-        // for the same reason `font-size` is not: both take relative units, and inheriting the text
-        // `1.5em` would resolve it against the descendant's font size rather than the ancestor's.
-        // `Vixen.Ui` inherits their computed values instead — see `UiElement.LineHeight`.
+        // ⚠ These two are here rather than beside `line-height` because neither takes a relative
+        // unit: a feature list is a list of four-character tags and a keyword table, so the
+        // specified value and the computed one are the same string and inheriting it is exactly
+        // CSS. What `UiDocument.ResolveText` does with them is parse — once per style pass, off
+        // this element's own computed style, so a child that declares one of the two keeps the
+        // other. See its remarks: building the set from the parent's answer instead would give the
+        // two properties one slot to fight over.
+        "font-feature-settings",
+        "font-variant-numeric",
+
+        // ⚠ `line-height`, `letter-spacing` and `text-indent` are CSS-inherited and are deliberately
+        // *not* here, for the same reason `font-size` is not: all three take relative units, and
+        // inheriting the text `1.5em` would resolve it against the descendant's font size rather than
+        // the ancestor's. `Vixen.Ui` inherits their computed values instead — see
+        // `UiElement.LineHeight` and `UiElement.TextIndent`.
         "word-spacing",
         "text-align",
         "text-transform",

@@ -5,6 +5,46 @@ using System.Globalization;
 
 namespace Vixen.Ui.Text;
 
+/// <summary>Whether a line may be broken inside a word. CSS Text 3 § 5.2's <c>word-break</c>.</summary>
+/// <remarks>
+///     ⚠ <b>Not <see cref="TextWrapMode" /> under another name, however alike the two look.</b> This
+///     one changes the <i>set</i> of break opportunities UAX#14 offers, before any width is known;
+///     that one decides what to do when none of them is narrow enough. So the two are read at
+///     different stages, they compose, and a single enum carrying both would have to pick a winner
+///     for <c>word-break: keep-all; overflow-wrap: anywhere</c> — a combination CSS defines and
+///     Korean text in a narrow column actually wants.
+/// </remarks>
+public enum WordBreakMode : byte {
+    /// <summary>UAX#14 decides, unaided. CSS's <c>word-break: normal</c>.</summary>
+    Normal,
+
+    /// <summary>
+    ///     Every letter offers a break. CSS's <c>word-break: break-all</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Implemented by resolving every letter to the ideographic class rather than by
+    ///     scattering opportunities over the string, and the difference is every punctuation rule in
+    ///     UAX#14.</b> CSS Text 3 § 5.2 allows a break "between any two typographic character units"
+    ///     and still defers to the rules that are not about letters, which is a long list: a line may
+    ///     not begin with a closing bracket, a comma or an exclamation mark (LB13), may not end with
+    ///     an opening one (LB14), and may not start with a small kana (LB21). Adding a break at every
+    ///     grapheme boundary breaks all four; making the letters behave like Chinese — which is
+    ///     exactly what the property is asking for — keeps them, because those rules are written
+    ///     against the punctuation classes and go on holding.
+    /// </remarks>
+    BreakAll,
+
+    /// <summary>
+    ///     No break between two letters. CSS's <c>word-break: keep-all</c>.
+    /// </summary>
+    /// <remarks>
+    ///     What it is for is CJK, and Korean above all: <c>LineBreaker</c> offers an opportunity
+    ///     between any two Han characters and between any two Hangul syllables, and this suppresses
+    ///     both, leaving spaces and punctuation as the only places a line may end.
+    /// </remarks>
+    KeepAll
+}
+
 /// <summary>Where a line may be broken, and where it must be.</summary>
 /// <remarks>
 ///     <para>
@@ -31,7 +71,25 @@ public static class LineBreaker {
     /// <summary>Collects every line break opportunity in a string.</summary>
     /// <param name="text">The text.</param>
     /// <param name="opportunities">Receives the positions, ascending, ending with the text length.</param>
-    public static void Collect(ReadOnlySpan<char> text, List<int> opportunities) {
+    public static void Collect(ReadOnlySpan<char> text, List<int> opportunities) =>
+        Collect(text, opportunities, WordBreakMode.Normal);
+
+    /// <summary>Collects every line break opportunity in a string, under a <c>word-break</c>.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="opportunities">Receives the positions, ascending, ending with the text length.</param>
+    /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
+    /// <remarks>
+    ///     ⚠ <b>This is where <c>word-break</c> belongs and <c>overflow-wrap</c> does not, and the two
+    ///     look interchangeable until you write them down.</b> <c>overflow-wrap</c> is a decision the
+    ///     line <i>filler</i> takes when nothing fits — see <see cref="TextWrapMode" /> — so the
+    ///     opportunity list is the same either way and only the last resort changes.
+    ///     <c>word-break</c> changes which breaks exist at all, so a word that <i>would</i> have fitted
+    ///     on the next line is still split at the end of this one under <c>break-all</c>. Two
+    ///     properties, two stages, and they compose: <c>keep-all</c> with
+    ///     <see cref="TextWrapMode.Anywhere" /> suppresses the breaks between CJK characters and still
+    ///     squeezes an over-long run, which is what CSS says and what one merged enum could not say.
+    /// </remarks>
+    public static void Collect(ReadOnlySpan<char> text, List<int> opportunities, WordBreakMode mode) {
         ArgumentNullException.ThrowIfNull(opportunities);
 
         opportunities.Clear();
@@ -40,17 +98,44 @@ public static class LineBreaker {
             return;
         }
 
-        var run = LineBreakRun.Resolve(text);
+        var run = LineBreakRun.Resolve(text, mode);
 
         for (var i = 1; i < run.Count; i++) {
-            if (run.ShouldBreak(i)) {
-                opportunities.Add(run.OffsetOf(i));
+            if (!run.ShouldBreak(i)) {
+                continue;
             }
+
+            // CSS Text 3 § 5.2 `keep-all` — "breaking is forbidden within words": the *implicit*
+            // opportunities between two typographic letter units are suppressed, and nothing else is.
+            // A space still breaks, a hyphen still breaks, and a newline is still mandatory, because
+            // in all three the class on one side of the position is not a letter.
+            if (mode == WordBreakMode.KeepAll && IsLetterUnit(run.ClassAt(i - 1)) && IsLetterUnit(run.ClassAt(i))) {
+                continue;
+            }
+
+            opportunities.Add(run.OffsetOf(i));
         }
 
         // LB3 — always break at the end of text.
         opportunities.Add(text.Length);
     }
+
+    /// <summary>
+    ///     The classes CSS Text 3 § 5.2 calls typographic letter units, whose implicit opportunities
+    ///     <c>keep-all</c> suppresses.
+    /// </summary>
+    /// <remarks>
+    ///     The specification names <c>NU</c>, <c>AL</c>, <c>AI</c> and <c>ID</c>. <c>AI</c> never
+    ///     reaches here — <see cref="LineBreakRun" />'s LB1 pass has already resolved it to <c>AL</c>
+    ///     — and the four Hangul classes are added because they are what the rule is <i>for</i>: LB26
+    ///     and LB27 are the only reason Korean has an opportunity between two syllables in the first
+    ///     place, and a <c>keep-all</c> that left them alone would do nothing to the script it is most
+    ///     often written for.
+    /// </remarks>
+    static bool IsLetterUnit(LineBreakClass value) =>
+        value is LineBreakClass.AL or LineBreakClass.HL or LineBreakClass.NU or LineBreakClass.ID
+            or LineBreakClass.H2 or LineBreakClass.H3 or LineBreakClass.JL or LineBreakClass.JV
+            or LineBreakClass.JT;
 
     /// <summary>Every line break opportunity in a string.</summary>
     /// <param name="text">The text.</param>
@@ -135,10 +220,21 @@ sealed class LineBreakRun {
     /// <returns>The offset.</returns>
     public int OffsetOf(int index) => offsets[index];
 
+    /// <summary>The resolved line break class of a code point.</summary>
+    /// <param name="index">Its index.</param>
+    /// <returns>The class, after LB1, LB9 and LB10.</returns>
+    public LineBreakClass ClassAt(int index) => classes[index];
+
     /// <summary>Decodes and resolves a string.</summary>
     /// <param name="text">The text.</param>
     /// <returns>The resolved run.</returns>
-    public static LineBreakRun Resolve(ReadOnlySpan<char> text) {
+    public static LineBreakRun Resolve(ReadOnlySpan<char> text) => Resolve(text, WordBreakMode.Normal);
+
+    /// <summary>Decodes and resolves a string under a <c>word-break</c>.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
+    /// <returns>The resolved run.</returns>
+    public static LineBreakRun Resolve(ReadOnlySpan<char> text, WordBreakMode mode) {
         var run = new LineBreakRun();
         var position = 0;
 
@@ -147,7 +243,7 @@ sealed class LineBreakRun {
 
             var codePoint = GraphemeBreaker.Decode(text, ref position);
             run.codePoints.Add(codePoint);
-            run.original.Add(Substitute(codePoint));
+            run.original.Add(Ideographic(Substitute(codePoint), mode));
         }
 
         // LB9, LB10 — a combining mark takes the class of its base, unless there is nothing to
@@ -195,6 +291,32 @@ sealed class LineBreakRun {
             _ => value
         };
     }
+
+    /// <summary>CSS Text 3 § 5.2 <c>break-all</c> — every letter behaves as an ideograph.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Four classes and not "everything", and each of the four is a letter in the sense
+    ///         the property means.</b> <c>AL</c> is the Latin, Greek and Cyrillic bucket that
+    ///         <see cref="Substitute" /> has already folded <c>AI</c>, <c>SA</c> and the unassigned
+    ///         into; <c>HL</c> is Hebrew, which UAX#14 separates only so that LB21a can keep a hyphen
+    ///         attached to it; <c>NU</c> is the digits, and folding them is what makes
+    ///         <c>break-all</c> split a long number — LB25's numeric prohibitions are written against
+    ///         <c>NU</c> and stop applying the moment it is gone, which is the intent rather than a
+    ///         casualty.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is deliberately left alone is every class that is not a letter</b>, which is
+    ///         what makes this faithful rather than approximate: the punctuation, the quotes, the
+    ///         spaces, the emoji sequences and the regional indicators keep their classes, so every
+    ///         rule written against them still fires and <c>break-all</c> still cannot start a line
+    ///         with a comma.
+    ///     </para>
+    /// </remarks>
+    static LineBreakClass Ideographic(LineBreakClass value, WordBreakMode mode) =>
+        mode == WordBreakMode.BreakAll
+        && value is LineBreakClass.AL or LineBreakClass.HL or LineBreakClass.NU
+            ? LineBreakClass.ID
+            : value;
 
     /// <summary>Whether a break is permitted before position <paramref name="i" />.</summary>
     public bool ShouldBreak(int i) {

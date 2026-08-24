@@ -39,12 +39,16 @@ public static class TextShaper {
     /// <param name="text">The paragraph.</param>
     /// <param name="direction">Its base direction. Auto works it out from the first strong character.</param>
     /// <param name="variation">Where along a variable font's axes to shape, or null for its defaults.</param>
+    /// <param name="features">
+    ///     The OpenType features to switch on or off, or null for whatever the face does by default.
+    /// </param>
     /// <returns>The glyphs, in the order they are drawn.</returns>
     public static ShapedText Shape(
         FontFace font,
         string text,
         ParagraphDirection direction = ParagraphDirection.Auto,
-        FontVariation? variation = null
+        FontVariation? variation = null,
+        FontFeatureSet? features = null
     ) {
         ArgumentNullException.ThrowIfNull(font);
         ArgumentNullException.ThrowIfNull(text);
@@ -60,9 +64,15 @@ public static class TextShaper {
             return new ShapedText(text, [], 0);
         }
 
+        // ⚠ Built once for the paragraph rather than once per run. HarfBuzz copies the array on
+        // every `Shape`, and a paragraph of mixed scripts is one item per script change — so a
+        // per-run conversion would allocate the same four bytes per feature per run of every string
+        // that names one.
+        var applied = Convert(features);
+
         var shaped = new ShapedRun[items.Count];
         for (var i = 0; i < items.Count; i++) {
-            shaped[i] = ShapeRun(font, text, items[i]);
+            shaped[i] = ShapeRun(font, text, items[i], applied);
         }
 
         var order = TextItemizer.VisualOrder(items);
@@ -97,7 +107,10 @@ public static class TextShaper {
     ///         that passes in one timezone and fails in another is worse than no golden test.
     ///     </para>
     /// </remarks>
-    internal static ShapedRun ShapeRun(FontFace font, string text, TextItem item) {
+    internal static ShapedRun ShapeRun(FontFace font, string text, TextItem item) =>
+        ShapeRun(font, text, item, []);
+
+    internal static ShapedRun ShapeRun(FontFace font, string text, TextItem item, Feature[] features) {
         using var buffer = new HbBuffer();
 
         buffer.AddUtf16(text, item.Start, item.Length);
@@ -113,7 +126,7 @@ public static class TextShaper {
         // be able to say something sensible about.
         buffer.Flags = BufferFlags.RemoveDefaultIgnorables;
 
-        font.Shaper.Shape(buffer, []);
+        font.Shaper.Shape(buffer, features);
 
         var infos = buffer.GetGlyphInfoSpan();
         var positions = buffer.GetGlyphPositionSpan();
@@ -134,6 +147,38 @@ public static class TextShaper {
         }
 
         return new ShapedRun(item, font, glyphs, advance);
+    }
+
+    /// <summary>Turns the engine's feature set into the array HarfBuzz wants.</summary>
+    /// <remarks>
+    ///     An empty array for "nothing asked", which is what the shaper was always given and is the
+    ///     path every label in an interface takes.
+    /// </remarks>
+    static Feature[] Convert(FontFeatureSet? features) {
+        if (features is null || features.IsEmpty) {
+            return [];
+        }
+
+        var applied = new Feature[features.Features.Length];
+
+        for (var i = 0; i < applied.Length; i++) {
+            var feature = features.Features[i];
+
+            // ⚠ The four characters rather than the packed integer, because HarfBuzzSharp's `Tag`
+            // has no integer constructor and its one-argument overloads are all chars — an
+            // implicit conversion picks the wrong one and the tag becomes a single byte.
+            var tag = feature.Tag;
+
+            // The whole buffer, which is the only range CSS can express. See `FontFeature`.
+            applied[i] = new Feature(
+                new Tag((char) (tag >> 24), (char) ((tag >> 16) & 0xFF), (char) ((tag >> 8) & 0xFF), (char) (tag & 0xFF)),
+                feature.Value,
+                0,
+                uint.MaxValue
+            );
+        }
+
+        return applied;
     }
 
     static HbScript TagFor(Script script) => Tags.GetOrAdd(

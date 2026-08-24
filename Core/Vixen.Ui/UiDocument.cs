@@ -43,12 +43,18 @@ public sealed partial class UiDocument : IDisposable {
     readonly int whiteSpace;
     readonly int textWrap;
     readonly int overflowWrap;
+    readonly int wordBreak;
     readonly int textOverflow;
     readonly int ellipsis;
     readonly int nowrap;
     readonly int anywhere;
     readonly int breakWord;
+    readonly int breakAll;
+    readonly int keepAll;
     readonly int letterSpacing;
+    readonly int textIndent;
+    readonly int fontFeatureSettings;
+    readonly int fontVariantNumeric;
     readonly int lineHeight;
     readonly int zIndex;
     readonly int fontWeight;
@@ -129,12 +135,18 @@ public sealed partial class UiDocument : IDisposable {
         whiteSpace = Styles.Properties.Intern("white-space");
         textWrap = Styles.Properties.Intern("text-wrap");
         overflowWrap = Styles.Properties.Intern("overflow-wrap");
+        wordBreak = Styles.Properties.Intern("word-break");
         textOverflow = Styles.Properties.Intern("text-overflow");
         ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
         anywhere = Styles.Values.Intern("anywhere");
         breakWord = Styles.Values.Intern("break-word");
+        breakAll = Styles.Values.Intern("break-all");
+        keepAll = Styles.Values.Intern("keep-all");
         letterSpacing = Styles.Properties.Intern("letter-spacing");
+        textIndent = Styles.Properties.Intern("text-indent");
+        fontFeatureSettings = Styles.Properties.Intern("font-feature-settings");
+        fontVariantNumeric = Styles.Properties.Intern("font-variant-numeric");
         lineHeight = Styles.Properties.Intern("line-height");
         zIndex = Styles.Properties.Intern("z-index");
         fontWeight = Styles.Properties.Intern("font-weight");
@@ -1201,9 +1213,37 @@ public sealed partial class UiDocument : IDisposable {
     ///     length the ancestor resolved once.
     /// </param>
     /// <param name="LetterSpacing">The ancestor's resolved letter spacing in pixels.</param>
-    readonly record struct ComputedText(float LineHeight, float LineHeightFactor, float LetterSpacing) {
-        /// <summary>What the root starts with: the font's own line height and no tracking.</summary>
-        public static ComputedText Initial => new(float.NaN, float.NaN, 0f);
+    /// <param name="TextIndent">
+    ///     The ancestor's resolved <c>text-indent</c> in pixels.
+    ///     <para>
+    ///         ⚠ <b>Here rather than in <c>InheritedProperties</c>, and for
+    ///         <see cref="LetterSpacing" />'s reason exactly.</b> The cascade inherits <i>specified</i>
+    ///         values, so a <c>text-indent: 2em</c> on a panel would re-resolve against each
+    ///         descendant's own font size and a heading inside it would be indented twice as far as
+    ///         the author asked.
+    ///     </para>
+    /// </param>
+    /// <param name="Features">
+    ///     The OpenType features <c>font-feature-settings</c> and <c>font-variant-numeric</c> between
+    ///     them asked for.
+    ///     <para>
+    ///         ⚠ <b>Resolved once per style pass rather than read in <c>UiElement.Block</c>, and that
+    ///         is not the reason the other three are here.</b> Neither property takes a relative unit,
+    ///         so specified-value inheritance through <c>InheritedProperties</c> would have been
+    ///         correct — and would have made every <c>Block()</c> call parse a feature list, twice a
+    ///         frame per element, to produce the same answer. The parse happens where the cascade
+    ///         changes instead, and what travels is the finished set.
+    ///     </para>
+    /// </param>
+    readonly record struct ComputedText(
+        float LineHeight,
+        float LineHeightFactor,
+        float LetterSpacing,
+        float TextIndent,
+        FontFeatureSet Features
+    ) {
+        /// <summary>What the root starts with: the font's own line height, no tracking, no indent.</summary>
+        public static ComputedText Initial => new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None);
     }
 
     void Apply(UiElement element, float parentFontSize, ComputedText parentText, LengthContext metrics) {
@@ -1239,6 +1279,8 @@ public sealed partial class UiDocument : IDisposable {
             : text.LineHeightFactor * element.FontSize;
 
         element.LetterSpacing = text.LetterSpacing;
+        element.TextIndent = text.TextIndent;
+        element.FontFeatures = text.Features;
 
         // Resolved here rather than read in the draw list, because hit testing needs the same answer
         // and reaching it would mean parsing the same declaration twice per frame from two places
@@ -1286,9 +1328,13 @@ public sealed partial class UiDocument : IDisposable {
         //
         // `.Equals` rather than `==`, because NaN is a legitimate value here and NaN == NaN is false.
         if (!element.AppliedLineHeight.Equals(element.LineHeight)
-            || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)) {
+            || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)
+            || !element.AppliedTextIndent.Equals(element.TextIndent)
+            || !ReferenceEquals(element.AppliedFontFeatures, element.FontFeatures)) {
             element.AppliedLineHeight = element.LineHeight;
             element.AppliedLetterSpacing = element.LetterSpacing;
+            element.AppliedTextIndent = element.TextIndent;
+            element.AppliedFontFeatures = element.FontFeatures;
 
             // Only a node that measures itself, which is what having text means — and what
             // `MarkDirty` insists on, on the grounds that nothing else about a node can change
@@ -1322,6 +1368,8 @@ public sealed partial class UiDocument : IDisposable {
         var lineHeight = parent.LineHeight;
         var factor = parent.LineHeightFactor;
         var tracking = parent.LetterSpacing;
+        var indent = parent.TextIndent;
+        var features = parent.Features;
 
         if (style.TryGet(this.lineHeight, out var declared)) {
             var value = reader.Parse(declared);
@@ -1366,7 +1414,99 @@ public sealed partial class UiDocument : IDisposable {
                 : 0f;
         }
 
-        return new ComputedText(lineHeight, factor, tracking);
+        // ⚠ <b>A percentage is refused rather than resolved, and it is the one value of this
+        // property Vixen cannot answer.</b> CSS resolves a `text-indent` percentage against the
+        // *containing block's* width, which is a layout result and is not known in the style pass —
+        // and this pass is where the value has to be computed, because `em` on it has to measure
+        // against the element that wrote it. `LayoutStyleBuilder.TryTextLength` made the same
+        // refusal for the same reason before anything read the property. No utility can emit one:
+        // `indent-*` is the spacing scale and `indent-px` is a pixel.
+        if (style.TryGet(textIndent, out var declared_indent)) {
+            var value = reader.Parse(declared_indent);
+
+            indent = value.Kind == StyleValueKind.Length && value.Unit != StyleUnit.Percent
+                ? value.Number * metrics.WithFontSize(fontSize).PixelsPer(value.Unit)
+                : 0f;
+        }
+
+        // ⚠ <b>Both are read off this element's own computed style rather than from the parent's
+        // answer, and that is the difference between them and the three above.</b> Neither takes a
+        // relative unit, so both are in `InheritedProperties` and the cascade has already handed
+        // them down — which is what lets a child declare one of the two and keep the other. Building
+        // the set from `parent.Features` instead would make `font-feature-settings` on a child erase
+        // a `font-variant-numeric` it inherited, because there is one slot and two properties.
+        //
+        // ⚠ <b>The order the two are added in is CSS Fonts 4 § 6.4's rather than a choice.</b>
+        // `font-variant-numeric` says what the text *is*; `font-feature-settings` is the low-level
+        // escape hatch and says what the shaper is *told*, so it goes second and a hand-written
+        // `"tnum" 0` can switch off what `tabular-nums` asked for — `FontFeatureSet.Of` keeps the
+        // later of two entries for one tag.
+        var hasNumeric = style.TryGet(fontVariantNumeric, out var numeric);
+        var hasSettings = style.TryGet(fontFeatureSettings, out var settings);
+
+        if (hasNumeric || hasSettings) {
+            var wanted = new List<FontFeature>();
+
+            if (hasNumeric) {
+                NumericFeatures(Styles.Values.NameOf(numeric), wanted);
+            }
+
+            if (hasSettings) {
+                SettingsFeatures(Styles.Values.NameOf(settings), wanted);
+            }
+
+            features = FontFeatureSet.Of(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(wanted));
+        } else {
+            features = FontFeatureSet.None;
+        }
+
+        return new ComputedText(lineHeight, factor, tracking, indent, features);
+    }
+
+    /// <summary>The OpenType features CSS Fonts 4 § 6.6 gives each <c>font-variant-numeric</c> keyword.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every keyword of this property is one OpenType feature, which is why it and
+    ///     <c>font-feature-settings</c> are one item and not two.</b> The property is a friendlier
+    ///     spelling of the escape hatch, and once the shaper is being handed an array at all, both
+    ///     are the same change. <c>normal</c>, and anything else with no reading, contributes
+    ///     nothing — which is the property's initial value and the correct answer for a typo.
+    /// </remarks>
+    static void NumericFeatures(string keywords, List<FontFeature> into) {
+        foreach (var range in keywords.AsSpan().Split(' ')) {
+            var keyword = keywords.AsSpan()[range].Trim();
+
+            var tag = keyword switch {
+                "ordinal" => "ordn",
+                "slashed-zero" => "zero",
+                "lining-nums" => "lnum",
+                "oldstyle-nums" => "onum",
+                "proportional-nums" => "pnum",
+                "tabular-nums" => "tnum",
+                "diagonal-fractions" => "frac",
+                "stacked-fractions" => "afrc",
+                _ => null
+            };
+
+            if (tag is not null) {
+                into.Add(new FontFeature(FontFeature.Pack(tag), 1u));
+            }
+        }
+    }
+
+    /// <summary>Reads a <c>font-feature-settings</c> list.</summary>
+    /// <remarks>
+    ///     ⚠ A malformed entry is dropped and the ones beside it are kept, rather than the whole
+    ///     declaration being refused. CSS would throw the declaration away at parse time; ExCSS has
+    ///     already accepted it by the time it reaches here, so the choice is between honouring what
+    ///     parses and honouring nothing — and a stylesheet with one bad tag in a list of four should
+    ///     not silently lose the other three.
+    /// </remarks>
+    static void SettingsFeatures(string settings, List<FontFeature> into) {
+        foreach (var range in settings.AsSpan().Split(',')) {
+            if (FontFeature.TryParse(settings.AsSpan()[range], out var feature)) {
+                into.Add(feature);
+            }
+        }
     }
 
     /// <summary>Rebuilds the draw list from the current layout and styles.</summary>
@@ -1648,6 +1788,33 @@ public sealed partial class UiDocument : IDisposable {
         style.TryGet(overflowWrap, out var value) && (value == anywhere || value == breakWord)
             ? TextWrapMode.Anywhere
             : TextWrapMode.Word;
+
+    /// <summary>Whether a line may end inside a word. CSS Text 3 § 5.2's <c>word-break</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second reader beside <see cref="WrapModeOf" /> rather than more values on it,
+    ///         and the two are not the same question however alike the class names look.</b>
+    ///         <c>overflow-wrap</c> is consulted only in the branch where <i>nothing</i> fits, so it
+    ///         cannot move a break that had somewhere else to go; <c>word-break: break-all</c> changes
+    ///         which breaks exist, so a word that would have fitted on the next line is split at the
+    ///         end of this one. Merging them into one enum would have forced a winner for
+    ///         <c>keep-all</c> with <c>anywhere</c> — no break between two Han characters, but still a
+    ///         squeeze when one run is wider than the column — which is a combination CSS defines and
+    ///         a narrow CJK column actually wants.
+    ///     </para>
+    ///     <para>
+    ///         <c>normal</c> is the initial value and needs no test: anything that is not one of the
+    ///         two keywords is it.
+    ///     </para>
+    /// </remarks>
+    internal WordBreakMode WordBreakOf(ComputedStyle style) {
+        if (!style.TryGet(wordBreak, out var value)) {
+            return WordBreakMode.Normal;
+        }
+
+        return value == breakAll ? WordBreakMode.BreakAll :
+            value == keepAll ? WordBreakMode.KeepAll : WordBreakMode.Normal;
+    }
 
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;

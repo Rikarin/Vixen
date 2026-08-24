@@ -158,6 +158,37 @@ public partial class UiElement : Composition.IComposable {
     /// <remarks>Computed and inherited like <see cref="LineHeight" />. Zero when nothing said.</remarks>
     public float LetterSpacing { get; internal set; }
 
+    /// <summary>Its <c>text-indent</c> in pixels: how far the <i>first</i> line is pushed in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Computed and inherited like <see cref="LineHeight" />, and for the same reason — the
+    ///         property takes relative units. Zero when nothing said.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It narrows the first line as well as moving it, which is what makes it an
+    ///         indent rather than a translation.</b> <see cref="Block(float)" /> hands the wrapper two
+    ///         widths, so the first line wraps a word earlier and the ones after it do not — and the
+    ///         indent then travels on the line as <c>TextLine.Offset</c>, which the draw list, the
+    ///         caret and the hit test all read. A negative value hangs the first line out to the left,
+    ///         which is CSS's hanging indent and needs nothing extra.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A <i>percentage</i> resolves to zero. CSS measures one against the containing block's
+    ///         width, which is a layout result the style pass does not have — see
+    ///         <c>UiDocument.ResolveText</c>, which refuses it rather than guessing.
+    ///     </para>
+    /// </remarks>
+    public float TextIndent { get; internal set; }
+
+    /// <summary>The OpenType features its text is shaped with.</summary>
+    /// <remarks>
+    ///     <c>font-feature-settings</c> and <c>font-variant-numeric</c> between them, resolved once
+    ///     per style pass — see <c>UiDocument.ResolveText</c>. <see cref="FontFeatureSet.None" /> for
+    ///     text that asked for nothing, which is almost all of it, and it is a singleton so the
+    ///     common case costs a reference comparison.
+    /// </remarks>
+    public FontFeatureSet FontFeatures { get; internal set; } = FontFeatureSet.None;
+
     /// <summary>Where it sits among its siblings when they overlap.</summary>
     /// <remarks>
     ///     <para>
@@ -529,6 +560,7 @@ public partial class UiElement : Composition.IComposable {
         var slant = Document.FontStyleOf(Style);
         var revision = Document.Fonts.Revision;
         var mode = Document.WrapModeOf(Style);
+        var breaking = Document.WordBreakOf(Style);
 
         if (!Document.WrapsOf(Style)) {
             width = float.PositiveInfinity;
@@ -545,9 +577,12 @@ public partial class UiElement : Composition.IComposable {
             && lineStyle == slant
             && lineRevision == revision
             && lineMode == mode
+            && lineBreaking == breaking
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
+            && lineIndent.Equals(TextIndent)
+            && ReferenceEquals(lineFeatures, FontFeatures)
             && lineLeading.Equals(LineHeight)) {
             return block;
         }
@@ -560,9 +595,14 @@ public partial class UiElement : Composition.IComposable {
         }
 
         var lines = ImmutableArray.CreateBuilder<TextLine>();
-        var whole = Runs(Text, 0, chain);
+        var indent = TextIndent;
+        var whole = Runs(Text, 0, chain, offset: indent);
 
-        if ((float.IsPositiveInfinity(width) || whole.Width <= width) && !HasHardBreak(Text)) {
+        // ⚠ The indent narrows the fast path's test as well as the wrapper's, and leaving it out is
+        // the shape of bug that only shows on the one paragraph where it matters: a line that fits
+        // in the box but not in the box *minus the indent* would take the unwrapped path, be shifted
+        // right by the indent, and hang over the edge.
+        if ((float.IsPositiveInfinity(width) || whole.Width <= width - indent) && !HasHardBreak(Text)) {
             // ⚠ The unwrapped path is not an optimisation, it is the answer. A paragraph that fits
             // needs no break opportunities computed and no line re-shaped, and this is every label in
             // an interface.
@@ -573,7 +613,7 @@ public partial class UiElement : Composition.IComposable {
             // whatever glyph the font has for it — however wide the box is.
             lines.Add(whole);
         } else {
-            Wrap(Text, whole, width, mode, chain, lines);
+            Wrap(Text, whole, width, mode, breaking, indent, chain, lines);
         }
 
         block = new TextLayout(lines.ToImmutable());
@@ -583,9 +623,12 @@ public partial class UiElement : Composition.IComposable {
         lineStyle = slant;
         lineRevision = revision;
         lineMode = mode;
+        lineBreaking = breaking;
         lineWidth = width;
         lineSize = FontSize;
         lineTracking = LetterSpacing;
+        lineIndent = TextIndent;
+        lineFeatures = FontFeatures;
         lineLeading = LineHeight;
 
         return block;
@@ -651,7 +694,10 @@ public partial class UiElement : Composition.IComposable {
         var cut = false;
 
         foreach (var line in source.Lines) {
-            if (line.Width <= contentWidth) {
+            // The indent is part of what has to fit: an indented line whose glyphs are narrower than
+            // the box can still run past its right-hand edge, and that is exactly the line an
+            // ellipsis is for.
+            if (line.Offset + line.Width <= contentWidth) {
                 lines.Add(line);
                 continue;
             }
@@ -693,7 +739,7 @@ public partial class UiElement : Composition.IComposable {
             }
         }
 
-        var room = contentWidth - marker.Width;
+        var room = contentWidth - marker.Width - line.Offset;
         var boundaries = new List<int>();
         GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
 
@@ -728,7 +774,7 @@ public partial class UiElement : Composition.IComposable {
         // indistinguishable from an element with no text, and the clip will trim the glyph if even it
         // does not fit.
         if (kept <= start) {
-            return marker.Runs.Length == 0 ? line : Runs(Ellipsis, start, chain);
+            return marker.Runs.Length == 0 ? line : Runs(Ellipsis, start, chain, offset: line.Offset);
         }
 
         // ⚠ Trailing space is trimmed before the ellipsis, the way a browser does it: `"ab  "` cut at
@@ -741,7 +787,7 @@ public partial class UiElement : Composition.IComposable {
 
         var body = last > start ? text[start..last] : text[start..kept];
 
-        return Runs(body + Ellipsis, start, chain);
+        return Runs(body + Ellipsis, start, chain, offset: line.Offset);
     }
 
     /// <summary>The width this element wraps its text to, from the layout it was last given.</summary>
@@ -780,7 +826,7 @@ public partial class UiElement : Composition.IComposable {
         System.Buffers.SearchValues.Create("\n\r\f\v\u0085\u2028\u2029");
 
     /// <summary>Shapes one stretch of the text into the runs its faces need.</summary>
-    TextLine Runs(string text, int start, List<FontFace> chain, float width = float.NaN) {
+    TextLine Runs(string text, int start, List<FontFace> chain, float width = float.NaN, float offset = 0f) {
         var spans = new List<FontSpan>();
         FontRegistry.Cover(text, chain, spans);
 
@@ -796,7 +842,7 @@ public partial class UiElement : Composition.IComposable {
             runs.Add(
                 new TextRun(
                     span.Font,
-                    Document.Shaping.Shape(span.Font, piece),
+                    Document.Shaping.Shape(span.Font, piece, features: FontFeatures),
                     FontSize,
                     LetterSpacing,
                     LineHeight,
@@ -805,7 +851,7 @@ public partial class UiElement : Composition.IComposable {
             );
         }
 
-        return new TextLine(runs.MoveToImmutable(), width);
+        return new TextLine(runs.MoveToImmutable(), width, offset);
     }
 
     /// <summary>Breaks the text into lines and shapes each of them.</summary>
@@ -821,6 +867,8 @@ public partial class UiElement : Composition.IComposable {
         TextLine whole,
         float width,
         TextWrapMode mode,
+        WordBreakMode breaking,
+        float indent,
         List<FontFace> chain,
         ImmutableArray<TextLine>.Builder into
     ) {
@@ -836,7 +884,7 @@ public partial class UiElement : Composition.IComposable {
         }
 
         var wrapped = new List<WrappedLine>();
-        LineWrapper.Wrap(text, advances, width, wrapped, mode);
+        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent);
 
         foreach (var line in wrapped) {
             // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
@@ -846,7 +894,18 @@ public partial class UiElement : Composition.IComposable {
             // ⚠ The wrapper's own width, not the re-shaped line's. It excludes the whitespace at the
             // line's end, which is drawn but must not be measured — and since the advances handed to
             // it were in pixels, the number it gives back already is too.
-            into.Add(Runs(text.Substring(line.Start, line.Length), line.Start, chain, line.Advance));
+            // ⚠ The indent lands on the first line and on no other, which is what CSS Text 3 § 8.1
+            // says and is also the only reading the wrapper's own arithmetic supports: it is the
+            // first line that was measured against the narrower width.
+            into.Add(
+                Runs(
+                    text.Substring(line.Start, line.Length),
+                    line.Start,
+                    chain,
+                    line.Advance,
+                    line.Start == 0 ? indent : 0f
+                )
+            );
         }
 
         if (into.Count == 0) {
@@ -868,9 +927,18 @@ public partial class UiElement : Composition.IComposable {
     FontStyle lineStyle;
     int lineRevision;
     TextWrapMode lineMode;
+    WordBreakMode lineBreaking;
     float lineWidth;
     float lineSize;
     float lineTracking;
+    float lineIndent;
+
+    // ⚠ Reference equality, not `Equals`, and it is sound because `ResolveText` produces one
+    // instance per style pass and hands the same one to every element that resolved alike. Two
+    // equal sets built in different passes compare unequal here, which costs one rebuild of a
+    // block whose features did not change — and never the other way round, which is the direction
+    // that would draw stale glyphs.
+    FontFeatureSet? lineFeatures;
     float lineLeading;
 
     void OnTextChanged(string? previous, string? current) {
@@ -1245,6 +1313,12 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>The letter spacing that went with it.</summary>
     internal float AppliedLetterSpacing { get; set; } = float.NaN;
+
+    /// <summary>And the indent, which changes what the element measures just as the other two do.</summary>
+    internal float AppliedTextIndent { get; set; } = float.NaN;
+
+    /// <summary>And the features, which change the glyphs and therefore the width.</summary>
+    internal FontFeatureSet? AppliedFontFeatures { get; set; }
 
     internal void Attach(UiElement child) {
         children.Add(child);

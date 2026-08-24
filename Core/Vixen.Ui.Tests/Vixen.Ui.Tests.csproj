@@ -47,6 +47,17 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\Zycon.ttf"
                           LogicalName="Vixen.Ui.Tests.Fonts.Zycon.ttf" />
+
+        <!--
+            And the face whose `calt` turns the first `a` of "a a" into an alternate — the only
+            feature in this repository whose presence or absence is visible in a glyph id. It is what
+            lets `font-feature-settings` be asserted end to end rather than only as far as the
+            computed style: every numeric feature `font-variant-numeric` names is absent from all
+            twenty-two Consortium faces, so a test written against one of those would pass against a
+            shaper that was still being handed an empty array.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestGSUBOne.otf"
+                          LogicalName="Vixen.Ui.Tests.Fonts.TestGSUBOne.otf" />
     </ItemGroup>
 
     <ItemGroup>

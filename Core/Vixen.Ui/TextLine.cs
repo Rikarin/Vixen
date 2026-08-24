@@ -31,19 +31,35 @@ public sealed class TextLine {
     /// <param name="width">
     ///     What to report as the line's width, or <see cref="float.NaN" /> for the sum of the runs.
     /// </param>
+    /// <param name="offset">
+    ///     How far in from the start of the line box the first glyph sits, in pixels.
+    ///     <c>text-indent</c>, and zero for every line but a first one.
+    /// </param>
     /// <remarks>
-    ///     ⚠ <b>The width is separable from the runs because of trailing whitespace.</b> A break
-    ///     opportunity falls *after* a space, so the space belongs to the line before it and is
-    ///     drawn there — but it must not count towards the width, or a line ending in a space wraps a
-    ///     word earlier than one that does not and a right-aligned paragraph comes out ragged with
-    ///     invisible characters. The wrapper already measured that width; this is where it arrives.
+    ///     <para>
+    ///         ⚠ <b>The width is separable from the runs because of trailing whitespace.</b> A break
+    ///         opportunity falls *after* a space, so the space belongs to the line before it and is
+    ///         drawn there — but it must not count towards the width, or a line ending in a space
+    ///         wraps a word earlier than one that does not and a right-aligned paragraph comes out
+    ///         ragged with invisible characters. The wrapper already measured that width; this is
+    ///         where it arrives.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the offset is separable from the width, which is the distinction
+    ///         <c>text-indent</c> turns on.</b> <see cref="Width" /> is how wide the glyphs are and is
+    ///         what the alignment subtracts from the content box; <see cref="Offset" /> is where they
+    ///         start, and is what every position on this line is measured from. Folding the two
+    ///         together would align an indented line as though its text were wider than it is, so a
+    ///         centred first line would sit half an indent to the left of where it belongs.
+    ///     </para>
     /// </remarks>
-    public TextLine(ImmutableArray<TextRun> runs, float width = float.NaN) {
+    public TextLine(ImmutableArray<TextRun> runs, float width = float.NaN, float offset = 0f) {
         if (runs.IsDefaultOrEmpty) {
             throw new ArgumentException("a line has at least one run", nameof(runs));
         }
 
         Runs = runs;
+        Offset = offset;
         pens = new float[runs.Length];
 
         var pen = 0f;
@@ -85,7 +101,23 @@ public sealed class TextLine {
     public ImmutableArray<TextRun> Runs { get; }
 
     /// <summary>How wide the line is, in pixels, not counting whitespace at its end.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The glyphs' width, and it does <i>not</i> include <see cref="Offset" />.</b> A caller
+    ///     aligning the line wants how much room the text takes; a caller measuring the block wants
+    ///     <c>Offset + Width</c>, which is what <see cref="TextLayout.Width" /> maximises over.
+    /// </remarks>
     public float Width { get; }
+
+    /// <summary>Where the first glyph sits, in pixels from the start of the line box.</summary>
+    /// <remarks>
+    ///     <c>text-indent</c> on the first line of a block, and zero everywhere else. It is already
+    ///     inside <see cref="PenOf" />, <see cref="Place" />, <see cref="CaretOffset" /> and
+    ///     <see cref="CaretIndexAt" />, so a consumer that goes through any of those needs to know
+    ///     nothing about it — which is deliberate, and is the reason the caret cannot land a
+    ///     character out on an indented line. A negative value is CSS's hanging indent and needs
+    ///     nothing extra anywhere.
+    /// </remarks>
+    public float Offset { get; }
 
     /// <summary>How tall it is, in pixels.</summary>
     public float Height { get; }
@@ -93,9 +125,10 @@ public sealed class TextLine {
     /// <summary>How far below the top of the line its shared baseline sits, in pixels.</summary>
     public float Baseline { get; }
 
-    /// <summary>Where a run begins, in pixels from the start of the line.</summary>
+    /// <summary>Where a run begins, in pixels from the start of the line box.</summary>
     /// <param name="run">The run's index in <see cref="Runs" />.</param>
-    public float PenOf(int run) => pens[run];
+    /// <remarks><see cref="Offset" /> is included, so this is where the glyphs actually go.</remarks>
+    public float PenOf(int run) => Offset + pens[run];
 
     /// <summary>Places every glyph of every run relative to the start of the line.</summary>
     /// <param name="into">Where to put them.</param>
@@ -110,7 +143,7 @@ public sealed class TextLine {
         ArgumentNullException.ThrowIfNull(into);
 
         for (var i = 0; i < Runs.Length; i++) {
-            Runs[i].Place(into, pens[i]);
+            Runs[i].Place(into, PenOf(i));
         }
     }
 
@@ -129,20 +162,26 @@ public sealed class TextLine {
             var run = Runs[i];
 
             if (index <= run.Start + run.Shaped.Text.Length || i == Runs.Length - 1) {
-                return pens[i] + run.CaretOffset(index);
+                return PenOf(i) + run.CaretOffset(index);
             }
         }
 
-        return Width;
+        return Offset + Width;
     }
 
     /// <summary>Which caret index a distance along the line lands on.</summary>
     /// <param name="x">The distance from the start of the line, in pixels.</param>
     /// <returns>A UTF-16 index into the element's text.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Offset" /> comes off first, and that is what stops a click on an indented
+    ///     first line landing a character out.</b> A point inside the indent itself is before every
+    ///     glyph on the line and comes back as its first index — the run clamps a negative distance —
+    ///     which is what clicking in the white space at the start of a paragraph should do.
+    /// </remarks>
     public int CaretIndexAt(float x) {
         for (var i = 0; i < Runs.Length; i++) {
-            if (x < pens[i] + Runs[i].Width || i == Runs.Length - 1) {
-                return Runs[i].CaretIndexAt(x - pens[i]);
+            if (x < PenOf(i) + Runs[i].Width || i == Runs.Length - 1) {
+                return Runs[i].CaretIndexAt(x - PenOf(i));
             }
         }
 

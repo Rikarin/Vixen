@@ -211,9 +211,11 @@ public class ArbitraryPropertyTests {
         Assert.Equal("text", family.Name, StringComparer.Ordinal);
         Assert.Null(family.Property);
 
-        // And the hatch reaches a property the family table cannot produce at all, which is the case
-        // that could not work if `SplitName` had claimed the `text` prefix: `text-indent` is interned
-        // by the engine and emitted by no family, so `text-indent-4` is not a utility and this is.
+        // And the hatch reaches a property under a spelling the family table refuses, which is the
+        // case that could not work if `SplitName` had claimed the `text` prefix. `text-indent` is a
+        // real property with a real reader and the `indent-*` family emits it — but under *that*
+        // name: `text-indent-4` splits to the registered family `text` with the value `indent-4`,
+        // which is not a utility, and the hatch is how the property is reached by its CSS name.
         Assert.Equal("text-indent", Assert.Single(Resolve("[text-indent:4px]")).Property, StringComparer.Ordinal);
         Refused("text-indent-4");
     }

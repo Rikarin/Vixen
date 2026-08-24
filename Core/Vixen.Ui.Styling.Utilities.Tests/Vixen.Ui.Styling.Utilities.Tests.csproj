@@ -56,6 +56,24 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
                           LogicalName="Vixen.Ui.Styling.Utilities.Tests.Fonts.TestShapeLana.ttf" />
+
+        <!--
+            ⚠ A second face, and the reason is the lesson `UtilityConsumptionProbe`'s scene list has
+            now recorded nine times, arriving as a *font* for the first time. `font-variant-numeric`'s
+            keywords are OpenType features — `tnum`, `onum`, `zero`, `frac`, `ordn` — and not one of
+            the twenty-two Consortium faces beside TestShapeLana implements any of them. So the whole
+            family would have measured inert with the reader finished, the shaper handed the right
+            array, and HarfBuzz correctly doing nothing with a feature the font has never heard of:
+            the same shape as `font-style` resolving `italic` against a family with no italic.
+
+            Open Sans has all seven. It is already in this repository — the editor app embeds it and
+            ships its OFL beside it — so this is a link and not a second copy, exactly as the line
+            above links out of Vixen.Ui.Text.Tests rather than duplicating a font. A build-time file
+            include and not a project reference: nothing in this assembly's code knows the editor
+            exists.
+        -->
+        <EmbeddedResource Include="..\..\Editor\Vixen.Editor.App\Fonts\OpenSans-Regular.ttf"
+                          LogicalName="Vixen.Ui.Styling.Utilities.Tests.Fonts.OpenSans-Regular.ttf" />
     </ItemGroup>
 
     <ItemGroup>

@@ -622,6 +622,19 @@ public static class UtilityFamilies {
         }));
         Spacing("tracking", "letter-spacing");
 
+        // ⚠ <b>`text-indent` was one of Part 0's seven interned-but-unread properties and is now
+        // read, and what it needed was not a reader.</b> `LineWrapper.Wrap` took one width for the
+        // whole paragraph, so an indent had to become a *second* width — the first line is narrower
+        // and the rest are not, which is what an indent is — and the offset then has to travel on
+        // the line, because the draw list, the caret and the hit test all measure from it.
+        // `UiDocument.ResolveText` computes it beside `line-height` and `letter-spacing` rather than
+        // inheriting the specified value, for the same reason those two do: it takes relative units.
+        //
+        // ⚠ The spacing scale rather than a keyword table, which is Tailwind's own: `indent-4` is
+        // four spacing steps and `-indent-4` hangs the first line out to the left, which CSS calls a
+        // hanging indent and `LineWrapper` gets for nothing from the sign.
+        Spacing("indent", "text-indent");
+
         Keywords("whitespace", "white-space", new() {
             ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap"
         });
@@ -642,15 +655,62 @@ public static class UtilityFamilies {
         Static("italic", "font-style", "italic");
         Static("not-italic", "font-style", "normal");
 
+        // ── Numeric figures ─────────────────────────────────────────────────────────────────
+        // ⚠ <b>Every keyword of this property is one OpenType feature, and the blocker was never the
+        // property.</b> `TextShaper.ShapeRun` ended `font.Shaper.Shape(buffer, [])` — the array was
+        // empty because nothing plumbed one — so `tabular-nums` would have resolved, computed,
+        // reached the shaper and been dropped on the floor. The array is threaded now, and the part
+        // that would have shipped broken is `ShapingCache`'s key: it was the font and the string, so
+        // a paragraph of tabular figures and one of proportional figures would have shared whichever
+        // entry was shaped first. See `FontFeatureSet`, which exists to be that key.
+        //
+        // ⚠ <b>Nine `Static` families rather than one keyword table, because v4 spells them as bare
+        // words</b> — `tabular-nums`, not `nums-tabular`. Inventing the second spelling is the
+        // failure `bg-conic-<angle>` is recorded under.
+        //
+        // ⚠ <b>What this does not do, stated rather than left to be found: two of them on one element
+        // keep the last.</b> Tailwind composes these through nine `--tw-*` fragments, so
+        // `class="tabular-nums slashed-zero"` gets both; here each class emits the whole property and
+        // the cascade keeps the later declaration. CSS's own grammar takes a list, so
+        // `[font-variant-numeric:tabular-nums_slashed-zero]` does get both — the gap is in the
+        // composition, not in the reader. Recorded as a value gap on the row rather than papered over.
+        Static("normal-nums", "font-variant-numeric", "normal");
+        Static("ordinal", "font-variant-numeric", "ordinal");
+        Static("slashed-zero", "font-variant-numeric", "slashed-zero");
+        Static("lining-nums", "font-variant-numeric", "lining-nums");
+        Static("oldstyle-nums", "font-variant-numeric", "oldstyle-nums");
+        Static("proportional-nums", "font-variant-numeric", "proportional-nums");
+        Static("tabular-nums", "font-variant-numeric", "tabular-nums");
+        Static("diagonal-fractions", "font-variant-numeric", "diagonal-fractions");
+        Static("stacked-fractions", "font-variant-numeric", "stacked-fractions");
+
+        // ⚠ <b>`font-features-*` is deliberately NOT registered, and the reason changed on this pass.</b>
+        // The blocker it shared with the nine families above is gone: `font-feature-settings` is read
+        // end to end — `UiDocument.ResolveText` parses the list, `TextShaper` hands it to HarfBuzz and
+        // `ShapingCache` is keyed on it — and it is reachable today through the arbitrary-property
+        // hatch, `[font-feature-settings:"tnum"_1]`. What stops the *family* is the instrument rather
+        // than the engine, and it is worth writing down because it looks like laziness.
+        //
+        // v4's family is arbitrary-only: there is no `font-features-tnum`, so it contributes nothing
+        // to `UtilityFamilies.Surface`, which enumerates a family's keywords and its theme scale.
+        // A family with no surface is one `UtilityConsumptionGateTests` never meets — it would pass
+        // vacuously, for ever, and the parity ledger's emission column would stay empty while the
+        // family worked. Adding one arbitrary probe to the surface was tried and does not close it:
+        // the only values of this property that *do* anything contain quotes, by CSS's own grammar,
+        // and a generated rule whose selector is `.font-features-\["onum"_1\]` does not match the
+        // element the probe puts the class on. So the gap is class-name escaping in the probe, which
+        // is a change to the measuring instrument and not to this table. Recorded on the row.
+
         // ── Wrapping ────────────────────────────────────────────────────────────────────────
-        // ⚠ <b>`overflow-wrap` and not `word-break`, and the two are not interchangeable however
-        // similar the class names look.</b> `UiDocument.WrapModeOf` reads `overflow-wrap` and maps
-        // `anywhere` and `break-word` onto `TextWrapMode.Anywhere`, which `LineWrapper` applies at a
-        // *grapheme* boundary when one unbreakable run is wider than the whole line. That is what
-        // CSS Text 3 § 5.5 says both keywords mean. `word-break: break-all` means something else —
-        // every character is a break opportunity, so a word that would have fitted on the next line
-        // is still split at the end of this one — and nothing reads that property. Registering
-        // `break-all` here would give the same declaration two spellings, one of which is a lie.
+        // ⚠ <b>`overflow-wrap` and `word-break` are two properties and two families, and the two are
+        // not interchangeable however similar the class names look.</b> `UiDocument.WrapModeOf` reads
+        // `overflow-wrap` and maps `anywhere` and `break-word` onto `TextWrapMode.Anywhere`, which
+        // `LineWrapper` applies at a *grapheme* boundary when one unbreakable run is wider than the
+        // whole line. That is what CSS Text 3 § 5.5 says both keywords mean, and it is a decision the
+        // line filler takes only when nothing else fits. `word-break` is read separately by
+        // `UiDocument.WordBreakOf` and changes the opportunity list itself — see `break-all` below.
+        // Keeping them apart is what lets `break-keep` and `wrap-anywhere` be written together and
+        // both mean something, which one merged mode could not have expressed.
         //
         // ⚠ <b>Vixen does not distinguish `anywhere` from `break-word`, and both are registered
         // anyway.</b> CSS Sizing § 5.2 separates them only by their min-content contribution:
@@ -666,14 +726,41 @@ public static class UtilityFamilies {
         // people have in their fingers, exactly as `start-*` is kept beside `inset-s-*`.
         Static("break-words", "overflow-wrap", "break-word");
 
-        // ⚠ <b>Tailwind's `break-normal` is two declarations and this is one, and the missing half is
-        // deliberate.</b> v4 emits `overflow-wrap: normal; word-break: normal`. The second is the
-        // initial value of a property nothing in this engine reads, so emitting it would add an
-        // inert property to the gate's ledger and buy a class exactly nothing — a no-op twice over.
-        // The half that is here is not a no-op: `overflow-wrap` inherits, so this is how a child
-        // escapes a `break-words` its container asked for, which is the same argument `text-clip`
-        // earns its place with. When `word-break` gains a reader, the other half belongs here.
-        Static("break-normal", "overflow-wrap", "normal");
+        // ⚠ <b>`word-break`, and it is not `overflow-wrap` under another name — which is the mistake
+        // that would have closed this cheaply and wrongly.</b> `overflow-wrap` is consulted in
+        // exactly one branch of `LineWrapper`, "nothing fits: one unbreakable run is wider than the
+        // whole line", so it can never move a break that had somewhere else to go. `break-all` makes
+        // every letter offer one, so a word that *would* have fitted on the next line is split at the
+        // end of this one; `break-keep` suppresses the opportunities UAX#14 finds between two CJK
+        // characters and between two Hangul syllables. Both are read by `UiDocument.WordBreakOf` and
+        // applied by `LineBreaker.Collect` — a different stage from `overflow-wrap`, which is why the
+        // two compose rather than competing.
+        //
+        // ⚠ <b>The pair is registered together and neither would have been registered alone.</b>
+        // `break-all` on its own is `wrap-anywhere`'s declaration under a second spelling that lies
+        // about what it does; `break-keep` on its own is a property with one keyword, whose only
+        // opt-out would be to delete the class. See `WordBreakMode` for what each does to the
+        // opportunity list.
+        Static("break-all", "word-break", "break-all");
+
+        // v4 spells `word-break: keep-all` as `break-keep`, not `break-keep-all`. Tailwind's name,
+        // not this project's — the failure `bg-conic-<angle>` is recorded under.
+        Static("break-keep", "word-break", "keep-all");
+
+        // ⚠ <b>Both of Tailwind's declarations, and the second one arrived with its reader.</b> v4
+        // emits `overflow-wrap: normal; word-break: normal`, and this used to emit the first alone,
+        // because `word-break` was a property nothing read and the second half would have been an
+        // inert entry in the gate's ledger. `WordBreakOf` reads it now, `word-break` is in
+        // `InheritedProperties`, and so the half that was missing is exactly the opt-out a child
+        // needs from a `break-all` on its container — the same argument `text-clip` and `wrap-normal`
+        // each earn their place with, and the row's value gap closes with it.
+        Register(new Family(
+            "break-normal",
+            ValueKind.Static,
+            ["overflow-wrap"],
+            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "overflow-wrap:normal" },
+            Alongside: [new UtilityDeclaration("word-break", "normal")]
+        ));
 
         // The two halves of `text-overflow` under the prefix v4 gives them. Registered as a second
         // keyword table on `text` rather than as a family of its own, for the reason the type's
@@ -1541,6 +1628,7 @@ public static class UtilityFamilies {
             foreach (var value in ValuesFor(family, tokens)) {
                 Consider($"{name}-{value}");
             }
+
         }
 
         return probes;
