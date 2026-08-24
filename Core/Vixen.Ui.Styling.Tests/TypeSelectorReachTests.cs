@@ -395,6 +395,19 @@ public partial class TypeSelectorReachTests {
     [GeneratedRegex(@"^\s*@tag\s+(?<name>[A-Za-z][A-Za-z0-9-]*)")]
     private static partial Regex MarkupTag { get; }
 
+    /// <summary>The <c>tag="…"</c> attribute, which renames what a capitalised tag creates.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Added because this file reported a live element as unreachable.</b> A capitalised tag
+    ///     names a control type, and until <c>tag=</c> landed the element's tag was always that type's
+    ///     own name — so scanning for a lower-case <c>&lt;name</c> found every tag a
+    ///     <c>.vxml</c> could produce. <c>&lt;ScrollView tag="add-component-list" /&gt;</c> produces
+    ///     one that no lower-case tag and no C# creation call mentions, and the rule styling it was
+    ///     reported as firing on nothing while two tests asserted the element carries that very tag.
+    ///     ⚠ Preceded by whitespace rather than <c>\b</c>, so <c>data-tag="…"</c> is not a tag.
+    /// </remarks>
+    [GeneratedRegex(@"(?<=\s)tag\s*=\s*""(?<name>[A-Za-z][A-Za-z0-9-]*)""")]
+    private static partial Regex MarkupTagAttribute { get; }
+
     /// <summary>A markup <c>class</c> attribute, whose contents are classes and never tags.</summary>
     [GeneratedRegex(@"\bclass\s*=\s*""(?<names>[^""]*)""")]
     private static partial Regex MarkupClasses { get; }
@@ -452,6 +465,11 @@ public partial class TypeSelectorReachTests {
                 if (MarkupTag.Match(text) is { Success: true } directive) {
                     Note(tags, directive.Groups["name"].Value, path, line);
                     Note(literals, directive.Groups["name"].Value, path, line);
+                }
+
+                foreach (Match match in MarkupTagAttribute.Matches(text)) {
+                    Note(tags, match.Groups["name"].Value, path, line);
+                    Note(literals, match.Groups["name"].Value, path, line);
                 }
 
                 foreach (Match match in MarkupClasses.Matches(text)) {
