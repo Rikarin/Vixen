@@ -1618,6 +1618,16 @@ static class UtilityConsumptionProbe {
     /// <summary>Open Sans, the only face here with the features <c>font-variant-numeric</c> names.</summary>
     static readonly Text.FontFace Figures = LoadFont("figures", "OpenSans-Regular.ttf");
 
+    /// <summary>The same face, for the one test that measures the keywords one at a time.</summary>
+    /// <remarks>
+    ///     ⚠ Exposed rather than loaded twice, because a <see cref="Text.FontFace" /> is a parse and a
+    ///     native allocation and two of them would also be two shaping caches' worth of glyph ids that
+    ///     mean nothing to each other. <c>NumericFigureVisibilityTests</c> is the caller: it asks
+    ///     which of the nine keywords this face can actually show, which is a fact about the scene
+    ///     list's coverage and therefore belongs beside it.
+    /// </remarks>
+    public static Text.FontFace FiguredFace => Figures;
+
     static Text.FontFace LoadFont(string name, string file = "TestShapeLana.ttf") {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetManifestResourceStream($"Vixen.Ui.Styling.Utilities.Tests.Fonts.{file}")
