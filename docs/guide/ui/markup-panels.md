@@ -215,6 +215,13 @@ from the handler — and `@Keyed` gives C# nothing to infer it from, however sin
 `@((KeyEvent e) => Keyed(e))`. A handler that wants no argument — `@Open`, `@(() => Move(1))` — is
 unaffected.
 
+⚠ **Writing a test for one: press a key somewhere the handler is *not*, or the test proves
+nothing.** A panel like this focuses its search box on open, so the capture route is
+host → box — and a handler mistakenly written on `<SearchBox>` instead of on `<self />` is on that
+route as its target and hears every key such a test presses. Three editor pickers nearly shipped a
+suite that passed with the attribute in the wrong place. What separates them is the case
+`<self />` exists for: raise at the *list*, where a handler on the box is not on the route at all.
+
 ### `change:`, for a control's value
 
 ```xml
