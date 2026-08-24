@@ -1101,6 +1101,29 @@ was resolved by asserting separately that **no `Tree()` line differs at all** �
 moved in `StandardFrameView` and zero tree lines did. Read a part-adoption diff that way rather than
 widening the tolerance.
 
+⚠ **And a dump has two blind spots that no amount of states fixes, both of which wave 7 had to close
+with ordinary tests.** They are worth naming because every wave so far has treated the dump as the
+whole of the evidence.
+
+- **A dump drives the panel from the model, so it only ever exercises the *binding* leg.** Every
+  state above was reached with `document.Edit(…)` or `Show(…)` and compared the tree that came out —
+  which says nothing about `change:`, where a person moves a control and the document is supposed to
+  move **once**. That leg is new code in every port that closes shape 2, and it is where a write-back
+  loop would live. `FontViewTests` is the assertion: undo depth, because `FontDocument.Edit` no-ops
+  on an unchanged YAML and a loop that landed back on the same value would be invisible to a value
+  check. It is wave 3's mixer assertion and should be the standing one.
+- **A dump only covers the arms it happens to walk into.** `MaterialView`'s four states were all
+  byte-identical and every one of them had an empty `Header.Graph`, so the graph link was `hidden`
+  throughout and two of its three arms were never drawn — including the one the port's
+  `MaterialGraphLink` record exists to make unstateable, a button reading "Open shader graph" while
+  greyed out. `MaterialGraphLinkTests` covers it. **Before trusting a set of states, list the
+  branches in the panel and tick them off**; "all N states matched" is a claim about N, not about the
+  panel.
+
+⚠ **Both test files were confirmed to fail against a deliberately broken binding before being
+accepted** — `change:Number` deleted from the pixel-size row, and `Disabled` pinned to `false` on the
+graph button. A test written to prove a port correct will prove it correct.
+
 ### "Keep the field rows" was wrong four ways, and that is wave 7's finding
 
 ⚠ **One instruction covered seven panels and did not fit any of them.** The row above read "port the
