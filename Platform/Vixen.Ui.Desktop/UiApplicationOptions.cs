@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Platform;
 using Vixen.Ui.Composition;
 
 namespace Vixen.Ui.Desktop;
@@ -46,6 +47,29 @@ public sealed class UiApplicationOptions {
 
     /// <summary>What the application is called, which is the other half.</summary>
     public string Application { get; set; } = "Vixen";
+
+    /// <summary>Where the window comes from, on a system SDL is not the answer for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see langword="null" /> — the default — builds a <c>DesktopPlatform</c>, which is SDL,
+    ///         which is Windows, Linux and macOS. This exists for the fourth case: a system whose
+    ///         window server is its own, where the right implementation is an <see cref="IPlatform" />
+    ///         written against that system rather than a port of SDL to it. It is handed these
+    ///         options so that a custom platform gets <see cref="Organisation" /> and
+    ///         <see cref="Application" /> without a second type existing to carry them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Whatever this returns must make windows a graphics backend can present to.</b>
+    ///         SDL needs its Vulkan flag at window-creation time and the default path passes it; a
+    ///         platform supplied here has no way to be asked, so it has to be true of every window it
+    ///         makes. A window that is not is not an error — it is a device that will not create a
+    ///         swapchain, reported somewhere that looks nothing like this property.
+    ///     </para>
+    ///     <para>
+    ///         The instance is disposed with the application, on the thread that ran it.
+    ///     </para>
+    /// </remarks>
+    public Func<UiApplicationOptions, IPlatform>? Platform { get; set; }
 
     /// <summary>Builds the interface.</summary>
     /// <remarks>

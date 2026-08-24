@@ -358,14 +358,16 @@ public sealed class UiApplication : IDisposable {
         // ⚠ The GPU surface has to be asked for when the window is made. SDL needs the Vulkan window
         // flag at creation time, and a window made without it has nothing to present to — which
         // surfaces much later, as a device that will not create a swapchain, in a place that looks
-        // nothing like this line.
-        using var platform = new DesktopPlatform(
-            new() {
-                Organisation = options.Organisation,
-                Application = options.Application,
-                RequestGpuSurface = true
-            }
-        );
+        // nothing like this line. UiApplicationOptions.Platform says the same thing to anyone
+        // supplying their own, who has no flag to be passed and must simply always be true of it.
+        using IPlatform platform = options.Platform?.Invoke(options)
+            ?? new DesktopPlatform(
+                new() {
+                    Organisation = options.Organisation,
+                    Application = options.Application,
+                    RequestGpuSurface = true
+                }
+            );
 
         using var window = platform.CreateWindow(
             new WindowOptions {

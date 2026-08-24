@@ -34,6 +34,8 @@ Vixen.Ui.Desktop.UiApplicationOptions.Mount.get -> System.Func<Vixen.Ui.UiDocume
 Vixen.Ui.Desktop.UiApplicationOptions.Mount.set -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, Vixen.Ui.Composition.Component>?
 Vixen.Ui.Desktop.UiApplicationOptions.Organisation.get -> string
 Vixen.Ui.Desktop.UiApplicationOptions.Organisation.set -> string
+Vixen.Ui.Desktop.UiApplicationOptions.Platform.get -> System.Func<Vixen.Ui.Desktop.UiApplicationOptions, Vixen.Platform.IPlatform>?
+Vixen.Ui.Desktop.UiApplicationOptions.Platform.set -> System.Func<Vixen.Ui.Desktop.UiApplicationOptions, Vixen.Platform.IPlatform>?
 Vixen.Ui.Desktop.UiApplicationOptions.RootClasses.get -> System.Collections.Generic.IList<string>
 Vixen.Ui.Desktop.UiApplicationOptions.Size.get -> Vixen.Core.Mathematics.Int2
 Vixen.Ui.Desktop.UiApplicationOptions.Size.set -> Vixen.Core.Mathematics.Int2
