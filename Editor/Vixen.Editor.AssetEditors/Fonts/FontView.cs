@@ -244,184 +244,85 @@ public sealed class FontAtlasView : UiElement {
 }
 
 /// <summary>A font asset, open for editing: coverage, the glyphs, and the fallback chain.</summary>
-public sealed class FontView : Control {
-    FontDocument? document;
+/// <remarks>
+///     <para>
+///         The panel is <c>FontView.vxml</c>; this file is the accessibility modifier, the glyph page
+///         it draws beside, the four records its lists key on, and the two elements that exist only
+///         so that markup can write an intrinsic tag's own <c>Text</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>Shape 2 is closed, so the field rows are ported too.</b> The ledger's row for this
+///         panel read "port the readouts, keep the field rows", which was written before
+///         <c>change:</c> existed. Every one of the five editable fields is a <c>[UiProperty]</c> —
+///         <c>NumericInput.Number</c> and <c>CheckBox.IsChecked</c> — so all five are an ordinary
+///         binding one way and a <c>change:</c> handler the other, and nothing in this panel is
+///         imperative but the glyph page and the picker's options.
+///     </para>
+/// </remarks>
+public sealed partial class FontView;
 
+/// <summary>One thing the face says about itself, as the <c>@for</c> keys it.</summary>
+/// <param name="Slot">Where it is in the order the panel lists them.</param>
+/// <param name="Name">What the fact is called.</param>
+/// <param name="Value">What it says.</param>
+/// <remarks>
+///     ⚠ <b>The whole record is the key</b>, which is the immutable-data half of the <c>@for</c>
+///     rule: nothing behind this panel is signal-backed, so a re-read face has to be a changed
+///     identity. The slot is in it because a face with no metrics and a face with no name can print
+///     the same two words, and <c>BuildContext.For</c> cannot reconcile two equal keys in one loop.
+/// </remarks>
+internal readonly record struct FontFactRow(int Slot, string Name, string Value);
+
+/// <summary>One line of the fallback chain, or one complaint about it.</summary>
+/// <param name="Slot">Where it is in the chain, complaints last.</param>
+/// <param name="Class"><c>error</c> for a complaint, and empty for a face that loaded.</param>
+/// <param name="Text">The line's own text — a numbered face, or what is wrong.</param>
+internal readonly record struct FontChainRow(int Slot, string Class, string Text);
+
+/// <summary>How much of one Unicode block the chain covers.</summary>
+/// <param name="Slot">Where the block is in the order the face reports them.</param>
+/// <param name="Class"><c>error</c> for nothing covered, <c>warning</c> for a gap, empty for whole.</param>
+/// <param name="Name">The block's name, which is also the picker's option.</param>
+/// <param name="Value">The count and the percentage, or an em dash for a block with nothing in it.</param>
+internal readonly record struct FontBlockRow(int Slot, string Class, string Name, string Value);
+
+/// <summary>The four atlas settings and the distance-field flag, as one snapshot.</summary>
+/// <param name="PixelSize">What size the glyphs are rasterised at.</param>
+/// <param name="Padding">How much room is left round each one.</param>
+/// <param name="AtlasWidth">How wide the page is.</param>
+/// <param name="AtlasHeight">And how tall.</param>
+/// <param name="DistanceField">Whether the page is a distance field rather than coverage.</param>
+/// <remarks>
+///     ⚠ <b>One record rather than five signals, which is <c>TextureImportView</c>'s finding.</b>
+///     Every field here lives on <c>FontAsset</c> — a plain mutable object no signal watches — and
+///     the panel finds out one moved because <c>Edit</c> raises <c>Changed</c> and <c>Reload</c>
+///     runs. Five signals over five fields would each depend on the document and none of them on the
+///     edit, which is the shape a revision counter gets invented to paper over.
+/// </remarks>
+internal readonly record struct FontSettings(
+    float PixelSize,
+    int Padding,
+    int AtlasWidth,
+    int AtlasHeight,
+    bool DistanceField
+);
+
+/// <summary>
+///     ⚠ The elements that exist only so that markup can set an intrinsic tag's own <c>Text</c>.
+/// </summary>
+/// <remarks>
+///     The panel ledger's shape 5 and its sanctioned escape; <c>FactName</c> in <c>Captions.cs</c>
+///     carries the full argument, and this panel uses that one for its <c>fact-name</c> cells.
+/// </remarks>
+internal sealed class FontTitle : UiElement {
     /// <inheritdoc />
-    protected override string TagName => "font-editor";
+    protected override string TagName => "font-title";
+}
 
+/// <inheritdoc cref="FontTitle" />
+internal sealed class FontChainLine : UiElement {
     /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
-
-    /// <summary>The glyph page.</summary>
-    public FontAtlasView Atlas { get; private set; } = null!;
-
-    /// <summary>The column beside it.</summary>
-    public UiElement Side { get; private set; } = null!;
-
-    /// <summary>The face's own facts and the atlas settings.</summary>
-    public UiElement Facts { get; private set; } = null!;
-
-    /// <summary>The fallback chain.</summary>
-    public UiElement Chain { get; private set; } = null!;
-
-    /// <summary>How much of each block the chain covers.</summary>
-    public UiElement Blocks { get; private set; } = null!;
-
-    /// <summary>Which block the page is showing.</summary>
-    public Select BlockChooser { get; private set; } = null!;
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        var bar = Part("font-bar");
-
-        bar.Add("fact-name").Text = "Block";
-        BlockChooser = bar.Add<Select>();
-
-        var body = Part("font-body");
-
-        Atlas = body.Add<FontAtlasView>();
-        Side = body.Add("font-side");
-        Facts = Side.Add("font-facts");
-        Chain = Side.Add("font-chain");
-        Blocks = Side.Add("font-blocks");
-
-        BlockChooser.SelectionChanged += (_, _) => Choose();
-    }
-
-    /// <summary>Shows a font.</summary>
-    /// <param name="font">The document.</param>
-    public void Show(FontDocument font) {
-        ArgumentNullException.ThrowIfNull(font);
-
-        if (document is { } previous) {
-            previous.Changed -= Reload;
-        }
-
-        document = font;
-        font.Changed += Reload;
-
-        Atlas.Font = font;
-        Reload(font);
-    }
-
-    /// <summary>Rebuilds everything from the document.</summary>
-    /// <param name="font">The document.</param>
-    public void Reload(FontDocument font) {
-        ArgumentNullException.ThrowIfNull(font);
-
-        Facts.Empty();
-        Chain.Empty();
-        Blocks.Empty();
-
-        Facts.Add("font-title").Text = font.Font.Name;
-
-        if (font.Face is { } face) {
-            Fact("Family", face.Name);
-            Fact("Units per em", face.UnitsPerEm.ToString(CultureInfo.InvariantCulture));
-            Fact("Glyphs", face.GlyphCount.ToString(CultureInfo.InvariantCulture));
-            Fact("Line height", face.Metrics.LineHeight.ToString(CultureInfo.InvariantCulture));
-            Fact("Variable", face.IsVariable ? string.Join(", ", face.Axes.Select(axis => axis.Tag)) : "no");
-        } else {
-            Fact("Family", "no face loaded");
-        }
-
-        Number("Pixel size", font.Font.PixelSize, value => font.Edit("Set Pixel Size", asset => asset.PixelSize = value));
-        Number("Padding", font.Font.Padding, value => font.Edit("Set Padding", asset => asset.Padding = (int) value));
-        Number("Atlas width", font.Font.AtlasWidth, value => font.Edit("Set Atlas Width", asset => asset.AtlasWidth = (int) value));
-        Number("Atlas height", font.Font.AtlasHeight, value => font.Edit("Set Atlas Height", asset => asset.AtlasHeight = (int) value));
-
-        var field = Facts.Add("fact-row");
-        field.Add("fact-name").Text = "Distance field";
-
-        var toggle = field.Add("fact-value").Add<CheckBox>();
-        toggle.IsChecked = font.Font.DistanceField;
-        toggle.CheckedChanged += (_, on) => font.Edit("Set Distance Field", asset => asset.DistanceField = on);
-
-        Chain.Add("font-title").Text = "Fallback chain";
-        Chain.Add("font-chain-row").Text = font.Face is { } primary ? $"1. {primary.Name}" : "1. (no face)";
-
-        for (var index = 0; index < font.Fallbacks.Count; index++) {
-            Chain.Add("font-chain-row").Text = $"{index + 2}. {font.Fallbacks[index].Name}";
-        }
-
-        foreach (var problem in font.Problems) {
-            var row = Chain.Add("font-chain-row");
-
-            row.AddClass("error");
-            row.Text = problem;
-        }
-
-        Blocks.Add("font-title").Text = "Coverage";
-
-        var options = BlockChooser.Value;
-
-        BlockChooser.ClearOptions();
-
-        foreach (var coverage in font.Coverage()) {
-            var row = Blocks.Add("fact-row");
-            row.Add("fact-name").Text = coverage.Name;
-
-            var value = row.Add("fact-value").Add("text");
-
-            value.Text = coverage.Assigned == 0
-                ? "—"
-                : string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"{coverage.Covered}/{coverage.Assigned}  ({coverage.Fraction * 100f:0}%)"
-                );
-
-            if (coverage.Covered == 0) {
-                row.AddClass("error");
-            } else if (coverage.Covered < coverage.Assigned) {
-                row.AddClass("warning");
-            }
-
-            BlockChooser.AddOption(coverage.Name);
-        }
-
-        var blocks = font.Coverage();
-
-        BlockChooser.Value = options ?? (blocks.Count > 0 ? blocks[0].Name : null);
-        Choose();
-    }
-
-    void Choose() {
-        if (document is not { } font || BlockChooser.Value is not { Length: > 0 } chosen) {
-            return;
-        }
-
-        foreach (var coverage in font.Coverage()) {
-            if (!string.Equals(coverage.Name, chosen, StringComparison.Ordinal)) {
-                continue;
-            }
-
-            Atlas.First = coverage.First;
-            Atlas.Count = coverage.Last - coverage.First + 1;
-
-            return;
-        }
-    }
-
-    void Fact(string label, string value) {
-        var row = Facts.Add("fact-row");
-
-        row.Add("fact-name").Text = label;
-        row.Add("fact-value").Add("text").Text = value;
-    }
-
-    void Number(string label, float value, Action<float> write) {
-        var row = Facts.Add("fact-row");
-        row.Add("fact-name").Text = label;
-
-        var box = row.Add("fact-value").Add<NumericInput>();
-
-        box.Decimals = 0;
-        box.Number = value;
-        box.NumberChanged += (_, number) => write((float) number);
-    }
+    protected override string TagName => "font-chain-row";
 }
 
 /// <summary>Opens a font asset.</summary>

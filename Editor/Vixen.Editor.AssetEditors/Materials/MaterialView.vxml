@@ -1,0 +1,359 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 7. A material's panel: a preview request, a shape picker, the header the
+    inspector draws, the link to the graph it came from, and the parameters it sets. The ledger
+    sized it M in the seven-panel block with "port the readouts, keep the field rows"; the readouts
+    are ported and the parameter list is not, for a reason the ledger already has a name for.
+
+    ⚠ **The parameter list is the sixth shape and it is not this wave's to unblock.** Every entry in
+    it is `expander.Content.Add<InspectorView>()` followed by `rows.Inspect(parameter)` — a control
+    fed by a **method**, inside a `@for`. Shape 1's escape is "keep the control behind a `ref`",
+    which works when the control is fed by properties and does not work here; the sanctioned escape
+    for a method-fed control is the mixer's four-line wrapper subclass, and `InspectorView` is
+    `sealed`. That is exactly what stopped `NodeInspector` and `AddComponentMenu` in wave 6, and
+    another agent is on it. So `material-parameters` is a `ref`'d host element and `Rebuild()` fills
+    it, which is the pattern `SettingsView`'s pane established: an element owned by no region, so a
+    clear-and-refill is safe.
+
+    ⚠ **`HeaderView` is the same control and needs no subclass, because it is not in a loop.** One
+    `InspectorView`, one `Inspect(material.Header)` call from `Show`, one `ref`. The distinction
+    worth keeping is that `sealed` blocks the *wrapper*, not the `ref` — a single control fed by a
+    method is ordinary shape 1 and always was.
+
+    ⚠ **`Restate` is gone rather than moved, and the three things it wrote are one snapshot record.**
+    A material naming a graph offers "Open shader graph"; one naming a graph the project no longer
+    has says so instead of offering a button that opens nothing. That was a class, a `Disabled` flag
+    and a label, written together from one method that six paths had to remember to call. All three
+    read `material.Header.Graph` and the asset database — a plain mutable object and a service, and
+    no signal watches either — so they are one `MaterialGraphLink` in one signal for
+    `TextureImportView`'s reason: written as three signals they would each depend on the document
+    and none of them on the edit that moved the graph.
+
+    ⚠ **The alert keeps its last words when it is hidden**, which is why the message is a signal and
+    not a projection. On a material that reads, `Show` adds `hidden` and writes no message at all, so
+    a whole-tree dump shows `.hidden` over whatever reason was last given. Two signals, written by
+    exactly the paths that used to write the two properties.
+
+    ⚠ **`Shapes` keeps a `ref`, its options and its subscription in `OnComposed`, and the ordering is
+    the reason — this is a markup limitation and not a preference.** The C# runs
+    `AddOption`ements, then `Value = "Sphere"`, and *then* `SelectionChanged += …`, so the initial
+    value is set while nothing is listening. `change:Value` is `bind:`'s write-back leg over
+    `PropertyChanged`, which is wired when the region is built — there is no way to say "assign
+    without notifying" and no way to order a `change:` handler after an `OnComposed` assignment. So
+    a `change:Value` here would fire once at compose time and raise a `PreviewChanged` the
+    hand-written panel does not raise, which is a real extra render for whoever has subscribed by
+    then. Written up in the wave notes; the shape of the fix is either an `on:`-style modifier
+    meaning "not for the first value" or an `AddOption` markup can name, which is build-list item 4.
+
+    ⚠ **The click walk-up stays whole, and splitting it would have been worse.** `Chosen` walks up
+    from the event's source and recognises three things: the Add button, the Open-graph button and
+    whichever Remove button belongs to a parameter. The first two could be `on:click.stop`; the
+    third cannot, because those buttons are built by `Rebuild()` in C# and keyed by a dictionary. One
+    gesture served by two mechanisms is harder to reason about than one walk-up, and the walk-up is
+    what the `removals` dictionary is for either way. When the parameter list can be markup, all
+    three go at once.
+-->
+@component MaterialView
+@namespace Vixen.Editor.AssetEditors.Materials
+@inherits Vixen.Ui.Controls.Control
+@tag material-editor
+@using Vixen.Core
+@using Vixen.Editor.Inspector
+@using Vixen.Rendering.Materials
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<Alert ref="@Broken" class="@BrokenClass" Title="This material did not read" Message="@BrokenMessage" />
+
+<Image ref="@Preview" Description="The material on a preview shape" />
+
+<Select ref="@Shapes" />
+
+<InspectorView ref="@HeaderView" />
+
+<Button ref="@OpenGraph" class="@Link.Class" Label="@Link.Label" Disabled="@Link.Missing" />
+
+<material-parameters ref="@Parameters" />
+
+<material-bar>
+    <Select ref="@NewKind" />
+    <TextBox ref="@NewName" Placeholder="Parameter name" />
+    <Button ref="@AddParameter" Label="Add" />
+</material-bar>
+
+@code {
+    readonly Dictionary<UiElement, IMaterialParameter> removals = [];
+
+    /// <summary>Whether the alert is shown, as the class the sheet reads.</summary>
+    readonly Signal<string> brokenClass = new("hidden");
+
+    /// <summary>And what it says, which outlives being hidden.</summary>
+    readonly Signal<string> brokenMessage = new(string.Empty);
+
+    /// <summary>What the graph button is, all three facts at once.</summary>
+    readonly Signal<MaterialGraphLink> link = new(new("hidden", false, "Open shader graph"));
+
+    MaterialDocument? document;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Where the preview is drawn once something has rendered it.</summary>
+    public Image Preview { get; private set; } = null!;
+
+    /// <summary>Which shape the preview asks for.</summary>
+    public MaterialPreviewShape Shape { get; private set; } = MaterialPreviewShape.Sphere;
+
+    /// <summary>The shape picker.</summary>
+    public Select Shapes { get; private set; } = null!;
+
+    /// <summary>The shader, the shading model and the graph link.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>ref</c>, which is ordinary shape 1 and not the <c>sealed</c> blocker.</b> One
+    ///     control fed by one <c>Inspect</c> call from <see cref="Show" /> needs no wrapper type at
+    ///     all; what <c>sealed</c> stops is the wrapper the <i>parameter list</i> would need, because
+    ///     there the same call has to happen once per row inside a <c>@for</c>.
+    /// </remarks>
+    public InspectorView HeaderView { get; private set; } = null!;
+
+    /// <summary>The button that opens the graph this material came from.</summary>
+    public Button OpenGraph { get; private set; } = null!;
+
+    /// <summary>What the material sets, one expander a parameter.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A host element that <see cref="Rebuild" /> fills, and the ledger's sixth shape is
+    ///     why.</b> Each row is an <c>InspectorView</c> fed by <c>Inspect(parameter)</c> — a method,
+    ///     inside a loop — and <c>InspectorView</c> is <c>sealed</c>, so there is no four-line
+    ///     wrapper to give the call a property to hang off. An element owned by no region is safe to
+    ///     clear and refill, which is what <c>SettingsView</c>'s pane established.
+    /// </remarks>
+    public UiElement Parameters { get; private set; } = null!;
+
+    /// <summary>Which kind of parameter the add button will add.</summary>
+    public Select NewKind { get; private set; } = null!;
+
+    /// <summary>What the new parameter will be called.</summary>
+    public TextBox NewName { get; private set; } = null!;
+
+    /// <summary>The button that adds it.</summary>
+    public Button AddParameter { get; private set; } = null!;
+
+    /// <summary>Shown when the file did not read.</summary>
+    public Alert Broken { get; private set; } = null!;
+
+    /// <summary>Raised when the preview's subject changes — a different shape, or an edited value.</summary>
+    public event Action<MaterialView>? PreviewChanged;
+
+    /// <summary>Raised when the author asks for the shader graph this material was authored in.</summary>
+    public event Action<MaterialView, AssetId>? OpenGraphRequested;
+
+    partial void OnComposed() {
+        Shapes.AddOption(nameof(MaterialPreviewShape.Sphere), "Sphere");
+        Shapes.AddOption(nameof(MaterialPreviewShape.Plane), "Plane");
+        Shapes.AddOption(nameof(MaterialPreviewShape.Cube), "Cube");
+        Shapes.Value = nameof(MaterialPreviewShape.Sphere);
+
+        // ⚠ Subscribed *after* the value is set, which is the hand-written order and is the whole
+        // reason this is not `change:Value`. See the header.
+        Shapes.SelectionChanged += (_, value) => {
+            Shape = Enum.TryParse<MaterialPreviewShape>(value, out var shape) ? shape : MaterialPreviewShape.Sphere;
+            PreviewChanged?.Invoke(this);
+        };
+
+        HeaderView.Search.SetStyle("display", "none");
+        HeaderView.ValueChanged += (_, _) => Restate();
+
+        NewKind.AddOption("Scalar");
+        NewKind.AddOption("Colour");
+        NewKind.AddOption("Vector");
+        NewKind.AddOption("Texture");
+        NewKind.AddOption("Flag");
+        NewKind.Value = "Scalar";
+
+        AddHandler<ClickEvent>(static (element, args) => ((MaterialView) element).Chosen(args));
+    }
+
+    /// <summary>Shows a material.</summary>
+    /// <param name="material">The document.</param>
+    public void Show(MaterialDocument material) {
+        ArgumentNullException.ThrowIfNull(material);
+
+        if (document is { } previous) {
+            previous.ParametersChanged -= Reload;
+        }
+
+        document = material;
+        material.ParametersChanged += Reload;
+
+        if (material.LoadError is { } error) {
+            brokenClass.Value = string.Empty;
+            brokenMessage.Value = error;
+        } else {
+            brokenClass.Value = "hidden";
+        }
+
+        HeaderView.EditedDocument = material;
+        HeaderView.Inspect(material.Header);
+
+        Rebuild();
+    }
+
+    /// <summary>Rebuilds the parameter list from the material as it stands.</summary>
+    public void Rebuild() {
+        while (Parameters.Children.Count > 0) {
+            Parameters.Children[^1].Remove();
+        }
+
+        removals.Clear();
+
+        if (document is not { } material) {
+            return;
+        }
+
+        foreach (var parameter in material.Material.Parameters) {
+            var expander = Parameters.Add<Expander>();
+
+            // Labelled by the kind and the name, because the name alone does not say whether
+            // `tint` is a colour or four numbers — which is the question an author asks when a
+            // shader is not getting what they think they set.
+            expander.Label = $"{Alias(parameter)}  {parameter.Name}";
+            expander.IsExpanded = true;
+
+            var rows = expander.Content.Add<InspectorView>();
+            rows.Search.SetStyle("display", "none");
+            rows.EditedDocument = material;
+            rows.Inspect(parameter);
+            rows.ValueChanged += (_, _) => PreviewChanged?.Invoke(this);
+
+            var remove = expander.Content.Add<Button>();
+            remove.Label = "Remove";
+            remove.Variant = ControlVariant.Subtle;
+
+            removals[remove] = parameter;
+        }
+
+        Restate();
+        PreviewChanged?.Invoke(this);
+    }
+
+    /// <summary>Reads every editor back from the material, without rebuilding anything.</summary>
+    public void Reload() {
+        HeaderView.Reload();
+
+        // ⚠ Through the expander's *content*, not its children. An `Expander` is a header and a
+        // content element, and the rows are inside the second — a walk over its immediate children
+        // finds the header and reloads nothing.
+        foreach (var expander in Parameters.Children) {
+            if (expander is not Expander section) {
+                continue;
+            }
+
+            foreach (var child in section.Content.Children) {
+                if (child is InspectorView rows) {
+                    rows.Reload();
+                }
+            }
+        }
+    }
+
+    void Reload(MaterialDocument changed) => Rebuild();
+
+    /// <summary>Works out what the graph button is, which is one fact in three parts.</summary>
+    void Restate() {
+        if (document is not { } material) {
+            return;
+        }
+
+        var graph = material.Header.Graph;
+
+        if (graph.IsEmpty) {
+            link.Value = new("hidden", false, "Open shader graph");
+            return;
+        }
+
+        // ⚠ Resolved against the database rather than assumed to exist. A material outlives the
+        // graph it was generated from often enough — a graph deleted, a branch without it — and a
+        // button that opened nothing is worse than one that says why it cannot.
+        var known = material.Project.Assets.TryGetByGuid(graph, out _);
+
+        link.Value = new(
+            string.Empty,
+            !known,
+            known ? "Open shader graph" : "Shader graph is missing from this project"
+        );
+    }
+
+    void Chosen(ClickEvent args) {
+        if (document is not { } material) {
+            return;
+        }
+
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, AddParameter)) {
+                Add(material);
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, OpenGraph)) {
+                OpenGraphRequested?.Invoke(this, material.Header.Graph);
+                args.Handled = true;
+
+                return;
+            }
+
+            if (removals.TryGetValue(element, out var parameter)) {
+                material.Remove(parameter);
+                args.Handled = true;
+
+                return;
+            }
+        }
+    }
+
+    void Add(MaterialDocument material) {
+        var name = (NewName.Value ?? string.Empty).Trim();
+
+        if (name.Length == 0 || material.Material.Find(name) is not null) {
+            return;
+        }
+
+        material.Add(Create(NewKind.Value, name));
+        NewName.Value = string.Empty;
+    }
+
+    /// <summary>A fresh parameter of a named kind.</summary>
+    /// <param name="kind">The kind, as the picker spells it.</param>
+    /// <param name="name">What to call it.</param>
+    /// <returns>The parameter.</returns>
+    internal static IMaterialParameter Create(string? kind, string name) => kind switch {
+        "Colour" => new ColourParameter { Name = name },
+        "Vector" => new VectorParameter { Name = name },
+        "Texture" => new TextureParameter { Name = name },
+        "Flag" => new FlagParameter { Name = name },
+        _ => new ScalarParameter { Name = name }
+    };
+
+    /// <summary>What a parameter's kind is called, which is its contract name and its YAML tag.</summary>
+    /// <param name="parameter">The parameter.</param>
+    /// <returns>The name.</returns>
+    internal static string Alias(IMaterialParameter parameter) => parameter switch {
+        ColourParameter => "Colour",
+        VectorParameter => "Vector",
+        TextureParameter => "Texture",
+        FlagParameter => "Flag",
+        _ => "Scalar"
+    };
+
+    // ================================================================== What the markup reads
+
+    string BrokenClass => brokenClass.Value;
+
+    string BrokenMessage => brokenMessage.Value;
+
+    MaterialGraphLink Link => link.Value;
+}

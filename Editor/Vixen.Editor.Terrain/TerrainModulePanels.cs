@@ -87,13 +87,13 @@ public sealed partial class TerrainModule {
     bool hasGrown;
 
     /// <summary>The rows the create section's derived numbers are drawn into.</summary>
-    UiElement? terrainFacts;
+    FactBlock? terrainFacts;
 
     /// <summary>And the layer stack's.</summary>
-    UiElement? terrainLayers;
+    LayerBlock? terrainLayers;
 
     /// <summary>And the palette's.</summary>
-    UiElement? foliagePalette;
+    PaletteBlock? foliagePalette;
 
     /// <summary>And the growth report's.</summary>
     FactBlock? growthReport;
@@ -113,7 +113,7 @@ public sealed partial class TerrainModule {
                 create.EditedDocument = null;
                 create.Inspect(terrain.Create);
 
-                terrainFacts = panel.Add("terrain-facts");
+                terrainFacts = panel.Add<FactBlock>();
 
                 // ⚠ Redrawn on every change rather than on a button, because the whole point of the
                 // readout is that it is there *while* the numbers are being typed. A "recompute"
@@ -136,7 +136,7 @@ public sealed partial class TerrainModule {
 
                 Section(panel, "Edit layers");
 
-                terrainLayers = panel.Add("terrain-layers");
+                terrainLayers = panel.Add<LayerBlock>();
 
                 RefreshTerrainLayers();
 
@@ -184,7 +184,8 @@ public sealed partial class TerrainModule {
 
                 Section(panel, "Palette");
 
-                foliagePalette = panel.Add("foliage-palette");
+                foliagePalette = panel.Add<PaletteBlock>();
+                foliagePalette.Chose = Choose;
 
                 RefreshPalette();
 
@@ -472,18 +473,14 @@ public sealed partial class TerrainModule {
             return;
         }
 
-        Clear(facts);
-
-        foreach (var (label, value) in terrain.Create.Facts.Rows()) {
-            Fact(facts, label, value);
-        }
-
         // ⚠ The refusal is shown beside the numbers rather than only when Create is pressed. A form
         // whose only feedback is a button that does nothing is the shape of dialog people describe
         // as "the editor is broken".
-        if (terrain.Create.Validate() is { } refusal) {
-            Fact(facts, "Refused", refusal);
-        }
+        facts.Show(
+            terrain.Create.Validate() is { } refusal
+                ? [.. terrain.Create.Facts.Rows(), ("Refused", refusal)]
+                : terrain.Create.Facts.Rows()
+        );
     }
 
     /// <summary>The edit-layer stack, top to bottom.</summary>
@@ -498,13 +495,13 @@ public sealed partial class TerrainModule {
             return;
         }
 
-        Clear(list);
-
         if (terrain.Editing.Terrain is not { } map) {
-            Fact(list, "No terrain", "create one above, or select an entity that has one");
+            list.Show([("No terrain", "create one above, or select an entity that has one")]);
 
             return;
         }
+
+        var rows = new List<(string, string)>(map.Layers.Count);
 
         for (var index = map.Layers.Count - 1; index >= 0; index--) {
             var layer = map.Layers[index];
@@ -516,8 +513,10 @@ public sealed partial class TerrainModule {
                 _ => layer.IsVisible ? "visible" : "hidden"
             };
 
-            Fact(list, layer.Name, layer.IsLocked ? state + ", locked" : state);
+            rows.Add((layer.Name, layer.IsLocked ? state + ", locked" : state));
         }
+
+        list.Show(rows);
     }
 
     /// <summary>The foliage palette: what is in it, and which entries a stroke would place.</summary>
@@ -526,30 +525,32 @@ public sealed partial class TerrainModule {
             return;
         }
 
-        Clear(list);
-
         if (foliage.Editing.Volume is not { } volume || volume.Palette.Count == 0) {
             // ⚠ An empty palette shows *why* it is empty. Entering a mode that does nothing and says
             // nothing is the state every one of these toolsets puts a new user in.
-            Fact(list, "No types", foliage.Editing.Refusal ?? "add a .vxfoliage or .vxgrass to the palette");
+            list.ShowNothing(foliage.Editing.Refusal ?? "add a .vxfoliage or .vxgrass to the palette");
 
             return;
         }
 
-        for (var index = 0; index < volume.Palette.Count; index++) {
-            var slot = index;
+        var entries = new List<PaletteEntry>(volume.Palette.Count);
+
+        for (var slot = 0; slot < volume.Palette.Count; slot++) {
             var type = volume.Palette[slot];
-            var row = list.Add("fact-row");
-            var chosen = row.Add<CheckBox>();
 
-            chosen.Label = type.Name;
-            chosen.IsChecked = foliage.Editing.Chosen.Contains(slot);
-            chosen.CheckedChanged += (_, on) => Choose(slot, on);
-
-            row.Add("fact-value").Add("text").Text = type.Storage == FoliageStorage.Derived
-                ? "derived — nothing about it is in any file"
-                : $"stored, spacing {type.Radius:0.##} m";
+            entries.Add(
+                new(
+                    slot,
+                    type.Name,
+                    foliage.Editing.Chosen.Contains(slot),
+                    type.Storage == FoliageStorage.Derived
+                        ? "derived — nothing about it is in any file"
+                        : string.Create(CultureInfo.InvariantCulture, $"stored, spacing {type.Radius:0.##} m")
+                )
+            );
         }
+
+        list.Show(entries);
     }
 
     /// <summary>Adds or removes a palette entry from what a stroke would place.</summary>
@@ -753,10 +754,8 @@ public sealed partial class TerrainModule {
         }
     }
 
-    /// <summary>Empties a rows container before it is refilled.</summary>
-    static void Clear(UiElement element) {
-        while (element.Children.Count > 0) {
-            element.Children[^1].Remove();
-        }
-    }
+    // ⚠ `Clear(element)` used to be here — "empties a rows container before it is refilled" — and has
+    // no callers left. Every container it emptied is a part now, and a part's rows are a signal: the
+    // keyed `@for` reconciles what changed and drops what left, so there is nothing to empty. That is
+    // the clear-and-refill the ledger says a port is supposed to delete rather than move.
 }

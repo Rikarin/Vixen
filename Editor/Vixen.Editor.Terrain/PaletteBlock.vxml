@@ -1,0 +1,105 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 7. The foliage palette: what is in it, and which of its entries a stroke would
+    place. One of the two parts the Foliage panel is made of, ported for the reason `FactBlock`'s
+    header gives — the panel builds directly into a `DockPanel`, so it is its parts that become
+    markup and not the panel.
+
+    ⚠ **Two shapes of row, and the empty state is the interesting one.** An empty palette shows *why*
+    it is empty, which is a plain `FactRow` — "add a .vxfoliage or .vxgrass to the palette", or
+    whatever the mode is refusing over. Entering a mode that does nothing and says nothing is the
+    state every one of these toolsets puts a new user in, and that sentence is the cure. A palette
+    with entries in it is a `fact-row` per type with a check box in it.
+
+    ⚠ **The two arms are chosen by an `@if` around the whole loop, not inside it.** The empty state
+    is not a row of the list — it is a different list — so the `@if` is `Switch` at the top level of
+    the part and each arm builds its own thing. Nothing here closes over a pattern variable, which is
+    wave 4's rule: the arm's condition is `Empty`, and everything either arm reads goes back through
+    the signal.
+
+    ⚠ **`change:IsChecked` and no `refs`, because a row's handler needs nothing but its own slot.**
+    `refs` earns its keep when a handler has to reach a *sibling* control — the mixer's fader reading
+    its own mute — or when a plain element has to be hit-tested. Here the handler closes over
+    `entry.Slot`, which is in the key, so the row it belongs to is the row it was built for.
+
+    ⚠ **The write-back cannot loop.** Ticking a box calls `Chosen`, which the panel answers by
+    calling `Show` again — and the `IsChecked` binding that assignment re-runs is the one whose
+    `change:` handler started it. It terminates because a change made while effects are draining is
+    not reported, which is the rule `TextureImportView`'s channel bar rests on too.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and not `Control`**, for `FactBlock`'s reason: a `Control`
+    gives itself `variant-default` and `size-md`, and `panel.Add("foliage-palette")` had neither.
+-->
+@component PaletteBlock
+@namespace Vixen.Editor.Terrain
+@inherits Vixen.Ui.UiElement
+@tag foliage-palette
+@using System.Collections.Immutable
+@using Vixen.Editor.Ui
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+@if (Empty) {
+    <FactRow Name="No types" Value="@Refusal" />
+} else {
+    @for (var entry in Rows) {
+        <fact-row key="@entry">
+            <CheckBox Label="@entry.Name"
+                      IsChecked="@entry.Chosen"
+                      change:IsChecked="@(on => Choose(entry.Slot, on))" />
+
+            <fact-value>@entry.Detail</fact-value>
+        </fact-row>
+    }
+}
+
+@code {
+    /// <inheritdoc cref="Show" />
+    readonly Signal<ImmutableArray<PaletteEntry>> rows = new([]);
+
+    /// <inheritdoc cref="Empty" />
+    readonly Signal<string> refusal = new(string.Empty);
+
+    /// <summary>What is in the palette, in the order the volume declares it.</summary>
+    public IReadOnlyList<PaletteEntry> Entries => rows.Value;
+
+    /// <summary>Runs when an entry is added to or taken out of what a stroke would place.</summary>
+    /// <remarks>
+    ///     The slot and the new state, because the panel's own <c>Choose</c> takes exactly those two
+    ///     — additive selection is the mode's business and not this part's.
+    /// </remarks>
+    public Action<int, bool>? Chose { get; set; }
+
+    /// <summary>Shows a palette.</summary>
+    /// <param name="entries">What is in it, in order.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="entries" /> is null.</exception>
+    public void Show(IEnumerable<PaletteEntry> entries) {
+        ArgumentNullException.ThrowIfNull(entries);
+
+        rows.Value = [.. entries];
+        refusal.Value = string.Empty;
+    }
+
+    /// <summary>Shows an empty palette, and why it is empty.</summary>
+    /// <param name="why">What the mode is refusing over, or the sentence telling an author what to add.</param>
+    /// <exception cref="ArgumentException"><paramref name="why" /> is empty.</exception>
+    public void ShowNothing(string why) {
+        ArgumentException.ThrowIfNullOrEmpty(why);
+
+        rows.Value = [];
+        refusal.Value = why;
+    }
+
+    void Choose(int slot, bool on) => Chose?.Invoke(slot, on);
+
+    // ================================================================== What the markup reads
+
+    bool Empty => rows.Value.Length == 0;
+
+    string Refusal => refusal.Value;
+
+    ImmutableArray<PaletteEntry> Rows => rows.Value;
+}

@@ -236,6 +236,47 @@ and drops the entry with the row's region. So the key you look up with is the ex
 `refs` outside a `@for` is `VXML2013`, the mirror of `VXML2010`: there is no key out there to file
 under. One element held once is what `ref` is for.
 
+⚠ **`refs` must be in the loop body itself and not inside an `@if` inside it, and the failure is
+silent.** `VXML2013` reads the markup lexically, so a `refs` in an `@if` arm inside a `@for`
+compiles — and throws at compose time. `BuildContext.For` sets `iteration` around the *synchronous*
+build of a new region and restores it in a `finally`; `BuildContext.Switch` registers its own
+`Bind`, which the scheduler runs **later**, by which time `iteration` is back to what it was. So
+`Refs` finds no key and throws the "'refs' is only meaningful inside an @for" message its own remark
+says nothing generated can reach.
+
+⚠ **What that looks like is not an exception in your face.** The arm's builder is abandoned wherever
+the throw happened, so the element created on the line above `refs` survives with **no classes, no
+bindings and no children**, and everything else on the panel is correct. Wave 7 met it in
+`ShapeVocabularyView`: seven `vocab-row`s, each an empty box, while the side pane and the report
+beside them were byte-perfect.
+
+The workaround is free and is usually the better markup anyway — put the `refs` on the row and the
+`@if` *inside* it:
+
+```xml
+@for (var row in Rows) {
+    <vocab-row key="@row" refs="@RowElements" class="@ClassOf(row)">
+        <VocabName Text="@row.Name" />
+
+        @if (!row.Heading) {
+            <VocabDetail Text="@row.Detail" />
+        }
+    </vocab-row>
+}
+```
+
+✅ **Fixed the same day (2026-08-23), and it was four lines in `Switch`**: capture `iteration` where
+the arm is *declared* and restore it around the build, which is the bargain `For` already makes for a
+nested loop and rests on the same sentence — an arm inside a row belongs to the row. So both
+spellings work now, and the one above is preferred on its own merits rather than because the other
+one breaks.
+
+⚠ **The assertion is in `Vixen.Ui.Tests`' `CompositionTests` and not in the markup suite**, because
+`VXML2013` genuinely cannot catch this: it reads the markup lexically, and a `refs` in an `@if` arm
+inside a `@for` *is* inside a loop. `A_refs_inside_a_branch_inside_a_row_is_filed_under_the_rows_key`
+was confirmed to fail against the unfixed `Switch` — with `Text` reading `null`, which is the
+abandoned arm — before it was accepted.
+
 ⚠ **A handle is filled by an effect, so it is empty until the next flush** — the one asymmetry with
 `ref`, which is assigned in the straight-line body. `ElementRefs<T>`'s indexer throws and says so
 rather than answering null, because a null would arrive as a `NullReferenceException` somewhere
