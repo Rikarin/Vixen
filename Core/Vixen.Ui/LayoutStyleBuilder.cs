@@ -434,6 +434,14 @@ public sealed class LayoutStyleBuilder {
             result.Display = display;
         }
 
+        if (TryKeyword(style, names.Float, keywords.Floats, out FloatSide floatSide)) {
+            result.Float = floatSide;
+        }
+
+        if (TryKeyword(style, names.Clear, keywords.Clears, out Clear clear)) {
+            result.Clear = clear;
+        }
+
         if (TryKeyword(style, names.VerticalAlign, keywords.VerticalAligns, out VerticalAlign verticalAlign)) {
             result.VerticalAlign = verticalAlign;
         }
@@ -974,6 +982,8 @@ public sealed class LayoutStyleBuilder {
             OverflowX = table.Intern("overflow-x");
             OverflowY = table.Intern("overflow-y");
             Display = table.Intern("display");
+            Float = table.Intern("float");
+            Clear = table.Intern("clear");
             VerticalAlign = table.Intern("vertical-align");
             BoxSizing = table.Intern("box-sizing");
 
@@ -1042,6 +1052,8 @@ public sealed class LayoutStyleBuilder {
         public int OverflowX { get; }
         public int OverflowY { get; }
         public int Display { get; }
+        public int Float { get; }
+        public int Clear { get; }
         public int VerticalAlign { get; }
         public int BoxSizing { get; }
         public int Flex { get; }
@@ -1190,6 +1202,30 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("flow-root")] = Display.FlowRoot
             };
 
+            // ⚠ <b>The two LOGICAL keywords are absent, and it is the same refusal <c>inline-grid</c>
+            // gets one table up.</b> Tailwind v4 emits <c>float: inline-start</c> and
+            // <c>inline-end</c>, and CSS Logical Properties defines both against the writing mode.
+            // <see cref="FloatSide" /> and <see cref="Clear" /> are physical by construction — CSS
+            // 2.1 §9.5's keywords, which do not flip with <see cref="Direction" />, and which the
+            // whole `float_bfc_*` corpus asserts do not flip by shipping RTL variants with identical
+            // expectations. Mapping `inline-start` onto `Left` would be right in LTR and wrong in
+            // RTL within the same declaration; accepting it and doing nothing is worse in a
+            // different way. So the utility families do not emit them either, and
+            // `docs/plan/43-web-styling-parity.tsv` records both roots as `partial` with the gap
+            // named, rather than as `works` with a class that quietly does nothing.
+            Floats = new Dictionary<int, FloatSide> {
+                [table.Intern("none")] = FloatSide.None,
+                [table.Intern("left")] = FloatSide.Left,
+                [table.Intern("right")] = FloatSide.Right
+            };
+
+            Clears = new Dictionary<int, Clear> {
+                [table.Intern("none")] = Clear.None,
+                [table.Intern("left")] = Clear.Left,
+                [table.Intern("right")] = Clear.Right,
+                [table.Intern("both")] = Clear.Both
+            };
+
             // ⚠ <b>Three of the eight, and the five that are missing are missing on purpose.</b>
             // `middle`, `text-top`, `text-bottom`, `sub` and `super` are each defined against the
             // parent's strut — its font's x-height, ascent or descent — and `Vixen.Ui.Layout` has no
@@ -1236,6 +1272,8 @@ public sealed class LayoutStyleBuilder {
         public Dictionary<int, Wrap> Wraps { get; }
         public Dictionary<int, Overflow> Overflows { get; }
         public Dictionary<int, Display> Displays { get; }
+        public Dictionary<int, FloatSide> Floats { get; }
+        public Dictionary<int, Clear> Clears { get; }
         public Dictionary<int, BoxSizing> BoxSizings { get; }
         public Dictionary<int, GridAutoFlow> GridAutoFlows { get; }
     }

@@ -28,6 +28,12 @@ Vixen.Ui.Layout.CachedMeasurement.UnclampedComputedWidth -> float
 Vixen.Ui.Layout.CachedMeasurement.WidthMeasureMode -> Vixen.Ui.Layout.MeasureMode
 Vixen.Ui.Layout.CachedMeasurements -> struct
 Vixen.Ui.Layout.CachedMeasurements.CachedMeasurements() -> void
+Vixen.Ui.Layout.Clear -> enum : byte
+Vixen.Ui.Layout.Clear.Both = 3 -> Vixen.Ui.Layout.Clear
+Vixen.Ui.Layout.Clear.Clear() -> void
+Vixen.Ui.Layout.Clear.Left = 1 -> Vixen.Ui.Layout.Clear
+Vixen.Ui.Layout.Clear.None = 0 -> Vixen.Ui.Layout.Clear
+Vixen.Ui.Layout.Clear.Right = 2 -> Vixen.Ui.Layout.Clear
 Vixen.Ui.Layout.Dimension -> enum : byte
 Vixen.Ui.Layout.Dimension.Dimension() -> void
 Vixen.Ui.Layout.Dimension.Height = 1 -> Vixen.Ui.Layout.Dimension
@@ -72,6 +78,11 @@ Vixen.Ui.Layout.FlexDirection.ColumnReverse = 1 -> Vixen.Ui.Layout.FlexDirection
 Vixen.Ui.Layout.FlexDirection.FlexDirection() -> void
 Vixen.Ui.Layout.FlexDirection.Row = 2 -> Vixen.Ui.Layout.FlexDirection
 Vixen.Ui.Layout.FlexDirection.RowReverse = 3 -> Vixen.Ui.Layout.FlexDirection
+Vixen.Ui.Layout.FloatSide -> enum : byte
+Vixen.Ui.Layout.FloatSide.FloatSide() -> void
+Vixen.Ui.Layout.FloatSide.Left = 1 -> Vixen.Ui.Layout.FloatSide
+Vixen.Ui.Layout.FloatSide.None = 0 -> Vixen.Ui.Layout.FloatSide
+Vixen.Ui.Layout.FloatSide.Right = 2 -> Vixen.Ui.Layout.FloatSide
 Vixen.Ui.Layout.GridAutoFlow -> enum : byte
 Vixen.Ui.Layout.GridAutoFlow.Column = 1 -> Vixen.Ui.Layout.GridAutoFlow
 Vixen.Ui.Layout.GridAutoFlow.ColumnDense = 3 -> Vixen.Ui.Layout.GridAutoFlow
@@ -231,6 +242,7 @@ Vixen.Ui.Layout.LayoutStyle.AlignSelfOverflow -> Vixen.Ui.Layout.OverflowAlignme
 Vixen.Ui.Layout.LayoutStyle.AspectRatio -> float
 Vixen.Ui.Layout.LayoutStyle.Border -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.BoxSizing -> Vixen.Ui.Layout.BoxSizing
+Vixen.Ui.Layout.LayoutStyle.Clear -> Vixen.Ui.Layout.Clear
 Vixen.Ui.Layout.LayoutStyle.Dimensions -> Vixen.Ui.Layout.DimensionLengths
 Vixen.Ui.Layout.LayoutStyle.Direction -> Vixen.Ui.Layout.Direction
 Vixen.Ui.Layout.LayoutStyle.Display -> Vixen.Ui.Layout.Display
@@ -240,6 +252,7 @@ Vixen.Ui.Layout.LayoutStyle.FlexDirection -> Vixen.Ui.Layout.FlexDirection
 Vixen.Ui.Layout.LayoutStyle.FlexGrow -> float
 Vixen.Ui.Layout.LayoutStyle.FlexShrink -> float
 Vixen.Ui.Layout.LayoutStyle.FlexWrap -> Vixen.Ui.Layout.Wrap
+Vixen.Ui.Layout.LayoutStyle.Float -> Vixen.Ui.Layout.FloatSide
 Vixen.Ui.Layout.LayoutStyle.Gap -> Vixen.Ui.Layout.GutterLengths
 Vixen.Ui.Layout.LayoutStyle.GridAutoFlow -> Vixen.Ui.Layout.GridAutoFlow
 Vixen.Ui.Layout.LayoutStyle.GridColumnEnd -> Vixen.Ui.Layout.GridPlacement
@@ -314,6 +327,7 @@ Vixen.Ui.Layout.LayoutTree.SetAspectRatio(Vixen.Ui.Layout.LayoutNodeId node, flo
 Vixen.Ui.Layout.LayoutTree.SetBaselineFunction(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.BaselineFunction? baseline) -> void
 Vixen.Ui.Layout.LayoutTree.SetBorder(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength border) -> void
 Vixen.Ui.Layout.LayoutTree.SetBoxSizing(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.BoxSizing boxSizing) -> void
+Vixen.Ui.Layout.LayoutTree.SetClear(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Clear clear) -> void
 Vixen.Ui.Layout.LayoutTree.SetContext(Vixen.Ui.Layout.LayoutNodeId node, object? context) -> void
 Vixen.Ui.Layout.LayoutTree.SetDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
 Vixen.Ui.Layout.LayoutTree.SetDirection(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Direction direction) -> void
@@ -324,6 +338,7 @@ Vixen.Ui.Layout.LayoutTree.SetFlexDirection(Vixen.Ui.Layout.LayoutNodeId node, V
 Vixen.Ui.Layout.LayoutTree.SetFlexGrow(Vixen.Ui.Layout.LayoutNodeId node, float flexGrow) -> void
 Vixen.Ui.Layout.LayoutTree.SetFlexShrink(Vixen.Ui.Layout.LayoutNodeId node, float flexShrink) -> void
 Vixen.Ui.Layout.LayoutTree.SetFlexWrap(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Wrap wrap) -> void
+Vixen.Ui.Layout.LayoutTree.SetFloat(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.FloatSide side) -> void
 Vixen.Ui.Layout.LayoutTree.SetGap(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Gutter gutter, Vixen.Ui.Layout.StyleLength gap) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridAutoColumns(Vixen.Ui.Layout.LayoutNodeId node, System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize> tracks) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridAutoFlow(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.GridAutoFlow flow) -> void

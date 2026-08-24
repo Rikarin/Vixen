@@ -98,6 +98,22 @@ public class UtilityFamilySupportTests {
         { "inline-block", "display", "inline-block" },
         { "inline-flex", "display", "inline-flex" },
 
+        // ⚠ <b>The four that are here are the four CSS 2.1 has, and Tailwind's other four are
+        // deliberately absent.</b> `float-start`, `float-end`, `clear-start` and `clear-end` emit the
+        // logical `inline-start` / `inline-end`, which resolve against a writing mode; `FloatSide`
+        // and `Clear` are physical and do not flip with `direction`. Adding rows for them here would
+        // assert that the cascade computes a value, which it would — and the engine would then drop
+        // it, which is exactly the reading this file's own first paragraph says is not enough. They
+        // are not in `Inert` either, because they resolve to nothing at all rather than to a property
+        // nobody reads. See `Core/Vixen.Ui.Styling.Utilities/README.md`.
+        { "float-left", "float", "left" },
+        { "float-right", "float", "right" },
+        { "float-none", "float", "none" },
+        { "clear-left", "clear", "left" },
+        { "clear-right", "clear", "right" },
+        { "clear-both", "clear", "both" },
+        { "clear-none", "clear", "none" },
+
         // ⚠ The pair the two vocabularies make easy to confuse, which is why both are written out
         // here next to each other: `hidden` above is `display: none` and takes the box out of
         // layout; `invisible` is `visibility: hidden` and leaves it there, occupying its space and

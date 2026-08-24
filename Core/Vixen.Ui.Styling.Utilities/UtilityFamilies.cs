@@ -188,6 +188,23 @@ public static class UtilityFamilies {
         Static("grid", "display", "grid");
         Static("hidden", "display", "none");
 
+        // ⚠ <b>Four keywords each, and the two Tailwind also has are deliberately not here.</b>
+        // Tailwind v4's `float-start` and `float-end` emit `float: inline-start` / `inline-end`,
+        // which CSS Logical Properties resolves against the writing mode. `FloatSide` and `Clear`
+        // are CSS 2.1 §9.5's PHYSICAL keywords and do not flip with `direction` — the float corpus
+        // proves it by shipping RTL variants of ten `float_bfc_*` families with expectations
+        // identical to their LTR twins. So there are three shapes available and only one of them is
+        // honest: emit the logical keyword and let the bridge drop it, which is a class that
+        // computes and does nothing; alias it onto `left`, which is correct in LTR and wrong in RTL
+        // inside the same declaration; or leave it unspelt and record the gap. This is the third.
+        // `docs/plan/43-web-styling-parity.tsv` carries both roots as `partial` with `value_gap`
+        // naming the two keywords, which is what stops the omission reading as an oversight.
+        Keywords("float", "float", new() { ["left"] = "left", ["right"] = "right", ["none"] = "none" });
+
+        Keywords("clear", "clear", new() {
+            ["left"] = "left", ["right"] = "right", ["both"] = "both", ["none"] = "none"
+        });
+
         // ⚠ <b>`visibility` was never a missing reader — `DrawListBuilder` has honoured `hidden`
         // since the draw list existed. What was absent was the three classes and one keyword.</b>
         // The ledger's `absent` against this root read as "the engine cannot do this"; it actually

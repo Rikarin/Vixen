@@ -51,7 +51,7 @@ boxes and the strut. See
 | `LayoutTree.Fragments`, `LayoutFragment`, `FragmentArena` | CSS Display §2.2 fragmentation, and the third arena — the only one on the *output* side. What relaxed *one node produces one box*, and the zero default that kept every existing consumer of `GetLeft` unchanged. |
 | `LayoutTree.Order` | §5.4 `order`, the one part that is not Yoga's. One redirection: the algorithm reaches children only through `ChildIds`, so sorting what that returns is the whole property. |
 | `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
-| `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block and grid **were** judged by — every category but `float` now runs per fixture. |
+| `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block, grid and float **were** judged by. Every category now runs per fixture, and nothing in any of the eight is refused. |
 
 Every expected number in those fixtures came out of a real browser laying out a real HTML fixture.
 That is what makes this a *conformance* suite rather than a regression suite, and it is the specific
@@ -266,15 +266,35 @@ and the other 60. So `EstablishesBlockFormattingContext` has a clause for it and
 `BlockMarginsCollapsibleWithParent` deliberately has none: that method's two literal `Display.Block`
 tests are what stop a margin escaping through a flow root in either direction.
 
-**Floats are not implemented and are not foreclosed.** They would attach at exactly two points — the
-intrinsic-width probe would route a floated child into a left/right accumulator instead of the
-running maximum, and the in-flow walk would ask a float context for a content slot instead of taking
-the whole inner width — and nothing in the walk caches an assumption a float could not later narrow.
-The 84 `float` fixtures stay refused at the style map, and they were never waiting on `display`:
-`TaffyStyleMap` refuses them on the `float` attribute, so unlike block and grid they did not arrive
-with the keyword. Eight `block_flow_root_*` fixtures wait on them too, and four of those eight were
-refused for the keyword until it landed — the same fixture can be blocked twice, and closing one of
-the two moves it between census buckets rather than turning it green.
+**Floats are implemented, and this paragraph's prediction about them was half right.** It said they
+would attach at exactly two points: the intrinsic-width probe, which now routes a floated child into
+an accumulator instead of the running maximum, and the in-flow walk, which would "ask a float context
+for a content slot". The first is four lines and exactly as forecast. The second was the wrong shape
+— a float context is not something the walk *asks*, it is something the walk has to position itself
+*inside* — and it cost a probe pass per child, a saved and restored origin, a suppressed layout cache
+and a new file, `LayoutTree.Floats.cs`. The claim that nothing in the walk cached an assumption a
+float could not later narrow did hold up.
+
+The exclusion list is per block formatting context, in the context root's content coordinates, and a
+nested context hides the outer one's entries behind a mark rather than allocating a second list. Four
+things read it: placing the next float (§9.5.1), keeping a formatting-context root's border box off a
+float's margin box (§9.5), clearance (§9.5.2) and a root's contains-its-floats height (§10.6.3). All
+92 fixtures pass — the 84 in the `float` corpus plus the eight `block_flow_root_*` ones that needed a
+flow root *and* a float, four of which had already changed census buckets once when `flow-root`
+landed.
+
+⚠ **A line box still does not shorten as it passes a float**, which is §9.5's main clause and the
+only thing most people mean by the word. `LayoutTree.Inline` has no exclusion awareness at all. It
+survived being measured because `Corpus/float.xml` has no `<text>` element in it: the corpus named
+after the feature is entirely block-level and cannot see the feature's headline rule. See
+`InlineKnownGaps.txt` and `Taffy/FloatKnownGaps.txt`, and `docs/guide/ui/floats.md` for the shape of
+what is there.
+
+⚠ **A float-bearing tree pays for the cache.** A cache hit returns a node's size without re-running
+its layout, and a block container's layout has the side effect of appending its floats to the
+formatting context around it — six replayed numbers cannot replay that. So `CalculateLayoutInternal`
+bypasses the cache whenever the tree contains a float or a `clear`, decided by one scan of the style
+array per pass. A tree with neither is byte-for-byte the tree it was.
 
 ### The 884 could not see three of the rules, and one of the three is Chrome's own fixture
 
@@ -622,8 +642,9 @@ box at all, and they are implemented: `LegacyTextAlign` on `LayoutStyle`, read o
 `WalkBlockChildren`. Sixteen Taffy fixtures cover them. Distributing the items on a *line* is the
 part still owed, and it has no oracle in either corpus.
 
-**Floats.** See the block section above for where they attach; 92 fixtures wait on them — the 84 in
-the `float` corpus plus eight `block_flow_root_*` families that need a flow root *and* a float.
+**Floats** — *done for block-level content, owed for inline.* All 92 fixtures pass. What none of
+them tests, and what is therefore still owed, is a line box narrowing beside a float: there is no
+`<text>` anywhere in the corpus named after the feature. See the block section above.
 
 **`aspect-ratio` re-applied after a box's size is clamped or stretched** — *done*. It was one rule
 in three places: the sixteen-family flex bucket, five block families and four grid ones, all of them

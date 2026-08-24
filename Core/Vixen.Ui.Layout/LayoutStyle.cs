@@ -93,6 +93,18 @@ public struct LayoutStyle {
     /// </remarks>
     public LegacyTextAlign LegacyTextAlign;
 
+    /// <summary>Which side this box floats to, or <see cref="FloatSide.None" />.</summary>
+    /// <remarks>
+    ///     ⚠ A non-<c>None</c> value takes the box out of flow, makes it block-level whatever
+    ///     <see cref="Display" /> says, and makes it a block formatting context root. See
+    ///     <see cref="FloatSide" />.
+    /// </remarks>
+    public FloatSide Float;
+
+    /// <summary>Which earlier floats this box refuses to sit beside.</summary>
+    /// <remarks>See <see cref="Layout.Clear" />; the effect is clearance, not a margin.</remarks>
+    public Clear Clear;
+
     /// <summary>How this node is positioned.</summary>
     public PositionType PositionType;
 
@@ -300,6 +312,8 @@ public struct LayoutStyle {
         style.JustifySelfOverflow = OverflowAlignment.Unsafe;
 
         style.LegacyTextAlign = LegacyTextAlign.None;
+        style.Float = FloatSide.None;
+        style.Clear = Clear.None;
         style.PositionType = PositionType.Relative;
         style.FlexWrap = Wrap.NoWrap;
         style.OverflowX = Overflow.Visible;

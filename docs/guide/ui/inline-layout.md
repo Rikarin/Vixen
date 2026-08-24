@@ -218,6 +218,8 @@ tree.SetVerticalAlign(short_, VerticalAlign.Top);     // top = 0, not 20
 
 ## See also
 
+- [Floats and clear](floats.md) — ⚠ implemented for block-level content only. A line box does
+  **not** yet shorten as it passes a float, so text beside one runs under it.
 - [Grid layout](grid-layout.md) — the store's third algorithm, and what *it* cost.
 - [Utility composition](utility-composition.md) — the `inline`, `inline-block`, `inline-flex` and
   `align-*` utilities.

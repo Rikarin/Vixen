@@ -108,7 +108,14 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            if (!IsInlineLevel(styles[child].Display)) {
+            // ⚠ CSS 2.1 §9.7: floating a box makes it BLOCK-LEVEL, whatever `display` says. So a
+            // floated `inline-block` is not inline-level content and its container is not a pure
+            // inline formatting context — it has to reach `LayoutTree.Block`, which is the only path
+            // that knows how to place a float at all. Reading `Display` alone routes such a
+            // container into the inline walk, where the float would be laid out on a line as though
+            // §9.5 did not exist. No fixture in the corpus writes one; the alternative to this line
+            // is a silently wrong answer rather than a missing feature.
+            if (!IsInlineLevel(styles[child].Display) || styles[child].Float != FloatSide.None) {
                 return false;
             }
 

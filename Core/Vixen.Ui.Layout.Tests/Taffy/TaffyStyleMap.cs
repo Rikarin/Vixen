@@ -399,7 +399,36 @@ static class TaffyStyleMap {
             // Refused by name so that a failure report says which property is missing rather than
             // which number is wrong. B1 and B2 deleted most of these lines as they landed.
             case "float":
+                tree.SetFloat(
+                    node,
+                    value switch {
+                        "none" => FloatSide.None,
+                        "left" => FloatSide.Left,
+                        "right" => FloatSide.Right,
+                        _ => throw new TaffyUnsupportedException($"{name}: {value}")
+                    }
+                );
+
+                break;
+
+            // ⚠ `inline-start` and `inline-end` are deliberately absent. CSS 2.1's four keywords are
+            // physical and `LayoutTree`'s `Clear` holds exactly those; the two flow-relative ones
+            // arrived with CSS Logical Properties and would need a writing mode to resolve. The corpus
+            // writes none of them, and translating one into `Left` would be right in LTR and wrong in
+            // the RTL half of the very same fixture.
             case "clear":
+                tree.SetClear(
+                    node,
+                    value switch {
+                        "none" => Clear.None,
+                        "left" => Clear.Left,
+                        "right" => Clear.Right,
+                        "both" => Clear.Both,
+                        _ => throw new TaffyUnsupportedException($"{name}: {value}")
+                    }
+                );
+
+                break;
 
             // ⚠ Named areas are not a track list and are deliberately still refused even though B2
             // landed. `grid-template-areas` declares named *lines* that `grid-row-start: header`

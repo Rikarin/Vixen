@@ -33,6 +33,7 @@
         <Content Include="Taffy\KnownGaps.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy" />
         <Content Include="Taffy\BlockKnownGaps.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy" />
         <Content Include="Taffy\GridKnownGaps.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy" />
+        <Content Include="Taffy\FloatKnownGaps.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy" />
         <Content Include="Taffy\UnsupportedFixtures.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy" />
     </ItemGroup>
 

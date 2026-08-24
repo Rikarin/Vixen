@@ -24,17 +24,28 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 |---|--:|--:|--:|--:|
 | `flex` | 2 352 | 2 334 | 18 | 0 |
 | `leaf` | 56 | 56 | 0 | 0 |
-| `block` | 884 | 876 | 0 | 8 |
+| `block` | 884 | 884 | 0 | 0 |
 | `blockflex` | 28 | 28 | 0 | 0 |
 | `blockgrid` | 56 | 56 | 0 | 0 |
 | `grid` | 2 040 | 1 998 | 42 | 0 |
 | `gridflex` | 24 | 24 | 0 | 0 |
-| `float` | 84 | 0 | 0 | 84 |
-| | **5 524** | **5 372** | **60** | **92** |
+| `float` | 84 | 84 | 0 | 0 |
+| | **5 524** | **5 464** | **60** | **0** |
 
-Every one of those numbers is asserted — the pass and fail columns by the three conformance suites
-and `TaffyPendingCorporaTests`, the refused column additionally by `TaffyUnsupportedCensusTests`,
-which requires each bucket to match `UnsupportedFixtures.txt` line for line.
+Every one of those numbers is asserted — the pass and fail columns by the four conformance suites,
+the refused column additionally by `TaffyUnsupportedCensusTests`, which requires the census to match
+`UnsupportedFixtures.txt` line for line.
+
+⚠ **The refused column is zero for the first time, and a zero there is the state
+`UnsupportedFixtures.txt` was written to warn about rather than to celebrate.** A census of nothing
+and a census that did not run print the same page, so the guard behind that column no longer asserts
+anything about refusals: it asserts that 5 524 fixtures reached a pass or a fail, that all eight
+corpora contributed, and that `TaffyStyleMap` still refuses a value it does not know when it is
+handed one directly. Read that file's TOTAL section before drawing a conclusion from this row.
+
+⚠ **And `float`'s 84 are not the evidence they look like.** The whole corpus is block-level: there is
+no `<text>` element in `Corpus/float.xml`, so not one of the 84 tests a line box shortening as it
+passes a float, which is the rule everybody means by "float". See `FloatKnownGaps.txt`.
 
 Each fixture name ends in one of four suffixes — `__{border,content}_box_{ltr,rtl}` — so the 5 524
 are about 1 381 distinct cases run four ways.
@@ -187,10 +198,17 @@ one pointed at two more categories. Eight *flex* fixtures came with them, which 
 they were whole trees being refused for one descendant's `display: block`. The remaining pending
 tallies are grid's 2 112, and they are the same bet.
 
-⚠ **`float`'s 84 did not move, and that is a correction to the sentence above.** They are refused on
-the `float` attribute, not on `display`, so unlike block and grid they were never one keyword away.
-Every one of them names a block container this store now lays out correctly right up to the point a
-float would narrow a line.
+⚠ **`float`'s 84 did not move then, and that was a correction to the sentence above.** They were
+refused on the `float` attribute, not on `display`, so unlike block and grid they were never one
+keyword away. Every one of them named a block container this store already laid out correctly right
+up to the point a float would narrow a line.
+
+⚠ **They moved in the end, and the correction needs a correction.** They *were* one keyword away —
+`FloatSide`, a keyword `LayoutStyle` had no field for at all rather than a value of a field it had —
+which is a distinction about where the missing thing lives and not about how much of it was missing.
+All 84 pass, plus the 8 in `block` that needed a float and a flow root, and `float.xml` is judged by
+`TaffyFloatConformanceTests` now. What none of the 92 touches is the sentence's last clause: no
+fixture in this corpus has a float narrow a line, because no fixture in this corpus has a line.
 
 ⚠ **And the corpus turned out to have a blind spot of a kind the last audit did not have a name
 for.** 48 of the block fixtures test that `overflow` blocks a margin collapse — Chrome's answers are
@@ -249,8 +267,11 @@ not have; the census said so, refused to let them be translated away, and all th
 so an engine gap converting tells you the work is done and nothing about the algorithm. It is the
 harness kind — fixtures whose arithmetic was never checked by anybody — that finds defects.
 
-**272 are refused now**, and the shape of what is left is worth a sentence: `scrollbar-width` (180)
-and floats (92), which is to say two features and no odds and ends.
+**0 are refused now.** `scrollbar-width` (180) went, and then floats (92) went, and the census is
+empty. ⚠ The last 92 are the purest engine gap the project has had — an entire corpus that had never
+executed once — so they converted 92-for-92 and tell you nothing whatever about whether the
+algorithm is right. The only float evidence that was not written against its own oracle is the 8
+`block_flow_root_*_float` fixtures, which live in a corpus written for something else.
 
 ## The Ahem measure function
 

@@ -93,9 +93,9 @@ Every one of those was right when it was written. The number is a denominator, s
 | State | Meaning | Roots |
 |---|--:|--:|
 | **works** | Vixen emits it, and a consumer acts on every property it sets | **160** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **51** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **53** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **110** |
+| **absent** | not emitted at all | **108** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -388,7 +388,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed | unknown |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 22 | 8 | 0 | 15 | 3 | 1 |
+| Layout | 49 | 22 | 10 | 0 | 13 | 3 | 1 |
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 11 | 6 | 0 | 17 | 0 | 0 |
@@ -403,7 +403,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **160** | **51** | **3** | **110** | **3** | **1** |
+| **Total** | **328** | **160** | **53** | **3** | **108** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
 Interactivity at 26 of 39 and Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and
@@ -2356,7 +2356,7 @@ conditional-group id since per-surface media landed; see F11. ⚠ The real findi
 | # | Item | Task | EM |
 |---|---|---|--:|
 | B0 ✅ | **`Tools/Vixen.TaffyTestGen`** — XML vetter and consolidator, the attribute map, and the Ahem measure. **Landed with 5 524 fixtures, not 5 272**: 884 block, 2 040 grid, 2 352 flex, 84 float, 56 leaf and 108 across three hybrid categories the estimate missed. Flex result: **2 002 of 2 208 runnable pass** | — | done |
-| B1 🟢 | **`display: block` — landed.** Block formatting over the existing store: stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing in full, auto margins, the intrinsic-width probe, RTL, relative insets, `align-content` over the stack. **840 of the 912 `block`+`blockflex` fixtures pass and none fails**; 72 are refused, for `scrollbar-width` (64) and `float` (8). ⚠ That was 768 with 124 refused across four causes, and three of the four are closed: legacy `text-align` (`LegacyTextAlign`, 16), `display: flow-root` (a `Display.FlowRoot` member and one clause in `EstablishesBlockFormattingContext`, 4 of 8) and `align-content: safe end` (`OverflowAlignment`, 4). All 24 pass. The 20 failures that used to be here were in the shared *absolute* path (`aspect-ratio` re-applied after clamping) rather than in block formatting, and closed with CSS Grid §9's auto margins. ⚠ **Still owed under B1**: `inline-block` — deliberately unmapped, because without an inline formatting context it would take the whole line (B3); the 92 `float` fixtures, which were never gated on `display` and which 4 `block_flow_root_contains_float` families joined when the keyword landed; and `sticky`. | **#25** | 0.35 |
+| B1 🟢 | **`display: block` — landed.** Block formatting over the existing store: stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing in full, auto margins, the intrinsic-width probe, RTL, relative insets, `align-content` over the stack. **All 912 `block`+`blockflex` fixtures pass; none fails and none is refused.** The last 72 refusals went in three batches: `scrollbar-width` (64), then `text-align`/`flow-root`/`safe` (24, of which 4 changed bucket rather than converting), then the final 8 with floats. ⚠ That was 768 with 124 refused across four causes, and three of the four are closed: legacy `text-align` (`LegacyTextAlign`, 16), `display: flow-root` (a `Display.FlowRoot` member and one clause in `EstablishesBlockFormattingContext`, 4 of 8) and `align-content: safe end` (`OverflowAlignment`, 4). All 24 pass. The 20 failures that used to be here were in the shared *absolute* path (`aspect-ratio` re-applied after clamping) rather than in block formatting, and closed with CSS Grid §9's auto margins. ⚠ **Still owed under B1**: `sticky`. `inline-block` landed with B3. Floats landed too — all 92 fixtures, including the 4 `block_flow_root_contains_float` families that had joined the bucket when `flow-root` landed — but only for block-level content: **no fixture in the float corpus has a line box in it**, so a paragraph beside a float still runs under it, and that half is filed in `InlineKnownGaps.txt` with no oracle anywhere in the 5 524. See Bucket 4 below. | **#25** | 0.35 |
 | B2 🔴 | **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
 | B3 🟡 | **Inline formatting — partially landed.** Line boxes over the existing store: atomic inlines (`inline`, `inline-block`, `inline-flex`), §10.3.9 shrink-to-fit, §9.4.2 line breaking, §10.8.1 baselines including the last-line-box and `overflow` clauses, three of `vertical-align`'s eight values, and **fragmentation**. ⚠ **The boundary used to be one invariant** — every algorithm in the store preserved *one node produces one box*, and a non-replaced `inline` box crossing a line break is fragmented into several. **That invariant has now been relaxed for one arena and three ints** (offset, count and capacity, addressed exactly as `ChildArena` and `TrackArena` are). `FragmentArena` is variable-length *output*, the shape `TrackArena` is on the input side; `FragmentCount == 0` still means "one box, and it is `Position`", so `GetLeft`, the absolute walk and all four of `UiElement`'s rectangle properties were untouched, and a fragmented node's own rectangle is the **union** — which is CSS 2.1 §10.1's containing block for an abspos descendant of an inline box, so the absolute walk needed nothing. The zero-allocation gate holds with a span re-fragmenting every frame. ⚠ **Still owed under B3**: fragmentation of *nested* spans and of spans with an out-of-flow child (both producer scope, not representation); anonymous block boxes and generated boxes — which are the **opposite** direction, a box with *no node*, and are **not** unblocked by the arena; the strut and therefore the five font-relative `vertical-align` values; `text-align`, `white-space`, `text-overflow: ellipsis`, `line-clamp`. ⚠ **Zero fixtures**, confirmed by enumeration — Taffy's `display` attribute takes five values across all eight files and none is inline. Oracle fetched from WPT (`css-flexbox/inline-flex.html`); fragmentation is arithmetic over explicitly sized boxes in `InlineFragmentationTests`. See `InlineKnownGaps.txt`. | **#26** | 2.3 of 3.0 |
 | B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's 68 `text-overflow` reftests transcribed | — | 0.5 |
@@ -2694,6 +2694,43 @@ the parity list and CSS 2.1 §9.5 is why. The measurements:
 **Sized: the largest remaining layout item, and the only one that changes both the block and the
 inline algorithm at once.** It should be its own task with its own corpus target, and the honest
 success measure is `{ "float", 84, 0, 0 }`.
+
+#### ✅ Landed — and the honest success measure was the wrong measure
+
+`{ "float", 84, 0, 0 }` was reached, along with the 8 in the block corpus rather than the 4 predicted
+above. `FloatSide` and `Clear` on `LayoutStyle`, `LayoutTree.Floats.cs` for the exclusion list, four
+sites in `LayoutTree.Block`, `float-*` and `clear-*` utility families, and the two roots in the
+ledger move from `absent` to **`partial`**.
+
+⚠ **The sizing was right about the cost and wrong about the shape, in a way worth recording.** Read
+the third bullet again: it prices "a query that every line box and every block box must consult" and
+says the work "touches the inline formatting context, which is where the line-narrowing lands". It
+does not, and could not have, because **not one of the 84 fixtures contains a line box.**
+`grep -c '<text' Taffy/Corpus/float.xml` is zero. The corpus named after the feature is entirely
+block-level: floats placed against each other, formatting-context roots refusing to overlap them,
+clearance, and containment. Every number in it was reachable without touching `LayoutTree.Inline` at
+all, and none was touched.
+
+So the item that landed is §9.5 minus its headline clause. A paragraph beside a float still runs
+under it. That is filed in `InlineKnownGaps.txt` with the shape of the fix, and it has **no oracle in
+any of the 5 524 fixtures** — which is the part to carry forward, because the corpus target that was
+supposed to define "done" cannot see the half that is missing.
+
+⚠ **Both roots are `partial` rather than `works`, and the gap is named rather than papered over.**
+Tailwind's `float-start`/`float-end` and `clear-start`/`clear-end` emit the logical
+`inline-start`/`inline-end`, which resolve against a writing mode. CSS 2.1's keywords are physical
+and do not flip with `direction` — the float corpus proves it by shipping RTL variants of ten
+`float_bfc_*` families with expectations identical to their LTR twins. Aliasing the logical keywords
+onto `Left` would be right in LTR and wrong in RTL inside one declaration; accepting them and
+dropping them would be a class that computes and does nothing. Neither is emitted, and `value_gap`
+carries the reason.
+
+⚠ **One cost the sizing did not have.** A cache hit returns a node's size without re-running its
+layout, and a block container's layout has the side effect of appending its floats to the formatting
+context around it. So the measurement cache is bypassed for any tree containing a `float` or a
+`clear`, decided by one scan of the style array per pass. Float-free trees are unaffected, which is
+asserted by construction rather than argued: with the flag clear, every float branch in
+`WalkBlockChildren` is dead.
 
 ---
 

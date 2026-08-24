@@ -182,6 +182,39 @@ public sealed partial class LayoutTree {
         MarkDirtyAndPropagate(index);
     }
 
+    /// <summary>Sets which side this box floats to.</summary>
+    /// <remarks>
+    ///     ⚠ Floating a box takes it out of flow, makes it block-level and makes it a block
+    ///     formatting context root, all three at once — see <see cref="FloatSide" />. It also makes
+    ///     every later box in the same formatting context depend on this one's geometry, which is why
+    ///     the dirty flag has to propagate the same way any other layout input's does.
+    /// </remarks>
+    /// <param name="node">The node.</param>
+    /// <param name="side">The side to float to, or <see cref="FloatSide.None" />.</param>
+    public void SetFloat(LayoutNodeId node, FloatSide side) {
+        var index = Validate(node);
+        if (styles[index].Float == side) {
+            return;
+        }
+
+        styles[index].Float = side;
+        MarkDirtyAndPropagate(index);
+    }
+
+    /// <summary>Sets which earlier floats this box refuses to sit beside.</summary>
+    /// <remarks>See <see cref="Layout.Clear" />.</remarks>
+    /// <param name="node">The node.</param>
+    /// <param name="clear">The sides to clear.</param>
+    public void SetClear(LayoutNodeId node, Clear clear) {
+        var index = Validate(node);
+        if (styles[index].Clear == clear) {
+            return;
+        }
+
+        styles[index].Clear = clear;
+        MarkDirtyAndPropagate(index);
+    }
+
     /// <summary>Sets how the node is positioned.</summary>
     /// <param name="node">The node.</param>
     /// <param name="positionType">The positioning scheme.</param>

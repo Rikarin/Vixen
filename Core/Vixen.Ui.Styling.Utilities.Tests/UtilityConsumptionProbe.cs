@@ -98,12 +98,32 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         byte-identical.
 ///     </para>
 /// </param>
+/// <param name="Floated">
+///     Whether the probe is preceded by a <c>#lead</c> sibling the scene floats. False for every
+///     scene but <c>floated</c>.
+///     <para>
+///         ⚠ <b><c>clear</c> is the one property in the table that cannot be measured on the probe
+///         alone, and this flag is what that costs.</b> Every other declaration here changes
+///         something about the box it is written on. Clearance changes where a box goes <i>relative
+///         to an earlier float in the same formatting context</i> — so with no earlier float there is
+///         nothing to clear, the probe does not move, and the property measures inert with a correct
+///         and complete reader behind it. That is the false gap this whole file exists to avoid, and
+///         it is the same shape as the one the <c>primed</c> scene records: the reader was never the
+///         problem, the scene was.
+///     </para>
+///     <para>
+///         A flag rather than a change to the shared children, for the reason <see cref="Unbroken" />
+///         gives: a leading sibling in every scene would re-measure every property in the table
+///         against a tree nobody chose. Eighteen baselines stay byte-identical.
+///     </para>
+/// </param>
 sealed record ProbeScene(
     string Name,
     string Css,
     bool Scrolling = false,
     bool Unbroken = false,
-    bool Edited = false
+    bool Edited = false,
+    bool Floated = false
 );
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
@@ -481,6 +501,34 @@ static class UtilityConsumptionProbe {
             #short { display: inline-block; width: 30px; height: 18px; }
             #after { display: inline-block; width: 30px; height: 20px; background-color: #a0a040; }
             """
+        ),
+
+        // ⚠ <b>Floated. A block formatting context with an earlier float in it, which is the only
+        // shape in which `float` and `clear` are observable at all.</b>
+        //
+        // `float` needs the probe to be block-level in normal flow with a sibling after it: floating
+        // it then takes it out of the flow, shrinks it to fit, and moves `#after` up to where it was
+        // — three layout changes from one declaration. In the eighteen flex scenes the probe is a
+        // FLEX ITEM, and CSS Display §2.7 makes `float` compute to `none` on one, so all eighteen
+        // measure it inert while the engine reads it perfectly. `inlined` is block, but its probe is
+        // an `inline-block` with no width, so floating it shrink-to-fits a box that was already
+        // shrink-to-fit and `#after` shares the line either way.
+        //
+        // `clear` additionally needs `#lead`, and that is what the `Floated` flag is for: with no
+        // earlier float in the context, clearance has nothing to move the probe below. `#lead` is 60
+        // wide and 24 tall in a 200-wide host, so a probe that clears it drops a measurable 24 points
+        // and one that does not sits beside it.
+        new(
+            "floated",
+            """
+            #host  { display: block; width: 200px; height: 140px; }
+            #lead  { float: left; width: 60px; height: 24px; background-color: #40a040; }
+            #probe { display: block; height: 30px; background-color: #204080; color: #e0e0e0; }
+            .kid   { width: 24px; height: 8px; }
+            #wide  { width: 40px; height: 8px; }
+            #after { display: block; width: 30px; height: 20px; background-color: #a0a040; }
+            """,
+            Floated: true
         ),
 
         // ⚠ <b>Translated, and it is the only scene in which the probe is transformed at all.</b> The
@@ -1237,6 +1285,13 @@ static class UtilityConsumptionProbe {
             probe = inner;
             body = inner.Content;
         } else {
+            // Before the probe, so that it is an EARLIER float in the source order — §9.5.2 clears
+            // what came before and nothing else, so a `#lead` added after would leave `clear` as
+            // inert as no `#lead` at all.
+            if (scene.Floated) {
+                document.Create("div", host, "lead");
+            }
+
             probe = document.Create("div", host, "probe");
             body = probe;
         }

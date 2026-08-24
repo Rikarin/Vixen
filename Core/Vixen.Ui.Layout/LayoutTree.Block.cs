@@ -29,14 +29,26 @@ namespace Vixen.Ui.Layout;
 ///         applies.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Floats are not implemented and are not foreclosed.</b> A float would enter this
-///         algorithm at exactly two points — the intrinsic-width probe in
-///         <see cref="DetermineBlockContentWidth" /> would route a floated child's width into a
-///         left/right accumulator instead of the running maximum, and the in-flow walk would ask a
-///         float context for a content slot rather than taking the full inner width. Both are
-///         additive: nothing here caches a "the inner width is the whole content box" assumption
-///         anywhere a float could not later narrow. The 84 <c>float</c> fixtures stay refused at the
-///         style map.
+///         ⚠ <b>Floats arrived, and this file's own prediction about where they would enter was
+///         half right — which is worth keeping rather than quietly correcting.</b> It named two
+///         points: the intrinsic-width probe in <see cref="DetermineBlockContentWidth" />, which
+///         would route a floated child's width into an accumulator instead of the running maximum,
+///         and the in-flow walk, which would ask a float context for a content slot. The first is
+///         exactly right and is four lines. The second is where the estimate went wrong: a float
+///         context is not something the walk <i>asks</i>, it is something the walk has to
+///         <i>position itself inside</i>, and that turned into a probe pass per child, a saved and
+///         restored origin, a suppressed layout cache and the whole of
+///         <c>LayoutTree.Floats.cs</c>. The claim that nothing here cached "the inner width
+///         is the whole content box" held up; the claim that both changes were additive did not.
+///     </para>
+///     <para>
+///         ⚠ <b>And the 84 fixtures it was measuring itself against turn out not to test the thing
+///         floats are famous for.</b> There is no <c>&lt;text&gt;</c> anywhere in
+///         <c>Taffy/Corpus/float.xml</c>: every fixture is block-level, and not one of them puts a
+///         line box beside a float. So "a float would narrow a line box", which is how the paragraph
+///         above described the whole feature, is the part that is still missing —
+///         <c>LayoutTree.Inline</c> has no exclusion awareness at all. See
+///         <c>Taffy/FloatKnownGaps.txt</c>, which is empty of failures and is mostly about that.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Inline formatting arrived with doc 43 § B3, and this file is now reached only when a
@@ -84,12 +96,21 @@ public sealed partial class LayoutTree {
     ///     <c>false</c> on both of them and must still answer <c>true</c> —
     ///     <c>block_flow_root_margin_non_collapse</c> puts one beside a plain <c>block</c> with
     ///     identical content and Chrome makes the first 10 points tall and the second 60.
+    ///
+    ///     ⚠ <b>And a float is one, which is the clause that keeps the list from eating itself.</b>
+    ///     §9.4.1 makes every floated box a formatting context root, so the floats inside a float are
+    ///     invisible outside it and its own margins collapse with nothing. Both halves are load-bearing:
+    ///     <c>float_shrink_to_fit_contains_floats</c> is an auto-width float whose height comes
+    ///     entirely from the four floats inside it, which only works if it contains them, and the
+    ///     alternative reading — a float as a plain out-of-flow box — would let a float's child float
+    ///     narrow a box in the parent context that is nowhere near it.
     /// </remarks>
     bool EstablishesBlockFormattingContext(int index) =>
         styles[index].OverflowX != Overflow.Visible
         || styles[index].OverflowY != Overflow.Visible
         || IsInlineLevel(styles[index].Display)
-        || styles[index].Display == Display.FlowRoot;
+        || styles[index].Display == Display.FlowRoot
+        || styles[index].Float != FloatSide.None;
 
     /// <summary>
     ///     Whether this node's vertical margins are allowed to collapse with its parent's.
@@ -177,6 +198,16 @@ public sealed partial class LayoutTree {
             rawWidth = availableWidth - marginAxisRow;
         } else {
             var probeWidth = float.IsNaN(availableWidth) ? float.NaN : availableWidth - marginAxisRow - insetRow;
+
+            // ⚠ <b>This probe runs BEFORE this box opens its own exclusion scope, so anything it
+            // places has to be taken back.</b> Asking a child how wide it wants to be lays the child
+            // out, and laying a block container out appends its floats to whatever context is
+            // current — which, here, is still the ENCLOSING one, at an origin that belongs to a box
+            // whose position has not been decided. Left alone those entries would narrow a real box
+            // somewhere above, for a measurement that was never a placement. A child that opens a
+            // scope of its own already cleans up after itself; this covers the ones that do not.
+            var mark = floatExclusions.Count;
+
             var contentWidth = DetermineBlockContentWidth(
                 index,
                 direction,
@@ -186,6 +217,10 @@ public sealed partial class LayoutTree {
                 ownerHeight,
                 currentDepth
             );
+
+            if (treeHasFloats) {
+                floatExclusions.RemoveRange(mark, floatExclusions.Count - mark);
+            }
 
             rawWidth = contentWidth + insetRow;
         }
@@ -224,6 +259,15 @@ public sealed partial class LayoutTree {
             || !float.IsNaN(styles[index].AspectRatio);
 
         // ── The block axis ──────────────────────────────────────────────────────────────────────
+        // ⚠ A formatting context root opens an exclusion scope of its own, and §10.6.3's last clause
+        // then makes its `height: auto` tall enough to hold what it caught. `isFormattingContextRoot`
+        // is the right gate and not an approximation of one: it is false for exactly the case that
+        // continues the parent's context — a plain block child of a plain block — which is also
+        // exactly the case that shares the parent's floats.
+        var floatScope = treeHasFloats && isFormattingContextRoot
+            ? BeginFloatContext(insetLeft, insetTop, innerWidth)
+            : default;
+
         var walk = WalkBlockChildren(
             index,
             direction,
@@ -241,6 +285,16 @@ public sealed partial class LayoutTree {
         );
 
         var intrinsicHeight = walk.ContentHeight;
+
+        if (treeHasFloats && isFormattingContextRoot) {
+            var lowest = LowestFloatBottom();
+
+            if (!float.IsNegativeInfinity(lowest)) {
+                intrinsicHeight = MathF.Max(intrinsicHeight, lowest + insetBottom);
+            }
+
+            EndFloatContext(in floatScope);
+        }
 
         var rawHeight = heightSizingMode == SizingMode.StretchFit ? availableHeight - marginAxisColumn : intrinsicHeight;
         var outerHeight = BoundAxis(index, FlexDirection.Column, direction, rawHeight, ownerHeight, ownerWidth);
@@ -377,7 +431,15 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Whether this child begins a run that §9.2.1.1 wraps in an anonymous block box.</summary>
-    bool StartsAnonymousRun(int child) => ParticipatesInLine(child) && IsInlineLevel(styles[child].Display);
+    /// <remarks>
+    ///     ⚠ A floated child never does, however it is displayed: §9.7 makes it block-level, and the
+    ///     anonymous-run path would hand it to <c>WalkInlineLines</c>, which knows nothing about
+    ///     exclusions and would put it on a line. The float branch in <see cref="WalkBlockChildren" />
+    ///     is the only correct destination, and this test is what leaves it reachable. The same clause
+    ///     is in <c>EstablishesInlineFormattingContext</c> one file over, for the same reason.
+    /// </remarks>
+    bool StartsAnonymousRun(int child) =>
+        ParticipatesInLine(child) && IsInlineLevel(styles[child].Display) && styles[child].Float == FloatSide.None;
 
     /// <summary>
     ///     Stacks the in-flow children down the block axis, collapsing margins as it goes.
@@ -445,6 +507,14 @@ public sealed partial class LayoutTree {
         var inFlowCount = 0;
         var trailingLineBaseline = float.NaN;
 
+        // ⚠ With no float anywhere in the tree every `floatsActive` branch below is dead and this
+        // walk is byte-for-byte the one that passed 6 140 fixtures before floats existed. That is
+        // deliberate: the float-active path measures each child twice and defeats the layout cache,
+        // and neither cost belongs to a tree that has no floats to pay it for.
+        var floatsActive = treeHasFloats;
+        var containerOriginX = floatOriginX;
+        var containerOriginY = floatOriginY;
+
         var childIds = ChildIds(index);
 
         for (var position = 0; position < childIds.Length; position++) {
@@ -501,6 +571,27 @@ public sealed partial class LayoutTree {
                 // absolute pass runs after the walk and cannot reconstruct it.
                 results[child].BlockStaticTop = staticPositionY;
                 results[child].BlockStaticLeft = direction == Direction.Ltr ? insetLeft : outerWidth - insetRight;
+                continue;
+            }
+
+            // ── §9.5: out of flow, but not out of the picture ──────────────────────────────────
+            // ⚠ A float is placed where a box with no margins of its own would have gone — after the
+            // margins seen so far are resolved — and then it moves nothing. It does not advance
+            // `committed`, does not join `active`, and is not an in-flow child for `align-content` or
+            // for the absolute static position. `float_between_collapsing_margins` is the fixture
+            // that pins all four at once: a 16-point bottom margin and a 40-point top margin on
+            // either side of a float still collapse to 40, and the float sits at the 16.
+            if (floatsActive && styles[child].Float != FloatSide.None) {
+                PlaceFloatChild(
+                    child,
+                    direction,
+                    innerWidth,
+                    innerHeightForPercentages,
+                    committed + (stillCollapsingWithFirst && collapseWithFirstChild ? 0f : active.Resolve()),
+                    performLayout,
+                    currentDepth
+                );
+
                 continue;
             }
 
@@ -581,6 +672,122 @@ public sealed partial class LayoutTree {
                 childHeightMode = SizingMode.StretchFit;
             }
 
+            // ── §9.5.2 and §9.5, for a container that has floats to react to ───────────────────
+            // ⚠ <b>The child has to be measured before it can be placed, and placed before it can be
+            // laid out, and the float context is what makes those two different passes.</b> Where a
+            // box goes depends on the margins that escape from inside it, which only its own layout
+            // knows; where its floats go depends on where the box went. So the float-active path runs
+            // a probe first, throws away the floats the probe placed, works out the position, and
+            // only then lays the child out for real at an origin the exclusion list can trust.
+            var clearanceApplied = false;
+            var floatLeft = float.NaN;
+            var advance = 0f;
+
+            // ⚠ <b>A box that has to be measured against the exclusion list cannot also be letting a
+            // margin escape past the container's top edge, because the two are the same question.</b>
+            // Deciding whether a formatting context root overlaps a float means deciding where it is,
+            // and deciding where it is is what spending the margin means — so §8.3.1's parent/first
+            // child collapse is over for this container the moment such a child arrives.
+            // <c>float_new_fc_separates</c> is the fixture that costs: its 200-point margin escaped AND
+            // positioned the box, so the box came out at 200 inside a container that had itself moved
+            // to 200. The container is 201 tall and sits at zero.
+            var escapesTopEdge = stillCollapsingWithFirst
+                && collapseWithFirstChild
+                && !(floatsActive && EstablishesBlockFormattingContext(child));
+
+            if (floatsActive) {
+                var mark = floatExclusions.Count;
+
+                floatOriginX = containerOriginX + insetLeft;
+                floatOriginY = containerOriginY + committed
+                    + (escapesTopEdge ? 0f : active.With(marginTop).Resolve());
+
+                CalculateLayoutInternal(
+                    child,
+                    childWidth + marginStart + marginEnd,
+                    childHeight,
+                    direction,
+                    SizingMode.StretchFit,
+                    childHeightMode,
+                    innerWidth,
+                    innerHeightForPercentages,
+                    performLayout: false,
+                    currentDepth
+                );
+
+                floatExclusions.RemoveRange(mark, floatExclusions.Count - mark);
+
+                // ⚠ Back to the CONTAINER's origin before anything is measured against the exclusion
+                // list. Clearance and float avoidance both answer in container-relative points, and
+                // both subtract `floatOriginY` to get there — so leaving the probe's origin in place
+                // shifts every one of their answers by the margin the probe was guessing at.
+                floatOriginX = containerOriginX;
+                floatOriginY = containerOriginY;
+
+                advance = escapesTopEdge
+                    ? 0f
+                    : active.With(results[child].TopCollapsibleMargin.With(marginTop)).Resolve();
+
+                // ⚠ Clearance SPENDS the margin that would have positioned the box, rather than being
+                // added to it. `float_forced_clearance_adjoining_float` is a 400-point top margin over
+                // a 50-point float and Chrome answers 50, not 450: the margin had collapsed all the
+                // way out through the container's top edge, so the box's hypothetical position was
+                // zero and clearance simply replaced the whole set. Discarding it is what the tail of
+                // this loop does with `clearanceApplied`.
+                var clearPoint = ClearancePoint(styles[child].Clear);
+
+                if (!float.IsNaN(clearPoint) && committed + advance < clearPoint) {
+                    advance = clearPoint - committed;
+                    clearanceApplied = true;
+                }
+
+                if (EstablishesBlockFormattingContext(child)) {
+                    var avoided = AvoidFloats(
+                        direction,
+                        committed + advance,
+                        float.IsNaN(box.Width) ? float.NaN : childWidth,
+                        results[child].MeasuredDimensions[(int) Dimension.Height],
+                        direction == Direction.Ltr ? marginStart : marginEnd,
+                        direction == Direction.Ltr ? marginEnd : marginStart
+                    );
+
+                    advance = avoided.Top - committed;
+
+                    // A NaN left edge means the box cleared every float on the way down and is an
+                    // ordinary §10.3.3 box again — only its `Top` was decided here.
+                    if (!float.IsNaN(avoided.Left)) {
+                        floatLeft = avoided.Left;
+
+                        if (float.IsNaN(box.Width)) {
+                            childWidth = MathF.Max(
+                                avoided.Width,
+                                StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, innerWidth)
+                            );
+                        }
+                    }
+                }
+
+                // ⚠ The origin the child's own floats are written against. An `auto` inline margin is
+                // read here as its stated value rather than its resolved one — resolving it needs the
+                // child's used width, which needs the layout this line is about to start. Nothing in
+                // the corpus floats inside an auto-centred block, and a float in one would land at the
+                // uncentred edge; it is recorded in `KnownGaps.txt` rather than guessed at.
+                floatOriginX = containerOriginX
+                    + insetLeft
+                    + (float.IsNaN(floatLeft)
+                        ? LegacyTextAlignOffset(
+                            styles[index].LegacyTextAlign,
+                            direction,
+                            innerWidth,
+                            childWidth,
+                            direction == Direction.Ltr ? marginStart : marginEnd,
+                            direction == Direction.Ltr ? marginEnd : marginStart
+                        )
+                        : floatLeft);
+
+                floatOriginY = containerOriginY + committed + advance;
+            }
+
             CalculateLayoutInternal(
                 child,
                 childWidth + marginStart + marginEnd,
@@ -594,19 +801,28 @@ public sealed partial class LayoutTree {
                 currentDepth
             );
 
+            if (floatsActive) {
+                floatOriginX = containerOriginX;
+                floatOriginY = containerOriginY;
+            }
+
             var childOuterHeight = results[child].MeasuredDimensions[(int) Dimension.Height];
             var childOuterWidth = results[child].MeasuredDimensions[(int) Dimension.Width];
 
             // The child's own reported sets already fold in whatever escaped from *its* children.
             var topSet = results[child].TopCollapsibleMargin.With(marginTop);
             var bottomSet = results[child].BottomCollapsibleMargin.With(marginBottom);
-            var collapsesThrough = results[child].MarginsCollapseThrough;
+
+            // §8.3.1: a box with clearance is not transparent to the margins on either side of it.
+            var collapsesThrough = results[child].MarginsCollapseThrough && !clearanceApplied;
 
             allCollapseThrough = allCollapseThrough && collapsesThrough;
 
             // A margin adjoining the container's own top edge is not spent here — it escapes, and
             // the container reports it upward for its own parent to spend.
-            var advance = stillCollapsingWithFirst && collapseWithFirstChild ? 0f : active.With(topSet).Resolve();
+            if (!floatsActive) {
+                advance = escapesTopEdge ? 0f : active.With(topSet).Resolve();
+            }
 
             if (performLayout) {
                 // Auto margins on the inline axis are what centres a block box: §10.3.3 solves the
@@ -634,15 +850,20 @@ public sealed partial class LayoutTree {
                 var usedLeft = direction == Direction.Ltr ? usedStart : usedEnd;
                 var usedRight = direction == Direction.Ltr ? usedEnd : usedStart;
 
+                // A box that had to slide out from under a float is where §9.5 put it, and §10.3.3's
+                // inline-start rule no longer has a say — the slide already consumed the start margin
+                // it would have applied.
                 results[child].Position[(int) Edge.Left] = insetLeft
-                    + LegacyTextAlignOffset(
-                        styles[index].LegacyTextAlign,
-                        direction,
-                        innerWidth,
-                        childOuterWidth,
-                        usedLeft,
-                        usedRight
-                    )
+                    + (float.IsNaN(floatLeft)
+                        ? LegacyTextAlignOffset(
+                            styles[index].LegacyTextAlign,
+                            direction,
+                            innerWidth,
+                            childOuterWidth,
+                            usedLeft,
+                            usedRight
+                        )
+                        : floatLeft)
                     + relativeX;
                 results[child].Position[(int) Edge.Top] = committed + advance + relativeY;
                 results[child].Margin[(int) (direction == Direction.Ltr ? Edge.Left : Edge.Right)] = usedStart;
@@ -650,14 +871,42 @@ public sealed partial class LayoutTree {
             }
 
             if (stillCollapsingWithFirst) {
-                firstChildTopMargin = collapsesThrough
-                    ? firstChildTopMargin.With(topSet).With(bottomSet)
-                    : firstChildTopMargin.With(topSet);
+                // ⚠ A cleared box contributes NOTHING to the set that escapes the container's top
+                // edge, which is the other half of "clearance spends the margin". If the set escaped
+                // as well as being spent, the 400 points of `float_forced_clearance_adjoining_float`
+                // would reappear as the container's own top margin one level up. A box that had to be
+                // placed against the floats is out for the same reason, one step earlier: its margin
+                // was spent deciding where it goes.
+                if (!clearanceApplied && escapesTopEdge) {
+                    firstChildTopMargin = collapsesThrough
+                        ? firstChildTopMargin.With(topSet).With(bottomSet)
+                        : firstChildTopMargin.With(topSet);
+                }
 
-                stillCollapsingWithFirst = collapsesThrough;
+                stillCollapsingWithFirst = collapsesThrough && escapesTopEdge;
             }
 
-            if (collapsesThrough) {
+            if (clearanceApplied && results[child].MarginsCollapseThrough) {
+                // ⚠ <b>Clearance does not shorten a margin that was collapsing through the box; it
+                // cuts that margin in two and sits in the gap.</b> The set keeps its whole length —
+                // the part that was going to be spent above the box already has been, inside
+                // `advance`, and the remainder carries on below it.
+                // <c>float_clear_self_collapsing_margins</c> is a 40-over-140 pair collapsing to 140
+                // across a zero-height box that clears a 100-point float, and Chrome answers a
+                // 200-point container: 40 of margin, 60 of clearance, the box, and the 100 of margin
+                // that is left over.
+                //
+                // ⚠ And none of it escapes. §8.3.1 stops a parent's bottom margin collapsing with its
+                // last child's when that child's bottom margin is collapsing with a top margin that
+                // HAS clearance, which is this box exactly — so the remainder goes into `committed`
+                // rather than staying in `active` for the container to report upward.
+                var aboveTheBox = active.With(topSet).Resolve();
+                var wholeSet = active.With(topSet).With(bottomSet).Resolve();
+
+                committed += advance + childOuterHeight + MathF.Max(0f, wholeSet - aboveTheBox);
+                active = CollapsibleMargin.Zero;
+                staticPositionY = committed;
+            } else if (collapsesThrough) {
                 // Nothing separates this box's two margins, so they join the running set and the
                 // cursor does not move.
                 active = active.With(topSet).With(bottomSet);
@@ -794,6 +1043,17 @@ public sealed partial class LayoutTree {
         int currentDepth
     ) {
         var widest = 0f;
+
+        // ⚠ Floats go SIDE BY SIDE, so they are the one thing in this loop that adds rather than
+        // maxes — which is the accumulator this file's header predicted a float would need. A
+        // container's max-content width with three 15-point floats in it is 45 and not 15;
+        // `float_shrink_to_fit_contains_floats` asserts exactly that, twice, at 45 and at 480.
+        // `floatWidest` is the min-content side of the same measurement — the widest single float is
+        // as narrow as the run can be made by wrapping — and it is what stops the fit-content clamp
+        // below from returning less than one float.
+        var floatRun = 0f;
+        var floatWidest = 0f;
+
         var childIds = ChildIds(index);
 
         for (var position = 0; position < childIds.Length; position++) {
@@ -854,7 +1114,28 @@ public sealed partial class LayoutTree {
                 childWidth = results[child].MeasuredDimensions[(int) Dimension.Width];
             }
 
-            widest = MathF.Max(widest, MathF.Max(childWidth, paddingAndBorder) + marginRow);
+            var contribution = MathF.Max(childWidth, paddingAndBorder) + marginRow;
+
+            if (treeHasFloats && styles[child].Float != FloatSide.None) {
+                floatRun += contribution;
+                floatWidest = MathF.Max(floatWidest, contribution);
+
+                continue;
+            }
+
+            widest = MathF.Max(widest, contribution);
+        }
+
+        if (floatRun > 0f) {
+            // Shrink-to-fit over the run: max-content is the whole row, and a fit-content request
+            // takes what it was offered instead — floored at one float, because a float narrower
+            // than itself is not an available wrapping.
+            widest = MathF.Max(
+                widest,
+                widthSizingMode == SizingMode.MaxContent || float.IsNaN(availableInnerWidth)
+                    ? floatRun
+                    : MathF.Min(floatRun, MathF.Max(floatWidest, availableInnerWidth))
+            );
         }
 
         return widest;
