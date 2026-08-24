@@ -92,10 +92,10 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **160** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **51** |
-| **inert** | resolves, computes a value, and nothing in the engine looks at it | **3** |
-| **absent** | not emitted at all | **110** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **163** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **53** |
+| **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
+| **absent** | not emitted at all | **107** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 | **unknown** | the mechanism cannot decide, and the row says why | **1** |
 
@@ -395,7 +395,7 @@ refusal block, which already says so for the same reason.
 | Borders | 34 | 24 | 6 | 0 | 4 | 0 | 0 |
 | Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
-| Transforms | 23 | 2 | 0 | 2 | 19 | 0 | 0 |
+| Transforms | 23 | 5 | 2 | 0 | 16 | 0 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 | 0 |
 | Sizing | 15 | 0 | 7 | 0 | 8 | 0 | 0 |
 | Backgrounds | 11 | 3 | 1 | 0 | 7 | 0 | 0 |
@@ -883,9 +883,17 @@ does mirror that one.
    sets, and `content-none`, which additionally has nothing to apply to since F6 refused
    pseudo-elements rather than building them.
 2. *The property is inert and already allow-listed, so the root inherits a debt rather than adding
-   one.* `scale-x/y/z-*` and `rotate-x/y/z-*` over `scale` and `rotate`, both `#23`. The compositing
-   raster that landed this week did not change that, and `transform` and `perspective` measure inert
-   too, so the 3D forms are two features away rather than one.
+   one.* ⚠ **This shape is now empty, and how it emptied is worth more than the category.** It held
+   `scale-x/y/z-*` and `rotate-x/y/z-*` over `scale` and `rotate`, "both `#23`" — sound reasoning
+   over a premise that had already expired, and the sentence "the compositing raster that landed this
+   week did not change that" was written in the week it changed exactly that. `scale-x-*` and
+   `scale-y-*` are registered now, composed onto one `scale` the way the two translations are. **A
+   refusal that cites another refusal inherits its expiry date and nothing here checks it** — the
+   allow-list's own expiry only fires once somebody has already written the reader, which is a
+   different and later moment. What is left of the six is shape 4: `skew-*`, `scale-z-*`,
+   `rotate-x/y/z-*` and `translate-z-*` are emitted by v4 through `transform: rotateX(45deg)`, and
+   there is no `<transform-function>` parser here, so they are a parser away rather than a renderer
+   away.
 3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
    it. `inset-shadow-*` and `inset-ring-*` emit `box-shadow`, which is read — but
@@ -949,18 +957,27 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | `space-x/y-*` | **written** | `margin-inline-end` and `margin-bottom` are read; the family needed a compound selector, not a reader |
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
 | `mix-blend-*` | **refused** | `mix-blend-mode` moves no channel. `DrawCommand` has no blend channel and there is no offscreen target to blend into — the same compositor `rotate`/`scale` wait on under **#23** |
-| `origin-*` | **refused** | `transform-origin` moves no channel, and cannot: it needs a transform whose fixed point matters, and `translate` — the one transform the engine implements — is origin-independent. `scale` and `rotate` are refused under **#23** |
+| `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
 | `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` remains deferred, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
-⚠ **The `origin-*` refusal is the one worth reading, because a scene cannot fix it.** Every other
-inert verdict this document has recorded turned out at least *possibly* to be a missing arrangement —
-`grid-template-columns`, `vertical-align` and `transition-property` were each inert because the probe
-had no scene for them, three times, and the `translated` scene exists precisely so that the next
-`transform-origin`-shaped property would have somewhere to be seen. It does not help here. A
-translation moves every point of a box by the same vector, so its result is independent of the origin
-by definition; the two transforms that would notice are refused at the draw list and will stay refused
-until a compositor lands. So `transform-origin` is not unobserved, it is *unobservable*, and the
-`translated` scene reports zero channels at every value as a confirmation rather than as a gap.
+⚠ **The `origin-*` refusal was the one worth reading, and it is worth more now that it has been
+retired.** What it said: every other inert verdict here turned out at least *possibly* to be a missing
+arrangement — `grid-template-columns`, `vertical-align` and `transition-property` were each inert
+because the probe had no scene for them — but a scene could not fix this one. A translation moves
+every point of a box by the same vector, so its result is independent of the origin *by definition*;
+`transform-origin` was therefore not unobserved but **unobservable**, and `translated` reporting zero
+channels at every value was a confirmation rather than a gap.
+
+Every word of that was true, and the sentence that mattered was the next one: "the two transforms that
+would notice are refused at the draw list and will stay refused until a compositor lands." ⚠ **A
+refusal is a verdict plus a condition, and this file records the verdict in bold and the condition in
+a subordinate clause.** The compositor landed with `opacity`, was extended four more times for
+filters, masks, drop shadows and backdrops, and none of those changes was read as touching this page.
+`rotate` and `scale` are implemented now; a rotation about a corner is a different picture from one
+about the centre; `origin-*` is registered, and the `turned` scene is the arrangement in which the
+question means anything. It is the seventh entry on `UtilityConsumptionProbe`'s list — and the first
+one that was predicted in writing years before it was needed and still missed, because the prediction
+was filed as a reason not to look again.
 
 **Two divergences from v4 in what did land, both deliberate and both pinned in
 `ChildScopedFamilyTests`.** `space-y-*` emits the physical `margin-bottom` where v4 emits
@@ -2334,7 +2351,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A4 🟢 | `order` | `LayoutStyleBuilder` + flex line ordering | **#22** | 0.1 |
 | A5 ✅ | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | `OverflowReader`, `LayoutStyleBuilder` | done | — |
 | A6 🟡 | **Three of the four landed, in three different ways, and the fourth is refused.** `fill`/`stroke` were the honest case: the emission was already v4's and the renderer had had the channel all along — `IconPath` carries a fill paint and a stroke paint and `IconPaintKind.Foreground` is SVG's `currentColor` marker — so it was two `ColorOf` reads in `Icon.Resolve`, plus the two names in `InheritedProperties` without which the class only works written on the icon itself. `outline` is **gone rather than done**: `ring-*` emitted `outline-color`, a property no Tailwind has ever emitted for it (see § D5, corrected), and under v4's box-shadow shape the existing spread path paints it with no new rendering. That needed `currentcolor` in `EmitShadow`. ⚠ **`user-select` stays inert and is not waiting for a reader.** A selection model exists — `TextField` has `CaretIndex`/`SelectionAnchor`/`SelectWord` and drag-to-select, `CodeEditor` has its own — but both are per-control: each captures the pointer for its own drag and hit-tests only its own `TextLayout`. The *document-wide* selection `user-select` governs does not exist, so `select-none` on a button, which is what the class is for, has nothing to suppress. Teaching `TextField` to honour it would expire the allow-list line and leave that promise unkept. ⚠ Also owed: `overflow-clip`. ⚠ And the parity gate could not see `fill`/`stroke` until `UtilityConsumptionProbe` could build an `Icon` — `grid-cols-3`'s missing grid again | `Icon`, `DrawListBuilder`, `InheritedProperties` | **#24** | 0.05 of 0.25 |
-| A7 🟢 | **Transforms — the translation is done and the other two are refused, on purpose.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **Owed: `scale` and `rotate`, and neither is waiting for a reader.** A `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box — and a rotated clip — cannot be represented at all, and a bounding-box approximation would draw a 45-point square where a 32-point one was asked for. Scale can scale the box and not the picture: glyph advances are shaped at `run.Size` during *layout*, so a scaled subtree needs re-shaping, which is the one thing §3 forbids. Both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes | `TranslationReader`, `UiDocument` | **#23** | 0.35 |
+| A7 🟢 | **Transforms — the three independent properties are all read now.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **`scale` and `rotate` are read now, and the refusal that used to be here is the most useful thing in this row.** It said: a `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box and a rotated clip cannot be represented; scale can scale the box and not the picture, because glyph advances are shaped at `run.Size` during *layout*. Every clause is still true. Its last sentence — "both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes" — is the one that mattered, and that compositor landed with `opacity` and was extended four more times before anybody re-read this. ⚠ **A refusal whose premise names another feature has an expiry date, and nothing in the repository checks it**: `InertProperties.txt`'s expiry only fires once someone has already written the reader. **What it took:** a transform is the fifth thing to open a group, `TransformReader` composes `rotate`, `scale` and `transform-origin` into one `UiTransform` in `UiDocument.Accumulate`, and the matrix is spent on the composite quad's four vertex positions — so no `DrawCommand` was rotated, no clip stopped being a rectangle, and no glyph was re-shaped. It cost **no shader and no vertex format**: both executors already interpolate a quad's texture coordinate linearly, and an affine map is exactly the class for which that is exact. The hit test maps the pointer through the inverse at the top of the walk, one line, and nested transforms compose because the recursion does. **Owed:** `transform` itself and `skew-*`, which need a `<transform-function>` parser rather than a renderer; the 3D family, which needs a third axis and a projective composite `UiTransform` deliberately cannot express; and `backdrop-filter` on a transformed group, refused in `UiGeometryBuilder.Layer` rather than approximated | `TransformReader`, `UiTransform`, `UiDocument`, `UiGeometryBuilder` | **#23** | 0.35 |
 | A8 🟢 | **`filter: blur()` is done and the rest of A8 is not.** `blur-*` emits a `--tw-blur` fragment assembled into a real `filter`, closing the `--blur` placeholder the same way the translations closed theirs; `DrawListBuilder` opens a composited group for it — *and never collapses one*, since the single-command peephole is an identity for opacity and nonsense for a filter — `UiGeometryBuilder` outsets the group's bounds by three sigma before the clip narrows them, and both executors convolve the finished surface with the same kernel from `UiLayer.KernelRadius`. On the device that is two extra passes and **one** shared scratch target for the whole frame, not one per blurred group. Measured at 1920×1080: the twelve composited groups an editor frame already had cost **1.10 ms**, and a blurred group adds 0.17 ms at σ=4 — ⚠ **the surfaces are the expensive part of this design and the blur is not**, which is the finding worth carrying into any future work here. ⚠ **Owed:** the rest of `filter` (`brightness`, `contrast`, `saturate`, `grayscale`, …), all of which are *absent* roots rather than inert ones and each of which is a constant, an initial and a slot in `UtilityComposition.Filter`; <s>`backdrop-filter`, which needs the frame *under* a group and the compositor does not keep it</s> — **landed**: the frame under a group is not kept, it is *re-rendered*, so `UiRenderer.Submit` took a `stop`, `Compose`'s walk became post-order and the host hands over what it had already painted; and `Vixen.Editor.Host`, which supplies no blur stage because Raven's `[PushConstant]` cannot place a block at a byte offset — see `Vixen.Ui.Renderer/README.md` | `DrawListBuilder`, `UiGeometryBuilder`, `UiRenderer`, `SoftwareUiRasterizer` | **#28** | 0.35 of 0.75 |
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |

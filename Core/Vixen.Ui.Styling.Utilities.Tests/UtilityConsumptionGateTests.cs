@@ -343,6 +343,24 @@ public class UtilityConsumptionGateTests {
     [InlineData("translate", "9px 0px", "hit")]
     [InlineData("translate", "9px 0px", "paint")]
     [InlineData("translate", "9px 0px", "layout")]
+
+    // ⚠ <b>`rotate` and `scale` are pinned on both channels for the translation's reason, and the
+    // `hit` row is the one that has to be here.</b> Every transform opens a composited group, so
+    // every transform moves `paint` — a gate row asking only for that would pass a matrix no executor
+    // reads, a `rotate` that came out a `scale`, and one that reached the draw list and never reached
+    // the pointer. The last of those is the interface you can see and cannot click, and unlike
+    // `translate` it is not unstateable here: a translation lands in `AbsoluteLeft` and both consumers
+    // read the result, where these two are one matrix applied in two places.
+    //
+    // ⚠ No `layout` row, and that is an assertion rather than an omission. CSS Transforms 1 §3
+    // forbids a transform from affecting layout, so a `layout` channel moving for either of these
+    // would be the bug — see `TransformTests.A_transformed_parent_carries_its_subtree_and_leaves_its_siblings`,
+    // which is where that is asserted positively. The translation's `layout` row is honest because a
+    // translation lands in the accumulated position, which this gate counts as layout.
+    [InlineData("rotate", "30deg", "hit")]
+    [InlineData("rotate", "30deg", "paint")]
+    [InlineData("scale", "150%", "hit")]
+    [InlineData("scale", "150%", "paint")]
     public void A_property_the_engine_acts_on_moves_the_channel_it_should(string property, string value, string channel) =>
         Assert.Contains(channel, UtilityConsumptionProbe.Channels(property, value), StringComparer.Ordinal);
 

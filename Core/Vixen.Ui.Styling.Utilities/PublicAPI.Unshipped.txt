@@ -142,6 +142,8 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingColor = "--tw-ring-color" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingWidth = "--tw-ring-width" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Saturate = "--tw-saturate" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleX = "--tw-scale-x" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleY = "--tw-scale-y" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Sepia = "--tw-sepia" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateX = "--tw-translate-x" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateY = "--tw-translate-y" -> string
@@ -166,6 +168,7 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskImage(string shape, str
 static Vixen.Ui.Styling.Utilities.UtilityComposition.MaskLayers() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Ring() -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.Scaling() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.StopList(bool via) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Translation() -> string
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.IsRegistered(string name) -> bool

@@ -216,6 +216,20 @@ public static class UtilityComposition {
     /// <summary>How far along y.</summary>
     public const string TranslateY = Prefix + "translate-y";
 
+    /// <summary>How much a transform scales the box along x.</summary>
+    /// <remarks>
+    ///     ⚠ The translations' arrangement exactly, for the identical reason one property up: CSS's
+    ///     <c>scale</c> takes both axes in one declaration, so <c>scale-x-150 scale-y-50</c> is two
+    ///     classes that must arrive as <c>scale: 150% 50%</c>. Written as one declaration each,
+    ///     whichever rule the cascade picked last would win and the other axis would silently be the
+    ///     initial value — which for a scale is one, so the class would look like it had simply been
+    ///     ignored rather than overwritten.
+    /// </remarks>
+    public const string ScaleX = Prefix + "scale-x";
+
+    /// <summary>And along y.</summary>
+    public const string ScaleY = Prefix + "scale-y";
+
     // ── The ring ────────────────────────────────────────────────────────────────────────────
     //
     // ⚠ <b>A ring is a <c>box-shadow</c>, not an outline, and Vixen emitted <c>outline-color</c> for
@@ -416,6 +430,20 @@ public static class UtilityComposition {
         // load-bearing has the answer here instead of the argument.
         [TranslateX] = "0px",
         [TranslateY] = "0px",
+
+        // ⚠ <b>One, and this is the pair where the identity is not zero — which is the whole reason
+        // these are separate fragments rather than a second use of the translations'.</b> A missing
+        // translation is no movement, which is zero; a missing scale is no growth, which is one. A
+        // fragment table that defaulted these to <c>0</c> would make <c>scale-x-150</c> alone collapse
+        // the element vertically to nothing, and <c>scale-0</c> is a real class so the result would
+        // look like a feature rather than a bug.
+        //
+        // ⚠ <b>Unitless rather than <c>100%</c>, unlike the family that fills them.</b> `scale-x-150`
+        // writes `150%` into its own fragment, because that is what v4 emits and what
+        // `TransformReader` reads as a ratio; the *default* is the bare number because a percentage
+        // and a number are both legal here and the bare one cannot be misread as a length.
+        [ScaleX] = "1",
+        [ScaleY] = "1",
 
         // ⚠ <b>Zero, so that a colour on its own paints nothing — which is what v4 does too.</b>
         // `ring-accent` with no width emits only `--tw-ring-color` in Tailwind and therefore no
@@ -653,6 +681,17 @@ public static class UtilityComposition {
     ///     only in which fragment they set beside it.
     /// </remarks>
     public static string Translation() => $"{Reference(TranslateX)} {Reference(TranslateY)}";
+
+    /// <summary>The two-axis value a <c>scale</c> declaration takes.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     <see cref="Translation" />'s arrangement and its argument word for word: both
+    ///     <c>scale-x-*</c> and <c>scale-y-*</c> emit this same constant, so either works alone and
+    ///     the two compose. ⚠ Two components always, never one — a one-component <c>scale</c> is
+    ///     defined as <i>uniform</i>, so emitting <c>scale: var(--tw-scale-x, 1)</c> for a lone
+    ///     <c>scale-x-150</c> would stretch both axes and be exactly the bug the fragment is for.
+    /// </remarks>
+    public static string Scaling() => $"{Reference(ScaleX)} {Reference(ScaleY)}";
 
     /// <summary>The <c>box-shadow</c> a ring is.</summary>
     /// <returns>The assembled value.</returns>
