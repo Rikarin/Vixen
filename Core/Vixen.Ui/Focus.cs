@@ -103,6 +103,12 @@ public sealed partial class UiDocument {
         // focus change. See `CommandFocus`.
         if (element is null || !element.IsInCommandTransparentSubtree) {
             CommandFocus = element;
+
+            // Inside the branch, not outside it: a focus change that leaves the route where it was
+            // — every press on a menu, on a menu bar and on a toolbar button — cannot have changed
+            // any answer, and telling forty items to re-ask would be exactly the churn the
+            // coalescing exists to prevent.
+            InvalidateCommands();
         }
 
         Restate(previous, element, KeyboardMode);

@@ -1161,6 +1161,11 @@ public sealed partial class UiDocument : IDisposable {
             InvalidatePositions();
         }
 
+        // ⚠ Before `Ticked` and before the passes, so that a surface which greys a button in its
+        // handler has that write picked up by *this* frame's layout rather than the next one. It is
+        // also the reason the coalescing point is here at all: see `CommandsInvalidated`.
+        RaiseCommandsInvalidated();
+
         Ticked?.Invoke(this, now);
     }
 

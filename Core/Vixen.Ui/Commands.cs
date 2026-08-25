@@ -234,6 +234,74 @@ public static class CommandRoute {
     }
 }
 
+public sealed partial class UiDocument {
+    bool commandsDirty;
+
+    /// <summary>Raised at most once a frame when anything a command surface shows may have changed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For the surfaces that are visible all the time.</b> A menu is asked as it opens and
+    ///         needs nothing else; a toolbar, and Trinix's global menu bar — which has to <i>push</i>
+    ///         an update over a Wayland protocol at the moment an item greys — are on screen
+    ///         continuously and have no such moment. The alternative they had was polling every
+    ///         command on the tick, which is what <c>EditorShell.Tick</c> does today.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Coalesced to one raise per frame, and that is the entire reason it exists.</b> A
+    ///         command's answer can be changed by a focus change, by a registration, and by anything
+    ///         at all through <see cref="InvalidateCommands" /> — and a load that registers fifty
+    ///         handlers would otherwise re-ask forty menu items fifty times for one answer. The flag
+    ///         is set as many times as anybody likes and read once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Raised from <see cref="Tick" /> rather than from <see cref="Update" />, because
+    ///         <c>Update</c> is allowed not to happen.</b> A frame in which nothing dirtied the
+    ///         document returns early without running a pass, and a command becoming executable is
+    ///         not a thing that dirties one — so a surface hung on the pass would go stale for
+    ///         exactly as long as the interface was still. <c>Tick</c> is the call a host must make
+    ///         every frame whether anything happened or not, which is the guarantee this needs.
+    ///     </para>
+    ///     <para>
+    ///         Subscribe in <c>OnCreated</c> and unsubscribe in <c>OnRemoved</c>, as
+    ///         <see cref="Ticked" />'s remarks say.
+    ///     </para>
+    /// </remarks>
+    public event Action<UiDocument>? CommandsInvalidated;
+
+    /// <summary>Says that a command's enablement, name or check state may have changed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The third source, and the one an application uses.</b> The focus moving and a
+    ///         handler being registered are noticed here; a <i>selection</i> changing is not, and
+    ///         cannot be — the predicate that reads it is an arbitrary closure and this framework has
+    ///         no way to know what it looked at. So the view that changed the selection says so, in
+    ///         one line, and every surface showing any of its commands follows.
+    ///     </para>
+    ///     <para>
+    ///         Free to call as often as you like: it sets a flag. Calling it a hundred times in a
+    ///         frame raises <see cref="CommandsInvalidated" /> once.
+    ///     </para>
+    /// </remarks>
+    public void InvalidateCommands() => commandsDirty = true;
+
+    /// <summary>Raises the coalesced invalidation, if anything asked for one since the last frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The flag is cleared before the handlers run, not after.</b> A handler is entitled to
+    ///     invalidate again — a toolbar that renames a button can legitimately change what a
+    ///     predicate reads — and clearing afterwards would swallow that, leaving the interface a
+    ///     frame stale with no way to notice. Clearing first means the second ask is honoured on the
+    ///     next frame, which is one raise per frame in either order.
+    /// </remarks>
+    void RaiseCommandsInvalidated() {
+        if (!commandsDirty) {
+            return;
+        }
+
+        commandsDirty = false;
+        CommandsInvalidated?.Invoke(this);
+    }
+}
+
 public partial class UiElement {
     // ⚠ One nullable reference, and both command features live behind it. A UI tree is 10⁴
     // elements and almost none of them are command responders, so the cost of the feature on an
@@ -361,6 +429,10 @@ public partial class UiElement {
         }
 
         bindings.Handlers.Add(new CommandRegistration(id, execute, canExecute, title, isChecked));
+
+        // A new responder can turn a greyed item live, and a view that declares eight handlers as it
+        // is built asks for one raise between them.
+        Document.InvalidateCommands();
     }
 
     /// <summary>Stops handling a command.</summary>
@@ -378,6 +450,11 @@ public partial class UiElement {
         for (var i = 0; i < handlers.Count; i++) {
             if (string.Equals(handlers[i].Id, id, StringComparison.Ordinal)) {
                 handlers.RemoveAt(i);
+
+                // The other half of registration: a responder going away can grey an item that was
+                // live, and is the same kind of change for the same surfaces.
+                Document.InvalidateCommands();
+
                 return true;
             }
         }

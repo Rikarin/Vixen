@@ -68,17 +68,59 @@ public abstract partial class ButtonBase : Control {
 
             command = value;
 
-            if (value is not null) {
-                // ⚠ A button that runs whatever the focus handles must not itself be what the focus
-                // is on, or a toolbar's Copy button copies from the toolbar. Set here rather than on
-                // the type because a `Button` with no command is an ordinary place — it is the
-                // binding that makes it a surface — and it is left set when the id is cleared, for
-                // the reason `Disabled` is: undoing a thing the application may have wanted.
-                IsCommandTransparent = true;
+            if (value is null) {
+                Unwatch();
 
-                RefreshCommand();
+                return;
             }
+
+            // ⚠ A button that runs whatever the focus handles must not itself be what the focus is
+            // on, or a toolbar's Copy button copies from the toolbar. Set here rather than on the
+            // type because a `Button` with no command is an ordinary place — it is the binding that
+            // makes it a surface — and it is left set when the id is cleared, for the reason
+            // `Disabled` is: undoing a thing the application may have wanted.
+            IsCommandTransparent = true;
+
+            Watch();
+            RefreshCommand();
         }
+    }
+
+    Action<UiDocument>? invalidated;
+
+    /// <summary>Starts following <see cref="UiDocument.CommandsInvalidated" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The subscription is what makes a persistently visible surface work, and it is why
+    ///     the event exists at all.</b> A menu is asked as it opens; a toolbar has no such moment,
+    ///     and the thing it replaces is <c>EditorShell.Tick</c> asking every command on the strip
+    ///     every frame. One delegate per <i>bound</i> button — a button with no command allocates
+    ///     nothing here — and it is unhooked in <see cref="OnRemoved" />, without which a rebuilt
+    ///     strip would leave its old buttons subscribed to a document that outlives them.
+    /// </remarks>
+    void Watch() {
+        if (invalidated is not null) {
+            return;
+        }
+
+        invalidated = _ => RefreshCommand();
+
+        Document.CommandsInvalidated += invalidated;
+    }
+
+    void Unwatch() {
+        if (invalidated is null) {
+            return;
+        }
+
+        Document.CommandsInvalidated -= invalidated;
+        invalidated = null;
+    }
+
+    /// <inheritdoc />
+    protected override void OnRemoved() {
+        Unwatch();
+
+        base.OnRemoved();
     }
 
     /// <summary>Asks the route about the bound command and shows the answer.</summary>

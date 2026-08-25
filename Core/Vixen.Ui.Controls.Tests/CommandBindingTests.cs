@@ -301,6 +301,89 @@ public class CommandBindingTests {
     }
 
     [Fact]
+    public void A_button_that_is_always_on_screen_follows_the_invalidation_instead_of_polling() {
+        using var fixture = new ControlFixture();
+
+        var asked = 0;
+        var enabled = false;
+
+        var view = View(fixture.Document.Root);
+        view.AddCommandHandler(
+            "file.save",
+            () => { },
+            () => {
+                asked++;
+
+                return enabled;
+            }
+        );
+
+        fixture.Document.Focus(view);
+
+        var button = fixture.Add<Button>();
+        button.Command = "file.save";
+
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+        Assert.True(button.Disabled);
+
+        // ⚠ Ten frames in which nothing said anything, and the predicate is not asked again. That
+        // is the half of step 5 that a coalescing test cannot show: a strip of twenty buttons
+        // costs nothing on the frames where nothing changed.
+        var settled = asked;
+
+        for (var i = 0; i < 10; i++) {
+            fixture.Advance(TimeSpan.FromMilliseconds(16));
+        }
+
+        Assert.Equal(settled, asked);
+
+        // ⚠ And the other direction: the button really does follow, without a menu to open and
+        // without anyone touching the button. The view says its selection changed; that is the
+        // only line of application code in this.
+        enabled = true;
+        fixture.Document.InvalidateCommands();
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.True(asked > settled);
+        Assert.False(button.Disabled);
+    }
+
+    [Fact]
+    public void A_removed_button_stops_following_the_document() {
+        using var fixture = new ControlFixture();
+
+        var asked = 0;
+
+        var view = View(fixture.Document.Root);
+        view.AddCommandHandler(
+            "file.save",
+            () => { },
+            () => {
+                asked++;
+
+                return true;
+            }
+        );
+
+        fixture.Document.Focus(view);
+
+        var button = fixture.Add<Button>();
+        button.Command = "file.save";
+
+        fixture.Document.Remove(button);
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        var settled = asked;
+
+        // A shell that rebuilds its toolbar every time a mode changes would otherwise accumulate a
+        // full set of dead buttons, each still asking the route on every invalidation for ever.
+        fixture.Document.InvalidateCommands();
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(settled, asked);
+    }
+
+    [Fact]
     public void An_item_bound_from_markup_is_bound_the_same_as_one_bound_from_code() {
         using var fixture = new ControlFixture();
 

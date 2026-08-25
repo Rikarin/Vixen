@@ -784,6 +784,7 @@ override Vixen.Ui.Controls.Breadcrumb.TagName.get -> string
 override Vixen.Ui.Controls.BreadcrumbItem.TagName.get -> string
 override Vixen.Ui.Controls.Button.TagName.get -> string
 override Vixen.Ui.Controls.ButtonBase.OnCreated() -> void
+override Vixen.Ui.Controls.ButtonBase.OnRemoved() -> void
 override Vixen.Ui.Controls.ButtonBase.RaisesActivation.get -> bool
 override Vixen.Ui.Controls.Card.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Card.ContentHost.get -> Vixen.Ui.UiElement

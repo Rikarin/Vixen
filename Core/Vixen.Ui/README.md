@@ -123,9 +123,21 @@ list makes. The small store behind it is allocated only for elements that declar
 scope, and holds a `List` rather than a `Dictionary` because an element declares a handful of ids at
 most and a linear scan over four strings beats hashing one.
 
+**Invalidation is one coalesced event.** `UiDocument.CommandsInvalidated` is raised from `Tick`, at
+most once a frame, when the command focus moved, a handler was added or removed, or anybody called
+`UiDocument.InvalidateCommands()`. A menu is asked as it opens and needs none of it; a toolbar is on
+screen continuously and has no such moment, and what it replaces is `EditorShell.Tick` asking every
+command on the strip every frame. The flag is set as often as anyone likes and read once — fifty
+registrations during a load raise it once. It is on the **document** and not on the static
+`CommandRoute`, because a static event would keep every subscribing control alive for the life of
+the process and one document's focus change would invalidate another's surfaces; and it is raised
+from `Tick` rather than from `Update` because `Update` returns early when nothing dirtied the
+document, and a command becoming executable is not a thing that dirties one.
+
 **What consumes it.** `Vixen.Ui.Controls`' `ButtonBase.Command` — so `Button`, `IconButton`,
-`MenuItem`, `ToggleButton` and `Link` all bind an id, from markup as readily as from code. The
-editor's `CommandRegistry` still resolves its scope through `EditorShell.Context` — see
+`MenuItem`, `ToggleButton` and `Link` all bind an id, from markup as readily as from code, and each
+follows the invalidation for as long as it has one bound. The editor's `CommandRegistry` still
+resolves its scope through `EditorShell.Context` — see
 [doc 45](../../docs/plan/45-commands-and-focus-scope.md), whose staging step 1 is what this is, and
 whose § G2 was **refuted** when it met the editor: the editor's contexts are pushed from *pointer
 presses*, not focus changes, because its panels are not focusable — six of its seven context-claiming

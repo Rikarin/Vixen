@@ -194,7 +194,29 @@ Each step is independently shippable and leaves the editor working.
    > `Command` set it. It is AppKit's "a menu is not in the responder chain", stated as data.
    > Sabotage: removing the transparency test in `Focus` fails 6 of 10 binding tests.
 4. **Editor menus and toolbars move onto the binding**, deleting the hand-maintained enablement.
-5. **`Invalidated`**, and the two persistently visible surfaces subscribe.
+5. ✅ **`Invalidated`**, and the two persistently visible surfaces subscribe. — *Landed 2026-08-25.*
+   `UiDocument.CommandsInvalidated` and `UiDocument.InvalidateCommands()`, raised from
+   `UiDocument.Tick`; `ButtonBase` subscribes for as long as it has a bound id, so the event ships
+   with its consumers rather than ahead of them. 6 tests in
+   `Core/Vixen.Ui.Tests/CommandInvalidationTests.cs` plus 2 subscriber tests in the controls
+   project. Sabotage both ways: raising eagerly instead of coalescing fails 2 of 6 (100 raises where
+   1 is asserted), and never raising at all fails 4 of 6 and 1 of 12 bindings.
+
+   > **On the document, not on `CommandRoute`.** The doc's shape block says
+   > `CommandRoute.Invalidated`, and `CommandRoute` is a static class: a static event would hold
+   > every subscribing control — and through it every element it can reach — alive for the life of
+   > the process, and one document's focus change would invalidate every other document's surfaces.
+   > All three sources are per-document facts, and "once per frame" needs a frame, which is
+   > `UiDocument.Tick`. `MenuPresenter` already carries a comment about `Strings.Changed` being
+   > static and outliving the document it was subscribed from, which is the same defect one level
+   > out.
+
+   > **`Tick` rather than `Update`, and the difference is load-bearing.** `UiDocument.Update`
+   > returns early when nothing dirtied the document, and a command becoming executable is not a
+   > thing that dirties one — so a surface hung on the pass goes stale for exactly as long as the
+   > interface is still, which is most of the time. `Tick` is the one call a host must make every
+   > frame whether anything happened or not. `It_is_raised_from_the_tick_because_a_still_document_runs_no_pass`
+   > asserts `Update()` returns `false` on the frame the raise happens.
 
 ## Acceptance criteria
 
@@ -212,9 +234,14 @@ Each step is independently shippable and leaves the editor working.
   assigning a context**, and `EditorShell.Context` no longer exists. — *Blocked. See the amendment
   under G2: the editor's panels are not focusable and four of its nine contexts are modes, so
   "moving focus between two scopes" is not a thing that happens in this editor as written.*
-- ⬜ `Invalidated` fires once per frame at most, under a test that mutates state fifty times in one
-  tick. — *Step 5. Deliberately not built in step 1: an event nothing raises and nothing subscribes
-  to is this repository's commonest defect.*
+- ✅ `Invalidated` fires once per frame at most, under a test that mutates state fifty times in one
+  tick. — `Fifty_mutations_in_one_tick_raise_it_once`, which makes a hundred mutations (fifty
+  explicit invalidations and fifty registrations, so the sources coalesce against each other and not
+  merely each against itself) and asserts one raise. The other direction is asserted too, because an
+  event that never fires satisfies "at most once" perfectly: `Each_of_the_three_sources_raises_it`
+  checks the three one at a time with a frame between, and
+  `A_button_that_is_always_on_screen_follows_the_invalidation_instead_of_polling` proves a real
+  control follows it — and that ten quiet frames ask no predicate at all.
 - ✅ Every existing editor keybinding test passes unchanged. — *Trivially, nothing under `Editor/`
   was touched.*
 - ✅ Public API additions are approved in `PublicAPI.Unshipped.txt`; `CheckApi` and

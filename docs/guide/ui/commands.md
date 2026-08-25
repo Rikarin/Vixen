@@ -120,6 +120,32 @@ the focus — sets it once on the surface's root, and everything inside is cover
 A menu asks the route as it opens, which is the right moment for a surface that is not on screen the
 rest of the time — nothing polls, and a menu of forty items costs forty walks once per opening.
 
+A toolbar has no such moment, so a bound control also follows `UiDocument.CommandsInvalidated`: one
+event, raised **at most once per frame**, from `UiDocument.Tick`. Three things ask for it —
+
+* the command focus moving,
+* a handler being added or removed,
+* `UiDocument.InvalidateCommands()`, which an application calls when something *its* predicates read
+  has changed.
+
+The third is the one you write. A `canExecute` closure may read anything at all — a selection count,
+a dirty flag, a network state — and nothing in the framework can know what it looked at, so the view
+that changed the selection says so in one line and every surface showing any of its commands
+follows:
+
+```csharp no-compile="a fragment; `document` is the application's UiDocument"
+selection.Add(entity);
+document.InvalidateCommands();
+```
+
+⚠ **Call it as often as you like.** It sets a flag. Fifty calls in one frame raise the event once,
+which is the whole point: a menu bar that re-asked forty items on every mutation is a menu bar that
+stutters. On frames where nothing asked, nothing is raised and no predicate is invoked at all.
+
+It is raised from `Tick` rather than from `Update` because `Update` is allowed not to happen — a
+frame in which nothing dirtied the document returns early, and a command becoming executable does not
+dirty one. `Tick` is the call a host must make every frame regardless.
+
 ## Examples
 
 A view that copies its selection, and greys the menu item out while there is nothing to copy:

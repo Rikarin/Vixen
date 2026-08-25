@@ -945,6 +945,7 @@ Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) 
 Vixen.Ui.UiDocument.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.CommandFocus.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.CommandsInvalidated -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.UiDocument.CompactStyles() -> bool
 Vixen.Ui.UiDocument.ComponentAt(Vixen.Ui.UiElement element) -> Vixen.Ui.Composition.Component?
 Vixen.Ui.UiDocument.Compositing.get -> bool
@@ -978,6 +979,7 @@ Vixen.Ui.UiDocument.HitTest(Vixen.Ui.UiSurface surface, float x, float y) -> Vix
 Vixen.Ui.UiDocument.HitTest(float x, float y) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Hovered.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Invalidate() -> void
+Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
 Vixen.Ui.UiDocument.KeyboardMode.get -> bool
 Vixen.Ui.UiDocument.LastPassWasCold.get -> bool
