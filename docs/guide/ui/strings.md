@@ -3,7 +3,7 @@ title: Strings and the catalogue
 slug: ui/strings
 kind: guide
 area: Core
-summary: A label is an id plus the English it was written as, so a missing translation shows the sentence rather than the id, and a catalogue carries no fallback chain because the fallback is in the source.
+summary: A label is an id plus the English it was written as, so a missing translation shows the sentence rather than the id — and the catalogue in use is a signal, so a language change re-labels a running interface with no code at any call site.
 api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Editor.Ui.StringCatalogYaml]
 tags: [ui, localisation, strings, i18n, signals]
 since: 0.2
@@ -45,9 +45,22 @@ call site than `item.Label = "Save"`, so there is never a reason to write the li
 failure that costs an application a sweep through every file it has, after the fact, looking for
 words.
 
-The second thing it is for is a translator's worklist that is a fact rather than a guess.
-`Strings.Missing` is what the running application asked for and did not get, so a catalogue that
-claims to be complete has a test that says so.
+The second thing it is for is a language change that means something. `Strings.Catalog` reads a
+`Signal<StringCatalog>`, and every `@expr` in a `.vxml` is a region-scoped effect — so an expression
+that reads a string is a consumer of that signal without saying so. `Strings.Use` marks it dirty,
+the document's next flush re-runs it, and the label changes. Nothing subscribes, nothing is rebuilt,
+and no application writes a line of code for it.
+
+⚠ **A label assigned once in C# is not an expression.** A control whose constructor writes
+`Button.Label = ControlStrings.Close.Text` reads the signal outside any effect, so it shows whatever
+language was in use when it was built — which is what the standard control set does today. Bind
+through markup, or through `BuildContext.Bind`, where a label has to follow a language change on a
+live element. `Strings.Changed` is the plain event a hand-built surface subscribes to in order to
+rebuild itself whole; it is static, so a subscriber that outlives nothing must still unsubscribe.
+
+The third thing is a translator's worklist that is a fact rather than a guess. `Strings.Missing` is
+what the running application asked for and did not get, so a catalogue that claims to be complete
+has a test that says so.
 
 ## Using it
 
@@ -108,6 +121,17 @@ public static class Templates {
         Strings.Template(language, declared);
 }
 ```
+
+A markup label that follows the language, which is the case the signal exists for — the whole of
+what the application writes is the expression:
+
+```vxml no-compile="one element of a sheet; the whole file is Core/Vixen.Ui.Controls.Tests/Markup/LocalisedSheet.vxml"
+<Button ref="@Close" Label="@CloseText.Text" />
+```
+
+`Strings.Use(other)` between two frames re-labels that button on the second one. Nothing subscribes,
+nothing is rebuilt, and no code in the application mentions the change.
+`Core/Vixen.Ui.Controls.Tests/LocalisationTests.cs` is that sentence as an assertion.
 
 Asserting a language is complete, which is the test a shipping catalogue earns:
 

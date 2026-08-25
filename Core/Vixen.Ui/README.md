@@ -164,6 +164,20 @@ publishing NativeAOT against a vendored closure. The editor reads YAML through
 `Vixen.Editor.Ui.StringCatalogYaml`; another application answers differently, and neither choice
 reaches the other.
 
+⚠ **And the catalogue in use is a `Signal<StringCatalog>`, not a field.** That is the whole of what
+makes a language change re-label a running interface: every `@expr` in a `.vxml` is a region-scoped
+effect, so an expression that reads a string is a consumer of that signal without saying so.
+`Strings.Use` marks it dirty, the next `Document.Update` re-runs it, and the label changes with no
+code at any call site. The field version is pixel-identical until the moment somebody changes
+language, which is why the sabotage matters more than the test: reverting the signal to a field
+leaves both assertions in `Vixen.Ui.Controls.Tests/LocalisationTests.cs` reading `"Close"` where they
+expect `"Zavřít"`.
+
+⚠ **A label assigned once in C# is not an expression.** A control whose constructor writes
+`Button.Label = ControlStrings.Close.Text` reads the signal outside any effect and shows the language
+that was in use when it was built. `Strings.Changed` — a plain event, and static — is what a
+hand-built surface subscribes to in order to rebuild itself whole.
+
 These three types were `Vixen.Editor.Ui`'s until doc 46 § A3 counted them among the 41 % of that
 assembly that is application-framework machinery no application can reach.
 
