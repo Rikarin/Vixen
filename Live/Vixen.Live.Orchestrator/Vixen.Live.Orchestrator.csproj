@@ -21,8 +21,10 @@
 
         <!--
           `.vxplacement` is YAML, and doc 27 § Placement is explicit that the weights are a thing a
-          game authors rather than constants the engine ships. This is the boot-time reader for one;
-          the editor-side importer that turns it into an addressable asset is owed.
+          game authors rather than constants the engine ships. This is the reader for one — ⚠ and
+          nothing in the tree calls it outside this project's tests, so a game that wants authored
+          weights reads the file itself and hands the record to `MapOptions`. Both halves of the
+          asset form are owed, not just the editor-side importer; see the README.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />

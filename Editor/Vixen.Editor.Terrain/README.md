@@ -156,8 +156,8 @@ paint because the *sculpt* layer is locked is the two getting confused where it 
 
 ## The collider seam
 
-`ITerrainColliders`, for the reason `IMeshBaker` is an interface: **nothing in the editor references
-`Vixen.Physics`, and this does not either.** The editor says which tiles moved; whatever holds a
+`ITerrainColliders`, for the reason `IMeshBaker` is an interface: **the sculpt toolset does not
+reference `Vixen.Physics`, and must not.** The editor says which tiles moved; whatever holds a
 physics world turns that into shapes, from `TerrainSamples.FillCollisionSamples` and
 `PhysicsShapes.HeightField`, both of which already exist.
 
@@ -169,10 +169,14 @@ ground beside it — a lip the player trips on, on a seam nothing draws.
 this one and `Core/Vixen.Terrain.Physics` and joins them. This project's reference list is unchanged
 by it, which is the point.
 
-⚠ **And `TerrainEdit.Colliders` is now assigned, which is the half that was missing for longer.** It
-was set in five test files and nowhere else in the tree, so the seam had a double on both ends.
-`TerrainModule` takes an `ITerrainColliders` from `PluginServices` when the host published one —
-optional, because a scene sculpted before anybody pressed play has no physics world.
+✅ **And `TerrainEdit.Colliders` is now assigned by the shipped editor, which is the half that was
+missing for longer.** It was set in five test files and nowhere else in the tree, so the seam had a
+double on both ends. `TerrainModule` takes an `ITerrainColliders` from `PluginServices` when the host
+published one, and since 2026-08-21 the host does: `TerrainPhysicsModule` sits in
+`EditorModules.Standard` and publishes a switch that attaches to the play session's `PhysicsScene`.
+The resolve stays optional, because a scene sculpted before anybody pressed play has no physics
+world — such a stroke rebuilds nothing and is counted on `PlayColliders.Idle` rather than being an
+error.
 
 ## Tests
 

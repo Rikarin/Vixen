@@ -273,6 +273,19 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
     /// <summary>What to report as its version, so a bump can be tested.</summary>
     public int VersionOverride { get; init; } = 1;
 
+    /// <summary>
+    ///     Whether to open every other asset in the project — the accidental O(n²) an import budget
+    ///     exists to catch, on purpose, so that <c>ImportBudgetTests</c> has a defect to point its
+    ///     instrument at.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Undeclared reads, which is why a pipeline using this has to turn
+    ///     <see cref="ImportPipeline.EnforceDeclaredReads" /> off. That is the shape of the
+    ///     regression: an importer quietly acquiring a walk over the project, not one that announces
+    ///     a dependency on ten thousand files.
+    /// </remarks>
+    public bool ReadsEveryPeer { get; init; }
+
     /// <inheritdoc />
     public override int Version => VersionOverride;
 
@@ -292,6 +305,15 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
         }
 
         context.DependsOn(DependsOnAsset);
+
+        if (ReadsEveryPeer) {
+            foreach (var peer in context.Files.Enumerate(new VirtualPath("/Assets"), recursive: true)) {
+                if (!peer.IsDirectory && peer.Path.ToString().EndsWith(".pal", StringComparison.Ordinal)) {
+                    await using var opened = await context.Files.OpenReadAsync(peer.Path, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+        }
 
         var palette = new VirtualPath("/Assets/shared.pal");
 

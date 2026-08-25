@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Engine.Players.PlayerMoveInput, T:Vixen.Net.Engine.Players.Pla
 tags: [networking, players, prediction, physics]
 since: 0.1
 status: stable
-related: [engine/players-and-possession, engine/character-movement, engine/networked-prefabs]
+related: [engine/players-and-possession, engine/character-movement, engine/networked-prefabs, engine/replicating-behaviour-state]
 ---
 
 ## What it is

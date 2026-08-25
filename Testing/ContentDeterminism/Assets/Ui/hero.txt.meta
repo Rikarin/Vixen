@@ -1,0 +1,5 @@
+guid: ae6c79d10f1fd410650790e63186ec10
+metaVersion: 1
+addressable:
+  address: ui/hero
+  group: UiCore
