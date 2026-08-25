@@ -1,5 +1,6 @@
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
+using Vixen.Ui;
 using Vixen.Ui.Controls;
 
 namespace VixenPlugin1;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Ui;
 
 namespace Vixen.Editor.Ui;
 

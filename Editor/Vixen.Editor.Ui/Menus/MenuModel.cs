@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui;
+
 namespace Vixen.Editor.Ui;
 
 /// <summary>One line of a menu, in the model rather than on screen.</summary>

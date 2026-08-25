@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui;
+
 namespace Vixen.Editor.Ui;
 
 /// <summary>Every string the shell shows, declared once.</summary>
@@ -537,4 +539,16 @@ public static class EditorStrings {
         ProjectsNew,
         ProjectsMissing
     ];
+
+    /// <summary>A catalog holding every string the editor declares, for a translator to start from.</summary>
+    /// <param name="language">What to call the new catalog.</param>
+    /// <returns>The catalog, filled with the source text.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="All" /> and not the control set's declarations.</b> A control's label is
+    ///     <c>Vixen.Ui.Controls.ControlStrings</c>'s to export, and an editor that folded them into
+    ///     its own template would hand a translator two files that disagree about who owns
+    ///     <c>ui.control.dialog.close</c>. <see cref="Strings.Template" /> takes any number of
+    ///     declaration lists, so a shell that wants one file passes both.
+    /// </remarks>
+    public static StringCatalog Template(string language) => Strings.Template(language, All);
 }

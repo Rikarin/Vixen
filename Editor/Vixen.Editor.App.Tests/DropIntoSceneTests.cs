@@ -99,7 +99,7 @@ public class DropIntoSceneTests {
 
         editor.Shell.RegisterLayout(
             "Apart",
-            new Vixen.Editor.Ui.StringId("editor.layout.apart", "Apart"),
+            new Vixen.Ui.StringId("editor.layout.apart", "Apart"),
             () => Vixen.Editor.Ui.LayoutPresets.Standard(["hierarchy"], ["scene"], ["project"])
         );
 

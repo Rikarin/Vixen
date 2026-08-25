@@ -1641,9 +1641,6 @@ T:Vixen.Editor.Ui.PaletteRow sweep-pending
 T:Vixen.Editor.Ui.PanelDescriptor sweep-pending
 T:Vixen.Editor.Ui.SettingsCategory sweep-pending
 T:Vixen.Editor.Ui.SettingsView sweep-pending
-T:Vixen.Editor.Ui.StringCatalog sweep-pending
-T:Vixen.Editor.Ui.StringId sweep-pending
-T:Vixen.Editor.Ui.Strings sweep-pending
 T:Vixen.Editor.Ui.ThemeMode sweep-pending
 T:Vixen.Editor.Ui.ThemeService sweep-pending
 T:Vixen.Editor.Ui.ToolbarButton sweep-pending

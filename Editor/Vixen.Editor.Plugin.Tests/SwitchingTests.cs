@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Ui;
+using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.Plugin.Tests;
@@ -18,6 +19,7 @@ public class SwitchingTests {
     const string Hello = """
                          using Vixen.Editor.Plugin;
                          using Vixen.Editor.Ui;
+                         using Vixen.Ui;
 
                          namespace Sample;
 
