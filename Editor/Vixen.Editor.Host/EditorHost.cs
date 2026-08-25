@@ -533,6 +533,14 @@ sealed class EditorHost : IDisposable {
         // that was just pasted into compiling twenty shaders between two frames.
         previews?.Update();
 
+        // ⚠ Here for the same reason, and it is the reason the upload is split in two.
+        // `ThumbnailCache.Pump` runs from `editor.Update` above, which is outside this pair — a
+        // command list recorded there comes from the pool of the slot `BeginFrame` has just reset,
+        // so submitting it where it is recorded races the next frame's reset of that same pool.
+        // `Upload` makes the texture and hands out its number; this is what copies the pixels in,
+        // ordered ahead of the panes that sample them.
+        thumbnails?.Flush();
+
         foreach (var pane in panes) {
             pane.IsDrawing = false;
 
