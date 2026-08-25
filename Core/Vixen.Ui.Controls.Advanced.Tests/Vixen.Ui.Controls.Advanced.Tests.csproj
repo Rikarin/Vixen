@@ -25,6 +25,14 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!--
+            The accessibility snapshot and its two audits. In `Vixen.Ui.Testing` rather than in a
+            test project because there are two control assemblies and they cannot see each other —
+            a renderer copied into both would be two renderers producing two formats the day one of
+            them was improved.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
 
 </Project>

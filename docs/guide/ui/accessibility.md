@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.AccessibleRole, T:Vixen.Ui.AccessibleStates, T:Vixen.Ui.Accessi
 tags: [ui, accessibility, aria, screen-reader, testing]
 since: 0.2
 status: preview
-related: [ui/commands, ui/markup-panels]
+related: [ui/commands, ui/strings, ui/markup-panels]
 ---
 
 ## What it is
@@ -155,9 +155,42 @@ elements are emitted under their owner rather than where the tree has them, whic
 Assert `Unnamed` first. `Render` of a document with no accessibility at all is the empty string, and
 an expectation of the empty string matches it.
 
+**What a control announces and what it displays are the same words.** Because a name is *computed* —
+`ButtonBase` answers `NativeAccessibleName` with its `Label`, and the default is the element's own
+`Text` — a control that answers from what it already shows goes through the
+[string catalogue](/docs/guide/ui/strings) for free. A control that answered with a literal of its own
+would not, and the two are indistinguishable from outside: both compile, both pass, and in English
+both look right. The only place the difference appears is in another language, as an element that
+displays the translation and announces the source text.
+
+`Untranslated` is the assertion for that class of defect, and it is written against the declarations
+rather than against a list of controls — so it keeps its meaning as controls are added:
+
+```csharp no-compile="a fragment; `root` is a UiElement in a document, inside an xunit test"
+// Chosen before anything is built: a control assigns its labels in `OnCreated`, so it shows the
+// language it was built in.
+Strings.Use(translated);
+
+var root = BuildTheWindow();
+
+Assert.Empty(AccessibilitySnapshot.Unnamed(root));
+Assert.Empty(AccessibilitySnapshot.Untranslated(root, ControlStrings.All));
+```
+
+It reports every element in the tree whose accessible name or description is still the `Source` text
+of a declaration the catalogue *does* have a translation for. A declaration with no translation
+loaded is skipped rather than reported: the source text is the right answer when nothing translates
+it, which is the whole design of `StringId`.
+
+Pair it with a check that the window actually says the strings it was built to exercise. `Untranslated`
+is satisfied by a window that announces nothing at all, in exactly the way `Render` is satisfied by an
+empty tree.
+
 ## See also
 
 * [Commands and the focus route](/docs/guide/ui/commands) — the coalesced-invalidation pattern this
   follows, and the answer to "what has the focus", which is a question both features ask.
+* [The string catalogue](/docs/guide/ui/strings) — where a control's words come from, and why an
+  accessible name computed from them needs no second translation.
 * [Panels in markup](/docs/guide/ui/markup-panels) — where the elements that carry roles usually come
   from.

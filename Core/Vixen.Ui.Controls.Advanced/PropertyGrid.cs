@@ -115,6 +115,17 @@ public sealed partial class PropertyGrid : Control {
 
         Search = Part<SearchBox>();
         Search.Placeholder = ControlStrings.PropertyGridSearch.Text;
+
+        // ⚠ **Named as well as prompted, and the two come from the same declaration.** A
+        // `SearchBox` is a `TextField`, whose accessible name is deliberately `null` — a
+        // placeholder is a hint rather than a name and vanishes the moment there is a value, so an
+        // unlabelled field reports nothing and a gate can fail it. This one is not unlabelled: it
+        // filters the members of whatever is being inspected, the grid knows that, and there is no
+        // caption element beside it to point a `LabelledBy` at. Reading the same `StringId` the
+        // placeholder reads, on the same line, is what makes it impossible for the words shown and
+        // the words announced to be in two different languages.
+        Search.AccessibleName = ControlStrings.PropertyGridSearch.Text;
+
         Search.ValueChanged += (_, _) => Filter();
 
         Body = Part("property-body");

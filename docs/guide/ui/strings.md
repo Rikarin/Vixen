@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen
 tags: [ui, localisation, strings, i18n, signals]
 since: 0.2
 status: preview
-related: [ui/commands, editor/index]
+related: [ui/commands, ui/accessibility, editor/index]
 ---
 
 ## What it is
@@ -121,6 +121,15 @@ built. Choose the language before building the interface. A control set that re-
 need an effect per label and somewhere to dispose it; what is here today makes the words translatable
 at all.
 
+⚠ **A translated label is not by itself a translated control.** What a screen reader says comes from
+[the accessibility tree](accessibility.md), and an accessible name is *computed*: `ButtonBase` answers
+with its `Label`, so eleven of the thirteen declarations above reach a screen reader with nothing
+written for them. The two that did not are the shape to watch for — a string that went to a
+`Placeholder` (which is deliberately not a name) and a string on a caption element that nothing
+related its slider to. Both showed the translation and announced nothing at all, and neither a
+localisation test nor an accessibility test could see it, because each asserts its own half.
+`AccessibilitySnapshot.Untranslated` is the assertion that spans them.
+
 `Strings` is static, and it is the one service here that is. Every other is an instance a shell owns,
 because a document may have two of them; a language is a property of the person using the
 application rather than of a window, and threading a localiser through every control that shows a
@@ -167,5 +176,7 @@ Assert.Empty(Strings.Missing);
 
 * [Commands and the focus route](commands.md) — the other half of a menu item: what it says comes
   from here, who handles it comes from there.
+* [The accessibility tree](accessibility.md) — where a control's words go after they are shown, and
+  the assertion that they arrive in the same language.
 * [The editor shell](../editor/index.md) — `EditorStrings` is this shape, hand-written, and
   `StringCatalogYaml` is the editor's answer to where a catalogue lives.

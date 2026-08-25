@@ -286,6 +286,49 @@ one gets a name, and it is one line at the call site.
 
 **Not built, as asked**: no AT-SPI2, no UIA, no `NSAccessibility`. The tree is what all three read.
 
+#### Reconciled with § A3, and what the intersection turned out to be
+
+✅ **A2 and A3 landed hours apart on the same controls and nobody had checked they agreed.** A control
+whose visible label is localised while its accessible name is an English literal announces one thing
+and displays another, and **neither suite can see it** — an accessibility test asserts the name
+exists, a localisation test asserts the label translates. Worse, the two categories are
+indistinguishable from outside: `NativeAccessibleName` is *computed*, so a control that answers from
+what it already shows is localised for free and a control that answered with a literal of its own is
+not, and both compile and both pass.
+
+**The enumeration, since the interesting number is small enough to state.** There are exactly **two**
+`NativeAccessibleName` overrides in both control assemblies: `ButtonBase` (`=> Label`) and `TextField`
+(`=> null`, § A2's stated decision, correct, and left alone). **Neither hardcodes a literal, and
+nothing else overrides the member at all** — so the drift this looked for does not exist. What the
+intersection with `ControlStrings`' thirteen call sites actually contains is:
+
+| Sites | What reaches the accessible name | Verdict |
+|---|---|---|
+| **11** — every `ClearButton`/`CloseButton`/`Toggle`/`Reset`/`Eyedropper`/arrow | `ButtonBase.NativeAccessibleName => Label`, and the label is the catalogue's | ✅ Localised, with nothing written for it |
+| `PropertyGrid.cs:117` | Nothing. The string went to `Placeholder`, and a `TextField`'s name is `null` on purpose | ⚠ **Announced nothing at all** — fixed by naming it from the same `StringId`, one line under the placeholder |
+| `ColorPicker.cs:486` | Nothing. The string is on a caption element and the slider beside it had no relation to it | ⚠ **Announced nothing at all** — fixed by one `LabelledBy` |
+
+Both defects are the same shape and neither is a hardcoded literal: **a translated word on screen that
+no element in the accessibility tree was reading.** That is the failure mode a reconciliation of these
+two sections was always going to find, and it is invisible to an instance-by-instance test because
+there was no instance to assert about.
+
+⚠ **The test is written against the declarations rather than against the controls, which is the only
+shape that survives the rest of the population.** `AccessibilitySnapshot.Untranslated(root, ids)`
+reports every element in a tree whose accessible name or description is still the `Source` text of a
+declaration the catalogue has a translation for; a declaration with no translation loaded is skipped,
+because the source text is the right answer when nothing translates it. The two reference windows —
+one per control assembly, since the test projects cannot see each other — assert `Unnamed` first (a
+tree with nothing in it satisfies everything else), then that every string the window exists to
+exercise is actually audible in it, then `Untranslated`. **Sabotaged twice**: reverting
+`Dialogs.cs:91` to the literal `"Close"` fails it with
+`<icon-button> is named "Close", which is the source text of ui.control.dialog.close`, and reverting
+the property grid's name to `"Search"` fails both the class assertion and the focused regression.
+
+⚠ **A pseudo-locale rather than a Czech table.** A hand-written translation table needs a row every
+time a string is declared, and a class test that has to be edited to keep covering the class has
+become the instance test it replaced.
+
 ### A3 — The string catalogue: promoted, and read through a signal
 
 > ✅ **Landed whole, 2026-08-25.** All three parts, in one sitting, in that order. `StringId`,

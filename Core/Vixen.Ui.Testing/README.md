@@ -256,6 +256,31 @@ comes back as `rgba(59, 130, 246, 1)` — and a test should be able to write wha
 `border-radius` on parse, exactly as a browser does, so ask for `margin-left` and
 `border-top-left-radius`. A test written against the shorthand is told the property is absent.
 
+## The accessibility tree, as text and as two audits
+
+`AccessibilitySnapshot` is here rather than in a test project because there are two control
+assemblies and they cannot see each other; a renderer copied into both would be two renderers
+producing two formats the day one of them was improved.
+
+- `Render(root)` — the tree as `role "name" = "value" [state state]`, one line per node, indented by
+  accessibility-tree depth. Elements that are not nodes are walked *through*, so a control that
+  grows a wrapper does not move in the snapshot; owned elements are emitted under their owner rather
+  than where the tree has them.
+- `Unnamed(root)` — every element that is a widget with no accessible name, and every focusable
+  element with no role. ⚠ **Assert this first, always.** `Render` of a document with no
+  accessibility at all is the empty string, and an expectation of the empty string matches it
+  perfectly — a snapshot cannot fail vacuously and this can.
+- `Untranslated(root, declarations)` — every element still announcing the `Source` text of a
+  declaration the catalogue has a translation for. The one defect neither an accessibility test nor
+  a localisation test can see: an accessible name is *computed*, so a control that answers from what
+  it already shows goes through the catalogue for free and one that answers with a literal does not,
+  and in English the two are identical. A declaration with no translation loaded is skipped, because
+  the source text is the right answer when nothing translates it.
+
+`Untranslated` is written against the declarations rather than against a list of controls, which is
+what keeps it meaningful as controls are populated. Pair it with a check that the window actually
+says the strings it was built to exercise: a window that announces nothing satisfies it.
+
 ## Owed
 
 - <s>**Group opacity.** `opacity` is carried down the tree as a multiplier rather than composited

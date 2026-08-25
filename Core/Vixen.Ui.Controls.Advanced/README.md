@@ -199,6 +199,12 @@ states, reset-to-default and search. Generated rather than reflective, so it rea
 arbitrary members after trimming and on iOS. Where the targets disagree the editor says so, and
 writing into it sets every one of them.
 
+⚠ **The filter box is named as well as prompted.** Its words went to `Placeholder`, and a
+`TextField`'s accessible name is `null` on purpose — a placeholder is a hint and it vanishes the
+moment there is a value — so the box showed a translated prompt and announced nothing at all. It
+reads the same `StringId` for both, on the line under, which is what makes the words shown and the
+words announced impossible to have in two different languages.
+
 ### NodeCanvas
 
 Infinite pan and zoom, bezier wires, marquee select, snapping, groups and a minimap.
@@ -287,6 +293,11 @@ move the picker and the chromaticity survives a round trip through a value of fo
 ⚠ **The eyedropper cannot read the screen and does not pretend to.** Sampling a pixel needs a screen
 capture permission on macOS and a compositor protocol on Wayland. `EyedropperRequested` asks;
 `Pick` answers.
+
+⚠ **The intensity slider is `LabelledBy` its caption.** The caption is a separate element carrying
+a localised string, and a slider beside words nothing related it to announces nothing — the
+translation was on screen and unreachable. One relation is the whole fix, and because a relation is
+read on demand rather than copied, a re-labelled caption re-labels the slider with no second write.
 
 ### CurveEditor
 

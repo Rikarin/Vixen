@@ -238,6 +238,15 @@ not a live binding: `Strings.Catalog` is a signal and an *expression* that reads
 assignment in a constructor is not an expression. Re-labelling a live control set would need an
 effect per label and somewhere to dispose it — listed under the gaps below.
 
+⚠ **And a translated label is not by itself a translated control.** What a screen reader says is the
+accessible name, which is *computed*: `ButtonBase` answers with its `Label`, so eleven of the thirteen
+declarations reach a screen reader with nothing written for them. The two that did not — a string
+that went to a `Placeholder`, which is deliberately not a name, and a caption element no control had
+related a slider to — showed the translation and announced nothing at all, and neither a localisation
+test nor an accessibility test could see it because each asserts its own half.
+`AccessibilitySnapshot.Untranslated(root, ControlStrings.All)` is the assertion that spans them, and
+`Core/Vixen.Ui.Controls.Tests/AccessibleNameLocalisationTests.cs` is a reference window held to it.
+
 ## Known gaps
 
 Said out loud rather than left to be discovered:

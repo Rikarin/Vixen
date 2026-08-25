@@ -486,6 +486,15 @@ public sealed partial class ColorPicker : Control {
         caption.Text = ControlStrings.ColorPickerIntensity.Text;
 
         IntensitySlider = hdr.Add<Slider>();
+
+        // ⚠ **The caption is the slider's name, and saying so is the only thing that makes the
+        // translation reach a screen reader.** The words above are localised — they are
+        // `ControlStrings.ColorPickerIntensity` — but a caption is a separate element, and a slider
+        // beside words it is not related to announces nothing at all. One `LabelledBy` is the whole
+        // of it, and it costs the caption nothing: the relation reads the target's accessible name
+        // on demand, so a re-labelled caption re-labels the slider with no second write.
+        IntensitySlider.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
+
         IntensitySlider.Minimum = 0f;
         IntensitySlider.Maximum = 16f;
         IntensitySlider.Value = 1f;
