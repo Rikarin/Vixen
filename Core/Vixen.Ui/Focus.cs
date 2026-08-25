@@ -111,6 +111,13 @@ public sealed partial class UiDocument {
             InvalidateCommands();
         }
 
+        // ⚠ Outside that branch and not inside it, which is the opposite of the line above and is
+        // the difference between the two consumers. A command surface asks "who would answer this
+        // verb", and a focus move into a command-transparent menu deliberately leaves that where it
+        // was; a screen reader asks "what has the focus", and the answer is the menu item. Telling
+        // it nothing moved would leave it announcing the view the menu was opened over.
+        InvalidateAccessibility();
+
         Restate(previous, element, KeyboardMode);
 
         previous?.Raise(new FocusEvent { Gained = false, Previous = previous, Next = element });

@@ -42,6 +42,14 @@ public sealed partial class Option : ButtonBase {
     /// <summary>Whether it is chosen.</summary>
     public bool IsSelected => (State & ElementState.Checked) != 0;
 
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Option;
+
+    /// <inheritdoc />
+    /// <remarks><see cref="TabItem" />'s second meaning of <see cref="ElementState.Checked" />, for the same reason.</remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        IsSelected ? AccessibleStates.Selected : AccessibleStates.None;
+
     /// <summary>The tick shown beside a chosen option in a multi-select.</summary>
     public Icon? Mark { get; internal set; }
 }
@@ -111,6 +119,15 @@ public abstract partial class SelectBase : Control {
         List = Document.Root.Add<Popover>();
         List.AddClass("select-list");
         List.Placement = Placement.Bottom;
+
+        // ⚠ **The one relation this control cannot do without, and the reason is the comment three
+        // lines up.** The list is a child of the document *root*, so in the element tree the options
+        // are nowhere near the control they belong to — no walk over `Parent` from either end finds
+        // the other. `aria-owns` is exactly the statement "these are my children although the tree
+        // says otherwise", and without it a screen reader walking the tree finds a combo box with
+        // nothing in it and a loose list of options hanging off the root.
+        List.Role = AccessibleRole.ListBox;
+        AddAccessibleRelation(AccessibleRelation.Owns, List);
 
         // ⚠ **What makes an `<Option>` written as a nested tag mean what it looks like.** The options
         // live in the popover, so `UiElement.OnChildAdded` fires there rather than here — see
@@ -387,6 +404,27 @@ public sealed partial class Select : SelectBase {
     /// <inheritdoc />
     protected override string TagName => "select";
 
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.ComboBox;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The chosen option's <i>label</i> and not its <see cref="Option.Value" />. A value is what
+    ///     the application stores; the label is what the field shows and therefore what a screen
+    ///     reader should say, and the two are routinely <c>"cutout"</c> and <c>"Cut-out"</c>.
+    /// </remarks>
+    protected override string? NativeAccessibleValue => Selected?.Label;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Both flags, and <see cref="AccessibleStates.Expandable" /> unconditionally.</b> A
+    ///     combo box always has an <c>aria-expanded</c>; what changes is whether it is true. Sending
+    ///     only <see cref="AccessibleStates.Expanded" /> when the list is open would make a closed
+    ///     select indistinguishable from a control that does not open at all.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        AccessibleStates.Expandable | (IsOpen ? AccessibleStates.Expanded : AccessibleStates.None);
+
     /// <summary>Which choice is made, or <c>null</c> if none is.</summary>
     [UiProperty(Changed = nameof(OnValueChanged))]
     public partial string? Value { get; set; }
@@ -461,6 +499,18 @@ public sealed partial class Select : SelectBase {
 
         Field.Text = chosen?.Label ?? Placeholder;
 
+        // ⚠ **The focus is on the field and the thing to announce is an option, which is what
+        // `aria-activedescendant` is the only way to say.** A `Select` keeps the keyboard focus on
+        // itself while the list is open — that is what makes Escape and type-ahead work — so
+        // `UiDocument.Focused` is the field, and a screen reader told only that would never announce
+        // which choice is current. Cleared first: it is a single-target relation that follows the
+        // selection, and appending would leave it pointing at every option ever chosen.
+        ClearAccessibleRelations(AccessibleRelation.ActiveDescendant);
+
+        if (chosen is not null) {
+            AddAccessibleRelation(AccessibleRelation.ActiveDescendant, chosen);
+        }
+
         if (chosen is null) {
             AddClass("empty");
         } else {
@@ -480,6 +530,20 @@ public sealed partial class MultiSelect : SelectBase {
 
     /// <inheritdoc />
     protected override string TagName => "multi-select";
+
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.ComboBox;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="AccessibleStates.MultiSelectable" /> is the whole difference from
+    ///     <see cref="Select" />, and it is what tells a screen-reader user that choosing a second
+    ///     option will not undo the first.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        AccessibleStates.Expandable
+        | AccessibleStates.MultiSelectable
+        | (IsOpen ? AccessibleStates.Expanded : AccessibleStates.None);
 
     /// <summary>What the field says when nothing is chosen.</summary>
     [UiProperty(Changed = nameof(OnPlaceholderChanged))]

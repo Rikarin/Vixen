@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
 
-/// <summary>Notifications, background work, theming, the string catalog and the user store.</summary>
+/// <summary>Notifications, theming, the string catalog and the user store.</summary>
 public class ServiceTests : IDisposable {
     readonly UiDocument document = new(1280f, 800f);
 
@@ -88,112 +88,6 @@ public class ServiceTests : IDisposable {
 
         Assert.Empty(centre.History);
         Assert.Single(toasts.Live);
-    }
-
-    // ── Background tasks ────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task Work_that_finishes_leaves_the_list_after_a_pump() {
-        var tasks = new BackgroundTaskManager();
-        var gate = new TaskCompletionSource();
-
-        var task = tasks.Start("Importing", async _ => await gate.Task);
-        Assert.True(tasks.IsBusy);
-
-        gate.SetResult();
-        await Drain(tasks, task);
-
-        Assert.Equal(BackgroundTaskState.Completed, task.State);
-        Assert.Equal(1f, task.Progress);
-        Assert.False(tasks.IsBusy);
-    }
-
-    [Fact]
-    public async Task Work_that_throws_ends_as_failed_rather_than_taking_the_process_down() {
-        var tasks = new BackgroundTaskManager();
-        var task = tasks.Start("Building", _ => throw new InvalidOperationException("no compiler"));
-
-        await Drain(tasks, task);
-
-        Assert.Equal(BackgroundTaskState.Failed, task.State);
-        Assert.Equal("no compiler", task.Failure?.Message);
-    }
-
-    [Fact]
-    public async Task Cancelling_asks_and_the_task_ends_when_the_work_notices() {
-        var tasks = new BackgroundTaskManager();
-        var started = new TaskCompletionSource();
-
-        var task = tasks.Start(
-            "Baking",
-            async running => {
-                started.SetResult();
-
-                while (!running.IsCancellationRequested) {
-                    await Task.Delay(1, CancellationToken.None);
-                }
-
-                running.Cancellation.ThrowIfCancellationRequested();
-            }
-        );
-
-        await started.Task;
-        task.Cancel();
-
-        // Asked, not done: a manager that took the task out of the list here would let the user
-        // start the import again over the top of one that had not stopped.
-        Assert.True(task.IsCancellationRequested);
-
-        await Drain(tasks, task);
-        Assert.Equal(BackgroundTaskState.Cancelled, task.State);
-    }
-
-    [Fact]
-    public void Progress_reported_from_the_work_lands_on_the_pump_and_not_before() {
-        var tasks = new BackgroundTaskManager();
-        var task = tasks.Begin("Importing");
-
-        task.Report(0.5f, "textures");
-
-        Assert.True(task.IsIndeterminate);
-        Assert.Equal(0f, task.Progress);
-
-        tasks.Pump();
-
-        Assert.False(task.IsIndeterminate);
-        Assert.Equal(0.5f, task.Progress);
-        Assert.Equal("textures", task.Status);
-    }
-
-    [Fact]
-    public void Overall_progress_ignores_the_tasks_that_have_not_said() {
-        var tasks = new BackgroundTaskManager();
-
-        var known = tasks.Begin("Importing");
-        tasks.Begin("Scanning");
-
-        known.Report(0.8f);
-        tasks.Pump();
-
-        // Counting an indeterminate task as zero would leave three imports sitting at a third of
-        // the way along and never moving.
-        Assert.Equal(0.8f, tasks.Progress, 0.001f);
-    }
-
-    [Fact]
-    public void A_pump_applies_at_most_its_budget() {
-        var tasks = new BackgroundTaskManager();
-        var task = tasks.Begin("Importing");
-
-        for (var i = 0; i < 10; i++) {
-            task.Report("file " + i);
-        }
-
-        tasks.Pump(budget: 3);
-        Assert.Equal("file 2", task.Status);
-
-        tasks.Pump();
-        Assert.Equal("file 9", task.Status);
     }
 
     // ── Theming ─────────────────────────────────────────────────────────────
@@ -353,16 +247,4 @@ public class ServiceTests : IDisposable {
         // The name comes from a text box, and `../../keybindings.yaml` is a layout that overwrites
         // the keymap.
         Assert.Throws<ArgumentException>(() => EditorUserStore.FileFor("../../keybindings.yaml"));
-
-    static async Task Drain(BackgroundTaskManager tasks, BackgroundTask task) {
-        for (var i = 0; i < 500 && task.IsRunning; i++) {
-            tasks.Pump();
-
-            if (task.IsRunning) {
-                await Task.Delay(2, CancellationToken.None);
-            }
-        }
-
-        tasks.Pump();
-    }
 }

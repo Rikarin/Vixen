@@ -38,6 +38,8 @@ top.
 | `translate` (CSS) | The declarative half of the same idea, resolved by `TranslationReader` and added into the same sum. Separate from `OffsetX` on purpose: a stylesheet must not be able to erase a scroll position. `scale` and `rotate` are refused — a `DrawCommand` is an axis-aligned rectangle. |
 | `UiElement.SetStyle` | Declarations written on an element, for the lengths no stylesheet was given: a splitter's ratio, a virtualised row's position. |
 | `UiDocument.Reparent` | Moving a subtree to a different parent: fresh style slots, the same elements. What docking and drag-and-drop between lists are made of. |
+| `UiElement.Role`, `AccessibleName`, `AccessibleState`, relations | What a screen reader is told: a WAI-ARIA role, a name, a value, a state set, and the pairings the tree does not show. Computed from the control, not stored on it. |
+| `UiDocument.AccessibilityInvalidated` | One coalesced raise per frame when anything above may have changed. |
 | Access keys | ⏳ |
 
 ## Focus
@@ -219,6 +221,129 @@ hand-built surface subscribes to in order to rebuild itself whole.
 
 These three types were `Vixen.Editor.Ui`'s until doc 46 § A3 counted them among the 41 % of that
 assembly that is application-framework machinery no application can reach.
+
+## Accessibility
+
+Six things on `UiElement` and one event on `UiDocument`, and it is a tree rather than a bridge:
+AT-SPI2, UI Automation and `NSAccessibility` all read it and none of them is here.
+
+`Role` is a **WAI-ARIA 1.2** token. The enum's member names are the ARIA names PascalCased and
+nothing else — which is why `img` is `AccessibleRole.Img` rather than `Image`: the rule this keeps is
+that `role.ToString().ToLowerInvariant()` is the ARIA token for *every* member, so there is no
+exception table for the next role added to be left out of. A role this enum does not have is added by
+its ARIA name rather than approximated with a neighbour.
+
+⚠ **A control's accessible view is computed, never stored, and that is the decision the rest hangs
+off.** `NativeRole`, `NativeAccessibleName`, `NativeAccessibleValue` and `NativeAccessibleState` are
+virtual members answered by the type from what it already holds, so a `CheckBox` reads its own
+`IsChecked` when asked. There is no second copy to update, no change callback to remember, and no
+state in which a box is ticked on screen and unticked to a screen reader. It is also what makes the
+population cheap: `ButtonBase` overriding two members gives every button, menu item, tab, option and
+link in the control assembly a role and a name at once.
+
+⚠ **Three states are the framework's and no control declares them.** `AccessibleState` always adds
+`Disabled` from `ElementState.Disabled`, `Focused` from `ElementState.Focus` and `Focusable` from
+`Focusable` — for every element, whether or not its type overrode anything. Fifty controls cannot
+each forget one, and the symptom of a forgotten one is a screen reader saying a greyed button is
+available, which nobody writing the control would ever see. `DeclaredAccessibleState` is the
+application's half, or'd on top and never subtracted from.
+
+**The cost is one nullable reference**, on `CommandBindings`' terms: eight bytes per element, and no
+allocation at all unless somebody sets a name, a role, a value or a relation on that particular
+element. A control that only overrides virtuals allocates nothing.
+
+**Relations are the pairings parent-and-child is the wrong shape for**, named after ARIA's
+relationship attributes with the prefix dropped. Two of them are load-bearing here:
+
+* A `TabItem` `Controls` its panel, and the panel is `LabelledBy` the tab. The two are in different
+  parts of the tree — the class remark on `Tabs` says they cannot be one element — so no walk over
+  `Parent` recovers either direction. Both are established in `Tabs.Adopt`, not `AddTab`, so a
+  `<TabItem />` in a `.vxml` reaches the same state as the code path.
+* A `Select` `Owns` its option list, which is a child of the document *root* because an overlay
+  inside the field that opens it would be clipped by every scrolling ancestor between the two; and
+  it points `ActiveDescendant` at the chosen option, because the focus stays on the field while the
+  list is open and a screen reader told only "the field has the focus" would never announce a
+  choice.
+
+`AccessibleName` resolves in accname 1.2's order to the three steps that decide a control set's
+answer: an explicit assignment, then the `LabelledBy` target's name, then `NativeAccessibleName` —
+which for a button is its label and for a plain element is its own `Text`.
+
+⚠ **A `TextField` answers `null`, deliberately.** A placeholder is a hint rather than a name and it
+disappears the moment there is a value, so a form named from placeholders is a form whose fields lose
+their names as they are filled in — four numeric fields all announced as "0.00". A field's name is
+the words beside it, which are somebody else's element, and answering nothing until a `LabelledBy`
+says so is what lets a gate fail an unlabelled field rather than pass it with a plausible-looking
+lie.
+
+**Most elements are not in the tree at all.** `Role` defaults to `AccessibleRole.None` — ARIA's
+`none` — for every element, including `Panel`, `Card`, `Tabs` itself and every part a control builds
+itself out of. A bridge walks through them and reads their children in their place, which is what
+stops a four-field form being announced as thirty nested groups. `IsInAccessibilityTree` is the
+question; `ClearRole()` hands a role back to the type, which is not the same as assigning `None`.
+
+`AccessibilityInvalidated` is `CommandsInvalidated`'s object one field over, on purpose rather than
+by coincidence: a flag set as often as anybody likes, read once from `Tick`, cleared before the
+handlers run so a handler's own re-invalidation survives. It says *that* something changed and never
+*what* — accumulating the set per mutation is the allocation the coalescing exists to prevent, and a
+bridge holds a cached tree it has to diff anyway. ⚠ `Focus.cs` raises it **outside** the
+command-transparency branch, the one place the two events deliberately disagree: a focus move into a
+menu cannot have changed which view answers a verb, and it certainly changed what has the focus.
+`Attach`, `Insert` and `Detach` set it too, because the shape of the tree is the one thing no
+property setter could report.
+
+The gate is `Vixen.Ui.Testing.AccessibilitySnapshot`: `Render` for the tree as comparable text, and
+`Unnamed` for the assertion a snapshot cannot make. ⚠ Assert `Unnamed` first — a snapshot of a
+document with no accessibility at all is the empty string, and an expectation of the empty string
+matches it.
+
+## Background tasks
+
+`BackgroundTaskManager` is the list of long operations an application is running and
+`BackgroundTask` is one of them — a title, a status, a progress fraction, a state and a cancellation
+token. It is here for the same reason `ICommandResponder` is: **it is application-framework
+machinery, and it was reachable only by the editor.** It came out of `Vixen.Editor.Ui/Tasks/` whole;
+what stayed behind is `TaskCenter.vxml`, the panel that shows them, which is the editor's chrome.
+The split cost one `@using` line — the model named nothing editor-shaped, and the centre names
+`EditorStrings`, `ControlIcons` and the editor's own tags.
+
+**The threading contract is the whole design and it is deliberately the smallest one that works.**
+Reporting is safe from any thread; reading is only safe from the UI one. The work runs wherever the
+caller put it, `Report` enqueues, and `Pump` applies the queue at one point in the frame — so there
+are no locks around the task list, no concurrent collection for the interface to walk, and a frame
+sees one consistent set of numbers. A progress bar read during layout cannot see a title replaced
+between two reads.
+
+**Every property is signal-backed rather than signal-typed.** `Progress` is still
+`float Progress { get; }` and `Tasks` is still an `IReadOnlyList<T>`; the fields behind them are a
+`Signal<float>` and a `CollectionSignal<T>`. Not one caller changed, and what changed is that
+reading one inside a binding subscribes — which is what makes a task panel markup over the model
+rather than a view told to look once a frame. The safety of that rests on the paragraph above: every
+write lands on the UI thread because it lands in `Pump`, and a signal written from the pool is a
+race the reactive graph is entitled to refuse.
+
+⚠ **`IsCancellationRequested` is the one exception and says why.** It mirrors the token rather than
+being it. `Cancellation` is what the *work* polls, from whatever thread it is on, and a signal read
+asserts the owning thread — so making that reactive would put the graph in the way of a cancellation
+check in a tight loop. `Cancel` sets both, token first.
+
+⚠ **Something has to pump it, and nothing here can.** `Vixen.Ui.Desktop`'s `UiApplication` owns a
+manager and pumps it once a frame before raising `Frame`, so an application on the standard loop
+gets progress without writing a pump; a host with its own loop owns a manager and pumps it itself,
+which is what `EditorShell` does. A manager nobody pumps is a list of tasks stuck at nought per
+cent — it fails silently rather than loudly, which is why the property is pinned by a test that runs
+a real headless loop rather than by one that calls `Pump` directly.
+
+⚠ **Disposal is not tidiness; it is the leak.** Work on the pool reports through a queue, so an owner
+that dropped the manager would leave every running task enqueueing into a queue nothing drains — and
+every closure in that queue holds the task, the manager and the assembly the work's delegate came
+from. A plugin unloaded while one of its imports is running is exactly the shape that has twice
+pinned a collectible `PluginLoadContext` here. `Dispose` cancels everything and then *stops
+accepting*: reports after it are dropped rather than enqueued, so work that ignores its token for
+another minute costs one thread and no memory. It asks and does not wait, because waiting would be a
+frame thread blocked on a file copy.
+
+See [the guide page](../../docs/guide/ui/background-tasks.md), and [doc 46](../../docs/plan/46-what-an-application-needs.md) § *Offered, and taken* for why it moved.
 
 ## Arrow navigation
 

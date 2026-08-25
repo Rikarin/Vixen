@@ -23,10 +23,10 @@ judgement it says so.
 | # | What an application needs | Where it is | Lines | What `Vixen.Ui` has instead |
 |---|---|---|---|---|
 | 1 | Commands: an id, a handler, enablement, a keymap, a palette | `Editor/Vixen.Editor.Ui/Commands/` | **1 629** | `MenuItem : ButtonBase`, and a `Disabled` bool declared on `Control` (`Control.cs:78`) that nothing in the control set ever sets on one |
-| 2 | A string catalogue | `Editor/Vixen.Editor.Ui/Localisation/` | **783** | Nothing — plus twelve English literals baked into the controls |
+| 2 | A string catalogue | `Editor/Vixen.Editor.Ui/Localisation/` | **783** | Nothing — plus ~~twelve~~ **thirteen** English literals baked into the controls (§ A3 counts them). ✅ **Promoted** — `Core/Vixen.Ui/Strings.cs`, `StringCatalog.cs`, and `Vixen.Ui.Controls.ControlStrings`. See A3 |
 | 3 | A modal question that returns an answer | `Editor/Vixen.Editor.Ui/Dialogs/DialogService.cs` | **376** | `Dialog` (`Vixen.Ui.Controls/Dialogs.cs`) — an overlay with a body, a footer and no answer |
 | 4 | An undo history | `Editor/Vixen.Editor.Core/CommandStack.cs` | **372** | Nothing, and `CodeBuffer.cs:49` says so in as many words |
-| 5 | An accessibility tree | *nowhere* | **0** | Nothing. Three doc comments, two of them in the future tense |
+| 5 | An accessibility tree | *nowhere* | **0** | Nothing. Three doc comments, two of them in the future tense. ✅ **Built** — `Core/Vixen.Ui/Accessibility.cs`, and doc 09 has a § Accessibility now. See A2 |
 
 Rows 1 and 2 are 45's finding and Trinix's localisation audit. Rows 3, 4 and 5 are this document's,
 and row 5 is the one that is not a misplacement at all.
@@ -231,6 +231,57 @@ not exist is a second element tree, maintained by hand, in another repository, d
 — which is Trinix's own risk register calling it *"fast, wrong, and permanent"*. Its deadline for
 asking is its Phase 9, and asking is this document.
 
+#### Landed: the tree, and the acceptance criterion met
+
+✅ **The tree, the relations and the coalesced notification are built** — `Core/Vixen.Ui/Accessibility.cs`,
+plus three lines in `UiDocument.cs`/`Focus.cs` and three in `UiElement.cs`. **Doc 09 has a
+§ Accessibility now**, which it did not before this document went looking for one; the correction
+above was checked again against the tree before being acted on and both halves held — zero occurrences
+of the identifier `Role`, three doc comments, and doc 09's single mention at line 732 of its Testing
+table.
+
+**The acceptance criterion is met for the controls populated.** `Vixen.Ui.Testing.AccessibilitySnapshot`
+renders the tree as comparable text, and `Core/Vixen.Ui.Controls.Tests/AccessibilityTreeTests.cs` is
+doc 09's promised ARIA-role snapshot, written. ⚠ It asserts `Unnamed` — every widget-role element has
+a non-empty name, every focusable element has a role — **before** the snapshot, because a snapshot
+matches an empty tree perfectly and that is this repository's commonest defect. Sabotaged three ways
+from green: dropping `ButtonBase`'s role fails 4 of 10, dropping its name fails 5 of 10, dropping the
+`Owns` relation fails 2 of 10.
+
+⚠ **The estimate's shape was right and its centre of gravity was not.** § A2 said the 1.5–3.0 spread
+was "almost entirely the per-control population across ~40 controls and 11 advanced ones", and that
+turned out to be the cheap half rather than the expensive one — because the population is a *virtual
+member per control*, not a field assigned in `OnCreated`. `NativeRole`, `NativeAccessibleName`,
+`NativeAccessibleValue` and `NativeAccessibleState` are answered by the type from what it already
+holds, so `ButtonBase`'s two overrides gave every button, menu item, tab, option, link and page number
+in the assembly a role and a name in one edit, and no control stores an accessibility field or
+maintains a notification. The expensive half was the API decision that made that possible, and it was
+made once.
+
+**Populated this sitting** — chosen to span the shapes that differ rather than the ones that repeat:
+`ButtonBase` (role + name), `Link`, `ToggleBase`, `CheckBox` (checked and mixed), `Switch`,
+`RadioButton`, `RadioGroup`, `ToggleButton` (pressed, not checked), `TextField` (role + value +
+editable/read-only/multi-line, and no name), `SearchBox`, `NumericInput`, `TabItem`/`Tabs` (relations),
+`Option`/`SelectBase`/`Select`/`MultiSelect` (relations). **Owed**: the remaining ~35 in
+`Vixen.Ui.Controls` and all 11 in `.Controls.Advanced`, which is mechanical.
+
+**Two things the ask did not name and the work found.**
+
+⚠ **Three states have to be the framework's, or fifty controls each get a chance to forget one.**
+`AccessibleState` always adds `Disabled` from `ElementState.Disabled`, `Focused` from
+`ElementState.Focus` and `Focusable` from `UiElement.Focusable`, whether or not the type overrode
+anything. The failure this removes is invisible from inside the control that causes it: a screen
+reader announcing a greyed button as available.
+
+⚠ **A text field's accessible name is `null` and must stay so.** The obvious fallback is the
+placeholder, and it is wrong twice — a placeholder is a hint rather than a name, and it disappears the
+moment there is a value, so a form named from placeholders is a form whose fields lose their names as
+they are filled in. Trinix's CI gate ("every interactive element has a role and an accessible name")
+depends on an unlabelled field reporting nothing rather than something plausible; `LabelledBy` is how
+one gets a name, and it is one line at the call site.
+
+**Not built, as asked**: no AT-SPI2, no UIA, no `NSAccessibility`. The tree is what all three read.
+
 ### A3 — The string catalogue: promoted, and read through a signal
 
 > ✅ **Landed whole, 2026-08-25.** All three parts, in one sitting, in that order. `StringId`,
@@ -412,7 +463,6 @@ Where the right answer is that Trinix writes it, it is written here so it stops 
 |---|---|
 | `ThemeService`, `EditorTheme.vcss` | Trinix **replaces** `ControlTheme` at the UserAgent origin rather than overriding it. The editor's visual identity is the editor's, and the mechanism it uses — nine custom properties on the root — is already in `Vixen.Ui.Styling` |
 | `NotificationCenter`, `MessageLogView` | Trinix notifications are a system service with a permission behind them, not an in-process toast history. `ToastHost` already exists for the in-process half |
-| `BackgroundTaskManager` | ⚠ The closest call in this table. It is 485 lines, it is signal-backed and correct, and every application needs progress with cancellation. It stays out because a Trinix application's long work is usually a service call with its own progress, and because taking it would mean asking for `Vixen.Editor.Ui`'s task model *and* its task centre. Trinix writes its own. **Would take it if it were offered** |
 | `CommandStack` and the editing pipeline | Undo is the application's — `CodeBuffer` is right about that, and a document's undo history is shaped by what the document is. Trinix writes one per application family. Named in Part 1 as evidence, not as an ask |
 | `DockingWorkspace`, `LayoutPresets`, `EditorUserStore` | Trinix applications are not docking editors, and where the user's preferences live is answered by Trinix's own settings store |
 | `CommandPalette`, `PaletteSource`, `FuzzyMatcher` | 45 puts a `Vixen.Ui` palette in its non-goals and that is right. Trinix has a system-wide search of its own |
@@ -431,6 +481,65 @@ shaping and `TextRun` carries no level. Both are real, both are upstream, and bo
 § Text rather than to a document about application-framework machinery. Neither blocks an
 English-language 1.0, and neither is counted below.
 
+
+### Offered, and taken: the background-task model
+
+**This row was in the table above and is not any more.** Vixen offered it, on the condition the table
+itself named — *the model, not the centre* — and it separated, so the offer is a landed change rather
+than a plan. Recorded here rather than in Part 2 because Trinix did not ask for it: the sequence was
+"would take it if it were offered", and then it was.
+
+**The 485 counts the markup, which is what made the split easy.** `BackgroundTask.cs` is 209 lines and
+`BackgroundTaskManager.cs` is 199; `TaskCenter.vxml` is the remaining 77. So the model is 408 lines of
+C# and the centre is 77 lines of VXML — 84/16, and the table's "task model *and* its task centre"
+worry was the right worry about the wrong ratio.
+
+**What moved**: `BackgroundTask`, `BackgroundTaskManager` and `BackgroundTaskState`, to `Core/Vixen.Ui`,
+namespace `Vixen.Ui`. **What stayed**: `Editor/Vixen.Editor.Ui/Tasks/TaskCenter.vxml`, because a panel
+built out of `EditorStrings`, `ControlIcons` and the editor's own tags is chrome. ⚠ **The seam cost one
+line** — `@using Vixen.Ui` in the markup — because the model named nothing editor-shaped. It is not the
+A3 shape: there is no `Vixen.Core.Yaml` here and nothing had to be left behind.
+
+`Vixen.Ui` rather than `Vixen.Core`, because the model is signal-backed and Core does not reference the
+reactive graph; rather than `Vixen.Ui.Reactive`, which is graph primitives; rather than
+`Vixen.App.Hosting`, which drags in `Vixen.Engine` and the renderer that a UI-only application must not
+need. `Vixen.Ui` already referenced `Vixen.Ui.Reactive`, so **no project reference changed** and
+`CheckArchitecture` was never in question. The precedent is `Core/Vixen.Ui/Commands.cs` — A1's shape,
+where the command *model* is promoted and `CommandRegistry` stays in the editor.
+
+**Two things the model was missing, found by offering it.**
+
+⚠ **Nothing outside the editor could drive it.** `Pump` applies the report queue and *something has to
+call it once a frame*; the only caller was `EditorShell.Tick`. A promoted manager with no pump is the
+defect this repository grows most often — it compiles, accepts work, and sits at nought per cent, and
+it fails **silently**. `UiApplication` now owns a manager, exposes it as `Tasks` and pumps it before
+raising `Frame`, pinned by `TheLoopPumpsTheTaskManager` driving a real headless loop rather than by a
+test that calls `Pump` itself. A host with its own loop still owns and pumps its own, which is what the
+editor does.
+
+⚠ **`BackgroundTaskManager` is now `IDisposable`, and that is a leak fix rather than tidiness.** Work
+runs on the pool and reports through a queue; an owner that simply dropped the manager left every
+running task enqueueing into a queue nothing drains, and each closure held the task, the manager and
+**the assembly the work's delegate came from**. A plugin unloaded mid-import is exactly the collectible
+`PluginLoadContext` shape this tree has already paid for twice. `Dispose` cancels everything and then
+*stops accepting* — reports afterwards are dropped, so work that ignores its token for another minute
+costs one thread and no memory. It asks and does not wait: blocking there would be a frame thread stuck
+on a file copy. `EditorShell.Dispose` calls it instead of `CancelAll`, which only asked.
+
+**For a Trinix application** the contract is: report from any thread, read only from the UI one, and let
+the loop pump. A service call with its own progress reports into a `BackgroundTask` the same way an
+import does — which is the case the table thought made this unnecessary, and is in fact the case it
+suits best, because the cancellation is a `CancellationToken` the service call already wants.
+
+12 tests in `Core/Vixen.Ui.Tests/BackgroundTaskTests.cs` and 2 in `UiApplicationTests`, with four
+sabotages confirmed: an untracked read of `Progress` fails only the binding test; a `Cancel` that sets
+the mirror and not the token fails three, two of them on a ten-second timeout; a `Pump` that never
+clears the deferred list announces a finished import three times; and a `Dispose` that does not cancel
+strands the work.
+
+**Not costed in Part 4**, because it is done rather than asked for.
+
+
 ---
 
 ## Part 4 — Effort
@@ -438,7 +547,7 @@ English-language 1.0, and neither is counted below.
 | Ask | EM | How much to trust it |
 |---|---|---|
 | **A1** — 45 steps 3 and 5 | **0.5** | Good. 45 costed all five steps at 1.5 EM and re-estimated downward after step 1 came in at a day; steps 3 and 5 are the two it calls unaffected by the design question that blocked step 2 |
-| **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1 |
+| **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1. ✅ **The API and the criterion landed in one sitting**, and the reason the population turned out to be the cheap half is in A2's landing note: a control's role and name are *virtual members*, so `ButtonBase` covered every pressable control in the assembly in one edit. What remains of the population is mechanical |
 | ~~**A3a** — promote the catalogue, split the YAML off, make the lookup a signal~~ | ~~0.4~~ ✅ | Good, and it was: a file move, a dependency split and one field becoming a `Signal<T>`. What the estimate did not carry is the tail — thirteen files needing a `using`, five of them inside raw-string plugin sources a plain `grep -L` reports as already having one, and `Strings.Template`'s signature |
 | ~~**A3b** — the twelve control literals through the catalogue~~ | ~~0.1~~ ✅ | Good on shape, wrong on arithmetic: thirteen call sites, twelve distinct strings, thirteen declarations. The two it missed cost the sweep that found them rather than the work |
 | **A3c** — `Strings.Resource` | **0.5** | Fair, and **not asked for** — carried so the total is honest if Vixen chooses to close its own owed row |
