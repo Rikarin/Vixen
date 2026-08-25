@@ -541,12 +541,26 @@ port model from the start.
 > so that a graph which is well-formed and emits a shader that does not type-check is reported rather
 > than called a success.
 >
-> Not in: the animation graph, selectable wires, editing a sticky note in place, and mapping a
-> *generated shader's* diagnostics back to the node that emitted the line — every diagnostic the graph
-> compilers raise names a node and a port, but Raven's own complaints about the generated text are not
-> yet mapped, which needs the emitters to record spans as they write. A diagnostic about a node that
-> came *out of* a sub-graph names a synthetic identity the author cannot select, for the same
-> want of a source map.
+> Not in: the animation graph, selectable wires, and editing a sticky note in place.
+>
+> **A generated shader's diagnostics are mapped back now, and so are the sub-graph identities** — the
+> two were one gap wearing two hats. `RavenEmitter` counts the lines it writes, so
+> `ShaderGraphCompiler` records a `ShaderGraphSpan` for every node's statements and for every uniform
+> declaration the node asked for; `ShaderGraphSource.NodeAt` looks a line up, and
+> `ShaderGraphDocument.SourceNodeDiagnostics` is Raven's own complaints with the node that wrote each
+> line attached. `SubGraphs.Flatten` now answers with a `NodeGraphInlining` saying which synthetic
+> identity came out of which sub-graph node, `NodeGraphCompiler.Report` re-addresses every diagnostic
+> through it, and the span map resolves through it before a line is written down — so a complaint
+> about a line that came out of a sub-graph names the sub-graph node in the author's own graph, and
+> the panel's diagnostics list selects and frames it when the row is tapped. See
+> [the guide page](../guide/editor/graph-diagnostics.md).
+>
+> Two things that mapping does *not* claim. A line the compiler wrote for itself — the preamble, the
+> vertex stage, the master's `return` — belongs to nobody and is reported as a line number, because
+> blaming the nearest node would send an author to a node that is fine. And nothing yet resolves a
+> sub-graph through the asset database: `ShaderGraphDocument.SubGraphSource` exists and is null unless
+> a host sets it, so a saved graph containing a sub-graph node reopens with that node type reported as
+> unknown rather than inlined.
 
 ### `Vixen.Editor.Profiler` and `.Debugger`
 
