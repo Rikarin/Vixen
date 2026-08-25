@@ -58,6 +58,17 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestGSUBOne.otf"
                           LogicalName="Vixen.Ui.Tests.Fonts.TestGSUBOne.otf" />
+
+        <!--
+            And the one right-to-left face in the suite. Nothing else here draws a character whose
+            bidi class is R or AL, and without one every base direction produces the same picture —
+            so `direction: rtl` reaching the shaper, and runs reordering across a font boundary, are
+            both untestable against the Latin and Indic faces above. Its coverage is seventeen Arabic
+            letters and the space, which is also what makes it a *fallback* fixture: it shares only
+            the space with TestShapeLana, so a mixed string has exactly one correct split.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeAran.ttf"
+                          LogicalName="Vixen.Ui.Tests.Fonts.TestShapeAran.ttf" />
     </ItemGroup>
 
     <ItemGroup>

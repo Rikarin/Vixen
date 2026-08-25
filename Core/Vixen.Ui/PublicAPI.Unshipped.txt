@@ -1093,6 +1093,7 @@ Vixen.Ui.UiElement.OffsetX.get -> float
 Vixen.Ui.UiElement.OffsetX.set -> float
 Vixen.Ui.UiElement.OffsetY.get -> float
 Vixen.Ui.UiElement.OffsetY.set -> float
+Vixen.Ui.UiElement.ParagraphDirection.get -> Vixen.Ui.Text.ParagraphDirection
 Vixen.Ui.UiElement.Parent.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiElement.PropertyChanged -> System.Action<Vixen.Ui.UiElement, Vixen.Ui.UiPropertyKey>?
 Vixen.Ui.UiElement.Raise<T>(T args) -> void

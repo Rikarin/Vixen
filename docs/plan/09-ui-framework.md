@@ -599,6 +599,23 @@ Underestimating text is the classic UI-framework mistake.
 - **Bidi**: UAX#9 implementation (or ICU4X bindings if the size cost is acceptable; measure first).
   **Built**, as Vixen's own — all 91 707 of the Consortium's cases pass, so the ICU4X alternative
   was never needed and the size cost never paid.
+
+  ⚠ **And for a while nothing in `Vixen.Ui` asked it the right question.** A conformant algorithm
+  reached by a caller that never states the base direction is worth nothing to a localised
+  interface, and that is precisely what shipped: `ParagraphDirection` had no reference outside
+  `Vixen.Ui.Text`, so `UiElement.Runs` shaped every paragraph at `Auto` and the CSS `direction`
+  property — parsed, inherited, and already honoured by `text-align`, the logical insets and
+  `ScrollView` — reached the layout of the box and never the order of the glyphs. An element styled
+  `direction: rtl` whose text began with a Latin word laid out left to right.
+
+  **Fixed.** `UiDocument.DirectionOf` resolves the property once per style pass into
+  `UiElement.ParagraphDirection`, the block cache and the layout-dirty test both watch it, and
+  `Runs` hands it to the shaper. ⚠ **An element that states nothing stays `Auto` rather than
+  becoming `LeftToRight`**, though CSS's initial value is `ltr`: pinning every unstyled label to
+  level 0 would mean no unstyled string in the engine could ever lay out right to left, which is
+  the same defect inside out. `BidiDirectionTests` asserts the flip in both directions, and asserts
+  it as *which glyph is leftmost* — the only form of the assertion that a plausible-looking wrong
+  answer cannot pass.
 - **Line breaking**: UAX#14 with a compact rule table; UAX#29 grapheme/word segmentation for cursor
   movement and double-click selection.
 - **Rasterisation**: **MSDF** atlas — multi-channel signed distance fields give crisp text at any

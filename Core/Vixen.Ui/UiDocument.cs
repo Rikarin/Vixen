@@ -58,6 +58,8 @@ public sealed partial class UiDocument : IDisposable {
     readonly int fontVariantNumeric;
     readonly int lineHeight;
     readonly int zIndex;
+    readonly int direction;
+    readonly int directionRtl;
     readonly int fontWeight;
     readonly int fontStyle;
     readonly int bold;
@@ -151,6 +153,8 @@ public sealed partial class UiDocument : IDisposable {
         fontVariantNumeric = Styles.Properties.Intern("font-variant-numeric");
         lineHeight = Styles.Properties.Intern("line-height");
         zIndex = Styles.Properties.Intern("z-index");
+        direction = Styles.Properties.Intern("direction");
+        directionRtl = Styles.Values.Intern("rtl");
         fontWeight = Styles.Properties.Intern("font-weight");
         fontStyle = Styles.Properties.Intern("font-style");
         bold = Styles.Values.Intern("bold");
@@ -1296,6 +1300,13 @@ public sealed partial class UiDocument : IDisposable {
         element.TextIndent = text.TextIndent;
         element.FontFeatures = text.Features;
 
+        // ⚠ Read straight from the style rather than carried down through `ComputedText`, because
+        // `direction` is an inherited *CSS* property and the cascade has already handed it to every
+        // descendant — the same way `ScrollView` and `DrawListBuilder` read it. Threading it through
+        // the computed-text struct as well would be a second copy of the inheritance that could
+        // disagree with the first.
+        element.ParagraphDirection = DirectionOf(style);
+
         // Resolved here rather than read in the draw list, because hit testing needs the same answer
         // and reaching it would mean parsing the same declaration twice per frame from two places
         // that could disagree. The setter invalidates the parent's paint order when it changes.
@@ -1344,11 +1355,13 @@ public sealed partial class UiDocument : IDisposable {
         if (!element.AppliedLineHeight.Equals(element.LineHeight)
             || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)
             || !element.AppliedTextIndent.Equals(element.TextIndent)
-            || !ReferenceEquals(element.AppliedFontFeatures, element.FontFeatures)) {
+            || !ReferenceEquals(element.AppliedFontFeatures, element.FontFeatures)
+            || element.AppliedParagraphDirection != element.ParagraphDirection) {
             element.AppliedLineHeight = element.LineHeight;
             element.AppliedLetterSpacing = element.LetterSpacing;
             element.AppliedTextIndent = element.TextIndent;
             element.AppliedFontFeatures = element.FontFeatures;
+            element.AppliedParagraphDirection = element.ParagraphDirection;
 
             // Only a node that measures itself, which is what having text means — and what
             // `MarkDirty` insists on, on the grounds that nothing else about a node can change
@@ -1714,6 +1727,35 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     internal bool Invisible(ComputedStyle style) =>
         style.TryGet(visibility, out var value) && (value == visibilityHidden || value == visibilityCollapse);
+
+    /// <summary>The base bidi level an element's text is laid out at, from its <c>direction</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>direction</c> states the paragraph level, and stating it is the whole point of
+    ///         the property.</b> UAX#9's P2/P3 guess a level from the first strong character, which is
+    ///         right for a string with no styling around it and wrong for a paragraph an author has
+    ///         declared the direction of: an Arabic sentence that happens to begin with a Latin
+    ///         product name is still an Arabic sentence, and the guess reads it left to right.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Anything that is not <c>rtl</c> is <see cref="ParagraphDirection.Auto" /> rather
+    ///         than <see cref="ParagraphDirection.LeftToRight" />.</b> CSS's initial value is
+    ///         <c>ltr</c>, so reading it as such would pin every unstyled label in the engine to level
+    ///         0 — and a label showing a user's name, a file path or a chat message has no styling and
+    ///         is exactly where the first-strong guess is the right answer. So a stated <c>rtl</c>
+    ///         overrides the guess, a stated <c>ltr</c> overrides it the other way, and the absence of
+    ///         the property leaves it alone. The cost is that <c>direction: ltr</c> has to be written
+    ///         to *force* level 0 on Arabic text; the alternative is an engine in which no unstyled
+    ///         text can ever lay out right to left, which is the defect this fixes turned inside out.
+    ///     </para>
+    /// </remarks>
+    internal ParagraphDirection DirectionOf(ComputedStyle style) {
+        if (!style.TryGet(direction, out var value)) {
+            return ParagraphDirection.Auto;
+        }
+
+        return value == directionRtl ? ParagraphDirection.RightToLeft : ParagraphDirection.LeftToRight;
+    }
 
     /// <summary>An element's <c>z-index</c>, which is zero when it has none.</summary>
     /// <remarks>

@@ -190,6 +190,23 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     public FontFeatureSet FontFeatures { get; internal set; } = FontFeatureSet.None;
 
+    /// <summary>The base direction its text is laid out at.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>direction</c>, resolved once per style pass — see <c>UiDocument.DirectionOf</c>,
+    ///         which is also where the reasoning for <see cref="ParagraphDirection.Auto" /> being the
+    ///         value of an element that did not state one lives.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It changes what the element <i>measures</i>, not only how it is painted.</b> A
+    ///         paragraph's base level decides which side its neutrals fall on and therefore where
+    ///         every glyph after them sits, so this is one of the properties the style pass has to
+    ///         mark the layout node dirty for — beside <c>line-height</c> and <c>letter-spacing</c>,
+    ///         and for the same reason.
+    ///     </para>
+    /// </remarks>
+    public ParagraphDirection ParagraphDirection { get; internal set; } = ParagraphDirection.Auto;
+
     /// <summary>Where it sits among its siblings when they overlap.</summary>
     /// <remarks>
     ///     <para>
@@ -584,6 +601,7 @@ public partial class UiElement : Composition.IComposable {
             && lineTracking.Equals(LetterSpacing)
             && lineIndent.Equals(TextIndent)
             && ReferenceEquals(lineFeatures, FontFeatures)
+            && lineDirection == ParagraphDirection
             && lineLeading.Equals(LineHeight)) {
             return block;
         }
@@ -630,6 +648,7 @@ public partial class UiElement : Composition.IComposable {
         lineTracking = LetterSpacing;
         lineIndent = TextIndent;
         lineFeatures = FontFeatures;
+        lineDirection = ParagraphDirection;
         lineLeading = LineHeight;
 
         return block;
@@ -843,7 +862,7 @@ public partial class UiElement : Composition.IComposable {
             runs.Add(
                 new TextRun(
                     span.Font,
-                    Document.Shaping.Shape(span.Font, piece, features: FontFeatures),
+                    Document.Shaping.Shape(span.Font, piece, ParagraphDirection, features: FontFeatures),
                     FontSize,
                     LetterSpacing,
                     LineHeight,
@@ -940,6 +959,11 @@ public partial class UiElement : Composition.IComposable {
     // block whose features did not change — and never the other way round, which is the direction
     // that would draw stale glyphs.
     FontFeatureSet? lineFeatures;
+
+    // ⚠ Nullable, so that the first `Block()` of an element's life is always a miss. The enum's
+    // default is `Auto`, which is also the commonest resolved value — so a non-nullable field would
+    // read as "already shaped that way" against a block that had never been built.
+    ParagraphDirection? lineDirection;
     float lineLeading;
 
     void OnTextChanged(string? previous, string? current) {
@@ -1356,6 +1380,12 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>And the features, which change the glyphs and therefore the width.</summary>
     internal FontFeatureSet? AppliedFontFeatures { get; set; }
+
+    /// <summary>
+    ///     And the base direction, which changes where the glyphs go — nullable so that the first
+    ///     style pass of an element's life is a change whatever the property resolved to.
+    /// </summary>
+    internal ParagraphDirection? AppliedParagraphDirection { get; set; }
 
     internal void Attach(UiElement child) {
         children.Add(child);
