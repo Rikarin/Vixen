@@ -83,8 +83,17 @@ milliseconds, and the grains that host them were a scheduling decision on top ra
 The project references `Microsoft.Orleans.Server` directly, and `Vixen.Live.Cluster` for the
 interfaces.
 
-**The `.vxplacement` importer.** `PlacementWeights.Parse` reads one at boot; turning it into an
-addressable asset with an inspector is editor-side work.
+**The `.vxplacement` importer.** Turning the weights into an addressable asset with an inspector is
+editor-side work.
+
+⚠ **"`PlacementWeights.Parse` reads one at boot" was not true, and the correction matters.** `Parse`
+has no caller outside this project's tests — the snippet at the top of this file is the only place in
+the tree that reads a file, and it is documentation. The weights reach a fleet as
+`MapOptions.Weights`, handed in by whoever builds `OrchestratorOptions`; `Samples/14-Mmo`'s silo
+passes an empty map dictionary and `Default: null`, so every shard in the tree scores on
+`PlacementWeights.Default`. So this is not an asset form owed for a file boot already loads — nothing
+loads one, and whatever closes this has to build the read path as well as the write path. There is no
+boot-ordering hazard to preserve for the same reason.
 
 ⚠ **It is blocked on a layer decision rather than on somebody writing the class.** The obvious home
 is `Vixen.Editor.Assets`, beside every other `[Importer]` — and an importer there cannot name
@@ -94,6 +103,18 @@ weights record moves down to a layer both tiers can reference, or the importer r
 schema and it lives in two places that can drift. Worth noting because the neighbouring gap — the
 `.cube` importer, task #167 — looked identical from the outside and was one missing line in
 `BuiltInImporters.Create()`. This one is not that.
+
+⚠ **What a `.vxplacement` does today, measured rather than assumed** (task #306). Dropped into a
+project it falls to `RawImporter`: the import **succeeds**, raises **no diagnostic at all**, and
+produces a chunk typed `"Blob"` holding the author's YAML verbatim — a green build and an address
+that binds to something no typed reader resolves. That is the same silent shape `.vxwaves`, `.vxbt`,
+`.vxgoap`, `.vxquery`, `.vxutility` and `.dds` each shipped with, and it is *one step worse* here:
+for those a runtime reader existed and the artefact was merely mislabelled, whereas nothing anywhere
+loads a `.vxplacement` through the asset system, so the blob is unasked for as well as unreadable.
+`EveryAttributedImporterTests` cannot catch it — that gate walks `[Importer]` types that exist and
+finds ones absent from the list, and here no importer type exists to walk. It is pinned instead by
+`UnclaimedPlacementExtensionTests` in `Editor/Vixen.Editor.Assets.Tests`, which is a tripwire to
+delete when the layer decision above is made.
 
 ## See also
 
