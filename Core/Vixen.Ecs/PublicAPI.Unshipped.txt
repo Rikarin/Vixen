@@ -336,6 +336,25 @@ Vixen.Ecs.Systems.SystemPhase.PreRender = 6 -> Vixen.Ecs.Systems.SystemPhase
 Vixen.Ecs.Systems.SystemPhase.Render = 7 -> Vixen.Ecs.Systems.SystemPhase
 Vixen.Ecs.Systems.SystemPhase.SystemPhase() -> void
 Vixen.Ecs.Systems.SystemPhase.Update = 3 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPlacement -> sealed record
+Vixen.Ecs.Systems.SystemPlacement : System.IEquatable<Vixen.Ecs.Systems.SystemPlacement>
+Vixen.Ecs.Systems.SystemPlacement.Name.get -> string
+Vixen.Ecs.Systems.SystemPlacement.Order.get -> int
+Vixen.Ecs.Systems.SystemPlacement.Order.init -> int
+Vixen.Ecs.Systems.SystemPlacement.Phase.get -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPlacement.Phase.init -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPlacement.SystemPlacement(System.Type SystemType, Vixen.Ecs.Systems.SystemPhase Phase, int Order) -> void
+Vixen.Ecs.Systems.SystemPlacement.SystemType.get -> System.Type
+Vixen.Ecs.Systems.SystemPlacement.SystemType.init -> System.Type
+Vixen.Ecs.Systems.SystemPlan -> sealed record
+Vixen.Ecs.Systems.SystemPlan : System.IEquatable<Vixen.Ecs.Systems.SystemPlan>
+Vixen.Ecs.Systems.SystemPlan.InPhase(Vixen.Ecs.Systems.SystemPhase phase) -> System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Systems.SystemPlacement>
+Vixen.Ecs.Systems.SystemPlan.Phases.get -> System.Collections.Generic.IEnumerable<Vixen.Ecs.Systems.SystemPhase>
+Vixen.Ecs.Systems.SystemPlan.Placements.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Systems.SystemPlacement>
+Vixen.Ecs.Systems.SystemPlan.Placements.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Systems.SystemPlacement>
+Vixen.Ecs.Systems.SystemPlan.SystemPlan(System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Systems.SystemPlacement> Placements, System.Collections.Generic.IReadOnlyList<string> Unsatisfied) -> void
+Vixen.Ecs.Systems.SystemPlan.Unsatisfied.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ecs.Systems.SystemPlan.Unsatisfied.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Ecs.Systems.SystemRunner -> sealed class
 Vixen.Ecs.Systems.SystemRunner : System.IDisposable
 Vixen.Ecs.Systems.SystemRunner.Add(Vixen.Ecs.Systems.ISystem system) -> Vixen.Ecs.Systems.SystemRunner
@@ -429,6 +448,7 @@ static Vixen.Ecs.Systems.SystemAccess.Declare() -> Vixen.Ecs.Systems.SystemAcces
 static Vixen.Ecs.Systems.SystemAccess.FromAttributes(System.Type systemType) -> Vixen.Ecs.Systems.SystemAccess
 static Vixen.Ecs.Systems.SystemAccess.None.get -> Vixen.Ecs.Systems.SystemAccess
 static Vixen.Ecs.Systems.SystemGraph.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Systems.ISystem> systems) -> Vixen.Ecs.Systems.SystemGraph
+static Vixen.Ecs.Systems.SystemGraph.Plan(System.Collections.Generic.IReadOnlyList<System.Type> systemTypes) -> Vixen.Ecs.Systems.SystemPlan
 static Vixen.Ecs.World.Find(short id) -> Vixen.Ecs.World?
 static Vixen.Ecs.WorldDigest.Agree(Vixen.Ecs.World left, Vixen.Ecs.World right) -> bool
 static Vixen.Ecs.WorldDigest.Compute(Vixen.Ecs.World world) -> ulong
