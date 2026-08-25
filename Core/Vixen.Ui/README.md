@@ -92,6 +92,41 @@ simply a handler on the root, which always responds — so nothing changes for o
 handler still answers while the focus is nowhere. With something focused the root is on the walk
 anyway.
 
+### Past the root: responders that are not elements
+
+The walk does not stop at the root. Past the last parent it asks `UiDocument.CommandResponder` and
+then `UiDocument.ApplicationCommandResponder`, which is AppKit's chain continuing through the
+document to `NSApp` and its delegate once the view hierarchy has run out — the guide is explicit
+that a delegate gets its chance "even though a delegate isn't formally in the responder chain".
+
+The gap that closed: **a handler had to hang on a `UiElement`**, so a view-model or a document
+object that wanted to own `edit.copy` had to own a piece of the view tree in order to say so.
+`ICommandResponder` is one method, id to handler; `CommandResponder` is the table almost everything
+wants, with the same five arguments and the same duplicate-id throw as `AddCommandHandler`.
+
+⚠ **No rule changed, only the length of the walk.** Nearer wins all the way out — leaf, panel, root,
+document, application — the first responder that *answers* wins, and only that one is asked
+`CanExecute`. A responder further along is not consulted even to break a tie when the nearer one
+refuses. `CommandResponderTests` asserts that with a counter on the further responder rather than by
+observing which one ran: "the document won" is also true of a chain that asked the application and
+preferred the document anyway, and nought lookups is the claim the rule actually makes.
+
+⚠ **Answering is not being able to run.** A responder whose verb is temporarily impossible returns
+`true` with a predicate that says no. Returning `false` drops the id out of the chain, and there is
+nothing after the application to catch it.
+
+⚠ **Lifetime: the document holds the responders and never the reverse.** `ICommandResponder` has no
+event and no back-reference by design, so a responder never learns which documents it was installed
+on and a long-lived one cannot pin a closed window's element tree —
+`A_long_lived_responder_does_not_keep_a_closed_document_alive` asserts that against the collector.
+`UiDocument.Dispose` drops both slots and the `CommandsInvalidated` subscribers regardless.
+Installing a responder invalidates; changing its table does not, because it does not know a
+document, so its owner calls `InvalidateCommands()`.
+
+Focus *acceptance* is already separable from tab participation and needed no new API:
+`UiElement.Focusable` plus `TabIndex = -1` is `acceptsFirstResponder = YES` plus exclusion from the
+key view loop, and `Selects`, `Tabs`, `TextInputs` and the advanced controls already use it.
+
 ⚠ **`CommandFocus`, not `Focused`, and that distinction is what made step 3 possible at all.** The
 surfaces that *display* commands have to take the focus to be operable: `Menu.OnOpened` focuses its
 first item so the arrow keys work, and a `MenuBarItem` takes the focus when it is pressed. A menu
@@ -136,8 +171,12 @@ document, and a command becoming executable is not a thing that dirties one.
 
 **What consumes it.** `Vixen.Ui.Controls`' `ButtonBase.Command` — so `Button`, `IconButton`,
 `MenuItem`, `ToggleButton` and `Link` all bind an id, from markup as readily as from code, and each
-follows the invalidation for as long as it has one bound. The editor's `CommandRegistry` still
-resolves its scope through `EditorShell.Context` — see
+follows the invalidation for as long as it has one bound. The extended chain's consumer is the
+editor: `CommandRegistry` implements `ICommandResponder` over the table it already had, and
+`EditorShell` installs it as its document's `ApplicationCommandResponder`, so a plain `Vixen.Ui`
+control bound to an editor command id resolves, greys and runs it — through the registry's own
+scope-and-enablement gate and raising its `Executed` — with nothing editor-shaped in the control.
+The editor's `CommandRegistry` still resolves its *scope* through `EditorShell.Context` — see
 [doc 45](../../docs/plan/45-commands-and-focus-scope.md), whose staging step 1 is what this is, and
 whose § G2 was **refuted** when it met the editor: the editor's contexts are pushed from *pointer
 presses*, not focus changes, because its panels are not focusable — six of its seven context-claiming

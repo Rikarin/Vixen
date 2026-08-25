@@ -3,8 +3,8 @@ title: Commands and the focus route
 slug: ui/commands
 kind: guide
 area: Core
-summary: A menu declares what, and the focus decides who — a command id resolved by walking outwards from the focused element, so two views can answer the same verb without knowing each other exists and an item nothing handles greys itself out.
-api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler]
+summary: A menu declares what, and the focus decides who — a command id resolved by walking outwards from the focused element and on past the root to the document and the application, so two views can answer the same verb without knowing each other exists and an item nothing handles greys itself out.
+api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.ICommandResponder, T:Vixen.Ui.CommandResponder]
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
@@ -16,7 +16,12 @@ related: [editor/index, ui/markup-panels]
 A command is a string id — `edit.copy`, `file.save` — and `CommandRoute` is the answer to "who
 handles it right now". The answer is not stored anywhere. It is worked out on demand by walking
 from `UiDocument.Focused` outwards through `UiElement.Parent` until an element says it handles that
-id, and the first one that does is the one that runs.
+id, and the first one that does is the one that runs. Past the root the walk carries on through two
+objects that are not elements at all: the document's responder, then the application's.
+
+```
+focused element → its ancestors → the root → UiDocument.CommandResponder → UiDocument.ApplicationCommandResponder
+```
 
 `UiElement.AddCommandHandler` is how an element says so. `UiElement.CommandScope` is a name a panel
 declares once at its own root, which everything inside it then reports as its
@@ -67,9 +72,80 @@ controls added by a plugin. An element inside it may declare a narrower one, and
 declaration at or above the focus is what `CommandRoute.ScopeOf` returns.
 
 `CommandRoute.Origin` is where the walk starts: `UiDocument.CommandFocus`, or the root when there is
-none. The root rather than nothing, so a handler declared on the document still answers while the
-focus is nowhere — which is why a command with a single registration-time implementation is simply a
+none. The root rather than nothing, so a handler declared on the root still answers while the focus
+is nowhere — which is why a command with a single registration-time implementation is simply a
 handler on the root, and behaves exactly as it always did.
+
+Focus *acceptance* and tab participation are already separate, and no command API is involved:
+`UiElement.Focusable` says an element can hold the focus, and `TabIndex = -1` takes it out of the
+tab order while leaving it focusable. That pair is AppKit's `acceptsFirstResponder` plus exclusion
+from the key view loop, and `Select`, `TabStrip`, `TextField` and `RadioGroup` already use it for
+their inner parts.
+
+### Past the root: responders that are not elements
+
+An element is the wrong receiver for some verbs. The object that owns what a window is showing — a
+view-model, an open file, an application's shell — is exactly the kind of object whose job is *not*
+to be a view, and before this it had to own a piece of the element tree in order to say it handled
+`edit.save`.
+
+`ICommandResponder` is the seam: one method, from an id to a handler. `CommandResponder` is the
+implementation almost everything wants — a table with the same five arguments as
+`AddCommandHandler`, and the same rule that declaring one id twice throws:
+
+```csharp compile
+using Vixen.Ui;
+
+public sealed class Album {
+    readonly CommandResponder commands = new();
+
+    bool dirty;
+
+    public Album(UiDocument document) {
+        commands.Add("file.save", Save, () => dirty);
+
+        // Consulted after the last element and before the application's.
+        document.CommandResponder = commands;
+    }
+
+    void Save() => dirty = false;
+}
+```
+
+Two slots, asked in this order:
+
+| Slot | AppKit's equivalent | What belongs in it |
+|---|---|---|
+| `UiDocument.CommandResponder` | `NSDocument`, the window's delegate | The verbs of the thing this window is showing |
+| `UiDocument.ApplicationCommandResponder` | `NSApp` and its delegate | The verbs that are true everywhere — Preferences, About, Quit |
+
+⚠ **Nearer wins, all the way out.** A leaf beats its panel, a panel beats the root, the root beats
+the document, the document beats the application. Nothing in the tail is a special case: the first
+responder that *answers* wins, only that one is asked `CanExecute`, and a responder further along is
+not consulted — not even to break a tie when the nearer one refuses. A document responder that
+answers and says no leaves the item greyed; the chain does not carry on looking for somebody more
+willing.
+
+⚠ **Answering is not the same as being able to run.** An implementation whose verb is temporarily
+impossible returns `true` with a predicate that says no, rather than `false`. Returning `false` lets
+the id fall out of the chain entirely, and there is nothing after the application to catch it.
+
+Implement `ICommandResponder` directly only when the lookup already exists somewhere else and a
+`CommandResponder` beside it would be a second copy to keep in step. The editor's `CommandRegistry`
+is that case, and it is what `EditorShell` installs as its document's application responder — which
+is why a plain `Vixen.Ui` control bound to an editor command id resolves, greys and runs it with
+nothing editor-shaped in the control.
+
+⚠ **Lifetime: the document holds the responders and never the other way about.** A responder is a
+table of closures and a closure reaches everything it captured, so the reference has to point from
+the short-lived thing at the long-lived one. `ICommandResponder` deliberately has no event and no
+back-reference: a responder never learns which documents it was installed on, so a long-lived one
+cannot keep a closed window's element tree alive. `UiDocument.Dispose` drops both slots and the
+`CommandsInvalidated` subscribers regardless.
+
+Changing a responder's *table* does not invalidate anything, because a responder does not know a
+document — installing one does. After adding or removing handlers on a responder that is already
+installed, call `UiDocument.InvalidateCommands()`.
 
 ### Binding a control to an id
 
@@ -180,9 +256,13 @@ diagnostic overlay, or a test that has to distinguish "the nearer view ran" from
 
 ```csharp no-compile="a fragment; `document` is the application's UiDocument"
 if (CommandRoute.Resolve(document, "edit.copy") is { } handler) {
-    Console.WriteLine($"{handler.Id} → <{handler.Element.Tag}>, enabled: {handler.CanExecute}");
+    var where = handler.Element is { } element ? $"<{element.Tag}>" : handler.Responder?.ToString();
+    Console.WriteLine($"{handler.Id} → {where}, enabled: {handler.CanExecute}");
 }
 ```
+
+Exactly one of `Element` and `Responder` is set, and which one says which leg of the chain answered:
+an element while the walk was still in the tree, a responder once it was past the root.
 
 `CommandHandler` is a `readonly struct` and `Resolve` returns it by value, so a toolbar re-asking
 twenty items on the tick allocates nothing.
