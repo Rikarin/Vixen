@@ -57,14 +57,32 @@ public readonly record struct PositionedGlyph(ushort GlyphId, float X, float Y);
 ///     Where this run's text begins in the element's, as a UTF-16 index. Zero for a line that is one
 ///     run, and what lets a caret index reach the run it belongs to.
 /// </param>
+/// <param name="Level">
+///     <para>
+///         Its bidi embedding level — even runs left to right, odd runs right to left. Zero for text
+///         that is entirely left-to-right, which is what a caller that has not thought about it gets.
+///     </para>
+///     <para>
+///         ⚠ <b>This is what lets a line be drawn in an order its runs are not stored in.</b> A run
+///         is cut where the <i>face</i> changes and also where the <i>level</i> changes, and it has
+///         to be both: <see cref="TextLine" /> reorders whole runs by L2, and reversing a stretch of
+///         runs is sound only if each run has one level throughout. A run split by coverage alone
+///         and given the level of its first character reorders its neighbours correctly and strands
+///         its own neutrals — a line whose words are in the right order and whose spaces are not.
+///     </para>
+/// </param>
 public sealed record TextRun(
     FontFace Font,
     ShapedText Shaped,
     float Size,
     float Tracking = 0f,
     float Leading = float.NaN,
-    int Start = 0
+    int Start = 0,
+    int Level = 0
 ) {
+    /// <summary>Whether the run is drawn right to left.</summary>
+    public bool IsRightToLeft => (Level & 1) != 0;
+
     /// <summary>What multiplies a design unit to give a pixel.</summary>
     public float Scale => Size / Font.UnitsPerEm;
 

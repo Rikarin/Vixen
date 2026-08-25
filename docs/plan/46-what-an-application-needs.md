@@ -455,6 +455,34 @@ shaping and `TextRun` carries no level. Both are real, both are upstream, and bo
 § Text rather than to a document about application-framework machinery. Neither blocks an
 English-language 1.0, and neither is counted below.
 
+✅ **Both closed, 2026-08-25.** Both reproduced exactly as described, each with a test seen to fail
+before its fix:
+
+- **The base level.** `UiDocument.DirectionOf` resolves `direction` once per style pass into
+  `UiElement.ParagraphDirection`; the block cache and the layout-dirty test both watch it. ⚠ An
+  element that states nothing stays `Auto` rather than `LeftToRight`, though CSS's initial value is
+  `ltr` — otherwise no unstyled label in the engine could ever lay out right to left.
+- **The fallback boundary.** `TextRun` now carries a `Level`, `UiElement.Runs` cuts on level *and*
+  coverage, and `TextLine` lays its pens down in visual order via UAX#9's L2 while keeping `Runs` in
+  logical order, so the caret walk and the run offsets are untouched. The L2 itself is
+  `TextItemizer.VisualOrder`, reused rather than copied.
+
+⚠ **The second one is not one change but two, and each had to be sabotaged separately.** Reordering
+runs is only sound if every run has one level throughout, so the reordering and the level-aware split
+are load-bearing independently: reverting the pens to logical order fails four tests, and merging the
+levels back together fails exactly the two that turn on a neutral between two opposite runs — a line
+whose *words* are in the right order and whose *spaces* are not.
+
+Tests are `Vixen.Ui.Tests.BidiDirectionTests` and `BidiFallbackTests`, both asserting **which glyph is
+leftmost** and never logical order. The fixture is `TestShapeAran` — seventeen Arabic letters and a
+space, no Latin — beside the Latin-only `TestShapeLana`, so mixed text is *necessarily* split across
+two faces. No new vendored data: both fonts and the 91 707-case UAX#9 corpus were already committed
+and already in `docs/manual/third-party.md`, so no attribution obligation follows.
+
+⚠ **What is still owed** is what the audit did not name and these fixes do not supply: the runs are
+ordered but nothing *mirrors* — no `text-align: start` flip in a wrapped block, no bidi-aware
+hit-testing, and no caret affinity, which is task #234 and is what makes a click on a direction
+boundary answerable at all.
 
 ### Offered, and taken: the background-task model
 

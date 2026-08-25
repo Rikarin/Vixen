@@ -93,34 +93,62 @@ public static class TextItemizer {
     public static int[] VisualOrder(IReadOnlyList<TextItem> items) {
         ArgumentNullException.ThrowIfNull(items);
 
-        var order = new int[items.Count];
+        var levels = new int[items.Count];
+        for (var i = 0; i < levels.Length; i++) {
+            levels[i] = items[i].Level;
+        }
+
+        return VisualOrder(levels);
+    }
+
+    /// <summary>Puts runs into the order they are drawn in, given only their levels.</summary>
+    /// <param name="levels">Each run's embedding level, in logical order.</param>
+    /// <returns>Indices into <paramref name="levels" />, in visual order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The same L2 as the overload above, and the overload above is written in terms of this
+    ///         one. It exists because the *other* thing that has to reorder runs is not holding
+    ///         <see cref="TextItem" />s: <c>Vixen.Ui</c>'s <c>TextLine</c> is a list of runs that have
+    ///         already been shaped, each in its own face, and it has to lay them down left to right.
+    ///         A second copy of this loop over there would be a copy of the one rule in UAX#9 whose
+    ///         being wrong is invisible in a language the reviewer reads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Each entry must be a run of <i>uniform</i> level.</b> Reversing stretches of runs
+    ///         is sound only because a run has one level throughout — that is why <see cref="Itemize" />
+    ///         cuts on level, and why a caller that cuts on something else (a font, a size) has to
+    ///         intersect its own boundaries with these before it can use this.
+    ///     </para>
+    /// </remarks>
+    public static int[] VisualOrder(ReadOnlySpan<int> levels) {
+        var order = new int[levels.Length];
         for (var i = 0; i < order.Length; i++) {
             order[i] = i;
         }
 
-        if (items.Count == 0) {
+        if (levels.Length == 0) {
             return order;
         }
 
         var highest = 0;
         var lowestOdd = int.MaxValue;
 
-        foreach (var item in items) {
-            highest = Math.Max(highest, item.Level);
+        foreach (var level in levels) {
+            highest = Math.Max(highest, level);
 
-            if ((item.Level & 1) != 0) {
-                lowestOdd = Math.Min(lowestOdd, item.Level);
+            if ((level & 1) != 0) {
+                lowestOdd = Math.Min(lowestOdd, level);
             }
         }
 
         for (var level = highest; level >= lowestOdd; level--) {
             for (var i = 0; i < order.Length; i++) {
-                if (items[i].Level < level) {
+                if (levels[i] < level) {
                     continue;
                 }
 
                 var end = i;
-                while (end + 1 < order.Length && items[end + 1].Level >= level) {
+                while (end + 1 < order.Length && levels[end + 1] >= level) {
                     end++;
                 }
 
