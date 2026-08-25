@@ -15,6 +15,7 @@ Vixen.Net.Engine.ISyncList -> interface
 Vixen.Net.Engine.ISyncList.Apply(ref Vixen.Net.Messaging.BitReader reader) -> bool
 Vixen.Net.Engine.ISyncList.ClearPending() -> void
 Vixen.Net.Engine.ISyncList.Count.get -> int
+Vixen.Net.Engine.ISyncList.HasPending.get -> bool
 Vixen.Net.Engine.ISyncList.Name.get -> string
 Vixen.Net.Engine.ISyncList.Rename(string name) -> void
 Vixen.Net.Engine.ISyncList.WriteWhole(ref Vixen.Net.Messaging.BitWriter writer) -> bool
@@ -259,6 +260,15 @@ Vixen.Net.Engine.SyncStateReplicator<T>.SyncStateReplicator(Vixen.Engine.Behavio
 Vixen.Net.Engine.SyncStateReplicator<T>.TypeId.get -> uint
 Vixen.Net.Engine.SyncStateReplicator<T>.TypeName.get -> string
 Vixen.Net.Engine.SyncStateReplicator<T>.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Engine.SyncStateSweepSystem -> sealed class
+Vixen.Net.Engine.SyncStateSweepSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Engine.SyncStateSweepSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Engine.SyncStateSweepSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Engine.SyncStateSweepSystem.LastVisitedCount.get -> int
+Vixen.Net.Engine.SyncStateSweepSystem.MarkedListCount.get -> long
+Vixen.Net.Engine.SyncStateSweepSystem.MarkedStateCount.get -> long
+Vixen.Net.Engine.SyncStateSweepSystem.Sweep(Vixen.Ecs.World world) -> int
+Vixen.Net.Engine.SyncStateSweepSystem.SyncStateSweepSystem(Vixen.Engine.Behaviors.BehaviorStore store) -> void
 Vixen.Net.Engine.SyncStateVersion -> struct
 Vixen.Net.Engine.SyncStateVersion.SyncStateVersion() -> void
 Vixen.Net.Engine.SyncStateVersion.Value -> uint
@@ -284,6 +294,7 @@ override Vixen.Net.Engine.NetworkTransformCaptureSystem.Update(in Vixen.Ecs.Syst
 override Vixen.Net.Engine.Players.LocalPlayerSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.Players.PlayerInputQuantizeSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.Players.PredictionSmoothingSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Engine.SyncStateSweepSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.SyncVar<T>.ToString() -> string
 static Vixen.Net.Engine.NetworkSceneId.From(string name) -> Vixen.Net.Engine.NetworkSceneId
 static Vixen.Net.Engine.NetworkSceneId.None.get -> Vixen.Net.Engine.NetworkSceneId

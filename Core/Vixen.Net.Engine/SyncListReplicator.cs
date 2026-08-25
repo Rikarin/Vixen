@@ -27,6 +27,15 @@ public interface ISyncList {
     /// <summary>How many are in it.</summary>
     int Count { get; }
 
+    /// <summary>Whether there is anything to send.</summary>
+    /// <remarks>
+    ///     On the interface rather than on <see cref="SyncList{T}" /> alone because
+    ///     <see cref="SyncStateSweepSystem" /> is the caller, and it holds a
+    ///     <see cref="NetworkBehaviour" />'s lists as <c>ISyncList</c> — the element type is the one
+    ///     thing about a list a sweep over every behaviour cannot know.
+    /// </remarks>
+    bool HasPending { get; }
+
     /// <summary>Writes the whole list.</summary>
     /// <param name="writer">Where the bits go.</param>
     /// <returns>Whether it fit.</returns>

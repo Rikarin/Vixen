@@ -141,9 +141,22 @@ the join between the two on each peer.
 
 ## Owed
 
-- **The sync system.** `MarkChanged()` and `MarkListsChanged()` are called by hand today. A system that
-  walks dirty modules and lists once a frame and marks them is a few lines and wants the engine's
-  scheduler, which is where it will go — `SyncList.HasPending` is already the question it would ask.
+- ~~**The sync system.**~~ **Built** — `SyncStateSweepSystem`. `MarkChanged()` and `MarkListsChanged()`
+  had no production caller at all: every one in the tree was a test, so a game that set a `SyncVar` and
+  forgot to mark it had state that never left the server, silently, because the entity never acquired a
+  `SyncStateVersion` for the change filter to notice. The sweep walks `BehaviorRef` **and** `NetworkId`
+  together — networked entities that carry behaviours, not every behaviour in the world — asks
+  `NetworkModule.IsDirty` and `ISyncList.HasPending` (promoted onto the interface for it), and marks in
+  a second pass because `MarkChanged` is a structural change and the first pass is holding the chunk.
+  ⚠ **The ordering is the correctness argument and it is invisible when it is wrong**: a sweep before
+  the behaviours marks last frame's writes and everything ships one frame late, which reads as
+  interpolation being heavy rather than as a bug. `[UpdateInGroup(LateUpdate)]` +
+  `[UpdateAfter(BehaviorLateUpdateSystem)]`, asserted off `SystemGraph.Plan` — `Unsatisfied` empty, so
+  the edge is real and not a tie the registration order happened to break the right way. The other half
+  of the ordering cannot be an attribute: `ReplicationServer.Capture` is the game's and is not a
+  system, so **a capture must come after the `LateUpdate` phase in the same tick**, and a server that
+  captures inside `FixedUpdate` calls `Sweep(world)` itself — public for the same reason
+  `NetworkTransformCaptureSystem.Publish` is.
 - **Codecs beyond the built-in set.** `SyncCodecs.Register` is the door; only the types the generator
   already understands are through it.
 - ~~**Registering prefabs from the catalog.**~~ **Built, in
