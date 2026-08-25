@@ -43,6 +43,11 @@ public sealed class AccelerationStructureDeviceTests {
             // Not a failure. MoltenVK exposes neither VK_KHR_acceleration_structure nor
             // VK_KHR_ray_query, so a Mac is a legitimate "no" — the distance-field tracer is the
             // configuration that runs here, and the VulkanFeatures tests hold the detection.
+            //
+            // ⚠ Skipped and not returned: same verdict, but a bare return is recorded as a pass, so
+            // a ray-query test reported green on every runner that cannot run a ray query at all.
+            Assert.Skip("The device exposes no ray query (ADR-011), which this test is gated on.");
+
             return;
         }
 

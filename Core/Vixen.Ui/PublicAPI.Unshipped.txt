@@ -35,6 +35,15 @@ Vixen.Ui.BoxStyle.Space.get -> Vixen.Ui.GradientSpace
 Vixen.Ui.BoxStyle.Space.init -> Vixen.Ui.GradientSpace
 Vixen.Ui.BoxStyle.Stops.get -> Vixen.Ui.GradientStops
 Vixen.Ui.BoxStyle.Stops.init -> Vixen.Ui.GradientStops
+Vixen.Ui.CommandHandler -> readonly struct
+Vixen.Ui.CommandHandler : System.IEquatable<Vixen.Ui.CommandHandler>
+Vixen.Ui.CommandHandler.CanExecute.get -> bool
+Vixen.Ui.CommandHandler.CommandHandler() -> void
+Vixen.Ui.CommandHandler.Element.get -> Vixen.Ui.UiElement
+Vixen.Ui.CommandHandler.Equals(Vixen.Ui.CommandHandler other) -> bool
+Vixen.Ui.CommandHandler.Id.get -> string
+Vixen.Ui.CommandHandler.Run() -> void
+Vixen.Ui.CommandRoute -> static class
 Vixen.Ui.Composition.BuildContext -> sealed class
 Vixen.Ui.Composition.BuildContext.Anchor.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Attribute(Vixen.Ui.UiElement target, string name, string value) -> void
@@ -1018,6 +1027,7 @@ Vixen.Ui.UiElement.AccessKey.set -> char
 Vixen.Ui.UiElement.Add(string tag, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiElement.Add<T>(string? tag = null, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
 Vixen.Ui.UiElement.AddClass(string className) -> bool
+Vixen.Ui.UiElement.AddCommandHandler(string id, System.Action execute, System.Func<bool>? canExecute = null) -> void
 Vixen.Ui.UiElement.AddHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler, Vixen.Ui.RoutingStrategy strategy = Vixen.Ui.RoutingStrategy.Bubble, bool handledEventsToo = false) -> void
 Vixen.Ui.UiElement.Attribute(string name) -> string?
 Vixen.Ui.UiElement.Block() -> Vixen.Ui.TextLayout?
@@ -1032,7 +1042,11 @@ Vixen.Ui.UiElement.ClearOffsetY() -> void
 Vixen.Ui.UiElement.ClearStyle() -> void
 Vixen.Ui.UiElement.ClearTabIndex() -> void
 Vixen.Ui.UiElement.ClearText() -> void
+Vixen.Ui.UiElement.CommandHandlerIds.get -> System.Collections.Generic.IEnumerable<string>
+Vixen.Ui.UiElement.CommandScope.get -> string?
+Vixen.Ui.UiElement.CommandScope.set -> string?
 Vixen.Ui.UiElement.Document.get -> Vixen.Ui.UiDocument
+Vixen.Ui.UiElement.EffectiveCommandScope.get -> string?
 Vixen.Ui.UiElement.Ellipsized(float contentWidth) -> Vixen.Ui.TextLayout?
 Vixen.Ui.UiElement.Focusable.get -> bool
 Vixen.Ui.UiElement.Focusable.set -> bool
@@ -1061,6 +1075,7 @@ Vixen.Ui.UiElement.Raise<T>(T args) -> void
 Vixen.Ui.UiElement.RaisePropertyChanged(Vixen.Ui.UiPropertyKey key) -> void
 Vixen.Ui.UiElement.Remove() -> void
 Vixen.Ui.UiElement.RemoveClass(string className) -> bool
+Vixen.Ui.UiElement.RemoveCommandHandler(string id) -> bool
 Vixen.Ui.UiElement.RemoveHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler) -> bool
 Vixen.Ui.UiElement.SetAttribute(string name, string value) -> void
 Vixen.Ui.UiElement.SetStyle(string property, string? value) -> void
@@ -1077,6 +1092,7 @@ Vixen.Ui.UiElement.Text.set -> string?
 Vixen.Ui.UiElement.TextIndent.get -> float
 Vixen.Ui.UiElement.Top.get -> float
 Vixen.Ui.UiElement.Transform.get -> Vixen.Ui.Rendering.UiTransform?
+Vixen.Ui.UiElement.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
 Vixen.Ui.UiElement.UiElement() -> void
 Vixen.Ui.UiElement.Width.get -> float
 Vixen.Ui.UiElement.ZIndex.get -> int
@@ -1169,10 +1185,20 @@ const Vixen.Ui.Rendering.PathTessellator.DefaultMiterLimit = 4 -> float
 const Vixen.Ui.Rendering.UiLayer.MaximumKernel = 64 -> int
 const Vixen.Ui.UiDocument.ContainerScopeCeiling = 4096 -> int
 const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
+override Vixen.Ui.CommandHandler.Equals(object? obj) -> bool
+override Vixen.Ui.CommandHandler.GetHashCode() -> int
+override Vixen.Ui.CommandHandler.ToString() -> string
 override Vixen.Ui.UiPropertyKey.ToString() -> string
 static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string
 static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxStyle
 static Vixen.Ui.BoxStyle.Vertical(Vixen.Core.Mathematics.Color4 end, Vixen.Ui.CornerRadii corners = default(Vixen.Ui.CornerRadii)) -> Vixen.Ui.BoxStyle
+static Vixen.Ui.CommandHandler.operator !=(Vixen.Ui.CommandHandler left, Vixen.Ui.CommandHandler right) -> bool
+static Vixen.Ui.CommandHandler.operator ==(Vixen.Ui.CommandHandler left, Vixen.Ui.CommandHandler right) -> bool
+static Vixen.Ui.CommandRoute.CanExecute(Vixen.Ui.UiDocument document, string id) -> bool
+static Vixen.Ui.CommandRoute.Execute(Vixen.Ui.UiDocument document, string id) -> bool
+static Vixen.Ui.CommandRoute.Origin(Vixen.Ui.UiDocument document) -> Vixen.Ui.UiElement
+static Vixen.Ui.CommandRoute.Resolve(Vixen.Ui.UiDocument document, string id) -> Vixen.Ui.CommandHandler?
+static Vixen.Ui.CommandRoute.ScopeOf(Vixen.Ui.UiDocument document) -> string?
 static Vixen.Ui.Composition.BuildContext.Build<T>(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> T
 static Vixen.Ui.Composition.BuildContext.BuildInto(Vixen.Ui.Composition.Component component, Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> Vixen.Ui.Composition.BuildContext
 static Vixen.Ui.Composition.BuildContext.Compose(Vixen.Ui.UiElement host, System.Action<Vixen.Ui.Composition.BuildContext> build, string? scope = null) -> System.IDisposable

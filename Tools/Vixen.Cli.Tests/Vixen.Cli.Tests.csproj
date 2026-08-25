@@ -20,5 +20,16 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Cli\Vixen.Cli.csproj" />
+
+        <!--
+            ⚠ `doctor systems` reads declarations a generator emitted, so the fixture systems it is
+            tested against have to be declared the same way a project's are. Analyzers do not flow
+            through a ProjectReference, so naming GameSystemGenerator here is what makes this test
+            assembly a real declared frame rather than a hand-built imitation of one — which is the
+            difference between proving the command and proving GameSystemRegistry.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>

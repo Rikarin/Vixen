@@ -704,12 +704,9 @@ public class VfxShaderEmitterTests {
     ///         <c>SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>spirv-val</c> only, and not <c>glslangValidator</c>.</b> All three CI legs
-    ///         install SPIR-V Tools — Linux and macOS by package, Windows with the Vulkan SDK — so
-    ///         demanding it here is a claim the workflow already keeps. No leg installs glslang,
-    ///         so the GLSL half stays a skip: a guard test with no install step behind it only
-    ///         trades a false green for a false red. Adding <c>glslang-tools</c> (Linux) and
-    ///         <c>glslang</c> (macOS) to the workflow is what would earn its own guard.
+    ///         All three CI legs install SPIR-V Tools — Linux and macOS by package, Windows with the
+    ///         Vulkan SDK — so demanding it here is a claim the workflow already keeps. The GLSL half
+    ///         has its own guard below, now that the workflow installs glslang too.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -719,5 +716,43 @@ public class VfxShaderEmitterTests {
             "spirv-val was not found. Install SPIR-V Tools (brew install spirv-tools, apt-get "
             + "install spirv-tools) — without it the emitter tests check the listing, not whether "
             + "any front end would load the module."
+        );
+
+    /// <summary>
+    ///     And <c>glslangValidator</c>, so the GLSL half means something too.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of the pair above, and it was owed rather than skipped over: task #347
+    ///         wrote the SPIR-V guard alone and said so, because at the time no Linux or macOS leg
+    ///         installed glslang and <b>a guard with no install step behind it only trades a false
+    ///         green for a false red</b> — which is worse, because the answer to a red nobody can fix
+    ///         is to delete the test. The workflow now installs it on all three legs, so the claim is
+    ///         one it keeps: <c>glslang-tools</c> on Linux, <c>glslang</c> on macOS, and the Vulkan
+    ///         SDK's <c>Bin</c> on Windows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Why it earns a test of its own rather than being left to the skips: the two front
+    ///         ends disagree about what they accept — a store into a read-only buffer is a GLSL
+    ///         compile error and a module <c>spirv-val</c> waves through — so the GLSL half is not a
+    ///         weaker copy of the SPIR-V half. Losing it quietly loses the only check that has ever
+    ///         caught that class of lowering bug.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>glslangValidator</c> and not <c>glslang</c>, because that is the name
+    ///         <see cref="Validate" /> invokes. Upstream has made <c>glslang</c> the primary binary
+    ///         and keeps <c>glslangValidator</c> as a compatibility alias — a real file on Ubuntu, a
+    ///         symlink under Homebrew — so if this ever fails on a machine that plainly has glslang,
+    ///         the alias going away is the first thing to check, and <see cref="FindTool" /> and the
+    ///         workflow are what move.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_glsl_front_end_is_installed_so_these_tests_mean_something() =>
+        Assert.True(
+            FindTool("glslangValidator") is not null,
+            "glslangValidator was not found. Install glslang (brew install glslang, apt-get install "
+            + "glslang-tools) — without it the GLSL half of the emitter tests skips, and the "
+            + "disagreements between the two front ends are exactly what those tests are for."
         );
 }

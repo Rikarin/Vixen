@@ -56,7 +56,19 @@ public enum TextureCompression {
     Bc5,
 
     /// <summary>BC7: eight bits a texel and the best quality BC offers for colour.</summary>
-    Bc7
+    Bc7,
+
+    /// <summary>
+    ///     BC6H: eight bits a texel of unbounded, unsigned float RGB. The only block format that can
+    ///     hold a high-range source, and the only one a <c>.hdr</c> may ship as.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Three channels, no alpha and no sRGB form.</b> A Radiance file has no alpha to lose
+    ///     and is linear by definition, so neither costs anything there — but asking for BC6H on an
+    ///     eight-bit source is refused rather than honoured, because it would be larger than BC7 and
+    ///     lossier for values that never leave zero to one.
+    /// </remarks>
+    Bc6H
 }
 
 /// <summary>How one texture is imported.</summary>

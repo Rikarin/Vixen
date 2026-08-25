@@ -891,7 +891,8 @@ public static class VixenCommand {
 
         var command = new Command("doctor", "Say what is wrong with the project, and change nothing.") {
             project,
-            target
+            target,
+            DoctorSystems(output, error)
         };
 
         command.SetAction(parseResult => {
@@ -907,6 +908,48 @@ public static class VixenCommand {
                 var findings = DoctorRunner.Examine(opened, forTarget, opened.DefaultOutput(forTarget));
 
                 return (int)(DoctorRunner.Report(findings, writer) ? ExitCode.Success : ExitCode.Failed);
+            }
+        );
+
+        return command;
+    }
+
+    /// <summary>
+    ///     <c>vixen doctor systems</c> — the frame, read out of a built assembly.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An assembly and no project, which is the opposite of every other subcommand here.</b>
+    ///     A frame is not in the project's assets; it is in its code, declared by <c>[GameSystem]</c>
+    ///     and ordered by attributes the compiler has already baked into metadata. So this takes the
+    ///     same repeatable <c>--assembly</c> that <c>import</c> and <c>content build</c> take, and
+    ///     loads it exactly the same way — see <see cref="GameAssemblies" />. A second way to load a
+    ///     game's code would be a second set of registrations and a second set of bugs.
+    /// </remarks>
+    static Command DoctorSystems(TextWriter? output, TextWriter? error) {
+        var assemblies = AssemblyOption();
+
+        var command = new Command(
+            "systems",
+            "Read a built game assembly's frame: what runs, in what order, and what it needs."
+        ) { assemblies };
+
+        command.SetAction(parseResult => {
+                var paths = parseResult.GetValue(assemblies) ?? [];
+
+                if (paths.Length == 0) {
+                    (error ?? Console.Error).WriteLine(
+                        "Name at least one built game assembly with --assembly. A frame is declared in "
+                        + "a project's code, so there is nothing to read without one."
+                    );
+
+                    return (int)ExitCode.UsageError;
+                }
+
+                var findings = SystemsRunner.Examine(paths);
+
+                return (int)(DoctorRunner.Report(findings, output ?? Console.Out)
+                    ? ExitCode.Success
+                    : ExitCode.Failed);
             }
         );
 

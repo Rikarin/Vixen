@@ -64,6 +64,13 @@
              that owns it — the same PostEffectFactory a host registers is the transformer here. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
 
+        <!-- `doctor systems` reads GameSystemRegistry, which the loaded assembly's generated module
+             initializer fills, and orders it with SystemGraph.Plan — the runner's own sort. Both
+             already arrived transitively; naming them says that the CLI depends on the frame's
+             vocabulary directly, so a reshuffle of Editor/ cannot quietly take them away. -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+
         <!-- The shader bundle a shipping build loads instead of compiling. This is a build-time
              library and it brings Raven with it, which is exactly right here and exactly wrong in
              anything that ships — see Tools/Vixen.ShaderCompiler's README. -->

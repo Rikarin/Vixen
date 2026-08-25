@@ -65,6 +65,11 @@ public class BindlessSamplingDeviceTests {
         if (!BindlessTable.IsSupportedBy(device)) {
             // MoltenVK below Metal argument-buffer tier 2 (ADR-011). A legitimate no, and the whole
             // reason VulkanFeatures.Bindless asks the features rather than the extension string.
+            //
+            // ⚠ Skipped and not returned: the verdict is the same, but a bare return is a pass, and
+            // a device test that reports a pass without opening a table proves nothing.
+            Assert.Skip("The device offers no bindless descriptor indexing (ADR-011), which this test is gated on.");
+
             return;
         }
 
@@ -271,6 +276,9 @@ public class BindlessSamplingDeviceTests {
         var device = owned.Device;
 
         if (!BindlessTable.IsSupportedBy(device)) {
+            // ADR-011 again, and the only one of the four that never said so. See the guard above.
+            Assert.Skip("The device offers no bindless descriptor indexing (ADR-011), which this test is gated on.");
+
             return;
         }
 

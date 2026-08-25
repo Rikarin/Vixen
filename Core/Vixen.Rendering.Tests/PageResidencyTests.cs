@@ -48,12 +48,42 @@ public class PageResidencyTests {
         /// <summary>How long a read takes, so the exit criterion's synthetic delay has a knob.</summary>
         public TimeSpan Delay { get; set; }
 
+        /// <summary>Whether a read parks until <see cref="Release" />, rather than merely being slow.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A held gate is what lets a test say "this had not finished" without a clock.</b> A
+        ///     <see cref="Delay" /> makes a load slow, which is only a statement about the machine: the
+        ///     assertion that reads it is a race the delay usually wins, and on a loaded runner usually
+        ///     is not — <see cref="A_slow_load_does_not_block_the_frame" /> lost that race in 8 of 12
+        ///     concurrent starved hosts. A gate makes the load's completion <em>impossible</em> until
+        ///     the test allows it, so the same assertion holds on a machine of any speed.
+        /// </remarks>
+        public bool Gated { get; init; }
+
         public List<PageKey> Loaded { get; } = [];
         public List<PageKey> Evicted { get; } = [];
 
         public IReadOnlyDictionary<PageKey, int> Placed => placed;
 
+        readonly TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Lets the parked reads finish.</summary>
+        public void Release() => gate.TrySetResult();
+
         public async ValueTask<int> LoadAsync(PageKey key, Memory<byte> destination, CancellationToken cancellation) {
+            if (Gated) {
+                try {
+                    // ⚠ A hang ceiling, not a budget, and it is deliberately absurd. The gate is
+                    // opened by the test a few lines after the call that must not block; if that
+                    // call blocks after all, the test never reaches the opening and nothing here
+                    // would ever come back. Sixty seconds turns that deadlock into a red assertion
+                    // — the load lands, `Loaded` fills, and the "it had not finished" line below
+                    // fails and says so — rather than a run that hangs with nothing in the log.
+                    await gate.Task.WaitAsync(TimeSpan.FromSeconds(60), cancellation).ConfigureAwait(false);
+                } catch (TimeoutException) {
+                    // Deliberately swallowed: see above. The assertion is what reports this.
+                }
+            }
+
             if (Delay > TimeSpan.Zero) {
                 await Task.Delay(Delay, cancellation).ConfigureAwait(false);
             }
@@ -401,20 +431,54 @@ public class PageResidencyTests {
     ///     some frames later. Everything above it — the residency-aware cut — is written against that
     ///     and not against a load that happens to be instant.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>Gated, not timed.</b> This used to be
+    ///     <c>Environment.TickCount64 - started &lt; 40</c> over a correct value of roughly zero:
+    ///     <see cref="PageResidency.Service" /> only queues the load, so the whole of that budget above
+    ///     the first tick was the scheduler's, and <see cref="Environment.TickCount64" />'s ~15.6 ms
+    ///     resolution left the real margin at two or three ticks. It was the most fragile assertion in
+    ///     this repository: <b>8 of 12</b> concurrent starved hosts went red on it, against 6 of 120 for
+    ///     the worst of the five that task #345 rewrote, and <see cref="Settle" />'s own remarks already
+    ///     recorded this test failing a CI leg.
+    ///     <para>
+    ///         So the store parks instead. Under a held gate the load <em>cannot</em> have finished, which
+    ///         makes "Service came back before the load did" a fact about ordering rather than a
+    ///         measurement — true on a machine of any speed, and false only if the service really waited.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And it is <see cref="FakeStore.Loaded" /> that carries the claim, not
+    ///         <see cref="PageResidency.Loading" />: <c>Loading</c> counts the in-flight and the
+    ///         arrived-but-unplaced together, on purpose, so a <c>Service</c> that awaited the load and
+    ///         left it in the arrival queue would read 1 exactly like one that queued it. So would
+    ///         <c>IsResident</c>, which is false in both. Neither structural line catches the regression
+    ///         this test is named for; the one below does.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void A_slow_load_does_not_block_the_frame() {
-        var store = new FakeStore { Delay = TimeSpan.FromMilliseconds(50) };
+        var store = new FakeStore { Delay = TimeSpan.FromMilliseconds(50), Gated = true };
         using var residency = new PageResidency(store, 8 * 1024);
 
         residency.Request(new(0, 0));
-
-        var started = Environment.TickCount64;
         residency.Service();
 
-        Assert.True(Environment.TickCount64 - started < 40, "Service waited for the load.");
+        // The load is parked at the gate, so this is the whole of the test's subject: the service
+        // handed the read off and came back rather than waiting for it.
+        Assert.Empty(store.Loaded);
+
+        // And it did hand it off — a service that quietly dropped the request would satisfy the line
+        // above just as well as one that queued it.
+        Assert.Equal(1, residency.Loading);
         Assert.False(residency.IsResident(new(0, 0)));
 
+        store.Release();
         Settle(residency);
+
+        // The control, and the reason the three lines above cannot pass vacuously: the same list and
+        // the same counter, read again once the gate is open. A `Loaded` that never fills or a
+        // `Loading` stuck at its initial value would fail here.
+        Assert.Equal([new PageKey(0, 0)], store.Loaded);
+        Assert.Equal(0, residency.Loading);
         Assert.True(residency.IsResident(new(0, 0)));
     }
 
