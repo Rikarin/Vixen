@@ -174,9 +174,10 @@ public sealed class DialogService : IDisposable {
 
     /// <summary>Answers everything outstanding and stops pumping.</summary>
     /// <remarks>
-    ///     Idempotent, and the ordering is load bearing: the tick subscription goes first so that
-    ///     <see cref="CancelAll" />'s own pump is the last one, and a host disposing this before its
-    ///     document does not leave a service that would present a dialog into a disposed tree.
+    ///     Idempotent, and the ordering is load bearing: the tick subscription is dropped first, so
+    ///     a continuation resumed by <see cref="CancelAll" /> below cannot reach a later frame of a
+    ///     service that is going away — and a host disposing this before its document does not leave
+    ///     something subscribed that would present a dialog into a disposed tree.
     /// </remarks>
     public void Dispose() {
         if (disposed) {
