@@ -1248,10 +1248,17 @@ one.
 the pod would look like a bad image. The spec's endpoint is a binding hint for the process; the
 client-facing address is the placement event's.
 
-**What L1 still owes.** The `.vxplacement` importer —
-`PlacementWeights.Parse` reads one at boot, and turning it into an addressable asset with an inspector
-is editor-side work that belongs with doc 11 rather than here. The gate that would call
-`IMapGrain.Place` on a player's behalf is L3's.
+**What L1 still owes.** The `.vxplacement` importer — turning the weights into an addressable asset
+with an inspector is editor-side work that belongs with doc 11 rather than here. The gate that would
+call `IMapGrain.Place` on a player's behalf is L3's.
+
+⚠ **It owes both halves, not one.** This paragraph used to say `PlacementWeights.Parse` reads one at
+boot, and it does not: `Parse` has no caller outside its own tests, and the weights arrive as
+`MapOptions.Weights` from whoever builds `OrchestratorOptions` — which in `Samples/14-Mmo` is an empty
+map dictionary with `Default: null`, so every shard scores on the defaults. There is therefore no
+existing read path to convert and no boot ordering to preserve. The write half fails silently in the
+meantime: a `.vxplacement` in a project falls to `RawImporter` and imports as a `"Blob"` with no
+diagnostic. See `../overview.md` § 1.13 and `Live/Vixen.Live.Orchestrator/README.md`.
 
 ## L3, in progress
 
