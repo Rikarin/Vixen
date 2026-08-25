@@ -400,3 +400,101 @@ jobs:
         with:
           name: packages
           path: artifacts/packages/*.nupkg
+
+  # ── The leg that actually runs a sample ─────────────────────────────────────────────────────────
+  #
+  # Everything above builds and tests assemblies. Nothing above boots an application, and until this
+  # job existed nothing on any push did: the content build's output, the asset bundle, the compositor
+  # document, the standard frame's expansion, the shader variants a run compiles on demand, terrain,
+  # foliage and the host's own frame loop are all upstream of a sample's first pixel, and a sample
+  # that stopped producing one would have been found by whoever next ran it by hand. docs/overview.md
+  # § 1.1 has had a row for this since the recipe was verified.
+  #
+  # ⚠ THE THING TO KNOW ABOUT THIS LEG IS HOW EASILY IT COULD HAVE PROVED NOTHING.
+  # `--vixen-headless` alone gives a window with no presentable surface, GraphicsHost makes Vulkan
+  # decline it — on every platform, deliberately, so that a dedicated server cannot silently start
+  # needing a driver — and the run lands on the Null device. Measured on 2026-08-25: the same sample,
+  # the same binary, once on a real device and once on Null, EXITED 0 BOTH TIMES, took the same wall
+  # clock, and printed character-for-character identical counters — 26 objects extracted, 39 shader
+  # variants compiled, 1 terrain, 1 grass field, TAA active, 111 reprojection draws. `--vixen-capture`
+  # is what buys a device that can draw, and build/Build.SampleFrame.cs is where the assertions that
+  # tell the two apart live. A leg that ran a sample and checked its exit code would have been green
+  # forever.
+  #
+  # ⚠ And on this runner the device IS a software one — lavapipe reports PhysicalDeviceType.Cpu,
+  # which the engine maps to the same AdapterKind.Software the Null device reports. So "a real device
+  # rather than a software one" is the wrong assertion here and would fail this leg on every run. The
+  # target names the one adapter it refuses instead.
+  sample-frame:
+    name: sample-frame
+    runs-on: ubuntu-latest
+
+    # ⚠ NOT MEASURED, AND SAID SO RATHER THAN IMPLIED. What has been measured is a real GPU: on an
+    # M1 Max the run is under a minute, and the frame count is not what it costs — 16 frames took
+    # 34 s and 64 took 23-28 s, because the sample compiles 39 shader variants on demand and that is
+    # most of it. On lavapipe the rasterisation is software and the balance is the other way, and
+    # nobody has watched this leg come up. So the cap is generous on purpose, and `--frame-count` is
+    # a parameter: if the first run says 64 frames is ten minutes of llvmpipe, lower it here rather
+    # than deleting the leg. Most of the budget is the Release build the target depends on, which the
+    # nightly's own notes put at about twelve minutes on a hosted runner.
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-sample-frame-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-sample-frame-
+
+      # The fourth job to need this, for the reason the other three give: building a sample runs its
+      # content build, and a content build imports models through Assimp, which the Silk.NET loader
+      # will not find in runtimes/linux-x64/native on Linux. Version 5 for the ABI reason the test
+      # job records. Without it the sample's .obj files fail to import and the job dies before
+      # anything renders.
+      - name: Install Assimp
+        run: sudo apt-get update && sudo apt-get install -y libassimp5
+
+      # lavapipe, which is the whole reason this runs on Linux: a conformant Vulkan driver on a
+      # runner with no GPU. The validation layers are not optional here either — the engine *asks*
+      # for VK_LAYER_KHRONOS_validation, and an instance that cannot load a layer it requested fails
+      # to create, whereupon GraphicsHost falls through to the device that draws nothing and this leg
+      # reports a Null device rather than a missing package. That is not a hypothesis: it is exactly
+      # how the target behaved on macOS before it was taught to pass DYLD_LIBRARY_PATH, and it is why
+      # .runsettings exists. vulkan-tools is for the summary printed below and nothing else.
+      #
+      # ⚠ No SDL2, deliberately, unlike the test leg. `--vixen-headless` reaches PlatformHost.Create
+      # before any window is made and returns HeadlessPlatform, so no SDL entry point is ever called;
+      # installing it would only make a future reader think this leg depends on a display.
+      - name: Install Vulkan and lavapipe
+        run: |
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools
+          vulkaninfo --summary | grep -E 'deviceName|driverName'
+
+      # One target, and it is the same one a developer types. It builds the solution, runs
+      # Samples/03-PbrShowcase with no display for 64 frames, captures the last one, and fails unless
+      # the log names a device that is not the Null one, the run happened on the Headless platform,
+      # nothing was logged at Error, and the picture that came back has more than a thousand distinct
+      # colours in it. Sample 03 measures around 44 000; a frame that lost its content measures 1.
+      - name: Run a sample with no display and check the frame it captured
+        run: ./build.sh SampleFrame --configuration Release
+        shell: bash
+
+      # ⚠ Always, not on failure. A red leg needs the picture to diagnose it and a green one needs it
+      # to be worth having — the whole argument for capturing a frame rather than reading counters is
+      # that somebody can hold the result, and an artifact uploaded only on failure is one nobody
+      # ever sees on the day the picture quietly got worse.
+      - name: Upload the captured frame
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-frame
+          path: artifacts/sample-frame/
+          if-no-files-found: warn
