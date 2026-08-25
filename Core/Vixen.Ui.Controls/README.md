@@ -217,7 +217,7 @@ reachable with the mouse at all.
 
 ## The words the set says
 
-`ControlStrings` is thirteen `StringId` declarations — "Clear" in a search box, "Dismiss" on a toast,
+`ControlStrings` is fifteen `StringId` declarations — "Clear" in a search box, "Dismiss" on a toast,
 "Previous tab" on a docked group, "Search" in a property grid — plus an `All` list for a translator's
 template. Every one of them was an English literal in a control constructor until doc 46 § A3 counted
 them: a localised window had an untranslatable seam in the one place a user cannot avoid looking, and
@@ -233,10 +233,23 @@ and are not the same string, and an id that says *where* a string is used is wha
 distinguish them. Merging them saves a line and cannot be undone without a translator's file changing
 shape.
 
+⚠ **`DialogConfirm` and `DialogCancel` are defaults rather than labels.** `DialogService.Confirm`
+falls back to them when the caller does not name its buttons, and it reads them *per call* rather
+than caching them in a static — a static initialiser runs once and would freeze the words in
+whichever language happened to open the first dialog. They were the literals `"OK"` and `"Cancel"`
+until the catalogue became reachable from here, which is the row doc 46 § A3 recorded as owed to
+itself.
+
 ⚠ **The labels are read in `OnCreated`, so a control shows the language it was built in.** That is
 not a live binding: `Strings.Catalog` is a signal and an *expression* that reads it re-runs, but an
 assignment in a constructor is not an expression. Re-labelling a live control set would need an
 effect per label and somewhere to dispose it — listed under the gaps below.
+
+⚠ **The class is checked rather than trusted**, by `StringDeclarationAnalyzer` in
+`Vixen.Ui.Generators`, which this project names as an analyzer: a declaration missing from `All` is
+`VXS0310`, two declarations under one id are `VXS0311`, and a `StringId` built anywhere else in this
+assembly is `VXS0312`. The half that needs the whole tree — a declaration used nowhere, which cannot
+be decided here because six of the fifteen are used only from `.Advanced` — is `nuke CheckStrings`.
 
 ## Known gaps
 

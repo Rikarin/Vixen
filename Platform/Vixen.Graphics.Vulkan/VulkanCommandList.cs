@@ -895,10 +895,26 @@ sealed unsafe class VulkanCommandList : ICommandList {
 
             hasStencil = view.Format.HasStencil();
 
+            // A depth resolve is a mode, not just a target. Colour above can say "resolve" and mean
+            // one thing; depth cannot, because averaging depths yields a surface nothing occupies —
+            // so the mode travels with the attachment and the backend never picks one silently.
+            if (target.DepthStore == StoreAction.Resolve && target.ResolveView.IsValid) {
+                depth.ResolveMode = VulkanEnums.ToVulkan(target.ResolveMode);
+                depth.ResolveImageView = device.Resolve(target.ResolveView).Handle;
+                depth.ResolveImageLayout = ImageLayout.DepthStencilAttachmentOptimal;
+            }
+
             if (hasStencil) {
                 stencil = depth with {
                     LoadOp = VulkanEnums.ToVulkan(target.StencilLoad),
-                    StoreOp = VulkanEnums.ToVulkan(target.StencilStore)
+                    StoreOp = VulkanEnums.ToVulkan(target.StencilStore),
+
+                    // Stencil is not resolved even when depth is. Vulkan requires the two modes to
+                    // agree when both resolve, and there is no meaningful "nearest" for a stencil
+                    // value — so the depth resolve stands alone and the stencil samples are dropped.
+                    ResolveMode = ResolveModeFlags.None,
+                    ResolveImageView = default,
+                    ResolveImageLayout = ImageLayout.Undefined
                 };
             }
         }

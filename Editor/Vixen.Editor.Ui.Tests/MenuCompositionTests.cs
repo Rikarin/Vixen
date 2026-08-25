@@ -10,7 +10,7 @@ namespace Vixen.Editor.Ui.Tests;
 
 /// <summary>Two things that had a load-order answer and should not have.</summary>
 public class MenuCompositionTests {
-    static StringId Tools => new("editor.menu.tools", "Tools");
+    static StringId Tools => EditorStrings.MenuTools;
 
     /// <summary>
     ///     ⚠ <b>The editor came up with two menus called Tools.</b> The application described its own
@@ -39,7 +39,7 @@ public class MenuCompositionTests {
     public void Naming_an_existing_menu_does_not_move_it() {
         var model = new MenuModel();
 
-        model.AddMenu(new StringId("editor.menu.file", "File"));
+        model.AddMenu(EditorStrings.MenuFile);
         model.AddMenu(Tools);
         model.InsertMenu(0, Tools);
 

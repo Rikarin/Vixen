@@ -4,7 +4,7 @@ slug: ui/strings
 kind: guide
 area: Core
 summary: A label is an id plus the English it was written as, so a missing translation shows the sentence rather than the id — and the catalogue in use is a signal, so a language change re-labels a running interface with no code at any call site.
-api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Ui.Controls.ControlStrings, T:Vixen.Editor.Ui.StringCatalogYaml]
+api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Ui.Controls.ControlStrings, T:Vixen.Editor.Ui.StringCatalogYaml, T:Vixen.Ui.Generators.StringDeclarationAnalyzer]
 tags: [ui, localisation, strings, i18n, signals]
 since: 0.2
 status: preview
@@ -80,6 +80,37 @@ public static class ShopStrings {
 `All` is spelled out rather than reflected over: a list gathered by walking the fields at run time is
 a list an application's trimming settings are entitled to shorten, and `Strings.Template` is what
 turns it into a file a translator starts from.
+
+### What the build checks about that class
+
+Writing every string twice — once as a property, once as a name in `All` — is the cost of the list
+being data. `StringDeclarationAnalyzer` is what compares the two sides, and it ships inside
+`Vixen.Ui.Generators`, so any project that names that analyzer gets it:
+
+| Id | What it refuses |
+|---|---|
+| `VXS0310` | A declared `StringId` that is not in the class's `All` list. It would be in no translator's template and therefore permanently in the source language, and nothing else would ever say so. |
+| `VXS0311` | Two declarations under one id. A catalogue is a map, so the second translation wins and the first string can never be translated separately. |
+| `VXS0312` | A `StringId` built somewhere else in an assembly that already has a declaration class. That assembly has answered the question of where its ids live; a second answer at a call site is a string no template contains. |
+
+⚠ **Analyzers do not travel through a project reference.** Referencing `Vixen.Ui` is not enough —
+the project has to name the analyzer itself, `OutputItemType="Analyzer"`, or set `<VixenUi>true</VixenUi>`
+in this repository, which does it for you.
+
+The other half — **an id declared and used nowhere at all** — is not decidable inside one
+compilation, and the reason is worth knowing before writing a rule for it: a declaration class is
+public, so the assembly that declares a string is usually not the only one that shows it. Six of
+`ControlStrings`' declarations are used only from `Vixen.Ui.Controls.Advanced`. And a rule that
+counted the `All` list as a use would pass on every declaration by construction, which is worse than
+no rule. In this repository that half is `./build.sh CheckStrings`, which reads every `.cs` and
+`.vxml` in the tree; an application outside it wants the equivalent over its own sources.
+
+⚠ **None of this asks the declaration class to be written differently.** The shape above — a
+property per string, an `All` list beside them — is the contract, so a class emitted by a generator
+and one written by hand are interchangeable and a string moved between two projects is a copy rather
+than a translation. A computed id is legitimate and is deliberately not compared: an editor mode that
+registers a command per tool builds `"editor.command." + tool`, which is a shape no declaration class
+can express.
 
 Build a catalogue by hand, or read one from whatever format the application ships:
 

@@ -37,9 +37,10 @@ namespace Vixen.Editor.AssetEditors.Shading;
 ///         compiler's complaints name a node and a port; Raven's name a line of text the author never
 ///         wrote. Both are worth having and neither substitutes for the other — a graph that is
 ///         well-formed can still emit a shader that does not type-check, which is exactly the failure
-///         a panel showing only <see cref="Diagnostics" /> would report as success. Mapping the
-///         second kind back to the node that emitted the line needs the emitter to record spans and
-///         is <see cref="SourceDiagnostics" />'s standing debt, written down in doc 11.
+///         a panel showing only <see cref="Diagnostics" /> would report as success.
+///         <see cref="SourceNodeDiagnostics" /> is the second kind mapped back to the node that wrote
+///         the line, which doc 11 recorded as owed: the emitter now records spans as it writes, and
+///         <see cref="Attribute" /> is the join.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Nothing imports a <c>.vxshadergraph</c> yet</b>, for the reason
@@ -67,6 +68,25 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
 
     /// <summary>The node types this document is edited against.</summary>
     public NodeTypeRegistry Registry { get; }
+
+    /// <summary>Where this graph's sub-graphs are found, when anything has said.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Set and <see cref="Compile" /> inlines; unset and a sub-graph node is a node type
+    ///         nothing has registered</b>, which is already a diagnostic naming the node — see
+    ///         <c>NodeGraphCompiler.SubGraphSource</c>, which this is handed straight to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in this build populates it, so it is null unless a host or a test sets
+    ///         it.</b> Resolving a sub-graph through the asset database is what would fill it, and that
+    ///         is the asset side of doc 11's sub-graph work rather than this seam — until it lands, a
+    ///         shader graph that stored a sub-graph node and was reopened reports the node type as
+    ///         unknown, naming the node, rather than inlining it. The property exists because the
+    ///         alternative is a compiler that <i>cannot</i> be told, which is the shape a feature is in
+    ///         when nothing can reach it at all.
+    ///     </para>
+    /// </remarks>
+    public ISubGraphSource? SubGraphSource { get; set; }
 
     /// <summary>What reading the file had to say — repairs, and a refusal.</summary>
     public IReadOnlyList<NodeDiagnostic> LoadDiagnostics { get; } = [];
@@ -99,6 +119,23 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     ///     and a list of complaints about the <i>previous</i> shader would be the worst of both.
     /// </remarks>
     public IReadOnlyList<CodeDiagnostic> SourceDiagnostics { get; private set; } = [];
+
+    /// <summary>The same complaints, each addressed to the node that wrote the line.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One per entry of <see cref="SourceDiagnostics" />, in the same order.</b> A panel
+    ///         showing Raven's complaints wants both halves of every one — the line, because that is
+    ///         where it is in the pane, and the node, because that is what an author can act on — and
+    ///         two lists of different lengths would have to be joined by matching messages.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="NodeDiagnostic.Node" /> is <see cref="NodeId.None" /> for a complaint
+    ///         about a line no node wrote</b>, which the preamble, the vertex stage and the master's
+    ///         <c>return</c> all are. Naming the nearest node instead would send an author to a node
+    ///         that is fine, which is worse than saying "line 14" and letting them read it.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<NodeDiagnostic> SourceNodeDiagnostics { get; private set; } = [];
 
     /// <summary>The shader the last <see cref="Compile" /> emitted, or <see langword="null" />.</summary>
     public ShaderGraphSource? Source { get; private set; }
@@ -163,15 +200,60 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     /// </remarks>
     public ShaderGraphSource? Compile() {
         var result = new ShaderGraphCompiler(Registry) {
-            DefaultName = Path.GetFileNameWithoutExtension(AssetPath)
+            DefaultName = Path.GetFileNameWithoutExtension(AssetPath),
+            SubGraphSource = SubGraphSource
         }.Compile(Graph);
 
         Source = result.Artefact;
         Diagnostics = result.Diagnostics;
         SourceDiagnostics = Source is { } shader ? Check(shader.Source, AssetPath) : [];
+        SourceNodeDiagnostics = Attribute(Source, SourceDiagnostics);
 
         Compiled?.Invoke(this);
         return Source;
+    }
+
+    /// <summary>Addresses each of Raven's complaints to the node that wrote the line it is on.</summary>
+    /// <param name="source">The shader that was checked, or <see langword="null" />.</param>
+    /// <param name="diagnostics">What Raven said about it.</param>
+    /// <returns>One diagnostic per complaint, in the same order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="diagnostics" /> is null.</exception>
+    /// <remarks>
+    ///     <b>This is the join doc 11 recorded as owed and doc 07 asks for.</b> The emitter records
+    ///     which lines each node wrote — <c>ShaderGraphSource.Spans</c> — and the node it records is
+    ///     already the one an author can select, because <c>ShaderGraphCompiler</c> puts an inlined
+    ///     node's identity back through <c>NodeGraphInlining</c> before it writes a span down. So there
+    ///     is nothing to resolve here: a line either belongs to a node of the open graph or to nobody.
+    /// </remarks>
+    internal static IReadOnlyList<NodeDiagnostic> Attribute(
+        ShaderGraphSource? source,
+        IReadOnlyList<CodeDiagnostic> diagnostics
+    ) {
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
+        if (source is null || diagnostics.Count == 0) {
+            return [];
+        }
+
+        List<NodeDiagnostic> attributed = new(diagnostics.Count);
+
+        foreach (var diagnostic in diagnostics) {
+            var node = source.NodeAt(diagnostic.Line, out var span) ? span : default;
+
+            attributed.Add(new(
+                "SG0100",
+                diagnostic.Message,
+                node.Node,
+                "",
+                diagnostic.Severity == CodeSeverity.Error ? NodeSeverity.Error : NodeSeverity.Warning,
+
+                // The line Raven objected to and not the node's whole span, because the pane beside
+                // the list is showing the text and one line is where the squiggle already is.
+                new(diagnostic.Line, 1)
+            ));
+        }
+
+        return attributed;
     }
 
     /// <summary>What Raven says about a shader graph's output.</summary>

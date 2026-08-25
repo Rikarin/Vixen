@@ -60,9 +60,25 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
     ///         <see cref="Finish" /> and <see cref="Visit" /> see nodes that were never in the file,
     ///         which is right — they are compiling the program, not the document — and it is why a
     ///         subclass must not use a node's identity to look anything up in the original.
+    ///         <see cref="Inlining" /> is the one legitimate way back.
     ///     </para>
     /// </remarks>
     public ISubGraphSource? SubGraphSource { get; set; }
+
+    /// <summary>Which node of the last compilation came out of which sub-graph node.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Read it to turn a fact about the compiled program into a fact about the document.</b>
+    ///         <see cref="Report" /> already does, for every diagnostic — so a subclass never has to —
+    ///         and a subclass that records where in its output a node wrote wants
+    ///         <see cref="NodeGraphInlining.Resolve" /> on the way out for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="NodeGraphInlining.Empty" /> until <see cref="Compile" /> has run, and after
+    ///         one over a graph with no sub-graphs in it.
+    ///     </para>
+    /// </remarks>
+    public NodeGraphInlining Inlining { get; private set; } = NodeGraphInlining.Empty;
 
     /// <summary>Compiles a graph.</summary>
     /// <param name="graph">The graph.</param>
@@ -72,11 +88,16 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         ArgumentNullException.ThrowIfNull(graph);
 
         diagnostics.Clear();
+        Inlining = NodeGraphInlining.Empty;
 
         if (SubGraphSource is { } source && SubGraphs.ContainsSubGraph(graph, source)) {
-            graph = SubGraphs.Flatten(graph, source, out var inlining);
+            graph = SubGraphs.Flatten(graph, source, out var refused, out var inlining);
 
-            foreach (var diagnostic in inlining) {
+            // ⚠ Before the loop, not after it. `Report` reads it to name a node the author can
+            // select, and a diagnostic reported against an empty map keeps a synthetic identity.
+            Inlining = inlining;
+
+            foreach (var diagnostic in refused) {
                 Report(diagnostic);
             }
         }
@@ -144,7 +165,24 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
 
     /// <summary>Says something about a node.</summary>
     /// <param name="diagnostic">What to say.</param>
-    protected void Report(NodeDiagnostic diagnostic) => diagnostics.Add(diagnostic);
+    /// <remarks>
+    ///     ⚠ <b>A complaint about an inlined node is re-addressed to the sub-graph node it came out
+    ///     of.</b> The walk is over the flattened graph, so a node it is unhappy with may have a
+    ///     synthetic identity that is in no document and on no canvas — and a diagnostic naming one is
+    ///     a diagnostic nothing can select, frame or badge. The sentence
+    ///     <see cref="NodeGraphInlining.Describe" /> adds is what keeps the original readable: the
+    ///     author is told which node inside which sub-graph, and handed one they can click on.
+    /// </remarks>
+    protected void Report(NodeDiagnostic diagnostic) {
+        if (Inlining.TryGet(diagnostic.Node, out var origin)) {
+            diagnostic = diagnostic with {
+                Node = origin.Source,
+                Message = diagnostic.Message + Inlining.Describe(origin.Node)
+            };
+        }
+
+        diagnostics.Add(diagnostic);
+    }
 
     /// <summary>Whether anything has gone wrong so far.</summary>
     protected bool HasErrors {
