@@ -5,6 +5,107 @@ Vixen.Ui.AccessKeyEvent : Vixen.Ui.UiEvent
 Vixen.Ui.AccessKeyEvent.AccessKeyEvent() -> void
 Vixen.Ui.AccessKeyEvent.Key.get -> char
 Vixen.Ui.AccessKeyEvent.Key.init -> char
+Vixen.Ui.AccessibleRelation -> enum : byte
+Vixen.Ui.AccessibleRelation.AccessibleRelation() -> void
+Vixen.Ui.AccessibleRelation.ActiveDescendant = 5 -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibleRelation.Controls = 2 -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibleRelation.DescribedBy = 1 -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibleRelation.FlowsTo = 4 -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibleRelation.LabelledBy = 0 -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibleRelation.Owns = 3 -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibleRelationship -> readonly struct
+Vixen.Ui.AccessibleRelationship : System.IEquatable<Vixen.Ui.AccessibleRelationship>
+Vixen.Ui.AccessibleRelationship.AccessibleRelationship() -> void
+Vixen.Ui.AccessibleRelationship.AccessibleRelationship(Vixen.Ui.AccessibleRelation Relation, Vixen.Ui.UiElement Target) -> void
+Vixen.Ui.AccessibleRelationship.Relation.get -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibleRelationship.Relation.init -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibleRelationship.Target.get -> Vixen.Ui.UiElement
+Vixen.Ui.AccessibleRelationship.Target.init -> Vixen.Ui.UiElement
+Vixen.Ui.AccessibleRole -> enum : ushort
+Vixen.Ui.AccessibleRole.AccessibleRole() -> void
+Vixen.Ui.AccessibleRole.Alert = 1 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.AlertDialog = 2 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Application = 3 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Article = 4 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Banner = 5 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Button = 6 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Cell = 7 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.CheckBox = 8 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ColumnHeader = 9 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ComboBox = 10 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Complementary = 11 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ContentInfo = 12 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Dialog = 13 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Document = 14 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Feed = 15 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Figure = 16 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Form = 17 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Grid = 18 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.GridCell = 19 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Group = 20 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Heading = 21 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Img = 22 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Link = 23 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.List = 24 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ListBox = 25 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ListItem = 26 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Log = 27 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Main = 28 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Menu = 29 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.MenuBar = 30 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.MenuItem = 31 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.MenuItemCheckBox = 32 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.MenuItemRadio = 33 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Navigation = 34 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.None = 0 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Note = 35 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Option = 36 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ProgressBar = 37 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Radio = 38 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.RadioGroup = 39 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Region = 40 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Row = 41 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.RowGroup = 42 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.RowHeader = 43 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ScrollBar = 44 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Search = 45 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.SearchBox = 46 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Separator = 47 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Slider = 48 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.SpinButton = 49 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Status = 50 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Switch = 51 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Tab = 52 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TabList = 54 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TabPanel = 55 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Table = 53 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TextBox = 56 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Timer = 57 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Toolbar = 58 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Tooltip = 59 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Tree = 60 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TreeGrid = 61 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TreeItem = 62 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleStates -> enum : uint
+Vixen.Ui.AccessibleStates.AccessibleStates() -> void
+Vixen.Ui.AccessibleStates.Busy = 8192 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Checked = 8 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Disabled = 1 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Editable = 512 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Expandable = 128 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Expanded = 256 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Focusable = 4 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Focused = 2 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Invalid = 4096 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Mixed = 16 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Modal = 16384 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.MultiLine = 65536 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.MultiSelectable = 32768 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.None = 0 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Pressed = 32 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.ReadOnly = 1024 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Required = 2048 -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibleStates.Selected = 64 -> Vixen.Ui.AccessibleStates
 Vixen.Ui.BackgroundTask -> sealed class
 Vixen.Ui.BackgroundTask : System.IDisposable
 Vixen.Ui.BackgroundTask.Cancel() -> void
@@ -984,6 +1085,7 @@ Vixen.Ui.UiCursor.UiCursor() -> void
 Vixen.Ui.UiCursor.Wait = 10 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument -> sealed class
 Vixen.Ui.UiDocument : System.IDisposable
+Vixen.Ui.UiDocument.AccessibilityInvalidated -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.UiDocument.Adopt(Vixen.Ui.UiElement element, string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.ApplicationCommandResponder.get -> Vixen.Ui.ICommandResponder?
 Vixen.Ui.UiDocument.ApplicationCommandResponder.set -> Vixen.Ui.ICommandResponder?
@@ -1031,6 +1133,7 @@ Vixen.Ui.UiDocument.HitTest(Vixen.Ui.UiSurface surface, float x, float y) -> Vix
 Vixen.Ui.UiDocument.HitTest(float x, float y) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Hovered.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Invalidate() -> void
+Vixen.Ui.UiDocument.InvalidateAccessibility() -> void
 Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
 Vixen.Ui.UiDocument.KeyboardMode.get -> bool
@@ -1082,8 +1185,18 @@ Vixen.Ui.UiElement.AbsoluteLeft.get -> float
 Vixen.Ui.UiElement.AbsoluteTop.get -> float
 Vixen.Ui.UiElement.AccessKey.get -> char
 Vixen.Ui.UiElement.AccessKey.set -> char
+Vixen.Ui.UiElement.AccessibleDescription.get -> string?
+Vixen.Ui.UiElement.AccessibleDescription.set -> string?
+Vixen.Ui.UiElement.AccessibleName.get -> string?
+Vixen.Ui.UiElement.AccessibleName.set -> string?
+Vixen.Ui.UiElement.AccessibleRelationTarget(Vixen.Ui.AccessibleRelation relation) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiElement.AccessibleRelationships.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.AccessibleRelationship>
+Vixen.Ui.UiElement.AccessibleState.get -> Vixen.Ui.AccessibleStates
+Vixen.Ui.UiElement.AccessibleValue.get -> string?
+Vixen.Ui.UiElement.AccessibleValue.set -> string?
 Vixen.Ui.UiElement.Add(string tag, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiElement.Add<T>(string? tag = null, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
+Vixen.Ui.UiElement.AddAccessibleRelation(Vixen.Ui.AccessibleRelation relation, Vixen.Ui.UiElement target) -> void
 Vixen.Ui.UiElement.AddClass(string className) -> bool
 Vixen.Ui.UiElement.AddCommandHandler(string id, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> void
 Vixen.Ui.UiElement.AddHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler, Vixen.Ui.RoutingStrategy strategy = Vixen.Ui.RoutingStrategy.Bubble, bool handledEventsToo = false) -> void
@@ -1093,16 +1206,20 @@ Vixen.Ui.UiElement.Block(float width) -> Vixen.Ui.TextLayout?
 Vixen.Ui.UiElement.Bounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.UiElement.Children.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
 Vixen.Ui.UiElement.ClearAccessKey() -> void
+Vixen.Ui.UiElement.ClearAccessibleRelations(Vixen.Ui.AccessibleRelation relation) -> int
 Vixen.Ui.UiElement.ClearFocusable() -> void
 Vixen.Ui.UiElement.ClearIsFocusScope() -> void
 Vixen.Ui.UiElement.ClearOffsetX() -> void
 Vixen.Ui.UiElement.ClearOffsetY() -> void
+Vixen.Ui.UiElement.ClearRole() -> void
 Vixen.Ui.UiElement.ClearStyle() -> void
 Vixen.Ui.UiElement.ClearTabIndex() -> void
 Vixen.Ui.UiElement.ClearText() -> void
 Vixen.Ui.UiElement.CommandHandlerIds.get -> System.Collections.Generic.IEnumerable<string>
 Vixen.Ui.UiElement.CommandScope.get -> string?
 Vixen.Ui.UiElement.CommandScope.set -> string?
+Vixen.Ui.UiElement.DeclaredAccessibleState.get -> Vixen.Ui.AccessibleStates
+Vixen.Ui.UiElement.DeclaredAccessibleState.set -> Vixen.Ui.AccessibleStates
 Vixen.Ui.UiElement.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.UiElement.EffectiveCommandScope.get -> string?
 Vixen.Ui.UiElement.Ellipsized(float contentWidth) -> Vixen.Ui.TextLayout?
@@ -1121,6 +1238,7 @@ Vixen.Ui.UiElement.IsFocusScope.get -> bool
 Vixen.Ui.UiElement.IsFocusScope.set -> bool
 Vixen.Ui.UiElement.IsFocused.get -> bool
 Vixen.Ui.UiElement.IsHitTestVisible.get -> bool
+Vixen.Ui.UiElement.IsInAccessibilityTree.get -> bool
 Vixen.Ui.UiElement.IsInCommandTransparentSubtree.get -> bool
 Vixen.Ui.UiElement.IsRemoved.get -> bool
 Vixen.Ui.UiElement.Left.get -> float
@@ -1135,9 +1253,12 @@ Vixen.Ui.UiElement.PropertyChanged -> System.Action<Vixen.Ui.UiElement, Vixen.Ui
 Vixen.Ui.UiElement.Raise<T>(T args) -> void
 Vixen.Ui.UiElement.RaisePropertyChanged(Vixen.Ui.UiPropertyKey key) -> void
 Vixen.Ui.UiElement.Remove() -> void
+Vixen.Ui.UiElement.RemoveAccessibleRelation(Vixen.Ui.AccessibleRelation relation, Vixen.Ui.UiElement target) -> bool
 Vixen.Ui.UiElement.RemoveClass(string className) -> bool
 Vixen.Ui.UiElement.RemoveCommandHandler(string id) -> bool
 Vixen.Ui.UiElement.RemoveHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler) -> bool
+Vixen.Ui.UiElement.Role.get -> Vixen.Ui.AccessibleRole
+Vixen.Ui.UiElement.Role.set -> Vixen.Ui.AccessibleRole
 Vixen.Ui.UiElement.SetAttribute(string name, string value) -> void
 Vixen.Ui.UiElement.SetStyle(string property, string? value) -> void
 Vixen.Ui.UiElement.SetStyle(string property, string? value, bool important) -> void
@@ -1334,6 +1455,10 @@ virtual Vixen.Ui.Composition.Component.Style.get -> string?
 virtual Vixen.Ui.Composition.Component.StyleIsScoped.get -> bool
 virtual Vixen.Ui.Composition.Component.TagName.get -> string
 virtual Vixen.Ui.UiElement.ContentHost.get -> Vixen.Ui.UiElement
+virtual Vixen.Ui.UiElement.NativeAccessibleName.get -> string?
+virtual Vixen.Ui.UiElement.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+virtual Vixen.Ui.UiElement.NativeAccessibleValue.get -> string?
+virtual Vixen.Ui.UiElement.NativeRole.get -> Vixen.Ui.AccessibleRole
 virtual Vixen.Ui.UiElement.OnChildAdded(Vixen.Ui.UiElement child) -> void
 virtual Vixen.Ui.UiElement.OnCreated() -> void
 virtual Vixen.Ui.UiElement.OnDraw(Vixen.Ui.DrawContext context) -> void
