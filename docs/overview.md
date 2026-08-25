@@ -94,7 +94,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Transform hierarchy with dirty propagation | 🟡 | Core/Vixen.Engine | Not depth-split — needs shared components. One visit per moved entity either way |
 | `Vixen.Engine` — loop, fixed-step accumulator, `Behavior`, scenes, `SceneTag`, additive load | ✅ | Core/Vixen.Engine | 58 tests |
 | Prefabs (capture + instantiate) | ✅ | Core/Vixen.Engine | A prefab is a **world of its own**, so instantiating is one `CreateMany` per archetype and a row copy each |
-| Prefab **overrides** and nested prefabs | ⬜ | — | Risk R7. Nothing named `Override` exists under `Core/Vixen.Engine/Scenes` |
+| Prefab **overrides** and nested prefabs | 🟡 | Editor/Vixen.Editor.Core | Risk R7, and **the format half now exists** — [plan/47](plan/47-prefab-overrides-and-nested-prefabs.md). ⚠ The old wording here ("nothing named `Override` exists under `Core/Vixen.Engine/Scenes`") was true and misleading: nothing under *that* path, and roughly half an override system elsewhere — `EntityId` (whose own doc comment names a prefab override as one of the three things it exists for), `PrefabLink`, `IPrefabSource`/`PrefabSource` and the inspector's revert button. `SceneEntityData` gains `Prefab`, `Source` and an explicit `Overrides` list, and `PrefabOverrides` reconciles a scene against a template. ⚠ **The sparse-patch model does not compile**: an importer can declare an `AssetId` and cannot resolve one to a path, so the file keeps every value in full — additive, so the compiled path, the runtime and every saved scene are untouched. ⚠⚠ The override list is names, never a comparison: "differs from the template" cannot express an override *to zero*. Owed: `SceneSerializer` reading and writing the keys (blocked on an editor verb that places a prefab — `PrefabInstances` still has no caller outside its tests), reconcile-on-open, and a removed-child list before any add-back rule |
 | Coroutines (`async Coroutine`, zero-alloc start) | ✅ | Core/Vixen.Engine | `WhenAny` owed; stopping a single launched coroutine refused by design |
 | **Virtual cameras** (shots, body/aim stages, director, blending, noise, impulse) | ✅ | Core/Vixen.Engine | [plan/26](plan/26-virtual-cameras.md), and [Vixen.Engine/README](../Core/Vixen.Engine/README.md) § Virtual cameras. A Cinemachine-shaped system: `VirtualCamera` shots picked on priority by a `CameraDirector` beside the real `Camera`, blended with five curves; four bodies and four aims, each a chunk sweep, so which stage a shot uses is an archetype question rather than a branch. Damping is exactly frame-rate independent and a damping time means one thing everywhere. Runs in `LateUpdate` and writes the camera's *local* transform, so a camera never lags its subject by a frame. 50 tests; a hundred shots allocate nothing across five hundred frames |
 | Virtual cameras — dolly track, target groups, recentring | ⬜ | — | [plan/26](plan/26-virtual-cameras.md) § What is deliberately not built. The track wants a spline *asset* — authored, serialised, editable — and inventing one in the camera system would make it the second spline in the engine |
@@ -760,9 +760,9 @@ K1  Compiled scene + prefab content (doc 08)                                 ✅
     SceneAsset/PrefabAsset/SceneContent in Vixen.Engine.Scenes; SceneImporter compiles
     .vxscene/.vxprefab; the authored format lives in Vixen.Editor.Core so the viewport and
     the importer read one model. Two of its seven downstream items landed with it.
-    ├──→ Prefab overrides + nested prefabs — risk R7. PrefabInstances records the link for the
-    │      editor session only; persisting it needs a field on SceneEntityData and an answer
-    │      for "the prefab changed underneath this scene"
+    ├──→ Prefab overrides + nested prefabs — risk R7. Format half built, see plan/47: the
+    │      three keys on SceneEntityData and PrefabOverrides, which answers "the prefab changed
+    │      underneath this scene" by writing values and removing nothing. Owed: the wiring
     ├──→ Networking: scene load/unload as session messages; scene-placed baked index
     ├──→ Samples/05-PlatformerGame — needs a shipped level
     └──⛔ Navigation: bake placements from a scene — NOT K1's after all. An importer can
@@ -823,7 +823,7 @@ what is left.
 |---|---|---|
 | ~~ECS world serialisation~~ | ~~W0-1~~ | Built — `WorldSerializer`/`WorldContent`, in `Vixen.Engine` because K1's binders are what a world is written through |
 | ~~Scene + prefab **asset editors** over compiled content~~ | ~~W0-1~~ | Built — `CompiledSceneView`, a Compiled tab beside the hierarchy on both |
-| Prefab overrides + nested prefabs | W0-1 | Risk R7. The editor-session half exists (`PrefabInstances`); the format half does not |
+| Prefab overrides + nested prefabs | W0-1 | Risk R7. 🟡 The format half landed — [plan/47](plan/47-prefab-overrides-and-nested-prefabs.md): three additive keys on `SceneEntityData` and `PrefabOverrides`, 24 tests. Owed is the wiring: `SceneSerializer` reading and writing them, and an editor verb that places a prefab at all |
 | Navigation: placements from a compiled scene | ~~W0-1~~ | Not K1's — an importer has no GUID-to-path resolution. See §1.10 |
 | Networking: scene load/unload messages, baked scene index | W0-1 | Turns "waiting for its scene" from a state into a handshake |
 | ~~VFX GPU dispatch · reaping · indirect draw~~ | ~~W0-2~~ | Built, and Phase 7's exit criterion with them. ⚠ Built is not reached: nothing outside the GPU test project constructs it. The mesh, ribbon and light renderers and the remaining updaters all ship — that line was stale |
