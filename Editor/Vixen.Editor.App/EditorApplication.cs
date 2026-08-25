@@ -590,6 +590,12 @@ sealed partial class EditorApplication : IDisposable {
             if (document is AssetEditors.Frame.StandardFrameDocument authoredFrame) {
                 Author(authoredFrame);
             }
+
+            // The other document kind that needs something only the host has. A graph opened before
+            // there is a device gets it from `ShaderGraphPreviews`' setter instead.
+            if (document is AssetEditors.Shading.ShaderGraphDocument shader) {
+                Preview(shader);
+            }
         };
 
         // ⚠ The scene the editor started with is the first entry of the multi-scene list rather

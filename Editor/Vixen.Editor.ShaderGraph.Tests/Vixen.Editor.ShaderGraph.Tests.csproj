@@ -26,5 +26,9 @@
              arrangement Vixen.Vfx.Tests has, for the same reason: a golden string is exactly the
              kind of assertion that cannot tell whether the source is well typed. -->
         <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+
+        <!-- The preview renderer draws, so the tests that say what came out need a real backend.
+             They skip without one, and VIXEN_REQUIRE_VULKAN=1 turns the skip into a failure. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
     </ItemGroup>
 </Project>
