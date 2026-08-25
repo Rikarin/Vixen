@@ -1021,7 +1021,9 @@ static Vixen.Ui.Controls.ControlIcons.Unlock.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlStrings.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.StringId>
 static Vixen.Ui.Controls.ControlStrings.ColorPickerEyedropper.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ColorPickerIntensity.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DialogCancel.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DialogClose.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DialogConfirm.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockClose.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockNextTab.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DockPreviousTab.get -> Vixen.Ui.StringId

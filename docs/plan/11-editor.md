@@ -101,9 +101,43 @@ public interface IEditorCommand
 > and `Vixen.Platform.Ui` fills, the arrangement records where a promoted group was, and a saved
 > position that lands on no current display is dropped rather than restoring a window nobody can
 > reach.
-> **`Strings.Resource` is not generated yet** — `EditorStrings` is hand-written in the shape the
-> generator will emit, so no call site changes when it lands, but an id used nowhere is not yet a
-> build error.
+> ~~**`Strings.Resource` is not generated yet**~~ — **it is not generated, and it is not going to
+> be, and what it was asked for is done.** The property this line wanted was *"an id used nowhere
+> and an id declared nowhere are both build errors"*; all of it is enforced, by four instruments and
+> no generator. `StringDeclarationAnalyzer` in `Vixen.Ui.Generators` refuses a declaration missing
+> from its `All` list (`VXS0310`), two declarations under one id (`VXS0311`), and a `StringId` built
+> outside the declaration class of an assembly that has one (`VXS0312`); `nuke CheckStrings` refuses
+> a declaration used nowhere in the tree and a call site that rebuilds an id a declaration class
+> already declares; and a call site naming a member no declaration class has is CS0117, which it
+> always was.
+>
+> ⚠ **A generator was the wrong instrument here, and the reason is not effort.** A generator needs
+> catalogue *source* — a file the ids come from — and [46](46-what-an-application-needs.md) § A3
+> both leaves that undecided for Vixen and says the declaration shape must stay **unchanged**,
+> because Trinix builds its own `Strings.yaml` generator and a string moved between the two projects
+> should be a copy rather than a translation. A check over the shape needs neither decision, holds
+> for a hand-written class and a generated one alike, and is what makes an independently written
+> generator's output verifiable here. `EditorStrings` is byte-identical in shape to what it was.
+>
+> ⚠ **The check was not hypothetical on the day it landed: seven declarations failed it.**
+> `MenuView` (the menu is Window), `NotificationsTitle`/`NotificationsEmpty` (the panel is the
+> message log and has its own), `KeyBindingConflict` (superseded by `KeysConflict`) and `DialogOk`
+> (no shell dialog says OK) were declared and shown nowhere — all five deleted. The other two were
+> the interesting pair: **`CommandUndo` and `CommandRedo` were declared as
+> `editor.command.edit.undo`/`.redo` and the editor registered its Undo and Redo commands with a
+> `new StringId("editor.command.undo", "Undo")` written at the call site.** The template a
+> translator works from carried one id and the running editor looked up the other, so translating
+> the editor's Undo menu item was impossible and nothing said so. That is the defect this line was
+> about, found by the check written for it.
+>
+> ⚠ **Owed, and measured rather than asserted**: 178 ids are still built at call sites in the editor
+> module assemblies — `EditorParity` alone has 72 — and declared in no class, so no `All` list
+> carries them and a translator's template is short by more than half of what the editor says.
+> `CheckStrings` logs that count as a measurement and does not fail on it, because closing it is a
+> migration across nine assemblies and because a handful of those ids **cannot** be declared:
+> `WaterMode.cs:247` builds `"editor.command." + id` in a loop over a mode's tools, which is a
+> legitimate shape a declaration class has no way to express. That is also a fact about the shape
+> worth carrying upstream — `StringId`'s constructor has to stay public for it.
 >
 > **The project browser is `ProjectBrowser` in `Vixen.Editor.App`**, not a shell panel, and for the
 > same reason as the first correction: it needs the asset database, and the shell may not see one.

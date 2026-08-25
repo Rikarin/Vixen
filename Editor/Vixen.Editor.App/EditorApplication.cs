@@ -2735,14 +2735,14 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     void EditCommands() {
         Shell.Commands.Add(
-            new EditorCommand("edit.undo", new StringId("editor.command.undo", "Undo"), () => scene.Stack.Undo()) {
+            new EditorCommand("edit.undo", EditorStrings.CommandUndo, () => scene.Stack.Undo()) {
                 Category = EditorStrings.CategoryEdit,
                 Enablement = () => scene.Stack.CanUndo.Value
             }
         );
 
         Shell.Commands.Add(
-            new EditorCommand("edit.redo", new StringId("editor.command.redo", "Redo"), () => scene.Stack.Redo()) {
+            new EditorCommand("edit.redo", EditorStrings.CommandRedo, () => scene.Stack.Redo()) {
                 Category = EditorStrings.CategoryEdit,
                 Enablement = () => scene.Stack.CanRedo.Value
             }
