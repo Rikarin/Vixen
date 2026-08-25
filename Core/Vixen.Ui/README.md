@@ -92,6 +92,41 @@ simply a handler on the root, which always responds — so nothing changes for o
 handler still answers while the focus is nowhere. With something focused the root is on the walk
 anyway.
 
+### Past the root: responders that are not elements
+
+The walk does not stop at the root. Past the last parent it asks `UiDocument.CommandResponder` and
+then `UiDocument.ApplicationCommandResponder`, which is AppKit's chain continuing through the
+document to `NSApp` and its delegate once the view hierarchy has run out — the guide is explicit
+that a delegate gets its chance "even though a delegate isn't formally in the responder chain".
+
+The gap that closed: **a handler had to hang on a `UiElement`**, so a view-model or a document
+object that wanted to own `edit.copy` had to own a piece of the view tree in order to say so.
+`ICommandResponder` is one method, id to handler; `CommandResponder` is the table almost everything
+wants, with the same five arguments and the same duplicate-id throw as `AddCommandHandler`.
+
+⚠ **No rule changed, only the length of the walk.** Nearer wins all the way out — leaf, panel, root,
+document, application — the first responder that *answers* wins, and only that one is asked
+`CanExecute`. A responder further along is not consulted even to break a tie when the nearer one
+refuses. `CommandResponderTests` asserts that with a counter on the further responder rather than by
+observing which one ran: "the document won" is also true of a chain that asked the application and
+preferred the document anyway, and nought lookups is the claim the rule actually makes.
+
+⚠ **Answering is not being able to run.** A responder whose verb is temporarily impossible returns
+`true` with a predicate that says no. Returning `false` drops the id out of the chain, and there is
+nothing after the application to catch it.
+
+⚠ **Lifetime: the document holds the responders and never the reverse.** `ICommandResponder` has no
+event and no back-reference by design, so a responder never learns which documents it was installed
+on and a long-lived one cannot pin a closed window's element tree —
+`A_long_lived_responder_does_not_keep_a_closed_document_alive` asserts that against the collector.
+`UiDocument.Dispose` drops both slots and the `CommandsInvalidated` subscribers regardless.
+Installing a responder invalidates; changing its table does not, because it does not know a
+document, so its owner calls `InvalidateCommands()`.
+
+Focus *acceptance* is already separable from tab participation and needed no new API:
+`UiElement.Focusable` plus `TabIndex = -1` is `acceptsFirstResponder = YES` plus exclusion from the
+key view loop, and `Selects`, `Tabs`, `TextInputs` and the advanced controls already use it.
+
 ⚠ **`CommandFocus`, not `Focused`, and that distinction is what made step 3 possible at all.** The
 surfaces that *display* commands have to take the focus to be operable: `Menu.OnOpened` focuses its
 first item so the arrow keys work, and a `MenuBarItem` takes the focus when it is pressed. A menu
@@ -136,12 +171,64 @@ document, and a command becoming executable is not a thing that dirties one.
 
 **What consumes it.** `Vixen.Ui.Controls`' `ButtonBase.Command` — so `Button`, `IconButton`,
 `MenuItem`, `ToggleButton` and `Link` all bind an id, from markup as readily as from code, and each
-follows the invalidation for as long as it has one bound. The editor's `CommandRegistry` still
-resolves its scope through `EditorShell.Context` — see
+follows the invalidation for as long as it has one bound. The extended chain's consumer is the
+editor: `CommandRegistry` implements `ICommandResponder` over the table it already had, and
+`EditorShell` installs it as its document's `ApplicationCommandResponder`, so a plain `Vixen.Ui`
+control bound to an editor command id resolves, greys and runs it — through the registry's own
+scope-and-enablement gate and raising its `Executed` — with nothing editor-shaped in the control.
+The editor's `CommandRegistry` still resolves its *scope* through `EditorShell.Context` — see
 [doc 45](../../docs/plan/45-commands-and-focus-scope.md), whose staging step 1 is what this is, and
 whose § G2 was **refuted** when it met the editor: the editor's contexts are pushed from *pointer
 presses*, not focus changes, because its panels are not focusable — six of its seven context-claiming
 panels leave `Document.Focused` null, measured.
+
+## Background tasks
+
+`BackgroundTaskManager` is the list of long operations an application is running and
+`BackgroundTask` is one of them — a title, a status, a progress fraction, a state and a cancellation
+token. It is here for the same reason `ICommandResponder` is: **it is application-framework
+machinery, and it was reachable only by the editor.** It came out of `Vixen.Editor.Ui/Tasks/` whole;
+what stayed behind is `TaskCenter.vxml`, the panel that shows them, which is the editor's chrome.
+The split cost one `@using` line — the model named nothing editor-shaped, and the centre names
+`EditorStrings`, `ControlIcons` and the editor's own tags.
+
+**The threading contract is the whole design and it is deliberately the smallest one that works.**
+Reporting is safe from any thread; reading is only safe from the UI one. The work runs wherever the
+caller put it, `Report` enqueues, and `Pump` applies the queue at one point in the frame — so there
+are no locks around the task list, no concurrent collection for the interface to walk, and a frame
+sees one consistent set of numbers. A progress bar read during layout cannot see a title replaced
+between two reads.
+
+**Every property is signal-backed rather than signal-typed.** `Progress` is still
+`float Progress { get; }` and `Tasks` is still an `IReadOnlyList<T>`; the fields behind them are a
+`Signal<float>` and a `CollectionSignal<T>`. Not one caller changed, and what changed is that
+reading one inside a binding subscribes — which is what makes a task panel markup over the model
+rather than a view told to look once a frame. The safety of that rests on the paragraph above: every
+write lands on the UI thread because it lands in `Pump`, and a signal written from the pool is a
+race the reactive graph is entitled to refuse.
+
+⚠ **`IsCancellationRequested` is the one exception and says why.** It mirrors the token rather than
+being it. `Cancellation` is what the *work* polls, from whatever thread it is on, and a signal read
+asserts the owning thread — so making that reactive would put the graph in the way of a cancellation
+check in a tight loop. `Cancel` sets both, token first.
+
+⚠ **Something has to pump it, and nothing here can.** `Vixen.Ui.Desktop`'s `UiApplication` owns a
+manager and pumps it once a frame before raising `Frame`, so an application on the standard loop
+gets progress without writing a pump; a host with its own loop owns a manager and pumps it itself,
+which is what `EditorShell` does. A manager nobody pumps is a list of tasks stuck at nought per
+cent — it fails silently rather than loudly, which is why the property is pinned by a test that runs
+a real headless loop rather than by one that calls `Pump` directly.
+
+⚠ **Disposal is not tidiness; it is the leak.** Work on the pool reports through a queue, so an owner
+that dropped the manager would leave every running task enqueueing into a queue nothing drains — and
+every closure in that queue holds the task, the manager and the assembly the work's delegate came
+from. A plugin unloaded while one of its imports is running is exactly the shape that has twice
+pinned a collectible `PluginLoadContext` here. `Dispose` cancels everything and then *stops
+accepting*: reports after it are dropped rather than enqueued, so work that ignores its token for
+another minute costs one thread and no memory. It asks and does not wait, because waiting would be a
+frame thread blocked on a file copy.
+
+See [the guide page](../../docs/guide/ui/background-tasks.md), and [doc 46](../../docs/plan/46-what-an-application-needs.md) § *Offered, and taken* for why it moved.
 
 ## Arrow navigation
 

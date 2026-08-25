@@ -5,6 +5,50 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Vixen.Ui;
 
+/// <summary>Something that answers command ids without being an element.</summary>
+/// <remarks>
+///     <para>
+///         <b>The part of the chain that is not the tree.</b> AppKit's action chain does not stop at
+///         the view hierarchy: past the last view it consults the window, the window controller, the
+///         window's delegate, the document, <c>NSApp</c> and the application's delegate — and the
+///         guide is explicit that a delegate gets its chance "even though a delegate isn't formally
+///         in the responder chain". None of those are views. This is that, with the ceremony
+///         removed: an object that maps an id to a handler, consulted after the element walk has
+///         run out of parents.
+///     </para>
+///     <para>
+///         ⚠ <b>It changes no rule, only the length of the walk.</b> The first responder that
+///         answers still wins, and its <see cref="CommandHandler.CanExecute" /> is still the only
+///         one asked — across the whole extended chain, exactly as inside the element walk. A
+///         responder further along that would also have answered is not consulted, and is not asked
+///         whether it could have.
+///     </para>
+///     <para>
+///         ⚠ <b>No selector dispatch and no reflection</b> (ADR-002). An implementation says which
+///         ids it answers by answering them; there is no <c>respondsToSelector:</c> here and none is
+///         possible under trimming.
+///     </para>
+///     <para>
+///         <see cref="CommandResponder" /> is the implementation almost everything wants — a table a
+///         view-model or a document object fills in, owning no element. Implement this directly only
+///         when the lookup already exists somewhere else and mirroring it would be a second copy to
+///         keep in step; the editor's <c>CommandRegistry</c> is that case.
+///     </para>
+/// </remarks>
+public interface ICommandResponder {
+    /// <summary>The handler this responder has for a command id, if it has one.</summary>
+    /// <param name="id">The command id.</param>
+    /// <param name="handler">Receives the handler.</param>
+    /// <returns>Whether this responder answers that id.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Answering is not the same as being able to run.</b> Return <c>true</c> with a
+    ///     handler whose predicate says no, rather than <c>false</c>: the difference is a greyed
+    ///     item and an item that falls through to somebody further along, and only the first is what
+    ///     "this verb is mine and I cannot do it right now" means.
+    /// </remarks>
+    bool TryGetCommandHandler(string id, out CommandHandler handler);
+}
+
 /// <summary>The handler a command id resolved to, and the two things a caller can do with it.</summary>
 /// <remarks>
 ///     <para>
@@ -15,9 +59,11 @@ namespace Vixen.Ui;
 ///         <c>null</c> costs nothing either.
 ///     </para>
 ///     <para>
-///         It names the element it was found on, which is what makes a diagnostic overlay — and a
+///         It names what it was found on, which is what makes a diagnostic overlay — and a
 ///         test — able to say <i>which</i> of two views answered rather than only that something
-///         did.
+///         did. Exactly one of <see cref="Element" /> and <see cref="Responder" /> is set: the walk
+///         reaches elements first and non-element responders afterwards, and a handler knows which
+///         leg it came off.
 ///     </para>
 /// </remarks>
 public readonly struct CommandHandler : IEquatable<CommandHandler> {
@@ -28,7 +74,8 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
 
     internal CommandHandler(
         string id,
-        UiElement element,
+        UiElement? element,
+        ICommandResponder? responder,
         Action execute,
         Func<bool>? canExecute,
         Func<string?>? title,
@@ -36,6 +83,7 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     ) {
         Id = id;
         Element = element;
+        Responder = responder;
 
         this.execute = execute;
         this.canExecute = canExecute;
@@ -43,11 +91,48 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
         this.isChecked = isChecked;
     }
 
+    /// <summary>Builds a handler for a responder that is not an element.</summary>
+    /// <param name="id">The command id.</param>
+    /// <param name="responder">What is answering.</param>
+    /// <param name="execute">What it does.</param>
+    /// <param name="canExecute">Whether it can, asked whenever anything shows the command. Always, if omitted.</param>
+    /// <param name="title">What to call it right now, or omitted to leave every surface's own label alone.</param>
+    /// <param name="isChecked">Whether it is on, or omitted for a command that is not a toggle.</param>
+    /// <returns>The handler, to be returned from <see cref="ICommandResponder.TryGetCommandHandler" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Build it once and keep it, rather than per lookup.</b> The struct exists so that a
+    ///     toolbar re-resolving twenty ids on the tick allocates nothing; a responder that closes
+    ///     over its state afresh on every call gives that back two closures at a time. A table built
+    ///     at registration is both cheaper and the shape the lookup already has.
+    /// </remarks>
+    public static CommandHandler For(
+        string id,
+        ICommandResponder responder,
+        Action execute,
+        Func<bool>? canExecute = null,
+        Func<string?>? title = null,
+        Func<bool>? isChecked = null
+    ) {
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(responder);
+        ArgumentNullException.ThrowIfNull(execute);
+
+        return new CommandHandler(id, null, responder, execute, canExecute, title, isChecked);
+    }
+
     /// <summary>The command id this answers to.</summary>
     public string Id { get; }
 
-    /// <summary>The element that declared it.</summary>
-    public UiElement Element { get; }
+    /// <summary>The element that declared it, or <c>null</c> when a non-element responder did.</summary>
+    public UiElement? Element { get; }
+
+    /// <summary>The responder that declared it, or <c>null</c> when an element did.</summary>
+    /// <remarks>
+    ///     The other half of <see cref="Element" />, and the reason that one became nullable: past
+    ///     the root the chain is objects rather than views, and a handler that claimed an element it
+    ///     did not have would make a diagnostic overlay lie about where a verb lives.
+    /// </remarks>
+    public ICommandResponder? Responder { get; }
 
     /// <summary>Whether it can run right now.</summary>
     /// <remarks>
@@ -100,13 +185,14 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     public bool Equals(CommandHandler other) =>
         string.Equals(Id, other.Id, StringComparison.Ordinal)
         && ReferenceEquals(Element, other.Element)
-        && execute.Equals(other.execute);
+        && ReferenceEquals(Responder, other.Responder)
+        && Equals(execute, other.execute);
 
     /// <inheritdoc />
     public override bool Equals(object? obj) => obj is CommandHandler other && Equals(other);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Id, Element, execute);
+    public override int GetHashCode() => HashCode.Combine(Id, Element, Responder, execute);
 
     /// <summary>Whether two handlers are the same registration.</summary>
     /// <param name="left">One.</param>
@@ -121,10 +207,95 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     public static bool operator !=(CommandHandler left, CommandHandler right) => !left.Equals(right);
 
     /// <inheritdoc />
-    public override string ToString() => $"{Id} on <{Element.Tag}>";
+    public override string ToString() => Element is { } element
+        ? $"{Id} on <{element.Tag}>"
+        : $"{Id} on {Responder?.GetType().Name ?? "nothing"}";
 }
 
-/// <summary>Where a command id goes: the focused element, then its ancestors, then the root.</summary>
+/// <summary>A table of command handlers, owned by something that is not an element.</summary>
+/// <remarks>
+///     <para>
+///         <b>What a view-model, a document object or an application delegate uses.</b> Before this,
+///         a handler had to hang on a <see cref="UiElement" />, so an object that owned
+///         <c>edit.copy</c> had to own a piece of the view tree in order to say so — which is
+///         backwards for the one kind of object whose whole job is not to be a view.
+///     </para>
+///     <para>
+///         It is deliberately the same five arguments as
+///         <see cref="UiElement.AddCommandHandler" />, with the same rule about a repeated id, so
+///         that moving a handler between an element and a responder is a change of receiver and
+///         nothing else.
+///     </para>
+///     <para>
+///         ⚠ <b>It does not invalidate anything, because it does not know a document.</b> An element
+///         registering a handler can raise <see cref="UiDocument.CommandsInvalidated" /> because it
+///         is in a document; a responder may be installed on several or on none. The owner calls
+///         <see cref="UiDocument.InvalidateCommands" /> after changing the table — installing the
+///         responder in the first place already does.
+///     </para>
+/// </remarks>
+public sealed class CommandResponder : ICommandResponder {
+    readonly Dictionary<string, CommandHandler> handlers = new(StringComparer.Ordinal);
+
+    /// <summary>Declares that this responder handles a command.</summary>
+    /// <param name="id">The command id, as the keymap and the menu spell it.</param>
+    /// <param name="execute">What it does.</param>
+    /// <param name="canExecute">Whether it can, asked whenever anything shows the command. Always, if omitted.</param>
+    /// <param name="title">What to call it right now. Omitted leaves every surface's own label alone.</param>
+    /// <param name="isChecked">Whether it is on, for a toggle. Omitted means it shows no tick.</param>
+    /// <exception cref="ArgumentException">This responder already handles that id.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Registering the same id twice throws</b>, for
+    ///     <see cref="UiElement.AddCommandHandler" />'s reason: a silent replace lets one
+    ///     registration quietly take over another's verb, and a silent ignore leaves the second one
+    ///     dead. Two <i>different</i> responders answering the same id is not a collision — the
+    ///     chain picks the earlier one.
+    /// </remarks>
+    public void Add(
+        string id,
+        Action execute,
+        Func<bool>? canExecute = null,
+        Func<string?>? title = null,
+        Func<bool>? isChecked = null
+    ) {
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(execute);
+
+        if (handlers.ContainsKey(id)) {
+            throw new ArgumentException($"This responder already handles '{id}'.", nameof(id));
+        }
+
+        handlers.Add(id, CommandHandler.For(id, this, execute, canExecute, title, isChecked));
+    }
+
+    /// <summary>Stops handling a command.</summary>
+    /// <param name="id">The command id.</param>
+    /// <returns>Whether this responder was handling it.</returns>
+    public bool Remove(string id) {
+        ArgumentNullException.ThrowIfNull(id);
+        return handlers.Remove(id);
+    }
+
+    /// <summary>Drops every handler.</summary>
+    /// <remarks>
+    ///     What an owner calls when it is torn down. The handlers are closures and a closure reaches
+    ///     everything it captured, so a responder installed on a long-lived application and never
+    ///     emptied is how a view-model outlives the view it belonged to.
+    /// </remarks>
+    public void Clear() => handlers.Clear();
+
+    /// <summary>The ids this responder handles.</summary>
+    /// <remarks>For a diagnostic overlay and for tests. Unordered, as the table is.</remarks>
+    public IEnumerable<string> Ids => handlers.Keys;
+
+    /// <inheritdoc />
+    public bool TryGetCommandHandler(string id, out CommandHandler handler) {
+        ArgumentNullException.ThrowIfNull(id);
+        return handlers.TryGetValue(id, out handler);
+    }
+}
+
+/// <summary>Where a command id goes: the focus, its ancestors, the root, the document, the application.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The responder chain, and it is derived rather than pushed.</b> A menu declares
@@ -150,6 +321,15 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
 ///         — so the mechanism is the tree Vixen already owns and there is no selector dispatch and
 ///         no reflection anywhere in it (ADR-002).
 ///     </para>
+///     <para>
+///         ⚠ <b>And it continues past the tree.</b> AppKit's action chain runs first responder →
+///         views → window → window controller → delegate → document → <c>NSApp</c> → app delegate,
+///         and most of that tail is not views at all. <see cref="ICommandResponder" /> is that tail:
+///         <see cref="UiDocument.CommandResponder" /> and then
+///         <see cref="UiDocument.ApplicationCommandResponder" />, asked in that order once the last
+///         parent is gone. Every rule above holds across the join — first to answer wins, only that
+///         one is asked whether it can, silence means disabled.
+///     </para>
 /// </remarks>
 public static class CommandRoute {
     /// <summary>Where the walk starts.</summary>
@@ -160,7 +340,7 @@ public static class CommandRoute {
     ///         ⚠ <b>The root rather than nothing, so a document-wide handler still answers while the
     ///         focus is nowhere.</b> With something focused the root is on the walk anyway, being
     ///         every element's last ancestor; falling back to it is what makes "focused → parents →
-    ///         document" one loop rather than two cases. It is also why a command with a
+    ///         root" one loop rather than two cases. It is also why a command with a
     ///         registration-time implementation — a handler on the root — always responds, and
     ///         nothing changes for it.
     ///     </para>
@@ -194,6 +374,23 @@ public static class CommandRoute {
     /// <param name="document">The document whose focus decides.</param>
     /// <param name="id">The command id.</param>
     /// <returns>The first handler along the route, or <c>null</c> if nothing responds.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The walk does not stop at the root.</b> Past the last element it asks
+    ///         <see cref="UiDocument.CommandResponder" /> and then
+    ///         <see cref="UiDocument.ApplicationCommandResponder" />, in that order — AppKit's chain
+    ///         continuing through the document to <c>NSApp</c> and its delegate once the view
+    ///         hierarchy has run out. Both are usually <c>null</c>, and then this is exactly the
+    ///         element walk it was before.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The order is document then application, and it is not a preference.</b> The
+    ///         nearer thing to the user wins, all the way out: a leaf beats its panel, a panel beats
+    ///         the root, the root beats the document, the document beats the application. An
+    ///         application-wide fallback that could outrank the open document would make a verb mean
+    ///         something different depending on what else happened to be registered.
+    ///     </para>
+    /// </remarks>
     public static CommandHandler? Resolve(UiDocument document, string id) {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(id);
@@ -202,6 +399,18 @@ public static class CommandRoute {
             if (element.TryGetCommandHandler(id, out var handler)) {
                 return handler;
             }
+        }
+
+        // ⚠ Written out rather than looped over an array of two, because the array would be an
+        // allocation on the path a toolbar takes twenty times a frame — and because the order is the
+        // rule, and a rule reads better as two lines than as the contents of a collection.
+        if (document.CommandResponder is { } owner && owner.TryGetCommandHandler(id, out var owned)) {
+            return owned;
+        }
+
+        if (document.ApplicationCommandResponder is { } application
+            && application.TryGetCommandHandler(id, out var applied)) {
+            return applied;
         }
 
         return null;
@@ -236,6 +445,105 @@ public static class CommandRoute {
 
 public sealed partial class UiDocument {
     bool commandsDirty;
+
+    ICommandResponder? commandResponder;
+    ICommandResponder? applicationCommandResponder;
+
+    /// <summary>What answers a command id once the element walk has run out of parents.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The document's own responder — <c>NSDocument</c>'s place in the chain.</b> The
+    ///         object that owns what the window is showing, which in most applications is not a view
+    ///         and should not have to become one in order to own <c>edit.save</c>. Set it to a
+    ///         <see cref="CommandResponder" /> and fill that in, or implement
+    ///         <see cref="ICommandResponder" /> on the model object itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asked after the root and before
+    ///         <see cref="ApplicationCommandResponder" />.</b> Anything in the tree outranks it,
+    ///         including a handler on the root, so a view that wants to override the document's verb
+    ///         does so by declaring it and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         <b>The document holds it and nothing holds the document.</b> That direction is the
+    ///         whole lifetime story: a responder never learns which documents it is installed on, so
+    ///         a long-lived one cannot pin a window that has closed. The reference the other way is
+    ///         released by <see cref="Dispose" />.
+    ///     </para>
+    /// </remarks>
+    public ICommandResponder? CommandResponder {
+        get => commandResponder;
+        set {
+            if (ReferenceEquals(commandResponder, value)) {
+                return;
+            }
+
+            commandResponder = value;
+
+            // A level appearing or vanishing can turn a greyed item live or grey a live one, which
+            // is the same kind of change as a handler being registered on an element.
+            InvalidateCommands();
+        }
+    }
+
+    /// <summary>What answers a command id last of all, after the document's own responder.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The application's responder — <c>NSApp</c> and its delegate.</b> The verbs that
+    ///         are true everywhere in the application and belong to no view and no open document:
+    ///         Preferences, About, Quit, and the fallbacks a shell registers so that a menu line is
+    ///         never dead merely because nothing is focused.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Last, and it is not consulted at all when anything nearer answered</b> — not
+    ///         even to ask whether it could have. A document responder that answers and then refuses
+    ///         leaves the item greyed; the chain does not carry on looking for somebody more
+    ///         willing, because "which handler runs" must not depend on how many things happen to be
+    ///         listening.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the reference most likely to leak, and it points the safe way.</b> The
+    ///         application object is the long-lived one and the document is not, so the document
+    ///         holding the application is a short life pointing at a long one — the direction that
+    ///         cannot pin anything. It is cleared by <see cref="Dispose" /> regardless, and a host
+    ///         that installs a responder built over a plugin's objects clears the responder's own
+    ///         table when the plugin unloads.
+    ///     </para>
+    /// </remarks>
+    public ICommandResponder? ApplicationCommandResponder {
+        get => applicationCommandResponder;
+        set {
+            if (ReferenceEquals(applicationCommandResponder, value)) {
+                return;
+            }
+
+            applicationCommandResponder = value;
+            InvalidateCommands();
+        }
+    }
+
+    /// <summary>Drops both responders and the invalidation subscribers, so a closed document holds nothing it was lent.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Called from <see cref="Dispose" />, and the point is the graph rather than the
+    ///         three fields.</b> A responder is a table of closures and a closure reaches everything
+    ///         it captured — a view-model, its selection, and in this editor's case an assembly in a
+    ///         collectible load context. A disposed document that still pointed at one would keep
+    ///         all of that reachable for as long as anything held the document, which is the shape
+    ///         of every leak this repository has paid for.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="CommandsInvalidated" /> goes with them for the same reason and against the
+    ///         opposite direction: its subscribers are controls, a control reaches its subtree, and
+    ///         a host that keeps a disposed document in a field would otherwise keep the whole tree
+    ///         that was hung off it.
+    ///     </para>
+    /// </remarks>
+    void ReleaseCommandResponders() {
+        commandResponder = null;
+        applicationCommandResponder = null;
+        CommandsInvalidated = null;
+    }
 
     /// <summary>Raised at most once a frame when anything a command surface shows may have changed.</summary>
     /// <remarks>
@@ -476,6 +784,7 @@ public partial class UiElement {
                     handler = new CommandHandler(
                         id,
                         this,
+                        null,
                         registration.Execute,
                         registration.CanExecute,
                         registration.Title,

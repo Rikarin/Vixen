@@ -126,7 +126,8 @@ menu bar, which has to *push* an `update` over a Wayland protocol at the moment 
 Vixen.Ui
   UiElement.AddCommandHandler(id, execute, canExecute?)   a handler, on an element
   UiElement.CommandScope                                  an attached scope name, inherited
-  CommandRoute.Resolve(document, id)                      focused → parents → document → application
+  CommandRoute.Resolve(document, id)                      focused → parents → root → document → application
+  ICommandResponder / CommandResponder                    the two levels past the root, owning no element
   CommandRoute.Invalidated                                one event, coalesced per frame
 Vixen.Ui.Controls
   MenuItem.Command, Toolbar, ButtonBase — bind an id; Disabled, title and check state follow
@@ -193,6 +194,64 @@ Each step is independently shippable and leaves the editor working.
    > `CommandRoute.Origin` now reads the latter. `Menu`, `MenuBar` and any control with a bound
    > `Command` set it. It is AppKit's "a menu is not in the responder chain", stated as data.
    > Sabotage: removing the transparency test in `Focus` fails 6 of 10 binding tests.
+3b. ✅ **The chain continues past the root**, which the shape block above promised
+   (`focused → parents → document → application`) and step 1 did not build. — *Landed 2026-08-25.*
+   `CommandRoute.Resolve` stopped at the root element; AppKit's action chain does not — per the
+   Cocoa Event Handling Guide it runs first responder → views → window → window controller →
+   window delegate → `NSDocument` → `NSApp` → app delegate → `NSDocumentController`, and most of
+   that tail is not views. Two consequences, both closed: there was no application or document
+   level at all, and **a handler had to hang on a `UiElement`**, so a view-model or a document
+   object that wanted to own `edit.copy` had to own a piece of the view tree to say so.
+
+   `Vixen.Ui` gains `ICommandResponder` (one method, id → handler), `CommandResponder` (the table
+   almost everything wants — same five arguments and same duplicate-id throw as
+   `AddCommandHandler`), `CommandHandler.For`, `CommandHandler.Responder`, and two slots on the
+   document: `CommandResponder` then `ApplicationCommandResponder`, asked in that order after the
+   last parent. 12 tests in `Core/Vixen.Ui.Tests/CommandResponderTests.cs`. 11 baseline additions
+   plus one nullability change — `CommandHandler.Element` is now `UiElement?`, because past the
+   root a handler has no element and one that claimed an element it did not have would make a
+   diagnostic overlay lie.
+
+   > ⚠️ **The level has a real consumer, and it is not step 4.** An extension point nothing
+   > registers into is this repository's commonest defect, so the application level ships wired:
+   > `CommandRegistry` implements `ICommandResponder` over the table it already had — the interface
+   > rather than a mirrored `CommandResponder`, which would be a second copy wrong the first time a
+   > plugin registered into one and not the other — and `EditorShell` installs it as its document's
+   > `ApplicationCommandResponder`. So a plain `Vixen.Ui` control bound to `edit.rename` now
+   > resolves, greys and runs the editor's command, through the registry's own scope-and-enablement
+   > gate and raising its `Executed`, with nothing editor-shaped in the control. 8 tests in
+   > `Editor/Vixen.Editor.Ui.Tests/CommandChainTests.cs`. Nothing existing changed: nothing in the
+   > editor resolved through `CommandRoute` before, so this only adds answers where there were
+   > none. **Menus and toolbars are still not bound — that is step 4 and it is still owed.**
+
+   > ⚠️ **Three of the doc's other parity assumptions were checked and hold, so nothing was
+   > rebuilt.** `UiElement.Focusable` + `TabIndex = -1` is already `acceptsFirstResponder` plus
+   > exclusion from the key view loop (`Focus.cs:206`, *"Negative is focusable but not a stop"*),
+   > so **focus acceptance needed no new API**. `CommandDispatcher`'s single root handler on the
+   > **bubble** leg (`CommandDispatcher.cs:57`, `RoutingStrategy.Bubble` by default) gives the inner
+   > control the same priority AppKit's downward `performKeyEquivalent:` does — different mechanism,
+   > same outcome. `IsCommandTransparent` on `Menu` (`Menus.cs:198`), `MenuBar` (`:609`) and bound
+   > controls (`ButtonBase.cs:82`) is already "a menu is not in the responder chain".
+
+   > ⚠️ **One claim in the brief for this step was refuted: the editor's `CommandRegistry` does not
+   > outlive its shell.** `EditorShell.cs:102` is the only place one is constructed and the shell
+   > owns it, so the `Changed` subscription added here is a cycle inside one ownership unit — the
+   > pair is collected together and this is *not* the ~95 MB-a-reload shape. It is unsubscribed in
+   > `Dispose` anyway, because a disposed shell invalidating a disposed document is wrong on its own
+   > terms, and `A_kept_registry_no_longer_reaches_the_shell_that_made_it` asserts it with an
+   > internal subscriber count rather than with a leak test that would have been asserting a leak
+   > that is not there. The direction that *can* leak is the framework's, and it points the safe
+   > way: `ICommandResponder` has no event and no back-reference, so a responder never learns which
+   > documents it was installed on —
+   > `A_long_lived_responder_does_not_keep_a_closed_document_alive` proves that against the
+   > collector, and `UiDocument.Dispose` drops both slots and the `CommandsInvalidated` subscribers.
+
+   Sabotage, both directions: deleting the two responder blocks from `Resolve` — the chain stopping
+   at the root again — fails **7 of 896** in `Vixen.Ui.Tests` and **5 of 439** in
+   `Vixen.Editor.Ui.Tests`; asking the application *before* the document fails **4** and only the
+   four ordering tests, leaving `The_document_is_asked_after_the_root_and_the_root_wins` green
+   because it is about the other join.
+
 4. **Editor menus and toolbars move onto the binding**, deleting the hand-maintained enablement.
 5. ✅ **`Invalidated`**, and the two persistently visible surfaces subscribe. — *Landed 2026-08-25.*
    `UiDocument.CommandsInvalidated` and `UiDocument.InvalidateCommands()`, raised from
@@ -242,8 +301,16 @@ Each step is independently shippable and leaves the editor working.
   checks the three one at a time with a frame between, and
   `A_button_that_is_always_on_screen_follows_the_invalidation_instead_of_polling` proves a real
   control follows it — and that ten quiet frames ask no predicate at all.
-- ✅ Every existing editor keybinding test passes unchanged. — *Trivially, nothing under `Editor/`
-  was touched.*
+- ✅ An object that is **not** a `UiElement` — a view-model, a document, an application shell — can
+  own a command id, and the chain reaches it after the tree without changing a single rule about
+  which handler wins or whose `canExecute` is asked. —
+  *`A_responder_owns_no_element_and_says_so`,
+  `The_document_wins_over_the_application_and_the_application_is_never_asked` (counter-asserted:
+  the further responder's lookups **and** predicates are both nought), and
+  `A_document_responder_that_refuses_does_not_fall_through_to_the_application`.*
+- ✅ Every existing editor keybinding test passes unchanged. — *439 pass in
+  `Vixen.Editor.Ui.Tests`; the registry's own `Execute` path is unchanged and the route enters it
+  through the same single gate.*
 - ✅ Public API additions are approved in `PublicAPI.Unshipped.txt`; `CheckApi` and
   `CheckArchitecture` are clean — in particular `Vixen.Ui` gains no reference to anything under
   `Editor/`. — *26 additions, no removals; `CheckArchitecture` "Checked 393 projects; no violations";

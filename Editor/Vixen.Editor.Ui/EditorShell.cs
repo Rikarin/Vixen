@@ -198,6 +198,33 @@ public sealed class EditorShell : IDisposable {
         Keys.ContextOf = id => Commands.TryGet(id, out var command) ? command.Context : null;
         Commands.FocusedContext = () => Context;
 
+        // ⚠ The end of `CommandRoute`'s chain, and the third place this constructor joins two things
+        // that do not know about each other. The route walks the focused element and its ancestors;
+        // past the root it asks the document's responder and then the application's, and the
+        // registry is what the editor puts in the second slot — AppKit's `NSApp` delegate, which
+        // answers the verbs that are true everywhere and belong to no view.
+        //
+        // What it buys: a plain `Vixen.Ui` control with `Command = "edit.rename"` now resolves,
+        // greys and runs the editor's command, through the editor's scope and enablement rules and
+        // raising the editor's `Executed`, with nothing editor-shaped in the control. Without it the
+        // route stopped at the root and every editor id was unhandled.
+        //
+        // Nothing existing changes: nothing in the editor resolved through `CommandRoute` before, so
+        // this only adds answers where there were none.
+        Document.ApplicationCommandResponder = Commands;
+
+        // ⚠ The registry outlives no shell — this constructor is the only place one is made, and the
+        // shell owns it — but it does outlive a plugin: a load adds commands and an unload removes
+        // them, and either can turn a bound control live or dead. The document coalesces this to one
+        // raise per frame, so a plugin registering forty commands costs one.
+        //
+        // Unsubscribed in `Dispose`, and honestly: this is not a leak fix. Registry and shell are one
+        // ownership unit and the reference cycle between them — this subscription, and the
+        // `FocusedContext` closure above, which captures the shell — is collected as a unit. It comes
+        // off because `Dispose` is the moment the shell stops wanting to hear, and a disposed shell
+        // told to invalidate a disposed document is a bug whether or not anything leaks.
+        Commands.Changed += OnCommandsChanged;
+
         Dispatcher = new CommandDispatcher(Commands, Keys);
         Dispatcher.Attach(Document);
         // ⚠ The command's own reason where it has one. "Not available right now" is the honest answer
@@ -721,6 +748,14 @@ public sealed class EditorShell : IDisposable {
     public void Dispose() {
         MenuBar.Dispose();
 
+        // ⚠ Not for the menu presenter's reason: `Commands` is the shell's own and goes with it, so
+        // this subscription is a cycle inside one ownership unit rather than a static holding a dead
+        // document. It comes off because a disposed shell asked to invalidate a disposed document is
+        // wrong on its own terms, and because a caller that keeps the registry — a test, a host
+        // rebuilding its shell around one — must not find the old shell still listening.
+        // `Document.Dispose` below drops the other direction, the registry the document was pointed at.
+        Commands.Changed -= OnCommandsChanged;
+
         // ⚠ Before the document, and it answers rather than drops. A command awaiting a dialog is a
         // continuation holding whatever it was in the middle of — the save-on-close prompt is the
         // one that matters — and a task nobody completes is a shutdown that never finishes.
@@ -728,9 +763,23 @@ public sealed class EditorShell : IDisposable {
         // tick: dropping the subscription is what stops the shell's queue outliving the shell.
         Dialogs.Dispose();
 
-        Tasks.CancelAll();
+        // ⚠ Disposed rather than `CancelAll`, and the difference is what happens to a task that does
+        // not stop. `CancelAll` asks and leaves the manager listening, so work still on the pool
+        // keeps enqueueing reports into a queue this shell will never pump again — and a task whose
+        // delegate came from a plugin keeps that plugin's collectible load context alive through the
+        // closure. Disposing asks *and* stops accepting, which is what makes a reload not a leak.
+        Tasks.Dispose();
+
         Document.Dispose();
     }
+
+    /// <summary>Tells every command surface to re-ask, because the set of commands changed.</summary>
+    /// <remarks>
+    ///     A named method rather than a lambda so that <see cref="Dispose" /> can take it off again.
+    ///     A closure would be a different delegate every time it was written and could not be
+    ///     unsubscribed, which is the ordinary way this kind of subscription becomes permanent.
+    /// </remarks>
+    void OnCommandsChanged(CommandRegistry registry) => Document.InvalidateCommands();
 
     /// <summary>The menus the editor ships with.</summary>
     /// <remarks>

@@ -2054,6 +2054,12 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         disposed = true;
+
+        // Before the layout, because this one is about what stays reachable rather than about
+        // native memory, and a throw from the store below should not be what decides whether the
+        // graph was let go.
+        ReleaseCommandResponders();
+
         Layout.Dispose();
     }
 

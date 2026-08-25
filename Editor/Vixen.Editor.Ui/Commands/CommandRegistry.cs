@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Ui;
 
 namespace Vixen.Editor.Ui;
 
@@ -23,10 +24,30 @@ namespace Vixen.Editor.Ui;
 ///         Insertion order is kept, because it is the order a palette shows commands in when the
 ///         query is empty and there is nothing better to sort by. A ranked query reorders it.
 ///     </para>
+///     <para>
+///         ⚠ <b>It is also the editor's <see cref="ICommandResponder" /></b> — the last link of
+///         <see cref="CommandRoute" />'s chain, installed by <see cref="EditorShell" /> as its
+///         document's <see cref="UiDocument.ApplicationCommandResponder" />. That is what makes a
+///         <c>Vixen.Ui</c> control bound to <c>edit.rename</c> resolve, enable and run the editor's
+///         command with no editor-specific wiring in the control.
+///     </para>
+///     <para>
+///         <b>The interface rather than a mirror.</b> A <see cref="CommandResponder" /> filled in
+///         alongside this table would be a second copy of the same map, wrong the first time a
+///         plugin registered into one and not the other. The lookup already exists here; the
+///         interface is three lines over it.
+///     </para>
 /// </remarks>
-public sealed class CommandRegistry {
+public sealed class CommandRegistry : ICommandResponder {
     readonly Dictionary<string, EditorCommand> byId = new(StringComparer.Ordinal);
     readonly List<EditorCommand> ordered = [];
+
+    // ⚠ Built once per command at registration, not per lookup. `CommandHandler` is a struct so that
+    // a persistently visible surface re-resolving twenty ids on the tick allocates nothing, and a
+    // responder that closed over the command afresh on every call would hand that back two closures
+    // at a time. Keyed the same way and removed together, because a handler for a command that is
+    // gone is a menu line that runs a plugin which has unloaded.
+    readonly Dictionary<string, CommandHandler> responders = new(StringComparer.Ordinal);
 
     /// <summary>The commands, in the order they were registered.</summary>
     public IReadOnlyList<EditorCommand> Commands => ordered;
@@ -63,6 +84,16 @@ public sealed class CommandRegistry {
     ///     from a model listens to in order to rebuild.</remarks>
     public event Action<CommandRegistry>? Changed;
 
+    /// <summary>How many things are listening to <see cref="Changed" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and it exists so that "the shell unsubscribed" is an assertion rather than
+    ///     a comment.</b> An unsubscription is invisible from outside — the symptom of a missing one
+    ///     is a subscriber that keeps working for a while and then acts on a disposed object — so
+    ///     there is nothing else a test can look at. Not public: a count of listeners is not a fact
+    ///     any caller should branch on.
+    /// </remarks>
+    internal int ChangedSubscriberCount => Changed?.GetInvocationList().Length ?? 0;
+
     /// <summary>Raised after a command runs, whatever ran it.</summary>
     /// <remarks>
     ///     The palette's "recently used" list hangs off this, and so does the log line that makes a
@@ -82,6 +113,17 @@ public sealed class CommandRegistry {
         }
 
         ordered.Add(command);
+
+        // ⚠ `Run(command)` and not `command.Run`, so that a caller reaching this through
+        // `CommandRoute` goes past the same scope-and-enablement gate and raises the same `Executed`
+        // as the palette, the menu and the keymap. One `Execute` that all the entry points go
+        // through is the property this table is worth keeping for, and a fourth entry point that
+        // bypassed it would be the one that broke it.
+        responders.Add(
+            command.Id,
+            CommandHandler.For(command.Id, this, () => Run(command), () => CanExecute(command), isChecked: command.Checked)
+        );
+
         Changed?.Invoke(this);
 
         return command;
@@ -107,9 +149,34 @@ public sealed class CommandRegistry {
         }
 
         ordered.Remove(command);
+        responders.Remove(id);
         Changed?.Invoke(this);
 
         return true;
+    }
+
+    /// <summary>The handler the command route gets for an id, if the editor knows it.</summary>
+    /// <param name="id">The command id.</param>
+    /// <param name="handler">Receives the handler.</param>
+    /// <returns>Whether a command is registered under that id.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A command out of scope, or disabled, still answers here.</b> It returns
+    ///         <c>true</c> with a handler whose predicate says no, which is what greys the item —
+    ///         returning <c>false</c> would let the id fall out of the chain entirely, and there is
+    ///         nothing after this to catch it.
+    ///     </para>
+    ///     <para>
+    ///         <b>No title.</b> <see cref="EditorCommand.CurrentTitle" /> is a <c>StringId</c> and
+    ///         the route's title is a string, so resolving one here would need a catalogue this
+    ///         table does not have; <c>null</c> means "leave the surface's own label alone", which
+    ///         is right for every editor command whose menu line is already written.
+    ///         <c>MenuPresenter</c> is where a caption is resolved, and stays so.
+    ///     </para>
+    /// </remarks>
+    public bool TryGetCommandHandler(string id, out CommandHandler handler) {
+        ArgumentNullException.ThrowIfNull(id);
+        return responders.TryGetValue(id, out handler);
     }
 
     /// <summary>The command with an id, or <c>null</c>.</summary>
@@ -155,9 +222,19 @@ public sealed class CommandRegistry {
             return false;
         }
 
+        Run(command);
+        return true;
+    }
+
+    /// <summary>Runs a command that has already been found able to, and announces it.</summary>
+    /// <remarks>
+    ///     The bottom of the single path <see cref="Execute" />'s remarks describe, factored out so
+    ///     that the fourth entry point — <see cref="CommandRoute" />, through
+    ///     <see cref="TryGetCommandHandler" /> — lands on it too rather than calling
+    ///     <see cref="EditorCommand.Run" /> behind <see cref="Executed" />'s back.
+    /// </remarks>
+    void Run(EditorCommand command) {
         command.Run();
         Executed?.Invoke(command);
-
-        return true;
     }
 }

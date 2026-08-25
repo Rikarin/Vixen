@@ -358,6 +358,20 @@ title that was replaced between two reads. The pump has a budget, which is a liv
 than a nicety: a task reporting per file over a hundred thousand files can enqueue faster than a
 frame can drain.
 
+⚠ **The model is no longer here.** `BackgroundTask`, `BackgroundTaskManager` and
+`BackgroundTaskState` moved to `Vixen.Ui` — see [its README](../../Core/Vixen.Ui/README.md#background-tasks)
+and [the guide page](../../docs/guide/ui/background-tasks.md). They were application-framework
+machinery reachable only by the editor — the pattern [doc 46](../../docs/plan/46-what-an-application-needs.md) measures; what stays here is the
+*task centre*, the panel below, because a panel made of `EditorStrings` and the editor's own tags is
+chrome rather than framework. The seam cost one `@using Vixen.Ui` line in `TaskCenter.vxml`.
+
+`EditorShell` still owns its own manager and pumps it in `Tick`, rather than using
+`UiApplication.Tasks`: the editor's host is `EditorHost` and has its own loop. What changed for the
+shell is that `Dispose` now disposes the manager instead of calling `CancelAll` — `CancelAll` asks
+and leaves the manager listening, so work still on the pool keeps enqueueing into a queue the shell
+will never pump again, and a task whose delegate came from a plugin keeps that plugin's collectible
+load context alive through the closure.
+
 ## The task centre is written in VXML
 
 `Tasks/TaskCenter.vxml` is the first interface in the repository written in the markup language the

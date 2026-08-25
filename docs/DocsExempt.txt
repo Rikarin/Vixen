@@ -1596,9 +1596,6 @@ T:Vixen.Editor.Terrain.FactLine sweep-pending
 T:Vixen.Editor.Testing.EditorSession sweep-pending
 T:Vixen.Editor.Testing.EditorSessionException sweep-pending
 T:Vixen.Editor.Testing.EditorSessionOptions sweep-pending
-T:Vixen.Editor.Ui.BackgroundTask sweep-pending
-T:Vixen.Editor.Ui.BackgroundTaskManager sweep-pending
-T:Vixen.Editor.Ui.BackgroundTaskState sweep-pending
 T:Vixen.Editor.Ui.BindResult sweep-pending
 T:Vixen.Editor.Ui.BindingSource sweep-pending
 T:Vixen.Editor.Ui.CommandDispatcher sweep-pending
