@@ -58,6 +58,15 @@ public class BindlessTableDeviceTests {
             // Not a failure. MoltenVK gates descriptor indexing behind Metal argument-buffer tier 2
             // (ADR-011), so a Mac is a legitimate "no" — and a capability check that reported yes
             // here is exactly what VulkanFeatures.Bindless exists to prevent.
+            //
+            // ⚠ Skipped and not returned. The judgement above is unchanged — an absent capability
+            // must not redden a leg — but a bare return is recorded by xUnit as a *pass*, so this
+            // read as a device test that had run and been satisfied on every runner whose device
+            // says no, which is every runner but one. Skipping keeps the same verdict and stops it
+            // being invisible. Same shape as VirtualGeometryGoldenTests' int64-atomics gate, which
+            // docs/plan/22 § phase 6 settled the same way.
+            Assert.Skip("The device offers no bindless descriptor indexing (ADR-011), which this test is gated on.");
+
             return;
         }
 
