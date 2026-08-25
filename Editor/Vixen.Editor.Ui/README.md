@@ -358,6 +358,20 @@ title that was replaced between two reads. The pump has a budget, which is a liv
 than a nicety: a task reporting per file over a hundred thousand files can enqueue faster than a
 frame can drain.
 
+⚠ **The model is no longer here.** `BackgroundTask`, `BackgroundTaskManager` and
+`BackgroundTaskState` moved to `Vixen.Ui` — see [its README](../../Core/Vixen.Ui/README.md#background-tasks)
+and [the guide page](../../docs/guide/ui/background-tasks.md). They were application-framework
+machinery reachable only by the editor — the pattern [doc 46](../../docs/plan/46-what-an-application-needs.md) measures; what stays here is the
+*task centre*, the panel below, because a panel made of `EditorStrings` and the editor's own tags is
+chrome rather than framework. The seam cost one `@using Vixen.Ui` line in `TaskCenter.vxml`.
+
+`EditorShell` still owns its own manager and pumps it in `Tick`, rather than using
+`UiApplication.Tasks`: the editor's host is `EditorHost` and has its own loop. What changed for the
+shell is that `Dispose` now disposes the manager instead of calling `CancelAll` — `CancelAll` asks
+and leaves the manager listening, so work still on the pool keeps enqueueing into a queue the shell
+will never pump again, and a task whose delegate came from a plugin keeps that plugin's collectible
+load context alive through the closure.
+
 ## The task centre is written in VXML
 
 `Tasks/TaskCenter.vxml` is the first interface in the repository written in the markup language the
@@ -588,7 +602,7 @@ because signal *reads* are immediate and only the effects are queued. Three asse
 
 **4. It is not a panel.** Roughly a third of the "UI" files are presenters that build into a
 caller's element (`ProjectBrowser`, `ViewportLayout`, `SceneHierarchyView`, `ToolbarPresenter`,
-`MenuPresenter`), services with no fixed tree (`DialogService`, `AssetPicker`), registration wiring
+`MenuPresenter`), services with no fixed tree (`AssetPicker`), registration wiring
 (`EditorSettingsPanels`), or scanners with no UI at all (`DeclaredContributions`,
 `EditorDiagnostics`, `FoliageMode`, `BlockoutUvPanel`). ⚠ `MenuPresenter` and `ToolbarPresenter` are
 worth their own line: their menus and popovers hang off the **document root**, so the bar is not an
@@ -990,7 +1004,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
 | `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
 | `InspectorView` + the four drawers · `TargetOverrideMatrix` | — | — | **no** — a drawer *is* a factory, and markup cannot be one | — |
-| `ProjectBrowser` · `SceneHierarchyView` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `DialogService` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` | — | — | **not panels** — shape 4 | — |
+| `ProjectBrowser` · `SceneHierarchyView` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` | — | — | **not panels** — shape 4 | — |
 
 ⚠ **`FlameChartView` was nominated for the wrong reason and is a "no" for three.** The nomination
 read "it still pools, and a keyed `@for` is that pool", which is what made the GPU timeline's port
@@ -1682,11 +1696,15 @@ is English. `Strings.Missing` is the list a translator works from.
   it has no idea what a setting is: a page is an id, a title and something that fills an element.
   Which store the pages are over — the user's or the project's — and what draws them is
   `Vixen.Editor.App`'s, because the inspector is not this assembly's business either.
-- **A native file picker.** `DialogService` is the editor's own modal questions — confirm, prompt,
-  choose — drawn as a `Vixen.Ui.Controls` `Dialog` in the shell's document, because a modal that is
-  an OS window cannot be screenshotted by the golden suite or driven by the automation harness. The
-  *file* pickers are the opposite case: they are about the user's disk rather than the editor's
-  state, they go through `INativeDialogs`, and reaching one is `Vixen.Editor.App`'s job.
+- **A modal question, or a native file picker.** ⚠ `DialogService` **left this assembly** — it is
+  `Vixen.Ui.Controls.DialogService` now, and doc 46 § A4 is why: modality was already in the control
+  library and the 376 lines that made a dialog *answerable* were here, where no application could
+  reach them. `EditorShell.Dialogs` is the promoted type, and the shell no longer pumps it — the
+  service is subscribed to `UiDocument.Ticked`, so `Document.Tick` is the pump. What is still drawn
+  rather than native, and for the same reason: a modal that is an OS window cannot be screenshotted
+  by the golden suite or driven by the automation harness. The *file* pickers are the opposite case:
+  they are about the user's disk rather than the editor's state, they go through `INativeDialogs`,
+  and reaching one is `Vixen.Editor.App`'s job.
 
 ## Known gaps
 

@@ -22,6 +22,32 @@ Escape.
 | Overlays | `Popover`, `Tooltip`, `Menu`, `ContextMenu`, `MenuBar`, `Dialog`, `Drawer`, `Toast` |
 | Navigation | `Breadcrumb`, `Pagination` |
 | Feedback | `Alert`, `EmptyState` |
+| Not a control | `DialogService`, `DialogSession<T>` — the one service in here, and § below says why |
+
+## The one thing in here that is not a control
+
+`DialogService` has no tag, no theme rule and no place in the element tree. It is here because
+`Dialog` gets modality right — a real backdrop element, `IsFocusScope` so Tab cannot walk out, the
+focus restored to whatever had it — and **none of that answers a question**. The 376 lines that make
+a dialog *answerable* were in `Vixen.Editor.Ui`, an assembly no application can reference, which is
+[doc 46](../../docs/plan/46-what-an-application-needs.md) § A4's finding.
+
+`ConfirmAsync`, `PromptAsync`, `ChooseAsync` and `ShowAsync<T>` hand back a `Task<T>` a caller
+awaits. Four things about how they do it are the value, and each is a defect a re-implementation
+has: answering removes nothing (the click was dispatched into the subtree being torn down); the
+continuation runs on the frame loop rather than from the click handler; asks are queued one at a
+time rather than refused; and `CancelAll` *answers* what is waiting rather than dropping it, so a
+command awaiting a dialog during shutdown unwinds instead of never finishing.
+
+**Nothing has to wire the pump.** The service subscribes to `UiDocument.Ticked`, so an application
+that ticks its document has working dialogs. `Tick` and not `Update` for the same reason
+`CommandsInvalidated` is raised there: `Update` returns early when nothing dirtied the document, and
+asking a question dirties nothing. `Dispose` unsubscribes and then cancels, which is what stops a
+queue of continuations outliving the document.
+
+⚠ **Drawn, not native.** A modal that is an OS window cannot be screenshotted by a golden-image
+suite or driven by a headless harness. A *file* picker is the opposite case and belongs to the
+platform. See [the guide page](../../docs/guide/ui/dialogs.md).
 
 ## Three decisions the whole set rests on
 

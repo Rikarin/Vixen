@@ -1456,19 +1456,26 @@ public partial class UiElement : Composition.IComposable {
     /// </summary>
     internal ParagraphDirection? AppliedParagraphDirection { get; set; }
 
+    // ⚠ The three structural edits all set the accessibility flag, because the shape of the tree is
+    // the one thing a bridge caches that no property setter can tell it about. It is a store to a
+    // bool that is already dirty for all but the first element of a build, which is what makes it
+    // affordable on the path a panel of four hundred elements runs four hundred times.
     internal void Attach(UiElement child) {
         children.Add(child);
         orderDirty = true;
+        document?.InvalidateAccessibility();
     }
 
     internal void Insert(UiElement child, int index) {
         children.Insert(index, child);
         orderDirty = true;
+        document?.InvalidateAccessibility();
     }
 
     internal void Detach(UiElement child) {
         children.Remove(child);
         orderDirty = true;
+        document?.InvalidateAccessibility();
     }
 
     /// <summary>Points this element at its new parent.</summary>

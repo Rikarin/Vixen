@@ -1169,6 +1169,7 @@ public sealed partial class UiDocument : IDisposable {
         // handler has that write picked up by *this* frame's layout rather than the next one. It is
         // also the reason the coalescing point is here at all: see `CommandsInvalidated`.
         RaiseCommandsInvalidated();
+        RaiseAccessibilityInvalidated();
 
         Ticked?.Invoke(this, now);
     }
@@ -2101,6 +2102,7 @@ public sealed partial class UiDocument : IDisposable {
         // native memory, and a throw from the store below should not be what decides whether the
         // graph was let go.
         ReleaseCommandResponders();
+        ReleaseAccessibilitySubscribers();
 
         Layout.Dispose();
     }

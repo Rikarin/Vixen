@@ -700,6 +700,85 @@ public abstract class UiElement
   re-submits a cached command buffer.
 
 
+## Accessibility (`Vixen.Ui`)
+
+⚠ **This section is written because it was missing, and its absence was a defect rather than an
+omission.** [46](46-what-an-application-needs.md) § A2 went looking for the base-API line this
+document was said to carry, and found that accessibility appeared exactly once here — in the Testing
+table below, as *"ARIA-role snapshot"* — with nothing in § The element tree and property system, no
+role, no name, no value and no relations, and nothing at all in the code. A promise about a test with
+no API under it is a promise nobody could keep, and 46's word for the state of it was the right one:
+**greenfield**.
+
+**Six things on `UiElement`, and one event on `UiDocument`.** `Core/Vixen.Ui/Accessibility.cs`.
+
+| What | Where it comes from |
+|---|---|
+| `Role` | The type, through `NativeRole`. Assigning it overrides the native role, as the web's `role` attribute overrides an implicit one; `ClearRole()` hands it back |
+| `AccessibleName` | An explicit assignment, then the element this one is `LabelledBy`, then `NativeAccessibleName` — accname 1.2's order, to the three steps that decide a control set's answer |
+| `AccessibleDescription` | An explicit assignment, or the element this one is `DescribedBy` |
+| `AccessibleValue` | `NativeAccessibleValue` — a field's text, the label of the option a `Select` shows. `null` for an action |
+| `AccessibleState` | `NativeAccessibleState` ∪ `DeclaredAccessibleState` ∪ `Disabled`/`Focused`/`Focusable`, which the framework adds for every element |
+| Relations | `LabelledBy`, `DescribedBy`, `Controls`, `Owns`, `FlowsTo`, `ActiveDescendant` — ARIA's relationship attributes |
+| `UiDocument.AccessibilityInvalidated` | One coalesced raise per frame, from `Tick`, structurally the same object as `CommandsInvalidated` |
+
+**The vocabulary is [WAI-ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/#role_definitions)'s and none of
+it was invented here.** Member names are the role tokens PascalCased and nothing else — which is why
+`img` is `AccessibleRole.Img` and not `Image`: the rule is that lowercasing a member name is the ARIA
+token for *every* member, so no mapping table exists for the next role added to be forgotten from.
+Every bridge this tree will have already maps ARIA — AT-SPI2 documents a correspondence, UIA's control
+types are mapped from ARIA by the HTML-AAM, and `NSAccessibility`'s roles are what WebKit maps ARIA
+onto — so a vocabulary shaped to the controls that happen to exist here would be a third one that no
+specification could settle an argument about.
+
+⚠ **A control's accessible view is computed, never stored, and this is the decision the rest hangs
+off.** `NativeRole`, `NativeAccessibleName`, `NativeAccessibleValue` and `NativeAccessibleState` are
+virtual members answered by the type from what it already holds. There is no second copy to update, no
+change callback to remember, and no state in which a checkbox is ticked on screen and unticked to a
+screen reader. `ButtonBase`'s two overrides give every button, menu item, tab, option and link in the
+assembly a role and a name at once.
+
+⚠ **Three states are the framework's and no control declares them.** `Disabled` comes from
+`ElementState.Disabled`, `Focused` from `ElementState.Focus`, `Focusable` from `UiElement.Focusable`.
+Fifty controls cannot each forget one, and the symptom of a forgotten one — a screen reader saying a
+greyed button is available — is invisible to whoever writes the control.
+
+**The cost is one nullable reference per element**, on `CommandBindings`' terms: eight bytes, and no
+allocation at all unless an application sets a name, a role, a value or a relation on that particular
+element. A control that only overrides virtuals allocates nothing.
+
+**Relations exist because the tree is the wrong shape for them.** A `TabItem` is in the strip and its
+panel is in the panel area; a `Select`'s option list is a child of the document *root*, because an
+overlay inside the field that opens it would be clipped by every scrolling ancestor between the two.
+Neither pairing is recoverable by any walk over `Parent`, and both are established where the control
+already reconciles the two halves — `Tabs.Adopt` and `SelectBase.OnCreated`, so the markup path and
+the code path cannot drift.
+
+**Not a node by default.** `Role` is `AccessibleRole.None` — ARIA's `none` — for every element,
+including `Panel`, `Card`, `Tabs` itself and every part a control draws itself out of. A bridge walks
+through them and reads their children in their place, which is what stops a four-field form being
+announced as thirty nested groups. `IsInAccessibilityTree` is the question.
+
+**The keyboard half was already here and is not duplicated.** `Focus.cs` has `TabOrder`,
+`IsFocusScope` and the scope walk; `Focusable` plus `TabIndex = -1` is `acceptsFirstResponder` without
+key-view participation; "what has the focus" is what `UiDocument.Focused` and `CommandRoute.Origin`
+already answer. What A2 added to `Focus.cs` is one line: the invalidation, raised *outside* the
+command-transparency branch, because a focus move into a menu cannot have changed which view answers
+a verb and certainly did change what has the focus.
+
+**No platform bridge, deliberately.** AT-SPI2, UIA and `NSAccessibility` are the platform's and are
+out of scope for this document — 46 § A2 says so twice, and the tree is what they all read.
+
+**The gate is `Vixen.Ui.Testing.AccessibilitySnapshot`**, which is what makes the Testing table's
+promise below writable: `Render` for the tree as comparable text, `Unnamed` for the assertion that
+cannot pass vacuously — every widget-role element has a non-empty name, and every focusable element
+has a role.
+
+**Owed:** the remaining ~35 controls in `Vixen.Ui.Controls` and all 11 in `.Controls.Advanced`. It is
+mechanical — a virtual per control — and the shapes that were not mechanical are the ones already
+done.
+
+
 ## Control library
 
 **`Vixen.Ui.Controls`** — Text, Button, IconButton, ToggleButton, RadioGroup, CheckBox, Switch,
@@ -769,6 +848,6 @@ Details that make it actually work:
 | Text | Shaping conformance against the Consortium's [text-rendering-tests](https://github.com/unicode-org/text-rendering-tests) — **not** against HarfBuzz reference output, which would be HarfBuzz judging itself and would survive any itemisation bug that handed the shaper the same wrong arguments twice (see [doc 14](14-roadmap.md), 4c); line-break conformance against UAX#14 test data; segmentation against UAX#29; bidi against UAX#9; MSDF glyph rendering golden images |
 | Rendering | Draw-list golden tests (element tree → expected primitive list) — pure CPU, no GPU needed, which makes control rendering unit-testable. Plus golden images per control on the Null/lavapipe path |
 | Input/events | Routing order, capture, focus traversal, gesture recognition state machines |
-| Controls | Per control: keyboard interaction matrix, ARIA-role snapshot, virtualisation (a 10⁶-row grid realises O(viewport) elements), and a golden image in light and dark themes |
+| Controls | Per control: keyboard interaction matrix, **ARIA-role snapshot** — writable since § Accessibility landed, through `Vixen.Ui.Testing.AccessibilitySnapshot`; `Core/Vixen.Ui.Controls.Tests/AccessibilityTreeTests.cs` is it for the controls populated so far, and ⚠ it asserts `Unnamed` before `Render` because a snapshot matches an empty tree perfectly — virtualisation (a 10⁶-row grid realises O(viewport) elements), and a golden image in light and dark themes |
 | Hot reload | Automated: mutate a `.vxml`/`.vcss` on disk, assert the running tree updated and that scroll/focus/selection/state survived; assert a deliberately broken file leaves the previous UI intact |
 | Perf | **Editor-shell benchmark is the gate**: 5 panels + viewport + 500-node graph + a 10⁶-row virtualised grid holds the [00](00-vision-and-principles.md) budget. Per the decided audience order, the editor — not a sample — is the application-platform proof. |
