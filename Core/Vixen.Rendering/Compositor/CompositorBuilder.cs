@@ -962,7 +962,15 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Sun = Sun,
             Camera = declared.View is { Length: > 0 } view ? Bind(Views, declared.Name, "view", view) : null,
             Scene = SceneConstants?.Parameters,
-            Samplers = Samplers
+            Samplers = Samplers,
+
+            // ⚠ The same key the punctual cache takes, and here for the sharper version of its
+            // reason: a page keeps its depths until something says they are stale, and a caster that
+            // turned on the spot has the bounding *sphere* it always had. Without this a rotating
+            // object's shadow is the one it was first drawn with, for as long as the level does not
+            // move — see `VirtualShadowRenderer.CasterTransforms`. Null is honest rather than broken:
+            // a frame with no transform feature compares bounds alone.
+            CasterTransforms = WorldTransforms()
         };
 
         // Replaced rather than added to, on the irradiance field's terms: a document that names its

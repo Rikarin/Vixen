@@ -881,7 +881,7 @@ There is no device test: the picture a virtual shadow map draws is a picture, an
 would mean something about it — a shadow at a silhouette that a cascade blurs — are the ones a golden
 image is worst at.
 
-Six things the plan above did not say:
+Seven things the plan above did not say:
 
 - **The snap is to a whole page, not to a texel, and that is the entire caching story.** A cascade snaps
   its centre to a texel so the sampling grid does not slide under stationary geometry. A clipmap level
@@ -916,12 +916,31 @@ Six things the plan above did not say:
   as meaningful for a page that is drawn as for one that is read, and nothing shadow-shaped had to be
   added to `PageResidency` to make it fit. `VirtualShadowPageTests` drives all of it with no device in
   the file.
+- **A moved *caster* invalidates pages, and the footprint is what bounds it** — task #250, and the one
+  item of the three the plan named as owed that was a correctness bug rather than a cost. A page is
+  drawn once and kept until something says its depths are stale, and until this landed only the light
+  and the levels ever said so: a moved object said nothing, so its shadow stayed exactly where the
+  object had been, indefinitely, in any scene where the level was not also moving. The page set is
+  `VirtualShadowMap.PageSpan` — the caster's bounding sphere projected into each level's clip space —
+  which is *exactly* the pages whose stored depth it can change, because a shadow map's projection
+  looks along the light and a caster's footprint in that projection is where its shadow lands.
+  **Both ends of the move**, and the end it left is the visible one: retiring only where the object
+  now is leaves the stale silhouette behind and adds a correct one beside it. The comparison is
+  against the whole `RenderObjectStore` and not against a stage's collected node list, which is the
+  opposite of what `PunctualShadowRenderer` had to do and for a reason worth keeping: with
+  device-side culling and no readback a node list is the *conservative* set, and a footprint is not a
+  question about any view, so there is nothing here to be misled by.
 
-Still owed, in the order it matters: clusters casting through the traversal (needs per-view visible
-lists); point lights, which are six maps rather than one and want a cube address space; and per-caster
-invalidation, which today is per-level — a light that turns or a level that moved invalidates all of its
-pages, and a *moved object* invalidates nothing at all, so a dynamic caster's shadow is only correct
-because the page it is in keeps being re-marked.
+Still owed, in the order it matters: clusters casting through the traversal, which needs per-view
+visible lists — `Culling.Accept` appends every view's cut to one buffer behind three global counters,
+so an entry carries no view tag and a page cannot cull to its own; and point lights, which are six
+maps rather than one and want a cube address space.
+
+⚠ **This paragraph used to add per-caster invalidation to that list and to excuse it** — "a dynamic
+caster's shadow is only correct because the page it is in keeps being re-marked" — and the excuse was
+false as well as the entry. `VirtualShadowPages.Owe` refuses a page that is already published, which
+is deliberate: re-drawing every marked page every frame is a cascade with extra bookkeeping. So a
+re-mark did nothing at all for a published page, and nothing else was going to.
 
 ---
 

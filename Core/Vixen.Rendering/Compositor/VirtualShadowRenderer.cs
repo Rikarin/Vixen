@@ -51,6 +51,10 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     readonly List<int> fittedDepthCells = [];
     readonly List<int> depthCells = [];
 
+    // Every caster's footprint as of the last frame that looked, indexed by RenderObjectId.Index —
+    // the transforms array's own indexing, and for its reason: an id is a slot and a slot is stable.
+    readonly List<Footprint> footprints = [];
+
     Vector3 fittedLight = new(float.NaN);
     float fittedExtent = float.NaN;
     float fittedDepth = float.NaN;
@@ -178,6 +182,46 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <summary>The slope-scaled depth bias, in metres. <see cref="ConstantBias" />' other half.</summary>
     public float SlopeBias { get; set; } = 0.01f;
 
+    /// <summary>Whether a caster that moved retires the pages it was under and the pages it is under.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The correctness half of the cache, and it is on by default because the alternative is
+    ///         a wrong picture rather than a slow one.</b> A page is drawn once and kept until
+    ///         something says its depths are stale; a moved light says so for every page it owns and a
+    ///         re-fitted level for every page of that level, but until this existed a moved
+    ///         <em>object</em> said nothing at all. Its shadow then stayed exactly where the object had
+    ///         been — a silhouette standing in the air with nothing casting it — for as long as
+    ///         nothing else happened to retire that page, which in a still scene is the rest of the
+    ///         session.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both ends of the move, and the "was" end is the visible one.</b> Retiring only
+    ///         where the object now is leaves the stale silhouette behind and adds a correct one
+    ///         beside it, which looks like a duplicate rather than like a bug.
+    ///     </para>
+    ///     <para>
+    ///         Turning it off is what a scene of nothing but static geometry may do to skip a walk of
+    ///         the object store — see <see cref="MovedCasters" /> for what the walk costs and what it
+    ///         is worth.
+    ///     </para>
+    /// </remarks>
+    public bool InvalidateMovedCasters { get; set; } = true;
+
+    /// <summary>Where to find a caster's world matrix, so that a turn counts as a move.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="PunctualShadowRenderer.CasterTransforms" />' key and its argument:
+    ///         <see cref="RenderObject.Bounds" /> is a sphere and a sphere is invariant under
+    ///         rotation, so a caster that turned on the spot has the bounds it had. Its shadow did
+    ///         not, and without this key nothing retires the page it falls on.
+    ///     </para>
+    ///     <para>
+    ///         Null leaves the comparison on bounds alone, which is what a frame with no transform
+    ///         feature can honestly say. That is the same bargain the punctual cache makes.
+    ///     </para>
+    /// </remarks>
+    public RenderDataKey<Matrix4x4>? CasterTransforms { get; set; }
+
     /// <summary>How many pages may be allocated per frame.</summary>
     public int PagesPerFrame { get; set; } = 16;
 
@@ -233,6 +277,29 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <inheritdoc cref="InvalidatedPages" />
     public int RefitLevels { get; private set; }
 
+    /// <summary>How many casters moved this frame, and how many pages that cost.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The pair is the whole diagnosis, and neither number alone is.</b>
+    ///         <see cref="CasterInvalidations" /> is a share of <see cref="InvalidatedPages" />, so a
+    ///         frame whose map cannot converge is read by asking which of the two terms dominates: a
+    ///         large <see cref="RefitLevels" /> is the clipmap moving under a camera or a sun, and a
+    ///         large <see cref="MovedCasters" /> is the scene itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Pages per moved caster is the number that says whether the bound is the problem.</b>
+    ///         A caster's footprint is a page or two on the fine levels and a fraction of one on the
+    ///         coarse ones, so a handful of pages per mover is what a correct scene looks like. A
+    ///         hundred is a bounding sphere that covers a building — a merged batch, or a skinned mesh
+    ///         whose bounds were fitted to its whole animation — and the cure is the bound rather than
+    ///         anything here.
+    ///     </para>
+    /// </remarks>
+    public int MovedCasters { get; private set; }
+
+    /// <inheritdoc cref="MovedCasters" />
+    public int CasterInvalidations { get; private set; }
+
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
@@ -256,6 +323,8 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
         ArgumentNullException.ThrowIfNull(compositor);
 
         DrawnPages = 0;
+        MovedCasters = 0;
+        CasterInvalidations = 0;
         owed.Clear();
 
         if (Atlas is not { } atlas || Camera is not { } camera) {
@@ -270,6 +339,13 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
         );
 
         Fit(atlas, camera, sunward);
+
+        // ⚠ **After the fit and before the marks are serviced, and both halves of that matter.** The
+        // levels a footprint is measured against have to be *this* frame's, or a caster is retired
+        // from pages of a window that has already slid; and a page a moved caster retires has to be
+        // back in the pending queue before TakePending runs below, or its redraw waits a frame it
+        // does not need to.
+        Displace(compositor.System, atlas);
 
         // Last frame's marks, which is what allocates. A frame late by construction — see
         // VirtualShadowAtlas — and the cost of the latency is a page briefly shadowed by the cascades.
@@ -515,6 +591,140 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
                 }
             }
         }
+    }
+
+    /// <summary>Retires the pages every caster that moved was under, and the pages it is under now.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The object store rather than a stage's node list, and that is the load-bearing
+    ///         choice.</b> <see cref="PunctualShadowRenderer" /> reads the nodes a view collected and
+    ///         has to re-test them, because with device-side culling and no readback the list a host
+    ///         is handed is the <em>conservative</em> set — everything that could be visible — which
+    ///         nearly made that cache worthless while every counter read healthy. A caster's footprint
+    ///         is not a question about any view at all, so there is nothing here to be misled by: the
+    ///         store is the whole scene, once, and the levels do the culling by construction — a
+    ///         sphere outside a level's volume spans none of its pages.
+    ///     </para>
+    ///     <para>
+    ///         <b>A slot's history and not merely its bounds.</b> An object that stopped casting, or
+    ///         died, has to retire the pages it was under exactly as one that moved does; an object
+    ///         that appeared has to retire the ones it arrived on. All three are the same comparison
+    ///         against what this slot said last frame, which is why <see cref="Footprint" /> carries
+    ///         whether it was casting at all rather than being cleared on removal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The pages are named by <see cref="VirtualShadowMap.ToroidalOf" /> and not by the
+    ///         window cell <see cref="VirtualShadowMap.PageSpan" /> answers.</b> The two agree only
+    ///         while a level's origin is zero, so a version that skipped the conversion would retire
+    ///         the right pages until the camera walked one page and somebody else's pages after that
+    ///         — a cache corruption that draws perfectly plausible shadows in the wrong place.
+    ///     </para>
+    /// </remarks>
+    void Displace(RenderSystem system, VirtualShadowAtlas atlas) {
+        if (!InvalidateMovedCasters || records.Count == 0) {
+            return;
+        }
+
+        var objects = system.Objects.All;
+        var transforms = CasterTransforms is { } key ? system.Objects.Data.Data(key) : default;
+        var casting = CasterStage.Mask;
+
+        while (footprints.Count < objects.Length) {
+            footprints.Add(default);
+        }
+
+        for (var index = 0; index < objects.Length; index++) {
+            ref readonly var candidate = ref objects[index];
+
+            var current = new Footprint {
+                Bounds = candidate.Bounds,
+                Transform = index < transforms.Length ? transforms[index] : Matrix4x4.Identity,
+                Casts = candidate.IsAlive && candidate.Stages.Intersects(casting)
+            };
+
+            Moved(atlas, index, current);
+        }
+
+        // A store that shrank — a scene unloaded, or Clear — leaves slots this loop no longer walks
+        // holding pages that still carry their shadows. Retiring them here rather than never is the
+        // same rule one slot down: what is not there any more is a page that is wrong.
+        for (var index = objects.Length; index < footprints.Count; index++) {
+            Moved(atlas, index, default);
+        }
+
+        if (footprints.Count > objects.Length) {
+            footprints.RemoveRange(objects.Length, footprints.Count - objects.Length);
+        }
+    }
+
+    /// <summary>Compares one slot with what it said last frame, and retires both footprints if it moved.</summary>
+    void Moved(VirtualShadowAtlas atlas, int index, in Footprint current) {
+        var previous = footprints[index];
+
+        var same = previous.Bounds.Equals(current.Bounds) && previous.Transform == current.Transform;
+
+        if (previous.Casts == current.Casts && (!current.Casts || same)) {
+            return;
+        }
+
+        footprints[index] = current;
+        MovedCasters++;
+
+        if (previous.Casts) {
+            Shadowed(atlas, previous.Bounds);
+        }
+
+        if (current.Casts) {
+            Shadowed(atlas, current.Bounds);
+        }
+    }
+
+    /// <summary>Retires every page a sphere's shadow can reach, over every level of every map.</summary>
+    void Shadowed(VirtualShadowAtlas atlas, BoundingSphere bounds) {
+        for (var level = 0; level < records.Count; level++) {
+            var record = records[level];
+
+            var span = VirtualShadowMap.PageSpan(
+                record.ViewProjection,
+                bounds.Center,
+                bounds.Radius,
+                out var first,
+                out var last
+            );
+
+            if (!span) {
+                continue;
+            }
+
+            for (var y = first.Y; y <= last.Y; y++) {
+                for (var x = first.X; x <= last.X; x++) {
+                    var page = VirtualShadowMap.IndexOf(
+                        record.First,
+                        VirtualShadowMap.ToroidalOf(new(x, y), record.Origin)
+                    );
+
+                    if (!atlas.Pages.Invalidate(page)) {
+                        continue;
+                    }
+
+                    InvalidatedPages++;
+                    CasterInvalidations++;
+                }
+            }
+        }
+    }
+
+    /// <summary>What one object's shadow was last time this node looked.</summary>
+    /// <remarks>
+    ///     The transform is here rather than derived from the bounds because a sphere is invariant
+    ///     under rotation and a shadow is not — <see cref="CasterTransforms" />. It is the identity
+    ///     for every slot when no key is set, which makes the comparison bounds-only without a branch
+    ///     per object.
+    /// </remarks>
+    struct Footprint {
+        public BoundingSphere Bounds;
+        public Matrix4x4 Transform;
+        public bool Casts;
     }
 
     /// <inheritdoc />

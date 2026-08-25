@@ -1565,6 +1565,8 @@ public sealed class Arena : IDisposable {
                     vsm.AbsentPages,
                     vsm.DrawnPages,
                     vsm.InvalidatedPages,
+                    vsm.CasterInvalidations,
+                    vsm.MovedCasters,
                     gi.VirtualShadows.Residency.ResidentPages,
                     gi.VirtualShadows.Pages.SlotCount,
                     gi.VirtualShadows.Pages.Allocations

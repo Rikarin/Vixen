@@ -216,7 +216,8 @@ public sealed class ThirdPersonShooterGame : Game {
             shadowTrace = new(path, append: false);
 
             shadowTrace.WriteLine(
-                "frame,marked,answered,absent,drawn,invalidated,refit,pending,resident,allocations,evictions"
+                "frame,marked,answered,absent,drawn,invalidated,refit,movers,casterpages,pending,resident,"
+                + "allocations,evictions"
             );
         }
 
@@ -342,8 +343,11 @@ public sealed class ThirdPersonShooterGame : Game {
     ///     <para>
     ///         The column that matters is <c>absent</c> — marked pages the frame's own page table does
     ///         not answer, counted at the upload in <c>VirtualShadowAtlas.UploadTable</c>. The rest are
-    ///         there to say <em>why</em>: <c>invalidated</c> and <c>refit</c> are the clipmap throwing
-    ///         its own pages away, <c>pending</c> is the draw backlog the budget has not reached, and
+    ///         there to say <em>why</em>: <c>refit</c> is the clipmap throwing its own pages away and
+    ///         <c>casterpages</c> is the scene doing it — the two terms of <c>invalidated</c>, and
+    ///         separable since task #250, because a map that cannot converge is a different problem
+    ///         depending on which of them dominates. <c>pending</c> is the draw backlog the budget has
+    ///         not reached, and
     ///         <c>drawn</c> against <c>PagesPerFrame</c> says whether the budget is the binding
     ///         constraint.
     ///     </para>
@@ -366,6 +370,7 @@ public sealed class ThirdPersonShooterGame : Game {
         writer.WriteLine(
             $"{graphics.FrameCount},{node.MarkedPages},{node.AnsweredPages},{node.AbsentPages},"
             + $"{node.DrawnPages},{node.InvalidatedPages},{node.RefitLevels},"
+            + $"{node.MovedCasters},{node.CasterInvalidations},"
             + $"{pages?.Pages.Pending.Count ?? 0},{pages?.Residency.ResidentPages ?? 0},"
             + $"{pages?.Pages.Allocations ?? 0},{pages?.Residency.Evictions ?? 0}"
         );
