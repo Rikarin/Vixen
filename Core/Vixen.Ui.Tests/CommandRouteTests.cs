@@ -42,7 +42,7 @@ public class CommandRouteTests {
 
         // And neither view knows the other exists: the only thing that changed between the two runs
         // is where the focus is.
-        Assert.Same(outliner, CommandRoute.Resolve(document, "edit.copy")!.Value.Element.Parent!.Children[0]);
+        Assert.Same(outliner, CommandRoute.Resolve(document, "edit.copy")!.Value.Element!.Parent!.Children[0]);
     }
 
     [Fact]

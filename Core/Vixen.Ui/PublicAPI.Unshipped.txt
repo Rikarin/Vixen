@@ -39,13 +39,22 @@ Vixen.Ui.CommandHandler -> readonly struct
 Vixen.Ui.CommandHandler : System.IEquatable<Vixen.Ui.CommandHandler>
 Vixen.Ui.CommandHandler.CanExecute.get -> bool
 Vixen.Ui.CommandHandler.CommandHandler() -> void
-Vixen.Ui.CommandHandler.Element.get -> Vixen.Ui.UiElement
+Vixen.Ui.CommandHandler.Element.get -> Vixen.Ui.UiElement?
 Vixen.Ui.CommandHandler.Equals(Vixen.Ui.CommandHandler other) -> bool
 Vixen.Ui.CommandHandler.Id.get -> string
 Vixen.Ui.CommandHandler.IsCheckable.get -> bool
 Vixen.Ui.CommandHandler.IsChecked.get -> bool
+Vixen.Ui.CommandHandler.Responder.get -> Vixen.Ui.ICommandResponder?
 Vixen.Ui.CommandHandler.Run() -> void
 Vixen.Ui.CommandHandler.Title.get -> string?
+Vixen.Ui.CommandResponder -> sealed class
+Vixen.Ui.CommandResponder : Vixen.Ui.ICommandResponder
+Vixen.Ui.CommandResponder.Add(string id, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> void
+Vixen.Ui.CommandResponder.Clear() -> void
+Vixen.Ui.CommandResponder.CommandResponder() -> void
+Vixen.Ui.CommandResponder.Ids.get -> System.Collections.Generic.IEnumerable<string>
+Vixen.Ui.CommandResponder.Remove(string id) -> bool
+Vixen.Ui.CommandResponder.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
 Vixen.Ui.CommandRoute -> static class
 Vixen.Ui.Composition.BuildContext -> sealed class
 Vixen.Ui.Composition.BuildContext.Anchor.get -> Vixen.Ui.UiElement
@@ -363,6 +372,8 @@ Vixen.Ui.GradientStops.To.get -> float
 Vixen.Ui.GradientStops.To.init -> float
 Vixen.Ui.GradientStops.Via.get -> float
 Vixen.Ui.GradientStops.Via.init -> float
+Vixen.Ui.ICommandResponder -> interface
+Vixen.Ui.ICommandResponder.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
 Vixen.Ui.IUiWindow -> interface
 Vixen.Ui.IUiWindow : System.IDisposable
 Vixen.Ui.IUiWindow.Bounds.get -> (float X, float Y, float Width, float Height)
@@ -937,6 +948,8 @@ Vixen.Ui.UiCursor.Wait = 10 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument -> sealed class
 Vixen.Ui.UiDocument : System.IDisposable
 Vixen.Ui.UiDocument.Adopt(Vixen.Ui.UiElement element, string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
+Vixen.Ui.UiDocument.ApplicationCommandResponder.get -> Vixen.Ui.ICommandResponder?
+Vixen.Ui.UiDocument.ApplicationCommandResponder.set -> Vixen.Ui.ICommandResponder?
 Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
 Vixen.Ui.UiDocument.CanOpenWindows.get -> bool
 Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
@@ -945,6 +958,8 @@ Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) 
 Vixen.Ui.UiDocument.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.CommandFocus.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.CommandResponder.get -> Vixen.Ui.ICommandResponder?
+Vixen.Ui.UiDocument.CommandResponder.set -> Vixen.Ui.ICommandResponder?
 Vixen.Ui.UiDocument.CommandsInvalidated -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.UiDocument.CompactStyles() -> bool
 Vixen.Ui.UiDocument.ComponentAt(Vixen.Ui.UiElement element) -> Vixen.Ui.Composition.Component?
@@ -1201,6 +1216,7 @@ override Vixen.Ui.UiPropertyKey.ToString() -> string
 static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string
 static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxStyle
 static Vixen.Ui.BoxStyle.Vertical(Vixen.Core.Mathematics.Color4 end, Vixen.Ui.CornerRadii corners = default(Vixen.Ui.CornerRadii)) -> Vixen.Ui.BoxStyle
+static Vixen.Ui.CommandHandler.For(string id, Vixen.Ui.ICommandResponder responder, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> Vixen.Ui.CommandHandler
 static Vixen.Ui.CommandHandler.operator !=(Vixen.Ui.CommandHandler left, Vixen.Ui.CommandHandler right) -> bool
 static Vixen.Ui.CommandHandler.operator ==(Vixen.Ui.CommandHandler left, Vixen.Ui.CommandHandler right) -> bool
 static Vixen.Ui.CommandRoute.CanExecute(Vixen.Ui.UiDocument document, string id) -> bool
