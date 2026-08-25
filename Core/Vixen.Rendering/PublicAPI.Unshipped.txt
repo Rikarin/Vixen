@@ -1267,7 +1267,7 @@ Vixen.Rendering.Compositor.VirtualShadowRenderer.Camera.get -> Vixen.Rendering.R
 Vixen.Rendering.Compositor.VirtualShadowRenderer.Camera.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Compositor.VirtualShadowRenderer.CasterInvalidations.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.CasterTransforms.get -> Vixen.Rendering.RenderDataKey<Vixen.Core.Mathematics.Matrix4x4>?
-Vixen.Rendering.Compositor.VirtualShadowRenderer.CasterTransforms.set -> void
+Vixen.Rendering.Compositor.VirtualShadowRenderer.CasterTransforms.set -> Vixen.Rendering.RenderDataKey<Vixen.Core.Mathematics.Matrix4x4>?
 Vixen.Rendering.Compositor.VirtualShadowRenderer.ClipmapLevels.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.ClipmapLevels.set -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.ConstantBias.get -> float
@@ -1284,7 +1284,7 @@ Vixen.Rendering.Compositor.VirtualShadowRenderer.DrawsPerFrame.set -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.FirstExtent.get -> float
 Vixen.Rendering.Compositor.VirtualShadowRenderer.FirstExtent.set -> float
 Vixen.Rendering.Compositor.VirtualShadowRenderer.InvalidateMovedCasters.get -> bool
-Vixen.Rendering.Compositor.VirtualShadowRenderer.InvalidateMovedCasters.set -> void
+Vixen.Rendering.Compositor.VirtualShadowRenderer.InvalidateMovedCasters.set -> bool
 Vixen.Rendering.Compositor.VirtualShadowRenderer.InvalidatedPages.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.LightDirection.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Compositor.VirtualShadowRenderer.LightDirection.set -> Vixen.Core.Mathematics.Vector3
