@@ -803,6 +803,8 @@ override Vixen.Ui.Controls.Breadcrumb.OnCreated() -> void
 override Vixen.Ui.Controls.Breadcrumb.TagName.get -> string
 override Vixen.Ui.Controls.BreadcrumbItem.TagName.get -> string
 override Vixen.Ui.Controls.Button.TagName.get -> string
+override Vixen.Ui.Controls.ButtonBase.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.ButtonBase.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.ButtonBase.OnCreated() -> void
 override Vixen.Ui.Controls.ButtonBase.OnRemoved() -> void
 override Vixen.Ui.Controls.ButtonBase.RaisesActivation.get -> bool
@@ -811,6 +813,8 @@ override Vixen.Ui.Controls.Card.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Card.OnCreated() -> void
 override Vixen.Ui.Controls.Card.TagName.get -> string
 override Vixen.Ui.Controls.CheckBox.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
+override Vixen.Ui.Controls.CheckBox.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.CheckBox.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.CheckBox.OnCreated() -> void
 override Vixen.Ui.Controls.CheckBox.TagName.get -> string
 override Vixen.Ui.Controls.ComboBox.AcceptsFocus.get -> bool
@@ -853,6 +857,7 @@ override Vixen.Ui.Controls.KeyValueRow.OnCreated() -> void
 override Vixen.Ui.Controls.KeyValueRow.TagName.get -> string
 override Vixen.Ui.Controls.KeyboardShortcut.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.KeyboardShortcut.TagName.get -> string
+override Vixen.Ui.Controls.Link.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Link.TagName.get -> string
 override Vixen.Ui.Controls.Menu.IsOutside(Vixen.Ui.UiElement? hit) -> bool
 override Vixen.Ui.Controls.Menu.OnChildAdded(Vixen.Ui.UiElement child) -> void
@@ -869,16 +874,21 @@ override Vixen.Ui.Controls.MenuBar.TagName.get -> string
 override Vixen.Ui.Controls.MenuBarItem.TagName.get -> string
 override Vixen.Ui.Controls.MenuItem.ShowCheck(bool checkable, bool isChecked) -> void
 override Vixen.Ui.Controls.MenuItem.TagName.get -> string
+override Vixen.Ui.Controls.MultiSelect.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.MultiSelect.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.MultiSelect.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.MultiSelect.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.MultiSelect.TagName.get -> string
 override Vixen.Ui.Controls.NumericInput.Coerce(string? value) -> string?
+override Vixen.Ui.Controls.NumericInput.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.NumericInput.OnCreated() -> void
 override Vixen.Ui.Controls.NumericInput.OnSubmit() -> void
 override Vixen.Ui.Controls.NumericInput.SelectAt(int index, int count) -> void
 override Vixen.Ui.Controls.NumericInput.TagName.get -> string
 override Vixen.Ui.Controls.Option.Label.get -> string?
 override Vixen.Ui.Controls.Option.Label.set -> string?
+override Vixen.Ui.Controls.Option.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Option.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Option.TagName.get -> string
 override Vixen.Ui.Controls.Overlay.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Overlay.OnCreated() -> void
@@ -900,9 +910,11 @@ override Vixen.Ui.Controls.RadialMenu.OnCreated() -> void
 override Vixen.Ui.Controls.RadialMenu.OnRemoved() -> void
 override Vixen.Ui.Controls.RadialMenu.TagName.get -> string
 override Vixen.Ui.Controls.RadioButton.CanUncheck.get -> bool
+override Vixen.Ui.Controls.RadioButton.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.RadioButton.OnCreated() -> void
 override Vixen.Ui.Controls.RadioButton.TagName.get -> string
 override Vixen.Ui.Controls.RadioGroup.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.RadioGroup.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.RadioGroup.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.RadioGroup.OnCreated() -> void
 override Vixen.Ui.Controls.RadioGroup.TagName.get -> string
@@ -920,8 +932,12 @@ override Vixen.Ui.Controls.ScrollView.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.ScrollView.OnCreated() -> void
 override Vixen.Ui.Controls.ScrollView.OnRemoved() -> void
 override Vixen.Ui.Controls.ScrollView.TagName.get -> string
+override Vixen.Ui.Controls.SearchBox.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.SearchBox.OnCreated() -> void
 override Vixen.Ui.Controls.SearchBox.TagName.get -> string
+override Vixen.Ui.Controls.Select.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Select.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.Select.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Select.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.Select.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.Select.TagName.get -> string
@@ -940,10 +956,13 @@ override Vixen.Ui.Controls.Slider.TagName.get -> string
 override Vixen.Ui.Controls.Spinner.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Spinner.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Spinner.TagName.get -> string
+override Vixen.Ui.Controls.Switch.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Switch.OnCreated() -> void
 override Vixen.Ui.Controls.Switch.TagName.get -> string
 override Vixen.Ui.Controls.TabItem.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
 override Vixen.Ui.Controls.TabItem.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.TabItem.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.TabItem.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.TabItem.OnCreated() -> void
 override Vixen.Ui.Controls.TabItem.OnRemoved() -> void
 override Vixen.Ui.Controls.TabItem.TagName.get -> string
@@ -956,6 +975,10 @@ override Vixen.Ui.Controls.TextArea.TagName.get -> string
 override Vixen.Ui.Controls.TextBlock.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.TextBlock.TagName.get -> string
 override Vixen.Ui.Controls.TextBox.TagName.get -> string
+override Vixen.Ui.Controls.TextField.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.TextField.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.TextField.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.TextField.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.TextField.OnCreated() -> void
 override Vixen.Ui.Controls.TextField.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.TextField.TagName.get -> string
@@ -968,7 +991,9 @@ override Vixen.Ui.Controls.ToastHost.OnRemoved() -> void
 override Vixen.Ui.Controls.ToastHost.TagName.get -> string
 override Vixen.Ui.Controls.ToggleBase.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
 override Vixen.Ui.Controls.ToggleBase.ActivatesOnEnter.get -> bool
+override Vixen.Ui.Controls.ToggleBase.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.ToggleButton.ActivatesOnEnter.get -> bool
+override Vixen.Ui.Controls.ToggleButton.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.ToggleButton.TagName.get -> string
 override Vixen.Ui.Controls.Tooltip.OnCreated() -> void
 override Vixen.Ui.Controls.Tooltip.OnRemoved() -> void

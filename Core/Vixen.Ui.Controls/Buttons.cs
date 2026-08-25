@@ -69,6 +69,19 @@ public sealed partial class ToggleButton : ToggleBase {
 
     /// <inheritdoc />
     /// <remarks>
+    ///     ⚠ <b><see cref="AccessibleStates.Pressed" /> rather than the base's
+    ///     <see cref="AccessibleStates.Checked" />, and it is the same distinction the first
+    ///     paragraph above makes.</b> This is a button that stays in, so ARIA's word for it is
+    ///     <c>aria-pressed</c> and a screen reader says "pressed"; a checkbox is
+    ///     <c>aria-checked</c> and it says "ticked". The role stays
+    ///     <see cref="AccessibleRole.Button" />, which is what makes the bold-italic-underline strip
+    ///     read as three buttons rather than as a form.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        IsChecked ? AccessibleStates.Pressed : AccessibleStates.None;
+
+    /// <inheritdoc />
+    /// <remarks>
     ///     True, unlike the other toggles. This one is a <i>button</i> — it lives in a toolbar
     ///     rather than in a form, so there is no submit for Enter to mean instead, and a keyboard
     ///     user who has tabbed to it and pressed the key every other button answers to should not be

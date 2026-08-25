@@ -1,4 +1,5 @@
 #nullable enable
+Vixen.Ui.Testing.AccessibilitySnapshot -> static class
 Vixen.Ui.Testing.CommandLog -> sealed class
 Vixen.Ui.Testing.CommandLog.CommandLog() -> void
 Vixen.Ui.Testing.CommandLog.Commands.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Testing.LoggedCommand>
@@ -162,6 +163,8 @@ override Vixen.Ui.Testing.CommandLog.ToString() -> string
 override Vixen.Ui.Testing.LoggedCommand.ToString() -> string
 override Vixen.Ui.Testing.UiSubject.ToString() -> string
 override Vixen.Ui.Testing.Visual.ImageComparison.ToString() -> string
+static Vixen.Ui.Testing.AccessibilitySnapshot.Render(Vixen.Ui.UiElement root) -> string
+static Vixen.Ui.Testing.AccessibilitySnapshot.Unnamed(Vixen.Ui.UiElement root) -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Testing.UiTest.Adopt(Vixen.Ui.UiDocument document, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
 static Vixen.Ui.Testing.UiTest.Create(float width = 1280, float height = 720, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
 static Vixen.Ui.Testing.Visual.ImageComparer.Compare(in Vixen.Core.Imaging.Bitmap rendered, in Vixen.Core.Imaging.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.ImageComparison

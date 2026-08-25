@@ -48,6 +48,10 @@ public sealed partial class SearchBox : TextField {
     /// <inheritdoc />
     protected override string TagName => "search-box";
 
+    /// <inheritdoc />
+    /// <remarks>ARIA <c>searchbox</c>: a text box whose text is a query rather than a value.</remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.SearchBox;
+
     /// <summary>The magnifying glass.</summary>
     public Icon SearchIcon { get; private set; } = null!;
 
@@ -122,6 +126,14 @@ public sealed partial class NumericInput : TextField {
 
     /// <inheritdoc />
     protected override string TagName => "numeric-input";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>spinbutton</c>, not <c>textbox</c>. The difference a screen-reader user acts on is
+    ///     that a spin button announces the arrow keys as a way to change the value, which for this
+    ///     control is true and for a plain field is not.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.SpinButton;
 
     /// <summary>What it holds.</summary>
     [UiProperty(Coerce = nameof(CoerceNumber), Changed = nameof(OnNumberChanged))]

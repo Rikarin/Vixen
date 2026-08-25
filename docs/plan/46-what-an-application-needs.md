@@ -26,7 +26,7 @@ judgement it says so.
 | 2 | A string catalogue | `Editor/Vixen.Editor.Ui/Localisation/` | **783** | Nothing — plus twelve English literals baked into the controls |
 | 3 | A modal question that returns an answer | `Editor/Vixen.Editor.Ui/Dialogs/DialogService.cs` | **376** | `Dialog` (`Vixen.Ui.Controls/Dialogs.cs`) — an overlay with a body, a footer and no answer |
 | 4 | An undo history | `Editor/Vixen.Editor.Core/CommandStack.cs` | **372** | Nothing, and `CodeBuffer.cs:49` says so in as many words |
-| 5 | An accessibility tree | *nowhere* | **0** | Nothing. Three doc comments, two of them in the future tense |
+| 5 | An accessibility tree | *nowhere* | **0** | Nothing. Three doc comments, two of them in the future tense. ✅ **Built** — `Core/Vixen.Ui/Accessibility.cs`, and doc 09 has a § Accessibility now. See A2 |
 
 Rows 1 and 2 are 45's finding and Trinix's localisation audit. Rows 3, 4 and 5 are this document's,
 and row 5 is the one that is not a misplacement at all.
@@ -234,6 +234,57 @@ invented retroactively by somebody who did not write them.
 not exist is a second element tree, maintained by hand, in another repository, drifting from the first
 — which is Trinix's own risk register calling it *"fast, wrong, and permanent"*. Its deadline for
 asking is its Phase 9, and asking is this document.
+
+#### Landed: the tree, and the acceptance criterion met
+
+✅ **The tree, the relations and the coalesced notification are built** — `Core/Vixen.Ui/Accessibility.cs`,
+plus three lines in `UiDocument.cs`/`Focus.cs` and three in `UiElement.cs`. **Doc 09 has a
+§ Accessibility now**, which it did not before this document went looking for one; the correction
+above was checked again against the tree before being acted on and both halves held — zero occurrences
+of the identifier `Role`, three doc comments, and doc 09's single mention at line 732 of its Testing
+table.
+
+**The acceptance criterion is met for the controls populated.** `Vixen.Ui.Testing.AccessibilitySnapshot`
+renders the tree as comparable text, and `Core/Vixen.Ui.Controls.Tests/AccessibilityTreeTests.cs` is
+doc 09's promised ARIA-role snapshot, written. ⚠ It asserts `Unnamed` — every widget-role element has
+a non-empty name, every focusable element has a role — **before** the snapshot, because a snapshot
+matches an empty tree perfectly and that is this repository's commonest defect. Sabotaged three ways
+from green: dropping `ButtonBase`'s role fails 4 of 10, dropping its name fails 5 of 10, dropping the
+`Owns` relation fails 2 of 10.
+
+⚠ **The estimate's shape was right and its centre of gravity was not.** § A2 said the 1.5–3.0 spread
+was "almost entirely the per-control population across ~40 controls and 11 advanced ones", and that
+turned out to be the cheap half rather than the expensive one — because the population is a *virtual
+member per control*, not a field assigned in `OnCreated`. `NativeRole`, `NativeAccessibleName`,
+`NativeAccessibleValue` and `NativeAccessibleState` are answered by the type from what it already
+holds, so `ButtonBase`'s two overrides gave every button, menu item, tab, option, link and page number
+in the assembly a role and a name in one edit, and no control stores an accessibility field or
+maintains a notification. The expensive half was the API decision that made that possible, and it was
+made once.
+
+**Populated this sitting** — chosen to span the shapes that differ rather than the ones that repeat:
+`ButtonBase` (role + name), `Link`, `ToggleBase`, `CheckBox` (checked and mixed), `Switch`,
+`RadioButton`, `RadioGroup`, `ToggleButton` (pressed, not checked), `TextField` (role + value +
+editable/read-only/multi-line, and no name), `SearchBox`, `NumericInput`, `TabItem`/`Tabs` (relations),
+`Option`/`SelectBase`/`Select`/`MultiSelect` (relations). **Owed**: the remaining ~35 in
+`Vixen.Ui.Controls` and all 11 in `.Controls.Advanced`, which is mechanical.
+
+**Two things the ask did not name and the work found.**
+
+⚠ **Three states have to be the framework's, or fifty controls each get a chance to forget one.**
+`AccessibleState` always adds `Disabled` from `ElementState.Disabled`, `Focused` from
+`ElementState.Focus` and `Focusable` from `UiElement.Focusable`, whether or not the type overrode
+anything. The failure this removes is invisible from inside the control that causes it: a screen
+reader announcing a greyed button as available.
+
+⚠ **A text field's accessible name is `null` and must stay so.** The obvious fallback is the
+placeholder, and it is wrong twice — a placeholder is a hint rather than a name, and it disappears the
+moment there is a value, so a form named from placeholders is a form whose fields lose their names as
+they are filled in. Trinix's CI gate ("every interactive element has a role and an accessible name")
+depends on an unlabelled field reporting nothing rather than something plausible; `LabelledBy` is how
+one gets a name, and it is one line at the call site.
+
+**Not built, as asked**: no AT-SPI2, no UIA, no `NSAccessibility`. The tree is what all three read.
 
 ### A3 — The string catalogue: promoted, and read through a signal
 
@@ -470,7 +521,7 @@ strands the work.
 | Ask | EM | How much to trust it |
 |---|---|---|
 | **A1** — 45 steps 3 and 5 | **0.5** | Good. 45 costed all five steps at 1.5 EM and re-estimated downward after step 1 came in at a day; steps 3 and 5 are the two it calls unaffected by the design question that blocked step 2 |
-| **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1 |
+| **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1. ✅ **The API and the criterion landed in one sitting**, and the reason the population turned out to be the cheap half is in A2's landing note: a control's role and name are *virtual members*, so `ButtonBase` covered every pressable control in the assembly in one edit. What remains of the population is mechanical |
 | **A3a** — promote the catalogue, split the YAML off, make the lookup a signal | **0.4** | Good. It is a file move, a dependency split and one field becoming a `Signal<T>` |
 | **A3b** — the twelve control literals through the catalogue | **0.1** | Good. Twelve call sites and twelve declarations |
 | **A3c** — `Strings.Resource` | **0.5** | Fair, and **not asked for** — carried so the total is honest if Vixen chooses to close its own owed row |
