@@ -135,12 +135,19 @@ partial class Build : NukeBuild {
         );
 
     Target CheckFormat => definition => definition
-        .Description("Fails if any file deviates from .editorconfig or is missing its SPDX header")
+        .Description("Fails if a file deviates from .editorconfig, lacks its SPDX header, or is a dependency nothing attributes")
         .DependsOn(Restore)
         .Executes(() => {
                 // First, because it takes milliseconds and the two passes below take minutes. A
                 // developer who forgot a header finds out before the format run, not after it.
                 CheckLicenceHeaders();
+
+                // The other half of ADR-015's licence obligation, and here for the same reason: it
+                // reads three files and takes milliseconds. The header says whose each file is; this
+                // says whose everything we did not write is. Also a target of its own — `nuke
+                // CheckAttribution` — so it can be run, and watched failing, without the two
+                // minute-long passes below.
+                CheckAttributionManifest();
 
                 // Invoked raw rather than through Nuke's typed settings, whose shape has moved
                 // between versions; the CLI's has not.

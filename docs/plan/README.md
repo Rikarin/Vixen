@@ -76,7 +76,7 @@ together; a ✅ means it has since been carried out.**
 | [Implementation Overview](../overview.md) | **The state, not the design.** Every feature and library with a status, a dependency tree over what is left so independent tracks can be scheduled in parallel, and one table of what is owed. Reconciled against the code |
 | [RHI Backend Mapping](../rhi-backend-mapping.md) | A reference table: every `Vixen.Graphics` concept against Vulkan, D3D12, GL/GLES/WebGL2, WebGPU and Metal. The fourth of ADR-001's five measures, reviewed whenever the RHI surface changes |
 | [spikes/web-webgl2](spikes/web-webgl2/RESULT.md) | ✅ Executed spike: `Silk.NET.OpenGLES` drives real WebGL2 from `browser-wasm`, in ~40 lines of Emscripten bridge, trimming to 0.93 MB Brotli. Retired risk R1 and corrected a size estimate that was an order of magnitude wrong |
-| [manual/](../manual/) | Reader-facing: building a game and a server, the diagnostic-code register, the log-event register |
+| [manual/](../manual/) | Reader-facing: building a game and a server, the diagnostic-code register, the log-event register, the [third-party attribution manifest](../manual/third-party.md) |
 
 ## Four corrections to the original brief
 
