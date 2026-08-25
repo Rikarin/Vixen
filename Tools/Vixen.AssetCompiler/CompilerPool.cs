@@ -36,11 +36,12 @@ namespace Vixen.AssetCompiler;
 ///         the sidecars in one copy.
 ///     </para>
 ///     <para>
-///         <b>What this does not yet buy is parallelism.</b> The pool runs as many imports at once as
-///         it is given, and <c>ImportPipeline</c> hands it one at a time — because its sequential,
-///         path-ordered loop is what guarantees a dependent sees its dependency's new artefacts.
-///         Dispatching independent assets concurrently needs a scheduler that knows the dependency
-///         graph, and that is owed; see the README.
+///         <b>The pool runs as many imports at once as it is given, and it is now given several.</b>
+///         <c>ImportPipeline</c> dispatches <c>MaxConcurrency</c> jobs at a time and keeps a
+///         dependent's answer identical to the path-ordered loop's by waiting per asset rather than
+///         by serialising the run — so <see cref="WorkerCount" /> is a real ceiling rather than a
+///         number nothing reached. What crosses the pipe is unchanged: one asset's worth of work,
+///         with the coordinator still the only writer.
 ///     </para>
 /// </remarks>
 public sealed class CompilerPool : IImportExecutor, IDisposable {

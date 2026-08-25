@@ -58,6 +58,15 @@ public sealed record ImportRecord(
 ///         it is never committed and never has to be compatible with anything — and a hundred
 ///         thousand entries of it are read line by line rather than parsed as one document.
 ///     </para>
+///     <para>
+///         ⚠ <b>Every operation is safe to call from more than one thread at once</b>, because
+///         <see cref="ImportPipeline.ImportAllAsync" /> runs N imports concurrently and each of them
+///         both reads the cache — to price its dependencies — and writes its own record into it. A
+///         <see cref="Dictionary{TKey,TValue}" /> read while another thread is resizing it does not
+///         throw reliably; it returns wrong answers, which here means a cache key computed from a
+///         dependency record that never existed. The lock is uncontended in the common case and the
+///         work under it is a hash lookup.
+///     </para>
 /// </remarks>
 public sealed class ImportCache {
     /// <summary>
@@ -68,30 +77,60 @@ public sealed class ImportCache {
     const string Header = "vixen-import-cache 2";
 
     readonly Dictionary<AssetId, ImportRecord> byAsset = [];
+    readonly Lock gate = new();
 
     /// <summary>How many assets have a record.</summary>
-    public int Count => byAsset.Count;
+    public int Count {
+        get {
+            lock (gate) {
+                return byAsset.Count;
+            }
+        }
+    }
 
     /// <summary>Every record.</summary>
-    public IReadOnlyCollection<ImportRecord> Records => byAsset.Values;
+    /// <remarks>
+    ///     ⚠ <b>A copy, not the live collection.</b> The dictionary's own <c>Values</c> view faults
+    ///     if anything is added while it is being walked, and an import running beside a build plan
+    ///     is exactly that. A snapshot of a few thousand references costs nothing next to what the
+    ///     callers do with it.
+    /// </remarks>
+    public IReadOnlyCollection<ImportRecord> Records {
+        get {
+            lock (gate) {
+                return [.. byAsset.Values];
+            }
+        }
+    }
 
     /// <summary>Looks up what an asset's last import produced.</summary>
     /// <param name="asset">The asset.</param>
     /// <param name="record">What it produced.</param>
     /// <returns>Whether it has ever been imported.</returns>
-    public bool TryGet(AssetId asset, out ImportRecord? record) => byAsset.TryGetValue(asset, out record);
+    public bool TryGet(AssetId asset, out ImportRecord? record) {
+        lock (gate) {
+            return byAsset.TryGetValue(asset, out record);
+        }
+    }
 
     /// <summary>Records an import.</summary>
     /// <param name="record">What it produced.</param>
     public void Set(ImportRecord record) {
         ArgumentNullException.ThrowIfNull(record);
-        byAsset[record.Asset] = record;
+
+        lock (gate) {
+            byAsset[record.Asset] = record;
+        }
     }
 
     /// <summary>Forgets an asset, so its next import runs.</summary>
     /// <param name="asset">The asset.</param>
     /// <returns>Whether it had a record.</returns>
-    public bool Forget(AssetId asset) => byAsset.Remove(asset);
+    public bool Forget(AssetId asset) {
+        lock (gate) {
+            return byAsset.Remove(asset);
+        }
+    }
 
     /// <summary>Writes the cache.</summary>
     /// <param name="path">Where to put it.</param>
@@ -104,7 +143,7 @@ public sealed class ImportCache {
         writer.NewLine = "\n";
         writer.WriteLine(Header);
 
-        foreach (var record in byAsset.Values.OrderBy(record => record.Asset)) {
+        foreach (var record in Records.OrderBy(record => record.Asset)) {
             foreach (var dependency in record.FileDependencies) {
                 if (dependency.Contains('\t', StringComparison.Ordinal)) {
                     throw new ArgumentException(
@@ -145,7 +184,9 @@ public sealed class ImportCache {
             return false;
         }
 
-        byAsset.Clear();
+        lock (gate) {
+            byAsset.Clear();
+        }
 
         while (reader.ReadLine() is { } line) {
             var parts = line.Split('\t');

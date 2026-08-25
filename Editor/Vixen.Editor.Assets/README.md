@@ -367,21 +367,48 @@ the real type, or read the artefact straight out of the `ImportResult`. An artef
 contract answers to keeps the old stamp: a virtual-geometry page blob is bytes an importer named for
 its own loader, read through `assets.Open` and never through `Read<T>`.
 
-## Deciding is parallel; importing is not
+## Deciding is parallel, importing is parallel, and the answer is the sequential one
 
 In a project where nothing has changed, the entire cost of an import is deciding that: a sidecar read,
 a parse, a hash of the source, a lookup in the cache. None of it writes anything, so `ImportAllAsync`
-does all of it at once and then imports, sequentially, only what needs it. On a ten-thousand-asset
-project that was the difference between missing this phase's one-second budget by half and meeting it.
-
-The imports themselves stay sequential and every semantic stays exactly as it was: one importer at a
-time, writing chunks, sidecars and cache records, in path order. Running *importers* in parallel is
-what doc 08's out-of-process worker is for, and it buys crash isolation along the way.
+does all of it at once, and then imports what needs it `MaxConcurrency` at a time — cores minus one by
+default. On a ten-thousand-asset project the deciding half was the difference between missing this
+phase's one-second budget by half and meeting it.
 
 **A decision is discarded if something it depends on re-imported first.** A dependency's artefact ids
 are part of a dependent's key, so a decision taken before that dependency ran was taken against ids
 that no longer exist. Without that rule everything still converges — one run later — which is exactly
 "I changed the texture and the material did not update until I imported twice".
+
+**That rule is why the imports used to be sequential, and it is preserved rather than given up.** In a
+path-ordered loop, "the dependencies that have already re-imported" means exactly "the ones earlier in
+path order", and nine importers declare asset dependencies through `AssetReferenceScan` — so this is
+the ordinary case, and a scheduler that ignored it would make a build's bytes depend on how many cores
+the machine has. What the scheduler does instead is give each asset the cache the sequential loop
+would have shown it: before asset *i* reads another asset's record, it waits for that asset if and only
+if that asset comes earlier in path order, and reads the record *as it was before the run* if it comes
+later. `MaxConcurrency` therefore changes when work happens and never what it produces, which is what
+`ImportParallelismTests` asserts — sixteen at once against one at a time, eight times over, with a
+concurrency high-water mark as the control so that a parallelism which stopped happening fails rather
+than passes.
+
+Waiting cannot deadlock by construction: an asset only ever waits on a *lower* index, and indices are
+handed to workers in increasing order, so whatever an asset waits for has already been given to a
+worker and the lowest index still running waits for nothing.
+
+**Four things had to become thread-safe for this, and none of them was an importer.** `ImportCache`
+was a bare `Dictionary` written from the import path; `FileOdbBackend.Write` was a check-then-write
+that failed an asset when two threads produced the same id, which content addressing makes an ordinary
+event rather than an exotic one; `ObjectDatabase` enumerated a `List` that `Mount` appended to; and
+`MathScalars.Register` set its "already done" flag before doing it, so a second thread could bind a
+`Vector3` against a converter table that did not have one yet. The importers themselves hold no
+per-import state — the one native dependency, Assimp, is re-entrant for the parse and *not* for
+`aiGetErrorString`, which reads a process-global buffer, so `ModelReader` holds a lock across the parse
+and the reason it failed and nothing else.
+
+Running importers in separate *processes* is a different axis and still `Tools/Vixen.AssetCompiler`'s:
+that one buys crash isolation, and the two compose, because the pool now has several jobs in flight
+instead of one.
 
 **An asset's own source is hashed once, not twice.** It is in the declared file dependencies, because
 the importer is allowed to read it, and it is `sourceHash` in its own right — so the key computation

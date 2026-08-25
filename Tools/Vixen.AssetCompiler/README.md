@@ -66,15 +66,27 @@ from its coordinator's produces different artefacts for the same file, and the d
 as a cache that never hits — or, worse, as a build whose output depends on how many cores the machine
 has. Moving that list out of `Vixen.Cli` is what makes the two provably the same.
 
-## Owed, and named
+## The pool is given N jobs, not one
 
-**Parallelism.** Doc 08 asks for N workers importing at once and this delivers N workers *available*.
-`ImportPipeline` hands them one job at a time, because its sequential, path-ordered loop is what
-guarantees a dependent sees its dependency's new artefacts. Dispatching concurrently needs a scheduler
-that partitions the run into batches with no dependency inside a batch — the information is already
-there in each asset's previously declared dependencies — and that is not written. Until it is,
-`--isolated` buys crash isolation and costs a process start and a copy of every artefact over a pipe,
-which is why it is off by default.
+This section used to be the first entry under *Owed* and is not any more. `ImportPipeline` dispatches
+`MaxConcurrency` imports at once, so a pool of N workers has N jobs in flight.
+
+⚠ **The scheduler is not the batching one that was asked for here**, and the reason is worth keeping.
+Batching by dependency would run a dependency before a dependant that sits *earlier* in path order —
+which is more sensible-looking and produces different bytes, because a sequential loop shows that
+dependant its dependency's *old* artefacts. What the scheduler does instead is reproduce the
+sequential loop's view of the cache per asset: wait for a dependency only when it comes earlier in path
+order, and read its pre-run record when it comes later. The answer is identical and only the timing
+differs. `Editor/Vixen.Editor.Assets/README.md` has the argument, and `ImportParallelismTests` is the
+gate — sixteen at once against one at a time, eight times, with a concurrency high-water mark as its
+control.
+
+⚠ **`--isolated` is still off by default, and for its own reason rather than for that one.** It costs a
+process start and a copy of every artefact over a pipe, and the failure it protects against — an
+importer that takes its process down — is rare enough to be worth asking for. That trade did not
+change.
+
+## Owed, and named
 
 **A worker is not reused across projects.** Each pool starts its own, rooted at one project directory.
 An editor holding one long-lived pool is what a Phase 4 editor wants and is not what a CLI needs.
