@@ -352,7 +352,7 @@ finer than any of them, so the cascade's own texel size becomes the visible limi
 level **per pixel** from that pixel's world footprint, allocates only the pages some pixel marked, and
 draws only the ones that hold nothing yet.
 
-Four things are worth knowing before reading the files:
+Six things are worth knowing before reading the files:
 
 - **`VirtualShadowMap` is the address space and it is pure.** Every way a virtual shadow map goes wrong
   is a property of those functions — a level one step too coarse, a page snapped to the wrong grid, an
@@ -380,6 +380,34 @@ Four things are worth knowing before reading the files:
 - **`PageResidency` serves it unchanged** — improvement 6's second consumer. There is nothing to load, so
   `LoadAsync` returns nothing and `Place` allocates; what the service contributes is the request queue,
   the budget, the eviction order and the counters, which is what it was drawn to contribute.
+- **A moved caster invalidates the pages it left and the pages it reached** — task #250, and the only
+  one of phase 7's three owed items that was a correctness bug. A page is kept until something says its
+  depths are stale, and until this landed only the light and the levels ever said so; a moved *object*
+  said nothing, so its shadow stayed exactly where the object had been for as long as the level did not
+  also move. `Collect` walks the `RenderObjectStore` after the fit, compares each slot's bounds — and
+  its world matrix, where `CasterTransforms` names one, because a sphere is invariant under rotation
+  and a shadow is not — against what that slot said last frame, and retires the pages of **both**
+  footprints. ⚠ The end it *left* is the visible one: retiring only where the object now is leaves the
+  stale silhouette standing in the air and adds a correct one beside it. `MovedCasters` and
+  `CasterInvalidations` are the pair that says whether it is the scene or the clipmap that is costing a
+  frame its convergence — a few pages per mover is what a correct scene looks like, and a hundred is a
+  bounding sphere that covers a building. Measured on Samples/13 over 900 walked frames: 8.06 movers
+  retire 4.17 published pages a frame, draws go 0.72 → 4.87 and absent 0.94 → 4.13 of an unchanged
+  55.86 demanded, with `refit`, `resident` and `allocations` identical between the runs. Coverage
+  98.3 % → 92.6 %, and the pages that stopped being answered were being answered with the shadow of
+  something that had walked away. ⚠ `CasterInvalidations` counts published pages **lost**, not
+  `Invalidate`'s return — that answers "there was an allocation" again for a page an earlier caster of
+  the same frame already retired, and reading it multiplied one page by however many movers stood over
+  it: 40.9 a frame where the frame lost 4.2.
+- **The page set of a caster is `VirtualShadowMap.PageSpan`, and the *rectangle* it bounds is the
+  right one rather than a guess.** A shadow map's projection looks *along the light*, so a caster's
+  footprint in that clip space is exactly the region whose stored depth it can change — there is no
+  "how far along the light does its shadow reach" term to get wrong. What is conservative is only the
+  bound inside that rectangle: the sphere's axis-aligned box rather than the sphere, which over-covers
+  by under a page at the scales involved and costs no rotation.
+  ⚠ It clamps where `PageOf` refuses: a point outside a map has no page, but a *volume* hanging over the
+  edge still shadows the part of the map inside it, and refusing it would leave exactly the boundary
+  pages stale in the one place a walking camera is about to look.
 
 The lookup is a compose slot (`directionalShadow`), on `PunctualShadows.rvn`'s terms and for its reason,
 and it answers a *sample* rather than a number: a map that has nothing for a point falls through to the

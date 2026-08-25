@@ -378,7 +378,8 @@ static partial class SampleLog {
         Level = LogLevel.Information,
         Message = "VSM: {Marked} page(s) marked by the last serviced frame, {Absent} of them absent "
             + "from the table this frame publishes, {Drawn} drawn this frame, {Invalidated} thrown "
-            + "away by the refit, {Resident} resident in {Slots} slot(s) after {Allocations} "
+            + "away ({CasterPages} of them by {Movers} caster(s) that moved, the rest by the refit), "
+            + "{Resident} resident in {Slots} slot(s) after {Allocations} "
             + "allocation(s). ⚠ Absent is the only number here that is about coverage rather than "
             + "effort, and it is the one no picture contains: what an absent page shades as is the "
             + "cascade fallback, which renders, so a map answering nothing looks like a map working "
@@ -394,6 +395,8 @@ static partial class SampleLog {
         int absent,
         int drawn,
         int invalidated,
+        int casterPages,
+        int movers,
         int resident,
         int slots,
         long allocations

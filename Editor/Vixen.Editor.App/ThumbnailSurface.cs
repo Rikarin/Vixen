@@ -27,6 +27,17 @@ namespace Vixen.Editor.App;
 ///         reports as a crash somewhere else entirely. The host retires them when it knows no frame
 ///         is using them, which is the same rule <c>EditorPane</c> follows for a resized swapchain.
 ///     </para>
+///     <para>
+///         ⚠ <b><see cref="Upload" /> makes the resources and <see cref="Flush" /> is what submits
+///         the copy, and the split is about which frame the command buffer belongs to.</b>
+///         <c>ThumbnailCache.Pump</c> runs from the application's update, which is <i>outside</i>
+///         <c>EditorHost.Present</c>'s <c>BeginFrame</c>/<c>EndFrame</c> pair — and a list recorded
+///         there is allocated from the pool of the slot the <i>coming</i> <c>BeginFrame</c> is about
+///         to reset. Submitting it where it is recorded means <c>vkResetCommandPool</c> on a buffer
+///         still executing; recording it in <see cref="Flush" /> puts it inside the frame that
+///         retires it, which is the same bargain <c>ShaderGraphPreviewRenderer.Update</c> makes and
+///         the same point in <c>Present</c> it is drained at.
+///     </para>
 /// </remarks>
 sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     readonly IGraphicsDevice device;
@@ -35,7 +46,21 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     readonly Dictionary<ulong, Uploaded> live = [];
     readonly List<Uploaded> retiring = [];
 
+    /// <summary>What has been made and not yet copied into.</summary>
+    readonly List<Pending> waiting = [];
+
     ulong next = ThumbnailCache.FirstImage;
+
+    /// <summary>How many copies have been submitted, over the life of this surface.</summary>
+    /// <remarks>
+    ///     A number rather than a flag, because the defect this counts against — a recorded copy that
+    ///     was never submitted — leaves every structural claim about an upload true and only this one
+    ///     false.
+    /// </remarks>
+    public int Submitted { get; private set; }
+
+    /// <summary>How many uploads are made but not yet copied into.</summary>
+    public int Waiting => waiting.Count;
 
     /// <summary>Wires a surface to the device and the renderer that draws the interface.</summary>
     /// <param name="device">The device.</param>
@@ -55,7 +80,17 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         }
 
         var texture = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, width, height, TextureUsage.Sampled | TextureUsage.CopyDestination, Name: "thumbnail")
+            new(
+                PixelFormat.Rgba8UNorm,
+                width,
+                height,
+                // ⚠ `CopySource` is for the test that reads the pixels back and for nothing else, the
+                // same bargain `ShaderGraphPreviewRenderer` makes: a thumbnail that uploaded nothing
+                // is indistinguishable from one that has not been decoded yet, so something has to be
+                // able to look. A texture without it is one no readback may touch.
+                TextureUsage.Sampled | TextureUsage.CopyDestination | TextureUsage.CopySource,
+                Name: "thumbnail"
+            )
         );
 
         var staging = device.CreateBuffer(
@@ -64,26 +99,80 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
 
         device.Write(staging, 0, rgba);
 
-        using (var commands = device.BeginCommandList(QueueKind.Graphics, "thumbnail")) {
-            commands.Barrier(new([], [new(texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
-            commands.CopyBufferToTexture(staging, 0, new(texture), new(width, height, 1));
-            commands.Barrier(new([], [new(texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
-        }
-
         var view = device.CreateTextureView(texture);
         var image = next++;
 
         renderer.RegisterImage(image, view);
         live[image] = new Uploaded(texture, view, staging);
+        waiting.Add(new Pending(image, texture, staging, width, height));
 
         return image;
     }
 
+    /// <summary>Submits the copies <see cref="Upload" /> has queued, on the frame that owns them.</summary>
+    /// <returns>How many were copied.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Called between <c>BeginFrame</c> and <c>EndFrame</c>, and before the interface
+    ///         records.</b> Submits on one queue run in order, so a tile that draws a number this
+    ///         same frame samples a texture whose copy and whose transition to <c>ShaderRead</c> are
+    ///         already ahead of it — which is why the registration can happen at <see cref="Upload" />
+    ///         and be correct.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One list for every pending upload rather than one each.</b> A folder scrolled
+    ///         into view finishes decoding in a burst, and a submission per thumbnail is a queue
+    ///         submit per picture for work that is a few kilobytes of copy.
+    ///     </para>
+    /// </remarks>
+    public int Flush() {
+        if (waiting.Count == 0) {
+            return 0;
+        }
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "thumbnails")) {
+            foreach (var pending in waiting) {
+                commands.Barrier(
+                    new([], [new(pending.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                );
+
+                commands.CopyBufferToTexture(
+                    pending.Staging,
+                    0,
+                    new(pending.Texture),
+                    new(pending.Width, pending.Height, 1)
+                );
+
+                commands.Barrier(
+                    new([], [new(pending.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                );
+            }
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        var copied = waiting.Count;
+
+        Submitted += copied;
+        waiting.Clear();
+
+        return copied;
+    }
+
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A pending copy for the released image is dropped with it.</b> An eviction can land in
+    ///     the same <c>Pump</c> that made the image — a cache filled past its capacity in one drain —
+    ///     and <see cref="Retire" /> runs before the frame's <see cref="Flush" />, so a copy left
+    ///     queued would name a texture that has already been destroyed.
+    /// </remarks>
     public void Release(ulong image) {
         if (live.Remove(image, out var uploaded)) {
             retiring.Add(uploaded);
         }
+
+        waiting.RemoveAll(pending => pending.Image == image);
     }
 
     /// <summary>Destroys what has been released, once no frame can still be using it.</summary>
@@ -100,9 +189,22 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         retiring.Clear();
     }
 
+    /// <summary>The texture behind an image number, for a caller that wants to read it back.</summary>
+    /// <param name="image">What <see cref="Upload" /> returned.</param>
+    /// <returns>The texture, or an invalid handle if there is no such image.</returns>
+    /// <remarks>
+    ///     Left in <see cref="ResourceState.ShaderRead" /> once <see cref="Flush" /> has run, so a
+    ///     reader barriers from there.
+    /// </remarks>
+    public TextureHandle TextureOf(ulong image) => live.TryGetValue(image, out var uploaded) ? uploaded.Texture : default;
+
     /// <inheritdoc />
     public void Dispose() {
         Retire();
+
+        // Nothing was submitted for these, so there is no work to wait on — the textures are
+        // destroyed by the loop below like any other.
+        waiting.Clear();
 
         foreach (var uploaded in live.Values) {
             Destroy(uploaded);
@@ -118,4 +220,6 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     }
 
     readonly record struct Uploaded(TextureHandle Texture, TextureViewHandle View, BufferHandle Staging);
+
+    readonly record struct Pending(ulong Image, TextureHandle Texture, BufferHandle Staging, int Width, int Height);
 }
