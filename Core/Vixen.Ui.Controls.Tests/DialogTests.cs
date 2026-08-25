@@ -1,18 +1,20 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Xunit;
 
-namespace Vixen.Editor.Ui.Tests;
+namespace Vixen.Ui.Controls.Tests;
 
-/// <summary>The editor's modal questions, and the frame they are answered on.</summary>
+/// <summary>An application's modal questions, and the frame they are answered on.</summary>
 /// <remarks>
 ///     ⚠ <b>Every test here pumps, because the answer is completed from the pump and not from the
 ///     click.</b> That is the contract — see <see cref="DialogService.Pump" /> — and a test that
 ///     awaited without pumping would hang rather than fail, which is why they are written as
-///     "press, pump, then assert the task is finished" instead of with <c>await</c>.
+///     "press, pump, then assert the task is finished" instead of with <c>await</c>. Most call
+///     <see cref="DialogService.Pump" /> directly because a unit test has no clock;
+///     <c>The_document_s_tick_is_what_pumps_it</c> is the one that proves a host does not have to.
 /// </remarks>
 public class DialogTests : IDisposable {
     readonly UiDocument document = new(800f, 600f);
@@ -24,6 +26,7 @@ public class DialogTests : IDisposable {
     }
 
     public void Dispose() {
+        dialogs.Dispose();
         document.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -47,7 +50,7 @@ public class DialogTests : IDisposable {
         var answer = dialogs.ConfirmAsync("Delete it?", "This cannot be undone.");
         dialogs.Pump();
 
-        Press(dialogs.Current!, EditorStrings.DialogOk.Text);
+        Press(dialogs.Current!, "OK");
 
         // ⚠ Not yet. The click ran inside the dialog's own event dispatch, and completing there
         // would resume the awaiting command with the subtree about to be torn down underneath it.
@@ -85,7 +88,7 @@ public class DialogTests : IDisposable {
         Assert.Equal("Default", field.Value);
         field.Value = "Shading";
 
-        Press(dialogs.Current!, EditorStrings.DialogOk.Text);
+        Press(dialogs.Current!, "OK");
         dialogs.Pump();
 
         Assert.Equal("Shading", await answer);
@@ -96,7 +99,7 @@ public class DialogTests : IDisposable {
         _ = dialogs.PromptAsync("Name the layout");
         dialogs.Pump();
 
-        var accept = Button(dialogs.Current!, EditorStrings.DialogOk.Text);
+        var accept = Button(dialogs.Current!, "OK");
 
         // ⚠ Said before the click rather than after it. Every caller is naming something and none of
         // them has a use for the empty name.
@@ -137,7 +140,7 @@ public class DialogTests : IDisposable {
         Assert.Equal("First?", dialogs.Current?.Title);
         Assert.Equal(1, dialogs.Pending);
 
-        Press(dialogs.Current!, EditorStrings.DialogOk.Text);
+        Press(dialogs.Current!, "OK");
         dialogs.Pump();
 
         Assert.True(first.IsCompletedSuccessfully);
@@ -207,6 +210,176 @@ public class DialogTests : IDisposable {
         dialogs.Pump();
 
         Assert.Equal(1, await answer);
+    }
+
+    [Fact]
+    public void An_ask_dirties_nothing_which_is_why_the_pump_is_the_tick_and_not_the_pass() {
+        Settle();
+
+        var answer = dialogs.ConfirmAsync("Delete it?");
+
+        // ⚠ Measured rather than argued, and it is the whole reason `Ticked` is the subscription.
+        // Asking a question mutates no element, so the document is not dirty and `Update` returns
+        // false — a pump hung on the pass would not run on this frame, or on any frame in which the
+        // interface was still, which is most of them.
+        Assert.False(document.Update());
+        Assert.False(dialogs.IsOpen);
+
+        document.Tick(TimeSpan.FromSeconds(1));
+
+        Assert.True(dialogs.IsOpen);
+        Assert.Equal("Delete it?", dialogs.Current?.Title);
+        Assert.False(answer.IsCompleted);
+    }
+
+    [Fact]
+    public async Task The_document_s_tick_is_what_pumps_it_and_a_host_wires_nothing() {
+        // Not one call to `Pump` in this test. An application that ticks its document — which every
+        // host must, every frame — has working dialogs, which is what promoting this bought.
+        var answer = dialogs.ConfirmAsync("Delete it?");
+
+        document.Tick(TimeSpan.FromSeconds(1));
+        Assert.True(dialogs.IsOpen);
+
+        Press(dialogs.Current!, "OK");
+        Assert.False(answer.IsCompleted);
+
+        document.Tick(TimeSpan.FromSeconds(2));
+
+        Assert.True(answer.IsCompletedSuccessfully);
+        Assert.True(await answer);
+        Assert.Null(dialogs.Current);
+    }
+
+    [Fact]
+    public async Task A_dialog_opened_from_inside_another_s_continuation_is_presented_by_the_same_pump() {
+        List<string> steps = [];
+        Task<int>? whole = null;
+
+        OnAFrameLoopThread(
+            () => {
+                whole = Ask();
+
+                dialogs.Pump();
+                Assert.Equal("First?", dialogs.Current?.Title);
+
+                Press(dialogs.Current!, "OK");
+                dialogs.Pump();
+
+                // ⚠ The second ask was made from *inside* that pump — the await below resumed there,
+                // inline — and the same call presented it. A service still holding the dialog it had
+                // just closed would leave this null and the caller waiting for a frame that has no
+                // reason to come; a `Pump` that re-entered itself would present it underneath the
+                // one being torn down.
+                Assert.Equal("Second?", dialogs.Current?.Title);
+                Assert.False(whole.IsCompleted);
+
+                Find<TextBox>(dialogs.Current!)!.Value = "Shading";
+                Press(dialogs.Current!, "OK");
+                dialogs.Pump();
+            }
+        );
+
+        Assert.True(whole!.IsCompletedSuccessfully);
+        Assert.Equal(1, await whole);
+        Assert.Equal(["first answered", "Shading"], steps);
+
+        return;
+
+        async Task<int> Ask() {
+            var first = await dialogs.ConfirmAsync("First?");
+            steps.Add("first answered");
+
+            var named = await dialogs.PromptAsync("Second?");
+            steps.Add(named ?? "<none>");
+
+            return first ? 1 : 0;
+        }
+    }
+
+    [Fact]
+    public async Task Disposing_the_service_answers_what_is_waiting_and_stops_pumping() {
+        var first = dialogs.ConfirmAsync("First?");
+        var second = dialogs.ConfirmAsync("Second?");
+
+        dialogs.Pump();
+        Assert.True(dialogs.IsOpen);
+
+        dialogs.Dispose();
+
+        Assert.True(first.IsCompletedSuccessfully);
+        Assert.True(second.IsCompletedSuccessfully);
+        Assert.False(await first);
+        Assert.False(await second);
+        Assert.False(dialogs.IsOpen);
+
+        // And the tick no longer reaches it: a late ask is answered where it stands rather than
+        // queued behind a service that will not draw another frame.
+        var late = dialogs.ConfirmAsync("Late?");
+        document.Tick(TimeSpan.FromSeconds(1));
+
+        Assert.False(dialogs.IsOpen);
+        Assert.True(late.IsCompletedSuccessfully);
+    }
+
+    [Fact]
+    public void A_disposed_service_is_not_held_alive_by_the_document_it_pumped_from() {
+        var kept = Make(dispose: false);
+        var dropped = Make(dispose: true);
+
+        Collect();
+
+        // ⚠ The control half, and it is what makes the other half evidence rather than a tautology.
+        // An undisposed service *is* reachable — the document's `Ticked` holds it, and through it
+        // every awaiting caller's continuation — so a test that only asserted the second line would
+        // pass just as well against a service nothing ever subscribed.
+        Assert.True(kept.IsAlive);
+        Assert.False(dropped.IsAlive);
+
+        GC.KeepAlive(document);
+        return;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        WeakReference Make(bool dispose) {
+            var service = new DialogService(document);
+
+            if (dispose) {
+                service.Dispose();
+            }
+
+            return new WeakReference(service);
+        }
+
+        static void Collect() {
+            for (var attempt = 0; attempt < 3; attempt++) {
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
+                GC.WaitForPendingFinalizers();
+            }
+        }
+    }
+
+    /// <summary>Runs the document's passes until nothing is dirty.</summary>
+    void Settle() {
+        for (var pass = 0; pass < 16 && document.Update(); pass++) { }
+    }
+
+    /// <summary>Runs a body the way a frame loop would: on a thread with no synchronisation context.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes the continuation resume inline from <c>Pump</c>.</b> A game or editor
+    ///     frame loop has no <see cref="SynchronizationContext" />, so an <c>await</c> on one of
+    ///     these tasks resumes on the completing thread — which is the contract this service states.
+    ///     xunit installs a context around a test, and a test that left it in place would be
+    ///     measuring xunit's scheduler instead.
+    /// </remarks>
+    static void OnAFrameLoopThread(Action body) {
+        var restore = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(null);
+
+        try {
+            body();
+        } finally {
+            SynchronizationContext.SetSynchronizationContext(restore);
+        }
     }
 
     static void Press(Dialog dialog, string label) => Button(dialog, label).Activate();

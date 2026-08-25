@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler]
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
-related: [editor/index, ui/markup-panels]
+related: [editor/index, ui/markup-panels, ui/dialogs]
 ---
 
 ## What it is
@@ -193,3 +193,5 @@ twenty items on the tick allocates nothing.
   editor's layer above this: a title, a category, an icon and a keybinding for an id.
 * [Panels in markup](/docs/guide/ui/markup-panels) — where the elements that declare handlers
   usually come from.
+* [Dialogs that answer](/docs/guide/ui/dialogs) — what a command does when it has to ask something
+  first, and why the answer arrives on the tick rather than on the click.

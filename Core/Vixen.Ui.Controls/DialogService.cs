@@ -1,10 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Ui;
-using Vixen.Ui.Controls;
-
-namespace Vixen.Editor.Ui;
+namespace Vixen.Ui.Controls;
 
 /// <summary>A dialog being built, and the only way it answers.</summary>
 /// <typeparam name="TResult">What the dialog is asked for.</typeparam>
@@ -99,16 +96,16 @@ public sealed class DialogSession<TResult> {
     }
 }
 
-/// <summary>The editor's modal questions: confirm, prompt, choose, and one it is handed.</summary>
+/// <summary>An application's modal questions: confirm, prompt, choose, and one it is handed.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>Drawn, not native, and doc 20 is explicit about why.</b> A modal that is an OS window
-///         cannot be screenshotted by the golden-image suite and cannot be driven by the automation
-///         harness — so every question the editor asks about its own state is a
-///         <c>Vixen.Ui.Controls</c> <see cref="Dialog" /> in the shell's document. The <i>file</i>
-///         pickers are the opposite case and go through <c>INativeDialogs</c>: those are about the
-///         user's disk rather than the editor's state, and a drawn one has none of the places, tags
-///         or sandbox permissions a real picker carries.
+///         cannot be screenshotted by a golden-image suite and cannot be driven by a headless
+///         harness — so every question an application asks about its own state is a
+///         <see cref="Dialog" /> in its own document. A <i>file</i> picker is the opposite case and
+///         belongs to the platform: that one is about the user's disk rather than the application's
+///         state, and a drawn one has none of the places, tags or sandbox permissions a real picker
+///         carries.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Asynchronous, and the continuation runs on the frame loop.</b> The answer is
@@ -119,14 +116,35 @@ public sealed class DialogSession<TResult> {
 ///         drew.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The pump is the document's tick, and there is nothing to wire.</b> The service
+///         subscribes to <see cref="UiDocument.Ticked" /> for its lifetime, so an application that
+///         calls <see cref="UiDocument.Tick" /> — which every host must, every frame, whether
+///         anything happened or not — has working dialogs without knowing this method exists.
+///         <see cref="UiDocument.Update" /> would have been the wrong half of the frame for the same
+///         reason <c>CommandsInvalidated</c> is not raised from it: it returns early when nothing
+///         dirtied the document, and a dialog being answered does not dirty one. <see cref="Pump" />
+///         stays public because a test wants to step a frame's worth of dialog without a clock.
+///     </para>
+///     <para>
 ///         ⚠ <b>One at a time, and a second ask waits for the first.</b> Two backdrops over each
 ///         other is a picture with no answer in it: the lower dialog is visible, unreachable, and
 ///         still holds the focus scope. Queued rather than refused, because the callers are commands
 ///         and "your Save prompt was dropped because a rename was open" is the failure that loses
 ///         work.
 ///     </para>
+///     <para>
+///         ⚠ <b>One thread, and never a blocking wait.</b> Everything here happens on the thread
+///         that ticks the document; the returned <see cref="Task{TResult}" /> is completed from
+///         <see cref="Pump" /> and its continuations therefore run <i>inline</i>, on that thread,
+///         from inside <see cref="Pump" />. So <c>await</c> is the only correct way to consume one:
+///         a caller that blocks on <c>.Result</c> or <c>.Wait()</c> blocks the thread that would have
+///         pumped the answer, and that is a deadlock rather than a slow frame. Re-entrancy is
+///         allowed and is the ordinary case — a command that answers one dialog by opening another
+///         is asking from inside <see cref="Pump" />, and the new ask is presented later in the same
+///         call.
+///     </para>
 /// </remarks>
-public sealed class DialogService {
+public sealed class DialogService : IDisposable {
     /// <summary>An ask that has not been shown yet: how to show it, and how to answer it unshown.</summary>
     readonly record struct Ask(Action Present, Action Dismiss);
 
@@ -135,12 +153,40 @@ public sealed class DialogService {
 
     Action? finish;
     bool closed;
+    bool disposed;
 
-    /// <summary>Creates the service over a document.</summary>
-    /// <param name="document">Where the dialogs go.</param>
+    /// <summary>Creates the service over a document, and hangs its pump on that document's tick.</summary>
+    /// <param name="document">Where the dialogs go, and whose frame answers them.</param>
+    /// <remarks>
+    ///     ⚠ <b>The document holds this service alive, so something has to let go.</b> The
+    ///     subscription is a strong reference from the document to the service and the service holds
+    ///     a queue of callers' continuations — which is a leak the moment the two lifetimes differ.
+    ///     <see cref="Dispose" /> is the whole of the answer: it unsubscribes and then
+    ///     <see cref="CancelAll" />s, so every awaiting caller resumes rather than being collected
+    ///     mid-await.
+    /// </remarks>
     public DialogService(UiDocument document) {
         ArgumentNullException.ThrowIfNull(document);
+
         this.document = document;
+        document.Ticked += OnTicked;
+    }
+
+    /// <summary>Answers everything outstanding and stops pumping.</summary>
+    /// <remarks>
+    ///     Idempotent, and the ordering is load bearing: the tick subscription goes first so that
+    ///     <see cref="CancelAll" />'s own pump is the last one, and a host disposing this before its
+    ///     document does not leave a service that would present a dialog into a disposed tree.
+    /// </remarks>
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+        document.Ticked -= OnTicked;
+
+        CancelAll();
     }
 
     /// <summary>The dialog on screen, or <see langword="null" />.</summary>
@@ -172,10 +218,10 @@ public sealed class DialogService {
             session => {
                 Message(session, message);
 
-                session.AddButton(cancel ?? EditorStrings.DialogCancel.Text, () => false);
+                session.AddButton(cancel ?? DefaultCancel, () => false);
 
                 session.AddButton(
-                    confirm ?? EditorStrings.DialogOk.Text,
+                    confirm ?? DefaultConfirm,
                     () => true,
                     danger ? ControlVariant.Danger : ControlVariant.Primary
                 );
@@ -187,6 +233,7 @@ public sealed class DialogService {
     /// <param name="message">The body, if there is one.</param>
     /// <param name="initial">What the field starts with, selected.</param>
     /// <param name="confirm">What the confirming button says.</param>
+    /// <param name="cancel">What the other one says.</param>
     /// <returns>What was typed, or <see langword="null" /> if the user backed out.</returns>
     /// <remarks>
     ///     ⚠ <b>An empty field is a cancel rather than an empty answer.</b> Every caller here is
@@ -198,7 +245,8 @@ public sealed class DialogService {
         string title,
         string? message = null,
         string? initial = null,
-        string? confirm = null
+        string? confirm = null,
+        string? cancel = null
     ) =>
         ShowAsync<string?>(
             title,
@@ -208,10 +256,10 @@ public sealed class DialogService {
                 var field = session.Body.Add<TextBox>();
                 field.Value = initial;
 
-                session.AddButton(EditorStrings.DialogCancel.Text, () => null);
+                session.AddButton(cancel ?? DefaultCancel, () => null);
 
                 var accept = session.AddButton(
-                    confirm ?? EditorStrings.DialogOk.Text,
+                    confirm ?? DefaultConfirm,
                     () => field.Value,
                     ControlVariant.Primary
                 );
@@ -298,24 +346,28 @@ public sealed class DialogService {
 
     /// <summary>Opens whatever is waiting, and completes whatever has been answered.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called once a frame by the shell, and it is where a caller's continuation runs.</b>
-    ///     See the class's remarks: completing from the click handler would resume the awaiting
-    ///     command in the middle of the event that answered it, with the dialog's subtree about to
-    ///     be removed underneath the router.
+    ///     <para>
+    ///         ⚠ <b>Called once a frame from <see cref="UiDocument.Ticked" />, and it is where a
+    ///         caller's continuation runs.</b> See the class's remarks: completing from the click
+    ///         handler would resume the awaiting command in the middle of the event that answered
+    ///         it, with the dialog's subtree about to be removed underneath the router. A host does
+    ///         not have to call this — ticking the document is what drives it — and calling it as
+    ///         well is harmless, which is what makes it usable from a test that has no clock.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Re-entrant, and deliberately without a guard.</b> The continuation
+    ///         <see cref="Finish" /> invokes runs inline, so a command resumed by it can call this
+    ///         again, or <see cref="CancelAll" />. Clearing the fields before the invoke is what
+    ///         makes that safe, and it is the whole of the mechanism: whichever call presents the
+    ///         next ask, the other one finds <see cref="Current" /> already set and does nothing. A
+    ///         <c>pumping</c> flag was written here and taken out again — it would have turned
+    ///         <see cref="CancelAll" />'s own finish into a no-op when a continuation called it,
+    ///         which is the awaiting-caller-never-completes defect this class exists to prevent, and
+    ///         no test could be made to fail without it.
+    ///     </para>
     /// </remarks>
     public void Pump() {
-        if (Current is { IsOpen: false }) {
-            var completed = finish;
-
-            Current.Remove();
-            Current = null;
-            finish = null;
-
-            // ⚠ After the fields are cleared, because the continuation runs inline from here and a
-            // command that answers one dialog by opening another would otherwise find the service
-            // still holding the one it just closed.
-            completed?.Invoke();
-        }
+        Finish();
 
         if (Current is null && !closed && queued.Count > 0) {
             queued.Dequeue().Present();
@@ -333,15 +385,49 @@ public sealed class DialogService {
     public void CancelAll() {
         closed = true;
 
-        if (Current is { } open) {
-            open.Close(CloseReason.Cancelled);
-            Pump();
-        }
+        // ⚠ `Finish` rather than `Pump`, and the difference is not tidiness: `Pump` would go on to
+        // present the next ask out of a queue this method is about to answer and empty.
+        Current?.Close(CloseReason.Cancelled);
+        Finish();
 
         while (queued.Count > 0) {
             queued.Dequeue().Dismiss();
         }
     }
+
+    /// <summary>Takes the answered dialog away and runs the caller's continuation.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The removal is here and not in <c>Answer</c>, which is the point of the whole
+    ///     arrangement.</b> The click that answered was dispatched into this subtree; removing it
+    ///     from inside that event leaves the router walking elements that are no longer in the
+    ///     document. So <c>Answer</c> records and closes, and the element goes away here — a frame
+    ///     later, with nothing half-dispatched over it.
+    /// </remarks>
+    void Finish() {
+        if (Current is not { IsOpen: false } answered) {
+            return;
+        }
+
+        var completed = finish;
+
+        answered.Remove();
+        Current = null;
+        finish = null;
+
+        // ⚠ After the fields are cleared, because the continuation runs inline from here and a
+        // command that answers one dialog by opening another would otherwise find the service still
+        // holding the one it just closed.
+        completed?.Invoke();
+    }
+
+    // ⚠ Literals, exactly as `Dialog`'s own close button is a literal, and both are owed to the same
+    // thing: the string catalogue is still in `Vixen.Editor.Ui` and cannot be reached from here.
+    // Doc 46 § A3 is the row that closes it, and until it does, an application that needs a
+    // translated confirming button passes one — every one of these is a parameter.
+    const string DefaultConfirm = "OK";
+    const string DefaultCancel = "Cancel";
+
+    void OnTicked(UiDocument _, TimeSpan __) => Pump();
 
     static void Message<TResult>(DialogSession<TResult> session, string? message) {
         if (!string.IsNullOrEmpty(message)) {
