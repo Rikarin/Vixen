@@ -8,7 +8,7 @@ api: [T:Vixen.Ecs.Systems.SystemPlan, T:Vixen.Ecs.Systems.SystemPlacement]
 tags: [ecs, systems, scheduling, tooling, diagnostics]
 since: 0.1
 status: stable
-related: [ecs/queries, ecs/components]
+related: [ecs/queries, ecs/components, core/job-priorities]
 ---
 
 ## What it is
@@ -133,3 +133,5 @@ or never runs, and no tool can tell which.
 
 - [Queries](queries.md) — what a system does once the runner reaches it.
 - [Components](components.md) — the data a system's access is declared over.
+- [Job priorities](../core/job-priorities.md) — the other half of "the parallel schedule is not
+  answerable": which tier a scheduled job goes in, and what defers behind a frame.
