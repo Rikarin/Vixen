@@ -9,7 +9,7 @@ namespace Vixen.Core.Threading;
 ///         Implement this on a <see langword="struct" />. The scheduler is generic over the
 ///         implementing type, so the call to <see cref="Execute" /> is a direct call on a value in an
 ///         array of that exact type: no boxing, no delegate, no closure, and no allocation on the
-///         path from <see cref="JobScheduler.Schedule{TJob}(in TJob, JobHandle)" /> to the work
+///         path from <see cref="JobScheduler.Schedule{TJob}(in TJob, JobHandle, JobPriority)" /> to the work
 ///         running.
 ///     </para>
 ///     <para>
