@@ -32,6 +32,99 @@ public abstract partial class ButtonBase : Control {
     UiElement label = null!;
     Icon? icon;
     bool pressedByKeyboard;
+    string? command;
+
+    /// <summary>The command id this button runs, or <c>null</c> if it is wired by hand.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of the wiring.</b> Setting it makes the button run
+    ///         <see cref="CommandRoute.Execute" /> when it is activated, and makes
+    ///         <see cref="Control.Disabled" />, the label and the check state follow whatever the
+    ///         route resolves to — including the case that matters most, which is that
+    ///         <i>nothing</i> resolves: an id no element in the tree handles disables the button,
+    ///         with no rule written anywhere and no reference to the editor.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>While an id is bound, <see cref="Control.Disabled" /> belongs to the route.</b> A
+    ///         caller that also writes it is writing a value the next refresh overwrites, which is
+    ///         the one thing about this that a reader has to know. Clearing the id back to
+    ///         <c>null</c> hands the property back and leaves it wherever the last refresh put it —
+    ///         deliberately, because re-enabling a button the application had disabled for its own
+    ///         reasons would be worse than leaving it.
+    ///     </para>
+    ///     <para>
+    ///         <b>An ordinary string property, so <c>Command="edit.copy"</c> works from
+    ///         <c>.vxml</c></b> exactly as <c>Label</c> does. It is not a <c>[UiProperty]</c> for
+    ///         <c>Label</c>'s reason and for <see cref="UiElement.CommandScope" />'s: a command id
+    ///         is not something a stylesheet has any business selecting on or setting.
+    ///     </para>
+    /// </remarks>
+    public string? Command {
+        get => command;
+        set {
+            if (string.Equals(command, value, StringComparison.Ordinal)) {
+                return;
+            }
+
+            command = value;
+
+            if (value is not null) {
+                // ⚠ A button that runs whatever the focus handles must not itself be what the focus
+                // is on, or a toolbar's Copy button copies from the toolbar. Set here rather than on
+                // the type because a `Button` with no command is an ordinary place — it is the
+                // binding that makes it a surface — and it is left set when the id is cleared, for
+                // the reason `Disabled` is: undoing a thing the application may have wanted.
+                IsCommandTransparent = true;
+
+                RefreshCommand();
+            }
+        }
+    }
+
+    /// <summary>Asks the route about the bound command and shows the answer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Everything a surface shows about a command is read here and nowhere else</b>, so that
+    ///     "when is it re-read" is one question with one answer rather than three properties each
+    ///     refreshed by whatever happened to notice. It is cheap by construction: a resolve is a walk
+    ///     up a handful of parents and the three predicates are the handler's own.
+    /// </remarks>
+    internal void RefreshCommand() {
+        if (command is null) {
+            return;
+        }
+
+        var handler = CommandRoute.Resolve(Document, command);
+
+        // Nobody responds ⇒ not executable, which is the same branch as a responder that says no.
+        Disabled = handler is not { CanExecute: true };
+
+        // ⚠ Only when the handler offers one. A menu is written with its labels in it and almost no
+        // command renames itself, so a binding that assigned `Title` unconditionally would blank
+        // every line whose handler did not supply one.
+        if (handler?.Title is { } renamed) {
+            Label = renamed;
+        }
+
+        var checkable = handler is { IsCheckable: true };
+        ShowCheck(checkable, checkable && handler!.Value.IsChecked);
+    }
+
+    /// <summary>Shows a bound command's check state.</summary>
+    /// <param name="checkable">Whether the command is a toggle at all.</param>
+    /// <param name="isChecked">Whether it is on. Always <c>false</c> when it is not checkable.</param>
+    /// <remarks>
+    ///     ⚠ <b>Through <see cref="ElementState.Checked" /> rather than a class</b>, because
+    ///     <c>:checked</c> is what the control theme already draws a pressed toggle with — so a
+    ///     command-bound button in a strip looks like the toggle it is without the theme learning a
+    ///     new selector. Overridden by <see cref="MenuItem" />, which has a tick gutter as well.
+    /// </remarks>
+    protected virtual void ShowCheck(bool checkable, bool isChecked) {
+        if (isChecked) {
+            State |= ElementState.Checked;
+        } else {
+            State &= ~ElementState.Checked;
+        }
+    }
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -142,8 +235,23 @@ public abstract partial class ButtonBase : Control {
     ///     flips, a tab selects itself, a menu item runs and closes the menu — all of which still
     ///     want the click reported afterwards, so an override calls its base.
     /// </remarks>
-    protected virtual void Activate(ActivationDevice device, int count, ModifierKeys modifiers) =>
+    /// <remarks>
+    ///     ⚠ <b>A bound <see cref="Command" /> runs <i>before</i> the click is raised, not after.</b>
+    ///     A menu item's click is what closes the menu it is in, and a command that ran afterwards
+    ///     would run against a tree the click had already torn down — a submenu chain closes three
+    ///     overlays, and anything the command wanted to anchor to one of them has nowhere to go. The
+    ///     click is the notification that the button did its thing, so it comes second.
+    /// </remarks>
+    protected virtual void Activate(ActivationDevice device, int count, ModifierKeys modifiers) {
+        // The same guard `RaiseClick` applies below, and it has to be repeated because the command
+        // is not raised through it: `Activate()` is reachable from code without passing an input
+        // route, which is the one path `Control.Refuse` does not cover.
+        if (command is not null && !Disabled) {
+            CommandRoute.Execute(Document, command);
+        }
+
         RaiseClick(device, count, modifiers);
+    }
 
     void Tapped(TapEvent args) {
         if (Disabled) {

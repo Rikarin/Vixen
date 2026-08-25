@@ -165,23 +165,49 @@ Each step is independently shippable and leaves the editor working.
    `CommandRoute.ScopeOf` is `null` for all nine contexts and this step would be a rename of the
    fallback. It needs a stated derivation for the editor first — see the box under G2 — and that is a
    design decision rather than a coding one.
-3. **`MenuItem.Command`, `Toolbar` and `ButtonBase` binding in `Vixen.Ui.Controls`**, with `Disabled`,
-   title and check state following the route.
+3. ✅ **`MenuItem.Command`, ~~`Toolbar`~~ and `ButtonBase` binding in `Vixen.Ui.Controls`**, with
+   `Disabled`, title and check state following the route. — *Landed 2026-08-25.* `Command` is on
+   `ButtonBase`, so `Button`, `IconButton`, `MenuItem`, `ToggleButton` and `Link` all have it;
+   `MenuItem` overrides only the tick gutter. `CommandHandler` gained `Title`, `IsCheckable` and
+   `IsChecked`, because the route as step 1 left it carried neither of the two things this step was
+   asked to bind. 10 tests in `Core/Vixen.Ui.Controls.Tests/CommandBindingTests.cs`, one of them
+   through a real compiled `.vxml`.
+
+   > ⚠️ **`Toolbar` is not built, and the doc naming it was the last of G5's assumptions to survive
+   > contact.** No `Toolbar` type exists in `Vixen.Ui.Controls`; what exists is
+   > `Editor/Vixen.Editor.Ui/Menus/ToolbarPresenter.cs`, whose `Refresh` (`:166`) does exactly three
+   > things per button — `Disabled`, `Label` from `Caption`, `ElementState.Checked` — and all three
+   > are now what `ButtonBase.Command` does by itself. What is left of a toolbar is a `Panel` of
+   > `Button`s and `Separator`s, both of which already exist, plus the `toolbar-group` class the
+   > editor theme already has. A new public control would have been a container with no behaviour in
+   > it.
+
+   > ⚠️ **A second, larger finding: the route could not see past the surfaces that display it.**
+   > `Menu.OnOpened` (`Menus.cs:364`) focuses its first item so the arrow keys work, and
+   > `MenuBarItem` is a `ButtonBase` that takes the focus when pressed. So a menu item resolving
+   > `edit.copy` from `UiDocument.Focused` resolved it **from inside the menu**, found nothing, and
+   > greyed every line — the criterion below would have been met by a menu in which every command
+   > was permanently disabled. Step 1's model is right and was one flag short of usable: a surface
+   > that shows commands must be able to say it is not a *place*. `UiElement.IsCommandTransparent`
+   > is that flag, `UiDocument.CommandFocus` is the focus that ignores it, and
+   > `CommandRoute.Origin` now reads the latter. `Menu`, `MenuBar` and any control with a bound
+   > `Command` set it. It is AppKit's "a menu is not in the responder chain", stated as data.
+   > Sabotage: removing the transparency test in `Focus` fails 6 of 10 binding tests.
 4. **Editor menus and toolbars move onto the binding**, deleting the hand-maintained enablement.
 5. **`Invalidated`**, and the two persistently visible surfaces subscribe.
 
 ## Acceptance criteria
 
-- 🟡 A `Vixen.Ui` application with **no reference to `Vixen.Editor.Ui`** can declare a menu whose
+- ✅ A `Vixen.Ui` application with **no reference to `Vixen.Editor.Ui`** can declare a menu whose
   items are commands, and an item whose command nothing handles is disabled without the application
-  writing a rule. — *The route half is done: `CommandRoute.CanExecute` is `false` when nothing
-  responds (`Nobody_responds_so_it_is_not_executable`). The menu half is step 3.*
+  writing a rule. — *`An_id_nothing_handles_disables_the_item_and_the_menu_writes_no_rule`, and
+  `An_item_bound_from_markup_is_bound_the_same_as_one_bound_from_code` proves it from a compiled
+  `.vxml` containing nothing but labels and ids.*
 - ✅ Two views declare a handler for the same id; focusing each in turn runs a different one, and
   neither view knows the other exists. — `The_focused_leaf_decides_which_of_two_handlers_runs`.
-- 🟡 A view registers a handler for `edit.copy` with `canExecute` returning false while its selection
-  is empty; the menu item greys and un-greys with the selection, with no code in the menu. — *The
-  predicate half is done: `Enablement_follows_a_selection_with_no_code_in_the_caller`. The menu item
-  is step 3.*
+- ✅ A view registers a handler for `edit.copy` with `canExecute` returning false while its selection
+  is empty; the menu item greys and un-greys with the selection, with no code in the menu. —
+  `Enablement_follows_a_view_s_predicate_with_no_code_in_the_menu`.
 - ⛔ Moving focus between two scopes changes which binding a chord resolves to **without any code
   assigning a context**, and `EditorShell.Context` no longer exists. — *Blocked. See the amendment
   under G2: the editor's panels are not focusable and four of its nine contexts are modes, so

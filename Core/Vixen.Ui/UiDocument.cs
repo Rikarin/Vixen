@@ -737,6 +737,12 @@ public sealed partial class UiDocument : IDisposable {
             }
         }
 
+        // ⚠ Separately from the focus, because the two are allowed to be different elements — that
+        // is what `CommandFocus` is for — and the one this releases is by definition the one the
+        // focus is *not* on. A view removed while a menu is open would otherwise leave the route
+        // walking up through the parents of something no longer in the tree.
+        ReleaseCommandFocus(element);
+
         for (var captured = Captured; captured is not null; captured = captured.Parent) {
             if (ReferenceEquals(captured, element)) {
                 ReleasePointer();

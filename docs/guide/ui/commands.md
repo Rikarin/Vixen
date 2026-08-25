@@ -66,10 +66,59 @@ Everything below `panel` is in the `outliner` scope from then on, including cont
 controls added by a plugin. An element inside it may declare a narrower one, and the nearest
 declaration at or above the focus is what `CommandRoute.ScopeOf` returns.
 
-`CommandRoute.Origin` is where the walk starts: the focused element, or the root when nothing has
-the focus. The root rather than nothing, so a handler declared on the document still answers while
-the focus is nowhere — which is why a command with a single registration-time implementation is
-simply a handler on the root, and behaves exactly as it always did.
+`CommandRoute.Origin` is where the walk starts: `UiDocument.CommandFocus`, or the root when there is
+none. The root rather than nothing, so a handler declared on the document still answers while the
+focus is nowhere — which is why a command with a single registration-time implementation is simply a
+handler on the root, and behaves exactly as it always did.
+
+### Binding a control to an id
+
+`ButtonBase.Command` is the whole of the wiring, and everything that derives from it — `Button`,
+`IconButton`, `MenuItem`, `ToggleButton`, `Link` — gets it:
+
+```vxml no-compile="one line of a menu; the whole file is Core/Vixen.Ui.Controls.Tests/Markup/CommandMenu.vxml"
+<MenuItem Label="Copy" Command="edit.copy" />
+```
+
+That item runs whatever the focus handles, greys itself out when nothing does, and shows a tick when
+the handler says it is on. There is no `Disabled` anywhere in the markup and no handler in the
+component behind it. A toolbar is the same tag with `Button` instead of `MenuItem`; there is no
+separate `Toolbar` control, because a strip of command-bound buttons in a `Panel` is one.
+
+Three things follow the route, and each has a rule about the case where the handler says nothing:
+
+| What | When the handler supplies it | When it does not |
+|---|---|---|
+| `Disabled` | `!CanExecute` | `true` — nothing responds means not executable |
+| `Label` | replaced by `Title` | left as the markup wrote it |
+| check state | `ElementState.Checked`, and a `MenuItem`'s tick gutter | no gutter at all, so an ordinary menu is not indented by a column of empty ticks |
+
+⚠ **While an id is bound, `Disabled` belongs to the route.** A caller that also writes it is writing
+a value the next refresh overwrites.
+
+### A surface that shows commands is not a place
+
+⚠ **`UiElement.IsCommandTransparent` is the flag that makes the whole binding work**, and it is the
+one thing about this design that is not obvious.
+
+A menu has to take the focus to be usable — `Menu.OnOpened` focuses the first item so the arrow keys
+work, and a `MenuBarItem` takes the focus the moment it is pressed. So an item asking "who handles
+`edit.copy`" from `UiDocument.Focused` gets the answer *the menu item*, and the view the menu was
+opened over is not on the walk at all.
+
+`Menu`, `MenuBar` and any control with a bound `Command` therefore declare themselves transparent:
+focusing them leaves `UiDocument.CommandFocus` pointing where it was. It does not make anything
+unfocusable — Tab still reaches it, the ring still shows, the arrow keys still move between items.
+It is AppKit's rule that a menu is not in the responder chain, stated as data rather than as an
+event loop.
+
+An application writing its own command surface — a palette, a floating tool strip whose buttons take
+the focus — sets it once on the surface's root, and everything inside is covered.
+
+### When it is re-asked
+
+A menu asks the route as it opens, which is the right moment for a surface that is not on screen the
+rest of the time — nothing polls, and a menu of forty items costs forty walks once per opening.
 
 ## Examples
 

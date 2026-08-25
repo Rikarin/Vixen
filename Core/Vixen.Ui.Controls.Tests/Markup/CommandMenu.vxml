@@ -1,0 +1,32 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    ⚠ A menu of ids and nothing else. There is no enablement rule here, no `Disabled`, and no
+    handler — which is the point being compiled: `Command` is an ordinary string property, so it
+    is settable from an attribute exactly as `Label` is, and the whole of what this component
+    declares is *what* each line means.
+-->
+@component CommandMenu
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+
+<MenuBar ref="@Bar">
+    <Menu Label="Edit">
+        <MenuItem Label="Copy" Command="edit.copy" />
+        <MenuItem Label="Paste" Command="edit.paste" />
+    </Menu>
+</MenuBar>
+
+@code {
+    /// <summary>The bar the markup declared.</summary>
+    public MenuBar Bar { get; private set; } = null!;
+
+    /// <summary>The one menu on it.</summary>
+    /// <remarks>
+    ///     Through the bar's item rather than a <c>ref</c> on the <c>&lt;Menu&gt;</c> itself, because
+    ///     a nested menu is reparented to the document root by <c>MenuBar.OnChildAdded</c> — so the
+    ///     bar's item is the only thing that still knows which menu the tag became.
+    /// </remarks>
+    public Menu Menu => Bar.Items[0].Menu;
+}
