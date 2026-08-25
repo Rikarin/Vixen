@@ -46,6 +46,18 @@ unwired again. Those assertions are on *which glyph is leftmost*: a mis-ordered 
 and not visibly wrong to a reader of the wrong script, so an assertion on logical order would pass
 against every bug this file is about.
 
+The same audit found the same shape one level down: `Vixen.Ui` cut its runs where the *face* changed
+and not where the *level* changed, so reordering stopped at a font-fallback boundary. `TextRun` now
+carries a level and `TextLine` orders its pens by L2 — through `TextItemizer.VisualOrder`, which grew
+a `ReadOnlySpan<int>` overload for the purpose rather than being copied into `Vixen.Ui`. **L2 lives
+here and only here**, and a second copy of it would be a second thing to keep conformant.
+
+⚠ A caller that cuts runs on something of its own — a face, a size, a rich-text span — must intersect
+its boundaries with the itemiser's before it can reorder them, because reversing stretches of runs is
+sound only when each run has one level throughout. It must *not* cut on script: the shaper re-itemises
+by script itself, with the whole string in the buffer, which is how an Arabic letter finds out whether
+its neighbour joins.
+
 ## What the rules cost
 
 Most of UAX#29 is a decision about two adjacent code points. The ones that are not are where

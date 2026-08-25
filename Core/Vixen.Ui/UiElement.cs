@@ -845,33 +845,102 @@ public partial class UiElement : Composition.IComposable {
     static readonly System.Buffers.SearchValues<char> HardBreaks =
         System.Buffers.SearchValues.Create("\n\r\f\v\u0085\u2028\u2029");
 
-    /// <summary>Shapes one stretch of the text into the runs its faces need.</summary>
+    /// <summary>Shapes one stretch of the text into the runs its faces and its levels need.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two things cut a line into runs, and a run has to be a stretch over which both are
+    ///         constant.</b> <see cref="FontRegistry.Cover" /> cuts where the face changes; UAX#9 cuts
+    ///         where the embedding level changes. A run gets one shaping call and one position on the
+    ///         line, so it cannot straddle either — and <see cref="TextLine" /> reorders whole runs by
+    ///         L2, which is sound only because each of them has a single level.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Cutting on coverage alone is the bug this shape exists to prevent, and it renders
+    ///         plausibly.</b> Runs laid down in logical order reorder within each face and not across
+    ///         the boundary between them, so a line whose Arabic and whose Latin come from different
+    ///         files draws both words correctly, at the right total width, in the wrong order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And cutting on level is not the same as cutting on script</b>, which is why the
+    ///         itemiser's items are merged back together where only their script differs. The shaper
+    ///         re-itemises by script internally and does it with the whole string in the buffer, which
+    ///         is how an Arabic letter finds out whether its neighbour joins; splitting here would
+    ///         hand it substrings and take that context away. Level boundaries are safe to split at
+    ///         because a level change is a change of strong direction, and no script joins across one.
+    ///     </para>
+    /// </remarks>
     TextLine Runs(string text, int start, List<FontFace> chain, float width = float.NaN, float offset = 0f) {
         var spans = new List<FontSpan>();
         FontRegistry.Cover(text, chain, spans);
 
+        var levels = Levels(text);
         var runs = ImmutableArray.CreateBuilder<TextRun>(spans.Count);
 
         foreach (var span in spans) {
-            // ⚠ The whole string when there is one span, and a substring only when there is more than
-            // one. Not a micro-optimisation: `text[0..Length]` is a fresh string every call, and the
-            // shaping cache keys on the string's contents, so it would hash and compare the whole
-            // label to find the entry it already had.
-            var piece = spans.Count == 1 ? text : text.Substring(span.Start, span.Length);
+            foreach (var level in levels) {
+                var from = Math.Max(span.Start, level.Start);
+                var to = Math.Min(span.Start + span.Length, level.Start + level.Length);
 
-            runs.Add(
-                new TextRun(
-                    span.Font,
-                    Document.Shaping.Shape(span.Font, piece, ParagraphDirection, features: FontFeatures),
-                    FontSize,
-                    LetterSpacing,
-                    LineHeight,
-                    start + span.Start
-                )
-            );
+                if (from >= to) {
+                    continue;
+                }
+
+                // ⚠ The whole string when one face and one level cover it, and a substring only
+                // otherwise. Not a micro-optimisation: `text[0..Length]` is a fresh string every
+                // call, and the shaping cache keys on the string's contents, so it would hash and
+                // compare the whole label to find the entry it already had. This is every label in
+                // an interface, and it is the same fast path the coverage-only version had.
+                var piece = from == 0 && to == text.Length ? text : text[from..to];
+
+                // ⚠ The level's own direction, not the paragraph's. The piece has one level
+                // throughout, so which way it is drawn is decided — handing the shaper the
+                // paragraph's `Auto` would make it guess again from the piece's first strong
+                // character, and a piece of neutrals between two Arabic words would guess wrong.
+                var direction = (level.Level & 1) != 0
+                    ? ParagraphDirection.RightToLeft
+                    : ParagraphDirection.LeftToRight;
+
+                runs.Add(
+                    new TextRun(
+                        span.Font,
+                        Document.Shaping.Shape(span.Font, piece, direction, features: FontFeatures),
+                        FontSize,
+                        LetterSpacing,
+                        LineHeight,
+                        start + from,
+                        level.Level
+                    )
+                );
+            }
         }
 
-        return new TextLine(runs.MoveToImmutable(), width, offset);
+        return new TextLine(runs.ToImmutable(), width, offset);
+    }
+
+    /// <summary>The text's bidi levels, as the longest stretches over which one level holds.</summary>
+    /// <remarks>
+    ///     <see cref="TextItemizer.Itemize" /> cuts on script as well as on level, and only the level
+    ///     half is a boundary a <see cref="TextRun" /> has to respect — so its items are merged back
+    ///     wherever two adjacent ones agree about the level. See the remarks on <see cref="Runs" />
+    ///     for why giving the shaper the longest run it can have is not tidiness.
+    /// </remarks>
+    List<TextItem> Levels(string text) {
+        var items = TextItemizer.Itemize(text, ParagraphDirection);
+        var merged = new List<TextItem>(items.Count);
+
+        // One level over the whole string is what almost every label is, and this collapses it to a
+        // single entry — which is what lets `Runs` hand the shaper the string it was given rather
+        // than a substring of it.
+        foreach (var item in items) {
+            if (merged.Count > 0 && merged[^1].Level == item.Level) {
+                merged[^1] = merged[^1] with { Length = merged[^1].Length + item.Length };
+                continue;
+            }
+
+            merged.Add(item);
+        }
+
+        return merged;
     }
 
     /// <summary>Breaks the text into lines and shapes each of them.</summary>

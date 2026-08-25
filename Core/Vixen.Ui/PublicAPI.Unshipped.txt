@@ -879,8 +879,11 @@ Vixen.Ui.TextRun.Clusters.get -> int
 Vixen.Ui.TextRun.Font.get -> Vixen.Ui.Text.FontFace
 Vixen.Ui.TextRun.Font.init -> Vixen.Ui.Text.FontFace
 Vixen.Ui.TextRun.Height.get -> float
+Vixen.Ui.TextRun.IsRightToLeft.get -> bool
 Vixen.Ui.TextRun.Leading.get -> float
 Vixen.Ui.TextRun.Leading.init -> float
+Vixen.Ui.TextRun.Level.get -> int
+Vixen.Ui.TextRun.Level.init -> int
 Vixen.Ui.TextRun.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> into, float penX = 0) -> void
 Vixen.Ui.TextRun.Scale.get -> float
 Vixen.Ui.TextRun.Shaped.get -> Vixen.Ui.Text.ShapedText
@@ -889,7 +892,7 @@ Vixen.Ui.TextRun.Size.get -> float
 Vixen.Ui.TextRun.Size.init -> float
 Vixen.Ui.TextRun.Start.get -> int
 Vixen.Ui.TextRun.Start.init -> int
-Vixen.Ui.TextRun.TextRun(Vixen.Ui.Text.FontFace Font, Vixen.Ui.Text.ShapedText Shaped, float Size, float Tracking = 0, float Leading = NaN, int Start = 0) -> void
+Vixen.Ui.TextRun.TextRun(Vixen.Ui.Text.FontFace Font, Vixen.Ui.Text.ShapedText Shaped, float Size, float Tracking = 0, float Leading = NaN, int Start = 0, int Level = 0) -> void
 Vixen.Ui.TextRun.Tracking.get -> float
 Vixen.Ui.TextRun.Tracking.init -> float
 Vixen.Ui.TextRun.Width.get -> float

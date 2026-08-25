@@ -616,6 +616,29 @@ Underestimating text is the classic UI-framework mistake.
   the same defect inside out. `BidiDirectionTests` asserts the flip in both directions, and asserts
   it as *which glyph is leftmost* — the only form of the assertion that a plausible-looking wrong
   answer cannot pass.
+
+  ⚠ **And the reordering did not cross a font-fallback boundary**, which is the same defect one level
+  down. Two things cut a line into runs — `FontRegistry.Cover` where the *face* changes, UAX#9 where
+  the *level* changes — and only the first was cutting. Runs were laid down in logical order, so a
+  line whose Arabic and whose Latin came from different files drew both words correctly, at the right
+  total width, in the wrong order.
+
+  **Fixed.** `TextRun` carries a `Level`, `UiElement.Runs` intersects the coverage spans with the
+  level runs, and `TextLine` lays its pens down in visual order — L2 delegated to
+  `TextItemizer.VisualOrder`, not copied — while `Runs` stays in logical order so that the caret walk,
+  `Start` and `Length` are untouched. ⚠ **The two halves are load-bearing separately**: reverting the
+  pens fails four tests, and merging the levels back fails exactly the two that turn on a neutral
+  between two opposite runs. That second failure is the instructive one — the words come out in the
+  right order and the *space* between them does not, which is precisely the kind of wrongness that
+  survives a reviewer who does not read the script.
+
+  ⚠ **Level boundaries are safe to split the shaper's input at and script boundaries are not**, which
+  is why the itemiser's items are merged back where only their script differs. A shaper finds out
+  whether an Arabic letter's neighbour joins by seeing the whole string; a level change is a change of
+  strong direction, and no script joins across one.
+
+  Still owed: nothing *mirrors*. `text-align: start` on a wrapped block, bidi-aware hit-testing and
+  caret affinity are all untouched — see the `TextEditor` row in `docs/overview.md`.
 - **Line breaking**: UAX#14 with a compact rule table; UAX#29 grapheme/word segmentation for cursor
   movement and double-click selection.
 - **Rasterisation**: **MSDF** atlas — multi-channel signed distance fields give crisp text at any

@@ -3,17 +3,28 @@
 
 using System.Collections.Immutable;
 using Vixen.Ui.Layout;
+using Vixen.Ui.Text;
 
 namespace Vixen.Ui;
 
 /// <summary>An element's text as the runs it is actually drawn in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>One run per face, in text order.</b> Most lines have exactly one, and the code below is
-///         written so that a line that does costs no more than the single-run type it replaced. A
-///         second run appears when a character is not in the first font — <see cref="FontRegistry" />
-///         hands each grapheme cluster to the first face of the declaration's chain that covers it —
-///         and the same shape will carry a rich-text span whose size or weight differs.
+///         <b>One run per face <i>and</i> per bidi level, held in text order and drawn in visual
+///         order.</b> Most lines have exactly one, and the code below is written so that a line that
+///         does costs no more than the single-run type it replaced. A second run appears when a
+///         character is not in the first font — <see cref="FontRegistry" /> hands each grapheme
+///         cluster to the first face of the declaration's chain that covers it — or when the text
+///         changes direction, and the same shape will carry a rich-text span whose size or weight
+///         differs.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Runs" /> is logical and <see cref="PenOf" /> is visual, and the two are
+///         deliberately not the same order.</b> UAX#9's L2 decides where each run is drawn, and that
+///         is applied to the pens alone: everything that walks the runs — the caret, <see cref="Start" />,
+///         <see cref="Length" /> — wants them in the order the text is read. A consumer that needs to
+///         paint left to right sorts by <see cref="PenOf" />; one that needs to reason about the
+///         characters does not have to know reordering happened at all.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Composition happens in pixels, and that is not an implementation detail.</b> Runs
@@ -62,14 +73,10 @@ public sealed class TextLine {
         Offset = offset;
         pens = new float[runs.Length];
 
-        var pen = 0f;
         var above = 0f;
         var below = 0f;
 
         for (var i = 0; i < runs.Length; i++) {
-            pens[i] = pen;
-            pen += runs[i].Width;
-
             // ⚠ Ascent and descent are taken separately and *both* maximised, rather than the taller
             // run's height being used whole. Runs sit on a shared baseline, so a face with a deep
             // descender and a face with a tall ascender each contribute their own side; taking one
@@ -78,12 +85,50 @@ public sealed class TextLine {
             below = MathF.Max(below, runs[i].Height - runs[i].Baseline);
         }
 
+        // ⚠ **The pens are laid down in visual order and stored against the logical index**, which is
+        // the whole of this type's bidi handling and the reason `Runs` can stay in text order. UAX#9's
+        // L2 decides which run is drawn where; everything else here — the caret walk, `Start`,
+        // `Length` — wants the runs in the order they are read, and rewriting the array into visual
+        // order would break all of it for a reordering that only the pen arithmetic needs.
+        //
+        // Reordering runs is sound because each run has one level throughout: see `TextRun.Level`,
+        // and see `UiElement.Runs`, which is what has to cut on level as well as on face to make that
+        // true. A run whose level was taken from its first character would be reordered as a unit and
+        // would carry its own neutrals to the wrong end of the line.
+        //
+        // Free for the overwhelmingly common line — `VisualOrder` of a single level is the identity,
+        // and one run of level 0 is every label in an interface.
+        var pen = 0f;
+
+        foreach (var index in Order(runs)) {
+            pens[index] = pen;
+            pen += runs[index].Width;
+        }
+
         Width = float.IsNaN(width) ? pen : width;
         Baseline = above;
         Height = above + below;
 
         Start = runs[0].Start;
         Length = runs[^1].Start + runs[^1].Shaped.Text.Length - Start;
+    }
+
+    /// <summary>The runs' indices in the order they are drawn, left to right.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Delegated to <see cref="TextItemizer.VisualOrder(ReadOnlySpan{int})" /> rather than
+    ///     written here.</b> L2 is four lines and they are four lines this repository already has,
+    ///     conformance-tested against 91 707 of the Consortium's cases through the itemiser. A second
+    ///     copy would be a second thing to get right about the one rule whose being wrong produces a
+    ///     picture that looks fine to anyone who does not read the script.
+    /// </remarks>
+    static int[] Order(ImmutableArray<TextRun> runs) {
+        var levels = new int[runs.Length];
+
+        for (var i = 0; i < levels.Length; i++) {
+            levels[i] = runs[i].Level;
+        }
+
+        return TextItemizer.VisualOrder(levels);
     }
 
     /// <summary>Where this line's text begins in the element's, as a UTF-16 index.</summary>
