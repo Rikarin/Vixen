@@ -2089,9 +2089,6 @@ T:Vixen.Net.Diagnostics.NetworkMetrics sweep-pending
 T:Vixen.Net.DisconnectReason sweep-pending
 T:Vixen.Net.Engine.ISyncCodec`1 sweep-pending
 T:Vixen.Net.Engine.ISyncField sweep-pending
-T:Vixen.Net.Engine.ISyncList sweep-pending
-T:Vixen.Net.Engine.NetworkBehaviour sweep-pending
-T:Vixen.Net.Engine.NetworkModule sweep-pending
 T:Vixen.Net.Engine.NetworkSceneId sweep-pending
 T:Vixen.Net.Engine.NetworkSceneMap sweep-pending
 T:Vixen.Net.Engine.NetworkSpawnSystem sweep-pending
@@ -2102,12 +2099,6 @@ T:Vixen.Net.Engine.NetworkTransformCaptureSystem sweep-pending
 T:Vixen.Net.Engine.SceneInterestRule sweep-pending
 T:Vixen.Net.Engine.SyncCodecs sweep-pending
 T:Vixen.Net.Engine.SyncListChange sweep-pending
-T:Vixen.Net.Engine.SyncListReplicator`1 sweep-pending
-T:Vixen.Net.Engine.SyncListVersion sweep-pending
-T:Vixen.Net.Engine.SyncList`1 sweep-pending
-T:Vixen.Net.Engine.SyncStateReplicator`1 sweep-pending
-T:Vixen.Net.Engine.SyncStateVersion sweep-pending
-T:Vixen.Net.Engine.SyncVar`1 sweep-pending
 T:Vixen.Net.Generators.ReplicationGenerator sweep-pending
 T:Vixen.Net.Generators.RpcGenerator sweep-pending
 T:Vixen.Net.Messaging.BitReader sweep-pending
