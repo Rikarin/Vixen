@@ -1,0 +1,5 @@
+guid: ed19097781f5578ce4cb69700f315ef1
+metaVersion: 1
+addressable:
+  address: ui/sidekick
+  group: UiCore
