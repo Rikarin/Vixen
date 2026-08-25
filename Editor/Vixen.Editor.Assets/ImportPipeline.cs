@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Reflection;
@@ -76,6 +77,24 @@ public sealed class ImportPipeline {
     /// <summary>Whether an importer that reads an undeclared file fails.</summary>
     public bool EnforceDeclaredReads { get; set; } = true;
 
+    /// <summary>How many imports <see cref="ImportAllAsync" /> may run at once.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Cores minus one by default, which is <c>WorkerHost.DefaultWorkerCount</c>'s number for
+    ///         doc 08's reason — the coordinator is still doing work of its own, and an import is
+    ///         mostly filesystem, so the last core is worth more as headroom than as a worker.
+    ///     </para>
+    ///     <para>
+    ///         <b>One is not a special case, it is the sequential loop.</b> Setting this to one gives
+    ///         exactly the run order this had before there was a scheduler, which is what makes it
+    ///         usable as a control in a test rather than only as a throttle.
+    ///     </para>
+    /// </remarks>
+    public int MaxConcurrency { get; set; } = DefaultConcurrency;
+
+    /// <summary>How many imports run at once when nobody says.</summary>
+    public static int DefaultConcurrency => Math.Max(1, Environment.ProcessorCount - 1);
+
     /// <summary>Where importers actually run.</summary>
     /// <remarks>
     ///     In this process by default. <c>Tools/Vixen.AssetCompiler</c> supplies one that runs them in
@@ -116,25 +135,43 @@ public sealed class ImportPipeline {
     /// <returns>What happened to each asset, in path order.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Deciding is parallel; importing is not.</b> Working out whether an asset needs
-    ///         anything done is a read of its sidecar, a parse, a hash of its source and a lookup in
-    ///         the cache — no writes, anywhere — and in a project where nothing has changed it is the
-    ///         whole cost of the command. Measured on a ten-thousand-asset project it was the
-    ///         difference between the phase's one-second budget being met and being missed by half.
+    ///         <b>Deciding is parallel; importing is parallel; the answer is the sequential one.</b>
+    ///         Working out whether an asset needs anything done is a read of its sidecar, a parse, a
+    ///         hash of its source and a lookup in the cache — no writes, anywhere — and in a project
+    ///         where nothing has changed it is the whole cost of the command. Measured on a
+    ///         ten-thousand-asset project it was the difference between the phase's one-second budget
+    ///         being met and being missed by half. The imports then run
+    ///         <see cref="MaxConcurrency" />-at-a-time over the same list.
     ///     </para>
     ///     <para>
-    ///         The imports themselves stay sequential, which keeps every semantic exactly as it was:
-    ///         one importer at a time writing chunks, sidecars and cache records, in path order.
-    ///         Running <i>importers</i> in parallel is what the out-of-process worker
-    ///         [08](../../docs/plan/08-asset-pipeline-and-addressables.md) specifies is for, and it
-    ///         buys crash isolation with it.
+    ///         ⚠ <b>What made the imports sequential was one thing, and it is preserved rather than
+    ///         given up.</b> A dependency's artefact ids are part of a dependent's key, so what an
+    ///         asset's key <i>is</i> depends on which of its dependencies have already re-imported —
+    ///         and in a path-ordered loop the answer is exactly "the ones before it in path order".
+    ///         Nine importers declare asset dependencies through <c>AssetReferenceScan</c>, so this is
+    ///         the ordinary case and not an exotic one, and dispatching without it would make a
+    ///         build's bytes depend on how many cores the machine has.
     ///     </para>
     ///     <para>
-    ///         <b>A decision is discarded if something it depends on re-imported first.</b> A
-    ///         dependency's artefact ids are part of a dependent's key, so a decision taken before
-    ///         that dependency ran was taken against ids that no longer exist. That reproduces the
-    ///         sequential loop's behaviour exactly — in path order, a dependent sees its dependency's
-    ///         new artefacts if and only if the dependency came first.
+    ///         <b>So an asset waits for its dependencies and for nothing else.</b> Before asset
+    ///         <i>i</i> reads another asset's record — to ask whether a cached decision still stands,
+    ///         or to price a fresh key — it waits for that asset if and only if that asset comes
+    ///         earlier in path order, and reads the record as it was before the run if it comes later.
+    ///         That is the sequential loop's view of the cache, reproduced exactly, so
+    ///         <see cref="MaxConcurrency" /> changes when work happens and never what it produces.
+    ///     </para>
+    ///     <para>
+    ///         <b>Waiting cannot deadlock, by construction.</b> An asset only ever waits on a
+    ///         <i>lower</i> index, and indices are handed to workers in increasing order — so
+    ///         whatever an asset is waiting for has already been given to some worker, and the lowest
+    ///         index still running is waiting for nothing.
+    ///     </para>
+    ///     <para>
+    ///         Running importers in separate <i>processes</i> is a different axis and still the
+    ///         out-of-process worker's, in
+    ///         [08](../../docs/plan/08-asset-pipeline-and-addressables.md): that one buys crash
+    ///         isolation, and it composes with this one, because a
+    ///         <see cref="IImportExecutor" /> now has several jobs in flight instead of one.
     ///     </para>
     /// </remarks>
     public async ValueTask<IReadOnlyList<ImportOutcome>> ImportAllAsync(CancellationToken cancellationToken = default) {
@@ -145,28 +182,58 @@ public sealed class ImportPipeline {
             0,
             entries.Length,
             new ParallelOptions { CancellationToken = cancellationToken },
-            index => prepared[index] = Prepare(entries[index])
+            index => prepared[index] = Prepare(entries[index], default)
         );
 
-        var outcomes = new List<ImportOutcome>(entries.Length);
-        var reimported = new HashSet<AssetId>();
+        var run = new SequentialView(entries, Cache);
+        var outcomes = new ImportOutcome[entries.Length];
+        var dispensed = -1;
+        ExceptionDispatchInfo? failure = null;
 
-        for (var index = 0; index < entries.Length; index++) {
-            var entry = entries[index];
-            var decision = prepared[index];
+        async Task WorkAsync() {
+            while (true) {
+                // Increasing order, which is what makes waiting on a lower index safe: anything an
+                // asset can wait for has already been given to a worker.
+                var index = Interlocked.Increment(ref dispensed);
 
-            if (decision.Reusable is { } record && !record.AssetDependencies.Any(reimported.Contains)) {
-                outcomes.Add(new(entry.Guid, decision.Importer!.Name, true, true, record, []));
-                continue;
-            }
+                if (index >= entries.Length) {
+                    return;
+                }
 
-            var outcome = await ImportAsync(entry, cancellationToken).ConfigureAwait(false);
-            outcomes.Add(outcome);
+                try {
+                    if (Volatile.Read(ref failure) is not null) {
+                        // Still answered, and answered for every remaining index. A run that stopped
+                        // replying would leave whatever was waiting on this asset waiting for ever,
+                        // which turns a failed import into a hung command.
+                        run.Abandon(index);
+                        continue;
+                    }
 
-            if (outcome is { WasCached: false, Record: not null }) {
-                reimported.Add(entry.Guid);
+                    outcomes[index] = await ImportOneAsync(run, index, entries[index], prepared[index], cancellationToken)
+                        .ConfigureAwait(false);
+
+                    run.Finish(index, outcomes[index] is { WasCached: false, Record: not null });
+                } catch (Exception thrown) {
+                    // The first one is the one that gets reported; the ones after it are the
+                    // cancellations this one caused.
+                    Interlocked.CompareExchange(ref failure, ExceptionDispatchInfo.Capture(thrown), null);
+                    run.Abandon(index);
+                }
             }
         }
+
+        var workers = new Task[Math.Clamp(MaxConcurrency, 1, Math.Max(entries.Length, 1))];
+
+        for (var worker = 0; worker < workers.Length; worker++) {
+            // ⚠ Not given the cancellation token. A worker cancelled before it started would leave
+            // its share of the list undispensed, and every asset waiting on one of those would wait
+            // for ever. Cancellation arrives through the imports themselves, which is where it can
+            // be answered.
+            workers[worker] = Task.Run(WorkAsync, CancellationToken.None);
+        }
+
+        await Task.WhenAll(workers).ConfigureAwait(false);
+        failure?.Throw();
 
         return outcomes;
     }
@@ -175,8 +242,41 @@ public sealed class ImportPipeline {
     /// <param name="entry">The asset.</param>
     /// <param name="cancellationToken">Cancels the import.</param>
     /// <returns>What happened.</returns>
-    public async ValueTask<ImportOutcome> ImportAsync(AssetEntry entry, CancellationToken cancellationToken = default) {
-        var decision = Prepare(entry);
+    public ValueTask<ImportOutcome> ImportAsync(AssetEntry entry, CancellationToken cancellationToken = default) =>
+        ImportAsync(entry, default, cancellationToken);
+
+    /// <summary>
+    ///     Acts on a whole-project decision: takes the cached answer if it still stands, and imports
+    ///     otherwise — after waiting for whatever the sequential loop would have run first.
+    /// </summary>
+    /// <remarks>
+    ///     Both waits are the same set when the decision was reusable, and the second returns at
+    ///     once. The first is not redundant, because the importing branch reads exactly those records
+    ///     too: <see cref="Prepare" /> prices the previous import's dependencies to work out whether
+    ///     its key still holds.
+    /// </remarks>
+    async ValueTask<ImportOutcome> ImportOneAsync(
+        SequentialView run,
+        int index,
+        AssetEntry entry,
+        Prepared decision,
+        CancellationToken cancellationToken
+    ) {
+        var view = new View(run, index);
+
+        await view.WaitForEarlierAsync(run.RecordFor(entry.Guid, index)?.AssetDependencies ?? [])
+            .ConfigureAwait(false);
+
+        if (decision.Reusable is { } record
+            && !await view.WaitForEarlierAsync(record.AssetDependencies).ConfigureAwait(false)) {
+            return new(entry.Guid, decision.Importer!.Name, true, true, record, []);
+        }
+
+        return await ImportAsync(entry, view, cancellationToken).ConfigureAwait(false);
+    }
+
+    async ValueTask<ImportOutcome> ImportAsync(AssetEntry entry, View view, CancellationToken cancellationToken) {
+        var decision = Prepare(entry, view);
 
         if (decision.Refusal is { } refusal) {
             return Refused(entry, refusal);
@@ -230,6 +330,13 @@ public sealed class ImportPipeline {
         var fileDependencies = result.FileDependencies.Order(StringComparer.Ordinal).ToArray();
         var assetDependencies = result.AssetDependencies.Order().ToArray();
 
+        // ⚠ What an import declares is only known once it has run, so this is the second wait and
+        // not a repeat of the first: an asset can announce a dependency the previous import did not
+        // have — a scene that gained a reference to a material — and that dependency's artefacts are
+        // about to go into this asset's key. Nothing has been written yet, so waiting here costs
+        // ordering and not work.
+        await view.WaitForEarlierAsync(assetDependencies).ConfigureAwait(false);
+
         // The key stored is the one describing what the import *actually* depended on, not the
         // speculative one it was tested against. Storing the speculative key would mean the first
         // import of every asset was followed by a second one that also ran — the first computed its
@@ -238,7 +345,7 @@ public sealed class ImportPipeline {
             entry.Guid,
             importer.Name,
             importer.Version,
-            Key(importer, sourceHash, settingsHash, fileDependencies, assetDependencies),
+            Key(importer, sourceHash, settingsHash, fileDependencies, assetDependencies, view),
             stored,
             fileDependencies,
             assetDependencies
@@ -283,7 +390,7 @@ public sealed class ImportPipeline {
     ///     of these run at once. Everything it touches — the sidecar on disk, the source file, the
     ///     importer registry, the cache — is read-only for the duration.
     /// </remarks>
-    Prepared Prepare(AssetEntry entry) {
+    Prepared Prepare(AssetEntry entry, View view) {
         var metaPath = AssetMetaFile.PathFor(database.Paths.Absolute(entry.Path));
 
         try {
@@ -318,7 +425,7 @@ public sealed class ImportPipeline {
             var source = new VirtualPath("/" + entry.Path);
             var sourceHash = entry.IsFolder ? ObjectId.Empty : HashOfSource(entry);
             var settingsHash = ArtifactKey.HashOf(YamlWriter.Write(forHashing));
-            var previous = Cache.TryGet(entry.Guid, out var record) ? record : null;
+            var previous = view.RecordOf(Cache, entry.Guid);
 
             // Computed from what the *previous* import declared, because what this one will declare
             // is not known until it has run. If nothing it depended on has moved, this matches the
@@ -330,6 +437,7 @@ public sealed class ImportPipeline {
                     settingsHash,
                     previous.FileDependencies,
                     previous.AssetDependencies,
+                    view,
                     entry.IsFolder ? null : (source.ToString(), sourceHash)
                 )
                 && previous.Artifacts.All(artifact => artifacts.Exists(artifact.Id))
@@ -354,6 +462,7 @@ public sealed class ImportPipeline {
         ObjectId settingsHash,
         IReadOnlyList<string> fileDependencies,
         IReadOnlyList<AssetId> assetDependencies,
+        View view,
         (string Path, ObjectId Hash)? alreadyHashed = null
     ) =>
         ArtifactKey.Compute(
@@ -362,7 +471,7 @@ public sealed class ImportPipeline {
             sourceHash,
             settingsHash,
             Target,
-            DependencyHashes(fileDependencies, assetDependencies, alreadyHashed)
+            DependencyHashes(fileDependencies, assetDependencies, view, alreadyHashed)
         );
 
     /// <summary>
@@ -392,6 +501,7 @@ public sealed class ImportPipeline {
     IEnumerable<ObjectId> DependencyHashes(
         IReadOnlyList<string> fileDependencies,
         IReadOnlyList<AssetId> assetDependencies,
+        View view,
         (string Path, ObjectId Hash)? alreadyHashed = null
     ) {
         foreach (var path in fileDependencies) {
@@ -409,7 +519,12 @@ public sealed class ImportPipeline {
         }
 
         foreach (var asset in assetDependencies) {
-            if (Cache.TryGet(asset, out var record) && record is not null) {
+            // ⚠ Through the view, which is the whole of what makes a parallel run produce the
+            // sequential run's bytes. A dependency that comes earlier in path order has finished and
+            // contributes the artefacts it just wrote; one that comes later has not run yet as far
+            // as this asset is concerned, and contributes what it had before the run — whatever
+            // another thread may have done to it in the meantime.
+            if (view.RecordOf(Cache, asset) is { } record) {
                 foreach (var artifact in record.Artifacts) {
                     yield return artifact.Id;
                 }
@@ -501,6 +616,110 @@ public sealed class ImportPipeline {
 
     static ImportOutcome Refused(AssetEntry entry, string message) =>
         new(entry.Guid, null, false, false, null, [new(ImportSeverity.Error, message)]);
+
+    /// <summary>
+    ///     One asset's entitlement to the rest of the cache: which records it may see, and what it
+    ///     has to wait for before it sees them.
+    /// </summary>
+    /// <param name="Run">The run this asset is part of, or <see langword="null" /> for an import of
+    /// one asset on its own, which has nothing to be ordered against.</param>
+    /// <param name="Index">Where this asset comes in path order.</param>
+    /// <remarks>
+    ///     A struct with a null <see cref="Run" /> is the whole of "there is no run", which is what
+    ///     <see cref="ImportPipeline.ImportAsync(AssetEntry, CancellationToken)" /> passes: it reads
+    ///     the cache as it stands and waits for nothing, because nothing else is running.
+    /// </remarks>
+    readonly record struct View(SequentialView? Run, int Index) {
+        /// <summary>What this asset may see of another asset's last import.</summary>
+        internal ImportRecord? RecordOf(ImportCache cache, AssetId asset) =>
+            Run is { } run
+                ? run.RecordFor(asset, Index)
+                : cache.TryGet(asset, out var record) ? record : null;
+
+        /// <summary>
+        ///     Waits for every one of these that comes earlier in path order, and says whether any of
+        ///     them re-imported.
+        /// </summary>
+        internal ValueTask<bool> WaitForEarlierAsync(IReadOnlyList<AssetId> dependencies) =>
+            Run is { } run ? run.EarlierReimportedAsync(dependencies, Index) : new(false);
+    }
+
+    /// <summary>
+    ///     The state that lets N concurrent imports agree on the answer one sequential, path-ordered
+    ///     loop would have produced.
+    /// </summary>
+    /// <remarks>
+    ///     Three things, and each of them is one half of a sequential loop's implicit knowledge: where
+    ///     every asset comes in path order, whether the asset at each index has finished and whether
+    ///     it re-imported, and what the cache held before any of it started.
+    /// </remarks>
+    sealed class SequentialView {
+        readonly Dictionary<AssetId, int> indexOf;
+        readonly Dictionary<AssetId, ImportRecord> before;
+        readonly TaskCompletionSource<bool>[] finished;
+        readonly ImportCache cache;
+
+        internal SequentialView(AssetEntry[] entries, ImportCache cache) {
+            this.cache = cache;
+            indexOf = new(entries.Length);
+            finished = new TaskCompletionSource<bool>[entries.Length];
+
+            for (var index = 0; index < entries.Length; index++) {
+                indexOf[entries[index].Guid] = index;
+
+                // Asynchronously, so that completing an asset does not run the continuations of
+                // everything waiting on it on the worker that happened to finish it.
+                finished[index] = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            before = new(cache.Count);
+
+            foreach (var record in cache.Records) {
+                before[record.Asset] = record;
+            }
+        }
+
+        /// <summary>Says an asset is done, and whether an importer ran for it.</summary>
+        internal void Finish(int index, bool reimported) => finished[index].TrySetResult(reimported);
+
+        /// <summary>Says an asset will never be done, so nothing waits on it for ever.</summary>
+        internal void Abandon(int index) => finished[index].TrySetCanceled();
+
+        /// <summary>
+        ///     Waits for every dependency that comes earlier in path order and reports whether any of
+        ///     them re-imported.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>It does not stop at the first <see langword="true" />, deliberately.</b> The
+        ///     answer is only half of what the caller wants; the other half is that by the time this
+        ///     returns, every earlier dependency's record is final and can be priced into a key.
+        ///     Short-circuiting would return the right boolean and leave the caller reading a record
+        ///     another thread was still writing.
+        /// </remarks>
+        internal async ValueTask<bool> EarlierReimportedAsync(IReadOnlyList<AssetId> dependencies, int index) {
+            var moved = false;
+
+            foreach (var dependency in dependencies) {
+                if (indexOf.TryGetValue(dependency, out var other) && other < index) {
+                    moved |= await finished[other].Task.ConfigureAwait(false);
+                }
+            }
+
+            return moved;
+        }
+
+        /// <summary>What the asset at <paramref name="index" /> is entitled to see of another's record.</summary>
+        /// <remarks>
+        ///     An asset that comes earlier has run, so the live cache is what the sequential loop
+        ///     would have held. Anything else — a later asset, this asset itself, an id that is not in
+        ///     this project — is read from the snapshot, because in path order it has not been touched
+        ///     yet at the moment this asset's key is computed.
+        /// </remarks>
+        internal ImportRecord? RecordFor(AssetId asset, int index) =>
+            indexOf.TryGetValue(asset, out var other) && other < index
+                ? cache.TryGet(asset, out var current) ? current : null
+                : before.GetValueOrDefault(asset);
+    }
 
     /// <summary>Records what the import learned, and nothing else.</summary>
     static void WriteBack(
