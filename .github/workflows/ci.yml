@@ -256,6 +256,29 @@ jobs:
             **/bin/Release/net10.0/golden-diff/
           if-no-files-found: ignore
 
+      # The half of "content determinism across three runners" that has to happen ON the runner.
+      # Everything the test suite asserts about determinism is self-relative — two builds here, two
+      # projects here — so all three legs would pass while producing three different catalogs. This
+      # builds one fixed fixture with the target pinned and writes down the bytes; the `content-bytes`
+      # job at the bottom of this file is what compares them to each other.
+      - name: Build the content-determinism fixture
+        run: ./build.sh ContentBytes --configuration Release
+        shell: bash
+
+      # The build output as well as the manifest, and it is about a hundred bytes plus one small
+      # bundle. A comparison that can only say "two hashes differ" sends whoever reads it back to CI
+      # to get the files; shipping them costs nothing and is the difference between a report and a
+      # lead.
+      - name: Upload the content manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-bytes-${{ matrix.os }}
+          path: |
+            artifacts/content-bytes/manifest.txt
+            artifacts/content-bytes/build/
+          if-no-files-found: error
+
   checks:
     name: checks
     runs-on: ubuntu-latest
@@ -521,3 +544,78 @@ jobs:
           name: sample-frame
           path: artifacts/sample-frame/
           if-no-files-found: warn
+
+  # ── Content determinism, between the legs rather than within them ─────────────────────────────
+  #
+  # The matrix comment at the top of this file says the three legs "are" the content-determinism
+  # gate, for the same reason they are the wire-format gate. That was half true: the wire format has
+  # an oracle — bytes committed in Core/Vixen.Net.Tests/Wire — and content has none, so each leg was
+  # asserting determinism against itself and nothing compared one leg to another. Three runners
+  # producing three different catalogs would have gone green.
+  #
+  # ⚠ THE TARGET IS PINNED, IN build/Build.ContentBytes.cs, AND WITHOUT THAT THIS JOB IS RED ON ITS
+  # FIRST RUN FOR A REASON THAT IS NOT A DEFECT. A build is a function of its target, the target is
+  # written into the catalog, and the target nobody names is the operating system doing the building.
+  # Measured locally before this was written: the fixture built twice for `Windows`, from two
+  # different directories, agrees on all four files; built for `Linux` it differs in catalog.bin and
+  # catalog.bin.hash and in nothing else. VixenCommandTests.TheSameContentBuiltForTwoTargetsIsNotThe-
+  # SameBytes keeps that from silently stopping being true.
+  #
+  # ⚠ AND IT REPORTS RATHER THAN FAILS, FOR NOW. `continue-on-error` on the comparison step, because
+  # nobody has watched this job run: what is verified is that the target produces a stable manifest
+  # on one macOS machine, and what is not verified is that Windows and Linux agree with it. The
+  # honest order is the one the WebGPU gate above uses — watch a run, then promote. Promoting is
+  # deleting the `continue-on-error: true` line and nothing else.
+  content-bytes:
+    name: content-bytes
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    steps:
+      - name: Download every leg's content manifest
+        uses: actions/download-artifact@v4
+        with:
+          pattern: content-bytes-*
+          path: manifests
+
+      - name: Compare what the three runners built
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+
+          found=(manifests/content-bytes-*/manifest.txt)
+
+          # ⚠ A comparison of nothing agrees with itself. Three legs upload, so fewer than three
+          # manifests means a leg did not get here, and that is a finding rather than a pass.
+          if [ "${#found[@]}" -lt 3 ]; then
+            echo "::error::expected three content manifests, one per test leg, and found ${#found[@]}."
+            exit 1
+          fi
+
+          reference="${found[0]}"
+          reference_leg="$(basename "$(dirname "$reference")")"
+          status=0
+
+          for manifest in "${found[@]}"; do
+            leg="$(basename "$(dirname "$manifest")")"
+
+            {
+              echo "### $leg"
+              echo '```'
+              cat "$manifest"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            if ! diff -u "$reference" "$manifest"; then
+              status=1
+              echo "::error::$leg and $reference_leg built the same content into different bytes."
+            fi
+          done
+
+          if [ "$status" -eq 0 ]; then
+            echo "All ${#found[@]} runners built the fixture into identical bytes."
+          fi
+
+          exit "$status"

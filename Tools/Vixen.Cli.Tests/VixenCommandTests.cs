@@ -155,6 +155,67 @@ public sealed class VixenCommandTests : IDisposable {
     }
 
     /// <summary>
+    ///     <b>Why comparing one runner's build against another's needs <c>--target</c> spelled out.</b>
+    ///     A build is a function of its target, the target is written into the catalog, and the target
+    ///     nobody names is the operating system doing the building — so the same content built on
+    ///     three runners produces three different catalogs, and correctly so.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the trap a cross-runner byte gate falls into on its first run.</b> The two
+    ///         tests above compare two builds made on one machine, so the defaulted target is the same
+    ///         string both times and the difference is invisible to them. Uploading their output from
+    ///         `ubuntu-latest`, `windows-latest` and `macos-14` and diffing it would go red
+    ///         immediately — not because anything is wrong, but because `"Linux"`, `"Windows"` and
+    ///         `"MacOS"` are three different strings in the catalog's ordinal string table, of two
+    ///         different lengths, and every offset and the trailing CRC move with them.
+    ///     </para>
+    ///     <para>
+    ///         So this test exists to make that a stated property rather than a discovery. It is not
+    ///         asserting that the difference is a defect — <c>ProjectWorkspace.HostTarget</c> defaults
+    ///         to "for this computer" deliberately, and a target-specific build is the whole point of
+    ///         having targets. It is asserting that the difference is <i>real</i>, so that a gate
+    ///         comparing runners pins the target and a reader who removes the pin finds out here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task TheSameContentBuiltForTwoTargetsIsNotTheSameBytes() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+
+        var windows = Path.Combine(root, "out-windows");
+        var linux = Path.Combine(root, "out-linux");
+
+        Assert.Equal(ExitCode.Success, (await Run("content", "build", "--target", "Windows", "--output", windows)).Code);
+        Assert.Equal(ExitCode.Success, (await Run("content", "build", "--target", "Linux", "--output", linux)).Code);
+
+        var forWindows = Files(windows);
+        var forLinux = Files(linux);
+
+        // Both builds happened, so a pair of empty directories cannot be read as agreement.
+        Assert.Equal(4, forWindows.Count);
+        Assert.Equal(forWindows.Keys.Order(StringComparer.Ordinal), forLinux.Keys.Order(StringComparer.Ordinal));
+
+        // The catalog carries the target string, so it moves. This is the byte difference a
+        // cross-runner comparison would otherwise report as a determinism failure.
+        Assert.False(
+            forWindows["catalog.bin"].SequenceEqual(forLinux["catalog.bin"]),
+            "the catalog does not record which target it was built for, so a build is no longer a function of its target."
+        );
+
+        // And the same content, built for the same target twice, still is what it was — otherwise the
+        // line above would pass for a build that is simply not reproducible, which is the opposite
+        // claim. This is the control that keeps the assertion above meaning what it says.
+        var again = Path.Combine(root, "out-windows-again");
+
+        Assert.Equal(ExitCode.Success, (await Run("content", "build", "--target", "Windows", "--output", again)).Code);
+
+        foreach (var (name, bytes) in Files(again)) {
+            Assert.True(bytes.SequenceEqual(forWindows[name]), $"'{name}' differs between two builds for one named target.");
+        }
+    }
+
+    /// <summary>
     ///     A bundle's file name carries its content hash, so changed content writes a new name. The
     ///     old file is removed rather than left, because a directory that accumulates every bundle
     ///     ever built is one somebody eventually uploads.
