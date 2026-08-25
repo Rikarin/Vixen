@@ -189,9 +189,37 @@ placed beside the item that opens it, so reaching into it means leaving that ite
 rule would shut the menu the user is reaching for, every time, and no nested command would be
 reachable with the mouse at all.
 
+## The words the set says
+
+`ControlStrings` is thirteen `StringId` declarations — "Clear" in a search box, "Dismiss" on a toast,
+"Previous tab" on a docked group, "Search" in a property grid — plus an `All` list for a translator's
+template. Every one of them was an English literal in a control constructor until doc 46 § A3 counted
+them: a localised window had an untranslatable seam in the one place a user cannot avoid looking, and
+the only party who could close it was this repository. See
+[docs/guide/ui/strings](../../docs/guide/ui/strings.md).
+
+⚠ **One class covering `.Advanced` as well**, which references this assembly. A second declaration
+class over there would put the boundary between "a control" and "an advanced control" — an assembly
+split about compile cost — into a translator's workflow, where it means nothing.
+
+⚠ **Two ids for the two `"Close"`s**, the dialog's and the dock tab's. They are the same English word
+and are not the same string, and an id that says *where* a string is used is what lets a language
+distinguish them. Merging them saves a line and cannot be undone without a translator's file changing
+shape.
+
+⚠ **The labels are read in `OnCreated`, so a control shows the language it was built in.** That is
+not a live binding: `Strings.Catalog` is a signal and an *expression* that reads it re-runs, but an
+assignment in a constructor is not an expression. Re-labelling a live control set would need an
+effect per label and somewhere to dispose it — listed under the gaps below.
+
 ## Known gaps
 
 Said out loud rather than left to be discovered:
+
+- **A control does not re-label itself when the language changes.** `ControlStrings` makes the words
+  translatable and a control built after `Strings.Use` is built in the new language, but one already
+  on screen keeps its old label until it is rebuilt. Markup does not have this problem — an `@expr`
+  is an effect and follows the signal — so the gap is exactly the labels this set assigns in C#.
 
 - **`Image` draws a texture the application registered**, and reserves the space when it has none.
   Turning a `Source` name into a `Texture` number is the application's half: it loads the asset and

@@ -50,7 +50,7 @@ public sealed partial class PropertyRow : Control {
         Reset = Part<IconButton>();
         Reset.LeadingIcon.Geometry = ControlIcons.Close;
         Reset.Variant = ControlVariant.Subtle;
-        Reset.Label = "Reset";
+        Reset.Label = ControlStrings.PropertyGridReset.Text;
         Reset.Size = ControlSize.Small;
         Reset.TabIndex = -1;
     }
@@ -114,7 +114,7 @@ public sealed partial class PropertyGrid : Control {
         base.OnCreated();
 
         Search = Part<SearchBox>();
-        Search.Placeholder = "Search";
+        Search.Placeholder = ControlStrings.PropertyGridSearch.Text;
         Search.ValueChanged += (_, _) => Filter();
 
         Body = Part("property-body");

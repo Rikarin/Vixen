@@ -84,5 +84,70 @@ public class LocalisationTests {
         }
     }
 
+    /// <summary>
+    ///     The control set's own words go through the catalogue, so a localised window is localised
+    ///     all the way down to the button in the corner of the search box.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Built after the language is chosen, which is the behaviour rather than a convenience
+    ///     of the test.</b> A control assigns its labels in <c>OnCreated</c>, so it shows the
+    ///     language that was in use when it was built — see <c>ControlStrings</c>. Building first
+    ///     and translating second would assert something the control set does not do.
+    /// </remarks>
+    [Fact]
+    public void The_control_sets_own_labels_go_through_the_catalogue() {
+        using var fixture = new ControlFixture();
+
+        try {
+            Strings.Use(
+                new StringCatalog("cs")
+                    .Set(ControlStrings.TextInputClear.Id, "Vymazat")
+                    .Set(ControlStrings.ToastDismiss.Id, "Zavřít")
+            );
+
+            var search = fixture.Add<SearchBox>();
+            var toast = fixture.Add<Toast>();
+
+            Assert.Equal("Vymazat", search.ClearButton.Label);
+            Assert.Equal("Zavřít", toast.CloseButton.Label);
+        } finally {
+            Reset();
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ Every declared id is distinct, which is the one thing a hand-written declaration table
+    ///     gets wrong.
+    /// </summary>
+    /// <remarks>
+    ///     A duplicate id is not a compile error and not a run-time one: it is two labels that a
+    ///     translator can only ever give the same word to, found by somebody reading a Czech build.
+    ///     The two <c>"Close"</c>s are the case this guards — they are the same English word under
+    ///     two ids on purpose.
+    /// </remarks>
+    [Fact]
+    public void Declared_control_ids_are_unique() {
+        Assert.Equal(ControlStrings.All.Count, ControlStrings.All.Select(id => id.Id).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    /// <summary>The template a translator starts from covers everything the control set says.</summary>
+    [Fact]
+    public void A_template_holds_every_string_the_control_set_declares() {
+        try {
+            var template = Strings.Template("cs", ControlStrings.All);
+            Assert.Equal(ControlStrings.All.Count, template.Count);
+
+            Strings.Use(template);
+
+            foreach (var id in ControlStrings.All) {
+                Assert.Equal(id.Source, id.Text);
+            }
+
+            Assert.Empty(Strings.Missing);
+        } finally {
+            Reset();
+        }
+    }
+
     static void Reset() => Strings.Use(null);
 }

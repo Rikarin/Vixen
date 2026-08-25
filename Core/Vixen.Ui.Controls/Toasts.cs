@@ -63,7 +63,7 @@ public sealed partial class Toast : Control {
         CloseButton = Part<IconButton>();
         CloseButton.LeadingIcon.Geometry = ControlIcons.Close;
         CloseButton.Variant = ControlVariant.Subtle;
-        CloseButton.Label = "Dismiss";
+        CloseButton.Label = ControlStrings.ToastDismiss.Text;
     }
 }
 

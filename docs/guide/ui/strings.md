@@ -4,7 +4,7 @@ slug: ui/strings
 kind: guide
 area: Core
 summary: A label is an id plus the English it was written as, so a missing translation shows the sentence rather than the id — and the catalogue in use is a signal, so a language change re-labels a running interface with no code at any call site.
-api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Editor.Ui.StringCatalogYaml]
+api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Ui.Controls.ControlStrings, T:Vixen.Editor.Ui.StringCatalogYaml]
 tags: [ui, localisation, strings, i18n, signals]
 since: 0.2
 status: preview
@@ -102,6 +102,24 @@ through `StringCatalogYaml`, in `Vixen.Editor.Ui`; an application publishing Nat
 read JSON through a source-generated reader instead. Attaching a parser to the catalogue would put a
 serialiser in the package closure of every application that shows a word, including the ones that
 never load a catalogue at all.
+
+### The control set's own words
+
+`ControlStrings` is the standard control set's declarations, in exactly the shape above: thirteen
+labels — "Clear" in a search box, "Dismiss" on a toast, "Previous tab" on a docked group, "Search" in
+a property grid — with `All` beside them. They were English literals in control constructors until
+doc 46 § A3, which meant a localised window had an untranslatable seam in the one place a user cannot
+avoid looking.
+
+⚠ **Two ids for the two "Close"s.** A dialog's dismiss button and a dock tab's are the same English
+word and are not the same string; a language that distinguishes closing a question from closing a
+document needs to say so. That is what an id saying *where* a string is used buys, and merging them
+cannot be undone without a translator's file changing shape.
+
+⚠ **A control reads its labels in `OnCreated`**, so it shows the language that was in use when it was
+built. Choose the language before building the interface. A control set that re-labelled itself would
+need an effect per label and somewhere to dispose it; what is here today makes the words translatable
+at all.
 
 `Strings` is static, and it is the one service here that is. Every other is an instance a shell owns,
 because a document may have two of them; a language is a property of the person using the

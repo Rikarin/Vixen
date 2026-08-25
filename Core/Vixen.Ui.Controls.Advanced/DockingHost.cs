@@ -469,7 +469,7 @@ public sealed partial class DockTab : ButtonBase {
         CloseButton ??= Part<IconButton>();
         CloseButton.LeadingIcon.Geometry = ControlIcons.Close;
         CloseButton.Variant = ControlVariant.Subtle;
-        CloseButton.Label = "Close";
+        CloseButton.Label = ControlStrings.DockClose.Text;
         CloseButton.TabIndex = -1;
     }
 }
@@ -545,7 +545,7 @@ public sealed partial class DockGroupView : Control {
         Previous = Strip.Add<IconButton>();
         Previous.LeadingIcon.Geometry = ControlIcons.ChevronLeft;
         Previous.Variant = ControlVariant.Subtle;
-        Previous.Label = "Previous tab";
+        Previous.Label = ControlStrings.DockPreviousTab.Text;
         Previous.TabIndex = -1;
 
         Viewport = Strip.Add("dock-tabs-viewport");
@@ -554,7 +554,7 @@ public sealed partial class DockGroupView : Control {
         Next = Strip.Add<IconButton>();
         Next.LeadingIcon.Geometry = ControlIcons.ChevronRight;
         Next.Variant = ControlVariant.Subtle;
-        Next.Label = "Next tab";
+        Next.Label = ControlStrings.DockNextTab.Text;
         Next.TabIndex = -1;
 
         Body = Part("dock-body");
