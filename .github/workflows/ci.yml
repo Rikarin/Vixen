@@ -93,9 +93,15 @@ jobs:
           # tool rather than `Silk.NET.Shaderc`, so shaderc's binaries never enter the restore
           # graph. Without it SpirvDifferentialTests has nothing to compare against, and doc 12
           # has required this install since it was written.
-          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools glslc
+          #
+          # glslang-tools carries glslangValidator, the GLSL half of Vixen.Vfx.Tests' reference
+          # front end. No leg installed it, so that half was a visible skip everywhere and only the
+          # SPIR-V half could be guarded; with this it earns the same hard guard spirv-val has.
+          # noble ships it in universe, and it is the package that owns /usr/bin/glslangValidator.
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools glslc glslang-tools
           vulkaninfo --summary | grep -E 'deviceName|apiVersion|driverName'
           glslc --version
+          glslangValidator --version
 
       # spirv-tools for the same reason the Linux step above gives, and it belongs on both legs
       # rather than one: `SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something`
@@ -107,11 +113,16 @@ jobs:
       # shaderc for glslc, the differential oracle's other half — see the Linux step's note. This
       # leg had never installed it, so SpirvDifferentialTests reported thirteen silent passes here
       # on every run.
-      - name: Install SDL2, spirv-tools and shaderc (macOS)
+      #
+      # glslang for glslangValidator — see the Linux step's note. ⚠ Homebrew's glslang installs
+      # `glslangValidator` as a symlink to `glslang`; the alias is what upstream still ships and
+      # what the tests look for, but the day it goes away this step is where it is noticed.
+      - name: Install SDL2, spirv-tools, shaderc and glslang (macOS)
         if: matrix.os == 'macos-14'
         run: |
-          brew install sdl2 spirv-tools shaderc
+          brew install sdl2 spirv-tools shaderc glslang
           glslc --version
+          glslangValidator --version
 
       # The third leg, for the third time, and the argument does not change with the operating
       # system: three tests fail rather than skip when spirv-val is absent, and the Windows leg has
@@ -171,6 +182,18 @@ jobs:
             & "$($sdk.FullName)\Bin\glslc.exe" --version
           } else {
             Write-Host "::warning::The Vulkan SDK did not ship glslc.exe; Raven's differential oracle will fail on this leg."
+          }
+
+          # And glslangValidator, on the same terms — this is the leg's only source of it, where the
+          # other two now install glslang by package. The SDK ships it beside glslang.exe rather than
+          # as an alias of it, so it is not at risk of a symlink step being dropped; reported and not
+          # asserted all the same, because
+          # VfxShaderEmitterTests.The_glsl_front_end_is_installed_so_these_tests_mean_something is the
+          # hard failure and it names the tool.
+          if (Test-Path "$($sdk.FullName)\Bin\glslangValidator.exe") {
+            & "$($sdk.FullName)\Bin\glslangValidator.exe" --version
+          } else {
+            Write-Host "::warning::The Vulkan SDK did not ship glslangValidator.exe; the Vfx GLSL front-end guard will fail on this leg."
           }
 
       # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
