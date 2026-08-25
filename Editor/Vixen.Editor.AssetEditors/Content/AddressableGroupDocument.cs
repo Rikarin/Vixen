@@ -48,6 +48,17 @@ public sealed class AddressableGroupEdits {
     [Tooltip("A group of work in progress is turned off rather than deleted.")]
     public bool IncludeInBuild { get; set; } = true;
 
+    /// <summary>Whether a dedicated server's build ships it.</summary>
+    /// <remarks>
+    ///     ⚠ Drawn, round-tripped and saved rather than only readable in the file, for the reason
+    ///     every other field here is: a policy the inspector could not see is one that opening the
+    ///     group and pressing save would quietly reset — and the value it would reset to is "ship
+    ///     everything", which reads as a server build that simply got bigger.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Doc 17's server content profile. A realm never asks for it, so a server build leaves it out.")]
+    public bool IncludeInServerBuild { get; set; } = true;
+
     /// <summary>Whether it may be replaced by a content update.</summary>
     [Inspector]
     [Tooltip("A group baked into the binary cannot be replaced by a download, six months after shipping.")]
@@ -126,6 +137,7 @@ public sealed class AddressableGroupDocument : EditorDocument {
             Compression = group.Compression,
             BundleNaming = group.BundleNaming,
             IncludeInBuild = group.IncludeInBuild,
+            IncludeInServerBuild = group.IncludeInServerBuild,
             UpdateRestriction = group.UpdateRestriction,
             RemoteUrl = group.RemoteUrl,
             Labels = [..group.Labels]
@@ -141,6 +153,7 @@ public sealed class AddressableGroupDocument : EditorDocument {
         Compression = Policy.Compression,
         BundleNaming = Policy.BundleNaming,
         IncludeInBuild = Policy.IncludeInBuild,
+        IncludeInServerBuild = Policy.IncludeInServerBuild,
         UpdateRestriction = Policy.UpdateRestriction,
         RemoteUrl = Policy.RemoteUrl,
         Labels = [..Policy.Labels]

@@ -30,10 +30,22 @@ RUN dotnet restore VixenMmo1.Realm/VixenMmo1.Realm.csproj
 
 COPY . .
 
-# `VixenVariant=Server` is what makes this a realm rather than the same program with a window: the
-# host picks the headless platform and the device that draws nothing, and the content build writes
-# the server profile — no textures, no audio, no shader permutations. That profile is most of why a
-# shard starts fast enough to be spawned under load.
+# `VixenVariant=Server` is what makes this a realm rather than the same program with a window. Two
+# things come of it: the host picks the headless platform and the device that draws nothing, and the
+# content build is told the variant, so it packs the server profile.
+#
+# ⚠ The server profile is a *group membership* question and not an asset-type one, so it strips
+# exactly what this project has told it to and nothing more:
+#
+#   * every addressable group whose .vxgroup sets `includeInServerBuild: false` is left out, and a
+#     shipped asset that still depends on one of them fails this build by name;
+#   * no shaders.effects is compiled at all, because a realm runs the null graphics backend and
+#     creates no pipeline.
+#
+# It does **not** work out on its own that "a server needs no textures". A terrain heightmap is a
+# texture and a realm bakes its collision out of one, so a build that guessed would take the ground
+# out from under a shard and report success. Marking the groups a realm never asks for is a job for
+# whoever authored them — until that is done, a server build packs the same content a client's does.
 RUN dotnet publish VixenMmo1.Realm/VixenMmo1.Realm.csproj --configuration Release --no-restore -p:VixenVariant=Server -p:VixenTarget=Linux --output /app
 
 # ---------------------------------------------------------------------------------------------

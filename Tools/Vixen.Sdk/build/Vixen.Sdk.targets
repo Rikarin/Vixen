@@ -266,11 +266,26 @@
 
             <VixenAssemblyFlags Condition="'$(VixenGameAssembly)' != ''">--assembly "$(VixenGameAssembly)"</VixenAssemblyFlags>
             <VixenSkipImportFlag Condition="'$(VixenAssemblyFlags)' != ''"></VixenSkipImportFlag>
+
+            <!--
+                ⚠ The variant, which the content build did not used to be told. `VixenVariant` was
+                emitted as an assembly attribute above and passed to `dotnet publish`, and nothing
+                between here and the catalog read it — so a Server publish produced a headless binary
+                beside a client's content, and the vixen-mmo template's Dockerfile said in a comment
+                that it did otherwise. Doc 17 § Build variants; the profile itself is
+                AddressableGroup.IncludeInServerBuild.
+
+                Not passed to `import`. The variant decides what is *packed*, not what an importer
+                produces: an import is cached per asset and per target, and making it vary by variant
+                would make a Server build and a Debug build of one project invalidate each other's
+                cache for no difference in the artefacts.
+            -->
+            <VixenVariantFlag Condition="'$(VixenVariant)' != ''">--variant $(VixenVariant)</VixenVariantFlag>
         </PropertyGroup>
 
         <Message Importance="normal" Text="Vixen: building content into $(VixenContentOutputDirectory)" />
 
-        <Exec Command="$(VixenToolCommand) content build --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --output &quot;$(VixenContentOutputDirectory)&quot; --format msbuild $(VixenSkipImportFlag) $(VixenAssemblyFlags)"
+        <Exec Command="$(VixenToolCommand) content build --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --output &quot;$(VixenContentOutputDirectory)&quot; --format msbuild $(VixenSkipImportFlag) $(VixenAssemblyFlags) $(VixenVariantFlag)"
               WorkingDirectory="$(VixenProjectDirectory)"
               StandardOutputImportance="high" />
 

@@ -696,6 +696,119 @@ public sealed class BuildPlannerTests {
         Assert.Single(result.Bundles);
     }
 
+    // ── The server content profile ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     Doc 17 § Build variants: a server build leaves out the groups the project says a dedicated
+    ///     server does not need, and ships everything else exactly as a client build does.
+    /// </summary>
+    [Fact]
+    public void AServerBuildLeavesOutTheGroupsAServerDoesNotNeed() {
+        var project = new PlannedProject();
+        project.Add("Textures/hero.png", address: "ui/hero", group: "Pixels");
+        project.Add("Content/sword.vxdef", address: "items/sword", group: "Rules");
+        project.Group("Pixels", onServer: false);
+        project.Group("Rules");
+
+        var client = project.Plan();
+        var server = project.Plan(forServer: true);
+
+        Assert.True(client.Succeeded);
+        Assert.True(server.Succeeded);
+        Assert.Equal(["items/sword", "ui/hero"], client.Assets.Select(asset => asset.Address).Order(StringComparer.Ordinal));
+
+        // Both halves. The dangerous mistake is not the first assertion failing, it is the second:
+        // a build that dropped more than it was told to fails at load on a running shard.
+        Assert.Equal(["items/sword"], server.Assets.Select(asset => asset.Address));
+        Assert.DoesNotContain(server.Groups, group => group.Name == "Pixels");
+    }
+
+    /// <summary>
+    ///     <b>The assertion the whole profile stands on.</b> An asset the server build keeps whose
+    ///     dependency the same build left out is an <i>error</i>, and the message names the group so
+    ///     that the fix is one line of one <c>.vxgroup</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The alternative is what <see cref="AddressableGroup.IncludeInBuild" /> did for years:
+    ///     drop the asset at the packing stage, leave the catalog naming it as a dependency, and
+    ///     discover it as a null on a device. A content profile that shipped that failure mode
+    ///     deliberately would be worse than no profile at all — which is why this is planned rather
+    ///     than packed.
+    /// </remarks>
+    [Fact]
+    public void AServerBuildRefusesToShipSomethingWhoseDependencyItStripped() {
+        var project = new PlannedProject();
+        var texture = project.Add("Textures/hero.png", address: "ui/hero", group: "Pixels");
+        project.Add("Materials/hero.vxmat", address: "materials/hero", group: "Rules", dependsOn: [texture]);
+        project.Group("Pixels", onServer: false);
+        project.Group("Rules");
+
+        var plan = project.Plan(forServer: true);
+
+        Assert.False(plan.Succeeded);
+
+        var complaint = Assert.Single(plan.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Error);
+
+        // Named, both of them, plus the key to change. "It has no address" is true and sends
+        // somebody to look at a sidecar field that is already correct.
+        Assert.Contains("Materials/hero.vxmat", complaint.Message, StringComparison.Ordinal);
+        Assert.Contains("Pixels", complaint.Message, StringComparison.Ordinal);
+        Assert.Contains("includeInServerBuild", complaint.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And the same project builds for a client, because the refusal is about the profile rather
+    ///     than about the project being wrong.
+    /// </summary>
+    [Fact]
+    public void ThatSameProjectStillBuildsForAClient() {
+        var project = new PlannedProject();
+        var texture = project.Add("Textures/hero.png", address: "ui/hero", group: "Pixels");
+        project.Add("Materials/hero.vxmat", address: "materials/hero", group: "Rules", dependsOn: [texture]);
+        project.Group("Pixels", onServer: false);
+        project.Group("Rules");
+
+        var plan = project.Plan();
+
+        Assert.True(plan.Succeeded);
+        Assert.Equal(["ui/hero"], plan.Assets.Single(asset => asset.Address == "materials/hero").Dependencies);
+    }
+
+    /// <summary>
+    ///     A group nothing says anything about ships to a server, because the default has to be the
+    ///     safe one: an author who has not thought about the profile gets the content they had.
+    /// </summary>
+    [Fact]
+    public void AGroupThatSaysNothingIsShippedToAServer() {
+        var project = new PlannedProject();
+        project.Add("Terrain/valley.hmpng", address: "terrain/valley", group: "World");
+        project.Group("World");
+
+        // ⚠ A heightmap, deliberately. It is a texture by every test a build could apply, and
+        // TerrainColliderSystem bakes a dedicated server's collision out of one — so a profile that
+        // stripped by asset type would take the ground away and report success.
+        Assert.Equal(["terrain/valley"], project.Plan(forServer: true).Assets.Select(asset => asset.Address));
+    }
+
+    /// <summary>The build says what it left out, per group, rather than simply being smaller.</summary>
+    [Fact]
+    public void AServerBuildSaysWhichGroupsItLeftOut() {
+        var project = new PlannedProject();
+        project.Add("Textures/hero.png", address: "ui/hero", group: "Pixels");
+        project.Add("Textures/villain.png", address: "ui/villain", group: "Pixels");
+        project.Group("Pixels", onServer: false);
+
+        var plan = project.Plan(forServer: true);
+
+        Assert.True(plan.Succeeded);
+
+        var note = Assert.Single(plan.Diagnostics, diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal));
+
+        Assert.Equal(ImportSeverity.Information, note.Severity);
+        Assert.Contains("2 asset(s)", note.Message, StringComparison.Ordinal);
+        Assert.Contains("Pixels", note.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>A project of sidecars, imports and groups, with no filesystem in sight.</summary>
     sealed class PlannedProject {
         readonly Dictionary<string, AssetMeta?> metas = new(StringComparer.Ordinal);
@@ -755,16 +868,24 @@ public sealed class BuildPlannerTests {
         public void Group(
             string name,
             BundlePacking packing = BundlePacking.PackTogether,
-            string[]? labels = null
+            string[]? labels = null,
+            bool onServer = true
         ) =>
-            groups.Add(new() { Name = name, Packing = packing, Labels = [.. labels ?? []] });
+            groups.Add(
+                new() {
+                    Name = name,
+                    Packing = packing,
+                    Labels = [.. labels ?? []],
+                    IncludeInServerBuild = onServer
+                }
+            );
 
         public ObjectId ArtifactOf(string path) => artifactOf[path];
 
         public ObjectId ArtifactOf(string path, string subAsset) => artifactOf[$"{path}::{subAsset}"];
 
-        public BuildPlan Plan() =>
-            BuildPlanner.Plan(entries, cache, entry => metas.GetValueOrDefault(entry.Path), groups);
+        public BuildPlan Plan(bool forServer = false) =>
+            BuildPlanner.Plan(entries, cache, entry => metas.GetValueOrDefault(entry.Path), groups, forServer);
 
         AssetId Put(
             string path,

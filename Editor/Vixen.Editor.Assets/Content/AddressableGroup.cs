@@ -95,6 +95,36 @@ public sealed record AddressableGroup {
     /// <summary>Whether it is built at all. A group of work in progress is turned off rather than deleted.</summary>
     public bool IncludeInBuild { get; init; } = true;
 
+    /// <summary>Whether a dedicated server's build ships it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of the server content profile, and it is deliberately a group question
+    ///         rather than an asset-type one.</b>
+    ///         <a href="../../../docs/plan/17-app-heads-and-shipping.md">Doc 17</a> asks for a server
+    ///         build whose bundles carry no textures, audio or shaders, and
+    ///         <a href="../../../docs/plan/27-mmo-framework.md">doc 27</a> answers it in one line:
+    ///         group membership plus a build profile is all the mechanism needed. This is that
+    ///         membership.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Why the build refuses to work out what a server needs on its own.</b> "Drop the
+    ///         textures" sounds safe and is not: a terrain heightmap is a texture, and
+    ///         <c>TerrainColliderSystem</c> builds a dedicated server's collision out of one — so a
+    ///         build that stripped by type would take the ground out from under a shard and say
+    ///         nothing at all, at load, in production. The same is true of audio the moment anything
+    ///         server-side reads a clip's length. An author knows which of their groups a realm never
+    ///         asks for; a build does not, and guessing costs more than it saves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Dropping a group is checked, not trusted.</b> An asset the server build keeps
+    ///         that depends on one it left out is a build <i>error</i> naming both — the same call
+    ///         <see cref="BuildPlanner" /> makes about a dependency with no address, and for the same
+    ///         reason: the alternative is a catalog entry pointing at a chunk in no bundle, which
+    ///         fails as a null on a running shard rather than here.
+    ///     </para>
+    /// </remarks>
+    public bool IncludeInServerBuild { get; init; } = true;
+
     /// <summary>Whether it may be replaced by a content update.</summary>
     public UpdateRestriction UpdateRestriction { get; init; } = UpdateRestriction.CanChangePostRelease;
 

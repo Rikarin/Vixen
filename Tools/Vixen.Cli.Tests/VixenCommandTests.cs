@@ -291,6 +291,71 @@ public sealed class VixenCommandTests : IDisposable {
     }
 
     /// <summary>
+    ///     <b>Doc 17 § Build variants, and the reason it is a group question.</b> A server build's
+    ///     content is the client's less the groups an author said a dedicated server does not need.
+    ///     Nothing is dropped by asset <i>type</i>: a heightmap is a texture and
+    ///     <c>TerrainColliderSystem</c> bakes a server's collision out of one, so a build that
+    ///     stripped "the textures" would take the ground away and say nothing.
+    /// </summary>
+    [Fact]
+    public async Task AServerBuildLeavesOutTheGroupsAServerWasToldItDoesNotNeed() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "Pixels");
+        Asset("sword.txt", "sword", address: "items/sword", group: "Rules");
+        Group("Pixels", onServer: false);
+        Group("Rules");
+
+        var client = Path.Combine(root, "out-client");
+        var server = Path.Combine(root, "out-server");
+
+        Assert.Equal(ExitCode.Success, (await Run("content", "build", "--output", client)).Code);
+        Assert.Equal(
+            ExitCode.Success,
+            (await Run("content", "build", "--variant", "Server", "--output", server)).Code
+        );
+
+        var forClient = CatalogFormat.Read(File.ReadAllBytes(Path.Combine(client, "catalog.bin")));
+        var forServer = CatalogFormat.Read(File.ReadAllBytes(Path.Combine(server, "catalog.bin")));
+
+        Assert.True(forClient.Contains("ui/hero"));
+        Assert.True(forClient.Contains("items/sword"));
+
+        // Both halves, because the dangerous failure is the second one. A build that dropped the
+        // pixels is only correct if it still shipped everything a realm asks for by name.
+        Assert.False(forServer.Contains("ui/hero"));
+        Assert.True(forServer.Contains("items/sword"));
+    }
+
+    /// <summary>
+    ///     And a client build is unchanged by the flag existing: the default profile ships every
+    ///     group, so the same project builds the same catalog it always did.
+    /// </summary>
+    [Fact]
+    public async Task AGroupAServerDoesNotNeedIsStillInTheClientBuild() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "Pixels");
+        Group("Pixels", onServer: false);
+
+        var (code, _) = await Run("content", "build");
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.True(CatalogFormat.Read(File.ReadAllBytes(Path.Combine(Build(), "catalog.bin"))).Contains("ui/hero"));
+    }
+
+    /// <summary>
+    ///     A variant this build does not know is refused by name rather than quietly building the
+    ///     client profile — which is the failure this whole feature exists to stop being silent.
+    /// </summary>
+    [Fact]
+    public async Task AnUnknownVariantIsAUsageError() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+
+        var (code, _, error) = await RunFull("content", "build", "--project", root, "--variant", "Dreamcast");
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.Contains("Dreamcast", error, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     <c>--no-import</c> exists for one caller — the SDK, which has provably just imported in
     ///     the same build — and it does what it says rather than importing anyway.
     /// </summary>
@@ -442,6 +507,49 @@ public sealed class VixenCommandTests : IDisposable {
 
         Assert.Equal("Tint", key.ShaderName);
         Assert.Equal("true", Assert.Single(key.Values).Value);
+    }
+
+    /// <summary>
+    ///     A server build compiles no shader bundle at all, and removes one a previous client build
+    ///     left in the same directory.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A dedicated server runs <c>Vixen.Graphics.Null</c> and creates no pipeline, so every
+    ///         variant in the manifest is dead weight — and the bundle is a sibling of the catalog
+    ///         rather than an addressed chunk, so its absence cannot leave the catalog naming
+    ///         something that is not there. <c>ContentMount</c> already reports "No baked shaders"
+    ///         once and boots, which is what makes this safe rather than merely smaller.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Skipped whole rather than compiled with permutations dropped.</b> A value in
+    ///         <c>Permutations</c> that is not also in <c>PermutationKeys</c> never reaches the
+    ///         compiler and the variant silently takes the <c>.rvn</c> default — so "compile fewer"
+    ///         is a change whose failure mode is invisible, and "compile none" is one this test can
+    ///         see.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task AServerBuildCompilesNoShaderBundleAndClearsAStaleOne() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+        Shader("Tint.rvn");
+        Manifest("""{ "Effects": [ { "Shader": "Tint", "Permutations": { "Tint.Bright": "true" } } ] }""");
+
+        Assert.Equal(ExitCode.Success, (await Run("content", "build")).Code);
+
+        var bundle = Path.Combine(Build(), ShaderBuildRunner.BundleFileName);
+
+        Assert.True(File.Exists(bundle));
+
+        var (code, output) = await Run("content", "build", "--variant", "Server");
+
+        Assert.True(code == ExitCode.Success, output);
+        Assert.DoesNotContain("Compiled 1 shader variant", output, StringComparison.Ordinal);
+
+        // The stale one goes, because an output directory is what somebody copies into an image and
+        // one carrying the previous build's shaders is a server image shipping a client's.
+        Assert.False(File.Exists(bundle));
     }
 
     /// <summary>A project that has not got to a manifest yet still builds.</summary>
@@ -814,11 +922,24 @@ public sealed class VixenCommandTests : IDisposable {
         File.WriteAllText(Path.Combine(settings, ShaderBuildRunner.ManifestFileName), json);
     }
 
-    void Group(string name) =>
-        File.WriteAllText(
-            Path.Combine(root, "Assets", $"{name}.vxgroup"),
-            YamlSerializer.ToYaml(new AddressableGroup { Name = name })
-        );
+    /// <summary>A group file under <c>Assets/</c>, optionally one a dedicated server leaves out.</summary>
+    /// <remarks>
+    ///     ⚠ The <c>onServer: false</c> line is appended as text rather than set on the record, so
+    ///     that this helper says what the <i>file</i> has to contain. A <c>.vxgroup</c> is authored
+    ///     and reviewed in a diff, so the key an author types is the contract, and a test that went
+    ///     through the record would pass on a property the YAML binding never reads.
+    /// </remarks>
+    void Group(string name, bool onServer = true) {
+        var yaml = YamlSerializer.ToYaml(new AddressableGroup { Name = name, IncludeInServerBuild = onServer });
+
+        // ⚠ Asserted rather than assumed. The key an author types into a .vxgroup is the contract,
+        // and a serializer that dropped it — because the value equalled the default, or because the
+        // property was never bound — would leave every one of these tests passing against a file
+        // that says nothing about the server profile.
+        Assert.Contains($"includeInServerBuild: {(onServer ? "true" : "false")}", yaml, StringComparison.Ordinal);
+
+        File.WriteAllText(Path.Combine(root, "Assets", $"{name}.vxgroup"), yaml);
+    }
 
     static Dictionary<string, byte[]> Files(string directory) =>
         Directory.GetFiles(directory)

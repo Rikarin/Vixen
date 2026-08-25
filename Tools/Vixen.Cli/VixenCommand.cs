@@ -663,6 +663,14 @@ public static class VixenCommand {
             DefaultValueFactory = _ => ShaderBuildRunner.DefaultBackend
         };
 
+        // Doc 17's build variants, and the only one this step behaves differently for is Server.
+        // Defaulted to empty rather than to "Release" the way `vixen build`'s is: a content build
+        // that was not told which variant it is for is a client's, and spelling that as a variant
+        // name would make `--variant Debug` and no flag at all look like different intentions.
+        var variant = new Option<string?>("--variant") {
+            Description = "Which build variant the content is for. Only Server changes what is packed."
+        };
+
         var command = new Command("build", "Pack imported content into bundles and write the catalog.") {
             project,
             target,
@@ -670,6 +678,7 @@ public static class VixenCommand {
             outputDirectory,
             noImport,
             shaderTarget,
+            variant,
             assemblies
         };
 
@@ -683,6 +692,25 @@ public static class VixenCommand {
                 }
 
                 var forTarget = parseResult.GetRequiredValue(target);
+                var chosenVariant = parseResult.GetValue(variant);
+
+                // ⚠ Refused rather than ignored, and this is the whole reason the option validates
+                // at all. A typo in `-p:VixenVariant=Sever` that fell through to the client profile
+                // would produce a container image that is a server in every respect except its
+                // content — which is the silent half of doc 17 § Build variants and is not
+                // discoverable until a shard is running and cannot find something.
+                if (chosenVariant is { Length: > 0 }
+                    && !PlayerBuild.KnownVariants.Contains(chosenVariant, StringComparer.OrdinalIgnoreCase)) {
+                    Complain(
+                        chosen,
+                        error ?? Console.Error,
+                        $"'{chosenVariant}' is not a build variant. Try {string.Join(", ", PlayerBuild.KnownVariants)}."
+                    );
+
+                    return (int)ExitCode.UsageError;
+                }
+
+                var forServer = PlayerBuild.IsServerVariant(chosenVariant);
                 var diagnostics = new DiagnosticWriter(writer, chosen, opened.Paths.Root);
 
                 // This is the pass that has one to load: Vixen.Sdk runs the import before the
@@ -721,15 +749,21 @@ public static class VixenCommand {
                     ? Path.GetFullPath(named)
                     : opened.DefaultOutput(forTarget);
 
-                if (!ContentBuildRunner.Run(opened, forTarget, directory, diagnostics)) {
+                if (!ContentBuildRunner.Run(opened, forTarget, directory, diagnostics, forServer)) {
                     return (int)ExitCode.Failed;
                 }
 
                 // After the content, and into the same directory. A shipping build's only effect
                 // source is this file, so it belongs wherever the catalog it ships beside does.
-                return (int)(ShaderBuildRunner.Run(opened, parseResult.GetRequiredValue(shaderTarget), directory, diagnostics)
-                    ? ExitCode.Success
-                    : ExitCode.Failed);
+                return (int)(ShaderBuildRunner.Run(
+                        opened,
+                        parseResult.GetRequiredValue(shaderTarget),
+                        directory,
+                        diagnostics,
+                        forServer
+                    )
+                        ? ExitCode.Success
+                        : ExitCode.Failed);
             }
         );
 
@@ -1152,17 +1186,30 @@ public static class VixenCommand {
                 return ExitCode.Failed;
             }
 
+            // ⚠ The variant reaches the content build, and until now it did not: it was parsed here,
+            // carried through this method and handed only to `dotnet publish`, so a server publish
+            // produced a server binary beside a client's content. Doc 17 § Build variants is the
+            // half that was missing, and the mmo template's Dockerfile described it as done.
+            var forServer = PlayerBuild.IsServerVariant(variant);
+
             // Into the project's own content directory rather than the artefact directory: the SDK's
             // targets are what copy it beside the binary, and doing it here as well would put two
             // copies in the publish and disagree about which is current.
-            if (!ContentBuildRunner.Run(opened, target, opened.DefaultOutput(target), diagnostics)) {
+            if (!ContentBuildRunner.Run(opened, target, opened.DefaultOutput(target), diagnostics, forServer)) {
                 return ExitCode.Failed;
             }
 
             // A publish is the one build where a missing shader bundle is certainly wrong: there is
             // no compiler in what it produces, so a variant absent here is an object that never draws
-            // for whoever installs it.
-            if (!ShaderBuildRunner.Run(opened, ShaderBuildRunner.DefaultBackend, opened.DefaultOutput(target), diagnostics)) {
+            // for whoever installs it. A server is the exception the runner states — it creates no
+            // pipeline at all.
+            if (!ShaderBuildRunner.Run(
+                    opened,
+                    ShaderBuildRunner.DefaultBackend,
+                    opened.DefaultOutput(target),
+                    diagnostics,
+                    forServer
+                )) {
                 return ExitCode.Failed;
             }
         }

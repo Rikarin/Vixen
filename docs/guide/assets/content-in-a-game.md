@@ -78,6 +78,50 @@ public sealed class MyGame : Game {
 `AppGraphics`' constructor, which runs before `OnInitialise` — a factory added later is added to a
 frame that has already been built and has already thrown.
 
+## A dedicated server's content
+
+A server build is the client's build less what the project says a realm never asks for. It is one
+flag on a `.vxgroup` and one on the build:
+
+```yaml
+name: Art
+packing: PackTogetherByLabel
+includeInServerBuild: false
+```
+
+```bash
+dotnet vixen content build --variant Server
+```
+
+`Vixen.Sdk` passes it for you: `dotnet publish -p:VixenVariant=Server` reaches
+`vixen content build --variant Server`, which is what the `vixen-game` and `vixen-mmo` Dockerfiles do.
+A server build also compiles no `shaders.effects` at all — a dedicated server runs
+`Vixen.Graphics.Null` and creates no pipeline — and the bundle is a sibling of the catalog rather than
+an addressed chunk, so its absence resolves to the "No baked shaders" line a host already prints.
+
+⚠ **The build will not decide which assets a server needs, and that refusal is the feature.** "A
+server needs no textures" is wrong in the case that matters: a terrain heightmap is a texture, and
+`TerrainColliderSystem` builds a shard's collision out of one. A build that stripped by asset type
+would take the ground away and report success, and the failure would arrive as a null on a running
+server. An author knows which of their groups are art; the build does not.
+
+⚠ **What is left out is checked, not trusted.** An asset the server build still ships whose
+dependency it dropped is a build **error** naming both the asset and the group:
+
+```
+error: 'Materials/hero.vxmat' is addressable as 'materials/hero' and depends on asset …, which is in
+group 'Art' — a group this project says a dedicated server does not need. A server build cannot both
+ship this asset and leave that one out.
+```
+
+That is the whole safety argument. The alternative — dropping the asset at packing time and leaving
+the catalog naming it — is what a build with `includeInBuild: false` used to do, and it fails on a
+device rather than at the desk of the person who caused it.
+
+⚠ **A project that marks no group gets a server build the size of its client's**, minus the shader
+bundle. That is the safe default and it is also the honest one: nothing has been stripped because
+nothing has been declared strippable.
+
 ## Loose content, and why an editor reads it
 
 A content build packs bundles. An import does not: it leaves each asset's chunk in the project's

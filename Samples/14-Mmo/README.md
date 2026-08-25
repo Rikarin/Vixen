@@ -314,11 +314,18 @@ leash; no map definition lists its camps and no table names a map. So `MmoRealm`
 the build, which is right for a sample with one shard and wrong for a fleet. The fix is a field, and
 it is content work.
 
-⚠ **`VixenVariant=Server` does nothing to the content.** `Vixen.Sdk.targets` emits a
-`Vixen.App.BuildVariant` assembly attribute and nothing in the content build reads the property, so
-the `vixen-mmo` Dockerfile's claim that a server publish strips textures, audio and shader
-permutations is false and a shard image ships full client content. Already recorded as 🟡 in
-[`docs/overview.md`](../../docs/overview.md); wiring the content build here does not change it.
+**`VixenVariant=Server` now reaches the content build.** `Vixen.Sdk.targets` passes it to
+`vixen content build --variant`, which packs doc 17's server profile: every addressable group whose
+`.vxgroup` says `includeInServerBuild: false` is left out, and no `shaders.effects` is compiled.
+
+⚠ **It is a group membership question, so it strips nothing this sample has not marked** — and this
+sample marks nothing. The profile deliberately does not decide for itself that a server needs no
+textures: a terrain heightmap is a texture and `TerrainColliderSystem` bakes a shard's collision out
+of one, so a build that guessed by asset type would take the ground away and report success. What
+this sample loses by not marking anything is nothing: `Assets/` is a thousand files of `.vxdef`,
+`.vxitem`, `.vxquest`, `.vxloot`, `.vxrecipe`, `.vxeffect` and `.vxscene`, with no textures, audio,
+meshes or shaders in it. A game with a client's art would put that art in its own group and set the
+flag there.
 
 ## See also
 
