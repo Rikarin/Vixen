@@ -89,6 +89,17 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > a route that is structurally `null` for every editor panel would change nothing while claiming to
 > have changed something, which is worse than leaving it alone.
 >
+> **And the scope machinery has almost no consumers, which changes what step 2 is worth.** Exactly
+> one command in `Vixen.Editor.App` declares a `Context` at all — `edit.rename`, at
+> `EditorParity.cs:286`, through the `Scoped` helper at `:1312`. Of the nine context strings, four —
+> `console`, `project`, `world`, `diagnostics` — are **only ever written**: no command and no keymap
+> override is filed under any of them, and their entire effect is to *not* equal `scene`, which is
+> what takes `edit.rename` out of scope while the console has been clicked in. The rest of the
+> scoping is the four mode contexts, in the mode modules.
+>
+> So the thing step 2 was going to make derivable is a mechanism with one panel-scoped verb and four
+> mode-scoped groups behind it. That is worth doing correctly and it is not worth doing urgently.
+>
 > The genuine defect the audit *did* find here is a different one and is worth a line: `Contextual`
 > is six copies of eight identical lines across five assemblies. That is a `DockPanel` member, not a
 > command-system problem.
