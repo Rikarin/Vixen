@@ -800,7 +800,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             ClearColour = new(declared.ClearColour, 1f),
             DepthLoad = declared.DepthLoad,
             ClearDepth = declared.ClearDepth,
-            ReadOnlyDepth = declared.ReadOnlyDepth
+            ReadOnlyDepth = declared.ReadOnlyDepth,
+            DepthResolveMode = declared.DepthResolveMode
         };
 
         // Names carried straight through rather than resolved here. A target is a render-graph

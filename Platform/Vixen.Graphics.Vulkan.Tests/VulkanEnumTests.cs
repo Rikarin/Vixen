@@ -117,6 +117,36 @@ public sealed class VulkanEnumTests {
         Assert.Equal(AttachmentStoreOp.DontCare, VulkanEnums.ToVulkan(StoreAction.DontCare));
     }
 
+    /// <summary>
+    ///     ⚠ <b>The reversed-Z boundary.</b> The engine's near plane is depth 1 and its far plane is
+    ///     0, so keeping the sample nearest the camera means <c>VK_RESOLVE_MODE_MAX_BIT</c>. Swapping
+    ///     these two arms is invisible: every frame still renders, and only what reads the resolved
+    ///     depth is wrong.
+    /// </summary>
+    [Fact]
+    public void MaxIsTheNearestSampleUnderReversedZ() {
+        Assert.Equal(ResolveModeFlags.MaxBit, VulkanEnums.ToVulkan(DepthResolveMode.Max));
+        Assert.Equal(ResolveModeFlags.MinBit, VulkanEnums.ToVulkan(DepthResolveMode.Min));
+        Assert.Equal(ResolveModeFlags.SampleZeroBit, VulkanEnums.ToVulkan(DepthResolveMode.SampleZero));
+    }
+
+    /// <summary>
+    ///     No depth resolve mode maps to an average. Vulkan forbids it for depth, and the reason it
+    ///     forbids it is the reason the engine's enum has no such member: the mean of several depths
+    ///     describes no surface.
+    /// </summary>
+    [Fact]
+    public void NoDepthResolveModeAverages() {
+        foreach (var mode in Enum.GetValues<DepthResolveMode>()) {
+            Assert.NotEqual(ResolveModeFlags.AverageBit, VulkanEnums.ToVulkan(mode));
+            Assert.NotEqual(ResolveModeFlags.None, VulkanEnums.ToVulkan(mode));
+        }
+    }
+
+    [Fact]
+    public void EveryDepthResolveModeMapsToADistinctVulkanFlag() =>
+        AssertInjective<DepthResolveMode, ResolveModeFlags>(VulkanEnums.ToVulkan);
+
     [Fact]
     public void EveryLoadActionMapsToADistinctVulkanOp() =>
         AssertInjective<LoadAction, AttachmentLoadOp>(VulkanEnums.ToVulkan);

@@ -3,8 +3,8 @@ title: Multisampling
 slug: rendering/msaa
 kind: guide
 area: Rendering
-summary: What a document says to draw a pass at 4× and where the samples go afterwards — the resolve pair, the sample counts that all have to agree, and the two textures that are deliberately not interchangeable.
-api: [T:Vixen.Rendering.Compositor.ResolveTargetAsset]
+summary: What a document says to draw a pass at 4× and where the samples go afterwards — the resolve pair, the sample counts that all have to agree, the two textures that are deliberately not interchangeable, and why depth resolves by a named rule rather than by averaging.
+api: [T:Vixen.Rendering.Compositor.ResolveTargetAsset, T:Vixen.Graphics.DepthResolveMode]
 tags: [rendering, compositor, antialiasing, render-graph]
 since: 0.1
 status: preview
@@ -89,6 +89,74 @@ resolve as a *write* of the pass. Both halves matter: the resolve is the write t
 which lets the multisampled texture be aliased and discarded — and without the declaration the
 resolve has no producer, every reader of it fails validation, and the pass that filled it is culled
 for writing something nobody wanted.
+
+### Resolving depth
+
+**A depth resolve is not an average, and there is deliberately no option to make it one.** The mean
+of four colours is a colour; the mean of four depths is a surface that is behind nothing and in front
+of nothing, so everything that reads the resolved buffer — reprojection, screen-space tracing, fog,
+a later pass's depth test — reads a plane no geometry occupies. Colour can be described by
+`StoreAction.Resolve` and a view alone because every backend combines colour the same way. Depth
+needs the rule named, which is what `DepthResolveMode` is:
+
+| Mode | Keeps |
+|---|---|
+| `Max` | The largest depth value — **the sample nearest the camera**, and the default |
+| `Min` | The smallest — the sample farthest away |
+| `SampleZero` | Sample zero, ignoring the rest |
+
+⚠ **`Max` is "nearest" because the engine is reversed-Z.** The near plane maps to depth 1 and the far
+plane to 0, so the inequality runs the opposite way from the convention most references assume.
+Getting this backwards is expensive precisely because it is cheap to do: both choices resolve without
+an error and render a picture that looks right, and only the passes reading the resolved depth go
+quietly wrong. `Max` is the right default for almost everything — an edge pixel covered partly by a
+near surface and partly by a far one belongs to the near one, because that is the surface the
+resolved colour beside it is mostly showing.
+
+`SampleZero` is a fallback rather than a choice: it is the only mode every Vulkan implementation is
+required to support, and sample zero sits at a fixed offset inside the pixel that is not the centre
+for any sample count above one — so a depth buffer resolved that way is biased by up to half a pixel
+in a direction that depends on the pattern.
+
+A document says it through the same `resolveTargets` list colour uses, naming the depth target; the
+rule goes on the pass, because a pass has at most one depth attachment:
+
+```yaml
+game: !RenderPass
+  name: Main
+  colourTargets: [SceneSamples]
+  depthTarget: SceneDepthSamples
+  sampleCount: 4
+  depthResolveMode: Max
+  resolveTargets:
+    - target: SceneSamples
+      into: SceneColour
+    - target: SceneDepthSamples
+      into: SceneDepth
+```
+
+Below the compositor it is the same optional argument colour has, on the same builder:
+
+```csharp no-compile="a fragment; the builder and both textures are the pass's own"
+builder.DepthAttachment(depthSamples, resolve: depth, resolveMode: DepthResolveMode.Max);
+```
+
+Everything colour's resolve guarantees holds here too — the store becomes a `StoreAction.Resolve`
+whatever `store` says, the target is declared as a write so it has a producer, and the four
+conditions on the pair are checked where it is named. Two rules are specific to depth:
+
+- **A read-only depth attachment cannot resolve.** Read-only means the pass only tests depth; a
+  resolve is a write of the target beside it. Asking for both is refused rather than silently doing
+  neither.
+- **Stencil is not resolved alongside depth.** Vulkan requires the two modes to agree when both
+  resolve, and there is no meaningful "nearest" for a stencil value, so the depth resolve stands
+  alone and the stencil samples are dropped.
+
+⚠ **This is a Vulkan capability, not a universal one.** It is `VK_KHR_depth_stencil_resolve`, which
+the engine already enables as a prerequisite of dynamic rendering. WebGPU has no equivalent — a
+render pass depth attachment there carries no resolve target at all — so the WebGPU backend refuses a
+depth resolve loudly instead of dropping it, because a dropped one leaves the target holding last
+frame's contents and reads as a picture that is almost right.
 
 ## Examples
 
