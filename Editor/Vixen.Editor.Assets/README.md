@@ -562,6 +562,10 @@ cube maps, arrays, volumes and uncompressed high-range surfaces **by name** — 
 precedent — because DDS stores a cube map element-major and KTX2 stores it level-major, and
 half-reading one gives six faces interleaved into the wrong mip levels rather than an error.
 
+**A float mip filter.** `MipChain` averages eight-bit channels, so a high-range texture ships with one
+level and `MaxSize` does not apply to it. `TextureImporter` reports both rather than narrowing a
+`.hdr` to bytes to get a chain, but a sky without mips aliases and the filter is the fix.
+
 **The out-of-process, crash-isolated worker** doc 08 specifies. `ImportPipeline` already survives an
 importer that *throws*; surviving one that takes the process with it — a malformed FBX inside a C++
 library — needs a separate process, and that is what `Tools/Vixen.AssetCompiler` is for.

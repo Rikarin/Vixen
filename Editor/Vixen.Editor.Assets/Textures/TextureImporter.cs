@@ -31,6 +31,12 @@ namespace Vixen.Editor.Assets.Textures;
 ///         with a better encoder is copied rather than decoded and re-encoded, because a second
 ///         round of lossy compression only ever loses.
 ///     </para>
+///     <para>
+///         <b>A high-range source takes its own path and keeps its range.</b> A <c>.hdr</c> decodes
+///         to <c>Rgba32Float</c>, which the eight-bit path cannot hold and used to fail on; it ships
+///         as BC6H, or as floats when the settings say no compression. See <see cref="HighRange" />
+///         for the three eight-bit decisions that are reported rather than applied.
+///     </para>
 /// </remarks>
 [Importer(".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2", ".dds")]
 public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
@@ -99,6 +105,10 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
             return context.Finish();
         }
 
+        if (IsHighRange(decoded.Format)) {
+            return HighRange(context, settings, decoded);
+        }
+
         var options = OptionsFor(settings);
         var limited = Limit(decoded, settings, options, context);
 
@@ -124,6 +134,109 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
         WriteSprites(context, settings, decoded.Width, decoded.Height);
 
         return context.Finish();
+    }
+
+    /// <summary>Whether the decoded pixels carry more range than a byte, and so cannot take the eight-bit path.</summary>
+    static bool IsHighRange(PixelFormat format) =>
+        format is PixelFormat.Rgba32Float or PixelFormat.Rgba16Float;
+
+    /// <summary>
+    ///     Ships a high-range source as high range: float in, float or BC6H out, and every decision
+    ///     the eight-bit path would have made silently is named instead.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This branch exists because the eight-bit path is not merely lossy for a
+    ///         <c>.hdr</c>, it is wrong.</b> It allocates a four-byte-a-texel buffer and copies a
+    ///         sixteen-byte-a-texel level into it, which for every <c>.hdr</c> anybody has ever
+    ///         dropped on the pipeline is a failed import saying "destination is too short" — the
+    ///         importer claims <c>.hdr</c>, the guide's decoder table promises <c>Rgba32Float</c>,
+    ///         and nothing between them ever ran.
+    ///     </para>
+    ///     <para>
+    ///         <b>The range is the content, so nothing here narrows it.</b> Tone-mapping down to a
+    ///         byte at import time would throw away the one thing a Radiance file exists to carry —
+    ///         the sun being ten thousand times the sky — and would bake an exposure into an asset
+    ///         that has no idea which scene it will be lit in. <see cref="BlockCompressor" /> already
+    ///         encodes BC6H from float and nothing could ask for it; this is what asks.
+    ///     </para>
+    ///     <para>
+    ///         <b>Three things the eight-bit path does are refused rather than approximated,</b> and
+    ///         each is reported so it is a line in the import log rather than a surprise in a frame:
+    ///         the mip chain and the size limit both run through <see cref="MipChain" />, which reads
+    ///         eight-bit channels and has no float filter yet; and the sRGB flag does not apply,
+    ///         because Radiance is linear by definition and no float format has a transfer function
+    ///         for the hardware to undo.
+    ///     </para>
+    /// </remarks>
+    static ImportResult HighRange(ImportContext context, TextureImportSettings settings, TextureData decoded) {
+        if (settings.Content != TextureContent.Linear) {
+            context.Report(
+                ImportSeverity.Information,
+                $"{decoded.Format} carries linear radiance with no upper bound, so its usage being "
+                + $"{settings.Content} changes nothing: no float format has an sRGB form, and the sampler "
+                + "applies no transfer function to one."
+            );
+        }
+
+        if (settings.GenerateMips) {
+            context.Report(
+                ImportSeverity.Warning,
+                "A high-range texture ships with one level. The mip filter averages eight-bit channels and "
+                + "has no float form yet, and a chain built by narrowing to bytes first would throw away the "
+                + "range this format exists to carry."
+            );
+        }
+
+        if (settings.MaxSize > 0 && Math.Max(decoded.Width, decoded.Height) > settings.MaxSize) {
+            context.Report(
+                ImportSeverity.Warning,
+                $"{decoded.Width}×{decoded.Height} is over the {settings.MaxSize} limit and ships at full size "
+                + "anyway. Reducing runs through the same eight-bit mip filter a chain does; resize the source "
+                + "until that filter has a float form."
+            );
+        }
+
+        var texture = CompressHighRange(decoded, settings, context);
+
+        context.Write(SubAssetId.Main, "Texture", Ktx2.Write(texture));
+        WriteSprites(context, settings, decoded.Width, decoded.Height);
+
+        return context.Finish();
+    }
+
+    /// <summary>Compresses a high-range texture to the one block format that can hold it, or says why it did not.</summary>
+    static TextureData CompressHighRange(
+        TextureData texture,
+        TextureImportSettings settings,
+        ImportContext context
+    ) {
+        if (settings.Compression == TextureCompression.None) {
+            return texture;
+        }
+
+        if (settings.Compression is not (TextureCompression.Automatic or TextureCompression.Bc6H)) {
+            // Refused by name rather than left to the encoder, which would say "convert to Rgba8UNorm
+            // first" — advice that is exactly the mistake being made.
+            throw new NotSupportedException(
+                $"A {texture.Format} source cannot ship as {settings.Compression}: every BC format but BC6H "
+                + "stores unsigned normalised bytes, so everything over one would clamp and the file would be "
+                + "a low-range picture with a high-range name. Ask for Bc6H, or for None to ship the floats."
+            );
+        }
+
+        if (IsMobile(context.Target)) {
+            context.Report(
+                ImportSeverity.Warning,
+                $"{context.Target} does not sample BC, so this ships as {texture.Format} and sixteen times "
+                + "larger than BC6H. ASTC's high-range profile needs the native encoder doc 03 calls for and "
+                + "doc 01 registers as astcenc."
+            );
+
+            return texture;
+        }
+
+        return BlockCompressor.Encode(texture, PixelFormat.Bc6HRgbUFloat);
     }
 
     /// <summary>Writes the sheet and one sub-asset per sprite, when the texture declares any.</summary>
@@ -259,6 +372,15 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
             TextureCompression.Bc4 => PixelFormat.Bc4RUNorm,
             TextureCompression.Bc5 => PixelFormat.Bc5RgUNorm,
             TextureCompression.Bc7 => PixelFormat.Bc7RgbaUNorm,
+            // The mirror of the refusal on the high-range path, and refused for the same reason from
+            // the other side: BC6H is three channels of unbounded float, so an eight-bit source
+            // shipped in it loses its alpha, gains nothing for the range it does not have, and is a
+            // worse picture than BC7 at the same eight bits a texel.
+            TextureCompression.Bc6H => throw new NotSupportedException(
+                $"A {texture.Format} source cannot ship as BC6H: that format holds three channels of unbounded "
+                + "float, so this would drop the alpha and spend its precision on values above one that an "
+                + "eight-bit source cannot contain. BC7 is the eight-bit equivalent; BC6H is for a .hdr."
+            ),
             _ => settings.Content switch {
                 // Two channels for a normal map, because the third is reconstructed in the shader and
                 // storing it costs precision the other two want.
