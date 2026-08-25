@@ -49,13 +49,44 @@ public sealed record LogRecord(
 ///         lines before the crash would be hiding the shape of the failure.
 ///     </para>
 ///     <para>
-///         <b>Where this is not yet what doc 13 asks for.</b> Records hold a formatted
-///         <see cref="string" />, not UTF-8 bytes with the structured fields intact, so an enabled
-///         log line allocates. The disabled path already allocates nothing — a <c>[LoggerMessage]</c>
-///         method returns before touching its arguments — and the enabled path is not in any hot
-///         loop, because <c>[HotPath]</c> methods are barred from logging. Packing records into a
-///         byte ring is the optimisation to make when a profile asks for it, and doing it now would
-///         be guessing at the field layout the editor console wants.
+///         <b>Where this is not what doc 13 asks for, and why it stays that way.</b> Records hold a
+///         formatted <see cref="string" />, not UTF-8 bytes with the structured fields intact. An
+///         enabled line therefore allocates <b>128 bytes</b> — an 88-byte <see cref="LogRecord" />
+///         and the 40-byte message — against <b>exactly zero</b> disabled, both measured by
+///         <c>AllocationTests</c> with <see cref="GC.GetAllocatedBytesForCurrentThread" /> rather
+///         than argued for here.
+///     </para>
+///     <para>
+///         ⚠ <b>Packing bytes would move that cost, not remove it.</b> The floor is set by
+///         <c>ILogger.Log&lt;TState&gt;</c>, not by this class: the generated state is a struct
+///         reachable only through <c>IReadOnlyList&lt;KeyValuePair&lt;string, object?&gt;&gt;</c>, so
+///         reading the structured fields boxes the state once and every value-type argument again —
+///         measured at 56 B/line for a single <c>int</c> — and the formatter's contract is to hand
+///         back a <see cref="string" />, measured at 40 B/line on its own. Encoding that string into
+///         a byte ring copies it; it does not un-allocate it. Doc 13's "near-zero when enabled (the
+///         sink writes UTF-8 directly)" is reachable only by leaving <c>[LoggerMessage]</c> behind,
+///         which is what <see cref="ZLoggerFileSink" /> does and is ADR-008's decision to revisit,
+///         not this sink's.
+///     </para>
+///     <para>
+///         ⚠ <b>And it would cost properties this shape has for free.</b> The ring holds one
+///         reference per slot, so a wrap replaces exactly one whole record and no reader ever sees
+///         half of one; a byte ring wrapping mid-record leaves a fragment, and a fragment cut inside
+///         a multi-byte UTF-8 sequence is a decode error rather than a truncation.
+///         <see cref="Exception" /> is an object reference and cannot be packed at all without
+///         formatting it at write time, which allocates more than it saves. The editor console —
+///         which has since been written — collapses rows on the tuple
+///         <c>(Level, Category, Message)</c> and searches the message as text, so it would have to
+///         decode on read.
+///     </para>
+///     <para>
+///         ⚠ <b>The claim that used to stand here — that logging never happens on a hot path,
+///         because <c>[HotPath]</c> methods are barred from it — was not true.</b> The attribute is
+///         applied to no method anywhere in the tree and no analyzer enforces it, so it bars
+///         nothing. What is actually true is weaker, and is the real reason the cost does not
+///         matter: logging <i>does</i> occur in per-frame code, and each such site is individually
+///         latched, watermarked, de-duplicated or interval-throttled, so its steady-state cost is a
+///         compare rather than a record.
 ///     </para>
 /// </remarks>
 public sealed class RingBufferSink : LogRecordSink {
