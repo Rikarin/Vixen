@@ -58,10 +58,21 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > > focusable and a viewport is not, and "which panel did the user last act in" is the question a
 > > scoped command is actually asking.
 >
-> That is load-bearing and it is true: `git grep -a "Focusable = true" -- 'Editor/**/*.cs'` matches
-> **nothing** outside one test. No editor panel is focusable, so `CommandRoute.ScopeOf` — which
-> walks `UiDocument.Focused` — answers `null` for the viewport, the console, the content browser and
-> every other panel, and answers a `TextField`'s ancestry for the rest.
+> That is load-bearing, and it was measured rather than argued.
+> `CommandContextTests.Only_one_panel_in_seven_leaves_a_focus_behind_for_a_route_to_read` presses in
+> each of the seven panels that claim a context and reads `UiDocument.Focused` afterwards:
+>
+> | Panel | Context claimed | `Document.Focused` after the press |
+> |---|---|---|
+> | `hierarchy` | `scene` | `<tree-view>`, inside the panel |
+> | `scenes` · `project` · `console` · `world-settings` · `lighting` · `navigation` | `scene` · `project` · `console` · `world` ×3 | **none** |
+>
+> **Six of seven leave nothing for a route to read**, because `git grep -a "Focusable = true" --
+> 'Editor/**/*.cs'` matches nothing outside one test: no editor panel is focusable, and the press
+> lands on nothing that is. `hierarchy` is the exception only because it contains a `TreeView`, whose
+> rows are — and note what that costs rather than what it buys: a press in `hierarchy` gives the
+> route a *row*, so the scope it derives is whatever the row's panel declared, not the panel the
+> press was in. Those happen to coincide today.
 >
 > **Four of the nine contexts are not places at all.** `blockout`, `terrain`, `water` and `foliage`
 > are *modes* — "a statement about what the viewport's input means right now" — claimed by

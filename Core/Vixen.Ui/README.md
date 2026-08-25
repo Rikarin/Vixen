@@ -107,7 +107,8 @@ most and a linear scan over four strings beats hashing one.
 still resolves its scope through `EditorShell.Context` — see
 [doc 45](../../docs/plan/45-commands-and-focus-scope.md), whose staging step 1 is what this is, and
 whose § G2 was **refuted** when it met the editor: the editor's contexts are pushed from *pointer
-presses*, not focus changes, because its panels are not focusable.
+presses*, not focus changes, because its panels are not focusable — six of its seven context-claiming
+panels leave `Document.Focused` null, measured.
 
 ## Arrow navigation
 
