@@ -27,6 +27,37 @@ Both suites were committed before their implementations, which is what those com
 | MSDF atlas, font fallback, rich-text runs | ⏳ |
 | `TextEditor` model with IME and caret affinity | ⏳ |
 
+## ⚠ A conformance suite says nothing about the caller
+
+Every number above is about this assembly in isolation, and for a while all of them were true while
+right-to-left text still came out wrong on screen. `ParagraphDirection` — the argument that carries
+`direction: rtl` into `BidiAlgorithm`, `TextItemizer` and `TextShaper` — had **no reference outside
+this assembly and its own tests**. `Vixen.Ui` shaped every paragraph at `Auto`, so the CSS property
+decided the box's logical insets and its `text-align` and never the order of the glyphs, and 91 707
+green cases said nothing about it.
+
+The lesson is a search, not a suite: a public parameter that only the tests of its own project ever
+pass is a feature that has never been used. `git grep` for the *type* across `Core/` is the check,
+and it is cheaper than any of the tables above.
+
+Wired since 2026-08-25 — `UiDocument.DirectionOf` → `UiElement.ParagraphDirection` →
+`ShapingCache.Shape` — and `Vixen.Ui.Tests.BidiDirectionTests` is what would notice it coming
+unwired again. Those assertions are on *which glyph is leftmost*: a mis-ordered line is not a crash
+and not visibly wrong to a reader of the wrong script, so an assertion on logical order would pass
+against every bug this file is about.
+
+The same audit found the same shape one level down: `Vixen.Ui` cut its runs where the *face* changed
+and not where the *level* changed, so reordering stopped at a font-fallback boundary. `TextRun` now
+carries a level and `TextLine` orders its pens by L2 — through `TextItemizer.VisualOrder`, which grew
+a `ReadOnlySpan<int>` overload for the purpose rather than being copied into `Vixen.Ui`. **L2 lives
+here and only here**, and a second copy of it would be a second thing to keep conformant.
+
+⚠ A caller that cuts runs on something of its own — a face, a size, a rich-text span — must intersect
+its boundaries with the itemiser's before it can reorder them, because reversing stretches of runs is
+sound only when each run has one level throughout. It must *not* cut on script: the shaper re-itemises
+by script itself, with the whole string in the buffer, which is how an Arabic letter finds out whether
+its neighbour joins.
+
 ## What the rules cost
 
 Most of UAX#29 is a decision about two adjacent code points. The ones that are not are where

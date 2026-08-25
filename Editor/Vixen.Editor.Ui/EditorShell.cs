@@ -693,12 +693,13 @@ public sealed class EditorShell : IDisposable {
 
         Tasks.Pump();
 
-        // ⚠ Before the toolbar and the status bar, because a dialog's answer resumes here and the
-        // command that was awaiting it is entitled to change both. After the notifications, so that
-        // a command which answers by showing a toast is not one frame behind. See
-        // `DialogService.Pump` for why the completion happens on the tick at all.
-        Dialogs.Pump();
-
+        // ⚠ **No `Dialogs.Pump()` here, and its absence is the wiring rather than a gap.**
+        // `DialogService` subscribes to `UiDocument.Ticked`, so the pump already ran inside
+        // `Document.Tick` above — which is what makes dialogs work in a `Vixen.Ui` application that
+        // has no shell at all. The ordering this line used to buy is still bought: the answer
+        // resumes before `Toolbar.Refresh` and before `RefreshStatus`, so a command that was
+        // awaiting a dialog is entitled to change both, and before `Effects.Flush` at the bottom, so
+        // a signal it writes is drained on this frame. See `DialogService.Pump`.
         Toolbar.Refresh();
 
         // ⚠ Only when there is one. A mode button's `Checked` predicate is what draws which mode you
@@ -758,7 +759,9 @@ public sealed class EditorShell : IDisposable {
         // ⚠ Before the document, and it answers rather than drops. A command awaiting a dialog is a
         // continuation holding whatever it was in the middle of — the save-on-close prompt is the
         // one that matters — and a task nobody completes is a shutdown that never finishes.
-        Dialogs.CancelAll();
+        // `Dispose` rather than `CancelAll` because the service is subscribed to the document's
+        // tick: dropping the subscription is what stops the shell's queue outliving the shell.
+        Dialogs.Dispose();
 
         // ⚠ Disposed rather than `CancelAll`, and the difference is what happens to a task that does
         // not stop. `CancelAll` asks and leaves the manager listening, so work still on the pool

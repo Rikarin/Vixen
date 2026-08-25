@@ -1606,8 +1606,6 @@ T:Vixen.Editor.Ui.ConsoleModel sweep-pending
 T:Vixen.Editor.Ui.ConsoleRow sweep-pending
 T:Vixen.Editor.Ui.ConsoleView sweep-pending
 T:Vixen.Editor.Ui.DelegatePaletteSource sweep-pending
-T:Vixen.Editor.Ui.DialogService sweep-pending
-T:Vixen.Editor.Ui.DialogSession`1 sweep-pending
 T:Vixen.Editor.Ui.DockingWorkspace sweep-pending
 T:Vixen.Editor.Ui.EditorIcons sweep-pending
 T:Vixen.Editor.Ui.EditorStrings sweep-pending
@@ -3310,7 +3308,6 @@ T:Vixen.Ui.Controls.ControlIcons sweep-pending
 T:Vixen.Ui.Controls.ControlSize sweep-pending
 T:Vixen.Ui.Controls.ControlTheme sweep-pending
 T:Vixen.Ui.Controls.ControlVariant sweep-pending
-T:Vixen.Ui.Controls.Dialog sweep-pending
 T:Vixen.Ui.Controls.Drawer sweep-pending
 T:Vixen.Ui.Controls.DrawerSide sweep-pending
 T:Vixen.Ui.Controls.EmptyState sweep-pending
