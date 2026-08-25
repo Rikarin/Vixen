@@ -66,6 +66,67 @@ public sealed class SubGraphLibrary : ISubGraphSource {
     public bool TryGet(string type, [NotNullWhen(true)] out NodeGraphModel? graph) => graphs.TryGetValue(type, out graph);
 }
 
+/// <summary>Where an inlined node came from.</summary>
+/// <param name="Node">The synthetic identity it has in the flattened graph.</param>
+/// <param name="Source">
+///     The sub-graph node in the author's own graph that it came out of — the thing they can select.
+///     For a node inlined from a sub-graph inside a sub-graph this is still the outermost one, because
+///     that is the only node the open document has.
+/// </param>
+/// <param name="Type">The node-type path of the sub-graph it was written in, which is the innermost.</param>
+/// <param name="Inner">The identity it had in that sub-graph's own file.</param>
+public readonly record struct NodeOrigin(NodeId Node, NodeId Source, string Type, NodeId Inner);
+
+/// <summary>Which inlined node came out of which sub-graph node.</summary>
+/// <remarks>
+///     <para>
+///         <b>The half of the mapping that makes a diagnostic actionable.</b>
+///         <see cref="SubGraphs.Flatten" /> gives the nodes it copies out of a sub-graph fresh
+///         identities, because the author's own graph already owns the ones it has. A complaint about
+///         one of those names something that is in no document and on no canvas, so nothing can be
+///         selected, framed or highlighted. This is the way back.
+///     </para>
+///     <para>
+///         ⚠ <b>It is not a rename.</b> The flattened graph is what was compiled and its identities are
+///         the ones in the emitted variable names, so both are worth keeping: <see cref="Resolve" />
+///         answers "what does the author click on" and <see cref="NodeOrigin.Inner" /> answers "what
+///         was it called where they wrote it".
+///     </para>
+/// </remarks>
+public sealed class NodeGraphInlining {
+    /// <summary>Nothing was inlined.</summary>
+    public static NodeGraphInlining Empty { get; } = new(new Dictionary<NodeId, NodeOrigin>());
+
+    readonly IReadOnlyDictionary<NodeId, NodeOrigin> origins;
+
+    internal NodeGraphInlining(IReadOnlyDictionary<NodeId, NodeOrigin> origins) => this.origins = origins;
+
+    /// <summary>Every node that came out of a sub-graph, by the identity it was given.</summary>
+    public IReadOnlyDictionary<NodeId, NodeOrigin> Origins => origins;
+
+    /// <summary>Whether anything was inlined at all.</summary>
+    public bool IsEmpty => origins.Count == 0;
+
+    /// <summary>Where one node came from, if it came from a sub-graph.</summary>
+    /// <param name="node">The identity in the flattened graph.</param>
+    /// <param name="origin">Where it came from.</param>
+    /// <returns><see langword="true" /> if it was inlined.</returns>
+    public bool TryGet(NodeId node, out NodeOrigin origin) => origins.TryGetValue(node, out origin);
+
+    /// <summary>The node an author can select for one node of the flattened graph.</summary>
+    /// <param name="node">The identity in the flattened graph.</param>
+    /// <returns>The sub-graph node it came out of, or the same identity when it was theirs already.</returns>
+    public NodeId Resolve(NodeId node) => origins.TryGetValue(node, out var origin) ? origin.Source : node;
+
+    /// <summary>Where a node was, as a sentence to put on the end of a diagnostic.</summary>
+    /// <param name="node">The identity in the flattened graph.</param>
+    /// <returns>The sentence, or an empty string when the node is the author's own.</returns>
+    public string Describe(NodeId node) =>
+        origins.TryGetValue(node, out var origin)
+            ? $" It is {origin.Inner} inside '{origin.Type}', which {origin.Source} stands for."
+            : "";
+}
+
 /// <summary>What lifting some nodes out into a sub-graph would do.</summary>
 /// <param name="Graph">The new graph, with its interface and its entry and exit nodes.</param>
 /// <param name="Extracted">Which nodes moved, in the order the graph held them.</param>
@@ -225,9 +286,10 @@ public static class SubGraphs {
     ///         <b>The top-level identities survive and the inlined ones do not.</b> A diagnostic names
     ///         a node, and one about the author's own graph has to name a node the author can select —
     ///         so the nodes that were already there keep the identities they had. What comes out of a
-    ///         sub-graph is new and gets fresh identities, and a complaint about one names something
-    ///         the author cannot click on. That is a real gap; closing it needs a map from the
-    ///         synthetic identity back to the sub-graph node it came out of, which nothing yet reads.
+    ///         sub-graph is new and gets fresh identities, and a complaint about one would name
+    ///         something the author cannot click on. The overload taking a
+    ///         <see cref="NodeGraphInlining" /> is the way back from one to the other, and
+    ///         <c>NodeGraphCompiler</c> reads it for every diagnostic it reports.
     ///     </para>
     ///     <para>
     ///         <b>An unconnected sub-graph input becomes an inline value on whatever it fed.</b> The
@@ -240,6 +302,18 @@ public static class SubGraphs {
         NodeGraphModel graph,
         ISubGraphSource source,
         out IReadOnlyList<NodeDiagnostic> diagnostics
+    ) => Flatten(graph, source, out diagnostics, out _);
+
+    /// <inheritdoc cref="Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
+    /// <param name="graph">The graph.</param>
+    /// <param name="source">Where sub-graphs are found.</param>
+    /// <param name="diagnostics">Everything that had to be dropped, in the order it was found.</param>
+    /// <param name="inlining">Which inlined node came out of which sub-graph node.</param>
+    public static NodeGraphModel Flatten(
+        NodeGraphModel graph,
+        ISubGraphSource source,
+        out IReadOnlyList<NodeDiagnostic> diagnostics,
+        out NodeGraphInlining inlining
     ) {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(source);
@@ -248,6 +322,7 @@ public static class SubGraphs {
         var result = flattener.Run(graph);
 
         diagnostics = flattener.Diagnostics;
+        inlining = flattener.Inlining;
 
         return result;
     }
@@ -431,11 +506,14 @@ public static class SubGraphs {
     sealed class Flattener(ISubGraphSource source) {
         readonly List<NodeDiagnostic> diagnostics = [];
         readonly HashSet<string> open = new(StringComparer.Ordinal);
+        readonly Dictionary<NodeId, NodeOrigin> origins = [];
 
         NodeGraphModel result = null!;
         int next;
 
         public IReadOnlyList<NodeDiagnostic> Diagnostics => diagnostics;
+
+        public NodeGraphInlining Inlining => origins.Count == 0 ? NodeGraphInlining.Empty : new(origins);
 
         public NodeGraphModel Run(NodeGraphModel graph) {
             result = new() { Name = graph.Name };
@@ -447,7 +525,7 @@ public static class SubGraphs {
                 next = Math.Max(next, node.Id.Value);
             }
 
-            Expand(graph, default, [], [], preserve: true, depth: 0);
+            Expand(graph, default, [], [], preserve: true, depth: 0, NodeId.None, "");
 
             // The furniture is the author's own graph's. A group inside a sub-graph describes that
             // graph's layout, and there is no layout left to describe once it has been inlined.
@@ -465,13 +543,21 @@ public static class SubGraphs {
         /// <param name="constants">And the value each unfed one takes.</param>
         /// <param name="preserve">Whether identities are kept, which only the outermost graph does.</param>
         /// <param name="depth">How far in this is.</param>
+        /// <param name="origin">
+        ///     The sub-graph node in the author's own graph that everything copied here came out of, or
+        ///     <see cref="NodeId.None" /> for the author's graph itself. It stays the outermost one
+        ///     however deep the nesting goes, because it is the only node the open document has.
+        /// </param>
+        /// <param name="type">And the node-type path of the sub-graph being copied, which is the innermost.</param>
         Dictionary<string, PortRef> Expand(
             NodeGraphModel graph,
             Vector2 offset,
             Dictionary<string, PortRef> inbound,
             Dictionary<string, float[]> constants,
             bool preserve,
-            int depth
+            int depth,
+            NodeId origin,
+            string type
         ) {
             Dictionary<NodeId, NodeId> local = [];
             Dictionary<NodeId, Dictionary<string, PortRef>> nested = [];
@@ -504,7 +590,7 @@ public static class SubGraphs {
                 }
 
                 if (source.TryGet(node.Type, out var child)) {
-                    nested[node.Id] = Descend(graph, node, child, offset, depth, Trace, Held);
+                    nested[node.Id] = Descend(graph, node, child, offset, depth, origin, Trace, Held);
 
                     continue;
                 }
@@ -513,6 +599,13 @@ public static class SubGraphs {
                 var copy = result.Add(id, node.Type, node.Position + offset);
 
                 local[node.Id] = id;
+
+                // The way back. Recorded here rather than derived afterwards because this is the only
+                // line that knows both halves at once, and a synthetic identity that reached a
+                // diagnostic without one names a node on no canvas.
+                if (origin.IsValid) {
+                    origins[id] = new(id, origin, type, node.Id);
+                }
 
                 foreach (var (port, value) in node.Values) {
                     copy.SetValue(port, [.. value]);
@@ -571,15 +664,21 @@ public static class SubGraphs {
             NodeGraphModel child,
             Vector2 offset,
             int depth,
+            NodeId origin,
             Func<PortRef, PortRef?> trace,
             Func<PortRef, float[]?> held
         ) {
+            // ⚠ Not `node.Id` unconditionally. A sub-graph node found *inside* a sub-graph is not in
+            // the open document either, so a refusal about it has to be blamed on the outermost node —
+            // which is what the author has on their canvas.
+            var blamed = origin.IsValid ? origin : node.Id;
+
             if (depth >= MaximumDepth) {
                 diagnostics.Add(new(
                     "NG0110",
                     $"Sub-graphs nest more than {MaximumDepth} deep at '{node.Type}', which is a mistake "
                     + "whatever it is. Nothing below it was inlined.",
-                    node.Id
+                    blamed
                 ));
 
                 return [];
@@ -590,7 +689,7 @@ public static class SubGraphs {
                     "NG0111",
                     $"'{node.Type}' contains itself, directly or through another sub-graph. A sub-graph is "
                     + "inlined rather than called, so a recursive one has no finite form.",
-                    node.Id
+                    blamed
                 ));
 
                 return [];
@@ -628,7 +727,16 @@ public static class SubGraphs {
                         : [.. port.Default];
                 }
 
-                return Expand(child, offset + node.Position, inbound, constants, preserve: false, depth + 1);
+                return Expand(
+                    child,
+                    offset + node.Position,
+                    inbound,
+                    constants,
+                    preserve: false,
+                    depth + 1,
+                    blamed,
+                    node.Type
+                );
             } finally {
                 open.Remove(node.Type);
             }
