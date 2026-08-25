@@ -361,7 +361,7 @@ frame can drain.
 ⚠ **The model is no longer here.** `BackgroundTask`, `BackgroundTaskManager` and
 `BackgroundTaskState` moved to `Vixen.Ui` — see [its README](../../Core/Vixen.Ui/README.md#background-tasks)
 and [the guide page](../../docs/guide/ui/background-tasks.md). They were application-framework
-machinery reachable only by the editor; what stays here is the
+machinery reachable only by the editor — the pattern [doc 46](../../docs/plan/46-what-an-application-needs.md) measures; what stays here is the
 *task centre*, the panel below, because a panel made of `EditorStrings` and the editor's own tags is
 chrome rather than framework. The seam cost one `@using Vixen.Ui` line in `TaskCenter.vxml`.
 

@@ -337,7 +337,6 @@ Where the right answer is that Trinix writes it, it is written here so it stops 
 |---|---|
 | `ThemeService`, `EditorTheme.vcss` | Trinix **replaces** `ControlTheme` at the UserAgent origin rather than overriding it. The editor's visual identity is the editor's, and the mechanism it uses — nine custom properties on the root — is already in `Vixen.Ui.Styling` |
 | `NotificationCenter`, `MessageLogView` | Trinix notifications are a system service with a permission behind them, not an in-process toast history. `ToastHost` already exists for the in-process half |
-| `BackgroundTaskManager` | ⚠ The closest call in this table. It is 485 lines, it is signal-backed and correct, and every application needs progress with cancellation. It stays out because a Trinix application's long work is usually a service call with its own progress, and because taking it would mean asking for `Vixen.Editor.Ui`'s task model *and* its task centre. Trinix writes its own. **Would take it if it were offered** |
 | `CommandStack` and the editing pipeline | Undo is the application's — `CodeBuffer` is right about that, and a document's undo history is shaped by what the document is. Trinix writes one per application family. Named in Part 1 as evidence, not as an ask |
 | `DockingWorkspace`, `LayoutPresets`, `EditorUserStore` | Trinix applications are not docking editors, and where the user's preferences live is answered by Trinix's own settings store |
 | `CommandPalette`, `PaletteSource`, `FuzzyMatcher` | 45 puts a `Vixen.Ui` palette in its non-goals and that is right. Trinix has a system-wide search of its own |
@@ -355,6 +354,65 @@ reordering does not cross a font-fallback span, because `FontRegistry.Cover` spl
 shaping and `TextRun` carries no level. Both are real, both are upstream, and both belong to doc 09
 § Text rather than to a document about application-framework machinery. Neither blocks an
 English-language 1.0, and neither is counted below.
+
+
+### Offered, and taken: the background-task model
+
+**This row was in the table above and is not any more.** Vixen offered it, on the condition the table
+itself named — *the model, not the centre* — and it separated, so the offer is a landed change rather
+than a plan. Recorded here rather than in Part 2 because Trinix did not ask for it: the sequence was
+"would take it if it were offered", and then it was.
+
+**The 485 counts the markup, which is what made the split easy.** `BackgroundTask.cs` is 209 lines and
+`BackgroundTaskManager.cs` is 199; `TaskCenter.vxml` is the remaining 77. So the model is 408 lines of
+C# and the centre is 77 lines of VXML — 84/16, and the table's "task model *and* its task centre"
+worry was the right worry about the wrong ratio.
+
+**What moved**: `BackgroundTask`, `BackgroundTaskManager` and `BackgroundTaskState`, to `Core/Vixen.Ui`,
+namespace `Vixen.Ui`. **What stayed**: `Editor/Vixen.Editor.Ui/Tasks/TaskCenter.vxml`, because a panel
+built out of `EditorStrings`, `ControlIcons` and the editor's own tags is chrome. ⚠ **The seam cost one
+line** — `@using Vixen.Ui` in the markup — because the model named nothing editor-shaped. It is not the
+A3 shape: there is no `Vixen.Core.Yaml` here and nothing had to be left behind.
+
+`Vixen.Ui` rather than `Vixen.Core`, because the model is signal-backed and Core does not reference the
+reactive graph; rather than `Vixen.Ui.Reactive`, which is graph primitives; rather than
+`Vixen.App.Hosting`, which drags in `Vixen.Engine` and the renderer that a UI-only application must not
+need. `Vixen.Ui` already referenced `Vixen.Ui.Reactive`, so **no project reference changed** and
+`CheckArchitecture` was never in question. The precedent is `Core/Vixen.Ui/Commands.cs` — A1's shape,
+where the command *model* is promoted and `CommandRegistry` stays in the editor.
+
+**Two things the model was missing, found by offering it.**
+
+⚠ **Nothing outside the editor could drive it.** `Pump` applies the report queue and *something has to
+call it once a frame*; the only caller was `EditorShell.Tick`. A promoted manager with no pump is the
+defect this repository grows most often — it compiles, accepts work, and sits at nought per cent, and
+it fails **silently**. `UiApplication` now owns a manager, exposes it as `Tasks` and pumps it before
+raising `Frame`, pinned by `TheLoopPumpsTheTaskManager` driving a real headless loop rather than by a
+test that calls `Pump` itself. A host with its own loop still owns and pumps its own, which is what the
+editor does.
+
+⚠ **`BackgroundTaskManager` is now `IDisposable`, and that is a leak fix rather than tidiness.** Work
+runs on the pool and reports through a queue; an owner that simply dropped the manager left every
+running task enqueueing into a queue nothing drains, and each closure held the task, the manager and
+**the assembly the work's delegate came from**. A plugin unloaded mid-import is exactly the collectible
+`PluginLoadContext` shape this tree has already paid for twice. `Dispose` cancels everything and then
+*stops accepting* — reports afterwards are dropped, so work that ignores its token for another minute
+costs one thread and no memory. It asks and does not wait: blocking there would be a frame thread stuck
+on a file copy. `EditorShell.Dispose` calls it instead of `CancelAll`, which only asked.
+
+**For a Trinix application** the contract is: report from any thread, read only from the UI one, and let
+the loop pump. A service call with its own progress reports into a `BackgroundTask` the same way an
+import does — which is the case the table thought made this unnecessary, and is in fact the case it
+suits best, because the cancellation is a `CancellationToken` the service call already wants.
+
+12 tests in `Core/Vixen.Ui.Tests/BackgroundTaskTests.cs` and 2 in `UiApplicationTests`, with four
+sabotages confirmed: an untracked read of `Progress` fails only the binding test; a `Cancel` that sets
+the mirror and not the token fails three, two of them on a ten-second timeout; a `Pump` that never
+clears the deferred list announces a finished import three times; and a `Dispose` that does not cancel
+strands the work.
+
+**Not costed in Part 4**, because it is done rather than asked for.
+
 
 ---
 
