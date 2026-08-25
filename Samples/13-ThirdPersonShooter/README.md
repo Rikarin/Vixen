@@ -625,6 +625,60 @@ anyway and every counter in the table improves while the atlas fills from the wr
 That test asserts against the world instead — the page under the camera is drawn, and the camera's own
 position has to land inside that page's viewport.
 
+### ✅ Per-caster invalidation, and what correctness cost
+
+Until task #250 a page was retired only by the light turning or a level moving; a moved **object**
+retired nothing, so its shadow stayed where the object had been for as long as the clipmap did not
+also move. `VirtualShadowRenderer` now walks the object store each frame and retires both footprints
+of anything whose bounds or world matrix changed — and the trace grew two columns, `movers` and
+`casterpages`, so the scene's share of `invalidated` is separable from the refit's.
+
+⚠ **This is a correctness fix that costs coverage, and the table says how much rather than hiding
+it.** 900 frames of the closed-circle walk, headless with `--vixen-capture` on an Apple M1 Max at
+1600×900, master against the fix:
+
+```
+VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK="40:1:0:9" VIXEN_VSMTRACE=./vsm.csv \
+dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+    --vixen-headless --vixen-frames 900 --vixen-variant Development --vixen-capture ./shots
+```
+
+| Per frame over 900 frames | Before | After |
+|---|---|---|
+| Pages marked (the demand) | 55.859 | 55.857 |
+| Casters that moved | — | 8.06 |
+| Pages invalidated by a moved caster | **0** | **4.17** |
+| Pages invalidated by the refit | 0.62 | 0.62 |
+| Pages drawn | 0.72 | 4.87 |
+| **Pages absent at the table upload** | **0.94** | **4.13** |
+| Levels refitted | 0.4433 | 0.4433 |
+| Pages resident | 130.694 | 130.691 |
+| Frames failing on >10 % of demand | 15 (1.7 %) | 138 (15.3 %) |
+
+⚠ **`refit` agrees to four decimals and `marked`, `resident` and `allocations` to three, with 832 of
+the 900 frames identical on all three at once** — which is what makes this an A/B rather than two walks. Nothing
+about the scene, the route or the residency pool moved; the only thing that changed is which pages
+were declared stale.
+
+**What the cost buys, stated plainly.** Coverage goes from 98.3 % of demand to 92.6 %. The 3.2 pages
+a frame that stopped being answered were being answered *with the shadow of an object that had
+walked away*, so the before column is not a better number, it is a wronger one — the same relationship
+the `absent` column has to the cascade fallback everywhere else on this page.
+
+⚠ **The budget is not the constraint, so raising `pagesPerFrame` would not recover it.** The
+sixteen-a-frame budget saturates on 35 of 900 frames. The residual is the structural one-frame
+absence this page already names for a refit — the page table is uploaded *before* this frame's pages
+are drawn, deliberately, so a slot just handed over is never sampled holding the last page's depths.
+The fix simply makes that lag happen 4.2 times a frame instead of 0.6.
+
+⚠ **The `casterpages` column was wrong on its first draft and read 40.9 where the frame lost 5.**
+`VirtualShadowPages.Invalidate` answers "there was an allocation to invalidate", and answers it again
+for a page an earlier caster of the same frame already retired — so counting its return multiplied one
+page by however many movers stood over it. The column counts *published pages lost* instead. The
+symptom was 40.9 invalidations a frame against 4.9 draws with an empty pending queue, which is
+arithmetic that cannot be true of a converging map: an instrument that disagrees with the rest of the
+table is the instrument.
+
 ### ✅ The sun's cache, and the two defects the split found
 
 `VIXEN_SUNTRACE=<file>` writes one row a frame beside the two above: `tiles` is what the cascades

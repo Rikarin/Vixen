@@ -881,7 +881,7 @@ There is no device test: the picture a virtual shadow map draws is a picture, an
 would mean something about it — a shadow at a silhouette that a cascade blurs — are the ones a golden
 image is worst at.
 
-Six things the plan above did not say:
+Seven things the plan above did not say:
 
 - **The snap is to a whole page, not to a texel, and that is the entire caching story.** A cascade snaps
   its centre to a texel so the sampling grid does not slide under stationary geometry. A clipmap level
@@ -916,12 +916,42 @@ Six things the plan above did not say:
   as meaningful for a page that is drawn as for one that is read, and nothing shadow-shaped had to be
   added to `PageResidency` to make it fit. `VirtualShadowPageTests` drives all of it with no device in
   the file.
+- **A moved *caster* invalidates pages, and the footprint is what bounds it** — task #250, and the one
+  item of the three the plan named as owed that was a correctness bug rather than a cost. A page is
+  drawn once and kept until something says its depths are stale, and until this landed only the light
+  and the levels ever said so: a moved object said nothing, so its shadow stayed exactly where the
+  object had been, indefinitely, in any scene where the level was not also moving. The page set is
+  `VirtualShadowMap.PageSpan` — the caster's bounding sphere projected into each level's clip space.
+  The *rectangle* that names is the right one rather than a guess, because a shadow map's projection
+  looks along the light: a caster's footprint in that clip space is where its shadow lands, and there
+  is no "how far does the shadow reach" term to get wrong. Only the bound inside it is conservative —
+  the sphere's axis-aligned box rather than the sphere.
+  **Both ends of the move**, and the end it left is the visible one: retiring only where the object
+  now is leaves the stale silhouette behind and adds a correct one beside it. The comparison is
+  against the whole `RenderObjectStore` and not against a stage's collected node list, which is the
+  opposite of what `PunctualShadowRenderer` had to do and for a reason worth keeping: with
+  device-side culling and no readback a node list is the *conservative* set, and a footprint is not a
+  question about any view, so there is nothing here to be misled by. **Measured on Samples/13 over
+  900 frames of the closed-circle walk, headless with `--vixen-capture` on an M1 Max**: 8.06 casters
+  move a frame and retire 4.17 published pages between them, page draws go 0.72 → 4.87 and pages
+  absent at the table upload 0.94 → 4.13 out of an unchanged 55.86 demanded — while `refit` (0.4433),
+  `resident` and `allocations` are identical to three or four decimals and 832 of the 900 frames agree
+  on all three at once, which is what makes it an A/B rather than two walks. Coverage therefore goes
+  98.3 % → 92.6 %, and the 3.2 pages a frame that stopped being answered were being answered with the
+  shadow of an object that had walked away. The sixteen-a-frame budget saturates on 35 of those 900
+  frames, so the residual is the structural one-frame absence a refit already pays — the table is
+  uploaded before this frame's pages are drawn — happening 4.2 times a frame instead of 0.6.
 
-Still owed, in the order it matters: clusters casting through the traversal (needs per-view visible
-lists); point lights, which are six maps rather than one and want a cube address space; and per-caster
-invalidation, which today is per-level — a light that turns or a level that moved invalidates all of its
-pages, and a *moved object* invalidates nothing at all, so a dynamic caster's shadow is only correct
-because the page it is in keeps being re-marked.
+Still owed, in the order it matters: clusters casting through the traversal, which needs per-view
+visible lists — `Culling.Accept` appends every view's cut to one buffer behind three global counters,
+so an entry carries no view tag and a page cannot cull to its own; and point lights, which are six
+maps rather than one and want a cube address space.
+
+⚠ **This paragraph used to add per-caster invalidation to that list and to excuse it** — "a dynamic
+caster's shadow is only correct because the page it is in keeps being re-marked" — and the excuse was
+false as well as the entry. `VirtualShadowPages.Owe` refuses a page that is already published, which
+is deliberate: re-drawing every marked page every frame is a cascade with extra bookkeeping. So a
+re-mark did nothing at all for a published page, and nothing else was going to.
 
 ---
 

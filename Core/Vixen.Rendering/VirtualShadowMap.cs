@@ -628,6 +628,116 @@ public static class VirtualShadowMap {
         return true;
     }
 
+    /// <summary>Which of a map's pages a world-space sphere's shadow can reach.</summary>
+    /// <param name="viewProjection">The map's projection.</param>
+    /// <param name="center">The sphere's centre.</param>
+    /// <param name="radius">Its radius.</param>
+    /// <param name="first">The lowest page of the span, in grid coordinates, when this returns true.</param>
+    /// <param name="last">The highest, inclusive.</param>
+    /// <returns>Whether the sphere reaches this map at all.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="PageOf" /> for a volume rather than a point, and the pages it names are
+    ///         where that volume's <em>shadow</em> lands — which is the same rectangle.</b> A shadow
+    ///         map's projection looks along the light, so a caster's footprint in the map's clip space
+    ///         is exactly the set of texels whose stored depth it can change. That is what makes a
+    ///         moved caster a bounded invalidation instead of a level: see
+    ///         <c>VirtualShadowRenderer.Displace</c>.
+    ///     </para>
+    ///     <para>
+    ///         The corners of the sphere's bounding box rather than the sphere, because a projective
+    ///         map takes the box's convex hull to a set containing the sphere's image whenever every
+    ///         corner is in front of the near plane — which is conservative in the one direction an
+    ///         invalidation may be wrong in. The box is the axis-aligned one and not an oriented one,
+    ///         so this costs no rotation and over-covers by at most a page at the scales involved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Clamped rather than rejected, unlike <see cref="PageOf" />.</b> A caster hanging
+    ///         over the edge of a level still shadows the part of it that is inside, and a span that
+    ///         refused a sphere whose centre was outside would leave exactly the boundary pages stale.
+    ///         Only a sphere entirely outside the map — beside it, or outside its depth slab — answers
+    ///         false. A sphere straddling the near plane of a perspective map answers the whole grid,
+    ///         because a corner behind the eye projects to a coordinate that means nothing and the
+    ///         conservative answer is the only honest one.
+    ///     </para>
+    /// </remarks>
+    public static bool PageSpan(
+        in Matrix4x4 viewProjection,
+        Vector3 center,
+        float radius,
+        out Int2 first,
+        out Int2 last
+    ) {
+        first = default;
+        last = default;
+
+        var extent = MathF.Abs(radius);
+        var minimum = new Vector3(float.PositiveInfinity);
+        var maximum = new Vector3(float.NegativeInfinity);
+        var ahead = false;
+        var behind = false;
+
+        for (var corner = 0; corner < 8; corner++) {
+            var world = center + new Vector3(
+                (corner & 1) == 0 ? -extent : extent,
+                (corner & 2) == 0 ? -extent : extent,
+                (corner & 4) == 0 ? -extent : extent
+            );
+
+            var clip = Matrix4x4.TransformVector4(new(world, 1f), viewProjection);
+
+            if (clip.W <= GpuCulling.ClipEpsilon) {
+                behind = true;
+
+                continue;
+            }
+
+            ahead = true;
+
+            var ndc = new Vector3(clip.X / clip.W, clip.Y / clip.W, clip.Z / clip.W);
+
+            minimum = Vector3.Min(minimum, ndc);
+            maximum = Vector3.Max(maximum, ndc);
+        }
+
+        if (!ahead) {
+            return false;
+        }
+
+        if (behind) {
+            // Nothing about the projected box can be trusted, and a clipmap never gets here: an
+            // orthographic map's w is one for every point in the world.
+            last = new(PagesPerSide - 1, PagesPerSide - 1);
+
+            return true;
+        }
+
+        // Outside the slab casts nothing into this map, on either side of it.
+        if (maximum.Z < 0f || minimum.Z > 1f) {
+            return false;
+        }
+
+        // The engine's UV convention, as PageOf applies it — and y is negated, so the box's top in
+        // clip space is its low v. Getting that backwards mirrors the span about the map's centre,
+        // which invalidates a page that was fine and leaves the one that moved.
+        var lowU = (minimum.X * 0.5f) + 0.5f;
+        var highU = (maximum.X * 0.5f) + 0.5f;
+        var lowV = (-maximum.Y * 0.5f) + 0.5f;
+        var highV = (-minimum.Y * 0.5f) + 0.5f;
+
+        if (highU < 0f || lowU >= 1f || highV < 0f || lowV >= 1f) {
+            return false;
+        }
+
+        first = new(Cell(lowU), Cell(lowV));
+        last = new(Cell(highU), Cell(highV));
+
+        return true;
+
+        static int Cell(float coordinate) =>
+            Math.Clamp((int)MathF.Floor(coordinate * PagesPerSide), 0, PagesPerSide - 1);
+    }
+
     /// <summary>A virtual page's index in the global numbering.</summary>
     /// <param name="first">The map's <see cref="VirtualShadowLevel.First" />.</param>
     /// <param name="page">Its page, as a <see cref="ToroidalOf" /> address.</param>
