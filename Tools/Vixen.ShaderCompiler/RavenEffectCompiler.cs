@@ -75,8 +75,61 @@ public sealed class RavenEffectCompiler : IEffectSource {
     /// <param name="target">Which backend to generate for.</param>
     /// <param name="referencePaths">Compiled <c>.rvnlib</c> libraries to bind against.</param>
     /// <exception cref="ArgumentException">The target is not a backend, or a source will not parse.</exception>
-    public RavenEffectCompiler(IEnumerable<string> paths, string target = "spirv", IEnumerable<string>? referencePaths = null) {
+    public RavenEffectCompiler(IEnumerable<string> paths, string target = "spirv", IEnumerable<string>? referencePaths = null)
+        : this(Read(paths), target, referencePaths) { }
+
+    /// <summary>Parses shader sources that are already in memory.</summary>
+    /// <param name="sources">The texts, each with a name to attribute its diagnostics to.</param>
+    /// <param name="target">Which backend to generate for.</param>
+    /// <param name="referencePaths">Compiled <c>.rvnlib</c> libraries to bind against.</param>
+    /// <returns>The compiler.</returns>
+    /// <exception cref="ArgumentException">The target is not a backend, or a source will not parse.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For a caller whose shader was never a file and should not become one.</b> The shader
+    ///         graph's preview generates Raven per node and per edit; writing each one out so that the
+    ///         constructor above could read it back is a temporary file per keystroke, a directory to
+    ///         clean up, and an <see cref="IOException" /> on a path that a compilation has no business
+    ///         raising.
+    ///     </para>
+    ///     <para>
+    ///         The name is what a diagnostic points at, so it should look like a file even when it is
+    ///         not one — the graph passes <c>Preview.rvn</c>.
+    ///     </para>
+    /// </remarks>
+    public static RavenEffectCompiler FromSources(
+        IEnumerable<(string Name, string Text)> sources,
+        string target = "spirv",
+        IEnumerable<string>? referencePaths = null
+    ) {
+        ArgumentNullException.ThrowIfNull(sources);
+
+        return new(sources, target, referencePaths);
+    }
+
+    /// <summary>Reads what the path constructor was given, so both share one body.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not an iterator.</b> A null check inside one does not run until the sequence is
+    ///     enumerated, which for a constructor argument means the exception names the wrong thing at
+    ///     the wrong time.
+    /// </remarks>
+    static List<(string Name, string Text)> Read(IEnumerable<string> paths) {
         ArgumentNullException.ThrowIfNull(paths);
+
+        List<(string Name, string Text)> read = [];
+
+        foreach (var path in paths) {
+            read.Add((path, File.ReadAllText(path)));
+        }
+
+        return read;
+    }
+
+    RavenEffectCompiler(
+        IEnumerable<(string Name, string Text)> named,
+        string target,
+        IEnumerable<string>? referencePaths
+    ) {
         ArgumentException.ThrowIfNullOrEmpty(target);
 
         backend = TargetBackends.Create(target)
@@ -90,10 +143,9 @@ public sealed class RavenEffectCompiler : IEffectSource {
         var parsed = ImmutableArray.CreateBuilder<SyntaxTree>();
         var texts = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var path in paths) {
-            var text = File.ReadAllText(path);
+        foreach (var (name, text) in named) {
             texts.Add(text);
-            parsed.Add(SyntaxTree.ParseText(text, path: path));
+            parsed.Add(SyntaxTree.ParseText(text, path: name));
         }
 
         trees = parsed.ToImmutable();
@@ -104,7 +156,7 @@ public sealed class RavenEffectCompiler : IEffectSource {
         if (failures.Length > 0) {
             throw new ArgumentException(
                 $"The shader sources do not parse: {string.Join("; ", failures.Select(diagnostic => diagnostic.ToString()))}",
-                nameof(paths)
+                nameof(named)
             );
         }
 

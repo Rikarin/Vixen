@@ -24,6 +24,14 @@
 # diffable, because reading the diff is the whole point of it being hex rather than a hash.
 *.txt         text eol=lf
 
+# The content-determinism fixture is hashed as source bytes on three operating systems and the three
+# hashes are compared to each other (build/Build.ContentBytes.cs, ci.yml's `content-bytes` job). The
+# rules above already give it LF on every checkout — `*.txt`, `*.meta`, and `* text=auto eol=lf` for
+# the `.vxgroup` — so this line adds nothing today and is here because the day one of them is relaxed
+# is the day a Windows checkout rewrites the payload and the gate reports a determinism defect that
+# is really a checkout.
+Testing/ContentDeterminism/** text eol=lf
+
 # Windows-only scripts
 *.cmd         text eol=crlf
 *.bat         text eol=crlf

@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Engine.NetworkPrefab, T:Vixen.Net.Engine.NetworkPrefabRegistry
 tags: [networking, prefabs, spawning, addressables, content]
 since: 0.1
 status: preview
-related: [engine/networked-players, gameplay/definitions, assets/content-in-a-game]
+related: [engine/networked-players, gameplay/definitions, assets/content-in-a-game, engine/replicating-behaviour-state]
 ---
 
 ## What it is

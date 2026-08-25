@@ -1,0 +1,5 @@
+name: UiCore
+loadPath: Local
+packing: PackTogether
+bundleNaming: FilenameHash
+includeInServerBuild: true

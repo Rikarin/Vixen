@@ -55,7 +55,7 @@ namespace Vixen.Editor.AssetEditors.Shading;
 ///         panel that could show the problem is reachable.
 ///     </para>
 /// </remarks>
-public sealed class ShaderGraphDocument : EditorDocument {
+public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     /// <summary>What a shader graph is written as.</summary>
     public const string Extension = ".vxshadergraph";
 
@@ -73,6 +73,25 @@ public sealed class ShaderGraphDocument : EditorDocument {
 
     /// <summary>What the last <see cref="Compile" /> had to say about the graph.</summary>
     public IReadOnlyList<NodeDiagnostic> Diagnostics { get; private set; } = [];
+
+    /// <summary>What renders a node's preview thumbnail, when this editor has a device to do it with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Set by the host after the device exists, which is after this object does</b> — the
+    ///         same seam and the same reason as <c>ThumbnailCache.Surface</c>: the window has to be up
+    ///         before a Vulkan surface can be made from it, so a document that demanded a renderer up
+    ///         front would be one the editor could not open. Null is the ordinary state headless and
+    ///         in every test, and the canvas draws flat swatches.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The document is the canvas's preview source, not the renderer</b>, which is what
+    ///         lets this be set at any time. <c>NodeGraphView.PreviewSource</c> is read once per draw
+    ///         and assigned once in <c>ShaderGraphView.Show</c>; if that assignment were the renderer
+    ///         itself, then a graph opened by the session restore — which happens before the first
+    ///         frame, and therefore before there is a device — would show swatches for ever.
+    ///     </para>
+    /// </remarks>
+    public INodePreviewSource? PreviewSource { get; set; }
 
     /// <summary>What Raven had to say about the source the last <see cref="Compile" /> emitted.</summary>
     /// <remarks>
@@ -177,6 +196,26 @@ public sealed class ShaderGraphDocument : EditorDocument {
         }
 
         return found;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Forwards, so that a canvas which took this document as its source before there was a
+    ///     device starts showing pictures the moment there is one.
+    /// </remarks>
+    public bool TryGet(
+        NodeGraphModel graph,
+        NodeGraph.GraphNode node,
+        NodeTypeDefinition definition,
+        out NodePreview preview
+    ) {
+        if (PreviewSource is { } source) {
+            return source.TryGet(graph, node, definition, out preview);
+        }
+
+        preview = default;
+
+        return false;
     }
 
     /// <summary>The graph as this document would write it, without writing it.</summary>

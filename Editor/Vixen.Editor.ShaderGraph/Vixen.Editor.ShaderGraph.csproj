@@ -30,6 +30,17 @@
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
 
         <!--
+          The preview renderer's three, and nothing else: a device to make a target on, the effect
+          model that says what a compiled variant binds, and the in-process Raven compiler the editor
+          already resolves its own variants through. The node library and the emitter are still
+          reachable with none of them — `ShaderGraphPreview` compiles a sub-expression to text on its
+          own, which is what the compiler tests exercise.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Shaders\Vixen.Shaders.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+
+        <!--
           The node generator, over this assembly's own [Node] classes. Analyzers do not flow through
           a ProjectReference, so every assembly declaring nodes references it directly — which is
           also what a third-party plugin does, and the reason the arrangement is worth keeping plain.
