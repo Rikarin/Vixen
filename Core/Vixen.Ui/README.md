@@ -88,8 +88,28 @@ express: an application declares a menu of ids and the items grey themselves out
 is silent, with no rule written anywhere. A command with a single registration-time implementation is
 simply a handler on the root, which always responds — so nothing changes for one.
 
-**The walk starts at `Focused ?? Root`.** The root rather than nothing, so a document-wide handler
-still answers while the focus is nowhere. With something focused the root is on the walk anyway.
+**The walk starts at `CommandFocus ?? Root`.** The root rather than nothing, so a document-wide
+handler still answers while the focus is nowhere. With something focused the root is on the walk
+anyway.
+
+⚠ **`CommandFocus`, not `Focused`, and that distinction is what made step 3 possible at all.** The
+surfaces that *display* commands have to take the focus to be operable: `Menu.OnOpened` focuses its
+first item so the arrow keys work, and a `MenuBarItem` takes the focus when it is pressed. A menu
+item resolving `edit.copy` from `Focused` therefore resolved it from inside the menu, found nothing,
+and greyed itself — a menu in which every command is permanently disabled, which is indistinguishable
+from a correct implementation of "nobody responds ⇒ not executable" unless something looks.
+`UiElement.IsCommandTransparent` is how a surface says **"I am not a place"**; focusing anything
+inside one leaves `CommandFocus` where it was. It changes nothing about focusability — Tab still
+lands there, the ring still shows, arrows still move between menu items — and it is inherited
+downwards on `CommandScope`'s terms, so a surface declares it once at its root. It is AppKit's rule
+that a menu is not in the responder chain, stated as data rather than as a private event loop.
+
+`CommandHandler` also carries `Title`, `IsCheckable` and `IsChecked`, all of them asked rather than
+captured for `CanExecute`'s reason. The handler supplies them because there is no command *object*
+in this model to hang a caption on — "Undo Move" is a fact about the view that owns the undo stack,
+and that view is the one that answers. `Title` being `null` means "leave the surface's own label
+alone", never "no name": a binding that read it the other way would blank every ordinary line in a
+menu, and every enablement assertion would still pass.
 
 `CommandScope` is a name a panel declares once on its own root; `EffectiveCommandScope` is the same
 upward walk asked for a different thing, so everything inside that panel reports it — including
@@ -103,8 +123,21 @@ list makes. The small store behind it is allocated only for elements that declar
 scope, and holds a `List` rather than a `Dictionary` because an element declares a handful of ids at
 most and a linear scan over four strings beats hashing one.
 
-⚠ **Nothing in the tree consumes this yet.** No control binds an id, and the editor's `CommandRegistry`
-still resolves its scope through `EditorShell.Context` — see
+**Invalidation is one coalesced event.** `UiDocument.CommandsInvalidated` is raised from `Tick`, at
+most once a frame, when the command focus moved, a handler was added or removed, or anybody called
+`UiDocument.InvalidateCommands()`. A menu is asked as it opens and needs none of it; a toolbar is on
+screen continuously and has no such moment, and what it replaces is `EditorShell.Tick` asking every
+command on the strip every frame. The flag is set as often as anyone likes and read once — fifty
+registrations during a load raise it once. It is on the **document** and not on the static
+`CommandRoute`, because a static event would keep every subscribing control alive for the life of
+the process and one document's focus change would invalidate another's surfaces; and it is raised
+from `Tick` rather than from `Update` because `Update` returns early when nothing dirtied the
+document, and a command becoming executable is not a thing that dirties one.
+
+**What consumes it.** `Vixen.Ui.Controls`' `ButtonBase.Command` — so `Button`, `IconButton`,
+`MenuItem`, `ToggleButton` and `Link` all bind an id, from markup as readily as from code, and each
+follows the invalidation for as long as it has one bound. The editor's `CommandRegistry` still
+resolves its scope through `EditorShell.Context` — see
 [doc 45](../../docs/plan/45-commands-and-focus-scope.md), whose staging step 1 is what this is, and
 whose § G2 was **refuted** when it met the editor: the editor's contexts are pushed from *pointer
 presses*, not focus changes, because its panels are not focusable — six of its seven context-claiming

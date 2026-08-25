@@ -737,6 +737,12 @@ public sealed partial class UiDocument : IDisposable {
             }
         }
 
+        // ⚠ Separately from the focus, because the two are allowed to be different elements — that
+        // is what `CommandFocus` is for — and the one this releases is by definition the one the
+        // focus is *not* on. A view removed while a menu is open would otherwise leave the route
+        // walking up through the parents of something no longer in the tree.
+        ReleaseCommandFocus(element);
+
         for (var captured = Captured; captured is not null; captured = captured.Parent) {
             if (ReferenceEquals(captured, element)) {
                 ReleasePointer();
@@ -1154,6 +1160,11 @@ public sealed partial class UiDocument : IDisposable {
             // there is exactly nothing for the resolver to redo and a great deal for `Apply` to.
             InvalidatePositions();
         }
+
+        // ⚠ Before `Ticked` and before the passes, so that a surface which greys a button in its
+        // handler has that write picked up by *this* frame's layout rather than the next one. It is
+        // also the reason the coalescing point is here at all: see `CommandsInvalidated`.
+        RaiseCommandsInvalidated();
 
         Ticked?.Invoke(this, now);
     }

@@ -330,4 +330,108 @@ public class CommandRouteTests {
         Assert.Equal("document", ran);
         Assert.Same(document.Root, CommandRoute.Resolve(document, "file.save")!.Value.Element);
     }
+
+    [Fact]
+    public void Focusing_a_surface_that_shows_commands_leaves_the_route_where_it_was() {
+        using var document = new UiDocument(100f, 100f);
+
+        var view = View(document.Root);
+        view.AddCommandHandler("edit.copy", () => { });
+
+        var palette = document.Root.Add("div");
+        palette.IsCommandTransparent = true;
+
+        var row = View(palette);
+
+        document.Focus(view);
+        Assert.Same(view, document.CommandFocus);
+
+        document.Focus(row);
+
+        // ⚠ The focus moved and the route did not, which is the whole of the flag. A menu, a menu
+        // bar and a palette all have to take the focus to be operable, and all three would
+        // otherwise become the answer to "who handles this".
+        Assert.Same(row, document.Focused);
+        Assert.Same(view, document.CommandFocus);
+        Assert.Same(view, CommandRoute.Resolve(document, "edit.copy")!.Value.Element);
+    }
+
+    [Fact]
+    public void Transparency_is_inherited_and_an_ordinary_element_is_not_transparent() {
+        using var document = new UiDocument(100f, 100f);
+
+        var palette = document.Root.Add("div");
+        var row = palette.Add("div");
+        var leaf = row.Add("div");
+
+        Assert.False(leaf.IsInCommandTransparentSubtree);
+
+        palette.IsCommandTransparent = true;
+
+        // Declared once at the surface's root, and everything inside it is covered — including
+        // elements added later, which is what stops a plugin's extra row being the exception.
+        Assert.True(leaf.IsInCommandTransparentSubtree);
+        Assert.False(palette.Parent!.IsInCommandTransparentSubtree);
+        Assert.False(leaf.IsCommandTransparent);
+    }
+
+    [Fact]
+    public void Removing_the_view_the_route_pointed_at_forgets_it() {
+        using var document = new UiDocument(100f, 100f);
+
+        var view = View(document.Root);
+        view.AddCommandHandler("edit.copy", () => { });
+
+        var palette = document.Root.Add("div");
+        palette.IsCommandTransparent = true;
+
+        document.Focus(view);
+        document.Focus(View(palette));
+
+        Assert.Same(view, document.CommandFocus);
+
+        // ⚠ The focus is not on the view, so the removal path that clears `Focused` does not cover
+        // it. Without a release of its own the route would walk up through the parents of something
+        // no longer in the tree.
+        document.Remove(view);
+
+        Assert.Null(document.CommandFocus);
+        Assert.Null(CommandRoute.Resolve(document, "edit.copy"));
+    }
+
+    [Fact]
+    public void A_handler_can_say_what_it_is_called_and_whether_it_is_on() {
+        using var document = new UiDocument(100f, 100f);
+
+        var what = "Move";
+        var grid = true;
+
+        var view = View(document.Root);
+        view.AddCommandHandler("edit.undo", () => { }, title: () => $"Undo {what}");
+        view.AddCommandHandler("view.grid", () => grid = !grid, isChecked: () => grid);
+        view.AddCommandHandler("edit.copy", () => { });
+
+        document.Focus(view);
+
+        var undo = CommandRoute.Resolve(document, "edit.undo")!.Value;
+        var toggle = CommandRoute.Resolve(document, "view.grid")!.Value;
+        var copy = CommandRoute.Resolve(document, "edit.copy")!.Value;
+
+        Assert.Equal("Undo Move", undo.Title);
+        what = "Delete";
+        Assert.Equal("Undo Delete", undo.Title);
+
+        // ⚠ Asked every time rather than captured, for `CanExecute`'s reason: a value read once at
+        // registration is right only until the thing it describes changes.
+        Assert.True(toggle.IsCheckable);
+        Assert.True(toggle.IsChecked);
+        toggle.Run();
+        Assert.False(toggle.IsChecked);
+
+        // And the ordinary command says nothing about either, which is what lets a surface tell
+        // "no name of its own" from "no name" and "not a toggle" from "a toggle that is off".
+        Assert.Null(copy.Title);
+        Assert.False(copy.IsCheckable);
+        Assert.False(copy.IsChecked);
+    }
 }

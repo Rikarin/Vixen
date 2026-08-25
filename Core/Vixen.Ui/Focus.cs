@@ -35,6 +35,34 @@ public sealed partial class UiDocument {
     /// <summary>The element the keyboard is talking to.</summary>
     public UiElement? Focused { get; private set; }
 
+    /// <summary>The element a command id resolves from — the focus, ignoring the surfaces that show commands.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same as <see cref="Focused" /> for every ordinary control</b>, and different
+    ///         for exactly the elements that declare
+    ///         <see cref="UiElement.IsCommandTransparent" />: a menu, a menu bar, a command palette.
+    ///         Focusing one of those leaves this pointing at whatever had it before, so the menu
+    ///         still shows and runs the focused <i>view</i>'s handler rather than its own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not restored when the menu closes, and must not be.</b> A menu closes by
+    ///         leaving the focus on an item that is no longer visible — there is no focus-restore
+    ///         machinery in this framework — so a value that tracked <see cref="Focused" /> back out
+    ///         again would land on the hidden item. This one never moved.
+    ///     </para>
+    /// </remarks>
+    public UiElement? CommandFocus { get; private set; }
+
+    /// <summary>Forgets the command focus if it is inside a subtree that is going away.</summary>
+    void ReleaseCommandFocus(UiElement removed) {
+        for (var origin = CommandFocus; origin is not null; origin = origin.Parent) {
+            if (ReferenceEquals(origin, removed)) {
+                CommandFocus = null;
+                return;
+            }
+        }
+    }
+
     /// <summary>Moves the focus.</summary>
     /// <param name="element">The element to focus, or <c>null</c> to focus nothing.</param>
     /// <returns>Whether the focus ended up there.</returns>
@@ -70,6 +98,18 @@ public sealed partial class UiDocument {
 
         var previous = Focused;
         Focused = element;
+
+        // ⚠ The one place the command route's origin is written, and it is deliberately *not* every
+        // focus change. See `CommandFocus`.
+        if (element is null || !element.IsInCommandTransparentSubtree) {
+            CommandFocus = element;
+
+            // Inside the branch, not outside it: a focus change that leaves the route where it was
+            // — every press on a menu, on a menu bar and on a toolbar button — cannot have changed
+            // any answer, and telling forty items to re-ask would be exactly the churn the
+            // coalescing exists to prevent.
+            InvalidateCommands();
+        }
 
         Restate(previous, element, KeyboardMode);
 

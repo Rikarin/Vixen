@@ -85,6 +85,26 @@ public sealed partial class MenuItem : ButtonBase {
         return Shortcut;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The gutter as well as the state, and the tick is only created for a command that has
+    ///     one.</b> <see cref="Mark" /> is a part that exists once something asks for it, so a menu
+    ///     of ordinary commands never grows one and is not indented by a column of empty ticks —
+    ///     which is why this asks <c>checkable</c> before it touches anything, rather than creating
+    ///     the mark and hiding it.
+    ///     <para>
+    ///         An inline <c>display</c> rather than a class, on <c>MenuPresenter</c>'s terms: a class
+    ///         relies on a rule an application's own theme may not have.
+    ///     </para>
+    /// </remarks>
+    protected override void ShowCheck(bool checkable, bool isChecked) {
+        base.ShowCheck(checkable, isChecked);
+
+        if (checkable) {
+            Mark.SetStyle("display", isChecked ? "flex" : "none");
+        }
+    }
+
     Icon Prepend() {
         var mark = Part<Icon>();
         mark.Geometry = ControlIcons.Check;
@@ -171,8 +191,39 @@ public partial class Menu : Overlay {
         // window behind it.
         IsFocusScope = true;
 
+        // ⚠ And it is not a place a command resolves from. `OnOpened` focuses the first item so the
+        // arrow keys work, which would otherwise mean every item in the menu asks the route "who
+        // handles this" from inside the menu — and gets the menu. The two flags are opposites of
+        // each other by design: the focus goes in, and the command route does not follow it.
+        IsCommandTransparent = true;
+
         AddHandler<ClickEvent>(static (element, args) => ((Menu) element).Chosen(args));
         AddHandler<KeyEvent>(static (element, args) => ((Menu) element).Keyed(args));
+
+        // ⚠ On the way open, so that a menu is right the instant it is on screen rather than on the
+        // frame after. `UiDocument.CommandsInvalidated` is what keeps a *persistently visible*
+        // surface current, and it is coalesced to once a frame — which is correct for a strip that
+        // is already drawn and one frame too late for a menu, since `Overlay.Open` runs a pass
+        // itself and that pass would draw the previous answer.
+        OpenChanged += static (overlay, isOpen) => {
+            if (isOpen) {
+                ((Menu) overlay).RefreshCommands();
+            }
+        };
+    }
+
+    /// <summary>Asks the route about every item that names a command, and shows the answers.</summary>
+    /// <remarks>
+    ///     Over <see cref="UiElement.Children" /> rather than <see cref="Items" />, because
+    ///     <c>Items</c> is a fresh list every time it is read and this runs on every opening of every
+    ///     menu in the chain.
+    /// </remarks>
+    internal void RefreshCommands() {
+        foreach (var child in Children) {
+            if (child is MenuItem item) {
+                item.RefreshCommand();
+            }
+        }
     }
 
     /// <summary>Removes every item and separator.</summary>
@@ -551,6 +602,12 @@ public sealed partial class MenuBar : Control {
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
+
+        // ⚠ The bar as well as the menus it drops, because a `MenuBarItem` is a `ButtonBase` and
+        // takes the focus the moment it is pressed — before the menu it opens even exists. Marking
+        // only the `Menu` would leave the route resolving from the word "Edit".
+        IsCommandTransparent = true;
+
         AddHandler<ClickEvent>(static (element, args) => ((MenuBar) element).Chosen(args));
     }
 

@@ -23,13 +23,24 @@ namespace Vixen.Ui;
 public readonly struct CommandHandler : IEquatable<CommandHandler> {
     readonly Action execute;
     readonly Func<bool>? canExecute;
+    readonly Func<string?>? title;
+    readonly Func<bool>? isChecked;
 
-    internal CommandHandler(string id, UiElement element, Action execute, Func<bool>? canExecute) {
+    internal CommandHandler(
+        string id,
+        UiElement element,
+        Action execute,
+        Func<bool>? canExecute,
+        Func<string?>? title,
+        Func<bool>? isChecked
+    ) {
         Id = id;
         Element = element;
 
         this.execute = execute;
         this.canExecute = canExecute;
+        this.title = title;
+        this.isChecked = isChecked;
     }
 
     /// <summary>The command id this answers to.</summary>
@@ -46,6 +57,35 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     ///     a value pushed when it changes is right only if every path that changes it remembered.
     /// </remarks>
     public bool CanExecute => canExecute?.Invoke() ?? true;
+
+    /// <summary>What it should be called right now, or <c>null</c> if it does not rename itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The handler supplies it, not the command</b>, and that is forced by the same
+    ///         thing that makes the route worth having: there is no command object here to hang a
+    ///         caption on, only whichever element answered. "Undo Move" is a fact about the view
+    ///         that owns the undo stack, and the view that answers <c>edit.undo</c> is that view.
+    ///     </para>
+    ///     <para>
+    ///         <c>null</c> — which is what a handler that passed no title reports — means "leave the
+    ///         label alone". A surface must not read it as "no name": the overwhelming majority of
+    ///         commands are named once where the menu is written, and a binding that blanked them
+    ///         would empty every line in the menu.
+    ///     </para>
+    /// </remarks>
+    public string? Title => title?.Invoke();
+
+    /// <summary>Whether this command is a toggle at all, without asking what it is set to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The question <see cref="IsChecked" /> cannot answer</b>, and a surface needs it before
+    ///     it needs the state: a tick shown as "off" and a command that has no tick look identical
+    ///     from a <c>bool</c> and are drawn differently — the first reserves the gutter, the second
+    ///     must not, or every ordinary menu is indented by a column of nothing.
+    /// </remarks>
+    public bool IsCheckable => isChecked is not null;
+
+    /// <summary>Whether a checkable command is currently on. <c>false</c> for one that is not checkable.</summary>
+    public bool IsChecked => isChecked?.Invoke() ?? false;
 
     /// <summary>Runs it, whether or not it said it could.</summary>
     /// <remarks>
@@ -114,17 +154,30 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
 public static class CommandRoute {
     /// <summary>Where the walk starts.</summary>
     /// <param name="document">The document.</param>
-    /// <returns>The focused element, or the root when nothing has the focus.</returns>
+    /// <returns>The focus commands resolve from, or the root when there is none.</returns>
     /// <remarks>
-    ///     ⚠ <b>The root rather than nothing, so a document-wide handler still answers while the
-    ///     focus is nowhere.</b> With something focused the root is on the walk anyway, being every
-    ///     element's last ancestor; falling back to it is what makes "focused → parents → document"
-    ///     one loop rather than two cases. It is also why a command with a registration-time
-    ///     implementation — a handler on the root — always responds, and nothing changes for it.
+    ///     <para>
+    ///         ⚠ <b>The root rather than nothing, so a document-wide handler still answers while the
+    ///         focus is nowhere.</b> With something focused the root is on the walk anyway, being
+    ///         every element's last ancestor; falling back to it is what makes "focused → parents →
+    ///         document" one loop rather than two cases. It is also why a command with a
+    ///         registration-time implementation — a handler on the root — always responds, and
+    ///         nothing changes for it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="UiDocument.CommandFocus" /> and not <see cref="UiDocument.Focused" />,
+    ///         because the surfaces that <i>display</i> commands take the focus in order to be
+    ///         operable.</b> An open menu focuses its first item so the arrow keys work, and a menu
+    ///         bar's name takes the focus when it is pressed — so a menu item resolving from
+    ///         <c>Focused</c> resolves from <i>itself</i>, and the view whose verb it was showing is
+    ///         no longer on the walk at all. That is AppKit's rule stated as data rather than as an
+    ///         event loop: a menu is not in the responder chain. See
+    ///         <see cref="UiElement.IsCommandTransparent" />.
+    ///     </para>
     /// </remarks>
     public static UiElement Origin(UiDocument document) {
         ArgumentNullException.ThrowIfNull(document);
-        return document.Focused ?? document.Root;
+        return document.CommandFocus ?? document.Root;
     }
 
     /// <summary>The scope the focus is in.</summary>
@@ -181,6 +234,74 @@ public static class CommandRoute {
     }
 }
 
+public sealed partial class UiDocument {
+    bool commandsDirty;
+
+    /// <summary>Raised at most once a frame when anything a command surface shows may have changed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For the surfaces that are visible all the time.</b> A menu is asked as it opens and
+    ///         needs nothing else; a toolbar, and Trinix's global menu bar — which has to <i>push</i>
+    ///         an update over a Wayland protocol at the moment an item greys — are on screen
+    ///         continuously and have no such moment. The alternative they had was polling every
+    ///         command on the tick, which is what <c>EditorShell.Tick</c> does today.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Coalesced to one raise per frame, and that is the entire reason it exists.</b> A
+    ///         command's answer can be changed by a focus change, by a registration, and by anything
+    ///         at all through <see cref="InvalidateCommands" /> — and a load that registers fifty
+    ///         handlers would otherwise re-ask forty menu items fifty times for one answer. The flag
+    ///         is set as many times as anybody likes and read once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Raised from <see cref="Tick" /> rather than from <see cref="Update" />, because
+    ///         <c>Update</c> is allowed not to happen.</b> A frame in which nothing dirtied the
+    ///         document returns early without running a pass, and a command becoming executable is
+    ///         not a thing that dirties one — so a surface hung on the pass would go stale for
+    ///         exactly as long as the interface was still. <c>Tick</c> is the call a host must make
+    ///         every frame whether anything happened or not, which is the guarantee this needs.
+    ///     </para>
+    ///     <para>
+    ///         Subscribe in <c>OnCreated</c> and unsubscribe in <c>OnRemoved</c>, as
+    ///         <see cref="Ticked" />'s remarks say.
+    ///     </para>
+    /// </remarks>
+    public event Action<UiDocument>? CommandsInvalidated;
+
+    /// <summary>Says that a command's enablement, name or check state may have changed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The third source, and the one an application uses.</b> The focus moving and a
+    ///         handler being registered are noticed here; a <i>selection</i> changing is not, and
+    ///         cannot be — the predicate that reads it is an arbitrary closure and this framework has
+    ///         no way to know what it looked at. So the view that changed the selection says so, in
+    ///         one line, and every surface showing any of its commands follows.
+    ///     </para>
+    ///     <para>
+    ///         Free to call as often as you like: it sets a flag. Calling it a hundred times in a
+    ///         frame raises <see cref="CommandsInvalidated" /> once.
+    ///     </para>
+    /// </remarks>
+    public void InvalidateCommands() => commandsDirty = true;
+
+    /// <summary>Raises the coalesced invalidation, if anything asked for one since the last frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The flag is cleared before the handlers run, not after.</b> A handler is entitled to
+    ///     invalidate again — a toolbar that renames a button can legitimately change what a
+    ///     predicate reads — and clearing afterwards would swallow that, leaving the interface a
+    ///     frame stale with no way to notice. Clearing first means the second ask is honoured on the
+    ///     next frame, which is one raise per frame in either order.
+    /// </remarks>
+    void RaiseCommandsInvalidated() {
+        if (!commandsDirty) {
+            return;
+        }
+
+        commandsDirty = false;
+        CommandsInvalidated?.Invoke(this);
+    }
+}
+
 public partial class UiElement {
     // ⚠ One nullable reference, and both command features live behind it. A UI tree is 10⁴
     // elements and almost none of them are command responders, so the cost of the feature on an
@@ -215,6 +336,53 @@ public partial class UiElement {
         }
     }
 
+    /// <summary>Whether the focus landing here should leave the command route pointing where it was.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>"This is not a place."</b> A menu, a menu bar and a command palette are surfaces
+    ///         that <i>show</i> commands, and every one of them has to take the focus to be usable —
+    ///         a menu focuses its first item so the arrows work, a bar's name focuses when pressed.
+    ///         Without this, a menu item asking the route which view handles <c>edit.copy</c> gets
+    ///         the answer "the menu item", because by the time the menu is on screen the view it was
+    ///         opened over is no longer focused.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not make anything unfocusable, and that is the whole reason it is a
+    ///         second flag rather than <see cref="Focusable" />.</b> Tab still reaches it, the ring
+    ///         still shows, arrow keys still move between menu items. The only thing that changes is
+    ///         what <see cref="CommandRoute.Origin" /> reads afterwards.
+    ///     </para>
+    ///     <para>
+    ///         <b>Inherited downwards</b>, on <see cref="CommandScope" />'s terms and for its
+    ///         reasons: a menu declares it once and every item, label and icon inside it is covered,
+    ///         including ones a plugin adds later.
+    ///     </para>
+    /// </remarks>
+    public bool IsCommandTransparent {
+        get => commands?.Transparent ?? false;
+        set {
+            if (!value && commands is null) {
+                return;
+            }
+
+            (commands ??= new CommandBindings()).Transparent = value;
+        }
+    }
+
+    /// <summary>Whether this element is inside anything that declares itself command-transparent.</summary>
+    /// <remarks>Asked once per focus change, which is what makes a walk the right shape for it.</remarks>
+    public bool IsInCommandTransparentSubtree {
+        get {
+            for (var element = this; element is not null; element = element.Parent) {
+                if (element.commands?.Transparent == true) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>The scope in force here: this element's, or the nearest ancestor's that declares one.</summary>
     public string? EffectiveCommandScope {
         get {
@@ -232,6 +400,8 @@ public partial class UiElement {
     /// <param name="id">The command id, as the keymap and the menu spell it.</param>
     /// <param name="execute">What it does.</param>
     /// <param name="canExecute">Whether it can, asked whenever anything shows the command. Always, if omitted.</param>
+    /// <param name="title">What to call it right now, for the handful of commands whose name is their state. Omitted leaves every surface's own label alone.</param>
+    /// <param name="isChecked">Whether it is on, for a command that is a toggle. Omitted means it is not a toggle and shows no tick.</param>
     /// <exception cref="ArgumentException">This element already handles that id.</exception>
     /// <remarks>
     ///     ⚠ <b>Registering the same id twice on one element throws</b>, for
@@ -240,7 +410,13 @@ public partial class UiElement {
     ///     <i>different</i> elements handling the same id is the whole point and is not a collision
     ///     — the route picks the nearer one.
     /// </remarks>
-    public void AddCommandHandler(string id, Action execute, Func<bool>? canExecute = null) {
+    public void AddCommandHandler(
+        string id,
+        Action execute,
+        Func<bool>? canExecute = null,
+        Func<string?>? title = null,
+        Func<bool>? isChecked = null
+    ) {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(execute);
 
@@ -252,7 +428,11 @@ public partial class UiElement {
             }
         }
 
-        bindings.Handlers.Add(new CommandRegistration(id, execute, canExecute));
+        bindings.Handlers.Add(new CommandRegistration(id, execute, canExecute, title, isChecked));
+
+        // A new responder can turn a greyed item live, and a view that declares eight handlers as it
+        // is built asks for one raise between them.
+        Document.InvalidateCommands();
     }
 
     /// <summary>Stops handling a command.</summary>
@@ -270,6 +450,11 @@ public partial class UiElement {
         for (var i = 0; i < handlers.Count; i++) {
             if (string.Equals(handlers[i].Id, id, StringComparison.Ordinal)) {
                 handlers.RemoveAt(i);
+
+                // The other half of registration: a responder going away can grey an item that was
+                // live, and is the same kind of change for the same surfaces.
+                Document.InvalidateCommands();
+
                 return true;
             }
         }
@@ -288,7 +473,14 @@ public partial class UiElement {
         if (commands is not null) {
             foreach (var registration in commands.Handlers) {
                 if (string.Equals(registration.Id, id, StringComparison.Ordinal)) {
-                    handler = new CommandHandler(id, this, registration.Execute, registration.CanExecute);
+                    handler = new CommandHandler(
+                        id,
+                        this,
+                        registration.Execute,
+                        registration.CanExecute,
+                        registration.Title,
+                        registration.IsChecked
+                    );
                     return true;
                 }
             }
@@ -312,13 +504,21 @@ public partial class UiElement {
         }
     }
 
-    readonly record struct CommandRegistration(string Id, Action Execute, Func<bool>? CanExecute);
+    readonly record struct CommandRegistration(
+        string Id,
+        Action Execute,
+        Func<bool>? CanExecute,
+        Func<string?>? Title,
+        Func<bool>? IsChecked
+    );
 
     // A list rather than a dictionary: an element declares a handful of ids at most, and a linear
     // scan over four strings beats hashing one. Allocated only for elements that take part.
     [SuppressMessage("Performance", "CA1812", Justification = "Instantiated through UiElement.commands.")]
     sealed class CommandBindings {
         public string? Scope { get; set; }
+
+        public bool Transparent { get; set; }
 
         public List<CommandRegistration> Handlers { get; } = [];
     }

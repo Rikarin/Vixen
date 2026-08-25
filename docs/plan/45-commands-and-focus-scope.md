@@ -165,30 +165,83 @@ Each step is independently shippable and leaves the editor working.
    `CommandRoute.ScopeOf` is `null` for all nine contexts and this step would be a rename of the
    fallback. It needs a stated derivation for the editor first — see the box under G2 — and that is a
    design decision rather than a coding one.
-3. **`MenuItem.Command`, `Toolbar` and `ButtonBase` binding in `Vixen.Ui.Controls`**, with `Disabled`,
-   title and check state following the route.
+3. ✅ **`MenuItem.Command`, ~~`Toolbar`~~ and `ButtonBase` binding in `Vixen.Ui.Controls`**, with
+   `Disabled`, title and check state following the route. — *Landed 2026-08-25.* `Command` is on
+   `ButtonBase`, so `Button`, `IconButton`, `MenuItem`, `ToggleButton` and `Link` all have it;
+   `MenuItem` overrides only the tick gutter. `CommandHandler` gained `Title`, `IsCheckable` and
+   `IsChecked`, because the route as step 1 left it carried neither of the two things this step was
+   asked to bind. 10 tests in `Core/Vixen.Ui.Controls.Tests/CommandBindingTests.cs`, one of them
+   through a real compiled `.vxml`.
+
+   > ⚠️ **`Toolbar` is not built, and the doc naming it was the last of G5's assumptions to survive
+   > contact.** No `Toolbar` type exists in `Vixen.Ui.Controls`; what exists is
+   > `Editor/Vixen.Editor.Ui/Menus/ToolbarPresenter.cs`, whose `Refresh` (`:166`) does exactly three
+   > things per button — `Disabled`, `Label` from `Caption`, `ElementState.Checked` — and all three
+   > are now what `ButtonBase.Command` does by itself. What is left of a toolbar is a `Panel` of
+   > `Button`s and `Separator`s, both of which already exist, plus the `toolbar-group` class the
+   > editor theme already has. A new public control would have been a container with no behaviour in
+   > it.
+
+   > ⚠️ **A second, larger finding: the route could not see past the surfaces that display it.**
+   > `Menu.OnOpened` (`Menus.cs:364`) focuses its first item so the arrow keys work, and
+   > `MenuBarItem` is a `ButtonBase` that takes the focus when pressed. So a menu item resolving
+   > `edit.copy` from `UiDocument.Focused` resolved it **from inside the menu**, found nothing, and
+   > greyed every line — the criterion below would have been met by a menu in which every command
+   > was permanently disabled. Step 1's model is right and was one flag short of usable: a surface
+   > that shows commands must be able to say it is not a *place*. `UiElement.IsCommandTransparent`
+   > is that flag, `UiDocument.CommandFocus` is the focus that ignores it, and
+   > `CommandRoute.Origin` now reads the latter. `Menu`, `MenuBar` and any control with a bound
+   > `Command` set it. It is AppKit's "a menu is not in the responder chain", stated as data.
+   > Sabotage: removing the transparency test in `Focus` fails 6 of 10 binding tests.
 4. **Editor menus and toolbars move onto the binding**, deleting the hand-maintained enablement.
-5. **`Invalidated`**, and the two persistently visible surfaces subscribe.
+5. ✅ **`Invalidated`**, and the two persistently visible surfaces subscribe. — *Landed 2026-08-25.*
+   `UiDocument.CommandsInvalidated` and `UiDocument.InvalidateCommands()`, raised from
+   `UiDocument.Tick`; `ButtonBase` subscribes for as long as it has a bound id, so the event ships
+   with its consumers rather than ahead of them. 6 tests in
+   `Core/Vixen.Ui.Tests/CommandInvalidationTests.cs` plus 2 subscriber tests in the controls
+   project. Sabotage both ways: raising eagerly instead of coalescing fails 2 of 6 (100 raises where
+   1 is asserted), and never raising at all fails 4 of 6 and 1 of 12 bindings.
+
+   > **On the document, not on `CommandRoute`.** The doc's shape block says
+   > `CommandRoute.Invalidated`, and `CommandRoute` is a static class: a static event would hold
+   > every subscribing control — and through it every element it can reach — alive for the life of
+   > the process, and one document's focus change would invalidate every other document's surfaces.
+   > All three sources are per-document facts, and "once per frame" needs a frame, which is
+   > `UiDocument.Tick`. `MenuPresenter` already carries a comment about `Strings.Changed` being
+   > static and outliving the document it was subscribed from, which is the same defect one level
+   > out.
+
+   > **`Tick` rather than `Update`, and the difference is load-bearing.** `UiDocument.Update`
+   > returns early when nothing dirtied the document, and a command becoming executable is not a
+   > thing that dirties one — so a surface hung on the pass goes stale for exactly as long as the
+   > interface is still, which is most of the time. `Tick` is the one call a host must make every
+   > frame whether anything happened or not. `It_is_raised_from_the_tick_because_a_still_document_runs_no_pass`
+   > asserts `Update()` returns `false` on the frame the raise happens.
 
 ## Acceptance criteria
 
-- 🟡 A `Vixen.Ui` application with **no reference to `Vixen.Editor.Ui`** can declare a menu whose
+- ✅ A `Vixen.Ui` application with **no reference to `Vixen.Editor.Ui`** can declare a menu whose
   items are commands, and an item whose command nothing handles is disabled without the application
-  writing a rule. — *The route half is done: `CommandRoute.CanExecute` is `false` when nothing
-  responds (`Nobody_responds_so_it_is_not_executable`). The menu half is step 3.*
+  writing a rule. — *`An_id_nothing_handles_disables_the_item_and_the_menu_writes_no_rule`, and
+  `An_item_bound_from_markup_is_bound_the_same_as_one_bound_from_code` proves it from a compiled
+  `.vxml` containing nothing but labels and ids.*
 - ✅ Two views declare a handler for the same id; focusing each in turn runs a different one, and
   neither view knows the other exists. — `The_focused_leaf_decides_which_of_two_handlers_runs`.
-- 🟡 A view registers a handler for `edit.copy` with `canExecute` returning false while its selection
-  is empty; the menu item greys and un-greys with the selection, with no code in the menu. — *The
-  predicate half is done: `Enablement_follows_a_selection_with_no_code_in_the_caller`. The menu item
-  is step 3.*
+- ✅ A view registers a handler for `edit.copy` with `canExecute` returning false while its selection
+  is empty; the menu item greys and un-greys with the selection, with no code in the menu. —
+  `Enablement_follows_a_view_s_predicate_with_no_code_in_the_menu`.
 - ⛔ Moving focus between two scopes changes which binding a chord resolves to **without any code
   assigning a context**, and `EditorShell.Context` no longer exists. — *Blocked. See the amendment
   under G2: the editor's panels are not focusable and four of its nine contexts are modes, so
   "moving focus between two scopes" is not a thing that happens in this editor as written.*
-- ⬜ `Invalidated` fires once per frame at most, under a test that mutates state fifty times in one
-  tick. — *Step 5. Deliberately not built in step 1: an event nothing raises and nothing subscribes
-  to is this repository's commonest defect.*
+- ✅ `Invalidated` fires once per frame at most, under a test that mutates state fifty times in one
+  tick. — `Fifty_mutations_in_one_tick_raise_it_once`, which makes a hundred mutations (fifty
+  explicit invalidations and fifty registrations, so the sources coalesce against each other and not
+  merely each against itself) and asserts one raise. The other direction is asserted too, because an
+  event that never fires satisfies "at most once" perfectly: `Each_of_the_three_sources_raises_it`
+  checks the three one at a time with a frame between, and
+  `A_button_that_is_always_on_screen_follows_the_invalidation_instead_of_polling` proves a real
+  control follows it — and that ten quiet frames ask no predicate at all.
 - ✅ Every existing editor keybinding test passes unchanged. — *Trivially, nothing under `Editor/`
   was touched.*
 - ✅ Public API additions are approved in `PublicAPI.Unshipped.txt`; `CheckApi` and

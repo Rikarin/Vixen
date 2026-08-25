@@ -53,6 +53,8 @@ Vixen.Ui.Controls.ButtonBase -> abstract class
 Vixen.Ui.Controls.ButtonBase : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.ButtonBase.Activate() -> void
 Vixen.Ui.Controls.ButtonBase.ButtonBase() -> void
+Vixen.Ui.Controls.ButtonBase.Command.get -> string?
+Vixen.Ui.Controls.ButtonBase.Command.set -> string?
 Vixen.Ui.Controls.ButtonBase.HasIcon.get -> bool
 Vixen.Ui.Controls.ButtonBase.LabelPart.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.ButtonBase.LeadingIcon.get -> Vixen.Ui.Controls.Icon
@@ -782,6 +784,7 @@ override Vixen.Ui.Controls.Breadcrumb.TagName.get -> string
 override Vixen.Ui.Controls.BreadcrumbItem.TagName.get -> string
 override Vixen.Ui.Controls.Button.TagName.get -> string
 override Vixen.Ui.Controls.ButtonBase.OnCreated() -> void
+override Vixen.Ui.Controls.ButtonBase.OnRemoved() -> void
 override Vixen.Ui.Controls.ButtonBase.RaisesActivation.get -> bool
 override Vixen.Ui.Controls.Card.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Card.ContentHost.get -> Vixen.Ui.UiElement
@@ -844,6 +847,7 @@ override Vixen.Ui.Controls.MenuBar.OnCreated() -> void
 override Vixen.Ui.Controls.MenuBar.OnRemoved() -> void
 override Vixen.Ui.Controls.MenuBar.TagName.get -> string
 override Vixen.Ui.Controls.MenuBarItem.TagName.get -> string
+override Vixen.Ui.Controls.MenuItem.ShowCheck(bool checkable, bool isChecked) -> void
 override Vixen.Ui.Controls.MenuItem.TagName.get -> string
 override Vixen.Ui.Controls.MultiSelect.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.MultiSelect.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
@@ -1053,6 +1057,7 @@ virtual Vixen.Ui.Controls.ButtonBase.Activate(Vixen.Ui.Controls.ActivationDevice
 virtual Vixen.Ui.Controls.ButtonBase.ActivatesOnEnter.get -> bool
 virtual Vixen.Ui.Controls.ButtonBase.Label.get -> string?
 virtual Vixen.Ui.Controls.ButtonBase.Label.set -> string?
+virtual Vixen.Ui.Controls.ButtonBase.ShowCheck(bool checkable, bool isChecked) -> void
 virtual Vixen.Ui.Controls.Control.AcceptsFocus.get -> bool
 virtual Vixen.Ui.Controls.Control.RaisesActivation.get -> bool
 virtual Vixen.Ui.Controls.Overlay.IsOutside(Vixen.Ui.UiElement? hit) -> bool
