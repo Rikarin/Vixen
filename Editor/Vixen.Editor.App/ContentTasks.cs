@@ -7,6 +7,7 @@ using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
+using Vixen.Ui;
 
 namespace Vixen.Editor.App;
 

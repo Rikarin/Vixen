@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Reactive.CollectionSignal`1, T:Vixen.Ui.Reactive.CollectionChan
 tags: [ui, reactivity, signals, collections, vxml]
 since: 0.2
 status: preview
-related: [ui/markup-panels]
+related: [ui/markup-panels, ui/background-tasks]
 ---
 
 ## What it is
