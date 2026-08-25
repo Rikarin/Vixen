@@ -404,12 +404,39 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     ///     </para>
     /// </remarks>
     public ResolveTargetAsset[] ResolveTargets { get; init; } = [];
+
+    /// <summary>Which sample a resolve of this pass's <see cref="DepthTarget" /> keeps.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Appended, for the same reason <see cref="ResolveTargets" /> was — a
+    ///         <c>[DataContract]</c> is serialised in declaration order.
+    ///     </para>
+    ///     <para>
+    ///         Only consulted when <see cref="ResolveTargets" /> names <see cref="DepthTarget" />.
+    ///         There is one per pass rather than one per pair because a pass has at most one depth
+    ///         attachment.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default keeps the sample nearest the camera, which under the engine's
+    ///         reversed-Z convention is the largest depth value.</b> Colour has no equivalent knob
+    ///         because averaging colour is always right; averaging depth never is.
+    ///     </para>
+    /// </remarks>
+    public DepthResolveMode DepthResolveMode { get; init; } = DepthResolveMode.Max;
 }
 
 /// <summary>One multisampled attachment and where its samples are resolved to.</summary>
 [DataContract("Resolve")]
 public sealed record ResolveTargetAsset {
-    /// <summary>The colour attachment being resolved — a name from <c>ColourTargets</c>.</summary>
+    /// <summary>
+    ///     The attachment being resolved — a name from <c>ColourTargets</c>, or the pass's
+    ///     <c>DepthTarget</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Naming the depth target resolves depth, by the rule <c>DepthResolveMode</c> gives. That
+    ///     rule is not optional the way colour's is: the mean of several depths describes no surface,
+    ///     so there is no sensible default a backend could pick on its own.
+    /// </remarks>
     public string Target { get; init; } = string.Empty;
 
     /// <summary>The single-sampled resource it resolves into.</summary>
