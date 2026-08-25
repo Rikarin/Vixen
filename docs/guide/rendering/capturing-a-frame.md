@@ -384,3 +384,6 @@ around them, for a caller whose path came from a command line rather than from a
 - [Booting an application](../engine/booting-an-application.md) — the `--vixen-*` arguments in full.
 - `Platform/Vixen.Graphics.Golden.Tests` — the suite that has rendered offscreen and written PNGs
   since before this flag existed, and the reference implementation of half of it.
+- `build/Build.SampleFrame.cs` — the gate that runs this recipe on every push (`nuke SampleFrame`,
+  the `sample-frame` leg in `ci.yml`). It is also where the assertions that can tell a real device
+  from the Null one are written down, and why "not a software device" is the wrong one to make.
