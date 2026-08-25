@@ -28,9 +28,6 @@ public static class EditorStrings {
     /// <summary>The <c>Edit</c> menu.</summary>
     public static StringId MenuEdit { get; } = new("editor.menu.edit", "Edit");
 
-    /// <summary>The <c>View</c> menu.</summary>
-    public static StringId MenuView { get; } = new("editor.menu.view", "View");
-
     /// <summary>The <c>Window</c> menu.</summary>
     public static StringId MenuWindow { get; } = new("editor.menu.window", "Window");
 
@@ -112,6 +109,9 @@ public static class EditorStrings {
     /// <summary>Tab: enter the next editor mode along the strip.</summary>
     public static StringId NextMode { get; } = new("editor.command.mode.next", "Next Mode");
 
+    /// <summary>What the mode strip calls the mode that is no mode.</summary>
+    public static StringId ModeSelect { get; } = new("editor.mode.select", "Select");
+
     /// <summary>Opens the search over assets, entities and settings.</summary>
     public static StringId CommandSearchEverywhere { get; } =
         new("editor.command.edit.search-everywhere", "Search Everywhere…");
@@ -164,12 +164,6 @@ public static class EditorStrings {
     /// <summary>What a task that threw reports.</summary>
     public static StringId TasksFailed { get; } = new("editor.tasks.failed", "Failed");
 
-    /// <summary>The heading over the messages that have been shown.</summary>
-    public static StringId NotificationsTitle { get; } = new("editor.notifications.title", "Notifications");
-
-    /// <summary>What the notification list says when there are none.</summary>
-    public static StringId NotificationsEmpty { get; } = new("editor.notifications.empty", "No notifications");
-
     /// <summary>Throws them all away.</summary>
     public static StringId NotificationsClear { get; } = new("editor.notifications.clear", "Clear All");
 
@@ -185,10 +179,15 @@ public static class EditorStrings {
     public static StringId LayoutNotRestored { get; } =
         new("editor.notice.layout-not-restored", "Saved layout could not be restored — showing the default");
 
-    /// <summary>The confirming button on a dialog that asks nothing more specific.</summary>
-    public static StringId DialogOk { get; } = new("editor.dialog.ok", "OK");
-
-    /// <summary>The one that backs out of it.</summary>
+    /// <summary>The button that backs out of a dialog the shell put up.</summary>
+    /// <remarks>
+    ///     ⚠ <b>There is no <c>DialogOk</c> beside it, and the asymmetry is the point.</b> The
+    ///     confirming button on a shell dialog always says something more specific than OK — Open,
+    ///     Replace, Discard — so a generic one was declared, never used, and sat in every
+    ///     translator's template as a word the editor does not say. The control set's own default
+    ///     confirm is <c>ControlStrings.DialogConfirm</c>, which is a different string in a different
+    ///     assembly's file.
+    /// </remarks>
     public static StringId DialogCancel { get; } = new("editor.dialog.cancel", "Cancel");
 
     /// <summary>What the status bar calls the selection when there is more than one thing in it.</summary>
@@ -220,9 +219,6 @@ public static class EditorStrings {
     /// <summary>What the detail pane says when no line is selected.</summary>
     public static StringId ConsoleNoSelection { get; } =
         new("editor.console.no-selection", "Select a line to see the whole record.");
-
-    /// <summary>What it reports when a keybinding could not be taken.</summary>
-    public static StringId KeyBindingConflict { get; } = new("editor.notice.binding-conflict", "That shortcut is already taken");
 
     /// <summary>The keybinding editor's tab.</summary>
     public static StringId PanelKeys { get; } = new("editor.panel.keybindings", "Keyboard Shortcuts");
@@ -417,7 +413,6 @@ public static class EditorStrings {
     public static IReadOnlyList<StringId> All { get; } = [
         MenuFile,
         MenuEdit,
-        MenuView,
         MenuWindow,
         MenuHelp,
         MenuAssets,
@@ -434,6 +429,7 @@ public static class EditorStrings {
         CategoryView,
         CategoryPanel,
         NextMode,
+        ModeSelect,
         CategoryMode,
         CategoryHelp,
         CommandNewProject,
@@ -462,12 +458,9 @@ public static class EditorStrings {
         TasksCancel,
         TasksCancelled,
         TasksFailed,
-        NotificationsTitle,
-        NotificationsEmpty,
         NotificationsClear,
         LayoutReset,
         LayoutNotRestored,
-        DialogOk,
         DialogCancel,
         StatusSelection,
         StatusFrameTime,
@@ -477,7 +470,6 @@ public static class EditorStrings {
         ConsoleSearch,
         ConsoleAllCategories,
         ConsoleNoSelection,
-        KeyBindingConflict,
         PanelKeys,
         PanelMessages,
         PanelPreferences,

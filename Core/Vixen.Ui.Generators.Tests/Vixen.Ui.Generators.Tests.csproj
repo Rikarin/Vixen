@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A reference rather than an analyzer, for the reason Vixen.Core.IO.Analyzers.Tests gives:
+            the analyzer is constructed and driven over a string of C# through
+            CompilationWithAnalyzers, which is the only way to assert on a span and a message.
+
+            ⚠ And no reference to Vixen.Ui. The source under test declares its own
+            `Vixen.Ui.StringId`, because what the analyzer resolves is a metadata name and a
+            test that resolved the real one would be asserting that two assemblies were restored.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj" />
+    </ItemGroup>
+</Project>

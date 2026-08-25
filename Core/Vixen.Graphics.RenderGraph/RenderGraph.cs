@@ -736,6 +736,9 @@ public sealed class RenderGraph {
         }
     }
 
+    /// <summary>What a texture was declared as, for a message about it.</summary>
+    internal string NameOf(GraphTexture texture) => resources[texture.Index - 1].Name;
+
     /// <summary>Refuses a resolve pair a backend would reject or silently mis-resolve.</summary>
     /// <remarks>
     ///     <para>
@@ -772,7 +775,7 @@ public sealed class RenderGraph {
             throw new RenderGraphException(
                 $"'{source.Name}' is {source.TextureDescription.Format} and resolves into "
                 + $"'{destination.Name}', which is {destination.TextureDescription.Format}. A resolve "
-                + "averages samples; it does not convert."
+                + "combines samples; it does not convert."
             );
         }
 
@@ -1565,15 +1568,23 @@ public sealed class RenderGraph {
             var store = attachment.Store ?? DeriveStore(resource, passIndex);
 
             if (attachment.IsDepth) {
+                // A depth resolve overrides the derivation for exactly the reason the colour one
+                // below does: what the next pass reads is the single-sampled buffer beside the
+                // multisampled one, so "does anything read this later" answers no and would store
+                // DontCare — resolving nothing.
+                var resolved = attachment.Resolve.IsValid;
+
                 depth = new(
                     resource.View,
                     attachment.Load,
-                    store,
+                    resolved ? StoreAction.Resolve : store,
                     attachment.ClearDepth,
                     attachment.Load,
-                    store,
+                    resolved ? StoreAction.DontCare : store,
                     attachment.ClearStencil,
-                    attachment.ReadOnly
+                    attachment.ReadOnly,
+                    resolved ? resources[attachment.Resolve.Index - 1].View : default,
+                    attachment.ResolveMode
                 );
             } else if (attachment.Resolve.IsValid) {
                 // The store is the resolve, whatever the derivation said. `DeriveStore` answers "does

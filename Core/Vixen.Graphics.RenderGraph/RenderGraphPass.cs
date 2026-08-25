@@ -212,13 +212,31 @@ public sealed class RenderGraphPassBuilder {
     ///     which is what lets a shader sample the same buffer the pass is testing against.
     /// </param>
     /// <param name="store">What to do at the end, or <see langword="null" /> to let the graph decide.</param>
+    /// <param name="resolve">
+    ///     Where to resolve a multisampled depth attachment at the end of the pass, or
+    ///     <see cref="GraphTexture.None" /> not to resolve it. As with a colour resolve, naming one
+    ///     makes the store a <see cref="StoreAction.Resolve" /> whatever <paramref name="store" />
+    ///     says, and declares the target as a write so it has a producer.
+    /// </param>
+    /// <param name="resolveMode">
+    ///     Which sample the resolve keeps. ⚠ There is no average — see <see cref="DepthResolveMode" />
+    ///     — and under the engine's reversed-Z convention the default
+    ///     <see cref="DepthResolveMode.Max" /> is the sample <em>nearest</em> the camera.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>A resolved depth attachment cannot also be read-only.</b> A read-only depth attachment
+    ///     is one the pass only tests; a resolve is a write of the target beside it, so asking for
+    ///     both is a contradiction the backend would resolve by silently doing neither.
+    /// </remarks>
     public void DepthAttachment(
         GraphTexture texture,
         LoadAction load = LoadAction.Clear,
         float clearDepth = 0f,
         byte clearStencil = 0,
         bool readOnly = false,
-        StoreAction? store = null
+        StoreAction? store = null,
+        GraphTexture resolve = default,
+        DepthResolveMode resolveMode = DepthResolveMode.Max
     ) {
         graph.Validate(texture);
 
@@ -237,7 +255,26 @@ public sealed class RenderGraphPassBuilder {
             !readOnly
         ));
 
-        pass.Attachments.Add(new(texture, load, store, default, clearDepth, clearStencil, true, readOnly));
+        if (resolve.IsValid) {
+            if (readOnly) {
+                throw new RenderGraphException(
+                    $"'{graph.NameOf(texture)}' is a read-only depth attachment and was given "
+                    + $"'{graph.NameOf(resolve)}' to resolve into. A read-only attachment is only "
+                    + "tested, so there is nothing for the resolve to write."
+                );
+            }
+
+            graph.Validate(resolve);
+            graph.ValidateResolve(texture, resolve);
+
+            // Same layout reasoning as the colour resolve: the render pass writes this, a transfer
+            // does not, so it is a depth-stencil target and not a copy destination.
+            pass.Uses.Add(new(resolve, GraphBuffer.None, ResourceState.DepthStencilWrite, true));
+        }
+
+        pass.Attachments.Add(
+            new(texture, load, store, default, clearDepth, clearStencil, true, readOnly, resolve, resolveMode)
+        );
     }
 
     /// <summary>States that the pass matters even if nothing reads what it writes.</summary>

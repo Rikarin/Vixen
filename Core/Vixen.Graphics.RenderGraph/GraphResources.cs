@@ -124,6 +124,9 @@ readonly record struct ResourceUse(
 ///     Where a multisampled attachment is resolved to at the end of the pass, or
 ///     <see cref="GraphTexture.None" /> for an attachment that is not resolved.
 /// </param>
+/// <param name="ResolveMode">
+///     Which sample a depth resolve keeps. Ignored for colour, which always averages.
+/// </param>
 readonly record struct GraphAttachment(
     GraphTexture Texture,
     LoadAction Load,
@@ -133,7 +136,8 @@ readonly record struct GraphAttachment(
     byte ClearStencil,
     bool IsDepth,
     bool ReadOnly,
-    GraphTexture Resolve = default
+    GraphTexture Resolve = default,
+    DepthResolveMode ResolveMode = DepthResolveMode.Max
 );
 
 /// <summary>What the graph knows about one virtual resource.</summary>

@@ -637,6 +637,124 @@ public class CompositorAssetTests : IDisposable {
         Assert.True(resolved.Usage.HasFlag(TextureUsage.Sampled));
     }
 
+    /// <summary>
+    ///     A document resolves depth through the same list colour uses, naming the depth target.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of the pair above, and the half that could not be said at all: the
+    ///         depth branch of the graph's attachment build never looked at a resolve, and
+    ///         <c>DepthStencilAttachment</c> had nowhere to put one — so a multisampled depth buffer
+    ///         was necessarily thrown away at the end of its pass.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The mode is the assertion that matters. A depth resolve cannot average, so the rule
+    ///         is named rather than assumed, and the default names the sample nearest the camera —
+    ///         which under the engine's reversed-Z convention is the <em>largest</em> depth value, not
+    ///         the smallest.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_document_can_resolve_a_multisampled_depth_target() {
+        using var h = Build();
+
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            stages:
+              - name: Opaque
+            resources:
+              - name: SceneSamples
+                format: Rgba16Float
+                usage: ColourTarget
+                sampleCount: 4
+              - name: SceneDepthSamples
+                format: Depth32Float
+                usage: DepthStencilTarget
+                sampleCount: 4
+              - name: SceneColour
+                format: Rgba16Float
+                usage: ColourTarget, Sampled
+              - name: SceneDepth
+                format: Depth32Float
+                usage: DepthStencilTarget, Sampled
+              - name: Post
+                format: Rgba16Float
+                usage: ColourTarget, Sampled
+            game: !Sequence
+              children:
+                - !RenderPass
+                  name: Main
+                  colourTargets: [SceneSamples]
+                  depthTarget: SceneDepthSamples
+                  sampleCount: 4
+                  resolveTargets:
+                    - target: SceneSamples
+                      into: SceneColour
+                    - target: SceneDepthSamples
+                      into: SceneDepth
+                - !RenderPass
+                  name: Later
+                  colourTargets: [Post]
+                  reads: [SceneDepth]
+            """
+        );
+
+        var compositor = h.Builder.Build(asset);
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var pass = Assert.IsType<RenderPassRenderer>(sequence.Children[0]);
+
+        Assert.Equal("SceneDepth", Assert.Contains("SceneDepthSamples", pass.ResolveTargets));
+        Assert.Equal(DepthResolveMode.Max, pass.DepthResolveMode);
+
+        var samples = compositor.Resources.Single(resource => resource.Name == "SceneDepthSamples");
+        var resolved = compositor.Resources.Single(resource => resource.Name == "SceneDepth");
+
+        Assert.Equal(4, samples.SampleCount);
+        Assert.Equal(1, resolved.SampleCount);
+        Assert.True(resolved.Usage.HasFlag(TextureUsage.Sampled));
+
+        // ⚠ The assertions above are all about how the *node* was configured, and every one of them
+        // still passes if `Build` then ignores the pair — which is exactly what a sabotage run showed.
+        // Running the frame is what holds the claim: `Later` samples `SceneDepth` and nothing else
+        // writes it, so unless the resolve is declared as a write the graph refuses the read outright.
+        Frame(h, compositor);
+    }
+
+    /// <summary>A document may name the rule, and the one it names is the one the node gets.</summary>
+    [Fact]
+    public void A_document_can_choose_the_depth_resolve_rule() {
+        using var h = Build();
+
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            stages:
+              - name: Opaque
+            resources:
+              - name: SceneDepthSamples
+                format: Depth32Float
+                usage: DepthStencilTarget
+                sampleCount: 4
+              - name: SceneDepth
+                format: Depth32Float
+                usage: DepthStencilTarget, Sampled
+            game: !RenderPass
+              name: Main
+              depthTarget: SceneDepthSamples
+              sampleCount: 4
+              depthResolveMode: Min
+              resolveTargets:
+                - target: SceneDepthSamples
+                  into: SceneDepth
+            """
+        );
+
+        var pass = Assert.IsType<RenderPassRenderer>(h.Builder.Build(asset).Game);
+
+        Assert.Equal(DepthResolveMode.Min, pass.DepthResolveMode);
+    }
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required CompositorBuilder Builder { get; init; }

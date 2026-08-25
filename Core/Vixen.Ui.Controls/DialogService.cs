@@ -421,12 +421,14 @@ public sealed class DialogService : IDisposable {
         completed?.Invoke();
     }
 
-    // ⚠ Literals, exactly as `Dialog`'s own close button is a literal, and both are owed to the same
-    // thing: the string catalogue is still in `Vixen.Editor.Ui` and cannot be reached from here.
-    // Doc 46 § A3 is the row that closes it, and until it does, an application that needs a
-    // translated confirming button passes one — every one of these is a parameter.
-    const string DefaultConfirm = "OK";
-    const string DefaultCancel = "Cancel";
+    // ⚠ Read from `ControlStrings` rather than written here, which is the row doc 46 § A3 left open
+    // and the promotion closed: the catalogue used to be in `Vixen.Editor.Ui` and unreachable from a
+    // control assembly, so these two were literals. They are read per call rather than cached in a
+    // static, because a static initialiser runs once and would freeze the words in whatever language
+    // was in use the first time any dialog was opened.
+    static string DefaultConfirm => ControlStrings.DialogConfirm.Text;
+
+    static string DefaultCancel => ControlStrings.DialogCancel.Text;
 
     void OnTicked(UiDocument _, TimeSpan __) => Pump();
 
