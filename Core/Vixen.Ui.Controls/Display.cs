@@ -47,6 +47,14 @@ public sealed partial class Link : ButtonBase {
     /// <inheritdoc />
     protected override string TagName => "link";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>link</c> rather than the base's <c>button</c>, and the distinction is one a
+    ///     screen-reader user acts on: a link is announced in the links list and is understood to
+    ///     take you somewhere, a button is understood to do something here.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Link;
+
     /// <summary>Where it points. Meaningful to the application and to nothing here.</summary>
     [UiProperty]
     public partial string? Href { get; set; }

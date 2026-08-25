@@ -33,6 +33,20 @@ public sealed partial class TabItem : ButtonBase {
     /// <summary>Whether this is the tab currently showing.</summary>
     public bool IsSelected => (State & ElementState.Checked) != 0;
 
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Tab;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="AccessibleStates.Selected" />, and this is where the base class's
+    ///     <see cref="ElementState.Checked" /> is given its second meaning.</b> A tab and a checkbox
+    ///     set the same style flag — that is what <c>:checked</c> draws both with — and they mean
+    ///     entirely different things to somebody who is listening rather than looking. Overriding
+    ///     rather than adding, because a tab is not also ticked.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        IsSelected ? AccessibleStates.Selected : AccessibleStates.None;
+
     /// <summary>A tab's content is its panel's content.</summary>
     /// <remarks>
     ///     ⚠ <b>What makes <c>&lt;TabItem&gt;…&lt;/TabItem&gt;</c> put its children where they show
@@ -147,6 +161,14 @@ public sealed partial class Tabs : Control {
         Strip = Part("tab-strip");
         Panels = Part("tab-panels");
 
+        // ⚠ The strip is the `tablist`, and this control is not in the accessibility tree at all —
+        // its `NativeRole` is `None` and it is left that way. A `Tabs` is a layout: a strip above an
+        // area, and the two are siblings rather than one thing. Giving the outer element a role
+        // would put a node between the tab list and the panels that stands for neither, and a
+        // screen reader would announce a group nobody can explain. `Panels` is likewise nothing —
+        // the panels inside it are the `tabpanel`s, and the box holding them is a box.
+        Strip.Role = AccessibleRole.TabList;
+
         AddHandler<ClickEvent>(static (element, args) => ((Tabs) element).Chosen(args));
         AddHandler<KeyEvent>(static (element, args) => ((Tabs) element).Keyed(args));
     }
@@ -193,6 +215,22 @@ public sealed partial class Tabs : Control {
 
         tab.Panel ??= Panels.Add("tab-panel");
         tabs.Add(tab);
+
+        // ⚠ **The pairing said twice, because the second reader cannot see the first.** The class
+        // remark above is explicit that a tab is not the parent of its panel — the two are in
+        // different parts of the tree, which is why `TabItem.Panel` is a reference — so no walk over
+        // `Parent` recovers "this header shows that area". That is exactly what a relation is for,
+        // and it is set here rather than in `AddTab` for `Adopt`'s own reason: a `<TabItem />`
+        // written in markup never goes through `AddTab`, and a relation only the code path
+        // established would be a tab strip that reads correctly in one of the two ways it can be
+        // built.
+        tab.AddAccessibleRelation(AccessibleRelation.Controls, tab.Panel);
+
+        // And the other way round, which is not the same statement. `aria-controls` says what
+        // pressing the tab does; the panel needs a *name*, and the only words it has are on the
+        // header. Without this the content area is announced as an unnamed region.
+        tab.Panel.Role = AccessibleRole.TabPanel;
+        tab.Panel.AddAccessibleRelation(AccessibleRelation.LabelledBy, tab);
 
         if (SelectedIndex < 0) {
             SelectedIndex = tabs.Count - 1;

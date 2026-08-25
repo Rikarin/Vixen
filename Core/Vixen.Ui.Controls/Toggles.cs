@@ -34,6 +34,26 @@ public abstract partial class ToggleBase : ButtonBase {
     protected virtual bool CanUncheck => true;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read off <see cref="IsChecked" /> on demand rather than mirrored into a field
+    ///         when it changes, which is the whole reason
+    ///         <see cref="UiElement.NativeAccessibleState" /> is a virtual.</b> There is no second
+    ///         copy to update, no callback to remember, and no state in which a checkbox is ticked
+    ///         on screen and unticked to a screen reader.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="ElementState.Checked" />, although that is set beside it.</b> A
+    ///         <see cref="TabItem" /> and an <see cref="Option" /> use the same style flag to mean
+    ///         <i>selected</i>, so a derivation from the cascade would announce the open tab as a
+    ///         ticked checkbox. What the flag means is the control's to say, and this is it saying
+    ///         so.
+    ///     </para>
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        IsChecked ? AccessibleStates.Checked : AccessibleStates.None;
+
+    /// <inheritdoc />
     protected override void Activate(ActivationDevice device, int count, ModifierKeys modifiers) {
         if (IsChecked && !CanUncheck) {
             // Reported anyway. "The user chose this one again" is a real event — a list that scrolls
@@ -98,6 +118,22 @@ public sealed partial class CheckBox : ToggleBase {
     public UiElement Box { get; private set; } = null!;
 
     /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.CheckBox;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="AccessibleStates.Mixed" /> replaces
+    ///     <see cref="AccessibleStates.Checked" /> rather than joining it</b>, because
+    ///     <c>aria-checked</c> is one value with three settings and "ticked and half-ticked at once"
+    ///     is not one of them. It is the same reason <see cref="IsIndeterminate" /> is a separate
+    ///     flag rather than a third value of <see cref="ToggleBase.IsChecked" />: the appearance is
+    ///     third, the value is still a <c>bool</c>, and this is where the two are reconciled for
+    ///     somebody who cannot see the dash.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        IsIndeterminate ? AccessibleStates.Mixed : base.NativeAccessibleState;
+
+    /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
@@ -142,6 +178,14 @@ public sealed partial class Switch : ToggleBase {
     /// <inheritdoc />
     protected override string TagName => "switch";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>switch</c>, which exists precisely because the distinction in the remarks above
+    ///     is one the user needs: a screen reader says "on"/"off" for a switch and
+    ///     "ticked"/"unticked" for a checkbox.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Switch;
+
     /// <summary>The track the knob slides along.</summary>
     public UiElement Track { get; private set; } = null!;
 
@@ -173,6 +217,9 @@ public sealed partial class Switch : ToggleBase {
 public sealed partial class RadioButton : ToggleBase {
     /// <inheritdoc />
     protected override string TagName => "radio";
+
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Radio;
 
     /// <inheritdoc />
     protected override bool CanUncheck => false;
@@ -218,6 +265,15 @@ public sealed partial class RadioButton : ToggleBase {
 public sealed partial class RadioGroup : Control {
     /// <inheritdoc />
     protected override string TagName => "radio-group";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>One of the few containers that <i>is</i> a node, and the reason is the sentence
+    ///     above about the tab order.</b> A group is one stop, so a screen reader has to announce
+    ///     "three of five" as the arrows move — and it can only do that if the group is in the tree
+    ///     as the parent of its radios rather than being read straight through.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.RadioGroup;
 
     /// <inheritdoc />
     /// <remarks>
