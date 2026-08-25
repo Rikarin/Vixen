@@ -113,6 +113,16 @@
     /// <summary>And what compiling said.</summary>
     readonly Signal<ImmutableArray<AnalysisNote>> reported = new([]);
 
+    /// <summary>Which node each row of the diagnostics list is about, by its place in the list.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Keyed on the slot rather than carried on the note, because <c>AnalysisNote</c> is nine
+    ///     panels' and none of the others has a node.</b> The slot is already the note's identity —
+    ///     it is what makes two identical sentences two distinct <c>@for</c> keys — so it is the one
+    ///     thing a row can be found by that this file does not have to add a field to a shared record
+    ///     for.
+    /// </remarks>
+    readonly Dictionary<int, NodeId> blamed = [];
+
     ShaderGraphDocument? document;
     TextBox? box;
     bool listening;
@@ -173,6 +183,10 @@
         GraphView.Registry = shader.Registry;
         GraphView.EditedDocument = shader;
         GraphView.Graph = shader.Graph;
+
+        // The canvas opens a sub-graph node by asking the same source the compiler inlines from, so
+        // the two cannot disagree about what a node type stands for.
+        GraphView.SubGraphSource = shader.SubGraphSource;
 
         // ⚠ The document rather than its renderer, because the renderer arrives with the device and
         // this line runs when the tab opens — which for a restored session is before the first frame.
@@ -256,8 +270,18 @@
         }
     }
 
-    partial void OnComposed() =>
+    /// <remarks>
+    ///     ⚠ <b>A <c>TapEvent</c> beside the <c>ClickEvent</c>, and it has to be both.</b> A click is an
+    ///     <i>activation</i> and only a <c>Control</c> raises one, which is what the Compile button is;
+    ///     an <c>AnalysisRow</c> is a bare element with two bare cells in it, so a handler waiting for a
+    ///     click on one waits forever. That is exactly how <c>ConsoleView</c> came to have selection
+    ///     styling nothing could put on screen. A tap bubbles from whichever cell was under the pointer
+    ///     to the row that owns it, and from there to here.
+    /// </remarks>
+    partial void OnComposed() {
         AddHandler<ClickEvent>(static (element, args) => ((ShaderGraphView) element).Chosen(args));
+        AddHandler<TapEvent>(static (element, args) => ((ShaderGraphView) element).Tapped(args));
+    }
 
     /// <summary>What the selected property node is called now.</summary>
     /// <remarks>
@@ -295,6 +319,7 @@
     }
 
     void Report(ShaderGraphDocument shader) {
+        blamed.Clear();
         Generated.Source = shader.Source?.Source ?? string.Empty;
         Generated.SetDiagnostics([.. shader.SourceDiagnostics]);
 
@@ -313,13 +338,28 @@
         }
 
         foreach (var diagnostic in shader.Diagnostics) {
+            if (diagnostic.Node.IsValid) {
+                blamed[notes.Count] = diagnostic.Node;
+            }
+
             notes.Add(new(notes.Count, "graph", $"{diagnostic.Id}: {diagnostic.Message}"));
         }
 
-        foreach (var diagnostic in shader.SourceDiagnostics) {
-            // The line number, because that is where it is in the pane beside this — and it is the
-            // only thing an author can act on until the emitter records which node wrote which span.
-            notes.Add(new(notes.Count, "raven", $"line {diagnostic.Line + 1}: {diagnostic.Message}"));
+        // ⚠ `SourceNodeDiagnostics` and not `SourceDiagnostics`, which is the same list with the node
+        // that wrote each line attached. The line still leads the message — it is where the complaint
+        // is in the pane beside this — but the row is now clickable when a node owns it, and for a
+        // complaint about a line that came out of a sub-graph that node is one the author has.
+        foreach (var diagnostic in shader.SourceNodeDiagnostics) {
+            if (diagnostic.Node.IsValid) {
+                blamed[notes.Count] = diagnostic.Node;
+            }
+
+            notes.Add(new(
+                notes.Count,
+                "raven",
+                $"line {diagnostic.Span.Line + 1}: {diagnostic.Message}"
+                + (diagnostic.Node.IsValid ? $" ({Title(shader, diagnostic.Node)})" : "")
+            ));
         }
 
         // Said on success too, for the reason the compositor's list gives: a list that empties itself
@@ -339,6 +379,37 @@
         reported.Value = [.. notes];
     }
 
+    /// <summary>Which node one row of the diagnostics list is about, if it is about one.</summary>
+    /// <param name="row">Where it is in <see cref="Diagnostics" />.</param>
+    /// <returns>The node, or <see cref="NodeId.None" />.</returns>
+    public NodeId BlamedBy(int row) => blamed.TryGetValue(row, out var node) ? node : NodeId.None;
+
+    /// <summary>Selects and frames whatever node a row of the diagnostics list is about.</summary>
+    /// <param name="row">Where it is in <see cref="Diagnostics" />.</param>
+    /// <returns><see langword="true" /> if that row named a node and it is still in the graph.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This is what makes the mapping worth having, and it is the half that is easy to leave
+    ///     out.</b> A diagnostic that names a node and a panel that only prints the sentence is a map
+    ///     nothing reads — so the row is a way to the node, and the canvas frames it because a graph
+    ///     large enough to have a diagnostics list is one where the node is off screen.
+    /// </remarks>
+    public bool ShowBlamed(int row) {
+        if (document is not { } shader || BlamedBy(row) is not { IsValid: true } node || !shader.Graph.TryGet(node, out _)) {
+            return false;
+        }
+
+        GraphView.Select([node]);
+        GraphView.Frame(selectionOnly: true);
+
+        return true;
+    }
+
+    /// <summary>How a node is named in a sentence: its type's title, and its identity.</summary>
+    static string Title(ShaderGraphDocument shader, NodeId node) =>
+        shader.Graph.TryGet(node, out var found) && shader.Registry.TryGet(found.Type, out var definition)
+            ? $"{definition.Title} {node}"
+            : node.ToString();
+
     static int Lines(string source) {
         var count = 1;
 
@@ -349,6 +420,29 @@
         }
 
         return count;
+    }
+
+    void Tapped(TapEvent args) {
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (!ReferenceEquals(element.Parent, Diagnostics)) {
+                continue;
+            }
+
+            args.Handled = ShowBlamed(Row(element));
+
+            return;
+        }
+    }
+
+    /// <summary>Where a row is in the diagnostics list, which is the slot its note was built with.</summary>
+    int Row(UiElement row) {
+        for (var index = 0; index < Diagnostics.Children.Count; index++) {
+            if (ReferenceEquals(Diagnostics.Children[index], row)) {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     void Chosen(ClickEvent args) {
