@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Ui;
+using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.Plugin.Tests;
@@ -16,6 +17,7 @@ public class LoadingTests {
     const string Hello = """
                          using Vixen.Editor.Plugin;
                          using Vixen.Editor.Ui;
+                         using Vixen.Ui;
 
                          namespace Sample;
 
@@ -77,6 +79,7 @@ public class LoadingTests {
             """
             using Vixen.Editor.Plugin;
             using Vixen.Editor.Ui;
+            using Vixen.Ui;
 
             namespace Sample;
 
@@ -226,6 +229,7 @@ public class LoadingTests {
             using System;
             using Vixen.Editor.Plugin;
             using Vixen.Editor.Ui;
+            using Vixen.Ui;
 
             namespace Sample;
 
@@ -429,6 +433,7 @@ public class LoadingTests {
         const string Provider = """
                                 using Vixen.Editor.Plugin;
                                 using Vixen.Editor.Ui;
+                                using Vixen.Ui;
 
                                 namespace Sample;
 
@@ -444,6 +449,7 @@ public class LoadingTests {
                                 using System;
                                 using Vixen.Editor.Plugin;
                                 using Vixen.Editor.Ui;
+                                using Vixen.Ui;
 
                                 namespace Sample;
 

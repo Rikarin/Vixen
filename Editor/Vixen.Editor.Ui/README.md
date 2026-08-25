@@ -1669,17 +1669,25 @@ The two reasons that *are* real, both met porting `AddComponentMenu`:
 
 ## Localisation
 
+⚠ **`StringId`, `StringCatalog` and `Strings` are in `Vixen.Ui` now**, not here — doc 46 § A3
+counted them among the 41 % of this assembly that is application-framework machinery with no editor
+in it, and an application that cannot reference `Editor/` was left writing the literal. What stays
+here is `EditorStrings` — the editor's 123 declarations and its `All` list — and `StringCatalogYaml`.
+
 Every user-visible string is a `StringId` — an id and the English text it says — so
 `item.Label = EditorStrings.Save.Text` is no more work than the literal and there is never a reason
 to write the literal. That is the retrofit `Stride.Core.Translation` exists to repair.
+[docs/guide/ui/strings](../../docs/guide/ui/strings.md) is the written half.
 
-⚠ **The source text lives at the declaration, not in an `en` catalog.** An editor whose fallback is
-a file shows `editor.command.file.save` to anybody whose install is missing it. Here the worst case
-is English. `Strings.Missing` is the list a translator works from.
+⚠ **The YAML did not travel with the catalogue.** `StringCatalogYaml.Save`/`.Load` are here because
+they are this assembly's only use of `Vixen.Core.Yaml`, and a `StringCatalog` promoted with a
+serialiser attached would add a package to the pin of every application that shows a word — including
+the ones publishing NativeAOT that ship their catalogues as something else entirely. The format is
+the application's choice; the editor's is YAML, for the reason `DockLayout` gives about layouts.
 
-`Strings` is the one static thing in the assembly, and the price is that anything subscribed to
-`Strings.Changed` must unsubscribe — `MenuPresenter` is `IDisposable` for exactly this, and
-`EditorShell.Dispose` calls it.
+`Strings` is the one static thing on either side of the fence, and the price is that anything
+subscribed to `Strings.Changed` must unsubscribe — `MenuPresenter` is `IDisposable` for exactly this,
+and `EditorShell.Dispose` calls it.
 
 ## What is deliberately not here
 

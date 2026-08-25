@@ -23,7 +23,7 @@ judgement it says so.
 | # | What an application needs | Where it is | Lines | What `Vixen.Ui` has instead |
 |---|---|---|---|---|
 | 1 | Commands: an id, a handler, enablement, a keymap, a palette | `Editor/Vixen.Editor.Ui/Commands/` | **1 629** | `MenuItem : ButtonBase`, and a `Disabled` bool declared on `Control` (`Control.cs:78`) that nothing in the control set ever sets on one |
-| 2 | A string catalogue | `Editor/Vixen.Editor.Ui/Localisation/` | **783** | Nothing — plus twelve English literals baked into the controls |
+| 2 | A string catalogue | `Editor/Vixen.Editor.Ui/Localisation/` | **783** | Nothing — plus ~~twelve~~ **thirteen** English literals baked into the controls (§ A3 counts them). ✅ **Promoted** — `Core/Vixen.Ui/Strings.cs`, `StringCatalog.cs`, and `Vixen.Ui.Controls.ControlStrings`. See A3 |
 | 3 | A modal question that returns an answer | `Editor/Vixen.Editor.Ui/Dialogs/DialogService.cs` | **376** | `Dialog` (`Vixen.Ui.Controls/Dialogs.cs`) — an overlay with a body, a footer and no answer |
 | 4 | An undo history | `Editor/Vixen.Editor.Core/CommandStack.cs` | **372** | Nothing, and `CodeBuffer.cs:49` says so in as many words |
 | 5 | An accessibility tree | *nowhere* | **0** | Nothing. Three doc comments, two of them in the future tense. ✅ **Built** — `Core/Vixen.Ui/Accessibility.cs`, and doc 09 has a § Accessibility now. See A2 |
@@ -288,6 +288,18 @@ one gets a name, and it is one line at the call site.
 
 ### A3 — The string catalogue: promoted, and read through a signal
 
+> ✅ **Landed whole, 2026-08-25.** All three parts, in one sitting, in that order. `StringId`,
+> `StringCatalog` and `Strings` are `Vixen.Ui`'s; `Save`/`Load` stayed behind as
+> `Vixen.Editor.Ui.StringCatalogYaml`; the catalogue in use is a `Signal<StringCatalog>`; and the
+> control set's literals go through `Vixen.Ui.Controls.ControlStrings`. See
+> [`docs/guide/ui/strings`](../guide/ui/strings.md) and the amendments in place below.
+>
+> ⚠ **Two of this section's measurements were wrong and are corrected in place.** The literal count
+> is thirteen call sites and twelve distinct strings, not twelve — the table below lists eleven
+> sites and ten strings, and two more were found by sweeping. And `Strings.Template` could not be
+> promoted unchanged: it read `EditorStrings.All`, which stays behind. Everything else in this
+> section held, including the `Vixen.Core.Yaml` argument, which is the one that shaped the work.
+
 **Ask, in three parts, smallest first.**
 
 **1. Promote `StringId`, `StringCatalog` and `Strings` out of `Vixen.Editor.Ui`.** 783 lines and 123
@@ -302,6 +314,20 @@ reader because it publishes NativeAOT. A `StringCatalog` promoted with its YAML 
 to a consumer's pin for a code path that consumer will never call. The catalogue proper is
 `Set`/`Find`/`Ids`/`Count`; the YAML pair is an editor convenience and can stay one, or become an
 extension on the Yaml side.
+
+> ✅ **Confirmed and done, and the editor convenience is the answer.** `StringCatalog.cs:4` was
+> `using Vixen.Core.Yaml` and `Save`/`Load` were its only use of it, exactly as measured.
+> `Vixen.Editor.Ui.StringCatalogYaml` is a `Save` extension plus a `Load` factory, in the assembly
+> that already references Yaml for its layouts and its keymaps. It is *not* on the Yaml side: there
+> is no assembly that references both `Vixen.Core.Yaml` and `Vixen.Ui` other than consumers, and
+> creating one for two methods would be a project for a file. `CheckArchitecture` (393 projects) is
+> what proves the dependency did not leak.
+>
+> ⚠ **One thing could not be promoted unchanged.** `Strings.Template(language)` read
+> `EditorStrings.All`, which stays behind — so it now takes the declarations
+> (`Template(language, ids)`) and `EditorStrings.Template(language)` is the editor's one-line call
+> site. Nothing reflects over the process to find declarations: that list is one a trimmer is
+> entitled to shorten.
 
 **2. Make the lookup a signal.** `Strings.cs:56` is a `static StringCatalog current` field and
 `Changed` is a plain `event Action<StringCatalog>`. The class concedes the consequence itself —
@@ -318,8 +344,56 @@ are twenty of them.
 `CommandStack` three directories away has the rule written down. After the type is public it is a
 public-API change to a static class.
 
+> ✅ **Done in the same sitting as the promotion, and the timing argument was right in a way this
+> section did not claim: the public surface did not change at all.** `Catalog` still returns a
+> `StringCatalog`; only the field behind it is a `Signal<StringCatalog>`, so `CheckApi` recorded
+> nothing for it. Done a week later against a shipped type it would have been a baseline entry and
+> an argument.
+>
+> The acceptance criterion is `Core/Vixen.Ui.Controls.Tests/LocalisationTests.cs` — a real `.vxml`
+> (`Markup/LocalisedSheet.vxml`), a catalogue changed between two frames, and a bound label asserted
+> to have changed, with no code in the application. Sabotaged by reverting the signal to a field:
+> both assertions read `"Close"` where they expect `"Zavřít"`.
+>
+> ⚠ **`Changed` stays, and stays a plain event.** A menu bar built in C# is not an expression and
+> has to be rebuilt whole; a value is the wrong shape for a side effect. It is raised *after* the
+> write, because a handler that rebuilds a menu reads strings and the graph refuses a read taken
+> while a write is still notifying its dependents.
+>
+> ⚠ **And the line this section draws between an expression and an assignment is real and is a
+> gap.** A control that writes `Button.Label = ControlStrings.Close.Text` in `OnCreated` reads the
+> signal outside any effect, so a control already on screen keeps its label. Markup does not have
+> this problem. Closing it for the hand-written control set needs an effect per label and somewhere
+> to dispose it, and is not part of what landed.
+
 **3. Put the control set's own literals through it.** Twelve, exactly, and they are a small pull
 request rather than a project:
+
+> ⚠ **Not twelve. Thirteen call sites and twelve distinct strings, and the table below is not the
+> arithmetic it claims.** Counted: the rows list *eleven* sites (`"Close"` twice) and *ten* distinct
+> strings. Two more were found by sweeping the two control assemblies for every literal assigned to
+> a `Label`, `Text`, `Placeholder`, `Title`, `Caption` or `Header`, and for every sentence-shaped
+> literal passed as an argument:
+>
+> | String | Where |
+> |---|---|
+> | `"Previous page"` · `"Next page"` | `Vixen.Ui.Controls/Navigation.cs:293`, `:314` |
+>
+> They are `Pagination`'s arrow labels, passed to a private `Arrow(geometry, page, label)` helper
+> rather than assigned — which is why a sweep for `.Label = "` alone misses them, and why the count
+> is one a reader should re-derive rather than trust.
+>
+> ✅ **All thirteen land through `Vixen.Ui.Controls.ControlStrings`**, one declaration class for both
+> control assemblies, with two ids for the two `"Close"`s because a dialog's dismiss button and a
+> dock tab's are the same English word and are not the same string.
+>
+> **Three left out, and they are a judgement rather than an oversight.** `GradientEditor.cs:474`
+> names colour spaces — `"sRGB"`, `"Linear light"`, `"Perceptual (Oklab)"`. A colour-space name is a
+> term of art a translator should generally leave alone, `"sRGB"` is not translatable at all, and
+> putting a mixed set of three through the catalogue would be worse than leaving all three. Also
+> left: `Timeline.cs:277`'s `"M"` (a one-letter mute button, where a translation is a design
+> question about the button), `Navigation.cs:300`'s `"…"` and `CodeEditor.cs:417`'s `"0"` (a
+> measurement probe, never drawn).
 
 | String | Where |
 |---|---|
@@ -417,8 +491,9 @@ application has to pass its own labels until A3 lands.
   bits correct, with no polling and no per-mutation callback.
 - Doc 09's promised **ARIA-role snapshot test can be written**, for every control in both control
   assemblies.
-- A language change re-labels a running interface, under a test that changes the catalogue between two
-  frames and asserts a bound label changed — with no code in the application.
+- ✅ A language change re-labels a running interface, under a test that changes the catalogue between
+  two frames and asserts a bound label changed — with no code in the application.
+  `Core/Vixen.Ui.Controls.Tests/LocalisationTests.cs`, against a real `.vxml`, sabotage-checked.
 
 ---
 
@@ -550,8 +625,8 @@ strands the work.
 |---|---|---|
 | **A1** — 45 steps 3 and 5 | **0.5** | Good. 45 costed all five steps at 1.5 EM and re-estimated downward after step 1 came in at a day; steps 3 and 5 are the two it calls unaffected by the design question that blocked step 2 |
 | **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1. ✅ **The API and the criterion landed in one sitting**, and the reason the population turned out to be the cheap half is in A2's landing note: a control's role and name are *virtual members*, so `ButtonBase` covered every pressable control in the assembly in one edit. What remains of the population is mechanical |
-| **A3a** — promote the catalogue, split the YAML off, make the lookup a signal | **0.4** | Good. It is a file move, a dependency split and one field becoming a `Signal<T>` |
-| **A3b** — the twelve control literals through the catalogue | **0.1** | Good. Twelve call sites and twelve declarations |
+| ~~**A3a** — promote the catalogue, split the YAML off, make the lookup a signal~~ | ~~0.4~~ ✅ | Good, and it was: a file move, a dependency split and one field becoming a `Signal<T>`. What the estimate did not carry is the tail — thirteen files needing a `using`, five of them inside raw-string plugin sources a plain `grep -L` reports as already having one, and `Strings.Template`'s signature |
+| ~~**A3b** — the twelve control literals through the catalogue~~ | ~~0.1~~ ✅ | Good on shape, wrong on arithmetic: thirteen call sites, twelve distinct strings, thirteen declarations. The two it missed cost the sweep that found them rather than the work |
 | **A3c** — `Strings.Resource` | **0.5** | Fair, and **not asked for** — carried so the total is honest if Vixen chooses to close its own owed row |
 | **A4** — the dialog service | **0.25** | ✅ **Built 2026-08-25 and the figure held.** A move plus generalising `Pump` onto the document's frame — which turned out to mean `UiDocument.Ticked` rather than a host call, for 45 step 5's reason. What the estimate did not carry: a threading contract that was not written down anywhere, and six sabotages |
 | **Total, asked for (A1 + A2 + A3a + A3b + A4)** | **3.25** | |

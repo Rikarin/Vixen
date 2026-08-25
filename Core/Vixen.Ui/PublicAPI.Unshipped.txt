@@ -934,6 +934,23 @@ Vixen.Ui.RoutingStrategy.Bubble = 1 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.Capture = 0 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.Direct = 2 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.RoutingStrategy() -> void
+Vixen.Ui.StringCatalog -> sealed class
+Vixen.Ui.StringCatalog.Count.get -> int
+Vixen.Ui.StringCatalog.Find(string id) -> string?
+Vixen.Ui.StringCatalog.Ids.get -> System.Collections.Generic.IReadOnlyCollection<string>
+Vixen.Ui.StringCatalog.Language.get -> string
+Vixen.Ui.StringCatalog.Set(string id, string text) -> Vixen.Ui.StringCatalog
+Vixen.Ui.StringCatalog.StringCatalog(string language) -> void
+Vixen.Ui.StringId -> readonly struct
+Vixen.Ui.StringId : System.IEquatable<Vixen.Ui.StringId>
+Vixen.Ui.StringId.Id.get -> string
+Vixen.Ui.StringId.Id.init -> string
+Vixen.Ui.StringId.Source.get -> string
+Vixen.Ui.StringId.Source.init -> string
+Vixen.Ui.StringId.StringId() -> void
+Vixen.Ui.StringId.StringId(string Id, string Source) -> void
+Vixen.Ui.StringId.Text.get -> string
+Vixen.Ui.Strings -> static class
 Vixen.Ui.SvgPath -> static class
 Vixen.Ui.SvgPathException -> sealed class
 Vixen.Ui.SvgPathException : System.FormatException
@@ -1374,6 +1391,7 @@ const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
 override Vixen.Ui.CommandHandler.Equals(object? obj) -> bool
 override Vixen.Ui.CommandHandler.GetHashCode() -> int
 override Vixen.Ui.CommandHandler.ToString() -> string
+override Vixen.Ui.StringId.ToString() -> string
 override Vixen.Ui.UiPropertyKey.ToString() -> string
 static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string
 static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxStyle
@@ -1436,6 +1454,13 @@ static Vixen.Ui.Rendering.UiMask.Hidden.get -> Vixen.Ui.Rendering.UiMask
 static Vixen.Ui.Rendering.UiTransform.Identity.get -> Vixen.Ui.Rendering.UiTransform
 static Vixen.Ui.Rendering.UiTransform.Rotation(float degrees, Vixen.Core.Mathematics.Vector2 about) -> Vixen.Ui.Rendering.UiTransform
 static Vixen.Ui.Rendering.UiTransform.Scale(float x, float y, Vixen.Core.Mathematics.Vector2 about) -> Vixen.Ui.Rendering.UiTransform
+static Vixen.Ui.StringCatalog.Source.get -> Vixen.Ui.StringCatalog
+static Vixen.Ui.Strings.Catalog.get -> Vixen.Ui.StringCatalog
+static Vixen.Ui.Strings.Changed -> System.Action<Vixen.Ui.StringCatalog>?
+static Vixen.Ui.Strings.Get(Vixen.Ui.StringId id) -> string
+static Vixen.Ui.Strings.Missing.get -> System.Collections.Generic.IReadOnlyCollection<string>
+static Vixen.Ui.Strings.Template(string language, System.Collections.Generic.IEnumerable<Vixen.Ui.StringId> ids) -> Vixen.Ui.StringCatalog
+static Vixen.Ui.Strings.Use(Vixen.Ui.StringCatalog? catalog) -> void
 static Vixen.Ui.SvgPath.Parse(string data) -> Vixen.Ui.PathBuilder
 static Vixen.Ui.SvgPath.TryParse(string? data) -> Vixen.Ui.PathBuilder?
 static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize

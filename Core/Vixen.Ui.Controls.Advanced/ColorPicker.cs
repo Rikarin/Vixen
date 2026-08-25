@@ -475,7 +475,7 @@ public sealed partial class ColorPicker : Control {
 
         Eyedropper = row.Add<IconButton>();
         Eyedropper.LeadingIcon.Geometry = ControlIcons.Search;
-        Eyedropper.Label = "Pick a colour from the screen";
+        Eyedropper.Label = ControlStrings.ColorPickerEyedropper.Text;
         Eyedropper.Variant = ControlVariant.Subtle;
         Eyedropper.Clicked += _ => RequestEyedropper();
 
@@ -483,7 +483,7 @@ public sealed partial class ColorPicker : Control {
         hdr.AddClass("hidden");
 
         var caption = hdr.Add("text");
-        caption.Text = "Intensity";
+        caption.Text = ControlStrings.ColorPickerIntensity.Text;
 
         IntensitySlider = hdr.Add<Slider>();
         IntensitySlider.Minimum = 0f;

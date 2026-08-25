@@ -290,7 +290,7 @@ public sealed partial class Pagination : Control {
 
         buttons.Clear();
 
-        Arrow(ControlIcons.ChevronLeft, CurrentPage - 1, "Previous page");
+        Arrow(ControlIcons.ChevronLeft, CurrentPage - 1, ControlStrings.PaginationPrevious.Text);
 
         foreach (var page in Pages()) {
             var button = Add<PageButton>();
@@ -311,7 +311,7 @@ public sealed partial class Pagination : Control {
             buttons.Add(button);
         }
 
-        Arrow(ControlIcons.ChevronRight, CurrentPage + 1, "Next page");
+        Arrow(ControlIcons.ChevronRight, CurrentPage + 1, ControlStrings.PaginationNext.Text);
     }
 
     void Arrow(PathBuilder geometry, int page, string label) {

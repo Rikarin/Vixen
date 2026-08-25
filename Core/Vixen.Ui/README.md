@@ -184,6 +184,44 @@ whose § G2 was **refuted** when it met the editor: the editor's contexts are pu
 presses*, not focus changes, because its panels are not focusable — six of its seven context-claiming
 panels leave `Document.Focused` null, measured.
 
+## Strings: what a label says
+
+The other half of a menu item. A command id answers *who runs it*; a `StringId` answers *what it
+says* — a pair of an id a catalogue calls the string by and the source text it was written as, so
+`item.Label = EditorStrings.Save.Text` is no more work at the call site than the literal. See
+[the guide page](../../docs/guide/ui/strings.md).
+
+⚠ **The fallback is in the source, not in a file.** An application whose English lives in an `en`
+catalogue shows `editor.command.file.save` to anybody whose install is missing that file, and a
+missing file is exactly what a localisation bug looks like. `StringCatalog` therefore holds no
+fallback chain at all: it is a flat id-to-text map, and `Strings.Missing` is the list of ids the
+running application asked for and did not get — the translator's worklist, gathered rather than
+logged.
+
+⚠ **And it holds no file format.** `Set`/`Find`/`Ids`/`Count` and nothing else. This assembly is
+referenced by every application that shows a word, so attaching a serialiser here would put one in
+every consumer's package pin for a code path most of them never call — sharpest for an application
+publishing NativeAOT against a vendored closure. The editor reads YAML through
+`Vixen.Editor.Ui.StringCatalogYaml`; another application answers differently, and neither choice
+reaches the other.
+
+⚠ **And the catalogue in use is a `Signal<StringCatalog>`, not a field.** That is the whole of what
+makes a language change re-label a running interface: every `@expr` in a `.vxml` is a region-scoped
+effect, so an expression that reads a string is a consumer of that signal without saying so.
+`Strings.Use` marks it dirty, the next `Document.Update` re-runs it, and the label changes with no
+code at any call site. The field version is pixel-identical until the moment somebody changes
+language, which is why the sabotage matters more than the test: reverting the signal to a field
+leaves both assertions in `Vixen.Ui.Controls.Tests/LocalisationTests.cs` reading `"Close"` where they
+expect `"Zavřít"`.
+
+⚠ **A label assigned once in C# is not an expression.** A control whose constructor writes
+`Button.Label = ControlStrings.Close.Text` reads the signal outside any effect and shows the language
+that was in use when it was built. `Strings.Changed` — a plain event, and static — is what a
+hand-built surface subscribes to in order to rebuild itself whole.
+
+These three types were `Vixen.Editor.Ui`'s until doc 46 § A3 counted them among the 41 % of that
+assembly that is application-framework machinery no application can reach.
+
 ## Accessibility
 
 Six things on `UiElement` and one event on `UiDocument`, and it is a tree rather than a bridge:

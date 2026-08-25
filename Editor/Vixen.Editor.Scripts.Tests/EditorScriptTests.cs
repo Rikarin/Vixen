@@ -7,6 +7,7 @@ using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
+using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.Scripts.Tests;
@@ -64,6 +65,7 @@ public class EditorScriptTests : IDisposable {
     const string OneVerb = """
         using Vixen.Editor.Plugin;
         using Vixen.Editor.Ui;
+        using Vixen.Ui;
 
         public sealed class ProjectTools : IEditorPlugin {
             public void Activate(PluginContext context) =>
@@ -191,6 +193,7 @@ public class EditorScriptTests : IDisposable {
         Write("Plugin.cs", """
             using Vixen.Editor.Plugin;
             using Vixen.Editor.Ui;
+            using Vixen.Ui;
 
             public sealed class ScriptedPlugin : IEditorPlugin {
                 public void Activate(PluginContext context) =>

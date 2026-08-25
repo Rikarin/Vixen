@@ -682,7 +682,7 @@ public sealed partial class ComboBox : Control {
         Toggle = Part<IconButton>();
         Toggle.LeadingIcon.Geometry = ControlIcons.ChevronDown;
         Toggle.Variant = ControlVariant.Subtle;
-        Toggle.Label = "Show suggestions";
+        Toggle.Label = ControlStrings.SelectSuggestions.Text;
         Toggle.TabIndex = -1;
 
         List = Document.Root.Add<Popover>();

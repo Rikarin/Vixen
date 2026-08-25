@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui;
+
 namespace Vixen.Editor.Plugin;
 
 /// <summary>What a plugin implements. One public type per assembly, with a parameterless constructor.</summary>

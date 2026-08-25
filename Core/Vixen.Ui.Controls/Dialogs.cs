@@ -88,7 +88,7 @@ public sealed partial class Dialog : Overlay {
         CloseButton = Header.Add<IconButton>();
         CloseButton.LeadingIcon.Geometry = ControlIcons.Close;
         CloseButton.Variant = ControlVariant.Subtle;
-        CloseButton.Label = "Close";
+        CloseButton.Label = ControlStrings.DialogClose.Text;
 
         Body = Surface.Add("dialog-body");
         Footer = Surface.Add("dialog-footer");

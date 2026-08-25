@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Core.Yaml;
+namespace Vixen.Ui;
 
-namespace Vixen.Editor.Ui;
-
-/// <summary>One language's worth of editor strings, by id.</summary>
+/// <summary>One language's worth of an application's strings, by id.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>A flat id-to-text map, and the flatness is the point.</b> An id is
@@ -21,6 +19,14 @@ namespace Vixen.Editor.Ui;
 ///         back to something that is in the source rather than to another file that may also be
 ///         missing it. This is what makes shipping with no catalog at all work, which is what the
 ///         editor does today.
+///     </para>
+///     <para>
+///         ⚠ <b>No file format, deliberately.</b> A catalog is built by <see cref="Set" /> and read
+///         by <see cref="Find" />, and how it got there is the application's business: the editor
+///         reads YAML through <c>StringCatalogYaml</c>, and an application publishing NativeAOT is
+///         free to read JSON through a source-generated reader instead. Attaching a parser here
+///         would put a serialiser in the package closure of every application that shows a word,
+///         including the ones that never load a catalog at all.
 ///     </para>
 /// </remarks>
 public sealed class StringCatalog {
@@ -69,52 +75,5 @@ public sealed class StringCatalog {
     public string? Find(string id) {
         ArgumentNullException.ThrowIfNull(id);
         return entries.GetValueOrDefault(id);
-    }
-
-    /// <summary>Writes the catalog as YAML.</summary>
-    /// <returns>The text.</returns>
-    /// <remarks>
-    ///     Sorted by id, because the file is checked in and a map written in hash order produces a
-    ///     diff on every save that says nothing.
-    /// </remarks>
-    public string Save() {
-        var document = new YamlMapping().Set("language", new YamlScalar(Language));
-        var strings = new YamlMapping();
-
-        foreach (var id in entries.Keys.Order(StringComparer.Ordinal)) {
-            strings.Set(id, new YamlScalar(entries[id], YamlScalarStyle.DoubleQuoted));
-        }
-
-        return YamlWriter.Write(document.Set("strings", strings));
-    }
-
-    /// <summary>Reads a catalog back.</summary>
-    /// <param name="yaml">The text.</param>
-    /// <param name="language">The language to use if the file does not name one.</param>
-    /// <returns>The catalog.</returns>
-    /// <remarks>
-    ///     ⚠ <b>Never throws on a catalog that has gone stale</b>, for the reason
-    ///     <c>DockLayout.Load</c> gives about layouts: a translation file outlives the ids in it, and
-    ///     the answer to an id nothing uses any more is to ignore it rather than to refuse to start
-    ///     the editor in front of somebody who wanted to open a project.
-    /// </remarks>
-    public static StringCatalog Load(string yaml, string language = "source") {
-        ArgumentNullException.ThrowIfNull(yaml);
-
-        if (YamlReader.Read(yaml) is not YamlMapping document) {
-            return new StringCatalog(language);
-        }
-
-        var catalog = new StringCatalog((document["language"] as YamlScalar)?.Value is { Length: > 0 } named ? named : language);
-
-        if (document["strings"] is YamlMapping strings) {
-            foreach (var (id, node) in strings) {
-                if (node is YamlScalar text) {
-                    catalog.Set(id, text.Value);
-                }
-            }
-        }
-
-        return catalog;
     }
 }

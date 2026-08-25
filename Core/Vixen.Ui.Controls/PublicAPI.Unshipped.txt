@@ -125,6 +125,7 @@ Vixen.Ui.Controls.ControlSize.ControlSize() -> void
 Vixen.Ui.Controls.ControlSize.Large = 2 -> Vixen.Ui.Controls.ControlSize
 Vixen.Ui.Controls.ControlSize.Medium = 1 -> Vixen.Ui.Controls.ControlSize
 Vixen.Ui.Controls.ControlSize.Small = 0 -> Vixen.Ui.Controls.ControlSize
+Vixen.Ui.Controls.ControlStrings -> static class
 Vixen.Ui.Controls.ControlTheme -> static class
 Vixen.Ui.Controls.ControlVariant -> enum : byte
 Vixen.Ui.Controls.ControlVariant.ControlVariant() -> void
@@ -1017,6 +1018,20 @@ static Vixen.Ui.Controls.ControlIcons.Dash.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Lock.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Search.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Unlock.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlStrings.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.StringId>
+static Vixen.Ui.Controls.ControlStrings.ColorPickerEyedropper.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.ColorPickerIntensity.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DialogClose.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DockClose.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DockNextTab.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DockPreviousTab.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.PaginationNext.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.PaginationPrevious.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.PropertyGridReset.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.PropertyGridSearch.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.SelectSuggestions.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.TextInputClear.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.ToastDismiss.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlTheme.Css.get -> string
 static Vixen.Ui.Controls.ControlTheme.Install(Vixen.Ui.UiDocument document) -> int
 static Vixen.Ui.Controls.IconArt.Of(Vixen.Ui.PathBuilder geometry, Vixen.Core.Mathematics.Color4 tint, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> Vixen.Ui.Controls.IconArt

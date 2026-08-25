@@ -189,7 +189,7 @@ public class ServiceTests : IDisposable {
         var text = catalog.Save();
         Assert.True(text.IndexOf("a.first", StringComparison.Ordinal) < text.IndexOf("z.last", StringComparison.Ordinal));
 
-        var reloaded = StringCatalog.Load(text);
+        var reloaded = StringCatalogYaml.Load(text);
 
         Assert.Equal("cs", reloaded.Language);
         Assert.Equal("poslední", reloaded.Find("z.last"));
@@ -198,7 +198,7 @@ public class ServiceTests : IDisposable {
 
     [Fact]
     public void A_template_holds_every_string_the_editor_declares() {
-        var template = Strings.Template("cs");
+        var template = EditorStrings.Template("cs");
         Assert.Equal(EditorStrings.All.Count, template.Count);
 
         Strings.Use(template);

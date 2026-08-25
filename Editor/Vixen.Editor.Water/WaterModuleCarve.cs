@@ -9,6 +9,7 @@ using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering.Terrain;
 using Vixen.Rendering.Water;
+using Vixen.Ui;
 using Vixen.Water;
 using TerrainMap = Vixen.Terrain.Terrain;
 

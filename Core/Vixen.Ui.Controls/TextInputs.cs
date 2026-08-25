@@ -70,7 +70,7 @@ public sealed partial class SearchBox : TextField {
         ClearButton = Part<IconButton>();
         ClearButton.LeadingIcon.Geometry = ControlIcons.Close;
         ClearButton.Variant = ControlVariant.Subtle;
-        ClearButton.Label = "Clear";
+        ClearButton.Label = ControlStrings.TextInputClear.Text;
 
         // ⚠ Not a tab stop. It is a shortcut for something the keyboard can already do — select all
         // and press Delete — and putting it in the tab order would mean Tab out of every search box

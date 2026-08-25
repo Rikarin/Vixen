@@ -8,6 +8,7 @@ using Vixen.Editor.AssetEditors.Ai;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Ui;
 
 namespace Vixen.Editor.AssetEditors;
 

@@ -1,0 +1,25 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    ⚠ Doc 46 § A3's acceptance criterion, written as a file rather than as a fixture: a bound label
+    whose expression is `@Something.Text` and nothing else. There is no subscription here, no
+    `Strings.Changed` handler, no rebuild and no restart — which is the whole claim. Every `@expr`
+    is a region-scoped effect, so reading `Strings` through a signal makes the language a
+    dependency of the expression, and a catalogue swapped between two frames re-labels this button
+    on the second one.
+-->
+@component LocalisedSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+
+<Button ref="@Close" Label="@CloseText.Text" />
+
+@code {
+    /// <summary>The declaration an application would write once, beside its other strings.</summary>
+    public static StringId CloseText { get; } = new("sheet.action.close", "Close");
+
+    /// <summary>The button the markup declared.</summary>
+    public Button Close { get; private set; } = null!;
+}

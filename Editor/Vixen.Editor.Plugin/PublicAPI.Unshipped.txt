@@ -31,15 +31,15 @@ Vixen.Editor.Plugin.PluginCatalog.Plugins.get -> System.Collections.Generic.IRea
 Vixen.Editor.Plugin.PluginCatalog.Plugins.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
 Vixen.Editor.Plugin.PluginContext -> sealed class
 Vixen.Editor.Plugin.PluginContext.AddCommand(Vixen.Editor.Ui.EditorCommand command) -> Vixen.Editor.Ui.EditorCommand
-Vixen.Editor.Plugin.PluginContext.AddCommand(string id, Vixen.Editor.Ui.StringId title, System.Action run) -> Vixen.Editor.Ui.EditorCommand
+Vixen.Editor.Plugin.PluginContext.AddCommand(string id, Vixen.Ui.StringId title, System.Action run) -> Vixen.Editor.Ui.EditorCommand
 Vixen.Editor.Plugin.PluginContext.AddDefaultBinding(string commandId, Vixen.Editor.Ui.KeyChord chord) -> Vixen.Editor.Ui.BindResult
-Vixen.Editor.Plugin.PluginContext.AddLayout(string name, Vixen.Editor.Ui.StringId title, System.Func<Vixen.Ui.Controls.Advanced.DockLayout> layout) -> void
-Vixen.Editor.Plugin.PluginContext.AddMenu(Vixen.Editor.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
+Vixen.Editor.Plugin.PluginContext.AddLayout(string name, Vixen.Ui.StringId title, System.Func<Vixen.Ui.Controls.Advanced.DockLayout> layout) -> void
+Vixen.Editor.Plugin.PluginContext.AddMenu(Vixen.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
 Vixen.Editor.Plugin.PluginContext.AddMenuItem(Vixen.Editor.Ui.MenuGroup group, string commandId) -> void
 Vixen.Editor.Plugin.PluginContext.AddMode(Vixen.Editor.Ui.IEditorMode mode) -> Vixen.Editor.Ui.IEditorMode
 Vixen.Editor.Plugin.PluginContext.AddPanel(Vixen.Editor.Ui.PanelDescriptor descriptor) -> Vixen.Editor.Ui.PanelDescriptor
-Vixen.Editor.Plugin.PluginContext.AddPanel(string id, Vixen.Editor.Ui.StringId title, System.Action<Vixen.Ui.Controls.Advanced.DockPanel> build) -> Vixen.Editor.Ui.PanelDescriptor
-Vixen.Editor.Plugin.PluginContext.AddSubmenu(Vixen.Editor.Ui.MenuGroup parent, Vixen.Editor.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
+Vixen.Editor.Plugin.PluginContext.AddPanel(string id, Vixen.Ui.StringId title, System.Action<Vixen.Ui.Controls.Advanced.DockPanel> build) -> Vixen.Editor.Ui.PanelDescriptor
+Vixen.Editor.Plugin.PluginContext.AddSubmenu(Vixen.Editor.Ui.MenuGroup parent, Vixen.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
 Vixen.Editor.Plugin.PluginContext.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
 Vixen.Editor.Plugin.PluginContext.Directory.get -> string
 Vixen.Editor.Plugin.PluginContext.FindMenu(string titleId) -> Vixen.Editor.Ui.MenuGroup?
