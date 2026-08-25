@@ -12,6 +12,7 @@ vixen content build              # pack it into bundles and write the catalog
 vixen content loose              # or catalogue the imported artefacts, unpacked, for iteration
 vixen content serve --any        # serve that build to a phone on the same network
 vixen doctor                     # say what is wrong, and change nothing
+vixen doctor systems             # what a built assembly's frame runs, and in what order
 ```
 
 A project is a directory with an `Assets/` folder. With no `--project`, the working directory and
@@ -169,6 +170,44 @@ addressable and was never imported fails at the content build, a catalog naming 
 in the directory fails on a device, and a duplicate GUID fails when the wrong texture appears on a
 model.
 
+## `doctor systems`
+
+**An assembly and no project, which is the opposite of everything else here.** A frame is not in a
+project's assets; it is in its code — declared by `[GameSystem]`, ordered by `[UpdateInGroup]` and
+`[UpdateBefore]`/`[UpdateAfter]`. So this takes the same repeatable `--assembly` that `import` and
+`content build` take, and loads it through the same `GameAssemblies`.
+
+```
+vixen doctor systems --assembly bin/Release/net10.0/Asteroids.dll
+```
+
+It reports the resolved run order per phase, what each system's constructor asks for, the ordering
+attributes that turn out to do nothing, and the systems in the assembly that the declared frame does
+not contain.
+
+**It builds no system.** A declared system's constructor takes services, and the registry those come
+from is assembled when the game runs; standing one up here would mean running somebody's game to find
+out what order it runs things in. So it reads `SystemGraph.Plan` — `SystemGraph.Build`'s own
+topological sort, over types rather than instances, shared precisely so a tool cannot report an order
+the runner will not produce.
+
+Two things it therefore will not tell you, and says so rather than guessing:
+
+- **What runs concurrently.** That comes from `SystemAccess`, and `IDeclaredAccess` is an instance
+  property — a system may compute what it touches in its constructor. An undeclared access conflicts
+  with everything, so a guess would not be cautious, it would be confidently wrong.
+- **Whether a service will be there.** Nothing has registered anything yet. `AddDeclaredSystems`
+  names the absent ones at startup, which is the authority.
+
+The one dependency it *can* rule out statically is a value type: `ServiceRegistry.Add<T>` is
+constrained `where T : class`, so a system asking for a struct can never be satisfied and is reported
+`broken`.
+
+⚠ **The load is not collectible.** `GameAssemblies` uses `Assembly.LoadFrom` into the default context,
+so the game's code stays loaded for the life of the process — which for a CLI invocation is the
+command. The editor's `ProjectAssemblies` is the collectible one, and it has to be, because it reloads
+after every rebuild.
+
 ## `content serve`
 
 The same server `Vixen.ContentServer` is, defaulting to this project's build for this target, so a
@@ -256,9 +295,8 @@ here. Neither of the two is blocked any more — `plugin` was waiting on `Vixen.
 
 ## Still to come
 
-Also owed: `vixen doctor systems` from [doc 04](../../docs/plan/04-ecs-and-scripting.md), which needs
-a game assembly to load; and the GPU and driver checks, which need `Vixen.Graphics.Vulkan`'s loader
-probe and would put a graphics dependency in a tool that today needs none.
+Also owed: the GPU and driver checks, which need `Vixen.Graphics.Vulkan`'s loader probe and would put
+a graphics dependency in a tool that today needs none.
 
 Licensed under Apache-2.0.
 

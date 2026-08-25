@@ -8,7 +8,7 @@ api: [T:Vixen.Ecs.QueryDescription, T:Vixen.Ecs.World, T:Vixen.Ecs.Chunk]
 tags: [ecs, iteration, performance]
 since: 0.1
 status: stable
-related: [ecs/components]
+related: [ecs/components, ecs/system-order]
 ---
 
 ## What it is
@@ -83,3 +83,5 @@ The stress-test sample builds a world and iterates it every frame:
 - [Components](ecs/components) — what a query is a query *of*.
 - [Structural change during iteration](structural-changes.md) — how to spawn or destroy from inside
   one of these loops without invalidating it.
+- [Reading a frame's order without running it](system-order.md) — which system reaches these loops
+  first, and how to find out from an assembly.

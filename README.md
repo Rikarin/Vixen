@@ -49,7 +49,7 @@ disagree.
 |---|---|
 | [`docs/plan/`](docs/plan/) | **The design record** — what Vixen is meant to be and why each decision was taken, in 25 documents plus the ADR register. It does not say what is built |
 | [`docs/overview.md`](docs/overview.md) | **The state** — every feature and library with a status, a dependency tree over what is left, and one table of what is owed. Reconciled against the code, and it wins where a design document disagrees |
-| [`docs/manual/`](docs/manual/) | **Reader-facing** — building a game and a server, and the diagnostic-code and log-event registers |
+| [`docs/manual/`](docs/manual/) | **Reader-facing** — building a game and a server, the diagnostic-code and log-event registers, and the [third-party attribution manifest](docs/manual/third-party.md) |
 
 Start with [`docs/plan/README.md`](docs/plan/README.md) for the index, or
 [`docs/overview.md`](docs/overview.md) if the question is "what works today".
@@ -89,6 +89,14 @@ dependency tree so independent work can be scheduled in parallel.
 
 Apache-2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Apache's express patent grant is the
 reason over MIT: a studio shipping a commercial title on a third-party engine cares about patent peace,
-and legal review is materially easier (ADR-015). Third-party dependencies are audited in
-[`docs/plan/01`](docs/plan/01-technology-decisions.md) § ADR-015; all are compatible, and no shipped
-game links anything that is not.
+and legal review is materially easier (ADR-015). The design-time audit is in
+[`docs/plan/01`](docs/plan/01-technology-decisions.md) § ADR-015; **what is actually depended on** is
+[`docs/manual/third-party.md`](docs/manual/third-party.md), where every licence names the artefact it
+was read from and a build gate keeps the inventory honest.
+
+⚠ That page **corrects** a claim this section used to make — that every dependency is permissive and
+"no shipped game links anything that is not". `Silk.NET.OpenAL.Soft.Native` declares
+**LGPL-2.0-or-later** and ships `libopenal` in every build with sound. Dynamically linked against a
+separately-shipped library, which is what it is, that is dischargeable — but it is copyleft, its
+obligations are not discharged today, and four further packages ship no licence statement at all.
+Read the page before making a binary distribution.
