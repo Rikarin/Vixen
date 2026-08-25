@@ -69,6 +69,46 @@ itself focusable. A press that captures the pointer is exempt too — capture is
 the press *began* something, and a field must not lose its caret because the scrollbar beside it was
 dragged.
 
+## Commands: the focus route
+
+A command is a string id, and `CommandRoute` is the answer to "who handles it right now". Nothing
+stores that answer: it is worked out by walking from `UiDocument.Focused` outwards through `Parent`
+until an element says it handles the id. `UiElement.AddCommandHandler(id, execute, canExecute?)` is
+how an element says so. See [the guide page](../../docs/guide/ui/commands.md).
+
+Three rules, and each of them is a decision:
+
+**The first responder wins, and its `canExecute` is the only one asked** — not even to break a tie
+when it refuses. A second element further up that would also have handled the id is never consulted,
+because otherwise "which handler runs" would depend on how many things happen to be listening, and
+adding an unrelated panel above a view would silently change what that view's disabled Copy did.
+
+**Nobody responds ⇒ not executable.** That is the affordance a hand-written enablement rule cannot
+express: an application declares a menu of ids and the items grey themselves out wherever the chain
+is silent, with no rule written anywhere. A command with a single registration-time implementation is
+simply a handler on the root, which always responds — so nothing changes for one.
+
+**The walk starts at `Focused ?? Root`.** The root rather than nothing, so a document-wide handler
+still answers while the focus is nowhere. With something focused the root is on the walk anyway.
+
+`CommandScope` is a name a panel declares once on its own root; `EffectiveCommandScope` is the same
+upward walk asked for a different thing, so everything inside that panel reports it — including
+controls added later and controls added by a plugin. It is deliberately **not** a `[UiProperty]`: an
+inheriting one would cost every element in the document a value field *and* an is-set flag, and would
+put "which panel am I in" somewhere a stylesheet could change it.
+
+⚠ **Cost.** Both features live behind one nullable reference on `UiElement`, so an element that never
+takes part pays eight bytes and no allocation at all — the same bargain the routed-event `handlers`
+list makes. The small store behind it is allocated only for elements that declare a handler or a
+scope, and holds a `List` rather than a `Dictionary` because an element declares a handful of ids at
+most and a linear scan over four strings beats hashing one.
+
+⚠ **Nothing in the tree consumes this yet.** No control binds an id, and the editor's `CommandRegistry`
+still resolves its scope through `EditorShell.Context` — see
+[doc 45](../../docs/plan/45-commands-and-focus-scope.md), whose staging step 1 is what this is, and
+whose § G2 was **refuted** when it met the editor: the editor's contexts are pushed from *pointer
+presses*, not focus changes, because its panels are not focusable.
+
 ## Arrow navigation
 
 Tab walks an *order* — a list the document decides in advance. An arrow walks a *layout*, decided by
