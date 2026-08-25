@@ -116,6 +116,55 @@ public abstract partial class TextField : Control {
     protected UiElement TextPart => text;
 
     /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.TextBox;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><c>null</c>, deliberately, and it is the most important line in this file for
+    ///     accessibility.</b> A field has no words of its own. The obvious fallback —
+    ///     <see cref="Placeholder" /> — is the one every toolkit reaches for and it is wrong twice:
+    ///     a placeholder is a hint rather than a name, and it disappears the moment there is a
+    ///     value, so a form announced from placeholders is a form whose fields lose their names as
+    ///     they are filled in. An inspector of four numeric fields would announce four fields all
+    ///     called "0.00".
+    ///     <para>
+    ///         What a field's name comes from is the words beside it, which are somebody else's
+    ///         element: one
+    ///         <c>field.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption)</c>. Answering
+    ///         <c>null</c> until somebody does that is what lets a gate fail an unlabelled field
+    ///         rather than passing it with a plausible-looking lie.
+    ///     </para>
+    /// </remarks>
+    protected override string? NativeAccessibleName => null;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Value" /> as it stands, read on demand. A field whose value is being typed into
+    ///     has no notification to remember and no cached copy to be stale.
+    /// </remarks>
+    protected override string? NativeAccessibleValue => Value;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="AccessibleStates.Editable" /> always — it is what makes a field a field to
+    ///         a screen reader, and it is the state that turns on a braille display's input mode.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="AccessibleStates.ReadOnly" /> is added <i>alongside</i> it rather than
+    ///         instead of it</b>, for <see cref="ReadOnly" />'s own reason: a read-only field is
+    ///         still a field, still takes the focus and can still have its text selected and copied.
+    ///         Reporting it as not editable would be reporting it as
+    ///         <see cref="Control.Disabled" />, which is the conflation the property's remarks
+    ///         already warn about.
+    ///     </para>
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        AccessibleStates.Editable
+        | (ReadOnly ? AccessibleStates.ReadOnly : AccessibleStates.None)
+        | (AcceptsNewlines ? AccessibleStates.MultiLine : AccessibleStates.None);
+
+    /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 

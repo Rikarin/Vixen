@@ -220,6 +220,26 @@ public abstract partial class ButtonBase : Control {
         set => label.Text = value;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Everything here is pressed, and ARIA's word for a thing that is pressed is
+    ///     <c>button</c>. A <see cref="Link" /> and a <see cref="MenuItem" /> are pressed too and
+    ///     say a different word, which is what the override is for.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Button;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="Label" /> and not <see cref="UiElement.Text" />, and this one line is why
+    ///     every button in the set has an accessible name without a single control being edited.</b>
+    ///     A button's words are on a child part — an element with text may not have children, so a
+    ///     button that carried its own label could never also have an icon — and the base's
+    ///     name-from-content therefore reads the empty string off the button itself. An icon-only
+    ///     button still answers <c>null</c>, which is correct and is what a gate should fail on:
+    ///     nothing here can invent a name for a picture.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Label;
+
     /// <summary>An icon before the label, created the first time it is asked for.</summary>
     /// <remarks>
     ///     ⚠ <b>Created and then <i>moved</i> to the front</b>, because a new child lands at the end
