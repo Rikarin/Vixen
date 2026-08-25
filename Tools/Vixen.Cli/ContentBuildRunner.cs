@@ -26,23 +26,43 @@ public static class ContentBuildRunner {
     /// <param name="target">Which build target — <c>Windows</c>, <c>Android/Vulkan</c>.</param>
     /// <param name="outputDirectory">Where to write it.</param>
     /// <param name="output">Where to write progress and diagnostics.</param>
+    /// <param name="forServer">
+    ///     Whether this is a dedicated server's build, which leaves out every group the project says
+    ///     a server does not need. <see cref="PlayerBuild.IsServerVariant" /> is what decides it from
+    ///     a variant name.
+    /// </param>
     /// <returns>Whether it produced a build.</returns>
-    public static bool Run(Project project, string target, string outputDirectory, DiagnosticWriter output) {
+    public static bool Run(
+        Project project,
+        string target,
+        string outputDirectory,
+        DiagnosticWriter output,
+        bool forServer = false
+    ) {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(output);
 
-        var built = ContentPipeline.Build(project.Workspace, target, outputDirectory, diagnostic => Write(output, diagnostic));
+        var built = ContentPipeline.Build(
+            project.Workspace,
+            target,
+            outputDirectory,
+            diagnostic => Write(output, diagnostic),
+            forServer
+        );
 
         if (!built.Succeeded) {
             return false;
         }
 
+        // The profile is named in the line that reports the build, so that a directory somebody is
+        // about to copy into a container image says which of the two it is. A server bundle and a
+        // client bundle otherwise look identical from the outside and differ by everything.
         output.Line(
             string.Create(
                 CultureInfo.InvariantCulture,
                 $"Built {built.Addresses} {Plural(built.Addresses, "address", "addresses")} into "
                 + $"{built.Bundles} {Plural(built.Bundles, "bundle", "bundles")} ({built.Bytes:N0} bytes) "
-                + $"for {target}, at {built.OutputDirectory}."
+                + $"for {target}{(forServer ? ", server profile" : string.Empty)}, at {built.OutputDirectory}."
             )
         );
 

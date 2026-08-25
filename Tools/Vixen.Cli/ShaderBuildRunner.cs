@@ -58,12 +58,58 @@ public static class ShaderBuildRunner {
     /// <param name="backend">Which Raven target — <c>spirv</c> or <c>glsl</c>.</param>
     /// <param name="outputDirectory">Where the content build wrote its catalog.</param>
     /// <param name="output">Where to write progress and diagnostics.</param>
+    /// <param name="forServer">
+    ///     Whether this is a dedicated server's build, which compiles no variants at all.
+    /// </param>
     /// <returns>Whether the build may continue.</returns>
-    public static bool Run(Project project, string backend, string outputDirectory, DiagnosticWriter output) {
+    /// <remarks>
+    ///     ⚠ <b>The server profile skips the whole bundle rather than a subset of the manifest, and
+    ///     that is the safe shape of it.</b> A dedicated server runs <c>Vixen.Graphics.Null</c> and
+    ///     creates no pipeline, so every variant in the manifest is dead weight — and the bundle is a
+    ///     sibling file rather than an addressed chunk, so its absence cannot leave the catalog naming
+    ///     something that is not there. It is already an ordinary state besides: a project with no
+    ///     manifest writes no bundle, and <c>ContentMount</c> reports "No baked shaders" once and
+    ///     boots.
+    ///     <para>
+    ///         The alternative — compiling the manifest with some permutations dropped — is the trap
+    ///         this repository has already been caught by: a value in <c>Permutations</c> that is not
+    ///         also in <c>PermutationKeys[shader]</c> never reaches the compiler, and the variant
+    ///         silently takes the <c>.rvn</c> default rather than failing. Not compiling is
+    ///         checkable; compiling less is not.
+    ///     </para>
+    /// </remarks>
+    public static bool Run(
+        Project project,
+        string backend,
+        string outputDirectory,
+        DiagnosticWriter output,
+        bool forServer = false
+    ) {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrEmpty(backend);
         ArgumentException.ThrowIfNullOrEmpty(outputDirectory);
         ArgumentNullException.ThrowIfNull(output);
+
+        if (forServer) {
+            // ⚠ And a bundle a previous client build left in this directory is removed, for the
+            // reason ContentPipeline deletes stale *.bundle files: an output directory is what
+            // somebody copies into an image, and one carrying a shader bundle from the build before
+            // it is a server image shipping a client's shaders while its log says it has none.
+            var stale = Path.Combine(outputDirectory, BundleFileName);
+
+            if (File.Exists(stale)) {
+                File.Delete(stale);
+            }
+
+            output.Project(
+                ImportSeverity.Information,
+                DiagnosticCode.Shaders,
+                $"This is a server build, so no {BundleFileName} was compiled: a dedicated server runs the null "
+                + "graphics backend and creates no pipeline."
+            );
+
+            return true;
+        }
 
         var manifestPath = Path.Combine(project.Paths.ProjectSettings, ManifestFileName);
 

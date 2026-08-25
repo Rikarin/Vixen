@@ -197,12 +197,24 @@ public static class ContentPipeline {
     /// <param name="target">Which build target — <c>Windows</c>, <c>Android/Vulkan</c>.</param>
     /// <param name="outputDirectory">Where to write it.</param>
     /// <param name="report">Where diagnostics go.</param>
+    /// <param name="forServer">
+    ///     Whether this is a dedicated server's build. Doc 17's server content profile: every group
+    ///     whose <see cref="AddressableGroup.IncludeInServerBuild" /> is false is left out, and
+    ///     anything still shipped that depended on one of them fails the build by name.
+    /// </param>
     /// <returns>What it produced.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The profile is an argument rather than something read from the environment.</b> The
+    ///     editor's Build and Run and <c>vixen content build</c> are two heads over this one call, and
+    ///     a profile either of them could infer differently is how one of them ships a bundle the
+    ///     other does not.
+    /// </remarks>
     public static ContentBuildSummary Build(
         ProjectWorkspace workspace,
         string target,
         string outputDirectory,
-        Action<ContentDiagnostic> report
+        Action<ContentDiagnostic> report,
+        bool forServer = false
     ) {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentException.ThrowIfNullOrEmpty(target);
@@ -223,7 +235,8 @@ public static class ContentPipeline {
             workspace.Database.Entries,
             workspace.Cache,
             entry => ReadMeta(workspace, entry),
-            groups
+            groups,
+            forServer
         );
 
         foreach (var diagnostic in plan.Diagnostics) {

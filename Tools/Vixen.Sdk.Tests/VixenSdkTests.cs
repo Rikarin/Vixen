@@ -287,6 +287,61 @@ public sealed class VixenSdkTests : IDisposable {
     }
 
     /// <summary>
+    ///     <b>And the variant reaches the <i>content</i> build, which is the half that was missing.</b>
+    ///     A project built as a Server packs the server profile: the groups its <c>.vxgroup</c> files
+    ///     say a dedicated server does not need are not in the catalog.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the test the <c>vixen-mmo</c> Dockerfile's comment needed and did not
+    ///         have.</b> That comment said "the content build writes the server profile" while
+    ///         <c>VixenVariant</c> reached the assembly attribute, reached <c>dotnet publish</c>, and
+    ///         was dropped before <c>vixen content build</c> — so a shard image shipped full client
+    ///         content and nothing said so. The claim and the behaviour are now the same thing, and
+    ///         this asserts it through the same <c>-p:VixenVariant=Server</c> the Dockerfile passes.
+    ///     </para>
+    ///     <para>
+    ///         Asserted against the catalog on disk as well as the log, because a log line is exactly
+    ///         what the old comment was: a statement about what should have happened. This project
+    ///         references no engine assembly by design — see the csproj — so the catalog is searched
+    ///         for the address as bytes rather than parsed. An address is written to it as UTF-8, so
+    ///         its absence from the file is its absence from the build.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBuildVariantAlsoReachesTheContentBuild() {
+        // The probe entry point, because naming a variant makes the SDK emit the attribute and the
+        // type it names has to exist somewhere — the same arrangement, and the same reason, as the
+        // test above.
+        Project(properties: "<VixenVariant>Server</VixenVariant>", entryPoint: VariantProbe, onServer: false);
+
+        var build = Run();
+
+        Assert.True(build.Succeeded, build.Output);
+        Assert.Contains("server profile", build.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("ui/hero", Catalog(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And a client build of the same project ships it, so the group flag is a profile decision
+    ///     rather than a way of turning an asset off.
+    /// </summary>
+    [Fact]
+    public void AClientBuildOfTheSameProjectStillShipsThatGroup() {
+        Project(onServer: false);
+
+        var build = Run();
+
+        Assert.True(build.Succeeded, build.Output);
+        Assert.DoesNotContain("server profile", build.Output, StringComparison.Ordinal);
+        Assert.Contains("ui/hero", Catalog(), StringComparison.Ordinal);
+    }
+
+    /// <summary>The catalog this build wrote, as text an address can be looked for in.</summary>
+    string Catalog() =>
+        Encoding.Latin1.GetString(File.ReadAllBytes(Path.Combine(root, "Build", HostTarget, "catalog.bin")));
+
+    /// <summary>
     ///     And a project that names no variant gets no attribute, so a plain `dotnet build` does not
     ///     silently declare one. <c>BuildVariants.Detect</c> falls back to the compilation's own
     ///     <c>DEBUG</c> flag there, which is a worse answer and an honest one.
@@ -330,7 +385,8 @@ public sealed class VixenSdkTests : IDisposable {
         string? group = "UiCore",
         string? properties = null,
         bool assets = true,
-        string? entryPoint = null
+        string? entryPoint = null,
+        bool onServer = true
     ) {
         Directory.CreateDirectory(root);
 
@@ -344,7 +400,10 @@ public sealed class VixenSdkTests : IDisposable {
                 $"guid: 4d6b1f2a3c5e47889a0b1c2d3e4f5061\nmetaVersion: 1\naddressable:\n  address: ui/hero\n  group: {group}\n"
             );
 
-            File.WriteAllText(Path.Combine(assetDirectory, "UiCore.vxgroup"), "name: UiCore\n");
+            File.WriteAllText(
+                Path.Combine(assetDirectory, "UiCore.vxgroup"),
+                "name: UiCore\n" + (onServer ? string.Empty : "includeInServerBuild: false\n")
+            );
         }
 
         File.WriteAllText(Path.Combine(root, "Program.cs"), entryPoint ?? "System.Console.WriteLine(\"game\");\n");

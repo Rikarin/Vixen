@@ -99,9 +99,14 @@ logging", so the console provider is on.
 - **No networking.** [Doc 16](../plan/16-networking.md) is Phase 9. A server today is a game loop
   with no window; there is nothing for a client to connect to.
 - **No metrics endpoint.** Doc 17's Server row names one. Not built.
-- **Content is not yet stripped.** Doc 17 says a server ships bundles "with no textures, audio or
-  shaders". The content build does not know about variants yet, so a server carries the same bundles
-  the client does.
+- **Content is stripped by group, not by type.** Doc 17 says a server ships bundles "with no
+  textures, audio or shaders". The content build knows the variant now: `vixen content build
+  --variant Server`, which the SDK passes from `VixenVariant`, leaves out every addressable group
+  whose `.vxgroup` sets `includeInServerBuild: false` and compiles no shader bundle at all. What it
+  will not do is work out which assets those are on its own — a terrain heightmap is a texture and a
+  dedicated server bakes its collision out of one, so a build that stripped by asset type would take
+  the ground out from under it silently. Mark the groups; the build then refuses, by name, if
+  something it still ships depends on something it left out.
 - ~~**No `Dockerfile`.**~~ Q5c's `Dockerfile` ships in `vixen-game`, so `vixen new game` and
   `dotnet new vixen-game` both write one: multi-stage, chiselled base, non-root, and it builds the
   Server variant because a client in a container has no display. What it produces is still a server

@@ -69,6 +69,38 @@ public static class PlayerBuild {
     /// </remarks>
     public static IReadOnlyList<string> Variants { get; } = ["Debug", "Development", "Release", "Server"];
 
+    /// <summary>Every variant a build may be <i>told</i> it is, which is all five of doc 17's.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Variants" /> plus Editor, and the two lists are not the same question.</b>
+    ///     That one is what the Build menu offers, and it leaves Editor out because a publish cannot
+    ///     produce the editor. This one is what <c>--variant</c> and <c>VixenVariant</c> accept: a
+    ///     content build for the Editor variant is an ordinary thing, and refusing the name would
+    ///     make a project that sets the property unbuildable. The names are
+    ///     <c>Vixen.App.BuildVariant</c>'s own.
+    /// </remarks>
+    public static IReadOnlyList<string> KnownVariants { get; } = ["Editor", "Debug", "Development", "Release", "Server"];
+
+    /// <summary>Whether a variant's content build is a dedicated server's.</summary>
+    /// <param name="variant">A variant name, as <c>--variant</c> and <c>VixenVariant</c> spell it.</param>
+    /// <returns>Whether the server content profile applies.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one place the variant name becomes a content decision</b>, so that
+    ///         <c>vixen build</c>, <c>vixen content build</c>, the SDK's target and the editor's Build
+    ///         and Run cannot disagree about what <c>Server</c> means. The name is
+    ///         <c>Vixen.App.BuildVariant.Server</c>'s own — <see cref="Variants" /> is that enum's
+    ///         list less the editor — and it travels as a string because <c>VixenVariant</c> is an
+    ///         MSBuild property and <c>PlayerBuildSettings.Variant</c> is a committed YAML field.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Case-insensitive, because MSBuild property values are typed by people.</b>
+    ///         <c>-p:VixenVariant=server</c> producing a client's content in a container labelled as a
+    ///         server's is precisely the class of silent mismatch this whole profile exists inside.
+    ///     </para>
+    /// </remarks>
+    public static bool IsServerVariant(string? variant) =>
+        string.Equals(variant, "Server", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>What each target is published as.</summary>
     /// <param name="target">The target name, as <c>--target</c> spells it.</param>
     /// <param name="shape">How to publish it.</param>

@@ -57,7 +57,7 @@ where the shard's boot decisions are made, and they are not a realm's to undo:
 
 | | |
 |---|---|
-| `Variant` | `BuildVariant.Server` — headless host, `Vixen.Graphics.Null`, server content profile |
+| `Variant` | `BuildVariant.Server` — headless host, `Vixen.Graphics.Null`, and the content build's server profile when the realm was published with `-p:VixenVariant=Server` (see [content in a game](../assets/content-in-a-game.md) § *A dedicated server's content*) |
 | `Window`, `Graphics.Enabled` | none, off |
 | `StartupScene` | `RealmSpec.Key.Map` |
 | `FrameRateLimit` | the spec's tick rate |

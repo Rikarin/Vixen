@@ -15,11 +15,17 @@
             The shard. Vixen.Live.Realm brings the host, Vixen.Net and the application host with it;
             a placement backend launches this executable with one argument.
 
-            ⚠ Publish it as a server variant — no window, no GPU, a content profile with no textures,
-            audio or shader permutations. That is what makes a shard start fast enough to be scaled
-            elastically, and it is one property rather than a different program:
+            ⚠ Publish it as a server variant — no window, no GPU, and the content build's server
+            profile. One property rather than a different program:
 
-                dotnet publish -c Release -p:BuildVariant=Server
+                dotnet publish -c Release -p:VixenVariant=Server
+
+            The property is `VixenVariant`; `BuildVariant` is the attribute the SDK emits from it and
+            is not something to pass. The server profile leaves out every addressable group whose
+            .vxgroup says `includeInServerBuild: false` and compiles no shader bundle — it does not
+            work out for itself that a server needs no textures, because a heightmap is a texture and
+            a realm bakes collision from one. This sample marks no group, so its server build packs
+            what its client build does; it has no textures, audio or meshes to leave out anyway.
         -->
         <ProjectReference Include="..\..\..\Live\Vixen.Live.Realm\Vixen.Live.Realm.csproj" />
 

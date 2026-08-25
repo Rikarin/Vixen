@@ -96,17 +96,34 @@ public static class BuildPlanner {
     /// <param name="cache">What the imports produced.</param>
     /// <param name="readMeta">How to read an asset's sidecar.</param>
     /// <param name="groups">The <c>.vxgroup</c> policies the project defines.</param>
+    /// <param name="forServer">
+    ///     Whether this is a dedicated server's build, which leaves out every group whose
+    ///     <see cref="AddressableGroup.IncludeInServerBuild" /> is false.
+    /// </param>
     /// <returns>The plan.</returns>
     /// <remarks>
-    ///     Takes the entries rather than the <see cref="AssetDatabase" /> that produced them: this
-    ///     needs a list of assets and nothing else the database offers, and asking for the database
-    ///     would tie planning to a type that only exists once a real directory has been walked.
+    ///     <para>
+    ///         Takes the entries rather than the <see cref="AssetDatabase" /> that produced them: this
+    ///         needs a list of assets and nothing else the database offers, and asking for the database
+    ///         would tie planning to a type that only exists once a real directory has been walked.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><paramref name="forServer" /> is decided here rather than in
+    ///         <see cref="ContentBuilder" />, and that placement is the safety.</b> This is where
+    ///         addresses become resolvable and where a dependency is turned into one, so an asset
+    ///         dropped here is an asset nothing can name — and a shipped asset that depended on it
+    ///         fails the build with a sentence. Dropping it one stage later, the way
+    ///         <see cref="AddressableGroup.IncludeInBuild" /> historically did, leaves the catalog
+    ///         naming a dependency that is in no bundle: a load failure on a running shard rather
+    ///         than a message to the person who caused it.
+    ///     </para>
     /// </remarks>
     public static BuildPlan Plan(
         IEnumerable<AssetEntry> assets,
         ImportCache cache,
         Func<AssetEntry, AssetMeta?> readMeta,
-        IEnumerable<AddressableGroup> groups
+        IEnumerable<AddressableGroup> groups,
+        bool forServer = false
     ) {
         ArgumentNullException.ThrowIfNull(assets);
         ArgumentNullException.ThrowIfNull(cache);
@@ -123,6 +140,12 @@ public static class BuildPlanner {
         var claimants = new SortedDictionary<string, List<AssetEntry>>(StringComparer.Ordinal);
         var resolved = new List<PlannedAsset>();
         var refused = new HashSet<string>(StringComparer.Ordinal);
+
+        // Which group each asset a server build left out was in, so that the error a dependent gets
+        // can say which line of which .vxgroup to change. "It has no address" is true and sends
+        // somebody to the wrong file.
+        var strippedFrom = new Dictionary<AssetId, string>();
+        var strippedPerGroup = new SortedDictionary<string, int>(StringComparer.Ordinal);
 
         foreach (var (entry, meta) in metas.Values) {
             if (AddressOf(entry, meta) is not { } address) {
@@ -141,6 +164,16 @@ public static class BuildPlanner {
             // claiming one address is a fact about the project rather than about its imports, and
             // an error that appeared only once both of them imported would be a puzzle.
             Claim(claimants, address, entry);
+
+            // ⚠ Before the import is looked at, and that ordering is deliberate: an asset a server
+            // build does not ship need not have imported cleanly, and an authoring-only group full
+            // of sources a realm never opens should not be able to fail a server build.
+            if (forServer && StrippedGroup(entry, metas, defined) is { } left) {
+                strippedFrom[entry.Guid] = left;
+                strippedPerGroup[left] = strippedPerGroup.GetValueOrDefault(left) + 1;
+                refused.Add(entry.Path);
+                continue;
+            }
 
             if (!cache.TryGet(entry.Guid, out var record) || record is null) {
                 if (asked) {
@@ -234,7 +267,7 @@ public static class BuildPlanner {
                 continue;
             }
 
-            if (Dependencies(entry, asset.Record, addressOf, address, diagnostics) is not { } dependencies) {
+            if (Dependencies(entry, asset.Record, addressOf, strippedFrom, address, diagnostics) is not { } dependencies) {
                 continue;
             }
 
@@ -284,6 +317,16 @@ public static class BuildPlanner {
                 ImportSeverity.Information,
                 $"Some assets name no group, so they were put in '{DefaultGroupName}' — packed together, LZ4, "
                 + "shipped in the application. Add a .vxgroup to choose something else."
+            ));
+        }
+
+        // Said out loud, per group, because a build that is smaller than the last one has to say why.
+        // The silent version of this feature is a shard that starts fast and cannot find its map.
+        foreach (var (group, count) in strippedPerGroup) {
+            diagnostics.Add(new(
+                ImportSeverity.Information,
+                $"{count} asset(s) in group '{group}' are not in this build: it is a server build and that group's "
+                + "includeInServerBuild is false."
             ));
         }
 
@@ -511,6 +554,26 @@ public static class BuildPlanner {
         return metas;
     }
 
+    /// <summary>
+    ///     The group a dedicated server's build leaves this asset out of, or <see langword="null" />
+    ///     when the server ships it.
+    /// </summary>
+    /// <remarks>
+    ///     A group the project has not defined is not answered here. The second pass reports that as
+    ///     an error against the asset, and a build that quietly stripped everything whose group file
+    ///     somebody had deleted would turn a typo into an empty server bundle.
+    /// </remarks>
+    static string? StrippedGroup(
+        AssetEntry entry,
+        Dictionary<string, (AssetEntry Entry, AssetMeta Meta)> metas,
+        Dictionary<string, AddressableGroup> defined
+    ) =>
+        GroupFor(entry, metas) is { } group
+        && defined.TryGetValue(group, out var policy)
+        && !policy.IncludeInServerBuild
+            ? group
+            : null;
+
     /// <summary>The nearest group naming an ancestor of this asset, or its own.</summary>
     static string? GroupFor(AssetEntry entry, Dictionary<string, (AssetEntry Entry, AssetMeta Meta)> metas) {
         var path = entry.Path;
@@ -531,10 +594,18 @@ public static class BuildPlanner {
     }
 
     /// <summary>An asset's dependencies as addresses, or <see langword="null" /> if any of them has none.</summary>
+    /// <remarks>
+    ///     ⚠ <b><paramref name="strippedFrom" /> is what keeps the server profile from being a silent
+    ///     mistake.</b> Without it, an asset a server build ships whose dependency the same build left
+    ///     out gets the general "which has no address" error — true, and it sends somebody to look at
+    ///     the dependency's sidecar for a field that is already fine. With it, the message names the
+    ///     group and the profile, which is the one line an author can act on.
+    /// </remarks>
     static List<string>? Dependencies(
         AssetEntry entry,
         ImportRecord record,
         Dictionary<AssetId, string> addressOf,
+        Dictionary<AssetId, string> strippedFrom,
         string address,
         ImmutableArray<ImportDiagnostic>.Builder diagnostics
     ) {
@@ -544,6 +615,16 @@ public static class BuildPlanner {
         foreach (var dependency in record.AssetDependencies) {
             if (addressOf.TryGetValue(dependency, out var dependencyAddress)) {
                 found.Add(dependencyAddress);
+            } else if (strippedFrom.TryGetValue(dependency, out var strippedGroup)) {
+                diagnostics.Add(new(
+                    ImportSeverity.Error,
+                    $"'{entry.Path}' is addressable as '{address}' and depends on asset {dependency}, which is in "
+                    + $"group '{strippedGroup}' — a group this project says a dedicated server does not need. A "
+                    + "server build cannot both ship this asset and leave that one out. Either move this asset into "
+                    + $"'{strippedGroup}' as well, or set includeInServerBuild: true on it."
+                ));
+
+                complete = false;
             } else {
                 diagnostics.Add(new(
                     ImportSeverity.Error,
