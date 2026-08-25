@@ -96,6 +96,10 @@ away, and it is the case `CancelAll`'s remark is about.
 written down here: a modal that is an OS window cannot be screenshotted by a golden-image suite or
 driven by a headless harness. Trinix gates every first-party window that way.
 
+✅ **Closed 2026-08-25.** The 376 lines are `Vixen.Ui.Controls` now — see § A4 for what moved, what
+the pump turned out to be, and the six sabotages. The paragraph above is kept in the past tense it
+was written in, because it is the finding rather than the state.
+
 ### The fourth, one assembly further out
 
 `CommandStack` is not in `Vixen.Editor.Ui` — it is in `Vixen.Editor.Core`, which is one more assembly
@@ -359,6 +363,51 @@ projects' modals behave under shutdown. It is ranked fourth and it is on the lis
 is the fourth witness to the pattern, and the version that exists already has the four subtleties
 right — which is precisely the value a framework adds and a re-implementation loses.
 
+#### ✅ Built, 2026-08-25 — moved, and the pump is the tick
+
+`DialogService` and `DialogSession<T>` are `Vixen.Ui.Controls` types. **Moved rather than copied**,
+and the editor uses the promoted type directly rather than keeping a subclass — the only
+editor-specific thing in the 376 lines was two default button labels, and every label on every method
+was already a parameter. All four subtleties are preserved and each was sabotaged to prove the tests
+see it:
+
+| Sabotage | Fails |
+|---|---|
+| Remove inside `Answer` rather than on the next tick | **8 of 15** — `InvalidOperationException: this Dialog has been removed from its document`, which is the router walking a removed element, named |
+| Complete the caller's task from the click handler | **2** — `answer.IsCompleted` is already true on the press |
+| Present everything queued rather than one at a time | **3** — including `Expected "First?", Actual "Second?"` |
+| `CancelAll` clears the queue rather than answering it | **2** — both on an awaiting caller that never completes |
+| Never subscribe to `Ticked` (a service nothing pumps) | **3** — including the leak test's *control* half, which is what makes it evidence |
+| `Dispose` without unsubscribing | **1** — the disposed service is still reachable from the document |
+
+⚠ **"Generalising `Pump` onto the document's frame" resolved to `UiDocument.Ticked`, and this row's
+estimate was right for the wrong half.** The move was the easy part. The frame is the *tick* and not
+the pass, for the reason [45](45-commands-and-focus-scope.md) step 5 found for `CommandsInvalidated`:
+`UiDocument.Update` returns early when nothing dirtied the document, and asking a question dirties
+nothing — so a pump hung on the pass would not run on any frame the interface was still, which is
+most of them. There is a test that asserts `Update()` returns `false` on the frame the ask is made,
+so the claim is measured. `EditorShell` no longer calls `Dialogs.Pump()` at all; an application that
+ticks its document has working dialogs and wires nothing.
+
+**The threading and re-entrancy contract, written down because it was not in the original.** One
+thread — the one that ticks the document. The task is completed from `Pump`, so an `await` resumes
+inline from it; `await` is the only correct way to consume one, and a caller that blocks on `.Result`
+blocks the thread that would have pumped the answer. Re-entrancy is the ordinary case and has a test:
+a dialog opened from inside another's continuation is presented by that same `Pump` call. ⚠ A
+`pumping` guard was written for that and **taken out again** — it would have turned `CancelAll`'s own
+finish into a no-op when a continuation called it, which is subtlety four's defect exactly, and no
+test could be made to fail without it. The teardown is a private `Finish` both callers share.
+
+**Lifetime.** The document owns the queue, through the `Ticked` subscription; `Dispose` unsubscribes
+and then `CancelAll`s, in that order, and a weak-reference test with a live control case proves the
+disposed service is collectable and the undisposed one is not.
+
+⚠ **Owed, and it is § A3's row rather than this one's.** The default labels are the literals `OK` and
+`Cancel`, because `StringId` and the catalogue are still in `Vixen.Editor.Ui` and cannot be reached
+from a control assembly. That is byte-identical to what `EditorStrings.DialogOk`/`DialogCancel`
+resolved to and no shipped catalogue overrides either, so nothing regressed — but a localised
+application has to pass its own labels until A3 lands.
+
 ### Acceptance, in four lines
 
 - A `Vixen.Ui` application with **no reference to anything under `Editor/`** declares a menu of command
@@ -476,7 +525,7 @@ strands the work.
 | **A3a** — promote the catalogue, split the YAML off, make the lookup a signal | **0.4** | Good. It is a file move, a dependency split and one field becoming a `Signal<T>` |
 | **A3b** — the twelve control literals through the catalogue | **0.1** | Good. Twelve call sites and twelve declarations |
 | **A3c** — `Strings.Resource` | **0.5** | Fair, and **not asked for** — carried so the total is honest if Vixen chooses to close its own owed row |
-| **A4** — the dialog service | **0.25** | Good. A move plus generalising `Pump` onto the document's frame |
+| **A4** — the dialog service | **0.25** | ✅ **Built 2026-08-25 and the figure held.** A move plus generalising `Pump` onto the document's frame — which turned out to mean `UiDocument.Ticked` rather than a host call, for 45 step 5's reason. What the estimate did not carry: a threading contract that was not written down anywhere, and six sabotages |
 | **Total, asked for (A1 + A2 + A3a + A3b + A4)** | **3.25** | |
 | Total including A3c | 3.75 | |
 

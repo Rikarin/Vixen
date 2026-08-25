@@ -116,7 +116,9 @@ The frame is menu bar → **mode bar** → toolbar → workspace → status bar.
 The editor has one OS window and one way to make a second (`view.float-panel`). Everything modal is
 currently unbuildable.
 
-- **`DialogService`** in `Vixen.Editor.Ui`: `ConfirmAsync`, `PromptAsync`, `ChooseAsync`, and
+- **`DialogService`** — ⚠ **moved to `Vixen.Ui.Controls` on 2026-08-25**, see
+  [46](46-what-an-application-needs.md) § A4; it was here, and modality without an answer was in the
+  control library, which is the split that document found. `ConfirmAsync`, `PromptAsync`, `ChooseAsync`, and
   `ShowAsync<TView>` for a modelled dialog. Backed by `Vixen.Ui.Controls`' `Dialogs.cs` and the
   overlay layer, *not* by a native window — a modal that is an OS window cannot be screenshotted by
   the golden-image tests and cannot be driven by the automation harness.

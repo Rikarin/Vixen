@@ -146,6 +146,26 @@ Vixen.Ui.Controls.Dialog.Surface.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Dialog.Title.get -> string?
 Vixen.Ui.Controls.Dialog.Title.set -> string?
 Vixen.Ui.Controls.Dialog.TitlePart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.DialogService -> sealed class
+Vixen.Ui.Controls.DialogService : System.IDisposable
+Vixen.Ui.Controls.DialogService.CancelAll() -> void
+Vixen.Ui.Controls.DialogService.ChooseAsync(string title, string? message, params System.ReadOnlySpan<string> choices) -> System.Threading.Tasks.Task<int>
+Vixen.Ui.Controls.DialogService.ConfirmAsync(string title, string? message = null, string? confirm = null, string? cancel = null, bool danger = false) -> System.Threading.Tasks.Task<bool>
+Vixen.Ui.Controls.DialogService.Current.get -> Vixen.Ui.Controls.Dialog?
+Vixen.Ui.Controls.DialogService.DialogService(Vixen.Ui.UiDocument document) -> void
+Vixen.Ui.Controls.DialogService.Dispose() -> void
+Vixen.Ui.Controls.DialogService.IsOpen.get -> bool
+Vixen.Ui.Controls.DialogService.Pending.get -> int
+Vixen.Ui.Controls.DialogService.PromptAsync(string title, string? message = null, string? initial = null, string? confirm = null, string? cancel = null) -> System.Threading.Tasks.Task<string?>
+Vixen.Ui.Controls.DialogService.Pump() -> void
+Vixen.Ui.Controls.DialogService.ShowAsync<TResult>(string title, System.Action<Vixen.Ui.Controls.DialogSession<TResult>> build, System.Func<TResult?>? dismissed = null) -> System.Threading.Tasks.Task<TResult?>
+Vixen.Ui.Controls.DialogSession<TResult> -> sealed class
+Vixen.Ui.Controls.DialogSession<TResult>.AddButton(string label, System.Func<TResult> result, Vixen.Ui.Controls.ControlVariant variant = Vixen.Ui.Controls.ControlVariant.Default) -> Vixen.Ui.Controls.Button
+Vixen.Ui.Controls.DialogSession<TResult>.Answer(TResult result) -> void
+Vixen.Ui.Controls.DialogSession<TResult>.Body.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.DialogSession<TResult>.Dialog.get -> Vixen.Ui.Controls.Dialog
+Vixen.Ui.Controls.DialogSession<TResult>.Footer.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.DialogSession<TResult>.IsAnswered.get -> bool
 Vixen.Ui.Controls.Drawer -> sealed class
 Vixen.Ui.Controls.Drawer : Vixen.Ui.Controls.Overlay
 Vixen.Ui.Controls.Drawer.Backdrop.get -> Vixen.Ui.UiElement
