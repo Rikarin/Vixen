@@ -287,6 +287,14 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     ///         large <see cref="MovedCasters" /> is the scene itself.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>Counted as <em>published pages lost</em>, which is a hair stricter than the refit's
+    ///         half of the same total.</b> <see cref="Fit" /> counts every resident page it invalidates
+    ///         and each of those exactly once; a caster's span may cover a page a caster earlier in the
+    ///         same frame already retired, and counting that twice would report forty where the frame
+    ///         lost five. What both halves mean is "a page that has to be drawn again", which is the
+    ///         number worth comparing against <see cref="DrawsPerFrame" />.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Pages per moved caster is the number that says whether the bound is the problem.</b>
     ///         A caster's footprint is a page or two on the fine levels and a fraction of one on the
     ///         coarse ones, so a handful of pages per mover is what a correct scene looks like. A
@@ -681,6 +689,8 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
 
     /// <summary>Retires every page a sphere's shadow can reach, over every level of every map.</summary>
     void Shadowed(VirtualShadowAtlas atlas, BoundingSphere bounds) {
+        var table = atlas.Pages.Table;
+
         for (var level = 0; level < records.Count; level++) {
             var record = records[level];
 
@@ -703,7 +713,16 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
                         VirtualShadowMap.ToroidalOf(new(x, y), record.Origin)
                     );
 
-                    if (!atlas.Pages.Invalidate(page)) {
+                    // ⚠ **Counted where a *published* page was lost, and not from Invalidate's own
+                    // answer.** Invalidate says "there was an allocation to invalidate", and it says
+                    // it again for a page an earlier caster of this same frame already retired — so
+                    // counting its return multiplies one page by however many movers stood over it.
+                    // Measured on Samples/13 that read 40.9 a frame where the frame lost 5.
+                    var lost = page >= 0
+                        && page < table.Length
+                        && table[page] != VirtualShadowMap.PageAbsent;
+
+                    if (!atlas.Pages.Invalidate(page) || !lost) {
                         continue;
                     }
 

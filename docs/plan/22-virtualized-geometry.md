@@ -921,15 +921,26 @@ Seven things the plan above did not say:
   drawn once and kept until something says its depths are stale, and until this landed only the light
   and the levels ever said so: a moved object said nothing, so its shadow stayed exactly where the
   object had been, indefinitely, in any scene where the level was not also moving. The page set is
-  `VirtualShadowMap.PageSpan` — the caster's bounding sphere projected into each level's clip space —
-  which is *exactly* the pages whose stored depth it can change, because a shadow map's projection
-  looks along the light and a caster's footprint in that projection is where its shadow lands.
+  `VirtualShadowMap.PageSpan` — the caster's bounding sphere projected into each level's clip space.
+  The *rectangle* that names is the right one rather than a guess, because a shadow map's projection
+  looks along the light: a caster's footprint in that clip space is where its shadow lands, and there
+  is no "how far does the shadow reach" term to get wrong. Only the bound inside it is conservative —
+  the sphere's axis-aligned box rather than the sphere.
   **Both ends of the move**, and the end it left is the visible one: retiring only where the object
   now is leaves the stale silhouette behind and adds a correct one beside it. The comparison is
   against the whole `RenderObjectStore` and not against a stage's collected node list, which is the
   opposite of what `PunctualShadowRenderer` had to do and for a reason worth keeping: with
   device-side culling and no readback a node list is the *conservative* set, and a footprint is not a
-  question about any view, so there is nothing here to be misled by.
+  question about any view, so there is nothing here to be misled by. **Measured on Samples/13 over
+  900 frames of the closed-circle walk, headless with `--vixen-capture` on an M1 Max**: 8.06 casters
+  move a frame and retire 4.17 published pages between them, page draws go 0.72 → 4.87 and pages
+  absent at the table upload 0.94 → 4.13 out of an unchanged 55.86 demanded — while `refit` (0.4433),
+  `resident` and `allocations` are identical to three or four decimals and 832 of the 900 frames agree
+  on all three at once, which is what makes it an A/B rather than two walks. Coverage therefore goes
+  98.3 % → 92.6 %, and the 3.2 pages a frame that stopped being answered were being answered with the
+  shadow of an object that had walked away. The sixteen-a-frame budget saturates on 35 of those 900
+  frames, so the residual is the structural one-frame absence a refit already pays — the table is
+  uploaded before this frame's pages are drawn — happening 4.2 times a frame instead of 0.6.
 
 Still owed, in the order it matters: clusters casting through the traversal, which needs per-view
 visible lists — `Culling.Accept` appends every view's cut to one buffer behind three global counters,
