@@ -46,6 +46,21 @@ namespace Vixen.Ui.Controls.Tests;
 ///         reader says.
 ///     </para>
 /// </remarks>
+/// <summary>The test classes that change the language, which is a process-wide static.</summary>
+/// <remarks>
+///     ⚠ <b><c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
+///     same time.</b> xunit runs different classes in parallel, and this cost a green run: a
+///     reference window built under a pseudo-locale had its catalogue swapped out from under it by
+///     the class next door, and the symptom was one test failing in a full run and passing on its
+///     own. <c>SharedTypeRegistry</c> is the same arrangement one assembly over, for the same kind
+///     of reason.
+/// </remarks>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class SharedCatalogue {
+    public const string Name = "StringCatalogue";
+}
+
+[Collection(SharedCatalogue.Name)]
 public class AccessibleNameLocalisationTests {
     /// <summary>Every string the control set declares, in a language that is not the source one.</summary>
     /// <remarks>
@@ -124,6 +139,11 @@ public class AccessibleNameLocalisationTests {
             var pages = root.Add<Pagination>();
             pages.PageCount = 5;
 
+            // The two scroll bars, whose *only* words are the announced ones — they have nothing on
+            // screen and no caption, so a literal here would be an English announcement nobody
+            // could see to report.
+            root.Add<ScrollView>();
+
             fixture.Update();
 
             // ⚠ **First, and for A2's reason: a check over a tree can be satisfied by an empty
@@ -152,8 +172,8 @@ public class AccessibleNameLocalisationTests {
     /// <summary>The declarations the window above puts on screen.</summary>
     /// <remarks>
     ///     Named so that the guard above fails with the id that went missing rather than with a
-    ///     count. The advanced control assembly covers the other six in its own copy of this test —
-    ///     the two cannot see each other, which is why there are two windows and one
+    ///     count. The advanced control assembly covers the rest in its own copy of this test — the
+    ///     two cannot see each other, which is why there are two windows and one
     ///     <see cref="ControlStrings" />.
     /// </remarks>
     static readonly StringId[] Covered = [
@@ -162,7 +182,9 @@ public class AccessibleNameLocalisationTests {
         ControlStrings.ToastDismiss,
         ControlStrings.SelectSuggestions,
         ControlStrings.PaginationPrevious,
-        ControlStrings.PaginationNext
+        ControlStrings.PaginationNext,
+        ControlStrings.ScrollBarVertical,
+        ControlStrings.ScrollBarHorizontal
     ];
 
     /// <summary>Words beside a field, which is the only thing a field's name is ever made of.</summary>

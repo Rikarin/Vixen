@@ -11,6 +11,14 @@ public sealed partial class BreadcrumbItem : ButtonBase {
     /// <inheritdoc />
     protected override string TagName => "breadcrumb-item";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>link</c> rather than the base's <c>button</c>, on <see cref="Link" />'s terms: a
+    ///     step in a trail takes you somewhere, and that is a thing a screen-reader user acts on
+    ///     differently from a thing that happens here.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Link;
+
     /// <summary>What this step stands for. Meaningful to the application.</summary>
     [UiProperty]
     public partial string? Value { get; set; }
@@ -29,6 +37,16 @@ public sealed partial class Breadcrumb : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>navigation</c>, which is a landmark: a screen reader offers a list of them and
+    ///     jumping to one is how a user gets around a window without walking it. The steps are
+    ///     links inside it. Unnamed by default, because "Breadcrumb" is a word for the widget and
+    ///     not for what this particular trail is a trail of — an application with two of them says
+    ///     so with <c>AccessibleName</c>.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Navigation;
 
     /// <summary>The steps, in order from the root.</summary>
     /// <remarks>
@@ -157,6 +175,10 @@ public sealed partial class Pagination : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>A landmark, on <see cref="Breadcrumb" />'s terms: a row of page numbers is a way of getting about.</remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Navigation;
 
     /// <summary>How many pages there are.</summary>
     [UiProperty(Changed = nameof(OnPagingChanged))]

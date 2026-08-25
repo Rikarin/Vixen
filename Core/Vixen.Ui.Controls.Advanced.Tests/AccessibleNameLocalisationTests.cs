@@ -12,11 +12,11 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Six of <c>ControlStrings</c>' thirteen declarations are used from this assembly</b> —
-///         a dock tab's close button, the two tab-strip arrows, a property grid's reset button and
-///         its filter box, and a colour picker's eyedropper and intensity caption. The plain control
-///         assembly's copy of this test cannot reach any of them: the two test projects cannot see
-///         each other, which is why there are two windows and one declaration class.
+///         <b>Seven of <c>ControlStrings</c>' declarations are used from this assembly</b> — a dock
+///         tab's close button, the two tab-strip arrows, a property grid's reset button and its
+///         filter box, and a colour picker's eyedropper, intensity caption and hex field. The plain
+///         control assembly's copy of this test cannot reach any of them: the two test projects
+///         cannot see each other, which is why there are two windows and one declaration class.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Two of them are the reason this file exists rather than a second copy of a passing
@@ -30,12 +30,32 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         here are those two, held down.
 ///     </para>
 ///     <para>
+///         The colour picker's hex field is the third of that shape and was found by the population
+///         rather than by the reconciliation: it has no caption at all, so its only words are the
+///         announced ones.
+///     </para>
+///     <para>
 ///         The rest of the reasoning — why a pseudo-locale, why the window is built after the
 ///         language is chosen, and why the assertion is about the declarations rather than about a
 ///         list of controls — is on <c>Vixen.Ui.Controls.Tests.AccessibleNameLocalisationTests</c>
 ///         and is not repeated here.
 ///     </para>
 /// </remarks>
+/// <summary>The test classes that change the language, which is a process-wide static.</summary>
+/// <remarks>
+///     ⚠ <b><c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
+///     same time.</b> xunit runs different classes in parallel, and this cost a green run: a
+///     reference window built under a pseudo-locale had its catalogue swapped out from under it by
+///     the class next door, and the symptom was one test failing in a full run and passing on its
+///     own. <c>SharedTypeRegistry</c> is the same arrangement one assembly over, for the same kind
+///     of reason.
+/// </remarks>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class SharedCatalogue {
+    public const string Name = "StringCatalogue";
+}
+
+[Collection(SharedCatalogue.Name)]
 public class AccessibleNameLocalisationTests {
     [Fact]
     public void No_accessible_name_in_a_reference_window_is_still_the_source_language() {
@@ -52,6 +72,9 @@ public class AccessibleNameLocalisationTests {
             docking.AddPanel("inspector", "Inspector");
 
             root.Add<PropertyGrid>();
+
+            var picker = root.Add<ColorPicker>();
+            picker.AllowHdr = true;
 
             fixture.Update();
 
@@ -128,7 +151,10 @@ public class AccessibleNameLocalisationTests {
         ControlStrings.DockClose,
         ControlStrings.DockPreviousTab,
         ControlStrings.DockNextTab,
-        ControlStrings.PropertyGridSearch
+        ControlStrings.PropertyGridSearch,
+        ControlStrings.ColorPickerEyedropper,
+        ControlStrings.ColorPickerIntensity,
+        ControlStrings.ColorPickerHex
     ];
 
     /// <summary>Every string the control set declares, in a language that is not the source one.</summary>

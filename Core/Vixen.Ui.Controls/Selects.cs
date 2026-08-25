@@ -129,6 +129,13 @@ public abstract partial class SelectBase : Control {
         List.Role = AccessibleRole.ListBox;
         AddAccessibleRelation(AccessibleRelation.Owns, List);
 
+        // ⚠ **And the list is named by whatever names the field**, which is ARIA's own answer and
+        // is not the same statement as `Owns`. A `listbox` is a widget role, so a list with no name
+        // is an offender in its own right — the field's caption is the only words either of them
+        // has, and pointing at the field rather than copying its name means a caption changed or
+        // translated later reaches both.
+        List.AddAccessibleRelation(AccessibleRelation.LabelledBy, this);
+
         // ⚠ **What makes an `<Option>` written as a nested tag mean what it looks like.** The options
         // live in the popover, so `UiElement.OnChildAdded` fires there rather than here — see
         // `Popover.ContentAdded`, which exists for this. Both routes now reach `OnOptionAdded`:
@@ -673,11 +680,32 @@ public sealed partial class ComboBox : Control {
     public event Action<ComboBox, string?>? ValueChanged;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Nothing, and that is the arrangement rather than an omission.</b> ARIA 1.2's
+    ///     editable combo box puts <c>role="combobox"</c> on the <i>text input</i> — see
+    ///     <see cref="Editor" /> — because the input is what takes the focus, what
+    ///     <c>aria-expanded</c> is read from and what <c>aria-activedescendant</c> hangs off. This
+    ///     element is the box drawn round an input and a button, exactly as <c>Tabs</c> is the box
+    ///     drawn round a strip and a panel area, and a role here would put a node in the tree
+    ///     standing for neither of the two things inside it.
+    ///     <para>
+    ///         It is the one place this control set differs from <see cref="Select" />, and the
+    ///         reason is the same one that makes them separate types: a select is a choice among a
+    ///         fixed set and answers as one element, a combo box is a field with suggestions and the
+    ///         field is the control.
+    ///     </para>
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.None;
+
+    /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
-        Editor = Part<TextBox>();
-        Editor.AddClass("combo-editor");
+        var editor = Part<ComboEditor>();
+        editor.Owner = this;
+        editor.AddClass("combo-editor");
+
+        Editor = editor;
 
         Toggle = Part<IconButton>();
         Toggle.LeadingIcon.Geometry = ControlIcons.ChevronDown;
@@ -688,6 +716,13 @@ public sealed partial class ComboBox : Control {
         List = Document.Root.Add<Popover>();
         List.AddClass("select-list");
         List.Placement = Placement.Bottom;
+
+        // The list is a root child for the reason `SelectBase` gives, so the same two statements
+        // are needed: what the list *is*, and whose it is. `Owns` hangs off the editor rather than
+        // off this element, because the editor is the combo box as far as the tree is concerned.
+        List.Role = AccessibleRole.ListBox;
+        Editor.AddAccessibleRelation(AccessibleRelation.Owns, List);
+        List.AddAccessibleRelation(AccessibleRelation.LabelledBy, Editor);
 
         Editor.ValueChanged += (_, value) => ValueChanged?.Invoke(this, value);
 
@@ -761,5 +796,44 @@ public sealed partial class ComboBox : Control {
         // is usually a prefix somebody is about to finish, and selecting it means the next keystroke
         // deletes what they just chose.
         Editor.MoveCaret(Value?.Length ?? 0);
+    }
+
+    /// <summary>The editable half of a combo box, which is what ARIA calls the combo box.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A type rather than a role assigned to a plain <see cref="TextBox" />, because
+    ///         the states have to be computed.</b> <c>Editor.Role = AccessibleRole.ComboBox</c> is
+    ///         one line and would leave <c>aria-expanded</c> to be written into
+    ///         <c>DeclaredAccessibleState</c> every time the list opened or shut — a second copy of
+    ///         "is it open", kept by a handler, which is the whole thing this design does not do.
+    ///         The virtual reads <see cref="Overlay.IsOpen" /> from the popover itself and cannot be
+    ///         caught disagreeing with it.
+    ///     </para>
+    ///     <para>
+    ///         No <c>TagName</c> of its own, so every theme rule written for <c>textbox</c> still
+    ///         applies — <see cref="Popover" />'s own content part is the same trick for the same
+    ///         reason.
+    ///     </para>
+    /// </remarks>
+    sealed partial class ComboEditor : TextBox {
+        /// <summary>The combo box this is the field of.</summary>
+        internal ComboBox? Owner { get; set; }
+
+        /// <inheritdoc />
+        protected override AccessibleRole NativeRole => AccessibleRole.ComboBox;
+
+        /// <inheritdoc />
+        /// <remarks>
+        ///     ⚠ <b>Or'd with the base's, not instead of it.</b> This is still a text field: it is
+        ///     still <see cref="AccessibleStates.Editable" />, can still be read-only, and a braille
+        ///     display still needs to know to turn its input mode on. And
+        ///     <see cref="AccessibleStates.Expandable" /> is unconditional on <c>Select</c>'s terms
+        ///     — a combo box always has an <c>aria-expanded</c>, and what changes is whether it is
+        ///     true.
+        /// </remarks>
+        protected override AccessibleStates NativeAccessibleState =>
+            base.NativeAccessibleState
+            | AccessibleStates.Expandable
+            | (Owner?.List is { IsOpen: true } ? AccessibleStates.Expanded : AccessibleStates.None);
     }
 }

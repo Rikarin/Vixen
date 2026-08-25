@@ -53,6 +53,14 @@ public sealed partial class PropertyRow : Control {
         Reset.Label = ControlStrings.PropertyGridReset.Text;
         Reset.Size = ControlSize.Small;
         Reset.TabIndex = -1;
+
+        // ⚠ **Which of forty identical "Reset" buttons this one is.** An inspector's reset buttons
+        // all say the same word, so a screen-reader user walking them hears "Reset, Reset, Reset"
+        // with no way to tell which member each belongs to. `DescribedBy` is the relation for
+        // exactly that: the name stays the verb and the description says what it acts on, which is
+        // what ARIA's `aria-labelledby="button label"` idiom produces and what this tree's
+        // one-target relations can express.
+        Reset.AddAccessibleRelation(AccessibleRelation.DescribedBy, Label);
     }
 }
 
@@ -290,7 +298,7 @@ public sealed partial class PropertyGrid : Control {
         var editable = member.CanWrite && !member.Presentation.IsEditorReadOnly;
 
         if (type == typeof(bool)) {
-            var checkbox = row.Editor.Add<CheckBox>();
+            var checkbox = Editor<CheckBox>(row);
             checkbox.Disabled = !editable;
             checkbox.CheckedChanged += (_, value) => Write(row, value);
 
@@ -298,7 +306,7 @@ public sealed partial class PropertyGrid : Control {
         }
 
         if (type == typeof(string)) {
-            var field = row.Editor.Add<TextBox>();
+            var field = Editor<TextBox>(row);
             field.ReadOnly = !editable;
             field.Submitted += box => Write(row, box.Value);
 
@@ -309,7 +317,7 @@ public sealed partial class PropertyGrid : Control {
             var presentation = member.Presentation;
 
             if (presentation.Minimum is { } low && presentation.Maximum is { } high) {
-                var slider = row.Editor.Add<Slider>();
+                var slider = Editor<Slider>(row);
                 slider.Minimum = (float) low;
                 slider.Maximum = (float) high;
                 slider.Step = (float) presentation.Step;
@@ -319,7 +327,7 @@ public sealed partial class PropertyGrid : Control {
                 return;
             }
 
-            var numeric = row.Editor.Add<NumericInput>();
+            var numeric = Editor<NumericInput>(row);
             numeric.ReadOnly = !editable;
             numeric.Minimum = presentation.Minimum ?? double.NegativeInfinity;
             numeric.Maximum = presentation.Maximum ?? double.PositiveInfinity;
@@ -336,7 +344,7 @@ public sealed partial class PropertyGrid : Control {
         // nullable enum falls through to the read-only rendering below, which is a narrow case and a
         // visible one rather than a warning suppressed.
         if (member.MemberType.IsEnum) {
-            var select = row.Editor.Add<Select>();
+            var select = Editor<Select>(row);
             select.Disabled = !editable;
 
             foreach (var name in Enum.GetNames(member.MemberType)) {
@@ -356,6 +364,23 @@ public sealed partial class PropertyGrid : Control {
         // own, and that is the next thing this grows — see the type's remarks about `ref` accessors,
         // which is what nested *structs* need before it would be honest.
         row.Editor.Add<TextBlock>().AddClass("property-readonly");
+    }
+
+    /// <summary>Puts an editor in a row's slot, named by the row's label.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one line that keeps an inspector from being forty unnamed fields.</b> A
+    ///     <c>TextBox</c>, a <c>NumericInput</c>, a <c>Slider</c> and a <c>Select</c> all
+    ///     deliberately have no words of their own — a placeholder is a hint, and a number is not a
+    ///     name — so the member name on the left of the row is the only thing any of them can be
+    ///     called. It is a relation rather than a copied string, so a row rebound to a different
+    ///     member renames its editor with nothing to keep in step. The read-only rendering below is
+    ///     a <c>TextBlock</c> and is not in the tree, so it needs none.
+    /// </remarks>
+    static T Editor<T>(PropertyRow row) where T : Control, new() {
+        var editor = row.Editor.Add<T>();
+        editor.AddAccessibleRelation(AccessibleRelation.LabelledBy, row.Label);
+
+        return editor;
     }
 
     /// <summary>Reads a member off every target and puts the answer in the editor.</summary>

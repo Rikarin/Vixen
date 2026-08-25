@@ -32,6 +32,41 @@ public sealed partial class TreeRow : Control {
     /// <inheritdoc />
     protected override string TagName => "tree-row";
 
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.TreeItem;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Label" />'s text — the row's own words are on a part, on <c>ButtonBase</c>'s
+    ///     terms, because an element with text may not have children and a row has four of them.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Label?.Text;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Expandable only when the node <i>has</i> children, on <c>MenuItem</c>'s terms rather
+    ///     than <c>Select</c>'s.</b> A tree is mostly leaves, and marking every row expandable would
+    ///     tell a user that every one of them opens — which is exactly the distinction the blanked
+    ///     chevron makes visually and from the same fact. Selection is read from
+    ///     <see cref="ElementState.Checked" />, which the view already sets for the cascade, so
+    ///     there is no second copy of what is selected.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState {
+        get {
+            var states = (State & ElementState.Checked) != 0
+                ? AccessibleStates.Selected
+                : AccessibleStates.None;
+
+            if (Node is not { HasChildren: true } node) {
+                return states;
+            }
+
+            return states
+                | AccessibleStates.Expandable
+                | (node.IsExpanded ? AccessibleStates.Expanded : AccessibleStates.None);
+        }
+    }
+
     /// <summary>Which node it is showing, or <c>null</c> if it is parked.</summary>
     public TreeNode? Node { get; internal set; }
 
@@ -224,6 +259,24 @@ public sealed partial class TreeView : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>tree</c>. Unnamed by default — "Tree" is a word for the widget, and what this
+    ///     one is a tree <i>of</i> is the application's to say, usually with the panel heading it
+    ///     sits under.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Tree;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The state that changes what a keystroke means.</b> A user told the tree is
+    ///     multi-selectable knows Ctrl and Shift add to a selection; one told nothing has to
+    ///     discover it, and on a single-select tree would be discovering something that is not
+    ///     true.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        MultiSelect ? AccessibleStates.MultiSelectable : AccessibleStates.None;
 
     /// <summary>The invisible node everything hangs off.</summary>
     /// <remarks>

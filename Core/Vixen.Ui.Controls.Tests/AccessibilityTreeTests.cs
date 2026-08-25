@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Ui.Testing;
 using Xunit;
 
@@ -241,13 +242,400 @@ public class AccessibilityTreeTests {
         Assert.Equal(
             """
             combobox "Blend mode" = "Cut-out" [expandable]
-              listbox
+              listbox "Blend mode"
                 option "Opaque"
                 option "Cut-out" [selected]
             """,
             AccessibilitySnapshot.Render(select)
         );
     }
+
+    [Fact]
+    public void A_combo_box_puts_the_role_on_the_field_because_that_is_where_ARIA_puts_it() {
+        using var fixture = new ControlFixture();
+
+        var caption = fixture.Add<TextBlock>();
+        caption.Text = "Shader";
+
+        var combo = fixture.Add<ComboBox>();
+        combo.Editor.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
+        combo.AddOption("lit", "Lit");
+        combo.Value = "Lit";
+        fixture.Update();
+
+        // ⚠ **The outer element is nothing, and that is the arrangement.** ARIA 1.2's editable combo
+        // box is a *text input* carrying `role="combobox"`: the input takes the focus, the input is
+        // what `aria-expanded` is read from, and a role on the box drawn round the input and its
+        // button would stand for neither of them. `Tabs` is the same decision one control over.
+        Assert.False(combo.IsInAccessibilityTree);
+        Assert.Equal(AccessibleRole.ComboBox, combo.Editor.Role);
+
+        // Still a text field, which is the half a role assignment would have thrown away.
+        Assert.True((combo.Editor.AccessibleState & AccessibleStates.Editable) != 0);
+        Assert.Equal("Lit", combo.Editor.AccessibleValue);
+
+        // Expandable always, expanded only when it is. See `Select`.
+        Assert.True((combo.Editor.AccessibleState & AccessibleStates.Expandable) != 0);
+        Assert.False((combo.Editor.AccessibleState & AccessibleStates.Expanded) != 0);
+
+        Assert.Same(combo.List, combo.Editor.AccessibleRelationTarget(AccessibleRelation.Owns));
+
+        Assert.Empty(AccessibilitySnapshot.Unnamed(fixture.Document.Root));
+
+        Assert.Equal(
+            """
+            combobox "Shader" = "Lit" [expandable editable]
+              listbox "Shader"
+                option "Lit"
+            button "Show suggestions"
+            """,
+            AccessibilitySnapshot.Render(combo)
+        );
+    }
+
+    [Fact]
+    public void A_tooltip_describes_what_it_is_attached_to_rather_than_only_appearing_over_it() {
+        using var fixture = new ControlFixture();
+
+        var save = fixture.Add<Button>();
+        save.Label = "Save";
+
+        var tip = fixture.Add<Tooltip>();
+        tip.Label = "Writes the scene to disk";
+        tip.Attach(save);
+
+        fixture.Update();
+
+        // ⚠ **A hover is a gesture a screen-reader user does not make.** Before this the sentence
+        // existed, was on screen for anybody with a pointer, and was unreachable by anybody without
+        // one. `AccessibleDescription` had a working relation path and no control in either
+        // assembly fed it, which is this repository's commonest defect: a finished consumer nothing
+        // calls.
+        Assert.Equal("Writes the scene to disk", save.AccessibleDescription);
+        Assert.Equal("Save", save.AccessibleName);
+
+        // And it is read on demand, so the description is right before the tooltip has ever opened
+        // and after its words change.
+        tip.Label = "Saves everything";
+        Assert.Equal("Saves everything", save.AccessibleDescription);
+    }
+
+    [Fact]
+    public void An_alert_is_named_by_its_heading_and_described_by_its_sentence() {
+        using var fixture = new ControlFixture();
+
+        var alert = fixture.Add<Alert>();
+        alert.Title = "Import failed";
+        alert.Message = "The file is not a mesh.";
+        fixture.Update();
+
+        Assert.Equal(AccessibleRole.Alert, alert.Role);
+        Assert.Equal("Import failed", alert.AccessibleName);
+        Assert.Equal("The file is not a mesh.", alert.AccessibleDescription);
+
+        // ⚠ The two are different elements and neither is the alert. Folding the message into the
+        // name would make a screen reader read the whole thing as the alert's title, and building
+        // both from the same element would say the sentence twice.
+        Assert.Empty(AccessibilitySnapshot.Unnamed(alert));
+        Assert.Equal("alert \"Import failed\"", AccessibilitySnapshot.Render(alert));
+    }
+
+    [Fact]
+    public void An_expander_header_says_what_it_opens_and_whether_it_is_open() {
+        using var fixture = new ControlFixture();
+
+        var section = fixture.Add<Expander>();
+        section.Label = "Transform";
+        fixture.Update();
+
+        Assert.Equal(AccessibleRole.Button, section.Header.Role);
+        Assert.Equal("Transform", section.Header.AccessibleName);
+        Assert.Same(section.Content, section.Header.AccessibleRelationTarget(AccessibleRelation.Controls));
+
+        Assert.True((section.Header.AccessibleState & AccessibleStates.Expandable) != 0);
+        Assert.False((section.Header.AccessibleState & AccessibleStates.Expanded) != 0);
+
+        section.IsExpanded = true;
+        fixture.Update();
+
+        // ⚠ Nothing wrote a flag. The state is read from `ElementState.Checked`, which the expander
+        // was already setting on its header for the cascade, so there is no second copy of "is it
+        // open" and no way for the two to disagree.
+        Assert.True((section.Header.AccessibleState & AccessibleStates.Expanded) != 0);
+
+        // The expander itself is a box round two things and is not in the tree.
+        Assert.False(section.IsInAccessibilityTree);
+    }
+
+    [Fact]
+    public void A_scroll_bar_says_which_way_it_runs_and_how_far_down_it_is() {
+        using var fixture = new ControlFixture();
+
+        var view = fixture.Add<ScrollView>();
+        view.VerticalBar.ContentSize = 4f;
+        view.VerticalBar.ViewportSize = 1f;
+        view.VerticalBar.Value = 1.5f;
+        fixture.Update();
+
+        Assert.Equal(AccessibleRole.ScrollBar, view.VerticalBar.Role);
+
+        // ⚠ The one name in the set read from the catalogue on every get rather than assigned in
+        // `OnCreated` — a scroll bar has no words on screen and no caption to be `LabelledBy`, so a
+        // literal here would be an English announcement nobody can see to report.
+        Assert.Equal(ControlStrings.ScrollBarVertical.Text, view.VerticalBar.AccessibleName);
+        Assert.Equal(ControlStrings.ScrollBarHorizontal.Text, view.HorizontalBar.AccessibleName);
+
+        Assert.Equal("0.5", view.VerticalBar.AccessibleValue);
+
+        // The scroll view itself is a box: content and two bars.
+        Assert.False(view.IsInAccessibilityTree);
+    }
+
+    [Fact]
+    public void A_slider_carries_a_number_and_takes_its_name_from_the_words_beside_it() {
+        using var fixture = new ControlFixture();
+
+        var slider = Labelled<Slider>(fixture.Document.Root, "Intensity");
+        slider.Maximum = 4f;
+        slider.Value = 1f;
+        fixture.Update();
+
+        Assert.Equal(AccessibleRole.Slider, slider.Role);
+        Assert.Equal("Intensity", slider.AccessibleName);
+        Assert.Equal("1", slider.AccessibleValue);
+
+        Assert.Empty(AccessibilitySnapshot.Unnamed(slider));
+    }
+
+    [Fact]
+    public void An_indeterminate_progress_bar_is_busy_rather_than_nought_per_cent() {
+        using var fixture = new ControlFixture();
+
+        var bar = fixture.Add<ProgressBar>();
+        bar.Value = 0.25f;
+        fixture.Update();
+
+        Assert.Equal(AccessibleRole.ProgressBar, bar.Role);
+        Assert.Equal("0.25", bar.AccessibleValue);
+
+        bar.IsIndeterminate = true;
+        fixture.Update();
+
+        // ⚠ ARIA omits `aria-valuenow` for a job whose length is unknown, and this is why: a screen
+        // reader reading "nought per cent" for a job that is running is the failure the omission
+        // exists to prevent.
+        Assert.Null(bar.AccessibleValue);
+        Assert.Equal(AccessibleStates.Busy, bar.NativeState());
+    }
+
+    [Fact]
+    public void A_row_names_the_editor_that_was_put_in_it() {
+        using var fixture = new ControlFixture();
+
+        var list = fixture.Add<KeyValueList>();
+        var row = list.AddRow("Cast shadows");
+        var box = row.Content<CheckBox>();
+
+        fixture.Update();
+
+        // ⚠ A `CheckBox` put in a row has no words of its own — its label was never set, because
+        // the row's key *is* the label. One relation, added where the editor is created, is what
+        // stops an inspector being a column of unnamed fields beside a column of text.
+        Assert.Equal("Cast shadows", box.AccessibleName);
+        Assert.Empty(AccessibilitySnapshot.Unnamed(list));
+    }
+
+    /// <summary>Every control in the assembly that draws itself, held to the one rule that cannot pass vacuously.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The gate that keeps the population honest as it grows.</b> A per-control test
+    ///     asserts what its author thought to look at; this asserts that nothing anywhere in the
+    ///     set is a widget with no name or a tab stop with no role. The two controls that
+    ///     deliberately report no name — a <c>TextField</c> and its subclasses, and a
+    ///     <c>Slider</c> — are here <i>with</i> the caption they are supposed to be given, because
+    ///     an unlabelled one failing is the behaviour rather than a gap.
+    /// </remarks>
+    [Fact]
+    public void Every_control_in_one_window_has_a_role_and_a_name() {
+        using var fixture = new ControlFixture();
+
+        var root = fixture.Document.Root;
+
+        Labelled<TextBox>(root, "Project name");
+        Labelled<TextArea>(root, "Notes");
+        Labelled<NumericInput>(root, "Samples");
+        Labelled<SearchBox>(root, "Filter");
+        Labelled<Slider>(root, "Intensity");
+        Labelled<RangeSlider>(root, "Exposure range");
+
+        var select = Labelled<Select>(root, "Blend mode");
+        select.AddOption("opaque", "Opaque");
+
+        var multi = Labelled<MultiSelect>(root, "Layers");
+        multi.AddOption("water", "Water");
+
+        var combo = root.Add<ComboBox>();
+        combo.Editor.AddAccessibleRelation(AccessibleRelation.LabelledBy, Caption(root, "Shader"));
+        combo.AddOption("lit", "Lit");
+
+        root.Add<Button>().Label = "Save";
+        root.Add<IconButton>().Label = "Close";
+        root.Add<ToggleButton>().Label = "Bold";
+        root.Add<CheckBox>().Label = "Overwrite";
+        root.Add<Switch>().Label = "Verbose";
+        root.Add<Link>().Label = "Read the guide";
+
+        var radios = root.Add<RadioGroup>();
+        radios.AddOption("low", "Low");
+        radios.AddOption("high", "High");
+
+        var expander = root.Add<Expander>();
+        expander.Label = "Transform";
+
+        var accordion = root.Add<Accordion>();
+        accordion.AddSection("Lighting");
+
+        var tabs = root.Add<Tabs>();
+        tabs.AddTab("General");
+
+        var crumbs = root.Add<Breadcrumb>();
+        crumbs.AddStep("Assets");
+        crumbs.AddStep("Meshes");
+
+        var pages = root.Add<Pagination>();
+        pages.PageCount = 4;
+
+        var bar = root.Add<MenuBar>();
+        var file = bar.AddMenu("File");
+        file.AddItem("Save");
+        file.AddSubmenu("Open recent");
+
+        var radial = root.Add<RadialMenu>();
+        radial.AddItem("Move");
+
+        var alert = root.Add<Alert>();
+        alert.Title = "Import failed";
+        alert.Message = "The file is not a mesh.";
+
+        var empty = root.Add<EmptyState>();
+        empty.Title = "Nothing here";
+        empty.Description = "Add a mesh to begin.";
+
+        var toast = root.Add<ToastHost>().Show("Saved");
+
+        var dialog = root.Add<Dialog>();
+        dialog.Title = "Delete asset";
+
+        var drawer = root.Add<Drawer>();
+        drawer.AccessibleName = "Filters";
+
+        var rows = root.Add<KeyValueList>();
+        rows.AddRow("Cast shadows").Content<CheckBox>();
+
+        var tip = root.Add<Tooltip>();
+        tip.Label = "Writes the scene to disk";
+        tip.Attach(root.Children[0]);
+
+        var image = root.Add<Image>();
+        image.Description = "A stone wall";
+
+        var avatar = root.Add<Avatar>();
+        avatar.Name = "Ada Lovelace";
+
+        root.Add<ScrollView>();
+        root.Add<ProgressBar>();
+        root.Add<Spinner>();
+        root.Add<Separator>();
+        root.Add<Badge>().Text = "3";
+        root.Add<Panel>();
+        root.Add<Card>();
+        root.Add<Skeleton>();
+        root.Add<TextBlock>().Text = "Some words";
+
+        fixture.Update();
+
+        Assert.Empty(AccessibilitySnapshot.Unnamed(root));
+
+        // ⚠ And the window is not vacuous: it has to actually contain widgets for the line above to
+        // mean anything, and a control that stopped reporting a role would quietly shrink this.
+        Assert.True(Widgets(root) >= 24, $"only {Widgets(root)} widget-role elements in the window");
+
+        _ = toast;
+    }
+
+    static int Widgets(UiElement root) {
+        var count = root.IsInAccessibilityTree ? 1 : 0;
+
+        foreach (var child in root.Children) {
+            count += Widgets(child);
+        }
+
+        return count;
+    }
+
+    static TextBlock Caption(UiElement parent, string text) {
+        var caption = parent.Add<TextBlock>();
+        caption.Text = text;
+
+        return caption;
+    }
+
+
+    /// <summary>Every control the assembly can build, held to the rule a per-control test cannot state.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A test over the <i>type list</i> rather than over a window, because a window is
+    ///         a list somebody has to remember to add to.</b> Doc 46 § A2's population is one
+    ///         virtual per control across two assemblies, and the failure it invites is the control
+    ///         nobody thought about — added next month, focusable because <c>Control</c> is
+    ///         focusable by default, and silent to a screen reader because nobody wrote four lines.
+    ///         This finds it by construction: reflection over the assembly, every public control
+    ///         with a parameterless constructor, one rule.
+    ///     </para>
+    ///     <para>
+    ///         <b>The rule is <c>AccessibilitySnapshot.Unnamed</c>'s first clause</b> — a control the
+    ///         keyboard can reach must be in the accessibility tree, because a tab stop that is not
+    ///         is a place a screen-reader user lands on silence. The naming half is deliberately not
+    ///         asserted here: a bare control has no caption and several of them report <c>null</c>
+    ///         on purpose. The reference-window tests are where names are held down.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_control_the_keyboard_can_reach_is_in_the_accessibility_tree() {
+        using var fixture = new ControlFixture();
+
+        var silent = new List<string>();
+        var built = 0;
+
+        // ⚠ Through `Make<T>` rather than `UiElement.Add<T>` directly: `Add`'s last parameter is a
+        // `ReadOnlySpan<string>`, which reflection cannot pass at all. There is no `Add(Type)`,
+        // deliberately — every other caller knows what it is adding.
+        var make = typeof(AccessibilityTreeTests).GetMethod(nameof(Make), BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        foreach (var type in typeof(Button).Assembly.GetTypes()) {
+            if (!type.IsPublic || type.IsAbstract || !typeof(Control).IsAssignableFrom(type)) {
+                continue;
+            }
+
+            if (type.GetConstructor(Type.EmptyTypes) is null) {
+                continue;
+            }
+
+            var control = (Control) make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
+            fixture.Update();
+            built++;
+
+            if (control.Focusable && control.Role == AccessibleRole.None) {
+                silent.Add($"{type.Name} is a tab stop and is not in the accessibility tree");
+            }
+        }
+
+        // ⚠ First: an assembly whose reflection found nothing satisfies the assertion below
+        // perfectly, and a filter that quietly stopped matching is exactly how that happens.
+        Assert.True(built >= 40, $"only {built} controls were built");
+        Assert.Empty(silent);
+    }
+
+    static Control Make<T>(UiElement parent) where T : Control, new() => parent.Add<T>();
 
     [Fact]
     public void A_container_is_walked_through_rather_than_announced() {
@@ -308,7 +696,7 @@ public class AccessibilityTreeTests {
             """
             textbox "Project name" = "Vixen" [editable]
             combobox "Blend mode" = "Opaque" [expandable]
-              listbox
+              listbox "Blend mode"
                 option "Opaque" [selected]
             checkbox "Overwrite existing"
             switch "Verbose output"

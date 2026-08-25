@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Reflection;
+using Vixen.Ui.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -127,6 +128,37 @@ public sealed class PropertyGridTests : IDisposable {
 
         // Nothing knows how to edit an `object`, so it is shown rather than omitted.
         Assert.IsType<TextBlock>(grid.Rows[6].Editor.Children[0]);
+    }
+
+    /// <summary>An inspector's editors are named by their rows, and its reset buttons say what they reset.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The whole point of a per-row relation, and it is the case that makes an accessible
+    ///     inspector different from an inaccessible one.</b> A <c>TextBox</c>, a
+    ///     <c>NumericInput</c>, a <c>Slider</c> and a <c>Select</c> all deliberately answer
+    ///     <c>null</c> to <c>NativeAccessibleName</c> — a placeholder is a hint and a number is not
+    ///     a name — so an inspector of seven members was seven unnamed fields beside a column of
+    ///     text that nothing connected them to. And every reset button says the same word, so
+    ///     walking them announced "Reset" seven times: the name stays the verb and
+    ///     <c>DescribedBy</c> says which member it acts on.
+    /// </remarks>
+    [Fact]
+    public void Every_editor_is_named_by_its_row_and_every_reset_button_says_what_it_resets() {
+        using var fixture = new AdvancedFixture();
+        var grid = Grid(fixture, new Light());
+
+        Assert.Equal("Enabled", grid.Rows[0].Editor.Children[0].AccessibleName);
+        Assert.Equal("Name", grid.Rows[1].Editor.Children[0].AccessibleName);
+        Assert.Equal("Intensity", grid.Rows[2].Editor.Children[0].AccessibleName);
+        Assert.Equal("Range", grid.Rows[3].Editor.Children[0].AccessibleName);
+        Assert.Equal("Quality", grid.Rows[5].Editor.Children[0].AccessibleName);
+
+        Assert.Equal(ControlStrings.PropertyGridReset.Source, grid.Rows[0].Reset.AccessibleName);
+        Assert.Equal("Enabled", grid.Rows[0].Reset.AccessibleDescription);
+        Assert.Equal("Range", grid.Rows[3].Reset.AccessibleDescription);
+
+        // ⚠ First, and it is the assertion that cannot pass vacuously: an inspector with no editors
+        // in it satisfies every line above.
+        Assert.Empty(AccessibilitySnapshot.Unnamed(grid));
     }
 
     [Fact]

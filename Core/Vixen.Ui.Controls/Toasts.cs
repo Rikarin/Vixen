@@ -21,6 +21,19 @@ public sealed partial class Toast : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>alert</c>. ⚠ <b>A toast is the one thing in the set that <i>must</i> be a live
+    ///     region rather than merely being allowed to be one</b>: it appears somewhere the user was
+    ///     not looking and takes itself away again after a few seconds, so a screen-reader user who
+    ///     is only told about it when they walk to it is never told about it.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Alert;
+
+    /// <inheritdoc />
+    /// <remarks><see cref="Message" />: the whole of what a toast has to say is the sentence in it.</remarks>
+    protected override string? NativeAccessibleName => Message;
+
     /// <summary>How long it stays before <see cref="ToastHost.Tick" /> takes it away.</summary>
     [UiProperty]
     public partial TimeSpan Duration { get; set; }
@@ -90,6 +103,15 @@ public sealed partial class ToastHost : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>log</c>: a region new information is added to in a meaningful order and old
+    ///     information disappears from, which is what a stack of expiring messages is. Not
+    ///     <c>alert</c> — the individual toasts are the alerts, and a corner that announced itself
+    ///     would announce the whole stack every time one arrived.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Log;
 
     /// <summary>The toasts currently showing, newest first.</summary>
     public IReadOnlyList<Toast> Live => live;

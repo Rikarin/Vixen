@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Vixen.Core.Mathematics;
 using Vixen.Input;
@@ -34,6 +35,28 @@ public sealed partial class ScrollBar : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.ScrollBar;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The one control in the set whose name is read from the catalogue on every get
+    ///     rather than assigned once.</b> A scrollbar has no words on screen and no caption to be
+    ///     <see cref="AccessibleRelation.LabelledBy" />, so its only words are the announced ones —
+    ///     and because this is a virtual rather than an assignment in <c>OnCreated</c>, it is also
+    ///     the one that follows a language change on a bar that is already on screen. Which way
+    ///     round it runs is the whole of what distinguishes two bars in the same view.
+    /// </remarks>
+    protected override string? NativeAccessibleName =>
+        IsVertical ? ControlStrings.ScrollBarVertical.Text : ControlStrings.ScrollBarHorizontal.Text;
+
+    /// <inheritdoc />
+    /// <remarks>How far down, as a fraction of how far it can go. See <see cref="Slider" /> for why invariant.</remarks>
+    protected override string? NativeAccessibleValue =>
+        (Range <= 0f ? 0f : Math.Clamp(Value / Range, 0f, 1f)).ToString("0.###", CultureInfo.InvariantCulture);
+
+    bool IsVertical => Orientation == Orientation.Vertical;
 
     /// <summary>Which way it runs.</summary>
     /// <remarks>

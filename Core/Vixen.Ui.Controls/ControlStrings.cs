@@ -76,6 +76,38 @@ public static class ControlStrings {
     /// <summary>The arrow that steps a pager on.</summary>
     public static StringId PaginationNext { get; } = new("ui.control.pagination.next-page", "Next page");
 
+    /// <summary>What a screen reader calls the bar down the side of a scrolling area.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three declarations that are not on screen anywhere, and that is the point of
+    ///     them.</b> A scrollbar and a hexadecimal field have no visible caption — the first is a
+    ///     shape and the second is beside a colour — so their <i>only</i> words are the ones a
+    ///     screen reader says. Putting them here rather than as literals in the control is what
+    ///     stops a localised window having two English announcements in it that nobody can see to
+    ///     report.
+    /// </remarks>
+    public static StringId ScrollBarVertical { get; } = new("ui.control.scrollbar.vertical", "Vertical scroll bar");
+
+    /// <inheritdoc cref="ScrollBarVertical" />
+    public static StringId ScrollBarHorizontal { get; } =
+        new("ui.control.scrollbar.horizontal", "Horizontal scroll bar");
+
+    /// <summary>The colour picker's hexadecimal field, which has no caption beside it.</summary>
+    public static StringId ColorPickerHex { get; } = new("ui.control.color-picker.hex", "Hexadecimal");
+
+    /// <summary>The gradient editor's choice of how two stops are mixed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The control's name, not its options.</b> The three colour-space names it offers —
+    ///     <c>sRGB</c>, <c>Linear light</c>, <c>Perceptual (Oklab)</c> — are deliberately <i>not</i>
+    ///     in this table: a colour space is a term of art a translator should generally leave alone,
+    ///     <c>sRGB</c> is not translatable at all, and a mixed set of three would be worse than
+    ///     none. What a field <i>is</i> is a different question from what it holds, and it is the
+    ///     one a screen-reader user cannot work out from the answer.
+    /// </remarks>
+    public static StringId GradientEditorSpace { get; } = new("ui.control.gradient-editor.space", "Colour space");
+
+    /// <summary>The gradient editor's opacity slider, shown when an alpha stop is chosen.</summary>
+    public static StringId GradientEditorOpacity { get; } = new("ui.control.gradient-editor.opacity", "Opacity");
+
     /// <summary>Every string above, for a translator to start from.</summary>
     /// <remarks>
     ///     ⚠ <b>Spelled out rather than reflected over</b>, for the reason <c>Strings.Template</c>
@@ -96,6 +128,11 @@ public static class ControlStrings {
         ColorPickerIntensity,
         ColorPickerEyedropper,
         PaginationPrevious,
-        PaginationNext
+        PaginationNext,
+        ScrollBarVertical,
+        ScrollBarHorizontal,
+        ColorPickerHex,
+        GradientEditorSpace,
+        GradientEditorOpacity
     ];
 }

@@ -143,6 +143,18 @@ public sealed partial class GradientEditor : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>ARIA <c>application</c>, and it is a role with a cost that is worth paying
+    ///     here.</b> It tells assistive technology to stop intercepting the keyboard and pass every
+    ///     key through, because this element has a keyboard model of its own that no generic widget
+    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a rail of stops dragged along a bar — and it
+    ///     is exactly false of a text field, which is why <c>CodeEditor</c> is a <c>textbox</c>
+    ///     instead. Unnamed by default: what this one is a view of is the application's sentence,
+    ///     and it is usually the panel title above it.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Application;
+
     /// <summary>The gradient being edited.</summary>
     public Gradient Gradient {
         get => gradient;
@@ -210,6 +222,11 @@ public sealed partial class GradientEditor : Control {
 
         Space = Part<Select>();
 
+        // ⚠ Named, because there is no caption: the field shows the colour space it is set to, and
+        // "sRGB" answers *which* without ever saying what the question was. The three option labels
+        // stay out of the catalogue on purpose — see the declaration's own remarks.
+        Space.AccessibleName = ControlStrings.GradientEditorSpace.Text;
+
         foreach (var space in Enum.GetValues<GradientInterpolation>()) {
             Space.AddOption(space.ToString(), Label(space));
         }
@@ -218,6 +235,7 @@ public sealed partial class GradientEditor : Control {
         Space.SelectionChanged += (_, value) => SpaceChosen(value);
 
         Opacity = Part<Slider>();
+        Opacity.AccessibleName = ControlStrings.GradientEditorOpacity.Text;
         Opacity.AddClass("hidden");
         Opacity.ValueChanged += (_, value) => OpacityChosen(value);
 

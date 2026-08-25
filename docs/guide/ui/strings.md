@@ -105,11 +105,17 @@ never load a catalogue at all.
 
 ### The control set's own words
 
-`ControlStrings` is the standard control set's declarations, in exactly the shape above: thirteen
+`ControlStrings` is the standard control set's declarations, in exactly the shape above: eighteen
 labels — "Clear" in a search box, "Dismiss" on a toast, "Previous tab" on a docked group, "Search" in
-a property grid — with `All` beside them. They were English literals in control constructors until
-doc 46 § A3, which meant a localised window had an untranslatable seam in the one place a user cannot
-avoid looking.
+a property grid — with `All` beside them. Thirteen were English literals in control constructors
+until doc 46 § A3, which meant a localised window had an untranslatable seam in the one place a user
+cannot avoid looking.
+
+⚠ **Five of them are never drawn.** A scroll bar, a colour picker's hex field and a gradient
+editor's colour-space select have no caption on screen at all, so their only words are the ones a
+screen reader says — and a literal there is an English announcement in a localised window that
+nobody can see to report. `ScrollBar` reads its two in a *virtual* rather than in `OnCreated`, which
+makes it the one name in the set that follows a language change on a control already on screen.
 
 ⚠ **Two ids for the two "Close"s.** A dialog's dismiss button and a dock tab's are the same English
 word and are not the same string; a language that distinguishes closing a question from closing a

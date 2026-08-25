@@ -262,12 +262,16 @@ in the assembly a role and a name in one edit, and no control stores an accessib
 maintains a notification. The expensive half was the API decision that made that possible, and it was
 made once.
 
-**Populated this sitting** — chosen to span the shapes that differ rather than the ones that repeat:
-`ButtonBase` (role + name), `Link`, `ToggleBase`, `CheckBox` (checked and mixed), `Switch`,
+**Populated the first sitting** — chosen to span the shapes that differ rather than the ones that
+repeat: `ButtonBase` (role + name), `Link`, `ToggleBase`, `CheckBox` (checked and mixed), `Switch`,
 `RadioButton`, `RadioGroup`, `ToggleButton` (pressed, not checked), `TextField` (role + value +
 editable/read-only/multi-line, and no name), `SearchBox`, `NumericInput`, `TabItem`/`Tabs` (relations),
-`Option`/`SelectBase`/`Select`/`MultiSelect` (relations). **Owed**: the remaining ~35 in
-`Vixen.Ui.Controls` and all 11 in `.Controls.Advanced`, which is mechanical.
+`Option`/`SelectBase`/`Select`/`MultiSelect` (relations).
+
+✅ **The rest is populated too, and the "mechanical" estimate held for all but two of it.** **59
+types** now override at least one of the four virtuals across both assemblies, plus nine more that
+establish a relation or assign a `Role` in `OnCreated` without overriding anything. The whole of
+`.Controls.Advanced` is covered, including all eleven top-level controls.
 
 **Two things the ask did not name and the work found.**
 
@@ -285,6 +289,95 @@ depends on an unlabelled field reporting nothing rather than something plausible
 one gets a name, and it is one line at the call site.
 
 **Not built, as asked**: no AT-SPI2, no UIA, no `NSAccessibility`. The tree is what all three read.
+
+#### The population, finished — and the two shapes that were not mechanical
+
+✅ **Both control assemblies are populated.** The remaining ~35 in `Vixen.Ui.Controls` and all 11
+top-level controls in `.Controls.Advanced` now answer for themselves; **59 types override at least
+one of the four virtuals**, and nine more establish a relation or assign a `Role` in `OnCreated`
+without overriding anything. Not one of them stores an accessibility field.
+
+**What the population added beyond roles**, because a role by itself is only a third of it:
+
+| Shape | Where |
+|---|---|
+| Live regions | `Alert` and `Toast` are `alert`, `ToastHost` is `log`, `EmptyState` and `Badge` are `status` — the four things that appear where the user was not looking, and a toast takes itself away again |
+| Landmarks | `Breadcrumb` and `Pagination` are `navigation`, `MenuBar` is `menubar` |
+| Values | `Slider`, `RangeSlider`, `ScrollBar`, `ProgressBar` — invariant, because a bridge re-presents a number in the user's locale and a control this far down knows neither the locale nor the units |
+| Relations | `Expander` header → content (`Controls`), `KeyValueRow` key → its editor, `PropertyGrid` row → its editor, `DockTab` ↔ `DockPanel`, `ColorInput` → its popup (`Owns`), and every option list → the field that names it |
+| `Application` | `Viewport`, `NodeCanvas`, `CurveEditor`, `GradientEditor`, `Timeline` — five direct-manipulation surfaces that own their keyboard. ⚠ `CodeEditor` is deliberately **not** one: it is a `textbox`, because announcing a text editor as an application turns off exactly the reading and review commands that make text editable |
+
+⚠ **`ComboBox` was the first of the two shapes the ask flagged, and the answer is a type rather than
+a role assignment.** ARIA 1.2's editable combo box puts `role="combobox"` on the *text input*: the
+input takes the focus, the input is what `aria-expanded` is read from, and the box drawn round the
+input and its button stands for neither. So `ComboBox` itself is `None` — `Tabs`' decision one
+control over — and its editor is a private `ComboEditor : TextBox` overriding `NativeRole` and
+or-ing `Expandable`/`Expanded` into the base's `Editable`. **A role assignment would have needed the
+expanded state written into `DeclaredAccessibleState` from an `OpenChanged` handler**, which is a
+second copy of "is the list open" kept by a callback — the one thing this design does not do.
+`TextBox` lost its `sealed` for this, and says why on the type; nothing else derives from it.
+
+⚠ **`AccessibleDescription` was the second, and it is fed in three places now** rather than recorded
+as owed. It had a working relation path and no control in either assembly used it — this
+repository's commonest defect, a finished consumer nothing calls.
+
+- **`Tooltip.Attach`** adds `DescribedBy` from the target to the tooltip. This is the textbook use
+  and the one with a real consequence: a tooltip is shown by *hovering*, which is a gesture a
+  screen-reader user does not make, so a sentence written for one kind of user was withheld from
+  another. It is read on demand, so it is right before the tooltip has ever opened.
+- **`Alert` and `EmptyState`** describe themselves with the sentence under the heading: the heading
+  is the name and the sentence is the description, which is two elements rather than one string.
+- **`PropertyGrid`'s reset buttons** are described by their rows. Forty buttons all say "Reset", and
+  walking them announced the same word forty times with no way to tell which member each acts on.
+
+⚠ **Three states are the framework's and none of the 59 re-adds one.** Every expanded, selected,
+pressed and checked bit is read from `ElementState`, which the control was already setting for the
+cascade, so there is no second copy anywhere and no handler keeping one in step.
+
+**Five words were added to `ControlStrings`, and they are a category the catalogue did not have
+before**: `ScrollBarVertical`, `ScrollBarHorizontal`, `ColorPickerHex`, `GradientEditorSpace`,
+`GradientEditorOpacity` — *announced-only* strings. A scroll bar, a hex field and a colour-space
+select have no caption on screen at all, so their only words are the ones a screen reader says; a
+literal there would be an English announcement in a localised window that nobody can see to report.
+⚠ `ScrollBar`'s reads the catalogue in a **virtual** rather than in `OnCreated`, which makes it the
+one name in the set that follows a language change on a bar already on screen.
+
+**Two tests are the gate, and both are about the class rather than the instances.** A reference
+window per assembly asserted with `Unnamed`, and — the one that cannot be forgotten to update — a
+*reflection sweep over the assembly's own type list*: every public `Control` with a parameterless
+constructor is built and held to "a tab stop must be in the accessibility tree". A window is a list
+somebody has to remember to add to; a type list is not. It found three holes while it was being
+written: `ColorPicker`'s hex field and `GradientEditor`'s colour-space select and opacity slider,
+all three fields whose purpose is carried by a caption that does not exist. **Sabotaged four ways**:
+dropping `TreeRow`'s role names it in two tests, dropping `DataCell`'s name in two, dropping
+`Slider`'s role in three (including the reflection sweep, as
+`Slider is a tab stop and is not in the accessibility tree`), and dropping `ScrollBar`'s name in
+three.
+
+**Left `None` on purpose, which is most of what is left:** `Panel`, `Card`, `Accordion`, `Expander`,
+`ScrollView`, `Tabs`, `KeyValueList`, `Popover`, `Icon`, `TextBlock`, `Skeleton`,
+`KeyboardShortcut`, `VirtualizingPanel`, `VirtualizingGrid`. A tree that reported those would read a
+four-field form as thirty nested groups.
+
+⚠ **Genuinely owed, and it is one thing rather than a list.** The pointer-only sub-parts of the
+canvases — `ColorField`, `ColorStrip`, `ColorSwatch`, `GradientRail`, `NodeItem`, `TimelineTrack`,
+`ViewportGizmo` — have no role. Giving them one would be worse than not: none of them is keyboard
+reachable, so a screen reader would announce a set of widgets that cannot be operated. What they
+need first is a keyboard, and that is a control change rather than an accessibility one.
+
+⚠ **One thing the second reference window cost, and it is a fact about `Strings` rather than about
+accessibility.** `Strings.Use` is a process-wide static, and xunit runs test *classes* in parallel —
+so a reference window built under a pseudo-locale had its catalogue swapped out from under it by the
+class next door. The symptom is the worst shape there is: one test failing in a full run and passing
+on its own. Both assemblies now have a `SharedCatalogue` collection with
+`DisableParallelization = true`, and the run was repeated three times each side to say so.
+
+⚠ **And one limitation of the tree itself, unchanged by this and worth stating.** A state a control
+*computes* — expanded, selected, checked — does not raise `AccessibilityInvalidated`; only structure
+and focus do. That is A2's design and it is right for a bridge that caches and diffs, but a bridge
+that waited for the event before re-reading a node would miss a checkbox being ticked. It is written
+down here rather than fixed per control, because fixing it per control is the callback the whole
+design avoids.
 
 #### Reconciled with § A3, and what the intersection turned out to be
 
@@ -667,7 +760,7 @@ strands the work.
 | Ask | EM | How much to trust it |
 |---|---|---|
 | **A1** — 45 steps 3 and 5 | **0.5** | Good. 45 costed all five steps at 1.5 EM and re-estimated downward after step 1 came in at a day; steps 3 and 5 are the two it calls unaffected by the design question that blocked step 2 |
-| **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1. ✅ **The API and the criterion landed in one sitting**, and the reason the population turned out to be the cheap half is in A2's landing note: a control's role and name are *virtual members*, so `ButtonBase` covered every pressable control in the assembly in one edit. What remains of the population is mechanical |
+| **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1. ✅ **The API and the criterion landed in one sitting**, and the reason the population turned out to be the cheap half is in A2's landing note: a control's role and name are *virtual members*, so `ButtonBase` covered every pressable control in the assembly in one edit. ✅ **And the population is finished**, both assemblies, in a second sitting: 59 types overriding a virtual and nine more establishing a relation. The "mechanical" claim held for all but two shapes — `ComboBox`, which needed a derived text box so that `aria-expanded` could stay computed, and `AccessibleDescription`, which had a working relation path no control used and now has three. The population also found three unnamed fields nobody had a caption for, which is what a reflection sweep over the type list buys over a reference window |
 | ~~**A3a** — promote the catalogue, split the YAML off, make the lookup a signal~~ | ~~0.4~~ ✅ | Good, and it was: a file move, a dependency split and one field becoming a `Signal<T>`. What the estimate did not carry is the tail — thirteen files needing a `using`, five of them inside raw-string plugin sources a plain `grep -L` reports as already having one, and `Strings.Template`'s signature |
 | ~~**A3b** — the twelve control literals through the catalogue~~ | ~~0.1~~ ✅ | Good on shape, wrong on arithmetic: thirteen call sites, twelve distinct strings, thirteen declarations. The two it missed cost the sweep that found them rather than the work |
 | **A3c** — `Strings.Resource` | **0.5** | Fair, and **not asked for** — carried so the total is honest if Vixen chooses to close its own owed row |

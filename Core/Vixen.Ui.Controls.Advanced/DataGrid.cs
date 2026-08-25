@@ -78,6 +78,18 @@ public sealed partial class DataCell : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
 
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.GridCell;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The cell's own text, and it is the name rather than the value.</b> A grid cell is
+    ///     read as its contents — <c>aria-valuenow</c> is for a control that holds a number between
+    ///     bounds, which a cell is not. While the cell is being edited the editor inside it is the
+    ///     text box, with its own value; the cell around it still says what it shows.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Editor is not null ? Editor.Value : Label?.Text;
+
     /// <summary>Which column it is in, or <c>null</c> if it is parked.</summary>
     public DataColumn? Column { get; internal set; }
 
@@ -104,6 +116,16 @@ public sealed partial class DataHeaderCell : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>columnheader</c>, which is what tells a screen reader that this cell names the
+    ///     column under it rather than being one more cell in it.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.ColumnHeader;
+
+    /// <inheritdoc />
+    protected override string? NativeAccessibleName => Column?.Header ?? Label?.Text;
 
     /// <summary>Which column, or <c>null</c> if parked.</summary>
     public DataColumn? Column { get; internal set; }
@@ -139,6 +161,23 @@ public sealed partial class DataRow : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Row;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A group header is named by the words it shows; an item row is not named at
+    ///     all.</b> A <c>row</c> is a container role rather than a widget, so a bridge reads its
+    ///     cells; naming it with the first cell's text would make a screen reader say that value
+    ///     twice. A group header has no cells and its label is the only thing in it.
+    /// </remarks>
+    protected override string? NativeAccessibleName => GroupKey is null ? null : GroupLabel?.Text;
+
+    /// <inheritdoc />
+    /// <remarks>Selection is read from <see cref="ElementState.Checked" />, which the grid already sets for the cascade.</remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        (State & ElementState.Checked) != 0 ? AccessibleStates.Selected : AccessibleStates.None;
 
     /// <summary>Which row of the view it is, or -1 if parked.</summary>
     public int Index { get; internal set; } = -1;
@@ -243,6 +282,22 @@ public sealed partial class DataGrid : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><c>treegrid</c> once it is grouped and <c>grid</c> otherwise, which is a real
+    ///     difference rather than a nicety.</b> A grouped grid has expandable rows, and
+    ///     <c>treegrid</c> is the role whose keyboard model a screen reader announces the Left and
+    ///     Right arrows for. Reporting <c>grid</c> while the rows collapse would leave a
+    ///     screen-reader user with no way to know the groups can be opened.
+    /// </remarks>
+    protected override AccessibleRole NativeRole =>
+        GroupColumn is null ? AccessibleRole.Grid : AccessibleRole.TreeGrid;
+
+    /// <inheritdoc />
+    /// <remarks>On <c>TreeView</c>'s terms: it changes what Ctrl and Shift mean.</remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        MultiSelect ? AccessibleStates.MultiSelectable : AccessibleStates.None;
 
     /// <summary>The strip of headings.</summary>
     public UiElement Header { get; private set; } = null!;

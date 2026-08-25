@@ -87,7 +87,16 @@ public sealed partial class KeyValueRow : Control {
         Value = null;
         Empty();
 
-        return ValuePart.Add<T>();
+        var content = ValuePart.Add<T>();
+
+        // ⚠ **The row's key is the editor's name, and this is the one line that says so.** A
+        // `TextField` and a `Slider` deliberately have no words of their own, so an editor dropped
+        // into a row would otherwise be announced as an unnamed field beside a piece of text — the
+        // pairing is obvious on screen and invisible in the tree. Adding it here rather than asking
+        // every caller means the row that is the whole point of this control names what is in it.
+        content.AddAccessibleRelation(AccessibleRelation.LabelledBy, KeyPart);
+
+        return content;
     }
 
     /// <summary>Puts the row back to a blank key and a blank value, for a pool that is reusing it.</summary>

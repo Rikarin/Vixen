@@ -56,8 +56,17 @@ control would ever see.
 
 ## Using it
 
-Most controls need nothing. A `Button`, a `CheckBox`, a `Switch`, a `Link`, a `TextBox` and a
-`Select` already carry a role and, where they have words of their own, a name.
+**Most controls need nothing at all.** Every control in `Vixen.Ui.Controls` and
+`Vixen.Ui.Controls.Advanced` carries a role, and every one with words of its own carries a name —
+59 types answer at least one of the four virtuals and nine more establish a relation. What is left
+for an application is the part no control can know.
+
+A layout element is deliberately not a node — `Panel`, `Card`, `Expander`, `ScrollView`, `Tabs`,
+`Popover`, `Icon`, `TextBlock` all answer `AccessibleRole.None` — and a bridge reads through them.
+Five direct-manipulation surfaces answer `application`, which asks assistive technology to stop
+intercepting the keyboard: `Viewport`, `NodeCanvas`, `CurveEditor`, `GradientEditor` and `Timeline`.
+`CodeEditor` deliberately does not; it is a `textbox`, because announcing a text editor as an
+application turns off the reading and review commands that make text editable at all.
 
 What an application writes is the part the framework cannot know: **a field's name**. A `TextField`
 deliberately answers `null` to `NativeAccessibleName` — its placeholder is a hint rather than a name
@@ -76,11 +85,20 @@ field.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
 `field.AccessibleName` is now `"Project name"`, and stays right if the caption is translated or
 changed.
 
+**Four controls report no name on purpose**, and an unlabelled one is meant to fail a gate rather
+than pass it with a plausible lie: `TextField` and its subclasses, `Slider` and `RangeSlider`,
+`CodeEditor`, and `ColorInput`. None of them has words of its own — a placeholder is a hint, and a
+number is not a name. Two containers do the labelling for you: a `KeyValueList` row names whatever
+`Content<T>()` puts in it, and a `PropertyGrid` names every editor it generates from the member on
+the left.
+
 **Relations are for the pairings parent-and-child is the wrong shape for**, and there are three that
 matter in practice:
 
-* `LabelledBy` / `DescribedBy` — the element whose text names or describes this one. `LabelledBy` is
-  the only relation that feeds another property.
+* `LabelledBy` / `DescribedBy` — the element whose text names or describes this one. Both feed a
+  property. `Tooltip.Attach` adds a `DescribedBy` to whatever it is attached to, which is the whole
+  point of the relation: a tooltip is shown by *hovering*, and a hover is a gesture a screen-reader
+  user does not make.
 * `Controls` — operating this element changes that one. A `TabItem` points at its panel: the two are
   in different parts of the tree, so no walk over `Parent` recovers the pairing.
 * `Owns` — the target is this element's child in the accessibility tree but not in the element tree.
