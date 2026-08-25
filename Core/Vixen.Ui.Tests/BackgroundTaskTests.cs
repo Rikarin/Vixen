@@ -13,7 +13,7 @@ namespace Vixen.Ui.Tests;
 /// <remarks>
 ///     <para>
 ///         <b>These moved out of the editor with the model.</b> They used to live in
-///         <c>Vixen.Editor.Ui.Tests.ServiceTests</c>, which is the shape of the problem this move
+///         <c>Vixen.Editor.Ui.Tests.ServiceTests</c>, which is the shape of the problem doc 46
 ///         describes: an application-framework property pinned only by the one application that
 ///         happened to grow it.
 ///     </para>

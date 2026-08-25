@@ -228,7 +228,7 @@ accepting*: reports after it are dropped rather than enqueued, so work that igno
 another minute costs one thread and no memory. It asks and does not wait, because waiting would be a
 frame thread blocked on a file copy.
 
-See [the guide page](../../docs/guide/ui/background-tasks.md).
+See [the guide page](../../docs/guide/ui/background-tasks.md), and [doc 46](../../docs/plan/46-what-an-application-needs.md) § *Offered, and taken* for why it moved.
 
 ## Arrow navigation
 
