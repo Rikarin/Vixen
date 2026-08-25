@@ -6,6 +6,7 @@ using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
@@ -126,6 +127,9 @@ sealed class EditorHost : IDisposable {
 
     /// <summary>What turns a decoded thumbnail into a texture, once there is a device and a renderer.</summary>
     ThumbnailSurface? thumbnails;
+
+    /// <summary>What draws a shader graph's node previews, once there is a device and a renderer.</summary>
+    ShaderGraphPreviewRenderer? previews;
     UiShaders shaders;
 
     /// <summary>What writes the frame's timestamps, once there is a device that can be timed.</summary>
@@ -443,6 +447,12 @@ sealed class EditorHost : IDisposable {
         if (thumbnails is null && panes.Count > 0 && panes[0].Renderer is { } renderer && device is { } ready) {
             thumbnails = new ThumbnailSurface(ready, renderer);
             editor.ThumbnailSurface = thumbnails;
+
+            // ⚠ The same moment and for the same two reasons: a preview needs a device to draw on and
+            // a renderer to be named by. Handing it over reaches the graphs that are already open —
+            // a restored session opens its tabs before the first frame — as well as the later ones.
+            previews = new ShaderGraphPreviewRenderer(ready, ShaderNodeLibrary.Create(), new UiPreviewImages(renderer));
+            editor.ShaderGraphPreviews = previews;
         }
 
         // ⚠ After the wait the loop below performs, and before anything draws again. A tile scrolled
@@ -516,6 +526,12 @@ sealed class EditorHost : IDisposable {
         }
 
         device!.BeginFrame();
+
+        // ⚠ Inside the frame and before anything records, because a preview draws into a target the
+        // interface samples in this same frame — submits on one queue run in order, so the pass has
+        // finished by the time the panes' lists read it. `RebuildsPerUpdate` is what stops a graph
+        // that was just pasted into compiling twenty shaders between two frames.
+        previews?.Update();
 
         foreach (var pane in panes) {
             pane.IsDrawing = false;
@@ -1122,6 +1138,12 @@ sealed class EditorHost : IDisposable {
         editor.ThumbnailSurface = null;
         thumbnails?.Dispose();
         thumbnails = null;
+
+        // The same rule again: the previews hold targets the interface's registry names, and every
+        // open graph is told they are gone before they go.
+        editor.ShaderGraphPreviews = null;
+        previews?.Dispose();
+        previews = null;
 
         // The same rule, for the same reason: the query pools are the device's resources, and the
         // wait above is what makes it safe to take them back — a frame still in flight is one whose

@@ -2,12 +2,17 @@
 
 Shaders authored as a graph, compiled to Raven source.
 
-The node library and the emission; the framework underneath is
+The node library, the emission, and the preview renderer; the framework underneath is
 [`Vixen.Editor.NodeGraph`](../Vixen.Editor.NodeGraph/README.md). There is no UI here and none is
 needed to check any of it — the panel that opens a `.vxshadergraph` is
 [`Vixen.Editor.AssetEditors`](../Vixen.Editor.AssetEditors/README.md)'s `Shading/`, on the same split
 the VFX graph makes: a compiler that knows nothing about a project is a compiler a test can run with
 no editor in the way.
+
+⚠ **A device is not a UI.** `ShaderGraphPreviewRenderer` takes an `IGraphicsDevice` and draws, which
+is why this assembly references `Vixen.Graphics`, `Vixen.Shaders` and `Vixen.ShaderCompiler`. It
+still knows nothing about a project, a document or a panel, and `ShaderGraphPreview` — the half that
+compiles a node's sub-expression — needs none of the three.
 
 ```csharp
 var registry = new NodeTypeRegistry();
@@ -111,6 +116,33 @@ v.z, 1f)` — the homogeneous convention — and a `float4` read as a `float2` b
 splats. Those are the rules every shader language already has, and an author who wants something else
 has a `Combine` node.
 
+## Preview thumbnails
+
+`ShaderGraphPreview.Compile(graph, node, registry)` compiles **one node's sub-expression** — that
+node, everything upstream of it, and a `Master/Unlit` hung on its output — as an ordinary graph
+through the ordinary compiler. Nothing about emission, typing, conversion or diagnostics is
+duplicated, so a preview is by construction compiled the way the shader is.
+
+The vertex stage needs no special case either. Every graph emits
+`worldViewProjection * float4(position, 1f)` and exactly the varyings it asked for, so a preview is
+that stage over a quad with identity transforms: `ShaderGraphPreviewRenderer` supplies clip-space
+corners as `position` and the unit square as `texcoord`, and the shader is untouched.
+
+**Unlit, into a non-sRGB target, and neither is incidental.** The fragment writes the node's value
+straight out — no lighting, no exposure, no tone map — so what a preview shows is the number the node
+computed. A preview shaded like the scene would answer a different question, in different units.
+
+**Clip `y = +1` is the top**, so the corner at `+1` takes `texcoord.y = 0` and the target's first row
+is the top of the picture. A preview drawn the other way up is perfectly plausible to look at, which
+is why the device test asserts a corner as well as a histogram.
+
+**Two tiers and three gates.** Emitting Raven is string work over a handful of nodes; compiling it to
+SPIR-V and building a pipeline is tens of milliseconds. A frame in which the graph's revision has not
+moved emits nothing; a graph that changed but whose emitted text did not compiles nothing; and
+`RebuildsPerUpdate` rations what is left. The renderer owns one target per node, redraws into it
+rather than replacing it, and `Created`/`Destroyed`/`Live` are public so the absence of a leak can be
+measured. See [the guide page](../../docs/guide/editor/shader-graph-previews.md).
+
 ## The PBR master is honest about being half a job
 
 It emits a self-contained Lambert plus GGX with one directional light from uniforms. A master that
@@ -133,9 +165,9 @@ and a change to one method when it is time to wire it into the engine's clustere
 - **Diagnostics mapped back to ports.** Half of it is here — every diagnostic this compiler raises
   names a node and a port. The other half needs the emitter to record which node wrote which span, so
   that Raven's own complaints can be mapped back.
-- **Preview thumbnails.** `[Node(Preview = true)]` is recorded on the types that would want one, and
-  the panel does not set a `INodePreviewSource` — compiling one node's sub-expression, running it
-  over a quad and keeping the target alive across edits needs a device, which is what
-  `NodePreview.Image` exists for and what nothing here has yet.
+- **Previews of a node that needs a resource.** A preview binds one uniform block — the two
+  transforms every graph declares — and nothing else, so `Texture/Sample 2D` is refused rather than
+  drawn against an unbound descriptor. Binding a *material's* textures means knowing which material,
+  which is doc 08's material compiler.
 
 Licensed under Apache-2.0.
