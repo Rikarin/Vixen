@@ -162,9 +162,15 @@ and a change to one method when it is time to wire it into the engine's clustere
 - **A custom-code node**, which doc 11 lists. It is a `[Input]`-less node holding a string of Raven,
   and the interesting part is not the node but what happens to a diagnostic inside it.
 - **Post and UI masters.** Unlit, Sprite and PBR are in; doc 11 names five.
-- **Diagnostics mapped back to ports.** Half of it is here — every diagnostic this compiler raises
-  names a node and a port. The other half needs the emitter to record which node wrote which span, so
-  that Raven's own complaints can be mapped back.
+- ~~**Diagnostics mapped back to ports.**~~ **Done.** `RavenEmitter` counts the lines it writes, so
+  this compiler records a `ShaderGraphSpan` for every node's statements and for every uniform
+  declaration a node asked for; `ShaderGraphSource.NodeAt` turns a line of the emitted text back into
+  the node that wrote it, and `ShaderGraphDocument.SourceNodeDiagnostics` is what a panel shows.
+  ⚠ **The node a span names is put through `NodeGraphCompiler.Inlining` before it is written down**,
+  so a line that came out of a sub-graph names the sub-graph node in the author's own graph rather
+  than the copy the flattener made. A line the compiler wrote for itself — the preamble, the vertex
+  stage, the master's `return` — belongs to nobody, and is reported as a line number rather than
+  blamed on whichever node is nearest.
 - **Previews of a node that needs a resource.** A preview binds one uniform block — the two
   transforms every graph declares — and nothing else, so `Texture/Sample 2D` is refused rather than
   drawn against an unbound descriptor. Binding a *material's* textures means knowing which material,

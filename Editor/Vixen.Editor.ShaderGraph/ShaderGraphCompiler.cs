@@ -7,10 +7,27 @@ using Vixen.Editor.NodeGraph;
 
 namespace Vixen.Editor.ShaderGraph;
 
+/// <summary>Which lines of a generated shader one node wrote.</summary>
+/// <param name="Node">
+///     The node an author can select. For a node that came out of a sub-graph this is the sub-graph
+///     node in their own graph, not the synthetic copy — see <see cref="NodeGraphInlining" />.
+/// </param>
+/// <param name="Emitted">
+///     And the identity the flattened graph gave it, which is the one in the variable names:
+///     <c>NodeGraphCompiler.Variable</c> spells an output <c>n{id}_{port}</c>. Kept because "show
+///     generated code" is about the text, where that is the name that appears.
+/// </param>
+/// <param name="Span">Which lines of <see cref="ShaderGraphSource.Source" />, counted from zero.</param>
+public readonly record struct ShaderGraphSpan(NodeId Node, NodeId Emitted, NodeSpan Span);
+
 /// <summary>What a shader graph compiles to.</summary>
 /// <param name="Name">The shader declaration's name.</param>
 /// <param name="Source">The Raven.</param>
 /// <param name="Properties">Every uniform the graph asked for, by name, in a stable order.</param>
+/// <param name="Spans">
+///     Which node is answerable for which lines: the uniform declarations first, then the pixel
+///     stage's body in the order it was emitted.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>The uniforms the graph asked for, not the ones every graph has.</b>
@@ -29,10 +46,51 @@ namespace Vixen.Editor.ShaderGraph;
 public sealed record ShaderGraphSource(
     string Name,
     string Source,
-    ImmutableArray<ShaderGraphProperty> Properties = default
+    ImmutableArray<ShaderGraphProperty> Properties = default,
+    ImmutableArray<ShaderGraphSpan> Spans = default
 ) {
     /// <inheritdoc cref="ShaderGraphSource" />
     public ImmutableArray<ShaderGraphProperty> Properties { get; } = Properties.IsDefault ? [] : Properties;
+
+    /// <inheritdoc cref="ShaderGraphSource" />
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the half of doc 07's "diagnostics mapped back to node ports" that the graph
+    ///         side owes.</b> Raven's complaints about generated text name a line; an author can act on
+    ///         a node. <see cref="NodeAt" /> is the join.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not every line has a node.</b> The preamble, the vertex stage and the master's
+    ///         <c>return</c> are the compiler's own text, so a complaint about one of them maps to
+    ///         nothing — and reporting the nearest node instead would send an author to a node that is
+    ///         fine. <see cref="NodeAt" /> answers false, and a caller says "line N" as it always did.
+    ///     </para>
+    ///     <para>
+    ///         <b>A uniform's declaration is a node's, though it is the compiler that writes it.</b>
+    ///         The line is where a property name an author typed is first refused, and the node that
+    ///         asked for it is exactly who to send them to — so <c>RavenEmitter.Uniform</c>'s first
+    ///         asker owns the declaration the same way an emitting node owns its statements.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<ShaderGraphSpan> Spans { get; } = Spans.IsDefault ? [] : Spans;
+
+    /// <summary>Which node wrote a line of the emitted source.</summary>
+    /// <param name="line">The line, counted from zero.</param>
+    /// <param name="span">What that node wrote, when one did.</param>
+    /// <returns><see langword="true" /> if a node wrote that line.</returns>
+    public bool NodeAt(int line, out ShaderGraphSpan span) {
+        foreach (var candidate in Spans) {
+            if (candidate.Span.Contains(line)) {
+                span = candidate;
+
+                return true;
+            }
+        }
+
+        span = default;
+
+        return false;
+    }
 }
 
 /// <summary>
@@ -63,7 +121,10 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
     readonly StringBuilder body = new();
     readonly Dictionary<string, string> uniforms = new(StringComparer.Ordinal);
     readonly HashSet<ShaderStageInput> stage = [];
+    readonly List<ShaderGraphSpan> spans = [];
+    readonly Dictionary<string, NodeId> declaredBy = new(StringComparer.Ordinal);
 
+    RavenEmitter emitter = null!;
     ShaderMasterNode? master;
     NodeId masterId;
 
@@ -79,6 +140,12 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         body.Clear();
         uniforms.Clear();
         stage.Clear();
+        spans.Clear();
+        declaredBy.Clear();
+
+        // ⚠ One emitter for the whole walk, where there used to be one per node. It is what counts
+        // the body's lines, and a fresh one per node would count each node's from zero.
+        emitter = new(body, uniforms, stage);
         master = null;
         masterId = NodeId.None;
     }
@@ -112,7 +179,27 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             masterId = node.Id;
         }
 
-        shader.Emit(new(body, uniforms, stage));
+        var first = emitter.Lines;
+
+        shader.Emit(emitter);
+
+        // ⚠ `Inlining.Resolve`, so the span names a node the author has. A node inlined out of a
+        // sub-graph wrote these lines under a synthetic identity, and a squiggle in the generated pane
+        // that reported one would be a diagnostic pointing at nothing selectable — which is the whole
+        // failure this map exists to close. The synthetic identity is kept beside it because it is the
+        // one in the variable names on those very lines.
+        if (emitter.Lines > first) {
+            spans.Add(new(Inlining.Resolve(node.Id), node.Id, new(first, emitter.Lines - first)));
+        }
+
+        // ⚠ And the declarations, which are the compiler's text and the node's doing. A property node
+        // whose name an author typed a space into is refused twice — once where it is declared and
+        // once where it is read — and the declaration is the more useful of the two to be sent to.
+        // `TryAdd` because a name is declared once however many nodes ask for it, which is
+        // `RavenEmitter.Uniform`'s bargain: the first asker owns the line.
+        foreach (var name in uniforms.Keys) {
+            declaredBy.TryAdd(name, node.Id);
+        }
     }
 
     /// <inheritdoc />
@@ -142,8 +229,24 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             .AppendLine("    /// The object-to-world transform, for the world-space interpolators.")
             .AppendLine("    var world: mat4");
 
+        List<ShaderGraphSpan> declarations = [];
+
+        // Where the next line will land, counted once and then carried. Every `AppendLine` adds
+        // exactly one line whatever the platform spells a newline as, so the cursor is arithmetic
+        // rather than a rescan of a builder that is getting longer.
+        var cursor = Lines(text) - 1;
+
         foreach (var (uniform, type) in uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
             text.AppendLine().AppendLine($"    var {uniform}: {type}");
+
+            // A blank line and then the declaration, so the declaration is the second of the two.
+            var declaration = cursor + 1;
+
+            cursor += 2;
+
+            if (declaredBy.TryGetValue(uniform, out var owner)) {
+                declarations.Add(new(Inlining.Resolve(owner), owner, new(declaration, 1)));
+            }
         }
 
         // Only the varyings the graph asked for. Ordered, so the same graph emits the same source.
@@ -165,8 +268,15 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             .AppendLine()
             .AppendLine("    [FragmentShader]")
             .AppendLine("    [Semantic(\"SV_Target\")]")
-            .AppendLine("    func Fragment(): float4 {")
-            .Append(body)
+            .AppendLine("    func Fragment(): float4 {");
+
+        // ⚠ Read here, between the header and the body, because this is the one moment the offset is
+        // knowable: the emitter counted the body's lines from zero and everything above is the
+        // compiler's own text, whose length depends on how many uniforms and varyings the graph asked
+        // for. Computing it anywhere else means counting a string twice and having the two disagree.
+        var offset = Lines(text) - 1;
+
+        text.Append(body)
             .AppendLine($"        return {master.Result}")
             .AppendLine("    }")
             .AppendLine("}");
@@ -177,8 +287,25 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             [
                 .. uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)
                     .Select(entry => new ShaderGraphProperty(entry.Key, entry.Value))
+            ],
+            [
+                .. declarations,
+                .. spans.Select(span => span with { Span = new(span.Span.Line + offset, span.Span.Lines) })
             ]
         );
+    }
+
+    /// <summary>How many lines a builder holds, counting a trailing newline as ending one.</summary>
+    static int Lines(StringBuilder text) {
+        var count = 1;
+
+        for (var index = 0; index < text.Length; index++) {
+            if (text[index] == '\n') {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     /// <inheritdoc />

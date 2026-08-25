@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Editor.AssetEditors.Shading;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
@@ -162,6 +163,146 @@ public class ShaderGraphTests {
         Assert.Empty(document.SourceDiagnostics);
     }
 
+    /// <summary>A sub-graph whose property node is called something Raven cannot spell.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing about this graph is malformed.</b> A name with a space in it is a thing an
+    ///     author can type into the panel's rename box, no graph-level rule refuses it, and the shader
+    ///     it emits does not parse — which is the failure doc 11 says a panel showing only
+    ///     <c>Diagnostics</c> would report as a success.
+    /// </remarks>
+    internal static SubGraphLibrary Tint(
+        string property,
+        NodeTypeRegistry? registry = null,
+        string path = "Sub-graphs/Tint"
+    ) {
+        var graph = new NodeGraphModel { Name = "Tint" };
+
+        graph.Interface.Add(new("Colour", NodeGraph.PortDirection.Output, PortKind.Float4));
+
+        var colour = graph.Add("Input/Colour Property");
+        var exit = graph.Add(SubGraphs.OutputType);
+
+        colour.SetText(ShaderProperties.Key, property);
+        graph.Connect(new(colour.Id, "Colour"), new(exit.Id, "Colour"));
+
+        var library = new SubGraphLibrary();
+
+        library.Add(path, graph, registry);
+
+        return library;
+    }
+
+    /// <summary>Raven's complaint about a generated line names the node that wrote it.</summary>
+    [Fact]
+    public void ARavensComplaintNamesTheNodeThatWroteTheLine() {
+        using var fixture = new EditorFixture();
+
+        var document = new ShaderGraphDocument(
+            fixture.Project,
+            AssetId.Empty,
+            fixture.Write("Assets/Spaced.vxshadergraph", string.Empty)
+        );
+
+        var tint = document.Graph.Nodes.First(node => node.Type == "Input/Colour Property");
+
+        tint.SetText(ShaderProperties.Key, "my tint");
+        document.Compile();
+
+        Assert.NotEmpty(document.SourceDiagnostics);
+
+        // One per complaint and in the same order, so a panel showing both halves of one does not
+        // have to join two lists by matching sentences.
+        Assert.Equal(document.SourceDiagnostics.Count, document.SourceNodeDiagnostics.Count);
+        Assert.Contains(document.SourceNodeDiagnostics, diagnostic => diagnostic.Node == tint.Id);
+
+        // And the preamble belongs to nobody. Blaming the nearest node for a line the compiler wrote
+        // would send an author to a node that is fine.
+        Assert.All(
+            document.SourceNodeDiagnostics,
+            diagnostic => Assert.False(diagnostic.Span.IsNone)
+        );
+    }
+
+    /// <summary>And when the line came out of a sub-graph, it names a node the author can select.</summary>
+    /// <remarks>
+    ///     <b>This is the pair of gaps doc 11 recorded, closing together.</b> The node that wrote the
+    ///     line is a copy the flattener made, with an identity that is in no file and on no canvas;
+    ///     what the diagnostic names is the sub-graph node in the graph the author has open.
+    /// </remarks>
+    [Fact]
+    public void ARavensComplaintInsideASubGraphNamesTheSubGraphNode() {
+        using var fixture = new EditorFixture();
+
+        var document = new ShaderGraphDocument(
+            fixture.Project,
+            AssetId.Empty,
+            fixture.Write("Assets/Nested.vxshadergraph", string.Empty)
+        ) {
+            SubGraphSource = Tint("my tint")
+        };
+
+        var master = document.Graph.Nodes.First(node => node.Type == "Master/Unlit");
+        var sub = document.Graph.Add("Sub-graphs/Tint", new(240f, 320f));
+
+        document.Graph.Connect(new(sub.Id, "Colour"), new(master.Id, "Colour"));
+
+        var shader = document.Compile();
+
+        // The graph compiler has nothing to say: the graph is well-formed and the sub-graph inlined.
+        Assert.NotNull(shader);
+        Assert.Empty(document.Diagnostics);
+        Assert.NotEmpty(document.SourceDiagnostics);
+
+        var blamed = document.SourceNodeDiagnostics.Where(diagnostic => diagnostic.Node.IsValid).ToArray();
+
+        Assert.NotEmpty(blamed);
+        Assert.Contains(blamed, diagnostic => diagnostic.Node == sub.Id);
+
+        // ⚠ The assertion that matters. Every node a complaint names is one the open document has, so
+        // every one of them can be selected, framed and badged.
+        Assert.All(blamed, diagnostic => Assert.True(document.Graph.TryGet(diagnostic.Node, out _)));
+    }
+
+    /// <summary>A graph-level complaint about an inlined node is re-addressed the same way.</summary>
+    [Fact]
+    public void AGraphComplaintInsideASubGraphNamesTheSubGraphNode() {
+        using var fixture = new EditorFixture();
+
+        var document = new ShaderGraphDocument(
+            fixture.Project,
+            AssetId.Empty,
+            fixture.Write("Assets/Twinned.vxshadergraph", string.Empty)
+        );
+
+        // A sub-graph saved against a node library this process has not loaded, which is the
+        // commonest thing to find inside somebody else's sub-graph.
+        var inner = new NodeGraphModel { Name = "Stale" };
+
+        inner.Interface.Add(new("Colour", NodeGraph.PortDirection.Output, PortKind.Float4));
+
+        var missing = inner.Add("Plugin/Missing");
+        var exit = inner.Add(SubGraphs.OutputType);
+
+        inner.Connect(new(missing.Id, "Out"), new(exit.Id, "Colour"));
+
+        var library = new SubGraphLibrary();
+
+        library.Add("Sub-graphs/Stale", inner, document.Registry);
+        document.SubGraphSource = library;
+
+        var sub = document.Graph.Add("Sub-graphs/Stale", new(240f, 320f));
+
+        Assert.Null(document.Compile());
+
+        var unknown = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Id == "NG0001");
+
+        // ⚠ Not the identity the flattener gave the copy. That one is in no file and on no canvas, so
+        // a panel could print this sentence and an author would have nothing to click.
+        Assert.Equal(sub.Id, unknown.Node);
+        Assert.Contains("Sub-graphs/Stale", unknown.Message, StringComparison.Ordinal);
+        Assert.Contains($"It is {missing.Id}", unknown.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>A file this build cannot read opens empty and says why, rather than throwing.</summary>
     [Fact]
     public void ABrokenFileOpensWithADiagnostic() {
@@ -298,5 +439,59 @@ public class ShaderGraphViewTests {
         );
 
         Assert.Empty(view.Generated.Source);
+    }
+
+    /// <summary>
+    ///     Tapping a complaint about a generated line selects the node that wrote it — and when the
+    ///     line came out of a sub-graph, the node it selects is the sub-graph node the author has.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is what makes the span map worth recording.</b> A diagnostic that names a node
+    ///         and a panel that only prints the sentence is a map nothing reads, which is the commonest
+    ///         way a feature here is finished and useless.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <c>TapEvent</c>, raised on the row.</b> An <c>AnalysisRow</c> is a bare element,
+    ///         so it never raises a <c>ClickEvent</c>; a test that pressed the row the way it presses
+    ///         the Compile button would pass against a handler that can never fire.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TappingADiagnosticSelectsTheNodeThatWroteTheLine() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, "Blamed.vxshadergraph", out var document);
+
+        document.SubGraphSource = ShaderGraphTests.Tint("my tint", document.Registry);
+
+        var master = document.Graph.Nodes.First(node => node.Type == "Master/Unlit");
+        var sub = document.Graph.Add("Sub-graphs/Tint", new(240f, 320f));
+
+        document.Graph.Connect(new(sub.Id, "Colour"), new(master.Id, "Colour"));
+
+        view.Compile();
+        harness.Ui.Frame();
+
+        var row = -1;
+
+        for (var index = 0; index < view.Diagnostics.Children.Count; index++) {
+            if (view.BlamedBy(index) == sub.Id) {
+                row = index;
+
+                break;
+            }
+        }
+
+        Assert.True(row >= 0, string.Join("\n", view.Diagnostics.Children.Select(child => child.Children[^1].Text)));
+
+        // The row says which node as well as which line, because a list of line numbers is a list
+        // about a file the author never wrote.
+        Assert.Contains("Tint", view.Diagnostics.Children[row].Children[^1].Text ?? "", StringComparison.Ordinal);
+
+        view.Diagnostics.Children[row].Raise(new TapEvent { Count = 1 });
+        harness.Ui.Frame();
+
+        Assert.Equal([sub.Id], view.GraphView.Selection);
     }
 }

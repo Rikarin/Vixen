@@ -174,6 +174,21 @@ static class VulkanEnums {
     public static AttachmentStoreOp ToVulkan(StoreAction action) =>
         action == StoreAction.DontCare ? AttachmentStoreOp.DontCare : AttachmentStoreOp.Store;
 
+    /// <summary>The resolve mode for a multisampled depth attachment.</summary>
+    /// <param name="mode">Which sample the resolve keeps.</param>
+    /// <remarks>
+    ///     ⚠ There is deliberately no <c>Average</c> arm. Vulkan forbids
+    ///     <c>VK_RESOLVE_MODE_AVERAGE_BIT</c> for a depth-stencil attachment for the same reason the
+    ///     engine does not offer it: the mean of several depths describes no surface. The mapping is
+    ///     total, so a value outside the enum resolves as <see cref="DepthResolveMode.SampleZero" />
+    ///     — the mode every implementation supports.
+    /// </remarks>
+    public static ResolveModeFlags ToVulkan(DepthResolveMode mode) => mode switch {
+        DepthResolveMode.Min => ResolveModeFlags.MinBit,
+        DepthResolveMode.Max => ResolveModeFlags.MaxBit,
+        _ => ResolveModeFlags.SampleZeroBit
+    };
+
     public static PresentModeKHR ToVulkan(PresentMode mode) => mode switch {
         PresentMode.Fifo => PresentModeKHR.FifoKhr,
         PresentMode.FifoRelaxed => PresentModeKHR.FifoRelaxedKhr,

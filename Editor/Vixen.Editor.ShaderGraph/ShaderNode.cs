@@ -50,6 +50,16 @@ public sealed class RavenEmitter {
         this.stage = stage;
     }
 
+    /// <summary>How many lines have been written into the body so far.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted here rather than measured afterwards, and that is what makes the span map
+    ///     honest.</b> <see cref="ShaderGraphCompiler" /> reads this either side of a node's
+    ///     <see cref="ShaderNode.Emit" /> to learn which lines that node wrote; recovering the same
+    ///     thing by scanning the emitted text would mean matching variable names, which is a guess
+    ///     about a naming convention rather than a record of what happened.
+    /// </remarks>
+    internal int Lines { get; private set; }
+
     /// <summary>Writes one statement into the pixel stage's body.</summary>
     /// <param name="statement">The Raven. One statement, and one line.</param>
     /// <exception cref="ArgumentNullException"><paramref name="statement" /> is null.</exception>
@@ -61,6 +71,7 @@ public sealed class RavenEmitter {
     public void Emit(string statement) {
         ArgumentNullException.ThrowIfNull(statement);
         body.Append("        ").AppendLine(statement);
+        Lines++;
     }
 
     /// <summary>Declares a value the node computes, and names it.</summary>

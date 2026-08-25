@@ -9,3 +9,6 @@ VXS0301 | Vixen.Ui | Error | A [UiProperty] is not declared partial
 VXS0302 | Vixen.Ui | Error | A type declaring a [UiProperty] is not partial
 VXS0303 | Vixen.Ui | Error | A type declaring a [UiProperty] does not derive from UiElement
 VXS0304 | Vixen.Ui | Error | A [UiProperty] names a callback the type does not have
+VXS0310 | Vixen.Ui | Error | A declared StringId is not in its class's All list
+VXS0311 | Vixen.Ui | Error | Two StringId declarations share one id
+VXS0312 | Vixen.Ui | Error | A StringId is built outside the assembly's declaration class

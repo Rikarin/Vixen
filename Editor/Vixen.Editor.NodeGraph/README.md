@@ -31,8 +31,9 @@ graph.Connect(new(uv.Id, "UV"), new(sample.Id, "UV"));
 | `NodeTypeRegistry`, `NodeTypeDefinition`, `SettingDefinition` | The node library, filled by generated code. |
 | `Node`, `NodeBinding` | The base a node derives from, and what its ports carry this time round. |
 | `NodeGraphCompiler<T>` | Graph to artefact: ordering, typing, binding, diagnostics. |
-| `NodeDiagnostic` | Something to say, about a node and a port an author can see. |
+| `NodeDiagnostic`, `NodeSpan` | Something to say, about a node and a port an author can see — and which lines of a generated file it is about. |
 | `SubGraphs`, `SubGraphLibrary` | A graph inside a graph: the boundary nodes, inlining, and extraction. |
+| `NodeGraphInlining`, `NodeOrigin` | Which inlined node came out of which sub-graph node, so a diagnostic names one the author can select. |
 | `NodeGraphView`, `NodeCommentView` | The model on a `NodeCanvas`, with every gesture arriving as a command. |
 | `NodeInspector` | The selected nodes' values as rows beside the canvas, for what will not fit on it. A host around `InspectorView`, not a panel of its own. |
 | `NodePortEditProvider`, `NodePortMember`, `NodeSettingMember` | A node type's inline port values and its settings, described for the editing pipeline. See below. |
@@ -265,10 +266,18 @@ one node silently changed the signature every containing graph depends on.
 that is where the value comes from. Getting this backwards produces a sub-graph whose wires all refuse
 to connect and no clue as to why.
 
-**The top-level identities survive inlining and the inlined ones do not.** A diagnostic about the
-author's own graph names a node they can select. What comes out of a sub-graph is new, so a complaint
-about one names something they cannot click on — a real gap, whose fix is a map from the synthetic
-identity back to the sub-graph node, which nothing yet reads.
+**The top-level identities survive inlining and the inlined ones do not — and `NodeGraphInlining` is
+the way back.** A diagnostic about the author's own graph names a node they can select. What comes out
+of a sub-graph is new, so a complaint about one would name something they cannot click on. `Flatten`'s
+four-argument overload answers with a `NodeGraphInlining`: which synthetic identity came out of which
+sub-graph node, which sub-graph it was written in, and what it was called there.
+`NodeGraphCompiler.Report` runs every diagnostic through it, so a subclass never has to — but a
+subclass that records an identity for *later* use, such as a span in generated text, must call
+`Inlining.Resolve` itself, because that identity outlives the walk.
+
+⚠ **A refusal about a nested sub-graph node is blamed on the outermost one**, for the same reason: a
+sub-graph node found inside a sub-graph is in no open document either, so `NG0110` and `NG0111` name
+the node the author actually has.
 
 **An unconnected sub-graph input becomes an inline value on whatever it fed.** The entry node
 disappears, so there is nothing left to carry a default; pushing it down is what keeps a sub-graph

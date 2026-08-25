@@ -119,6 +119,19 @@ public sealed class RenderPassRenderer : SceneRenderer {
     /// </remarks>
     public IDictionary<string, string> ResolveTargets { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
+    /// <summary>
+    ///     Which sample a resolve of <see cref="DepthTarget" /> keeps, when
+    ///     <see cref="ResolveTargets" /> names it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The default is the sample nearest the camera, which under the engine's reversed-Z
+    ///     convention is the <em>largest</em> depth value.</b> Depth cannot borrow colour's rule:
+    ///     averaging several depths gives a surface behind nothing and in front of nothing, so
+    ///     everything reading the resolved buffer reads a plane no geometry occupies — and it does so
+    ///     without an error anywhere.
+    /// </remarks>
+    public DepthResolveMode DepthResolveMode { get; set; } = DepthResolveMode.Max;
+
     /// <summary>The viewport to set, or null for the whole target.</summary>
     public Viewport? Viewport { get; set; }
 
@@ -273,6 +286,13 @@ public sealed class RenderPassRenderer : SceneRenderer {
 
         var depth = DepthTarget is { Length: > 0 } name ? frame.Texture(ToString(), name) : GraphTexture.None;
         var depthFormat = depth.IsValid ? frame.FormatOf(ToString(), DepthTarget!) : PixelFormat.Undefined;
+
+        // Depth resolves through the same map colour does, keyed by the depth target's own name. One
+        // list rather than two: a document already says "this attachment, into that resource" there,
+        // and depth differs only in needing the rule named — which is DepthResolveMode, above.
+        var depthResolve = depth.IsValid && ResolveTargets.TryGetValue(DepthTarget!, out var depthInto)
+            ? frame.Texture(ToString(), depthInto)
+            : GraphTexture.None;
         var output = new RenderOutput(formats, depthFormat, SampleCount);
         // Published resources are read resources, resolved once with the declared ones. A name in
         // only one of the two lists is the edge the graph would be missing, so there is one list.
@@ -309,7 +329,14 @@ public sealed class RenderPassRenderer : SceneRenderer {
                 }
 
                 if (depth.IsValid) {
-                    pass.DepthAttachment(depth, DepthLoad, ClearDepth, readOnly: ReadOnlyDepth);
+                    pass.DepthAttachment(
+                        depth,
+                        DepthLoad,
+                        ClearDepth,
+                        readOnly: ReadOnlyDepth,
+                        resolve: depthResolve,
+                        resolveMode: DepthResolveMode
+                    );
                 }
 
                 foreach (var read in sampled) {
