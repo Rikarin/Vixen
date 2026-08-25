@@ -68,6 +68,40 @@ public sealed record ModelImportSettings : IImportSettings {
     /// </remarks>
     public bool ImportAnimations { get; init; } = true;
 
+    /// <summary>Whether to import the blend shapes the file carries.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         On by default, because a mesh's shapes are part of the mesh in a way an animation clip
+    ///         is not: a head exported without them is a head that cannot make a face, and there is no
+    ///         second file to get them from. They are also cheap when a file has none, which is most
+    ///         files.
+    ///     </para>
+    ///     <para>
+    ///         Worth turning off for the case that is the mirror of
+    ///         <see cref="ImportAnimations" />': a character exported once per outfit ships the same
+    ///         two hundred facial shapes in every file, and only one of them needs to carry them.
+    ///     </para>
+    /// </remarks>
+    public bool ImportBlendShapes { get; init; } = true;
+
+    /// <summary>How far a vertex must move to be kept in a blend shape, in the model's own units.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The dial that decides whether the shapes are sparse at all.</b> An exporter writes
+    ///         a delta for every vertex of the mesh, most of them exactly zero and the rest of them
+    ///         rounding noise from whatever floating-point path the shape took through the authoring
+    ///         tool. Keeping those is a target that costs a full vertex array — which is the storage
+    ///         <a href="../../../docs/plan/33-character-creator.md">doc 33</a> § D4 exists to avoid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Applied after <see cref="Scale" />, so it is in the units the mesh ends up in</b>
+    ///         and not in the file's. A tenth of a millimetre is below what a sixteen-bit quantised
+    ///         delta can express on any shape whose range is more than three metres, so the default
+    ///         throws away nothing that would have survived storage anyway.
+    ///     </para>
+    /// </remarks>
+    public float BlendShapeThreshold { get; init; } = 1e-4f;
+
     /// <summary>Whether to bake a signed distance field for each of the model's meshes.</summary>
     /// <remarks>
     ///     <para>

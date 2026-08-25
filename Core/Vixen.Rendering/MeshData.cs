@@ -131,8 +131,32 @@ public sealed record MeshData {
     /// </remarks>
     public AssetReference ClusterPages { get; set; }
 
+    /// <summary>The blend shapes this mesh carries, or empty.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>On the mesh and not on the model, because a target's indices are a mesh's vertex
+    ///         indices.</b> A character's head and body are two meshes with two independent vertex
+    ///         numberings, and a shape list that spanned both would be a list whose entries mean
+    ///         different things depending on which mesh is reading them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Last in the record, and that is what the importer's version bump is for.</b> A
+    ///         member added anywhere else moves every member after it, and the generated reader would
+    ///         hand <c>Indices</c> somebody else's array — see <c>ModelImporter.Version</c>, which
+    ///         records the same hazard for the two members that once left the middle of this type.
+    ///     </para>
+    ///     <para>
+    ///         Sparse and quantised; <see cref="MorphTargetData" /> says what an entry costs and
+    ///         <see cref="MorphKernel" /> what is done with it.
+    ///     </para>
+    /// </remarks>
+    public MorphTargetData[] MorphTargets { get; set; } = [];
+
     /// <summary>Whether it was built with a cluster hierarchy.</summary>
     public bool IsClustered => !Clusters.IsNull && !ClusterPages.IsNull;
+
+    /// <summary>Whether it carries blend shapes.</summary>
+    public bool IsMorphed => MorphTargets.Length > 0;
 
     /// <summary>How many vertices it has.</summary>
     public int VertexCount => Positions.Length;
