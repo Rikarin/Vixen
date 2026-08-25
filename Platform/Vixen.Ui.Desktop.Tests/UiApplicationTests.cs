@@ -258,4 +258,80 @@ public class UiApplicationTests {
 
         Assert.Equal(3, application.FrameCount);
     }
+
+    /// <summary>The loop pumps <see cref="UiApplication.Tasks" />, so an application gets progress
+    ///     without writing a pump.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the test that stops <c>Tasks</c> being an extension point nothing
+    ///         drives.</b> <c>BackgroundTaskManager</c> queues everything the work reports and
+    ///         applies it only in <c>Pump</c>; a loop that never called it would leave the property
+    ///         compiling, accepting work and silently showing nought per cent for ever — the failure
+    ///         this repository grows most often. Asserting the *reported* number arrived is
+    ///         asserting the call happened.
+    ///     </para>
+    ///     <para>
+    ///         Reported from this thread rather than from the pool, because what is under test is
+    ///         the pump and not the queue — the concurrent half is pinned in
+    ///         <c>Vixen.Ui.Tests.BackgroundTaskTests</c>, and a pool thread here would make this
+    ///         test's timing its own subject.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheLoopPumpsTheTaskManager() {
+        var options = new UiApplicationOptions {
+            Title = "test",
+            Size = new Int2(640, 480),
+            Frames = 4,
+            InstallSystemFont = false
+        };
+
+        var platform = new HeadlessPlatform();
+        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(640, 480) });
+
+        using var application = new UiApplication(options, platform, window);
+
+        var task = application.Tasks.Begin("Importing");
+        task.Report(0.5f, "textures");
+
+        // Queued and not yet applied: nothing has pumped, so the model still says it has no idea.
+        Assert.True(task.IsIndeterminate);
+        Assert.Equal(0f, task.Progress);
+
+        application.Run();
+
+        Assert.False(task.IsIndeterminate);
+        Assert.Equal(0.5f, task.Progress);
+        Assert.Equal("textures", task.Status);
+    }
+
+    /// <summary>Disposing the application cancels whatever it was still running.</summary>
+    /// <remarks>
+    ///     ⚠ The leak half: a task outliving the loop keeps its own delegate reachable, and a
+    ///     delegate from a plugin keeps that plugin's collectible load context alive with it.
+    /// </remarks>
+    [Fact]
+    public void DisposingTheApplicationCancelsItsTasks() {
+        var options = new UiApplicationOptions {
+            Title = "test",
+            Size = new Int2(640, 480),
+            Frames = 1,
+            InstallSystemFont = false
+        };
+
+        var platform = new HeadlessPlatform();
+        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(640, 480) });
+
+        var application = new UiApplication(options, platform, window);
+        var task = application.Tasks.Begin("Baking");
+
+        application.Run();
+        Assert.True(task.IsRunning);
+
+        application.Dispose();
+
+        Assert.True(task.Cancellation.IsCancellationRequested);
+        Assert.Equal(BackgroundTaskState.Cancelled, task.State);
+        Assert.Empty(application.Tasks.Tasks);
+    }
 }

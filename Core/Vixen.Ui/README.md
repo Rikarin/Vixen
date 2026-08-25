@@ -182,6 +182,54 @@ whose § G2 was **refuted** when it met the editor: the editor's contexts are pu
 presses*, not focus changes, because its panels are not focusable — six of its seven context-claiming
 panels leave `Document.Focused` null, measured.
 
+## Background tasks
+
+`BackgroundTaskManager` is the list of long operations an application is running and
+`BackgroundTask` is one of them — a title, a status, a progress fraction, a state and a cancellation
+token. It is here for the same reason `ICommandResponder` is: **it is application-framework
+machinery, and it was reachable only by the editor.** It came out of `Vixen.Editor.Ui/Tasks/` whole;
+what stayed behind is `TaskCenter.vxml`, the panel that shows them, which is the editor's chrome.
+The split cost one `@using` line — the model named nothing editor-shaped, and the centre names
+`EditorStrings`, `ControlIcons` and the editor's own tags.
+
+**The threading contract is the whole design and it is deliberately the smallest one that works.**
+Reporting is safe from any thread; reading is only safe from the UI one. The work runs wherever the
+caller put it, `Report` enqueues, and `Pump` applies the queue at one point in the frame — so there
+are no locks around the task list, no concurrent collection for the interface to walk, and a frame
+sees one consistent set of numbers. A progress bar read during layout cannot see a title replaced
+between two reads.
+
+**Every property is signal-backed rather than signal-typed.** `Progress` is still
+`float Progress { get; }` and `Tasks` is still an `IReadOnlyList<T>`; the fields behind them are a
+`Signal<float>` and a `CollectionSignal<T>`. Not one caller changed, and what changed is that
+reading one inside a binding subscribes — which is what makes a task panel markup over the model
+rather than a view told to look once a frame. The safety of that rests on the paragraph above: every
+write lands on the UI thread because it lands in `Pump`, and a signal written from the pool is a
+race the reactive graph is entitled to refuse.
+
+⚠ **`IsCancellationRequested` is the one exception and says why.** It mirrors the token rather than
+being it. `Cancellation` is what the *work* polls, from whatever thread it is on, and a signal read
+asserts the owning thread — so making that reactive would put the graph in the way of a cancellation
+check in a tight loop. `Cancel` sets both, token first.
+
+⚠ **Something has to pump it, and nothing here can.** `Vixen.Ui.Desktop`'s `UiApplication` owns a
+manager and pumps it once a frame before raising `Frame`, so an application on the standard loop
+gets progress without writing a pump; a host with its own loop owns a manager and pumps it itself,
+which is what `EditorShell` does. A manager nobody pumps is a list of tasks stuck at nought per
+cent — it fails silently rather than loudly, which is why the property is pinned by a test that runs
+a real headless loop rather than by one that calls `Pump` directly.
+
+⚠ **Disposal is not tidiness; it is the leak.** Work on the pool reports through a queue, so an owner
+that dropped the manager would leave every running task enqueueing into a queue nothing drains — and
+every closure in that queue holds the task, the manager and the assembly the work's delegate came
+from. A plugin unloaded while one of its imports is running is exactly the shape that has twice
+pinned a collectible `PluginLoadContext` here. `Dispose` cancels everything and then *stops
+accepting*: reports after it are dropped rather than enqueued, so work that ignores its token for
+another minute costs one thread and no memory. It asks and does not wait, because waiting would be a
+frame thread blocked on a file copy.
+
+See [the guide page](../../docs/guide/ui/background-tasks.md).
+
 ## Arrow navigation
 
 Tab walks an *order* — a list the document decides in advance. An arrow walks a *layout*, decided by

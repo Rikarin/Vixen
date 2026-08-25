@@ -325,6 +325,28 @@ public sealed class UiApplication : IDisposable {
     /// <summary>How many frames have been drawn.</summary>
     public int FrameCount { get; private set; }
 
+    /// <summary>The long operations this application is running, and what they have got to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Pumped once a frame by the loop, which is the half a manager cannot do for
+    ///         itself.</b> <see cref="BackgroundTaskManager" /> queues everything the work reports
+    ///         and applies it in <see cref="BackgroundTaskManager.Pump" />; without a caller for
+    ///         that, every task sits at nought per cent and no progress bar bound to one ever moves.
+    ///         An application that uses this loop gets the pump for free and never writes it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Pumped before <see cref="Frame" />, so a handler reads this frame's numbers
+    ///         rather than last frame's.</b> The alternative costs one frame of lag on every
+    ///         progress bar, which is exactly the artefact the ordering note on <see cref="Frame" />
+    ///         is about.
+    ///     </para>
+    ///     <para>
+    ///         Disposed with the application, which cancels whatever is still running and stops the
+    ///         report queue growing behind a loop that has stopped draining it.
+    ///     </para>
+    /// </remarks>
+    public BackgroundTaskManager Tasks { get; } = new();
+
     /// <summary>Raised once, after the interface is built and before the first frame is pumped.</summary>
     /// <remarks>
     ///     Where an application wires anything that needs the document and the window to both exist —
@@ -447,6 +469,12 @@ public sealed class UiApplication : IDisposable {
 
                 Document.Resize(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
             }
+
+            // ⚠ Before `Frame`, so a handler that reads `Tasks` sees what the work reported since
+            // the last frame rather than what it had reported the frame before that. This is the
+            // only call to it an application using this loop gets, and a loop that skipped it would
+            // leave `Tasks` an API that compiles, accepts work, and never visibly does anything.
+            Tasks.Pump();
 
             Frame?.Invoke(this, new UiFrame(now, delta));
 
@@ -786,6 +814,13 @@ public sealed class UiApplication : IDisposable {
 
     /// <inheritdoc />
     public void Dispose() {
+        // ⚠ First, and before the GPU is released. Anything still running is reporting into a queue
+        // this loop has stopped draining, and a task whose delegate came from a plugin keeps that
+        // plugin's assembly alive for as long as the queue holds the closure. Cancelling here is
+        // what makes an application shutting down, or a plugin host tearing an application down,
+        // stop being a leak — see `BackgroundTaskManager.Dispose`.
+        Tasks.Dispose();
+
         Release();
 
         // Before the document, because closing a window removes its surface and a surface is part of

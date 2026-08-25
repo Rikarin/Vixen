@@ -5,6 +5,43 @@ Vixen.Ui.AccessKeyEvent : Vixen.Ui.UiEvent
 Vixen.Ui.AccessKeyEvent.AccessKeyEvent() -> void
 Vixen.Ui.AccessKeyEvent.Key.get -> char
 Vixen.Ui.AccessKeyEvent.Key.init -> char
+Vixen.Ui.BackgroundTask -> sealed class
+Vixen.Ui.BackgroundTask : System.IDisposable
+Vixen.Ui.BackgroundTask.Cancel() -> void
+Vixen.Ui.BackgroundTask.Cancellation.get -> System.Threading.CancellationToken
+Vixen.Ui.BackgroundTask.Dispose() -> void
+Vixen.Ui.BackgroundTask.Failure.get -> System.Exception?
+Vixen.Ui.BackgroundTask.IsCancellationRequested.get -> bool
+Vixen.Ui.BackgroundTask.IsIndeterminate.get -> bool
+Vixen.Ui.BackgroundTask.IsRunning.get -> bool
+Vixen.Ui.BackgroundTask.Progress.get -> float
+Vixen.Ui.BackgroundTask.Rename(string title) -> void
+Vixen.Ui.BackgroundTask.Report(float progress, string? status = null) -> void
+Vixen.Ui.BackgroundTask.Report(string status) -> void
+Vixen.Ui.BackgroundTask.State.get -> Vixen.Ui.BackgroundTaskState
+Vixen.Ui.BackgroundTask.Status.get -> string?
+Vixen.Ui.BackgroundTask.Title.get -> string
+Vixen.Ui.BackgroundTaskManager -> sealed class
+Vixen.Ui.BackgroundTaskManager : System.IDisposable
+Vixen.Ui.BackgroundTaskManager.BackgroundTaskManager() -> void
+Vixen.Ui.BackgroundTaskManager.Begin(string title) -> Vixen.Ui.BackgroundTask
+Vixen.Ui.BackgroundTaskManager.CancelAll() -> void
+Vixen.Ui.BackgroundTaskManager.Changed -> System.Action<Vixen.Ui.BackgroundTaskManager>?
+Vixen.Ui.BackgroundTaskManager.Complete(Vixen.Ui.BackgroundTask task) -> void
+Vixen.Ui.BackgroundTaskManager.Dispose() -> void
+Vixen.Ui.BackgroundTaskManager.Ended -> System.Action<Vixen.Ui.BackgroundTask>?
+Vixen.Ui.BackgroundTaskManager.Fail(Vixen.Ui.BackgroundTask task, System.Exception? failure = null) -> void
+Vixen.Ui.BackgroundTaskManager.IsBusy.get -> bool
+Vixen.Ui.BackgroundTaskManager.Progress.get -> float
+Vixen.Ui.BackgroundTaskManager.Pump(int budget = 4096) -> void
+Vixen.Ui.BackgroundTaskManager.Start(string title, System.Func<Vixen.Ui.BackgroundTask, System.Threading.Tasks.Task> work) -> Vixen.Ui.BackgroundTask
+Vixen.Ui.BackgroundTaskManager.Tasks.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.BackgroundTask>
+Vixen.Ui.BackgroundTaskState -> enum : byte
+Vixen.Ui.BackgroundTaskState.BackgroundTaskState() -> void
+Vixen.Ui.BackgroundTaskState.Cancelled = 3 -> Vixen.Ui.BackgroundTaskState
+Vixen.Ui.BackgroundTaskState.Completed = 1 -> Vixen.Ui.BackgroundTaskState
+Vixen.Ui.BackgroundTaskState.Failed = 2 -> Vixen.Ui.BackgroundTaskState
+Vixen.Ui.BackgroundTaskState.Running = 0 -> Vixen.Ui.BackgroundTaskState
 Vixen.Ui.BatchKind -> enum : byte
 Vixen.Ui.BatchKind.BatchKind() -> void
 Vixen.Ui.BatchKind.Clip = 5 -> Vixen.Ui.BatchKind
