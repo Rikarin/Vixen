@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.ICommandRes
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
-related: [editor/index, ui/markup-panels]
+related: [editor/index, ui/markup-panels, ui/background-tasks]
 ---
 
 ## What it is

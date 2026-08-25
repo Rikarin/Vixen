@@ -5,6 +5,7 @@
 @component TaskCenter
 @namespace Vixen.Editor.Ui
 @tag task-center
+@using Vixen.Ui
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive
 

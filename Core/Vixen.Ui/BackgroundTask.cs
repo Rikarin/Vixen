@@ -3,8 +3,7 @@
 
 using Vixen.Ui.Reactive;
 
-namespace Vixen.Editor.Ui;
-
+namespace Vixen.Ui;
 
 
 /// <summary>Where a piece of background work has got to.</summary>
@@ -29,7 +28,7 @@ public enum BackgroundTaskState : byte {
 ///         work runs on a pool thread and the progress bar is read during layout, so a task's
 ///         numbers would otherwise change halfway through a frame — a status line drawn from a title
 ///         that was replaced between two reads is the kind of tearing nobody reproduces. So
-///         <see cref="Report" /> queues, and <see cref="BackgroundTaskManager.Pump" /> applies the
+///         <see cref="Report(float, string?)" /> queues, and <see cref="BackgroundTaskManager.Pump" /> applies the
 ///         queue once per frame at a point of the shell's choosing.
 ///     </para>
 ///     <para>

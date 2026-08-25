@@ -4,15 +4,23 @@
 using System.Collections.Concurrent;
 using Vixen.Ui.Reactive;
 
-namespace Vixen.Editor.Ui;
+namespace Vixen.Ui;
 
-/// <summary>The long operations the editor is running, and what they have got to.</summary>
+/// <summary>The long operations an application is running, and what they have got to.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>Never a modal progress dialog</b> — doc 11 — so this is a list, a status bar and a
 ///         panel. An import that takes forty seconds must not stop somebody opening a different
-///         file while it runs, and an editor whose long operations block it is one where every long
-///         operation has to be made short.
+///         file while it runs, and an application whose long operations block it is one where every
+///         long operation has to be made short.
+///     </para>
+///     <para>
+///         ⚠ <b>Something has to call <see cref="Pump" /> once a frame or nothing here ever
+///         changes.</b> <c>UiApplication</c> does it for an application that uses the
+///         standard loop and exposes the manager it drives as <c>UiApplication.Tasks</c>; a host
+///         with its own loop owns a manager and pumps it itself, which is what the editor's shell
+///         does. A manager nobody pumps is a list of tasks stuck at nought per cent — the reported
+///         numbers are queued, not applied, so this fails silently rather than loudly.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every mutation lands on the UI thread, in <see cref="Pump" />.</b> Work runs
@@ -27,8 +35,13 @@ namespace Vixen.Editor.Ui;
 ///         reports nothing — which reads as an import that silently did nothing.
 ///     </para>
 /// </remarks>
-public sealed class BackgroundTaskManager {
+public sealed class BackgroundTaskManager : IDisposable {
     readonly ConcurrentQueue<Action> pending = new();
+
+    // ⚠ **Read from the pool threads, so `volatile` rather than a plain field.** The whole point of
+    // it is that a `Post` racing `Dispose` sees the flag rather than a cached `false` and quietly
+    // enqueues into a queue nobody will ever drain again — which is the leak this exists to stop.
+    volatile bool disposed;
 
     // ⚠ A `CollectionSignal` rather than a `List`, and `Tasks` below is unchanged because it already
     // implements `IReadOnlyList<T>`. Counting it or indexing it inside a binding subscribes, so a
@@ -160,6 +173,10 @@ public sealed class BackgroundTaskManager {
     ///     while claiming to be showing progress.
     /// </remarks>
     public void Pump(int budget = 4096) {
+        if (disposed) {
+            return;
+        }
+
         var applied = 0;
 
         while ((budget <= 0 || applied < budget) && pending.TryDequeue(out var change)) {
@@ -180,9 +197,73 @@ public sealed class BackgroundTaskManager {
         }
     }
 
+    /// <summary>Asks everything to stop and stops listening to what is still running.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What an owner going away has to call, and the reason this type is disposable at
+    ///         all.</b> Work runs on the pool and reports through <see cref="Post" />; an owner that
+    ///         simply dropped the manager would leave every running task still enqueueing into a
+    ///         queue nothing drains, so the queue grows without bound and every closure in it keeps
+    ///         the task, the manager and — the case that has cost this repository twice — the
+    ///         assembly the work's delegate came from alive. A plugin unloaded while one of its
+    ///         imports is running is exactly that shape: the delegate pins the collectible
+    ///         <c>PluginLoadContext</c> and the reload leaks the whole assembly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It asks; it does not wait.</b> Every task is cancelled and then finished as
+    ///         <see cref="BackgroundTaskState.Cancelled" />, but the work itself is on a pool thread
+    ///         this has no handle on and keeps running until it notices its token. What disposal
+    ///         guarantees is that nothing it reports afterwards is kept: <see cref="Post" /> drops
+    ///         instead of enqueueing, so a task that ignores cancellation for another minute costs
+    ///         one thread and no memory. Blocking here instead would be a frame thread waiting on a
+    ///         file copy, which is the deadlock this design exists to avoid.
+    ///     </para>
+    ///     <para>
+    ///         The event handlers are cleared as well, because a subscriber is usually the owner and
+    ///         an owner disposing this is an owner on its way out.
+    ///     </para>
+    /// </remarks>
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        // ⚠ Cancelled before the flag goes up, not after. `Cancel` is what makes the work stop; if
+        // the flag went first, a task that noticed and finished in between would have its `Post`
+        // dropped and never be told to cancel at all — it would stop for its own reasons, if ever.
+        foreach (var task in tasks) {
+            task.Cancel();
+        }
+
+        disposed = true;
+
+        // Finished here rather than left running, so each task's CancellationTokenSource is
+        // released rather than waiting on a Pump that is never coming. `Cancellation` was taken by
+        // value in the constructor and stays readable, which is what the work is still watching.
+        var running = new List<BackgroundTask>(tasks);
+
+        tasks.Clear();
+        finished.Clear();
+
+        foreach (var task in running) {
+            task.Finish(BackgroundTaskState.Cancelled);
+        }
+
+        pending.Clear();
+
+        Changed = null;
+        Ended = null;
+    }
+
     /// <summary>Queues something to happen on the UI thread.</summary>
     /// <param name="change">What to do.</param>
-    internal void Post(Action change) => pending.Enqueue(change);
+    internal void Post(Action change) {
+        if (disposed) {
+            return;
+        }
+
+        pending.Enqueue(change);
+    }
 
     void Stop(BackgroundTask task, BackgroundTaskState state, Exception? failure = null) {
         if (!tasks.Remove(task)) {

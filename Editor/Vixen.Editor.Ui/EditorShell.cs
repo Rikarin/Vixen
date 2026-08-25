@@ -760,7 +760,13 @@ public sealed class EditorShell : IDisposable {
         // one that matters — and a task nobody completes is a shutdown that never finishes.
         Dialogs.CancelAll();
 
-        Tasks.CancelAll();
+        // ⚠ Disposed rather than `CancelAll`, and the difference is what happens to a task that does
+        // not stop. `CancelAll` asks and leaves the manager listening, so work still on the pool
+        // keeps enqueueing reports into a queue this shell will never pump again — and a task whose
+        // delegate came from a plugin keeps that plugin's collectible load context alive through the
+        // closure. Disposing asks *and* stops accepting, which is what makes a reload not a leak.
+        Tasks.Dispose();
+
         Document.Dispose();
     }
 
