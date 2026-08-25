@@ -57,6 +57,28 @@ different formats and the exporter picked one. When the file's choice contradict
 import emits a warning naming both; it does not silently re-label, because re-labelling compressed
 blocks is not a thing that can be done.
 
+### A high-range source keeps its range
+
+A `.hdr` decodes to `Rgba32Float`, and the eight-bit path cannot hold it — so it does not take it. A
+high-range source ships as `Bc6HRgbUFloat` under `Automatic` or `Bc6H`, and as the decoded floats
+under `None`. Nothing narrows it to a byte and nothing tone-maps it: the sun being ten thousand times
+the sky is the content of the image, and an exposure baked in at import time would belong to a scene
+the asset has not been put in yet.
+
+Three of the eight-bit path's decisions cannot be made here, and each is reported rather than
+approximated:
+
+| Setting | What a `.hdr` gets | Why |
+|---|---|---|
+| `Content` | Linear, whatever it says | No float format has an sRGB form, and Radiance is linear by definition. Reported as information, because `Colour` is the default and is what an artist importing a sky will leave alone |
+| `GenerateMips` | One level, with a warning | The mip filter averages eight-bit channels. A float form of it is owed; a chain built by narrowing to bytes first would throw the range away |
+| `MaxSize` | Full size, with a warning | Reducing runs through that same filter |
+
+`Compression` is refused rather than approximated in both directions: BC1, BC3, BC4, BC5 and BC7 all
+clamp at one, so a `.hdr` in one of them would be a low-range picture under a high-range name; and
+`Bc6H` asked of an eight-bit source drops its alpha and spends its precision above one, where an
+eight-bit source has nothing. Each says so by name.
+
 ### Which way up
 
 Everything here is **top-left-first**: row zero is the top row, and `SpriteRect.Y` is measured down
