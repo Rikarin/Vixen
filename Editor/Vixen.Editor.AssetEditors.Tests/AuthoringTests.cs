@@ -7,7 +7,6 @@ using Vixen.Audio.Assets;
 using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Mathematics;
-using Vixen.Rendering;
 using Vixen.Ecs;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.AssetEditors.Audio;
@@ -19,6 +18,7 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
+using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
