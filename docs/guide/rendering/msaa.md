@@ -152,6 +152,30 @@ conditions on the pair are checked where it is named. Two rules are specific to 
   resolve, and there is no meaningful "nearest" for a stencil value, so the depth resolve stands
   alone and the stencil samples are dropped.
 
+### ⚠ The rule is a request, and some devices decline it
+
+**Every implementation must offer `SampleZero`. `Max` and `Min` are optional, and asking a device
+for one it does not offer is invalid usage rather than a slow path** —
+VUID-VkRenderingInfo-pDepthAttachment-06102 — so what the resolved buffer holds afterwards is the
+driver's business and everything downstream of it reads a lie.
+
+So the mode a pass names is clamped against the device before it is submitted. Ask
+`GraphicsDeviceFeatures` which rules it has:
+
+```csharp no-compile="a fragment; the device is the caller's"
+if (device.Features.SupportsDepthResolveMode(DepthResolveMode.Max)) {
+    // The nearest sample. Otherwise sample zero is what the resolve will hold.
+}
+```
+
+`ClampDepthResolveMode` is what the backends call, and it returns `SampleZero` for anything the
+device declined. Nothing throws and nothing warns — a frame authored with `depthResolveMode: Max`
+runs everywhere, and on a device that cannot honour it the resolved depth is biased by up to half a
+pixel instead of being undefined.
+
+⚠ **This is not implied by the sample count.** lavapipe renders 4× depth attachments quite happily
+and advertises `SampleZero` alone, which is why the two questions are asked separately.
+
 ⚠ **This is a Vulkan capability, not a universal one.** It is `VK_KHR_depth_stencil_resolve`, which
 the engine already enables as a prerequisite of dynamic rendering. WebGPU has no equivalent — a
 render pass depth attachment there carries no resolve target at all — so the WebGPU backend refuses a
