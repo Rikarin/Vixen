@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
@@ -104,6 +105,10 @@ public sealed class AppGraphics : IDisposable {
     /// <param name="engine">The loop the extraction systems run in, or null.</param>
     /// <param name="logs">Where this logs.</param>
     /// <param name="ownsDevice">Whether disposing this disposes the device.</param>
+    /// <param name="jobs">
+    ///     The application's job system, for the nodes that can put work the frame is not waiting for
+    ///     on it, or null to build a frame that composites everything inline.
+    /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public AppGraphics(
         IGraphicsDevice device,
@@ -113,7 +118,8 @@ public sealed class AppGraphics : IDisposable {
         EffectStore? shaders,
         EngineLoop? engine,
         ILoggerFactory logs,
-        bool ownsDevice = true
+        bool ownsDevice = true,
+        JobScheduler? jobs = null
     ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(options);
@@ -234,6 +240,14 @@ public sealed class AppGraphics : IDisposable {
         // category, so "which node stopped lighting itself" is one filter in the Console panel
         // rather than a search through the host's own lines.
         Renderer.Host.Builder.Logger = renderLogger;
+
+        // ⚠ Also before Load, because a node takes it as it is built and a scheduler assigned
+        // afterwards would reach the *next* build — which, for a project that never reloads its
+        // compositor, is never. This is the application's one scheduler, the same object
+        // `AppServices.Jobs` names and the same one `EngineLoop` steps the world on; the frame and
+        // the work the frame is willing to be late with have to be on one scheduler or the tiers
+        // have nothing to choose between. See `CompositorBuilder.Jobs`.
+        Renderer.Host.Builder.Jobs = jobs;
 
         // Also before Load, and for a stricter version of the same reason: a node kind nothing has
         // bound is not a warning, it is a CompositorBindingException from inside the build. This is

@@ -57,6 +57,35 @@ public sealed class HostedRendererTests : IDisposable {
     }
 
     /// <summary>
+    ///     The frame's compositor is built against the application's own job system.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same object, and that is the assertion.</b> The job scheduler's two tiers are
+    ///         a choice between two things a worker could pick up next, so frame work and the work
+    ///         that would rather be late than make a frame late have to be queued on <i>one</i>
+    ///         scheduler for there to be a choice at all. A compositor given a scheduler of its own
+    ///         would have both of them, each with its own workers and neither with anything to yield
+    ///         to — which is the shape that reads as wired and buys nothing.
+    ///     </para>
+    ///     <para>
+    ///         This is also the end of the chain the background tier waited on: <c>AppBuilder</c>
+    ///         makes it, <c>AppServices.Jobs</c> names it, <c>EngineLoop</c> steps the world on it,
+    ///         and <c>GlobalDistanceFieldRenderer</c> is what finally puts something in the second
+    ///         tier. See <c>Core/Vixen.Core.Threading/README.md</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheCompositorIsBuiltAgainstTheApplicationsOwnScheduler() {
+        using var application = Build(new SilentGame());
+
+        Assert.Same(
+            application.Services.Jobs,
+            application.Services.Graphics!.Renderer.Host.Builder.Jobs
+        );
+    }
+
+    /// <summary>
     ///     The frame the host runs is a frame the renderer records. Without this the whole stack is
     ///     built, wired and never asked for anything — which is the state it was in.
     /// </summary>

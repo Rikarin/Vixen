@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.Logging;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Graphics;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
@@ -144,6 +145,30 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
     /// <summary>Where shader modules come from.</summary>
     public EffectPipelineDescriber? Modules { get; set; }
+
+    /// <summary>The job system a node may put CPU work it can afford to be late with on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The application's one scheduler, on <see cref="Device" />'s terms</b> — a running
+    ///         host has one and a file cannot carry one, so it arrives here and the nodes that can
+    ///         use it take it as they are built. <c>AppBuilder</c> makes it, <c>AppGraphics</c> hands
+    ///         it over, and <c>AppServices.Jobs</c> is the same object a game reaches for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only for work the frame is not waiting for.</b> The reason this exists is
+    ///         <c>GlobalDistanceFieldRenderer</c>, whose clipmap composite is the most expensive thing
+    ///         in the frame and about 97 per cent stale by design; given a scheduler it schedules that
+    ///         into <c>JobPriority.Background</c>, keeps the handle and lets the frame draw the
+    ///         previous refresh. A node that would only schedule and then immediately wait has no
+    ///         business taking this — that tier makes a blocked caller slower, not faster. See
+    ///         <c>docs/guide/core/job-priorities.md</c>.
+    ///     </para>
+    ///     <para>
+    ///         Null is the honest default and changes nothing: every node that reads this has a path
+    ///         that composites inline, which is what an editor, a tool and a test all get.
+    ///     </para>
+    /// </remarks>
+    public JobScheduler? Jobs { get; set; }
 
     /// <summary>Where a node that degrades says so, or null for a build that degrades in silence.</summary>
     /// <remarks>
@@ -1382,7 +1407,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Parallel = declared.Parallel,
             Field = DistanceField,
             SceneConstants = SceneConstants,
-            Device = Device
+            Device = Device,
+
+            // What turns `Parallel` from "the composite may use the thread pool while the frame
+            // waits" into "the frame does not wait at all". Null leaves the node compositing inline,
+            // which is the whole of what a document with no host behind it can do.
+            Jobs = Jobs
         };
 
         foreach (var pass in declared.Passes) {

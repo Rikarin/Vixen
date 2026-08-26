@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
+using Vixen.Core.Threading;
 using Vixen.Core.Yaml;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
@@ -411,8 +412,11 @@ public class CompositorAssetTests : IDisposable {
             new Int3(4, 4, 4)
         );
 
+        using var jobs = new JobScheduler(0);
+
         h.Builder.DistanceField = clipmap;
         h.Builder.IrradianceField = probes;
+        h.Builder.Jobs = jobs;
 
         var compositor = h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LightingDocument));
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
@@ -422,6 +426,11 @@ public class CompositorAssetTests : IDisposable {
         // The host's objects reached the nodes that need them.
         Assert.Same(clipmap, field.Field);
         Assert.Same(probes, irradiance.Field);
+
+        // ⚠ Including the scheduler, which is the difference between a clipmap composite the frame
+        // waits for and one it does not. A node built without it is the defect this codebase keeps
+        // producing: a seam that exists, is tested, and that no production path assigns.
+        Assert.Same(jobs, field.Jobs);
 
         // And the numbers the document chose reached the ones that do not.
         Assert.False(field.Parallel);

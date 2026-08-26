@@ -252,6 +252,99 @@ public class GlobalDistanceFieldTests {
         }
     }
 
+    /// <summary>
+    ///     A refresh that has run every slice and not been published has changed nothing a reader
+    ///     can see.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The double buffer, stated as the property it exists for.</b> A caller that does not
+    ///         wait for the composite is a caller whose frame reads this clipmap while the composite
+    ///         is running — uploading its cells, and naming its box into a descriptor set — so
+    ///         "nothing moves until Publish" is not an implementation detail but the whole contract.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And all three together. The cells, the box and the view position are three
+    ///         derivations of where the clipmap is, read by three different things: a box that
+    ///         advanced ahead of its cells is a shader told exactly where to look in a volume holding
+    ///         somewhere else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARefreshChangesNothingUntilItIsPublished() {
+        var clipmap = new GlobalDistanceField(8, 4f, 2);
+        DistanceFieldInstance[] instances = [DistanceFieldInstance.At(UnitSphere(), new(0, 0, 0))];
+
+        clipmap.Update(Vector3.Zero, instances);
+
+        var box = clipmap.BoundsOf(0);
+        var cells = clipmap.LevelData(0).ToArray();
+        var moved = new Vector3(clipmap.CellSizeOf(0) * 3f, 0, 0);
+
+        var refresh = clipmap.BeginUpdate(moved, instances);
+
+        Assert.True(clipmap.IsRefreshing);
+
+        for (var slice = 0; slice < refresh.SliceCount; slice++) {
+            refresh.Composite(slice);
+        }
+
+        // Every cell of the new composite is written and not one of them is visible.
+        Assert.Equal(box, clipmap.BoundsOf(0));
+        Assert.Equal(Vector3.Zero, clipmap.ViewPosition);
+        Assert.Equal(cells, clipmap.LevelData(0).ToArray());
+
+        refresh.Publish();
+
+        Assert.False(clipmap.IsRefreshing);
+        Assert.Equal(moved, clipmap.ViewPosition);
+        Assert.NotEqual(box, clipmap.BoundsOf(0));
+        Assert.NotEqual(cells, clipmap.LevelData(0).ToArray());
+    }
+
+    /// <summary>
+    ///     The deferred composite and the inline one are the same arithmetic, not two copies of it.
+    /// </summary>
+    [Fact]
+    public void ASlicedRefreshLandsWhereUpdateWouldHave() {
+        DistanceFieldInstance[] instances = [DistanceFieldInstance.At(UnitSphere(), new(0.4f, 0, 0))];
+
+        var whole = new GlobalDistanceField(8, 4f, 2);
+        var sliced = new GlobalDistanceField(8, 4f, 2);
+
+        whole.Update(new(0.5f, 0, 0), instances);
+
+        var refresh = sliced.BeginUpdate(new(0.5f, 0, 0), instances);
+
+        for (var slice = refresh.SliceCount - 1; slice >= 0; slice--) {
+            refresh.Composite(slice);
+        }
+
+        refresh.Publish();
+
+        for (var level = 0; level < 2; level++) {
+            for (var z = 0; z < 8; z++) {
+                for (var y = 0; y < 8; y++) {
+                    for (var x = 0; x < 8; x++) {
+                        Assert.Equal(whole[level, x, y, z], sliced[level, x, y, z]);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     There is one spare buffer per level, so there can be one refresh.
+    /// </summary>
+    [Fact]
+    public void ASecondRefreshIsRefusedRatherThanSharingTheBufferWithTheFirst() {
+        var clipmap = new GlobalDistanceField(8, 4f, 2);
+
+        clipmap.BeginUpdate(Vector3.Zero, []);
+
+        Assert.Throws<InvalidOperationException>(() => clipmap.BeginUpdate(Vector3.One, []));
+    }
+
     [Theory]
     [InlineData(1, 4f, 4)]
     [InlineData(16, 0f, 4)]

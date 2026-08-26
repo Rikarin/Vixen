@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
@@ -176,6 +178,203 @@ public class GlobalDistanceFieldRendererTests {
         node.Dispose();
     }
 
+    /// <summary>
+    ///     The first composite is not deferred, because there is nothing to draw instead.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ It is also not scheduled into the background tier, and that is the point of asserting
+    ///     it: the frame genuinely is blocked on this one, and <c>Background</c> on work the caller
+    ///     is blocked on is a pessimisation rather than a no-op — the waiting thread drains every
+    ///     unrelated frame item it can reach before the one it wants.
+    ///     <c>WaitingOnBackgroundWorkRunsUnrelatedFrameWorkFirst</c> is that property, next door.
+    /// </remarks>
+    [Fact]
+    public void TheFirstCompositeIsNotDeferredBecauseThereIsNothingToDrawInstead() {
+        using var device = new NullDevice(new() { Record = true });
+        using var jobs = new JobScheduler(0);
+        using var node = Node(device, out _);
+        var context = Context(device);
+
+        node.Jobs = jobs;
+        Record(node, context);
+
+        Assert.False(node.IsRefreshing);
+        Assert.Equal(0, node.Deferred);
+        Assert.Equal(1, node.Composites);
+        Assert.Equal(1, node.Texture!.Uploads);
+    }
+
+    /// <summary>
+    ///     A recomposite the frame is not waiting for: scheduled, kept, and drawn around.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the whole of what makes the node a consumer of the background tier</b>, and
+    ///         the assertion that it did not simply relabel a <c>ParallelFor</c>. At nought workers
+    ///         nothing can run except on the thread that asks for it, so "no slice of the new
+    ///         composite has run and the frame carried on anyway" is decided rather than raced.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The names have to still describe the old clipmap too.</b> The bounds a shader
+    ///         turns a world position into a texture coordinate with come off the same field the
+    ///         upload reads, so a field that advanced its box before its cells would name the new box
+    ///         over the old texels — every distance reported at an offset from where it is, for as
+    ///         many frames as the refresh takes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARecompositeIsDeferredAndTheFrameDrawsTheClipmapItReplaces() {
+        using var device = new NullDevice(new() { Record = true });
+        using var jobs = new JobScheduler(0);
+        using var node = Node(device, out var scene);
+        var context = Context(device);
+        var field = node.Field!;
+
+        node.Jobs = jobs;
+        Record(node, context);
+
+        var slices = field.SlicesComposited;
+        var before = scene.Parameters.Get(ParameterKeys.New<Vector3>(Minimum));
+
+        node.ViewPosition = new Vector3(field.CellSizeOf(0) * 4f, 0, 0);
+        Record(node, context);
+
+        Assert.True(node.IsRefreshing, "the recomposite was not deferred at all");
+        Assert.Equal(1, node.Deferred);
+
+        // Counted from inside the work rather than timed from outside: not one slice of the new
+        // composite has run, and the frame recorded anyway.
+        Assert.Equal(slices, field.SlicesComposited);
+        Assert.Equal(1, node.Composites);
+        Assert.Equal(1, node.Texture!.Uploads);
+        Assert.Equal(before, scene.Parameters.Get(ParameterKeys.New<Vector3>(Minimum)));
+
+        // The control: the slices were runnable and only waiting, which is what makes the assertion
+        // above about the tier rather than about a refresh that was silently dropped.
+        node.WaitForRefresh();
+
+        Assert.Equal(slices + field.LevelCount * field.Resolution, field.SlicesComposited);
+
+        // And the next frame takes it — both halves at once, the cells and the names.
+        Record(node, context);
+
+        Assert.False(node.IsRefreshing);
+        Assert.Equal(2, node.Composites);
+        Assert.Equal(2, node.Texture.Uploads);
+        Assert.NotEqual(before, scene.Parameters.Get(ParameterKeys.New<Vector3>(Minimum)));
+    }
+
+    /// <summary>
+    ///     The deferred slices are in the tier that yields, and unrelated frame work goes first.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Work against work, at nought workers, so the take order is decided.</b> The claim
+    ///         is that a thread completing an unrelated frame job runs every frame item it can reach
+    ///         and not one composite slice — which is true of <c>Background</c> and false of
+    ///         <c>Frame</c>, because the slices were queued first and a frame-tier taker drains in
+    ///         the order things arrived.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Eight frame jobs on purpose, well inside the scheduler's share of one background
+    ///         item per sixty-four frame ones. A version of this with a hundred would be asserting
+    ///         that the fairness rule does not exist.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheDeferredCompositeYieldsToFrameWorkOnTheSameScheduler() {
+        const int FrameJobs = 8;
+
+        using var device = new NullDevice(new() { Record = true });
+        using var jobs = new JobScheduler(0);
+        using var node = Node(device, out _);
+        var context = Context(device);
+        var field = node.Field!;
+
+        node.Jobs = jobs;
+        Record(node, context);
+
+        node.ViewPosition = new Vector3(field.CellSizeOf(0) * 4f, 0, 0);
+        Record(node, context);
+
+        Assert.True(node.IsRefreshing, "nothing was deferred, so there is no take order to assert");
+
+        var slices = field.SlicesComposited;
+        var ran = new StrongBox<int>();
+        var frame = default(JobHandle);
+
+        for (var index = 0; index < FrameJobs; index++) {
+            frame = jobs.Schedule(new CountJob(ran));
+        }
+
+        jobs.Complete(frame);
+
+        Assert.Equal(FrameJobs, ran.Value);
+        Assert.Equal(slices, field.SlicesComposited);
+
+        // The control again, and the half that stops this passing on a scheduler that had lost the
+        // slices rather than deferred them.
+        node.WaitForRefresh();
+
+        Assert.Equal(slices + field.LevelCount * field.Resolution, field.SlicesComposited);
+    }
+
+    /// <summary>
+    ///     Without a scheduler the node composites inside the frame, exactly as it always did.
+    /// </summary>
+    [Fact]
+    public void ANodeWithNoSchedulerDefersNothing() {
+        using var device = new NullDevice(new() { Record = true });
+        using var node = Node(device, out _);
+        var context = Context(device);
+
+        Record(node, context);
+
+        node.ViewPosition = new Vector3(node.Field!.CellSizeOf(0) * 4f, 0, 0);
+        Record(node, context);
+
+        Assert.False(node.IsRefreshing);
+        Assert.Equal(0, node.Deferred);
+        Assert.Equal(2, node.Composites);
+        Assert.Equal(2, node.Texture!.Uploads);
+    }
+
+    /// <summary>
+    ///     Disposing with a refresh in flight drains it rather than walking away from it.
+    /// </summary>
+    /// <remarks>
+    ///     The slices write into the clipmap's spare buffers, which belong to a field this node does
+    ///     not own — so work still running after the node has gone is a second composite writing the
+    ///     buffer the first one is in the middle of.
+    /// </remarks>
+    [Fact]
+    public void DisposingDrainsARefreshThatIsStillOutstanding() {
+        using var device = new NullDevice(new() { Record = true });
+        using var jobs = new JobScheduler(0);
+        var node = Node(device, out _);
+        var context = Context(device);
+        var field = node.Field!;
+
+        node.Jobs = jobs;
+        Record(node, context);
+
+        node.ViewPosition = new Vector3(field.CellSizeOf(0) * 4f, 0, 0);
+        Record(node, context);
+
+        var slices = field.SlicesComposited;
+
+        Assert.True(node.IsRefreshing);
+
+        node.Dispose();
+
+        Assert.False(node.IsRefreshing);
+        Assert.False(field.IsRefreshing);
+        Assert.Equal(slices + field.LevelCount * field.Resolution, field.SlicesComposited);
+    }
+
+    /// <summary>The name of the finest level's box, which is what says which composite is bound.</summary>
+    const string Minimum = "DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0].minimum";
+
     static GlobalDistanceFieldRenderer Node(NullDevice device, out SceneConstants scene) {
         scene = new(device, "ForwardPlus");
 
@@ -214,4 +413,15 @@ public class GlobalDistanceFieldRendererTests {
     /// </summary>
     static void Record(GlobalDistanceFieldRenderer node, RenderDrawContext context) =>
         node.Record(null!, context);
+
+    /// <summary>Frame work that says it ran, and nothing else.</summary>
+    /// <param name="ran">The counter.</param>
+    /// <remarks>
+    ///     A box rather than a field, because the scheduler copies the struct: a counter incremented
+    ///     on the copy would be a test that always saw nought and never noticed.
+    /// </remarks>
+    readonly struct CountJob(StrongBox<int> ran) : IJob {
+        /// <inheritdoc />
+        public void Execute() => Interlocked.Increment(ref ran.Value);
+    }
 }
