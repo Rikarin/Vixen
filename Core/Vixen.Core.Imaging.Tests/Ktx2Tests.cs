@@ -9,11 +9,17 @@ namespace Vixen.Core.Imaging.Tests;
 
 public sealed class Ktx2Tests {
     /// <summary>
-    ///     The external check. Every byte of a 1×1 RGBA8 file is worked out from the specification
-    ///     here and compared to what the writer produced — so a misread of the layout fails, where a
-    ///     round trip through this same code would not. It does not catch a *misunderstanding* of the
-    ///     spec, which is what running the Khronos validator would; that is owed and stated in the
-    ///     class remarks.
+    ///     Every byte of a 1×1 RGBA8 file is worked out from the specification here and compared to
+    ///     what the writer produced — so a misread of the layout fails, where a round trip through
+    ///     this same code would not.
+    ///     <para>
+    ///         ⚠ <b>It is not the external check and never was.</b> This file passed unchanged while
+    ///         every KTX2 file the writer produced was being rejected by Khronos's validator: the
+    ///         field offsets it asserts were right and four of the values behind them were wrong, and
+    ///         a fixture computed by the author of the code cannot see that. The external check is
+    ///         <see cref="Ktx2ConformanceTests" />. This one is still worth having for the layout
+    ///         arithmetic it pins, which is a different question.
+    ///     </para>
     /// </summary>
     [Fact]
     public void ASingleTexelFileIsExactlyWhatTheSpecificationSaysItShouldBe() {
@@ -172,10 +178,17 @@ public sealed class Ktx2Tests {
 
         Assert.Equal(5, layout.LevelCount);
         Assert.Equal(layout.Levels[^1].Offset, layout.DataOffset);
-        Assert.Equal(256 + 64 + 16 + 4 + 1, layout.DataLength);
 
-        // Levels 2, 3 and 4 are 16, 4 and 1 bytes, and they are the first 21 of the level data.
-        Assert.Equal(21, layout.TailLength(2));
+        // ⚠ 344 and not 341. The levels are 256, 64, 16, 4 and 1 bytes, but a one-byte-per-texel
+        // format's levels have to start on a multiple of four, so the 1-byte level is followed by
+        // three bytes of mipPadding and the 4-byte one by none. A tail therefore reads a few bytes
+        // it discards — which is the price of a file another implementation will accept, and it is
+        // three bytes.
+        Assert.Equal(344, layout.DataLength);
+
+        // Levels 2, 3 and 4 are 16, 4 and 1 bytes, and with the padding between them they are the
+        // first 24 of the level data.
+        Assert.Equal(24, layout.TailLength(2));
         Assert.Equal(layout.DataLength, layout.TailLength(0));
     }
 
@@ -284,8 +297,10 @@ public sealed class Ktx2Tests {
         var layout = Ktx2.ReadLayout(Ktx2.Write(new TextureData(PixelFormat.R8UNorm, 16, 16)));
 
         Assert.Equal(0, layout.TailFor(long.MaxValue));
-        Assert.Equal(2, layout.TailFor(21));
-        Assert.Equal(3, layout.TailFor(20));
+
+        // The three smallest levels and the mipPadding between them are 24 bytes, not 21.
+        Assert.Equal(2, layout.TailFor(24));
+        Assert.Equal(3, layout.TailFor(23));
 
         // A budget under one 1×1 level still answers the smallest level: a texture with nothing
         // resident is one nothing can sample.

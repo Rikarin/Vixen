@@ -44,11 +44,19 @@ public sealed class Ktx2Exception(string message) : Exception(message);
 ///         nothing needs one.
 ///     </para>
 ///     <para>
-///         <b>What has not been done:</b> validated against an independent KTX2 implementation. The
-///         layout here is written from the specification and checked byte-for-byte against a
-///         hand-computed file in the tests, which catches a misread of the spec but not a
-///         misunderstanding of it. Running the Khronos <c>ktx validate</c> tool over what this writes
-///         is an owed step, and until it has been run, "valid KTX2" is a claim about intent.
+///         <b>What Khronos's validator says.</b> <c>Ktx2ConformanceTests</c> puts a file of every
+///         format and every container shape past <c>ktx validate --warnings-as-errors</c>, and they
+///         pass. ⚠ <b>All twenty-two of them failed the first time it ran</b> — level padding,
+///         alpha's <c>channelType</c>, float qualifiers, BC3 and BC5's sample counts, and three
+///         <c>VkFormat</c> numbers, one of which named the signed BC6H block for the unsigned
+///         payload this engine writes. Every one of those had a hand-computed fixture agreeing with
+///         it, because the fixture and the code encode the same reading of the specification. "Valid
+///         KTX2" is no longer a claim about intent.
+///     </para>
+///     <para>
+///         <b>What it still is.</b> Nothing has fed this a file written by <i>another</i>
+///         implementation, so <see cref="Read" />'s tolerance of layouts this would not itself choose
+///         is untested. Writing is verified; reading is not.
 ///     </para>
 /// </remarks>
 public static class Ktx2 {
@@ -74,9 +82,21 @@ public static class Ktx2 {
         var levelIndexOffset = HeaderLength + (Identifier.Length - Identifier.Length);
         var indexLength = texture.LevelCount * LevelIndexEntryLength;
         var descriptorOffset = HeaderLength + indexLength;
-        var levelDataOffset = descriptorOffset + descriptor.Length;
 
-        var file = new byte[levelDataOffset + texture.ByteLength];
+        // Where every level starts, worked out smallest first because that is the order the bytes
+        // run in. The padding between them is mipPadding and it has to be there — see the remarks
+        // on LevelAlignmentOf.
+        var alignment = LevelAlignmentOf(texture.Format);
+        var offsets = new int[texture.LevelCount];
+        var cursor = descriptorOffset + descriptor.Length;
+
+        for (var level = texture.LevelCount - 1; level >= 0; level--) {
+            cursor = AlignUp(cursor, alignment);
+            offsets[level] = cursor;
+            cursor += texture.Levels[level].Length;
+        }
+
+        var file = new byte[cursor];
         var span = file.AsSpan();
 
         Identifier.CopyTo(span);
@@ -102,18 +122,15 @@ public static class Ktx2 {
         BinaryPrimitives.WriteUInt64LittleEndian(header[60..], 0);
 
         // Smallest level first in the data, largest first in the index.
-        var cursor = levelDataOffset + texture.ByteLength;
-
         for (var level = 0; level < texture.LevelCount; level++) {
             var described = texture.Levels[level];
-            cursor -= described.Length;
 
             var entry = span[(levelIndexOffset + (level * LevelIndexEntryLength))..];
-            BinaryPrimitives.WriteUInt64LittleEndian(entry, (ulong)cursor);
+            BinaryPrimitives.WriteUInt64LittleEndian(entry, (ulong)offsets[level]);
             BinaryPrimitives.WriteUInt64LittleEndian(entry[8..], (ulong)described.Length);
             BinaryPrimitives.WriteUInt64LittleEndian(entry[16..], (ulong)described.Length);
 
-            texture.Level(level).CopyTo(span[cursor..]);
+            texture.Level(level).CopyTo(span[offsets[level]..]);
         }
 
         descriptor.CopyTo(span[descriptorOffset..]);
@@ -393,6 +410,40 @@ public static class Ktx2 {
             read += got;
         }
     }
+
+    /// <summary>What a level's file offset has to be a multiple of.</summary>
+    /// <param name="format">The texture's format.</param>
+    /// <returns>The least common multiple of the texel block size and four.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The bytes between one level and the next are not slack, they are required.</b> The
+    ///     specification calls it <c>mipPadding</c>, and a file that packs its levels end to end is
+    ///     rejected outright — which every file this wrote was, until
+    ///     <c>Ktx2ConformanceTests</c> put one past Khronos's validator. The alignment is
+    ///     <c>lcm(texelBlockSize, 4)</c>: four for anything a byte or a word wide, and the block size
+    ///     itself for the eight- and sixteen-byte compressed formats.
+    ///     <para>
+    ///         It shows up most on a small mip tail. A <c>R8UNorm</c> chain's last three levels are
+    ///         one, four and sixteen bytes, so all but the first need padding in front of them; a
+    ///         BC7 chain's levels are all multiples of sixteen and only the front of the level data
+    ///         moves.
+    ///     </para>
+    /// </remarks>
+    static int LevelAlignmentOf(PixelFormat format) {
+        var size = format.BlockSize();
+
+        return size / GreatestCommonDivisor(size, 4) * 4;
+    }
+
+    /// <summary>The greatest common divisor, so the alignment is a real least common multiple.</summary>
+    /// <remarks>
+    ///     Every texel block size in <see cref="VkFormats" /> is a power of two, which makes this
+    ///     <c>Math.Max(size, 4)</c> — but a format three bytes wide would need twelve, and taking the
+    ///     shortcut is how a table gets a wrong answer the day somebody adds one.
+    /// </remarks>
+    static int GreatestCommonDivisor(int a, int b) => b == 0 ? a : GreatestCommonDivisor(b, a % b);
+
+    /// <summary>Rounds up to a multiple.</summary>
+    static int AlignUp(int value, int alignment) => (value + alignment - 1) / alignment * alignment;
 
     /// <summary>
     ///     A texture's Vulkan <c>typeSize</c>: how many bytes one channel of one texel is, or one for

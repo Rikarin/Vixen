@@ -13,6 +13,13 @@ namespace Vixen.Core.Imaging.Tests;
 ///     every expected texel is worked out with the specification's own arithmetic. Nothing in this
 ///     file calls an encoder, so none of it can be satisfied by an encoder and a decoder agreeing
 ///     with each other about something that is wrong.
+///     <para>
+///         ⚠ <b>And two of the numbers in it were wrong anyway, which is the limit of the method.</b>
+///         The BC4 fixture below said 185 where the specification's division gives 185.71, and it
+///         said so because the code truncated and the arithmetic here was done the same way by the
+///         same hand. A fixture computed from the spec catches a misread of the spec; it cannot catch
+///         a misunderstanding of it. <see cref="BcnReferenceDecoderTests" /> is the suite that can.
+///     </para>
 /// </summary>
 public sealed class BlockLayoutTests {
     /// <summary>
@@ -27,9 +34,14 @@ public sealed class BlockLayoutTests {
 
         Bc4Block.Decode(block, values);
 
-        // 200, 100, then (6·200+100)/7, (5·200+2·100)/7 … (200+6·100)/7, truncated.
+        // 200, 100, then (6·200+100)/7, (5·200+2·100)/7 … (200+6·100)/7, rounded.
+        //
+        // ⚠ This fixture used to say 185 for the first of them and the word at the end of the line
+        // used to be "truncated" — 1300/7 is 185.71, and both the code and the number written down
+        // here dropped the fraction because that is what an int division does. It is a bias, not a
+        // rounding choice, and it took an outside decoder to see it: see BcnReferenceDecoderTests.
         Assert.Equal(
-            [200, 100, 185, 171, 157, 142, 128, 114, 200, 100, 185, 171, 157, 142, 128, 114],
+            [200, 100, 186, 171, 157, 143, 129, 114, 200, 100, 186, 171, 157, 143, 129, 114],
             values.ToArray()
         );
     }
@@ -97,7 +109,12 @@ public sealed class BlockLayoutTests {
 
         Assert.Equal([0, 0, 255, 255], rgba[..4].ToArray());
         Assert.Equal([255, 0, 0, 255], rgba[4..8].ToArray());
-        Assert.Equal([127, 0, 127, 255], rgba[8..12].ToArray());
+
+        // ⚠ 128 and not 127. Halfway between five bits of nothing and five bits of everything is
+        // 15.5 of 31, which is 127.5 of 255 — an exact tie, and the old code reached 127 by
+        // expanding both endpoints to bytes first and then truncating. Rounding it up is what the
+        // reference decoder does and what the specification's real-valued division means.
+        Assert.Equal([128, 0, 128, 255], rgba[8..12].ToArray());
         Assert.Equal([0, 0, 0, 0], rgba[12..16].ToArray());
     }
 
