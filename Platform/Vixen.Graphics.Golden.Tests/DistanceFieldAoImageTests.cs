@@ -216,6 +216,15 @@ public sealed class DistanceFieldAoImageTests {
 
         Assert.True(centre.Y < 0.5f, $"the ball never shadowed the middle of the frame: {centre}");
 
+        // ⚠ And the frame after that, which is the one the deferral is actually for. The frame above
+        // is the one that *starts* the refresh and defers by construction; a node that polled with
+        // `Complete` would block here instead, and this picture would already be the settled one.
+        var later = Render(owned, traced: true, node: clipmap);
+
+        Assert.True(clipmap.IsRefreshing, "a later frame waited for the refresh instead of drawing around it");
+        Assert.Equal(1, clipmap.Composites);
+        Assert.Equal(before.Pixels, later.Pixels);
+
         clipmap.WaitForRefresh();
 
         var after = Render(owned, traced: true, node: clipmap);
