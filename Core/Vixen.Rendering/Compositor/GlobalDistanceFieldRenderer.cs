@@ -265,10 +265,22 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
             // the frame on work the tier had just told every worker to prefer nothing about, which
             // is slower than never having deferred it.
             if (Jobs is not { } asked || asked.IsCompleted(refreshHandle)) {
-                // Rethrows a slice that threw, on the frame thread, where the pass can report it —
-                // and is a no-op on a handle that has already finished.
-                Jobs?.Complete(refreshHandle);
                 refresh = null;
+
+                try {
+                    // Rethrows a slice that threw, on the frame thread, where the pass can report it —
+                    // and is a no-op on a handle that has already finished.
+                    Jobs?.Complete(refreshHandle);
+                } catch {
+                    // ⚠ Given back rather than left outstanding. There is one spare buffer per level,
+                    // so a refresh nobody published or abandoned is a clipmap that can never start
+                    // another one — the throw would arrive once and the refusal every frame after,
+                    // which is a much worse failure than the one that happened.
+                    pending.Abandon();
+
+                    throw;
+                }
+
                 pending.Publish();
                 Finish(field, device, context);
             } else {
@@ -297,13 +309,24 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
                 // and the frame behind it would wait exactly as long as if it had never been
                 // deferred.
                 if (CanDefer) {
+                    try {
+                        refreshHandle = jobs.ScheduleParallel(
+                            slices,
+                            started.SliceCount,
+                            batchSize: 1,
+                            priority: JobPriority.Background
+                        );
+                    } catch {
+                        started.Abandon();
+
+                        throw;
+                    }
+
+                    // ⚠ After the schedule, never before. A refresh recorded against a handle the
+                    // scheduling call never returned is one the next frame polls with the null
+                    // handle — which reads as complete — and publishes a composite in which not one
+                    // slice has run.
                     refresh = started;
-                    refreshHandle = jobs.ScheduleParallel(
-                        slices,
-                        started.SliceCount,
-                        batchSize: 1,
-                        priority: JobPriority.Background
-                    );
 
                     // This frame, and every frame until it lands, draws the clipmap it replaces. No
                     // upload here for the same reason: the device holds the previous composite and
@@ -313,7 +336,14 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
                     // Nothing to draw instead, so the frame is blocked on this one — which is exactly
                     // the case the background tier must not be asked for. `Frame`, and completed at
                     // once. See the remarks on `Jobs`.
-                    jobs.ParallelFor(slices, started.SliceCount, batchSize: 1);
+                    try {
+                        jobs.ParallelFor(slices, started.SliceCount, batchSize: 1);
+                    } catch {
+                        started.Abandon();
+
+                        throw;
+                    }
+
                     started.Publish();
                     Finish(field, device, context);
                 }
