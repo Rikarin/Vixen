@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Input;
 
@@ -254,6 +255,29 @@ public sealed partial class Slider : RangeBase {
     /// <inheritdoc />
     protected override string TagName => "slider";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A widget role with no words of its own, which is deliberate and is the same
+    ///     decision <c>TextField</c> makes.</b> A slider is a number and nothing else; what it is a
+    ///     number <i>of</i> is the caption beside it, which is somebody else's element. One
+    ///     <c>AddAccessibleRelation(AccessibleRelation.LabelledBy, caption)</c> at the call site is
+    ///     the whole of it, and a slider nobody did that to reports <c>null</c> so that
+    ///     <c>AccessibilitySnapshot.Unnamed</c> can fail it rather than inventing something
+    ///     plausible.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Slider;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Invariant, and it is a judgement rather than an oversight.</b> What a platform
+    ///     bridge wants here is a number it can re-present in the user's own locale and units — and
+    ///     what a control this far down the stack knows is neither. A slider whose value should be
+    ///     announced as "40 percent" or "1.5 metres" is one whose application overrides
+    ///     <c>AccessibleValue</c>; formatting a bare float in the current culture would produce a
+    ///     string a bridge has to parse back.
+    /// </remarks>
+    protected override string? NativeAccessibleValue => Value.ToString("0.###", CultureInfo.InvariantCulture);
+
     /// <summary>Where the thumb is.</summary>
     [UiProperty(Coerce = nameof(CoerceValue), Changed = nameof(OnValueChanged))]
     public partial float Value { get; set; }
@@ -367,6 +391,27 @@ public sealed partial class RangeSlider : RangeBase {
 
     /// <inheritdoc />
     protected override string TagName => "range-slider";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><c>group</c> and not <c>slider</c>, and the difference is a limitation this states
+    ///     rather than papers over.</b> WAI-ARIA's answer for a two-thumb range is a <c>group</c>
+    ///     containing one <c>slider</c> per thumb, because each thumb is separately focusable and
+    ///     separately announced. The thumbs here are drawn rather than elements — see the class's
+    ///     own remarks about why every control in this set that draws a thumb draws it — so there is
+    ///     nothing to put the two roles on. A single <c>slider</c> role would be worse than this:
+    ///     <c>aria-valuenow</c> is one number, and a screen reader told the low end is the value
+    ///     would announce a control that never changes when the high end moves.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Group;
+
+    /// <inheritdoc />
+    /// <remarks>Both ends, because either alone is a different control's value.</remarks>
+    protected override string? NativeAccessibleValue =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"{Low:0.###} \u2013 {High:0.###}"
+        );
 
     /// <summary>The bottom of the chosen span.</summary>
     [UiProperty(Coerce = nameof(CoerceLow), Changed = nameof(OnSpanChanged))]
@@ -515,6 +560,24 @@ public sealed partial class ProgressBar : RangeBase {
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
 
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.ProgressBar;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><c>null</c> while <see cref="IsIndeterminate" />, which is the whole point of the
+    ///     flag.</b> ARIA says an indeterminate progress bar omits <c>aria-valuenow</c>, and a
+    ///     screen reader reading "nought per cent" for a job whose length is unknown is the failure
+    ///     that omission exists to prevent. <see cref="AccessibleStates.Busy" /> is what is said
+    ///     instead.
+    /// </remarks>
+    protected override string? NativeAccessibleValue =>
+        IsIndeterminate ? null : Fraction(Value).ToString("0.###", CultureInfo.InvariantCulture);
+
+    /// <inheritdoc />
+    protected override AccessibleStates NativeAccessibleState =>
+        IsIndeterminate ? AccessibleStates.Busy : AccessibleStates.None;
+
     /// <summary>How far along.</summary>
     [UiProperty(Coerce = nameof(CoerceValue))]
     public partial float Value { get; set; }
@@ -591,6 +654,18 @@ public sealed partial class Spinner : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The same role a <see cref="ProgressBar" /> has, because to anything listening it is
+    ///     the same thing.</b> A spinner is an indeterminate progress bar drawn as a circle; the
+    ///     shape is a fact about the pixels. <see cref="Phase" /> is an angle rather than a
+    ///     fraction of a job, so there is no value to announce and there is never one to invent.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.ProgressBar;
+
+    /// <inheritdoc />
+    protected override AccessibleStates NativeAccessibleState => AccessibleStates.Busy;
 
     /// <summary>How far round it has turned, from zero to one.</summary>
     [UiProperty]

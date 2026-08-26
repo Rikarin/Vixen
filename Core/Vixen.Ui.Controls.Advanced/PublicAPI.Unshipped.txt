@@ -1145,6 +1145,10 @@ const Vixen.Ui.Controls.Advanced.GradientBar.Bands = 48 -> int
 const Vixen.Ui.Controls.Advanced.NodeCanvas.Overscan = 0.2 -> float
 const Vixen.Ui.Controls.Advanced.TreeView.Overscan = 2 -> int
 override Vixen.Ui.Controls.Advanced.CodeEditor.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.CodeEditor.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.CodeEditor.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.CodeEditor.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.Advanced.CodeEditor.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.CodeEditor.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.CodeEditor.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.CodeGutterRow.OnCreated() -> void
@@ -1157,10 +1161,13 @@ override Vixen.Ui.Controls.Advanced.ColorField.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorField.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.ColorField.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.ColorInput.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorInput.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.ColorInput.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.ColorInput.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorInput.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.ColorInput.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.ColorPicker.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorPicker.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.ColorPicker.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorPicker.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.ColorStrip.AcceptsFocus.get -> bool
@@ -1173,20 +1180,30 @@ override Vixen.Ui.Controls.Advanced.ColorSwatch.OnDraw(Vixen.Ui.DrawContext cont
 override Vixen.Ui.Controls.Advanced.ColorSwatch.RaisesActivation.get -> bool
 override Vixen.Ui.Controls.Advanced.ColorSwatch.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.CurveEditor.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.CurveEditor.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.CurveEditor.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.CurveEditor.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.CurveEditor.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.CurveKey.ToString() -> string
 override Vixen.Ui.Controls.Advanced.DataCell.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DataCell.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.DataCell.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.DataCell.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DataCell.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DataGrid.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DataGrid.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.DataGrid.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.DataGrid.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DataGrid.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DataHeaderCell.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DataHeaderCell.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.DataHeaderCell.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.DataHeaderCell.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DataHeaderCell.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DataRow.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DataRow.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.DataRow.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.DataRow.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.DataRow.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DataRow.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockGroupNode.Collect(System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode> into) -> void
@@ -1196,14 +1213,18 @@ override Vixen.Ui.Controls.Advanced.DockGroupView.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DockGroupView.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.DockGroupView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockPanel.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DockPanel.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.DockPanel.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DockPanel.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.DockPanel.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockSplitNode.Collect(System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode> into) -> void
 override Vixen.Ui.Controls.Advanced.DockSplitNode.ToYaml() -> Vixen.Core.Yaml.YamlNode
 override Vixen.Ui.Controls.Advanced.DockSplitterView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DockSplitterView.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.DockSplitterView.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DockSplitterView.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DockTab.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.DockTab.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.DockTab.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockingHost.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.DockingHost.OnChildAdded(Vixen.Ui.UiElement child) -> void
@@ -1214,6 +1235,7 @@ override Vixen.Ui.Controls.Advanced.GradientBar.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.GradientBar.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.GradientBar.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.GradientEditor.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.GradientEditor.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.GradientEditor.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.GradientEditor.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.GradientRail.AcceptsFocus.get -> bool
@@ -1223,6 +1245,7 @@ override Vixen.Ui.Controls.Advanced.GraphNode.ToString() -> string
 override Vixen.Ui.Controls.Advanced.GraphPort.ToString() -> string
 override Vixen.Ui.Controls.Advanced.GraphWire.ToString() -> string
 override Vixen.Ui.Controls.Advanced.NodeCanvas.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.NodeCanvas.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.NodeCanvas.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.NodeCanvas.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.NodeCanvas.TagName.get -> string
@@ -1254,6 +1277,7 @@ override Vixen.Ui.Controls.Advanced.PropertyRow.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.PropertyRow.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.TextPosition.ToString() -> string
 override Vixen.Ui.Controls.Advanced.Timeline.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.Timeline.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.Timeline.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.Timeline.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.TimelineHeader.AcceptsFocus.get -> bool
@@ -1266,13 +1290,19 @@ override Vixen.Ui.Controls.Advanced.TimelineRuler.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.TimelineRuler.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.TimelineRuler.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.TimelineSpan.ToString() -> string
+override Vixen.Ui.Controls.Advanced.TreeRow.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.Advanced.TreeRow.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.TreeRow.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.TreeRow.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.TreeRow.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.TreeRow.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.TreeView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.TreeView.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.Advanced.TreeView.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.TreeView.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.TreeView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.Viewport.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.Viewport.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.Viewport.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.Viewport.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.Viewport.TagName.get -> string

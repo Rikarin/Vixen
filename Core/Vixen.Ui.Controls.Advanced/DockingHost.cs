@@ -70,6 +70,15 @@ public sealed partial class DockPanel : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>tabpanel</c>: what a <see cref="DockTab" /> shows. Its name is the tab's, set as
+    ///     a <see cref="AccessibleRelation.LabelledBy" /> when the group is built — the two are in
+    ///     different halves of the group view, so no walk over <c>Parent</c> from either recovers
+    ///     the other.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.TabPanel;
+
     /// <summary>What identifies it in a saved layout.</summary>
     /// <remarks>
     ///     <para>
@@ -458,6 +467,22 @@ public sealed partial class DockTab : ButtonBase {
     /// <inheritdoc />
     protected override string TagName => "dock-tab";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>tab</c> rather than the base's <c>button</c>, on <c>TabItem</c>'s terms: what a
+    ///     screen-reader user acts on is that this is one of a set and that pressing it swaps what
+    ///     is shown, not that it is pressable.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Tab;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Read from <see cref="ElementState.Checked" />, which the host already sets on the tab it
+    ///     showed — <c>TabItem</c>'s second meaning of the flag, for the same reason.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        (State & ElementState.Checked) != 0 ? AccessibleStates.Selected : AccessibleStates.None;
+
     /// <summary>Which panel it stands for.</summary>
     public string PanelId { get; internal set; } = string.Empty;
 
@@ -550,6 +575,12 @@ public sealed partial class DockGroupView : Control {
 
         Viewport = Strip.Add("dock-tabs-viewport");
         Tabs = Viewport.Add("dock-tabs");
+
+        // ⚠ On the list the tabs are actually in, not on `Strip` — the strip also holds the two
+        // scroll arrows, and a `tablist` containing two buttons that are not tabs is a tab list
+        // whose count is wrong in every announcement. `Tabs.Strip` is the same decision made where
+        // there is nothing else in the strip to get it wrong.
+        Tabs.Role = AccessibleRole.TabList;
 
         Next = Strip.Add<IconButton>();
         Next.LeadingIcon.Geometry = ControlIcons.ChevronRight;
@@ -699,6 +730,15 @@ public sealed partial class DockSplitterView : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>separator</c>. ⚠ Not the <i>focusable</i> kind — a splitter this control set can
+    ///     resize with the keyboard would carry a value and a widget's naming obligation, and it
+    ///     cannot be reached by Tab at all. What the role buys today is that a screen reader reading
+    ///     a docked layout straight through announces where one pane ends and the next begins.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Separator;
 
     /// <summary>The split it divides.</summary>
     internal DockSplitNode? Node { get; set; }
@@ -1287,6 +1327,14 @@ public sealed partial class DockingHost : Control {
             var tab = view.Tabs.Add<DockTab>();
             tab.PanelId = id;
             tab.Label = panel.Title;
+
+            // ⚠ **The pairing rebuilt with the group, and the clear on the panel is load-bearing.**
+            // A tab is a fresh element every rebuild and a panel is not — it is reparented — so a
+            // panel that kept the relation it was given last time would be labelled by a tab that
+            // no longer exists, in a group it is no longer in.
+            tab.AddAccessibleRelation(AccessibleRelation.Controls, panel);
+            panel.ClearAccessibleRelations(AccessibleRelation.LabelledBy);
+            panel.AddAccessibleRelation(AccessibleRelation.LabelledBy, tab);
 
             if (panel.CanClose) {
                 tab.AllowClosing();

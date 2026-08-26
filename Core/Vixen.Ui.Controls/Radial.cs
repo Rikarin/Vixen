@@ -17,6 +17,14 @@ public sealed partial class RadialItem : ButtonBase {
     /// <inheritdoc />
     protected override string TagName => "radial-item";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>menuitem</c> rather than the base's <c>button</c>. A wedge is one choice among a
+    ///     set presented together, which is what a menu is; the ring is a way of drawing a menu
+    ///     rather than a different kind of thing.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.MenuItem;
+
     /// <summary>Which wedge it is, clockwise from the top.</summary>
     public int Index { get; internal set; } = -1;
 
@@ -63,6 +71,10 @@ public sealed partial class RadialMenu : Overlay {
 
     /// <inheritdoc />
     protected override string TagName => "radial-menu";
+
+    /// <inheritdoc />
+    /// <remarks>ARIA <c>menu</c>: a set of choices, presented together, one of which is taken.</remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Menu;
 
     /// <summary>The wedges, clockwise from the top.</summary>
     public IReadOnlyList<RadialItem> Items => items;

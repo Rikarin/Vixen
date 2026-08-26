@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen
 tags: [ui, localisation, strings, i18n, signals]
 since: 0.2
 status: preview
-related: [ui/commands, editor/index]
+related: [ui/commands, ui/accessibility, editor/index]
 ---
 
 ## What it is
@@ -136,11 +136,17 @@ never load a catalogue at all.
 
 ### The control set's own words
 
-`ControlStrings` is the standard control set's declarations, in exactly the shape above: thirteen
+`ControlStrings` is the standard control set's declarations, in exactly the shape above: eighteen
 labels — "Clear" in a search box, "Dismiss" on a toast, "Previous tab" on a docked group, "Search" in
-a property grid — with `All` beside them. They were English literals in control constructors until
-doc 46 § A3, which meant a localised window had an untranslatable seam in the one place a user cannot
-avoid looking.
+a property grid — with `All` beside them. Thirteen were English literals in control constructors
+until doc 46 § A3, which meant a localised window had an untranslatable seam in the one place a user
+cannot avoid looking.
+
+⚠ **Five of them are never drawn.** A scroll bar, a colour picker's hex field and a gradient
+editor's colour-space select have no caption on screen at all, so their only words are the ones a
+screen reader says — and a literal there is an English announcement in a localised window that
+nobody can see to report. `ScrollBar` reads its two in a *virtual* rather than in `OnCreated`, which
+makes it the one name in the set that follows a language change on a control already on screen.
 
 ⚠ **Two ids for the two "Close"s.** A dialog's dismiss button and a dock tab's are the same English
 word and are not the same string; a language that distinguishes closing a question from closing a
@@ -151,6 +157,15 @@ cannot be undone without a translator's file changing shape.
 built. Choose the language before building the interface. A control set that re-labelled itself would
 need an effect per label and somewhere to dispose it; what is here today makes the words translatable
 at all.
+
+⚠ **A translated label is not by itself a translated control.** What a screen reader says comes from
+[the accessibility tree](accessibility.md), and an accessible name is *computed*: `ButtonBase` answers
+with its `Label`, so eleven of the thirteen declarations above reach a screen reader with nothing
+written for them. The two that did not are the shape to watch for — a string that went to a
+`Placeholder` (which is deliberately not a name) and a string on a caption element that nothing
+related its slider to. Both showed the translation and announced nothing at all, and neither a
+localisation test nor an accessibility test could see it, because each asserts its own half.
+`AccessibilitySnapshot.Untranslated` is the assertion that spans them.
 
 `Strings` is static, and it is the one service here that is. Every other is an instance a shell owns,
 because a document may have two of them; a language is a property of the person using the
@@ -198,5 +213,7 @@ Assert.Empty(Strings.Missing);
 
 * [Commands and the focus route](commands.md) — the other half of a menu item: what it says comes
   from here, who handles it comes from there.
+* [The accessibility tree](accessibility.md) — where a control's words go after they are shown, and
+  the assertion that they arrive in the same language.
 * [The editor shell](../editor/index.md) — `EditorStrings` is this shape, hand-written, and
   `StringCatalogYaml` is the editor's answer to where a catalogue lives.

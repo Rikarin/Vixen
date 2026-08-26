@@ -40,6 +40,27 @@ public sealed partial class Dialog : Overlay {
     /// <inheritdoc />
     protected override string TagName => "dialog";
 
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Dialog;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Title" />, which is the heading in the strip at the top and is already the one
+    ///     sentence saying what the question is.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Title;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="AccessibleStates.Modal" />, and it is the statement the backdrop and the
+    ///     focus scope already make to everybody except a screen reader.</b> Without it a
+    ///     screen-reader user is free to walk the window behind — which is still there in the
+    ///     element tree, still has its buttons, and will not answer a click. A <see cref="Drawer" />
+    ///     does not carry it, deliberately: light dismiss is on there, and a surface you are meant
+    ///     to leave open while you work is not modal.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState => AccessibleStates.Modal;
+
     /// <summary>The sheet that covers what is behind.</summary>
     public UiElement Backdrop { get; private set; } = null!;
 
@@ -146,6 +167,15 @@ public sealed partial class Dialog : Overlay {
 public sealed partial class Drawer : Overlay {
     /// <inheritdoc />
     protected override string TagName => "drawer";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>dialog</c> and no <see cref="AccessibleStates.Modal" /> — see
+    ///     <see cref="Dialog.NativeAccessibleState" />. A drawer has no title part, so its name is
+    ///     the application's to give: one <c>AccessibleName</c>, or a
+    ///     <see cref="AccessibleRelation.LabelledBy" /> pointing at whatever heading it put inside.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Dialog;
 
     /// <summary>The sheet behind it.</summary>
     public UiElement Backdrop { get; private set; } = null!;

@@ -680,6 +680,18 @@ public sealed partial class NodeCanvas : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>ARIA <c>application</c>, and it is a role with a cost that is worth paying
+    ///     here.</b> It tells assistive technology to stop intercepting the keyboard and pass every
+    ///     key through, because this element has a keyboard model of its own that no generic widget
+    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a graph panned, zoomed and wired together — and it
+    ///     is exactly false of a text field, which is why <c>CodeEditor</c> is a <c>textbox</c>
+    ///     instead. Unnamed by default: what this one is a view of is the application's sentence,
+    ///     and it is usually the panel title above it.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Application;
+
     /// <summary>The nodes, wires and groups being shown.</summary>
     /// <remarks>
     ///     Settable, because an editor shows one graph and then another and the canvas outlives

@@ -24,6 +24,11 @@ public sealed partial class Panel : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    // ⚠ No role, and that is the population's answer rather than a gap in it. A `Panel` is a box; a
+    // tree that reported one would read a four-field form as a stack of nested groups, which is the
+    // commonest way an accessibility tree comes to be technically complete and useless. An
+    // application that means a landmark says so: `panel.Role = AccessibleRole.Region` and a name.
 }
 
 /// <summary>A surface with an optional header and footer.</summary>
@@ -98,6 +103,14 @@ public sealed partial class Separator : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>separator</c>, which is one of the few roles worth giving a thing that cannot be
+    ///     operated: a screen reader reading a menu straight through announces the divisions between
+    ///     its groups, and without this the groups are a visual fact only.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Separator;
 
     /// <summary>Which way it runs.</summary>
     /// <remarks>
@@ -175,12 +188,37 @@ public sealed partial class Alert : Control {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>alert</c>, which is a live region: assistive technology announces one the moment
+    ///     it appears rather than waiting to be walked to. That is what this control is for, and it
+    ///     is why the role is worth having on something nobody can operate.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Alert;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Title" />, and the message is the <i>description</i> rather than part of the
+    ///     name — see <see cref="OnCreated" />. An alert given only a message has no name and a
+    ///     description, which is the honest reading of an alert that is one sentence: saying the
+    ///     sentence twice is what a name-and-description built from the same element does.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Title;
+
+    /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
         Body = Part("alert-body");
         TitlePart = Body.Add("alert-title");
         MessagePart = Body.Add("alert-message");
+
+        // ⚠ **A relation rather than a second name property, and this is the first thing in the set
+        // to use `DescribedBy` at all.** `AccessibleDescription` had a working path and no control
+        // fed it — which is this repository's commonest defect one level up: a finished consumer
+        // nothing calls. A heading and the sentence under it are exactly what the pair is for, and
+        // reading it through the relation means a message changed later is described correctly with
+        // nothing to keep in step.
+        AddAccessibleRelation(AccessibleRelation.DescribedBy, MessagePart);
     }
 }
 
@@ -236,11 +274,26 @@ public sealed partial class EmptyState : Control {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>status</c> — a polite live region. An empty state appears when a query came back
+    ///     with nothing, and "there is nothing here" is the answer to what the user just did; a
+    ///     screen-reader user who was told only that the list finished loading has been told
+    ///     nothing.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Status;
+
+    /// <inheritdoc />
+    protected override string? NativeAccessibleName => Title;
+
+    /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
         TitlePart = Part("empty-title");
         DescriptionPart = Part("empty-description");
         Actions = Part("empty-actions");
+
+        // The headline names it and the sentence under describes it, on `Alert`'s terms.
+        AddAccessibleRelation(AccessibleRelation.DescribedBy, DescriptionPart);
     }
 }

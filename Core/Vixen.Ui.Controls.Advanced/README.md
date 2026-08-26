@@ -199,6 +199,12 @@ states, reset-to-default and search. Generated rather than reflective, so it rea
 arbitrary members after trimming and on iOS. Where the targets disagree the editor says so, and
 writing into it sets every one of them.
 
+⚠ **The filter box is named as well as prompted.** Its words went to `Placeholder`, and a
+`TextField`'s accessible name is `null` on purpose — a placeholder is a hint and it vanishes the
+moment there is a value — so the box showed a translated prompt and announced nothing at all. It
+reads the same `StringId` for both, on the line under, which is what makes the words shown and the
+words announced impossible to have in two different languages.
+
 ### NodeCanvas
 
 Infinite pan and zoom, bezier wires, marquee select, snapping, groups and a minimap.
@@ -288,6 +294,11 @@ move the picker and the chromaticity survives a round trip through a value of fo
 capture permission on macOS and a compositor protocol on Wayland. `EyedropperRequested` asks;
 `Pick` answers.
 
+⚠ **The intensity slider is `LabelledBy` its caption.** The caption is a separate element carrying
+a localised string, and a slider beside words nothing related it to announces nothing — the
+translation was on screen and unreachable. One relation is the whole fix, and because a relation is
+read on demand rather than copied, a re-labelled caption re-labels the slider with no second write.
+
 ### CurveEditor
 
 Cubic Hermite between keys, five tangent modes, presets, a pannable graph and a per-pixel-column
@@ -353,6 +364,38 @@ Each of these cost an afternoon and none of them shows up as an error:
   `min-width: 48px` gets 48 pixels *plus* its share of the remainder, and a splitter saved at 25%
   comes back at 28%. What keeps a half from being dragged to nothing is `DockSplitNode`'s ratio
   clamp, which guards without distorting.
+
+## What these say to a screen reader
+
+All eleven controls carry a role, and it costs each of them a **virtual member** rather than a field
+— see [docs/guide/ui/accessibility](../../docs/guide/ui/accessibility.md).
+
+| Control | Role | And |
+|---|---|---|
+| `TreeView` / `TreeRow` | `tree` / `treeitem` | Expandable only where there are children, selected from the row's own `:checked` |
+| `DataGrid` | `grid`, and **`treegrid` once it is grouped** | Rows are `row`, cells `gridcell`, headers `columnheader` |
+| `DockingHost` | — | The tab strip is a `tablist`, a `DockTab` is a `tab`, a `DockPanel` is a `tabpanel`, and the two point at each other |
+| `PropertyGrid` | — | Every generated editor is `LabelledBy` its row, and every reset button is `DescribedBy` it |
+| `ColorPicker` | `group` | The hex field, the intensity slider and the eyedropper are all named |
+| `ColorInput` | `button` | Expandable, owning its popup |
+| `CodeEditor` | `textbox` | Editable, multi-line, read-only when it is |
+| `Viewport`, `NodeCanvas`, `CurveEditor`, `GradientEditor`, `Timeline` | `application` | |
+
+⚠ **`application` is a role with a cost, and it is worth paying for exactly those five.** It asks
+assistive technology to stop intercepting the keyboard and pass every key through, which is right for
+a surface with a keyboard model no widget vocabulary describes. ⚠ **`CodeEditor` is deliberately not
+one**: it is a multi-line text field whose keyboard is the one a screen-reader user already has, and
+announcing it as an application would turn off exactly the reading and review commands that make text
+editable at all.
+
+⚠ **The grouped grid's role change is not decoration.** `treegrid` is the role whose keyboard model a
+screen reader announces the Left and Right arrows for; staying `grid` while the rows collapse leaves
+a screen-reader user with no way to know the groups can be opened.
+
+The gate is `AccessibilityTreeTests.cs`, whose last test is a **reflection sweep over the assembly's
+type list** rather than a window: every public control with a parameterless constructor built and
+held to "a tab stop must be in the accessibility tree". It found three unnamed fields while it was
+being written.
 
 ## Known gaps
 

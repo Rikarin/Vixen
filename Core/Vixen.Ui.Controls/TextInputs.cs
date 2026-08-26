@@ -7,7 +7,16 @@ using Vixen.Input;
 namespace Vixen.Ui.Controls;
 
 /// <summary>A single-line field.</summary>
-public sealed partial class TextBox : TextField {
+/// <remarks>
+///     ⚠ <b>Not sealed, alone among the leaf controls in this set, and for one reason.</b> ARIA 1.2's
+///     editable combo box is a <i>text input</i> carrying <c>role="combobox"</c> and its own
+///     <c>aria-expanded</c> — so <c>ComboBox</c>'s editor has to be a text box that answers two
+///     accessibility virtuals differently. The alternative was assigning the role and writing the
+///     expanded state into <c>DeclaredAccessibleState</c> from an event, which is a second copy of
+///     "is the list open" kept by a handler; a derived type reads the popover and cannot disagree
+///     with it. Nothing else derives from this and nothing else should.
+/// </remarks>
+public partial class TextBox : TextField {
     /// <inheritdoc />
     protected override string TagName => "textbox";
 }
