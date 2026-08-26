@@ -162,6 +162,37 @@ public sealed class ModelDataTests {
         Assert.Empty(channel.Positions);
     }
 
+    /// <summary>A weight track survives the artefact, and a channel without one stays without one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The zero-value half is the half worth asserting.</b> A blend-shape weight of zero is a
+    ///     face at rest and is a value an exporter writes on purpose, so the format has to keep "no
+    ///     track" and "a track that is flat at zero" apart — and it does it with the length of
+    ///     <c>WeightTimes</c> rather than with the numbers in <c>Weights</c>. A round trip that
+    ///     invented an empty track, or dropped a zero one, would read the same either way.
+    /// </remarks>
+    [Fact]
+    public void AClipKeepsItsScalarWeightTracksAndTheAbsenceOfOne() {
+        var clip = new AnimationClipData {
+            Name = "Talk",
+            Duration = 2f,
+            Channels = [
+                new() { Target = "Spine", RotationTimes = [0f], Rotations = [Quaternion.Identity] },
+                new() { Target = "Head", Shape = "jawOpen", WeightTimes = [0f, 2f], Weights = [0f, 0.5f] }
+            ]
+        };
+
+        var loaded = Serializer.Read<AnimationClipData>(Serializer.ToBytes(clip));
+
+        Assert.Equal(2, loaded.Channels.Length);
+        Assert.Empty(loaded.Channels[0].Shape);
+        Assert.Empty(loaded.Channels[0].WeightTimes);
+
+        Assert.Equal("jawOpen", loaded.Channels[1].Shape);
+        Assert.Equal<float>([0f, 2f], loaded.Channels[1].WeightTimes);
+        Assert.Equal<float>([0f, 0.5f], loaded.Channels[1].Weights);
+        Assert.Empty(loaded.Channels[1].Rotations);
+    }
+
     [Fact]
     public void ASkeletonKeepsItsInverseBindPoses() {
         var skeleton = new SkeletonData {

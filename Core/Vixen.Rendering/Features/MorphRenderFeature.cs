@@ -359,6 +359,31 @@ public sealed class MorphRenderFeature : SubRenderFeature, IDisposable {
     public ReadOnlySpan<float> WeightsOf(RenderObjectId id) =>
         instances.TryGetValue(id.Index, out var instance) ? instance.Weights : [];
 
+    /// <summary>What an object's mesh calls each of its weight slots.</summary>
+    /// <param name="id">The object.</param>
+    /// <returns>The shape names, in slot order, or empty when it is not morphed.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This is the only authoritative answer to "which slot is <c>jawOpen</c>".</b> An
+    ///     animation names a shape and this component is addressed by slot, and the ordinal a source
+    ///     file used is not the ordinal <c>MeshData.MorphTargets</c> ended up with — the import drops
+    ///     a shape that moves nothing above the threshold. The feature was handed the targets the
+    ///     mesh actually carries, so it is the one thing that has seen both ends.
+    /// </remarks>
+    public ReadOnlySpan<string> ShapesOf(RenderObjectId id) {
+        if (!instances.TryGetValue(id.Index, out var instance)) {
+            return [];
+        }
+
+        var targets = instance.Shapes.Targets;
+        var names = new string[targets.Length];
+
+        for (var index = 0; index < targets.Length; index++) {
+            names[index] = targets[index].Name;
+        }
+
+        return names;
+    }
+
     /// <summary>Gives up an object's morphed range, and its mesh's shapes with the last instance.</summary>
     /// <param name="id">The object.</param>
     /// <returns>Whether it had one.</returns>

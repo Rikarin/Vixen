@@ -3,8 +3,8 @@ title: Blend shapes
 slug: rendering/blend-shapes
 kind: concept
 area: Rendering
-summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass into a per-instance vertex buffer, so that every pass agrees about where a vertex is.
-api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, R:Pipeline/MorphScatter]
+summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass into a per-instance vertex buffer, so that every pass agrees about where a vertex is — driven by hand or by a clip's scalar weight track.
+api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, T:Vixen.Animation.MorphWeightBuffer, T:Vixen.Animation.Ecs.BlendShapeAnimationSystem, R:Pipeline/MorphScatter]
 tags: [rendering, animation, meshes, characters, morph-targets]
 since: 0.2
 status: preview
@@ -98,6 +98,46 @@ morph gone wrong — it looks like the geometry is missing.
 rest pose, so the mesh is drawn unmorphed rather than out of an uninitialised range, and the instance
 stays dirty so that the frame after the shader compiles is right.
 
+### Animating one from a clip
+
+A clip drives a shape by **name**. `AnimationChannel` carries a scalar track —
+`Shape`, `WeightTimes`, `Weights` — beside its three vector ones, the importer fills it from a glTF
+`weights` sampler or an FBX morph channel, and three things happen every frame with no wiring beyond
+`AddAnimation()`:
+
+1. `ClipMotion` collects the clip's weights into `Animator.MorphWeights` as the blend tree is
+   evaluated, scaled by what that clip is contributing;
+2. `BlendShapeAnimationSystem` lands them on the entity's `BlendShapeWeights`, slot by slot;
+3. `MorphWeightSystem` pushes those at the feature, as it already did for a hand-set weight.
+
+```csharp no-compile="a fragment; the clip came out of a model import"
+animator.AddLayer("Face", new AnimationStateMachine([new AnimationState("Talk", new ClipMotion(clip))]));
+```
+
+⚠ **A name and not a slot, and the difference is not cosmetic.** The ordinal a source file addresses
+a morph target by is *not* `MeshData.MorphTargets`' ordinal — the import drops a shape that moves
+nothing above `BlendShapeThreshold` and deduplicates the names of the rest — so a curve stored against
+an index would silently re-target itself on the next export. `BlendShapeWeights.Shapes` is the
+translation, and `MorphWeightSystem` publishes it out of what the feature actually attached.
+
+⚠ **Which means an entity is bound the frame *after* it appears**, because the feature has nothing
+attached until extraction has run. A face is drawn at rest on the frame it spawns, which is the frame
+its rest pose is being copied in anyway.
+
+⚠ **A weight of zero is a value and an absent track is not.** `WeightTimes.Length` is what says the
+clip drives a shape at all; a curve that is flat at zero holds a face at rest, and a clip that says
+nothing about a shape leaves whatever a script set. `BlendShapeAnimationSystem` writes only the slots
+the animator named — writing all of them would make playing a wave animation wipe an expression.
+
+⚠ **Weights add across layers rather than overriding.** Inside a blend tree that is exact, because a
+tree's child weights sum to one. Across layers it is not: two layers both driving `jawOpen` as an
+override produce their sum. A facial layer is normally additive, which is what this serves; the
+machinery that models an override works on joints, and a shape is not one.
+
+⚠ **`AnimationClip.UnresolvedChannels` does not count a weight channel.** It names the morphed mesh's
+node, which is not a joint — counting them would report a head's worth of unresolved channels on every
+correct import and drown the signal that number exists for.
+
 ### Importing
 
 `ModelImportSettings.ImportBlendShapes` is on by default. `BlendShapeThreshold` is what makes the
@@ -184,13 +224,12 @@ resident, shared by every instance of the mesh. `MorphTargetData.SizeInBytes` re
 Resident rather than streamed: the deltas are read by a pre-pass that runs whenever any weight is
 non-zero, which for a character on screen is every frame.
 
-### What is not built yet
+## What is not built yet
 
-- **A weight track on `AnimationClipData`.** glTF animates morph weights through a sampler targeting
-  `weights`, and FBX through a morph channel; `AnimationChannel` has three tracks and none of them is
-  a scalar. Reading them needs that member, which is a format change — so **animating blend shapes from
-  a clip is not claimed**. What is claimed is that anything which writes `BlendShapeWeights` drives
-  them: a script, an editor slider, a state machine of a game's own.
+- **Hand-authoring a weight curve.** `AnimationClipAsset` — the `.vxanim` an author edits — bakes its
+  curves through `AnimationProperty`, which has `PositionX` through `ScaleZ` and no `Weight`. An
+  *imported* clip drives a shape today; **a clip written by hand does not**, and neither does the
+  editor's timeline offer a row for one.
 - **Cluster pages.** A virtualized mesh's vertices are packed into pages rather than a vertex buffer,
   so morphing one is a different scatter against `ModelCompiler.PageAttributes`' layout. A virtualized
   mesh is extracted down `VirtualGeometryRenderFeature`'s path and never reaches

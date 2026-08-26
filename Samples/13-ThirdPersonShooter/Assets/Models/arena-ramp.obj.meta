@@ -1,7 +1,7 @@
 guid: 435c0f1a64cb419293ccfb1aa3b704da
 metaVersion: 1
 importer: !ModelImporter
-  version: 9
+  version: 10
   sourceHash: 1c299a43fafd52a0118d8b43f6a7fe14
 subAssets:
   - id: 81a721d4

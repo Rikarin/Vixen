@@ -11,6 +11,12 @@ namespace Vixen.Animation.Ecs;
 /// <summary>The animation passes, as a set a game registers in one line.</summary>
 /// <remarks>
 ///     <para>
+///         ⚠ <b>Three passes now, not two.</b> <see cref="BlendShapeAnimationSystem" /> is the third
+///         and it needs no renderer — it writes a component the render side reads — so it is added
+///         unconditionally like the other two. A game with no morphed meshes walks a query that
+///         matches nothing.
+///     </para>
+///     <para>
 ///         <b>The same shape <c>PhysicsSystems.AddPhysics</c> takes, and it was missing for as long as
 ///         animation had systems.</b> <see cref="EngineLoop" /> registers a default set and cannot
 ///         include these: <c>Vixen.Animation</c> references <c>Vixen.Engine</c>, so the dependency
@@ -25,13 +31,16 @@ namespace Vixen.Animation.Ecs;
 ///     </para>
 /// </remarks>
 public static class AnimationSystems {
-    /// <summary>Adds the evaluation pass and the skinning pass to a runner.</summary>
+    /// <summary>Adds the evaluation, skinning and blend-shape passes to a runner.</summary>
     /// <param name="runner">The runner.</param>
     /// <returns>The runner, for chaining.</returns>
     public static SystemRunner AddAnimation(this SystemRunner runner) {
         ArgumentNullException.ThrowIfNull(runner);
 
-        return runner.Add(new AnimationSystem()).Add(new SkinningSystem());
+        return runner
+            .Add(new AnimationSystem())
+            .Add(new SkinningSystem())
+            .Add(new BlendShapeAnimationSystem());
     }
 
     /// <summary>Adds the animation passes to a loop.</summary>

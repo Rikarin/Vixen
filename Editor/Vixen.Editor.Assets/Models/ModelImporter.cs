@@ -61,8 +61,18 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     chunk's. It is appended last on purpose — that is the position at which the members before
     ///     it keep their offsets — but appended is still a change to the member count, and the member
     ///     count is what the generated reader checks.
+    ///     Ten since <c>AnimationChannel</c> grew a scalar weight track — <c>Shape</c>,
+    ///     <c>WeightTimes</c> and <c>Weights</c>, appended last — which is what lets a clip drive a
+    ///     blend shape. ⚠ <b>This bump is a re-import trigger and not a compatibility fence, which
+    ///     makes it the odd one out above.</b> The generated reader writes its member count and
+    ///     refuses only <c>count &gt; MemberCount</c>, so <em>appended</em> members are read back by
+    ///     an older payload as their defaults — a version-nine clip chunk answers "no weight track",
+    ///     which is true. Nothing would break without this. What would happen instead is nothing at
+    ///     all: the curves were being dropped at import, and only a re-import can go back to the
+    ///     source file for them. So the cost is one content build over the project, and the benefit
+    ///     is that a face that was silently still starts moving.
     /// </remarks>
-    public override int Version => 9;
+    public override int Version => 10;
 
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>

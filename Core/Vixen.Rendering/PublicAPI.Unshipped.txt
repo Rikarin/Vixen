@@ -14,8 +14,14 @@ Vixen.Rendering.AnimationChannel.ScaleTimes.get -> float[]
 Vixen.Rendering.AnimationChannel.ScaleTimes.set -> float[]
 Vixen.Rendering.AnimationChannel.Scales.get -> Vixen.Core.Mathematics.Vector3[]
 Vixen.Rendering.AnimationChannel.Scales.set -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Rendering.AnimationChannel.Shape.get -> string
+Vixen.Rendering.AnimationChannel.Shape.set -> string
 Vixen.Rendering.AnimationChannel.Target.get -> string
 Vixen.Rendering.AnimationChannel.Target.set -> string
+Vixen.Rendering.AnimationChannel.WeightTimes.get -> float[]
+Vixen.Rendering.AnimationChannel.WeightTimes.set -> float[]
+Vixen.Rendering.AnimationChannel.Weights.get -> float[]
+Vixen.Rendering.AnimationChannel.Weights.set -> float[]
 Vixen.Rendering.AnimationClipData -> sealed record
 Vixen.Rendering.AnimationClipData : System.IEquatable<Vixen.Rendering.AnimationClipData>
 Vixen.Rendering.AnimationClipData.AnimationClipData() -> void
@@ -1450,6 +1456,7 @@ Vixen.Rendering.DrawCommand.InstanceCount -> uint
 Vixen.Rendering.DrawCommand.VertexOffset -> uint
 Vixen.Rendering.Ecs.BlendShapeWeights -> struct
 Vixen.Rendering.Ecs.BlendShapeWeights.BlendShapeWeights() -> void
+Vixen.Rendering.Ecs.BlendShapeWeights.Shapes -> string[]?
 Vixen.Rendering.Ecs.BlendShapeWeights.Weights -> float[]?
 Vixen.Rendering.Ecs.BoxPostProcessShape -> readonly struct
 Vixen.Rendering.Ecs.BoxPostProcessShape : Vixen.Rendering.Ecs.IPostProcessShape
@@ -1573,6 +1580,7 @@ Vixen.Rendering.Ecs.MorphWeightSystem -> sealed class
 Vixen.Rendering.Ecs.MorphWeightSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Ecs.MorphWeightSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Rendering.Ecs.MorphWeightSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Rendering.Ecs.MorphWeightSystem.Bound.get -> int
 Vixen.Rendering.Ecs.MorphWeightSystem.Feature.get -> Vixen.Rendering.Features.MorphRenderFeature?
 Vixen.Rendering.Ecs.MorphWeightSystem.Feature.set -> Vixen.Rendering.Features.MorphRenderFeature?
 Vixen.Rendering.Ecs.MorphWeightSystem.MorphWeightSystem() -> void
@@ -1957,6 +1965,7 @@ Vixen.Rendering.Features.MorphRenderFeature.Pipelines.get -> Vixen.Rendering.Com
 Vixen.Rendering.Features.MorphRenderFeature.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.Features.MorphRenderFeature.Record(Vixen.Graphics.ICommandList list) -> bool
 Vixen.Rendering.Features.MorphRenderFeature.SetWeights(Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<float> weights) -> bool
+Vixen.Rendering.Features.MorphRenderFeature.ShapesOf(Vixen.Rendering.RenderObjectId id) -> System.ReadOnlySpan<string>
 Vixen.Rendering.Features.MorphRenderFeature.Source.get -> Vixen.Rendering.GeometryBuffer?
 Vixen.Rendering.Features.MorphRenderFeature.Source.set -> Vixen.Rendering.GeometryBuffer?
 Vixen.Rendering.Features.MorphRenderFeature.UsedEntries.get -> int

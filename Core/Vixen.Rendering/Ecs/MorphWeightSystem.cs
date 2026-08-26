@@ -49,9 +49,12 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
 
     /// <inheritdoc />
     public SystemAccess Access { get; } = SystemAccess.Declare()
-        .Read<BlendShapeWeights>()
+        .Write<BlendShapeWeights>()
         .Read<RenderHandle>()
         .Build();
+
+    /// <summary>How many entities were told what their mesh calls its shapes by the last run.</summary>
+    public int Bound { get; private set; }
 
     /// <inheritdoc />
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
@@ -67,6 +70,7 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
         ArgumentNullException.ThrowIfNull(world);
 
         Weighted = 0;
+        Bound = 0;
 
         if (Feature is null) {
             return;
@@ -83,6 +87,21 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
                 // Chunk.PublicColumn. SkinningSystem reads its animator the same way and for the same
                 // reason. The handles beside it are unmanaged and do come out as a span.
                 var weights = world.Read<BlendShapeWeights>(entities[index]).Weights;
+
+                // ⚠ And the other direction, which is what makes "animate a blend shape from a clip"
+                // possible at all: a clip names a shape and this component is addressed by slot, and
+                // the feature is the only thing that has seen both. Published once — a binding a
+                // caller wrote by hand is a statement, not a stale value to correct — and only when
+                // the mesh has actually attached, which is why an entity that appeared this frame is
+                // bound on the next one.
+                if (world.Read<BlendShapeWeights>(entities[index]).Shapes is null) {
+                    var shapes = Feature.ShapesOf(handles[index].Object);
+
+                    if (shapes.Length > 0) {
+                        world.Get<BlendShapeWeights>(entities[index]).Shapes = shapes.ToArray();
+                        Bound++;
+                    }
+                }
 
                 // Null is at rest and is what a zeroed column reads as — see the component. Passing the
                 // empty span rather than skipping is deliberate: it is what returns a face to rest when

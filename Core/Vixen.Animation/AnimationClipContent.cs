@@ -34,7 +34,24 @@ namespace Vixen.Animation;
 [DataContract("AnimationClipContent")]
 public sealed class AnimationClipContent {
     /// <summary>The version this reader and writer speak.</summary>
-    public const int Current = 1;
+    /// <remarks>
+    ///     <para>
+    ///         <b>2 since the scalar weight track landed</b> —
+    ///         <c>AnimationChannel.Shape</c>/<c>WeightTimes</c>/<c>Weights</c>, which is what lets a
+    ///         clip drive a blend shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bump is a re-import trigger, not a compatibility fence, and the difference is
+    ///         worth being exact about.</b> The generated serializer writes a member count and refuses
+    ///         only <c>count &gt; MemberCount</c> — so <em>appended</em> members read back as their
+    ///         defaults out of older bytes, and a version 1 artefact answers "no weight track", which
+    ///         is the true answer. Nothing would break without the bump. What would happen is nothing:
+    ///         the curves were dropped at import, so only going back to the source file recovers them,
+    ///         and <c>AnimationClipImporter.Version</c> is this number. The cost is one content build
+    ///         over the project and no runtime change at all.
+    ///     </para>
+    /// </remarks>
+    public const int Current = 2;
 
     /// <summary>Which version of the format this artefact is.</summary>
     public int Version { get; set; } = Current;

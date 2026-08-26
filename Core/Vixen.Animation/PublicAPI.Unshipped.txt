@@ -6,12 +6,17 @@ Vixen.Animation.AnimationClip.Constraints.get -> Vixen.Animation.Constraints.Con
 Vixen.Animation.AnimationClip.Duration.get -> float
 Vixen.Animation.AnimationClip.Events.get -> System.ReadOnlySpan<Vixen.Animation.AnimationEvent>
 Vixen.Animation.AnimationClip.ExtractRootMotion(float from, float to, int loops = 0) -> Vixen.Animation.RootMotionDelta
+Vixen.Animation.AnimationClip.IndexOfShape(string shape) -> int
 Vixen.Animation.AnimationClip.Name.get -> string
 Vixen.Animation.AnimationClip.RootJoint.get -> int
 Vixen.Animation.AnimationClip.Sample(float time, System.Span<Vixen.Animation.BoneTransform> destination) -> void
 Vixen.Animation.AnimationClip.SampleRoot(float time) -> Vixen.Animation.BoneTransform
+Vixen.Animation.AnimationClip.SampleWeights(float time, System.Span<float> destination) -> void
+Vixen.Animation.AnimationClip.ShapeCount.get -> int
+Vixen.Animation.AnimationClip.Shapes.get -> System.ReadOnlySpan<string>
 Vixen.Animation.AnimationClip.Skeleton.get -> Vixen.Animation.Skeleton
 Vixen.Animation.AnimationClip.TrackCount.get -> int
+Vixen.Animation.AnimationClip.TrySampleWeight(float time, string shape, out float weight) -> bool
 Vixen.Animation.AnimationClip.UnresolvedChannels.get -> int
 Vixen.Animation.AnimationClipCache -> static class
 Vixen.Animation.AnimationClipContent -> sealed class
@@ -114,6 +119,7 @@ Vixen.Animation.Animator.LastDeltaTime.get -> float
 Vixen.Animation.Animator.LastRootMotion.get -> Vixen.Animation.RootMotionDelta
 Vixen.Animation.Animator.Layer(string name) -> Vixen.Animation.AnimationLayer?
 Vixen.Animation.Animator.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Animation.AnimationLayer>
+Vixen.Animation.Animator.MorphWeights.get -> Vixen.Animation.MorphWeightBuffer
 Vixen.Animation.Animator.Parameters.get -> Vixen.Animation.AnimationParameters
 Vixen.Animation.Animator.Pose.get -> Vixen.Animation.SkeletonPose
 Vixen.Animation.Animator.PoseProcessors.get -> System.Collections.Generic.IList<Vixen.Animation.IPoseProcessor>
@@ -1537,6 +1543,14 @@ Vixen.Animation.Ecs.AnimationSystems -> static class
 Vixen.Animation.Ecs.AnimatorComponent -> struct
 Vixen.Animation.Ecs.AnimatorComponent.AnimatorComponent() -> void
 Vixen.Animation.Ecs.AnimatorComponent.Value -> Vixen.Animation.Animator
+Vixen.Animation.Ecs.BlendShapeAnimationSystem -> sealed class
+Vixen.Animation.Ecs.BlendShapeAnimationSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Animation.Ecs.BlendShapeAnimationSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Animation.Ecs.BlendShapeAnimationSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Animation.Ecs.BlendShapeAnimationSystem.BlendShapeAnimationSystem() -> void
+Vixen.Animation.Ecs.BlendShapeAnimationSystem.Driven.get -> int
+Vixen.Animation.Ecs.BlendShapeAnimationSystem.Run(Vixen.Ecs.World world) -> void
+Vixen.Animation.Ecs.BlendShapeAnimationSystem.Unbound.get -> int
 Vixen.Animation.Ecs.ConstraintGizmoSystem -> sealed class
 Vixen.Animation.Ecs.ConstraintGizmoSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Animation.Ecs.ConstraintGizmoSystem : Vixen.Ecs.Systems.SystemBase
@@ -1665,6 +1679,16 @@ Vixen.Animation.LayerBlend -> enum : int
 Vixen.Animation.LayerBlend.Additive = 1 -> Vixen.Animation.LayerBlend
 Vixen.Animation.LayerBlend.LayerBlend() -> void
 Vixen.Animation.LayerBlend.Override = 0 -> Vixen.Animation.LayerBlend
+Vixen.Animation.MorphWeightBuffer -> sealed class
+Vixen.Animation.MorphWeightBuffer.Add(string shape, float weight) -> void
+Vixen.Animation.MorphWeightBuffer.Clear() -> void
+Vixen.Animation.MorphWeightBuffer.Collect(Vixen.Animation.AnimationClip? clip, float time, float weight) -> void
+Vixen.Animation.MorphWeightBuffer.Count.get -> int
+Vixen.Animation.MorphWeightBuffer.MorphWeightBuffer() -> void
+Vixen.Animation.MorphWeightBuffer.Shapes.get -> System.ReadOnlySpan<string>
+Vixen.Animation.MorphWeightBuffer.TryGet(string shape, out float weight) -> bool
+Vixen.Animation.MorphWeightBuffer.Weights.get -> System.ReadOnlySpan<float>
+Vixen.Animation.MorphWeightBuffer.this[int index].get -> float
 Vixen.Animation.Motions.Blend2DMode -> enum : int
 Vixen.Animation.Motions.Blend2DMode.Blend2DMode() -> void
 Vixen.Animation.Motions.Blend2DMode.FreeformCartesian = 0 -> Vixen.Animation.Motions.Blend2DMode
@@ -1724,7 +1748,7 @@ Vixen.Animation.Motions.MotionContext.Layer.init -> int
 Vixen.Animation.Motions.MotionContext.Loops.get -> int
 Vixen.Animation.Motions.MotionContext.Loops.init -> int
 Vixen.Animation.Motions.MotionContext.MotionContext() -> void
-Vixen.Animation.Motions.MotionContext.MotionContext(Vixen.Animation.AnimationParameters Parameters, Vixen.Animation.PoseScratch Scratch, float NormalizedTime, float PreviousNormalizedTime, int Loops, bool WantsRootMotion, Vixen.Animation.AnimationEventBuffer? Events, int Layer, string State, float Weight, Vixen.Animation.Constraints.ConstraintTagBuffer? Constraints = null) -> void
+Vixen.Animation.Motions.MotionContext.MotionContext(Vixen.Animation.AnimationParameters Parameters, Vixen.Animation.PoseScratch Scratch, float NormalizedTime, float PreviousNormalizedTime, int Loops, bool WantsRootMotion, Vixen.Animation.AnimationEventBuffer? Events, int Layer, string State, float Weight, Vixen.Animation.Constraints.ConstraintTagBuffer? Constraints = null, Vixen.Animation.MorphWeightBuffer? Weights = null) -> void
 Vixen.Animation.Motions.MotionContext.NormalizedTime.get -> float
 Vixen.Animation.Motions.MotionContext.NormalizedTime.init -> float
 Vixen.Animation.Motions.MotionContext.Parameters.get -> Vixen.Animation.AnimationParameters
@@ -1739,6 +1763,8 @@ Vixen.Animation.Motions.MotionContext.WantsRootMotion.get -> bool
 Vixen.Animation.Motions.MotionContext.WantsRootMotion.init -> bool
 Vixen.Animation.Motions.MotionContext.Weight.get -> float
 Vixen.Animation.Motions.MotionContext.Weight.init -> float
+Vixen.Animation.Motions.MotionContext.Weights.get -> Vixen.Animation.MorphWeightBuffer?
+Vixen.Animation.Motions.MotionContext.Weights.init -> Vixen.Animation.MorphWeightBuffer?
 Vixen.Animation.Moves.BipedGaitModel -> sealed class
 Vixen.Animation.Moves.BipedGaitModel : Vixen.Animation.Moves.IGaitModel
 Vixen.Animation.Moves.BipedGaitModel.BipedGaitModel() -> void
@@ -2233,6 +2259,8 @@ Vixen.Animation.StateMachine.StateMachineInstance.CurrentStateName.get -> string
 Vixen.Animation.StateMachine.StateMachineInstance.Evaluate(float deltaTime, System.Span<Vixen.Animation.BoneTransform> destination, Vixen.Animation.AnimationEventBuffer? events, int layer, float weight, bool wantsRootMotion) -> Vixen.Animation.RootMotionDelta
 Vixen.Animation.StateMachine.StateMachineInstance.IsTransitioning.get -> bool
 Vixen.Animation.StateMachine.StateMachineInstance.Machine.get -> Vixen.Animation.StateMachine.AnimationStateMachine
+Vixen.Animation.StateMachine.StateMachineInstance.MorphWeights.get -> Vixen.Animation.MorphWeightBuffer?
+Vixen.Animation.StateMachine.StateMachineInstance.MorphWeights.set -> Vixen.Animation.MorphWeightBuffer?
 Vixen.Animation.StateMachine.StateMachineInstance.NormalizedTime.get -> float
 Vixen.Animation.StateMachine.StateMachineInstance.Play(int state, float crossfade = 0, float offset = 0) -> void
 Vixen.Animation.StateMachine.StateMachineInstance.Play(string state, float crossfade = 0, float offset = 0) -> bool
@@ -2252,7 +2280,7 @@ Vixen.Animation.WrapMode.WrapMode() -> void
 abstract Vixen.Animation.Constraints.ConstraintGoal.Kind.get -> Vixen.Animation.Constraints.GoalKind
 abstract Vixen.Animation.Motions.Motion.Evaluate(in Vixen.Animation.Motions.MotionContext context, System.Span<Vixen.Animation.BoneTransform> destination) -> Vixen.Animation.RootMotionDelta
 abstract Vixen.Animation.Motions.Motion.Length(Vixen.Animation.AnimationParameters parameters) -> float
-const Vixen.Animation.AnimationClipContent.Current = 1 -> int
+const Vixen.Animation.AnimationClipContent.Current = 2 -> int
 const Vixen.Animation.Constraints.ConstraintGizmoStyle.DefaultAngularTolerance = 2 -> float
 const Vixen.Animation.Constraints.ConstraintGizmoStyle.DefaultSize = 0.06 -> float
 const Vixen.Animation.Constraints.ConstraintGizmoStyle.DefaultTolerance = 0.02 -> float
@@ -2290,6 +2318,7 @@ override Vixen.Animation.Constraints.TemplateChange.ToString() -> string
 override Vixen.Animation.Constraints.TemplateDiff.ToString() -> string
 override Vixen.Animation.Constraints.VocabularyProblem.ToString() -> string
 override Vixen.Animation.Ecs.AnimationSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Animation.Ecs.BlendShapeAnimationSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Animation.Ecs.ConstraintGizmoSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Animation.Ecs.SkinningSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Animation.Motions.BlendTree1D.Evaluate(in Vixen.Animation.Motions.MotionContext context, System.Span<Vixen.Animation.BoneTransform> destination) -> Vixen.Animation.RootMotionDelta
@@ -2445,6 +2474,7 @@ static Vixen.Animation.CurveCompressionSettings.Default.get -> Vixen.Animation.C
 static Vixen.Animation.Ecs.AnimationSystems.AddAnimation(this Vixen.Ecs.Systems.SystemRunner runner) -> Vixen.Ecs.Systems.SystemRunner
 static Vixen.Animation.Ecs.AnimationSystems.AddAnimation(this Vixen.Engine.Frames.EngineLoop loop) -> Vixen.Engine.Frames.EngineLoop
 static Vixen.Animation.Ecs.AnimationSystems.AddConstraintGizmos(this Vixen.Engine.Frames.EngineLoop loop, Vixen.Engine.Diagnostics.DebugDraw draw) -> Vixen.Animation.Ecs.ConstraintGizmoSystem
+static Vixen.Animation.Ecs.BlendShapeAnimationSystem.Apply(Vixen.Animation.MorphWeightBuffer buffer, System.ReadOnlySpan<string> shapes, ref Vixen.Rendering.Ecs.BlendShapeWeights component) -> int
 static Vixen.Animation.Ik.LookAtIk.Solve(Vixen.Animation.Skeleton skeleton, System.Span<Vixen.Animation.BoneTransform> local, System.Span<Vixen.Animation.BoneTransform> model, System.ReadOnlySpan<Vixen.Animation.Ik.LookAtJoint> chain, Vixen.Core.Mathematics.Vector3 target, Vixen.Core.Mathematics.Vector3 forward = default(Vixen.Core.Mathematics.Vector3), float weight = 1) -> void
 static Vixen.Animation.Ik.TwoBoneIk.Solve(Vixen.Animation.Skeleton skeleton, System.Span<Vixen.Animation.BoneTransform> local, System.Span<Vixen.Animation.BoneTransform> model, in Vixen.Animation.Ik.TwoBoneIkTarget target) -> bool
 static Vixen.Animation.JointLimit.Free.get -> Vixen.Animation.JointLimit

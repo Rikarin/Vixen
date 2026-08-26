@@ -1190,10 +1190,24 @@ callback between "the animation finished" and "the first weight is written". ⚠
 `BlendShapeWeights` a *managed* component, so a chunk column holds a handle rather than the array and it
 is read one entity at a time.
 
-⚠ **Still owed:** a scalar weight track on `AnimationClipData` — which is why "animate blend shapes from
-a clip" is not claimed, `AnimationChannel` having three vector tracks and no scalar one — and the
-cluster-page scatter, since a virtualized mesh packs its own vertex records rather than using a vertex
-buffer.
+`MorphWeightSystem` also runs the other way, and that is what lets a *clip* drive a shape.
+`AnimationChannel` now carries a scalar weight track that names a shape, and this component is addressed
+by slot — so something has to translate, and the feature is the only thing that has seen both ends.
+`MorphRenderFeature.ShapesOf` is the answer and `BlendShapeWeights.Shapes` is where it is published,
+once, out of what actually attached. `Vixen.Animation`'s `BlendShapeAnimationSystem` reads it and writes
+the weights; nothing here knows about an animator.
+
+- ⚠ **A name and not a slot, and the slot really does move.** `ReadMorphTargets` drops a shape that
+  moves nothing above `BlendShapeThreshold` and deduplicates the names of the rest, so a source file's
+  ordinal is not `MeshData.MorphTargets`'. A curve stored against an index would silently re-target
+  itself on the next export, which is `MorphTargetData.Name`'s own argument.
+- ⚠ **Published, not republished.** A binding a caller wrote by hand is a statement rather than a stale
+  value to correct. The cost is one frame: an entity is bound after extraction has attached its mesh,
+  which is the frame its rest pose is being copied in anyway.
+
+⚠ **Still owed:** hand-authoring a weight curve — that is `Vixen.Editor.Assets`' `AnimationProperty`,
+which has `PositionX` through `ScaleZ` and no `Weight` — and the cluster-page scatter, since a
+virtualized mesh packs its own vertex records rather than using a vertex buffer.
 
 ## The compositor
 

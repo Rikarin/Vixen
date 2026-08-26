@@ -499,6 +499,7 @@ Vixen.Graphics.GpuTextureView.GpuTextureView() -> void
 Vixen.Graphics.GpuTimestamps -> static class
 Vixen.Graphics.GraphicsDeviceFeatures -> readonly struct
 Vixen.Graphics.GraphicsDeviceFeatures : System.IEquatable<Vixen.Graphics.GraphicsDeviceFeatures>
+Vixen.Graphics.GraphicsDeviceFeatures.ClampDepthResolveMode(Vixen.Graphics.DepthResolveMode mode) -> Vixen.Graphics.DepthResolveMode
 Vixen.Graphics.GraphicsDeviceFeatures.GraphicsDeviceFeatures() -> void
 Vixen.Graphics.GraphicsDeviceFeatures.HasAnisotropicFiltering.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasAnisotropicFiltering.init -> bool
@@ -548,7 +549,6 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasUnifiedMemory.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasUnifiedMemory.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.init -> bool
-Vixen.Graphics.GraphicsDeviceFeatures.ClampDepthResolveMode(Vixen.Graphics.DepthResolveMode mode) -> Vixen.Graphics.DepthResolveMode
 Vixen.Graphics.GraphicsDeviceFeatures.MaxAnisotropy.get -> float
 Vixen.Graphics.GraphicsDeviceFeatures.MaxAnisotropy.init -> float
 Vixen.Graphics.GraphicsDeviceFeatures.MaxBindlessDescriptors.get -> int

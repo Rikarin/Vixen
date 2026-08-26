@@ -90,6 +90,12 @@ public sealed class ClipMotion : Motion {
         // the frame its span was crossed.
         context.Constraints?.Collect(Constraints ?? Clip.Constraints, context.NormalizedTime, context.Weight);
 
+        // ⚠ The clip's own time and not the normalised one. A tag's span is a fraction of the clip
+        // because it is authored against the cycle; a weight key is at a second, like every other key
+        // in the clip, and sampling it at a fraction would read the whole curve inside its first
+        // frame on any clip longer than a second.
+        context.Weights?.Collect(Clip, time, context.Weight);
+
         if (context.Events is not null) {
             Clip.CollectEvents(
                 previous,
