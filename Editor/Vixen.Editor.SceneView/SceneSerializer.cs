@@ -152,6 +152,49 @@ public static class SceneSerializer {
         return File.Exists(path) ? Load(document, FromYaml(File.ReadAllText(path))) : 0;
     }
 
+    /// <summary>Reads a scene off disk, reconciled against the prefabs it names.</summary>
+    /// <param name="document">The document to fill.</param>
+    /// <param name="path">Where the file is.</param>
+    /// <returns>How many entities were created, or zero when there is no file there.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What an editor opens a scene with, as against <see cref="Load(SceneDocument,string)" />,
+    ///         which is what a test or a template uses.</b> The difference is one pass over the file
+    ///         before anything is created: every entity that came from a prefab takes its template's
+    ///         value for every member the instance does not claim as its own — which is propagation,
+    ///         and propagation is the entire reason a prefab is a link rather than a stamp.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Before the world is built and not after.</b> Reconciling a document would mean
+    ///         writing components back through the binder into entities that already exist, in a world
+    ///         where a viewport may already be drawing them; reconciling the file is a rewrite of the
+    ///         values a loader is about to read, and the loader is then the same one that runs when
+    ///         nothing was stale. See <c>PrefabReconcile</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The document is left clean and the file on disk is not rewritten.</b> A scene that
+    ///         opened dirty because a prefab moved would put an unasked-for change in a working tree,
+    ///         in every level that names that prefab, the moment somebody looked at one. What the
+    ///         editor holds is correct; the bytes catch up on the next save the author makes.
+    ///     </para>
+    /// </remarks>
+    public static int Open(SceneDocument document, string path) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
+        if (!File.Exists(path)) {
+            return 0;
+        }
+
+        var file = FromYaml(File.ReadAllText(path));
+
+        // Kept on the document rather than returned, because the caller that opens a scene is a
+        // factory with no way to say anything to anybody — see `SceneDocument.Reconciled`.
+        document.Reconciled = PrefabReconcile.Run(file, document.Project.Assets);
+
+        return Load(document, file);
+    }
+
     static SceneEntityData Capture(SceneDocument document, Entity entity) {
         var local = document.World.Read<LocalTransform>(entity);
 
@@ -195,6 +238,32 @@ public static class SceneSerializer {
             // is left out for `Parameters`' reason and the result is rebuilt on load.
             Boolean = document.BooleanOf(entity) is { } node ? node.Operation.ToString() : string.Empty
         };
+
+        // ⚠ Doc 47's three keys, and they are written on every node of an instance rather than on its
+        // root alone. `PrefabInstances.Forget` unpacks *one* entity deliberately, so a root can be
+        // unpacked with its children still linked — under a root-only form that would leave a `source`
+        // with nothing above it to be read against. A complete record per entity makes unpacking,
+        // reparenting and a hand-merge all local edits.
+        //
+        // ⚠ The reference *text* and not the bare id, for `Asset`'s reason: `ReferenceIndex` answers
+        // "what breaks if I delete this" by scanning for `vx:` followed by thirty-two hex digits, and
+        // an AssetId bound as a bare scalar is invisible to it. A scene whose prefab the index could
+        // not see is one the editor would offer to delete the prefab out from under.
+        if (document.Prefabs.TryGet(entity, out var link)) {
+            data.Prefab = new AssetReference(link.Prefab).ToString();
+            data.Source = link.Source;
+
+            // ⚠ In the order the table holds them, which for a file that was read is the order the
+            // file had. `PrefabInstances.Mark` sorts what it adds; nothing sorts here, because a
+            // writer that re-sorted a hand-edited list would put an edit in the diff that nobody made.
+            data.Overrides.AddRange(document.Prefabs.OverridesOf(entity));
+
+            // ⚠ And the fourth key, which only an instance root ever carries anything in. It is the
+            // one statement about an entity that is not there — the template's child the author
+            // deleted — and doc 47 § 6 requires it to be written down before anything ever adds a
+            // template's children back, or a level regrows what its designer removed.
+            data.Removed.AddRange(document.Prefabs.RemovedFrom(entity));
+        }
 
         // ⚠ In group order, because a file whose entries move between saves is one that diffs against
         // itself — the same argument this format makes about an entity's components and its siblings.
@@ -425,6 +494,25 @@ public static class SceneSerializer {
         // assumed the short form would silently take the wrong half of one.
         if (AssetReference.TryParse(data.Asset, out var reference) && !reference.IsNull) {
             AssetInstances.Attach(document.World, entity, reference.Asset);
+        }
+
+        // ⚠ Both halves or neither, which is `PrefabOverrides.IsInstance`'s rule and has to be the
+        // same rule here: an asset with no source names a prefab without saying which of its entities
+        // this is, and a source with no asset names an entity in a file nobody named. A file carrying
+        // one half is half-written, and reading it as an instance would give the reconciler a
+        // template it cannot look anything up in.
+        //
+        // ⚠ Read whether or not the ids are being adopted, because that is what makes a nested prefab
+        // work. A `.vxprefab` may itself hold an instance of another one; when this file is being
+        // stamped out as a template, those inner nodes arrive here carrying the inner link and it is
+        // theirs to keep — see `Prefab.Instantiate`, which then declines to record over them.
+        if (AssetReference.TryParse(data.Prefab, out var from) && !from.IsNull && !data.Source.IsNone) {
+            // ⚠ Verbatim, including a path that names nothing on this entity. A component taken off
+            // and put back leaves an override naming a member that is not there today, and pruning it
+            // here would be a round trip that silently loses an authored decision — the single failure
+            // doc 47 exists to prevent. `PrefabOverrides.Apply` reports such a path and keeps it.
+            document.Prefabs.Record(entity, new(from.Asset, data.Source), data.Overrides);
+            document.Prefabs.RecordRemoved(entity, data.Removed);
         }
 
         foreach (var component in data.Components) {

@@ -160,9 +160,33 @@ is also exactly what an override comparison needs.
 whatever the shell decided an entity's row of editors is, and all it needs answered is whether this
 object's member differs from the one it was made from.
 
-⚠ **Links are not written to the `.vxscene` yet.** An instance placed today is an ordinary subtree
-tomorrow. Persisting one needs a field on `SceneEntityData` and a decision about what a scene does
-when the prefab underneath it has changed — doc 08's R7.
+### Placing one
+
+`Prefab.TryPlace` is the verb: it turns a prefab's GUID into a file through `AssetDatabase`, refuses
+what it cannot open, and goes through `SceneDocument.Place` so that one Ctrl+Z takes the instance
+back. The gesture is a drop — a `.vxprefab` released over the viewport or the outliner places an
+instance, where every other asset kind makes one entity holding an `AssetInstance`. That is the only
+asset kind for which those two differ, and it is what gives the format's link keys anything to hold.
+
+⚠ **A prefab that cannot be opened is a report and not an exception.** A renamed, unbuilt or
+not-yet-imported asset is an ordinary state of a project, and the same refusal set a reconcile uses
+(`PrefabReconcile.TryOpen`) answers here — including the one-root rule, which `Instantiate` would
+otherwise throw for, out of a gesture somebody made with a mouse.
+
+⚠ **A link the prefab file already carried is not overwritten**, and that is what makes a nested
+prefab nested. A `.vxprefab` may hold an instance of another one; its nodes arrive already carrying
+the inner link, and recording the outer one over the top would flatten a level of nesting on every
+placement — silently, with the subtree still there and answering to the wrong template.
+
+⚠ **`Vixen.Engine.Scenes.Prefab` and `Vixen.Editor.AssetEditors.Prefabs.Prefab` are two unrelated
+things with one name.** A file that names both gets CS0104; `EditorApplication` aliases the editor's.
+Doc 47 § 1 opens by saying that conflating them is the first way to get prefabs wrong here, and the
+compiler says the same thing at the call site.
+
+Links **are** written to the `.vxscene` now — `prefab`, `source`, `overrides` and `removed`, read and
+written by `SceneSerializer` off `SceneDocument.Prefabs`, with a reconcile at open time.
+⚠ **Migration**: the keys are additive and the scene version does not move, but `OmitDefaults` is off
+for this format, so the first save of any existing scene gains all four keys on every entity.
 
 ## The compiled tab is the other half of a scene
 

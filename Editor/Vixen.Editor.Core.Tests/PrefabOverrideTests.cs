@@ -286,6 +286,80 @@ public sealed class PrefabOverrideTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠⚠ A child the author deleted is not reported as one the template gained — because the
+    ///     instance says which children it removed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two are indistinguishable from the file alone: with resolved values, "the author
+    ///         deleted this" and "the template gained this since" are both "the instance does not name
+    ///         it". Doc 47 § 6 requires the removed list to land <i>before</i> anything adds a
+    ///         template's children back, and this is the rule that makes it load-bearing today: without
+    ///         it, one deliberate deletion is a warning on every open of that level, for ever.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The removed entity is still not added.</b> Nothing here grafts a subtree; the list
+    ///         changes what is <i>said</i> about the absence and not what is done about it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AChildTheAuthorRemovedIsNotReportedAsAddedByTheTemplate() {
+        var source = EntityId.New();
+        var deleted = EntityId.New();
+
+        var instance = Lamp(source, 0f, Vector3.Zero);
+        instance.Removed.Add(deleted);
+
+        var template = Template(source, 9f, Vector3.Zero);
+        template.Roots[0].Children.Add(new() { Id = deleted, Name = "Bulb" });
+
+        List<PrefabReport> reports = [];
+        var scene = Scene(instance);
+        PrefabOverrides.Reconcile(scene, Asset, template, reports);
+
+        Assert.Empty(scene.Roots[0].Children);
+        Assert.DoesNotContain(reports, report => report.Kind == PrefabReportKind.AddedByTemplate);
+    }
+
+    /// <summary>A child the template gained is still reported when the instance removed a different one.</summary>
+    [Fact]
+    public void RemovingOneChildDoesNotSilenceAnother() {
+        var source = EntityId.New();
+        var deleted = EntityId.New();
+        var added = EntityId.New();
+
+        var instance = Lamp(source, 0f, Vector3.Zero);
+        instance.Removed.Add(deleted);
+
+        var template = Template(source, 9f, Vector3.Zero);
+        template.Roots[0].Children.Add(new() { Id = deleted, Name = "Bulb" });
+        template.Roots[0].Children.Add(new() { Id = added, Name = "Housing" });
+
+        List<PrefabReport> reports = [];
+        PrefabOverrides.Reconcile(Scene(instance), Asset, template, reports);
+
+        Assert.Equal(
+            [added.ToString()],
+            reports
+                .Where(report => report.Kind == PrefabReportKind.AddedByTemplate)
+                .Select(report => report.Detail)
+        );
+    }
+
+    /// <summary>The removed list survives a save, like every other key of the link.</summary>
+    [Fact]
+    public void TheRemovedListSurvivesASave() {
+        var deleted = EntityId.New();
+        var instance = Lamp(EntityId.New(), 1f, Vector3.Zero);
+
+        instance.Removed.Add(deleted);
+
+        var read = SceneFile.FromYaml(Scene(instance).ToYaml());
+
+        Assert.Equal([deleted], read.Roots[0].Removed);
+    }
+
     [Fact]
     public void ASceneWithNoInstancesReportsNothing() {
         var plain = new SceneEntityData { Id = EntityId.New(), Name = "Crate" };

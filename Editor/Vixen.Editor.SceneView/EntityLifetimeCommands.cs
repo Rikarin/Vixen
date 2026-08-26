@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
+using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Transforms;
 
 namespace Vixen.Editor.SceneView;
@@ -29,6 +30,16 @@ public sealed class DestroyEntitiesCommand : IEditorCommand, IDisposable {
     readonly List<SubtreeSnapshot> taken = [];
     readonly List<Entity> roots;
 
+    /// <summary>Which of a template's entities this delete recorded as removed, and from where.</summary>
+    /// <remarks>
+    ///     ⚠⚠ <b>Recorded on the way out and taken back on the way in.</b> Deleting a child of a prefab
+    ///     instance is the author saying "not in this one", and the file has to hold that sentence
+    ///     before anything ever adds a template's children back — doc 47 § 6. An undo has to unsay it
+    ///     just as exactly: a level in which Ctrl+Z restored the lamp and left "the lamp was deleted"
+    ///     in the file is one that loses the lamp again the next time a prefab grows a child.
+    /// </remarks>
+    readonly List<(Entity Root, EntityId Source)> noted = [];
+
     /// <inheritdoc />
     public string Name => taken.Count == 1 && taken[0].Count == 1 ? "Delete Entity" : "Delete Entities";
 
@@ -48,8 +59,13 @@ public sealed class DestroyEntitiesCommand : IEditorCommand, IDisposable {
         ArgumentNullException.ThrowIfNull(context);
 
         Release();
+        noted.Clear();
 
         foreach (var root in roots) {
+            // ⚠ Before the snapshot, because finding which prefab instance a subtree belonged to means
+            // walking up from it — and the delete is what takes those parent links away.
+            document.NoteRemoved(root, noted);
+
             // ⚠ Re-checked rather than trusted, because a redo runs against a world that has moved on
             // — and because deleting a parent and one of its own children in the same command means
             // the second root is already gone by the time this reaches it.
@@ -82,6 +98,16 @@ public sealed class DestroyEntitiesCommand : IEditorCommand, IDisposable {
             taken[index].Restore(document);
         }
 
+        // ⚠ And the removals are unsaid, after the subtrees are back. A level in which the child
+        // returned and "the child was deleted" stayed in the file is one that loses it again the next
+        // time anything reconciles — which is the failure the list exists to prevent, arriving through
+        // its own front door.
+        foreach (var (root, source) in noted) {
+            document.Prefabs.Restore(root, source);
+        }
+
+        noted.Clear();
+
         Finish(context);
     }
 
@@ -112,6 +138,104 @@ public sealed class DestroyEntitiesCommand : IEditorCommand, IDisposable {
         document.PruneNames();
         document.RaiseStructureChanged();
         context.Touch(document);
+    }
+}
+
+/// <summary>Putting a whole subtree into a scene at once, undoably.</summary>
+/// <remarks>
+///     <para>
+///         <b>What a prefab drop is, and what <see cref="CreateEntityCommand" /> cannot be.</b> That
+///         command makes one entity and takes its components from an <c>Initialise</c> callback;
+///         placing a prefab makes a root and everything below it, and how many entities that is is
+///         the file's business rather than the command's. So the caller supplies the making and this
+///         supplies the undo.
+///     </para>
+///     <para>
+///         ⚠ <b>The subtree is made by <c>Do</c> and only ever once.</b> A redo restores the snapshot
+///         the undo took, which already holds every entity, every component, every name, every stable
+///         id and every prefab link — running the factory again would place a <i>second</i> instance
+///         with fresh handles, and every reference to the first would then be addressing nothing.
+///         That is <see cref="CreateEntityCommand.Initialise" />'s rule, at subtree scale.
+///     </para>
+///     <para>
+///         ⚠ <b>A factory that makes nothing is not an error here.</b> A prefab whose file has gone
+///         between the drag and the drop is a real case; the command then has no subtree, undoes to
+///         nothing and redoes to nothing rather than throwing out of a gesture.
+///     </para>
+/// </remarks>
+public sealed class InstantiateSubtreeCommand : IEditorCommand, IDisposable {
+    readonly SceneDocument document;
+    readonly Func<Entity> make;
+    readonly string name;
+
+    SubtreeSnapshot? taken;
+    Entity created;
+    bool made;
+
+    /// <inheritdoc />
+    public string Name => name;
+
+    /// <summary>The subtree's root, once <c>Do</c> has run.</summary>
+    public Entity Entity => created;
+
+    /// <summary>Describes placing a subtree.</summary>
+    /// <param name="document">The document to place it in.</param>
+    /// <param name="name">What the undo history calls it.</param>
+    /// <param name="make">What makes the subtree and hands back its root. Run once.</param>
+    public InstantiateSubtreeCommand(SceneDocument document, string name, Func<Entity> make) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(make);
+
+        this.document = document;
+        this.name = name;
+        this.make = make;
+    }
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (taken is { } snapshot) {
+            snapshot.Restore(document);
+            snapshot.Dispose();
+            taken = null;
+        } else if (!made) {
+            made = true;
+            created = make();
+        }
+
+        document.RaiseStructureChanged();
+        context.Touch(document);
+    }
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (!created.IsNull) {
+            taken = SubtreeSnapshot.Take(document, created);
+        }
+
+        // ⚠ After the snapshot and not before it. `PruneNames` is what drops the names, the stable
+        // ids and the prefab links of dead handles, and the snapshot is what remembers them — taking
+        // it second would be remembering a subtree the document had already forgotten.
+        document.PruneNames();
+        document.RaiseStructureChanged();
+        context.Touch(document);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Two placements never merge: they are two things in the level.</remarks>
+    public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+        return false;
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        taken?.Dispose();
+        taken = null;
     }
 }
 

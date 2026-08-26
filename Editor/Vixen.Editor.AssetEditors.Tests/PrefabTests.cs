@@ -23,13 +23,12 @@ public class PrefabInstanceTests {
 
         var world = new World("Scene");
         var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
-        var instances = new PrefabInstances();
         var prefab = Turret();
 
-        var root = Prefab.Instantiate(scene, instances, AssetId.New(), prefab);
+        var root = Prefab.Instantiate(scene, AssetId.New(), prefab);
 
-        Assert.Equal(2, instances.Count);
-        Assert.True(instances.TryGet(root, out var link));
+        Assert.Equal(2, scene.Prefabs.Count);
+        Assert.True(scene.Prefabs.TryGet(root, out var link));
         Assert.Equal(prefab.Roots[0].Id, link.Source);
     }
 
@@ -40,11 +39,10 @@ public class PrefabInstanceTests {
 
         var world = new World("Scene");
         var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
-        var instances = new PrefabInstances();
         var asset = AssetId.New();
 
-        var first = Prefab.Instantiate(scene, instances, asset, Turret());
-        var second = Prefab.Instantiate(scene, instances, asset, Turret());
+        var first = Prefab.Instantiate(scene, asset, Turret());
+        var second = Prefab.Instantiate(scene, asset, Turret());
 
         Assert.NotEqual(scene.IdOf(first), scene.IdOf(second));
     }
@@ -61,7 +59,7 @@ public class PrefabInstanceTests {
         two.Roots.Add(new() { Id = EntityId.New(), Name = "Second" });
 
         Assert.Throws<ArgumentException>(
-            () => Prefab.Instantiate(scene, new(), AssetId.New(), two)
+            () => Prefab.Instantiate(scene, AssetId.New(), two)
         );
     }
 
@@ -73,7 +71,7 @@ public class PrefabInstanceTests {
         var world = new World("Scene");
         var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
 
-        var root = Prefab.Instantiate(scene, new(), AssetId.New(), Turret());
+        var root = Prefab.Instantiate(scene, AssetId.New(), Turret());
 
         var children = 0;
 
@@ -91,13 +89,11 @@ public class PrefabInstanceTests {
 
         var world = new World("Scene");
         var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
-        var instances = new PrefabInstances();
+        var root = Prefab.Instantiate(scene, AssetId.New(), Turret());
 
-        var root = Prefab.Instantiate(scene, instances, AssetId.New(), Turret());
-
-        Assert.True(instances.Forget(root));
-        Assert.False(instances.TryGet(root, out _));
-        Assert.Equal(1, instances.Count);
+        Assert.True(scene.Prefabs.Forget(root));
+        Assert.False(scene.Prefabs.TryGet(root, out _));
+        Assert.Equal(1, scene.Prefabs.Count);
     }
 
     /// <summary>Pruning forgets links whose entity has gone.</summary>
@@ -107,13 +103,14 @@ public class PrefabInstanceTests {
 
         var world = new World("Scene");
         var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
-        var instances = new PrefabInstances();
-
-        var root = Prefab.Instantiate(scene, instances, AssetId.New(), Turret());
+        var root = Prefab.Instantiate(scene, AssetId.New(), Turret());
         scene.Delete([root]);
 
-        Assert.Equal(2, instances.Prune(world));
-        Assert.Equal(0, instances.Count);
+        // ⚠ Zero, and that is the change rather than a regression: `SceneDocument.Delete` calls
+        // `PruneNames`, which now prunes the links with the names. The links a delete leaves behind
+        // are the ones that would be inherited by whatever takes those slots.
+        Assert.Equal(0, scene.Prefabs.Prune(world));
+        Assert.Equal(0, scene.Prefabs.Count);
     }
 
     /// <summary>A template entity is found again by the id the file gave it.</summary>

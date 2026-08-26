@@ -81,7 +81,11 @@ public sealed class SceneEditorFactory(Func<AssetEditorRequest, World> worlds) :
             Writer = new SceneFileWriter(request.Path)
         };
 
-        SceneSerializer.Load(document, request.Path);
+        // ⚠ `Open` and not `Load`, and the difference is doc 47 § 5. A level whose prefab moved while
+        // it was closed is stale in exactly the members its instances did *not* claim as their own,
+        // and this is the one moment anything can put that right: an importer cannot resolve an asset
+        // id to a path, so neither the build nor the runtime can ever open the prefab a scene names.
+        SceneSerializer.Open(document, request.Path);
         return document;
     }
 
@@ -155,7 +159,10 @@ public sealed class PrefabEditorFactory(Func<AssetEditorRequest, World> worlds) 
             Writer = new PrefabFileWriter(request.Path)
         };
 
-        SceneSerializer.Load(document, request.Path);
+        // ⚠ A prefab is reconciled on open too, for the nested case. A `.vxprefab` may itself hold an
+        // instance of another one — R7's single level — and the outer file carries the inner links
+        // verbatim, so opening the outer one is where the inner one propagates.
+        SceneSerializer.Open(document, request.Path);
         return document;
     }
 
