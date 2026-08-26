@@ -19,6 +19,23 @@ public sealed partial class ExpanderHeader : ButtonBase {
     public Icon Chevron { get; private set; } = null!;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="AccessibleStates.Expandable" /> unconditionally, on <c>Select</c>'s
+    ///     terms.</b> A disclosure button always has an <c>aria-expanded</c>; what changes is
+    ///     whether it is true. Sending only <see cref="AccessibleStates.Expanded" /> when the
+    ///     section is open would make a closed expander indistinguishable from a button that does
+    ///     not open anything at all.
+    ///     <para>
+    ///         Read from <see cref="ElementState.Checked" />, which <see cref="Expander" /> already
+    ///         sets on this header for the cascade — so there is no second copy of "is it open" and
+    ///         no way for the two to disagree.
+    ///     </para>
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        AccessibleStates.Expandable
+        | ((State & ElementState.Checked) != 0 ? AccessibleStates.Expanded : AccessibleStates.None);
+
+    /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
@@ -96,6 +113,12 @@ public sealed partial class Expander : Control {
 
         Header = Part<ExpanderHeader>();
         Content = Part("expander-content");
+
+        // ⚠ The pairing the tree already shows and a bridge still cannot infer. Header and content
+        // are siblings, so nothing about being a child of the same expander says that pressing one
+        // reveals the other — `aria-controls` is the sentence, and it is what lets a screen reader
+        // offer to jump from the button to what it opened.
+        Header.AddAccessibleRelation(AccessibleRelation.Controls, Content);
 
         AddHandler<ClickEvent>(static (element, args) => ((Expander) element).Chosen(args));
     }

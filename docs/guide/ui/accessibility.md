@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.AccessibleRole, T:Vixen.Ui.AccessibleStates, T:Vixen.Ui.Accessi
 tags: [ui, accessibility, aria, screen-reader, testing]
 since: 0.2
 status: preview
-related: [ui/commands, ui/markup-panels]
+related: [ui/commands, ui/strings, ui/markup-panels]
 ---
 
 ## What it is
@@ -56,8 +56,17 @@ control would ever see.
 
 ## Using it
 
-Most controls need nothing. A `Button`, a `CheckBox`, a `Switch`, a `Link`, a `TextBox` and a
-`Select` already carry a role and, where they have words of their own, a name.
+**Most controls need nothing at all.** Every control in `Vixen.Ui.Controls` and
+`Vixen.Ui.Controls.Advanced` carries a role, and every one with words of its own carries a name —
+59 types answer at least one of the four virtuals and nine more establish a relation. What is left
+for an application is the part no control can know.
+
+A layout element is deliberately not a node — `Panel`, `Card`, `Expander`, `ScrollView`, `Tabs`,
+`Popover`, `Icon`, `TextBlock` all answer `AccessibleRole.None` — and a bridge reads through them.
+Five direct-manipulation surfaces answer `application`, which asks assistive technology to stop
+intercepting the keyboard: `Viewport`, `NodeCanvas`, `CurveEditor`, `GradientEditor` and `Timeline`.
+`CodeEditor` deliberately does not; it is a `textbox`, because announcing a text editor as an
+application turns off the reading and review commands that make text editable at all.
 
 What an application writes is the part the framework cannot know: **a field's name**. A `TextField`
 deliberately answers `null` to `NativeAccessibleName` — its placeholder is a hint rather than a name
@@ -76,11 +85,20 @@ field.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
 `field.AccessibleName` is now `"Project name"`, and stays right if the caption is translated or
 changed.
 
+**Four controls report no name on purpose**, and an unlabelled one is meant to fail a gate rather
+than pass it with a plausible lie: `TextField` and its subclasses, `Slider` and `RangeSlider`,
+`CodeEditor`, and `ColorInput`. None of them has words of its own — a placeholder is a hint, and a
+number is not a name. Two containers do the labelling for you: a `KeyValueList` row names whatever
+`Content<T>()` puts in it, and a `PropertyGrid` names every editor it generates from the member on
+the left.
+
 **Relations are for the pairings parent-and-child is the wrong shape for**, and there are three that
 matter in practice:
 
-* `LabelledBy` / `DescribedBy` — the element whose text names or describes this one. `LabelledBy` is
-  the only relation that feeds another property.
+* `LabelledBy` / `DescribedBy` — the element whose text names or describes this one. Both feed a
+  property. `Tooltip.Attach` adds a `DescribedBy` to whatever it is attached to, which is the whole
+  point of the relation: a tooltip is shown by *hovering*, and a hover is a gesture a screen-reader
+  user does not make.
 * `Controls` — operating this element changes that one. A `TabItem` points at its panel: the two are
   in different parts of the tree, so no walk over `Parent` recovers the pairing.
 * `Owns` — the target is this element's child in the accessibility tree but not in the element tree.
@@ -155,9 +173,42 @@ elements are emitted under their owner rather than where the tree has them, whic
 Assert `Unnamed` first. `Render` of a document with no accessibility at all is the empty string, and
 an expectation of the empty string matches it.
 
+**What a control announces and what it displays are the same words.** Because a name is *computed* —
+`ButtonBase` answers `NativeAccessibleName` with its `Label`, and the default is the element's own
+`Text` — a control that answers from what it already shows goes through the
+[string catalogue](/docs/guide/ui/strings) for free. A control that answered with a literal of its own
+would not, and the two are indistinguishable from outside: both compile, both pass, and in English
+both look right. The only place the difference appears is in another language, as an element that
+displays the translation and announces the source text.
+
+`Untranslated` is the assertion for that class of defect, and it is written against the declarations
+rather than against a list of controls — so it keeps its meaning as controls are added:
+
+```csharp no-compile="a fragment; `root` is a UiElement in a document, inside an xunit test"
+// Chosen before anything is built: a control assigns its labels in `OnCreated`, so it shows the
+// language it was built in.
+Strings.Use(translated);
+
+var root = BuildTheWindow();
+
+Assert.Empty(AccessibilitySnapshot.Unnamed(root));
+Assert.Empty(AccessibilitySnapshot.Untranslated(root, ControlStrings.All));
+```
+
+It reports every element in the tree whose accessible name or description is still the `Source` text
+of a declaration the catalogue *does* have a translation for. A declaration with no translation
+loaded is skipped rather than reported: the source text is the right answer when nothing translates
+it, which is the whole design of `StringId`.
+
+Pair it with a check that the window actually says the strings it was built to exercise. `Untranslated`
+is satisfied by a window that announces nothing at all, in exactly the way `Render` is satisfied by an
+empty tree.
+
 ## See also
 
 * [Commands and the focus route](/docs/guide/ui/commands) — the coalesced-invalidation pattern this
   follows, and the answer to "what has the focus", which is a question both features ask.
+* [The string catalogue](/docs/guide/ui/strings) — where a control's words come from, and why an
+  accessible name computed from them needs no second translation.
 * [Panels in markup](/docs/guide/ui/markup-panels) — where the elements that carry roles usually come
   from.

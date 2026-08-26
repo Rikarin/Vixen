@@ -262,12 +262,16 @@ in the assembly a role and a name in one edit, and no control stores an accessib
 maintains a notification. The expensive half was the API decision that made that possible, and it was
 made once.
 
-**Populated this sitting** — chosen to span the shapes that differ rather than the ones that repeat:
-`ButtonBase` (role + name), `Link`, `ToggleBase`, `CheckBox` (checked and mixed), `Switch`,
+**Populated the first sitting** — chosen to span the shapes that differ rather than the ones that
+repeat: `ButtonBase` (role + name), `Link`, `ToggleBase`, `CheckBox` (checked and mixed), `Switch`,
 `RadioButton`, `RadioGroup`, `ToggleButton` (pressed, not checked), `TextField` (role + value +
 editable/read-only/multi-line, and no name), `SearchBox`, `NumericInput`, `TabItem`/`Tabs` (relations),
-`Option`/`SelectBase`/`Select`/`MultiSelect` (relations). **Owed**: the remaining ~35 in
-`Vixen.Ui.Controls` and all 11 in `.Controls.Advanced`, which is mechanical.
+`Option`/`SelectBase`/`Select`/`MultiSelect` (relations).
+
+✅ **The rest is populated too, and the "mechanical" estimate held for all but two of it.** **59
+types** now override at least one of the four virtuals across both assemblies, plus nine more that
+establish a relation or assign a `Role` in `OnCreated` without overriding anything. The whole of
+`.Controls.Advanced` is covered, including all eleven top-level controls.
 
 **Two things the ask did not name and the work found.**
 
@@ -285,6 +289,138 @@ depends on an unlabelled field reporting nothing rather than something plausible
 one gets a name, and it is one line at the call site.
 
 **Not built, as asked**: no AT-SPI2, no UIA, no `NSAccessibility`. The tree is what all three read.
+
+#### The population, finished — and the two shapes that were not mechanical
+
+✅ **Both control assemblies are populated.** The remaining ~35 in `Vixen.Ui.Controls` and all 11
+top-level controls in `.Controls.Advanced` now answer for themselves; **59 types override at least
+one of the four virtuals**, and nine more establish a relation or assign a `Role` in `OnCreated`
+without overriding anything. Not one of them stores an accessibility field.
+
+**What the population added beyond roles**, because a role by itself is only a third of it:
+
+| Shape | Where |
+|---|---|
+| Live regions | `Alert` and `Toast` are `alert`, `ToastHost` is `log`, `EmptyState` and `Badge` are `status` — the four things that appear where the user was not looking, and a toast takes itself away again |
+| Landmarks | `Breadcrumb` and `Pagination` are `navigation`, `MenuBar` is `menubar` |
+| Values | `Slider`, `RangeSlider`, `ScrollBar`, `ProgressBar` — invariant, because a bridge re-presents a number in the user's locale and a control this far down knows neither the locale nor the units |
+| Relations | `Expander` header → content (`Controls`), `KeyValueRow` key → its editor, `PropertyGrid` row → its editor, `DockTab` ↔ `DockPanel`, `ColorInput` → its popup (`Owns`), and every option list → the field that names it |
+| `Application` | `Viewport`, `NodeCanvas`, `CurveEditor`, `GradientEditor`, `Timeline` — five direct-manipulation surfaces that own their keyboard. ⚠ `CodeEditor` is deliberately **not** one: it is a `textbox`, because announcing a text editor as an application turns off exactly the reading and review commands that make text editable |
+
+⚠ **`ComboBox` was the first of the two shapes the ask flagged, and the answer is a type rather than
+a role assignment.** ARIA 1.2's editable combo box puts `role="combobox"` on the *text input*: the
+input takes the focus, the input is what `aria-expanded` is read from, and the box drawn round the
+input and its button stands for neither. So `ComboBox` itself is `None` — `Tabs`' decision one
+control over — and its editor is a private `ComboEditor : TextBox` overriding `NativeRole` and
+or-ing `Expandable`/`Expanded` into the base's `Editable`. **A role assignment would have needed the
+expanded state written into `DeclaredAccessibleState` from an `OpenChanged` handler**, which is a
+second copy of "is the list open" kept by a callback — the one thing this design does not do.
+`TextBox` lost its `sealed` for this, and says why on the type; nothing else derives from it.
+
+⚠ **`AccessibleDescription` was the second, and it is fed in three places now** rather than recorded
+as owed. It had a working relation path and no control in either assembly used it — this
+repository's commonest defect, a finished consumer nothing calls.
+
+- **`Tooltip.Attach`** adds `DescribedBy` from the target to the tooltip. This is the textbook use
+  and the one with a real consequence: a tooltip is shown by *hovering*, which is a gesture a
+  screen-reader user does not make, so a sentence written for one kind of user was withheld from
+  another. It is read on demand, so it is right before the tooltip has ever opened.
+- **`Alert` and `EmptyState`** describe themselves with the sentence under the heading: the heading
+  is the name and the sentence is the description, which is two elements rather than one string.
+- **`PropertyGrid`'s reset buttons** are described by their rows. Forty buttons all say "Reset", and
+  walking them announced the same word forty times with no way to tell which member each acts on.
+
+⚠ **Three states are the framework's and none of the 59 re-adds one.** Every expanded, selected,
+pressed and checked bit is read from `ElementState`, which the control was already setting for the
+cascade, so there is no second copy anywhere and no handler keeping one in step.
+
+**Five words were added to `ControlStrings`, and they are a category the catalogue did not have
+before**: `ScrollBarVertical`, `ScrollBarHorizontal`, `ColorPickerHex`, `GradientEditorSpace`,
+`GradientEditorOpacity` — *announced-only* strings. A scroll bar, a hex field and a colour-space
+select have no caption on screen at all, so their only words are the ones a screen reader says; a
+literal there would be an English announcement in a localised window that nobody can see to report.
+⚠ `ScrollBar`'s reads the catalogue in a **virtual** rather than in `OnCreated`, which makes it the
+one name in the set that follows a language change on a bar already on screen.
+
+**Two tests are the gate, and both are about the class rather than the instances.** A reference
+window per assembly asserted with `Unnamed`, and — the one that cannot be forgotten to update — a
+*reflection sweep over the assembly's own type list*: every public `Control` with a parameterless
+constructor is built and held to "a tab stop must be in the accessibility tree". A window is a list
+somebody has to remember to add to; a type list is not. It found three holes while it was being
+written: `ColorPicker`'s hex field and `GradientEditor`'s colour-space select and opacity slider,
+all three fields whose purpose is carried by a caption that does not exist. **Sabotaged four ways**:
+dropping `TreeRow`'s role names it in two tests, dropping `DataCell`'s name in two, dropping
+`Slider`'s role in three (including the reflection sweep, as
+`Slider is a tab stop and is not in the accessibility tree`), and dropping `ScrollBar`'s name in
+three.
+
+**Left `None` on purpose, which is most of what is left:** `Panel`, `Card`, `Accordion`, `Expander`,
+`ScrollView`, `Tabs`, `KeyValueList`, `Popover`, `Icon`, `TextBlock`, `Skeleton`,
+`KeyboardShortcut`, `VirtualizingPanel`, `VirtualizingGrid`. A tree that reported those would read a
+four-field form as thirty nested groups.
+
+⚠ **Genuinely owed, and it is one thing rather than a list.** The pointer-only sub-parts of the
+canvases — `ColorField`, `ColorStrip`, `ColorSwatch`, `GradientRail`, `NodeItem`, `TimelineTrack`,
+`ViewportGizmo` — have no role. Giving them one would be worse than not: none of them is keyboard
+reachable, so a screen reader would announce a set of widgets that cannot be operated. What they
+need first is a keyboard, and that is a control change rather than an accessibility one.
+
+⚠ **One thing the second reference window cost, and it is a fact about `Strings` rather than about
+accessibility.** `Strings.Use` is a process-wide static, and xunit runs test *classes* in parallel —
+so a reference window built under a pseudo-locale had its catalogue swapped out from under it by the
+class next door. The symptom is the worst shape there is: one test failing in a full run and passing
+on its own. Both assemblies now have a `SharedCatalogue` collection with
+`DisableParallelization = true`, and the run was repeated three times each side to say so.
+
+⚠ **And one limitation of the tree itself, unchanged by this and worth stating.** A state a control
+*computes* — expanded, selected, checked — does not raise `AccessibilityInvalidated`; only structure
+and focus do. That is A2's design and it is right for a bridge that caches and diffs, but a bridge
+that waited for the event before re-reading a node would miss a checkbox being ticked. It is written
+down here rather than fixed per control, because fixing it per control is the callback the whole
+design avoids.
+
+#### Reconciled with § A3, and what the intersection turned out to be
+
+✅ **A2 and A3 landed hours apart on the same controls and nobody had checked they agreed.** A control
+whose visible label is localised while its accessible name is an English literal announces one thing
+and displays another, and **neither suite can see it** — an accessibility test asserts the name
+exists, a localisation test asserts the label translates. Worse, the two categories are
+indistinguishable from outside: `NativeAccessibleName` is *computed*, so a control that answers from
+what it already shows is localised for free and a control that answered with a literal of its own is
+not, and both compile and both pass.
+
+**The enumeration, since the interesting number is small enough to state.** There are exactly **two**
+`NativeAccessibleName` overrides in both control assemblies: `ButtonBase` (`=> Label`) and `TextField`
+(`=> null`, § A2's stated decision, correct, and left alone). **Neither hardcodes a literal, and
+nothing else overrides the member at all** — so the drift this looked for does not exist. What the
+intersection with `ControlStrings`' thirteen call sites actually contains is:
+
+| Sites | What reaches the accessible name | Verdict |
+|---|---|---|
+| **11** — every `ClearButton`/`CloseButton`/`Toggle`/`Reset`/`Eyedropper`/arrow | `ButtonBase.NativeAccessibleName => Label`, and the label is the catalogue's | ✅ Localised, with nothing written for it |
+| `PropertyGrid.cs:117` | Nothing. The string went to `Placeholder`, and a `TextField`'s name is `null` on purpose | ⚠ **Announced nothing at all** — fixed by naming it from the same `StringId`, one line under the placeholder |
+| `ColorPicker.cs:486` | Nothing. The string is on a caption element and the slider beside it had no relation to it | ⚠ **Announced nothing at all** — fixed by one `LabelledBy` |
+
+Both defects are the same shape and neither is a hardcoded literal: **a translated word on screen that
+no element in the accessibility tree was reading.** That is the failure mode a reconciliation of these
+two sections was always going to find, and it is invisible to an instance-by-instance test because
+there was no instance to assert about.
+
+⚠ **The test is written against the declarations rather than against the controls, which is the only
+shape that survives the rest of the population.** `AccessibilitySnapshot.Untranslated(root, ids)`
+reports every element in a tree whose accessible name or description is still the `Source` text of a
+declaration the catalogue has a translation for; a declaration with no translation loaded is skipped,
+because the source text is the right answer when nothing translates it. The two reference windows —
+one per control assembly, since the test projects cannot see each other — assert `Unnamed` first (a
+tree with nothing in it satisfies everything else), then that every string the window exists to
+exercise is actually audible in it, then `Untranslated`. **Sabotaged twice**: reverting
+`Dialogs.cs:91` to the literal `"Close"` fails it with
+`<icon-button> is named "Close", which is the source text of ui.control.dialog.close`, and reverting
+the property grid's name to `"Search"` fails both the class assertion and the focused regression.
+
+⚠ **A pseudo-locale rather than a Czech table.** A hand-written translation table needs a row every
+time a string is declared, and a class test that has to be edited to keep covering the class has
+become the instance test it replaced.
 
 ### A3 — The string catalogue: promoted, and read through a signal
 
@@ -411,6 +547,52 @@ carries it as owed against `Vixen.Editor.Ui`; and `EditorStrings.cs:9` says the 
 hand until it does"*. So *"an id used nowhere and an id declared nowhere are both build errors"* is
 owed on both sides of the fence.
 
+> ✅ **Closed on Vixen's side, 2026-08-25, as a check rather than as a generator — and the constraint
+> below is why.** This section says the declaration shape is what is worth having upstream and that
+> Trinix will build its own generator either way. A generator here would have had to invent
+> catalogue *source* for Vixen, which is the decision this section declines to make; a check needs
+> no source file, holds for a hand-written declaration class and a generated one identically, and is
+> what lets an independently written generator's output be verified against the shape rather than
+> trusted to match it. **The declaration shape did not change in any respect.**
+>
+> Four instruments, no generator. `Vixen.Ui.Generators.StringDeclarationAnalyzer` — which travels
+> with the analyzer both control assemblies and the editor shell already name, so **both**
+> declaration classes are covered rather than the editor's alone — reports `VXS0310` for a
+> declaration missing from its `All` list, `VXS0311` for two declarations under one id, and
+> `VXS0312` for a `StringId` built outside the declaration class of an assembly that has one.
+> `nuke CheckStrings` reads every `.cs` and `.vxml` in the tree for the half no compilation can see:
+> **an id declared and used nowhere**, which is undecidable inside one compilation because six of
+> `ControlStrings`' declarations are used only from `Vixen.Ui.Controls.Advanced` and because a rule
+> counting the `All` list as a use would pass on everything. It also refuses a call site that
+> rebuilds an id a declaration class already declares — the cross-assembly case the analyzer cannot
+> see, because an id is a value in an initialiser and metadata does not carry it. The fourth is the
+> compiler: a call site naming a member no declaration class has is CS0117 and always was, which is
+> half of *"an id declared nowhere"* met before any of this.
+>
+> ⚠ **Seven declarations failed it on the day it was written**, which is the only reason to believe
+> it can. Five were strings nothing showed (`MenuView`, `NotificationsTitle`, `NotificationsEmpty`,
+> `KeyBindingConflict`, `DialogOk`) and are deleted. Two were the defect this row is named after:
+> `CommandUndo` and `CommandRedo` declared `editor.command.edit.undo`/`.redo` while
+> `EditorApplication.cs:2738` registered the commands with
+> `new StringId("editor.command.undo", "Undo")` — **the id in the translator's template and the id
+> the editor looked up were different strings**, and the editor's Undo item was untranslatable.
+>
+> ⚠ **The `"OK"`/`"Cancel"` row this section left owed to itself is closed in the same commit.**
+> `DialogService`'s two default button labels were literals only because the catalogue was
+> unreachable from a control assembly; they are `ControlStrings.DialogConfirm` and
+> `ControlStrings.DialogCancel` now, read per call rather than cached in a static so that a static
+> initialiser does not freeze them in whichever language opened the first dialog. Fifteen
+> declarations, not thirteen.
+>
+> ⚠ **Owed, and stated as a number rather than as a feeling.** 178 ids are built at call sites in
+> the editor's module assemblies and declared in no class at all, so a translator's template is
+> short by more than half of what the editor says. `CheckStrings` logs the count as a
+> *measurement* and does not fail on it: closing it is a migration across nine assemblies, and a
+> handful of those ids cannot be declared at all — `WaterMode.cs:247` builds
+> `"editor.command." + id` in a loop over a mode's tools. **That last point is a fact about the
+> declaration shape and belongs to this section**: a shape that cannot express a computed id means
+> `StringId`'s constructor has to stay public, in Vixen and in Trinix's generated code alike.
+
 ⚠ **Trinix is not asking Vixen to build it.** Trinix is building its own — a `Strings.yaml` →
 declarations generator in `Trinix.Sdk.Generators`, because the catalogue source and the tooling are
 Trinix's by its own scope rule — and it will build it whether or not Vixen does. **What is worth
@@ -476,11 +658,15 @@ test could be made to fail without it. The teardown is a private `Finish` both c
 and then `CancelAll`s, in that order, and a weak-reference test with a live control case proves the
 disposed service is collectable and the undisposed one is not.
 
-⚠ **Owed, and it is § A3's row rather than this one's.** The default labels are the literals `OK` and
-`Cancel`, because `StringId` and the catalogue are still in `Vixen.Editor.Ui` and cannot be reached
-from a control assembly. That is byte-identical to what `EditorStrings.DialogOk`/`DialogCancel`
-resolved to and no shipped catalogue overrides either, so nothing regressed — but a localised
-application has to pass its own labels until A3 lands.
+~~⚠ **Owed, and it is § A3's row rather than this one's.**~~ ✅ **Closed 2026-08-25.** The default
+labels were the literals `OK` and `Cancel` because `StringId` and the catalogue were still in
+`Vixen.Editor.Ui` and could not be reached from a control assembly. They are
+`ControlStrings.DialogConfirm` and `ControlStrings.DialogCancel` now — **read per call rather than
+cached in a static**, because a static initialiser runs once and would freeze the words in whichever
+language happened to open the first dialog. `EditorStrings.DialogOk` is gone with them: the shell's
+confirming button always says something more specific — Open, Replace, Discard — so the generic one
+was declared, shown nowhere, and sat in every translator's template as a word the editor does not
+say. `CheckStrings` is what found it.
 
 ### Acceptance, in four lines
 
@@ -624,10 +810,10 @@ strands the work.
 | Ask | EM | How much to trust it |
 |---|---|---|
 | **A1** — 45 steps 3 and 5 | **0.5** | Good. 45 costed all five steps at 1.5 EM and re-estimated downward after step 1 came in at a day; steps 3 and 5 are the two it calls unaffected by the design question that blocked step 2 |
-| **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1. ✅ **The API and the criterion landed in one sitting**, and the reason the population turned out to be the cheap half is in A2's landing note: a control's role and name are *virtual members*, so `ButtonBase` covered every pressable control in the assembly in one edit. What remains of the population is mechanical |
+| **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1. ✅ **The API and the criterion landed in one sitting**, and the reason the population turned out to be the cheap half is in A2's landing note: a control's role and name are *virtual members*, so `ButtonBase` covered every pressable control in the assembly in one edit. ✅ **And the population is finished**, both assemblies, in a second sitting: 59 types overriding a virtual and nine more establishing a relation. The "mechanical" claim held for all but two shapes — `ComboBox`, which needed a derived text box so that `aria-expanded` could stay computed, and `AccessibleDescription`, which had a working relation path no control used and now has three. The population also found three unnamed fields nobody had a caption for, which is what a reflection sweep over the type list buys over a reference window |
 | ~~**A3a** — promote the catalogue, split the YAML off, make the lookup a signal~~ | ~~0.4~~ ✅ | Good, and it was: a file move, a dependency split and one field becoming a `Signal<T>`. What the estimate did not carry is the tail — thirteen files needing a `using`, five of them inside raw-string plugin sources a plain `grep -L` reports as already having one, and `Strings.Template`'s signature |
 | ~~**A3b** — the twelve control literals through the catalogue~~ | ~~0.1~~ ✅ | Good on shape, wrong on arithmetic: thirteen call sites, twelve distinct strings, thirteen declarations. The two it missed cost the sweep that found them rather than the work |
-| **A3c** — `Strings.Resource` | **0.5** | Fair, and **not asked for** — carried so the total is honest if Vixen chooses to close its own owed row |
+| ~~**A3c** — `Strings.Resource`~~ | ~~0.5~~ ✅ | **Fair for the wrong artefact.** The estimate priced a generator; what closed the row is an analyzer plus a Nuke gate, because a generator needs catalogue source and this section declines to say where that lives. Roughly the same size, and it bought something the generator would not have: the check holds for *any* declaration class, including one a generator outside this repository emits |
 | **A4** — the dialog service | **0.25** | ✅ **Built 2026-08-25 and the figure held.** A move plus generalising `Pump` onto the document's frame — which turned out to mean `UiDocument.Ticked` rather than a host call, for 45 step 5's reason. What the estimate did not carry: a threading contract that was not written down anywhere, and six sabotages |
 | **Total, asked for (A1 + A2 + A3a + A3b + A4)** | **3.25** | |
 | Total including A3c | 3.75 | |

@@ -130,6 +130,109 @@ public static class AccessibilitySnapshot {
         return offenders;
     }
 
+    /// <summary>The elements under an element whose announced words are still the source language.</summary>
+    /// <param name="root">Where to start.</param>
+    /// <param name="declarations">
+    ///     The declared strings to hold the tree to — <c>ControlStrings.All</c> for the standard
+    ///     control set, plus whatever the application declares.
+    /// </param>
+    /// <returns>A description of each offender, in tree order. Empty when there are none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="root" /> or <paramref name="declarations" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The gate for the one defect neither an accessibility test nor a localisation test
+    ///         can see, because each asserts its own half.</b> An accessible name is answered by a
+    ///         virtual, and a control that reads what it already shows gets the catalogue for free
+    ///         while a control that answers with a literal of its own does not. The two are
+    ///         indistinguishable from outside: both compile, both pass, and in English both look
+    ///         right. The difference only appears in another language, as an element that
+    ///         <i>displays</i> the translation and <i>announces</i> the English.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written against the declarations rather than against a list of controls, which
+    ///         is what stops it rotting.</b> A test naming the controls it knows about is a test
+    ///         that says nothing about the next one populated. This asks a different question —
+    ///         <i>is any announced word in this window still the source text of a string that has a
+    ///         translation loaded</i> — and the answer stays meaningful as controls are added, as
+    ///         strings are added, and as names move between the two.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A declaration whose translation is missing is skipped rather than reported.</b>
+    ///         The source text <i>is</i> the right answer when nothing translates it — that is the
+    ///         whole design of <see cref="StringId" /> — so an id the test's catalogue did not
+    ///         cover would otherwise make every correct control an offender. What is left is
+    ///         exactly the ids that had somewhere else to go and did not.
+    ///     </para>
+    ///     <para>
+    ///         Both the name and the description are checked: a description is read out after the
+    ///         name and is as much a part of what the control says.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Untranslated(UiElement root, IReadOnlyList<StringId> declarations) {
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(declarations);
+
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var declaration in declarations) {
+            // The guard the remarks describe, and the reason the map is built per call rather than
+            // once: `Text` is a read of the catalogue signal and the catalogue is what changes.
+            if (!string.Equals(declaration.Source, declaration.Text, StringComparison.Ordinal)) {
+                sources[declaration.Source] = declaration.Id;
+            }
+        }
+
+        var offenders = new List<string>();
+
+        if (sources.Count > 0) {
+            Stale(root, sources, [], offenders);
+        }
+
+        return offenders;
+    }
+
+    static void Stale(
+        UiElement element,
+        Dictionary<string, string> sources,
+        HashSet<UiElement> seen,
+        List<string> offenders
+    ) {
+        if (!seen.Add(element)) {
+            return;
+        }
+
+        if (element.IsInAccessibilityTree) {
+            Stale(element, element.AccessibleName, "named", sources, offenders);
+            Stale(element, element.AccessibleDescription, "described as", sources, offenders);
+        }
+
+        foreach (var child in element.Children) {
+            Stale(child, sources, seen, offenders);
+        }
+
+        // ⚠ And what this element owns, which is not its child. A `Select`'s options are in a
+        // popover parented to the document root — a walk that only followed `Children` from a
+        // control would never reach them, and they are exactly the elements whose words came from
+        // somewhere else.
+        foreach (var relationship in element.AccessibleRelationships) {
+            if (relationship.Relation == AccessibleRelation.Owns) {
+                Stale(relationship.Target, sources, seen, offenders);
+            }
+        }
+    }
+
+    static void Stale(
+        UiElement element,
+        string? said,
+        string what,
+        Dictionary<string, string> sources,
+        List<string> offenders
+    ) {
+        if (said is not null && sources.TryGetValue(said, out var id)) {
+            offenders.Add($"<{element.Tag}> is {what} \"{said}\", which is the source text of {id}");
+        }
+    }
+
     static void Audit(UiElement element, List<string> offenders) {
         var role = element.Role;
 

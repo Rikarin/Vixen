@@ -165,6 +165,7 @@ override Vixen.Ui.Testing.UiSubject.ToString() -> string
 override Vixen.Ui.Testing.Visual.ImageComparison.ToString() -> string
 static Vixen.Ui.Testing.AccessibilitySnapshot.Render(Vixen.Ui.UiElement root) -> string
 static Vixen.Ui.Testing.AccessibilitySnapshot.Unnamed(Vixen.Ui.UiElement root) -> System.Collections.Generic.IReadOnlyList<string>
+static Vixen.Ui.Testing.AccessibilitySnapshot.Untranslated(Vixen.Ui.UiElement root, System.Collections.Generic.IReadOnlyList<Vixen.Ui.StringId> declarations) -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Testing.UiTest.Adopt(Vixen.Ui.UiDocument document, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
 static Vixen.Ui.Testing.UiTest.Create(float width = 1280, float height = 720, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
 static Vixen.Ui.Testing.Visual.ImageComparer.Compare(in Vixen.Core.Imaging.Bitmap rendered, in Vixen.Core.Imaging.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.ImageComparison

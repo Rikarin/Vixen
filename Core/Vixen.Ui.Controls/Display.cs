@@ -67,6 +67,15 @@ public sealed partial class Badge : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>status</c>. A badge is a count or a state attached to something else, and it is
+    ///     the half of that pairing that changes — an unread count going from three to four is a
+    ///     thing a screen-reader user is entitled to hear about without walking back to it. The
+    ///     name is its own <c>Text</c>, from the base.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Status;
 }
 
 /// <summary>A person or an entity, as a circle with their initials in it.</summary>
@@ -83,6 +92,23 @@ public sealed partial class Avatar : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>img</c> — the member is <see cref="AccessibleRole.Img" /> because lowercasing a
+    ///     member name is the ARIA token for every member with no exception table beside it.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Img;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="Name" /> and not the initials, and this is the case that makes the
+    ///     distinction worth a line.</b> "AC" is what fits in a circle; it is not what a person is
+    ///     called, and a screen reader spelling out two letters has told the user nothing. The
+    ///     initials are the fallback only when nobody said who it is, which is the same order the
+    ///     control derives them in.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Name ?? Text;
 
     /// <summary>Who it is. Setting it sets the initials.</summary>
     [UiProperty(Changed = nameof(OnNameChanged))]
@@ -161,6 +187,21 @@ public sealed partial class Image : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Img;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="Description" /> was documented as being "for the accessibility bridge"
+    ///     before there was one, and this line is the first thing that reads it.</b> Not
+    ///     <see cref="Source" />: an asset name is a path, and a screen reader reading
+    ///     <c>ui/icons/warning@2x</c> out loud is the worst of the three available answers. An
+    ///     image nobody described reports <c>null</c>, which for a decorative picture is correct
+    ///     and for a meaningful one is what a gate should fail on — nothing here can invent a name
+    ///     for a texture.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Description;
 
     /// <summary>What to show, named the way the application's asset system names things.</summary>
     [UiProperty]

@@ -44,16 +44,37 @@ namespace Vixen.Core.Yaml;
 ///     </para>
 /// </remarks>
 public static class MathScalars {
+    static readonly Lock Gate = new();
+
     static bool registered;
 
     /// <summary>Registers them, once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Once means once even when two threads ask at the same moment, and the flag alone did
+    ///     not give that.</b> It was set <i>before</i> the converters were registered and read
+    ///     without a barrier, so a second thread could see <c>true</c> and return while the first was
+    ///     still halfway down the list — and then bind a document containing a <c>Vector3</c> against
+    ///     a table that did not have one yet, which surfaces as a <c>YamlBindingException</c> about a
+    ///     perfectly good asset. Fourteen importers call this from their static constructors, and the
+    ///     CLR's per-type initialization lock does not serialise fourteen different types against
+    ///     each other; a parallel import is what makes the window wide enough to hit.
+    /// </remarks>
     public static void Register() {
-        if (registered) {
+        if (Volatile.Read(ref registered)) {
             return;
         }
 
-        registered = true;
+        lock (Gate) {
+            if (registered) {
+                return;
+            }
 
+            RegisterAll();
+            Volatile.Write(ref registered, true);
+        }
+    }
+
+    static void RegisterAll() {
         // Plain style throughout: these are numbers separated by spaces and quoting them would make
         // a hand-edited file's quotes meaningful, which is a trap rather than a feature.
         YamlScalarConverters.Register(

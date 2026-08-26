@@ -20,10 +20,22 @@ namespace Vixen.Core.Serialization.Storage;
 ///         and at edit time, where most of a reimport produces artefacts identical to the last one,
 ///         that is most of the writes.
 ///     </para>
+///     <para>
+///         ⚠ <b>Two threads writing one id is the ordinary case, not an exotic one</b>, and it used
+///         to fail an asset. Content addressing means two assets that import to identical bytes
+///         produce identical ids on purpose — so a parallel import reaches this with the same id from
+///         two threads, both see the file absent, and both open it. The provider opens with
+///         <c>FileShare.None</c>, so the loser gets a sharing violation reported as
+///         "&lt;importer&gt; threw", about a file that is perfectly good. <see cref="Write" /> claims
+///         an id before it opens anything and the second caller is told what it would have been told
+///         if the first had already finished: <see langword="false" />, nothing to do.
+///     </para>
 /// </remarks>
 public sealed class FileOdbBackend : IOdbBackend {
     readonly VirtualFileSystem files;
     readonly VirtualPath root;
+    readonly Lock gate = new();
+    readonly HashSet<ObjectId> writing = [];
 
     /// <inheritdoc />
     public bool IsReadOnly { get; }
@@ -74,16 +86,30 @@ public sealed class FileOdbBackend : IOdbBackend {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     The claim covers the whole write and not just the existence check, because the window that
+    ///     matters is the one between opening the file and finishing it — that is where a second
+    ///     caller would collide with a half-written chunk rather than with an absent one.
+    /// </remarks>
     public bool Write(ObjectId id, ReadOnlySpan<byte> blob) {
         ThrowIfReadOnly();
         var path = PathOf(id);
 
-        if (files.Exists(path)) {
-            return false;
+        lock (gate) {
+            if (files.Exists(path) || !writing.Add(id)) {
+                return false;
+            }
         }
 
-        using var stream = files.OpenWrite(path);
-        stream.Write(blob);
+        try {
+            using var stream = files.OpenWrite(path);
+            stream.Write(blob);
+        } finally {
+            lock (gate) {
+                writing.Remove(id);
+            }
+        }
+
         return true;
     }
 

@@ -231,6 +231,42 @@ public sealed partial class CodeEditor : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><c>textbox</c> and not <c>application</c>, which is the opposite call from the four
+    ///     canvases in this assembly.</b> A viewport and a node graph own their keyboard and want a
+    ///     screen reader to pass keys straight through; a code editor is a multi-line text field
+    ///     whose keyboard is the one a screen-reader user already knows, and announcing it as an
+    ///     application would turn off exactly the reading and review commands that make text
+    ///     editable at all.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.TextBox;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><c>null</c>, on <c>TextField</c>'s terms.</b> An editor has no words of its own —
+    ///     what it is an editor *of* is the file, which is the application's sentence and usually
+    ///     the panel title above it. One <see cref="AccessibleRelation.LabelledBy" /> at the call
+    ///     site, and an editor nobody named reports nothing so that a gate can fail it.
+    /// </remarks>
+    protected override string? NativeAccessibleName => null;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Not the buffer's text.</b> A value is what a bridge announces, and announcing a
+    ///     twelve-thousand-line file every time the caret moves is worse than announcing nothing —
+    ///     it is also a string built per read. A real editor bridge reads a line at a time, which is
+    ///     what the platform text APIs are for and is out of this tree's scope.
+    /// </remarks>
+    protected override string? NativeAccessibleValue => null;
+
+    /// <inheritdoc />
+    /// <remarks><see cref="AccessibleStates.MultiLine" /> always: that is what a code editor is.</remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        AccessibleStates.Editable
+        | AccessibleStates.MultiLine
+        | (ReadOnly ? AccessibleStates.ReadOnly : AccessibleStates.None);
+
     /// <summary>The text being edited.</summary>
     /// <remarks>
     ///     Settable, because an editor pane shows one file and then another. Assigning resets the

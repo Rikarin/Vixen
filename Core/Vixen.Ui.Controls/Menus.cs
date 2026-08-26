@@ -18,6 +18,29 @@ public sealed partial class MenuItem : ButtonBase {
     /// <inheritdoc />
     protected override string TagName => "menu-item";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>menuitem</c> rather than the base's <c>button</c>, and the distinction is one a
+    ///     screen-reader user acts on: a menu item is announced with its position in the menu and
+    ///     is understood to be one of a set, where a button stands alone.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.MenuItem;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><see cref="AccessibleStates.Expandable" /> only when there <i>is</i> a submenu,
+    ///     which is the opposite of the rule a combo box follows and is right for the opposite
+    ///     reason.</b> A combo box always opens something, so a missing <c>aria-expanded</c> would
+    ///     be a lie; a menu line usually runs a command, and marking every line expandable would
+    ///     tell a user that every one of them leads somewhere. It is exactly the distinction the
+    ///     arrow glyph makes visually, from the same fact.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        Submenu is null
+            ? AccessibleStates.None
+            : AccessibleStates.Expandable
+            | (Submenu.IsOpen ? AccessibleStates.Expanded : AccessibleStates.None);
+
     /// <summary>The submenu this opens, if it has one.</summary>
     /// <remarks>
     ///     ⚠ <b>Setting it puts the arrow on, which is why this is not an automatic property.</b> A
@@ -139,6 +162,18 @@ public sealed partial class MenuItem : ButtonBase {
 public partial class Menu : Overlay {
     /// <inheritdoc />
     protected override string TagName => "menu";
+
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Menu;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Label" />, which is what the item that drops this menu says — see that
+    ///     property for why the name lives on the menu rather than on the item. A free-standing
+    ///     menu opened by code has no opener and therefore no name, which is the honest answer
+    ///     rather than an invented one.
+    /// </remarks>
+    protected override string? NativeAccessibleName => Label;
 
     /// <summary>The items, in order, not counting separators.</summary>
     /// <remarks>
@@ -571,6 +606,19 @@ public sealed partial class MenuBarItem : ButtonBase {
     /// <inheritdoc />
     protected override string TagName => "menu-bar-item";
 
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.MenuItem;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Always expandable, unlike a <see cref="MenuItem" />: a name on a bar exists to drop a
+    ///     menu and there is no other kind. The null guard is for the instant between the element
+    ///     being created and the bar adopting it, which markup goes through for every tag.
+    /// </remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        AccessibleStates.Expandable
+        | (Menu is { IsOpen: true } ? AccessibleStates.Expanded : AccessibleStates.None);
+
     /// <summary>The menu it drops.</summary>
     public Menu Menu { get; internal set; } = null!;
 }
@@ -588,6 +636,15 @@ public sealed partial class MenuBar : Control {
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>menubar</c>. ⚠ Unlike a <c>Tabs</c>, whose outer element is deliberately nothing,
+    ///     a menu bar <i>is</i> the thing its items belong to — the menus themselves are root
+    ///     children so that a dropdown can spill past the strip, and without this element there
+    ///     would be nothing in the tree saying the names along the top are one set.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.MenuBar;
 
     /// <summary>The names on the bar, in order.</summary>
     /// <remarks>

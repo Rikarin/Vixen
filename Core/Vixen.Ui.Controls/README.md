@@ -215,13 +215,56 @@ placed beside the item that opens it, so reaching into it means leaving that ite
 rule would shut the menu the user is reaching for, every time, and no nested command would be
 reachable with the mouse at all.
 
+## What the set says to a screen reader
+
+Every control here carries a role, and every one with words of its own carries a name. It costs the
+control a **virtual member** rather than a field — see
+[docs/guide/ui/accessibility](../../docs/guide/ui/accessibility.md) — so a `CheckBox` reads its own
+`IsChecked` when asked and there is no second copy to keep in step.
+
+⚠ **A layout element is deliberately not in the tree.** `Panel`, `Card`, `Expander`, `Accordion`,
+`ScrollView`, `Tabs`, `KeyValueList`, `Popover`, `Icon`, `TextBlock`, `Skeleton`,
+`KeyboardShortcut` and both virtualisers answer `AccessibleRole.None`, and a bridge reads through
+them. A tree that reported all of those would announce a four-field form as thirty nested groups.
+
+⚠ **Three kinds of control report *no name*, and that is the design.** `TextField` and its
+subclasses, `Slider` and `RangeSlider` have no words of their own; a placeholder is a
+hint that vanishes once there is a value, and a number is not a name. An unlabelled one answers
+`null` so that a gate can fail it, and `AddAccessibleRelation(AccessibleRelation.LabelledBy, caption)`
+is how one gets a name. A `KeyValueList` row does it for whatever `Content<T>()` puts in it.
+
+⚠ **`ComboBox` is the one control whose role is not on the control.** ARIA 1.2's editable combo box
+puts `role="combobox"` on the *text input* — the input takes the focus and the input is what
+`aria-expanded` is read from — so the outer element is `None` and the editor is a derived `TextBox`
+that or-s the two expansion states into the base's `Editable`. Assigning the role instead would have
+meant writing `aria-expanded` into `DeclaredAccessibleState` from an `OpenChanged` handler, which is
+a second copy of "is the list open". `TextBox` is unsealed for exactly this and nothing else derives
+from it.
+
+⚠ **`Tooltip.Attach` also says the tooltip *describes* what it is attached to.** A tooltip is shown
+by hovering, and a hover is a gesture a screen-reader user does not make — so without the relation a
+sentence written for one kind of user is withheld from another. It is read on demand, so it is right
+before the tooltip has ever opened.
+
+The gate is `Core/Vixen.Ui.Controls.Tests/AccessibilityTreeTests.cs`, and two of its tests are about
+the class rather than the instances: a reference window asserted with `AccessibilitySnapshot.Unnamed`,
+and a **reflection sweep over the assembly's own type list** — every public control with a
+parameterless constructor built and held to "a tab stop must be in the accessibility tree". A window
+is a list somebody has to remember to add to; a type list is not.
+
 ## The words the set says
 
-`ControlStrings` is thirteen `StringId` declarations — "Clear" in a search box, "Dismiss" on a toast,
+`ControlStrings` is twenty `StringId` declarations — "Clear" in a search box, "Dismiss" on a toast,
 "Previous tab" on a docked group, "Search" in a property grid — plus an `All` list for a translator's
-template. Every one of them was an English literal in a control constructor until doc 46 § A3 counted
+template. Thirteen of them were English literals in a control constructor until doc 46 § A3 counted
 them: a localised window had an untranslatable seam in the one place a user cannot avoid looking, and
-the only party who could close it was this repository. See
+the only party who could close it was this repository.
+
+⚠ **Five of them are never drawn.** A scroll bar, a colour picker's hex field and a gradient
+editor's colour-space select and opacity slider have no caption on screen at all, so their only
+words are the ones a screen reader says — and a literal there is an English announcement in a
+localised window that nobody can see to report. `ScrollBar` reads its two in a *virtual*, which makes
+it the one name in the set that follows a language change on a control already on screen. See
 [docs/guide/ui/strings](../../docs/guide/ui/strings.md).
 
 ⚠ **One class covering `.Advanced` as well**, which references this assembly. A second declaration
@@ -233,10 +276,32 @@ and are not the same string, and an id that says *where* a string is used is wha
 distinguish them. Merging them saves a line and cannot be undone without a translator's file changing
 shape.
 
+⚠ **`DialogConfirm` and `DialogCancel` are defaults rather than labels.** `DialogService.Confirm`
+falls back to them when the caller does not name its buttons, and it reads them *per call* rather
+than caching them in a static — a static initialiser runs once and would freeze the words in
+whichever language happened to open the first dialog. They were the literals `"OK"` and `"Cancel"`
+until the catalogue became reachable from here, which is the row doc 46 § A3 recorded as owed to
+itself.
+
 ⚠ **The labels are read in `OnCreated`, so a control shows the language it was built in.** That is
 not a live binding: `Strings.Catalog` is a signal and an *expression* that reads it re-runs, but an
 assignment in a constructor is not an expression. Re-labelling a live control set would need an
 effect per label and somewhere to dispose it — listed under the gaps below.
+
+⚠ **The class is checked rather than trusted**, by `StringDeclarationAnalyzer` in
+`Vixen.Ui.Generators`, which this project names as an analyzer: a declaration missing from `All` is
+`VXS0310`, two declarations under one id are `VXS0311`, and a `StringId` built anywhere else in this
+assembly is `VXS0312`. The half that needs the whole tree — a declaration used nowhere, which cannot
+be decided here because ten of the twenty are used only from `.Advanced` — is `nuke CheckStrings`.
+
+⚠ **And a translated label is not by itself a translated control.** What a screen reader says is the
+accessible name, which is *computed*: `ButtonBase` answers with its `Label`, so eleven of the thirteen originals
+declarations reach a screen reader with nothing written for them. The two that did not — a string
+that went to a `Placeholder`, which is deliberately not a name, and a caption element no control had
+related a slider to — showed the translation and announced nothing at all, and neither a localisation
+test nor an accessibility test could see it because each asserts its own half.
+`AccessibilitySnapshot.Untranslated(root, ControlStrings.All)` is the assertion that spans them, and
+`Core/Vixen.Ui.Controls.Tests/AccessibleNameLocalisationTests.cs` is a reference window held to it.
 
 ## Known gaps
 

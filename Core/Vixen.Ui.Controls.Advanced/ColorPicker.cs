@@ -367,6 +367,15 @@ public sealed partial class ColorPicker : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>group</c>: a picker is several controls that belong together, and a screen reader
+    ///     that announced them as loose siblings of whatever is around them would lose the one fact
+    ///     that makes a hex field and two bands mean anything. Unnamed by default — what colour is
+    ///     being picked is the application's sentence.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Group;
+
     /// <summary>The two-dimensional field.</summary>
     public ColorField Field { get; private set; } = null!;
 
@@ -473,6 +482,12 @@ public sealed partial class ColorPicker : Control {
         HexField.AddClass("color-hex");
         HexField.Submitted += _ => HexEntered();
 
+        // ⚠ Named rather than left to a caption, because there is no caption: the field sits beside
+        // a swatch and its purpose is carried entirely by the six characters in it. Through the
+        // catalogue, on `PropertyGrid`'s terms — a word only a screen reader ever hears is still a
+        // word a translator has to be given.
+        HexField.AccessibleName = ControlStrings.ColorPickerHex.Text;
+
         Eyedropper = row.Add<IconButton>();
         Eyedropper.LeadingIcon.Geometry = ControlIcons.Search;
         Eyedropper.Label = ControlStrings.ColorPickerEyedropper.Text;
@@ -486,6 +501,15 @@ public sealed partial class ColorPicker : Control {
         caption.Text = ControlStrings.ColorPickerIntensity.Text;
 
         IntensitySlider = hdr.Add<Slider>();
+
+        // ⚠ **The caption is the slider's name, and saying so is the only thing that makes the
+        // translation reach a screen reader.** The words above are localised — they are
+        // `ControlStrings.ColorPickerIntensity` — but a caption is a separate element, and a slider
+        // beside words it is not related to announces nothing at all. One `LabelledBy` is the whole
+        // of it, and it costs the caption nothing: the relation reads the target's accessible name
+        // on demand, so a re-labelled caption re-labels the slider with no second write.
+        IntensitySlider.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
+
         IntensitySlider.Minimum = 0f;
         IntensitySlider.Maximum = 16f;
         IntensitySlider.Value = 1f;
@@ -738,6 +762,21 @@ public sealed partial class ColorInput : Control {
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>button</c>: what this element does is open the picker. It is a widget role and so
+    ///     carries a naming obligation, which is right — a swatch in a row is a colour of
+    ///     <i>something</i>, and only the application knows what. One
+    ///     <see cref="AccessibleRelation.LabelledBy" /> at the call site, and an inspector row does
+    ///     it for you.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Button;
+
+    /// <inheritdoc />
+    /// <remarks>Expandable unconditionally, on <c>Select</c>'s terms: it always opens something.</remarks>
+    protected override AccessibleStates NativeAccessibleState =>
+        AccessibleStates.Expandable | (IsOpen ? AccessibleStates.Expanded : AccessibleStates.None);
+
     /// <summary>The box that is drawn in the row.</summary>
     public ColorSwatch Swatch { get; private set; } = null!;
 
@@ -799,6 +838,10 @@ public sealed partial class ColorInput : Control {
         Popup = Document.Root.Add<Popover>();
         Popup.AddClass("color-popup");
         Popup.Placement = Placement.Bottom;
+
+        // The popup is a root child for `SelectBase`'s reason, so the same statement is needed: the
+        // picker in it belongs to this element although the tree says otherwise.
+        AddAccessibleRelation(AccessibleRelation.Owns, Popup);
 
         Picker = Popup.Content.Add<ColorPicker>();
 

@@ -422,6 +422,13 @@ public sealed partial class Tooltip : Overlay {
     /// <inheritdoc />
     protected override string TagName => "tooltip";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ARIA <c>tooltip</c>. Its name is its own <c>Text</c>, from the base — <see cref="Label" />
+    ///     is that text under another name.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Tooltip;
+
     /// <summary>How long the pointer must rest before it appears.</summary>
     [UiProperty]
     public partial TimeSpan Delay { get; set; }
@@ -463,6 +470,15 @@ public sealed partial class Tooltip : Overlay {
 
     /// <summary>Attaches it to an element, so that hovering that element shows it.</summary>
     /// <param name="target">The element.</param>
+    /// <remarks>
+    ///     ⚠ <b>Attaching also says that this tooltip <i>describes</i> the target, and that is the
+    ///     textbook use of <see cref="AccessibleRelation.DescribedBy" />.</b> A tooltip is shown by
+    ///     hovering, which is a gesture a screen-reader user does not make — so a tooltip that was
+    ///     only ever a hover behaviour is a sentence written for one kind of user and withheld from
+    ///     another. The relation puts it in <c>AccessibleDescription</c>, read on demand, whether or
+    ///     not the tooltip is open: an announcement of what the button does is wanted at the moment
+    ///     the button is reached, not half a second after the pointer stops on it.
+    /// </remarks>
     public void Attach(UiElement target) {
         ArgumentNullException.ThrowIfNull(target);
 
@@ -470,6 +486,8 @@ public sealed partial class Tooltip : Overlay {
             (element, args) => Crossed(element, args),
             RoutingStrategy.Direct
         );
+
+        target.AddAccessibleRelation(AccessibleRelation.DescribedBy, this);
     }
 
     /// <summary>Tells it what time it is, so that a pointer that has rested long enough shows it.</summary>

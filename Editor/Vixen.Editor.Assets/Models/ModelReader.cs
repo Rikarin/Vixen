@@ -72,6 +72,30 @@ public static class ModelReader {
     /// </remarks>
     static readonly Lazy<AssimpApi> Api = new(AssimpApi.GetApi, isThreadSafe: true);
 
+    /// <summary>What makes one model at a time go through Assimp.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not because the parse is unsafe, but because the error message is.</b>
+    ///         <c>aiImportFileFromMemory</c> builds a private importer per call and hands back a scene
+    ///         this call owns, so two parses do not interfere. <c>aiGetErrorString</c> is the other
+    ///         half of that same call and is <i>not</i> per-call: it reads a process-global buffer the
+    ///         last failure wrote. Two models failing at once therefore get each other's reason — or a
+    ///         torn read of a string being reassigned underneath them, which in native code is not a
+    ///         wrong message but a crash the pipeline cannot catch.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the parse and the reason it failed are one critical section</b>, and everything
+    ///         after it is not: <c>Convert</c> walks a scene nobody else can see, and it is where a
+    ///         model import spends its time. A directory of FBXs still imports in parallel with the
+    ///         textures and scenes beside it; what is serialised is Assimp against Assimp.
+    ///     </para>
+    ///     <para>
+    ///         Owed: the C++ <c>Assimp::Importer::GetErrorString</c> is per-instance and would remove
+    ///         this entirely, and Silk.NET's binding of the C API does not reach it.
+    ///     </para>
+    /// </remarks>
+    static readonly Lock AssimpGate = new();
+
     /// <summary>Reads a model.</summary>
     /// <param name="bytes">The file.</param>
     /// <param name="extension">Its extension, with the leading dot, which tells Assimp what to expect.</param>
@@ -96,14 +120,20 @@ public static class ModelReader {
         var assimp = Api.Value;
         var hint = extension.TrimStart('.').ToLowerInvariant();
         AssimpScene* scene;
+        string reason;
 
-        fixed (byte* data = bytes) {
-            scene = assimp.ImportFileFromMemory(data, (uint)bytes.Length, Flags(settings), hint);
+        lock (AssimpGate) {
+            fixed (byte* data = bytes) {
+                scene = assimp.ImportFileFromMemory(data, (uint)bytes.Length, Flags(settings), hint);
+            }
+
+            // Read inside the section that produced it, because it is a global buffer the next
+            // failing parse overwrites — see AssimpGate. Read even when nothing failed, so that the
+            // section has one exit and the failure path does not have to re-enter it.
+            reason = scene is null || scene->MRootNode is null ? assimp.GetErrorStringS() : string.Empty;
         }
 
         if (scene is null || scene->MRootNode is null) {
-            var reason = assimp.GetErrorStringS();
-
             throw new ModelFormatException(
                 hint == "blend"
                     // Doc 08's own footnote. Assimp's Blender reader handles a narrow range of

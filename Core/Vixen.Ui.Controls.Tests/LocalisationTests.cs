@@ -25,6 +25,7 @@ namespace Vixen.Ui.Controls.Tests;
 ///         assembly depend on the order xunit happened to pick.
 ///     </para>
 /// </remarks>
+[Collection(SharedCatalogue.Name)]
 public class LocalisationTests {
     [Fact]
     public void A_language_change_re_labels_an_interface_that_is_already_on_screen() {

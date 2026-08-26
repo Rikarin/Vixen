@@ -4,11 +4,11 @@ slug: ui/strings
 kind: guide
 area: Core
 summary: A label is an id plus the English it was written as, so a missing translation shows the sentence rather than the id — and the catalogue in use is a signal, so a language change re-labels a running interface with no code at any call site.
-api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Ui.Controls.ControlStrings, T:Vixen.Editor.Ui.StringCatalogYaml]
+api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Ui.Controls.ControlStrings, T:Vixen.Editor.Ui.StringCatalogYaml, T:Vixen.Ui.Generators.StringDeclarationAnalyzer]
 tags: [ui, localisation, strings, i18n, signals]
 since: 0.2
 status: preview
-related: [ui/commands, editor/index]
+related: [ui/commands, ui/accessibility, editor/index]
 ---
 
 ## What it is
@@ -81,6 +81,37 @@ public static class ShopStrings {
 a list an application's trimming settings are entitled to shorten, and `Strings.Template` is what
 turns it into a file a translator starts from.
 
+### What the build checks about that class
+
+Writing every string twice — once as a property, once as a name in `All` — is the cost of the list
+being data. `StringDeclarationAnalyzer` is what compares the two sides, and it ships inside
+`Vixen.Ui.Generators`, so any project that names that analyzer gets it:
+
+| Id | What it refuses |
+|---|---|
+| `VXS0310` | A declared `StringId` that is not in the class's `All` list. It would be in no translator's template and therefore permanently in the source language, and nothing else would ever say so. |
+| `VXS0311` | Two declarations under one id. A catalogue is a map, so the second translation wins and the first string can never be translated separately. |
+| `VXS0312` | A `StringId` built somewhere else in an assembly that already has a declaration class. That assembly has answered the question of where its ids live; a second answer at a call site is a string no template contains. |
+
+⚠ **Analyzers do not travel through a project reference.** Referencing `Vixen.Ui` is not enough —
+the project has to name the analyzer itself, `OutputItemType="Analyzer"`, or set `<VixenUi>true</VixenUi>`
+in this repository, which does it for you.
+
+The other half — **an id declared and used nowhere at all** — is not decidable inside one
+compilation, and the reason is worth knowing before writing a rule for it: a declaration class is
+public, so the assembly that declares a string is usually not the only one that shows it. Six of
+`ControlStrings`' declarations are used only from `Vixen.Ui.Controls.Advanced`. And a rule that
+counted the `All` list as a use would pass on every declaration by construction, which is worse than
+no rule. In this repository that half is `./build.sh CheckStrings`, which reads every `.cs` and
+`.vxml` in the tree; an application outside it wants the equivalent over its own sources.
+
+⚠ **None of this asks the declaration class to be written differently.** The shape above — a
+property per string, an `All` list beside them — is the contract, so a class emitted by a generator
+and one written by hand are interchangeable and a string moved between two projects is a copy rather
+than a translation. A computed id is legitimate and is deliberately not compared: an editor mode that
+registers a command per tool builds `"editor.command." + tool`, which is a shape no declaration class
+can express.
+
 Build a catalogue by hand, or read one from whatever format the application ships:
 
 ```csharp compile
@@ -105,11 +136,17 @@ never load a catalogue at all.
 
 ### The control set's own words
 
-`ControlStrings` is the standard control set's declarations, in exactly the shape above: thirteen
+`ControlStrings` is the standard control set's declarations, in exactly the shape above: eighteen
 labels — "Clear" in a search box, "Dismiss" on a toast, "Previous tab" on a docked group, "Search" in
-a property grid — with `All` beside them. They were English literals in control constructors until
-doc 46 § A3, which meant a localised window had an untranslatable seam in the one place a user cannot
-avoid looking.
+a property grid — with `All` beside them. Thirteen were English literals in control constructors
+until doc 46 § A3, which meant a localised window had an untranslatable seam in the one place a user
+cannot avoid looking.
+
+⚠ **Five of them are never drawn.** A scroll bar, a colour picker's hex field and a gradient
+editor's colour-space select have no caption on screen at all, so their only words are the ones a
+screen reader says — and a literal there is an English announcement in a localised window that
+nobody can see to report. `ScrollBar` reads its two in a *virtual* rather than in `OnCreated`, which
+makes it the one name in the set that follows a language change on a control already on screen.
 
 ⚠ **Two ids for the two "Close"s.** A dialog's dismiss button and a dock tab's are the same English
 word and are not the same string; a language that distinguishes closing a question from closing a
@@ -120,6 +157,15 @@ cannot be undone without a translator's file changing shape.
 built. Choose the language before building the interface. A control set that re-labelled itself would
 need an effect per label and somewhere to dispose it; what is here today makes the words translatable
 at all.
+
+⚠ **A translated label is not by itself a translated control.** What a screen reader says comes from
+[the accessibility tree](accessibility.md), and an accessible name is *computed*: `ButtonBase` answers
+with its `Label`, so eleven of the thirteen declarations above reach a screen reader with nothing
+written for them. The two that did not are the shape to watch for — a string that went to a
+`Placeholder` (which is deliberately not a name) and a string on a caption element that nothing
+related its slider to. Both showed the translation and announced nothing at all, and neither a
+localisation test nor an accessibility test could see it, because each asserts its own half.
+`AccessibilitySnapshot.Untranslated` is the assertion that spans them.
 
 `Strings` is static, and it is the one service here that is. Every other is an instance a shell owns,
 because a document may have two of them; a language is a property of the person using the
@@ -167,5 +213,7 @@ Assert.Empty(Strings.Missing);
 
 * [Commands and the focus route](commands.md) — the other half of a menu item: what it says comes
   from here, who handles it comes from there.
+* [The accessibility tree](accessibility.md) — where a control's words go after they are shown, and
+  the assertion that they arrive in the same language.
 * [The editor shell](../editor/index.md) — `EditorStrings` is this shape, hand-written, and
   `StringCatalogYaml` is the editor's answer to where a catalogue lives.

@@ -271,6 +271,11 @@ Vixen.Graphics.CullMode.Back = 2 -> Vixen.Graphics.CullMode
 Vixen.Graphics.CullMode.CullMode() -> void
 Vixen.Graphics.CullMode.Front = 1 -> Vixen.Graphics.CullMode
 Vixen.Graphics.CullMode.None = 0 -> Vixen.Graphics.CullMode
+Vixen.Graphics.DepthResolveMode -> enum : byte
+Vixen.Graphics.DepthResolveMode.DepthResolveMode() -> void
+Vixen.Graphics.DepthResolveMode.Max = 2 -> Vixen.Graphics.DepthResolveMode
+Vixen.Graphics.DepthResolveMode.Min = 1 -> Vixen.Graphics.DepthResolveMode
+Vixen.Graphics.DepthResolveMode.SampleZero = 0 -> Vixen.Graphics.DepthResolveMode
 Vixen.Graphics.DepthStencilAttachment -> readonly struct
 Vixen.Graphics.DepthStencilAttachment : System.IEquatable<Vixen.Graphics.DepthStencilAttachment>
 Vixen.Graphics.DepthStencilAttachment.ClearDepth.get -> float
@@ -280,11 +285,15 @@ Vixen.Graphics.DepthStencilAttachment.ClearStencil.init -> byte
 Vixen.Graphics.DepthStencilAttachment.DepthLoad.get -> Vixen.Graphics.LoadAction
 Vixen.Graphics.DepthStencilAttachment.DepthLoad.init -> Vixen.Graphics.LoadAction
 Vixen.Graphics.DepthStencilAttachment.DepthStencilAttachment() -> void
-Vixen.Graphics.DepthStencilAttachment.DepthStencilAttachment(Vixen.Graphics.TextureViewHandle View, Vixen.Graphics.LoadAction DepthLoad = Vixen.Graphics.LoadAction.Clear, Vixen.Graphics.StoreAction DepthStore = Vixen.Graphics.StoreAction.Store, float ClearDepth = 0, Vixen.Graphics.LoadAction StencilLoad = Vixen.Graphics.LoadAction.DontCare, Vixen.Graphics.StoreAction StencilStore = Vixen.Graphics.StoreAction.DontCare, byte ClearStencil = 0, bool IsReadOnly = false) -> void
+Vixen.Graphics.DepthStencilAttachment.DepthStencilAttachment(Vixen.Graphics.TextureViewHandle View, Vixen.Graphics.LoadAction DepthLoad = Vixen.Graphics.LoadAction.Clear, Vixen.Graphics.StoreAction DepthStore = Vixen.Graphics.StoreAction.Store, float ClearDepth = 0, Vixen.Graphics.LoadAction StencilLoad = Vixen.Graphics.LoadAction.DontCare, Vixen.Graphics.StoreAction StencilStore = Vixen.Graphics.StoreAction.DontCare, byte ClearStencil = 0, bool IsReadOnly = false, Vixen.Graphics.TextureViewHandle ResolveView = default(Vixen.Graphics.TextureViewHandle), Vixen.Graphics.DepthResolveMode ResolveMode = Vixen.Graphics.DepthResolveMode.Max) -> void
 Vixen.Graphics.DepthStencilAttachment.DepthStore.get -> Vixen.Graphics.StoreAction
 Vixen.Graphics.DepthStencilAttachment.DepthStore.init -> Vixen.Graphics.StoreAction
 Vixen.Graphics.DepthStencilAttachment.IsReadOnly.get -> bool
 Vixen.Graphics.DepthStencilAttachment.IsReadOnly.init -> bool
+Vixen.Graphics.DepthStencilAttachment.ResolveMode.get -> Vixen.Graphics.DepthResolveMode
+Vixen.Graphics.DepthStencilAttachment.ResolveMode.init -> Vixen.Graphics.DepthResolveMode
+Vixen.Graphics.DepthStencilAttachment.ResolveView.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.DepthStencilAttachment.ResolveView.init -> Vixen.Graphics.TextureViewHandle
 Vixen.Graphics.DepthStencilAttachment.StencilLoad.get -> Vixen.Graphics.LoadAction
 Vixen.Graphics.DepthStencilAttachment.StencilLoad.init -> Vixen.Graphics.LoadAction
 Vixen.Graphics.DepthStencilAttachment.StencilStore.get -> Vixen.Graphics.StoreAction

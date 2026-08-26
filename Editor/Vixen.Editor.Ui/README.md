@@ -1672,7 +1672,16 @@ The two reasons that *are* real, both met porting `AddComponentMenu`:
 ⚠ **`StringId`, `StringCatalog` and `Strings` are in `Vixen.Ui` now**, not here — doc 46 § A3
 counted them among the 41 % of this assembly that is application-framework machinery with no editor
 in it, and an application that cannot reference `Editor/` was left writing the literal. What stays
-here is `EditorStrings` — the editor's 123 declarations and its `All` list — and `StringCatalogYaml`.
+here is `EditorStrings` — the editor's 119 declarations and its `All` list — and `StringCatalogYaml`.
+
+⚠ **The two sides of a declaration are checked now rather than remembered.** `EditorStrings` writes
+every string twice, as a property and as a name in `All`; `StringDeclarationAnalyzer` compares them
+(`VXS0310`), refuses two declarations under one id (`VXS0311`), and refuses a `StringId` built
+anywhere else in this assembly (`VXS0312`) — which is how `SelectMode`'s title stopped being a
+declaration nobody could translate. `nuke CheckStrings` adds the half no compilation can see: a
+declaration used nowhere in the tree. **It found seven here**, five of them strings the editor does
+not say and two — `CommandUndo` and `CommandRedo` — whose ids had drifted from the ones
+`EditorApplication` actually registered.
 
 Every user-visible string is a `StringId` — an id and the English text it says — so
 `item.Label = EditorStrings.Save.Text` is no more work than the literal and there is never a reason
@@ -1725,8 +1734,12 @@ and `EditorShell.Dispose` calls it.
   real set at about a hundred and twenty and calls it a design dependency; the mitigation is that
   `ToolbarPresenter` draws a command with no icon as a labelled button, so a missing glyph costs a
   wider button and never a blocked feature.
-- **`Strings.Resource` generation.** `EditorStrings` is hand-written in the shape the generator will
-  emit, so nothing at a call site changes when it lands — but an id used nowhere and an id declared
-  nowhere are not yet build errors.
+- ~~**`Strings.Resource` generation.**~~ Closed 2026-08-25, and **not as a generator** — see
+  [docs/plan/11](../../docs/plan/11-editor.md) § As built. An id used nowhere fails
+  `nuke CheckStrings`, an id repeated at a call site fails it too, a name no declaration class has is
+  CS0117, and `VXS0310`–`VXS0312` refuse the three things a declaration class can get wrong on its
+  own. `EditorStrings` is unchanged in shape, which doc 46 § A3 requires. What is still owed is the
+  178 ids the editor's *module* assemblies build at call sites and declare in no class; that gate
+  counts them.
 - **A mode bar.** `IEditorMode` — the seam Select / Landscape / Foliage would hang off — does not
   exist, which doc 20's A1 calls the one structural addition still owed to the frame.

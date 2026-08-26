@@ -831,6 +831,8 @@ Vixen.Rendering.Compositor.RenderPassAsset.ColourTargets.get -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.ColourTargets.init -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.DepthLoad.get -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.RenderPassAsset.DepthLoad.init -> Vixen.Graphics.LoadAction
+Vixen.Rendering.Compositor.RenderPassAsset.DepthResolveMode.get -> Vixen.Graphics.DepthResolveMode
+Vixen.Rendering.Compositor.RenderPassAsset.DepthResolveMode.init -> Vixen.Graphics.DepthResolveMode
 Vixen.Rendering.Compositor.RenderPassAsset.DepthTarget.get -> string?
 Vixen.Rendering.Compositor.RenderPassAsset.DepthTarget.init -> string?
 Vixen.Rendering.Compositor.RenderPassAsset.Enabled.get -> bool
@@ -869,6 +871,8 @@ Vixen.Rendering.Compositor.RenderPassRenderer.ClearDepth.set -> float
 Vixen.Rendering.Compositor.RenderPassRenderer.ColourTargets.get -> System.Collections.Generic.IList<string>
 Vixen.Rendering.Compositor.RenderPassRenderer.DepthLoad.get -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.RenderPassRenderer.DepthLoad.set -> Vixen.Graphics.LoadAction
+Vixen.Rendering.Compositor.RenderPassRenderer.DepthResolveMode.get -> Vixen.Graphics.DepthResolveMode
+Vixen.Rendering.Compositor.RenderPassRenderer.DepthResolveMode.set -> void
 Vixen.Rendering.Compositor.RenderPassRenderer.DepthTarget.get -> string?
 Vixen.Rendering.Compositor.RenderPassRenderer.DepthTarget.set -> string?
 Vixen.Rendering.Compositor.RenderPassRenderer.Descriptors.get -> Vixen.Rendering.Compositor.DescriptorBindings

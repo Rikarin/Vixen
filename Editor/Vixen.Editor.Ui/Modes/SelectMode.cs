@@ -34,7 +34,7 @@ public sealed class SelectMode : IEditorMode {
     public string Id => ModeId;
 
     /// <inheritdoc />
-    public StringId Title { get; } = new("editor.mode.select", "Select");
+    public StringId Title => EditorStrings.ModeSelect;
 
     /// <inheritdoc />
     public PathBuilder? Icon => null;

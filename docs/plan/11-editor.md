@@ -101,9 +101,43 @@ public interface IEditorCommand
 > and `Vixen.Platform.Ui` fills, the arrangement records where a promoted group was, and a saved
 > position that lands on no current display is dropped rather than restoring a window nobody can
 > reach.
-> **`Strings.Resource` is not generated yet** — `EditorStrings` is hand-written in the shape the
-> generator will emit, so no call site changes when it lands, but an id used nowhere is not yet a
-> build error.
+> ~~**`Strings.Resource` is not generated yet**~~ — **it is not generated, and it is not going to
+> be, and what it was asked for is done.** The property this line wanted was *"an id used nowhere
+> and an id declared nowhere are both build errors"*; all of it is enforced, by four instruments and
+> no generator. `StringDeclarationAnalyzer` in `Vixen.Ui.Generators` refuses a declaration missing
+> from its `All` list (`VXS0310`), two declarations under one id (`VXS0311`), and a `StringId` built
+> outside the declaration class of an assembly that has one (`VXS0312`); `nuke CheckStrings` refuses
+> a declaration used nowhere in the tree and a call site that rebuilds an id a declaration class
+> already declares; and a call site naming a member no declaration class has is CS0117, which it
+> always was.
+>
+> ⚠ **A generator was the wrong instrument here, and the reason is not effort.** A generator needs
+> catalogue *source* — a file the ids come from — and [46](46-what-an-application-needs.md) § A3
+> both leaves that undecided for Vixen and says the declaration shape must stay **unchanged**,
+> because Trinix builds its own `Strings.yaml` generator and a string moved between the two projects
+> should be a copy rather than a translation. A check over the shape needs neither decision, holds
+> for a hand-written class and a generated one alike, and is what makes an independently written
+> generator's output verifiable here. `EditorStrings` is byte-identical in shape to what it was.
+>
+> ⚠ **The check was not hypothetical on the day it landed: seven declarations failed it.**
+> `MenuView` (the menu is Window), `NotificationsTitle`/`NotificationsEmpty` (the panel is the
+> message log and has its own), `KeyBindingConflict` (superseded by `KeysConflict`) and `DialogOk`
+> (no shell dialog says OK) were declared and shown nowhere — all five deleted. The other two were
+> the interesting pair: **`CommandUndo` and `CommandRedo` were declared as
+> `editor.command.edit.undo`/`.redo` and the editor registered its Undo and Redo commands with a
+> `new StringId("editor.command.undo", "Undo")` written at the call site.** The template a
+> translator works from carried one id and the running editor looked up the other, so translating
+> the editor's Undo menu item was impossible and nothing said so. That is the defect this line was
+> about, found by the check written for it.
+>
+> ⚠ **Owed, and measured rather than asserted**: 178 ids are still built at call sites in the editor
+> module assemblies — `EditorParity` alone has 72 — and declared in no class, so no `All` list
+> carries them and a translator's template is short by more than half of what the editor says.
+> `CheckStrings` logs that count as a measurement and does not fail on it, because closing it is a
+> migration across nine assemblies and because a handful of those ids **cannot** be declared:
+> `WaterMode.cs:247` builds `"editor.command." + id` in a loop over a mode's tools, which is a
+> legitimate shape a declaration class has no way to express. That is also a fact about the shape
+> worth carrying upstream — `StringId`'s constructor has to stay public for it.
 >
 > **The project browser is `ProjectBrowser` in `Vixen.Editor.App`**, not a shell panel, and for the
 > same reason as the first correction: it needs the asset database, and the shell may not see one.
@@ -541,12 +575,26 @@ port model from the start.
 > so that a graph which is well-formed and emits a shader that does not type-check is reported rather
 > than called a success.
 >
-> Not in: the animation graph, selectable wires, editing a sticky note in place, and mapping a
-> *generated shader's* diagnostics back to the node that emitted the line — every diagnostic the graph
-> compilers raise names a node and a port, but Raven's own complaints about the generated text are not
-> yet mapped, which needs the emitters to record spans as they write. A diagnostic about a node that
-> came *out of* a sub-graph names a synthetic identity the author cannot select, for the same
-> want of a source map.
+> Not in: the animation graph, selectable wires, and editing a sticky note in place.
+>
+> **A generated shader's diagnostics are mapped back now, and so are the sub-graph identities** — the
+> two were one gap wearing two hats. `RavenEmitter` counts the lines it writes, so
+> `ShaderGraphCompiler` records a `ShaderGraphSpan` for every node's statements and for every uniform
+> declaration the node asked for; `ShaderGraphSource.NodeAt` looks a line up, and
+> `ShaderGraphDocument.SourceNodeDiagnostics` is Raven's own complaints with the node that wrote each
+> line attached. `SubGraphs.Flatten` now answers with a `NodeGraphInlining` saying which synthetic
+> identity came out of which sub-graph node, `NodeGraphCompiler.Report` re-addresses every diagnostic
+> through it, and the span map resolves through it before a line is written down — so a complaint
+> about a line that came out of a sub-graph names the sub-graph node in the author's own graph, and
+> the panel's diagnostics list selects and frames it when the row is tapped. See
+> [the guide page](../guide/editor/graph-diagnostics.md).
+>
+> Two things that mapping does *not* claim. A line the compiler wrote for itself — the preamble, the
+> vertex stage, the master's `return` — belongs to nobody and is reported as a line number, because
+> blaming the nearest node would send an author to a node that is fine. And nothing yet resolves a
+> sub-graph through the asset database: `ShaderGraphDocument.SubGraphSource` exists and is null unless
+> a host sets it, so a saved graph containing a sub-graph node reopens with that node type reported as
+> unknown rather than inlined.
 
 ### `Vixen.Editor.Profiler` and `.Debugger`
 
