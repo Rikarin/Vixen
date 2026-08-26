@@ -197,6 +197,75 @@ public sealed class AnimationClipImporterTests {
         Assert.Contains("upperarm_r", Assert.Single(content.Extensions).Value);
     }
 
+    /// <summary>A face driving many shapes off one node is a correct file, not a duplicated curve.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The check used to group by the property alone, and would have greeted the first
+    ///     facial clip anybody wrote with a warning about it.</b> Every weight curve on a node is
+    ///     <c>Weight</c>, so twenty shapes read as nineteen duplicates and "the first of each is the
+    ///     one that is sampled" — a sentence describing a correct file, and the one thing worse than
+    ///     no diagnostic. The pair <c>(Property, Shape)</c> is what identifies a curve.
+    /// </remarks>
+    [Fact]
+    public async Task ManyWeightCurvesOnOneNodeAreNotDuplicates() {
+        var result = await Import(Face);
+
+        Assert.Single(result.Artifacts);
+        Assert.DoesNotContain(result.Diagnostics, entry => entry.Message.Contains("more than one curve", StringComparison.Ordinal));
+
+        var content = Serializer.Read<AnimationClipContent>(result.Artifacts[0].Content.ToArray());
+        var weighted = content.Data.Channels.Where(channel => channel.WeightTimes.Length > 0).ToArray();
+
+        Assert.Equal(2, weighted.Length);
+        Assert.Equal(["jawOpen", "browRaise"], weighted.Select(channel => channel.Shape));
+
+        // And the same file with a shape genuinely written twice still is one.
+        var twice = await Import(Face.Replace("shape: browRaise", "shape: jawOpen", StringComparison.Ordinal));
+
+        Assert.Contains(twice.Diagnostics, entry => entry.Message.Contains("Weight 'jawOpen'", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     ⚠ A weight curve that names no shape is an error, because it is the one mistake this
+    ///     format makes easy and the one that says nothing.
+    /// </summary>
+    /// <remarks>
+    ///     A weight is bound by the shape's name — the ordinal a source file used is not the one the
+    ///     mesh ended up with — so a curve with no name binds to nothing. It would import, ship, play,
+    ///     and hold a face perfectly still: the exact failure a name-bound channel exists to make
+    ///     impossible, arrived at by leaving the name out.
+    /// </remarks>
+    [Fact]
+    public async Task AWeightCurveThatNamesNoShapeIsAnError() {
+        var result = await Import(Face.Replace("        shape: jawOpen\n", string.Empty, StringComparison.Ordinal));
+
+        Assert.Empty(result.Artifacts);
+
+        Assert.Contains(
+            result.Diagnostics,
+            entry => entry.Severity == ImportSeverity.Error
+                && entry.Message.Contains("names no blend shape", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>A clip that drives two blend shapes off one mesh node and nothing else.</summary>
+    const string Face = """
+        version: 2
+        name: Face
+        duration: 2.0
+        targets:
+          - target: Head
+            curves:
+              - property: Weight
+                shape: jawOpen
+                keys:
+                  - { time: 0.0, value: 0.0, mode: Linear }
+                  - { time: 2.0, value: 1.0, mode: Linear }
+              - property: Weight
+                shape: browRaise
+                keys:
+                  - { time: 0.0, value: 0.25, mode: Linear }
+        """;
+
     static string YamlWriterText(Vixen.Core.Yaml.YamlNode node) => Vixen.Core.Yaml.YamlWriter.Write(node);
 
     static async Task<ImportResult> Import(string text) {

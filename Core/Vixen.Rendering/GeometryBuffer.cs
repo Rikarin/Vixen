@@ -364,6 +364,16 @@ public sealed class GeometryBuffer : IDisposable {
             );
         }
 
+        // ⚠ The region is sized for BOTH halves before either is staged, and the alternative was a
+        // promise this type makes and did not keep. `CanStage` says an empty region always answers
+        // yes however large the write — "which is what makes a single mesh larger than the whole
+        // staging region registrable at all" — but a write is two calls, and the first of them grew
+        // the region to exactly the vertices. The indices then arrived at a region that was full,
+        // and `EnsureStaging` threw rather than growing, because bytes a pending copy refers to
+        // cannot be abandoned. So the first mesh in a fresh buffer larger than 64 KB threw on its own
+        // index buffer, having just been told it would fit.
+        EnsureStaging(stagingUsed + vertices.Length + indices.Length);
+
         Stage(vertices, (long)slice.BaseVertex * VertexStride, index: false);
 
         if (!indices.IsEmpty) {
