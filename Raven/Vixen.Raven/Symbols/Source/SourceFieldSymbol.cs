@@ -232,21 +232,16 @@ internal sealed class SourceFieldSymbol : FieldSymbol {
 
             // A mismatch is reported once, at the declaration, by ReportPermutationIssues.
             // Here it just falls back, so binding sees a well-typed value either way.
-            return MatchesDeclaredType(supplied) ? supplied : declared;
+            return SuppliedValue.TryCoerce(Type, supplied, out var coerced) ? coerced : declared;
         }
     }
 
     /// <summary>
-    ///     Whether a supplied permutation value has the field's declared type.
-    ///     <see cref="PermutationValues" /> has already narrowed it to bool/int/uint.
+    ///     Whether a supplied permutation value can be the field's declared type.
+    ///     <see cref="PermutationValues" /> has already narrowed it to bool/int/uint, and
+    ///     <see cref="SuppliedValue" /> says why the narrowing is not itself the answer.
     /// </summary>
-    internal bool MatchesDeclaredType(object value) =>
-        (Type as PrimitiveTypeSymbol)?.SpecialType switch {
-            SpecialType.Bool => value is bool,
-            SpecialType.Int => value is int,
-            SpecialType.UInt => value is uint,
-            _ => false
-        };
+    internal bool MatchesDeclaredType(object value) => SuppliedValue.TryCoerce(Type, value, out _);
 
     public override ResourceKind ResourceKind {
         get {

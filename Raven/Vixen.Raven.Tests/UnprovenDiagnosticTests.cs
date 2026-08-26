@@ -419,10 +419,15 @@ public class UnprovenDiagnosticTests {
     ///     <para>
     ///         <c>RVN2014</c> — <c>SelfOutsideType</c> — fires when a binder has no containing type,
     ///         and no binder ever has none. <c>Compilation.EnsureDeclarations</c> keeps only the
-    ///         top-level members <c>TypeDeclarationInfo.From</c> yields a declaration for, so a
-    ///         package-level <c>func</c> or <c>const val</c> is dropped without ever being bound and
-    ///         every body that <em>is</em> bound belongs to a type. It becomes reachable the day
-    ///         package-level declarations are bound rather than dropped, and not before.
+    ///         top-level members <c>TypeDeclarationInfo.From</c> yields a declaration for, so every
+    ///         body that is bound belongs to a type. ⚠ A package-level <c>func</c> or
+    ///         <c>const val</c> used to be <em>dropped</em> here, silently, which is what made this
+    ///         paragraph's claim true and was a bug of its own: the body was never bound, so an
+    ///         undefined name inside it was never reported and the file compiled clean around a
+    ///         function that did not exist. It is now <c>RVN2054</c>, and still not bound — a
+    ///         namespace holds namespaces and types and nothing else, so nothing could name one. So
+    ///         this stays unreachable, for a stated reason instead of an accident, and becomes
+    ///         reachable the day a namespace can hold a member.
     ///     </para>
     ///     <para>
     ///         ⚠ A third — <c>RVN2012</c>, <c>AmbiguousName</c> — was neither: it had no raise site

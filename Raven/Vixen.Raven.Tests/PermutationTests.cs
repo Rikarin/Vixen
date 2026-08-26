@@ -392,6 +392,93 @@ public class PermutationTests {
         Assert.Contains("Flag", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     A <c>uint</c> key takes the value a define supplies for it, and takes it as a
+    ///     <c>uint</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ This is the over-fire <c>NegativeDiagnosticTests</c>' <c>RVN2064</c> fixture found, and
+    ///     the reason it is worth a positive of its own. <see cref="PermutationValues.TryParse" />
+    ///     tries bool, then int, then uint, so <c>-D Slots=16</c> parses as an <c>int</c> whatever
+    ///     it is for and the <c>uint</c> branch is reached only above <c>int.MaxValue</c>. While the
+    ///     rule compared CLR types, no value a build could supply was accepted for a <c>uint</c>
+    ///     key: every one of them was <c>RVN2064</c>, so the key silently kept its declared default
+    ///     and the shader compiled as though nothing had been asked for.
+    /// </remarks>
+    [Theory]
+    [InlineData("Slots=16", 16u)]
+    [InlineData("Slots=0", 0u)]
+    // Above int.MaxValue, where the parse does yield a uint of its own accord.
+    [InlineData("Slots=4000000000", 4000000000u)]
+    public void A_uint_key_takes_the_value_a_define_supplies(string define, uint expected) {
+        var (compilation, _) = LowerWith(
+            """
+            package A
+
+            shader S {
+                [Permutation] val Slots: uint = 8u
+
+                var tint: float4
+
+                func Shade(): float4 {
+                    return tint * float(Slots)
+                }
+            }
+
+            """,
+            PermutationValues.Parse([define])
+        );
+
+        Assert.Equal(expected, Key(compilation, "S", "Slots").ConstantValue);
+    }
+
+    /// <summary>
+    ///     An <c>int</c> key is the same story from the other side: a define above
+    ///     <c>int.MaxValue</c> parses as a <c>uint</c> and does not fit, and one below it does.
+    /// </summary>
+    [Theory]
+    [InlineData("Taps=6", true)]
+    [InlineData("Taps=4000000000", false)]
+    public void An_int_key_takes_what_fits_in_it(string define, bool accepted) {
+        var diagnostics = DiagnosticsWith(
+            """
+            package A
+
+            shader S {
+                [Permutation] val Taps: int = 4
+            }
+
+            """,
+            PermutationValues.Parse([define])
+        );
+
+        Assert.Equal(accepted, !diagnostics.Any(d => d.Id == "RVN2064"));
+    }
+
+    /// <summary>
+    ///     The declared type is the authority over how the text parsed, but it is not a licence:
+    ///     a negative value is a fact about the value, and it does not fit a <c>uint</c>.
+    /// </summary>
+    [Fact]
+    public void A_negative_define_does_not_fit_a_uint_key() {
+        var diagnostic = Assert.Single(
+            DiagnosticsWith(
+                """
+                package A
+
+                shader S {
+                    [Permutation] val Slots: uint = 8u
+                }
+
+                """,
+                PermutationValues.Parse(["Slots=-1"])
+            )
+        );
+
+        Assert.Equal("RVN2064", diagnostic.Id);
+        Assert.Contains("Slots", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Assigning_to_a_permutation_is_rejected_with_a_reason() {
         var diagnostic = Assert.Single(

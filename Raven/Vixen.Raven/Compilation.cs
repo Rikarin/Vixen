@@ -330,6 +330,7 @@ public sealed class Compilation {
 
             foreach (var member in unit.Members) {
                 if (TypeDeclarationInfo.From(member) is not { } declaration) {
+                    ReportMemberOutsideAType(member);
                     continue;
                 }
 
@@ -372,6 +373,62 @@ public sealed class Compilation {
 
             typesByTree[tree] = declared;
         }
+    }
+
+    /// <summary>
+    ///     Reports a member written straight into a file — <see cref="SemanticDiagnostics.MemberOutsideAType" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ The loop above used to <c>continue</c> here, and that silence was the bug: a
+    ///         package-level <c>func</c> parses (the compilation unit and a type body share one
+    ///         <c>ParseMemberDeclaration</c>), is then not a type, and was dropped. Nothing bound
+    ///         its body, so an undefined name inside it went unreported too — the file compiled
+    ///         clean and the function was not there. A call to it was <c>RVN2010</c> at the call
+    ///         site, pointing at the one line that was right.
+    ///     </para>
+    ///     <para>
+    ///         Reported rather than bound because a namespace here holds namespaces and types and
+    ///         nothing else, so nothing could name one however well it bound. Making these legal is
+    ///         a language change — namespace members, import resolution, mangling, the library
+    ///         format, reflection — and not this.
+    ///     </para>
+    ///     <para>
+    ///         Named where it can be: a method, a property and a field all carry an identifier. An
+    ///         <c>init</c> and an <c>operator</c> do not, so they are named by what they are.
+    ///     </para>
+    /// </remarks>
+    void ReportMemberOutsideAType(MemberDeclarationSyntax member) {
+        var (name, kind, location) = member switch {
+            MethodDeclarationSyntax method => (
+                method.Identifier.ValueText,
+                "function",
+                method.Identifier.GetLocation()
+            ),
+            PropertyDeclarationSyntax property => (
+                property.Identifier.ValueText,
+                "property",
+                property.Identifier.GetLocation()
+            ),
+            FieldDeclarationSyntax field => (
+                field.Declaration.Identifier.ValueText,
+                field.Declaration.Keyword.Kind == SyntaxKind.ValKeyword ? "value" : "variable",
+                field.Declaration.Identifier.GetLocation()
+            ),
+            ConstructorDeclarationSyntax constructor => (
+                "init",
+                "constructor",
+                constructor.Keyword.GetLocation()
+            ),
+            OperatorDeclarationSyntax @operator => (
+                @operator.OperatorToken.ValueText,
+                "operator",
+                @operator.OperatorKeyword.GetLocation()
+            ),
+            _ => (member.ToString().Trim(), "declaration", member.GetLocation())
+        };
+
+        declarationDiagnostics.Add(SemanticDiagnostics.MemberOutsideAType, location, name, kind);
     }
 
     /// <summary>

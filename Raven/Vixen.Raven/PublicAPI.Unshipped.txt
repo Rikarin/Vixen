@@ -3428,6 +3428,7 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.InOutOnEntryPoint ->
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.InOutOnOperator -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.IndexOutOfRange -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MemberNotFound -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MemberOutsideAType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MissingReturnValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MissingTypeOrInitializer -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ModifierHasNoEffect -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
