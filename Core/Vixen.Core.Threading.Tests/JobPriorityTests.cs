@@ -201,6 +201,63 @@ public class JobPriorityTests {
         );
     }
 
+    /// <summary>Waiting on background work is slower than waiting on the same work in the frame tier.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is why no existing call site can simply be relabelled.</b> Every
+    ///         <c>JobScheduler</c> caller in the tree today is <c>ParallelFor</c> or
+    ///         <c>ScheduleParallel(…).Complete()</c> — the calling thread is blocked on the very
+    ///         batches it scheduled. Putting those in <see cref="JobPriority.Background" /> does not
+    ///         make the call cheap; it makes the waiting thread drain every unrelated frame item it
+    ///         can reach <i>first</i>, and only then run the thing it is waiting for. The tier is not
+    ///         a no-op on work somebody is blocked on, it is a pessimisation, and a consumer has to
+    ///         be one that keeps its handle rather than one that completes it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Order, not duration.</b> The assertion is that eight later-queued frame jobs
+    ///         carry lower stamps than the background job the caller asked for, which is a fact about
+    ///         the take order. Timing the two calls would be timing the machine. At
+    ///         <c>workerCount == 0</c> the completing thread is the only taker, so the order is
+    ///         decided rather than raced, and eight is far below the fairness share's 64 — so nothing
+    ///         here is the share letting the background job through early.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void WaitingOnBackgroundWorkRunsUnrelatedFrameWorkFirst() {
+        const int FrameJobs = 8;
+
+        using var scheduler = new JobScheduler(0);
+        var clock = new StrongBox<int>();
+        var stamps = new int[FrameJobs + 1];
+
+        // The one the caller is about to block on, in the tier that says "not first".
+        var waited = scheduler.Schedule(new StampJob(stamps, 0, clock), priority: JobPriority.Background);
+
+        // Frame work queued afterwards and joined to it by nothing: no edge, no shared state. A
+        // caller waiting for `waited` has no reason to want any of these run first.
+        for (var index = 1; index <= FrameJobs; index++) {
+            scheduler.Schedule(new StampJob(stamps, index, clock));
+        }
+
+        scheduler.Complete(waited);
+
+        Assert.True(stamps[0] > 0, "The job the caller waited for never ran.");
+
+        for (var index = 1; index <= FrameJobs; index++) {
+            Assert.True(
+                stamps[index] > 0,
+                $"Frame job {index} never ran, so the wait was not lengthened by it and this test "
+                + "asserts nothing."
+            );
+
+            Assert.True(
+                stamps[index] < stamps[0],
+                $"Frame job {index} ran after the background job the caller was waiting for, so "
+                + "waiting on the background tier cost nothing here."
+            );
+        }
+    }
+
     [Fact]
     public void ABackgroundParallelForStillVisitsEveryIndexExactlyOnce() {
         using var scheduler = new JobScheduler(4);
