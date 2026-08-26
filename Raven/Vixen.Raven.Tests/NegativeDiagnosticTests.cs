@@ -4,6 +4,7 @@
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.Artefacts;
+using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
 using Xunit;
@@ -58,6 +59,27 @@ public class NegativeDiagnosticTests {
 
         var bag = new DiagnosticBag();
         Lowerer.Lower(compilation, bag);
+
+        return [.. compilation.GetDiagnostics(), .. bag];
+    }
+
+    /// <summary>
+    ///     Lowering plus <see cref="IrVerifier" />, for the rules that live on the module rather
+    ///     than on any one declaration.
+    /// </summary>
+    static IReadOnlyList<Diagnostic> Verified(string source, ComposeBindings? compose = null) {
+        var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
+        Assert.Empty(tree.Diagnostics);
+
+        var compilation = Compilation.Create(
+            "Test",
+            PermutationValues.Empty,
+            compose ?? ComposeBindings.Empty,
+            [tree]
+        );
+
+        var bag = new DiagnosticBag();
+        IrVerifier.Verify(Lowerer.Lower(compilation, bag), bag);
 
         return [.. compilation.GetDiagnostics(), .. bag];
     }
@@ -870,4 +892,586 @@ public class NegativeDiagnosticTests {
         Silent("RVN5007", diagnostics);
         Silent("RVN5008", diagnostics);
     }
+
+    // =======================================================================
+    //  The second tier, ranked by what an over-fire would cost rather than by
+    //  id. A rule scoped to a whole shader or a whole module is the expensive
+    //  one to get wrong: it does not refuse a line, it refuses a file, and the
+    //  shipped library's files each hold several entry points and several
+    //  features that were written separately.
+    // =======================================================================
+
+    // --- RVN2050: two entry points for one stage ----------------------------
+
+    /// <summary>One shader carrying a vertex, a fragment <em>and</em> a compute entry point.</summary>
+    /// <remarks>
+    ///     The mirror of <c>ShaderSemanticsTests</c>'s <c>RVN2050</c> case, which is two
+    ///     <c>[FragmentShader]</c>s on one shader. The rule is keyed on the stage, and it has to be:
+    ///     a rule that asked "does this shader already have an entry point" would refuse every
+    ///     graphics shader ever written, since a vertex stage and the fragment stage it feeds are
+    ///     one file by construction. Three stages rather than two because the check is a
+    ///     <c>TryAdd</c> into a set, and a set keyed on the wrong thing would still let the second
+    ///     one through.
+    /// </remarks>
+    [Fact]
+    public void Three_different_stages_on_one_shader_are_allowed() =>
+        Silent(
+            "RVN2050",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var counts: RWBuffer<uint>
+
+                    [VertexShader]
+                    [Semantic("SV_Position")]
+                    func Vertex(position: float3): float4 {
+                        return float4(position, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return float4(1f, 1f, 1f, 1f)
+                    }
+
+                    [ComputeShader(64)]
+                    func Prepare([Semantic("SV_DispatchThreadID")] id: uint3) {
+                        counts[int(id.x)] = id.x
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN3006: a stream a compute stage touches --------------------------
+
+    /// <summary>
+    ///     A compute stage in the same shader as the vertex/fragment pair that owns the streams,
+    ///     reaching none of them — including through a helper of its own.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>ComputeTests.AStreamUsedByAComputeStageIsRefused</c>, which is a compute
+    ///     stage that writes the stream directly. This is the stage-reachability family again, and
+    ///     the one where an over-fire costs most: a dispatch that prepares the draw that follows it
+    ///     lives in the same file as that draw, which is how <c>Culling.rvn</c> and
+    ///     <c>ClusterRaster.rvn</c> are written. A rule that asked "does this shader declare a
+    ///     stream" rather than "does this entry point reach one" would refuse the pattern outright.
+    /// </remarks>
+    [Fact]
+    public void A_compute_stage_beside_the_streams_it_never_touches_is_allowed() =>
+        Silent(
+            "RVN3006",
+            Lowered(
+                """
+                package A
+
+                shader S {
+                    var counts: RWBuffer<uint>
+
+                    stream var normalWS: float3
+                    stream var uv: float2
+
+                    [VertexShader]
+                    [Semantic("SV_Position")]
+                    func Vertex(position: float3): float4 {
+                        normalWS = float3(0f, 1f, 0f)
+                        uv = float2(position.x, position.y)
+                        return float4(position, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return float4(Interpolated(), normalWS.y, 0f, 1f)
+                    }
+
+                    func Interpolated(): float {
+                        return uv.x
+                    }
+
+                    [ComputeShader(64)]
+                    func Prepare([Semantic("SV_DispatchThreadID")] id: uint3) {
+                        counts[int(id.x)] = Widen(id.x)
+                    }
+
+                    func Widen(v: uint): uint {
+                        return v * 2u
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN3011: two declarations of one shared binding --------------------
+
+    /// <summary>
+    ///     Two features that declare the same shared table and agree about it, beside two that
+    ///     declare the same <em>unshared</em> name in different sets.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SharedBindingTests.Declarations_that_disagree_are_refused</c>. The rule
+    ///     groups by name, so the second half is the fixture's whole point: two features that happen
+    ///     to call a uniform <c>strength</c> get one contribution each and are meant to, and a rule
+    ///     that grouped every binding by name rather than only the shared ones would call that a
+    ///     disagreement and refuse the composition. <c>CompositeSurface</c> chains up to eight
+    ///     features, so the odds of two of them picking one word are not small.
+    /// </remarks>
+    [Fact]
+    public void Shared_declarations_that_agree_beside_unshared_ones_that_do_not_are_allowed() =>
+        Silent(
+            "RVN3011",
+            Verified(
+                """
+                package A
+
+                protocol ISurface {
+                    func Compute(inout value: float4)
+                }
+
+                shader BaseColor : ISurface {
+                    [PerFrame] [Shared] var textures: Texture2D[]
+                    [PerFrame] var strength: float
+                    var linear: Sampler
+
+                    func Compute(inout value: float4) {
+                        value = textures[0].Sample(linear, float2(0f, 0f)) * strength
+                    }
+                }
+
+                shader NormalMap : ISurface {
+                    [PerFrame] [Shared] var textures: Texture2D[]
+                    [PerDraw] var strength: float
+                    var linear: Sampler
+
+                    func Compute(inout value: float4) {
+                        value += textures[1].Sample(linear, float2(0f, 0f)) * strength
+                    }
+                }
+
+                shader Composite : ISurface {
+                    compose val first: ISurface
+                    compose val second: ISurface
+
+                    func Compute(inout value: float4) {
+                        first.Compute(value)
+                        second.Compute(value)
+                    }
+                }
+
+                shader Pass {
+                    compose val surface: ISurface
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        var value = float4(0f, 0f, 0f, 1f)
+                        surface.Compute(value)
+                        return value
+                    }
+                }
+
+                """,
+                ComposeBindings.Create(
+                    [
+                        new("Pass.surface", "Composite"),
+                        new("Composite.first", "BaseColor"),
+                        new("Composite.second", "NormalMap")
+                    ]
+                )
+            )
+        );
+
+    // --- RVN2090: two set markers on one binding ----------------------------
+
+    /// <summary>
+    ///     One set marker each, on four bindings, with a second attribute standing beside two of
+    ///     them.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>DescriptorSetTests</c>'s <c>RVN2090</c> case, which is two markers on
+    ///     one field. The rule counts <em>resource-set</em> markers on a single field, and both
+    ///     halves matter: a rule that counted markers across the shader would refuse any shader that
+    ///     used more than one set — which is every shader in the pipeline — and a rule that counted
+    ///     attributes rather than set markers would refuse the <c>[Format]</c> and the
+    ///     <c>[Semantic]</c> that legitimately share a declaration with one.
+    /// </remarks>
+    [Fact]
+    public void One_set_marker_per_binding_across_several_sets_is_allowed() =>
+        Silent(
+            "RVN2090",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [PerFrame] var time: float
+                    [PerView] var viewProjection: mat4
+                    [PerDraw] var world: mat4
+                    [PerMaterial] [Format("rgba16f")] var target: RWTexture2D<float4>
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment([Semantic("TEXCOORD0")] uv: float2): float4 {
+                        target.Store(int2(0, 0), float4(time, uv.x, 0f, 1f))
+
+                        return viewProjection[0] + world[0]
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2139: a body that reaches itself --------------------------------
+
+    /// <summary>
+    ///     A call graph that reconverges, an overload that calls its sibling, and one name declared
+    ///     on two types whose bodies call each other's.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests</c>'s <c>RVN2139</c> case, which is a body that
+    ///     really does reach itself. The graph is over <em>symbols</em>, and each of these three is
+    ///     a way of looking like a cycle without being one: the diamond reaches <c>Leaf</c> twice by
+    ///     two routes, <c>Fit</c> resolves to a different overload than the one it is written in,
+    ///     and <c>Warp.Apply</c> and <c>Fold.Apply</c> share nothing but a word. A check keyed on
+    ///     the name rather than the symbol would report all three, and shading code is written
+    ///     almost entirely out of small overloaded helpers.
+    /// </remarks>
+    [Fact]
+    public void A_reconverging_graph_an_overload_and_a_shared_name_are_not_recursion() =>
+        Silent(
+            "RVN2139",
+            Semantic(
+                """
+                package A
+
+                struct Warp {
+                    var k: float
+
+                    func Apply(v: float): float {
+                        return v * k
+                    }
+                }
+
+                struct Fold {
+                    var w: Warp
+
+                    func Apply(v: float): float {
+                        return w.Apply(v) + 1f
+                    }
+                }
+
+                shader S {
+                    var fold: Fold
+
+                    func Leaf(v: float): float {
+                        return v * 2f
+                    }
+
+                    func Left(v: float): float {
+                        return Leaf(v)
+                    }
+
+                    func Right(v: float): float {
+                        return Leaf(v) + Leaf(v)
+                    }
+
+                    func Diamond(v: float): float {
+                        return Left(v) + Right(v)
+                    }
+
+                    func Fit(v: float): float {
+                        return v
+                    }
+
+                    func Fit(v: float, scale: float): float {
+                        return Fit(v) * scale
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return float4(Diamond(1f), Fit(1f, 2f), fold.Apply(1f), 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2008: a struct whose storage reaches itself ---------------------
+
+    /// <summary>
+    ///     One struct reached twice by different routes, and a generic whose parameter is closed by
+    ///     a scalar rather than by the struct that holds it.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests</c>'s <c>RVN2008</c> cases. The walk is over
+    ///     the <em>constructed</em> members and compares on the original definition, which is what
+    ///     makes <c>Box&lt;float&gt;</c> different from the <c>Box&lt;Holder&gt;</c> that would
+    ///     close — and a walk that stopped at "this definition was seen before" rather than "this
+    ///     definition is the one being laid out" would call <c>Pair</c> recursive for being used
+    ///     twice, which is what a vertex record does with a wrapper.
+    /// </remarks>
+    [Fact]
+    public void A_struct_reached_twice_and_a_generic_closed_by_a_scalar_are_not_recursive() =>
+        Silent(
+            "RVN2008",
+            Semantic(
+                """
+                package A
+
+                struct Pair {
+                    var a: float
+                    var b: float
+                }
+
+                struct Box<T> {
+                    var item: T
+                }
+
+                struct Holder {
+                    var first: Pair
+                    var second: Pair
+                    var nested: Box<float>
+                    var boxedPair: Box<Pair>
+                    var many: Pair[4]
+                }
+
+                shader S {
+                    func Probe(h: Holder): float {
+                        return h.first.a + h.second.b + h.nested.item + h.boxedPair.item.a + h.many[0].a
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2132: group-shared storage that is also something else ----------
+
+    /// <summary>
+    ///     Group-shared storage beside a permutation key, a compose slot, a stream and a constant —
+    ///     four separate declarations rather than four modifiers on one.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>GroupSharedTests</c>'s three <c>RVN2132</c> rows, each of which is
+    ///     <c>groupshared</c> and one other thing on the <em>same</em> field. The rule is about one
+    ///     declaration claiming to be two kinds of storage, so a check that asked what the shader
+    ///     contains rather than what the field is would refuse every compute shader that also has a
+    ///     permutation — which is how a reduction picks its group size.
+    /// </remarks>
+    [Fact]
+    public void Group_shared_storage_beside_other_kinds_of_field_is_allowed() =>
+        Silent(
+            "RVN2132",
+            Lowered(
+                """
+                package A
+
+                protocol IWeight {
+                    func Weight(): float
+                }
+
+                shader Half : IWeight {
+                    func Weight(): float {
+                        return 0.5f
+                    }
+                }
+
+                shader S {
+                    groupshared var tile: float[64]
+
+                    [Permutation]
+                    val UseWide: bool = true
+
+                    compose val weight: IWeight
+
+                    stream var uv: float2
+
+                    const val Taps = 4
+
+                    var output: RWBuffer<float>
+
+                    [ComputeShader(64)]
+                    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                        tile[int(id.x)] = float(Taps) * weight.Weight()
+                        barrier()
+                        output[int(id.x)] = tile[0]
+                    }
+                }
+
+                """,
+                ComposeBindings.Create([new("S.weight", "Half")])
+            )
+        );
+
+    // --- RVN2112: an inout parameter on an entry point ----------------------
+
+    /// <summary>
+    ///     An <c>inout</c> helper called from the fragment stage of a shader whose entry points take
+    ///     ordinary parameters.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>InOutTests</c>'s <c>RVN2112</c> case, which is the <c>inout</c> on the
+    ///     entry point itself. The rule turns on the method's stage, and it must: <c>inout</c> is
+    ///     how every composed feature in the library is written — <c>func Compute(inout value:
+    ///     float4)</c> is the shape of <c>ISurface</c> — so a rule that refused <c>inout</c>
+    ///     anywhere a stage could reach it would refuse the protocol the material system is built
+    ///     out of.
+    /// </remarks>
+    [Fact]
+    public void An_inout_helper_reached_from_an_entry_point_is_allowed() =>
+        Silent(
+            "RVN2112",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    func Tint(inout value: float4, k: float) {
+                        value *= k
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment([Semantic("TEXCOORD0")] uv: float2): float4 {
+                        var value = float4(uv.x, uv.y, 0f, 1f)
+                        Tint(value, 0.5f)
+
+                        return value
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2137: a boolean binding -----------------------------------------
+
+    /// <summary>
+    ///     Booleans in every place a shader may put one: a local, a struct field, a parameter, a
+    ///     return type and a <c>[Permutation]</c> key.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.A_boolean_binding_is_refused</c>. The rule is
+    ///     about the host's memory — there is no portable byte for a <c>bool</c> in a uniform block
+    ///     — so it has to turn on the field being a binding rather than on the type being seen. A
+    ///     permutation key is the case worth pinning: it is a <c>bool</c> field on a shader that is
+    ///     folded to a constant before any layout happens, and it is how nearly every variant in the
+    ///     library is spelled.
+    /// </remarks>
+    [Fact]
+    public void Booleans_that_are_not_bindings_including_a_permutation_key_are_allowed() =>
+        Silent(
+            "RVN2137",
+            Semantic(
+                """
+                package A
+
+                struct Flags {
+                    var lit: bool
+                    var shadowed: bool
+                }
+
+                shader S {
+                    [Permutation]
+                    val UseSoftKnee: bool = true
+
+                    func Decide(f: Flags, t: float): bool {
+                        return f.lit && !f.shadowed && t > 0f
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        var f: Flags
+                        f.lit = UseSoftKnee
+                        f.shadowed = false
+                        val on = Decide(f, 1f)
+
+                        return on ? float4(1f, 1f, 1f, 1f) : float4(0f, 0f, 0f, 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2126: an array with no length -----------------------------------
+
+    /// <summary>
+    ///     The one unsized array both targets can express — a descriptor array of textures — beside
+    ///     sized arrays of everything else.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SizedArrayTests</c>'s <c>RVN2126</c> case. This is the exception the
+    ///     rule was written around rather than a loosening of it: a bindless table is an array of
+    ///     descriptors, which are not laid out at all, so the length it does not have is the point.
+    ///     A rule that asked only "does this rank carry a size" would refuse
+    ///     <c>docs/plan/23-bindless-materials.md</c> in its entirety.
+    /// </remarks>
+    [Fact]
+    public void An_unsized_texture_array_beside_sized_arrays_is_allowed() =>
+        Silent(
+            "RVN2126",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var textures: Texture2D[]
+                    var linear: Sampler
+                    var weights: float[4]
+                    var grid: float[2][3]
+                    var indices: Buffer<uint>
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        val slot = int(indices[0])
+
+                        return textures[slot].Sample(linear, float2(0f, 0f)) * weights[0] * grid[0][0]
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN5002: an entry point a library does not carry -------------------
+
+    /// <summary>A library of ordinary functions on a shader that has no entry point at all.</summary>
+    /// <remarks>
+    ///     The mirror of <c>CompiledLibraryTests.SaysThatAnEntryPointIsNotExported</c>, which is
+    ///     this file with a <c>[FragmentShader]</c> on one of the functions. The notice is about the
+    ///     stage, not about the shader being unexportable — everything else here does travel — so a
+    ///     rule that reported once per shader rather than once per staged method would put a line of
+    ///     noise against every file in a library that is nothing but helpers.
+    /// </remarks>
+    [Fact]
+    public void A_library_of_helpers_with_no_entry_point_reports_nothing() =>
+        Silent(
+            "RVN5002",
+            Exported(
+                """
+                package Lib
+
+                shader Curves {
+                    func Smooth(t: float): float {
+                        return t * t * (3f - 2f * t)
+                    }
+
+                    func Remap(v: float, lo: float, hi: float): float {
+                        return Smooth((v - lo) / (hi - lo))
+                    }
+                }
+
+                """
+            )
+        );
 }

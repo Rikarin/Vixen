@@ -14,7 +14,7 @@ namespace Tests;
 public class ShaderSemanticsTests {
     [Fact]
     public void Stage_attributes_mark_entry_points() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -106,7 +106,7 @@ public class ShaderSemanticsTests {
 
     [Fact]
     public void Shader_fields_are_classified_as_bindings() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -165,7 +165,7 @@ public class ShaderSemanticsTests {
 
     [Fact]
     public void Stage_io_semantics_are_read_off_declarations() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -217,7 +217,7 @@ public class ShaderSemanticsTests {
 
     [Fact]
     public void A_realistic_shader_binds_with_no_diagnostics() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package Vixen.Shaders
 

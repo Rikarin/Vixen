@@ -17,7 +17,7 @@ public class EnumValueTests {
     [Fact]
     public void A_member_may_reference_an_earlier_member() {
         var mode = FindType(
-            AssertNoDiagnostics(
+            CompileClean(
                 """
                 package A
 
@@ -38,7 +38,7 @@ public class EnumValueTests {
     [Fact]
     public void A_member_may_be_a_constant_expression() {
         var mode = FindType(
-            AssertNoDiagnostics(
+            CompileClean(
                 """
                 package A
 
@@ -63,7 +63,7 @@ public class EnumValueTests {
     [Fact]
     public void An_implicit_value_continues_from_the_previous_member() {
         var mode = FindType(
-            AssertNoDiagnostics(
+            CompileClean(
                 """
                 package A
 
@@ -125,7 +125,7 @@ public class EnumValueTests {
     [Fact]
     public void A_const_field_may_be_a_constant_expression() {
         var shader = FindType(
-            AssertNoDiagnostics(
+            CompileClean(
                 """
                 package A
 

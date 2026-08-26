@@ -198,7 +198,7 @@ public class RemovedConstructsTests {
 
     [Fact]
     public void An_attribute_keeps_reading_its_string_argument() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 

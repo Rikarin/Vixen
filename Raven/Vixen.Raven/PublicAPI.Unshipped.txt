@@ -3384,7 +3384,6 @@ static readonly Vixen.Raven.Diagnostics.LoweringDiagnostics.StreamNotConsumed ->
 static readonly Vixen.Raven.Diagnostics.LoweringDiagnostics.TypeNotRepresentable -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.LoweringDiagnostics.WorkgroupStorageOutsideCompute -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.AmbiguousInvocation -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
-static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.AmbiguousName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ArrayNeedsLength -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ArraySizeNotConstant -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ArraySizeNotPositive -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

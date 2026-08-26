@@ -103,6 +103,24 @@ Exit codes are `0` for success, `1` when the input produced errors, and `2` when
 the command line or a path was wrong — so a build script can tell "you invoked
 me wrong" from "the shader is wrong".
 
+There are 126 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
+fires, and a **negative** — a shader that comes within one predicate of it and must stay silent.
+The second is the one that matters more, because an over-firing rule refuses correct work and cannot
+be argued with, while a missing rule only lets a mistake through. 42 ids have a negative today;
+`Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds most of them and explains the method. Two
+rules to keep if you add one:
+
+- **A negative is a *near miss*, not an unrelated valid shader.** For "X may not appear under Y" it
+  is Y with something that looks like X, or X under the Y′ that is allowed. It shares the shape of
+  the trigger and differs by the one fact the rule turns on.
+- **Prove it by widening the rule in the compiler, watching the fixture go red, and reverting.** A
+  fixture that was green before the widening and green after it proves nothing, and ⚠ a widening
+  that fails to compile is not a red test — that attempt proved nothing and has to be tried again.
+
+`UnprovenDiagnosticTests` covers the other half: an id that nothing ever makes fire is not a rule at
+all. `Every_declared_descriptor_has_a_raise_site` fails on any descriptor declared without one —
+that is how `RVN2012` was found, having shipped for as long as it existed with nothing behind it.
+
 As a library
 ```csharp
 var text = File.ReadAllText("Shader.rvn");
