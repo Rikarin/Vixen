@@ -41,13 +41,14 @@ public sealed class AnimationClipContent {
     ///         clip drive a blend shape.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the bump costs is a rebuild of every clip and nothing else.</b> The three
-    ///         members are additions with empty defaults, so a version 1 artefact deserialises into a
-    ///         version 2 reader and answers "no weight track" — which is the true answer, and the
-    ///         reason nothing here refuses an older file. What it cannot do is invent the curves that
-    ///         were dropped on the way in, and <c>AnimationClipImporter.Version</c> is this number, so
-    ///         raising it is what re-imports every model in the project and picks them up. On a large
-    ///         project that is a long content build once, and no runtime change at all.
+    ///         ⚠ <b>The bump is a re-import trigger, not a compatibility fence, and the difference is
+    ///         worth being exact about.</b> The generated serializer writes a member count and refuses
+    ///         only <c>count &gt; MemberCount</c> — so <em>appended</em> members read back as their
+    ///         defaults out of older bytes, and a version 1 artefact answers "no weight track", which
+    ///         is the true answer. Nothing would break without the bump. What would happen is nothing:
+    ///         the curves were dropped at import, so only going back to the source file recovers them,
+    ///         and <c>AnimationClipImporter.Version</c> is this number. The cost is one content build
+    ///         over the project and no runtime change at all.
     ///     </para>
     /// </remarks>
     public const int Current = 2;

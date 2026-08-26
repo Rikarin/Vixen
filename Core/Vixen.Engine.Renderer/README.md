@@ -142,6 +142,12 @@ it to `MeshExtractionSystem.Morphing` so an extracted mesh with shapes gets a ra
 `MorphWeightSystem` so a `BlendShapeWeights` component reaches it. A feature only one of the three
 reaches costs memory and draws nothing, which is the state this one was in before.
 
+`MorphWeightSystem` also publishes the mesh's shape *names* back onto the component, which is what a
+clip's weight track binds against — see `Vixen.Rendering`'s README. Nothing here registers the
+animation side: `Vixen.Animation` references this direction and not the other, so
+`AnimationSystems.AddAnimation` adds `BlendShapeAnimationSystem`, and it deliberately needs no
+renderer.
+
 ## Two draws, not one
 
 `DebugDraw` accumulates three things and they come out as two draw calls:

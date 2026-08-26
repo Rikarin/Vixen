@@ -520,7 +520,7 @@ And the three numbers:
 |---|---|---|
 | **Four influences per vertex** | `MeshData.BoneIndices` — "Four joint indices per vertex"; `BonePalette` in `Skinning.rvn` is four `mat4`s; the vertex stream takes `bones0: float4, weights0: float4` | A MetaHuman face uses more than four on the regions that matter, and the fifth influence is *not* below threshold on a face the way `Skinning.rvn`'s comment correctly says it is on a body |
 | **`MaxBones = 256`** | `Skinning.rvn` — sized to Vulkan's guaranteed 16 KiB uniform range | ⚠ **Less serious than it looks.** The palette is already a `Buffer<BoneMatrix>` and `ShadowCaster.rvn` says why; 256 is what a *host* sizes by. An ~800-joint face needs the host constant raised and the indices to stay exact in a `float4` — which they are, well past 2²⁴ |
-| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` + `MorphRenderFeature` | ✅ **Closed.** Storage, quantisation, the glTF/FBX import and the compute scatter were built and asserted numerically on a device; the wiring landed 2026-08-26 — a vertex range per morphed instance, the rest pose copied in from the scene's `GeometryBuffer`, a dispatch per active shape, and `MeshDraw.VertexBuffer` and `VertexOffset` rewritten together, all of it constructed and recorded by `WorldRenderer`. ⚠ **What is still not claimed is animating one from a *clip*:** `AnimationChannel` has three vector tracks and no scalar one, so a weight track is a format change. Anything that writes `BlendShapeWeights` drives them today |
+| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` + `MorphRenderFeature` | ✅ **Closed.** Storage, quantisation, the glTF/FBX import and the compute scatter were built and asserted numerically on a device; the wiring landed 2026-08-26 — a vertex range per morphed instance, the rest pose copied in from the scene's `GeometryBuffer`, a dispatch per active shape, and `MeshDraw.VertexBuffer` and `VertexOffset` rewritten together, all of it constructed and recorded by `WorldRenderer`. **And a clip drives one, as of 2026-08-26:** `AnimationChannel` carries a fourth, scalar track — `Shape`/`WeightTimes`/`Weights` — the importer fills it from `aiAnimation.mMeshMorphChannels`, `ClipMotion` collects it into `Animator.MorphWeights` as the tree is evaluated, and `BlendShapeAnimationSystem` lands it on `BlendShapeWeights`. ⚠ **The binding is by *name*, because the slot is not stable:** the import drops a shape under the threshold and deduplicates the rest, so a source file's ordinal is not `MeshData.MorphTargets`' — `MorphWeightSystem` publishes the translation out of what the feature attached. ⚠ **Weights add across layers rather than overriding** (exact inside a tree, whose child weights sum to one). **Owed:** hand-authoring a weight curve in a `.vxanim` — `AnimationProperty` has no `Weight` member |
 
 ⚠ **The good news is the shape of the gap.** Nothing about the existing animation stack is wrong for
 this: local-space poses, a model-space pass at the end, palettes in a storage buffer, retargeting that
@@ -650,7 +650,13 @@ getting it wrong is expensive later.
 `MorphRenderFeature`, which is the wiring this section describes: a vertex range per morphed instance,
 the rest pose copied into it out of the scene's own `GeometryBuffer`, a dispatch per active shape, and
 `MeshDraw.VertexBuffer` and `VertexOffset` rewritten together. Wired end to end in `WorldRenderer` and
-fed by a `BlendShapeWeights` component through `MorphWeightSystem`, on `SkinningSystem`'s terms.
+fed by a `BlendShapeWeights` component through `MorphWeightSystem`, on `SkinningSystem`'s terms —
+and, the same day, **animated from a clip**: `AnimationChannel`'s scalar weight track, read out of
+`aiAnimation.mMeshMorphChannels`, sampled per shape, collected through `Animator.MorphWeights` and
+landed on the component by `BlendShapeAnimationSystem`. ⚠ **A clip binds a shape by name and not by
+slot**, which is `MorphTargetData.Name`'s own rule and is load-bearing: `ReadMorphTargets` drops a
+shape that moves nothing above the threshold and deduplicates the names of the rest, so the ordinal a
+file addresses is not the ordinal the mesh ends up with.
 
 [P0](#p0--the-two-missing-primitives-15-em) carries what is still owed and the three places the
 implementation amends this section, of which the first is structural: the dispatch is **per active
@@ -1162,8 +1168,13 @@ is worth building whether or not the rest of this document is ever scheduled. Ex
 head with twenty morph targets animates from an `AnimationClip`, and its shadow and motion vectors
 agree with it.
 
-🟡 **Half of the morph-target half is built**, and the exit criterion is not met because the parts it
-names are the parts still owed. What exists: `MorphTargetData` (the sparse quantised format —
+✅ **The morph-target half is built, and every link of its exit criterion is asserted.** A
+hand-authored head with morph targets animates from an `AnimationClip`, and because the pre-pass
+writes one buffer every stage reads, its shadow and motion vectors agree with it by construction.
+⚠ **Asserted link by link and not yet as a picture** — the import, the bake, the sample, the
+collection and the component write are each covered by a test, and the device leg of the scatter is
+held to the host's floats by `MorphScatterDeviceTests`; what nobody has done is put a talking head in
+a sample and looked at it. What exists: `MorphTargetData` (the sparse quantised format —
 `(index, Δposition, Δnormal)`, 16-bit snorm against a per-target range, sorted by index),
 `MorphKernel` as the arithmetic written once, `Raven/Library/Pipeline/MorphScatter.rvn` as its
 transliteration, and `ModelReader` reading `aiMesh.mAnimMeshes` behind `ModelImportSettings.
@@ -1185,13 +1196,28 @@ Three amendments to § D4 that the implementation forced, each with its reason:
    the two processors disagree for a reason that has nothing to do with morphing. `ForwardPlus`
    already `SafeNormalize`s the interpolated normal at 10⁻⁴.
 
-Still owed, and in this order: **`MorphRenderFeature`** — the per-instance vertex buffer, the copy of
-the base mesh into it, the dispatch, and overwriting `MeshDraw.VertexBuffer` so that the shading,
-shadow, velocity and depth passes all read it (the seam is already right: `MeshDraw` is per render
-object and every stage walks the same array); a **scalar weight track** on `AnimationClipData`, which
-is the format change the "animates from an `AnimationClip`" half of the exit needs; the **cluster-page
-scatter**, since a virtualized mesh packs its own vertex records; and the whole of the eight-influence
-permutation, which is untouched.
+**`MorphRenderFeature`** landed with the per-instance vertex buffer, the copy of the base mesh into
+it, the dispatch, and `MeshDraw.VertexBuffer` **and** `VertexOffset` overwritten together so that the
+shading, shadow, velocity and depth passes all read it. The **scalar weight track** landed with it:
+`AnimationChannel.Shape`/`WeightTimes`/`Weights`, filled from `aiAnimation.mMeshMorphChannels`, baked
+into one flat track per shape with the bucket index the vector tracks get, collected by `ClipMotion`
+into `Animator.MorphWeights` and landed on `BlendShapeWeights` by `BlendShapeAnimationSystem` —
+registered by `AnimationSystems.AddAnimation` and needing no renderer of its own, so it runs headless.
+
+⚠ **Two format versions moved — `ModelImporter.Version` to 10 and `AnimationClipContent.Current` to
+2 — and they are re-import triggers rather than compatibility fences.** That distinction is worth
+being exact about, because the intuition is wrong: the generated serializer writes its member count
+and refuses only `count > MemberCount`, so **appended** members are read out of older bytes as their
+defaults. A version-9 clip chunk answers "no weight track", which is true, and nothing would break
+without the bump. What would happen is *nothing at all* — the curves were dropped at import, so only
+going back to the source file recovers them. The cost is one content build over the project; the
+benefit is that a face that was silently still starts moving.
+
+Still owed: **hand-authoring a weight curve** — `AnimationClipAsset` bakes through
+`AnimationProperty`, which has `PositionX` through `ScaleZ` and no `Weight`, so an *imported* clip
+drives a shape and a `.vxanim` written by hand does not; the **cluster-page scatter**, since a
+virtualized mesh packs its own vertex records; and the whole of the eight-influence permutation, which
+is untouched.
 
 ### P1 — the rig (2.5 EM)
 

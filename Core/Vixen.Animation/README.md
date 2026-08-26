@@ -135,6 +135,7 @@ var entity = world.Create(
 
 runner.Add(new AnimationSystem());
 runner.Add(new SkinningSystem { Renderer = renderSystem, Feature = skinningFeature });
+runner.Add(new BlendShapeAnimationSystem());
 ```
 
 `AnimationSystem` gathers its animators on this thread, evaluates them across the `JobScheduler`, and
@@ -149,6 +150,40 @@ of the renderer's between "animation finished" and "the first palette is written
 the system it means. What goes in is `inverseBindPose * jointModelSpace`, in **model space** — the
 object's own transform is pushed separately and applied after skinning, which is also what lets a
 hundred instances of the same animation share a palette.
+
+### Blend shapes
+
+`AnimationChannel` carries a fourth track that is a **scalar**, and it drives a blend shape:
+`Shape`, `WeightTimes`, `Weights`. A model import fills it from a glTF `weights` sampler or an FBX
+morph channel; `AnimationClip` bakes one flat track per shape, with the bucket index the vector tracks
+get; `ClipMotion` collects it into `Animator.MorphWeights` as the blend tree is evaluated, scaled by
+what that clip is contributing; and `BlendShapeAnimationSystem` lands it on the renderer's
+`BlendShapeWeights` component. `AnimationSystems.AddAnimation` registers it, so a game wires nothing.
+
+`MorphWeightBuffer` is `AnimationEventBuffer` and `ConstraintTagBuffer`'s shape and exists for their
+reason: a weight comes out of a clip halfway through a tree, at a point where the pose is half-built,
+so it is collected and read afterwards.
+
+- ⚠ **A shape is bound by *name*, and the slot it lands in comes from `BlendShapeWeights.Shapes`**,
+  which the renderer publishes out of what it actually attached. The ordinal a source file uses is not
+  the mesh's — the import drops a shape that moves nothing above its threshold — so a curve stored
+  against an index would silently re-target itself on the next export.
+- ⚠ **A weight of zero is a value and an absent track is not.** `WeightTimes.Length` is what says a
+  clip drives a shape at all; the buffer keeps membership and value separate for the same reason, and
+  the system writes only the slots a clip named. Writing all of them would make playing a wave
+  animation wipe an expression a script had set.
+- ⚠ **Weights add across clips and across layers.** Inside a tree that is exact, because a tree's child
+  weights sum to one. Across layers it is additive rather than an override — which is what a facial
+  layer wants, and is a stated limitation rather than a rounding of one: the machinery that models an
+  override works on joints, and a shape is not one.
+- ⚠ **Collected at the clip's own time, in seconds** — unlike a constraint tag, whose span is authored
+  as a fraction of the cycle. A one-second clip cannot tell the two apart, which is why the test that
+  guards it uses a four-second one.
+- ⚠ **`AnimationClip.UnresolvedChannels` does not count a weight channel**, which names the morphed
+  mesh's node rather than a joint. Counting them would report a head's worth on every correct import.
+- **Owed:** hand-authoring one. `AnimationClipAsset` bakes through `AnimationProperty`, which has
+  `PositionX` through `ScaleZ` and no `Weight`, so an *imported* clip drives a shape and a `.vxanim`
+  written by hand does not.
 
 ## Move sets and pose constraints
 

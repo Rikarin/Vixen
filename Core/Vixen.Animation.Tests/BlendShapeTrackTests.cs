@@ -284,6 +284,30 @@ public class BlendShapeTrackTests {
         Assert.Equal(0.5f, half);
     }
 
+    /// <summary>
+    ///     ⚠ And it collects at the clip's own time, not at the fraction of it playback is through.
+    /// </summary>
+    /// <remarks>
+    ///     <b>A one-second clip cannot tell the two apart, which is why this one is four.</b> The
+    ///     constraint tags beside these are collected at the <em>normalised</em> time, because a tag's
+    ///     span is authored as a fraction of the cycle; a weight key is at a second, like every other
+    ///     key in the clip. Passing the fraction would read the whole curve inside the clip's first
+    ///     second and every longer clip would play its face four times too fast and then hold — which
+    ///     reads as an exporter problem rather than as a unit mix-up one line long.
+    /// </remarks>
+    [Fact]
+    public void AnAnimatorCollectsAtTheClipsOwnTimeAndNotAtItsFraction() {
+        var clip = Blinking(times: [0f, 4f], weights: [0f, 1f]) with { Duration = 4f };
+        var animator = Playing(clip);
+
+        // A quarter of the way through a four-second clip is one second in, and the ramp is at 0.25.
+        // Sampling at the fraction would land at 0.25 s and read 0.0625.
+        animator.Update(1f);
+
+        Assert.True(animator.MorphWeights.TryGet("jawOpen", out var quarter));
+        Assert.Equal(0.25f, quarter);
+    }
+
     /// <summary>And it forgets them the moment the clip stops driving them.</summary>
     [Fact]
     public void AnAnimatorsWeightsAreClearedEveryUpdate() {
@@ -305,9 +329,9 @@ public class BlendShapeTrackTests {
         buffer.Add("browRaise", 0.25f);
 
         var component = new BlendShapeWeights();
-        var missed = BlendShapeAnimationSystem.Apply(buffer, ["jawOpen", "browRaise"], ref component);
+        var written = BlendShapeAnimationSystem.Apply(buffer, ["jawOpen", "browRaise"], ref component);
 
-        Assert.Equal(0, missed);
+        Assert.Equal(1, written);
         Assert.Equal<float>([0f, 0.25f], component.Weights!);
     }
 
@@ -329,16 +353,24 @@ public class BlendShapeTrackTests {
         Assert.Equal<float>([0.75f, 0.25f], component.Weights!);
     }
 
-    /// <summary>A shape the mesh does not have is counted rather than thrown.</summary>
+    /// <summary>A shape the mesh does not have is left out of the count rather than thrown over.</summary>
+    /// <remarks>
+    ///     The difference is what <c>Unbound</c> reports: a clip authored on a face with more shapes
+    ///     than this mesh has is an ordinary thing to play, and a non-zero count is how somebody
+    ///     notices they are playing a head's clip on a body.
+    /// </remarks>
     [Fact]
-    public void ApplyCountsTheShapesTheMeshDoesNotHave() {
+    public void ApplyCountsOnlyTheSlotsItWrote() {
         var buffer = new MorphWeightBuffer();
         buffer.Add("browRaise", 0.25f);
         buffer.Add("tongueOut", 1f);
 
         var component = new BlendShapeWeights();
 
-        Assert.Equal(1, BlendShapeAnimationSystem.Apply(buffer, ["browRaise"], ref component));
+        var written = BlendShapeAnimationSystem.Apply(buffer, ["browRaise"], ref component);
+
+        Assert.Equal(1, written);
+        Assert.Equal(1, buffer.Count - written);
     }
 
     /// <summary>
@@ -362,6 +394,34 @@ public class BlendShapeTrackTests {
         Assert.Equal(1, system.Driven);
         Assert.Equal(0, system.Unbound);
         Assert.Equal<float>([0.5f, 0f], world.Read<BlendShapeWeights>(entity).Weights!);
+    }
+
+    /// <summary>
+    ///     ⚠ A clip playing on a mesh that has none of its shapes writes nothing, and says so.
+    /// </summary>
+    /// <remarks>
+    ///     A head's clip on a body. Nothing throws, because a rig with fewer shapes than a clip names
+    ///     is an ordinary thing to play — but <c>Driven</c> must not count it, or the counter that
+    ///     would tell somebody would be the one hiding it.
+    /// </remarks>
+    [Fact]
+    public void AClipWhoseShapesTheMeshHasNoneOfIsReportedRatherThanWritten() {
+        using var world = new World(nameof(AClipWhoseShapesTheMeshHasNoneOfIsReportedRatherThanWritten));
+
+        var entity = world.Create();
+        var animator = Playing(Blinking(shape: "tongueOut", weights: [0f, 1f]));
+
+        world.Add(entity, new AnimatorComponent { Value = animator });
+        world.Add(entity, new BlendShapeWeights { Shapes = ["jawOpen"], Weights = [0.75f] });
+
+        animator.Update(0.5f);
+
+        var system = new BlendShapeAnimationSystem();
+        system.Run(world);
+
+        Assert.Equal(0, system.Driven);
+        Assert.Equal(1, system.Unbound);
+        Assert.Equal<float>([0.75f], world.Read<BlendShapeWeights>(entity).Weights!);
     }
 
     /// <summary>An entity the renderer has not bound yet is skipped rather than guessed at.</summary>

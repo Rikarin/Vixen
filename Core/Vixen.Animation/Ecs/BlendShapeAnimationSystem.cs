@@ -106,8 +106,16 @@ public sealed class BlendShapeAnimationSystem : SystemBase, IDeclaredAccess {
                     continue;
                 }
 
-                Unbound += Apply(animator.MorphWeights, shapes, ref world.Get<BlendShapeWeights>(entity));
-                Driven++;
+                var matched = Apply(animator.MorphWeights, shapes, ref world.Get<BlendShapeWeights>(entity));
+
+                Unbound += animator.MorphWeights.Count - matched;
+
+                // Counted only when something landed. An animator driving shapes this mesh has none of
+                // wrote nothing, and calling that "driven" would hide exactly the case Unbound exists
+                // to report — a head's clip playing on a body.
+                if (matched > 0) {
+                    Driven++;
+                }
             }
         }
     }
@@ -116,7 +124,7 @@ public sealed class BlendShapeAnimationSystem : SystemBase, IDeclaredAccess {
     /// <param name="buffer">What the animator sampled.</param>
     /// <param name="shapes">What the mesh calls each slot.</param>
     /// <param name="component">The component to write.</param>
-    /// <returns>How many of the buffer's shapes the mesh does not have.</returns>
+    /// <returns>How many slots were written — the shapes the buffer and the mesh have in common.</returns>
     /// <remarks>
     ///     <para>
     ///         Separated from the query so that the part with the decisions in it can be tested
@@ -152,6 +160,6 @@ public sealed class BlendShapeAnimationSystem : SystemBase, IDeclaredAccess {
             }
         }
 
-        return buffer.Count - matched;
+        return matched;
     }
 }

@@ -62,12 +62,15 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     it keep their offsets — but appended is still a change to the member count, and the member
     ///     count is what the generated reader checks.
     ///     Ten since <c>AnimationChannel</c> grew a scalar weight track — <c>Shape</c>,
-    ///     <c>WeightTimes</c> and <c>Weights</c>, appended last for the reason <c>MorphTargets</c>
-    ///     was — which is what lets a clip drive a blend shape. ⚠ The same member-count argument
-    ///     applies and it is the whole migration cost: three more members means a version-nine clip
-    ///     chunk that this build read would run off the end of itself, and no artefact can be told
-    ///     from the other by looking at it. The bump re-imports every model in the project once; the
-    ///     ones whose files carried morph-weight curves gain them, and nothing else changes.
+    ///     <c>WeightTimes</c> and <c>Weights</c>, appended last — which is what lets a clip drive a
+    ///     blend shape. ⚠ <b>This bump is a re-import trigger and not a compatibility fence, which
+    ///     makes it the odd one out above.</b> The generated reader writes its member count and
+    ///     refuses only <c>count &gt; MemberCount</c>, so <em>appended</em> members are read back by
+    ///     an older payload as their defaults — a version-nine clip chunk answers "no weight track",
+    ///     which is true. Nothing would break without this. What would happen instead is nothing at
+    ///     all: the curves were being dropped at import, and only a re-import can go back to the
+    ///     source file for them. So the cost is one content build over the project, and the benefit
+    ///     is that a face that was silently still starts moving.
     /// </remarks>
     public override int Version => 10;
 
