@@ -118,12 +118,27 @@ public sealed class GateServiceTests : IDisposable {
         var answer = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
         var token = answer.Value!.Token;
 
-        // ⚠ Chosen against the character that is there rather than written as a constant, because a
-        // constant is only a tamper when the token disagrees with it. This was `token[..^2] + "00"`,
-        // which for a token already ending in "00" handed `Authenticate` the untouched token and got
-        // `Valid` — a real one-in-a-few-thousand failure that read as a flaky signature check.
-        var tampered = token[..^1] + (token[^1] == 'A' ? 'B' : 'A');
+        // ⚠ Tampered INSIDE the lowercase hex alphabet, and the reason is the second bug this line
+        // has had. It was `token[..^2] + "00"`, which for a token already ending in "00" handed
+        // `Authenticate` the untouched token and got `Valid`. The fix for that — pick a character
+        // different from the one that is there — was `token[^1] == 'A' ? 'B' : 'A'`, and it had the
+        // same defect one level down: the signature is `Convert.ToHexStringLower`, so the last
+        // character is never 'A' and the branch always wrote uppercase 'A' — but `FromHexString` is
+        // case-INSENSITIVE, so a token ending in 'a' decoded to the very same bytes and authenticated
+        // as `Valid`. One run in sixteen, and it reads as a flaky signature check rather than as a
+        // test that did not tamper with anything.
+        //
+        // A string that differs is not the property this test needs; bytes that differ is. So the
+        // replacement stays in `0-9a-f`, and the precondition below compares the DECODED signature
+        // rather than the text, so any future variant of this fails as a broken fixture rather than
+        // as a forgery that was not caught.
+        var tampered = token[..^1] + (token[^1] == '0' ? '1' : '0');
         Assert.NotEqual(token, tampered);
+
+        var mark = token.LastIndexOf('.');
+        Assert.NotEqual(
+            Convert.FromHexString(token[(mark + 1)..]),
+            Convert.FromHexString(tampered[(mark + 1)..]));
 
         Assert.Equal(TokenStatus.Valid, Gate.Authenticate("Bearer " + token, out _));
         Assert.Equal(TokenStatus.Forged, Gate.Authenticate(tampered, out _));
