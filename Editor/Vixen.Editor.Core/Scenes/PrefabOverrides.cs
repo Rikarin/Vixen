@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Core.Reflection;
+using Vixen.Core.Yaml;
 
 namespace Vixen.Editor.Core.Scenes;
 
@@ -34,11 +35,21 @@ public enum PrefabReportKind {
     /// </remarks>
     MissingComponent,
 
-    /// <summary>The template has an entity this instance does not name.</summary>
+    /// <summary>The template gained an entity, and the instance has taken it.</summary>
     /// <remarks>
-    ///     ⚠ Reported rather than added, and doc 47 § 6 is why: with the file carrying resolved values,
-    ///     "the author deleted this" and "the template added this since" look identical. Adding the
-    ///     add-back rule requires an explicit removed-child list in the same change.
+    ///     <para>
+    ///         ⚠ <b>The one report that is a change rather than a refusal, and doc 47 § 6 is why it took
+    ///         two slices.</b> With the file carrying resolved values, "the author deleted this" and
+    ///         "the template gained this since" look identical — so the add-back rule could not land
+    ///         until <see cref="SceneEntityData.Removed" /> existed to tell them apart. It does, so this
+    ///         is now propagation over structure: a child added to a prefab reaches every instance of
+    ///         it, and a child a designer deleted stays deleted.
+    ///     </para>
+    ///     <para>
+    ///         Still reported, because a level that gained entities is something a person should be told
+    ///         about even when it is exactly right — it is the one thing a reconcile does that a diff of
+    ///         the next save will show as new lines nobody typed.
+    ///     </para>
     /// </remarks>
     AddedByTemplate
 }
@@ -286,24 +297,17 @@ public static class PrefabOverrides {
     }
 
     /// <summary>Brings every instance of one prefab in a scene back in step with it.</summary>
-    /// <param name="scene">The scene.</param>
+    /// <param name="scene">The scene, rewritten in place.</param>
     /// <param name="prefab">Which prefab, as the reference text a scene writes.</param>
     /// <param name="template">The prefab file.</param>
     /// <param name="reports">Filled with what could not be resolved, or <see langword="null" /> not to ask.</param>
     /// <returns>How many members took the template's value, across every instance.</returns>
     /// <remarks>
-    ///     <para>
-    ///         Every entity naming <paramref name="prefab" /> is reconciled against the template entity
-    ///         its <see cref="SceneEntityData.Source" /> names, wherever it sits in the scene — which is
-    ///         what makes an instance that has been reparented, or one entity of which has been unpacked,
-    ///         an ordinary case rather than one this has to detect.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A prefab that is missing entirely is not this function's case at all.</b> The caller
-    ///         that could not load the template simply does not call it, and the scene keeps its
-    ///         instances, its overrides and its values — an unbuilt or renamed asset must not cost a
-    ///         level its content.
-    ///     </para>
+    ///     One prefab's worth of
+    ///     <see cref="Reconcile(SceneFile,IReadOnlyDictionary{string,SceneFile},ICollection{PrefabReport})" />,
+    ///     which is where every rule lives. ⚠ A single template can express no nesting — an inner link
+    ///     names a prefab this overload was not given — so a nested instance under it is left exactly as
+    ///     the file had it rather than reconciled against the wrong half of the nesting.
     /// </remarks>
     public static int Reconcile(
         SceneFile scene,
@@ -315,55 +319,408 @@ public static class PrefabOverrides {
         ArgumentException.ThrowIfNullOrEmpty(prefab);
         ArgumentNullException.ThrowIfNull(template);
 
-        var written = 0;
-        HashSet<EntityId> reached = [];
+        return Reconcile(
+            scene,
+            new Dictionary<string, SceneFile>(StringComparer.OrdinalIgnoreCase) { [prefab] = template },
+            reports
+        );
+    }
 
-        // ⚠ The children the author deleted, so that absence can be told from novelty. Gathered from
-        // every node of every instance rather than from the roots alone: the writer puts the list on
-        // the instance root — <see cref="SceneEntityData.Removed" /> — and reading it from anywhere is
-        // a superset that survives a hand-merge or a reparented subtree.
-        HashSet<EntityId> deleted = [];
+    /// <summary>Brings every prefab instance in a scene back in step with the templates it came from.</summary>
+    /// <param name="scene">The scene, rewritten in place.</param>
+    /// <param name="templates">The prefab files, by the reference text a scene writes for each.</param>
+    /// <param name="reports">Filled with what could not be resolved, or <see langword="null" /> not to ask.</param>
+    /// <returns>How many members took the template's value, across every instance.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>An instance is a run, not an entity.</b> The unit of work is the topmost entity of a
+    ///         contiguous run sharing one <see cref="SceneEntityData.Prefab" /> — the same definition
+    ///         <c>SceneDocument.TryGetInstanceRoot</c> uses when a delete writes to
+    ///         <see cref="SceneEntityData.Removed" />. ⚠ It has to be the same one: the reader of that
+    ///         list and its writer disagreeing about which entity is the root is a level that regrows
+    ///         what its designer deleted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every prefab at once rather than one at a time, because nesting cannot be seen from
+    ///         one template.</b> A <c>.vxprefab</c> may hold an instance of another, and the writer
+    ///         deliberately keeps the <i>inner</i> link on those nodes — so a scene node inside an
+    ///         instance of A that carries B's link must take A's copy of that B entity, overrides and
+    ///         all, and never B's own. One prefab at a time can only ever reach for B, which is every
+    ///         override the author of A made, discarded on open. Doc 47 § 6.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two things a scene run can be paired with, and the outer one wins.</b> A run whose
+    ///         root sits inside an instance of a different prefab is paired with the node <i>that</i>
+    ///         template carries for the same link; only a run with no such outer instance is paired
+    ///         with its own prefab's file by <see cref="SceneEntityData.Source" />. That is R7's single
+    ///         level: one lookup outward, never a fixpoint.
+    ///     </para>
+    ///     <para>
+    ///         <b>The dictionary should compare its keys case-insensitively</b>, which is how every
+    ///         other comparison of a reference here is made — a reference this editor writes is
+    ///         lower-case hex and a hand-edited one may not be.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A prefab that is missing entirely is simply not in the dictionary.</b> Its instances
+    ///         keep their entities, their overrides and their values — an unbuilt or renamed asset must
+    ///         not cost a level its content, and the caller reports it instead.
+    ///     </para>
+    /// </remarks>
+    public static int Reconcile(
+        SceneFile scene,
+        IReadOnlyDictionary<string, SceneFile> templates,
+        ICollection<PrefabReport>? reports = null
+    ) {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(templates);
 
-        foreach (var entity in scene.All()) {
-            if (!IsInstance(entity) || !string.Equals(entity.Prefab, prefab, StringComparison.OrdinalIgnoreCase)) {
-                continue;
-            }
-
-            foreach (var gone in entity.Removed) {
-                deleted.Add(gone);
-            }
-
-            if (!TryFind(template, entity.Source, out var source)) {
-                reports?.Add(new(PrefabReportKind.OrphanedEntity, entity.Id, entity.Source.ToString()));
-                continue;
-            }
-
-            reached.Add(entity.Source);
-            written += Apply(entity, source, reports);
+        if (templates.Count == 0) {
+            return 0;
         }
 
-        // ⚠ Only worth asking once something in the scene is an instance of this prefab. A scene with no
-        // instances of it would otherwise report every entity in the template as newly added, which is
-        // true and useless.
-        if (reached.Count > 0) {
-            foreach (var entity in template.All()) {
-                // ⚠ A template entity nobody names is either something the template gained or something
-                // the author deleted, and those look identical from here — which is the whole reason the
-                // removed list exists. One is worth telling somebody about and the other is a decision
-                // already made, so a reported removal would be a warning a person can only learn to
-                // ignore, on every open, for ever.
-                //
-                // ⚠ Scene-wide, like the report itself, which carries `EntityId.None` for its entity.
-                // Two instances of one prefab where only one deleted the child therefore silence both.
-                // That is the honest reading of a report that was never per-instance; making it
-                // per-instance is a change to the report's shape rather than to this rule.
-                if (!entity.Id.IsNone && !reached.Contains(entity.Id) && !deleted.Contains(entity.Id)) {
-                    reports?.Add(new(PrefabReportKind.AddedByTemplate, EntityId.None, entity.Id.ToString()));
+        // Parent links, because a scene file nests its entities and every rule below is about what an
+        // entity sits inside. ⚠ Built once and never rebuilt: add-back grafts children as it goes, and
+        // a map refreshed mid-walk would be a map of a tree that is changing under it.
+        Dictionary<SceneEntityData, SceneEntityData> parents = [];
+
+        foreach (var top in scene.Roots) {
+            Link(top, parents);
+        }
+
+        // ⚠ Materialised before anything is grafted, for the same reason — and because a grafted run is
+        // a copy of a template that has already been reconciled, so it needs no turn of its own.
+        List<SceneEntityData> instances = [];
+
+        foreach (var candidate in scene.All()) {
+            if (IsInstance(candidate) && RunRootOf(candidate, parents) == candidate) {
+                instances.Add(candidate);
+            }
+        }
+
+        var written = 0;
+
+        foreach (var instance in instances) {
+            written += ReconcileRun(instance, parents, templates, reports);
+        }
+
+        return written;
+    }
+
+    /// <summary>Finds one entity in a file by the prefab link it carries.</summary>
+    /// <param name="file">The file.</param>
+    /// <param name="prefab">The reference text.</param>
+    /// <param name="source">The id inside that prefab.</param>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether the file has one.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is how an outer prefab names an inner instance's entity.</b> A nested node
+    ///         keeps the inner link on both sides — in the outer <c>.vxprefab</c> and in the scene the
+    ///         outer was placed into — so the pair is the identity the two files share. The outer file's
+    ///         own id for that node is never written anywhere the scene can see it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first match wins, so a template holding two instances of one prefab has two
+    ///         entities with one identity.</b> That is the writer's decision showing through: declining
+    ///         to record an outer link over an inner one is what makes nesting work at all, and its
+    ///         price is that sibling copies of one prefab cannot be told apart by link alone. Both take
+    ///         the same values, which is what they had the day they were placed.
+    ///     </para>
+    /// </remarks>
+    public static bool TryFindLink(
+        SceneFile file,
+        string prefab,
+        EntityId source,
+        [MaybeNullWhen(false)] out SceneEntityData entity
+    ) {
+        ArgumentNullException.ThrowIfNull(file);
+
+        if (!string.IsNullOrEmpty(prefab) && !source.IsNone) {
+            foreach (var candidate in file.All()) {
+                if (candidate.Source == source
+                    && string.Equals(candidate.Prefab, prefab, StringComparison.OrdinalIgnoreCase)) {
+                    entity = candidate;
+                    return true;
                 }
             }
         }
 
+        entity = null;
+        return false;
+    }
+
+    static void Link(SceneEntityData entity, Dictionary<SceneEntityData, SceneEntityData> parents) {
+        foreach (var child in entity.Children) {
+            parents[child] = entity;
+            Link(child, parents);
+        }
+    }
+
+    /// <summary>The topmost entity of the contiguous run sharing this one's prefab.</summary>
+    /// <remarks>
+    ///     <c>SceneDocument.TryGetInstanceRoot</c>'s rule, restated over the file. ⚠ Two instances of
+    ///     one prefab parented to each other read as a single run here, exactly as they do there — a
+    ///     shared under-reading, and the shared one is the safe one: it makes add-back do less rather
+    ///     than write a removal to the wrong root.
+    /// </remarks>
+    static SceneEntityData RunRootOf(SceneEntityData entity, Dictionary<SceneEntityData, SceneEntityData> parents) {
+        var root = entity;
+
+        while (parents.TryGetValue(root, out var above)
+               && IsInstance(above)
+               && string.Equals(above.Prefab, entity.Prefab, StringComparison.OrdinalIgnoreCase)) {
+            root = above;
+        }
+
+        return root;
+    }
+
+    /// <summary>The instance this run sits inside, if it sits inside one.</summary>
+    /// <remarks>
+    ///     Walked through anything in between: an unpacked node or a plain entity between the two is a
+    ///     hierarchy somebody made by hand, and stopping at it would silently unnest the run.
+    /// </remarks>
+    static SceneEntityData? OuterOf(SceneEntityData root, Dictionary<SceneEntityData, SceneEntityData> parents) {
+        for (var above = Above(root); above is not null; above = Above(above)) {
+            if (IsInstance(above) && !string.Equals(above.Prefab, root.Prefab, StringComparison.OrdinalIgnoreCase)) {
+                return above;
+            }
+        }
+
+        return null;
+
+        SceneEntityData? Above(SceneEntityData entity) =>
+            parents.TryGetValue(entity, out var value) ? value : null;
+    }
+
+    static int ReconcileRun(
+        SceneEntityData root,
+        Dictionary<SceneEntityData, SceneEntityData> parents,
+        IReadOnlyDictionary<string, SceneFile> templates,
+        ICollection<PrefabReport>? reports
+    ) {
+        if (!TryPair(root, parents, templates, reports, out var reference, out var node)) {
+            return 0;
+        }
+
+        var mine = Fold(root.Prefab);
+
+        // What the template says this run should hold, keyed by what a scene node stamped from each
+        // entity would carry — so a nested node, which keeps its inner link on both sides, matches by
+        // the same key as an ordinary one.
+        Dictionary<(string Prefab, EntityId Source), SceneEntityData> run = [];
+
+        Collect(node, true);
+
+        // What the scene already holds anywhere under this run's root. ⚠ A wider net than the run: a
+        // nested instance's entities are not this run's to write and are still the answer to "does the
+        // instance already have it".
+        Dictionary<(string Prefab, EntityId Source), SceneEntityData> present = [];
+
+        Register(root);
+
+        var written = Apply(root, node, reports);
+
+        // ⚠ Only this run's own entities. An instance of another prefab dragged in under this one is an
+        // addition and is left alone — doc 47 § 5 — and a second run of the *same* prefab below this
+        // one has a turn of its own, so writing to it from here would be two passes over one entity.
+        foreach (var entity in Subtree(root)) {
+            if (entity == root || !IsInstance(entity) || RunRootOf(entity, parents) != root) {
+                continue;
+            }
+
+            if (run.TryGetValue((Fold(entity.Prefab), entity.Source), out var source)) {
+                written += Apply(entity, source, reports);
+            } else {
+                reports?.Add(new(PrefabReportKind.OrphanedEntity, entity.Id, entity.Source.ToString()));
+            }
+        }
+
+        Fill(node, root);
+
         return written;
+
+        void Collect(SceneEntityData source, bool top) {
+            var key = KeyOf(source, reference);
+
+            run.TryAdd(key, source);
+
+            // ⚠ A nested instance inside the template is recorded — so add-back can graft the whole of
+            // it when the scene has none — and deliberately not descended into. Its interior belongs to
+            // that run's turn, and this run writing to it as well is the one way an entity gets two
+            // templates and the second one wins by accident.
+            if (top || string.Equals(key.Prefab, mine, StringComparison.Ordinal)) {
+                foreach (var child in source.Children) {
+                    Collect(child, false);
+                }
+            }
+        }
+
+        void Register(SceneEntityData entity) {
+            if (IsInstance(entity)) {
+                present.TryAdd((Fold(entity.Prefab), entity.Source), entity);
+            }
+
+            foreach (var child in entity.Children) {
+                Register(child);
+            }
+        }
+
+        // ⚠⚠ The add-back rule — doc 47 row 4, and the reason row 3 had to land first. A template child
+        // the instance does not hold is grafted in, unless the instance root says its author deleted it.
+        void Fill(SceneEntityData source, SceneEntityData into) {
+            foreach (var child in source.Children) {
+                var key = KeyOf(child, reference);
+
+                if (present.TryGetValue(key, out var already)) {
+                    // Descend only where this run owns the entity: below a nested instance the
+                    // template's children are that instance's turn to fill.
+                    if (string.Equals(key.Prefab, mine, StringComparison.Ordinal)) {
+                        Fill(child, already);
+                    }
+
+                    continue;
+                }
+
+                // ⚠⚠ The one line that keeps a designer's deletion deleted. `removed:` names the id the
+                // *template* gave the entity, which is the `Source` half of the key for an ordinary
+                // child and — because a nested node keeps its inner link — for a nested one too.
+                // Comparing the id alone rather than the whole key is deliberate: a delete records what
+                // went, and both halves of a nesting name what went the same way.
+                if (root.Removed.Contains(key.Source)) {
+                    continue;
+                }
+
+                var copy = Graft(child, reference);
+
+                into.Children.Add(copy);
+                Register(copy);
+                reports?.Add(new(PrefabReportKind.AddedByTemplate, root.Id, key.Source.ToString()));
+            }
+        }
+    }
+
+    /// <summary>Which template entity a scene run is to be reconciled against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The outer template first, and that is nesting's whole implementation.</b> A run sitting
+    ///     inside an instance of another prefab <i>is</i> that prefab's copy of it, overrides included,
+    ///     and reaching past it to the inner prefab's own file would discard every one of them.
+    /// </remarks>
+    static bool TryPair(
+        SceneEntityData root,
+        Dictionary<SceneEntityData, SceneEntityData> parents,
+        IReadOnlyDictionary<string, SceneFile> templates,
+        ICollection<PrefabReport>? reports,
+        out string reference,
+        [MaybeNullWhen(false)] out SceneEntityData node
+    ) {
+        if (OuterOf(root, parents) is { } outer) {
+            if (!templates.TryGetValue(outer.Prefab, out var above)) {
+                // ⚠ The run sits inside an instance whose template is not here, and without it there is
+                // no way to tell a nested node of that prefab from a separate instance somebody dragged
+                // in under it. Reconciling against the inner prefab on that guess is the destructive
+                // half — it discards every override the outer's author made — so the run is left
+                // exactly as the file has it. The caller has already reported the prefab it could not
+                // open, which is the sentence a person can act on.
+                reference = string.Empty;
+                node = null;
+
+                return false;
+            }
+
+            if (TryFindLink(above, root.Prefab, root.Source, out var nested)) {
+                reference = outer.Prefab;
+                node = nested;
+
+                return true;
+            }
+        }
+
+        if (templates.TryGetValue(root.Prefab, out var own)) {
+            if (TryFind(own, root.Source, out node)) {
+                reference = root.Prefab;
+                return true;
+            }
+
+            // The template deleted it. Every entity of the run is reported, because every one of them
+            // names something that is gone — and not one of them is touched.
+            foreach (var entity in Subtree(root)) {
+                if (IsInstance(entity) && RunRootOf(entity, parents) == root) {
+                    reports?.Add(new(PrefabReportKind.OrphanedEntity, entity.Id, entity.Source.ToString()));
+                }
+            }
+        }
+
+        reference = string.Empty;
+        node = null;
+
+        return false;
+    }
+
+    /// <summary>An entity and everything under it, the entity first.</summary>
+    static IEnumerable<SceneEntityData> Subtree(SceneEntityData entity) {
+        yield return entity;
+
+        foreach (var child in entity.Children) {
+            foreach (var descendant in Subtree(child)) {
+                yield return descendant;
+            }
+        }
+    }
+
+    /// <summary>What a scene node stamped from this template entity would carry as its link.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A template entity's identity is its inner link when it has one and its own id when it
+    ///     does not</b>, because that is exactly what <c>SceneSerializer.Create</c> and
+    ///     <c>Prefab.Instantiate</c> between them write onto the scene node: an inner link is kept, an
+    ///     unlinked entity is stamped with the prefab being placed. One key over both cases is what
+    ///     lets pairing and add-back be one walk rather than two that have to agree.
+    /// </remarks>
+    static (string Prefab, EntityId Source) KeyOf(SceneEntityData entity, string reference) =>
+        IsInstance(entity) ? (Fold(entity.Prefab), entity.Source) : (Fold(reference), entity.Id);
+
+    /// <summary>A reference folded for comparison, matching every other comparison of one here.</summary>
+    static string Fold(string reference) => reference.ToLowerInvariant();
+
+    /// <summary>Copies a template entity and its subtree into the shape a scene node has.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Through the format rather than member by member, and the reason is aliasing.</b> A
+    ///         <see cref="SceneEntityData" />'s components are objects whose own members may be
+    ///         reference types, so a member-wise copy would leave the level and the template it was read
+    ///         from sharing one — and the next reconcile would write a template's value into itself. A
+    ///         round trip through the format is by definition what the file would have held, which is
+    ///         also the only definition of "a copy" this format has.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fresh id per node with the template's id kept as the source</b>, which is what
+    ///         <c>SceneSerializer.Instantiate</c> does when a prefab is placed by hand: a scene mints its
+    ///         own identities and remembers which template entity each came from. An entity already
+    ///         carrying an inner link keeps that link, its overrides and its removals verbatim, for the
+    ///         reason the writer declines to record over one.
+    ///     </para>
+    /// </remarks>
+    static SceneEntityData Graft(SceneEntityData template, string reference) {
+        var copy = YamlSerializer.Parse<SceneEntityData>(YamlSerializer.ToYaml(template));
+
+        Stamp(copy);
+
+        return copy;
+
+        void Stamp(SceneEntityData entity) {
+            if (!IsInstance(entity)) {
+                entity.Prefab = reference;
+                entity.Source = entity.Id;
+                entity.Overrides.Clear();
+                entity.Removed.Clear();
+            }
+
+            entity.Id = EntityId.New();
+
+            foreach (var child in entity.Children) {
+                Stamp(child);
+            }
+        }
     }
 
     /// <summary>Finds one entity in a file by the id the file gave it.</summary>

@@ -330,6 +330,117 @@ public class PrefabSerializationTests : IDisposable {
         Assert.Empty(scene.Prefabs.RemovedFrom(instance.Root));
     }
 
+    /// <summary>⚠⚠ Deleting a whole nested instance is recorded on the instance above it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A nested prefab instance is a run of its own, so its root is the deleted subtree's root —
+    ///         which used to mean nothing was written down at all. With add-back landed that is a level
+    ///         that regrows the nested prefab its designer deleted, on the next open and every open
+    ///         after.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>By the <i>inner</i> prefab's source id</b>, because that is the only id the outer
+    ///         file has for the node: the writer declines to record an outer link over an inner one, so
+    ///         the outer template and the scene name that entity the same way, and the id is what
+    ///         add-back looks for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void DeletingANestedInstanceIsRecordedOnTheOuterOne() {
+        var instance = Instance();
+        var inner = AssetId.New();
+        var innerSource = EntityId.New();
+
+        var nested = scene.Add("Bulb", LocalTransform.Identity, instance.Root);
+        var leaf = scene.Add("Filament", LocalTransform.Identity, nested);
+
+        scene.Prefabs.Record(nested, new(inner, innerSource));
+        scene.Prefabs.Record(leaf, new(inner, EntityId.New()));
+
+        scene.Delete([nested]);
+
+        // ⚠ The nested instance's root and nothing below it. Its children belong to that run, and naming
+        // them in the outer instance's list would say the outer prefab has entities it does not have —
+        // and would silence a real report about the inner one if it ever came back.
+        Assert.Equal([innerSource], scene.Prefabs.RemovedFrom(instance.Root));
+
+        // And an undo unsays it, like every other removal.
+        Assert.True(scene.Stack.Undo());
+        Assert.Empty(scene.Prefabs.RemovedFrom(instance.Root));
+    }
+
+    /// <summary>⚠ A child of a nested instance is recorded on that instance, not on the one outside it.</summary>
+    /// <remarks>
+    ///     The run a removal belongs to is the contiguous one sharing a prefab, and the nested node is
+    ///     the root of its own. Putting the id in the outer instance's list would say the outer prefab
+    ///     has a child it does not have, and would silence a real report about the inner one.
+    /// </remarks>
+    [Fact]
+    public void DeletingAChildOfANestedInstanceStaysWithTheNestedOne() {
+        var instance = Instance();
+        var inner = AssetId.New();
+        var innerSource = EntityId.New();
+        var leafSource = EntityId.New();
+
+        var nested = scene.Add("Bulb", LocalTransform.Identity, instance.Root);
+        var leaf = scene.Add("Filament", LocalTransform.Identity, nested);
+
+        scene.Prefabs.Record(nested, new(inner, innerSource));
+        scene.Prefabs.Record(leaf, new(inner, leafSource));
+
+        scene.Delete([leaf]);
+
+        Assert.Equal([leafSource], scene.Prefabs.RemovedFrom(nested));
+        Assert.Empty(scene.Prefabs.RemovedFrom(instance.Root));
+    }
+
+    /// <summary>⚠ Deleting an unpacked node records the linked children it takes with it.</summary>
+    /// <remarks>
+    ///     Unpacking one entity of an instance and leaving its children linked is allowed on purpose —
+    ///     <c>PrefabInstances.Forget</c> — so a delete of that node carries entities of the instance away
+    ///     while carrying no link of its own. It used to record nothing, which under add-back is those
+    ///     children arriving back on the next open, for ever.
+    /// </remarks>
+    [Fact]
+    public void DeletingAnUnpackedNodeRecordsTheChildrenItTakes() {
+        var instance = Instance();
+        var leafSource = EntityId.New();
+
+        var leaf = scene.Add("Bolt", LocalTransform.Identity, instance.Child);
+        scene.Prefabs.Record(leaf, new(Turret, leafSource));
+
+        // The middle node is unpacked; its child stays linked.
+        Assert.True(scene.Prefabs.Forget(instance.Child));
+
+        scene.Delete([instance.Child]);
+
+        Assert.Equal([leafSource], scene.Prefabs.RemovedFrom(instance.Root));
+    }
+
+    /// <summary>⚠ And through more than one unlinked entity, because grouping stacks.</summary>
+    /// <remarks>
+    ///     The search for "which instance is losing something" walks out to the nearest <i>linked</i>
+    ///     ancestor rather than one step. A designer who groups an instance's children under an empty
+    ///     and then groups that under another is two unlinked entities away from the run; stopping at
+    ///     the first would record nothing, and the children would arrive back on the next open.
+    /// </remarks>
+    [Fact]
+    public void TheSearchWalksOutThroughEveryUnlinkedEntity() {
+        var instance = Instance();
+        var leafSource = EntityId.New();
+
+        // Two unlinked entities between the deleted subtree and the instance it belongs to.
+        var outer = scene.Add("Group", LocalTransform.Identity, instance.Root);
+        var inner = scene.Add("Inner Group", LocalTransform.Identity, outer);
+        var leaf = scene.Add("Bolt", LocalTransform.Identity, inner);
+
+        scene.Prefabs.Record(leaf, new(Turret, leafSource));
+
+        scene.Delete([leaf]);
+
+        Assert.Equal([leafSource], scene.Prefabs.RemovedFrom(instance.Root));
+    }
+
     /// <summary>An ordinary entity's delete has nothing to do with a prefab.</summary>
     [Fact]
     public void DeletingALooseEntityRecordsNothing() {

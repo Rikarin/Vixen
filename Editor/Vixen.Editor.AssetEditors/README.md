@@ -160,6 +160,19 @@ is also exactly what an override comparison needs.
 whatever the shell decided an entity's row of editors is, and all it needs answered is whether this
 object's member differs from the one it was made from.
 
+⚠⚠ **Nothing feeds it, and feeding it as it stands would be wrong twice.** It has no caller outside its
+own tests — the inspector's revert button is dead for every real inspection — and doc 47's row 6 is
+what would wire it. It is not a wiring job:
+
+- `IsOverridden` **compares values**, which is the implicit model doc 47 § 3 rejected. It cannot see an
+  override *to zero* and cannot see an override to a value equal to the template's, and
+  `SceneDocument.Prefabs` now has the right answer written down. What the inspector wants is a source
+  backed by the list, not a pairing.
+- `SceneEntity.Position`/`Rotation` are **world space**; `SceneEntityData`'s are **relative to the
+  parent**. The two objects a pairing would join do not mean the same thing by "position", so a naive
+  pairing marks every child of a moved instance as overridden and a revert writes a local value into a
+  world-space setter.
+
 ### Placing one
 
 `Prefab.TryPlace` is the verb: it turns a prefab's GUID into a file through `AssetDatabase`, refuses

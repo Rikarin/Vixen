@@ -537,9 +537,19 @@ public sealed class SceneDocument : EditorDocument {
     ///         list to exist first, and this is where it gets written.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing is recorded when the instance root is itself inside the subtree.</b>
-    ///         Deleting a whole instance is not "the author removed some of the template's children";
-    ///         it is the instance going, and there is nowhere left to say anything.
+    ///         ⚠ <b>When the run's own root is inside the subtree, the instance that lost a child is the
+    ///         one <i>above</i>.</b> A nested prefab instance is a run of its own, so deleting the whole
+    ///         of it makes its root the subtree's — and the entity that went is still one of the outer
+    ///         template's children. Walking out to the nearest linked ancestor is what records it. Only
+    ///         when there is nothing above is there nowhere left to say anything, which is what deleting
+    ///         a whole top-level instance means.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same walk covers a subtree that is not linked at all.</b> An unpacked node keeps
+    ///         its children linked on purpose — <c>PrefabInstances.Forget</c> — so deleting one takes
+    ///         entities of an instance with it while carrying no link of its own; so does an empty
+    ///         somebody grouped an instance's children under. Both used to record nothing, which under
+    ///         add-back is those children coming back on the next open.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Called before the delete, because it reads the hierarchy.</b> Afterwards the parent
@@ -549,25 +559,56 @@ public sealed class SceneDocument : EditorDocument {
     public void NoteRemoved(Entity subtree, ICollection<(Entity Root, EntityId Source)> noted) {
         ArgumentNullException.ThrowIfNull(noted);
 
-        if (!World.IsAlive(subtree)
-            || !TryGetInstanceRoot(subtree, out var root)
-            || InSubtree(subtree, root)
-            || !Prefabs.TryGet(root, out var anchor)) {
+        if (!World.IsAlive(subtree)) {
+            return;
+        }
+
+        // Which instance is losing something. Normally the run the subtree sits in — but not when that
+        // run's own root is the subtree (a whole nested instance going) and not when the subtree is not
+        // linked at all (an unpacked node, or an empty somebody grouped children under). In both of
+        // those the instance that lost a child is one above, so the search walks out to the nearest
+        // linked ancestor and asks again.
+        if (!TryGetInstanceRoot(subtree, out var root) || InSubtree(subtree, root)) {
+            var above = Hierarchy.ParentOf(World, subtree);
+
+            while (!above.IsNull && World.IsAlive(above) && !Prefabs.TryGet(above, out _)) {
+                above = Hierarchy.ParentOf(World, above);
+            }
+
+            if (above.IsNull || !World.IsAlive(above) || !TryGetInstanceRoot(above, out root)) {
+                return;
+            }
+        }
+
+        if (!Prefabs.TryGet(root, out var anchor)) {
             return;
         }
 
         Note(subtree);
 
         void Note(Entity entity) {
-            // ⚠ Only the nodes of *this* prefab. A nested instance inside the deleted subtree belongs
-            // to a different template, and naming its entities in the outer one's removed list would
-            // say something false about the outer prefab.
-            if (Prefabs.TryGet(entity, out var link)
-                && link.Prefab == anchor.Prefab
-                && Prefabs.Remove(root, link.Source)) {
+            if (!Prefabs.TryGet(entity, out var link)) {
+                Descend(entity);
+                return;
+            }
+
+            if (Prefabs.Remove(root, link.Source)) {
                 noted.Add((root, link.Source));
             }
 
+            // ⚠⚠ A nested instance is recorded and then not descended into, and both halves matter.
+            // Recorded, because the outer template names that node by the *inner* link — the writer
+            // declines to record an outer link over an inner one, so the inner source is the only id
+            // the outer file has for it, and it is the id add-back will look for. Not descended,
+            // because everything below belongs to that nested run: naming its children in the outer
+            // instance's list would say something about the outer prefab that is not true, and would
+            // silence a genuine report if the nested instance ever came back.
+            if (link.Prefab == anchor.Prefab) {
+                Descend(entity);
+            }
+        }
+
+        void Descend(Entity entity) {
             foreach (var child in Hierarchy.ChildrenOf(World, entity)) {
                 Note(child);
             }

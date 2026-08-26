@@ -231,7 +231,7 @@ For each entity carrying a `prefab` and a `source`, against the template entity 
 | A path in `overrides` names no member | Kept in the file verbatim, reported | A component removed and re-added, or a rename in flight. **Never silently pruned** — a round trip that loses an override is silent, which is the failure this whole document exists to prevent |
 | Template has a component the instance does not | Reported, **not added** | Adding one means constructing a value the instance never had. `Apply` writes members it can see on both sides and nothing else, which is what keeps it a value copy rather than a merge |
 | Instance has a component the template does not | Left alone, not reported | An addition, and additions are the case that needs no syntax — § 6 |
-| Template has an entity no instance node names | Reported, **not added** | See § 6 |
+| Template has an entity no instance node names | **Added**, and reported — unless the instance's `removed` list names it, in which case nothing happens and nothing is said | Slice 3. See § 6 and § 7b |
 | The prefab asset is missing entirely | The instance loads as an ordinary subtree, links intact, reported | An unbuilt or renamed asset must not be a data loss |
 
 The invariant, and it is the one rule to keep: **reconciliation writes values and never removes
@@ -245,20 +245,28 @@ entities, keys or override entries.** Everything it cannot resolve is reported a
 subtree with no `source` key. Because the file carries everything, it survives with no further
 machinery.
 
-**⚠ A removed child is the hole, and it is load-bearing for the next slice.** With the file carrying
+**⚠ A removed child was the hole, and it is what slice 3 stands on.** With the file carrying
 resolved values and reconciliation not adding template entities back, a child the author deleted is
 simply absent, and absence is stable — so the model is sound *as long as the add-back rule does not
 exist*. The moment reconciliation learns to add a template's new children, absence becomes ambiguous:
 "the author deleted this" and "the template added this since" look identical. **Adding the add-back
 rule therefore requires an explicit `removed: [<EntityId>, …]` list on the instance root in the same
 change.** Landing one without the other is how a level quietly regrows the entities its designer
-deleted.
+deleted. The list landed in slice 2 and add-back in slice 3, which is the ordering this paragraph
+asked for, made a matter of fact rather than of care.
 
 **Nested prefabs — single level, per R7.** A `.vxprefab` may contain an instance of another prefab;
 because `prefab` and `source` are written on every node (§ 4), the inner nodes carry the inner link
 and the outer file carries them verbatim with no new syntax. What "single level" restricts is
 reconciliation: one pass, outer over inner, not a fixpoint. **Prefab variants — a prefab that is
 itself an override of another prefab — are out of 1.0**, as R7 requires.
+
+⚠⚠ **And "one pass, outer over inner" turned out to mean something sharper than it reads.** The
+tempting reading is that the passes are independent because every entity carries at most one link.
+The link sets are indeed disjoint; the *entities* are not. A scene node inside an instance of A that
+carries B's link is reachable from both templates, and they disagree — B's file holds none of A's
+overrides over B, so reconciling that node against B is every override A's author made, discarded on
+open, silently, every time the level is opened. § 7b is what that cost.
 
 ---
 
@@ -284,9 +292,10 @@ Owed, in order:
 | 1 | `SceneSerializer` writes and reads the three keys; `PrefabInstances` is filled from them | An editor verb that places a prefab | **Landed** — slice 2 |
 | 2 | Reconcile on open, wired to the asset database that can resolve an id to a path | Nothing | **Landed** — slice 2 |
 | 3 | The `removed` list of § 6, recorded on delete | Slice 1 | **Landed** — slice 2 |
-| 4 | Add-back of template children, reading the `removed` list | Slice 2 | Owed |
-| 5 | Nested reconciliation, one level | Slice 2 | Owed |
-| 6 | Model (B) — drop the resolved values, bump the format version | `ImportContext` resolving an `AssetId` to a path; shared with navigation's placement bake | Owed |
+| 4 | Add-back of template children, reading the `removed` list | Slice 2 | **Landed** — slice 3 |
+| 5 | Nested reconciliation, one level | Slice 2 | **Landed** — slice 3 |
+| 6 | The inspector's override marks fed from `SceneDocument.Prefabs` rather than paired by hand | Slice 2 — and one decision, § 7b | Owed |
+| 7 | Model (B) — drop the resolved values, bump the format version | `ImportContext` resolving an `AssetId` to a path; shared with navigation's placement bake | Owed |
 
 ⚠ **Rows 3 and 4 were one row and are two, and the split is the ordering rule of § 6 written into the
 plan.** Recording what the author deleted and adding back what the template gained are one feature
@@ -334,6 +343,82 @@ The blocker named in § 7 was real and is gone: `PrefabInstances` now has a call
 
 ---
 
+## 7b. The third slice — propagation over structure, and the nesting
+
+**Add-back and nested reconciliation. Rows 4 and 5.**
+
+Until this, a prefab propagated *values* and not *shape*: a child added to a template reached no level
+that already used it. That is half of the reason a prefab is a link rather than a stamp, and it is the
+half § 6 refused to build until the `removed` list existed to make absence unambiguous. It does, so:
+
+- **An instance is a run, not an entity.** The unit of both rules is the topmost entity of a
+  contiguous run sharing one `prefab` — ⚠ *the same definition* `SceneDocument.TryGetInstanceRoot`
+  uses when a delete writes its removals. It has to be the same one: a reader and a writer that
+  disagree about which entity is the root is a level that regrows what its designer deleted, and the
+  disagreement would be invisible in every test that used one instance.
+- **Add-back grafts the template's child, and `removed:` is what stops it.** The graft is a *copy* of
+  the template's subtree with a fresh `EntityId` per node, the template's id kept as each `source`,
+  the prefab's reference, and no overrides — which is exactly what a placement writes. ⚠ The copy goes
+  through the format rather than member by member: a `SceneEntityData`'s components are objects whose
+  own members may be reference types, so a member-wise copy leaves the level and the prefab sharing
+  one, and the *next* reconcile writes a level's edit back into the template and out to every other
+  instance in the project.
+- **Add-back is per instance, which the report was not.** Slice 2's suppression was scene-wide, and
+  said so: two instances of one prefab where only one deleted the child silenced both. That is an
+  honest reading of a *report* and a wrong one for a *graft*, so the removal is now read from the
+  instance root the delete wrote it to.
+- ⚠⚠ **`NoteRemoved` had to grow a case, and it is the sharpest thing in this slice.** Deleting a
+  whole *nested* instance out of an outer one recorded nothing at all — the nested run's own root is
+  the deleted subtree's root, so the old code returned early — which under add-back is a level that
+  regrows the nested prefab its designer deleted, on every open, for ever. The removal now walks one
+  step out to the nearest linked ancestor, and records it by the **inner** link's `source`, because
+  the outer file names that node the same way the scene does. The delete stops at that boundary and
+  does not descend: what is below belongs to the nested run, and naming it in the outer instance's
+  list would say something about the outer prefab that is not true. ⚠ The same walk covers a second
+  hole of the same shape — a deleted subtree with no link of its own. An unpacked node keeps its
+  children linked on purpose (§ 4), so deleting one carries an instance's entities away while
+  carrying no link; so does an empty somebody grouped them under, and grouping stacks, so the walk is
+  through every unlinked entity rather than one step.
+- **Nesting is one lookup outward.** A run whose root sits inside an instance of a *different* prefab
+  is paired with the node **that** template carries for the same `(prefab, source)` link; only a run
+  with no such outer instance is paired with its own prefab's file by `source`. The key is uniform
+  because a template entity's identity is its inner link when it has one and its own id when it does
+  not — which is precisely what `SceneSerializer.Create` and `Prefab.Instantiate` between them write
+  onto a scene node.
+- **And the templates are composed before the scene is.** Every opened `.vxprefab` is first reconciled
+  against the prefabs *it* holds instances of, so its nested nodes hold the inner prefab's current
+  values under the outer author's overrides — which is what an instance of the outer should show. One
+  level: the prefabs opened for that step are not composed in their turn, which is R7's restriction
+  written as an absence rather than as a depth counter, and is also what makes a prefab that names
+  itself terminate rather than have to be detected. ⚠ No `.vxprefab` is written either, for the same
+  reason no `.vxscene` is.
+- ⚠ **A run inside an instance whose template could not be opened is left exactly as the file has
+  it.** Without the outer template there is no telling a nested node from a separate instance dragged
+  in under one, and the two want opposite treatments — so the pass declines rather than guesses. The
+  guess that is available is the destructive one.
+
+**What is left, and why it is not wiring.** Row 6 — the inspector's override marks.
+
+⚠ **`PrefabSource` has no caller outside `PrefabTests.cs`**, so the revert button § 1 counted as
+"already built and working" has never been shown a pairing in the running editor. It is the tree's
+commonest defect — a finished consumer nothing calls — and it is why § 1's "roughly half an override
+system is built" was generous. Feeding it is what row 6 means, and it reads as plumbing and is not:
+
+1. ⚠ `PrefabSource.IsOverridden` **compares values**, which is model (A) of § 3, rejected there. It
+   cannot see an override *to zero* and cannot see an override to a value equal to the template's.
+   Feeding it from `SceneDocument.Prefabs` unchanged would put the rejected model back on screen over
+   a file that has the right answer written down. What the inspector wants is a source backed by the
+   list.
+2. ⚠ `SceneEntity.Position`/`Rotation` are **world space** and `SceneEntityData`'s are **relative to
+   the parent**. The two objects a pairing would join do not mean the same thing by "position", so a
+   naive pairing marks every child of a moved instance as overridden and a revert writes a local value
+   into a world-space setter.
+
+Neither is hard; both are decisions, and making them silently inside a wiring change is how the thing
+this document exists to prevent gets reintroduced at the layer nobody tests.
+
+---
+
 ## 8. Compatibility
 
 **The serialised form does not change for any existing file.** The three keys are additive and their
@@ -361,6 +446,22 @@ the same terms as the other three: absent means "the author has deleted nothing 
 `SceneFile.Current` stays at `1`, and an older reader meeting it binds a scene that is correct except
 that it does not know which of a template's children were deliberately dropped — which is exactly
 what it believed before. The one-line increase in the churn above is its whole migration cost.
+
+⚠ **Slice 3 changes no key and no version, and its migration cost is entities rather than bytes.**
+Add-back and nested reconciliation add nothing to the format: `SceneFile.Current` stays at `1`, no
+key is added, removed or given a new meaning, and a `.vxscene` written before this reads and writes
+byte-identically. What it costs instead is that **the first open of a level whose prefab has gained
+children gains those entities**, and the next save the author makes writes them out — a diff of
+entity blocks nobody typed. That is the feature working, and it is still worth stating as a cost,
+because it is the first time a reconcile does anything a person would see in `git diff` beyond a
+changed number. Three properties bound it: nothing is added that the instance's `removed:` list
+names, nothing is added twice (the check is by the template's id, which the graft records as
+`source`), and nothing is written to disk by the open itself.
+
+⚠ **One behaviour of an existing name changed.** `PrefabReportKind.AddedByTemplate` meant "the
+template has an entity this instance does not, and it was **not** added"; it now means "…and it has
+been". It is still reported, deliberately — a level gaining entities is the one thing a reconcile does
+that shows up in a diff, and telling somebody only about the failures would make that the quiet case.
 
 ⚠ **`SceneScalars.Register` already covers the new keys.** `EntityId` is registered as a scalar there
 (`SceneScalars.cs`), and `MathScalars.Register()` is called from the same place — so an override on a

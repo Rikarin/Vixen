@@ -321,7 +321,7 @@ refusing to open the level.
 [plan/47](../../docs/plan/47-prefab-overrides-and-nested-prefabs.md) is the decision record and
 [the guide page](../../docs/guide/editor/prefab-overrides.md) is how to use it.
 
-Four things are worth knowing before touching it:
+Six things are worth knowing before touching it:
 
 ⚠⚠ **The override list is names, never a comparison.** If overridden-ness were "differs from the
 template" or "is not the default", an author who turns a lamp's intensity down to `0` has said
@@ -340,10 +340,24 @@ subtree deleted on open is unrecoverable and a dropped override is silent.
 
 ⚠⚠ **`Removed` had to land before anything adds a template's children back.** With resolved values in
 the file, a child the author deleted is simply absent — and "the author deleted this" and "the
-template gained this since" are the same absence. While nothing adds children back that is safe;
-the day it does, a level regrows what its designer removed. So the list exists first, and its use
-today is to stop a reconcile reporting a deliberate deletion as a template addition on every open of
-that level, for ever.
+template gained this since" are the same absence. That day has come: a child added to a template is
+now grafted into every instance of it, and the *only* thing that keeps a designer's deletion deleted
+is that list. It landed a slice earlier on purpose, so every scene saved in between already carries
+the answer.
+
+⚠ **The unit of both structural rules is a *run*** — the topmost entity of a contiguous span sharing
+one `prefab`, which is what "the instance root" means. It is deliberately the same definition
+`SceneDocument.TryGetInstanceRoot` uses when a delete writes a removal down. A reader and a writer
+that disagree about which entity is the root is a level that regrows what its designer deleted, and
+every test using a single instance would pass.
+
+⚠⚠ **Nesting cannot be seen from one template, so `Reconcile` takes them all.** A scene node inside an
+instance of A that carries B's link is reachable from both, and they disagree — B's file holds none of
+A's overrides over B. A run whose root sits inside an instance of a *different* prefab is therefore
+paired with the node **that** template carries for the same `(prefab, source)`, and `PrefabReconcile`
+composes each template against its own inner prefabs before touching the scene. One lookup outward,
+never a fixpoint. ⚠ A run inside an instance whose template could not be opened is left exactly as the
+file has it: the guess that is available is the destructive one.
 
 `PrefabOverrides` is pure over the format: no `World`, no `SceneDocument`, no project on disk.
 `PrefabReconcile` is one step up — it reads files — and is still not a document: it rewrites a parsed
@@ -354,6 +368,12 @@ without an editor. The wiring is in `Vixen.Editor.SceneView` (`SceneSerializer.O
 ⚠ **Migration**: the keys are additive and `SceneFile.Current` stays at `1`, but `OmitDefaults` is off
 for this format — so the first save of any existing scene gains `prefab: ''`, `source: 00000000…`,
 `overrides: []` and `removed: []` on every entity. Nothing is read differently and no data moves.
+
+⚠ **Migration, add-back**: no key, no version change, no rewritten file — the cost is *entities*. The
+first open of a level whose prefab has gained children gains those entities, and the next save the
+author makes writes them out. Nothing is added that the instance's `removed:` list names, nothing is
+added twice (the check is by the template's id, which the graft records as `source`), and the open
+itself writes nothing to disk.
 
 ## What is not here yet
 

@@ -3798,6 +3798,13 @@ sealed partial class EditorApplication : IDisposable {
     ///         a member nothing has, a prefab that could not be opened at all — every one of which is
     ///         still in the file, untouched, because a reconcile writes values and removes nothing.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A child added back is counted with the values and not with the residue.</b> It
+    ///         travels as a <c>PrefabReport</c> because it is worth saying — it is the one thing a
+    ///         reconcile does that a diff of the next save will show as lines nobody typed — but it is
+    ///         not something anybody has to settle, and counting it as one would put a warning on every
+    ///         level that correctly followed a prefab.
+    ///     </para>
     /// </remarks>
     void Announce(SceneDocument document) {
         if (document.Reconciled is not { Changed: true } report) {
@@ -3812,17 +3819,29 @@ sealed partial class EditorApplication : IDisposable {
             );
         }
 
+        var added = 0;
+
+        foreach (var problem in report.Reports) {
+            if (problem.Kind == PrefabReportKind.AddedByTemplate) {
+                added++;
+            }
+        }
+
+        if (added > 0) {
+            lines.Add($"{added} entities were added from their prefabs.");
+        }
+
         // Named rather than counted, up to a few: "three things could not be resolved" is a sentence
         // nobody can act on, and the names are what say which prefab to go and look at.
         foreach (var unresolved in report.Unresolved.Take(4)) {
             lines.Add($"{unresolved.Kind}: {unresolved.Detail}");
         }
 
-        foreach (var problem in report.Reports.Take(4)) {
+        foreach (var problem in report.Reports.Where(entry => entry.Kind != PrefabReportKind.AddedByTemplate).Take(4)) {
             lines.Add(problem.ToString());
         }
 
-        var outstanding = report.Reports.Count + report.Unresolved.Count;
+        var outstanding = report.Reports.Count - added + report.Unresolved.Count;
 
         if (outstanding > 8) {
             lines.Add($"and {outstanding - 8} more.");
