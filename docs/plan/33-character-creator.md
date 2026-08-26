@@ -520,7 +520,7 @@ And the three numbers:
 |---|---|---|
 | **Four influences per vertex** | `MeshData.BoneIndices` — "Four joint indices per vertex"; `BonePalette` in `Skinning.rvn` is four `mat4`s; the vertex stream takes `bones0: float4, weights0: float4` | A MetaHuman face uses more than four on the regions that matter, and the fifth influence is *not* below threshold on a face the way `Skinning.rvn`'s comment correctly says it is on a body |
 | **`MaxBones = 256`** | `Skinning.rvn` — sized to Vulkan's guaranteed 16 KiB uniform range | ⚠ **Less serious than it looks.** The palette is already a `Buffer<BoneMatrix>` and `ShadowCaster.rvn` says why; 256 is what a *host* sizes by. An ~800-joint face needs the host constant raised and the indices to stay exact in a `float4` — which they are, well past 2²⁴ |
-| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` + `MorphRenderFeature` | ✅ **Closed.** Storage, quantisation, the glTF/FBX import and the compute scatter were built and asserted numerically on a device; the wiring landed 2026-08-26 — a vertex range per morphed instance, the rest pose copied in from the scene's `GeometryBuffer`, a dispatch per active shape, and `MeshDraw.VertexBuffer` and `VertexOffset` rewritten together, all of it constructed and recorded by `WorldRenderer`. **And a clip drives one, as of 2026-08-26:** `AnimationChannel` carries a fourth, scalar track — `Shape`/`WeightTimes`/`Weights` — the importer fills it from `aiAnimation.mMeshMorphChannels`, `ClipMotion` collects it into `Animator.MorphWeights` as the tree is evaluated, and `BlendShapeAnimationSystem` lands it on `BlendShapeWeights`. ⚠ **The binding is by *name*, because the slot is not stable:** the import drops a shape under the threshold and deduplicates the rest, so a source file's ordinal is not `MeshData.MorphTargets`' — `MorphWeightSystem` publishes the translation out of what the feature attached. ⚠ **Weights add across layers rather than overriding** (exact inside a tree, whose child weights sum to one). **Owed:** hand-authoring a weight curve in a `.vxanim` — `AnimationProperty` has no `Weight` member |
+| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` + `MorphRenderFeature` | ✅ **Closed.** Storage, quantisation, the glTF/FBX import and the compute scatter were built and asserted numerically on a device; the wiring landed 2026-08-26 — a vertex range per morphed instance, the rest pose copied in from the scene's `GeometryBuffer`, a dispatch per active shape, and `MeshDraw.VertexBuffer` and `VertexOffset` rewritten together, all of it constructed and recorded by `WorldRenderer`. **And a clip drives one, as of 2026-08-26:** `AnimationChannel` carries a fourth, scalar track — `Shape`/`WeightTimes`/`Weights` — the importer fills it from `aiAnimation.mMeshMorphChannels`, `ClipMotion` collects it into `Animator.MorphWeights` as the tree is evaluated, and `BlendShapeAnimationSystem` lands it on `BlendShapeWeights`. ⚠ **The binding is by *name*, because the slot is not stable:** the import drops a shape under the threshold and deduplicates the rest, so a source file's ordinal is not `MeshData.MorphTargets`' — `MorphWeightSystem` publishes the translation out of what the feature attached. ⚠ **Weights add across layers rather than overriding** (exact inside a tree, whose child weights sum to one). **And a `.vxanim` written by hand drives one, as of 2026-08-26:** `AnimationProperty.Weight` with `AnimationCurveData.Shape` beside it, the pair identifying a curve because a face's node carries one per shape, and a weight-only target emitting no transform channel so a correct facial clip reports no unresolved channels. **Owed:** the cluster-page scatter — until it exists the importer refuses a cluster hierarchy for a morphed mesh, because a virtualized one never reaches `MorphRenderFeature.Attach` and drew at rest |
 
 ⚠ **The good news is the shape of the gap.** Nothing about the existing animation stack is wrong for
 this: local-space poses, a model-space pass at the end, palettes in a storage buffer, retargeting that
@@ -654,7 +654,7 @@ fed by a `BlendShapeWeights` component through `MorphWeightSystem`, on `Skinning
 and, the same day, **animated from a clip**: `AnimationChannel`'s scalar weight track, read out of
 `aiAnimation.mMeshMorphChannels`, sampled per shape, collected through `Animator.MorphWeights` and
 landed on the component by `BlendShapeAnimationSystem`. ⚠ **A clip binds a shape by name and not by
-slot**, which is `MorphTargetData.Name`'s own rule and is load-bearing: `ReadMorphTargets` drops a
+slot**, which is `MorphTargetData.Name`'s own rule and is load-bearing: **And it has been looked at**: `Samples/03-PbrShowcase` puts two heads in the foreground, one at rest and one driven by a hand-authored clip, which is the control that makes the picture evidence. `ReadMorphTargets` drops a
 shape that moves nothing above the threshold and deduplicates the names of the rest, so the ordinal a
 file addresses is not the ordinal the mesh ends up with.
 
@@ -1168,13 +1168,16 @@ is worth building whether or not the rest of this document is ever scheduled. Ex
 head with twenty morph targets animates from an `AnimationClip`, and its shadow and motion vectors
 agree with it.
 
-✅ **The morph-target half is built, and every link of its exit criterion is asserted.** A
-hand-authored head with morph targets animates from an `AnimationClip`, and because the pre-pass
-writes one buffer every stage reads, its shadow and motion vectors agree with it by construction.
-⚠ **Asserted link by link and not yet as a picture** — the import, the bake, the sample, the
-collection and the component write are each covered by a test, and the device leg of the scatter is
-held to the host's floats by `MorphScatterDeviceTests`; what nobody has done is put a talking head in
-a sample and looked at it. What exists: `MorphTargetData` (the sparse quantised format —
+✅ **The morph-target half is built, its exit criterion is asserted link by link, and somebody has
+now looked at it.** A hand-authored head with morph targets animates from an `AnimationClip`, and
+because the pre-pass writes one buffer every stage reads, its shadow and motion vectors agree with it
+by construction. **The picture is `Samples/03-PbrShowcase`, as of 2026-08-26**: two heads in the
+foreground, the same `.gltf` and the same material under the same sun, one at rest and one driven by
+a hand-authored `expression.vxanim`. ⚠ **Two, because one proves nothing** — a frame in which
+`MorphScatter` silently did nothing looks exactly like a frame in which it did, unless there is a
+control beside it. 03 is the `SampleFrame` gate's own subject, so the pre-pass is something CI runs
+rather than something nobody has run; measured at 53 756 distinct colours against the gate's floor of
+1 024, up from 44 021 before the heads. What exists: `MorphTargetData` (the sparse quantised format —
 `(index, Δposition, Δnormal)`, 16-bit snorm against a per-target range, sorted by index),
 `MorphKernel` as the arithmetic written once, `Raven/Library/Pipeline/MorphScatter.rvn` as its
 transliteration, and `ModelReader` reading `aiMesh.mAnimMeshes` behind `ModelImportSettings.
@@ -1213,11 +1216,37 @@ without the bump. What would happen is *nothing at all* — the curves were drop
 going back to the source file recovers them. The cost is one content build over the project; the
 benefit is that a face that was silently still starts moving.
 
-Still owed: **hand-authoring a weight curve** — `AnimationClipAsset` bakes through
-`AnimationProperty`, which has `PositionX` through `ScaleZ` and no `Weight`, so an *imported* clip
-drives a shape and a `.vxanim` written by hand does not; the **cluster-page scatter**, since a
-virtualized mesh packs its own vertex records; and the whole of the eight-influence permutation, which
-is untouched.
+**Hand-authoring a weight curve landed 2026-08-26.** `AnimationProperty.Weight` with
+`AnimationCurveData.Shape` beside it is the authored form; ⚠ the pair `(Property, Shape)` is what
+identifies a curve, because a face's node carries one per shape and a lookup by property alone finds
+whichever the list held first. `ToClipData` bakes each into the same named scalar channel an import
+would have written, and ⚠ a target whose curves are *all* weight curves emits **no transform
+channel** — an empty one names the mesh's node, which is not a joint, so a correct facial clip would
+have reported one `UnresolvedChannels` per face. The editor's dope sheet shows one row per shape.
+`AnimationClipContent.TrySampleWeight` is the rig-free sampler beside `TrySample`, for its reason: a
+head that is one mesh has no skeleton for `AnimationClip.Create` to resolve against.
+
+⚠ **`AnimationClipAsset.Current` 2 is a compatibility FENCE, and it is the odd one out among the
+three version bumps this row has produced.** The other two are binary chunks whose generated reader
+takes an appended member as its default. This is YAML bound by name and the value that moved is
+inside an *enum*, which `YamlSerializer` binds with `Enum.Parse` — an older build meeting
+`property: Weight` throws. So the number a file carries is `MinimumVersion` and not the constant: a
+clip with no weight curve is still written as version 1, and the rest of a project's clips are not
+fenced for a member none of them uses.
+
+⚠ **Two silent defects were found by trying to look at it, and either would have made the picture a
+lie.** First, **a morphed mesh was being virtualized**: `MeshExtractionSystem.Clustered` takes any
+mesh carrying a cluster hierarchy down the paged path, which never reaches
+`MorphRenderFeature.Attach` — so a head with twenty shapes drew at rest with every weight applied to
+nothing. Until the cluster-page scatter exists, `ModelImporter` refuses the hierarchy for a morphed
+mesh (version 11, a re-import trigger), which is what makes the two paths agree about what is built.
+Second, **`GeometryResidency.Acquire` threw where its own contract says defer** — its false already
+means "did not fit" and the entity is offered again next frame, but it never asked
+`GeometryBuffer.CanStage`, so a first frame registering a 42 KB head and then a sphere killed the
+frame loop on a mesh that was merely second.
+
+Still owed: the **cluster-page scatter**, since a virtualized mesh packs its own vertex records; and
+the whole of the eight-influence permutation, which is untouched.
 
 ### P1 — the rig (2.5 EM)
 

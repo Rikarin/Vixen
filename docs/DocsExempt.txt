@@ -59,6 +59,8 @@ L:14012 sweep-pending
 L:14013 sweep-pending
 L:14014 sweep-pending
 L:14018 sweep-pending
+L:14019 sweep-pending
+L:14020 sweep-pending
 L:14021 sweep-pending
 L:14022 sweep-pending
 L:14023 sweep-pending
@@ -189,7 +191,6 @@ R:SurfaceCache/SurfaceCacheGather sweep-pending
 R:SurfaceCache/SurfaceCacheLight sweep-pending
 T:Vixen.Animation.AnimationClip sweep-pending
 T:Vixen.Animation.AnimationClipCache sweep-pending
-T:Vixen.Animation.AnimationClipContent sweep-pending
 T:Vixen.Animation.AnimationCurveCompressor sweep-pending
 T:Vixen.Animation.AnimationEvent sweep-pending
 T:Vixen.Animation.AnimationEventBuffer sweep-pending

@@ -1,8 +1,8 @@
 # 03 — PBR Showcase
 
 Twenty-five spheres: metallic along one axis of the grid, roughness along the other, on a floor,
-under one sun, on a terrain — rendered through the standard frame. The frame document is seven
-knobs and one splice:
+under one sun, on a terrain — rendered through the standard frame, with a pair of blend-shaped heads
+in the foreground. The frame document is seven knobs and one splice:
 
 ```yaml
 version: 2
@@ -44,6 +44,48 @@ The sample is also the smallest complete example of a project on the
 [standard frame](../../docs/guide/rendering/standard-frame.md): what the seven knobs buy, and what
 each one still asks of the host.
 
+## The two heads
+
+The pair in the foreground is the same mesh, the same material and the same sun. **The left one is at
+rest and the right one is morphed**, and the difference between them is the whole of what a blend
+shape does.
+
+⚠ **Two, because one proves nothing.** A frame in which `MorphScatter` silently did nothing is
+pixel-indistinguishable from a frame in which it did — the mesh is still extracted, still shaded,
+still shadowed, just at rest — so a single head in a picture is a head, and nobody looking at it can
+tell whether the pre-pass ran. Side by side, the only thing that differs is the thing under test.
+That is the same argument the grid of spheres makes one row over.
+
+⚠ **The rest head carries no `BlendShapeWeights` component at all**, rather than one full of zeroes.
+Those are different paths — a weighted instance still takes a vertex range of its own and still has
+its rest pose copied into it — and the useful control is the mesh drawn the way every other mesh in
+the scene is drawn.
+
+What drives the right one is `Assets/Animation/expression.vxanim`: a **hand-authored** clip with two
+`property: Weight` curves, one per shape, bound by the shape's **name**. It is the first file in the
+repository to use the authored form of a weight curve, and the sample reads it with
+`AnimationClipContent.TrySampleWeight` — the rig-free sampler, because a head that is one mesh has no
+skeleton for `AnimationClip.Create` to resolve a channel against.
+
+`Content/makehead.py` writes `Assets/Models/head.gltf`, and ⚠ **it welds the seam and the poles on
+purpose**. The obvious latitude/longitude grid is not a closed manifold: its first and last columns
+are separate vertices at the same place and its pole bands are degenerate triangles. Imported, that
+mesh drew as a shell with a cap missing — which looks exactly like a morph gone wrong and is not.
+Re-importing with `importBlendShapes: false` produced the identical picture, which is what settled it.
+
+The shutdown line (event 14020) is the one that would catch the pre-pass never running:
+
+```
+The heads: 2 shape(s) bound, weights [1.00, 0.90] from 'Assets/Animation/expression.vxanim';
+the pre-pass held 1 mesh(es) and 2 instance(s), and in the last frame copied 0 and dispatched 0.
+```
+
+⚠ **Zero copies and zero dispatches in the last frame is correct here, not a failure.** A range is
+recorded only when its weights changed, and the curve holds near full for most of its cycle — which
+is deliberate, so that a capture of any single frame in the middle of the loop is a picture of the
+morph rather than a coin toss. Shapes bound at zero, or weights that never leave zero, is the reading
+that means something is wrong.
+
 ## The terrain
 
 The ground around the grid is the terrain stack demonstrated end to end from a real project — the
@@ -81,7 +123,8 @@ and temporal resolve, the histogram meter and the tonemap — and the code keeps
 cannot say:
 
 - **What exists** — `PbrShowcaseGame.Spawn`: 25 `!Sphere` primitives whose two material numbers are
-  their grid coordinates, a floor for the shadows to land on, a sun, a camera on a slow orbit.
+  their grid coordinates, a floor for the shadows to land on, two heads, a sun, and a camera on a
+  slow orbit.
 - **The knobs' host halves**, each marked ⚠ where it is paid:
   - `shadows:`/`antialiasing: Taa` → the `Shadow` and `Motion` caster stages in `OnConfigure`,
     because a document cannot decide what an object is extracted as.
