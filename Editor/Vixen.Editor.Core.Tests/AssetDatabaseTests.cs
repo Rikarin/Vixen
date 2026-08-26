@@ -511,4 +511,62 @@ public sealed class AssetDatabaseTests {
         Assert.True(cold.TryGetByGuid(minted, out var entry));
         Assert.Equal("AudioImporter", entry.ImporterTag);
     }
+
+    /// <summary>
+    ///     ⚠ The same settling sequence on a machine whose clock runs ahead of its filesystem's write
+    ///     times, which is what Windows is: <c>DateTime.UtcNow</c> resolves through the precise system
+    ///     clock while NTFS stamps a write from the coarse one, so a sidecar written <em>after</em> a
+    ///     scan started can carry a write time up to a tick <em>before</em> it. A scan that decided
+    ///     "did I write this myself?" by comparing those two clocks trusted its own sidecar on the
+    ///     very next scan; this pins that it no longer asks a clock at all.
+    /// </summary>
+    /// <remarks>
+    ///     The lead is 50 ms because it only has to exceed a scan's duration — the failure needs the
+    ///     mint to land inside the interval by which the clock leads, and on Windows that interval is
+    ///     the ~15.6 ms clock tick. Nothing here waits for it: the clock is offset, not advanced.
+    /// </remarks>
+    [Fact]
+    public void AScanDoesNotTrustAStampItWroteItselfWhenTheClockLeadsTheFilesystem() {
+        using var project = new ProjectFixture();
+        project.AddWithoutMeta("Assets/hero.png");
+
+        var database = new AssetDatabase(project.Paths, new LeadingClock(TimeSpan.FromMilliseconds(50)));
+
+        Assert.Equal(0, database.Scan().Reused);
+        Assert.Equal(0, database.Scan().Reused);
+        Assert.Equal(1, database.Scan().Reused);
+    }
+
+    /// <summary>
+    ///     What a scan wrote is recorded as "no stamp" rather than as the stamp the write left behind,
+    ///     and that survives into the saved index — so a warm start is told the same thing the scan
+    ///     that wrote the index knew, and opens the file.
+    /// </summary>
+    [Fact]
+    public void TheSavedIndexClaimsNoStampForASidecarTheScanMinted() {
+        using var project = new ProjectFixture();
+        project.AddWithoutMeta("Assets/hero.png");
+
+        var database = new AssetDatabase(project.Paths);
+        database.Scan();
+        database.Save();
+
+        var row = Assert.Single(
+            File.ReadAllLines(project.Paths.GuidIndexFile),
+            line => line.EndsWith("\tAssets/hero.png", StringComparison.Ordinal)
+        );
+
+        // Field 4 is the recorded length. -1 is MetaStamp.Unknown, which matches no real file.
+        Assert.Equal("-1", row.Split('\t')[4]);
+
+        var cold = new AssetDatabase(project.Paths);
+
+        Assert.True(cold.TryLoad());
+        Assert.Equal(0, cold.Scan().Reused);
+    }
+
+    /// <summary>A clock offset from the real one, so that the files a test writes look older than they are.</summary>
+    sealed class LeadingClock(TimeSpan lead) : TimeProvider {
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.UtcNow + lead;
+    }
 }
