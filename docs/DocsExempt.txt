@@ -1125,8 +1125,6 @@ T:Vixen.Editor.AssetEditors.Materials.TextureParameter sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.VectorParameter sweep-pending
 T:Vixen.Editor.AssetEditors.NodeTypes sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.Prefab sweep-pending
-T:Vixen.Editor.AssetEditors.Prefabs.PrefabInstances sweep-pending
-T:Vixen.Editor.AssetEditors.Prefabs.PrefabLink sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.PrefabSource sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.PrefabView sweep-pending
 T:Vixen.Editor.AssetEditors.Scenes.CompiledSceneView sweep-with-the-asset-editors — a pane, and every other pane in this assembly is exempt on the same terms; the argument for it is in Vixen.Editor.AssetEditors/README.md § The compiled tab is the other half of a scene
@@ -1503,6 +1501,7 @@ T:Vixen.Editor.SceneView.IScenePicker sweep-pending
 T:Vixen.Editor.SceneView.ISceneProbe sweep-pending
 T:Vixen.Editor.SceneView.ISceneWriter sweep-pending
 T:Vixen.Editor.SceneView.ISurfaceProbe sweep-pending
+T:Vixen.Editor.SceneView.InstantiateSubtreeCommand sweep-pending
 T:Vixen.Editor.SceneView.Marquee sweep-pending
 T:Vixen.Editor.SceneView.MarqueeOverlay sweep-pending
 T:Vixen.Editor.SceneView.NavigationAction sweep-pending
@@ -1520,6 +1519,8 @@ T:Vixen.Editor.SceneView.PlayerLaunch sweep-pending
 T:Vixen.Editor.SceneView.PlayerRole sweep-pending
 T:Vixen.Editor.SceneView.PlayerSession sweep-pending
 T:Vixen.Editor.SceneView.PlayerSessions sweep-pending
+T:Vixen.Editor.SceneView.PrefabInstances sweep-pending
+T:Vixen.Editor.SceneView.PrefabLink sweep-pending
 T:Vixen.Editor.SceneView.RenameEntityCommand sweep-pending
 T:Vixen.Editor.SceneView.ReparentCommand sweep-pending
 T:Vixen.Editor.SceneView.SceneComponentBridge sweep-pending

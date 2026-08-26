@@ -1106,6 +1106,49 @@ comparison needs. See
 it, and for `PrefabFileWriter`, which refuses a document that is not a single subtree at the save
 rather than at somebody else's build.
 
+### Prefab links, and what carries them
+
+`PrefabInstances` is which of a document's entities came from a prefab, which members each instance
+claims as its own, and which of a template's children its author deleted. `SceneDocument.Prefabs` is
+the one a document owns, and it is where `SceneSerializer` writes the format's `prefab`, `source`,
+`overrides` and `removed` keys from and reads them back into —
+[plan/47](../../docs/plan/47-prefab-overrides-and-nested-prefabs.md).
+
+⚠ **It lives here rather than beside the prefab editor, and that was the bug.** It used to be in
+`Vixen.Editor.AssetEditors`, which this assembly cannot see, so a link recorded in it could never
+reach a file: an instance placed today was an ordinary subtree tomorrow. The writer is here, so the
+table is.
+
+⚠ **It is keyed by handle, so it has to travel with the names — through `PruneNames`, through `Remap`
+and through a delete's `SubtreeSnapshot`.** Every one of those is a silent way to lose it. The
+snapshot is the sharpest: without it, deleting an instance and pressing Ctrl+Z gives back a subtree
+that is right in every respect except that it no longer came from anywhere, and nothing in the editor
+shows that. `Remap` is the widest: a table that did not travel is empty after a play-mode stop, so
+the next save writes a level in which every prefab has been unpacked, with no edit behind it.
+
+**`SceneSerializer.Open` is `Load` plus a reconcile**, and it is what the editor's factories call.
+Every instance takes its template's value for every member it does not claim, before a world is
+built. ⚠ Only the editor can do this: an importer is handed an `AssetId` and no way to resolve one to
+a path, so neither a build nor the runtime can open the prefab a scene names. ⚠ The file on disk is
+not rewritten and the document opens clean — an editor that wrote to a level because somebody looked
+at it would put unasked-for changes in every level naming a prefab that moved.
+
+**`InstantiateSubtreeCommand` is `CreateEntityCommand` at subtree scale**, and `SceneDocument.Place`
+is what puts one on the stack. A prefab is however many entities its file holds, so a drop that used
+`Add` would be a dozen entities Ctrl+Z has never heard of. Like `Initialise`, the factory runs on the
+first `Do` and never again: a redo restores the snapshot, because the handles have to be the same
+ones.
+
+⚠ **Deleting a child of an instance records it on the instance root, and an undo unsays it.** That is
+`SceneDocument.NoteRemoved`, called by `DestroyEntitiesCommand` *before* the delete, because finding
+which instance a subtree belonged to means walking up from it. The list has to exist before anything
+adds a template's children back — see doc 47 § 6 — and its use today is to stop a reconcile reporting
+a deliberate deletion as something the template gained.
+
+⚠ **Migration**: the four keys are additive and `SceneFile.Current` stays at `1`, but `OmitDefaults`
+is off for this format, so the first save of any existing scene gains all four on every entity.
+Reading is unaffected and no data moves.
+
 ## Play mode, both topologies
 
 **In-process** is `WorldSnapshot` plus `PlayModeController`. A snapshot is a walk over the archetypes

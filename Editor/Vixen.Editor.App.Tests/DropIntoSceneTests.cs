@@ -112,6 +112,73 @@ public class DropIntoSceneTests {
         Assert.Single(Instances(editor));
     }
 
+    /// <summary>Writes a one-rooted prefab into the project and hands back its GUID.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written without a position, and that is deliberate rather than lazy.</b> A
+    ///     <c>Vector3</c> in a file built before <c>SceneScalars.Register</c> has run reads back as a
+    ///     mapping rather than as a scalar, and this fixture writes its YAML by hand — so the test
+    ///     says nothing about vectors and the one thing it asserts is what the drop made.
+    /// </remarks>
+    static AssetId ImportPrefab(EditorSession editor, string path) {
+        var absolute = Path.Combine(editor.ProjectRoot, path.Replace('/', Path.DirectorySeparatorChar));
+
+        Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+
+        File.WriteAllText(
+            absolute,
+            "version: 1\nname: Turret\nroots:\n"
+            + $"  - id: {Guid.NewGuid():N}\n    name: Turret\n    children:\n"
+            + $"      - id: {Guid.NewGuid():N}\n        name: Barrel\n"
+        );
+
+        editor.Run("assets.refresh");
+
+        if (!editor.Project.Assets.TryGetByPath(path, out var entry)) {
+            throw editor.Fail($"'{path}' is not in the index");
+        }
+
+        return entry.Guid;
+    }
+
+    /// <summary>
+    ///     ⚠ A prefab is <i>placed</i>, not referenced — the one asset kind for which the two differ.
+    /// </summary>
+    /// <remarks>
+    ///     Every other drop makes one entity naming the asset. A prefab <i>is</i> a subtree, so what a
+    ///     drop of one means is "stamp that subtree out here and remember where each entity came
+    ///     from" — which is what gives the scene format's <c>prefab</c>, <c>source</c> and
+    ///     <c>overrides</c> keys anything to hold. Doc 47 § 7 named this verb as the blocker for the
+    ///     serializer, and this is it.
+    /// </remarks>
+    [Fact]
+    public void Dropping_a_prefab_places_an_instance_rather_than_a_reference() {
+        using var editor = EditorSession.Start();
+
+        editor.Step("import a prefab");
+
+        var turret = ImportPrefab(editor, "Assets/Prefabs/turret.vxprefab");
+
+        editor.Step("drag it into the viewport");
+        editor.Open("scene");
+        DragOnto(editor, "turret.vxprefab", "scene");
+
+        // The prefab's own entities, named as the prefab names them — not one entity named after the
+        // file, which is what an asset reference would have made.
+        Assert.Equal(2, editor.Scene.Prefabs.Count);
+        Assert.Empty(Instances(editor));
+
+        var root = Assert.Single(editor.Scene.Selection);
+
+        Assert.Equal("Turret", editor.Scene.NameOf(root));
+        Assert.True(editor.Scene.Prefabs.TryGet(root, out var link));
+        Assert.Equal(turret, link.Prefab);
+
+        editor.Step("and one undo takes the whole instance back");
+
+        Assert.True(editor.Scene.Stack.Undo());
+        Assert.Equal(0, editor.Scene.Prefabs.Count);
+    }
+
     /// <summary>
     ///     ⚠ A drag that ends over the console or the inspector means the user changed their mind,
     ///     and an editor that spawned an entity for it is one people learn to drag carefully in.

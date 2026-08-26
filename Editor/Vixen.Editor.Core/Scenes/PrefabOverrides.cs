@@ -318,9 +318,19 @@ public static class PrefabOverrides {
         var written = 0;
         HashSet<EntityId> reached = [];
 
+        // ⚠ The children the author deleted, so that absence can be told from novelty. Gathered from
+        // every node of every instance rather than from the roots alone: the writer puts the list on
+        // the instance root — <see cref="SceneEntityData.Removed" /> — and reading it from anywhere is
+        // a superset that survives a hand-merge or a reparented subtree.
+        HashSet<EntityId> deleted = [];
+
         foreach (var entity in scene.All()) {
             if (!IsInstance(entity) || !string.Equals(entity.Prefab, prefab, StringComparison.OrdinalIgnoreCase)) {
                 continue;
+            }
+
+            foreach (var gone in entity.Removed) {
+                deleted.Add(gone);
             }
 
             if (!TryFind(template, entity.Source, out var source)) {
@@ -337,7 +347,17 @@ public static class PrefabOverrides {
         // true and useless.
         if (reached.Count > 0) {
             foreach (var entity in template.All()) {
-                if (!entity.Id.IsNone && !reached.Contains(entity.Id)) {
+                // ⚠ A template entity nobody names is either something the template gained or something
+                // the author deleted, and those look identical from here — which is the whole reason the
+                // removed list exists. One is worth telling somebody about and the other is a decision
+                // already made, so a reported removal would be a warning a person can only learn to
+                // ignore, on every open, for ever.
+                //
+                // ⚠ Scene-wide, like the report itself, which carries `EntityId.None` for its entity.
+                // Two instances of one prefab where only one deleted the child therefore silence both.
+                // That is the honest reading of a report that was never per-instance; making it
+                // per-instance is a change to the report's shape rather than to this rule.
+                if (!entity.Id.IsNone && !reached.Contains(entity.Id) && !deleted.Contains(entity.Id)) {
                     reports?.Add(new(PrefabReportKind.AddedByTemplate, EntityId.None, entity.Id.ToString()));
                 }
             }

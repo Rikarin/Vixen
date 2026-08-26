@@ -32,6 +32,12 @@ using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.HotReload;
+
+// ⚠ Aliased, because this file also names `Vixen.Engine.Scenes.Prefab` — the runtime's captured
+// `World`, which shares a word with the editor's prefab and is not related to it. Doc 47 § 1 opens by
+// saying that conflating the two is the first way to get prefabs wrong here; the compiler says the
+// same thing as CS0104 the moment both usings are in one file.
+using EditorPrefab = Vixen.Editor.AssetEditors.Prefabs.Prefab;
 using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.App;
@@ -595,6 +601,15 @@ sealed partial class EditorApplication : IDisposable {
             // there is a device gets it from `ShaderGraphPreviews`' setter instead.
             if (document is AssetEditors.Shading.ShaderGraphDocument shader) {
                 Preview(shader);
+            }
+
+            // ⚠ A scene reconciles itself against its prefabs as it is read — `SceneSerializer.Open`
+            // — and has nobody to tell. Everything a reconcile could not settle is a *report* and
+            // never a deletion, which is exactly why it has to reach a person: the entity the template
+            // no longer has is still in the level, waiting for somebody to decide between unpack and
+            // delete. See docs/plan/47 § 5.
+            if (document is SceneDocument opened) {
+                Announce(opened);
             }
         };
 
@@ -3705,10 +3720,26 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         List<Entity> created = [];
+        List<PrefabUnresolved> refused = [];
 
         using (scene.Stack.BeginTransaction(assets.Count == 1 ? "Add Asset" : $"Add {assets.Count} Assets")) {
             foreach (var asset in assets) {
                 if (!project.Assets.TryGetByGuid(asset, out var entry) || entry.IsFolder) {
+                    continue;
+                }
+
+                // ⚠ A prefab is placed rather than referenced, and it is the only kind of asset for
+                // which the two differ. Every other drop makes one entity naming the asset; a prefab
+                // *is* a subtree, so what a drop of one means is "stamp that subtree out here and
+                // remember where each entity came from" — which is what makes the `prefab`, `source`
+                // and `overrides` keys have anything to hold. See docs/plan/47 § 7.
+                if (EditorPrefab.Claims(entry.Path)) {
+                    if (EditorPrefab.TryPlace(scene, project.Assets, asset, Entity.Null, out var root, out var why)) {
+                        created.Add(root);
+                    } else {
+                        refused.Add(why);
+                    }
+
                     continue;
                 }
 
@@ -3725,6 +3756,17 @@ sealed partial class EditorApplication : IDisposable {
             }
         }
 
+        // ⚠ Said out loud rather than silently ignored, for the reason a field drop of the wrong kind
+        // is. A prefab whose file has not been written yet, or has gone, drops onto the floor — and
+        // "nothing happened" is indistinguishable from a drag the editor lost.
+        foreach (var why in refused) {
+            Shell.Notifications.Show(
+                "That prefab could not be opened",
+                NotificationSeverity.Warning,
+                $"{why.Kind}: {why.Detail}"
+            );
+        }
+
         if (created.Count == 0) {
             return;
         }
@@ -3738,6 +3780,60 @@ sealed partial class EditorApplication : IDisposable {
             created.Count == 1 ? $"Added {scene.NameOf(created[0])}" : $"Added {created.Count} entities",
             NotificationSeverity.Success,
             "The reference is authored and saved. Nothing draws it yet — no runtime component renders an asset."
+        );
+    }
+
+    /// <summary>Says what reconciling a freshly-opened scene against its prefabs did.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Silent when nothing moved, and that is most of the time.</b> A level whose prefabs
+    ///         have not been touched since it was last saved reconciles to nothing, and a notification
+    ///         for that is one people learn to dismiss without reading — which is how the one that
+    ///         mattered gets dismissed too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A warning when something could not be settled, and only then.</b> Values taking
+    ///         their template's is the system working: a prefab changed and the level followed it.
+    ///         What needs a person is the residue — an entity the template deleted, an override naming
+    ///         a member nothing has, a prefab that could not be opened at all — every one of which is
+    ///         still in the file, untouched, because a reconcile writes values and removes nothing.
+    ///     </para>
+    /// </remarks>
+    void Announce(SceneDocument document) {
+        if (document.Reconciled is not { Changed: true } report) {
+            return;
+        }
+
+        List<string> lines = [];
+
+        if (report.Written > 0) {
+            lines.Add(
+                $"{report.Written} members took the template's value across {report.Instances} linked entities."
+            );
+        }
+
+        // Named rather than counted, up to a few: "three things could not be resolved" is a sentence
+        // nobody can act on, and the names are what say which prefab to go and look at.
+        foreach (var unresolved in report.Unresolved.Take(4)) {
+            lines.Add($"{unresolved.Kind}: {unresolved.Detail}");
+        }
+
+        foreach (var problem in report.Reports.Take(4)) {
+            lines.Add(problem.ToString());
+        }
+
+        var outstanding = report.Reports.Count + report.Unresolved.Count;
+
+        if (outstanding > 8) {
+            lines.Add($"and {outstanding - 8} more.");
+        }
+
+        Shell.Notifications.Show(
+            outstanding == 0
+                ? $"{document.Title.Peek()} caught up with its prefabs"
+                : $"{document.Title.Peek()}: {outstanding} left for you to settle",
+            outstanding == 0 ? NotificationSeverity.Success : NotificationSeverity.Warning,
+            string.Join(" ", lines)
         );
     }
 

@@ -43,6 +43,15 @@ sealed class SubtreeSnapshot : IDisposable {
     /// <param name="After">Which sibling it sat behind, or null if it was first.</param>
     /// <param name="Name">What the document called it, or null if it was never named.</param>
     /// <param name="Id">Its stable id, or empty if one was never minted.</param>
+    /// <param name="Link">Which prefab it came from, or null if it came from none.</param>
+    /// <param name="Overrides">Which members it claimed as its own, or null if it claimed none.</param>
+    /// <remarks>
+    ///     ⚠ <b>The prefab link is recorded here for the reason the name and the id are, and losing
+    ///     it is quieter than losing either.</b> <c>PruneNames</c> drops the links of dead handles, so
+    ///     a delete unlinks the subtree it removed — and an undo without this would put the entities
+    ///     back as an ordinary subtree. Nothing would look wrong: the geometry, the names and the
+    ///     hierarchy are all correct, and the level has silently unpacked one prefab.
+    /// </remarks>
     readonly record struct Item(
         Entity Handle,
         Archetype Restore,
@@ -50,7 +59,10 @@ sealed class SubtreeSnapshot : IDisposable {
         Entity Parent,
         Entity After,
         string? Name,
-        EntityId Id
+        EntityId Id,
+        PrefabLink? Link,
+        string[]? Overrides,
+        EntityId[]? Removed
     );
 
     static readonly ComponentTypeId[] Structural = [
@@ -138,6 +150,11 @@ sealed class SubtreeSnapshot : IDisposable {
             }
 
             document.Adopt(item.Handle, item.Id);
+
+            if (item.Link is { } link) {
+                document.Prefabs.Record(item.Handle, link, item.Overrides ?? []);
+                document.Prefabs.RecordRemoved(item.Handle, item.Removed ?? []);
+            }
         }
     }
 
@@ -170,7 +187,17 @@ sealed class SubtreeSnapshot : IDisposable {
                 Hierarchy.ParentOf(world, entity),
                 Hierarchy.PreviousSiblingOf(world, entity),
                 document.TryGetName(entity, out var name) ? name : null,
-                document.TryGetId(entity, out var id) ? id : EntityId.None
+                document.TryGetId(entity, out var id) ? id : EntityId.None,
+                document.Prefabs.TryGet(entity, out var link) ? link : null,
+
+                // Copied rather than aliased: the document's list is still the live one until
+                // `PruneNames` drops it, and a snapshot holding the same object would be undone by
+                // whatever edited the original in between.
+                [.. document.Prefabs.OverridesOf(entity)],
+
+                // And the removed list, which only an instance root ever has anything in — its own
+                // delete is what would otherwise lose the record of every child deleted before it.
+                [.. document.Prefabs.RemovedFrom(entity)]
             )
         );
 

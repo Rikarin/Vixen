@@ -392,6 +392,43 @@ public sealed class SceneEntityData {
     /// </remarks>
     public List<string> Overrides { get; set; } = [];
 
+    /// <summary>Which of the template's entities the author deleted from this instance.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠⚠ <b>This exists so that absence can never be misread, and it has to exist <i>before</i>
+    ///         anything adds a template's children back.</b> The file carries resolved values, so a
+    ///         child the author deleted is simply not in it — and while nothing adds children back, that
+    ///         absence is stable and means one thing. The moment reconciliation learns to add a
+    ///         template's new children, absence becomes ambiguous: "the author deleted this" and "the
+    ///         template gained this since" look identical, and the level quietly regrows the entities its
+    ///         designer removed. Doc 47 § 6 names landing the add-back rule without this list as the way
+    ///         that happens.
+    ///     </para>
+    ///     <para>
+    ///         <b>By the id the <i>template</i> gave the entity</b> — the same identity
+    ///         <see cref="Source" /> holds — because the instance's own entity is gone and its id with
+    ///         it. It is the template's entity that is being spoken about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On the instance root, unlike <see cref="Prefab" /> and <see cref="Source" />.</b>
+    ///         Those are complete per entity because unpacking one node has to stay a local edit; a
+    ///         removal is a statement about a node that no longer exists, so it has nowhere else to
+    ///         live. The root of the contiguous run of entities sharing one <see cref="Prefab" /> is
+    ///         what "the instance root" means, and it is what a delete writes to.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it does today</b> is stop a reconcile reporting a deliberately deleted child as
+    ///         something the template added. Without it, deleting one lamp from a prefab instance means
+    ///         a warning about that lamp every time the level is opened, for ever — a report a person
+    ///         can only learn to ignore, which is the state in which the report that matters is ignored
+    ///         too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Settable, for the reason <see cref="Children" /> gives.</b>
+    ///     </para>
+    /// </remarks>
+    public List<EntityId> Removed { get; set; } = [];
+
     /// <summary>The editable geometry this entity carries, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     <para>

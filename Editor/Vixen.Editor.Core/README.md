@@ -312,13 +312,16 @@ newer build.
 
 ### Prefab instances and their overrides
 
-`Scenes/PrefabOverrides.cs` is the other half: three keys on `SceneEntityData` — `Prefab`, `Source`
-and `Overrides` — plus the pure logic that reads a member by path, marks and clears an override, and
-brings a scene back in step with a prefab that has changed underneath it.
+`Scenes/PrefabOverrides.cs` is the other half: four keys on `SceneEntityData` — `Prefab`, `Source`,
+`Overrides` and `Removed` — plus the pure logic that reads a member by path, marks and clears an
+override, and brings a scene back in step with a prefab that has changed underneath it.
+`Scenes/PrefabReconcile.cs` is what finds the template: it turns the `vx:` reference a scene carries
+into a file on disk through `AssetDatabase`, and reports every prefab it could not open rather than
+refusing to open the level.
 [plan/47](../../docs/plan/47-prefab-overrides-and-nested-prefabs.md) is the decision record and
 [the guide page](../../docs/guide/editor/prefab-overrides.md) is how to use it.
 
-Three things are worth knowing before touching it:
+Four things are worth knowing before touching it:
 
 ⚠⚠ **The override list is names, never a comparison.** If overridden-ness were "differs from the
 template" or "is not the default", an author who turns a lamp's intensity down to `0` has said
@@ -335,9 +338,22 @@ rather than an empty one.
 entry. Everything it cannot resolve comes back as a `PrefabReport` and stays in the file, because a
 subtree deleted on open is unrecoverable and a dropped override is silent.
 
-It is pure over the format: no `World`, no `SceneDocument`, no project on disk. What is *not* here is
-the wiring — `SceneSerializer` does not yet read or write the keys, which waits on an editor verb
-that places a prefab into a scene at all.
+⚠⚠ **`Removed` had to land before anything adds a template's children back.** With resolved values in
+the file, a child the author deleted is simply absent — and "the author deleted this" and "the
+template gained this since" are the same absence. While nothing adds children back that is safe;
+the day it does, a level regrows what its designer removed. So the list exists first, and its use
+today is to stop a reconcile reporting a deliberate deletion as a template addition on every open of
+that level, for ever.
+
+`PrefabOverrides` is pure over the format: no `World`, no `SceneDocument`, no project on disk.
+`PrefabReconcile` is one step up — it reads files — and is still not a document: it rewrites a parsed
+`SceneFile` before anything builds a world out of it, which is what makes reconciliation testable
+without an editor. The wiring is in `Vixen.Editor.SceneView` (`SceneSerializer.Open`,
+`SceneDocument.Prefabs`) and `Vixen.Editor.AssetEditors` (`Prefab.TryPlace`, the drop verb).
+
+⚠ **Migration**: the keys are additive and `SceneFile.Current` stays at `1`, but `OmitDefaults` is off
+for this format — so the first save of any existing scene gains `prefab: ''`, `source: 00000000…`,
+`overrides: []` and `removed: []` on every entity. Nothing is read differently and no data moves.
 
 ## What is not here yet
 

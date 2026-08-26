@@ -24,10 +24,10 @@ way to get this wrong.
 
 | | `Prefab` (runtime) | `PrefabInstances` / `Prefab` (editor) |
 |---|---|---|
-| Where | `Core/Vixen.Engine/Scenes/Prefab.cs` | `Editor/Vixen.Editor.AssetEditors/Prefabs/Prefabs.cs` |
+| Where | `Core/Vixen.Engine/Scenes/Prefab.cs` | `Editor/Vixen.Editor.SceneView/PrefabInstances.cs`, and `Prefab` in `Editor/Vixen.Editor.AssetEditors/Prefabs/Prefabs.cs` |
 | What it is | A captured `World`, stamped out with one `CreateMany` per archetype | A dictionary from `Entity` to `PrefabLink(AssetId, EntityId)` |
 | Source link | **None.** `CaptureFrom` is a copy; the doc comment says so in as many words | The link, and only for the editing session |
-| Serialised | Never. `PrefabAsset` is the compiled chunk, already flattened | Never |
+| Serialised | Never. `PrefabAsset` is the compiled chunk, already flattened | The `prefab`, `source`, `overrides` and `removed` keys, since slice 2 |
 
 The **authoring** format is `SceneFile` / `SceneEntityData` in
 `Editor/Vixen.Editor.Core/Scenes/SceneFormat.cs`, read and written by `SceneSerializer`
@@ -53,10 +53,18 @@ So the overview's row is right in letter — nothing named `Override` exists und
 `Core/Vixen.Engine/Scenes` — and understates what is there. Roughly half of an override system is
 built. What is missing is the half that survives closing the project.
 
-⚠ **`PrefabInstances` and `Prefab.Instantiate` have no caller outside
-`Editor/Vixen.Editor.AssetEditors.Tests/PrefabTests.cs`.** Nothing in the editor shell places a
-prefab into a scene yet. That is worth knowing before plumbing anything through `SceneSerializer` to
-serve a caller that does not exist.
+⚠ **`PrefabInstances` and `Prefab.Instantiate` had no caller outside
+`Editor/Vixen.Editor.AssetEditors.Tests/PrefabTests.cs` when this was written.** Nothing in the
+editor shell placed a prefab into a scene, which was worth knowing before plumbing anything through
+`SceneSerializer` to serve a caller that did not exist. **Slice 2 built the verb** — a `.vxprefab`
+dropped into the viewport or the outliner places an instance — and the pipe with it; see § 7a. The
+type also moved: it is `Vixen.Editor.SceneView`'s now, because `SceneSerializer` is, and a link the
+writer cannot see is a link that cannot be written down.
+
+⚠ **Note also the collision the table above is about.** `Vixen.Engine.Scenes.Prefab` and
+`Vixen.Editor.AssetEditors.Prefabs.Prefab` are both called `Prefab`, so a file naming both gets
+CS0104 — which is how `EditorApplication` came to alias the editor's one. The compiler says, at the
+call site, exactly what this section says in prose.
 
 ---
 
@@ -156,6 +164,7 @@ Three keys on `SceneEntityData`, all additive, all with a default meaning "not a
   prefab: vx:9c2e4f1a8b7d6e5f0a1b2c3d4e5f6071      # which prefab asset
   source: 1a2b3c4d5e6f70819a0b1c2d3e4f5061        # which entity inside it
   overrides: [Position, Light.Intensity]           # which members are this instance's own
+  removed: [4b1c…9f]                               # which of the template's children the author deleted
   components:
     - !Light
       intensity: 0                                 # ← overridden *to zero*, and the list says so
@@ -166,6 +175,7 @@ Three keys on `SceneEntityData`, all additive, all with a default meaning "not a
 | `prefab` | `string`, `vx:` reference text | not from a prefab |
 | `source` | `EntityId` | not from a prefab |
 | `overrides` | `List<string>` | every member is the template's |
+| `removed` | `List<EntityId>` | the author has deleted none of the template's children |
 
 ### Four decisions inside that
 
@@ -269,13 +279,58 @@ would be building the pipe before the tap.
 
 Owed, in order:
 
-| | Owed | Blocked on |
-|---|---|---|
-| 1 | `SceneSerializer` writes and reads the three keys; `PrefabInstances` is filled from them | An editor verb that places a prefab |
-| 2 | Reconcile on open, wired to the asset database that can resolve an id to a path | Nothing |
-| 3 | Add-back of template children, **with** the `removed` list of § 6 | Slice 2 |
-| 4 | Nested reconciliation, one level | Slice 2 |
-| 5 | Model (B) — drop the resolved values, bump the format version | `ImportContext` resolving an `AssetId` to a path; shared with navigation's placement bake |
+| | Owed | Blocked on | State |
+|---|---|---|---|
+| 1 | `SceneSerializer` writes and reads the three keys; `PrefabInstances` is filled from them | An editor verb that places a prefab | **Landed** — slice 2 |
+| 2 | Reconcile on open, wired to the asset database that can resolve an id to a path | Nothing | **Landed** — slice 2 |
+| 3 | The `removed` list of § 6, recorded on delete | Slice 1 | **Landed** — slice 2 |
+| 4 | Add-back of template children, reading the `removed` list | Slice 2 | Owed |
+| 5 | Nested reconciliation, one level | Slice 2 | Owed |
+| 6 | Model (B) — drop the resolved values, bump the format version | `ImportContext` resolving an `AssetId` to a path; shared with navigation's placement bake | Owed |
+
+⚠ **Rows 3 and 4 were one row and are two, and the split is the ordering rule of § 6 written into the
+plan.** Recording what the author deleted and adding back what the template gained are one feature
+only in the sense that the second is unsafe without the first. Landing them together would have made
+the ordering a matter of care inside one change; landing the list first makes it a matter of fact,
+and every scene saved between the two carries the data the second one needs.
+
+---
+
+## 7a. The second slice — the verb, the pipe and the list
+
+**Placement, persistence, reconciliation on open, and the removed-child list. Rows 1 to 3.**
+
+The blocker named in § 7 was real and is gone: `PrefabInstances` now has a caller.
+
+- **The verb.** Dropping a `.vxprefab` into the viewport or the outliner places an *instance* rather
+  than an entity holding an `AssetInstance`, which is the one asset kind for which those two differ.
+  `Prefab.TryPlace` resolves the GUID through `AssetDatabase`, reads the file, and goes through
+  `SceneDocument.Place` so that one Ctrl+Z takes the whole subtree back —
+  `InstantiateSubtreeCommand`, which is `CreateEntityCommand`'s argument at subtree scale.
+- **The table moved to where the writer is.** `PrefabLink` and `PrefabInstances` are in
+  `Vixen.Editor.SceneView` and a document owns one (`SceneDocument.Prefabs`). They were in
+  `Vixen.Editor.AssetEditors`, which `SceneSerializer` cannot see — so a link recorded there was a
+  link that could never be written down. The links now travel with the names through `PruneNames`,
+  `Remap` and a delete's `SubtreeSnapshot`; ⚠ every one of those was a way to lose them silently,
+  and the snapshot is the sharpest: without it, deleting an instance and undoing gives back a subtree
+  that is correct in every respect except that it no longer came from anywhere.
+- **The keys are read and written.** `Capture` writes `prefab`, `source` and `overrides` from the
+  table; `Create` fills the table from them, and does so whether or not the ids are being adopted —
+  which is what lets a prefab file carry an inner instance. ⚠ `Prefab.Instantiate` then declines to
+  record the outer link over an inner one, or one level of nesting would be flattened on every
+  placement.
+- **Reconcile on open.** `SceneSerializer.Open` — what the editor's factories use, as against `Load`,
+  which is what a test or a template uses — reconciles the parsed file before a world is built.
+  `PrefabReconcile` is the half of § 2's wall that has a door in it: an importer cannot resolve an
+  `AssetId` to a path and the editor can. ⚠ The file on disk is not rewritten and the document does
+  not open dirty: an editor that wrote to a level because somebody looked at it would put unasked-for
+  changes in a working tree, in every level naming a prefab that moved.
+- **The removed list, and nothing that reads it back into a scene.** `removed:` is written on the
+  instance root when a designer deletes one of a template's children, and taken back when they undo.
+  Its use *today* is to stop a reconcile reporting that deletion as something the template gained —
+  a warning that would otherwise appear on every open of that level, for ever, which is the state in
+  which the warning that matters is ignored too. Its use *tomorrow* is row 4, and this is the
+  ordering § 6 demands.
 
 ---
 
@@ -291,15 +346,21 @@ what it believed before.
 ⚠ **No component layout changes**, so task #325's decision is not touched. Nothing here reaches
 `SceneComponentRegistry`, the compiled chunk, or any `[Component]` struct.
 
-⚠ **What it does cost: three lines per entity on the next save of every scene.** `OmitDefaults` is a
+⚠ **What it does cost: four lines per entity on the next save of every scene.** `OmitDefaults` is a
 property of the whole document and is deliberately off for this format (`SceneEntityData.Shape`'s
 remarks), so a newly written scene already carries `shape: ''` and `light: null` on every entity and
-will now carry `prefab: ''`, `source: 00000000…` and `overrides: []` beside them. Reading is
-unaffected and no data moves; what happens is that the first save after this lands rewrites the file.
-This is the same churn the format took when `Shape` and `Light` became components, and the same
-answer applies: it is the price of a format with no member-level omission, and the fix — if it is
-ever worth one — is `OmitDefaults` or member-level omission for the whole document rather than a
-special case for these keys.
+will now carry `prefab: ''`, `source: 00000000…`, `overrides: []` and `removed: []` beside them.
+Reading is unaffected and no data moves; what happens is that the first save after this lands
+rewrites the file. This is the same churn the format took when `Shape` and `Light` became components,
+and the same answer applies: it is the price of a format with no member-level omission, and the fix —
+if it is ever worth one — is `OmitDefaults` or member-level omission for the whole document rather
+than a special case for these keys.
+
+⚠ **`removed` is the fourth key and it arrived in the second slice, not the first.** It is additive on
+the same terms as the other three: absent means "the author has deleted nothing from this instance",
+`SceneFile.Current` stays at `1`, and an older reader meeting it binds a scene that is correct except
+that it does not know which of a template's children were deliberately dropped — which is exactly
+what it believed before. The one-line increase in the churn above is its whole migration cost.
 
 ⚠ **`SceneScalars.Register` already covers the new keys.** `EntityId` is registered as a scalar there
 (`SceneScalars.cs`), and `MathScalars.Register()` is called from the same place — so an override on a

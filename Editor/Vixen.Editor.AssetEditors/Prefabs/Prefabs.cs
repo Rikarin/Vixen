@@ -4,126 +4,138 @@
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Ecs;
+using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 
 namespace Vixen.Editor.AssetEditors.Prefabs;
 
-/// <summary>Where one entity in a scene came from.</summary>
-/// <param name="Prefab">Which prefab asset.</param>
-/// <param name="Source">Which entity inside it, by the id the prefab file gave that entity.</param>
-/// <remarks>
-///     ⚠ <b>The template is named by the file's id and not by a handle.</b> A prefab is a document
-///     that may not be open, and even when it is, its entities live in a different world — so a
-///     handle would name a slot in the wrong world. <see cref="EntityId" /> is exactly the identity
-///     that survives that, which is why the scene format has one.
-/// </remarks>
-public readonly record struct PrefabLink(AssetId Prefab, EntityId Source);
-
-/// <summary>Which of a scene's entities came from a prefab, and from where in it.</summary>
-/// <remarks>
-///     <para>
-///         <b>Beside the document rather than in the world.</b> A link is editor bookkeeping: the
-///         runtime has no notion of a prefab — a compiled scene is entities and components, with the
-///         prefab flattened into it — so a component holding this would be thirty bytes an entity in
-///         every shipping build to serve a panel that does not exist at run time. That is the same
-///         argument <c>SceneDocument</c> makes about names.
-///     </para>
-///     <para>
-///         ⚠ <b>Not yet written to the <c>.vxscene</c>.</b> A link recorded here survives an editing
-///         session and does not survive closing the project, so an instance placed today is an
-///         ordinary subtree tomorrow. Persisting it needs a field on <c>SceneEntityData</c> and a
-///         decision about what a scene does when the prefab it names has changed underneath it —
-///         doc 08's R7, and the next thing the scene format has to grow. What is here is the half
-///         that does not need the format to move.
-///     </para>
-/// </remarks>
-public sealed class PrefabInstances {
-    readonly Dictionary<Entity, PrefabLink> links = [];
-
-    /// <summary>How many entities are linked.</summary>
-    public int Count => links.Count;
-
-    /// <summary>Every link, by the entity that carries it.</summary>
-    public IReadOnlyDictionary<Entity, PrefabLink> Links => links;
-
-    /// <summary>Records where an entity came from.</summary>
-    /// <param name="entity">The entity.</param>
-    /// <param name="link">Where it came from.</param>
-    public void Record(Entity entity, PrefabLink link) => links[entity] = link;
-
-    /// <summary>Where an entity came from, if it came from anywhere.</summary>
-    /// <param name="entity">The entity.</param>
-    /// <param name="link">Where it came from.</param>
-    /// <returns>Whether it is an instance.</returns>
-    public bool TryGet(Entity entity, out PrefabLink link) => links.TryGetValue(entity, out link);
-
-    /// <summary>Forgets an entity's link, which is what "unpack prefab" means.</summary>
-    /// <param name="entity">The entity.</param>
-    /// <returns>Whether it had one.</returns>
-    /// <remarks>
-    ///     Unpacking one entity of an instance and not the rest is allowed on purpose: an author who
-    ///     has already diverged from the template for one child should not have to break the whole
-    ///     instance to say so.
-    /// </remarks>
-    public bool Forget(Entity entity) => links.Remove(entity);
-
-    /// <summary>Forgets links whose entity is no longer alive.</summary>
-    /// <param name="world">The world they lived in.</param>
-    /// <returns>How many were forgotten.</returns>
-    /// <remarks>
-    ///     ⚠ <b>Not automatic</b>, for the reason <c>SceneDocument.PruneNames</c> gives: asking "is
-    ///     this handle still alive" per link per frame is a scan nobody asked for. Called after a
-    ///     delete, or after a play-mode restore.
-    /// </remarks>
-    public int Prune(World world) {
-        ArgumentNullException.ThrowIfNull(world);
-
-        List<Entity> dead = [];
-
-        foreach (var entity in links.Keys) {
-            if (!world.IsAlive(entity)) {
-                dead.Add(entity);
-            }
-        }
-
-        foreach (var entity in dead) {
-            links.Remove(entity);
-        }
-
-        return dead.Count;
-    }
-}
-
 /// <summary>Placing a prefab in a scene, and finding the template an instance came from.</summary>
 public static class Prefab {
     /// <summary>What a prefab is written as.</summary>
     public const string Extension = SceneFile.PrefabExtension;
 
+    /// <summary>Whether an asset is a prefab, by what it is called.</summary>
+    /// <param name="path">The asset's path.</param>
+    /// <returns>Whether a drop of it means "place an instance".</returns>
+    /// <remarks>
+    ///     The extension and not the importer tag, because a drag begins in the project browser and a
+    ///     browser knows a file's name before anything has imported it — which is the state a
+    ///     freshly-saved prefab is in for as long as the import takes.
+    /// </remarks>
+    public static bool Claims(string path) =>
+        !string.IsNullOrEmpty(path)
+        && System.IO.Path.GetExtension(path).Equals(Extension, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Places an instance of a prefab in a scene, undoably.</summary>
+    /// <param name="scene">The scene to place it in.</param>
+    /// <param name="assets">The project's index, which is what turns the GUID into a path.</param>
+    /// <param name="asset">Which prefab.</param>
+    /// <param name="parent">What to hang it from, or <see cref="Entity.Null" /> for a root.</param>
+    /// <param name="root">The instance's root entity.</param>
+    /// <param name="why">Why not, when the prefab could not be opened.</param>
+    /// <returns>Whether an instance was placed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The verb doc 47 § 7 records as the blocker, and it is the whole of it.</b> Until
+    ///         something in the shell placed a prefab, the link keys on <c>SceneEntityData</c> had no
+    ///         value to hold and <see cref="SceneSerializer" /> had nothing real to round-trip — a
+    ///         finished consumer that nothing called.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Through <see cref="SceneDocument.Place" />, so one Ctrl+Z takes the instance
+    ///         back.</b> A prefab is a subtree of however many entities the file holds, and one placed
+    ///         with <c>Add</c> would be a dozen entities the undo stack has never heard of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A prefab that cannot be opened is reported and places nothing.</b> It is the same
+    ///         refusal set a reconcile uses — <see cref="PrefabReconcile.TryOpen" /> — because "the
+    ///         asset has not been imported yet" must mean one thing in the editor rather than two.
+    ///     </para>
+    /// </remarks>
+    public static bool TryPlace(
+        SceneDocument scene,
+        AssetDatabase assets,
+        AssetId asset,
+        Entity parent,
+        out Entity root,
+        out PrefabUnresolved why
+    ) {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(assets);
+
+        root = Entity.Null;
+
+        // The reference text rather than the bare id, because that is the spelling the scene file
+        // will carry and the spelling every report about it should name.
+        var reference = new AssetReference(asset).ToString();
+
+        if (!PrefabReconcile.TryOpen(reference, assets, out var file, out why)) {
+            return false;
+        }
+
+        // ⚠ Asked here rather than left to `Instantiate` to throw. That refusal is right and it is an
+        // `ArgumentException`, which is the wrong shape for a drag somebody made with a mouse: an
+        // exception out of a drop is a crash dialog, and what the author needs is the same sentence
+        // every other unopenable prefab gets.
+        if (file.Roots.Count != 1) {
+            why = new(
+                reference,
+                PrefabUnresolvedKind.Unreadable,
+                $"A prefab has one root and this one has {file.Roots.Count}."
+            );
+
+            return false;
+        }
+
+        var label = assets.TryGetByGuid(asset, out var entry)
+            ? System.IO.Path.GetFileNameWithoutExtension(entry.Name)
+            : string.Empty;
+
+        root = scene.Place(
+            string.IsNullOrEmpty(label) ? "Place Prefab" : $"Place {label}",
+            () => Instantiate(scene, asset, file, parent)
+        );
+
+        return !root.IsNull;
+    }
+
     /// <summary>Puts a prefab's entities into a scene and records where each one came from.</summary>
     /// <param name="scene">The scene to place it in.</param>
-    /// <param name="instances">Where the links are recorded.</param>
     /// <param name="asset">Which prefab asset this is.</param>
     /// <param name="file">The prefab, as its file holds it.</param>
     /// <param name="parent">What to hang it from, or <see cref="Entity.Null" /> for a root.</param>
     /// <returns>The instance's root entity.</returns>
     /// <exception cref="ArgumentException">The file does not have exactly one root.</exception>
     /// <remarks>
-    ///     ⚠ <b>Exactly one root, refused rather than tolerated.</b> <c>SceneCompiler</c> refuses a
-    ///     prefab with two roots, so instantiating one here would place a subtree that the build
-    ///     cannot compile — an editor that let it in would defer the error to a build somebody else
-    ///     runs. A file with none is the same refusal from the other side.
+    ///     <para>
+    ///         ⚠ <b>Exactly one root, refused rather than tolerated.</b> <c>SceneCompiler</c> refuses a
+    ///         prefab with two roots, so instantiating one here would place a subtree that the build
+    ///         cannot compile — an editor that let it in would defer the error to a build somebody else
+    ///         runs. A file with none is the same refusal from the other side.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A link the prefab file already carried is not overwritten, and that is what makes
+    ///         a nested prefab a nested prefab.</b> A <c>.vxprefab</c> may hold an instance of another
+    ///         one — doc 47 § 6 — whose entities arrive here already carrying the <i>inner</i> link,
+    ///         put there by <see cref="SceneSerializer" /> as it read them. Recording the outer link
+    ///         over the top would flatten one level of nesting on every placement, silently: the
+    ///         subtree would still be there and would answer to the wrong template for ever after.
+    ///     </para>
+    ///     <para>
+    ///         The links go on the document — <see cref="SceneDocument.Prefabs" /> — rather than into a
+    ///         table the caller supplies, because the writer reads them from there. A second table
+    ///         would be a set of links that never reaches the file.
+    ///     </para>
     /// </remarks>
     public static Entity Instantiate(
         SceneDocument scene,
-        PrefabInstances instances,
         AssetId asset,
         SceneFile file,
         Entity parent = default
     ) {
         ArgumentNullException.ThrowIfNull(scene);
-        ArgumentNullException.ThrowIfNull(instances);
         ArgumentNullException.ThrowIfNull(file);
 
         if (file.Roots.Count != 1) {
@@ -139,7 +151,9 @@ public static class Prefab {
         var root = SceneSerializer.Instantiate(scene, file.Roots[0], parent, sources);
 
         foreach (var (entity, source) in sources) {
-            instances.Record(entity, new(asset, source));
+            if (!scene.Prefabs.TryGet(entity, out _)) {
+                scene.Prefabs.Record(entity, new(asset, source));
+            }
         }
 
         return root;

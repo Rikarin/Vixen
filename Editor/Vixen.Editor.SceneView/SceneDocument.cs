@@ -210,6 +210,46 @@ public sealed class SceneDocument : EditorDocument {
     /// </remarks>
     public Selection<Entity> Selection { get; } = new();
 
+    /// <summary>Which of this document's entities came from a prefab, and what they claim as their own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A table on the document, for the reason the names are one.</b> A prefab link is an
+    ///         authoring fact — the runtime has no notion of a prefab, because a compiled scene has the
+    ///         template flattened into it — so a component holding one would cost every shipping build
+    ///         thirty bytes an entity to serve a panel that does not exist at run time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is what <see cref="SceneSerializer" /> writes the <c>prefab</c>,
+    ///         <c>source</c> and <c>overrides</c> keys from, and fills on a read.</b> Doc 47 § 7 owed
+    ///         exactly that: until the writer could see a link, an instance placed today was an
+    ///         ordinary subtree tomorrow.
+    ///     </para>
+    ///     <para>
+    ///         Keyed by handle, so it travels with the names through <see cref="PruneNames" />,
+    ///         <see cref="Remap" /> and a delete's snapshot. A link table that did not travel would
+    ///         come back describing whatever took those slots — or, worse, come back empty, which
+    ///         reads as every prefab in the level having been unpacked by pressing Play.
+    ///     </para>
+    /// </remarks>
+    public PrefabInstances Prefabs { get; } = new();
+
+    /// <summary>What reconciling this scene against its prefabs did when it was opened.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Kept rather than shown, because a document has no shell.</b> Reconciliation runs
+    ///         where the file is read — before there is a world, let alone a panel — and everything it
+    ///         could not resolve is a <i>report</i> and never a deletion: an entity the template no
+    ///         longer has, an override naming a member nothing has, a prefab that could not be opened
+    ///         at all. Somebody has to be told, and only the shell can tell them, so it is left here
+    ///         for whoever subscribes to <c>AssetEditorRegistry.Opened</c>.
+    ///     </para>
+    ///     <para>
+    ///         <see langword="null" /> for a document that was never filled from a file — a new scene,
+    ///         or one a test built by hand.
+    ///     </para>
+    /// </remarks>
+    public PrefabReconcileReport? Reconciled { get; set; }
+
     /// <summary>Writes the scene back, or <see langword="null" /> while nothing can.</summary>
     public ISceneWriter? Writer { get; set; }
 
@@ -447,6 +487,118 @@ public sealed class SceneDocument : EditorDocument {
         ArgumentException.ThrowIfNullOrEmpty(name);
 
         var command = new CreateEntityCommand(this, name, local, parent) { Initialise = initialise };
+
+        Stack.Execute(command);
+        Stack.Seal();
+
+        return command.Entity;
+    }
+
+    /// <summary>The root of the prefab instance an entity belongs to, if it belongs to one.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="root">The topmost entity of the contiguous run that shares its prefab.</param>
+    /// <returns>Whether it is part of an instance at all.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The topmost <i>contiguous</i> ancestor sharing the same prefab, which is what "the
+    ///     instance root" has to mean here.</b> <c>PrefabInstances.Forget</c> unpacks one entity
+    ///     deliberately, and an instance may be nested inside another one — so the run stops at the
+    ///     first ancestor that is not linked, or is linked to a different prefab. Walking to the
+    ///     scene's root instead would put a removal on whatever happened to be above.
+    /// </remarks>
+    public bool TryGetInstanceRoot(Entity entity, out Entity root) {
+        root = Entity.Null;
+
+        if (!Prefabs.TryGet(entity, out var link)) {
+            return false;
+        }
+
+        root = entity;
+
+        for (var above = Hierarchy.ParentOf(World, entity); !above.IsNull && World.IsAlive(above);) {
+            if (!Prefabs.TryGet(above, out var mine) || mine.Prefab != link.Prefab) {
+                break;
+            }
+
+            root = above;
+            above = Hierarchy.ParentOf(World, above);
+        }
+
+        return true;
+    }
+
+    /// <summary>Notes that a subtree about to be deleted was part of a prefab instance.</summary>
+    /// <param name="subtree">The subtree's root, still alive.</param>
+    /// <param name="noted">Filled with what was recorded, so an undo can take it back.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠⚠ <b>Without this, an add-back rule would regrow the entities a designer deleted.</b>
+    ///         The file carries resolved values, so a deleted child is simply absent — and absence is
+    ///         only unambiguous while nothing puts a template's children back. Doc 47 § 6 requires the
+    ///         list to exist first, and this is where it gets written.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is recorded when the instance root is itself inside the subtree.</b>
+    ///         Deleting a whole instance is not "the author removed some of the template's children";
+    ///         it is the instance going, and there is nowhere left to say anything.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called before the delete, because it reads the hierarchy.</b> Afterwards the parent
+    ///         links are gone and there is no way to find which instance the subtree belonged to.
+    ///     </para>
+    /// </remarks>
+    public void NoteRemoved(Entity subtree, ICollection<(Entity Root, EntityId Source)> noted) {
+        ArgumentNullException.ThrowIfNull(noted);
+
+        if (!World.IsAlive(subtree)
+            || !TryGetInstanceRoot(subtree, out var root)
+            || InSubtree(subtree, root)
+            || !Prefabs.TryGet(root, out var anchor)) {
+            return;
+        }
+
+        Note(subtree);
+
+        void Note(Entity entity) {
+            // ⚠ Only the nodes of *this* prefab. A nested instance inside the deleted subtree belongs
+            // to a different template, and naming its entities in the outer one's removed list would
+            // say something false about the outer prefab.
+            if (Prefabs.TryGet(entity, out var link)
+                && link.Prefab == anchor.Prefab
+                && Prefabs.Remove(root, link.Source)) {
+                noted.Add((root, link.Source));
+            }
+
+            foreach (var child in Hierarchy.ChildrenOf(World, entity)) {
+                Note(child);
+            }
+        }
+    }
+
+    bool InSubtree(Entity subtree, Entity entity) {
+        for (var current = entity; !current.IsNull && World.IsAlive(current); current = Hierarchy.ParentOf(World, current)) {
+            if (current == subtree) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Puts a whole subtree into the scene, undoably.</summary>
+    /// <param name="name">What the undo history calls it.</param>
+    /// <param name="make">What makes the subtree and hands back its root. Run once — see
+    ///     <see cref="InstantiateSubtreeCommand" />.</param>
+    /// <returns>The subtree's root, or <see cref="Entity.Null" /> if nothing was made.</returns>
+    /// <remarks>
+    ///     <see cref="Create" /> for one entity, this for however many a file turns out to hold. It is
+    ///     what a prefab drop goes through: an instance placed with <see cref="Add" /> would be a
+    ///     dozen entities that Ctrl+Z cannot take back.
+    /// </remarks>
+    public Entity Place(string name, Func<Entity> make) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(make);
+
+        var command = new InstantiateSubtreeCommand(this, name, make);
 
         Stack.Execute(command);
         Stack.Seal();
@@ -939,6 +1091,12 @@ public sealed class SceneDocument : EditorDocument {
             }
         }
 
+        // ⚠ And the prefab links, which is the one table here that is not merely bookkeeping: a link
+        // left on a dead handle is one the next entity to take that slot inherits, and it would be
+        // written into the file as that entity's provenance. `Prune` walks its own keys rather than
+        // the dead list above, because a linked entity need never have been named.
+        Prefabs.Prune(World);
+
         return dead.Count;
     }
 
@@ -1003,6 +1161,12 @@ public sealed class SceneDocument : EditorDocument {
         Move(shapes, translation);
         Move(materials, translation);
         Move(booleans, translation);
+
+        // ⚠ And the prefab links, which fail the same way and worse. A link table keyed by handles
+        // that no longer exist is empty from the document's point of view, so the first save after a
+        // play-mode stop would write a level in which nothing came from a prefab — an unpack of every
+        // instance in it, done by pressing Play and Stop, with no edit behind it in the diff.
+        Prefabs.Remap(translation);
 
         StructureChanged?.Invoke(this);
 
