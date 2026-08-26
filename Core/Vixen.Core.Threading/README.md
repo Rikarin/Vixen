@@ -100,6 +100,66 @@ Three rules make that safe rather than merely fast, and each is a test:
   handle could hang. It costs a batch-only workload one worker's throughput, which is the price of
   the guarantee and is only paid by callers that ask for the tier.
 
+**The tier's first consumer, and why it took until task #388 to have one.** It is `GlobalDistanceField`'s
+clipmap composite, through `GlobalDistanceFieldRenderer`. It was the one candidate in the tree, and
+what disqualified every other one is worth keeping written down, because the shape of the
+disqualification is the shape of the rule.
+
+*Why it took this long.* A tier is a choice between two things a thread could pick up next, and
+until this landed **no process in this tree had both frame work on a `JobScheduler` and long
+deferrable CPU work on the same scheduler**. One production path reached one consumer — `AppBuilder`
+makes the scheduler and hands it to `EngineLoop` → `SystemRunner` → `SystemContext.Jobs`, and the
+only thing that read it was `AnimationSystem.Evaluate`, a `ParallelFor` the frame is blocked on,
+which is `Frame` work by construction. Of the ten scheduling call sites outside this module the
+other nine sit behind a `JobScheduler?` seam that **no production code assigns** — `Scheduler =`
+still appears only under `Benchmarks/` and `*.Tests/`. And the long CPU work — BC7 encode, meshlet
+LOD build, distance-field bake, remesh and unwrap — is all in the import pipeline, in a process with
+no scheduler at all.
+
+*What the consumer is.* A composite is every cell of every level against every instance, it is the
+most expensive thing in the frame by a wide margin, and the levels are snapped to their own grids
+precisely so that a camera crossing one cell keeps about 97 per cent of what it already had. A frame
+drawing last refresh's clipmap is therefore drawing something very nearly right. `Update` is split
+into `BeginUpdate` → one Z slice of one level per index → `Publish`; the spare buffer each level
+already had for scrolling is also the buffer a refresh writes while the frame uploads and samples
+the other one, so nothing a reader can see — the cells, the box, the view position — moves until
+`Publish`. `CompositorBuilder.Jobs` is how the application's scheduler reaches the node, from
+`AppBuilder` through `AppGraphics`.
+
+⚠ *The first composite is deliberately not in this tier, and that is the rule rather than an
+exception to it.* Before there is a clipmap there is nothing to draw instead — `Apply` names no
+volume, the pass's set is filled one binding short, and every draw in it is refused — so the frame
+genuinely is blocked on that one. It is scheduled `Frame` and completed at once. **The tier follows
+whether the caller waits.**
+
+⚠ *And the poll is `IsCompleted`, never `Complete`.* A node that completed its handle in the frame
+path would defer the frame that *starts* the composite and block on the very next one: deferral by
+exactly one frame, which is worth almost nothing and looks exactly like the fix. Both the counter
+test and the picture test were green against that defect on their first attempt, because both
+stopped after the frame that starts the refresh. A deferral test that photographs one frame is
+photographing the wrong one.
+
+⚠ *One slice per work item, not one job.* The tier defers work and cannot interrupt it, so a refresh
+handed over whole would hold a worker for the entire composite and the frame behind it would wait
+exactly as long as if it had never been deferred.
+
+⚠ *The import is still not a consumer, and asking it to be one would still be a regression.* Its
+worker loop is `Task.Run` over an `async` body: importers are `async ValueTask ImportAsync`,
+`IJob.Execute` is synchronous `void`, and the loop `await`s both file I/O and a
+`TaskCompletionSource` barrier that holds each asset until its path-order dependencies have
+re-imported. Blocking a fixed worker on another job's completion signal is the one thing this pool
+cannot survive. And an offline content build is a workload that is *entirely* background: there is
+no frame tier in that process to yield to, so the tier would buy nothing and its reserved worker
+would cost a real one.
+
+⚠ *Nor can the other ten be relabelled where they stand.* All ten are `ParallelFor` or
+`ScheduleParallel(…).Complete()`, so the calling thread is blocked on the batches it just scheduled.
+`Background` there is not a no-op, it is a pessimisation: the waiting thread drains every unrelated
+frame item it can reach before running the one it is waiting for.
+`WaitingOnBackgroundWorkRunsUnrelatedFrameWorkFirst` asserts exactly that, as a take order rather
+than as a duration. A consumer has to be one that *keeps* its handle and asks `IsCompleted` on a
+later frame.
+
 **No priority is a correctness device.** A dependency edge is what says "not yet"; a tier only says
 "not first". A frame job that depends on a background job waits for it exactly as before.
 
@@ -126,52 +186,5 @@ work item that is doing the waiting.
 affinity API, the per-platform ones differ in kind rather than in spelling, and pinning is a
 pessimisation on a machine that is running anything else. It waits for `Vixen.Platform`, which is
 where the per-OS calls will already live.
-
-**A consumer for the background tier.** The tier itself exists and is tested; nothing in this tree
-sets it yet, and the reason is one structural fact rather than a to-do: **no process in this tree has
-both frame work on a `JobScheduler` and long deferrable CPU work on the same scheduler.** A tier is a
-choice between two things a thread could pick up next, and nowhere in the engine are there two such
-things to choose between.
-
-*Where the scheduler is.* One production path reaches one consumer. `AppBuilder` makes the scheduler
-and hands it to `EngineLoop` → `SystemRunner` → `SystemContext.Jobs`, and the only thing that reads
-it is `AnimationSystem.Evaluate` — a `ParallelFor` the frame is blocked on, which is `Frame` work by
-construction. There are ten scheduling call sites outside this module; the other nine
-(`VfxSimulation`, `NavPathQueue`, `GoapPlanQueue`, `VisibilityGroup`, and the UV and remesh solvers)
-sit behind a `JobScheduler?` seam that **no production code assigns** — `Scheduler =` appears only
-under `Benchmarks/` and `*.Tests/`. Nine of the ten are unreachable, and the tenth is a frame's.
-
-*Where the long CPU work is.* In another process. The BC7 encode, the meshlet LOD build, the
-distance-field bake and the remesh/unwrap solvers are all genuinely CPU-bound, long and splittable —
-and every production call site is inside the import pipeline, reached from `vixen content build` or
-the editor's content tasks. Neither `Editor/` nor `Tools/` contains a single code reference to
-`JobScheduler`; `Vixen.Editor.Assets` does not even reference this project.
-
-⚠ *The import is not the owed consumer, and asking it to be one would be a regression.* Its worker
-loop is `Task.Run` over an `async` body: importers are `async ValueTask ImportAsync`, `IJob.Execute`
-is synchronous `void`, and the loop `await`s both file I/O and a `TaskCompletionSource` barrier that
-holds each asset until its path-order dependencies have re-imported. Blocking a fixed worker on
-another job's completion signal is the one thing this pool cannot survive. And even setting that
-aside, an offline content build is a workload that is *entirely* background: there is no frame tier
-in that process for the work to yield to, so the tier would buy nothing and its reserved worker would
-cost a real one — the case the guide names when it says a batch-only workload gives up one worker's
-throughput.
-
-⚠ *Nor can any of the ten be relabelled where they stand.* All ten are `ParallelFor` or
-`ScheduleParallel(…).Complete()`, so the calling thread is blocked on the batches it just scheduled.
-`Background` there is not a no-op, it is a pessimisation: the waiting thread drains every unrelated
-frame item it can reach before running the one it is waiting for.
-`WaitingOnBackgroundWorkRunsUnrelatedFrameWorkFirst` asserts exactly that, as a take order rather
-than as a duration. A consumer has to be one that *keeps* its handle and asks `IsCompleted` on a
-later frame; nothing in the tree does.
-
-*What the first consumer will probably be.* `GlobalDistanceField`'s clipmap composite — CPU-bound,
-one batch per slice per level, production-reached through `CompositorBuilder` and sample 13, and
-already designed around being mostly-stale, since a scroll reuses about 97% of its cells. It is
-frame-synchronous today: `GlobalDistanceFieldRenderer.Record` composites and uploads in the same
-call. Making it the first background consumer means three things this module cannot do for itself —
-plumbing `AppServices.Jobs` through to the compositor's nodes, double-buffering the distances the
-upload reads, and a frame that accepts a clipmap one refresh out of date. That is a rendering change,
-and it is where the row goes amber-to-green.
 
 Licensed under Apache-2.0.
