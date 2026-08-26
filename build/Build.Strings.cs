@@ -81,6 +81,16 @@ partial class Build {
                     .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
                     .Where(path => !path.ToString().Contains("/artifacts/", StringComparison.Ordinal))
 
+                    // ⚠ Other checkouts of this same repository. A git worktree lives under
+                    // .claude/worktrees/ and holds a full copy of the tree at whatever commit it was
+                    // made at, so without this the gate reports every violation once per worktree and
+                    // — worse — reports declarations that were deleted on master but survive in a
+                    // checkout from before the deletion. Found exactly that way: four ids this gate's
+                    // own change had already removed came back three times each, from three stale
+                    // copies. An agent's worktree contains no sibling worktrees, which is why the
+                    // gate could be written without noticing.
+                    .Where(path => !path.ToString().Contains("/.claude/", StringComparison.Ordinal))
+
                     // ⚠ The analyzer's own tests, whose C# is *data*: every fixture is a declaration
                     // class inside a raw string literal, written to be reported on. Reading them as
                     // source makes this gate fail on the tests that prove the other half of the same
