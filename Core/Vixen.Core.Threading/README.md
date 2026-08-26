@@ -128,11 +128,50 @@ pessimisation on a machine that is running anything else. It waits for `Vixen.Pl
 where the per-OS calls will already live.
 
 **A consumer for the background tier.** The tier itself exists and is tested; nothing in this tree
-sets it yet, which is the honest half of the row in `docs/overview.md`. Every current caller of this scheduler is fork-join frame work — `ParallelFor`, or
-`ScheduleParallel(…).Complete()` — and the long operations the engine actually has (`ThumbnailCache`,
-`AssetTextureSource`, `BackgroundTaskManager`) run on the thread pool on purpose, because they block
-and this pool cannot replace a blocked worker. The first real user is the asset import being
-parallelised now; the second is the geometry tool stack, which takes a `JobScheduler?` and is handed
-`null` by every production caller. Both are somebody else's file today.
+sets it yet, and the reason is one structural fact rather than a to-do: **no process in this tree has
+both frame work on a `JobScheduler` and long deferrable CPU work on the same scheduler.** A tier is a
+choice between two things a thread could pick up next, and nowhere in the engine are there two such
+things to choose between.
+
+*Where the scheduler is.* One production path reaches one consumer. `AppBuilder` makes the scheduler
+and hands it to `EngineLoop` → `SystemRunner` → `SystemContext.Jobs`, and the only thing that reads
+it is `AnimationSystem.Evaluate` — a `ParallelFor` the frame is blocked on, which is `Frame` work by
+construction. There are ten scheduling call sites outside this module; the other nine
+(`VfxSimulation`, `NavPathQueue`, `GoapPlanQueue`, `VisibilityGroup`, and the UV and remesh solvers)
+sit behind a `JobScheduler?` seam that **no production code assigns** — `Scheduler =` appears only
+under `Benchmarks/` and `*.Tests/`. Nine of the ten are unreachable, and the tenth is a frame's.
+
+*Where the long CPU work is.* In another process. The BC7 encode, the meshlet LOD build, the
+distance-field bake and the remesh/unwrap solvers are all genuinely CPU-bound, long and splittable —
+and every production call site is inside the import pipeline, reached from `vixen content build` or
+the editor's content tasks. Neither `Editor/` nor `Tools/` contains a single code reference to
+`JobScheduler`; `Vixen.Editor.Assets` does not even reference this project.
+
+⚠ *The import is not the owed consumer, and asking it to be one would be a regression.* Its worker
+loop is `Task.Run` over an `async` body: importers are `async ValueTask ImportAsync`, `IJob.Execute`
+is synchronous `void`, and the loop `await`s both file I/O and a `TaskCompletionSource` barrier that
+holds each asset until its path-order dependencies have re-imported. Blocking a fixed worker on
+another job's completion signal is the one thing this pool cannot survive. And even setting that
+aside, an offline content build is a workload that is *entirely* background: there is no frame tier
+in that process for the work to yield to, so the tier would buy nothing and its reserved worker would
+cost a real one — the case the guide names when it says a batch-only workload gives up one worker's
+throughput.
+
+⚠ *Nor can any of the ten be relabelled where they stand.* All ten are `ParallelFor` or
+`ScheduleParallel(…).Complete()`, so the calling thread is blocked on the batches it just scheduled.
+`Background` there is not a no-op, it is a pessimisation: the waiting thread drains every unrelated
+frame item it can reach before running the one it is waiting for.
+`WaitingOnBackgroundWorkRunsUnrelatedFrameWorkFirst` asserts exactly that, as a take order rather
+than as a duration. A consumer has to be one that *keeps* its handle and asks `IsCompleted` on a
+later frame; nothing in the tree does.
+
+*What the first consumer will probably be.* `GlobalDistanceField`'s clipmap composite — CPU-bound,
+one batch per slice per level, production-reached through `CompositorBuilder` and sample 13, and
+already designed around being mostly-stale, since a scroll reuses about 97% of its cells. It is
+frame-synchronous today: `GlobalDistanceFieldRenderer.Record` composites and uploads in the same
+call. Making it the first background consumer means three things this module cannot do for itself —
+plumbing `AppServices.Jobs` through to the compositor's nodes, double-buffering the distances the
+upload reads, and a frame that accepts a clipmap one refresh out of date. That is a rendering change,
+and it is where the row goes amber-to-green.
 
 Licensed under Apache-2.0.

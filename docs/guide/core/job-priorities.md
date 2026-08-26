@@ -28,8 +28,14 @@ frame is short. One long job breaks that expectation in two different ways, and 
 both: it stops the long job being picked up *ahead of* frame work that arrived later, and it stops a
 burst of long jobs occupying every worker at once.
 
-Asset import, a bake, a UV unwrap, a texture decode, a navigation mesh rebuild — anything a user
-started that the frame is not waiting for — is what the tier is for.
+A bake, a UV unwrap, a texture decode, a navigation mesh rebuild — anything a user started that the
+frame is not waiting for — is what the tier is for.
+
+⚠ **Vixen's own asset import is not one of them, despite looking like the obvious first example.**
+Its workers are `Task.Run` over an `async` body that awaits file reads and a dependency barrier, and
+it runs in a content build where there is no frame tier to yield to. See the
+[module README](https://github.com/Rikarin/Vixen/blob/master/Core/Vixen.Core.Threading/README.md) for
+why nothing in the engine sets `Background` yet.
 
 ⚠ **It is not for expressing "not yet".** A dependency edge is what says a job must not start until
 something else has finished, and a tier does not weaken or strengthen an edge. A `Frame` job that
@@ -95,9 +101,14 @@ jobs.Complete(cull);      // Runs the culling, and not the unwrap batches queued
 jobs.Complete(unwrap);    // The waiting thread runs those itself rather than parking.
 ```
 
-⚠ **Completing a background handle still blocks the caller.** The tier changes which work the
-*workers* prefer; it does not make the call asynchronous. A caller that must not block should not
-call `Complete` at all — it should keep the handle and ask `IsCompleted`.
+⚠ **Completing a background handle still blocks the caller, and blocks it for longer.** The tier
+changes which work the *workers* prefer; it does not make the call asynchronous. Worse, the waiting
+thread is a taker like any other, so it drains every unrelated frame item it can reach before it runs
+the job it is actually waiting for — putting work somebody is blocked on into this tier is not a
+no-op, it is a pessimisation. A caller that must not block should not call `Complete` at all: it
+should keep the handle and ask `IsCompleted` on a later frame. That — keeping the handle rather than
+completing it — is what makes something a consumer of this tier, and it is why a `ParallelFor` cannot
+become one by changing its last argument.
 
 ## See also
 
