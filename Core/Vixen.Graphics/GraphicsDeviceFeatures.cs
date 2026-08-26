@@ -284,6 +284,46 @@ public readonly record struct GraphicsDeviceFeatures {
         && (SupportedSampleCounts & (1 << BitOperations.Log2((uint)samples))) != 0;
 
     /// <summary>
+    ///     Which rules the device can resolve a multisampled <em>depth</em> attachment by, as a bit
+    ///     mask over <see cref="DepthResolveMode" /> — bit <c>n</c> set means the mode whose value is
+    ///     <c>n</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A separate question from <see cref="SupportedSampleCounts" />, and a device that
+    ///         answers yes to one may answer no to the other.</b> Vulkan requires only
+    ///         <see cref="DepthResolveMode.SampleZero" /> of every implementation
+    ///         (<c>VkPhysicalDeviceDepthStencilResolveProperties::supportedDepthResolveModes</c>), and
+    ///         lavapipe — the driver the golden images run on — offers exactly that and nothing else
+    ///         while still supporting 4× depth attachments happily.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asking is not optional.</b> A resolve mode the device does not advertise is not a
+    ///         slow path: VUID-VkRenderingInfo-pDepthAttachment-06102 makes it invalid usage, so what
+    ///         a driver does with the attachment afterwards is undefined. Backends clamp to
+    ///         <see cref="DepthResolveMode.SampleZero" /> rather than submit one, which is the
+    ///         documented fallback this file's opening paragraph promises for everything here.
+    ///     </para>
+    /// </remarks>
+    public int SupportedDepthResolveModes { get; init; }
+
+    /// <summary>Whether a depth attachment can be resolved by a rule.</summary>
+    /// <param name="mode">The rule.</param>
+    /// <returns>Whether the device advertises it.</returns>
+    public bool SupportsDepthResolveMode(DepthResolveMode mode) =>
+        (SupportedDepthResolveModes & (1 << (byte)mode)) != 0;
+
+    /// <summary>The rule a device will actually honour, given the one it was asked for.</summary>
+    /// <param name="mode">What the pass asked for.</param>
+    /// <returns>
+    ///     <paramref name="mode" /> where the device advertises it, and
+    ///     <see cref="DepthResolveMode.SampleZero" /> otherwise — the one mode every implementation
+    ///     is required to support.
+    /// </returns>
+    public DepthResolveMode ClampDepthResolveMode(DepthResolveMode mode) =>
+        SupportsDepthResolveMode(mode) ? mode : DepthResolveMode.SampleZero;
+
+    /// <summary>
     ///     What a backend with nothing but the floor reports: the minimum spec and no more.
     /// </summary>
     /// <remarks>
@@ -301,6 +341,11 @@ public readonly record struct GraphicsDeviceFeatures {
         MaxPushConstantSize = 128,
         MaxAnisotropy = 1f,
         MaxComputeWorkgroupSize = (128, 128, 64),
-        SupportedSampleCounts = 0b1
+        SupportedSampleCounts = 0b1,
+
+        // SampleZero and nothing else, which is both the floor Vulkan guarantees and the honest
+        // answer for a backend that has not been asked: a device that turns out to support Min is
+        // one that reports it, and a device that does not is one nothing tried to use it on.
+        SupportedDepthResolveModes = 1 << (byte)DepthResolveMode.SampleZero
     };
 }

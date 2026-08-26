@@ -899,7 +899,16 @@ sealed unsafe class VulkanCommandList : ICommandList {
             // one thing; depth cannot, because averaging depths yields a surface nothing occupies —
             // so the mode travels with the attachment and the backend never picks one silently.
             if (target.DepthStore == StoreAction.Resolve && target.ResolveView.IsValid) {
-                depth.ResolveMode = VulkanEnums.ToVulkan(target.ResolveMode);
+                // ⚠ Clamped against the device, not passed through. A mode outside
+                // supportedDepthResolveModes is invalid usage under
+                // VUID-VkRenderingInfo-pDepthAttachment-06102 rather than a slow path, and lavapipe
+                // — which offers SampleZero alone while rendering 4× depth quite happily — is the
+                // device that showed it: the frame drew, the layers complained, and what the
+                // resolve wrote afterwards was whatever the driver felt like.
+                depth.ResolveMode = VulkanEnums.ToVulkan(
+                    device.Features.ClampDepthResolveMode(target.ResolveMode)
+                );
+
                 depth.ResolveImageView = device.Resolve(target.ResolveView).Handle;
                 depth.ResolveImageLayout = ImageLayout.DepthStencilAttachmentOptimal;
             }

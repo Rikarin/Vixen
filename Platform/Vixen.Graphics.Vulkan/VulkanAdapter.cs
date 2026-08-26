@@ -186,6 +186,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         var (acceleration, rayQuery, addressing) = RayTracing(api, device, extensions, usable);
         var atomics = AtomicInt64(api, device, extensions, usable);
         var timeline = TimelineSemaphores(api, device, extensions, usable);
+        var depthResolve = DepthStencilResolve(api, device, extensions, usable);
 
         return new(device, properties, name) {
             UsableApiVersion = usable,
@@ -223,9 +224,51 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
                 rayQuery,
                 addressing,
                 atomics,
-                timeline
+                timeline,
+                depthResolve
             )
         };
+    }
+
+    /// <summary>What the device says about resolving a depth attachment, where there is anything to say.</summary>
+    /// <param name="api">The Vulkan entry points.</param>
+    /// <param name="device">The physical device.</param>
+    /// <param name="extensions">Its device extensions.</param>
+    /// <param name="usable">The version actually reachable through this instance.</param>
+    /// <remarks>
+    ///     Properties rather than features — a resolve mode is something the device does or does not
+    ///     do, with nothing to enable — and gated on the extension for the reason
+    ///     <see cref="DescriptorIndexing" /> gives. ⚠ The all-zero answer from a device that was
+    ///     never asked still means <c>SampleZero</c> once
+    ///     <c>VulkanFeatures.FromDepthResolveModes</c> has read it, because the spec requires that
+    ///     one of everybody; the gate is about not confusing "declines Min" with "was not asked".
+    /// </remarks>
+    static PhysicalDeviceDepthStencilResolveProperties DepthStencilResolve(
+        Vk api,
+        PhysicalDevice device,
+        HashSet<string> extensions,
+        uint usable
+    ) {
+        if (usable < VulkanFeatures.Version12 && !extensions.Contains(VulkanFeatures.DepthStencilResolve)) {
+            return default;
+        }
+
+        var resolve = new PhysicalDeviceDepthStencilResolveProperties {
+            SType = StructureType.PhysicalDeviceDepthStencilResolveProperties
+        };
+
+        var properties = new PhysicalDeviceProperties2 {
+            SType = StructureType.PhysicalDeviceProperties2,
+            PNext = &resolve
+        };
+
+        api.GetPhysicalDeviceProperties2(device, &properties);
+
+        // The chain pointer is a stack address that does not outlive this method — DescriptorIndexing
+        // clears its own for the same reason.
+        resolve.PNext = null;
+
+        return resolve;
     }
 
     /// <summary>What the device says about 64-bit atomics, where there is anything to say.</summary>

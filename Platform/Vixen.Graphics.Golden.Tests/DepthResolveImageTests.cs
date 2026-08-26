@@ -91,12 +91,46 @@ public sealed class DepthResolveImageTests {
     }
 
     /// <summary>
+    ///     Whether the device can resolve depth by both rules, disposing the fixture and skipping if
+    ///     it cannot.
+    /// </summary>
+    /// <param name="fixture">The fixture, disposed here when the answer is no.</param>
+    /// <remarks>
+    ///     ⚠ <b>This is a device question and not a sample-count one, and lavapipe is why the two had
+    ///     to be told apart.</b> It renders a 4× depth attachment happily and advertises
+    ///     <c>VK_RESOLVE_MODE_SAMPLE_ZERO_BIT</c> alone, so this fixture asked it for
+    ///     <see cref="DepthResolveMode.Min" /> and got
+    ///     VUID-VkRenderingInfo-pDepthAttachment-06102 back — a red test that was reporting the
+    ///     driver's limit rather than the engine's defect. What the engine does about that limit is
+    ///     <see cref="AnUnsupportedRuleFallsBackRatherThanBeingSubmitted" />, which runs on exactly
+    ///     the devices this skips on.
+    /// </remarks>
+    static bool CanChoose(ref Fixture? fixture) {
+        var features = fixture!.Device.Features;
+
+        if (features.SupportsDepthResolveMode(DepthResolveMode.Min)
+            && features.SupportsDepthResolveMode(DepthResolveMode.Max)) {
+            return true;
+        }
+
+        fixture.Dispose();
+        fixture = null;
+
+        Assert.Skip(
+            "The device resolves depth by sample zero only, so Min and Max cannot disagree on it. "
+            + "AnUnsupportedRuleFallsBackRatherThanBeingSubmitted is what covers this device."
+        );
+
+        return false;
+    }
+
+    /// <summary>
     ///     <b>The A/B.</b> One multisampled depth buffer, resolved twice by the two rules that
     ///     disagree, probed identically both times.
     /// </summary>
     [Fact]
     public void MinAndMaxResolveTheSameDepthBufferDifferently() {
-        if (!TryOpen(out var fixture)) {
+        if (!TryOpen(out var fixture) || !CanChoose(ref fixture)) {
             return;
         }
 
@@ -107,7 +141,7 @@ public sealed class DepthResolveImageTests {
             minimum = Survivors(Run(owned, DepthResolveMode.Min));
         }
 
-        if (!TryOpen(out fixture)) {
+        if (!TryOpen(out fixture) || !CanChoose(ref fixture)) {
             return;
         }
 
@@ -143,6 +177,85 @@ public sealed class DepthResolveImageTests {
 
         Assert.InRange(maximum, half / 2, half * 3 / 2);
         Assert.InRange(minimum, half / 2, half * 3 / 2);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A rule the device does not advertise is not submitted to it.</b> Asking for one comes
+    ///     back as the picture sample zero would have drawn, with no validation error — rather than
+    ///     as invalid usage whose result is the driver's to decide.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the leg that runs where the A/B cannot</b>, and it exists because lavapipe
+    ///         exists. Vulkan requires only <c>VK_RESOLVE_MODE_SAMPLE_ZERO_BIT</c> of an
+    ///         implementation; lavapipe offers exactly that and renders 4× depth attachments quite
+    ///         happily, so a device that can run every other fixture here is a device
+    ///         <see cref="MinAndMaxResolveTheSameDepthBufferDifferently" /> is impossible on. The
+    ///         engine's answer is <c>GraphicsDeviceFeatures.ClampDepthResolveMode</c>, and this is
+    ///         what says the answer is wired up rather than written down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The equality is the assertion and the absence of a throw is only half of it.</b>
+    ///         <c>Fixture.Render</c> turns a validation error into an exception, so a backend that
+    ///         submitted <see cref="DepthResolveMode.Min" /> unclamped fails here loudly — but a
+    ///         backend that quietly dropped the resolve altogether would also not throw, and only
+    ///         comparing against the sample-zero picture catches that.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnUnsupportedRuleFallsBackRatherThanBeingSubmitted() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        DepthResolveMode unsupported;
+
+        using (var opened = fixture!) {
+            var features = opened.Device.Features;
+
+            // Whichever of the two this device declines. A device that declines neither is one this
+            // has nothing to say about — the A/B above is what covers it.
+            if (!features.SupportsDepthResolveMode(DepthResolveMode.Min)) {
+                unsupported = DepthResolveMode.Min;
+            } else if (!features.SupportsDepthResolveMode(DepthResolveMode.Max)) {
+                unsupported = DepthResolveMode.Max;
+            } else {
+                Assert.Skip(
+                    "The device advertises both Min and Max, so there is no unsupported rule to ask "
+                    + "it for. MinAndMaxResolveTheSameDepthBufferDifferently covers this device."
+                );
+
+                return;
+            }
+        }
+
+        int refused;
+        int zero;
+
+        // The unsupported rule. Without the clamp this is VUID-VkRenderingInfo-pDepthAttachment-06102
+        // and Fixture.Render throws before returning a picture at all.
+        if (!TryOpen(out fixture)) {
+            return;
+        }
+
+        using (var owned = fixture!) {
+            refused = Survivors(Run(owned, unsupported));
+        }
+
+        if (!TryOpen(out fixture)) {
+            return;
+        }
+
+        using (var owned = fixture!) {
+            zero = Survivors(Run(owned, DepthResolveMode.SampleZero));
+        }
+
+        Assert.Equal(zero, refused);
+
+        // And it is a picture rather than an empty one, so "identical" cannot be two blank frames.
+        var half = Fixture.Side * Fixture.Side / 2;
+
+        Assert.InRange(zero, half / 2, half * 3 / 2);
     }
 
     /// <summary>

@@ -147,6 +147,68 @@ public sealed class VulkanEnumTests {
     public void EveryDepthResolveModeMapsToADistinctVulkanFlag() =>
         AssertInjective<DepthResolveMode, ResolveModeFlags>(VulkanEnums.ToVulkan);
 
+    /// <summary>
+    ///     ⚠ <b>A device that answered nothing still resolves by sample zero</b>, because Vulkan
+    ///     requires that one of every implementation.
+    /// </summary>
+    /// <remarks>
+    ///     The arm that matters is the all-zero one. <c>VulkanAdapter</c> only chains
+    ///     <c>VkPhysicalDeviceDepthStencilResolveProperties</c> where the version or the extension
+    ///     says the question exists, so <c>Translate</c> is handed a zeroed structure on the devices
+    ///     that were never asked — and a mask of zero would report a device that cannot resolve depth
+    ///     at all, which is not a device Vulkan permits and would leave
+    ///     <c>ClampDepthResolveMode</c> with nothing to clamp to.
+    /// </remarks>
+    [Fact]
+    public void SampleZeroSurvivesADeviceThatSaidNothing() {
+        var features = GraphicsDeviceFeatures.Minimum with {
+            SupportedDepthResolveModes = VulkanFeatures.FromDepthResolveModes(default)
+        };
+
+        Assert.True(features.SupportsDepthResolveMode(DepthResolveMode.SampleZero));
+        Assert.False(features.SupportsDepthResolveMode(DepthResolveMode.Min));
+        Assert.False(features.SupportsDepthResolveMode(DepthResolveMode.Max));
+
+        // And that is what a pass asking for Min gets on such a device, rather than Min itself.
+        Assert.Equal(DepthResolveMode.SampleZero, features.ClampDepthResolveMode(DepthResolveMode.Min));
+        Assert.Equal(DepthResolveMode.SampleZero, features.ClampDepthResolveMode(DepthResolveMode.Max));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>lavapipe's answer, written down as a fixture</b>: <c>SAMPLE_ZERO</c> alone, which is
+    ///     what the golden images' device reports and what made
+    ///     <c>DepthResolveImageTests.MinAndMaxResolveTheSameDepthBufferDifferently</c> impossible
+    ///     there rather than wrong.
+    /// </summary>
+    [Fact]
+    public void ABitTheDeviceAdvertisesIsTheModeItKeeps() {
+        var lavapipe = GraphicsDeviceFeatures.Minimum with {
+            SupportedDepthResolveModes = VulkanFeatures.FromDepthResolveModes(ResolveModeFlags.SampleZeroBit)
+        };
+
+        Assert.Equal(DepthResolveMode.SampleZero, lavapipe.ClampDepthResolveMode(DepthResolveMode.Max));
+
+        var desktop = GraphicsDeviceFeatures.Minimum with {
+            SupportedDepthResolveModes = VulkanFeatures.FromDepthResolveModes(
+                ResolveModeFlags.SampleZeroBit | ResolveModeFlags.MinBit | ResolveModeFlags.MaxBit
+            )
+        };
+
+        Assert.Equal(DepthResolveMode.Max, desktop.ClampDepthResolveMode(DepthResolveMode.Max));
+        Assert.Equal(DepthResolveMode.Min, desktop.ClampDepthResolveMode(DepthResolveMode.Min));
+
+        // ⚠ One bit at a time, because a mask built by OR-ing the wrong shifts would still pass the
+        // two cases above. Min advertised alone must not make Max legal.
+        var minimumOnly = GraphicsDeviceFeatures.Minimum with {
+            SupportedDepthResolveModes = VulkanFeatures.FromDepthResolveModes(
+                ResolveModeFlags.SampleZeroBit | ResolveModeFlags.MinBit
+            )
+        };
+
+        Assert.Equal(DepthResolveMode.Min, minimumOnly.ClampDepthResolveMode(DepthResolveMode.Min));
+        Assert.Equal(DepthResolveMode.SampleZero, minimumOnly.ClampDepthResolveMode(DepthResolveMode.Max));
+    }
+
     [Fact]
     public void EveryLoadActionMapsToADistinctVulkanOp() =>
         AssertInjective<LoadAction, AttachmentLoadOp>(VulkanEnums.ToVulkan);

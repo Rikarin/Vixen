@@ -143,6 +143,13 @@ static class VulkanFeatures {
     ///     default is <em>false</em> — so a caller that forgets it reports a device with no timeline
     ///     semaphores, which costs a queue drain per cross-queue edge and never costs a hang.
     /// </param>
+    /// <param name="depthResolve">
+    ///     What <c>VkPhysicalDeviceDepthStencilResolveProperties</c> said, or all-zero where the
+    ///     device was never asked. ⚠ All-zero is <em>not</em> "no depth resolve at all": the spec
+    ///     requires <c>VK_RESOLVE_MODE_SAMPLE_ZERO_BIT</c> of every implementation, so the mapping
+    ///     below reports <see cref="DepthResolveMode.SampleZero" /> whatever came back and adds the
+    ///     other two only where the bits say so.
+    /// </param>
     public static GraphicsDeviceFeatures Translate(
         in PhysicalDeviceFeatures features,
         in PhysicalDeviceLimits limits,
@@ -157,7 +164,8 @@ static class VulkanFeatures {
         in PhysicalDeviceRayQueryFeaturesKHR rayQuery = default,
         in PhysicalDeviceBufferDeviceAddressFeatures addressing = default,
         in PhysicalDeviceShaderAtomicInt64Features atomics = default,
-        in PhysicalDeviceTimelineSemaphoreFeatures timeline = default
+        in PhysicalDeviceTimelineSemaphoreFeatures timeline = default,
+        in PhysicalDeviceDepthStencilResolveProperties depthResolve = default
     ) {
         // ⚠ And a fifth bindable set, which is not part of descriptor indexing and is checked here
         // because nothing else would check it. The engine's table is its own descriptor set — see
@@ -295,8 +303,40 @@ static class VulkanFeatures {
             // same sample count, and a device that offers 16x colour and 8x depth cannot render 16x.
             SupportedSampleCounts = VulkanFormats.FromSampleCounts(
                 limits.FramebufferColorSampleCounts & limits.FramebufferDepthSampleCounts
-            )
+            ),
+
+            // ⚠ Not implied by the sample counts above, and lavapipe is the proof: it renders 4×
+            // depth attachments and advertises SAMPLE_ZERO alone, so a frame that resolved by Max
+            // there was invalid usage rather than a slow path. Sample zero is unconditional because
+            // the spec requires it of every implementation — the other two are only ever added.
+            SupportedDepthResolveModes = FromDepthResolveModes(depthResolve.SupportedDepthResolveModes)
         };
+    }
+
+    /// <summary>Vulkan's depth resolve bits as the engine's mask over <see cref="DepthResolveMode" />.</summary>
+    /// <param name="modes">What <c>supportedDepthResolveModes</c> said, or zero if nothing asked.</param>
+    /// <returns>A mask where bit <c>n</c> is the mode whose value is <c>n</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="DepthResolveMode.SampleZero" /> is set unconditionally, and that is a
+    ///     reading of the spec rather than an optimism.</b> VUID-VkPhysicalDeviceDepthStencilResolve
+    ///     Properties requires <c>VK_RESOLVE_MODE_SAMPLE_ZERO_BIT</c> of every implementation, so a
+    ///     zero here means the question was never asked and not that the device refuses everything —
+    ///     and a mask of zero would make the engine's own fallback unreachable.
+    ///     <c>VK_RESOLVE_MODE_AVERAGE_BIT</c> has no arm because Vulkan forbids it for depth, which
+    ///     is the same reason <c>VulkanEnums.ToVulkan</c> has no <c>Average</c> arm.
+    /// </remarks>
+    public static int FromDepthResolveModes(ResolveModeFlags modes) {
+        var mask = 1 << (byte)DepthResolveMode.SampleZero;
+
+        if ((modes & ResolveModeFlags.MinBit) != 0) {
+            mask |= 1 << (byte)DepthResolveMode.Min;
+        }
+
+        if ((modes & ResolveModeFlags.MaxBit) != 0) {
+            mask |= 1 << (byte)DepthResolveMode.Max;
+        }
+
+        return mask;
     }
 
     /// <summary>Whether the descriptor-indexing structures are worth asking the device about.</summary>

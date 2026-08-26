@@ -548,6 +548,7 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasUnifiedMemory.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasUnifiedMemory.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.ClampDepthResolveMode(Vixen.Graphics.DepthResolveMode mode) -> Vixen.Graphics.DepthResolveMode
 Vixen.Graphics.GraphicsDeviceFeatures.MaxAnisotropy.get -> float
 Vixen.Graphics.GraphicsDeviceFeatures.MaxAnisotropy.init -> float
 Vixen.Graphics.GraphicsDeviceFeatures.MaxBindlessDescriptors.get -> int
@@ -566,8 +567,11 @@ Vixen.Graphics.GraphicsDeviceFeatures.MaxTextureSize.get -> int
 Vixen.Graphics.GraphicsDeviceFeatures.MaxTextureSize.init -> int
 Vixen.Graphics.GraphicsDeviceFeatures.MaxVertexBuffers.get -> int
 Vixen.Graphics.GraphicsDeviceFeatures.MaxVertexBuffers.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.SupportedDepthResolveModes.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.SupportedDepthResolveModes.init -> int
 Vixen.Graphics.GraphicsDeviceFeatures.SupportedSampleCounts.get -> int
 Vixen.Graphics.GraphicsDeviceFeatures.SupportedSampleCounts.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.SupportsDepthResolveMode(Vixen.Graphics.DepthResolveMode mode) -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.SupportsSampleCount(int samples) -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.TimestampPeriod.get -> float
 Vixen.Graphics.GraphicsDeviceFeatures.TimestampPeriod.init -> float
