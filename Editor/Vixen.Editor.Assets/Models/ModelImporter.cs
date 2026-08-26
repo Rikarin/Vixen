@@ -61,8 +61,15 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     chunk's. It is appended last on purpose — that is the position at which the members before
     ///     it keep their offsets — but appended is still a change to the member count, and the member
     ///     count is what the generated reader checks.
+    ///     Ten since <c>AnimationChannel</c> grew a scalar weight track — <c>Shape</c>,
+    ///     <c>WeightTimes</c> and <c>Weights</c>, appended last for the reason <c>MorphTargets</c>
+    ///     was — which is what lets a clip drive a blend shape. ⚠ The same member-count argument
+    ///     applies and it is the whole migration cost: three more members means a version-nine clip
+    ///     chunk that this build read would run off the end of itself, and no artefact can be told
+    ///     from the other by looking at it. The bump re-imports every model in the project once; the
+    ///     ones whose files carried morph-weight curves gain them, and nothing else changes.
     /// </remarks>
-    public override int Version => 9;
+    public override int Version => 10;
 
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>

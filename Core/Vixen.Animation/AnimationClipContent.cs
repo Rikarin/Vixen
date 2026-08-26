@@ -34,7 +34,23 @@ namespace Vixen.Animation;
 [DataContract("AnimationClipContent")]
 public sealed class AnimationClipContent {
     /// <summary>The version this reader and writer speak.</summary>
-    public const int Current = 1;
+    /// <remarks>
+    ///     <para>
+    ///         <b>2 since the scalar weight track landed</b> —
+    ///         <c>AnimationChannel.Shape</c>/<c>WeightTimes</c>/<c>Weights</c>, which is what lets a
+    ///         clip drive a blend shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the bump costs is a rebuild of every clip and nothing else.</b> The three
+    ///         members are additions with empty defaults, so a version 1 artefact deserialises into a
+    ///         version 2 reader and answers "no weight track" — which is the true answer, and the
+    ///         reason nothing here refuses an older file. What it cannot do is invent the curves that
+    ///         were dropped on the way in, and <c>AnimationClipImporter.Version</c> is this number, so
+    ///         raising it is what re-imports every model in the project and picks them up. On a large
+    ///         project that is a long content build once, and no runtime change at all.
+    ///     </para>
+    /// </remarks>
+    public const int Current = 2;
 
     /// <summary>Which version of the format this artefact is.</summary>
     public int Version { get; set; } = Current;

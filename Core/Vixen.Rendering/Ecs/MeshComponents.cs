@@ -208,6 +208,32 @@ public struct BlendShapeWeights {
     ///     deciding something the shape's author already did.
     /// </remarks>
     public float[]? Weights;
+
+    /// <summary>
+    ///     What the mesh calls each slot of <see cref="Weights" />, or null until something says.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The binding a clip needs, and the reason it is here rather than looked up.</b> An
+    ///         animation names a shape — <c>MorphTargetData.Name</c>'s own rule, so that re-exporting a
+    ///         mesh with its shapes in a different order does not re-target every curve — and this
+    ///         component is addressed by slot. Something has to hold the translation, and the entity
+    ///         that has the weights is the only place that knows which mesh they are for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Filled in by <see cref="MorphWeightSystem" /> from the shapes the render feature
+    ///         actually attached</b>, so it is the mesh's own order and not a guess — and so that a
+    ///         game that never animates a face pays nothing for it. It is left alone once set: a
+    ///         caller that wrote its own names is stating a binding, and overwriting it every frame
+    ///         would make a hand-built one impossible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which means it is empty for one frame after an entity appears</b>, because the
+    ///         feature has nothing attached until extraction has run. A face is drawn at rest on the
+    ///         frame it spawns, which is the frame its rest pose is being copied in anyway.
+    ///     </para>
+    /// </remarks>
+    public string[]? Shapes;
 }
 
 /// <summary>Reading and writing an entity's mesh.</summary>

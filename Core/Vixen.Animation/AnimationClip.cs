@@ -79,6 +79,10 @@ public sealed class AnimationClip {
     readonly Vector3[] scales;
     readonly int[] buckets;
     readonly AnimationEvent[] events;
+    readonly string[] shapes;
+    readonly WeightTrack[] weightTracks;
+    readonly float[] weightTimes;
+    readonly float[] weightValues;
 
     AnimationClip(
         string name,
@@ -95,8 +99,13 @@ public sealed class AnimationClip {
         AnimationEvent[] events,
         int rootJoint,
         int unresolvedChannels,
-        ConstraintTrack? constraints
+        ConstraintTrack? constraints,
+        WeightTracks weights
     ) {
+        shapes = weights.Shapes;
+        weightTracks = weights.Tracks;
+        weightTimes = weights.Times;
+        weightValues = weights.Values;
         Name = name;
         Duration = duration;
         Skeleton = skeleton;
@@ -150,6 +159,81 @@ public sealed class AnimationClip {
     ///     belongs to <see cref="ConstraintStack" /> and not to a goal.
     /// </remarks>
     public ConstraintTrack? Constraints { get; }
+
+    /// <summary>The blend shapes this clip drives, by name, in the order it stores them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Membership is the fact, not the value.</b> A shape is in here because the clip carries
+    ///     a curve for it, and a curve that is flat at zero is still a curve — it is what returns a
+    ///     face to rest and holds it there against a layer underneath. A shape that is <em>not</em> in
+    ///     here is one this clip says nothing about, and the two must not be confused: the first
+    ///     overwrites, the second leaves alone.
+    /// </remarks>
+    public ReadOnlySpan<string> Shapes => shapes;
+
+    /// <summary>How many blend shapes it drives.</summary>
+    public int ShapeCount => shapes.Length;
+
+    /// <summary>Where a shape's weight is at a moment in the clip.</summary>
+    /// <param name="time">When, in seconds. Clamped to the clip.</param>
+    /// <param name="destination">One weight per <see cref="Shapes" /> entry, in that order.</param>
+    /// <exception cref="ArgumentException">The destination is shorter than <see cref="ShapeCount" />.</exception>
+    /// <remarks>
+    ///     Separate from <see cref="Sample" /> rather than folded into it, because the two have
+    ///     different destinations and different lifetimes: a pose is per skeleton and is rebuilt every
+    ///     frame from the bind pose, and weights are per <em>mesh</em> and are accumulated across the
+    ///     clips a blend is mixing. Folding them would make every caller that wants a pose supply a
+    ///     weight buffer it has no use for.
+    /// </remarks>
+    public void SampleWeights(float time, Span<float> destination) {
+        if (destination.Length < shapes.Length) {
+            throw new ArgumentException(
+                $"The clip drives {shapes.Length} blend shape(s) and the destination holds "
+                + $"{destination.Length}.",
+                nameof(destination)
+            );
+        }
+
+        var t = MathUtil.Clamp(time, 0f, Duration);
+
+        for (var index = 0; index < weightTracks.Length; index++) {
+            destination[index] = SampleWeight(weightTracks[index], t);
+        }
+    }
+
+    /// <summary>Where one named shape's weight is at a moment in the clip.</summary>
+    /// <param name="time">When, in seconds. Clamped to the clip.</param>
+    /// <param name="shape">The shape's name, as the mesh calls it.</param>
+    /// <param name="weight">Its weight, or zero when the clip does not drive it.</param>
+    /// <returns>Whether the clip drives that shape at all.</returns>
+    /// <remarks>
+    ///     The return value is the part that matters. A caller that treated a false as a weight of
+    ///     zero would push a face to rest every time it played a clip that says nothing about it,
+    ///     which is the additive-layer case turned into an override by accident.
+    /// </remarks>
+    public bool TrySampleWeight(float time, string shape, out float weight) {
+        ArgumentNullException.ThrowIfNull(shape);
+
+        var index = IndexOfShape(shape);
+
+        weight = index < 0 ? 0f : SampleWeight(weightTracks[index], MathUtil.Clamp(time, 0f, Duration));
+
+        return index >= 0;
+    }
+
+    /// <summary>Where a shape sits in <see cref="Shapes" />, or −1.</summary>
+    /// <param name="shape">The shape's name.</param>
+    /// <returns>Its index, or −1 when the clip does not drive it.</returns>
+    public int IndexOfShape(string shape) {
+        ArgumentNullException.ThrowIfNull(shape);
+
+        for (var index = 0; index < shapes.Length; index++) {
+            if (string.Equals(shapes[index], shape, StringComparison.Ordinal)) {
+                return index;
+            }
+        }
+
+        return -1;
+    }
 
     /// <summary>Poses a skeleton at a moment in the clip.</summary>
     /// <param name="time">When, in seconds. Clamped to the clip; wrapping is the caller's business.</param>
@@ -388,14 +472,42 @@ public sealed class AnimationClip {
         var rotations = new List<PackedQuaternion>();
         var scaleTimes = new List<float>();
         var scales = new List<Vector3>();
+        var shapes = new List<string>();
+        var weightTracks = new List<WeightTrack>();
+        var weightTimes = new List<float>();
+        var weightValues = new List<float>();
         var unresolved = 0;
         var longest = 0f;
 
         foreach (var channel in data.Channels) {
+            // Before the joint lookup, and this is the ordering that matters: a weight channel names
+            // the morphed mesh's node, which is not a joint and is not meant to be. Resolving it first
+            // would put every facial curve in the model into UnresolvedChannels — the number somebody
+            // watches to notice a clip playing on the wrong rig — and drown the signal it exists for.
+            var weightCount = Math.Min(channel.WeightTimes.Length, channel.Weights.Length);
+            var named = channel.Shape.Length > 0;
+
+            if (weightCount > 0 && named && !shapes.Contains(channel.Shape, StringComparer.Ordinal)) {
+                // Duplicates fold into the first: two channels for one shape is an exporter writing a
+                // curve twice, and taking the later one silently would make which of them wins depend
+                // on channel order. The first is the one an author would find in the file.
+                shapes.Add(channel.Shape);
+                weightTracks.Add(new(weightTimes.Count, weightCount, -1));
+                weightTimes.AddRange(channel.WeightTimes.AsSpan(0, weightCount));
+                weightValues.AddRange(channel.Weights.AsSpan(0, weightCount));
+                longest = MathF.Max(longest, Last(channel.WeightTimes, weightCount));
+            }
+
             var joint = skeleton.IndexOf(channel.Target);
 
             if (joint < 0) {
-                unresolved++;
+                // A weight channel that resolved is not unresolved. Anything else that named a joint
+                // this rig does not have is, whether or not it carried keys — which is the count's
+                // existing meaning and is left exactly as it was.
+                if (weightCount == 0 || !named) {
+                    unresolved++;
+                }
+
                 continue;
             }
 
@@ -468,6 +580,16 @@ public sealed class AnimationClip {
             };
         }
 
+        var weightKeys = CollectionsMarshal.AsSpan(weightTimes);
+
+        for (var track = 0; track < weightTracks.Count; track++) {
+            var current = weightTracks[track];
+
+            weightTracks[track] = current with {
+                Index = BuildIndex(index, weightKeys.Slice(current.Start, current.Count), duration)
+            };
+        }
+
         return new(
             data.Name,
             duration,
@@ -483,7 +605,8 @@ public sealed class AnimationClip {
             authored,
             ResolveRootJoint(skeleton, rootJoint),
             unresolved,
-            constraints
+            constraints,
+            new([.. shapes], [.. weightTracks], [.. weightTimes], [.. weightValues])
         );
     }
 
@@ -519,6 +642,23 @@ public sealed class AnimationClip {
         var index = FindKey(times, Index(track.ScaleIndex, track.ScaleCount), time, out var t);
 
         return index + 1 < values.Length ? Vector3.Lerp(values[index], values[index + 1], t) : values[index];
+    }
+
+    /// <summary>One weight track at a time, on the vector tracks' terms.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Lerped and never clamped, and the two go together.</b> A corrective authored past one
+    ///     and a shape authored as the negative of its neighbour are both real, so saturating here
+    ///     would be this method overruling the author — and a clamp would also make the interpolation
+    ///     non-linear exactly where an animator put the overshoot they wanted to see.
+    /// </remarks>
+    float SampleWeight(in WeightTrack track, float time) {
+        var times = weightTimes.AsSpan(track.Start, track.Count);
+        var values = weightValues.AsSpan(track.Start, track.Count);
+        var index = FindKey(times, Index(track.Index, track.Count), time, out var t);
+
+        return index + 1 < values.Length
+            ? values[index] + ((values[index + 1] - values[index]) * t)
+            : values[index];
     }
 
     Quaternion SampleRotation(in Track track, float time) {
@@ -621,6 +761,18 @@ public sealed class AnimationClip {
 
         return start;
     }
+
+    /// <summary>One shape's scalar track: where its keys are and its bucket table.</summary>
+    readonly record struct WeightTrack(int Start, int Count, int Index);
+
+    /// <summary>
+    ///     The weight side of a bake, bundled so the constructor does not take four more parameters.
+    /// </summary>
+    /// <param name="Shapes">The shapes driven, in storage order.</param>
+    /// <param name="Tracks">One track per shape, in the same order.</param>
+    /// <param name="Times">Every track's key times, concatenated.</param>
+    /// <param name="Values">Every track's weights, concatenated.</param>
+    readonly record struct WeightTracks(string[] Shapes, WeightTrack[] Tracks, float[] Times, float[] Values);
 
     readonly record struct Track(
         int Joint,

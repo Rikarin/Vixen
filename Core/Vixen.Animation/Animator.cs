@@ -70,6 +70,7 @@ public sealed class Animator {
         Scratch = new(skeleton.JointCount);
         Events = new();
         Constraints = new();
+        MorphWeights = new();
         model = new BoneTransform[skeleton.JointCount];
         RootJoint = FirstRoot(skeleton);
     }
@@ -96,6 +97,23 @@ public sealed class Animator {
     ///     before it can decide what a chain does.
     /// </remarks>
     public ConstraintTagBuffer Constraints { get; }
+
+    /// <summary>The blend-shape weights the clips playing this frame ask for, by shape name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Collected during evaluation, for the reason events and constraint tags are: a weight
+    ///         comes out of a clip in the middle of a blend tree, and whoever writes it onto a mesh
+    ///         has to see every clip's contribution first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty is not the same as every weight at zero.</b> A shape is in here because a
+    ///         clip drove it; a shape that is not is one no clip mentioned, and pushing it to zero
+    ///         would make playing an unrelated clip wipe an expression a script set by hand.
+    ///         <c>BlendShapeAnimationSystem</c> is what carries this onto a mesh, and it writes only
+    ///         the slots this names.
+    ///     </para>
+    /// </remarks>
+    public MorphWeightBuffer MorphWeights { get; }
 
     /// <summary>How long the last update was, in seconds. Already scaled by <see cref="Speed" />.</summary>
     /// <remarks>
@@ -143,6 +161,7 @@ public sealed class Animator {
         };
 
         layer.States.Constraints = Constraints;
+        layer.States.MorphWeights = MorphWeights;
 
         layers.Add(layer);
         return layer;
@@ -166,6 +185,7 @@ public sealed class Animator {
     public void Update(float deltaTime) {
         Events.Clear();
         Constraints.Clear();
+        MorphWeights.Clear();
 
         var step = deltaTime * Speed;
 

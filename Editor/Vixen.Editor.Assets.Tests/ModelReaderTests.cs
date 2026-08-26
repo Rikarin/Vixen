@@ -217,6 +217,74 @@ public sealed class ModelReaderTests {
         Assert.False(read.Meshes[0].IsMorphed);
     }
 
+    // --- Blend-shape weight tracks ------------------------------------------
+
+    /// <summary>
+    ///     ⚠ A morph-weight sampler becomes one scalar channel per shape, named after the shape.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The half of an animation that was being dropped by omission.</b> Assimp puts node
+    ///     transforms in <c>mChannels</c> and morph weights in <c>mMeshMorphChannels</c>, and a reader
+    ///     that walked only the first imported a character whose body moved and whose face did not —
+    ///     with no warning anywhere, because nothing was asked for and nothing failed. The names are
+    ///     the assertion that matters: a source file addresses a shape by its slot, and the slots are
+    ///     not <c>MeshData.MorphTargets</c>' slots, so a curve stored against an index would silently
+    ///     re-target itself on the next export.
+    /// </remarks>
+    [Fact]
+    public void AMorphWeightSamplerBecomesOneNamedScalarChannelPerShape() {
+        var read = ModelReader.Read(GltfMorphAnimated(), ".gltf", "Face", Default);
+
+        var clip = Assert.Single(read.Animations);
+        var weighted = clip.Channels.Where(channel => channel.WeightTimes.Length > 0).ToArray();
+
+        Assert.Equal(2, weighted.Length);
+        Assert.Equal(["jawOpen", "browRaise"], weighted.Select(channel => channel.Shape));
+
+        // Key-major in the file — two keys of two targets — and one curve per shape out of it.
+        Assert.Equal<float>([0f, 1f], weighted[0].WeightTimes);
+        Assert.Equal<float>([0f, 1f], weighted[0].Weights);
+        Assert.Equal<float>([0f, 1f], weighted[1].WeightTimes);
+        Assert.Equal<float>([0f, 0.5f], weighted[1].Weights);
+    }
+
+    /// <summary>
+    ///     The names the curves carry are the names the deltas carry, and one table makes both.
+    /// </summary>
+    [Fact]
+    public void AWeightChannelNamesTheShapeTheMeshStored() {
+        var read = ModelReader.Read(GltfMorphAnimated(), ".gltf", "Face", Default);
+
+        var shapes = read.Meshes[0].MorphTargets.Select(target => target.Name).ToArray();
+        var driven = read.Animations[0].Channels
+            .Where(channel => channel.WeightTimes.Length > 0)
+            .Select(channel => channel.Shape);
+
+        Assert.Equal(shapes, driven);
+    }
+
+    /// <summary>A weight channel carries no transform keys, and vice versa.</summary>
+    /// <remarks>
+    ///     Nothing produces both, which is what lets the bake tell them apart without a discriminator
+    ///     member — and what keeps a face's curves out of the unresolved-channel count.
+    /// </remarks>
+    [Fact]
+    public void AWeightChannelAndATransformChannelAreNeverTheSameChannel() {
+        var read = ModelReader.Read(GltfMorphAnimated(), ".gltf", "Face", Default);
+
+        Assert.Contains(read.Animations[0].Channels, channel => channel.WeightTimes.Length > 0);
+
+        foreach (var channel in read.Animations[0].Channels) {
+            var transform =
+                channel.PositionTimes.Length + channel.RotationTimes.Length + channel.ScaleTimes.Length;
+
+            Assert.True(
+                channel.WeightTimes.Length == 0 || transform == 0,
+                $"'{channel.Target}' carries both a weight track and {transform} transform key(s)."
+            );
+        }
+    }
+
     /// <summary>A model with no shapes carries an empty array rather than paying for one.</summary>
     [Fact]
     public void AMeshWithNoBlendShapesCarriesNone() {
@@ -356,6 +424,111 @@ public sealed class ModelReaderTests {
                   "bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC3",
                   "min": [0, 0, 0], "max": [0.5, 0, 0]
                 }
+              ]
+            }
+            """;
+
+        return Encoding.UTF8.GetBytes(json);
+    }
+
+    /// <summary>
+    ///     The same head, with an animation that drives its two shapes through a <c>weights</c>
+    ///     sampler.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A glTF <c>weights</c> sampler holds <em>every</em> target's weight at every key</b>,
+    ///     laid out key-major — two keys of two targets is four floats, not two curves of two. Assimp
+    ///     hands that back as one <c>aiMeshMorphAnim</c> whose keys carry a vector of
+    ///     <c>(slot, weight)</c> pairs, and turning it into a curve per shape is the importer's job.
+    ///     The values are halves, so a sample between the keys is exact.
+    /// </remarks>
+    static byte[] GltfMorphAnimated() {
+        float[] positions = [0, 0, 0, 1, 0, 0, 0, 1, 0];
+        ushort[] indices = [0, 1, 2];
+        float[] jaw = [0, 0, 0, 0, 0, 2, 0, 0, 0];
+        float[] brow = [0, 0, 0, 0, 0, 0, 0.5f, 0, 0];
+
+        // Two keys, a second apart. At the first the face is at rest; at the second the jaw is fully
+        // open and the brow is half raised.
+        float[] times = [0, 1];
+        float[] outputs = [0, 0, 1, 0.5f];
+
+        var buffer = new byte[
+            (positions.Length * 4) + (indices.Length * 2) + (jaw.Length * 4) + (brow.Length * 4)
+            + (times.Length * 4) + (outputs.Length * 4)
+        ];
+
+        var at = 0;
+
+        Buffer.BlockCopy(positions, 0, buffer, at, positions.Length * 4);
+        var indicesAt = at += positions.Length * 4;
+
+        Buffer.BlockCopy(indices, 0, buffer, at, indices.Length * 2);
+        var jawAt = at += indices.Length * 2;
+
+        Buffer.BlockCopy(jaw, 0, buffer, at, jaw.Length * 4);
+        var browAt = at += jaw.Length * 4;
+
+        Buffer.BlockCopy(brow, 0, buffer, at, brow.Length * 4);
+        var timesAt = at += brow.Length * 4;
+
+        Buffer.BlockCopy(times, 0, buffer, at, times.Length * 4);
+        var outputsAt = at += times.Length * 4;
+
+        Buffer.BlockCopy(outputs, 0, buffer, at, outputs.Length * 4);
+
+        var json = $$"""
+            {
+              "asset": { "version": "2.0" },
+              "scene": 0,
+              "scenes": [{ "nodes": [0] }],
+              "nodes": [{ "name": "Face", "mesh": 0 }],
+              "meshes": [{
+                "name": "Head",
+                "weights": [0, 0],
+                "extras": { "targetNames": ["jawOpen", "browRaise"] },
+                "primitives": [{
+                  "attributes": { "POSITION": 0 },
+                  "indices": 1,
+                  "targets": [{ "POSITION": 2 }, { "POSITION": 3 }]
+                }]
+              }],
+              "animations": [{
+                "name": "Talk",
+                "samplers": [{ "input": 4, "output": 5, "interpolation": "LINEAR" }],
+                "channels": [{ "sampler": 0, "target": { "node": 0, "path": "weights" } }]
+              }],
+              "buffers": [{
+                "byteLength": {{buffer.Length}},
+                "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
+              }],
+              "bufferViews": [
+                { "buffer": 0, "byteOffset": 0, "byteLength": {{positions.Length * 4}}, "target": 34962 },
+                { "buffer": 0, "byteOffset": {{indicesAt}}, "byteLength": {{indices.Length * 2}}, "target": 34963 },
+                { "buffer": 0, "byteOffset": {{jawAt}}, "byteLength": {{jaw.Length * 4}}, "target": 34962 },
+                { "buffer": 0, "byteOffset": {{browAt}}, "byteLength": {{brow.Length * 4}}, "target": 34962 },
+                { "buffer": 0, "byteOffset": {{timesAt}}, "byteLength": {{times.Length * 4}} },
+                { "buffer": 0, "byteOffset": {{outputsAt}}, "byteLength": {{outputs.Length * 4}} }
+              ],
+              "accessors": [
+                {
+                  "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+                  "min": [0, 0, 0], "max": [1, 1, 0]
+                },
+                { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" },
+                {
+                  "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3",
+                  "min": [0, 0, 0], "max": [0, 0, 2]
+                },
+                {
+                  "bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC3",
+                  "min": [0, 0, 0], "max": [0.5, 0, 0]
+                },
+                {
+                  "bufferView": 4, "componentType": 5126, "count": 2, "type": "SCALAR",
+                  "min": [0], "max": [1]
+                },
+                { "bufferView": 5, "componentType": 5126, "count": 4, "type": "SCALAR" }
               ]
             }
             """;

@@ -4,6 +4,7 @@
 using Silk.NET.Assimp;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
+using AssimpAnimation = Silk.NET.Assimp.Animation;
 using AssimpApi = Silk.NET.Assimp.Assimp;
 using AssimpMesh = Silk.NET.Assimp.Mesh;
 using AssimpNode = Silk.NET.Assimp.Node;
@@ -486,16 +487,14 @@ public static class ModelReader {
         var deltaNormals = new Vector3[count];
 
         List<MorphTargetData> targets = new(shapes);
-        HashSet<string> taken = new(StringComparer.Ordinal);
+        var names = ShapeNames(mesh);
 
         for (var index = 0; index < shapes; index++) {
             var shape = mesh->MAnimMeshes[index];
 
-            if (shape is null) {
+            if (shape is null || names[index] is not { } shapeName) {
                 continue;
             }
-
-            var shapeName = Unique(taken, Name(shape->MName, $"Shape{index}"));
 
             if ((int)shape->MNumVertices != count) {
                 report?.Invoke(
@@ -554,6 +553,39 @@ public static class ModelReader {
         }
 
         return [.. targets];
+    }
+
+    /// <summary>What each of a mesh's <c>aiAnimMesh</c> slots is called, by slot.</summary>
+    /// <param name="mesh">The mesh.</param>
+    /// <returns>
+    ///     One entry per <c>mAnimMeshes</c> slot: the shape's final name, or <see langword="null" />
+    ///     for a slot the file left empty.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>This exists so that the deltas and the curves cannot disagree about a name.</b> A
+    ///     morph <em>animation</em> addresses a shape by its slot in <c>mAnimMeshes</c>, and
+    ///     <see cref="MorphTargetData" /> is addressed by name — so the translation between them is a
+    ///     table, and a second copy of the naming rule would be a second copy of the deduplication
+    ///     that only diverges on the files that need it: two shapes called <c>jawOpen</c>, where one
+    ///     copy would say <c>jawOpen_1</c> and the other would not.
+    /// </remarks>
+    static unsafe string?[] ShapeNames(AssimpMesh* mesh) {
+        var shapes = (int)mesh->MNumAnimMeshes;
+        var names = new string?[shapes];
+        HashSet<string> taken = new(StringComparer.Ordinal);
+
+        for (var index = 0; index < shapes; index++) {
+            var shape = mesh->MAnimMeshes[index];
+
+            // A null slot takes no name, which is what keeps the deduplication suffixes stable: the
+            // names have to come out the same here and in ReadMorphTargets, and it walks the array
+            // the same way.
+            if (shape is not null) {
+                names[index] = Unique(taken, Name(shape->MName, $"Shape{index}"));
+            }
+        }
+
+        return names;
     }
 
     /// <summary>The four strongest influences on each vertex, normalised.</summary>
@@ -663,7 +695,7 @@ public static class ModelReader {
             // is already in seconds" is the only reading that does not produce a clip of infinite
             // length. Assimp's own documentation calls the field "may be 0".
             var rate = animation->MTicksPerSecond > 0 ? animation->MTicksPerSecond : 1;
-            var channels = new AnimationChannel[animation->MNumChannels];
+            var channels = new List<AnimationChannel>((int)animation->MNumChannels);
 
             for (var channel = 0u; channel < animation->MNumChannels; channel++) {
                 var track = animation->MChannels[channel];
@@ -692,21 +724,25 @@ public static class ModelReader {
                     scales[key] = Convert(track->MScalingKeys[key].MValue);
                 }
 
-                channels[channel] = new() {
-                    Target = track->MNodeName.AsString,
-                    PositionTimes = positionTimes,
-                    Positions = positions,
-                    RotationTimes = rotationTimes,
-                    Rotations = rotations,
-                    ScaleTimes = scaleTimes,
-                    Scales = scales
-                };
+                channels.Add(
+                    new() {
+                        Target = track->MNodeName.AsString,
+                        PositionTimes = positionTimes,
+                        Positions = positions,
+                        RotationTimes = rotationTimes,
+                        Rotations = rotations,
+                        ScaleTimes = scaleTimes,
+                        Scales = scales
+                    }
+                );
             }
+
+            ReadMorphChannels(scene, animation, rate, channels, report);
 
             clips[index] = new() {
                 Name = Unique(taken, Name(animation->MName, $"Clip{index}")),
                 Duration = (float)(animation->MDuration / rate),
-                Channels = channels
+                Channels = [.. channels]
             };
         }
 
@@ -715,6 +751,167 @@ public static class ModelReader {
         }
 
         return clips;
+    }
+
+    /// <summary>Turns one animation's morph-weight curves into scalar channels.</summary>
+    /// <param name="scene">The scene, for resolving what a channel is animating.</param>
+    /// <param name="animation">The animation.</param>
+    /// <param name="rate">Its ticks per second, already defaulted.</param>
+    /// <param name="channels">Where the channels go, beside the transform ones.</param>
+    /// <param name="report">Where to say things worth knowing.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the half of an animation that was being dropped by omission.</b> Assimp puts
+    ///         node transforms in <c>mChannels</c> and morph weights in <c>mMeshMorphChannels</c>, and
+    ///         a reader that walks only the first imports a character whose body moves and whose face
+    ///         does not — with no warning anywhere, because nothing was asked for and nothing failed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One <c>aiMeshMorphAnim</c> becomes several channels, one per shape.</b> A key
+    ///         holds a whole vector of <c>(slot, weight)</c> pairs, which is how a file stores it; a
+    ///         curve per shape is how a clip samples it, and splitting here is what lets the runtime
+    ///         hold one flat scalar track per shape with the bucket index the vector tracks get. The
+    ///         slots are walked in ascending order rather than in the order a key happens to list
+    ///         them, so the channels come out the same every build — a content hash depends on it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A shape absent from a key gets no key there rather than a zero.</b> A weight of
+    ///         zero is a face at rest and is a value an exporter writes on purpose; inventing one for
+    ///         a key that does not mention the shape would turn "hold what you had" into "snap to
+    ///         rest" at every key of every other shape on the mesh.
+    ///     </para>
+    /// </remarks>
+    static unsafe void ReadMorphChannels(
+        AssimpScene* scene,
+        AssimpAnimation* animation,
+        double rate,
+        List<AnimationChannel> channels,
+        Action<ImportSeverity, string>? report
+    ) {
+        for (var index = 0u; index < animation->MNumMorphMeshChannels; index++) {
+            var morph = animation->MMorphMeshChannels[index];
+
+            if (morph is null) {
+                continue;
+            }
+
+            var target = morph->MName.AsString;
+            var mesh = MorphedMesh(scene, target);
+
+            if (mesh is null) {
+                report?.Invoke(
+                    ImportSeverity.Warning,
+                    $"An animation drives blend-shape weights on '{target}', and no mesh with shapes on it "
+                    + "answers to that name. The curves are dropped. Assimp names a morph channel after the "
+                    + "node the mesh hangs from for some formats and after the mesh for others; an exporter "
+                    + "that renames one and not the other produces exactly this."
+                );
+
+                continue;
+            }
+
+            var names = ShapeNames(mesh);
+            SortedDictionary<int, (List<float> Times, List<float> Values)> curves = [];
+
+            for (var key = 0u; key < morph->MNumKeys; key++) {
+                var entry = morph->MKeys[key];
+                var at = (float)(entry.MTime / rate);
+
+                for (var slot = 0u; slot < entry.MNumValuesAndWeights; slot++) {
+                    var ordinal = (int)entry.MValues[slot];
+
+                    if (ordinal < 0 || ordinal >= names.Length || names[ordinal] is null) {
+                        continue;
+                    }
+
+                    if (!curves.TryGetValue(ordinal, out var curve)) {
+                        curves[ordinal] = curve = ([], []);
+                    }
+
+                    curve.Times.Add(at);
+                    curve.Values.Add((float)entry.MWeights[slot]);
+                }
+            }
+
+            foreach (var (ordinal, curve) in curves) {
+                channels.Add(
+                    new() {
+                        Target = target,
+                        Shape = names[ordinal]!,
+                        WeightTimes = [.. curve.Times],
+                        Weights = [.. curve.Values]
+                    }
+                );
+            }
+
+            if (curves.Count > 0) {
+                report?.Invoke(
+                    ImportSeverity.Information,
+                    $"'{target}' has {curves.Count} animated blend-shape weight track(s)."
+                );
+            }
+        }
+    }
+
+    /// <summary>The mesh with blend shapes on it that a morph channel's name refers to.</summary>
+    /// <param name="scene">The scene.</param>
+    /// <param name="name">The channel's name.</param>
+    /// <returns>The mesh, or <see langword="null" /> if nothing answers to it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The name is a node's for some importers and a mesh's for others</b>, and Assimp's own
+    ///     header calls the field "name of the mesh to be animated" while its glTF reader fills it
+    ///     with the node's. Both are tried, node first, because a node is what a file addresses and a
+    ///     mesh name is what an exporter is free to leave blank. Only a mesh that actually carries
+    ///     shapes can answer: a node holding a plain mesh and a morphed one would otherwise resolve to
+    ///     whichever came first.
+    /// </remarks>
+    static unsafe AssimpMesh* MorphedMesh(AssimpScene* scene, string name) {
+        if (name.Length == 0) {
+            return null;
+        }
+
+        var node = FindNode(scene->MRootNode, name);
+
+        if (node is not null) {
+            for (var index = 0u; index < node->MNumMeshes; index++) {
+                var mesh = scene->MMeshes[node->MMeshes[index]];
+
+                if (mesh->MNumAnimMeshes > 0) {
+                    return mesh;
+                }
+            }
+        }
+
+        for (var index = 0u; index < scene->MNumMeshes; index++) {
+            var mesh = scene->MMeshes[index];
+
+            if (mesh->MNumAnimMeshes > 0 && mesh->MName.AsString == name) {
+                return mesh;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The first node with a given name, depth first.</summary>
+    static unsafe AssimpNode* FindNode(AssimpNode* node, string name) {
+        if (node is null) {
+            return null;
+        }
+
+        if (node->MName.AsString == name) {
+            return node;
+        }
+
+        for (var index = 0u; index < node->MNumChildren; index++) {
+            var found = FindNode(node->MChildren[index], name);
+
+            if (found is not null) {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Everything the model occupies, in its own space.</summary>

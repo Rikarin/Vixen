@@ -75,6 +75,13 @@ public sealed class StateMachineInstance {
     /// </remarks>
     public Constraints.ConstraintTagBuffer? Constraints { get; set; }
 
+    /// <summary>
+    ///     Where the clips it plays report their blend-shape weights, or <see langword="null" /> to
+    ///     report none.
+    /// </summary>
+    /// <remarks>A property for <see cref="Constraints" />' reason. <see cref="Animator" /> sets it.</remarks>
+    public MorphWeightBuffer? MorphWeights { get; set; }
+
     /// <summary>Which state is on top — the one transitions are evaluated from.</summary>
     public int CurrentState => entries[^1].State;
 
@@ -363,7 +370,8 @@ public sealed class StateMachineInstance {
             layer,
             state.Name,
             weight,
-            Constraints
+            Constraints,
+            MorphWeights
         );
 
         return state.Motion.Evaluate(context, destination);

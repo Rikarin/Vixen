@@ -222,7 +222,7 @@ public sealed record SkeletonData {
     public SkeletonJoint[] Joints { get; set; } = [];
 }
 
-/// <summary>What one animation does to one node, as three independent tracks.</summary>
+/// <summary>What one animation does to one node, as three vector tracks and a scalar one.</summary>
 /// <remarks>
 ///     <para>
 ///         Position, rotation and scale keep their own time arrays, because an exporter emits keys
@@ -234,6 +234,19 @@ public sealed record SkeletonData {
 ///         Rotation is a quaternion and is deliberately not decomposed into Euler angles: a track
 ///         sampled between two Euler triples takes a different path than one sampled between the
 ///         rotations they represent, and the difference is the gimbal artefact everybody has seen.
+///     </para>
+///     <para>
+///         <b>The fourth track is a scalar and it drives a blend shape.</b>
+///         <see cref="WeightTimes" />/<see cref="Weights" /> against <see cref="Shape" /> is what
+///         glTF's <c>weights</c> sampler and FBX's morph channel bake down to — one curve per shape
+///         per morphed mesh. It is on this type rather than beside it because a track is a track:
+///         the same time arrays, the same held-at-both-ends rule, the same bucket index.
+///     </para>
+///     <para>
+///         ⚠ <b>A channel is a transform channel or a weight channel, and nothing produces both.</b>
+///         <see cref="Target" /> names a joint for the first and the morphed <em>mesh's node</em> for
+///         the second, which is why <c>AnimationClip</c>'s unresolved count does not include
+///         a weight channel that names no joint — a face mesh is not expected to be one.
 ///     </para>
 /// </remarks>
 [DataContract("AnimationChannel")]
@@ -258,6 +271,35 @@ public sealed record AnimationChannel {
 
     /// <summary>The scale keys.</summary>
     public Vector3[] Scales { get; set; } = [];
+
+    /// <summary>
+    ///     Which blend shape the scalar track drives, by name, or empty for a transform channel.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A name and not a slot, which is <see cref="MorphTargetData.Name" />'s own rule.</b>
+    ///     The ordinal a source file addresses a morph target by is not
+    ///     <see cref="MeshData.MorphTargets" />' ordinal — the import drops a shape that moves nothing
+    ///     above the threshold and deduplicates the names of the rest — so a curve stored against an
+    ///     index would silently re-target itself on the next export. The importer resolves the index
+    ///     to a name once, where it can still see both.
+    /// </remarks>
+    public string Shape { get; set; } = string.Empty;
+
+    /// <summary>When each weight key is, in seconds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This array's length is what says the channel has a weight track, and nothing else
+    ///     does.</b> A blend-shape weight of zero is an authored value — it is a face at rest, and a
+    ///     curve that returns to it is the second half of every expression — so "no keys" and "a key
+    ///     whose value is zero" are different facts and are stored differently.
+    /// </remarks>
+    public float[] WeightTimes { get; set; } = [];
+
+    /// <summary>The weight keys, one per <see cref="WeightTimes" /> entry.</summary>
+    /// <remarks>
+    ///     Unclamped, for <c>BlendShapeWeights</c>'s reason: a negative weight is a shape authored as
+    ///     the inverse of its neighbour and one past one is an animator overshooting a corrective.
+    /// </remarks>
+    public float[] Weights { get; set; } = [];
 }
 
 /// <summary>One animation: how long it is and what it moves.</summary>

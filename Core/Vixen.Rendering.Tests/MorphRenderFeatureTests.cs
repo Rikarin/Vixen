@@ -488,6 +488,55 @@ public sealed class MorphRenderFeatureTests : IDisposable {
         Assert.Equal(0, morph.UsedVertices);
     }
 
+    /// <summary>
+    ///     ⚠ The weight system tells the entity what its mesh calls each slot, and that is what a clip
+    ///     binds against.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The other direction, and the link that makes animating a blend shape possible at all.</b>
+    ///     A clip names a shape — <c>MorphTargetData.Name</c>'s rule, so that re-exporting a mesh with
+    ///     its shapes reordered does not re-target every curve — and the component is addressed by
+    ///     slot. The feature is the only thing that has seen both ends, so it publishes the table.
+    ///     Published once and not every frame: a caller that wrote its own binding is stating one, and
+    ///     correcting it every frame would make a hand-built binding impossible.
+    /// </remarks>
+    [Fact]
+    public void The_weight_system_publishes_what_the_mesh_calls_each_slot() {
+        using var world = new World(nameof(The_weight_system_publishes_what_the_mesh_calls_each_slot));
+
+        var extraction = new MeshExtractionSystem(system, meshes, transforms, materials, residency) {
+            Stages = opaque.Mask,
+            Meshes = new OneMesh(Mesh()),
+            Morphing = morph
+        };
+
+        var weights = new MorphWeightSystem { Feature = morph };
+        var entity = world.Create();
+
+        MeshRenderables.Attach(world, entity, MeshRenderables.Default(Reference(11)));
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
+        world.Add(entity, new BlendShapeWeights());
+
+        // Nothing is bound before extraction, because the feature has nothing attached to answer from.
+        weights.Run(world);
+
+        Assert.Equal(0, weights.Bound);
+        Assert.Null(world.Read<BlendShapeWeights>(entity).Shapes);
+
+        extraction.Extract(world);
+        weights.Run(world);
+
+        Assert.Equal(1, weights.Bound);
+        Assert.Equal(["jawOpen", "browRaise"], world.Read<BlendShapeWeights>(entity).Shapes!);
+
+        // And it is not republished, so a binding somebody wrote by hand survives the next frame.
+        world.Get<BlendShapeWeights>(entity).Shapes = ["mine"];
+        weights.Run(world);
+
+        Assert.Equal(0, weights.Bound);
+        Assert.Equal(["mine"], world.Read<BlendShapeWeights>(entity).Shapes!);
+    }
+
     // --- The fixture ---------------------------------------------------------
 
     static long Packed(BufferHandle handle) => (long)handle.Value.Packed;
