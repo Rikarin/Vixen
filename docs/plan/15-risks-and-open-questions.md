@@ -215,6 +215,15 @@ the source of a large share of user confusion. The plan lists it in Phase 2 as a
 single-level nesting, no prefab variants. Document the restriction. Full nesting and variants are post-1.0,
 designed against real user projects rather than speculation. Over-designing this early is a classic sink.
 
+> **Carried out as a format by [47](47-prefab-overrides-and-nested-prefabs.md)**, with one correction
+> this could not have known. *Sparse* in the sense of "the file holds only the overrides" does not
+> compile: an importer is handed an `AssetId` and no way to resolve one to a path, so `SceneCompiler`
+> cannot open the prefab an instance names — the same wall that took navigation's placement bake off
+> K1. The file therefore keeps every value in full and the **list of overridden members** is what is
+> sparse, which is additive to the format, leaves the compiled path untouched, and degrades a missing
+> prefab to an ordinary subtree rather than an empty one. The restriction this risk asks for is kept:
+> single-level nesting, no variants.
+
 ### R8 — Source generator IDE performance *(likelihood: medium · impact: medium)*
 
 Nine or more generators running on every keystroke can make the IDE unusable, and the failure mode is

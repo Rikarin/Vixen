@@ -1,0 +1,518 @@
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1901: Package 'NuGet.Packaging' 6.12.1 has a known low severity vulnerability, https://github.com/advisories/GHSA-g4vj-cjjj-v7hg
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-23rf-6693-g89p
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-37gx-xxp4-5rgx
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-6588-8gv4-xfgh
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-8q5v-6pqq-x66h
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-cvvh-rhrc-wg4q
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-g8r8-53c2-pm3f
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-mmjf-rqrv-855v
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-w3x6-4m5h-cxqf
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1901: Package 'NuGet.Packaging' 6.12.1 has a known low severity vulnerability, https://github.com/advisories/GHSA-g4vj-cjjj-v7hg
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-23rf-6693-g89p
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-37gx-xxp4-5rgx
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-6588-8gv4-xfgh
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-8q5v-6pqq-x66h
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-cvvh-rhrc-wg4q
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-g8r8-53c2-pm3f
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-mmjf-rqrv-855v
+/Users/jiu/Projects/Vixen/build/_build.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-w3x6-4m5h-cxqf
+/Users/jiu/Projects/Vixen/build/Build.cs(30,23): warning CS8618: Non-nullable field 'Solution' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Docs.cs(54,28): warning CS8618: Non-nullable field 'DocsRepository' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Release.cs(33,21): warning CS8618: Non-nullable field 'ReleaseVersion' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Release.cs(36,21): warning CS8618: Non-nullable field 'ReleaseDate' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Release.cs(39,12): warning CS8618: Non-nullable field 'ReleasingVersion' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Api.cs(136,24): warning CA1822: Member 'ApiCheckedProjects' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.cs(330,27): warning CA1822: Member 'TrackedFiles' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Shaders.cs(152,24): warning CA1822: Member 'SourcesFor' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Attribution.cs(51,18): warning CA1822: Member 'AttributionPage' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Attribution.cs(53,18): warning CA1822: Member 'PackagesProps' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.ArchitectureRules.cs(120,12): warning CA1822: Member 'CheckArchitecture' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.ContentBytes.cs(66,18): warning CA1822: Member 'ContentBytesFixture' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.cs(32,18): warning CA1822: Member 'ArtifactsDirectory' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.cs(484,31): warning CA1822: Member 'BrowserProjects' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Docs.cs(56,18): warning CA1822: Member 'DocsDirectory' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Native.cs(60,18): warning CA1822: Member 'NativeManifestFile' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Publish.cs(92,18): warning CA1822: Member 'EditorProjectFile' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+/Users/jiu/Projects/Vixen/build/Build.Strings.cs(75,12): warning CA1822: Member 'CheckStrings' does not access instance data and can be marked as static (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1822) [/Users/jiu/Projects/Vixen/build/_build.csproj]
+​
+███╗   ██╗██╗   ██╗██╗  ██╗███████╗
+████╗  ██║██║   ██║██║ ██╔╝██╔════╝
+██╔██╗ ██║██║   ██║█████╔╝ █████╗  
+██║╚██╗██║██║   ██║██╔═██╗ ██╔══╝  
+██║ ╚████║╚██████╔╝██║  ██╗███████╗
+╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝
+​
+NUKE Execution Engine version 10.1.0 (OSX,.NETCoreApp,Version=v10.0)
+​
+02:18:30 [WRN] Exception was suppressed
+Microsoft.Build.Exceptions.InvalidProjectFileException: The expression "[MSBuild]::GetTargetFrameworkIdentifier(net10.0)" cannot be evaluated. Could not load file or assembly 'NuGet.Frameworks, Version=7.9.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35'. The located assembly's manifest definition does not match the assembly reference. (0x80131040)  /usr/local/share/dotnet/sdk/10.0.400/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.TargetFrameworkInference.targets
+   at Microsoft.Build.Shared.ProjectErrorUtilities.ThrowInvalidProject(String errorSubCategoryResourceName, IElementLocation elementLocation, String resourceName, Object[] args)
+   at Microsoft.Build.Shared.ProjectErrorUtilities.ThrowInvalidProject[T1,T2](IElementLocation elementLocation, String resourceName, T1 arg0, T2 arg1)
+   at Microsoft.Build.Evaluation.Expander`2.Function.Execute(Object objectInstance, IPropertyProvider`1 properties, ExpanderOptions options, IElementLocation elementLocation)
+   at Microsoft.Build.Evaluation.Expander`2.PropertyExpander.ExpandPropertyBody(String propertyBody, Object propertyValue, IPropertyProvider`1 properties, ExpanderOptions options, IElementLocation elementLocation, PropertiesUseTracker propertiesUseTracker, IFileSystem fileSystem)
+   at Microsoft.Build.Evaluation.Expander`2.PropertyExpander.ExpandPropertiesLeaveTypedAndEscaped(String expression, IPropertyProvider`1 properties, ExpanderOptions options, IElementLocation elementLocation, PropertiesUseTracker propertiesUseTracker, IFileSystem fileSystem)
+   at Microsoft.Build.Evaluation.Expander`2.ExpandIntoStringLeaveEscaped(String expression, ExpanderOptions options, IElementLocation elementLocation)
+   at Microsoft.Build.Evaluation.Evaluator`4.EvaluatePropertyElement(ProjectPropertyElement propertyElement)
+   at Microsoft.Build.Evaluation.Evaluator`4.EvaluatePropertyGroupElement(ProjectPropertyGroupElement propertyGroupElement)
+   at Microsoft.Build.Evaluation.Evaluator`4.PerformDepthFirstPass(ProjectRootElement currentProjectOrImport)
+   at Microsoft.Build.Evaluation.Evaluator`4.EvaluateImportElement(String directoryOfImportingFile, ProjectImportElement importElement)
+   at Microsoft.Build.Evaluation.Evaluator`4.PerformDepthFirstPass(ProjectRootElement currentProjectOrImport)
+   at Microsoft.Build.Evaluation.Evaluator`4.EvaluateImportElement(String directoryOfImportingFile, ProjectImportElement importElement)
+   at Microsoft.Build.Evaluation.Evaluator`4.PerformDepthFirstPass(ProjectRootElement currentProjectOrImport)
+   at Microsoft.Build.Evaluation.Evaluator`4.EvaluateImportElement(String directoryOfImportingFile, ProjectImportElement importElement)
+   at Microsoft.Build.Evaluation.Evaluator`4.PerformDepthFirstPass(ProjectRootElement currentProjectOrImport)
+   at Microsoft.Build.Evaluation.Evaluator`4.Evaluate()
+   at Microsoft.Build.Evaluation.Evaluator`4.Evaluate(IEvaluatorData`4 data, Project project, ProjectRootElement root, ProjectLoadSettings loadSettings, Int32 maxNodeCount, PropertyDictionary`1 environmentProperties, ICollection`1 propertiesFromCommandLine, ILoggingService loggingService, IItemFactory`2 itemFactory, IToolsetProvider toolsetProvider, IDirectoryCacheFactory directoryCacheFactory, ProjectRootElementCacheBase projectRootElementCache, BuildEventContext buildEventContext, ISdkResolverService sdkResolverService, Int32 submissionId, EvaluationContext evaluationContext, Boolean interactive)
+   at Microsoft.Build.Evaluation.Project.ProjectImpl.Reevaluate(ILoggingService loggingServiceForEvaluation, ProjectLoadSettings loadSettings, EvaluationContext evaluationContext)
+   at Microsoft.Build.Evaluation.Project.ProjectImpl.ReevaluateIfNecessary(ILoggingService loggingServiceForEvaluation, ProjectLoadSettings loadSettings, EvaluationContext evaluationContext)
+   at Microsoft.Build.Evaluation.Project.ProjectImpl.Initialize(IDictionary`2 globalProperties, String toolsVersion, String subToolsetVersion, ProjectLoadSettings loadSettings, EvaluationContext evaluationContext, Boolean interactive)
+   at Microsoft.Build.Evaluation.Project.FromProjectRootElement(ProjectRootElement rootElement, ProjectOptions options)
+   at Nuke.Common.ProjectModel.ProjectModelTasks.ParseProject(String projectFile, String configuration, String targetFramework) in /_/source/Nuke.ProjectModel/ProjectModelTasks.cs:line 97
+   at Nuke.Common.Execution.Telemetry.CheckAwareness() in /_/source/Nuke.Build/Telemetry/Telemetry.cs:line 73
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+​
+╬════════════
+║ Restore
+╬═══
+​
+02:18:30 [INF] > /opt/homebrew/bin/dotnet restore /Users/jiu/Projects/Vixen/Vixen.slnx
+02:18:34 [DBG]   Determining projects to restore...
+02:18:38 [DBG]   Restored /Users/jiu/Projects/Vixen/Tools/Vixen.DocGen/Vixen.DocGen.csproj (in 51 ms).
+02:18:38 [DBG]   Restored /Users/jiu/Projects/Vixen/Tools/Vixen.DocGen.Tests/Vixen.DocGen.Tests.csproj (in 49 ms).
+02:18:38 [DBG]   Restored /Users/jiu/Projects/Vixen/Tools/Vixen.Templates.Tests/Vixen.Templates.Tests.csproj (in 314 ms).
+02:18:38 [DBG]   389 of 392 projects are up-to-date for restore.
+​
+╬═════════════
+║ CheckApi
+╬════
+​
+02:18:41 [INF] > /opt/homebrew/bin/dotnet build /Users/jiu/Projects/Vixen/Vixen.slnx --configuration Release --no-restore
+02:18:42 [DBG]   Vixen.Core.IO.Analyzers -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.IO.Analyzers/bin/Release/netstandard2.1/Vixen.Core.IO.Analyzers.dll
+02:18:42 [DBG]   Vixen.Engine.Generators -> /Users/jiu/Projects/Vixen/Core/Vixen.Engine.Generators/bin/Release/netstandard2.1/Vixen.Engine.Generators.dll
+02:18:42 [DBG]   Vixen.Ecs.Generators -> /Users/jiu/Projects/Vixen/Core/Vixen.Ecs.Generators/bin/Release/netstandard2.1/Vixen.Ecs.Generators.dll
+02:18:42 [DBG]   Vixen.Core.Serialization.Generator -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Serialization.Generator/bin/Release/netstandard2.1/Vixen.Core.Serialization.Generator.dll
+02:18:42 [DBG]   Vixen.Core.Reflection.Generator -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Reflection.Generator/bin/Release/netstandard2.1/Vixen.Core.Reflection.Generator.dll
+02:18:42 [DBG]   Vixen.Shaders.Generators -> /Users/jiu/Projects/Vixen/Core/Vixen.Shaders.Generators/bin/Release/netstandard2.1/Vixen.Shaders.Generators.dll
+02:18:43 [DBG]   Vixen.Core -> /Users/jiu/Projects/Vixen/Core/Vixen.Core/bin/Release/net10.0/Vixen.Core.dll
+02:18:43 [DBG]   Vixen.Platform.Native -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Native/bin/Release/net10.0/Vixen.Platform.Native.dll
+02:18:43 [DBG]   Vixen.Input.Generators -> /Users/jiu/Projects/Vixen/Core/Vixen.Input.Generators/bin/Release/netstandard2.1/Vixen.Input.Generators.dll
+02:18:43 [DBG]   Vixen.Core.Syntax -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Syntax/bin/Release/net10.0/Vixen.Core.Syntax.dll
+02:18:43 [DBG]   Vixen.Core.Syntax.Generator -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Syntax.Generator/bin/Release/netstandard2.1/Vixen.Core.Syntax.Generator.dll
+02:18:45 [DBG]   Vixen.Live.Abstractions -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Abstractions/bin/Release/net10.0/Vixen.Live.Abstractions.dll
+02:18:46 [DBG]   Vixen.Core.Memory -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Memory/bin/Release/net10.0/Vixen.Core.Memory.dll
+02:18:46 [DBG]   Vixen.Ui.Markup.Generators -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Markup.Generators/bin/Release/netstandard2.1/Vixen.Ui.Markup.Generators.dll
+02:18:46 [DBG]   Mmo.Content.Authoring -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Content.Authoring/bin/Release/net10.0/Mmo.Content.Authoring.dll
+02:18:47 [DBG]   Vixen.Ui.Markup -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Markup/bin/Release/net10.0/Vixen.Ui.Markup.dll
+02:18:48 [DBG]   Vixen.Core.Syntax.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Syntax.Tests/bin/Release/net10.0/Vixen.Core.Syntax.Tests.dll
+02:18:48 [DBG]   Vixen.Ui.Text -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Text/bin/Release/net10.0/Vixen.Ui.Text.dll
+02:18:48 [DBG]   Vixen.Ui.Reactive -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Reactive/bin/Release/net10.0/Vixen.Ui.Reactive.dll
+02:18:48 [DBG]   Vixen.Live.Transfer -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Transfer/bin/Release/net10.0/Vixen.Live.Transfer.dll
+02:18:49 [DBG]   Vixen.Live.Client -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Client/bin/Release/net10.0/Vixen.Live.Client.dll
+02:18:50 [DBG]   Vixen.Ui.Generators -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Generators/bin/Release/netstandard2.1/Vixen.Ui.Generators.dll
+02:18:50 [DBG]   Vixen.Core.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Tests/bin/Release/net10.0/Vixen.Core.Tests.dll
+02:18:50 [DBG]   Vixen.Core.Memory.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Memory.Tests/bin/Release/net10.0/Vixen.Core.Memory.Tests.dll
+02:18:51 [DBG]   Vixen.Live.Cluster -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Cluster/bin/Release/net10.0/Vixen.Live.Cluster.dll
+02:18:51 [DBG]   Vixen.Raven -> /Users/jiu/Projects/Vixen/Raven/Vixen.Raven/bin/Release/net10.0/Vixen.Raven.dll
+02:18:52 [DBG]   Vixen.Ui.Reactive.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Reactive.Tests/bin/Release/net10.0/Vixen.Ui.Reactive.Tests.dll
+02:18:52 [DBG]   Vixen.Net.Generators -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Generators/bin/Release/netstandard2.1/Vixen.Net.Generators.dll
+02:18:53 [DBG]   Vixen.Editor.NodeGraph.Generator -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.NodeGraph.Generator/bin/Release/netstandard2.1/Vixen.Editor.NodeGraph.Generator.dll
+02:18:53 [DBG]   Vixen.Core.IO.Analyzers.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.IO.Analyzers.Tests/bin/Release/net10.0/Vixen.Core.IO.Analyzers.Tests.dll
+02:18:53 [DBG]   Vixen.Ui.Generators.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Generators.Tests/bin/Release/net10.0/Vixen.Ui.Generators.Tests.dll
+02:18:53 [DBG]   Vixen.Live.Abstractions.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Abstractions.Tests/bin/Release/net10.0/Vixen.Live.Abstractions.Tests.dll
+02:18:54 [DBG]   Vixen.Live.Placement.Process -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Process/bin/Release/net10.0/Vixen.Live.Placement.Process.dll
+02:18:54 [DBG]   Vixen.Live.Placement.Docker -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Docker/bin/Release/net10.0/Vixen.Live.Placement.Docker.dll
+02:18:54 [DBG]   Vixen.Live.Placement.Kubernetes -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Kubernetes/bin/Release/net10.0/Vixen.Live.Placement.Kubernetes.dll
+02:18:54 [DBG]   Vixen.Ui.Layout -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Layout/bin/Release/net10.0/Vixen.Ui.Layout.dll
+02:18:54 [DBG]   Vixen.Live.Persistence -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Persistence/bin/Release/net10.0/Vixen.Live.Persistence.dll
+02:18:54 [DBG]   Vixen.Editor.Inspector.Generator -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Inspector.Generator/bin/Release/netstandard2.1/Vixen.Editor.Inspector.Generator.dll
+02:18:54 [DBG]   Vixen.Core.Collections -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Collections/bin/Release/net10.0/Vixen.Core.Collections.dll
+02:18:54 [DBG]   Vixen.Live.Client.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Client.Tests/bin/Release/net10.0/Vixen.Live.Client.Tests.dll
+02:18:54 [DBG]   Vixen.Ui.Text.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Text.Tests/bin/Release/net10.0/Vixen.Ui.Text.Tests.dll
+02:18:55 [DBG]   Vixen.Live.Cluster.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Cluster.Tests/bin/Release/net10.0/Vixen.Live.Cluster.Tests.dll
+02:18:55 [DBG]   Vixen.Live.Transfer.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Transfer.Tests/bin/Release/net10.0/Vixen.Live.Transfer.Tests.dll
+02:18:55 [DBG]   Vixen.ApiCheck -> /Users/jiu/Projects/Vixen/Tools/Vixen.ApiCheck/bin/Release/net10.0/vixen-api-check.dll
+02:18:55 [DBG]   Vixen.Live.Gate -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Gate/bin/Release/net10.0/Vixen.Live.Gate.dll
+02:18:55 [DBG]   Vixen.Live.Placement.Docker.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Docker.Tests/bin/Release/net10.0/Vixen.Live.Placement.Docker.Tests.dll
+02:18:55 [DBG]   Vixen.Sdk -> /Users/jiu/Projects/Vixen/Tools/Vixen.Sdk/bin/Release/netstandard2.0/Vixen.Sdk.dll
+02:18:55 [DBG]   Vixen.TaffyTestGen -> /Users/jiu/Projects/Vixen/Tools/Vixen.TaffyTestGen/bin/Release/net10.0/Vixen.TaffyTestGen.dll
+02:18:55 [DBG]   Vixen.Templates -> /Users/jiu/Projects/Vixen/Tools/Vixen.Templates/bin/Release/netstandard2.0/Vixen.Templates.dll
+02:18:56 [DBG]   Vixen.TextRenderingTestGen -> /Users/jiu/Projects/Vixen/Tools/Vixen.TextRenderingTestGen/bin/Release/net10.0/Vixen.TextRenderingTestGen.dll
+02:18:56 [DBG]   Vixen.YogaTestGen -> /Users/jiu/Projects/Vixen/Tools/Vixen.YogaTestGen/bin/Release/net10.0/Vixen.YogaTestGen.dll
+02:18:56 [DBG]   Vixen.Live.Persistence.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Persistence.Tests/bin/Release/net10.0/Vixen.Live.Persistence.Tests.dll
+02:18:56 [DBG]   Vixen.UnicodeTableGen -> /Users/jiu/Projects/Vixen/Tools/Vixen.UnicodeTableGen/bin/Release/net10.0/Vixen.UnicodeTableGen.dll
+02:18:56 [DBG]   Vixen.DocGen -> /Users/jiu/Projects/Vixen/Tools/Vixen.DocGen/bin/Release/net10.0/vixen-doc-gen.dll
+02:18:56 [DBG]   Vixen.Core.Diagnostics -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Diagnostics/bin/Release/net10.0/Vixen.Core.Diagnostics.dll
+02:18:56 [DBG]   Vixen.Raven.Cli -> /Users/jiu/Projects/Vixen/Raven/Vixen.Raven.Cli/bin/Release/net10.0/raven.dll
+02:18:56 [DBG]   Vixen.Platform.Native.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Native.Tests/bin/Release/net10.0/Vixen.Platform.Native.Tests.dll
+02:18:56 [DBG]   Vixen.Core.Collections.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Collections.Tests/bin/Release/net10.0/Vixen.Core.Collections.Tests.dll
+02:18:57 [DBG]   Vixen.Core.Threading -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Threading/bin/Release/net10.0/Vixen.Core.Threading.dll
+02:18:57 [DBG]   Vixen.Core.IO -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.IO/bin/Release/net10.0/Vixen.Core.IO.dll
+02:18:57 [DBG]   Vixen.Core.Diagnostics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Diagnostics.Tests/bin/Release/net10.0/Vixen.Core.Diagnostics.Tests.dll
+02:19:00 [DBG]   Vixen.ApiCheck.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.ApiCheck.Tests/bin/Release/net10.0/Vixen.ApiCheck.Tests.dll
+02:19:00 [DBG]   Vixen.Live.Gate.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Gate.Tests/bin/Release/net10.0/Vixen.Live.Gate.Tests.dll
+02:19:01 [DBG]   Vixen.Live.Placement.Process.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Process.Tests/bin/Release/net10.0/Vixen.Live.Placement.Process.Tests.dll
+02:19:01 [DBG]   Vixen.Core.Threading.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Threading.Tests/bin/Release/net10.0/Vixen.Core.Threading.Tests.dll
+02:19:01 [DBG]   Vixen.Benchmarks.Jobs -> /Users/jiu/Projects/Vixen/Benchmarks/Vixen.Benchmarks.Jobs/bin/Release/net10.0/Vixen.Benchmarks.Jobs.dll
+02:19:01 [DBG]   Vixen.Core.Serialization -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Serialization/bin/Release/net10.0/Vixen.Core.Serialization.dll
+02:19:01 [DBG]   Vixen.Platform.Web.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Web.Tests/bin/Release/net10.0/Vixen.Platform.Web.Tests.dll
+02:19:01 [DBG]   Vixen.Core.IO.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.IO.Tests/bin/Release/net10.0/Vixen.Core.IO.Tests.dll
+02:19:02 [DBG]   Vixen.ContentServer -> /Users/jiu/Projects/Vixen/Tools/Vixen.ContentServer/bin/Release/net10.0/vixen-content-server.dll
+02:19:02 [DBG]   Vixen.Ui.Layout.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Layout.Tests/bin/Release/net10.0/Vixen.Ui.Layout.Tests.dll
+02:19:03 [DBG]   Vixen.Assets -> /Users/jiu/Projects/Vixen/Core/Vixen.Assets/bin/Release/net10.0/Vixen.Assets.dll
+02:19:03 [DBG]   Vixen.Core.Serialization.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Serialization.Tests/bin/Release/net10.0/Vixen.Core.Serialization.Tests.dll
+02:19:03 [DBG]   Vixen.Ecs -> /Users/jiu/Projects/Vixen/Core/Vixen.Ecs/bin/Release/net10.0/Vixen.Ecs.dll
+02:19:04 [DBG]   Vixen.ContentServer.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.ContentServer.Tests/bin/Release/net10.0/Vixen.ContentServer.Tests.dll
+02:19:04 [DBG]   Vixen.Ecs.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ecs.Tests/bin/Release/net10.0/Vixen.Ecs.Tests.dll
+02:19:04 [DBG]   Vixen.Benchmarks.Ecs -> /Users/jiu/Projects/Vixen/Benchmarks/Vixen.Benchmarks.Ecs/bin/Release/net10.0/Vixen.Benchmarks.Ecs.dll
+02:19:05 [DBG]   Vixen.Raven.Tests -> /Users/jiu/Projects/Vixen/Raven/Vixen.Raven.Tests/bin/Release/net10.0/Vixen.Raven.Tests.dll
+02:19:05 [DBG]   Vixen.Live.Placement.Kubernetes.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Kubernetes.Tests/bin/Release/net10.0/Vixen.Live.Placement.Kubernetes.Tests.dll
+02:19:05 [DBG]   Vixen.Core.Reflection -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Reflection/bin/Release/net10.0/Vixen.Core.Reflection.dll
+02:19:05 [DBG]   Vixen.DocGen.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.DocGen.Tests/bin/Release/net10.0/Vixen.DocGen.Tests.dll
+02:19:06 [DBG]   Vixen.Gameplay -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay/bin/Release/net10.0/Vixen.Gameplay.dll
+02:19:06 [DBG]   Vixen.Gameplay.Exploration -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Exploration/bin/Release/net10.0/Vixen.Gameplay.Exploration.dll
+02:19:07 [DBG]   Vixen.Gameplay.Social -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Social/bin/Release/net10.0/Vixen.Gameplay.Social.dll
+02:19:07 [DBG]   Vixen.Live.Matchmaking -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Matchmaking/bin/Release/net10.0/Vixen.Live.Matchmaking.dll
+02:19:07 [DBG]   Vixen.Gameplay.Travel -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Travel/bin/Release/net10.0/Vixen.Gameplay.Travel.dll
+02:19:07 [DBG]   Vixen.Gameplay.Combat -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Combat/bin/Release/net10.0/Vixen.Gameplay.Combat.dll
+02:19:07 [DBG]   Vixen.Gameplay.Chat -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Chat/bin/Release/net10.0/Vixen.Gameplay.Chat.dll
+02:19:07 [DBG]   Vixen.Gameplay.Movement -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Movement/bin/Release/net10.0/Vixen.Gameplay.Movement.dll
+02:19:08 [DBG]   Vixen.Gameplay.Ai -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Ai/bin/Release/net10.0/Vixen.Gameplay.Ai.dll
+02:19:08 [DBG]   Vixen.Gameplay.Crafting -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Crafting/bin/Release/net10.0/Vixen.Gameplay.Crafting.dll
+02:19:08 [DBG]   Vixen.Gameplay.Quests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Quests/bin/Release/net10.0/Vixen.Gameplay.Quests.dll
+02:19:08 [DBG]   Vixen.Gameplay.Pvp -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Pvp/bin/Release/net10.0/Vixen.Gameplay.Pvp.dll
+02:19:08 [DBG]   Vixen.Gameplay.Items -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Items/bin/Release/net10.0/Vixen.Gameplay.Items.dll
+02:19:08 [DBG]   Vixen.Core.Mathematics -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Mathematics/bin/Release/net10.0/Vixen.Core.Mathematics.dll
+02:19:08 [DBG]   Vixen.Gameplay.Travel.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Travel.Tests/bin/Release/net10.0/Vixen.Gameplay.Travel.Tests.dll
+02:19:08 [DBG]   Vixen.Gameplay.Instances -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Instances/bin/Release/net10.0/Vixen.Gameplay.Instances.dll
+02:19:08 [DBG]   Vixen.Gameplay.Interaction -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Interaction/bin/Release/net10.0/Vixen.Gameplay.Interaction.dll
+02:19:08 [DBG]   Vixen.Core.Reflection.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Reflection.Tests/bin/Release/net10.0/Vixen.Core.Reflection.Tests.dll
+02:19:08 [DBG]   Vixen.Gameplay.Progression -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Progression/bin/Release/net10.0/Vixen.Gameplay.Progression.dll
+02:19:08 [DBG]   Vixen.Gameplay.Collections -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Collections/bin/Release/net10.0/Vixen.Gameplay.Collections.dll
+02:19:09 [DBG]   Vixen.Gameplay.Exploration.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Exploration.Tests/bin/Release/net10.0/Vixen.Gameplay.Exploration.Tests.dll
+02:19:10 [DBG]   Vixen.Gameplay.Pvp.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Pvp.Tests/bin/Release/net10.0/Vixen.Gameplay.Pvp.Tests.dll
+02:19:10 [DBG]   Vixen.Ui.Styling -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Styling/bin/Release/net10.0/Vixen.Ui.Styling.dll
+02:19:11 [DBG]   Vixen.Live.Matchmaking.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Matchmaking.Tests/bin/Release/net10.0/Vixen.Live.Matchmaking.Tests.dll
+02:19:11 [DBG]   Vixen.Gameplay.Social.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Social.Tests/bin/Release/net10.0/Vixen.Gameplay.Social.Tests.dll
+02:19:11 [DBG]   Vixen.Rendering.DistanceFields -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.DistanceFields/bin/Release/net10.0/Vixen.Rendering.DistanceFields.dll
+02:19:13 [DBG]   Vixen.Gameplay.Collections.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Collections.Tests/bin/Release/net10.0/Vixen.Gameplay.Collections.Tests.dll
+02:19:13 [DBG]   Vixen.Gameplay.Shooting -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Shooting/bin/Release/net10.0/Vixen.Gameplay.Shooting.dll
+02:19:13 [DBG]   Vixen.Gameplay.Combat.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Combat.Tests/bin/Release/net10.0/Vixen.Gameplay.Combat.Tests.dll
+02:19:13 [DBG]   Vixen.Gameplay.Progression.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Progression.Tests/bin/Release/net10.0/Vixen.Gameplay.Progression.Tests.dll
+02:19:13 [DBG]   Vixen.Gameplay.Shooting.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Shooting.Tests/bin/Release/net10.0/Vixen.Gameplay.Shooting.Tests.dll
+02:19:13 [DBG]   Vixen.Net -> /Users/jiu/Projects/Vixen/Core/Vixen.Net/bin/Release/net10.0/Vixen.Net.dll
+02:19:14 [DBG]   Vixen.Gameplay.Quests.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Quests.Tests/bin/Release/net10.0/Vixen.Gameplay.Quests.Tests.dll
+02:19:14 [DBG]   Vixen.Gameplay.Crafting.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Crafting.Tests/bin/Release/net10.0/Vixen.Gameplay.Crafting.Tests.dll
+02:19:14 [DBG]   Vixen.Gameplay.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Tests/bin/Release/net10.0/Vixen.Gameplay.Tests.dll
+02:19:14 [DBG]   Vixen.Gameplay.Content -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Content/bin/Release/net10.0/Vixen.Gameplay.Content.dll
+02:19:14 [DBG]   Vixen.Gameplay.Housing -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Housing/bin/Release/net10.0/Vixen.Gameplay.Housing.dll
+02:19:14 [DBG]   Vixen.Rendering.RayTracing -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.RayTracing/bin/Release/net10.0/Vixen.Rendering.RayTracing.dll
+02:19:14 [DBG]   Vixen.Platform -> /Users/jiu/Projects/Vixen/Core/Vixen.Platform/bin/Release/net10.0/Vixen.Platform.dll
+02:19:14 [DBG]   Vixen.Net.Transport.Local -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Local/bin/Release/net10.0/Vixen.Net.Transport.Local.dll
+02:19:14 [DBG]   NetworkSoak -> /Users/jiu/Projects/Vixen/Samples/09-NetworkSoak/bin/Release/net10.0/NetworkSoak.dll
+02:19:14 [DBG]   Vixen.Benchmarks.Math -> /Users/jiu/Projects/Vixen/Benchmarks/Vixen.Benchmarks.Math/bin/Release/net10.0/Vixen.Benchmarks.Math.dll
+02:19:14 [DBG]   Mmo.Contracts -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Contracts/bin/Release/net10.0/Mmo.Contracts.dll
+02:19:14 [DBG]   Vixen.Net.Transport.Composite -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Composite/bin/Release/net10.0/Vixen.Net.Transport.Composite.dll
+02:19:14 [DBG]   Vixen.Geometry -> /Users/jiu/Projects/Vixen/Core/Vixen.Geometry/bin/Release/net10.0/Vixen.Geometry.dll
+02:19:14 [DBG]   Vixen.Terrain -> /Users/jiu/Projects/Vixen/Core/Vixen.Terrain/bin/Release/net10.0/Vixen.Terrain.dll
+02:19:14 [DBG]   Vixen.Net.Transport.WebSocket -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.WebSocket/bin/Release/net10.0/Vixen.Net.Transport.WebSocket.dll
+02:19:14 [DBG]   Vixen.Net.Telemetry -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Telemetry/bin/Release/net10.0/Vixen.Net.Telemetry.dll
+02:19:14 [DBG]   Vixen.Core.Yaml -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Yaml/bin/Release/net10.0/Vixen.Core.Yaml.dll
+02:19:15 [DBG]   Vixen.Gameplay.Items.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Items.Tests/bin/Release/net10.0/Vixen.Gameplay.Items.Tests.dll
+02:19:15 [DBG]   Vixen.Platform.MacOS -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.MacOS/bin/Release/net10.0/Vixen.Platform.MacOS.dll
+02:19:15 [DBG]   Vixen.Platform.Windows -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Windows/bin/Release/net10.0/Vixen.Platform.Windows.dll
+02:19:15 [DBG]   Vixen.Platform.Linux -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Linux/bin/Release/net10.0/Vixen.Platform.Linux.dll
+02:19:15 [DBG]   Vixen.Graphics -> /Users/jiu/Projects/Vixen/Core/Vixen.Graphics/bin/Release/net10.0/Vixen.Graphics.dll
+02:19:15 [DBG]   Vixen.Gameplay.Inventory -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Inventory/bin/Release/net10.0/Vixen.Gameplay.Inventory.dll
+02:19:15 [DBG]   Vixen.Foliage -> /Users/jiu/Projects/Vixen/Core/Vixen.Foliage/bin/Release/net10.0/Vixen.Foliage.dll
+02:19:15 [DBG]   Vixen.Net.Transport.Udp -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Udp/bin/Release/net10.0/Vixen.Net.Transport.Udp.dll
+02:19:15 [DBG]   Vixen.Gameplay.Economy -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Economy/bin/Release/net10.0/Vixen.Gameplay.Economy.dll
+02:19:15 [DBG]   Vixen.Platform.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Platform.Tests/bin/Release/net10.0/Vixen.Platform.Tests.dll
+02:19:15 [DBG]   Vixen.Platform.Headless -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Headless/bin/Release/net10.0/Vixen.Platform.Headless.dll
+02:19:15 [DBG]   Vixen.Ai -> /Users/jiu/Projects/Vixen/Core/Vixen.Ai/bin/Release/net10.0/Vixen.Ai.dll
+02:19:16 [DBG]   Vixen.Rendering.VirtualGeometry -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.VirtualGeometry/bin/Release/net10.0/Vixen.Rendering.VirtualGeometry.dll
+02:19:16 [DBG]   Vixen.Core.Mathematics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Mathematics.Tests/bin/Release/net10.0/Vixen.Core.Mathematics.Tests.dll
+02:19:16 [DBG]   Vixen.Gameplay.Housing.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Housing.Tests/bin/Release/net10.0/Vixen.Gameplay.Housing.Tests.dll
+02:19:16 [DBG]   Vixen.Platform.MacOS.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.MacOS.Tests/bin/Release/net10.0/Vixen.Platform.MacOS.Tests.dll
+02:19:16 [DBG]   Vixen.Ui.Styling.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Styling.Tests/bin/Release/net10.0/Vixen.Ui.Styling.Tests.dll
+02:19:17 [DBG]   Vixen.Vfx -> /Users/jiu/Projects/Vixen/Core/Vixen.Vfx/bin/Release/net10.0/Vixen.Vfx.dll
+02:19:17 [DBG]   Vixen.Input -> /Users/jiu/Projects/Vixen/Core/Vixen.Input/bin/Release/net10.0/Vixen.Input.dll
+02:19:17 [DBG]   Vixen.Platform.Linux.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Linux.Tests/bin/Release/net10.0/Vixen.Platform.Linux.Tests.dll
+02:19:17 [DBG]   Vixen.Gameplay.Loot -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Loot/bin/Release/net10.0/Vixen.Gameplay.Loot.dll
+02:19:17 [DBG]   Vixen.Gameplay.Instances.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Instances.Tests/bin/Release/net10.0/Vixen.Gameplay.Instances.Tests.dll
+02:19:17 [DBG]   Vixen.Core.Yaml.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Yaml.Tests/bin/Release/net10.0/Vixen.Core.Yaml.Tests.dll
+02:19:18 [DBG]   Vixen.Gameplay.Ai.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Ai.Tests/bin/Release/net10.0/Vixen.Gameplay.Ai.Tests.dll
+02:19:18 [DBG]   Vixen.Gameplay.Loot.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Loot.Tests/bin/Release/net10.0/Vixen.Gameplay.Loot.Tests.dll
+02:19:18 [DBG]   Vixen.Water -> /Users/jiu/Projects/Vixen/Core/Vixen.Water/bin/Release/net10.0/Vixen.Water.dll
+02:19:18 [DBG]   Vixen.Rendering.DistanceFields.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.DistanceFields.Tests/bin/Release/net10.0/Vixen.Rendering.DistanceFields.Tests.dll
+02:19:18 [DBG]   Vixen.Live.Orchestrator -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Orchestrator/bin/Release/net10.0/Vixen.Live.Orchestrator.dll
+02:19:18 [DBG]   Vixen.Gameplay.Interaction.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Interaction.Tests/bin/Release/net10.0/Vixen.Gameplay.Interaction.Tests.dll
+02:19:18 [DBG]   Vixen.Ui.Styling.Utilities -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Styling.Utilities/bin/Release/net10.0/Vixen.Ui.Styling.Utilities.dll
+02:19:19 [DBG]   Vixen.Terrain.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Terrain.Tests/bin/Release/net10.0/Vixen.Terrain.Tests.dll
+02:19:19 [DBG]   Vixen.Graphics.Null -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.Null/bin/Release/net10.0/Vixen.Graphics.Null.dll
+02:19:20 [DBG]   Vixen.Engine -> /Users/jiu/Projects/Vixen/Core/Vixen.Engine/bin/Release/net10.0/Vixen.Engine.dll
+02:19:20 [DBG]   Vixen.Editor.Gameplay.Loot -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Gameplay.Loot/bin/Release/net10.0/Vixen.Editor.Gameplay.Loot.dll
+02:19:20 [DBG]   Vixen.Graphics.Null.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.Null.Tests/bin/Release/net10.0/Vixen.Graphics.Null.Tests.dll
+02:19:21 [DBG]   Vixen.Graphics.RenderGraph -> /Users/jiu/Projects/Vixen/Core/Vixen.Graphics.RenderGraph/bin/Release/net10.0/Vixen.Graphics.RenderGraph.dll
+02:19:21 [DBG]   Mmo.Cluster -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Cluster/bin/Release/net10.0/Mmo.Cluster.dll
+02:19:21 [DBG]   Vixen.Ai.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Tests/bin/Release/net10.0/Vixen.Ai.Tests.dll
+02:19:21 [DBG]   Vixen.Benchmarks.Vfx -> /Users/jiu/Projects/Vixen/Benchmarks/Vixen.Benchmarks.Vfx/bin/Release/net10.0/Vixen.Benchmarks.Vfx.dll
+02:19:21 [DBG]   Mmo.Orchestrator -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Orchestrator/bin/Release/net10.0/Mmo.Orchestrator.dll
+02:19:21 [DBG]   Vixen.Graphics.Vulkan -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.Vulkan/bin/Release/net10.0/Vixen.Graphics.Vulkan.dll
+02:19:21 [DBG]   Vixen.Net.Generators.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Generators.Tests/bin/Release/net10.0/Vixen.Net.Generators.Tests.dll
+02:19:21 [DBG]   Vixen.Editor.Core -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Core/bin/Release/net10.0/Vixen.Editor.Core.dll
+02:19:22 [DBG]   Vixen.Graphics.OpenGL -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.OpenGL/bin/Release/net10.0/Vixen.Graphics.OpenGL.dll
+02:19:22 [DBG]   Vixen.Core.Imaging -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Imaging/bin/Release/net10.0/Vixen.Core.Imaging.dll
+02:19:22 [DBG]   Vixen.Graphics.WebGPU -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.WebGPU/bin/Release/net10.0/Vixen.Graphics.WebGPU.dll
+02:19:22 [DBG]   Vixen.Graphics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Graphics.Tests/bin/Release/net10.0/Vixen.Graphics.Tests.dll
+02:19:22 [DBG]   Vixen.Gameplay.Economy.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Economy.Tests/bin/Release/net10.0/Vixen.Gameplay.Economy.Tests.dll
+02:19:22 [DBG]   Vixen.Live.Gameplay -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Gameplay/bin/Release/net10.0/Vixen.Live.Gameplay.dll
+02:19:23 [DBG]   Vixen.Vfx.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Vfx.Tests/bin/Release/net10.0/Vixen.Vfx.Tests.dll
+02:19:23 [DBG]   Vixen.Platform.Headless.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Headless.Tests/bin/Release/net10.0/Vixen.Platform.Headless.Tests.dll
+02:19:23 [DBG]   Vixen.Graphics.OpenGL.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.OpenGL.Tests/bin/Release/net10.0/Vixen.Graphics.OpenGL.Tests.dll
+02:19:23 [DBG]   Vixen.Gameplay.Movement.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Movement.Tests/bin/Release/net10.0/Vixen.Gameplay.Movement.Tests.dll
+02:19:23 [DBG]   Vixen.Shaders -> /Users/jiu/Projects/Vixen/Core/Vixen.Shaders/bin/Release/net10.0/Vixen.Shaders.dll
+02:19:23 [DBG]   Vixen.Gameplay.Content.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Content.Tests/bin/Release/net10.0/Vixen.Gameplay.Content.Tests.dll
+02:19:23 [DBG]   Vixen.Gameplay.Chat.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Chat.Tests/bin/Release/net10.0/Vixen.Gameplay.Chat.Tests.dll
+02:19:23 [DBG]   Vixen.Water.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Water.Tests/bin/Release/net10.0/Vixen.Water.Tests.dll
+02:19:23 [DBG]   Vixen.Rendering.VirtualGeometry.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.VirtualGeometry.Tests/bin/Release/net10.0/Vixen.Rendering.VirtualGeometry.Tests.dll
+02:19:23 [DBG]   Mmo.Gate -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Gate/bin/Release/net10.0/Mmo.Gate.dll
+02:19:24 [DBG]   Vixen.StyleGen -> /Users/jiu/Projects/Vixen/Tools/Vixen.StyleGen/bin/Release/net10.0/Vixen.StyleGen.dll
+02:19:24 [DBG]   Vixen.Shaders.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Shaders.Tests/bin/Release/net10.0/Vixen.Shaders.Tests.dll
+02:19:24 [DBG]   Vixen.Raven.Gpu.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Raven.Gpu.Tests/bin/Release/net10.0/Vixen.Raven.Gpu.Tests.dll
+02:19:24 [DBG]   Vixen.Graphics.Vulkan.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.Vulkan.Tests/bin/Release/net10.0/Vixen.Graphics.Vulkan.Tests.dll
+02:19:24 [DBG]   Vixen.Geometry.Uv -> /Users/jiu/Projects/Vixen/Core/Vixen.Geometry.Uv/bin/Release/net10.0/Vixen.Geometry.Uv.dll
+02:19:24 [DBG]   Vixen.Geometry.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Geometry.Tests/bin/Release/net10.0/Vixen.Geometry.Tests.dll
+02:19:25 [DBG]   Vixen.StyleGen.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.StyleGen.Tests/bin/Release/net10.0/Vixen.StyleGen.Tests.dll
+02:19:25 [DBG]   Vixen.Editor.Core.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Core.Tests/bin/Release/net10.0/Vixen.Editor.Core.Tests.dll
+02:19:25 [DBG]   Vixen.ShaderCompiler -> /Users/jiu/Projects/Vixen/Tools/Vixen.ShaderCompiler/bin/Release/net10.0/Vixen.ShaderCompiler.dll
+02:19:25 [DBG]   Vixen.Xr -> /Users/jiu/Projects/Vixen/Core/Vixen.Xr/bin/Release/net10.0/Vixen.Xr.dll
+02:19:26 [DBG]   EcsStressTest -> /Users/jiu/Projects/Vixen/Samples/04-EcsStressTest/bin/Release/net10.0/EcsStressTest.dll
+02:19:26 [DBG]   Vixen.Rendering.IrradianceFields -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.IrradianceFields/bin/Release/net10.0/Vixen.Rendering.IrradianceFields.dll
+02:19:26 [DBG]   Vixen.Net.Engine -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Engine/bin/Release/net10.0/Vixen.Net.Engine.dll
+02:19:26 [DBG]   Vixen.Platform.Windows.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Windows.Tests/bin/Release/net10.0/Vixen.Platform.Windows.Tests.dll
+02:19:26 [DBG]   Mmo.Shared -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Shared/bin/Release/net10.0/Mmo.Shared.dll
+02:19:26 [DBG]   Vixen.Physics -> /Users/jiu/Projects/Vixen/Core/Vixen.Physics/bin/Release/net10.0/Vixen.Physics.dll
+02:19:26 [DBG]   Vixen.Net.Telemetry.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Telemetry.Tests/bin/Release/net10.0/Vixen.Net.Telemetry.Tests.dll
+02:19:26 [DBG]   Vixen.Live.Orchestrator.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Orchestrator.Tests/bin/Release/net10.0/Vixen.Live.Orchestrator.Tests.dll
+02:19:26 [DBG]   Vixen.Input.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Input.Tests/bin/Release/net10.0/Vixen.Input.Tests.dll
+02:19:26 [DBG]   Vixen.Gameplay.Inventory.Tests -> /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Inventory.Tests/bin/Release/net10.0/Vixen.Gameplay.Inventory.Tests.dll
+02:19:27 [DBG]   Vixen.Rendering.RayTracing.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.RayTracing.Tests/bin/Release/net10.0/Vixen.Rendering.RayTracing.Tests.dll
+02:19:28 [DBG]   Vixen.Xr.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Xr.Tests/bin/Release/net10.0/Vixen.Xr.Tests.dll
+02:19:28 [DBG]   Vixen.Foliage.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Foliage.Tests/bin/Release/net10.0/Vixen.Foliage.Tests.dll
+02:19:28 [DBG]   Vixen.Graphics.RenderGraph.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Graphics.RenderGraph.Tests/bin/Release/net10.0/Vixen.Graphics.RenderGraph.Tests.dll
+02:19:28 [DBG]   Vixen.Rendering.ScreenProbes -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.ScreenProbes/bin/Release/net10.0/Vixen.Rendering.ScreenProbes.dll
+02:19:29 [DBG]   Vixen.Audio -> /Users/jiu/Projects/Vixen/Core/Vixen.Audio/bin/Release/net10.0/Vixen.Audio.dll
+02:19:29 [DBG]   Vixen.Xr.OpenXR -> /Users/jiu/Projects/Vixen/Platform/Vixen.Xr.OpenXR/bin/Release/net10.0/Vixen.Xr.OpenXR.dll
+02:19:30 [DBG]   Vixen.Geometry.Remeshing -> /Users/jiu/Projects/Vixen/Core/Vixen.Geometry.Remeshing/bin/Release/net10.0/Vixen.Geometry.Remeshing.dll
+02:19:30 [DBG]   Vixen.Navigation -> /Users/jiu/Projects/Vixen/Core/Vixen.Navigation/bin/Release/net10.0/Vixen.Navigation.dll
+02:19:30 [DBG]   Vixen.Rendering.ScreenProbes.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.ScreenProbes.Tests/bin/Release/net10.0/Vixen.Rendering.ScreenProbes.Tests.dll
+02:19:30 [DBG]   Vixen.Geometry.Uv.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Geometry.Uv.Tests/bin/Release/net10.0/Vixen.Geometry.Uv.Tests.dll
+02:19:30 [DBG]   Vixen.Editor.Gameplay.Loot.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Gameplay.Loot.Tests/bin/Release/net10.0/Vixen.Editor.Gameplay.Loot.Tests.dll
+02:19:31 [DBG]   Vixen.Graphics.WebGPU.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.WebGPU.Tests/bin/Release/net10.0/Vixen.Graphics.WebGPU.Tests.dll
+02:19:31 [DBG]   Vixen.Rendering.IrradianceFields.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.IrradianceFields.Tests/bin/Release/net10.0/Vixen.Rendering.IrradianceFields.Tests.dll
+02:19:31 [DBG]   Vixen.Platform.Desktop -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Desktop/bin/Release/net10.0/Vixen.Platform.Desktop.dll
+02:19:31 [DBG]   Vixen.Core.Imaging.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Core.Imaging.Tests/bin/Release/net10.0/Vixen.Core.Imaging.Tests.dll
+02:19:31 [DBG]   Vixen.Rendering.Reflections -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Reflections/bin/Release/net10.0/Vixen.Rendering.Reflections.dll
+02:19:31 [DBG]   Vixen.Rendering.SurfaceCache -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.SurfaceCache/bin/Release/net10.0/Vixen.Rendering.SurfaceCache.dll
+02:19:32 [DBG]   Vixen.Net.Engine.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Engine.Tests/bin/Release/net10.0/Vixen.Net.Engine.Tests.dll
+02:19:33 [DBG]   Vixen.ShaderCompilerService -> /Users/jiu/Projects/Vixen/Tools/Vixen.ShaderCompilerService/bin/Release/net10.0/vixen-shader-compiler.dll
+02:19:34 [DBG]   Vixen.Audio.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Audio.Tests/bin/Release/net10.0/Vixen.Audio.Tests.dll
+02:19:34 [DBG]   Vixen.Benchmarks.Navigation -> /Users/jiu/Projects/Vixen/Benchmarks/Vixen.Benchmarks.Navigation/bin/Release/net10.0/Vixen.Benchmarks.Navigation.dll
+02:19:34 [DBG]   Vixen.Video -> /Users/jiu/Projects/Vixen/Core/Vixen.Video/bin/Release/net10.0/Vixen.Video.dll
+02:19:34 [DBG]   Vixen.Water.Physics -> /Users/jiu/Projects/Vixen/Core/Vixen.Water.Physics/bin/Release/net10.0/Vixen.Water.Physics.dll
+02:19:34 [DBG]   Vixen.Engine.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Engine.Tests/bin/Release/net10.0/Vixen.Engine.Tests.dll
+02:19:34 [DBG]   Vixen.Audio.Codecs -> /Users/jiu/Projects/Vixen/Core/Vixen.Audio.Codecs/bin/Release/net10.0/Vixen.Audio.Codecs.dll
+02:19:34 [DBG]   Vixen.Net.Audio -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Audio/bin/Release/net10.0/Vixen.Net.Audio.dll
+02:19:34 [DBG]   Vixen.Ai.Perception -> /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Perception/bin/Release/net10.0/Vixen.Ai.Perception.dll
+02:19:34 [DBG]   Vixen.Audio.Backend.OpenAL -> /Users/jiu/Projects/Vixen/Platform/Vixen.Audio.Backend.OpenAL/bin/Release/net10.0/Vixen.Audio.Backend.OpenAL.dll
+02:19:34 [DBG]   Mmo.Client -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Client/bin/Release/net10.0/Mmo.Client.dll
+02:19:34 [DBG]   Vixen.Rendering.Reflections.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Reflections.Tests/bin/Release/net10.0/Vixen.Rendering.Reflections.Tests.dll
+02:19:34 [DBG]   Vixen.Ui -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui/bin/Release/net10.0/Vixen.Ui.dll
+02:19:34 [DBG]   Vixen.Terrain.Physics -> /Users/jiu/Projects/Vixen/Core/Vixen.Terrain.Physics/bin/Release/net10.0/Vixen.Terrain.Physics.dll
+02:19:35 [DBG]   Vixen.Ai.Diagnostics -> /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Diagnostics/bin/Release/net10.0/Vixen.Ai.Diagnostics.dll
+02:19:35 [DBG]   Vixen.Physics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Physics.Tests/bin/Release/net10.0/Vixen.Physics.Tests.dll
+02:19:35 [DBG]   Vixen.Ui.HotReload -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.HotReload/bin/Release/net10.0/Vixen.Ui.HotReload.dll
+02:19:35 [DBG]   Vixen.Ui.Testing -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Testing/bin/Release/net10.0/Vixen.Ui.Testing.dll
+02:19:35 [DBG]   Vixen.Ui.Markup.Generators.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Markup.Generators.Tests/bin/Release/net10.0/Vixen.Ui.Markup.Generators.Tests.dll
+02:19:36 [DBG]   VoiceChat -> /Users/jiu/Projects/Vixen/Samples/10-VoiceChat/bin/Release/net10.0/VoiceChat.dll
+02:19:36 [DBG]   Vixen.Ai.Diagnostics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Diagnostics.Tests/bin/Release/net10.0/Vixen.Ai.Diagnostics.Tests.dll
+02:19:36 [DBG]   Vixen.Platform.Ui -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Ui/bin/Release/net10.0/Vixen.Platform.Ui.dll
+02:19:36 [DBG]   Vixen.Audio.Codecs.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Audio.Codecs.Tests/bin/Release/net10.0/Vixen.Audio.Codecs.Tests.dll
+02:19:37 [DBG]   Vixen.Audio.Backend.OpenAL.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Audio.Backend.OpenAL.Tests/bin/Release/net10.0/Vixen.Audio.Backend.OpenAL.Tests.dll
+02:19:37 [DBG]   Vixen.Video.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Video.Tests/bin/Release/net10.0/Vixen.Video.Tests.dll
+02:19:37 [DBG]   Vixen.Ui.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Tests/bin/Release/net10.0/Vixen.Ui.Tests.dll
+02:19:37 [DBG]   Vixen.Geometry.Remeshing.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Geometry.Remeshing.Tests/bin/Release/net10.0/Vixen.Geometry.Remeshing.Tests.dll
+02:19:37 [DBG]   Vixen.Ai.Perception.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Perception.Tests/bin/Release/net10.0/Vixen.Ai.Perception.Tests.dll
+02:19:37 [DBG]   Vixen.Net.Audio.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Audio.Tests/bin/Release/net10.0/Vixen.Net.Audio.Tests.dll
+02:19:38 [DBG]   Vixen.Net.Physics -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Physics/bin/Release/net10.0/Vixen.Net.Physics.dll
+02:19:38 [DBG]   Vixen.Navigation.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Navigation.Tests/bin/Release/net10.0/Vixen.Navigation.Tests.dll
+02:19:38 [DBG]   Vixen.Ui.HotReload.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.HotReload.Tests/bin/Release/net10.0/Vixen.Ui.HotReload.Tests.dll
+02:19:38 [DBG]   Multiplayer -> /Users/jiu/Projects/Vixen/Samples/08-Multiplayer/bin/Release/net10.0/Multiplayer.dll
+02:19:38 [DBG]   Vixen.Fuzz -> /Users/jiu/Projects/Vixen/Core/Vixen.Fuzz/bin/Release/net10.0/Vixen.Fuzz.dll
+02:19:39 [DBG]   Vixen.Ui.Markup.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Markup.Tests/bin/Release/net10.0/Vixen.Ui.Markup.Tests.dll
+02:19:39 [DBG]   Vixen.Net.Engine.Content -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Engine.Content/bin/Release/net10.0/Vixen.Net.Engine.Content.dll
+02:19:39 [DBG]   Vixen.Net.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Tests/bin/Release/net10.0/Vixen.Net.Tests.dll
+02:19:39 [DBG]   Vixen.Video.Codecs -> /Users/jiu/Projects/Vixen/Core/Vixen.Video.Codecs/bin/Release/net10.0/Vixen.Video.Codecs.dll
+02:19:39 [DBG]   Vixen.Terrain.Physics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Terrain.Physics.Tests/bin/Release/net10.0/Vixen.Terrain.Physics.Tests.dll
+02:19:39 [DBG]   Vixen.Net.Physics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Physics.Tests/bin/Release/net10.0/Vixen.Net.Physics.Tests.dll
+02:19:39 [DBG]   Vixen.Live.Gameplay.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Gameplay.Tests/bin/Release/net10.0/Vixen.Live.Gameplay.Tests.dll
+02:19:39 [DBG]   Vixen.Net.Transport.WebSocket.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.WebSocket.Tests/bin/Release/net10.0/Vixen.Net.Transport.WebSocket.Tests.dll
+02:19:39 [DBG]   Vixen.Net.Transport.Local.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Local.Tests/bin/Release/net10.0/Vixen.Net.Transport.Local.Tests.dll
+02:19:40 [DBG]   Vixen.Fuzz.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Fuzz.Tests/bin/Release/net10.0/Vixen.Fuzz.Tests.dll
+02:19:40 [DBG]   Vixen.Net.Transport.Udp.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Udp.Tests/bin/Release/net10.0/Vixen.Net.Transport.Udp.Tests.dll
+02:19:40 [DBG]   Vixen.Net.Transport.Composite.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Composite.Tests/bin/Release/net10.0/Vixen.Net.Transport.Composite.Tests.dll
+02:19:41 [DBG]   Vixen.Audio.Physics -> /Users/jiu/Projects/Vixen/Core/Vixen.Audio.Physics/bin/Release/net10.0/Vixen.Audio.Physics.dll
+02:19:41 [DBG]   Vixen.Water.Physics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Water.Physics.Tests/bin/Release/net10.0/Vixen.Water.Physics.Tests.dll
+02:19:41 [DBG]   Vixen.Video.Codecs.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Video.Codecs.Tests/bin/Release/net10.0/Vixen.Video.Codecs.Tests.dll
+02:19:41 [DBG]   Vixen.Audio.Physics.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Audio.Physics.Tests/bin/Release/net10.0/Vixen.Audio.Physics.Tests.dll
+02:19:41 [DBG]   Vixen.Platform.Desktop.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Desktop.Tests/bin/Release/net10.0/Vixen.Platform.Desktop.Tests.dll
+02:19:41 [DBG]   Vixen.Ui.Testing.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Testing.Tests/bin/Release/net10.0/Vixen.Ui.Testing.Tests.dll
+02:19:41 [DBG]   Vixen.ShaderCompiler.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.ShaderCompiler.Tests/bin/Release/net10.0/Vixen.ShaderCompiler.Tests.dll
+02:19:41 [DBG]   Vixen.ShaderCompilerService.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.ShaderCompilerService.Tests/bin/Release/net10.0/Vixen.ShaderCompilerService.Tests.dll
+02:19:41 [DBG]   Vixen.Rendering.SurfaceCache.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.SurfaceCache.Tests/bin/Release/net10.0/Vixen.Rendering.SurfaceCache.Tests.dll
+02:19:41 [DBG]   Vixen.Net.Engine.Content.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Engine.Content.Tests/bin/Release/net10.0/Vixen.Net.Engine.Content.Tests.dll
+02:19:41 [DBG]   Vixen.Platform.Ui.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Ui.Tests/bin/Release/net10.0/Vixen.Platform.Ui.Tests.dll
+02:19:42 [DBG]   Vixen.Xr.OpenXR.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Xr.OpenXR.Tests/bin/Release/net10.0/Vixen.Xr.OpenXR.Tests.dll
+02:19:42 [DBG]   Vixen.Ui.Controls -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Controls/bin/Release/net10.0/Vixen.Ui.Controls.dll
+02:19:42 [DBG]   Vixen.Rendering -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering/bin/Release/net10.0/Vixen.Rendering.dll
+02:19:43 [DBG]   Vixen.Benchmarks.Ui -> /Users/jiu/Projects/Vixen/Benchmarks/Vixen.Benchmarks.Ui/bin/Release/net10.0/Vixen.Benchmarks.Ui.dll
+02:19:43 [DBG]   Mmo.Ui -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Ui/bin/Release/net10.0/Mmo.Ui.dll
+02:19:45 [DBG]   Vixen.Ui.Controls.Advanced -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Controls.Advanced/bin/Release/net10.0/Vixen.Ui.Controls.Advanced.dll
+02:19:47 [DBG]   Vixen.Ui.Styling.Utilities.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Styling.Utilities.Tests/bin/Release/net10.0/Vixen.Ui.Styling.Utilities.Tests.dll
+02:19:47 [DBG]   Vixen.Video.Rendering -> /Users/jiu/Projects/Vixen/Core/Vixen.Video.Rendering/bin/Release/net10.0/Vixen.Video.Rendering.dll
+02:19:47 [DBG]   Vixen.Editor.Gameplay.Quests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Gameplay.Quests/bin/Release/net10.0/Vixen.Editor.Gameplay.Quests.dll
+02:19:47 [DBG]   Vixen.Ui.Renderer -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Renderer/bin/Release/net10.0/Vixen.Ui.Renderer.dll
+02:19:47 [DBG]   Vixen.Rendering.Terrain -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Terrain/bin/Release/net10.0/Vixen.Rendering.Terrain.dll
+02:19:48 [DBG]   Vixen.Editor.SceneView -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.SceneView/bin/Release/net10.0/Vixen.Editor.SceneView.dll
+02:19:48 [DBG]   Vixen.Ui.Desktop -> /Users/jiu/Projects/Vixen/Platform/Vixen.Ui.Desktop/bin/Release/net10.0/Vixen.Ui.Desktop.dll
+02:19:48 [DBG]   Vixen.Animation -> /Users/jiu/Projects/Vixen/Core/Vixen.Animation/bin/Release/net10.0/Vixen.Animation.dll
+02:19:48 [DBG]   Vixen.Rendering.PostFx -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.PostFx/bin/Release/net10.0/Vixen.Rendering.PostFx.dll
+02:19:49 [DBG]   HelloUi -> /Users/jiu/Projects/Vixen/Samples/02-HelloUi/bin/Release/net10.0/HelloUi.dll
+02:19:50 [DBG]   Vixen.Editor.Ai -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Ai/bin/Release/net10.0/Vixen.Editor.Ai.dll
+02:19:51 [DBG]   Vixen.Editor.Ui -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Ui/bin/Release/net10.0/Vixen.Editor.Ui.dll
+02:19:52 [DBG]   Vixen.Editor.Inspector -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Inspector/bin/Release/net10.0/Vixen.Editor.Inspector.dll
+02:19:52 [DBG]   Vixen.Rendering.PostFx.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.PostFx.Tests/bin/Release/net10.0/Vixen.Rendering.PostFx.Tests.dll
+02:19:52 [DBG]   Vixen.Vfx.Gpu.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Vfx.Gpu.Tests/bin/Release/net10.0/Vixen.Vfx.Gpu.Tests.dll
+02:19:52 [DBG]   Vixen.Editor.SceneView.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.SceneView.Tests/bin/Release/net10.0/Vixen.Editor.SceneView.Tests.dll
+02:19:52 [DBG]   Vixen.Ui.Desktop.HotReload -> /Users/jiu/Projects/Vixen/Platform/Vixen.Ui.Desktop.HotReload/bin/Release/net10.0/Vixen.Ui.Desktop.HotReload.dll
+02:19:52 [DBG]   Vixen.Rendering.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Tests/bin/Release/net10.0/Vixen.Rendering.Tests.dll
+02:19:53 [DBG]   Vixen.Ui.Desktop.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Ui.Desktop.Tests/bin/Release/net10.0/Vixen.Ui.Desktop.Tests.dll
+02:19:53 [DBG]   Vixen.Video.Rendering.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Video.Rendering.Tests/bin/Release/net10.0/Vixen.Video.Rendering.Tests.dll
+02:19:54 [DBG]   Vixen.Editor.Gameplay.Quests.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Gameplay.Quests.Tests/bin/Release/net10.0/Vixen.Editor.Gameplay.Quests.Tests.dll
+02:19:54 [DBG]   Vixen.Editor.Ai.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Ai.Tests/bin/Release/net10.0/Vixen.Editor.Ai.Tests.dll
+02:19:54 [DBG]   Vixen.Editor.NodeGraph -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.NodeGraph/bin/Release/net10.0/Vixen.Editor.NodeGraph.dll
+02:19:54 [DBG]   Vixen.Editor.VfxGraph -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.VfxGraph/bin/Release/net10.0/Vixen.Editor.VfxGraph.dll
+02:19:54 [DBG]   Vixen.Editor.ShaderGraph -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.ShaderGraph/bin/Release/net10.0/Vixen.Editor.ShaderGraph.dll
+02:19:55 [DBG]   Vixen.Benchmarks.Animation -> /Users/jiu/Projects/Vixen/Benchmarks/Vixen.Benchmarks.Animation/bin/Release/net10.0/Vixen.Benchmarks.Animation.dll
+02:19:55 [DBG]   Vixen.Ai.Nodes -> /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Nodes/bin/Release/net10.0/Vixen.Ai.Nodes.dll
+02:19:56 [DBG]   Vixen.Net.Animation -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Animation/bin/Release/net10.0/Vixen.Net.Animation.dll
+02:19:56 [DBG]   Vixen.Editor.Plugin -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Plugin/bin/Release/net10.0/Vixen.Editor.Plugin.dll
+02:19:56 [DBG]   Vixen.Editor.Profiler -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Profiler/bin/Release/net10.0/Vixen.Editor.Profiler.dll
+02:19:56 [DBG]   Mmo.Ui.Tests -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Ui.Tests/bin/Release/net10.0/Mmo.Ui.Tests.dll
+02:19:56 [DBG]   Vixen.Assets.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Assets.Tests/bin/Release/net10.0/Vixen.Assets.Tests.dll
+02:19:56 [DBG]   Vixen.Ui.Controls.Advanced.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Controls.Advanced.Tests/bin/Release/net10.0/Vixen.Ui.Controls.Advanced.Tests.dll
+02:19:56 [DBG]   Vixen.Editor.Inspector.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Inspector.Tests/bin/Release/net10.0/Vixen.Editor.Inspector.Tests.dll
+02:19:56 [DBG]   Vixen.Animation.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Animation.Tests/bin/Release/net10.0/Vixen.Animation.Tests.dll
+02:19:56 [DBG]   Vixen.Editor.AnimationGraph -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.AnimationGraph/bin/Release/net10.0/Vixen.Editor.AnimationGraph.dll
+02:19:57 [DBG]   Vixen.Editor.VfxGraph.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.VfxGraph.Tests/bin/Release/net10.0/Vixen.Editor.VfxGraph.Tests.dll
+02:19:57 [DBG]   Vixen.Editor.NodeGraph.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.NodeGraph.Tests/bin/Release/net10.0/Vixen.Editor.NodeGraph.Tests.dll
+02:19:57 [DBG]   PbrShowcase.Frame.Tests -> /Users/jiu/Projects/Vixen/Samples/03-PbrShowcase/PbrShowcase.Frame.Tests/bin/Release/net10.0/PbrShowcase.Frame.Tests.dll
+02:19:58 [DBG]   Vixen.Editor.Profiler.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Profiler.Tests/bin/Release/net10.0/Vixen.Editor.Profiler.Tests.dll
+02:19:58 [DBG]   AiVillage.Agent.Tests -> /Users/jiu/Projects/Vixen/Samples/15-AiVillage/AiVillage.Agent.Tests/bin/Release/net10.0/AiVillage.Agent.Tests.dll
+02:19:58 [DBG]   Vixen.Rendering.Water -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Water/bin/Release/net10.0/Vixen.Rendering.Water.dll
+02:19:59 [DBG]   Vixen.Editor.Debugger -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Debugger/bin/Release/net10.0/Vixen.Editor.Debugger.dll
+02:19:59 [DBG]   Vixen.Rendering.Terrain.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Terrain.Tests/bin/Release/net10.0/Vixen.Rendering.Terrain.Tests.dll
+02:19:59 [DBG]   Vixen.Ai.Nodes.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Nodes.Tests/bin/Release/net10.0/Vixen.Ai.Nodes.Tests.dll
+02:19:59 [DBG]   Vixen.Editor.Assets -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Assets/bin/Release/net10.0/Vixen.Editor.Assets.dll
+02:19:59 [DBG]   Vixen.Ui.Controls.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Controls.Tests/bin/Release/net10.0/Vixen.Ui.Controls.Tests.dll
+02:19:59 [DBG]   AddressablesRemote -> /Users/jiu/Projects/Vixen/Samples/07-AddressablesRemote/bin/Release/net10.0/AddressablesRemote.dll
+02:19:59 [DBG]   Vixen.AssetCompiler -> /Users/jiu/Projects/Vixen/Tools/Vixen.AssetCompiler/bin/Release/net10.0/Vixen.AssetCompiler.dll
+02:19:59 [DBG]   Vixen.Editor.Ui.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Ui.Tests/bin/Release/net10.0/Vixen.Editor.Ui.Tests.dll
+02:20:00 [DBG]   Vixen.Cli -> /Users/jiu/Projects/Vixen/Tools/Vixen.Cli/bin/Release/net10.0/vixen.dll
+02:20:00 [DBG]   ThirdPersonShooter.Frame.Tests -> /Users/jiu/Projects/Vixen/Samples/13-ThirdPersonShooter/ThirdPersonShooter.Frame.Tests/bin/Release/net10.0/ThirdPersonShooter.Frame.Tests.dll
+02:20:00 [DBG]   Mmo.Content.Tests -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Content.Tests/bin/Release/net10.0/Mmo.Content.Tests.dll
+02:20:01 [DBG]   Vixen.Sdk.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.Sdk.Tests/bin/Release/net10.0/Vixen.Sdk.Tests.dll
+02:20:01 [DBG]   Vixen.AssetCompiler.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.AssetCompiler.Tests/bin/Release/net10.0/Vixen.AssetCompiler.Tests.dll
+02:20:01 [DBG]   Vixen.Editor.Debugger.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Debugger.Tests/bin/Release/net10.0/Vixen.Editor.Debugger.Tests.dll
+02:20:02 [DBG]   Vixen.Rendering.Water.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Water.Tests/bin/Release/net10.0/Vixen.Rendering.Water.Tests.dll
+02:20:02 [DBG]   Vixen.Engine.Renderer -> /Users/jiu/Projects/Vixen/Core/Vixen.Engine.Renderer/bin/Release/net10.0/Vixen.Engine.Renderer.dll
+02:20:02 [DBG]   Vixen.Editor.ShaderGraph.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.ShaderGraph.Tests/bin/Release/net10.0/Vixen.Editor.ShaderGraph.Tests.dll
+02:20:02 [DBG]   Vixen.Editor.Assets.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Assets.Tests/bin/Release/net10.0/Vixen.Editor.Assets.Tests.dll
+02:20:02 [DBG]   Vixen.Engine.Renderer.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Engine.Renderer.Tests/bin/Release/net10.0/Vixen.Engine.Renderer.Tests.dll
+02:20:02 [DBG]   Vixen.App.Hosting -> /Users/jiu/Projects/Vixen/Core/Vixen.App.Hosting/bin/Release/net10.0/Vixen.App.Hosting.dll
+02:20:03 [DBG]   Vixen.AotProbe -> /Users/jiu/Projects/Vixen/Tools/Vixen.AotProbe/bin/Release/net10.0/vixen-aot-probe.dll
+02:20:03 [DBG]   Vixen.App -> /Users/jiu/Projects/Vixen/Tools/Vixen.App/bin/Release/net10.0/Vixen.App.dll
+02:20:03 [DBG]   Vixen.Cli.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.Cli.Tests/bin/Release/net10.0/Vixen.Cli.Tests.dll
+02:20:04 [DBG]   Imported 0, 8 unchanged, 0 failed in 311 ms.
+02:20:04 [DBG]   Imported 0, 76 unchanged, 0 failed in 387 ms.
+02:20:05 [DBG]   PbrShowcase -> /Users/jiu/Projects/Vixen/Samples/03-PbrShowcase/bin/Release/net10.0/PbrShowcase.dll
+02:20:05 [DBG]   Vixen.Graphics.Golden.Tests -> /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.Golden.Tests/bin/Release/net10.0/Vixen.Graphics.Golden.Tests.dll
+02:20:05 [DBG]   Imported 0, 8 unchanged, 0 failed in 62 ms.
+02:20:05 [DBG]   Some assets name no group, so they were put in 'Default' — packed together, LZ4, shipped in the application. Add a .vxgroup to choose something else.
+02:20:05 [DBG]   Built 10 addresses into 1 bundle (82,350 bytes) for MacOS, at /Users/jiu/Projects/Vixen/Samples/03-PbrShowcase/Build/MacOS.
+02:20:05 [DBG]   No Shaders.effects.json in ProjectSettings/, so no shader bundle was built. Write one from EffectSystem.Requests after a development run to make this build compile them ahead of time.
+02:20:05 [DBG]   Vixen.Live.Realm -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Realm/bin/Release/net10.0/Vixen.Live.Realm.dll
+02:20:05 [DBG]   ThirdPersonShooter -> /Users/jiu/Projects/Vixen/Samples/13-ThirdPersonShooter/bin/Release/net10.0/ThirdPersonShooter.dll
+02:20:06 [DBG]   Vixen.Editor.Water -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Water/bin/Release/net10.0/Vixen.Editor.Water.dll
+02:20:06 [DBG]   Vixen.Live.Realm.Cluster -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Realm.Cluster/bin/Release/net10.0/Vixen.Live.Realm.Cluster.dll
+02:20:06 [DBG]   Vixen.Editor.Plugin.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Plugin.Tests/bin/Release/net10.0/Vixen.Editor.Plugin.Tests.dll
+02:20:06 [DBG]   Vixen.Editor.Blockout -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Blockout/bin/Release/net10.0/Vixen.Editor.Blockout.dll
+02:20:06 [DBG]   HelloTriangle -> /Users/jiu/Projects/Vixen/Samples/01-HelloTriangle/bin/Release/net10.0/HelloTriangle.dll
+02:20:07 [DBG]   Vixen.Editor.Scripts -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Scripts/bin/Release/net10.0/Vixen.Editor.Scripts.dll
+02:20:07 [DBG]   Vixen.Editor.Terrain -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Terrain/bin/Release/net10.0/Vixen.Editor.Terrain.dll
+02:20:07 [DBG]   Vixen.Editor.Diagnostics -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Diagnostics/bin/Release/net10.0/Vixen.Editor.Diagnostics.dll
+02:20:07 [DBG]   Mmo.Realm -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Realm/bin/Release/net10.0/Mmo.Realm.dll
+02:20:07 [DBG]   Vixen.Live.Realm.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Realm.Tests/bin/Release/net10.0/Vixen.Live.Realm.Tests.dll
+02:20:07 [DBG]   Vixen.Net.Animation.Tests -> /Users/jiu/Projects/Vixen/Core/Vixen.Net.Animation.Tests/bin/Release/net10.0/Vixen.Net.Animation.Tests.dll
+02:20:07 [DBG]   AiVillage -> /Users/jiu/Projects/Vixen/Samples/15-AiVillage/bin/Release/net10.0/AiVillage.dll
+02:20:07 [DBG]   Imported 0, 76 unchanged, 0 failed in 200 ms.
+02:20:07 [DBG]   Some assets name no group, so they were put in 'Default' — packed together, LZ4, shipped in the application. Add a .vxgroup to choose something else.
+02:20:07 [DBG]   VideoPlayback -> /Users/jiu/Projects/Vixen/Samples/11-VideoPlayback/bin/Release/net10.0/VideoPlayback.dll
+02:20:07 [DBG]   VirtualGeometry -> /Users/jiu/Projects/Vixen/Samples/12-VirtualGeometry/bin/Release/net10.0/VirtualGeometry.dll
+02:20:07 [DBG]   Built 113 addresses into 1 bundle (7,430,674 bytes) for MacOS, at /Users/jiu/Projects/Vixen/Samples/13-ThirdPersonShooter/Build/MacOS.
+02:20:07 [DBG]   No Shaders.effects.json in ProjectSettings/, so no shader bundle was built. Write one from EffectSystem.Requests after a development run to make this build compile them ahead of time.
+02:20:08 [DBG]   Vixen.Editor.AnimationGraph.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.AnimationGraph.Tests/bin/Release/net10.0/Vixen.Editor.AnimationGraph.Tests.dll
+02:20:08 [DBG]   Vixen.Editor.Blockout.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Blockout.Tests/bin/Release/net10.0/Vixen.Editor.Blockout.Tests.dll
+02:20:08 [DBG]   Vixen.Editor.Terrain.Physics -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Terrain.Physics/bin/Release/net10.0/Vixen.Editor.Terrain.Physics.dll
+02:20:08 [DBG]   Mmo.Soak -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Soak/bin/Release/net10.0/Mmo.Soak.dll
+02:20:08 [DBG]   Vixen.Editor.Water.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Water.Tests/bin/Release/net10.0/Vixen.Editor.Water.Tests.dll
+02:20:09 [DBG]   Vixen.Editor.Scripts.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Scripts.Tests/bin/Release/net10.0/Vixen.Editor.Scripts.Tests.dll
+02:20:09 [DBG]   Vixen.Editor.Terrain.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Terrain.Tests/bin/Release/net10.0/Vixen.Editor.Terrain.Tests.dll
+02:20:10 [DBG]   Vixen.Editor.AssetEditors -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.AssetEditors/bin/Release/net10.0/Vixen.Editor.AssetEditors.dll
+02:20:11 [DBG]   Vixen.Live.Realm.Cluster.Tests -> /Users/jiu/Projects/Vixen/Live/Vixen.Live.Realm.Cluster.Tests/bin/Release/net10.0/Vixen.Live.Realm.Cluster.Tests.dll
+02:20:11 [DBG]   Vixen.App.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.App.Tests/bin/Release/net10.0/Vixen.App.Tests.dll
+02:20:11 [DBG]   Vixen.Editor.Terrain.Physics.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Terrain.Physics.Tests/bin/Release/net10.0/Vixen.Editor.Terrain.Physics.Tests.dll
+02:20:11 [DBG]   Vixen.Templates.Tests -> /Users/jiu/Projects/Vixen/Tools/Vixen.Templates.Tests/bin/Release/net10.0/Vixen.Templates.Tests.dll
+02:20:11 [DBG]   Mmo.Realm.Tests -> /Users/jiu/Projects/Vixen/Samples/14-Mmo/Mmo.Realm.Tests/bin/Release/net10.0/Mmo.Realm.Tests.dll
+02:20:12 [DBG]   Vixen.Editor.AssetEditors.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.AssetEditors.Tests/bin/Release/net10.0/Vixen.Editor.AssetEditors.Tests.dll
+02:20:12 [DBG]   Vixen.Editor.App -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.App/bin/Release/net10.0/Vixen.Editor.App.dll
+02:20:12 [DBG]   Vixen.Editor.Host -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Host/bin/Release/net10.0/VixenEditor.dll
+02:20:13 [DBG]   Vixen.Editor.Testing -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Testing/bin/Release/net10.0/Vixen.Editor.Testing.dll
+02:20:14 [DBG]   Vixen.Editor.App.Tests -> /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.App.Tests/bin/Release/net10.0/Vixen.Editor.App.Tests.dll
+02:20:14 [DBG] 
+02:20:14 [DBG] Build succeeded.
+02:20:14 [DBG]     0 Warning(s)
+02:20:14 [DBG]     0 Error(s)
+02:20:14 [DBG] 
+02:20:14 [DBG] Time Elapsed 00:01:32.93
+02:20:14 [INF] Checking the public surface of 132 assemblies.
+02:20:14 [INF] > /opt/homebrew/bin/dotnet run --project /Users/jiu/Projects/Vixen/Tools/Vixen.ApiCheck/Vixen.ApiCheck.csproj --configuration Release --no-restore --no-build -- /Users/jiu/Projects/Vixen/Core/Vixen.Ai/bin/Release/net10.0/Vixen.Ai.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Diagnostics/bin/Release/net10.0/Vixen.Ai.Diagnostics.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Nodes/bin/Release/net10.0/Vixen.Ai.Nodes.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ai.Perception/bin/Release/net10.0/Vixen.Ai.Perception.dll /Users/jiu/Projects/Vixen/Core/Vixen.Animation/bin/Release/net10.0/Vixen.Animation.dll /Users/jiu/Projects/Vixen/Core/Vixen.App.Hosting/bin/Release/net10.0/Vixen.App.Hosting.dll /Users/jiu/Projects/Vixen/Core/Vixen.Assets/bin/Release/net10.0/Vixen.Assets.dll /Users/jiu/Projects/Vixen/Core/Vixen.Audio/bin/Release/net10.0/Vixen.Audio.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Audio.Backend.OpenAL/bin/Release/net10.0/Vixen.Audio.Backend.OpenAL.dll /Users/jiu/Projects/Vixen/Core/Vixen.Audio.Codecs/bin/Release/net10.0/Vixen.Audio.Codecs.dll /Users/jiu/Projects/Vixen/Core/Vixen.Audio.Physics/bin/Release/net10.0/Vixen.Audio.Physics.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core/bin/Release/net10.0/Vixen.Core.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Collections/bin/Release/net10.0/Vixen.Core.Collections.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Diagnostics/bin/Release/net10.0/Vixen.Core.Diagnostics.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.IO/bin/Release/net10.0/Vixen.Core.IO.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Imaging/bin/Release/net10.0/Vixen.Core.Imaging.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Mathematics/bin/Release/net10.0/Vixen.Core.Mathematics.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Memory/bin/Release/net10.0/Vixen.Core.Memory.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Reflection/bin/Release/net10.0/Vixen.Core.Reflection.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Serialization/bin/Release/net10.0/Vixen.Core.Serialization.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Syntax/bin/Release/net10.0/Vixen.Core.Syntax.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Threading/bin/Release/net10.0/Vixen.Core.Threading.dll /Users/jiu/Projects/Vixen/Core/Vixen.Core.Yaml/bin/Release/net10.0/Vixen.Core.Yaml.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ecs/bin/Release/net10.0/Vixen.Ecs.dll /Users/jiu/Projects/Vixen/Editor/Vixen.Editor.Plugin/bin/Release/net10.0/Vixen.Editor.Plugin.dll /Users/jiu/Projects/Vixen/Core/Vixen.Engine/bin/Release/net10.0/Vixen.Engine.dll /Users/jiu/Projects/Vixen/Core/Vixen.Engine.Renderer/bin/Release/net10.0/Vixen.Engine.Renderer.dll /Users/jiu/Projects/Vixen/Core/Vixen.Foliage/bin/Release/net10.0/Vixen.Foliage.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay/bin/Release/net10.0/Vixen.Gameplay.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Ai/bin/Release/net10.0/Vixen.Gameplay.Ai.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Chat/bin/Release/net10.0/Vixen.Gameplay.Chat.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Collections/bin/Release/net10.0/Vixen.Gameplay.Collections.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Combat/bin/Release/net10.0/Vixen.Gameplay.Combat.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Content/bin/Release/net10.0/Vixen.Gameplay.Content.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Crafting/bin/Release/net10.0/Vixen.Gameplay.Crafting.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Economy/bin/Release/net10.0/Vixen.Gameplay.Economy.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Exploration/bin/Release/net10.0/Vixen.Gameplay.Exploration.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Housing/bin/Release/net10.0/Vixen.Gameplay.Housing.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Instances/bin/Release/net10.0/Vixen.Gameplay.Instances.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Interaction/bin/Release/net10.0/Vixen.Gameplay.Interaction.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Inventory/bin/Release/net10.0/Vixen.Gameplay.Inventory.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Items/bin/Release/net10.0/Vixen.Gameplay.Items.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Loot/bin/Release/net10.0/Vixen.Gameplay.Loot.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Movement/bin/Release/net10.0/Vixen.Gameplay.Movement.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Progression/bin/Release/net10.0/Vixen.Gameplay.Progression.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Pvp/bin/Release/net10.0/Vixen.Gameplay.Pvp.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Quests/bin/Release/net10.0/Vixen.Gameplay.Quests.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Shooting/bin/Release/net10.0/Vixen.Gameplay.Shooting.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Social/bin/Release/net10.0/Vixen.Gameplay.Social.dll /Users/jiu/Projects/Vixen/Gameplay/Vixen.Gameplay.Travel/bin/Release/net10.0/Vixen.Gameplay.Travel.dll /Users/jiu/Projects/Vixen/Core/Vixen.Geometry/bin/Release/net10.0/Vixen.Geometry.dll /Users/jiu/Projects/Vixen/Core/Vixen.Geometry.Remeshing/bin/Release/net10.0/Vixen.Geometry.Remeshing.dll /Users/jiu/Projects/Vixen/Core/Vixen.Geometry.Uv/bin/Release/net10.0/Vixen.Geometry.Uv.dll /Users/jiu/Projects/Vixen/Core/Vixen.Graphics/bin/Release/net10.0/Vixen.Graphics.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.Null/bin/Release/net10.0/Vixen.Graphics.Null.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.OpenGL/bin/Release/net10.0/Vixen.Graphics.OpenGL.dll /Users/jiu/Projects/Vixen/Core/Vixen.Graphics.RenderGraph/bin/Release/net10.0/Vixen.Graphics.RenderGraph.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.Vulkan/bin/Release/net10.0/Vixen.Graphics.Vulkan.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Graphics.WebGPU/bin/Release/net10.0/Vixen.Graphics.WebGPU.dll /Users/jiu/Projects/Vixen/Core/Vixen.Input/bin/Release/net10.0/Vixen.Input.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Abstractions/bin/Release/net10.0/Vixen.Live.Abstractions.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Client/bin/Release/net10.0/Vixen.Live.Client.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Cluster/bin/Release/net10.0/Vixen.Live.Cluster.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Gameplay/bin/Release/net10.0/Vixen.Live.Gameplay.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Gate/bin/Release/net10.0/Vixen.Live.Gate.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Matchmaking/bin/Release/net10.0/Vixen.Live.Matchmaking.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Orchestrator/bin/Release/net10.0/Vixen.Live.Orchestrator.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Persistence/bin/Release/net10.0/Vixen.Live.Persistence.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Docker/bin/Release/net10.0/Vixen.Live.Placement.Docker.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Kubernetes/bin/Release/net10.0/Vixen.Live.Placement.Kubernetes.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Placement.Process/bin/Release/net10.0/Vixen.Live.Placement.Process.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Realm/bin/Release/net10.0/Vixen.Live.Realm.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Realm.Cluster/bin/Release/net10.0/Vixen.Live.Realm.Cluster.dll /Users/jiu/Projects/Vixen/Live/Vixen.Live.Transfer/bin/Release/net10.0/Vixen.Live.Transfer.dll /Users/jiu/Projects/Vixen/Core/Vixen.Navigation/bin/Release/net10.0/Vixen.Navigation.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net/bin/Release/net10.0/Vixen.Net.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Animation/bin/Release/net10.0/Vixen.Net.Animation.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Audio/bin/Release/net10.0/Vixen.Net.Audio.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Engine/bin/Release/net10.0/Vixen.Net.Engine.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Engine.Content/bin/Release/net10.0/Vixen.Net.Engine.Content.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Physics/bin/Release/net10.0/Vixen.Net.Physics.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Telemetry/bin/Release/net10.0/Vixen.Net.Telemetry.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Composite/bin/Release/net10.0/Vixen.Net.Transport.Composite.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Local/bin/Release/net10.0/Vixen.Net.Transport.Local.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.Udp/bin/Release/net10.0/Vixen.Net.Transport.Udp.dll /Users/jiu/Projects/Vixen/Core/Vixen.Net.Transport.WebSocket/bin/Release/net10.0/Vixen.Net.Transport.WebSocket.dll /Users/jiu/Projects/Vixen/Core/Vixen.Physics/bin/Release/net10.0/Vixen.Physics.dll /Users/jiu/Projects/Vixen/Core/Vixen.Platform/bin/Release/net10.0/Vixen.Platform.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Desktop/bin/Release/net10.0/Vixen.Platform.Desktop.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Headless/bin/Release/net10.0/Vixen.Platform.Headless.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Linux/bin/Release/net10.0/Vixen.Platform.Linux.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.MacOS/bin/Release/net10.0/Vixen.Platform.MacOS.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Native/bin/Release/net10.0/Vixen.Platform.Native.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Ui/bin/Release/net10.0/Vixen.Platform.Ui.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Platform.Windows/bin/Release/net10.0/Vixen.Platform.Windows.dll /Users/jiu/Projects/Vixen/Raven/Vixen.Raven/bin/Release/net10.0/Vixen.Raven.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering/bin/Release/net10.0/Vixen.Rendering.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.DistanceFields/bin/Release/net10.0/Vixen.Rendering.DistanceFields.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.IrradianceFields/bin/Release/net10.0/Vixen.Rendering.IrradianceFields.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.PostFx/bin/Release/net10.0/Vixen.Rendering.PostFx.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.RayTracing/bin/Release/net10.0/Vixen.Rendering.RayTracing.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Reflections/bin/Release/net10.0/Vixen.Rendering.Reflections.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.ScreenProbes/bin/Release/net10.0/Vixen.Rendering.ScreenProbes.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.SurfaceCache/bin/Release/net10.0/Vixen.Rendering.SurfaceCache.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Terrain/bin/Release/net10.0/Vixen.Rendering.Terrain.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.VirtualGeometry/bin/Release/net10.0/Vixen.Rendering.VirtualGeometry.dll /Users/jiu/Projects/Vixen/Core/Vixen.Rendering.Water/bin/Release/net10.0/Vixen.Rendering.Water.dll /Users/jiu/Projects/Vixen/Core/Vixen.Shaders/bin/Release/net10.0/Vixen.Shaders.dll /Users/jiu/Projects/Vixen/Core/Vixen.Terrain/bin/Release/net10.0/Vixen.Terrain.dll /Users/jiu/Projects/Vixen/Core/Vixen.Terrain.Physics/bin/Release/net10.0/Vixen.Terrain.Physics.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui/bin/Release/net10.0/Vixen.Ui.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Controls/bin/Release/net10.0/Vixen.Ui.Controls.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Controls.Advanced/bin/Release/net10.0/Vixen.Ui.Controls.Advanced.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Ui.Desktop/bin/Release/net10.0/Vixen.Ui.Desktop.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Ui.Desktop.HotReload/bin/Release/net10.0/Vixen.Ui.Desktop.HotReload.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.HotReload/bin/Release/net10.0/Vixen.Ui.HotReload.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Layout/bin/Release/net10.0/Vixen.Ui.Layout.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Markup/bin/Release/net10.0/Vixen.Ui.Markup.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Reactive/bin/Release/net10.0/Vixen.Ui.Reactive.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Renderer/bin/Release/net10.0/Vixen.Ui.Renderer.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Styling/bin/Release/net10.0/Vixen.Ui.Styling.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Styling.Utilities/bin/Release/net10.0/Vixen.Ui.Styling.Utilities.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Testing/bin/Release/net10.0/Vixen.Ui.Testing.dll /Users/jiu/Projects/Vixen/Core/Vixen.Ui.Text/bin/Release/net10.0/Vixen.Ui.Text.dll /Users/jiu/Projects/Vixen/Core/Vixen.Vfx/bin/Release/net10.0/Vixen.Vfx.dll /Users/jiu/Projects/Vixen/Core/Vixen.Video/bin/Release/net10.0/Vixen.Video.dll /Users/jiu/Projects/Vixen/Core/Vixen.Video.Codecs/bin/Release/net10.0/Vixen.Video.Codecs.dll /Users/jiu/Projects/Vixen/Core/Vixen.Video.Rendering/bin/Release/net10.0/Vixen.Video.Rendering.dll /Users/jiu/Projects/Vixen/Core/Vixen.Water/bin/Release/net10.0/Vixen.Water.dll /Users/jiu/Projects/Vixen/Core/Vixen.Water.Physics/bin/Release/net10.0/Vixen.Water.Physics.dll /Users/jiu/Projects/Vixen/Core/Vixen.Xr/bin/Release/net10.0/Vixen.Xr.dll /Users/jiu/Projects/Vixen/Platform/Vixen.Xr.OpenXR/bin/Release/net10.0/Vixen.Xr.OpenXR.dll
+02:20:20 [DBG] Checked 132 assemblies; every public surface matches its baseline.
+​
+╬══════════════════════
+║ Errors & Warnings
+╬═════════════
+​
+[WRN] : Exception was suppressed
+​
+═══════════════════════════════════════
+Target             Status      Duration
+───────────────────────────────────────
+Restore            Succeeded       0:08
+CheckApi           Succeeded       1:41
+───────────────────────────────────────
+Total                              1:50
+═══════════════════════════════════════
+​
+Build succeeded on 08/26/2026 02:20:20. ＼（＾ᴗ＾）／

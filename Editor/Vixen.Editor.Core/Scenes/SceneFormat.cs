@@ -327,6 +327,71 @@ public sealed class SceneEntityData {
     /// </remarks>
     public string Asset { get; set; } = string.Empty;
 
+    /// <summary>Which prefab this entity came from, in <c>vx:</c> form, or empty for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Half of the link doc 47 persists; <see cref="Source" /> is the other half.</b> Together
+    ///         they are what <c>PrefabLink</c> already holds for an editing session, written down so that
+    ///         an instance placed today is still an instance tomorrow.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The reference text rather than a bare id</b>, for <see cref="Asset" />'s reason:
+    ///         <c>ReferenceIndex</c> finds what a file points at by scanning for <c>vx:</c> followed by
+    ///         thirty-two hex digits, and an <c>AssetId</c> bound as a bare scalar is invisible to it. A
+    ///         scene whose prefab the index could not see is one the editor would offer to delete the
+    ///         prefab out from under.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On every node of an instance rather than on its root alone.</b> The root-only form is
+    ///         smaller and cannot survive what the editor already allows: <c>PrefabInstances.Forget</c>
+    ///         unpacks <i>one</i> entity deliberately, so a root can be unpacked with its children still
+    ///         linked — which would leave a <see cref="Source" /> with nothing above it to be interpreted
+    ///         against. A complete record per entity makes unpacking, reparenting and a hand-merge all
+    ///         local edits.
+    ///     </para>
+    /// </remarks>
+    public string Prefab { get; set; } = string.Empty;
+
+    /// <summary>Which entity inside that prefab this one was stamped from.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="EntityId.None" /> means "not from a prefab", and it is the only zero here that
+    ///     is allowed to mean absence.</b> An id is minted rather than counted, so nothing can be
+    ///     legitimately zero — unlike a member's value, which is why <see cref="Overrides" /> is a list of
+    ///     names and not a comparison against defaults.
+    /// </remarks>
+    public EntityId Source { get; set; }
+
+    /// <summary>Which of this entity's members are the instance's own rather than the template's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠⚠ <b>An explicit list, never inferred from the values, and this is the whole point of doc
+    ///         47.</b> If being overridden meant "differs from the template" or "is not the default", then
+    ///         an author who turns a lamp's intensity down to <c>0</c> has said something the file cannot
+    ///         represent — and the next reconcile would read a default, decide nothing was overridden, and
+    ///         restore the template's brightness. Presence in this list <i>is</i> the override; the value
+    ///         is whatever it is, including zero, including a value identical to the template's.
+    ///     </para>
+    ///     <para>
+    ///         <b>A member, not a component and not an entity.</b> An author who nudged an instance's lamp
+    ///         should still receive the template's later change to that lamp's colour. It is also what the
+    ///         inspector already shows — <c>IPrefabSource</c> answers per <c>InspectorMember</c> — so
+    ///         anything coarser would be a file that cannot express what the UI displays.
+    ///     </para>
+    ///     <para>
+    ///         Spelled <c>Member</c> for one of this entity's own — <see cref="Name" />,
+    ///         <see cref="Position" />, <see cref="Rotation" />, <see cref="Scale" /> — or
+    ///         <c>Alias.Member</c> for one inside <see cref="Components" />. The alias rather than an index
+    ///         into the list, because the list is sorted by name and an index moves the moment a component
+    ///         is added. See <c>PrefabOverrides</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Settable, which a collection property usually should not be</b>, for the reason
+    ///         <see cref="Children" /> gives: the binder takes part only in members it can write, on both
+    ///         sides, so a get-only list here would be written and then silently skipped on load.
+    ///     </para>
+    /// </remarks>
+    public List<string> Overrides { get; set; } = [];
+
     /// <summary>The editable geometry this entity carries, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     <para>

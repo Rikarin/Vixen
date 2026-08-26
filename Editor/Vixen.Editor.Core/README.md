@@ -310,6 +310,35 @@ neither should have to reference the other. It is the file format and not the do
 no command stack, nothing but the shape on disk and the version check that refuses a file from a
 newer build.
 
+### Prefab instances and their overrides
+
+`Scenes/PrefabOverrides.cs` is the other half: three keys on `SceneEntityData` — `Prefab`, `Source`
+and `Overrides` — plus the pure logic that reads a member by path, marks and clears an override, and
+brings a scene back in step with a prefab that has changed underneath it.
+[plan/47](../../docs/plan/47-prefab-overrides-and-nested-prefabs.md) is the decision record and
+[the guide page](../../docs/guide/editor/prefab-overrides.md) is how to use it.
+
+Three things are worth knowing before touching it:
+
+⚠⚠ **The override list is names, never a comparison.** If overridden-ness were "differs from the
+template" or "is not the default", an author who turns a lamp's intensity down to `0` has said
+something the file cannot represent, and the next reconcile turns it back on. Presence in the list
+*is* the override.
+
+⚠ **The file keeps every value in full**, rather than only the overrides, because an importer is
+handed an `AssetId` and no way to resolve one to a path — so `SceneCompiler` could not open the
+prefab an instance names. That makes the three keys additive: the compiled path, the runtime and
+every scene already on disk are untouched, and a missing prefab degrades to an ordinary subtree
+rather than an empty one.
+
+⚠ **A reconcile writes values and removes nothing** — not an entity, not a key, not an override
+entry. Everything it cannot resolve comes back as a `PrefabReport` and stays in the file, because a
+subtree deleted on open is unrecoverable and a dropped override is silent.
+
+It is pure over the format: no `World`, no `SceneDocument`, no project on disk. What is *not* here is
+the wiring — `SceneSerializer` does not yet read or write the keys, which waits on an editor verb
+that places a prefab into a scene at all.
+
 ## What is not here yet
 
 The document model is the vocabulary and the stacks; the concrete documents live where their subject

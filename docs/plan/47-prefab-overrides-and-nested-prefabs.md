@@ -1,0 +1,308 @@
+# 47 — Prefab Overrides and Nested Prefabs
+
+⚠️ **Extends [08](08-asset-pipeline-and-addressables.md) and [11](11-editor.md), and resolves
+[15](15-risks-and-open-questions.md)'s R7 into a format.** R7 is the largest unstarted item in the
+scene layer and it is a risk because it is a *format* decision: a prefab instance's shape in a
+`.vxscene` is the thing that cannot be changed afterwards without a migration over every level in
+every project. This document decides the format, costs the three models that were candidates, and
+names the slice built first.
+
+R7's own mitigation already fixed the target: **"a restricted model in 1.0 — prefab instances with a
+sparse property-override list, single-level nesting, no prefab variants"**
+([15](15-risks-and-open-questions.md) § R7). This is that, made precise, plus one correction it could
+not have known about — the content build cannot resolve an asset id to a path, which rules out the
+one model everybody reaches for first.
+
+Every claim below was checked against the tree rather than recalled.
+
+---
+
+## 1. What exists
+
+There are two unrelated things called a prefab in this repository, and conflating them is the first
+way to get this wrong.
+
+| | `Prefab` (runtime) | `PrefabInstances` / `Prefab` (editor) |
+|---|---|---|
+| Where | `Core/Vixen.Engine/Scenes/Prefab.cs` | `Editor/Vixen.Editor.AssetEditors/Prefabs/Prefabs.cs` |
+| What it is | A captured `World`, stamped out with one `CreateMany` per archetype | A dictionary from `Entity` to `PrefabLink(AssetId, EntityId)` |
+| Source link | **None.** `CaptureFrom` is a copy; the doc comment says so in as many words | The link, and only for the editing session |
+| Serialised | Never. `PrefabAsset` is the compiled chunk, already flattened | Never |
+
+The **authoring** format is `SceneFile` / `SceneEntityData` in
+`Editor/Vixen.Editor.Core/Scenes/SceneFormat.cs`, read and written by `SceneSerializer`
+(`Editor/Vixen.Editor.SceneView/SceneSerializer.cs`) and compiled by `SceneImporter` →
+`SceneCompiler`. A `.vxprefab` is the same format with a one-root rule.
+
+What is already built and must not be duplicated:
+
+- **`EntityId`** (`SceneFormat.cs:37`) — a GUID identity that survives a save. Its own doc comment
+  already names "a prefab override" as one of the three things it exists for.
+- **`PrefabLink`** (`Prefabs.cs:22`) — `(AssetId Prefab, EntityId Source)`. The link's shape is
+  decided; only its persistence is not.
+- **`SceneSerializer.Instantiate(..., sources)`** (`SceneSerializer.cs:323`) — instantiating a
+  template into a document *without* adopting its ids, filling a map of entity → the id the file
+  gave it. Its remarks already say this "is also exactly what an override comparison needs".
+- **`IPrefabSource`** (`Editor/Vixen.Editor.Inspector/InspectorField.cs:201`), `PrefabSource`
+  (`Prefabs.cs:203`), `InspectorField.IsOverridden` / `CanRevertToPrefab` and the revert button
+  (`InspectorView.cs:599`) — the inspector's whole override *presentation* exists and works at
+  **member** granularity, which constrains the format: anything coarser than a member would be a
+  file that cannot express what the UI already shows.
+
+So the overview's row is right in letter — nothing named `Override` exists under
+`Core/Vixen.Engine/Scenes` — and understates what is there. Roughly half of an override system is
+built. What is missing is the half that survives closing the project.
+
+⚠ **`PrefabInstances` and `Prefab.Instantiate` have no caller outside
+`Editor/Vixen.Editor.AssetEditors.Tests/PrefabTests.cs`.** Nothing in the editor shell places a
+prefab into a scene yet. That is worth knowing before plumbing anything through `SceneSerializer` to
+serve a caller that does not exist.
+
+---
+
+## 2. The constraint that decides the format
+
+⚠ **An importer cannot turn an `AssetId` into a path, so it cannot open the prefab a scene names.**
+
+`ImportContext` (`Editor/Vixen.Editor.Assets/ImportContext.cs`) offers the importer its own `Guid`
+(:38), its own `SourcePath` (:41), an `IFileProvider` over *paths* (:56), and `DependsOn(AssetId)`
+(:108) — which **declares** an edge for cache invalidation and returns nothing. There is no
+`Resolve(AssetId) → VirtualPath` and no way to read another asset's source.
+
+This is not a new discovery; it is the same wall recorded against navigation's placement bake in
+[`overview.md`](../overview.md):
+
+> ⛔ Navigation: bake placements from a scene — NOT K1's after all. An importer can declare an asset
+> GUID and cannot resolve one to a path
+
+It has a consequence R7 could not have anticipated: **a `.vxscene` that stored only the link and the
+overrides would not compile.** `SceneCompiler` would reach an instance root, find an asset id and a
+patch, and have no way to obtain the template the patch is against. It would emit an entity with the
+overridden members and nothing else.
+
+That is the single fact that picks the model.
+
+---
+
+## 3. The three models, costed
+
+### (A) Implicit — no format at all
+
+Keep writing every value in full, as today, and compute "is this overridden" by comparing against the
+template whenever the prefab happens to be open. This is exactly what `PrefabSource.IsOverridden`
+(`Prefabs.cs:242`) does now.
+
+**Rejected.** Two failures, and the second is fatal:
+
+1. It cannot tell "the author deliberately set this to the template's value" from "not overridden".
+   That is only cosmetic — a revert button that is greyed out when it should not be.
+2. **A template change can never propagate.** The file holds a resolved value for every member, and
+   nothing says which of them the author chose. So the reconciler has no safe move: taking the
+   template's value everywhere discards the author's edits, and taking the file's value everywhere is
+   what already happens and means a prefab is a stamp rather than a link. *Propagation is the entire
+   reason a prefab exists*, so a model that structurally cannot do it is not a candidate.
+
+### (B) Pure sparse patch — Unity's model
+
+The scene stores the link and the overrides and **nothing else**; the template supplies the rest,
+resolved at load.
+
+**Rejected, and not on taste.**
+
+- **It does not compile** — § 2. Fixing it means giving `ImportContext` an asset-id → path resolver,
+  which is a change to the asset pipeline's contract with every importer, and is the same unblocking
+  work navigation's bake needs. That may well be worth doing; it is not worth doing *inside* the
+  format decision it would unblock.
+- **A missing prefab becomes destructive.** A renamed, unbuilt or not-yet-imported `.vxprefab` turns
+  every instance of it into an entity with a transform and no content. Under (C) the same case
+  degrades to an ordinary subtree with its links intact.
+- **It cannot be reviewed.** A `.vxscene` is a file people merge by hand — that is the stated reason
+  the whole authoring format is YAML (`SceneFormat.cs:484-487`). A level whose contents are a hundred
+  asset ids and a patch list is not a file anybody can read a diff of.
+
+It is the right long-term model and it is blocked on work outside this document.
+
+### (C) Resolved, with provenance — **chosen**
+
+The file keeps carrying every entity's full, resolved values exactly as it does today, and gains
+three additive keys per entity saying **where the entity came from** and **which of its members are
+the instance's own**. Reconciliation against a changed template is an editor-side pass at open time
+that rewrites the non-overridden members in place.
+
+- The compiled path does not change at all. `SceneCompiler`, `SceneAsset`, the runtime and every
+  saved scene are untouched: the new keys are three more keys the binder ignores when they are
+  absent, and three the compiler never looks at.
+- A missing or newer prefab degrades to an ordinary subtree carrying dead links, which come back the
+  moment the asset does. Nothing is deleted, ever.
+- The diff stays reviewable, and gains one line per instance entity saying what it is.
+- It is a superset of (B): if `ImportContext` later learns to resolve an id, dropping the resolved
+  values is a writer change and a format version bump, with every override already recorded.
+
+**What it costs:** redundancy. The file holds values the template also holds, so a template edited
+while a level is closed leaves that level stale until it is next opened. That is a real cost and it
+is the price of not blocking on the pipeline. It is bounded — the staleness is visible, reported, and
+repaired on open — and it is the only one of the three costs above that is not a data-loss bug.
+
+---
+
+## 4. The format
+
+Three keys on `SceneEntityData`, all additive, all with a default meaning "not an instance".
+
+```yaml
+- id: 7f3a…c1
+  name: Turret
+  position: {x: 4, y: 0, z: 2}
+  prefab: vx:9c2e4f1a8b7d6e5f0a1b2c3d4e5f6071      # which prefab asset
+  source: 1a2b3c4d5e6f70819a0b1c2d3e4f5061        # which entity inside it
+  overrides: [Position, Light.Intensity]           # which members are this instance's own
+  components:
+    - !Light
+      intensity: 0                                 # ← overridden *to zero*, and the list says so
+```
+
+| Key | Type | Absent means |
+|---|---|---|
+| `prefab` | `string`, `vx:` reference text | not from a prefab |
+| `source` | `EntityId` | not from a prefab |
+| `overrides` | `List<string>` | every member is the template's |
+
+### Four decisions inside that
+
+**⚠ `prefab` is the reference *text*, not a bare `AssetId`.** The reason is `SceneEntityData.Asset`'s,
+spelled out at `SceneFormat.cs:311-321`: `ReferenceIndex` answers "what breaks if I delete this" by
+scanning for `vx:` followed by thirty-two hex digits, and an `AssetId` bound as a bare scalar is
+invisible to it. A scene whose prefab reference the index could not see is a scene the editor would
+offer to delete the prefab out from under.
+
+**⚠ Both keys on every node of an instance, not `prefab` on the root alone.** The root-only form is
+smaller and is wrong: `PrefabInstances.Forget` (`Prefabs.cs:70`) deliberately allows unpacking *one*
+entity of an instance, so an author can unpack the root and keep the children linked — which under
+the root-only form leaves `source` keys with nothing above them to interpret against. Making each
+entity's record complete on its own means unpacking, reparenting and hand-merging are all local
+edits. The cost is one extra line per instance entity in a format that already writes `shape: ''` and
+`light: null` on every entity.
+
+**⚠⚠ `overrides` is an explicit list of names, never inferred from the values.** This is the zero-value
+trap, and it is the single most likely way to get an override system subtly wrong. If overridden-ness
+were "differs from the template" or "is not the default", then an author who turns a lamp's intensity
+down to `0` has said something the file cannot represent — the next reconcile would see a default and
+restore the template's brightness. Presence in the list *is* the override; the value is whatever it
+is, including zero, including a value identical to the template's.
+
+**⚠ Member granularity, addressed as `Alias.Member` or a bare `Member`.** A bare name is one of the
+entity's own keys (`Name`, `Position`, `Rotation`, `Scale`); a dotted name is a `[DataContract]`
+alias and a member on it, resolved through `TypeRegistry.TryGetByAlias` →
+`TypeDescriptor.FindMember`. Aliases are unique per entity — an ECS entity has one of each component
+type, and `SceneBehaviorRegistry.Register` refuses a name a component already holds — so the alias is
+enough to name the entry without an index into `Components`. An index would be worse: it moves when
+the sorted component list changes.
+
+Coarser granularities were considered and rejected. Component granularity means an author who nudged
+an instance's lamp loses the template's later change to that lamp's *colour*; entity granularity means
+they lose the template's change to anything on that entity. Both are also strictly less than the
+inspector already displays.
+
+---
+
+## 5. What happens when the template changes underneath
+
+The decision `overview.md` names as owed. **Reconciliation is an editor-side pass at open time. It
+never runs in the content build and never runs at run time**, because neither can resolve the prefab
+(§ 2) and neither has anything to do with an authoring decision.
+
+For each entity carrying a `prefab` and a `source`, against the template entity of that id:
+
+| Case | What happens | Why |
+|---|---|---|
+| Member **not** in `overrides` | Takes the template's value | This is propagation, and it is the point |
+| Member **in** `overrides` | The file's value is kept, untouched | This is the override, and it is the point |
+| `source` names no entity in the template | Entity is **kept**, reported | The template deleted it. Deleting the author's entity on open is unrecoverable; the editor offers *unpack* or *delete* and a person decides |
+| A path in `overrides` names no member | Kept in the file verbatim, reported | A component removed and re-added, or a rename in flight. **Never silently pruned** — a round trip that loses an override is silent, which is the failure this whole document exists to prevent |
+| Template has a component the instance does not | Reported, **not added** | Adding one means constructing a value the instance never had. `Apply` writes members it can see on both sides and nothing else, which is what keeps it a value copy rather than a merge |
+| Instance has a component the template does not | Left alone, not reported | An addition, and additions are the case that needs no syntax — § 6 |
+| Template has an entity no instance node names | Reported, **not added** | See § 6 |
+| The prefab asset is missing entirely | The instance loads as an ordinary subtree, links intact, reported | An unbuilt or renamed asset must not be a data loss |
+
+The invariant, and it is the one rule to keep: **reconciliation writes values and never removes
+entities, keys or override entries.** Everything it cannot resolve is reported and left in the file.
+
+---
+
+## 6. What this model cannot yet say, and when that bites
+
+**An added child needs no syntax and works today.** It is a `SceneEntityData` inside an instance's
+subtree with no `source` key. Because the file carries everything, it survives with no further
+machinery.
+
+**⚠ A removed child is the hole, and it is load-bearing for the next slice.** With the file carrying
+resolved values and reconciliation not adding template entities back, a child the author deleted is
+simply absent, and absence is stable — so the model is sound *as long as the add-back rule does not
+exist*. The moment reconciliation learns to add a template's new children, absence becomes ambiguous:
+"the author deleted this" and "the template added this since" look identical. **Adding the add-back
+rule therefore requires an explicit `removed: [<EntityId>, …]` list on the instance root in the same
+change.** Landing one without the other is how a level quietly regrows the entities its designer
+deleted.
+
+**Nested prefabs — single level, per R7.** A `.vxprefab` may contain an instance of another prefab;
+because `prefab` and `source` are written on every node (§ 4), the inner nodes carry the inner link
+and the outer file carries them verbatim with no new syntax. What "single level" restricts is
+reconciliation: one pass, outer over inner, not a fixpoint. **Prefab variants — a prefab that is
+itself an override of another prefab — are out of 1.0**, as R7 requires.
+
+---
+
+## 7. The slice built first
+
+**Format and reconciliation, in `Vixen.Editor.Core`, with no world and no document.**
+
+1. The three keys on `SceneEntityData`, with the doc comments this file's decisions come from.
+2. `PrefabOverrides` — pure functions over `SceneEntityData` and `SceneFile`: is a member overridden,
+   mark and clear one, and reconcile a scene against a template with the report table of § 5.
+3. Round-trip tests including the two silent failures: an override of a value to zero, and a
+   save → load → save byte comparison.
+
+It is testable without a project on disk, without a `World` and without a `SceneDocument`, and it is
+precisely the half `overview.md` says does not exist. `SceneSerializer` and `PrefabInstances` are
+**deliberately not touched**: nothing in the shell places a prefab yet (§ 1), so plumbing them now
+would be building the pipe before the tap.
+
+Owed, in order:
+
+| | Owed | Blocked on |
+|---|---|---|
+| 1 | `SceneSerializer` writes and reads the three keys; `PrefabInstances` is filled from them | An editor verb that places a prefab |
+| 2 | Reconcile on open, wired to the asset database that can resolve an id to a path | Nothing |
+| 3 | Add-back of template children, **with** the `removed` list of § 6 | Slice 2 |
+| 4 | Nested reconciliation, one level | Slice 2 |
+| 5 | Model (B) — drop the resolved values, bump the format version | `ImportContext` resolving an `AssetId` to a path; shared with navigation's placement bake |
+
+---
+
+## 8. Compatibility
+
+**The serialised form does not change for any existing file.** The three keys are additive and their
+defaults mean "not an instance", so every `.vxscene` and `.vxprefab` in every project reads and
+writes byte-identically. `SceneFile.Current` stays at `1`: a version bump exists to stop an *older*
+reader from binding half a newer file, and an older reader meeting these keys binds a scene that is
+correct in every respect except that it does not know an entity came from a prefab — which is exactly
+what it believed before.
+
+⚠ **No component layout changes**, so task #325's decision is not touched. Nothing here reaches
+`SceneComponentRegistry`, the compiled chunk, or any `[Component]` struct.
+
+⚠ **What it does cost: three lines per entity on the next save of every scene.** `OmitDefaults` is a
+property of the whole document and is deliberately off for this format (`SceneEntityData.Shape`'s
+remarks), so a newly written scene already carries `shape: ''` and `light: null` on every entity and
+will now carry `prefab: ''`, `source: 00000000…` and `overrides: []` beside them. Reading is
+unaffected and no data moves; what happens is that the first save after this lands rewrites the file.
+This is the same churn the format took when `Shape` and `Light` became components, and the same
+answer applies: it is the price of a format with no member-level omission, and the fix — if it is
+ever worth one — is `OmitDefaults` or member-level omission for the whole document rather than a
+special case for these keys.
+
+⚠ **`SceneScalars.Register` already covers the new keys.** `EntityId` is registered as a scalar there
+(`SceneScalars.cs`), and `MathScalars.Register()` is called from the same place — so an override on a
+`Vector3`-valued member reads back as the value and not as zero. The trap is real and this format is
+downstream of the fix rather than needing its own; a *new* asset type carrying these keys would need
+its own `Register` call before anything scene-shaped runs.
