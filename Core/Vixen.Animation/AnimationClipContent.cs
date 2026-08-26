@@ -190,6 +190,62 @@ public sealed class AnimationClipContent {
         return false;
     }
 
+    /// <summary>One named blend shape's weight at a time, without a rig.</summary>
+    /// <param name="shape">The shape's name, as the mesh calls it.</param>
+    /// <param name="time">When, in seconds. Clamped to the clip.</param>
+    /// <param name="weight">Its weight, or zero when the clip does not drive it.</param>
+    /// <returns>Whether the clip drives that shape at all.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="TrySample" />'s sibling, and it exists for the same reason.</b> A morphed
+    ///         mesh does not have to be a character: a hand-keyed head on a segmented rig, a machine
+    ///         that flexes, a face that blinks on a prop. <see cref="Bake(Skeleton, string?)" />
+    ///         resolves channels into joint indices and a morphed mesh's node is not a joint, so
+    ///         demanding a <see cref="Skeleton" /> here means inventing one for something that has
+    ///         none. A character with an <c>Animator</c> should take the baked path and let
+    ///         <c>BlendShapeAnimationSystem</c> land the weights.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The return value is the fact, not the weight.</b> A caller that read a false as a
+    ///         weight of zero would push a face to rest every time it played a clip that says nothing
+    ///         about that shape — <c>AnimationClip.TrySampleWeight</c>'s own rule, and the difference
+    ///         between an additive facial layer and an accidental override.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>By name, and the name is the shape's and not the channel's target.</b> A clip may
+    ///         carry the same shape name under two nodes if a model has two morphed meshes; the first
+    ///         match wins, which is <c>AnimationClip.Create</c>'s rule for a duplicate and is the one
+    ///         an author would find in the file.
+    ///     </para>
+    /// </remarks>
+    public bool TrySampleWeight(string shape, float time, out float weight) {
+        ArgumentNullException.ThrowIfNull(shape);
+
+        weight = 0f;
+
+        if (Data.Channels is not { } channels) {
+            return false;
+        }
+
+        foreach (var channel in channels) {
+            // The length of the time array is what says a channel has a weight track — a weight of
+            // zero is an authored value and a face at rest, so "no keys" and "a key at zero" are
+            // different facts. AnimationChannel.WeightTimes says so itself.
+            if (channel.WeightTimes is not { Length: > 0 }
+                || !string.Equals(channel.Shape, shape, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var at = Math.Clamp(time, 0f, Data.Duration > 0f ? Data.Duration : time);
+
+            weight = Interpolate(channel.WeightTimes, channel.Weights, at, 0f, static (a, b, t) => a + ((b - a) * t));
+
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>One component track at a time, held at both ends.</summary>
     /// <remarks>
     ///     Held rather than extrapolated, which is <see cref="AnimationClip" />'s rule and

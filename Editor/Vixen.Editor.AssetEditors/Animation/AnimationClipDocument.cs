@@ -192,34 +192,56 @@ public sealed class AnimationClipDocument : EditorDocument {
     /// <summary>The curve driving one property of one target, or <see langword="null" />.</summary>
     /// <param name="target">The target.</param>
     /// <param name="property">Which number.</param>
+    /// <param name="shape">
+    ///     Which blend shape, when the property is <see cref="AnimationProperty.Weight" />; empty for
+    ///     every other property.
+    /// </param>
     /// <returns>The curve.</returns>
-    public static AnimationCurveData? Curve(AnimationTargetData target, AnimationProperty property) {
+    /// <remarks>
+    ///     ⚠ <b>A curve is identified by the pair and not by the property.</b> A morphed mesh's node
+    ///     carries one weight curve per shape, so a lookup by property alone would find whichever one
+    ///     the list happened to hold first — and every edit would land on it.
+    /// </remarks>
+    public static AnimationCurveData? Curve(
+        AnimationTargetData target,
+        AnimationProperty property,
+        string shape = ""
+    ) {
         ArgumentNullException.ThrowIfNull(target);
 
-        return target.Curves.Find(curve => curve.Property == property);
+        return AnimationClipAsset.Find(target, property, shape ?? string.Empty);
     }
 
     /// <summary>Replaces one curve's keys, undoably.</summary>
     /// <param name="target">The target it belongs to.</param>
     /// <param name="property">Which number it drives.</param>
     /// <param name="keys">Its new keys.</param>
+    /// <param name="shape">Which blend shape, for a weight curve; empty otherwise.</param>
     /// <remarks>
     ///     ⚠ <b>An empty list removes the curve rather than leaving one with no keys.</b> The two are
     ///     different things downstream — see <see cref="AnimationClipAsset.ToClipData" />'s note about
     ///     a group with no curves — and an editor that left empty curves behind would turn "delete
     ///     every key" into "hold this joint at its rest pose", which is the opposite instruction.
     /// </remarks>
-    public void SetCurve(AnimationTargetData target, AnimationProperty property, IReadOnlyList<AnimationKeyData> keys) {
+    public void SetCurve(
+        AnimationTargetData target,
+        AnimationProperty property,
+        IReadOnlyList<AnimationKeyData> keys,
+        string shape = ""
+    ) {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(keys);
 
-        var previous = Curve(target, property);
+        shape ??= string.Empty;
+
+        var previous = Curve(target, property, shape);
         var index = previous is null ? target.Curves.Count : target.Curves.IndexOf(previous);
 
         var replacement = keys.Count == 0
             ? null
             : new AnimationCurveData {
                 Property = property,
+                Shape = shape,
                 Keys = [.. keys.OrderBy(key => key.Time)]
             };
 
@@ -251,15 +273,24 @@ public sealed class AnimationClipDocument : EditorDocument {
     /// <param name="property">Which number.</param>
     /// <param name="time">When.</param>
     /// <param name="value">What.</param>
-    public void AddKey(AnimationTargetData target, AnimationProperty property, float time, float value) {
+    /// <param name="shape">Which blend shape, for a weight curve; empty otherwise.</param>
+    public void AddKey(
+        AnimationTargetData target,
+        AnimationProperty property,
+        float time,
+        float value,
+        string shape = ""
+    ) {
         ArgumentNullException.ThrowIfNull(target);
 
-        List<AnimationKeyData> keys = Curve(target, property) is { } curve
+        shape ??= string.Empty;
+
+        List<AnimationKeyData> keys = Curve(target, property, shape) is { } curve
             ? [.. curve.Keys.Where(key => Math.Abs(key.Time - time) > KeyEpsilon).Select(Copy)]
             : [];
 
         keys.Add(new() { Time = time, Value = value });
-        SetCurve(target, property, keys);
+        SetCurve(target, property, keys, shape);
     }
 
     /// <summary>How close two keys have to be before one replaces the other, in seconds.</summary>
@@ -601,11 +632,17 @@ public sealed class AnimationClipDocument : EditorDocument {
     /// <param name="target">The target.</param>
     /// <param name="property">Which number.</param>
     /// <param name="time">When.</param>
+    /// <param name="shape">Which blend shape, for a weight curve; empty otherwise.</param>
     /// <returns>The value.</returns>
-    public static float Evaluate(AnimationTargetData target, AnimationProperty property, float time) {
+    public static float Evaluate(
+        AnimationTargetData target,
+        AnimationProperty property,
+        float time,
+        string shape = ""
+    ) {
         ArgumentNullException.ThrowIfNull(target);
 
-        return Curve(target, property) is { Keys.Count: > 0 } curve
+        return Curve(target, property, shape ?? string.Empty) is { Keys.Count: > 0 } curve
             ? AnimationClipCurves.ToCurve(curve).Evaluate(time)
             : AnimationClipCurves.Rest(property);
     }

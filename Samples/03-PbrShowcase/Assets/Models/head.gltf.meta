@@ -1,0 +1,8 @@
+guid: 81350a885d294aa895774a062d75da0f
+metaVersion: 1
+importer: !ModelImporter
+  version: 11
+  sourceHash: d0243bd8abea3b96c3e76fb04bd229d5
+subAssets:
+  - { id: 76f006cc, name: Head, type: Mesh }
+  - { id: e823f376, name: Head Field, type: DistanceField }

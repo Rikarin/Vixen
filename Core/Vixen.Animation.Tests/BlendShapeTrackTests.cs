@@ -449,6 +449,93 @@ public class BlendShapeTrackTests {
         Assert.Null(world.Read<BlendShapeWeights>(entity).Weights);
     }
 
+    // --- The rig-free sampler ----------------------------------------------
+
+    /// <summary>
+    ///     A clip whose duration is <b>not</b> one second, so that seconds and a normalised fraction
+    ///     cannot be confused.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Every other fixture in this file is one second long, and that makes them blind to a
+    ///     whole class of bug.</b> At a duration of one, <c>time</c> and <c>time / Duration</c> are
+    ///     the same number, so a sampler that divided by the duration once too often — or clamped
+    ///     against 1 instead of against the length — would agree with the correct answer on every
+    ///     assertion above. Two and a half seconds with keys at 0, 0.5 and 2.5 separates them, and
+    ///     the values are still halves and quarters so the assertions stay exact.
+    /// </remarks>
+    static AnimationClipContent Expression() =>
+        new() {
+            Name = "Expression",
+            Data = new() {
+                Name = "Expression",
+                Duration = 2.5f,
+                Channels = [
+                    new() {
+                        Target = "Mid",
+                        PositionTimes = [0f, 2.5f],
+                        Positions = [Vector3.Zero, new(0f, 0f, 4f)]
+                    },
+                    new() {
+                        Target = "Head",
+                        Shape = "jawOpen",
+                        WeightTimes = [0f, 0.5f, 2.5f],
+                        Weights = [0f, 1f, 0f]
+                    }
+                ]
+            }
+        };
+
+    /// <summary>The rig-free sampler reads a weight in <em>seconds</em>, and holds it at both ends.</summary>
+    /// <remarks>
+    ///     <c>AnimationClipContent.TrySampleWeight</c> is what a morphed mesh with no skeleton uses —
+    ///     a head that is one mesh has no joint to resolve a channel against, and inventing a
+    ///     skeleton for it is what <c>TrySample</c> already refused to make anybody do.
+    /// </remarks>
+    [Fact]
+    public void TheRigFreeSamplerReadsAWeightInSecondsAndHoldsItAtBothEnds() {
+        var clip = Expression();
+
+        Assert.True(clip.TrySampleWeight("jawOpen", 0f, out var rest));
+        Assert.Equal(0f, rest);
+
+        // Halfway up the first segment: 0.25 s of a 0.5 s ramp.
+        Assert.True(clip.TrySampleWeight("jawOpen", 0.25f, out var rising));
+        Assert.Equal(0.5f, rising);
+
+        Assert.True(clip.TrySampleWeight("jawOpen", 0.5f, out var open));
+        Assert.Equal(1f, open);
+
+        // ⚠ 1.5 s is the midpoint of the 0.5 s → 2.5 s fall, and it is the assertion a one-second
+        // fixture cannot make: a sampler reading a fraction rather than seconds would answer with
+        // the value at 1.5 *seconds past the end* instead, which is the held 0.
+        Assert.True(clip.TrySampleWeight("jawOpen", 1.5f, out var falling));
+        Assert.Equal(0.5f, falling);
+
+        Assert.True(clip.TrySampleWeight("jawOpen", -3f, out var before));
+        Assert.Equal(0f, before);
+
+        Assert.True(clip.TrySampleWeight("jawOpen", 40f, out var after));
+        Assert.Equal(0f, after);
+    }
+
+    /// <summary>A shape the clip says nothing about answers false, and false is not a weight.</summary>
+    /// <remarks>
+    ///     ⚠ The bool is the fact. A caller that read a false as zero would push a face to rest every
+    ///     time it played a clip that says nothing about that shape, which is an additive facial
+    ///     layer turned into an override by accident.
+    /// </remarks>
+    [Fact]
+    public void TheRigFreeSamplerSaysWhetherTheClipDrivesTheShapeAtAll() {
+        var clip = Expression();
+
+        Assert.False(clip.TrySampleWeight("browRaise", 1f, out var unknown));
+        Assert.Equal(0f, unknown);
+
+        // And a transform channel is not a weight channel, however it is named: the target here is
+        // "Mid", which the clip does animate — as a joint.
+        Assert.False(clip.TrySampleWeight("Mid", 1f, out _));
+    }
+
     static Animator Playing(AnimationClipData data) {
         var animator = new Animator(TestRigs.Chain());
         var clip = new ClipMotion(AnimationClip.Create(data, animator.Skeleton));

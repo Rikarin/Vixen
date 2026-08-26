@@ -57,6 +57,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
         <!--
+            The morphed heads' clip. `AnimationClipContent` is the compiled `.vxanim`, and this is the
+            whole of what this project uses the animation assembly for — there is no skeleton here,
+            no animator and no blend tree, because a head that is one mesh has no rig to hang them on.
+            ⚠ The host does not bring this: Vixen.App's chain reaches Vixen.Engine.Renderer, which
+            references Vixen.Rendering for `BlendShapeWeights` and never Vixen.Animation. A project
+            that only sets weights from script needs neither line.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Animation\Vixen.Animation.csproj" />
+
+        <!--
             The Raven compiler, so a development build can compile the shipped shader library on
             demand — see DevelopmentEffects. ⚠ Deliberately not in a shipped game, which loads the
             bundle its content build baked instead.

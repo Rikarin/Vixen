@@ -181,9 +181,16 @@ so it is collected and read afterwards.
   guards it uses a four-second one.
 - ⚠ **`AnimationClip.UnresolvedChannels` does not count a weight channel**, which names the morphed
   mesh's node rather than a joint. Counting them would report a head's worth on every correct import.
-- **Owed:** hand-authoring one. `AnimationClipAsset` bakes through `AnimationProperty`, which has
-  `PositionX` through `ScaleZ` and no `Weight`, so an *imported* clip drives a shape and a `.vxanim`
-  written by hand does not.
+- **A `.vxanim` written by hand drives a shape too**, as of 2026-08-26. `AnimationProperty.Weight`
+  with `AnimationCurveData.Shape` beside it is the authored form, and `AnimationClipAsset.ToClipData`
+  bakes each weight curve into the same named scalar channel an import would have written.
+  `Samples/03-PbrShowcase/Assets/Animation/expression.vxanim` is the first one.
+- ⚠ **A rig-free weight sampler, for the same reason `TrySample` exists.**
+  `AnimationClipContent.TrySampleWeight(shape, seconds, out weight)` is what a morphed mesh with no
+  skeleton uses — a head that is one mesh has no joint to resolve a channel against, and
+  `AnimationClip.Create` needs one. A character with an `Animator` takes the baked path above; the
+  bool is the fact either way, because a false read as zero turns an additive facial layer into an
+  accidental override.
 
 ## Move sets and pose constraints
 

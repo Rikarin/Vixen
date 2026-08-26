@@ -16,12 +16,24 @@ namespace Vixen.Editor.AssetEditors.Animation;
 /// <summary>Which row of the dope sheet a timeline track is.</summary>
 /// <param name="Target">The object it drives, or <see langword="null" /> for the event track.</param>
 /// <param name="Property">Which of its numbers.</param>
+/// <param name="Shape">
+///     Which blend shape, when <paramref name="Property" /> is <see cref="AnimationProperty.Weight" />;
+///     empty for every other property.
+/// </param>
 /// <remarks>
-///     A tag on the track rather than a parallel list, because <see cref="Timeline" /> rebuilds its
-///     header rows as it scrolls — the same pooling the outliner does — and an index into a list
-///     beside it would name a different row after every rebuild.
+///     <para>
+///         A tag on the track rather than a parallel list, because <see cref="Timeline" /> rebuilds its
+///         header rows as it scrolls — the same pooling the outliner does — and an index into a list
+///         beside it would name a different row after every rebuild.
+///     </para>
+///     <para>
+///         ⚠ <b>Three parts and not two, because a face's node has one weight row per shape.</b>
+///         Twenty rows all tagged <c>(Head, Weight)</c> would be twenty rows that compare equal, and
+///         every one of this view's lookups — which track is this key on, which curve does the editor
+///         show, which curve does a delete edit — would answer with the first of them.
+///     </para>
 /// </remarks>
-public sealed record AnimationRow(AnimationTargetData? Target, AnimationProperty Property);
+public sealed record AnimationRow(AnimationTargetData? Target, AnimationProperty Property, string Shape = "");
 
 
 /// <summary>A clip, open for editing: a dope sheet, a curve editor, and an event track.</summary>
@@ -229,8 +241,11 @@ public sealed class AnimationClipView : Control {
 
         foreach (var target in clip.Clip.Targets) {
             foreach (var curve in target.Curves) {
-                var track = Sheet.AddTrack($"{target.Target} · {AnimationClipCurves.Label(curve.Property)}");
-                track.Tag = new AnimationRow(target, curve.Property);
+                var track = Sheet.AddTrack(
+                    $"{target.Target} · {AnimationClipCurves.Label(curve.Property, curve.Shape)}"
+                );
+
+                track.Tag = new AnimationRow(target, curve.Property, curve.Shape);
 
                 foreach (var key in curve.Keys) {
                     track.Add(key.Time, key);
@@ -295,7 +310,8 @@ public sealed class AnimationClipView : Control {
         // ⚠ A copy, not a live view. `CurveEditor` mutates what it is given as the pointer moves, and
         // handing it the document's own curve would make a drag an edit nothing recorded — see
         // `AnimationClipCurves`' own note.
-        Curves.Curve = row is { Target: { } target } && AnimationClipDocument.Curve(target, row.Property) is { } curve
+        Curves.Curve = row is { Target: { } target }
+            && AnimationClipDocument.Curve(target, row.Property, row.Shape) is { } curve
             ? AnimationClipCurves.ToCurve(curve)
             : new AnimationCurve();
 
@@ -305,7 +321,10 @@ public sealed class AnimationClipView : Control {
     /// <summary>The track showing a row, or <see langword="null" />.</summary>
     TimelineTrack? Find(AnimationRow wanted) {
         foreach (var track in Sheet.Tracks) {
-            if (track.Tag is AnimationRow tag && tag.Target == wanted.Target && tag.Property == wanted.Property) {
+            if (track.Tag is AnimationRow tag
+                && tag.Target == wanted.Target
+                && tag.Property == wanted.Property
+                && string.Equals(tag.Shape, wanted.Shape, StringComparison.Ordinal)) {
                 return track;
             }
         }
@@ -374,7 +393,7 @@ public sealed class AnimationClipView : Control {
                 });
             }
 
-            clip.SetCurve(tag.Target, tag.Property, keys);
+            clip.SetCurve(tag.Target, tag.Property, keys, tag.Shape);
         }
     }
 
@@ -384,7 +403,12 @@ public sealed class AnimationClipView : Control {
             return;
         }
 
-        clip.SetCurve(target, row.Property, AnimationClipCurves.ToData(row.Property, Curves.Curve).Keys);
+        clip.SetCurve(
+            target,
+            row.Property,
+            AnimationClipCurves.ToData(row.Property, Curves.Curve, row.Shape).Keys,
+            row.Shape
+        );
     }
 
     /// <summary>Rebuilds the list of what the proposal pass offered.</summary>
@@ -519,10 +543,10 @@ public sealed class AnimationClipView : Control {
             return;
         }
 
-        Fields.Add("animation-title").Text = AnimationClipCurves.Label(tag.Property);
+        Fields.Add("animation-title").Text = AnimationClipCurves.Label(tag.Property, tag.Shape);
 
-        Number("Time", key.Time, value => Rewrite(clip, target, tag.Property, key, value, key.Value));
-        Number("Value", key.Value, value => Rewrite(clip, target, tag.Property, key, key.Time, value));
+        Number("Time", key.Time, value => Rewrite(clip, target, tag, key, value, key.Value));
+        Number("Value", key.Value, value => Rewrite(clip, target, tag, key, key.Time, value));
 
         var mode = Fields.Add("fact-row");
         mode.Add("fact-name").Text = "Tangents";
@@ -541,7 +565,7 @@ public sealed class AnimationClipView : Control {
             }
 
             key.Mode = chosen;
-            Rewrite(clip, target, tag.Property, key, key.Time, key.Value);
+            Rewrite(clip, target, tag, key, key.Time, key.Value);
         };
 
         // Selecting a key in the sheet is what the curve editor follows, so switching to curve mode
@@ -552,12 +576,12 @@ public sealed class AnimationClipView : Control {
     static void Rewrite(
         AnimationClipDocument clip,
         AnimationTargetData target,
-        AnimationProperty property,
+        AnimationRow tag,
         AnimationKeyData key,
         float time,
         float value
     ) {
-        if (AnimationClipDocument.Curve(target, property) is not { } curve) {
+        if (AnimationClipDocument.Curve(target, tag.Property, tag.Shape) is not { } curve) {
             return;
         }
 
@@ -577,7 +601,7 @@ public sealed class AnimationClipView : Control {
             );
         }
 
-        clip.SetCurve(target, property, keys);
+        clip.SetCurve(target, tag.Property, keys, tag.Shape);
     }
 
     /// <summary>The panel for one constraint, built from the schema rather than written per kind.</summary>
@@ -716,7 +740,8 @@ public sealed class AnimationClipView : Control {
             target,
             current.Property,
             Sheet.Snap(Sheet.Time),
-            AnimationClipDocument.Evaluate(target, current.Property, Sheet.Time)
+            AnimationClipDocument.Evaluate(target, current.Property, Sheet.Time, current.Shape),
+            current.Shape
         );
     }
 
@@ -732,7 +757,9 @@ public sealed class AnimationClipView : Control {
                     clip.SetCurve(
                         target,
                         tag.Property,
-                        [.. AnimationClipDocument.Curve(target, tag.Property)?.Keys.Where(entry => !ReferenceEquals(entry, key)) ?? []]
+                        [.. AnimationClipDocument.Curve(target, tag.Property, tag.Shape)
+                            ?.Keys.Where(entry => !ReferenceEquals(entry, key)) ?? []],
+                        tag.Shape
                     );
 
                     break;

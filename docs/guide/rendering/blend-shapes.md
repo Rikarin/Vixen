@@ -3,8 +3,8 @@ title: Blend shapes
 slug: rendering/blend-shapes
 kind: concept
 area: Rendering
-summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass into a per-instance vertex buffer, so that every pass agrees about where a vertex is — driven by hand or by a clip's scalar weight track.
-api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, T:Vixen.Animation.MorphWeightBuffer, T:Vixen.Animation.Ecs.BlendShapeAnimationSystem, R:Pipeline/MorphScatter]
+summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass into a per-instance vertex buffer, so that every pass agrees about where a vertex is — driven by hand, by an imported clip, or by a weight curve typed into a .vxanim.
+api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, T:Vixen.Animation.MorphWeightBuffer, T:Vixen.Animation.AnimationClipContent, T:Vixen.Animation.Ecs.BlendShapeAnimationSystem, R:Pipeline/MorphScatter]
 tags: [rendering, animation, meshes, characters, morph-targets]
 since: 0.2
 status: preview
@@ -224,22 +224,82 @@ resident, shared by every instance of the mesh. `MorphTargetData.SizeInBytes` re
 Resident rather than streamed: the deltas are read by a pre-pass that runs whenever any weight is
 non-zero, which for a character on screen is every frame.
 
+### Writing a weight curve by hand
+
+A `.vxanim` is the authored form, and `Weight` is one of its properties. What identifies a curve
+there is the pair **(property, shape)** rather than the property alone, because a face's node carries
+one weight curve per shape:
+
+```yaml
+version: 2
+name: Expression
+duration: 2.4
+wrap: Loop
+targets:
+  - target: Head
+    curves:
+      - property: Weight
+        shape: jawOpen
+        keys:
+          - { time: 0.0, value: 0.0, mode: Auto }
+          - { time: 0.5, value: 1.0, mode: Auto }
+```
+
+`Samples/03-PbrShowcase/Assets/Animation/expression.vxanim` is the working example, and the editor's
+dope sheet shows one row per shape — `Head · Weight · jawOpen` — rather than one row called `Weight`.
+
+⚠ **`target` names the morphed mesh's *node*, not a joint**, which is what the imported form does and
+for the same reason. `AnimationClip.Create` resolves a weight channel before it looks a joint up, so
+a face's curves stay out of `UnresolvedChannels`. A target whose curves are *all* weight curves emits
+no transform channel at all — an empty one would put the mesh's node in that count, and a correct
+facial clip would report one unresolved channel per face.
+
+⚠ **A weight curve with no `shape` is a build error.** It is the one mistake this format makes easy
+and the one that says nothing: it would import, ship, play, and hold a face perfectly still.
+
+⚠ **`version: 2` is a compatibility fence, and it is the odd one out.** The two version bumps beside
+it — `ModelImporter.Version` 10 and `AnimationClipContent.Current` 2 — are re-import triggers: those
+are binary chunks whose generated reader takes an appended member as its default. This is YAML bound
+by name and the value that moved is inside an *enum*, which `Enum.Parse` throws on, so an older build
+meeting `property: Weight` fails outright. The number a file carries is therefore the minimum it
+needs: **a clip with no weight curve is still written as version 1**, so the rest of a project's
+clips are not fenced for a member none of them uses.
+
+### Driving one without a rig
+
+```csharp no-compile="a fragment; `clip` came out of the catalog and `head` is an entity"
+foreach (var (index, shape) in world.Read<BlendShapeWeights>(head).Shapes!.Index()) {
+    if (clip.TrySampleWeight(shape, seconds, out var weight)) {
+        weights[index] = weight;
+    }
+}
+```
+
+`AnimationClipContent.TrySampleWeight` is `TrySample`'s sibling and exists for its reason: half of
+what the authored format is for has no rig, and a head that is one mesh has no joint for
+`AnimationClip.Create` to resolve against. A character with an `Animator` should take the baked path
+and let `BlendShapeAnimationSystem` land the weights.
+
+⚠ **The loop is over `BlendShapeWeights.Shapes` and not over the clip**, and the return value is the
+fact rather than the weight. A shape the clip says nothing about keeps whatever a script set; a false
+read as zero is an additive facial layer turned into an override by accident.
+
 ## What is not built yet
 
-- **Hand-authoring a weight curve.** `AnimationClipAsset` — the `.vxanim` an author edits — bakes its
-  curves through `AnimationProperty`, which has `PositionX` through `ScaleZ` and no `Weight`. An
-  *imported* clip drives a shape today; **a clip written by hand does not**, and neither does the
-  editor's timeline offer a row for one.
 - **Cluster pages.** A virtualized mesh's vertices are packed into pages rather than a vertex buffer,
-  so morphing one is a different scatter against `ModelCompiler.PageAttributes`' layout. A virtualized
-  mesh is extracted down `VirtualGeometryRenderFeature`'s path and never reaches
-  `MorphRenderFeature.Attach` at all, so it draws at rest rather than wrongly.
+  so morphing one is a different scatter against `ModelCompiler.PageAttributes`' layout. ⚠ **Until
+  that exists, the importer refuses a cluster hierarchy for a morphed mesh** — `ModelImporter.Version`
+  11 — because `MeshExtractionSystem.Clustered` takes any mesh that has one down
+  `VirtualGeometryRenderFeature`'s path, which never reaches `MorphRenderFeature.Attach`. A head with
+  twenty shapes drew at rest with every weight applied to nothing, and said so nowhere.
 - **Device-local growth.** `MorphRenderFeature`'s buffer is fixed at construction and an instance that
   does not fit is refused — `GeometryBuffer`'s trade, for `GeometryBuffer`'s reason: the handle is
   already in every `MeshDraw` that was attached.
 
 ## See also
 
+- `Samples/03-PbrShowcase` — the two heads in the foreground, one at rest and one driven by
+  `expression.vxanim`. Its README says what to look at and why there are two.
 - [Meshes and materials, type by type](mesh-and-material.md) — where `MeshData` and `MeshDraw` sit in
   the chain.
 - `docs/plan/33-character-creator.md` § D4 — the design, and why it is a pre-pass.

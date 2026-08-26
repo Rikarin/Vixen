@@ -81,4 +81,31 @@ static partial class SampleLog {
             + "in the last frame."
     )]
     public static partial void GroundMotionReport(ILogger logger, bool active, int draws);
+
+    [LoggerMessage(
+        EventId = 14019,
+        Level = LogLevel.Warning,
+        Message = "Nothing is published at '{Address}', so the sample has no morphed head to show and the "
+            + "foreground is empty. The content build did not run, or it did not import the glTF."
+    )]
+    public static partial void NoHead(ILogger logger, string address);
+
+    [LoggerMessage(
+        EventId = 14020,
+        Level = LogLevel.Information,
+        Message = "The heads: {Shapes} shape(s) bound, weights [{Weights}] from '{Clip}'; the pre-pass held "
+            + "{Meshes} mesh(es) and {Instances} instance(s), and in the last frame copied {Copies} and "
+            + "dispatched {Dispatches} ({Dropped} dropped)."
+    )]
+    public static partial void MorphReport(
+        ILogger logger,
+        int shapes,
+        string weights,
+        string clip,
+        int meshes,
+        int instances,
+        int copies,
+        int dispatches,
+        int dropped
+    );
 }

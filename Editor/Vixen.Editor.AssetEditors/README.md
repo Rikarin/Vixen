@@ -349,7 +349,12 @@ every section beside the one before it.
   - **Animation clip** (`Animation/`) — `.vxanim` is ten scalar curves per target rather than three
     vector tracks, because a curve editor edits one number and a vector track cannot say "X has a key
     here and Y does not". `ToClipData` bakes back to the import's shape at the union of each group's
-    key times, not at a frame rate.
+    key times, not at a frame rate. An eleventh property, `Weight`, drives a blend shape;
+    ⚠ **it is the one that needs a `Shape` beside it, and the pair — not the property — is what
+    identifies a curve**, because a morphed mesh's node carries one weight curve per shape. So
+    `AnimationRow` is three parts, `Curve`/`SetCurve`/`AddKey`/`Evaluate` all take the shape, and the
+    dope sheet's row is `Head · Weight · jawOpen` rather than twenty rows called `Weight` that
+    compare equal.
   - **Animation graph** (`Animation/`) — document, view and factory over
     `Vixen.Editor.AnimationGraph`'s model. The state map draws its arrows and puts *elements* over the
     boxes, because `DrawContext` deliberately has no text: text in this framework is an element.

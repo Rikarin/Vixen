@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Animation;
 using Vixen.Animation.Constraints;
 using Vixen.Audio.Assets;
 using Vixen.Core;
 using Vixen.Core.Curves;
+using Vixen.Core.Mathematics;
+using Vixen.Rendering;
 using Vixen.Ecs;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.AssetEditors.Audio;
@@ -144,6 +147,166 @@ public class AuthoringTests {
         // A group with no curves produces no keys, which is different from one holding the rest
         // pose — see AnimationClipAsset.ToClipData.
         Assert.Empty(document.Clip.ToClipData().Channels[0].ScaleTimes);
+    }
+
+    /// <summary>A weight curve is bound by the shape's name, and each shape is its own row.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The pair identifies a curve, not the property.</b> A morphed mesh's node carries one
+    ///     weight curve per shape and every one of them is <c>Weight</c>, so a lookup by property
+    ///     alone finds whichever the list happens to hold first — and every edit lands on it. This is
+    ///     the assertion that keeps <c>Curve</c>, <c>SetCurve</c>, <c>AddKey</c> and <c>Evaluate</c>
+    ///     taking both halves.
+    /// </remarks>
+    [Fact]
+    public void EachBlendShapeIsItsOwnWeightCurveOnTheSameTarget() {
+        using var fixture = new EditorFixture();
+
+        var document = new AnimationClipDocument(
+            fixture.Project,
+            AssetId.Empty,
+            fixture.Write("Assets/Face.vxanim", string.Empty)
+        );
+
+        document.AddTarget("Head");
+
+        var target = document.Target("Head")!;
+
+        document.AddKey(target, AnimationProperty.Weight, 0f, 0f, "jawOpen");
+        document.AddKey(target, AnimationProperty.Weight, 2f, 1f, "jawOpen");
+        document.AddKey(target, AnimationProperty.Weight, 0f, 0.25f, "browRaise");
+
+        Assert.Equal(2, target.Curves.Count);
+        Assert.Equal(2, AnimationClipDocument.Curve(target, AnimationProperty.Weight, "jawOpen")!.Keys.Count);
+        Assert.Single(AnimationClipDocument.Curve(target, AnimationProperty.Weight, "browRaise")!.Keys);
+
+        // Sampled with the shape too, so the two curves cannot be read as one.
+        Assert.Equal(0.5f, AnimationClipDocument.Evaluate(target, AnimationProperty.Weight, 1f, "jawOpen"), 3);
+        Assert.Equal(0.25f, AnimationClipDocument.Evaluate(target, AnimationProperty.Weight, 1f, "browRaise"), 3);
+    }
+
+    /// <summary>The bake: one named scalar channel per shape, exactly as an import would produce.</summary>
+    [Fact]
+    public void AWeightCurveBakesToTheNamedScalarChannelAnImportWouldHaveWritten() {
+        using var fixture = new EditorFixture();
+
+        var document = new AnimationClipDocument(
+            fixture.Project,
+            AssetId.Empty,
+            fixture.Write("Assets/Face.vxanim", string.Empty)
+        );
+
+        document.AddTarget("Head");
+
+        var target = document.Target("Head")!;
+
+        document.AddKey(target, AnimationProperty.Weight, 0f, 0f, "jawOpen");
+        document.AddKey(target, AnimationProperty.Weight, 2f, 1f, "jawOpen");
+        document.AddKey(target, AnimationProperty.Weight, 0f, 0.5f, "browRaise");
+
+        var weighted = document.Clip.ToClipData()
+            .Channels.Where(channel => channel.WeightTimes.Length > 0)
+            .ToArray();
+
+        Assert.Equal(2, weighted.Length);
+
+        var jaw = Assert.Single(weighted, channel => channel.Shape == "jawOpen");
+
+        Assert.Equal("Head", jaw.Target);
+        Assert.Equal<float>([0f, 2f], jaw.WeightTimes);
+        Assert.Equal<float>([0f, 1f], jaw.Weights);
+
+        var brow = Assert.Single(weighted, channel => channel.Shape == "browRaise");
+
+        Assert.Equal<float>([0.5f], brow.Weights);
+    }
+
+    /// <summary>
+    ///     ⚠ A target that drives only shapes emits no transform channel, and the reason is a number
+    ///     nobody would think to look at.
+    /// </summary>
+    /// <remarks>
+    ///     A weight curve names the morphed mesh's <em>node</em>, which is not a joint and never will
+    ///     be. An empty transform channel beside the weight ones would be free everywhere except in
+    ///     <c>AnimationClip.UnresolvedChannels</c> — the count somebody watches to notice a clip being
+    ///     played on the wrong rig — where a perfectly correct facial clip would contribute one per
+    ///     face. The imported path avoids this by construction, because Assimp keeps node transforms
+    ///     and morph weights in different lists; the authored path has to avoid it on purpose, which
+    ///     is why this is asserted through a bake against a rig rather than by counting channels.
+    /// </remarks>
+    [Fact]
+    public void AClipThatOnlyDrivesShapesReportsNoUnresolvedChannels() {
+        using var fixture = new EditorFixture();
+
+        var document = new AnimationClipDocument(
+            fixture.Project,
+            AssetId.Empty,
+            fixture.Write("Assets/Face.vxanim", string.Empty)
+        );
+
+        document.AddTarget("HeadMesh");
+
+        var target = document.Target("HeadMesh")!;
+
+        document.AddKey(target, AnimationProperty.Weight, 0f, 0f, "jawOpen");
+        document.AddKey(target, AnimationProperty.Weight, 1f, 1f, "jawOpen");
+
+        // A rig that has never heard of "HeadMesh", which is every rig: it is a mesh node.
+        var skeleton = Skeleton.Create(
+            new SkeletonData {
+                Name = "Rig",
+                Joints = [new() { Name = "Root", Parent = -1, InverseBindPose = Matrix4x4.Identity }]
+            }
+        );
+
+        var clip = AnimationClip.Create(document.Clip.ToClipData(), skeleton);
+
+        Assert.Equal(0, clip.UnresolvedChannels);
+        Assert.Equal(1, clip.ShapeCount);
+        Assert.Equal("jawOpen", clip.Shapes[0]);
+    }
+
+    /// <summary>
+    ///     ⚠ The version in the file is what the clip <em>uses</em>, and version 2 is a fence rather
+    ///     than a re-import trigger.
+    /// </summary>
+    /// <remarks>
+    ///     <c>YamlSerializer</c> binds an enum with <c>Enum.Parse</c>, which throws on a name it does
+    ///     not have — so a version-1 build meeting <c>property: Weight</c> fails, and the fence turns
+    ///     that into a sentence. Stamping every clip 2 would lock a project's other clips out of an
+    ///     older build for a member none of them uses, so a clip with no weight curve still says 1.
+    /// </remarks>
+    [Fact]
+    public void AClipIsWrittenAtVersionTwoOnlyOnceItCarriesAWeightCurve() {
+        using var fixture = new EditorFixture();
+
+        var document = new AnimationClipDocument(
+            fixture.Project,
+            AssetId.Empty,
+            fixture.Write("Assets/Face.vxanim", string.Empty)
+        );
+
+        document.AddTarget("Head");
+
+        var target = document.Target("Head")!;
+
+        document.AddKey(target, AnimationProperty.PositionY, 0f, 1f);
+
+        Assert.Equal(1, document.Clip.MinimumVersion);
+        Assert.Contains("version: 1", document.Clip.ToYaml(), StringComparison.Ordinal);
+
+        document.AddKey(target, AnimationProperty.Weight, 0f, 1f, "jawOpen");
+
+        Assert.Equal(2, document.Clip.MinimumVersion);
+
+        var yaml = document.Clip.ToYaml();
+
+        Assert.Contains("version: 2", yaml, StringComparison.Ordinal);
+
+        // And it reads back with the shape intact, which is the half a version number is about.
+        var reopened = AnimationClipAsset.FromYaml(yaml);
+        var curve = Assert.Single(reopened.Targets[0].Curves, entry => entry.Property == AnimationProperty.Weight);
+
+        Assert.Equal("jawOpen", curve.Shape);
     }
 
     [Fact]

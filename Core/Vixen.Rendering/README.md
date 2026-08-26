@@ -1205,9 +1205,16 @@ the weights; nothing here knows about an animator.
   value to correct. The cost is one frame: an entity is bound after extraction has attached its mesh,
   which is the frame its rest pose is being copied in anyway.
 
-⚠ **Still owed:** hand-authoring a weight curve — that is `Vixen.Editor.Assets`' `AnimationProperty`,
-which has `PositionX` through `ScaleZ` and no `Weight` — and the cluster-page scatter, since a
-virtualized mesh packs its own vertex records rather than using a vertex buffer.
+A `.vxanim` written by hand drives a shape too, as of 2026-08-26: `AnimationProperty.Weight` with
+`AnimationCurveData.Shape` beside it, and `AnimationClipContent.TrySampleWeight` for a morphed mesh
+that has no rig at all. `Samples/03-PbrShowcase` is where to look at the result — two heads, one at
+rest and one driven, which is the control that makes a picture evidence.
+
+⚠ **Still owed: the cluster-page scatter**, since a virtualized mesh packs its own vertex records
+rather than using a vertex buffer. Until it exists **`ModelImporter` refuses a cluster hierarchy for
+a morphed mesh** (version 11), because `MeshExtractionSystem.Clustered` takes any mesh that has one
+down `VirtualGeometryRenderFeature`'s path and never reaches `MorphRenderFeature.Attach` — a head
+with twenty shapes drew at rest, with every weight applied to nothing and nothing reported.
 
 ## The compositor
 

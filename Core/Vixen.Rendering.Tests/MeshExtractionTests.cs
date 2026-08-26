@@ -121,6 +121,73 @@ public sealed class MeshExtractionTests : IDisposable {
         Assert.Equal(0, tiny.Count);
     }
 
+    /// <summary>
+    ///     ⚠ A mesh that will not fit in what is left of the staging region is <em>deferred</em>, and
+    ///     the answer is false rather than an exception.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>GeometryBuffer.Stage</c> throws outright when the region is part-full and the write
+    ///         will not fit — deliberately, because growing it would abandon the bytes a pending copy
+    ///         refers to. That is the right answer for <c>Stage</c> and the wrong one for its caller:
+    ///         this method's false already means "did not fit", the caller counts it in
+    ///         <c>Dropped</c>, the entity keeps no handle, and <c>Appear</c> offers it again next
+    ///         frame against a flushed region. <c>MeshInstanceRenderer</c> guards the same call the
+    ///         same way and says the same thing.
+    ///     </para>
+    ///     <para>
+    ///         Found by a scene whose first frame registered a morphed head and a sphere behind it:
+    ///         the head fit the fresh region, the sphere did not, and the frame loop died on a mesh
+    ///         that was merely second. The first <c>Acquire</c> below is what makes the region
+    ///         part-full, which is the whole precondition — an empty region always answers yes,
+    ///         however large the write.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMeshThatDoesNotFitThisFrameIsDeferredRatherThanThrown() {
+        // Room in the buffer for both — this is about the staging region and not about the buffer.
+        using var cramped = new GeometryBuffer(device, SurfaceVertex.SizeInBytes, 65536, 65536);
+        var residency = new GeometryResidency(cramped);
+
+        // ⚠ Larger than the 64 KB floor `EnsureStaging` grows to, which is what makes the region
+        // exactly full afterwards rather than merely used. A first mesh that left room would make
+        // the second one fit, and the test would pass whatever `Acquire` did.
+        Assert.True(residency.Acquire(GeometryKey.Of(PrimitiveKind.Cube), () => Slab(4000), out _, out _));
+
+        Assert.True(cramped.PendingBytes > 65536);
+        Assert.False(cramped.CanStage(1));
+
+        // The second mesh, asked for before anything has flushed. This is the call that threw.
+        Assert.False(residency.Acquire(GeometryKey.Of(PrimitiveKind.Sphere), () => Slab(8), out _, out _));
+
+        // Deferred and not lost: nothing is resident under the second key and nothing was allocated
+        // for it, so the frame after the flush offers it again and it lands.
+        Assert.Equal(1, residency.Count);
+
+        using var list = device.BeginCommandList();
+
+        cramped.Flush(list);
+        list.Finish();
+
+        Assert.True(residency.Acquire(GeometryKey.Of(PrimitiveKind.Sphere), () => Slab(8), out _, out _));
+        Assert.Equal(2, residency.Count);
+    }
+
+    /// <summary>A mesh of a stated vertex count, so a staging budget can be reasoned about.</summary>
+    /// <remarks>
+    ///     A strip of degenerate triangles rather than a shape: what is under test is how many bytes
+    ///     it costs, and 4 000 vertices is 192 000 of them at <c>SurfaceVertex</c>'s stride.
+    /// </remarks>
+    static MeshData Slab(int vertices) {
+        var positions = new Vector3[vertices];
+
+        for (var index = 0; index < vertices; index++) {
+            positions[index] = new(index, 0f, 0f);
+        }
+
+        return new() { Name = "Slab", Positions = positions, Indices = [0, 1, 2] };
+    }
+
     // ------------------------------------------------------------------ extraction
 
     [Fact]
