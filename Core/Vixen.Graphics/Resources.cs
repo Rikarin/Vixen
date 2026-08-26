@@ -444,6 +444,15 @@ public readonly record struct ColourAttachment(
 ///     Whether the pass only tests depth, which lets a backend keep it readable by a shader at the
 ///     same time.
 /// </param>
+/// <param name="ResolveView">
+///     Where to resolve a multisampled depth attachment, when <paramref name="DepthStore" />
+///     resolves.
+/// </param>
+/// <param name="ResolveMode">
+///     Which sample the resolve keeps. ⚠ Unlike colour there is no average here — see
+///     <see cref="DepthResolveMode" /> — and under reversed-Z the default
+///     <see cref="DepthResolveMode.Max" /> is the sample nearest the camera.
+/// </param>
 public readonly record struct DepthStencilAttachment(
     TextureViewHandle View,
     LoadAction DepthLoad = LoadAction.Clear,
@@ -452,5 +461,7 @@ public readonly record struct DepthStencilAttachment(
     LoadAction StencilLoad = LoadAction.DontCare,
     StoreAction StencilStore = StoreAction.DontCare,
     byte ClearStencil = 0,
-    bool IsReadOnly = false
+    bool IsReadOnly = false,
+    TextureViewHandle ResolveView = default,
+    DepthResolveMode ResolveMode = DepthResolveMode.Max
 );

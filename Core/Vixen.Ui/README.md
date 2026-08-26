@@ -219,6 +219,16 @@ expect `"Zavřít"`.
 that was in use when it was built. `Strings.Changed` — a plain event, and static — is what a
 hand-built surface subscribes to in order to rebuild itself whole.
 
+⚠ **A declaration class is a shape, and the shape is checked.** An application declares its strings
+as a static class of `StringId` properties with an `All` list beside them — every string written
+twice, which is the cost of `All` being data a trimmer cannot shorten.
+`Vixen.Ui.Generators.StringDeclarationAnalyzer` compares the two sides (`VXS0310`), refuses two
+declarations under one id (`VXS0311`) and a `StringId` built outside the class in an assembly that
+has one (`VXS0312`). ⚠ **A project has to name the analyzer** — analyzers do not travel through a
+project reference, so referencing this assembly is not enough. The remaining half, an id declared and
+used nowhere, needs the whole source tree rather than one compilation: `nuke CheckStrings` is this
+repository's, and an application outside it wants the equivalent over its own.
+
 These three types were `Vixen.Editor.Ui`'s until doc 46 § A3 counted them among the 41 % of that
 assembly that is application-framework machinery no application can reach.
 

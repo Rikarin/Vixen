@@ -315,8 +315,13 @@ jobs:
       # CheckDocs joins them for the same reason and reuses the same build: a public type with
       # neither a guide page nor a line in docs/DocsExempt.txt is a source change, and the job that
       # reads source changes is this one. Publishing the site is docs.yml's job, not a gate.
-      - name: Architecture, API, format and docs
-        run: ./build.sh CheckArchitecture CheckApi CheckFormat CheckDocs --configuration Release
+      #
+      # CheckStrings joins them and costs four seconds: it reads every .cs and .vxml in the tree and
+      # nothing else, because the half of the string-catalogue property it enforces — an id declared
+      # and used nowhere — is the half no single compilation can see. The other half is
+      # StringDeclarationAnalyzer, which runs inside the ordinary build and needs no leg of its own.
+      - name: Architecture, API, format, docs and strings
+        run: ./build.sh CheckArchitecture CheckApi CheckFormat CheckDocs CheckStrings --configuration Release
         shell: bash
 
   # The three net10.0-browser projects, which until this job existed were built by nothing at all.

@@ -153,6 +153,18 @@ sealed class WebGpuCommandList : ICommandList {
         var depthIndex = -1;
 
         if (description.DepthStencil is { } depth) {
+            // WebGPU has no depth resolve: a render pass depth attachment carries no resolve target,
+            // and there is no equivalent of VK_KHR_depth_stencil_resolve. Refusing here is the whole
+            // point — a silently dropped depth resolve leaves the target holding whatever it held
+            // last frame, which reads as a picture that is almost right rather than as an error.
+            if (depth.DepthStore == StoreAction.Resolve && depth.ResolveView.IsValid) {
+                throw new NotSupportedException(
+                    $"Render pass '{description.Name}' resolves its depth attachment, which WebGPU "
+                    + "cannot do — the API has no resolve target for depth. Render depth "
+                    + "single-sampled, or resolve it with a compute pass."
+                );
+            }
+
             depthAttachments.Add(
                 new(
                     device.ResolveView(depth.View, "a depth-stencil attachment"),

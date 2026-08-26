@@ -97,10 +97,39 @@ event the tracking table had no room for: a limiter that loses a novel error is 
 ## What is not here yet
 
 **The ring stores formatted strings, not UTF-8 with structured fields intact**, which doc 13 asks
-for. An enabled log line therefore allocates. The disabled path already does not, and the enabled
-path is not in any hot loop — `[HotPath]` methods are barred from logging and increment counters
-instead. Packing records into a byte ring is the optimisation to make when a profile asks for it;
-doing it now would mean guessing at the field layout the editor console has not been written to want.
+for. This was deferred "until a profile asks"; the profile has now been taken, and it says not to do
+it. `AllocationTests` measures the enabled line at **128 bytes** — an 88-byte `LogRecord` plus the
+40-byte message — and the disabled line at **exactly zero**, with
+`GC.GetAllocatedBytesForCurrentThread` rather than a stopwatch, because allocation is a property a
+counter measures perfectly.
+
+⚠ **The 128 is not this sink's to spend.** The floor belongs to `ILogger.Log<TState>`: the
+`[LoggerMessage]` state is a struct reachable only through
+`IReadOnlyList<KeyValuePair<string, object?>>`, so reading the structured fields boxes the state once
+and every value-type argument again — 56 B/line measured, for one `int` — and the formatter's
+contract is to return a `string`, 40 B/line on its own. Encoding that string into a byte ring copies
+it rather than un-allocating it. So doc 13's "near-zero when enabled (the sink writes UTF-8
+directly)" is not reachable from behind `[LoggerMessage]` at any implementation quality; it needs
+ZLogger's shape, which is ADR-008's decision to revisit and not this sink's.
+
+⚠ **Packing would also spend properties the current shape has for free.** One reference per slot
+means a wrap replaces exactly one whole record and no reader ever sees half of one — whereas a byte
+ring that wraps mid-record leaves a fragment, and a fragment cut inside a multi-byte UTF-8 sequence
+is a decode error rather than a truncation. `Exception` is an object reference and cannot be packed
+without formatting it at write time, which costs more than it saves. And the editor console, which
+has since been written, collapses rows on `(Level, Category, Message)` and searches the message as
+text, so it would decode on read what the ring encoded on write.
+
+⚠ **One sentence that used to stand here was false and has been removed**: that the enabled path is
+never in a hot loop because `[HotPath]` methods are barred from logging. `[HotPath]` is applied to no
+method in the tree and no analyzer enforces it. Logging *does* happen in per-frame code — the UI
+builder's diagnostic drain, the streaming residency report, the render-graph frame lint — and what
+actually keeps it affordable is that every one of those sites is individually latched, watermarked,
+de-duplicated or interval-throttled, so steady state is a compare and not a record. Two sites are
+owed a latch and are call-site bugs rather than ring-format ones: `WebGpuDevice.WaitIdle` logs
+unlatched on a condition that is a permanent property of the surface, and `EditorFrames` builds a
+`string.Join` in front of its change check rather than behind it.
+
 The *file* sink does keep its fields — that is why it is ZLogger's and not ours — so `{Ms}` in a log
 event is a number in a field called `Ms` in the `.jsonl`, not a fragment of a sentence.
 

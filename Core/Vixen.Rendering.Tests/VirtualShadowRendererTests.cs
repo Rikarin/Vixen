@@ -549,6 +549,194 @@ public class VirtualShadowRendererTests : IDisposable {
         return answered;
     }
 
+    // --- A caster that moved ------------------------------------------------
+
+    /// <summary>An object that moved retires the pages it was under and the pages it is under.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The correctness half of task #250, and the one that reads as a bug rather than as a
+    ///         cost.</b> A page is drawn once and kept until something says its depths are wrong, so a
+    ///         caster that moves out of a page and nothing to say so leaves that page holding the
+    ///         shadow of a thing that is no longer there — a silhouette standing in the air with
+    ///         nothing casting it — and the page it moved <em>into</em> holding a floor with no shadow
+    ///         on it at all. Neither is transient: the map is a cache, and a cache nobody invalidates
+    ///         is wrong for the rest of the session.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both ends, and the "was" end is the one a naive fix misses.</b> Invalidating only
+    ///         where the object now is leaves the stale silhouette exactly where it was, which is the
+    ///         visible half.
+    ///     </para>
+    ///     <para>
+    ///         The budget is taken to zero for the moving frame for the slide test's reason: the node
+    ///         redraws what it invalidated inside the same <c>Collect</c>, so a frame with a budget
+    ///         republishes the retired pages before anything can look at the table.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_caster_that_moved_retires_the_pages_it_left_and_the_pages_it_reached() {
+        using var h = Build(drawsPerFrame: 64);
+
+        Anchor(h);
+
+        var light = VirtualShadowMap.SnapDirection(h.Sun.Sun!.Value.Direction, h.Node.LightSnapDegrees);
+        var (right, up, _) = VirtualShadowMap.Basis(light);
+        var page = VirtualShadowMap.ExtentOf(0, h.Node.FirstExtent) / VirtualShadowMap.PagesPerSide;
+        var camera = h.Node.Camera!.Position;
+
+        // The same arithmetic Fit does, so the row named below is the row the node fitted.
+        var origin = VirtualShadowMap.ClipmapOrigin(0, h.Node.FirstExtent, camera, light, h.Node.Depthrange);
+
+        // One whole row of level zero's grid — thirty-two pages into a sixty-four slot atlas — so
+        // the columns that go and the columns that stay are both in the table to be counted.
+        var row = new int[VirtualShadowMap.PagesPerSide];
+
+        for (var column = 0; column < row.Length; column++) {
+            row[column] = VirtualShadowMap.IndexOf(0u, VirtualShadowMap.ToroidalOf(new(column, 16), origin));
+        }
+
+        Allocate(h, row);
+        Frame(h);
+
+        Assert.Equal(row.Length, Published(h));
+
+        // ⚠ **Held at the middle of a page on both axes.** A caster on a page boundary has a
+        // footprint in two columns whichever way the last bit of a dot product falls, and the count
+        // below would then be asserting where the boundary is rather than that both ends went.
+        var was = (right * -4.5f * page) + (up * -0.5f * page);
+        var now = (right * 3.5f * page) + (up * -0.5f * page);
+
+        var id = h.System.Objects.Add(new() { Bounds = new(was, 0.1f * page), Stages = h.Node.CasterStage.Mask });
+
+        // The caster appearing is itself a change; what matters is that a frame with nothing moving
+        // retires nothing, which is the second one.
+        Frame(h);
+        Frame(h);
+
+        Assert.Equal(0, h.Node.InvalidatedPages);
+
+        var before = new HashSet<int>(Resident(h));
+
+        Assert.Equal(row.Length, before.Count);
+
+        // Eight pages along `right`, which is perpendicular to the light — so no level refits, and
+        // every page that goes goes because the caster moved and for no other reason. The budget is
+        // taken to zero for the same reason the slide test takes it to zero.
+        h.System.Objects[id].Bounds = new(now, 0.1f * page);
+        h.Node.DrawsPerFrame = 0;
+
+        Frame(h);
+
+        Assert.Equal(0, h.Node.RefitLevels);
+
+        var retired = before.Except(Resident(h)).Order().ToArray();
+
+        Assert.NotEmpty(retired);
+
+        var columns = VirtualShadowMap.PagesPerSide;
+        var grid = retired.Select(entry => VirtualShadowMap.GridOf(new(entry % columns, entry / columns), origin).X)
+            .Distinct()
+            .Order()
+            .ToArray();
+
+        // Both ends, and the gap is what says so: the two footprints are eight pages apart along
+        // `right`, so a fix that invalidated only where the object now is would retire one column.
+        Assert.True(
+            grid[^1] - grid[0] >= 4,
+            $"the retired pages cover grid columns {string.Join(", ", grid)}, which is one footprint "
+            + "rather than the page the caster left and the page it reached"
+        );
+
+        // And a footprint is a footprint: most of the row is untouched. An invalidation that threw
+        // the level away would pass every assertion above and fail this one.
+        Assert.True(retired.Length <= 8, $"{retired.Length} of {row.Length} pages went for one caster");
+
+        // The budget puts them back, drawn against a level that never moved.
+        h.Node.DrawsPerFrame = 64;
+        Frame(h);
+        Assert.Equal(row.Length, Published(h));
+    }
+
+    /// <summary>A caster that turned on the spot, and one that was removed, retire their pages too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The two moves a bounds comparison cannot see.</b>
+    ///         <see cref="RenderObject.Bounds" /> is a sphere, so an object that rotated has the
+    ///         bounds it had and an object that was deleted has whatever its dead slot still holds —
+    ///         and in both cases the page keeps a shadow of something that is not there any more. The
+    ///         first is what <see cref="VirtualShadowRenderer.CasterTransforms" /> exists for; the
+    ///         second is why a footprint records whether the slot was casting at all rather than being
+    ///         cleared on removal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Asserted as a page count and not merely as a counter, because
+    ///         <see cref="VirtualShadowRenderer.MovedCasters" /> would be one for a walk that noticed
+    ///         the change and then retired nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_caster_that_turned_and_a_caster_that_was_removed_both_retire_their_pages() {
+        using var h = Build(drawsPerFrame: 64);
+
+        Anchor(h);
+
+        var world = h.System.Objects.Data.Register<Matrix4x4>();
+
+        h.Node.CasterTransforms = world;
+
+        var light = VirtualShadowMap.SnapDirection(h.Sun.Sun!.Value.Direction, h.Node.LightSnapDegrees);
+        var (right, up, _) = VirtualShadowMap.Basis(light);
+        var page = VirtualShadowMap.ExtentOf(0, h.Node.FirstExtent) / VirtualShadowMap.PagesPerSide;
+        var camera = h.Node.Camera!.Position;
+        var origin = VirtualShadowMap.ClipmapOrigin(0, h.Node.FirstExtent, camera, light, h.Node.Depthrange);
+        var row = new int[VirtualShadowMap.PagesPerSide];
+
+        for (var column = 0; column < row.Length; column++) {
+            row[column] = VirtualShadowMap.IndexOf(0u, VirtualShadowMap.ToroidalOf(new(column, 16), origin));
+        }
+
+        var at = (right * -4.5f * page) + (up * -0.5f * page);
+
+        var id = h.System.Objects.Add(new() { Bounds = new(at, 0.1f * page), Stages = h.Node.CasterStage.Mask });
+
+        h.System.Objects.Data.Data(world)[id.Index] = Matrix4x4.FromTranslation(at);
+
+        Allocate(h, row);
+        Frame(h);
+        Frame(h);
+
+        Assert.Equal(row.Length, Published(h));
+        Assert.Equal(0, h.Node.InvalidatedPages);
+
+        // A turn: the same sphere, a different matrix. Nothing in Bounds changed at all.
+        var bounds = h.System.Objects[id].Bounds;
+
+        h.System.Objects.Data.Data(world)[id.Index] =
+            Matrix4x4.FromRotationY(1f) * Matrix4x4.FromTranslation(at);
+
+        h.Node.DrawsPerFrame = 0;
+        Frame(h);
+
+        Assert.Equal(bounds, h.System.Objects[id].Bounds);
+        Assert.Equal(1, h.Node.MovedCasters);
+        Assert.True(h.Node.CasterInvalidations > 0, "a caster that turned retired no page");
+        Assert.Equal(h.Node.CasterInvalidations, h.Node.InvalidatedPages);
+
+        h.Node.DrawsPerFrame = 64;
+        Frame(h);
+
+        Assert.Equal(row.Length, Published(h));
+
+        // And a removal, which is the same statement about the page the object is no longer on.
+        h.System.Objects.Remove(id);
+        h.Node.DrawsPerFrame = 0;
+        Frame(h);
+
+        Assert.Equal(1, h.Node.MovedCasters);
+        Assert.True(h.Node.CasterInvalidations > 0, "a caster that was removed retired no page");
+        Assert.Equal(row.Length - h.Node.CasterInvalidations, Published(h));
+    }
+
     // --- The marking dispatch covers the screen ------------------------------
 
     /// <summary>Every pixel of the screen falls inside the marking dispatch, and barely so.</summary>

@@ -7,7 +7,8 @@ namespace Vixen.Ui.Controls;
 /// <remarks>
 ///     <para>
 ///         <b>The control library's own strings, in the same shape an application declares its
-///         own.</b> Thirteen labels were English literals baked into control constructors, which
+///         own.</b> Thirteen labels — fifteen, with the two dialog-button defaults that doc 46 § A3
+///         recorded as owed to itself — were English literals baked into control constructors, which
 ///         meant "Clear" in every search box, "Dismiss" on every toast and "Previous tab" on every
 ///         docked group, inside every localised window, with no way for the application to reach
 ///         them — and the only party who could close that seam was this repository.
@@ -41,6 +42,18 @@ public static class ControlStrings {
 
     /// <summary>The button that dismisses a dialog.</summary>
     public static StringId DialogClose { get; } = new("ui.control.dialog.close", "Close");
+
+    /// <summary>What a confirming button says when the caller does not name it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A default rather than a label.</b> Every dialog the shell puts up says something more
+    ///     specific — Open, Replace, Discard — and passes it; this is what <c>DialogService.Confirm</c>
+    ///     falls back to. It was the literal <c>"OK"</c> until the catalogue was promoted, which is
+    ///     the row doc 46 § A3 records as owed to itself.
+    /// </remarks>
+    public static StringId DialogConfirm { get; } = new("ui.control.dialog.confirm", "OK");
+
+    /// <summary>And what the button that backs out of it says.</summary>
+    public static StringId DialogCancel { get; } = new("ui.control.dialog.cancel", "Cancel");
 
     /// <summary>The button that dismisses a toast.</summary>
     public static StringId ToastDismiss { get; } = new("ui.control.toast.dismiss", "Dismiss");
@@ -118,6 +131,8 @@ public static class ControlStrings {
     public static IReadOnlyList<StringId> All { get; } = [
         TextInputClear,
         DialogClose,
+        DialogConfirm,
+        DialogCancel,
         ToastDismiss,
         SelectSuggestions,
         DockClose,

@@ -547,6 +547,52 @@ carries it as owed against `Vixen.Editor.Ui`; and `EditorStrings.cs:9` says the 
 hand until it does"*. So *"an id used nowhere and an id declared nowhere are both build errors"* is
 owed on both sides of the fence.
 
+> ✅ **Closed on Vixen's side, 2026-08-25, as a check rather than as a generator — and the constraint
+> below is why.** This section says the declaration shape is what is worth having upstream and that
+> Trinix will build its own generator either way. A generator here would have had to invent
+> catalogue *source* for Vixen, which is the decision this section declines to make; a check needs
+> no source file, holds for a hand-written declaration class and a generated one identically, and is
+> what lets an independently written generator's output be verified against the shape rather than
+> trusted to match it. **The declaration shape did not change in any respect.**
+>
+> Four instruments, no generator. `Vixen.Ui.Generators.StringDeclarationAnalyzer` — which travels
+> with the analyzer both control assemblies and the editor shell already name, so **both**
+> declaration classes are covered rather than the editor's alone — reports `VXS0310` for a
+> declaration missing from its `All` list, `VXS0311` for two declarations under one id, and
+> `VXS0312` for a `StringId` built outside the declaration class of an assembly that has one.
+> `nuke CheckStrings` reads every `.cs` and `.vxml` in the tree for the half no compilation can see:
+> **an id declared and used nowhere**, which is undecidable inside one compilation because six of
+> `ControlStrings`' declarations are used only from `Vixen.Ui.Controls.Advanced` and because a rule
+> counting the `All` list as a use would pass on everything. It also refuses a call site that
+> rebuilds an id a declaration class already declares — the cross-assembly case the analyzer cannot
+> see, because an id is a value in an initialiser and metadata does not carry it. The fourth is the
+> compiler: a call site naming a member no declaration class has is CS0117 and always was, which is
+> half of *"an id declared nowhere"* met before any of this.
+>
+> ⚠ **Seven declarations failed it on the day it was written**, which is the only reason to believe
+> it can. Five were strings nothing showed (`MenuView`, `NotificationsTitle`, `NotificationsEmpty`,
+> `KeyBindingConflict`, `DialogOk`) and are deleted. Two were the defect this row is named after:
+> `CommandUndo` and `CommandRedo` declared `editor.command.edit.undo`/`.redo` while
+> `EditorApplication.cs:2738` registered the commands with
+> `new StringId("editor.command.undo", "Undo")` — **the id in the translator's template and the id
+> the editor looked up were different strings**, and the editor's Undo item was untranslatable.
+>
+> ⚠ **The `"OK"`/`"Cancel"` row this section left owed to itself is closed in the same commit.**
+> `DialogService`'s two default button labels were literals only because the catalogue was
+> unreachable from a control assembly; they are `ControlStrings.DialogConfirm` and
+> `ControlStrings.DialogCancel` now, read per call rather than cached in a static so that a static
+> initialiser does not freeze them in whichever language opened the first dialog. Fifteen
+> declarations, not thirteen.
+>
+> ⚠ **Owed, and stated as a number rather than as a feeling.** 178 ids are built at call sites in
+> the editor's module assemblies and declared in no class at all, so a translator's template is
+> short by more than half of what the editor says. `CheckStrings` logs the count as a
+> *measurement* and does not fail on it: closing it is a migration across nine assemblies, and a
+> handful of those ids cannot be declared at all — `WaterMode.cs:247` builds
+> `"editor.command." + id` in a loop over a mode's tools. **That last point is a fact about the
+> declaration shape and belongs to this section**: a shape that cannot express a computed id means
+> `StringId`'s constructor has to stay public, in Vixen and in Trinix's generated code alike.
+
 ⚠ **Trinix is not asking Vixen to build it.** Trinix is building its own — a `Strings.yaml` →
 declarations generator in `Trinix.Sdk.Generators`, because the catalogue source and the tooling are
 Trinix's by its own scope rule — and it will build it whether or not Vixen does. **What is worth
@@ -612,11 +658,15 @@ test could be made to fail without it. The teardown is a private `Finish` both c
 and then `CancelAll`s, in that order, and a weak-reference test with a live control case proves the
 disposed service is collectable and the undisposed one is not.
 
-⚠ **Owed, and it is § A3's row rather than this one's.** The default labels are the literals `OK` and
-`Cancel`, because `StringId` and the catalogue are still in `Vixen.Editor.Ui` and cannot be reached
-from a control assembly. That is byte-identical to what `EditorStrings.DialogOk`/`DialogCancel`
-resolved to and no shipped catalogue overrides either, so nothing regressed — but a localised
-application has to pass its own labels until A3 lands.
+~~⚠ **Owed, and it is § A3's row rather than this one's.**~~ ✅ **Closed 2026-08-25.** The default
+labels were the literals `OK` and `Cancel` because `StringId` and the catalogue were still in
+`Vixen.Editor.Ui` and could not be reached from a control assembly. They are
+`ControlStrings.DialogConfirm` and `ControlStrings.DialogCancel` now — **read per call rather than
+cached in a static**, because a static initialiser runs once and would freeze the words in whichever
+language happened to open the first dialog. `EditorStrings.DialogOk` is gone with them: the shell's
+confirming button always says something more specific — Open, Replace, Discard — so the generic one
+was declared, shown nowhere, and sat in every translator's template as a word the editor does not
+say. `CheckStrings` is what found it.
 
 ### Acceptance, in four lines
 
@@ -763,7 +813,7 @@ strands the work.
 | **A2** — the accessibility tree | **2.0** | ⚠ **Poor, and it is the largest number here.** Greenfield rather than a move: no code exists to extend and no test exists to keep passing. Range 1.5–3.0, and the spread is almost entirely the per-control population across ~40 controls and 11 advanced ones. It is also the figure most improved by batching with A1. ✅ **The API and the criterion landed in one sitting**, and the reason the population turned out to be the cheap half is in A2's landing note: a control's role and name are *virtual members*, so `ButtonBase` covered every pressable control in the assembly in one edit. ✅ **And the population is finished**, both assemblies, in a second sitting: 59 types overriding a virtual and nine more establishing a relation. The "mechanical" claim held for all but two shapes — `ComboBox`, which needed a derived text box so that `aria-expanded` could stay computed, and `AccessibleDescription`, which had a working relation path no control used and now has three. The population also found three unnamed fields nobody had a caption for, which is what a reflection sweep over the type list buys over a reference window |
 | ~~**A3a** — promote the catalogue, split the YAML off, make the lookup a signal~~ | ~~0.4~~ ✅ | Good, and it was: a file move, a dependency split and one field becoming a `Signal<T>`. What the estimate did not carry is the tail — thirteen files needing a `using`, five of them inside raw-string plugin sources a plain `grep -L` reports as already having one, and `Strings.Template`'s signature |
 | ~~**A3b** — the twelve control literals through the catalogue~~ | ~~0.1~~ ✅ | Good on shape, wrong on arithmetic: thirteen call sites, twelve distinct strings, thirteen declarations. The two it missed cost the sweep that found them rather than the work |
-| **A3c** — `Strings.Resource` | **0.5** | Fair, and **not asked for** — carried so the total is honest if Vixen chooses to close its own owed row |
+| ~~**A3c** — `Strings.Resource`~~ | ~~0.5~~ ✅ | **Fair for the wrong artefact.** The estimate priced a generator; what closed the row is an analyzer plus a Nuke gate, because a generator needs catalogue source and this section declines to say where that lives. Roughly the same size, and it bought something the generator would not have: the check holds for *any* declaration class, including one a generator outside this repository emits |
 | **A4** — the dialog service | **0.25** | ✅ **Built 2026-08-25 and the figure held.** A move plus generalising `Pump` onto the document's frame — which turned out to mean `UiDocument.Ticked` rather than a host call, for 45 step 5's reason. What the estimate did not carry: a threading contract that was not written down anywhere, and six sabotages |
 | **Total, asked for (A1 + A2 + A3a + A3b + A4)** | **3.25** | |
 | Total including A3c | 3.75 | |

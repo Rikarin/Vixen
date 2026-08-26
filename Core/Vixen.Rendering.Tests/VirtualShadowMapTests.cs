@@ -533,6 +533,70 @@ public class VirtualShadowMapTests {
         Assert.False(VirtualShadowMap.PageOf(projection, Sun * (-Depth * 2f), out _));
     }
 
+    /// <summary>A caster's span is the page its centre is in, grown by its own radius and no further.</summary>
+    /// <remarks>
+    ///     <b>What bounds a moved caster's invalidation, so both ways of being wrong are asserted.</b>
+    ///     A span narrower than the shadow leaves stale pages, which is the bug
+    ///     <c>VirtualShadowRenderer.Displace</c> exists to fix and would silently half-fix; a span
+    ///     wider than the shadow is a level thrown away per mover, which is the cost that makes the
+    ///     whole cache pointless. A sphere of a quarter page at a page's centre has to be exactly one
+    ///     page, and one of two pages has to be at most five across.
+    /// </remarks>
+    [Fact]
+    public void A_casters_span_is_its_own_footprint_and_not_a_level() {
+        var projection = Level(0, Vector3.Zero);
+        var extent = VirtualShadowMap.ExtentOf(0, FirstExtent);
+        var page = extent / VirtualShadowMap.PagesPerSide;
+        var (right, up, _) = VirtualShadowMap.Basis(Sun);
+
+        // The middle of a page, three and a half pages along `right` and a half page down `up`.
+        var centre = (right * 3.5f * page) + (up * -0.5f * page);
+
+        Assert.True(VirtualShadowMap.PageOf(projection, centre, out var cell));
+        Assert.True(VirtualShadowMap.PageSpan(projection, centre, 0.05f * page, out var first, out var last));
+
+        Assert.Equal(cell, first);
+        Assert.Equal(cell, last);
+
+        // Two pages wide, and the span grows with it rather than staying put.
+        Assert.True(VirtualShadowMap.PageSpan(projection, centre, 1f * page, out first, out last));
+
+        Assert.InRange(last.X - first.X, 2, 5);
+        Assert.InRange(last.Y - first.Y, 2, 5);
+        Assert.InRange(cell.X, first.X, last.X);
+        Assert.InRange(cell.Y, first.Y, last.Y);
+    }
+
+    /// <summary>A caster over the edge keeps the pages it still shadows; one beyond it keeps none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Clamped where <see cref="VirtualShadowMap.PageOf" /> refuses, and the difference is
+    ///     the question being asked.</b> A point outside the map has no page and answering one would
+    ///     address another part of the world. A <em>volume</em> hanging over the edge still shadows
+    ///     the part of the map that is inside it, so refusing it — which is what reusing
+    ///     <c>PageOf</c> on the centre would do — leaves exactly the boundary pages stale, in the one
+    ///     place a walking camera is about to look.
+    /// </remarks>
+    [Fact]
+    public void A_caster_over_the_edge_spans_what_is_still_inside() {
+        var projection = Level(0, Vector3.Zero);
+        var extent = VirtualShadowMap.ExtentOf(0, FirstExtent);
+        var (right, _, _) = VirtualShadowMap.Basis(Sun);
+
+        // Centred outside the map by a quarter of its extent, and wide enough to reach back in.
+        var outside = right * extent * 0.6f;
+
+        Assert.False(VirtualShadowMap.PageOf(projection, outside, out _));
+        Assert.True(VirtualShadowMap.PageSpan(projection, outside, extent * 0.25f, out var first, out var last));
+
+        Assert.Equal(VirtualShadowMap.PagesPerSide - 1, last.X);
+        Assert.InRange(first.X, 0, VirtualShadowMap.PagesPerSide - 1);
+
+        // Beside the map entirely, and past its depth slab: neither shadows anything of it.
+        Assert.False(VirtualShadowMap.PageSpan(projection, right * extent * 2f, extent * 0.1f, out _, out _));
+        Assert.False(VirtualShadowMap.PageSpan(projection, Sun * Depth * 4f, extent * 0.1f, out _, out _));
+        Assert.False(VirtualShadowMap.PageSpan(projection, Sun * -Depth * 4f, extent * 0.1f, out _, out _));
+    }
+
     /// <summary>
     ///     The page projection puts that page, and only that page, on the whole target.
     /// </summary>

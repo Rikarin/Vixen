@@ -24,7 +24,21 @@ namespace Vixen.Core.Serialization.Storage;
 ///     </para>
 /// </remarks>
 public sealed class ObjectDatabase {
-    readonly List<IOdbBackend> backends;
+    readonly Lock gate = new();
+
+    /// <summary>
+    ///     The backends, replaced wholesale rather than added to, so that a read never walks a
+    ///     collection somebody is mutating.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An array and not a list, because every read enumerates it and only <see cref="Mount" />
+    ///     writes it.</b> <see cref="Mount" /> took a lock and the readers did not, which is a
+    ///     "collection was modified" thrown out of an unrelated <see cref="Exists" /> the moment a
+    ///     bundle arrives while anything is loading — and with a parallel import there is always
+    ///     something loading. Copy-on-write under the lock makes the readers correct with no lock at
+    ///     all: they see the array as it was, which is a valid answer at the moment they asked.
+    /// </remarks>
+    volatile IOdbBackend[] backends;
 
     /// <summary>How chunks are compressed when the caller does not say.</summary>
     /// <remarks>
@@ -70,12 +84,12 @@ public sealed class ObjectDatabase {
     public bool Mount(IOdbBackend backend) {
         ArgumentNullException.ThrowIfNull(backend);
 
-        lock (backends) {
-            if (backends.Contains(backend)) {
+        lock (gate) {
+            if (Array.IndexOf(backends, backend) >= 0) {
                 return false;
             }
 
-            backends.Add(backend);
+            backends = [.. backends, backend];
             return true;
         }
     }
@@ -120,7 +134,7 @@ public sealed class ObjectDatabase {
         var id = ContentHash.Compute(chunk);
 
         if (!Exists(id)) {
-            if (backends.Count == 0) {
+            if (backends.Length == 0) {
                 throw new InvalidOperationException(
                     "This database has no backends, so there is nowhere to write. A runtime database starts empty "
                     + "and mounts a read-only backend per bundle; writing needs one that was given at construction."
@@ -363,7 +377,7 @@ public sealed class ObjectDatabase {
 
     byte[] ReadChunk(ObjectId id) {
         if (!TryReadBlob(id, out var blob)) {
-            throw new SerializationException($"There is no chunk {id} in any of this database's {backends.Count} backends.");
+            throw new SerializationException($"There is no chunk {id} in any of this database's {backends.Length} backends.");
         }
 
         using (blob) {

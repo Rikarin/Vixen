@@ -1,0 +1,306 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Graphics;
+using Vixen.Graphics.Vulkan;
+using Vixen.Rendering;
+using Vixen.Shaders.Generated;
+using Vixen.Ui.Renderer;
+using Xunit;
+
+namespace Vixen.Editor.App.Tests;
+
+/// <summary>A thumbnail, uploaded on a real device, asserted to be the picture that went in.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A thumbnail that uploaded nothing is indistinguishable from one that has not been
+///         decoded yet.</b> The grid draws a type glyph either way, the process exits zero, and there
+///         is no validation error because nothing was submitted to validate — which is how
+///         <c>ThumbnailSurface.Upload</c> came to record a barrier, a copy and a second barrier into a
+///         command list it then dropped on the floor. <c>VulkanCommandList.Dispose</c> returns
+///         nothing, so the work was discarded rather than deferred. Every structural claim about that
+///         upload was true.
+///     </para>
+///     <para>
+///         ⚠ <b>So what is asserted here is the bytes.</b> How many distinct colours came back, what
+///         the mean channel is, and — separately, because a vertically flipped image passes both of
+///         the others exactly — which corner is which.
+///     </para>
+///     <para>
+///         ⚠ <b>Skips when there is no Vulkan, and <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into a
+///         failure.</b> A gate that silently skips is a gate that passes, which is what makes a device
+///         test worth less than nothing on a machine where nobody reads the skip count.
+///     </para>
+/// </remarks>
+public sealed class ThumbnailSurfaceDeviceTests {
+    /// <summary>How big the picture under test is.</summary>
+    /// <remarks>The size <c>ThumbnailCache</c> reduces to, so this is the shape a real upload has.</remarks>
+    const int Size = ThumbnailCache.Size;
+
+    /// <summary>A device, or a skip — or, when one was required, a failure.</summary>
+    static VulkanDevice Open() {
+        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
+            return device!;
+        }
+
+        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
+            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
+        }
+
+        Assert.Skip(reason ?? "no Vulkan");
+
+        throw new InvalidOperationException("unreachable");
+    }
+
+    /// <summary>The interface's own shader set, read from beside the test binary.</summary>
+    /// <remarks>
+    ///     A <see cref="ThumbnailSurface" /> needs a <see cref="UiRenderer" /> because an image number
+    ///     is only meaningful against one, and a renderer on a real device needs real SPIR-V — the
+    ///     four bytes the recording device accepts are what <c>vkCreateShaderModule</c> refuses.
+    /// </remarks>
+    static UiShaders Shaders(IGraphicsDevice device) =>
+        new(
+            Load(device, ShaderStage.Vertex, "UiVertex.vert.spv"),
+            Load(device, ShaderStage.Fragment, "UiBox.frag.spv"),
+            Load(device, ShaderStage.Fragment, "UiText.frag.spv"),
+            Load(device, ShaderStage.Fragment, "UiSolid.frag.spv")
+        ) {
+            Image = Load(device, ShaderStage.Fragment, "UiImage.frag.spv"),
+
+            Locations = new(
+                UiVertexKeys.PositionLocation,
+                UiVertexKeys.TexcoordLocation,
+                UiVertexKeys.VertexColourLocation,
+                UiVertexKeys.VertexShapeLocation
+            )
+        };
+
+    static ShaderHandle Load(IGraphicsDevice device, ShaderStage stage, string name) {
+        var path = Path.Combine(AppContext.BaseDirectory, "ToolShaders", name);
+
+        Assert.True(File.Exists(path), $"the upload test needs {name} beside the test binary");
+
+        return device.CreateShader(stage, File.ReadAllBytes(path), name);
+    }
+
+    /// <summary>The picture that goes in: red ramps left to right, green top to bottom, blue is full.</summary>
+    /// <param name="flip">
+    ///     Writes the rows bottom-first, which is the sabotage: it changes neither the colour count
+    ///     nor the mean, and only the corner assertions can see it.
+    /// </param>
+    static byte[] Gradient(bool flip = false) {
+        var pixels = new byte[Size * Size * 4];
+
+        for (var y = 0; y < Size; y++) {
+            var row = flip ? Size - 1 - y : y;
+
+            for (var x = 0; x < Size; x++) {
+                var at = ((row * Size) + x) * 4;
+
+                pixels[at] = (byte)(x * 255 / (Size - 1));
+                pixels[at + 1] = (byte)(y * 255 / (Size - 1));
+                pixels[at + 2] = 255;
+                pixels[at + 3] = 255;
+            }
+        }
+
+        return pixels;
+    }
+
+    /// <summary>Uploads a picture through the surface and reads the texture back.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Upload</c> is called outside the frame and <c>Flush</c> inside it, which is exactly
+    ///     where the editor calls each.</b> <c>ThumbnailCache.Pump</c> runs from the application's
+    ///     update, before <c>EditorHost.Present</c> opens the frame; a test that uploaded inside the
+    ///     frame would be testing an arrangement the editor does not have.
+    /// </remarks>
+    static byte[] Round(VulkanDevice device, ThumbnailSurface surface, byte[] source) {
+        var image = surface.Upload(Size, Size, source);
+
+        Assert.NotEqual(0ul, image);
+
+        const int Bytes = Size * Size * 4;
+
+        var readback = device.CreateBuffer(
+            new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "thumbnail readback")
+        );
+
+        device.BeginFrame();
+
+        Assert.Equal(1, surface.Flush());
+
+        var texture = surface.TextureOf(image);
+
+        Assert.True(texture.IsValid, "the surface has no texture for the image it just handed out");
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "thumbnail readback")) {
+            commands.Barrier(
+                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)])
+            );
+
+            commands.CopyTextureToBuffer(new TextureRegion(texture), new(Size, Size, 1), readback, 0);
+
+            commands.Barrier(
+                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.CopySource, ResourceState.ShaderRead)])
+            );
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        var pixels = new byte[Bytes];
+
+        device.Read(readback, 0, pixels);
+        device.Destroy(readback);
+
+        return pixels;
+    }
+
+    static int Distinct(byte[] pixels) {
+        HashSet<int> seen = [];
+
+        for (var at = 0; at + 3 < pixels.Length; at += 4) {
+            seen.Add((pixels[at] << 16) | (pixels[at + 1] << 8) | pixels[at + 2]);
+        }
+
+        return seen.Count;
+    }
+
+    static double Mean(byte[] pixels) {
+        long sum = 0;
+
+        for (var at = 0; at + 3 < pixels.Length; at += 4) {
+            sum += pixels[at] + pixels[at + 1] + pixels[at + 2];
+        }
+
+        return sum / (double)(pixels.Length / 4 * 3);
+    }
+
+    static byte Channel(byte[] pixels, int x, int y, int channel) => pixels[(((y * Size) + x) * 4) + channel];
+
+    /// <summary>The uploaded texture holds the gradient, and holds it the right way up.</summary>
+    [Fact]
+    public void An_uploaded_thumbnail_is_the_picture_and_not_a_blank_square() {
+        using (var device = Open()) {
+            VulkanDiagnostics.Reset();
+
+            var shaders = Shaders(device);
+            var renderer = new UiRenderer(device, shaders, new RenderOutput([PixelFormat.Bgra8UNorm]));
+
+            using var surface = new ThumbnailSurface(device, renderer);
+
+            var pixels = Round(device, surface, Gradient());
+
+            Assert.Equal(1, surface.Submitted);
+            Assert.Equal(0, surface.Waiting);
+
+            Assert.True(
+                VulkanDiagnostics.ErrorCount == 0,
+                "the upload produced validation errors, so its picture means nothing: "
+                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+
+            var distinct = Distinct(pixels);
+            var mean = Mean(pixels);
+
+            // Sixty-four reds by sixty-four greens is 4 096 colours. A thousand is far above what a
+            // flat fill, a cleared texture or an undefined one produces, and far below this.
+            Assert.True(distinct >= 1000, $"the thumbnail holds {distinct} distinct colour(s), which is not a gradient");
+
+            // Red and green ramp 0…1 and blue is 1, so the mean channel is about (0.5 + 0.5 + 1) / 3
+            // of 255 — near 170. A blank texture is 0 and a white one 255.
+            Assert.InRange(mean, 140d, 200d);
+
+            const int Last = Size - 1;
+
+            // ⚠ The orientation, asserted separately because a vertically flipped picture has exactly
+            // the same colour count and exactly the same mean. Green is the row, and row zero is the
+            // top: a thumbnail's first row of bytes is its top row, which is the convention
+            // `ThumbnailCache.Reduce` writes and `IThumbnailSurface.Upload` documents.
+            Assert.True(
+                Channel(pixels, 0, 0, 1) < 32,
+                $"the top-left pixel's green is {Channel(pixels, 0, 0, 1)}, so the thumbnail is upside down"
+            );
+
+            Assert.True(
+                Channel(pixels, 0, Last, 1) > 220,
+                $"the bottom-left pixel's green is {Channel(pixels, 0, Last, 1)}, so the thumbnail is upside down"
+            );
+
+            // And the other axis, which no vertical flip would disturb: red is the column.
+            Assert.True(Channel(pixels, 0, 0, 0) < 32);
+            Assert.True(Channel(pixels, Last, 0, 0) > 220);
+        }
+    }
+
+    /// <summary>A picture uploaded upside down passes the histogram and fails on the corners.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The corner assertions above have to be shown to have teeth, or they are decoration.</b>
+    ///     This uploads the same gradient with its rows reversed and asserts what that costs: the
+    ///     distinct-colour count and the mean are <i>identical</i>, and only the corner is different.
+    ///     A suite that asserted only a histogram would pass on a flipped thumbnail, which is the
+    ///     failure the shader-graph preview work found the hard way.
+    /// </remarks>
+    [Fact]
+    public void A_flipped_picture_has_the_same_histogram_and_different_corners() {
+        using (var device = Open()) {
+            var shaders = Shaders(device);
+            var renderer = new UiRenderer(device, shaders, new RenderOutput([PixelFormat.Bgra8UNorm]));
+
+            using var surface = new ThumbnailSurface(device, renderer);
+
+            var upright = Round(device, surface, Gradient());
+            var flipped = Round(device, surface, Gradient(flip: true));
+
+            Assert.Equal(Distinct(upright), Distinct(flipped));
+            Assert.Equal(Mean(upright), Mean(flipped), 6);
+
+            const int Last = Size - 1;
+
+            // The whole difference, and the only assertion that can see it.
+            Assert.True(Channel(flipped, 0, 0, 1) > 220);
+            Assert.True(Channel(flipped, 0, Last, 1) < 32);
+        }
+    }
+
+    /// <summary>An image released before the frame drains takes its queued copy with it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An eviction can land in the same <c>Pump</c> that made the image</b>, and
+    ///     <c>EditorHost.Sync</c> retires — which destroys — before <c>Present</c> flushes. A copy
+    ///     left queued would name a destroyed texture, which is a use-after-free the validation layer
+    ///     reports somewhere else entirely.
+    /// </remarks>
+    [Fact]
+    public void A_released_image_leaves_no_copy_behind() {
+        using (var device = Open()) {
+            VulkanDiagnostics.Reset();
+
+            var shaders = Shaders(device);
+            var renderer = new UiRenderer(device, shaders, new RenderOutput([PixelFormat.Bgra8UNorm]));
+
+            using var surface = new ThumbnailSurface(device, renderer);
+
+            var image = surface.Upload(Size, Size, Gradient());
+
+            Assert.Equal(1, surface.Waiting);
+
+            surface.Release(image);
+            surface.Retire();
+
+            Assert.Equal(0, surface.Waiting);
+
+            device.BeginFrame();
+
+            Assert.Equal(0, surface.Flush());
+
+            device.EndFrame();
+            device.WaitIdle();
+
+            Assert.Equal(0, surface.Submitted);
+            Assert.Equal(0, VulkanDiagnostics.ErrorCount);
+        }
+    }
+}

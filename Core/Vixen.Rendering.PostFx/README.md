@@ -131,13 +131,23 @@ file was wrong about itself.**
   (Jimenez et al. 2016 § 3.2) is what runs now, and `GtaoImageTests` holds it to the property that
   makes it worth the arithmetic: **an unoccluded surface reads exactly one at any tilt**, because
   each slice is weighted by how much of the normal lies in it.
-- **SMAA was owed and was a shader**, which is what the roadmap said about all four of them and
-  what was true of exactly one. See the paragraph above for the part of it still outstanding.
+- **SMAA was owed and was a shader** — the only item of the four about which the roadmap was right,
+  and it ships: `SmaaRenderer` runs three passes on one `Smaa.rvn` chosen by a `Mode` permutation,
+  over an area table `SmaaAreaTexture` *generates* rather than vendors, so no licensed data enters
+  the tree.
 - ⚠ **MSAA resolve was owed and was not a shader.** `ColourAttachment.ResolveView` and
   `StoreAction.Resolve` were honoured by both backends, a texture's sample count reached
   `vkCreateImage` and a pipeline's reached `RasterizationSamples` — the entire RHI half was finished
   and nothing above it could name a resolve *pair*. `RenderGraphPassBuilder.ColourAttachment` takes
-  one now and `RenderPass.resolveTargets` carries it from a document. Colour only.
+  one now and `RenderPass.resolveTargets` carries it from a document.
+- ⚠ **The depth resolve was owed and was not a shader either**, which is the same error made twice
+  about the same feature. The roadmap's reasoning was sound as far as it went — averaging depth is
+  meaningless, so the rule has to be a min or a max — and then it concluded "so it needs a shader",
+  when a min-or-max resolve is precisely what `VK_KHR_depth_stencil_resolve` does in fixed function,
+  already enabled here as a dynamic-rendering prerequisite. A shader was never available anyway:
+  Raven has no multisampled texture type. What it needed was the same thing colour needed — somewhere
+  to put the pair — plus a `DepthResolveMode`, because unlike colour there is no rule a backend could
+  assume. ⚠ The default is `Max`: **reversed-Z, so nearest the camera is the largest depth value.**
 
 **The lesson worth keeping is which direction each error went.** A feature can be missing because
 nobody wrote it, or missing because the consumer exists and nothing calls it, or *present* in a file

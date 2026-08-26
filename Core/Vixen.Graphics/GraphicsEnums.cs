@@ -486,6 +486,54 @@ public enum StoreAction : byte {
     Resolve = 2
 }
 
+/// <summary>How the samples of a multisampled depth attachment become one depth value.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A depth resolve is not an average, and there is deliberately no option to make it
+///         one.</b> Colour averages because the average of four colours is a colour; the average of
+///         four depths is a surface that is behind nothing and in front of nothing, so every consumer
+///         of the resolved buffer — reprojection, screen-space tracing, fog, the depth test of a
+///         later pass — reads a plane that no geometry occupies. That is why
+///         <see cref="StoreAction.Resolve" /> alone cannot describe a depth resolve and this enum
+///         exists.
+///     </para>
+///     <para>
+///         ⚠ <b>Under the engine's reversed-Z convention the near plane is depth 1 and the far plane
+///         is 0</b>, so <see cref="Max" /> is the sample <em>nearest the camera</em> and
+///         <see cref="Min" /> is the farthest. This is the inversion that makes a wrong choice here
+///         so expensive: both render a plausible picture, and only the passes that read the resolved
+///         depth go quietly wrong.
+///     </para>
+/// </remarks>
+public enum DepthResolveMode : byte {
+    /// <summary>
+    ///     Take sample zero and ignore the rest — the cheapest, and the only mode every Vulkan
+    ///     implementation is required to support.
+    /// </summary>
+    /// <remarks>
+    ///     The fallback rather than a choice. Sample zero sits at a fixed offset inside the pixel that
+    ///     is not the centre for any sample count above one, so a resolved depth built this way is
+    ///     biased by up to half a pixel in a direction that depends on the pattern.
+    /// </remarks>
+    SampleZero = 0,
+
+    /// <summary>
+    ///     The smallest depth value, which under reversed-Z is the sample <em>farthest</em> from the
+    ///     camera.
+    /// </summary>
+    Min = 1,
+
+    /// <summary>
+    ///     The largest depth value, which under reversed-Z is the sample <em>nearest</em> the camera.
+    /// </summary>
+    /// <remarks>
+    ///     The default, and the right answer for almost everything that reads a resolved depth: an
+    ///     edge pixel covered partly by a near surface and partly by a far one belongs to the near
+    ///     one, because that is the surface the resolved colour beside it is mostly showing.
+    /// </remarks>
+    Max = 2
+}
+
 /// <summary>How a swapchain waits for the display.</summary>
 public enum PresentMode : byte {
     /// <summary>
