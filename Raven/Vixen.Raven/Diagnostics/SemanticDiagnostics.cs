@@ -122,13 +122,11 @@ public static class SemanticDiagnostics {
         DiagnosticSeverity.Error
     );
 
-    public static readonly DiagnosticDescriptor AmbiguousName = new(
-        "RVN2012",
-        "Ambiguous name",
-        "The name '{0}' is ambiguous in this context",
-        Binding,
-        DiagnosticSeverity.Error
-    );
+    // RVN2012 — `AmbiguousName` — was declared here and never raised. Nothing in the compiler
+    // reported it: two declarations that collide are RVN2001 at the declaration, which names both
+    // and is the place the author can act, and a call that two overloads fit equally is RVN2032.
+    // A name with no site left to report it is not a rule, it is a claim with no evidence, so it is
+    // gone rather than kept as a slot a future check might fill. The id is retired, not reused.
 
     public static readonly DiagnosticDescriptor TypeUsedAsValue = new(
         "RVN2013",
@@ -1068,12 +1066,23 @@ public static class SemanticDiagnostics {
 
     /// <summary>A <c>[Format]</c> on something that is not a storage image.</summary>
     /// <remarks>
-    ///     On the <c>RVN2091</c> policy: nothing else in the language has a texel format, so the
-    ///     attribute is dropped — but the author believes it says something and it does not.
+    ///     <para>
+    ///         On the <c>RVN2091</c> policy: nothing else in the language has a texel format, so the
+    ///         attribute is dropped — but the author believes it says something and it does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The title used to read "a declaration that has no texels", which is false for the
+    ///         commonest thing this fires on. A sampled <c>Texture2D</c> is made of texels; what it
+    ///         has no <em>format</em> for is the shader's own decode, because a sampled image's
+    ///         format lives in the view the host binds and never appears in the module. A storage
+    ///         image is the opposite — SPIR-V's <c>OpTypeImage</c> carries the format as an operand,
+    ///         so the declaration has to name it. Telling an author their texture has no texels
+    ///         invites them to go looking for the wrong mistake.
+    ///     </para>
     /// </remarks>
     public static readonly DiagnosticDescriptor FormatOnNonImage = new(
         "RVN2125",
-        "Format on a declaration that has no texels",
+        "Format on a declaration with no texel format",
         "'[Format]' on '{0}' has no effect: only a storage image has a texel format",
         Binding,
         DiagnosticSeverity.Warning

@@ -28,8 +28,20 @@ public static class SemanticTestBase {
         return compilation.GetDiagnostics();
     }
 
-    /// <summary>Asserts the source compiles with no diagnostics at all.</summary>
-    public static Compilation AssertNoDiagnostics(string source) {
+    /// <summary>
+    ///     <b>Setup.</b> A compilation of a source that is expected to be valid, failing loudly if
+    ///     it is not.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Named apart from <see cref="AssertNoDiagnostics" /> because the two read identically to
+    ///     a grep and mean opposite things to an audit. This one is how a test that is <em>about</em>
+    ///     something else — a symbol's kind, an enum's ordinals — gets a compilation to ask its real
+    ///     question of; the clean compile is a precondition, and no rule is under test. Counting
+    ///     these as negative coverage is how the previous inventory of this suite over-counted
+    ///     itself: twenty-three of the thirty-three call sites were preconditions.
+    ///     <see cref="AssertNoDiagnostics" /> is the one that is the assertion.
+    /// </remarks>
+    public static Compilation CompileClean(string source) {
         var (compilation, _, _) = Compile(source);
         var diagnostics = compilation.GetDiagnostics();
 
@@ -40,6 +52,17 @@ public static class SemanticTestBase {
 
         return compilation;
     }
+
+    /// <summary>
+    ///     <b>The assertion.</b> This source is valid and the compiler must say nothing about it.
+    /// </summary>
+    /// <remarks>
+    ///     The whole point of a call site here is the silence, so it returns nothing — a test that
+    ///     wants the compilation back wanted <see cref="CompileClean" /> and is not asserting this.
+    ///     Broader than a <c>NegativeDiagnosticTests</c> fixture and weaker: that one names the rule
+    ///     it is holding to its fire, this one only says no rule fired at all.
+    /// </remarks>
+    public static void AssertNoDiagnostics(string source) => CompileClean(source);
 
     /// <summary>Asserts exactly the given diagnostic ids are reported, in order.</summary>
     public static IReadOnlyList<Diagnostic> AssertDiagnostics(string source, params string[] expectedIds) {

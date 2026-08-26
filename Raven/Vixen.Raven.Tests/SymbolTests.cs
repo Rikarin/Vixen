@@ -14,7 +14,7 @@ namespace Tests;
 public class SymbolTests {
     [Fact]
     public void Package_directive_creates_a_namespace_chain() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package Vixen.Test.Deep
 
@@ -37,7 +37,7 @@ public class SymbolTests {
 
     [Fact]
     public void Type_declarations_get_their_declared_kind() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -63,7 +63,7 @@ public class SymbolTests {
 
     [Fact]
     public void Base_list_separates_the_base_type_from_protocols() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -113,7 +113,7 @@ public class SymbolTests {
 
     [Fact]
     public void Inherited_members_are_reachable_through_the_base_chain() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -138,7 +138,7 @@ public class SymbolTests {
 
     [Fact]
     public void Fields_carry_their_type_mutability_and_constant_value() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -166,7 +166,7 @@ public class SymbolTests {
 
     [Fact]
     public void Method_signatures_resolve_parameters_and_return_type() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -191,7 +191,7 @@ public class SymbolTests {
 
     [Fact]
     public void Expression_bodied_method_infers_its_return_type() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -207,7 +207,7 @@ public class SymbolTests {
 
     [Fact]
     public void Constructors_are_methods_named_ctor() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -226,7 +226,7 @@ public class SymbolTests {
 
     [Fact]
     public void Properties_report_their_accessors() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -259,7 +259,7 @@ public class SymbolTests {
 
     [Fact]
     public void Enum_members_are_constants_of_the_enum_type() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -283,7 +283,7 @@ public class SymbolTests {
 
     [Fact]
     public void Nested_types_belong_to_their_container() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -303,7 +303,7 @@ public class SymbolTests {
 
     [Fact]
     public void Generic_types_expose_parameters_and_substitute_on_construction() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -339,7 +339,7 @@ public class SymbolTests {
 
     [Fact]
     public void Type_parameter_constraints_are_resolved() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
@@ -360,7 +360,7 @@ public class SymbolTests {
 
     [Fact]
     public void The_static_modifier_maps_to_staticness() {
-        var compilation = AssertNoDiagnostics(
+        var compilation = CompileClean(
             """
             package A
 
