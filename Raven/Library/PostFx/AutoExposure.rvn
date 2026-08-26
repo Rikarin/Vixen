@@ -341,6 +341,28 @@ shader AutoExposure {
         val target = clamp(middleGrey / max(scene, Const.Epsilon), minimumExposure, maximumExposure)
         val previous = exposure[0]
 
+        // ⚠ The stored exposure is trusted only where it is a number this node could have
+        // written, and one bit pattern is why. Nothing seeds the buffer — `AutoExposureRenderer`
+        // says so, and the argument is that the first frame is handed a `deltaTime` of three hours
+        // so its blend is one and whatever the allocation held is scaled to nothing. That is true of
+        // every finite value and false for exactly one class: a lerp is `a + t*(b - a)`, and
+        // `b - NaN` is `NaN` whatever `t` is. So the settle frame that was supposed to make the seed
+        // irrelevant propagated it, and every frame after it eased from a NaN and stayed one.
+        //
+        // ⚠ Which reads as a driver bug and is not one. A fresh device-local allocation comes back
+        // zeroed on MoltenVK — finite, so the settle frame worked and nobody could see the argument
+        // was fragile — and does not on lavapipe, where sample 03 rendered a black frame from frame
+        // one to frame sixty-four with every counter above it healthy. The bounds are the test rather
+        // than `isnan` because they catch the whole class: NaN fails both comparisons since every
+        // comparison against a NaN is false, and an infinity or a large finite leftover fails the
+        // upper one. Every write below is inside the bounds, so nothing outside them is this node's.
+        val trusted = previous >= minimumExposure && previous <= maximumExposure
+
+        if (!trusted) {
+            exposure[0] = target
+            return
+        }
+
         // Which rate applies depends on which way the exposure is moving, and "brightening the image"
         // is the eye going *dark*-adapted — the slow direction. Getting this the wrong way round is
         // easy and shows as walking out of a tunnel being instant while walking in takes seconds.

@@ -705,7 +705,29 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     ///     and a submission for four bytes. What replaces the seed is <see cref="Bind" />'s first
     ///     frame: an adaptation told that all the time in the world has passed lands on what it
     ///     metered, which is the same thing a seed was for and is right about the value rather than
-    ///     hopeful about it.
+    ///     hopeful about it — see <see cref="SettleTime" />.
+    ///     <para>
+    ///         ⚠ <b>That argument is sound for every finite value and fails for exactly one class,
+    ///         which is what the <c>sample-frame</c> leg found.</b> A lerp is <c>a + t·(b − a)</c>, so
+    ///         a <c>NaN</c> in the buffer comes out a <c>NaN</c> however large the blend is, and the
+    ///         settle frame that was supposed to make the seed irrelevant propagates it instead. A
+    ///         fresh device-local allocation reads as zero on MoltenVK and does not on lavapipe, so
+    ///         <c>Samples/03-PbrShowcase</c> rendered black there from frame one to frame sixty-four
+    ///         with every counter above it healthy, while every run on a Mac was fine.
+    ///     </para>
+    ///     <para>
+    ///         The buffer is still not seeded — the argument against a submission for four bytes
+    ///         stands. <c>AutoExposure.rvn</c>'s <c>Ease</c> decides instead: a stored exposure
+    ///         outside <see cref="MinimumExposure" />..<see cref="MaximumExposure" /> is not one this
+    ///         node wrote, so the measurement is taken outright rather than blended toward.
+    ///         ⚠ <b>The regression test for this is the <c>sample-frame</c> CI leg and nothing
+    ///         smaller, which is a statement about what could be built rather than about what was
+    ///         worth building.</b> The defect needs a device whose fresh allocations are not zeroed,
+    ///         and every device this repository develops on zeroes them — a fixture that poisons the
+    ///         buffer by hand was written, and it passed with the guard and without it, so it was
+    ///         thrown away rather than shipped as an instrument that cannot fail. The leg is red
+    ///         without this and green with it, measured both ways on lavapipe.
+    ///     </para>
     /// </remarks>
     void Acquire(IGraphicsDevice device, Int2 metering) {
         if (seeded && ReferenceEquals(owner, device)) {
