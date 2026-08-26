@@ -3,6 +3,7 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
@@ -160,8 +161,93 @@ public sealed class DistanceFieldAoImageTests {
         Assert.Equal(1f, centre.Y, 0.02f);
     }
 
+    /// <summary>
+    ///     A deferred refresh draws the previous clipmap, in pixels, and then catches up.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The picture is the evidence here and the counters are not.</b> Everything else about
+    ///         the deferral is checkable on the CPU — the handle is kept, the bounds do not move, the
+    ///         upload does not happen — and all of that is consistent with a frame that draws nothing
+    ///         at all. What this asks is the question those cannot: is the frame in the gap a real
+    ///         frame, tracing a real volume, and is it the volume it was tracing before?
+    ///     </para>
+    ///     <para>
+    ///         The ball is moved right out of the traced region and the instance version is bumped, so
+    ///         the two answers are as far apart as this harness can make them: the deferred frame has
+    ///         a ball in it and the settled frame does not. A deferral that quietly bound nothing
+    ///         would give the settled picture immediately, and one that tore would give neither.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Nought workers, so the refresh runs exactly when this test says it does. A count that
+    ///         let a worker pick the slices up would be photographing a race.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ADeferredRefreshDrawsThePreviousClipmapAndThenCatchesUp() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        using var jobs = new JobScheduler(0);
+        using var clipmap = Clipmap(owned.Device);
+
+        clipmap.Jobs = jobs;
+
+        var before = Render(owned, traced: true, node: clipmap);
+
+        Assert.Equal(1, clipmap.Composites);
+
+        // Somewhere no ray in this frame goes. Nothing about the picture may change until the
+        // refresh that knows about it has landed.
+        clipmap.Instances[0] = new(Ball(0.8f), new(0f, 40f, 0f), Quaternion.Identity, 1f);
+        clipmap.InstancesVersion++;
+
+        var deferred = Render(owned, traced: true, node: clipmap);
+
+        Assert.True(clipmap.IsRefreshing, "the refresh was not deferred, so there is no gap to photograph");
+        Assert.Equal(1, clipmap.Composites);
+        Assert.Equal(before.Pixels, deferred.Pixels);
+
+        // And the ball really was in that picture, so "identical" is a statement about a frame that
+        // drew something rather than about two frames that drew nothing.
+        var centre = Pixel(before, before.Width / 2, before.Height / 2);
+
+        Assert.True(centre.Y < 0.5f, $"the ball never shadowed the middle of the frame: {centre}");
+
+        // ⚠ And the frame after that, which is the one the deferral is actually for. The frame above
+        // is the one that *starts* the refresh and defers by construction; a node that polled with
+        // `Complete` would block here instead, and this picture would already be the settled one.
+        var later = Render(owned, traced: true, node: clipmap);
+
+        Assert.True(clipmap.IsRefreshing, "a later frame waited for the refresh instead of drawing around it");
+        Assert.Equal(1, clipmap.Composites);
+        Assert.Equal(before.Pixels, later.Pixels);
+
+        clipmap.WaitForRefresh();
+
+        var after = Render(owned, traced: true, node: clipmap);
+
+        Assert.False(clipmap.IsRefreshing);
+        Assert.Equal(2, clipmap.Composites);
+        Assert.NotEqual(before.Pixels, after.Pixels);
+
+        // The ball has gone, which is the answer the deferred frame was one refresh short of.
+        var settled = Pixel(after, after.Width / 2, after.Height / 2);
+
+        Assert.Equal(1f, settled.Y, 0.02f);
+    }
+
     /// <summary>Builds one frame of the pass, and reads the picture back when it can be drawn.</summary>
-    static Bitmap Render(Fixture fixture, bool traced, bool sun = true, bool draw = true, float clearDepth = 0.5f) {
+    static Bitmap Render(
+        Fixture fixture,
+        bool traced,
+        bool sun = true,
+        bool draw = true,
+        float clearDepth = 0.5f,
+        GlobalDistanceFieldRenderer? node = null
+    ) {
         var device = fixture.Device;
 
         // Nothing draws into these and nothing needs to: with the null field the answer does not
@@ -177,14 +263,15 @@ public sealed class DistanceFieldAoImageTests {
 
         // A ball hanging above the reconstructed plane, so the sun ray from the middle of the frame
         // hits it and the ones from the corners pass either side.
-        using var clipmap = new GlobalDistanceFieldRenderer {
-            Name = "GlobalDistanceField",
-            Field = new(16, 4f, 4),
-            SceneConstants = scene,
-            ViewPosition = Vector3.Zero,
-            Device = device,
-            Instances = { new(Ball(0.8f), new(0f, 3f, 0.5f), Quaternion.Identity, 1f) }
-        };
+        using var made = node is null ? Clipmap(device) : null;
+        var clipmap = node ?? made!;
+
+        // ⚠ Reassigned rather than assumed, because a caller passing a node across frames is passing
+        // it across the SceneConstants those frames own: a node still writing the previous frame's
+        // set writes nothing this frame's descriptor reads, which is a set one binding short and
+        // every draw in the pass refused.
+        clipmap.SceneConstants = scene;
+        clipmap.Device = device;
 
         var describer = new EffectPipelineDescriber(device);
         var loader = new EffectLoader(device);
@@ -266,6 +353,11 @@ public sealed class DistanceFieldAoImageTests {
 
         allocator.BeginFrame();
 
+        // ⚠ A harness that renders more than once has to say where one frame stops. The graph refuses
+        // a declaration after it has compiled, which is the right refusal — a pass added to a frame
+        // whose memory is already assigned is a pass drawing into somebody else's aliased texture.
+        fixture.Graph.Reset();
+
         var frame = compositor.Build(fixture.Graph, effects, device);
 
         // ⚠ Asserted rather than assumed, and it is the assertion that would have caught the missing
@@ -287,6 +379,18 @@ public sealed class DistanceFieldAoImageTests {
 
         return picture;
     }
+
+    /// <summary>The harness's clipmap node: one ball, hanging where the middle ray finds it.</summary>
+    /// <param name="device">The device its volumes go on.</param>
+    /// <returns>The node.</returns>
+    static GlobalDistanceFieldRenderer Clipmap(IGraphicsDevice device) =>
+        new() {
+            Name = "GlobalDistanceField",
+            Field = new(16, 4f, 4),
+            ViewPosition = Vector3.Zero,
+            Device = device,
+            Instances = { new(Ball(0.8f), new(0f, 3f, 0.5f), Quaternion.Identity, 1f) }
+        };
 
     /// <summary>A sphere's field, written from its own equation rather than baked from triangles.</summary>
     /// <remarks>

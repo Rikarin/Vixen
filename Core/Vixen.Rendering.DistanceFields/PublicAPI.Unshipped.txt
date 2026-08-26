@@ -1,4 +1,11 @@
 #nullable enable
+Vixen.Rendering.DistanceFields.ClipmapRefresh -> sealed class
+Vixen.Rendering.DistanceFields.ClipmapRefresh.Abandon() -> void
+Vixen.Rendering.DistanceFields.ClipmapRefresh.Composite(int index) -> void
+Vixen.Rendering.DistanceFields.ClipmapRefresh.IsPublished.get -> bool
+Vixen.Rendering.DistanceFields.ClipmapRefresh.Publish() -> void
+Vixen.Rendering.DistanceFields.ClipmapRefresh.Reused.get -> long
+Vixen.Rendering.DistanceFields.ClipmapRefresh.SliceCount.get -> int
 Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings -> readonly struct
 Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings : System.IEquatable<Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings>
 Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings.BackfaceThreshold.get -> float
@@ -61,12 +68,14 @@ Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.Validate() -> void
 Vixen.Rendering.DistanceFields.DistanceFieldTracer -> static class
 Vixen.Rendering.DistanceFields.GlobalDistanceField -> sealed class
 Vixen.Rendering.DistanceFields.GlobalDistanceField : Vixen.Rendering.DistanceFields.IDistanceField
+Vixen.Rendering.DistanceFields.GlobalDistanceField.BeginUpdate(Vixen.Core.Mathematics.Vector3 viewPosition, System.ReadOnlySpan<Vixen.Rendering.DistanceFields.DistanceFieldInstance> instances, bool scroll = false) -> Vixen.Rendering.DistanceFields.ClipmapRefresh
 Vixen.Rendering.DistanceFields.GlobalDistanceField.BoundsOf(int level) -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Rendering.DistanceFields.GlobalDistanceField.CellSizeOf(int level) -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.ExtentOf(int level) -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.FinestExtent.get -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.GlobalDistanceField(int resolution = 32, float finestExtent = 8, int levelCount = 4) -> void
 Vixen.Rendering.DistanceFields.GlobalDistanceField.HasContent.get -> bool
+Vixen.Rendering.DistanceFields.GlobalDistanceField.IsRefreshing.get -> bool
 Vixen.Rendering.DistanceFields.GlobalDistanceField.LevelCount.get -> int
 Vixen.Rendering.DistanceFields.GlobalDistanceField.LevelData(int level) -> System.ReadOnlySpan<float>
 Vixen.Rendering.DistanceFields.GlobalDistanceField.MaxDistanceOf(int level) -> float
@@ -74,6 +83,7 @@ Vixen.Rendering.DistanceFields.GlobalDistanceField.Resolution.get -> int
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Reused.get -> long
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Sample(Vixen.Core.Mathematics.Vector3 position) -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.SampleGradient(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.DistanceFields.GlobalDistanceField.SlicesComposited.get -> long
 Vixen.Rendering.DistanceFields.GlobalDistanceField.TryLevelFor(Vixen.Core.Mathematics.Vector3 world, out int level) -> bool
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Update(Vixen.Core.Mathematics.Vector3 viewPosition, System.ReadOnlySpan<Vixen.Rendering.DistanceFields.DistanceFieldInstance> instances, bool parallel = true, bool scroll = false) -> void
 Vixen.Rendering.DistanceFields.GlobalDistanceField.ViewPosition.get -> Vixen.Core.Mathematics.Vector3

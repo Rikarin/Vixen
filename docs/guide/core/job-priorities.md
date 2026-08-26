@@ -31,11 +31,17 @@ burst of long jobs occupying every worker at once.
 A bake, a UV unwrap, a texture decode, a navigation mesh rebuild — anything a user started that the
 frame is not waiting for — is what the tier is for.
 
+**The engine's own one is `GlobalDistanceFieldRenderer`.** Its clipmap composite is every cell of
+every level against every instance — the most expensive thing in the frame — and about 97 per cent
+of it is stale by design, because the levels are snapped so that a camera crossing one cell keeps
+almost all of what it had. Given a scheduler it schedules that one slice at a time into
+`Background`, keeps the handle, and lets the frame draw the previous refresh.
+
 ⚠ **Vixen's own asset import is not one of them, despite looking like the obvious first example.**
 Its workers are `Task.Run` over an `async` body that awaits file reads and a dependency barrier, and
 it runs in a content build where there is no frame tier to yield to. See the
 [module README](https://github.com/Rikarin/Vixen/blob/master/Core/Vixen.Core.Threading/README.md) for
-why nothing in the engine sets `Background` yet.
+the rest of that reasoning.
 
 ⚠ **It is not for expressing "not yet".** A dependency edge is what says a job must not start until
 something else has finished, and a tier does not weaken or strengthen an edge. A `Frame` job that
@@ -109,6 +115,36 @@ no-op, it is a pessimisation. A caller that must not block should not call `Comp
 should keep the handle and ask `IsCompleted` on a later frame. That — keeping the handle rather than
 completing it — is what makes something a consumer of this tier, and it is why a `ParallelFor` cannot
 become one by changing its last argument.
+
+**A consumer, in full.** What `GlobalDistanceFieldRenderer` does is the whole pattern in one place,
+and every line of it is load-bearing:
+
+```csharp no-compile="a fragment; the node's own fields are elided"
+// Nothing to draw instead, so the frame is blocked on this one — and Background on work the
+// caller is blocked on is a pessimisation. The tier follows whether the caller waits.
+if (!CanDefer) {
+    jobs.ParallelFor(new CompositeSliceJob(started), started.SliceCount, batchSize: 1);
+    started.Publish();
+}
+
+// Otherwise: one slice per item, the handle kept, and no wait anywhere in the frame path.
+refresh = started;
+refreshHandle = jobs.ScheduleParallel(
+    new CompositeSliceJob(started), started.SliceCount, batchSize: 1, priority: JobPriority.Background
+);
+
+// …and on a later frame, asked rather than waited on.
+if (jobs.IsCompleted(refreshHandle)) {
+    jobs.Complete(refreshHandle);   // rethrows a slice that threw; a no-op on a finished handle
+    refresh.Publish();
+}
+```
+
+⚠ **A deferral that ends at the next frame is worth nothing, and looks exactly like one that
+does not.** Polling with `Complete` instead of `IsCompleted` defers the frame that *starts* the
+work and blocks on the one after it. Both of that node's tests were green against exactly that
+until each was made to run a further frame — so a test for this pattern has to outlive the frame
+that schedules.
 
 ## See also
 

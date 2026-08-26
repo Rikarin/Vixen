@@ -78,7 +78,7 @@ Vixen.App.AppConfig.WorkerCount.set -> int?
 Vixen.App.AppGraphics -> sealed class
 Vixen.App.AppGraphics : System.IDisposable
 Vixen.App.AppGraphics.AdvanceDebug(float seconds) -> void
-Vixen.App.AppGraphics.AppGraphics(Vixen.Graphics.IGraphicsDevice device, Vixen.App.GraphicsOptions options, Vixen.Platform.IWindow? window, Vixen.Assets.AssetManager? assets, Vixen.Shaders.EffectStore? shaders, Vixen.Engine.Frames.EngineLoop? engine, Microsoft.Extensions.Logging.ILoggerFactory logs, bool ownsDevice = true) -> void
+Vixen.App.AppGraphics.AppGraphics(Vixen.Graphics.IGraphicsDevice device, Vixen.App.GraphicsOptions options, Vixen.Platform.IWindow? window, Vixen.Assets.AssetManager? assets, Vixen.Shaders.EffectStore? shaders, Vixen.Engine.Frames.EngineLoop? engine, Microsoft.Extensions.Logging.ILoggerFactory logs, bool ownsDevice = true, Vixen.Core.Threading.JobScheduler? jobs = null) -> void
 Vixen.App.AppGraphics.Begin() -> bool
 Vixen.App.AppGraphics.Camera.get -> Vixen.Rendering.Ecs.CameraExtractionSystem
 Vixen.App.AppGraphics.CasterStages.get -> Vixen.Rendering.RenderStageMask

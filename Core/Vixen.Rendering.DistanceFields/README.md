@@ -84,6 +84,15 @@ Samples do not read each other, so splitting the bake by Z slice cannot change w
 computes. `Parallel` exists so a profiler or a debugger can see one thread — not because the result
 depends on it, and a test asserts the two agree byte for byte.
 
+That independence is also what lets the clipmap's composite be *deferred* rather than merely spread.
+`GlobalDistanceField.Update` is `BeginUpdate` → one Z slice of one level per index → `Publish`, and
+`ClipmapRefresh` is the middle of that handed to whoever wants to run it — in the engine, to the job
+scheduler's background tier, one slice per work item. ⚠ **Nothing a reader can see moves until
+`Publish`**: the cells, the box and the view position are three derivations of where the clipmap is
+and they have to move together, because a frame uploading a level while naming a box it does not yet
+hold is every distance reported at an offset from where it is. The spare buffer each level already
+had for scrolling is the same buffer, doing the same job for a second reason.
+
 ## Placing a field: position, rotation, one scale
 
 `DistanceFieldInstance` deliberately cannot hold a matrix. A distance field survives being moved and

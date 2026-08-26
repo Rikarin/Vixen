@@ -268,6 +268,8 @@ Vixen.Rendering.Compositor.CompositorBuilder.IrradianceFiller.get -> Vixen.Rende
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceFiller.set -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.get -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.set -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
+Vixen.Rendering.Compositor.CompositorBuilder.Jobs.get -> Vixen.Core.Threading.JobScheduler?
+Vixen.Rendering.Compositor.CompositorBuilder.Jobs.set -> Vixen.Core.Threading.JobScheduler?
 Vixen.Rendering.Compositor.CompositorBuilder.Lights.get -> Vixen.Rendering.IPunctualLightSource?
 Vixen.Rendering.Compositor.CompositorBuilder.Lights.set -> Vixen.Rendering.IPunctualLightSource?
 Vixen.Rendering.Compositor.CompositorBuilder.Logger.get -> Microsoft.Extensions.Logging.ILogger?
@@ -522,6 +524,7 @@ Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer -> sealed class
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer : System.IDisposable
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer : Vixen.Rendering.Compositor.SceneRenderer
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Composites.get -> int
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Deferred.get -> int
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Dispose() -> void
@@ -531,6 +534,9 @@ Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.GlobalDistanceFieldRender
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Instances.get -> System.Collections.Generic.IList<Vixen.Rendering.DistanceFields.DistanceFieldInstance>
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.InstancesVersion.get -> int
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.InstancesVersion.set -> int
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.IsRefreshing.get -> bool
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Jobs.get -> Vixen.Core.Threading.JobScheduler?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Jobs.set -> Vixen.Core.Threading.JobScheduler?
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Parallel.get -> bool
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Parallel.set -> bool
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Passes.get -> System.Collections.Generic.IList<string>
@@ -544,6 +550,7 @@ Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.View.get -> Vixen.Renderi
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.ViewPosition.get -> Vixen.Core.Mathematics.Vector3?
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.ViewPosition.set -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.WaitForRefresh() -> void
 Vixen.Rendering.Compositor.GpuCullingAsset -> sealed record
 Vixen.Rendering.Compositor.GpuCullingAsset : System.IEquatable<Vixen.Rendering.Compositor.GpuCullingAsset>
 Vixen.Rendering.Compositor.GpuCullingAsset : Vixen.Rendering.Compositor.ISceneRendererAsset

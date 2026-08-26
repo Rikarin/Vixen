@@ -230,7 +230,7 @@ public sealed class AppBuilder {
         // after the engine, because this adds the extraction systems that fill the frame from the
         // world; and before the game sees the services, because OnInitialise is where a game places
         // its camera and expects something to be looking through it.
-        var graphics = config.Graphics.Enabled ? Graphics(config, window, content, engine, loggerFactory) : null;
+        var graphics = config.Graphics.Enabled ? Graphics(config, window, content, engine, loggerFactory, jobs) : null;
 
         // ⚠ Added here rather than inside AppGraphics because the ring is this method's. It goes into
         // the same DiagnosticOverlays the overlay system was handed — the object, not a copy — which
@@ -286,7 +286,8 @@ public sealed class AppBuilder {
         IWindow? window,
         ContentMount content,
         EngineLoop? engine,
-        HostLoggerFactory logs
+        HostLoggerFactory logs,
+        JobScheduler jobs
     ) {
         var log = logs.CreateLogger("Vixen.App");
         var graphics = device;
@@ -337,7 +338,14 @@ public sealed class AppBuilder {
 
             // A device this built is this application's to close. One handed to WithGraphics belongs
             // to whoever handed it over — the editor, an XR runtime — and outlives the game.
-            ownsDevice: device is null
+            ownsDevice: device is null,
+
+            // ⚠ The same scheduler the world is stepped on, deliberately. A tier is a choice between
+            // two things a worker could pick up next, so a frame's work and the work that would
+            // rather be late than make a frame late have to be queued on one scheduler for the
+            // choice to exist at all. A second scheduler here would give both of them their own
+            // workers and neither of them anything to yield to.
+            jobs: jobs
         );
     }
 

@@ -252,6 +252,136 @@ public class GlobalDistanceFieldTests {
         }
     }
 
+    /// <summary>
+    ///     A refresh that has run every slice and not been published has changed nothing a reader
+    ///     can see.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The double buffer, stated as the property it exists for.</b> A caller that does not
+    ///         wait for the composite is a caller whose frame reads this clipmap while the composite
+    ///         is running — uploading its cells, and naming its box into a descriptor set — so
+    ///         "nothing moves until Publish" is not an implementation detail but the whole contract.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And all three together. The cells, the box and the view position are three
+    ///         derivations of where the clipmap is, read by three different things: a box that
+    ///         advanced ahead of its cells is a shader told exactly where to look in a volume holding
+    ///         somewhere else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARefreshChangesNothingUntilItIsPublished() {
+        var clipmap = new GlobalDistanceField(8, 4f, 2);
+        DistanceFieldInstance[] instances = [DistanceFieldInstance.At(UnitSphere(), new(0, 0, 0))];
+
+        clipmap.Update(Vector3.Zero, instances);
+
+        var box = clipmap.BoundsOf(0);
+        var cells = clipmap.LevelData(0).ToArray();
+        var moved = new Vector3(clipmap.CellSizeOf(0) * 3f, 0, 0);
+
+        var refresh = clipmap.BeginUpdate(moved, instances);
+
+        Assert.True(clipmap.IsRefreshing);
+
+        for (var slice = 0; slice < refresh.SliceCount; slice++) {
+            refresh.Composite(slice);
+        }
+
+        // Every cell of the new composite is written and not one of them is visible.
+        Assert.Equal(box, clipmap.BoundsOf(0));
+        Assert.Equal(Vector3.Zero, clipmap.ViewPosition);
+        Assert.Equal(cells, clipmap.LevelData(0).ToArray());
+
+        refresh.Publish();
+
+        Assert.False(clipmap.IsRefreshing);
+        Assert.Equal(moved, clipmap.ViewPosition);
+        Assert.NotEqual(box, clipmap.BoundsOf(0));
+        Assert.NotEqual(cells, clipmap.LevelData(0).ToArray());
+    }
+
+    /// <summary>
+    ///     The slice indices cover every slice of every level, once each, in any order.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Stated against a clipmap whose right answer is one number.</b> A refresh into an
+    ///         empty world is <see cref="GlobalDistanceField.MaxDistanceOf" /> everywhere, so a slice
+    ///         index that mapped where another one already had leaves a slice holding whatever was in
+    ///         the buffer before — which is a whole plane of the previous scene, in the middle of a
+    ///         level, and nothing downstream that could tell.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not written as "the same as what <c>Update</c> produces".</b> That version cannot
+    ///         fail: <c>Update</c> runs these same slices through this same decode, so both sides move
+    ///         together and a broken index reads as agreement. Asked and answered — the tautology was
+    ///         written first and survived the sabotage that proved it was one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EverySliceIndexReachesADifferentSliceOfTheClipmap() {
+        var clipmap = new GlobalDistanceField(8, 4f, 2);
+
+        clipmap.Update(Vector3.Zero, [DistanceFieldInstance.At(UnitSphere(), Vector3.Zero)]);
+
+        // Backwards, because the slices are meant to be independent and a scheduler hands them out
+        // in no order at all.
+        var refresh = clipmap.BeginUpdate(new(64f, 0, 0), []);
+
+        for (var slice = refresh.SliceCount - 1; slice >= 0; slice--) {
+            refresh.Composite(slice);
+        }
+
+        refresh.Publish();
+
+        for (var level = 0; level < 2; level++) {
+            for (var z = 0; z < 8; z++) {
+                for (var y = 0; y < 8; y++) {
+                    for (var x = 0; x < 8; x++) {
+                        Assert.Equal(clipmap.MaxDistanceOf(level), clipmap[level, x, y, z]);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     There is one spare buffer per level, so there can be one refresh.
+    /// </summary>
+    [Fact]
+    public void ASecondRefreshIsRefusedRatherThanSharingTheBufferWithTheFirst() {
+        var clipmap = new GlobalDistanceField(8, 4f, 2);
+
+        clipmap.BeginUpdate(Vector3.Zero, []);
+
+        Assert.Throws<InvalidOperationException>(() => clipmap.BeginUpdate(Vector3.One, []));
+    }
+
+    /// <summary>An abandoned refresh gives the spare buffers back.</summary>
+    /// <remarks>
+    ///     What a caller whose answer stopped being wanted does — a teleport, a level unload, a
+    ///     scheduling call that threw. The clipmap keeps the composite it had.
+    /// </remarks>
+    [Fact]
+    public void AnAbandonedRefreshLetsTheNextOneStart() {
+        var clipmap = new GlobalDistanceField(8, 4f, 2);
+
+        clipmap.Update(Vector3.Zero, []);
+
+        var box = clipmap.BoundsOf(0);
+
+        clipmap.BeginUpdate(new(64f, 0, 0), []).Abandon();
+
+        Assert.False(clipmap.IsRefreshing);
+        Assert.Equal(box, clipmap.BoundsOf(0));
+
+        clipmap.Update(new(64f, 0, 0), []);
+
+        Assert.NotEqual(box, clipmap.BoundsOf(0));
+    }
+
     [Theory]
     [InlineData(1, 4f, 4)]
     [InlineData(16, 0f, 4)]

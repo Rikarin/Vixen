@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Graphics.Null;
@@ -561,6 +562,35 @@ public sealed class FrameDocumentTests : IDisposable {
             text.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0],
             System.Globalization.CultureInfo.InvariantCulture
         );
+
+    /// <summary>
+    ///     This document's clipmap node is built against whatever job system the host has.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The sample end of the chain the background tier waited on.</b> The composite this
+    ///         node does is the most expensive thing in the frame and about 97 per cent stale by
+    ///         design, and given a scheduler it goes into <c>JobPriority.Background</c> with the handle
+    ///         kept — so a walking camera draws a clipmap one refresh old rather than stopping for one.
+    ///         Without a scheduler the node still works and the frame still waits, which is what a
+    ///         tool or a test that builds this document gets.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Asserted here as well as on the builder, because <i>this</i> document is what the
+    ///         sample ships and a node kind it did not place is a node nothing hands anything to. The
+    ///         engine-side test proves the builder forwards it; this proves there is something in this
+    ///         file to forward it to.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_documents_clipmap_takes_the_hosts_job_system() {
+        using var jobs = new JobScheduler(0);
+        using var built = Build(builder => builder.Jobs = jobs);
+
+        var clipmap = Assert.Single(built.Builder.Nodes.Values.OfType<GlobalDistanceFieldRenderer>());
+
+        Assert.Same(jobs, clipmap.Jobs);
+    }
 
     static Built Build(Action<CompositorBuilder>? wire = null) {
         // Constructing the factory is also what first touches Vixen.Rendering.PostFx, whose module

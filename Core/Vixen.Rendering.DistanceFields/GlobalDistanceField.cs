@@ -47,6 +47,9 @@ public sealed class GlobalDistanceField : IDistanceField {
     /// <summary>Whether each level holds anything a scroll could reuse.</summary>
     readonly bool[] filled;
 
+    ClipmapRefresh? refresh;
+    long slices;
+
     /// <summary>How many samples along each axis, in every level.</summary>
     public int Resolution { get; }
 
@@ -58,6 +61,26 @@ public sealed class GlobalDistanceField : IDistanceField {
 
     /// <summary>Whether <see cref="Update" /> has run.</summary>
     public bool HasContent { get; private set; }
+
+    /// <summary>Whether a <see cref="BeginUpdate" /> has been started and not yet published.</summary>
+    /// <remarks>
+    ///     While this is set, everything a reader can see — <see cref="LevelData" />,
+    ///     <see cref="BoundsOf" />, <see cref="ViewPosition" />, <see cref="Reused" /> — is still the
+    ///     <i>previous</i> composite, and stays that way until <see cref="ClipmapRefresh.Publish" />.
+    ///     That is the whole of the double buffer: a refresh writes the other half.
+    /// </remarks>
+    public bool IsRefreshing => refresh is not null;
+
+    /// <summary>How many level slices have ever been computed, across every composite.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted from inside the work, which is what makes deferral checkable.</b> A caller
+    ///     asking whether a background refresh has actually run yet cannot tell from
+    ///     <see cref="HasContent" /> or from a clock — the first is true from the frame before and the
+    ///     second measures how busy the machine is. This goes up once per slice, on whichever thread
+    ///     ran it, so "no slices ran while the frame work drained" is an assertion about work rather
+    ///     than about time.
+    /// </remarks>
+    public long SlicesComposited => Interlocked.Read(ref slices);
 
     /// <summary>How many cells the last update kept rather than recomputed.</summary>
     /// <remarks>
@@ -174,8 +197,60 @@ public sealed class GlobalDistanceField : IDistanceField {
         bool parallel = true,
         bool scroll = false
     ) {
-        ViewPosition = viewPosition;
-        Reused = 0;
+        var pending = BeginUpdate(viewPosition, instances, scroll);
+
+        // One code path with the deferred one, deliberately: the arithmetic every closed-form test
+        // in this assembly checks is the arithmetic a background refresh runs, rather than a second
+        // copy of it that could drift.
+        if (parallel && pending.SliceCount > 1) {
+            System.Threading.Tasks.Parallel.For(0, pending.SliceCount, pending.Composite);
+        } else {
+            for (var slice = 0; slice < pending.SliceCount; slice++) {
+                pending.Composite(slice);
+            }
+        }
+
+        pending.Publish();
+    }
+
+    /// <summary>Starts a recomposite without running any of it.</summary>
+    /// <param name="viewPosition">Where the camera is.</param>
+    /// <param name="instances">Everything that might be in the volume.</param>
+    /// <param name="scroll">Whether the levels may keep what a movement did not invalidate.</param>
+    /// <returns>The refresh, whose slices somebody has to run and which somebody has to publish.</returns>
+    /// <exception cref="InvalidOperationException">A refresh is already outstanding.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes the composite deferrable.</b> <see cref="Update" /> is the whole thing
+    ///         between one statement's braces, so a caller that must not block cannot have it. This
+    ///         hands back <see cref="ClipmapRefresh.SliceCount" /> pieces of it instead — one Z slice
+    ///         of one level each — and every one of them writes into the half of the double buffer
+    ///         that nothing is reading. Nothing a reader can see moves until
+    ///         <see cref="ClipmapRefresh.Publish" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The instances are copied here, not held.</b> A refresh that ran a frame later
+    ///         against a list its owner had since edited would composite half of one scene and half
+    ///         of another, and nothing downstream could tell.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One at a time.</b> The second buffer is one buffer. Two refreshes in flight would
+    ///         both write it, and the survivor would be whichever finished last with the other's cells
+    ///         still in it.
+    ///     </para>
+    /// </remarks>
+    public ClipmapRefresh BeginUpdate(
+        Vector3 viewPosition,
+        ReadOnlySpan<DistanceFieldInstance> instances,
+        bool scroll = false
+    ) {
+        if (refresh is not null) {
+            throw new InvalidOperationException(
+                "This clipmap already has a refresh outstanding. There is one spare buffer per level, "
+                + "so a second refresh would write the one the first is writing. Publish or abandon "
+                + "the first."
+            );
+        }
 
         // Bounds are eight transforms and a merge each, and every cell of every level would
         // otherwise pay for them again.
@@ -187,11 +262,7 @@ public sealed class GlobalDistanceField : IDistanceField {
             bounds[index] = placed[index].WorldBounds;
         }
 
-        for (var level = 0; level < levels.Length; level++) {
-            Composite(level, Snap(viewPosition, CellSizeOf(level)), placed, bounds, parallel, scroll);
-        }
-
-        HasContent = true;
+        return refresh = new(this, viewPosition, placed, bounds, scroll);
     }
 
     /// <summary>The signed distance at a world-space point, off the finest level that has it.</summary>
@@ -264,33 +335,23 @@ public sealed class GlobalDistanceField : IDistanceField {
             MathF.Round(position.Z / cell) * cell
         );
 
-    /// <summary>Fills one level around a snapped centre.</summary>
+    /// <summary>Works out where one level is going and into which buffer, without filling it.</summary>
     /// <param name="level">Which level.</param>
-    /// <param name="centre">Where it is centred, already snapped.</param>
-    /// <param name="instances">Everything that might be in it.</param>
-    /// <param name="bounds">Each instance's world bounds, in the same order.</param>
-    /// <param name="parallel">Whether the composite may use more than one thread.</param>
+    /// <param name="viewPosition">Where the camera is, before this level's own snap.</param>
     /// <param name="scroll">Whether cells the movement did not invalidate may be kept.</param>
-    void Composite(
-        int level,
-        Vector3 centre,
-        DistanceFieldInstance[] instances,
-        BoundingBox[] bounds,
-        bool parallel,
-        bool scroll
-    ) {
+    /// <returns>Everything a slice of that level needs.</returns>
+    internal LevelPlan PlanLevel(int level, Vector3 viewPosition, bool scroll) {
+        var centre = Snap(viewPosition, CellSizeOf(level));
         var extent = ExtentOf(level);
-        var maximum = MaxDistanceOf(level);
         var box = new BoundingBox(centre - new Vector3(extent), centre + new Vector3(extent));
         var previous = levels[level];
 
         // Written into the other buffer, not over the one being read. A scroll copies from the old
         // level into the new one, and doing that in place would overwrite a cell another cell is
         // about to want — which is a field that is right along one axis and smeared along the rest.
+        // It is also what lets the frame keep uploading the old level while this one is being filled.
         var slot = new MeshDistanceField(box, new(Resolution), spare[level].Distances);
-
         var cell = slot.CellSize;
-        var distances = slot.Distances;
 
         // A cell's world position is computed from its position on the GLOBAL grid, not from this
         // box's corner, and that is what makes a scrolled level bit-identical to a recomputed one.
@@ -312,49 +373,99 @@ public sealed class GlobalDistanceField : IDistanceField {
             reuse = TryShift(previous.Bounds.Minimum, box.Minimum, cell, out shift);
         }
 
-        void Slice(int z) {
-            for (var y = 0; y < Resolution; y++) {
-                for (var x = 0; x < Resolution; x++) {
-                    // A cell of the new level is a world position, and the same world position in the
-                    // old level is that cell plus the shift — which is why the levels are snapped to
-                    // their own grids: without that the shift is not a whole number of cells and
-                    // nothing lines up to be kept.
-                    if (reuse) {
-                        var sx = x + shift.X;
-                        var sy = y + shift.Y;
-                        var sz = z + shift.Z;
+        return new(slot, previous, origin, shift, reuse, MaxDistanceOf(level));
+    }
 
-                        if (sx >= 0 && sx < Resolution && sy >= 0 && sy < Resolution && sz >= 0 && sz < Resolution) {
-                            distances[slot.Index(x, y, z)] = previous[sx, sy, sz];
+    /// <summary>Fills one Z slice of one planned level.</summary>
+    /// <param name="plan">The level's plan.</param>
+    /// <param name="z">Which slice.</param>
+    /// <param name="instances">Everything that might be in it.</param>
+    /// <param name="bounds">Each instance's world bounds, in the same order.</param>
+    internal void CompositeSlice(
+        in LevelPlan plan,
+        int z,
+        DistanceFieldInstance[] instances,
+        BoundingBox[] bounds
+    ) {
+        var slot = plan.Slot;
+        var previous = plan.Previous;
+        var distances = slot.Distances;
+        var cell = slot.CellSize;
+        var maximum = plan.Maximum;
 
-                            continue;
-                        }
+        for (var y = 0; y < Resolution; y++) {
+            for (var x = 0; x < Resolution; x++) {
+                // A cell of the new level is a world position, and the same world position in the
+                // old level is that cell plus the shift — which is why the levels are snapped to
+                // their own grids: without that the shift is not a whole number of cells and
+                // nothing lines up to be kept.
+                if (plan.Reuse) {
+                    var sx = x + plan.Shift.X;
+                    var sy = y + plan.Shift.Y;
+                    var sz = z + plan.Shift.Z;
+
+                    if (sx >= 0 && sx < Resolution && sy >= 0 && sy < Resolution && sz >= 0 && sz < Resolution) {
+                        distances[slot.Index(x, y, z)] = previous[sx, sy, sz];
+
+                        continue;
                     }
-
-                    var point = cell * (origin + new Vector3(x, y, z));
-
-                    distances[slot.Index(x, y, z)] =
-                        Math.Clamp(Nearest(point, instances, bounds, maximum), -maximum, maximum);
                 }
+
+                var point = cell * (plan.Origin + new Vector3(x, y, z));
+
+                distances[slot.Index(x, y, z)] =
+                    Math.Clamp(Nearest(point, instances, bounds, maximum), -maximum, maximum);
             }
         }
 
-        if (parallel && Resolution > 1) {
-            System.Threading.Tasks.Parallel.For(0, Resolution, Slice);
-        } else {
-            for (var z = 0; z < Resolution; z++) {
-                Slice(z);
-            }
+        Interlocked.Increment(ref slices);
+    }
+
+    /// <summary>Swaps every filled buffer in, and makes what a reader sees the new composite.</summary>
+    /// <param name="pending">The refresh being published.</param>
+    /// <param name="plans">Its per-level plans.</param>
+    /// <param name="viewPosition">Where it was centred.</param>
+    /// <param name="reused">How many cells it kept.</param>
+    /// <remarks>
+    ///     ⚠ <b>Everything a reader can see moves here and nowhere else.</b>
+    ///     <see cref="ViewPosition" />, <see cref="BoundsOf" /> and <see cref="LevelData" /> are what
+    ///     an upload and a shader's names are both derived from, so a field that advanced its bounds
+    ///     before its cells would name the new box over the old texels — geometry reported at an
+    ///     offset from where it is, on every frame of the gap.
+    /// </remarks>
+    internal void PublishRefresh(ClipmapRefresh pending, LevelPlan[] plans, Vector3 viewPosition, long reused) {
+        if (!ReferenceEquals(refresh, pending)) {
+            throw new InvalidOperationException("That refresh is not this clipmap's outstanding one.");
         }
 
-        if (reuse) {
-            Reused += Kept(shift);
+        for (var level = 0; level < plans.Length; level++) {
+            // The new level becomes the level, and the one just read becomes the spare.
+            spare[level] = levels[level];
+            levels[level] = plans[level].Slot;
+            filled[level] = true;
         }
 
-        // The new level becomes the level, and the one just read becomes the spare.
-        levels[level] = slot;
-        spare[level] = previous;
-        filled[level] = true;
+        ViewPosition = viewPosition;
+        Reused = reused;
+        HasContent = true;
+        refresh = null;
+    }
+
+    /// <summary>Forgets an outstanding refresh without swapping anything in.</summary>
+    /// <param name="pending">The refresh being abandoned.</param>
+    internal void AbandonRefresh(ClipmapRefresh pending) {
+        if (ReferenceEquals(refresh, pending)) {
+            refresh = null;
+        }
+    }
+
+    /// <summary>How many cells of a level survive a shift.</summary>
+    /// <param name="shift">The movement, in cells.</param>
+    /// <returns>The count.</returns>
+    internal long Kept(Int3 shift) {
+        long Overlap(int offset) => Math.Max(0, Resolution - Math.Abs(offset));
+
+        return Overlap(shift.X) * Overlap(shift.Y) * Overlap(shift.Z);
     }
 
     /// <summary>How far one level moved, in whole cells, or false when it did not move by whole ones.</summary>
@@ -382,15 +493,6 @@ public sealed class GlobalDistanceField : IDistanceField {
         var error = exact - new Vector3(shift.X, shift.Y, shift.Z);
 
         return MathF.Abs(error.X) < 0.001f && MathF.Abs(error.Y) < 0.001f && MathF.Abs(error.Z) < 0.001f;
-    }
-
-    /// <summary>How many cells of a level survive a shift.</summary>
-    /// <param name="shift">The movement, in cells.</param>
-    /// <returns>The count.</returns>
-    long Kept(Int3 shift) {
-        long Overlap(int offset) => Math.Max(0, Resolution - Math.Abs(offset));
-
-        return Overlap(shift.X) * Overlap(shift.Y) * Overlap(shift.Z);
     }
 
     /// <summary>The nearest surface to a point, over every instance that could hold one.</summary>
