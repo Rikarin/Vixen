@@ -249,7 +249,21 @@ public class GlobalDistanceFieldRendererTests {
         Assert.Equal(1, node.Texture!.Uploads);
         Assert.Equal(before, scene.Parameters.Get(ParameterKeys.New<Vector3>(Minimum)));
 
-        // The control: the slices were runnable and only waiting, which is what makes the assertion
+        // ⚠ And every frame after it, which is the half that is easy to leave out and the half that
+        // matters. A node that polled with `Complete` rather than `IsCompleted` would defer the
+        // frame that started the refresh and block on the very next one — deferral by exactly one
+        // frame, which is the defect wearing the shape of the fix.
+        for (var frame = 0; frame < 3; frame++) {
+            Record(node, context);
+        }
+
+        Assert.True(node.IsRefreshing, "a later frame waited for the refresh instead of drawing around it");
+        Assert.Equal(4, node.Deferred);
+        Assert.Equal(slices, field.SlicesComposited);
+        Assert.Equal(1, node.Composites);
+        Assert.Equal(before, scene.Parameters.Get(ParameterKeys.New<Vector3>(Minimum)));
+
+        // The control: the slices were runnable and only waiting, which is what makes the assertions
         // above about the tier rather than about a refresh that was silently dropped.
         node.WaitForRefresh();
 

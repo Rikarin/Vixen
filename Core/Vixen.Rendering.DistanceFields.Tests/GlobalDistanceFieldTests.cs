@@ -303,18 +303,32 @@ public class GlobalDistanceFieldTests {
     }
 
     /// <summary>
-    ///     The deferred composite and the inline one are the same arithmetic, not two copies of it.
+    ///     The slice indices cover every slice of every level, once each, in any order.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Stated against a clipmap whose right answer is one number.</b> A refresh into an
+    ///         empty world is <see cref="GlobalDistanceField.MaxDistanceOf" /> everywhere, so a slice
+    ///         index that mapped where another one already had leaves a slice holding whatever was in
+    ///         the buffer before — which is a whole plane of the previous scene, in the middle of a
+    ///         level, and nothing downstream that could tell.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not written as "the same as what <c>Update</c> produces".</b> That version cannot
+    ///         fail: <c>Update</c> runs these same slices through this same decode, so both sides move
+    ///         together and a broken index reads as agreement. Asked and answered — the tautology was
+    ///         written first and survived the sabotage that proved it was one.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void ASlicedRefreshLandsWhereUpdateWouldHave() {
-        DistanceFieldInstance[] instances = [DistanceFieldInstance.At(UnitSphere(), new(0.4f, 0, 0))];
+    public void EverySliceIndexReachesADifferentSliceOfTheClipmap() {
+        var clipmap = new GlobalDistanceField(8, 4f, 2);
 
-        var whole = new GlobalDistanceField(8, 4f, 2);
-        var sliced = new GlobalDistanceField(8, 4f, 2);
+        clipmap.Update(Vector3.Zero, [DistanceFieldInstance.At(UnitSphere(), Vector3.Zero)]);
 
-        whole.Update(new(0.5f, 0, 0), instances);
-
-        var refresh = sliced.BeginUpdate(new(0.5f, 0, 0), instances);
+        // Backwards, because the slices are meant to be independent and a scheduler hands them out
+        // in no order at all.
+        var refresh = clipmap.BeginUpdate(new(64f, 0, 0), []);
 
         for (var slice = refresh.SliceCount - 1; slice >= 0; slice--) {
             refresh.Composite(slice);
@@ -326,7 +340,7 @@ public class GlobalDistanceFieldTests {
             for (var z = 0; z < 8; z++) {
                 for (var y = 0; y < 8; y++) {
                     for (var x = 0; x < 8; x++) {
-                        Assert.Equal(whole[level, x, y, z], sliced[level, x, y, z]);
+                        Assert.Equal(clipmap.MaxDistanceOf(level), clipmap[level, x, y, z]);
                     }
                 }
             }
