@@ -1448,6 +1448,9 @@ Vixen.Rendering.DrawCommand.FirstInstance -> uint
 Vixen.Rendering.DrawCommand.IndexCount -> uint
 Vixen.Rendering.DrawCommand.InstanceCount -> uint
 Vixen.Rendering.DrawCommand.VertexOffset -> uint
+Vixen.Rendering.Ecs.BlendShapeWeights -> struct
+Vixen.Rendering.Ecs.BlendShapeWeights.BlendShapeWeights() -> void
+Vixen.Rendering.Ecs.BlendShapeWeights.Weights -> float[]?
 Vixen.Rendering.Ecs.BoxPostProcessShape -> readonly struct
 Vixen.Rendering.Ecs.BoxPostProcessShape : Vixen.Rendering.Ecs.IPostProcessShape
 Vixen.Rendering.Ecs.BoxPostProcessShape.BoxPostProcessShape() -> void
@@ -1546,6 +1549,8 @@ Vixen.Rendering.Ecs.MeshExtractionSystem.Materials.set -> Vixen.Rendering.Ecs.IM
 Vixen.Rendering.Ecs.MeshExtractionSystem.MeshExtractionSystem(Vixen.Rendering.RenderSystem system, Vixen.Rendering.Features.MeshRenderFeature meshes, Vixen.Rendering.Features.TransformRenderFeature transforms, Vixen.Rendering.Features.MaterialRenderFeature materials, Vixen.Rendering.Ecs.GeometryResidency residency) -> void
 Vixen.Rendering.Ecs.MeshExtractionSystem.Meshes.get -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Rendering.Ecs.MeshExtractionSystem.Meshes.set -> Vixen.Rendering.Ecs.IMeshSource?
+Vixen.Rendering.Ecs.MeshExtractionSystem.Morphing.get -> Vixen.Rendering.Features.MorphRenderFeature?
+Vixen.Rendering.Ecs.MeshExtractionSystem.Morphing.set -> Vixen.Rendering.Features.MorphRenderFeature?
 Vixen.Rendering.Ecs.MeshExtractionSystem.ObjectCount.get -> int
 Vixen.Rendering.Ecs.MeshExtractionSystem.Resettle(Vixen.Ecs.World world) -> void
 Vixen.Rendering.Ecs.MeshExtractionSystem.ResolveMaterials.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.ResolveMaterial>
@@ -1564,6 +1569,15 @@ Vixen.Rendering.Ecs.MeshRenderable.Material -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.MeshRenderable.Mesh -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.MeshRenderable.MeshRenderable() -> void
 Vixen.Rendering.Ecs.MeshRenderables -> static class
+Vixen.Rendering.Ecs.MorphWeightSystem -> sealed class
+Vixen.Rendering.Ecs.MorphWeightSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Rendering.Ecs.MorphWeightSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Rendering.Ecs.MorphWeightSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Rendering.Ecs.MorphWeightSystem.Feature.get -> Vixen.Rendering.Features.MorphRenderFeature?
+Vixen.Rendering.Ecs.MorphWeightSystem.Feature.set -> Vixen.Rendering.Features.MorphRenderFeature?
+Vixen.Rendering.Ecs.MorphWeightSystem.MorphWeightSystem() -> void
+Vixen.Rendering.Ecs.MorphWeightSystem.Run(Vixen.Ecs.World world) -> void
+Vixen.Rendering.Ecs.MorphWeightSystem.Weighted.get -> int
 Vixen.Rendering.Ecs.PostProcessSettings -> struct
 Vixen.Rendering.Ecs.PostProcessSettings.AberrationStrength -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.BloomIntensity -> float?
@@ -1908,6 +1922,47 @@ Vixen.Rendering.Features.MeshRenderFeature.IndexCount.get -> long
 Vixen.Rendering.Features.MeshRenderFeature.MeshRenderFeature() -> void
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.get -> Vixen.Rendering.PipelineCache?
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.set -> Vixen.Rendering.PipelineCache?
+Vixen.Rendering.Features.MorphInstance -> readonly struct
+Vixen.Rendering.Features.MorphInstance : System.IEquatable<Vixen.Rendering.Features.MorphInstance>
+Vixen.Rendering.Features.MorphInstance.BaseVertex.get -> int
+Vixen.Rendering.Features.MorphInstance.BaseVertex.init -> int
+Vixen.Rendering.Features.MorphInstance.IsMorphed.get -> bool
+Vixen.Rendering.Features.MorphInstance.MorphInstance() -> void
+Vixen.Rendering.Features.MorphInstance.MorphInstance(int BaseVertex, int VertexCount, int TargetCount) -> void
+Vixen.Rendering.Features.MorphInstance.TargetCount.get -> int
+Vixen.Rendering.Features.MorphInstance.TargetCount.init -> int
+Vixen.Rendering.Features.MorphInstance.VertexCount.get -> int
+Vixen.Rendering.Features.MorphInstance.VertexCount.init -> int
+Vixen.Rendering.Features.MorphRenderFeature -> sealed class
+Vixen.Rendering.Features.MorphRenderFeature : System.IDisposable
+Vixen.Rendering.Features.MorphRenderFeature : Vixen.Rendering.SubRenderFeature
+Vixen.Rendering.Features.MorphRenderFeature.Attach(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.Ecs.GeometryKey key, Vixen.Rendering.MeshData mesh, in Vixen.Rendering.GeometrySlice rest, ref Vixen.Rendering.MeshDraw draw) -> bool
+Vixen.Rendering.Features.MorphRenderFeature.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Features.MorphRenderFeature.Copies.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.Degraded.get -> string?
+Vixen.Rendering.Features.MorphRenderFeature.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.Features.MorphRenderFeature.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.Features.MorphRenderFeature.Dispatches.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.Dispose() -> void
+Vixen.Rendering.Features.MorphRenderFeature.Dropped.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.Effects.get -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.Features.MorphRenderFeature.Effects.set -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.Features.MorphRenderFeature.EntryCapacity.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.Forget(Vixen.Rendering.RenderObjectId id) -> bool
+Vixen.Rendering.Features.MorphRenderFeature.InstanceCount.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.Instances.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.Features.MorphInstance>
+Vixen.Rendering.Features.MorphRenderFeature.MeshCount.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.MorphRenderFeature(Vixen.Graphics.IGraphicsDevice device, int vertexCapacity = 65536, int entryCapacity = 262144) -> void
+Vixen.Rendering.Features.MorphRenderFeature.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.Features.MorphRenderFeature.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.Features.MorphRenderFeature.Record(Vixen.Graphics.ICommandList list) -> bool
+Vixen.Rendering.Features.MorphRenderFeature.SetWeights(Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<float> weights) -> bool
+Vixen.Rendering.Features.MorphRenderFeature.Source.get -> Vixen.Rendering.GeometryBuffer?
+Vixen.Rendering.Features.MorphRenderFeature.Source.set -> Vixen.Rendering.GeometryBuffer?
+Vixen.Rendering.Features.MorphRenderFeature.UsedEntries.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.UsedVertices.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.VertexCapacity.get -> int
+Vixen.Rendering.Features.MorphRenderFeature.WeightsOf(Vixen.Rendering.RenderObjectId id) -> System.ReadOnlySpan<float>
 Vixen.Rendering.Features.MotionVectorRenderFeature -> sealed class
 Vixen.Rendering.Features.MotionVectorRenderFeature : Vixen.Rendering.Features.IDrawSubFeature
 Vixen.Rendering.Features.MotionVectorRenderFeature : Vixen.Rendering.SubRenderFeature
@@ -2091,11 +2146,13 @@ Vixen.Rendering.GeometryBuffer.PendingBytes.get -> long
 Vixen.Rendering.GeometryBuffer.Reserve(long bytes) -> bool
 Vixen.Rendering.GeometryBuffer.SliceCount.get -> int
 Vixen.Rendering.GeometryBuffer.StagingCapacity.get -> long
+Vixen.Rendering.GeometryBuffer.Transition(Vixen.Graphics.ICommandList list, Vixen.Graphics.ResourceState state) -> void
 Vixen.Rendering.GeometryBuffer.TryAllocate(int vertexCount, int indexCount, out Vixen.Rendering.GeometrySlice slice) -> bool
 Vixen.Rendering.GeometryBuffer.UsedIndices.get -> int
 Vixen.Rendering.GeometryBuffer.UsedVertices.get -> int
 Vixen.Rendering.GeometryBuffer.VertexCapacity.get -> int
 Vixen.Rendering.GeometryBuffer.VertexFragmentCount.get -> int
+Vixen.Rendering.GeometryBuffer.VertexState.get -> Vixen.Graphics.ResourceState
 Vixen.Rendering.GeometryBuffer.VertexStride.get -> int
 Vixen.Rendering.GeometryBuffer.Vertices.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.GeometryBuffer.Write(in Vixen.Rendering.GeometrySlice slice, System.ReadOnlySpan<byte> vertices, System.ReadOnlySpan<byte> indices) -> void
@@ -4863,6 +4920,17 @@ Vixen.Shaders.Generated.LocalExposureConstants.MaximumStops -> float
 Vixen.Shaders.Generated.LocalExposureConstants.ShadowContrast -> float
 Vixen.Shaders.Generated.LocalExposureConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.LocalExposureKeys -> static class
+Vixen.Shaders.Generated.MorphScatterConstants -> struct
+Vixen.Shaders.Generated.MorphScatterConstants.BaseVertex -> int
+Vixen.Shaders.Generated.MorphScatterConstants.EntryCount -> int
+Vixen.Shaders.Generated.MorphScatterConstants.MorphScatterConstants() -> void
+Vixen.Shaders.Generated.MorphScatterConstants.NormalOffset -> int
+Vixen.Shaders.Generated.MorphScatterConstants.NormalStep -> float
+Vixen.Shaders.Generated.MorphScatterConstants.PositionOffset -> int
+Vixen.Shaders.Generated.MorphScatterConstants.PositionStep -> float
+Vixen.Shaders.Generated.MorphScatterConstants.Stride -> int
+Vixen.Shaders.Generated.MorphScatterConstants.Weight -> float
+Vixen.Shaders.Generated.MorphScatterKeys -> static class
 Vixen.Shaders.Generated.MotionBlurConstants -> struct
 Vixen.Shaders.Generated.MotionBlurConstants.MaxRadius -> float
 Vixen.Shaders.Generated.MotionBlurConstants.MinRadius -> float
@@ -5190,6 +5258,9 @@ const Vixen.Rendering.Features.ForwardLightingRenderFeature.HeaderSize = 16 -> i
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeIndexOffset = 4 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeWeightOffset = 8 -> int
 const Vixen.Rendering.Features.MaterialRenderFeature.RecordIndexName = "materialIndex" -> string
+const Vixen.Rendering.Features.MorphRenderFeature.GroupSize = 64 -> int
+const Vixen.Rendering.Features.MorphRenderFeature.NormalFloat = 3 -> int
+const Vixen.Rendering.Features.MorphRenderFeature.PositionFloat = 0 -> int
 const Vixen.Rendering.Features.VirtualGeometryRenderFeature.DefaultErrorThreshold = 1 -> float
 const Vixen.Rendering.Features.VirtualGeometryRenderFeature.DefaultSoftwareThreshold = 0 -> float
 const Vixen.Rendering.GpuClusterCulling.ClusterRoot = 1 -> uint
@@ -5598,6 +5669,15 @@ const Vixen.Shaders.Generated.LocalExposureKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.LocalExposureKeys.SourceSamplerBinding = 3 -> uint
 const Vixen.Shaders.Generated.LocalExposureKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.LocalExposureKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.MorphScatterConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.MorphScatterKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.MorphScatterKeys.ConstantBufferSet = 3 -> int
+const Vixen.Shaders.Generated.MorphScatterKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.MorphScatterKeys.EntriesBinding = 2 -> uint
+const Vixen.Shaders.Generated.MorphScatterKeys.EntriesSet = 3 -> int
+const Vixen.Shaders.Generated.MorphScatterKeys.ShaderName = "MorphScatter" -> string
+const Vixen.Shaders.Generated.MorphScatterKeys.VerticesBinding = 1 -> uint
+const Vixen.Shaders.Generated.MorphScatterKeys.VerticesSet = 3 -> int
 const Vixen.Shaders.Generated.MotionBlurConstants.Size = 32 -> int
 const Vixen.Shaders.Generated.MotionBlurKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.MotionBlurKeys.ConstantBufferSet = 2 -> int
@@ -6125,6 +6205,7 @@ override Vixen.Rendering.Ecs.CameraExtractionSystem.Update(in Vixen.Ecs.Systems.
 override Vixen.Rendering.Ecs.GeometryKey.ToString() -> string
 override Vixen.Rendering.Ecs.LightExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Ecs.MeshExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Rendering.Ecs.MorphWeightSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Ecs.PostProcessVolumeSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Ecs.VfxExtractionSystem.Dispose() -> void
 override Vixen.Rendering.Ecs.VfxExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -6144,6 +6225,8 @@ override Vixen.Rendering.Features.MeshRenderFeature.Draw(Vixen.Rendering.RenderS
 override Vixen.Rendering.Features.MeshRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.MeshRenderFeature.Name.get -> string
 override Vixen.Rendering.Features.MeshRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage stage) -> uint
+override Vixen.Rendering.Features.MorphRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
+override Vixen.Rendering.Features.MorphRenderFeature.Name.get -> string
 override Vixen.Rendering.Features.MotionVectorRenderFeature.Name.get -> string
 override Vixen.Rendering.Features.MotionVectorRenderFeature.Prepare(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.ParticleRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, System.ReadOnlySpan<Vixen.Rendering.RenderNode> nodes) -> void
@@ -6208,6 +6291,7 @@ readonly Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Write(System
 readonly Vixen.Shaders.Generated.IrradianceRepairConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.LensFlareConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.LocalExposureConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.MorphScatterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.MotionBlurConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.MotionVectorsPerViewConstants.Write(System.Span<byte> buffer) -> void
@@ -6335,6 +6419,7 @@ static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vix
 static Vixen.Rendering.Features.ForwardLightingRenderFeature.MaxLightsKey(string shaderName) -> Vixen.Shaders.PermutationKey<int>
 static Vixen.Rendering.Features.InstanceParameters.Neutral.get -> Vixen.Rendering.Features.InstanceParameters
 static Vixen.Rendering.Features.InstanceParameters.SizeInBytes.get -> int
+static Vixen.Rendering.Features.MorphRenderFeature.VertexFloats.get -> int
 static Vixen.Rendering.GpuClusterCulling.Backfacing(Vixen.Core.Mathematics.Vector3 center, float radius, Vixen.Core.Mathematics.Vector3 axis, float cosine, Vixen.Core.Mathematics.Vector3 eye) -> bool
 static Vixen.Rendering.GpuClusterCulling.ClustersKey.get -> string
 static Vixen.Rendering.GpuClusterCulling.Cut(Vixen.Rendering.ClusterScene scene, in Vixen.Rendering.CullInstance instance, in Vixen.Rendering.CullView view) -> int[]
@@ -6810,6 +6895,16 @@ static readonly Vixen.Shaders.Generated.LocalExposureKeys.Taps -> Vixen.Shaders.
 static readonly Vixen.Shaders.Generated.LocalExposureKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.LocalExposureKeys.UseExposureBuffer -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.LocalExposureKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.BaseVertex -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.Entries -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.EntryCount -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.NormalOffset -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.NormalStep -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.PositionOffset -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.PositionStep -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.Stride -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.Vertices -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.MorphScatterKeys.Weight -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.MotionBlurKeys.MaxRadius -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.MotionBlurKeys.MinRadius -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.MotionBlurKeys.MotionVectors -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>

@@ -72,6 +72,12 @@ partial class Build {
         RegexOptions.Compiled
     );
 
+    /// <summary>
+    ///     This checkout's own <c>.claude/</c>, with a separator, so a prefix test cannot match a
+    ///     sibling directory whose name merely starts the same way.
+    /// </summary>
+    string ClaudeDirectory => (RootDirectory / ".claude").ToString() + "/";
+
     Target CheckStrings => definition => definition
         .Description("Fails if a declared string id is used nowhere, or if a call site repeats an id a declaration class already declares")
         .Executes(() => {
@@ -89,7 +95,14 @@ partial class Build {
                     // own change had already removed came back three times each, from three stale
                     // copies. An agent's worktree contains no sibling worktrees, which is why the
                     // gate could be written without noticing.
-                    .Where(path => !path.ToString().Contains("/.claude/", StringComparison.Ordinal))
+                    //
+                    // ⚠ **Anchored at the root, not matched as a substring, and that is the whole of
+                    // the difference between a gate that skips the sibling checkouts and one that
+                    // cannot run inside a worktree at all.** A worktree's own RootDirectory *is*
+                    // `…/.claude/worktrees/<name>`, so every path under it contains `/.claude/` — a
+                    // substring test excludes the entire tree and the assertion below then fires with
+                    // "the glob is wrong". Which it was not; the exclusion was.
+                    .Where(path => !path.ToString().StartsWith(ClaudeDirectory, StringComparison.Ordinal))
 
                     // ⚠ The analyzer's own tests, whose C# is *data*: every fixture is a declaration
                     // class inside a raw string literal, written to be reported on. Reading them as

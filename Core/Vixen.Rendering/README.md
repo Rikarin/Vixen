@@ -1160,12 +1160,40 @@ same floats on a device. Two things in it are worth knowing before touching eith
   interpolated normal at `1e-4`. Normalising here would also be a host/device divergence, since `rsqrt`
   and `1/sqrt` are not the same function.
 
-⚠ **What is not here is the feature that drives it.** Nothing yet allocates the per-instance vertex
-buffer, copies the base mesh in, dispatches and overwrites `MeshDraw.VertexBuffer` — which is the seam,
-and it is the right one already: `MeshDraw` is per render object and every stage walks the same array,
-so a feature that swaps the handle morphs all four passes at once. Also owed: a scalar weight track on
-`AnimationClipData`, and the cluster-page scatter, since a virtualized mesh packs its own vertex
-records.
+`MorphRenderFeature` is what drives it, as a sub-feature of the mesh feature — because a morphed mesh
+and a still one are drawn the same way with different data. It allocates a vertex range per morphed
+*instance*, copies that mesh's rest pose into it out of the scene's own `GeometryBuffer`, dispatches
+once per active shape, and overwrites `MeshDraw.VertexBuffer` and `MeshDraw.VertexOffset`. That seam is
+what makes the four passes agree: the record is per render object and every stage walks the same array,
+so one rewritten handle morphs the shading pass, the shadow pass, the velocity pass and the depth
+pre-pass together.
+
+Four things about it are worth knowing:
+
+- ⚠ **The deltas are per mesh and the vertices are per instance.** Two characters wearing one head share
+  the entry run — 1.28 MB for twenty shapes, however many wear it — and have forty-eight bytes a vertex
+  each, because their weights differ.
+- ⚠ **A range is copied and dispatched only when its weights changed, and the first frame counts as a
+  change.** A character standing still costs nothing. A character that has never been recorded costs a
+  copy, because a dispatch onto an uninitialised range does not look like a morph gone wrong — it looks
+  like the geometry is missing.
+- ⚠ **The rest pose is copied out of the scene buffer rather than held twice**, which is why
+  `GeometryBuffer` carries `CopySource` and exposes `Transition`: the state is that type's, so the
+  barrier is too.
+- ⚠ **`MorphRenderFeature.Record` goes on the frame's list after `GeometryResidency.Flush` and before
+  every draw**, outside any render pass. `WorldRenderer.Draw` is where, and both halves of that order
+  matter — the copy reads what the flush put there, and the draws read what the dispatch wrote.
+
+The weights arrive through `BlendShapeWeights` and `MorphWeightSystem`, which is `SkinningSystem`'s
+shape: the feature owns the buffer and the dispatch, and a system pushes the numbers because there is no
+callback between "the animation finished" and "the first weight is written". ⚠ An array field makes
+`BlendShapeWeights` a *managed* component, so a chunk column holds a handle rather than the array and it
+is read one entity at a time.
+
+⚠ **Still owed:** a scalar weight track on `AnimationClipData` — which is why "animate blend shapes from
+a clip" is not claimed, `AnimationChannel` having three vector tracks and no scalar one — and the
+cluster-page scatter, since a virtualized mesh packs its own vertex records rather than using a vertex
+buffer.
 
 ## The compositor
 

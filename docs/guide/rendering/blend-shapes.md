@@ -3,8 +3,8 @@ title: Blend shapes
 slug: rendering/blend-shapes
 kind: concept
 area: Rendering
-summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass so that every pass agrees about where a vertex is.
-api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel]
+summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass into a per-instance vertex buffer, so that every pass agrees about where a vertex is.
+api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, R:Pipeline/MorphScatter]
 tags: [rendering, animation, meshes, characters, morph-targets]
 since: 0.2
 status: preview
@@ -41,6 +41,62 @@ The design is `docs/plan/33-character-creator.md` § D4, which also explains why
 touches a character gets facial animation on a hand-authored head out of it.
 
 ## Using it
+
+### Drawing a morphed mesh
+
+`WorldRenderer` wires the whole of it, so a game does two things: import a model with shapes, and put
+the weights on the entity.
+
+```csharp no-compile="a fragment; `world` and `entity` are a game's own"
+world.Add(entity, new BlendShapeWeights { Weights = [1f, 0.4f] });
+```
+
+One weight per `MeshData.MorphTargets` entry, in that order. A shorter array is read as zero for the
+rest, so an entity that only ever opens its jaw carries one number; null and empty are both "at rest".
+`MorphWeightSystem` pushes them at `MorphRenderFeature` every frame, and the feature does the
+comparing — so a face holding an expression costs a comparison rather than a copy of its whole vertex
+range.
+
+⚠ **Every weight is applied, including a negative one and one past one.** An exporter that authored a
+shape as the inverse of its neighbour relies on the first, and an animator overshooting a corrective
+relies on the second.
+
+⚠ **An array field makes `BlendShapeWeights` a *managed* component.** Its values live in the world's
+store and a chunk column holds a four-byte handle, so `Chunk.ReadValues` refuses it and a system reads
+one entity at a time — the way `SkinningSystem` reads its animator.
+
+The editor's viewport runs the same two things, wired by hand rather than by a system graph, so a
+weight typed into the inspector moves the mesh in the scene view.
+
+### What the frame does with them
+
+`MorphRenderFeature` is a sub-feature of `MeshRenderFeature`, on `RenderFeature`'s terms: a morphed mesh
+and a still one are drawn the same way with different data. When a blend-shaped mesh is extracted it
+takes a vertex range of its own, and its `MeshDraw` is pointed at that range instead of at the scene's
+shared buffer. Every frame, `WorldRenderer.Draw` records the pass — after `GeometryResidency.Flush` and
+before any draw, outside any render pass — which:
+
+1. copies each changed instance's **rest pose** out of the scene's `GeometryBuffer` into its own range;
+2. dispatches `MorphScatter` once per **active** shape, with a barrier between;
+3. leaves the buffer in `VertexInput` for the draws.
+
+| | |
+|---|---|
+| **Deltas are per mesh** | Two characters wearing one head share its entry run. `MorphRenderFeature.MeshCount` is how many are resident. |
+| **Vertices are per instance** | Because the weights differ. Forty-eight bytes a vertex each, out of a fixed `vertexCapacity` — `Dropped` counts what did not fit and is drawn at rest. |
+| **Only what changed is recorded** | `Copies` and `Dispatches` are both zero on a frame where every morphed character held still. |
+
+⚠ **The index buffer is not touched and must not be.** A morph displaces vertices and never renumbers
+them, so the object keeps drawing the scene buffer's indices — which is why `MeshDraw.VertexOffset` is
+rewritten in the same breath as the handle. An index is relative to it.
+
+⚠ **The first frame copies even with every weight at zero.** An instance that reached its first record
+clean would be drawn out of whatever the allocator left in its range, and that does not look like a
+morph gone wrong — it looks like the geometry is missing.
+
+⚠ **`MorphRenderFeature.Degraded` is what a frame that could not dispatch says.** It still copies the
+rest pose, so the mesh is drawn unmorphed rather than out of an uninitialised range, and the instance
+stays dirty so that the frame after the shader compiles is right.
 
 ### Importing
 
@@ -110,6 +166,12 @@ for two reasons:
 - `rsqrt` and `1/sqrt` are not the same function, so a normalise would be a host/device divergence
   that has nothing to do with morphing.
 
+⚠ **The *base* normal is normalised, though, and by somebody else.** `SurfaceGeometry.Pack` does it on
+the way into the vertex buffer — an unset normal becomes `+Y` and a set one is made unit — so the rest
+pose a frame morphs is the packed mesh's, not the `MeshData`'s. A comparison written against the
+unpacked arrays reports a difference of about `1e-4` in every moved normal and looks exactly like two
+processors doing different arithmetic.
+
 The consumer already does it safely: `ForwardPlus`'s fragment stage calls `Math.SafeNormalize` on the
 interpolated normal, whose tolerance is `1e-4` and whose degenerate answer is zero rather than a NaN.
 
@@ -124,16 +186,18 @@ non-zero, which for a character on screen is every frame.
 
 ### What is not built yet
 
-- **The render feature.** Nothing in the frame path yet allocates a per-instance vertex buffer, copies
-  the base mesh into it, dispatches the scatter and points `MeshDraw.VertexBuffer` at the result. That
-  is the wiring, and the seam it goes through is already the right one — `MeshDraw` is per render
-  object and every stage reads the same array, so a feature that overwrites the handle morphs the
-  shading pass, the shadow pass and the velocity pass together by construction.
 - **A weight track on `AnimationClipData`.** glTF animates morph weights through a sampler targeting
   `weights`, and FBX through a morph channel; `AnimationChannel` has three tracks and none of them is
-  a scalar. Reading them needs that member, which is a format change.
+  a scalar. Reading them needs that member, which is a format change — so **animating blend shapes from
+  a clip is not claimed**. What is claimed is that anything which writes `BlendShapeWeights` drives
+  them: a script, an editor slider, a state machine of a game's own.
 - **Cluster pages.** A virtualized mesh's vertices are packed into pages rather than a vertex buffer,
-  so morphing one is a different scatter against `ModelCompiler.PageAttributes`' layout.
+  so morphing one is a different scatter against `ModelCompiler.PageAttributes`' layout. A virtualized
+  mesh is extracted down `VirtualGeometryRenderFeature`'s path and never reaches
+  `MorphRenderFeature.Attach` at all, so it draws at rest rather than wrongly.
+- **Device-local growth.** `MorphRenderFeature`'s buffer is fixed at construction and an instance that
+  does not fit is refused — `GeometryBuffer`'s trade, for `GeometryBuffer`'s reason: the handle is
+  already in every `MeshDraw` that was attached.
 
 ## See also
 

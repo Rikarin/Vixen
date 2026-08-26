@@ -278,6 +278,29 @@ public sealed class WorldRenderer : IDisposable {
         Meshes.Add(Motion);
         Meshes.Add(Lighting);
 
+        // ⚠ Doc 33 § D4's pre-pass, and the whole of what makes a blend shape appear in a picture.
+        //
+        // Storage, import, host kernel and compute kernel all landed before anything allocated a
+        // buffer for the answer, so a mesh with twenty shapes drew at rest and every counter said the
+        // scene was healthy — the shapes were imported, the deltas were resident, the weights were
+        // whatever nothing was reading them. It is a sub-feature of the mesh feature rather than a
+        // root one for `RenderFeature`'s stated reason: a morphed mesh and a still one are drawn the
+        // same way with different data.
+        //
+        // Its own compute pipeline cache, because `Particles.Pipelines` is a graphics one and the two
+        // are keyed differently — see ComputePipelineCache on why there are two caches rather than one
+        // generalised one. The descriptor allocator is the frame's, shared: the number of sets a frame
+        // needs is the number of *active* shapes over morphed instances, which changes every frame a
+        // character opens its mouth.
+        Morphing = new(device) {
+            Effects = effects,
+            Pipelines = new(device),
+            Descriptors = MaterialDescriptors,
+            Source = Geometry
+        };
+
+        Meshes.Add(Morphing);
+
         Host.System.AddFeature(Meshes);
 
         // ⚠ A material feature of its own, and not by preference: a sub-feature belongs to exactly one
@@ -422,6 +445,14 @@ public sealed class WorldRenderer : IDisposable {
 
     /// <summary>The feature that draws them.</summary>
     public MeshRenderFeature Meshes { get; }
+
+    /// <summary>The blend-shape pre-pass, which gives a morphed mesh a vertex buffer of its own.</summary>
+    /// <remarks>
+    ///     Recorded by <see cref="Draw" />, fed by <see cref="MorphWeightSystem" />, and attached to by
+    ///     <see cref="MeshExtractionSystem" /> — the three ends of it, all wired by this type, because
+    ///     a feature only one of the three reaches is a feature that costs memory and draws nothing.
+    /// </remarks>
+    public MorphRenderFeature Morphing { get; }
 
     /// <summary>The materials they are drawn with.</summary>
     public MaterialRenderFeature Materials { get; }
@@ -792,7 +823,12 @@ public sealed class WorldRenderer : IDisposable {
             Meshes = Source,
             Materials = Painter,
             Virtualized = Clusters?.Feature,
-            Clusters = Hierarchies
+            Clusters = Hierarchies,
+
+            // What turns an imported blend shape into a morphed draw. Without it the extraction builds
+            // a draw record pointing at the shared geometry buffer and the mesh is drawn at rest —
+            // correctly, and for ever.
+            Morphing = Morphing
         };
 
         // ⚠ A mask of its own, and defaulting to none. Particles want a transparent stage that tests
@@ -836,6 +872,12 @@ public sealed class WorldRenderer : IDisposable {
         loop.Add(Emitters);
         loop.Add(TerrainExtraction);
         loop.Add(new LightExtractionSystem(Lighting));
+
+        // The weights, every frame, from whatever wrote a BlendShapeWeights — a script, an editor
+        // slider, or an animation once the clip format carries a scalar track. Registered whether or
+        // not the scene has a morphed mesh in it, on TerrainExtraction's terms: an empty query costs a
+        // walk over no chunks, and a level that gains a character must not need the loop reassembled.
+        loop.Add(new MorphWeightSystem { Feature = Morphing });
     }
 
     /// <summary>Draws the frame, having first put the content work the frame needs on the list.</summary>
@@ -906,6 +948,19 @@ public sealed class WorldRenderer : IDisposable {
         // Before the frame and outside any pass, which is both what a copy needs and what the draws
         // reading the buffer need: Flush leaves it in ResourceState.VertexInput.
         UploadedBytes += Residency.Flush(commands);
+
+        // ⚠ After the flush and before every draw, and both halves of that matter.
+        //
+        // After, because the rest pose this copies out of is what the flush just put there — a morph
+        // recorded first would scatter deltas onto a mesh whose bytes had not arrived, which is the
+        // noise-geometry failure the paragraph above describes with a shape on top of it. Before,
+        // because what it writes is the vertex buffer the shading pass, the shadow pass, the velocity
+        // pass and the depth pre-pass all read, and it leaves that buffer in ResourceState.VertexInput
+        // for them.
+        //
+        // Outside any render pass, which the copies require — the same constraint the flush above and
+        // the UI atlas both have.
+        Morphing.Record(commands);
 
         // ⚠ Here rather than from a host's own OnRender, because of when that runs: the application
         // records the scene first and offers the list to the game afterwards, so a cube uploaded
@@ -1180,6 +1235,11 @@ public sealed class WorldRenderer : IDisposable {
             Device.Destroy(missingMap);
             Device.Destroy(missingMapStaging);
         }
+
+        // Before the descriptor allocator it borrows sets from, and before the geometry buffer it
+        // copies rest poses out of — it owns a device buffer of its own and neither of those two knows
+        // about it.
+        Morphing.Dispose();
 
         MaterialDescriptors.Dispose();
         Samplers.Dispose();

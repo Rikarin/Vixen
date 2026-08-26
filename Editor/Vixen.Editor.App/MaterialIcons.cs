@@ -393,6 +393,10 @@ static class MaterialIcons {
         // what lets the sun's cascades keep its shadow between frames.
         new(typeof(StaticShadowCaster), Struck(Cube, Ground, Geometry)),
 
+        // Sliders over a mesh, which is what a blend-shape weight list is: one number per shape, and
+        // the shapes belong to the geometry rather than to this component.
+        new(typeof(BlendShapeWeights), Struck(Cube, Tune, Geometry)),
+
         // Mass and motion. ⚠ These arrived in the editor's own set only when `Vixen.Editor.App`
         // came to reference `Vixen.Physics` for play mode — the components are years older, and the
         // icon test is what noticed the day they started shipping.

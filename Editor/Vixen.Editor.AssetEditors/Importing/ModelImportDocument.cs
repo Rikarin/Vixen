@@ -46,6 +46,23 @@ public sealed class ModelImportEdits {
     [Tooltip("Off for a character exported once per animation, where every file repeats the same skeleton.")]
     public bool ImportAnimations { get; set; } = true;
 
+    /// <summary>Whether to import the blend shapes the file carries.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Added to the record and not to this mirror when blend shapes landed</b>, so the two
+    ///     settings that decide whether a face can animate at all were reachable only by hand-editing a
+    ///     <c>.meta</c>. <c>ImportSettingsMirrorTests</c> is what noticed — the same way it noticed the
+    ///     five cluster settings above — which is the whole reason that test compares the two by
+    ///     reflection rather than against a written-down list.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Off for the mirror of Import Animations: a character exported once per outfit ships the same facial shapes in every file.")]
+    public bool ImportBlendShapes { get; set; } = true;
+
+    /// <summary>How far a vertex must move to be kept in a blend shape, in the model's own units.</summary>
+    [Inspector]
+    [Tooltip("What makes a shape sparse. In the model's units after Scale, not the file's. An exporter writes a delta for every vertex and most of them are rounding noise.")]
+    public float BlendShapeThreshold { get; set; } = 1e-4f;
+
     /// <summary>Whether to bake a signed distance field for each of the model's meshes.</summary>
     [Inspector]
     [Tooltip("What distance-field shadows and occlusion read. The most expensive part of the import; off for a project not lighting this way.")]

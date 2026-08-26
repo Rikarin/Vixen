@@ -3121,6 +3121,8 @@ T:Vixen.Shaders.Generated.LocalExposureConstants generated — the shader's unif
 T:Vixen.Shaders.Generated.LocalExposureKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.MeshInstancedKeys sweep-pending
 T:Vixen.Shaders.Generated.MeshKeys sweep-pending
+T:Vixen.Shaders.Generated.MorphScatterConstants generated — the blend-shape kernel's uniform block as a struct, emitted by Vixen.Shaders.Generators from MorphScatter.reflect.json; the shader is documented as R:Pipeline/MorphScatter on rendering/blend-shapes
+T:Vixen.Shaders.Generated.MorphScatterKeys generated — the same kernel's typed parameter keys, emitted from the same reflection
 T:Vixen.Shaders.Generated.MotionBlurConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/MotionBlur on rendering/post-processing
 T:Vixen.Shaders.Generated.MotionBlurKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.MotionVectorsKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing

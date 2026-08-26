@@ -255,6 +255,7 @@ Vixen.Engine.Renderer.WorldRenderer.Materials.get -> Vixen.Rendering.Features.Ma
 Vixen.Engine.Renderer.WorldRenderer.MeshParticleMaterial.get -> Vixen.Rendering.Material
 Vixen.Engine.Renderer.WorldRenderer.MeshParticleMaterial.set -> Vixen.Rendering.Material
 Vixen.Engine.Renderer.WorldRenderer.Meshes.get -> Vixen.Rendering.Features.MeshRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.Morphing.get -> Vixen.Rendering.Features.MorphRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Motion.get -> Vixen.Rendering.Features.MotionVectorRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Mount(Vixen.Assets.AssetManager assets) -> void
 Vixen.Engine.Renderer.WorldRenderer.Painted.get -> Vixen.Engine.Renderer.AssetTextureSource?

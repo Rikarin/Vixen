@@ -5,6 +5,8 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Features;
 using Vixen.Shaders;
 using Xunit;
 
@@ -222,6 +224,214 @@ public class MorphScatterDeviceTests {
         for (var index = 0; index < Vertices; index++) {
             Assert.True(Identical(mesh[index], actual[index]), $"vertex {index} moved with no weight on it");
         }
+    }
+
+    // --- The render feature -------------------------------------------------
+
+    /// <summary>
+    ///     ⚠ And the same numbers again through <see cref="MorphRenderFeature" />, which is what a
+    ///     frame actually runs.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The legs above prove the kernel; this proves the wiring, and they are different
+    ///         claims.</b> Everything above uploads the mesh into a buffer of the test's own, writes
+    ///         the constants by reflected offset and dispatches by hand — so it would pass unchanged
+    ///         against a feature that allocated nothing, copied nothing and pointed no draw anywhere.
+    ///         Here the only things the test does are attach an object, set its weights and record
+    ///         one frame; the buffer, the rest-pose copy, the ten constants and the dispatch per
+    ///         active shape are the feature's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rest pose is never uploaded into the morph buffer by this test.</b> It is
+    ///         copied there out of the scene's <see cref="GeometryBuffer" /> by the pass itself, which
+    ///         is the half a host cannot see: a feature that skipped the copy would produce a mesh made
+    ///         of whatever the allocator left, and every counter would still report the dispatches it
+    ///         made.
+    ///     </para>
+    ///     <para>
+    ///         Awkward weights, so the comparison is the tolerant one — see the class remarks. A device
+    ///         is free to contract <c>v + Δ·w</c> into a fused multiply-add where the host is not, and
+    ///         a difference of one unit in the last place is that freedom rather than a defect.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_render_feature_puts_the_kernels_numbers_in_the_buffer_the_draw_reads() {
+        if (!Fixture.TryOpen(out var fixture, out var reason)) {
+            Skip(reason);
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var device = owned.Device;
+        var rest = Mesh();
+        var targets = Targets();
+        float[] weights = [0.37f, -0.25f, 0.9137f];
+
+        var mesh = Described(rest, targets);
+
+        // ⚠ From the *packed* mesh, not from the fixture the packing was built out of, and this is a
+        // real trap rather than a formality. SurfaceGeometry.Pack normalises the normal — see its own
+        // remarks on why a zero one becomes +Y — so the rest pose that reaches the device is not the
+        // one this file's Mesh() returns, whose normals are deliberately not unit. Comparing against
+        // the unpacked fixture reports a difference of about 1.4 × 10⁻⁴ in every moved normal, which
+        // looks exactly like a kernel that is doing slightly different arithmetic and is not.
+        var packed = SurfaceGeometry.Packed(mesh);
+        var expected = new SurfaceVertex[Vertices];
+
+        MorphKernel.Apply(packed, targets, weights, expected);
+
+        // ⚠ A pad, so the mesh does not start at vertex zero of the scene buffer. Both bases being
+        // zero would make "the draw was re-based" true of a feature that rewrote nothing.
+        using var scene = new GeometryBuffer(device, SurfaceVertex.SizeInBytes, 512, 512, name: "Morph.Scene");
+
+        Assert.True(scene.TryAllocate(9, 0, out _));
+
+        var residency = new GeometryResidency(scene);
+
+        Assert.True(residency.Acquire(GeometryKey.Of(PrimitiveKind.Cube), () => mesh, out var slice, out _));
+        Assert.NotEqual(0, slice.BaseVertex);
+
+        var effects = new EffectSystem();
+
+        effects.AddProvider(new Compiling(new EffectLoader(device), _ => RavenEffects.Everything()));
+
+        using var descriptors = new DescriptorAllocator(device, "Morph");
+        using var morph = new MorphRenderFeature(device, vertexCapacity: 512, entryCapacity: 512) {
+            Effects = effects,
+            Pipelines = new(device),
+            Descriptors = descriptors,
+            Source = scene
+        };
+
+        using var system = new RenderSystem();
+
+        var stage = system.AddStage(new("Opaque"));
+        var meshes = new MeshRenderFeature();
+
+        meshes.Add(morph);
+        system.AddFeature(meshes);
+
+        var id = system.Objects.Add(
+            new() { Bounds = new(Vector3.Zero, 1f), Stages = stage.Mask, FeatureIndex = meshes.Index }
+        );
+
+        var draw = new MeshDraw { InstanceCount = 1 };
+        scene.Apply(ref draw, slice);
+
+        Assert.True(morph.Attach(system, id, GeometryKey.Of(PrimitiveKind.Cube), mesh, slice, ref draw));
+        Assert.True(morph.SetWeights(id, weights));
+
+        // The draw the mesh feature would record now reads the morph buffer, which is the seam the
+        // whole feature exists to move.
+        Assert.Equal(morph.Buffer, draw.VertexBuffer);
+        Assert.NotEqual(scene.Vertices, draw.VertexBuffer);
+
+        var bytes = Vertices * SurfaceVertex.SizeInBytes;
+
+        var readback = device.CreateBuffer(
+            new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "morph feature readback")
+        );
+
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+        descriptors.BeginFrame();
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "morph feature")) {
+            // The order WorldRenderer.Draw keeps: the scene's own bytes reach the device, and then the
+            // pre-pass copies the rest pose out of them.
+            scene.Flush(commands);
+
+            Assert.True(morph.Record(commands));
+
+            // ⚠ Declared from VertexInput because that is what Record leaves the buffer in — the
+            // barrier between the dispatch and the draw is the pass's to record, so a test that
+            // declared any other state here would be saying the pass had left it somewhere else.
+            commands.Barrier(
+                new([new(morph.Buffer, ResourceState.VertexInput, ResourceState.CopySource)], [])
+            );
+
+            commands.CopyBuffer(
+                morph.Buffer,
+                (long)draw.VertexOffset * SurfaceVertex.SizeInBytes,
+                readback,
+                0,
+                bytes
+            );
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        Assert.Equal(1, morph.Copies);
+        Assert.Equal(3, morph.Dispatches);
+        Assert.Null(morph.Degraded);
+
+        var raw = new byte[bytes];
+        device.Read(readback, 0, raw);
+        device.Destroy(readback);
+
+        if (VulkanDiagnostics.ErrorCount > 0) {
+            throw new InvalidOperationException(
+                "The frame produced validation errors, so what came back means nothing: "
+                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+        }
+
+        var actual = MemoryMarshal.Cast<byte, SurfaceVertex>(raw).ToArray();
+
+        var worst = 0f;
+        var worstAt = 0;
+
+        for (var index = 0; index < Vertices; index++) {
+            var apart = Apart(expected[index], actual[index]);
+
+            if (apart > worst) {
+                worst = apart;
+                worstAt = index;
+            }
+        }
+
+        Assert.True(
+            worst <= Tolerance,
+            $"the feature's frame and the kernel differ by {worst} at vertex {worstAt}: expected "
+            + $"position {expected[worstAt].Position} normal {expected[worstAt].Normal}, got position "
+            + $"{actual[worstAt].Position} normal {actual[worstAt].Normal}."
+        );
+    }
+
+    /// <summary>The fixture mesh as a <see cref="MeshData" />, carrying the same shapes.</summary>
+    /// <remarks>
+    ///     ⚠ <c>SurfaceGeometry.Packed</c> is what puts these into the scene buffer, so the arrays here
+    ///     have to be the ones it reads — a texture coordinate left out would change the stride nothing
+    ///     and the comparison nothing, but a normal left out would make the rest pose a different mesh
+    ///     from the one <see cref="MorphKernel" /> was given.
+    /// </remarks>
+    static MeshData Described(SurfaceVertex[] mesh, MorphTargetData[] targets) {
+        var positions = new Vector3[Vertices];
+        var normals = new Vector3[Vertices];
+        var texCoords = new Vector2[Vertices];
+        var indices = new int[Vertices];
+
+        for (var index = 0; index < Vertices; index++) {
+            positions[index] = mesh[index].Position;
+            normals[index] = mesh[index].Normal;
+            texCoords[index] = mesh[index].TexCoord;
+            indices[index] = index;
+        }
+
+        return new() {
+            Name = "head",
+            Positions = positions,
+            Normals = normals,
+            TexCoords = texCoords,
+            Indices = indices,
+            MorphTargets = targets
+        };
     }
 
     // --- The dispatch -------------------------------------------------------

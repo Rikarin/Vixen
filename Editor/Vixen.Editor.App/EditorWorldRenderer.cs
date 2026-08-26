@@ -95,6 +95,11 @@ sealed class EditorWorldRenderer : IDisposable {
     public static string ViewName(int pane) => pane == 0 ? CameraView : CameraView + pane.ToString();
 
     readonly LightExtractionSystem lights;
+
+    // The blend-shape weights, pushed at the renderer's feature every frame this extracts. Its own
+    // field rather than a local, because it holds nothing but the feature reference and constructing
+    // one per frame would be a second object per frame to say the same thing.
+    readonly MorphWeightSystem weights;
     readonly IGraphicsDevice device;
 
     /// <summary>One view per pane, made before the build and never replaced.</summary>
@@ -162,6 +167,11 @@ sealed class EditorWorldRenderer : IDisposable {
         Meshes = new(Renderer.Host.System, Renderer.Meshes, Renderer.Transforms, Renderer.Materials, Renderer.Residency) {
             Meshes = meshes,
 
+            // ⚠ The same feature the renderer already owns, wired here because this extraction is
+            // hand-assembled and `Register`'s wiring never runs. Without it a blend-shaped mesh draws
+            // at rest in the one place an author would first look at it — correctly, and for ever.
+            Morphing = Renderer.Morphing,
+
             // ⚠ And *not* `Materials`, which stays null. See the type's remarks: with no source, a
             // drawable that names a material still draws — in this one — because a host that cannot
             // resolve one should show geometry rather than nothing.
@@ -169,6 +179,7 @@ sealed class EditorWorldRenderer : IDisposable {
         };
 
         lights = new(Renderer.Lighting);
+        weights = new() { Feature = Renderer.Morphing };
 
         // ⚠ The views before the build, the build before the mask, and the mask before anything
         // extracts. The first is the builder's rule — a `view:` is bound by name as each node is
@@ -807,6 +818,13 @@ sealed class EditorWorldRenderer : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         Meshes.Extract(world);
+
+        // ⚠ After the extraction, because an entity that appeared this frame has no RenderHandle until
+        // it ran and a weight written for an object that does not exist is dropped. `Register` gets
+        // this ordering out of the declared access; here it is a line below another line, for the
+        // reason the whole of this method exists.
+        weights.Run(world);
+
         lights.Extract(world);
     }
 

@@ -164,6 +164,52 @@ public struct PrimitiveShape {
 [DataContract]
 public struct StaticShadowCaster : ITagComponent;
 
+/// <summary>How much of each of a mesh's blend shapes an entity is wearing.</summary>
+/// <remarks>
+///     <para>
+///         <b>One weight per <c>MeshData.MorphTargets</c> entry, in that order</b> — which is the
+///         order the importer read them in, and the order <c>MorphKernel.Apply</c> and
+///         <c>MorphScatter.rvn</c> both use. A shorter array is read as zero for the rest, so an
+///         entity that only ever opens its jaw carries one number rather than twenty.
+///     </para>
+///     <para>
+///         <b>An array on a component, which most of them do not have.</b> The count is the mesh's
+///         and a component is one size for every entity in a chunk, so the alternative is a fixed
+///         maximum written into the type — and a face is exactly the thing that has more shapes than
+///         anybody would have picked. <c>AnimatorComponent</c> holds a reference for the same reason.
+///     </para>
+///     <para>
+///         ⚠ <b>Which makes this a <em>managed</em> component, and that changes how it is read.</b> A
+///         chunk column holds a four-byte handle into the world's managed store rather than the array,
+///         so <c>Chunk.ReadValues</c> refuses it outright and a system reads one entity at a time —
+///         see <see cref="MorphWeightSystem" />, which does, and <c>SkinningSystem</c>, which reads
+///         its animator the same way.
+///     </para>
+///     <para>
+///         ⚠ <b>Read every frame, unlike everything else on a drawable.</b>
+///         <see cref="MeshRenderable.CastsShadows" /> and <see cref="StaticShadowCaster" /> are read
+///         once at extraction and need <see cref="MeshExtractionSystem.Resettle" /> to change; this is
+///         the opposite by construction, because a weight that could not change would not be a weight.
+///     </para>
+///     <para>
+///         ⚠ <b>Null and empty are both "at rest", and neither is a mistake.</b> A zeroed column is
+///         null — an entity that gained the component and has not been given values — and the frame
+///         draws it unmorphed rather than refusing it.
+///     </para>
+/// </remarks>
+[Component]
+[DataContract]
+public struct BlendShapeWeights {
+    /// <summary>The weights, or null for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every value is applied, including a negative one and one past one.</b> An exporter
+    ///     that authored a shape as the inverse of its neighbour relies on the first, and an animator
+    ///     overshooting a corrective relies on the second; clamping here would be this component
+    ///     deciding something the shape's author already did.
+    /// </remarks>
+    public float[]? Weights;
+}
+
 /// <summary>Reading and writing an entity's mesh.</summary>
 public static class MeshRenderables {
     /// <summary>A renderable pointing at a mesh, with the values a new one should have.</summary>
