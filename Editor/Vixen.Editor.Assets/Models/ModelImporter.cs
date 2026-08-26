@@ -56,8 +56,13 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     two members left the middle of a positional record, so a version-seven mesh chunk read by
     ///     this build would give <c>Indices</c> a coordinate array. The generated reader's member
     ///     count refuses it outright, and this bump is what regenerates it before anything asks.
+    ///     Nine since a mesh carries its blend shapes: <c>MorphTargets</c> is a member a version-eight
+    ///     chunk has no bytes for, and a reader that reached the end of one would read the next
+    ///     chunk's. It is appended last on purpose — that is the position at which the members before
+    ///     it keep their offsets — but appended is still a change to the member count, and the member
+    ///     count is what the generated reader checks.
     /// </remarks>
-    public override int Version => 8;
+    public override int Version => 9;
 
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>

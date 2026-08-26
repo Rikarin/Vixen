@@ -511,7 +511,7 @@ Honest, and the three hard numbers at the bottom are the ones that matter.
 | Asset editors, inspector, `IEditorMode`, plugin surface | ✅ |
 | Cloth simulation | ⛔ nothing, anywhere. `Vixen.Physics` is Jolt, and Jolt's soft bodies are not a garment solver |
 | Strand hair geometry | ⛔ nothing |
-| Blend shapes / morph targets | ⛔ `⬜` in [06](06-rendering-pipeline.md) and in [overview](../overview.md) |
+| Blend shapes / morph targets | 🟡 [D4](#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop) landed as a slice — `MorphTargetData`, `MorphKernel`, `Pipeline/MorphScatter.rvn` and the glTF/FBX import. The render feature is owed |
 | Texture baking / render-to-texture compositing for skin layers | ⛔ nothing, though the compositor and compute path make it small |
 
 And the three numbers:
@@ -520,7 +520,7 @@ And the three numbers:
 |---|---|---|
 | **Four influences per vertex** | `MeshData.BoneIndices` — "Four joint indices per vertex"; `BonePalette` in `Skinning.rvn` is four `mat4`s; the vertex stream takes `bones0: float4, weights0: float4` | A MetaHuman face uses more than four on the regions that matter, and the fifth influence is *not* below threshold on a face the way `Skinning.rvn`'s comment correctly says it is on a body |
 | **`MaxBones = 256`** | `Skinning.rvn` — sized to Vulkan's guaranteed 16 KiB uniform range | ⚠ **Less serious than it looks.** The palette is already a `Buffer<BoneMatrix>` and `ShadowCaster.rvn` says why; 256 is what a *host* sizes by. An ~800-joint face needs the host constant raised and the indices to stay exact in a `float4` — which they are, well past 2²⁴ |
-| **No morph target path at all** | — | Everything below is blocked on it |
+| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` | ⚠ **The primitive exists and the wiring does not.** Storage, quantisation, the glTF/FBX import and the compute scatter are built and asserted numerically on a device; what no frame does yet is allocate the per-instance buffer and point `MeshDraw.VertexBuffer` at it. So P0 is half closed, and the half that is left is plumbing rather than design |
 
 ⚠ **The good news is the shape of the gap.** Nothing about the existing animation stack is wrong for
 this: local-space poses, a model-space pass at the end, palettes in a storage buffer, retargeting that
@@ -644,6 +644,13 @@ getting it wrong is expensive later.
   `Vixen.Rendering` beside `SkinningRenderFeature`, it closes [06](06-rendering-pipeline.md)'s open
   row, and a game that never touches a character gets facial animation on a hand-authored head out of
   it.
+
+🟡 **Built as far as the kernel** — `MorphTargetData`, `MorphKernel`,
+`Raven/Library/Pipeline/MorphScatter.rvn` and the glTF/FBX import, with the two processors held to the
+same floats on a device. [P0](#p0--the-two-missing-primitives-15-em) carries what is still owed and
+the three places the implementation amends this section, of which the first is structural: the
+dispatch is **per active target with a barrier between**, not per instance, because two shapes may
+move one vertex and there is no float atomic to arbitrate them with.
 
 Alongside it, the second missing primitive: **eight influences behind a Raven permutation.** Four
 stays the default and the fast path, because it is right for a body and it is what glTF stores;
@@ -1146,6 +1153,37 @@ of glTF and FBX, and the `Skinning.Influences` permutation.
 is worth building whether or not the rest of this document is ever scheduled. Exit: a hand-authored
 head with twenty morph targets animates from an `AnimationClip`, and its shadow and motion vectors
 agree with it.
+
+🟡 **Half of the morph-target half is built**, and the exit criterion is not met because the parts it
+names are the parts still owed. What exists: `MorphTargetData` (the sparse quantised format —
+`(index, Δposition, Δnormal)`, 16-bit snorm against a per-target range, sorted by index),
+`MorphKernel` as the arithmetic written once, `Raven/Library/Pipeline/MorphScatter.rvn` as its
+transliteration, and `ModelReader` reading `aiMesh.mAnimMeshes` behind `ModelImportSettings.
+ImportBlendShapes` for both glTF and FBX. `MorphScatterDeviceTests` runs the shipped kernel on a
+device and holds it to the host's floats.
+
+Three amendments to § D4 that the implementation forced, each with its reason:
+
+1. **One dispatch per *active target*, not one per instance.** Two shapes may move the same vertex —
+   a corrective is defined as the one that does — and Raven has no float atomic, so a single dispatch
+   over the concatenated entries resolves to whichever invocation landed last. A target's own indices
+   are distinct by construction, so per-target with a barrier between is race-free. The one-dispatch
+   form needs the deltas re-indexed by vertex at import time, which is a format change.
+2. **The normal delta is a quantised delta, not an octahedral normal.** Octahedral encoding is for
+   unit vectors and a delta is not one; a Δn whose sum with the base is the authored normal has no
+   direction of its own to encode.
+3. **Nothing renormalises the morphed normal**, because a shape may cancel one exactly and
+   `Vector3.Normalize` gives up below an absolute 10⁻⁶ — and because `rsqrt` and `1/sqrt` would make
+   the two processors disagree for a reason that has nothing to do with morphing. `ForwardPlus`
+   already `SafeNormalize`s the interpolated normal at 10⁻⁴.
+
+Still owed, and in this order: **`MorphRenderFeature`** — the per-instance vertex buffer, the copy of
+the base mesh into it, the dispatch, and overwriting `MeshDraw.VertexBuffer` so that the shading,
+shadow, velocity and depth passes all read it (the seam is already right: `MeshDraw` is per render
+object and every stage walks the same array); a **scalar weight track** on `AnimationClipData`, which
+is the format change the "animates from an `AnimationClip`" half of the exit needs; the **cluster-page
+scatter**, since a virtualized mesh packs its own vertex records; and the whole of the eight-influence
+permutation, which is untouched.
 
 ### P1 — the rig (2.5 EM)
 

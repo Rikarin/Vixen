@@ -419,6 +419,10 @@ public static class ModelReader {
 
         var (boneIndices, boneWeights) = ReadSkin(mesh, count, joints, name, report);
 
+        var morphTargets = settings.ImportBlendShapes
+            ? ReadMorphTargets(mesh, positions, normals, name, settings, report)
+            : [];
+
         return new() {
             Name = name,
             Positions = positions,
@@ -429,8 +433,127 @@ public static class ModelReader {
             BoneIndices = boneIndices,
             BoneWeights = boneWeights,
             MaterialIndex = (int)mesh->MMaterialIndex,
-            Bounds = count == 0 ? default : new BoundingBox(minimum, maximum)
+            Bounds = count == 0 ? default : new BoundingBox(minimum, maximum),
+            MorphTargets = morphTargets
         };
+    }
+
+    /// <summary>The mesh's blend shapes, as sparse quantised deltas.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Assimp hands back a whole replacement vertex array, not a delta.</b> An
+    ///         <c>aiAnimMesh</c> is the mesh <em>as it looks at full weight</em> — that is what both
+    ///         readers produce, glTF's relative targets having already been added to the base and FBX's
+    ///         shapes having been absolute to begin with. The delta is the subtraction done here, and
+    ///         getting it the wrong way round is the mistake that renders plausibly: a face that
+    ///         doubles its expression at weight one and un-expresses at weight zero.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The subtraction is against the <em>scaled</em> positions</b>, which is why this
+    ///         takes the arrays rather than reading <c>mesh->MVertices</c> again. A delta computed in
+    ///         file units and applied to a mesh in metres is a shape a hundred times too large on
+    ///         anything exported out of Max or Maya, and it is invisible until somebody sets a weight.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A shape whose vertex count disagrees with the mesh's is refused and reported.</b>
+    ///         Assimp remaps its anim meshes through <c>JoinIdenticalVertices</c> alongside the mesh,
+    ///         so the counts agree for everything it produced itself; a file that arrives otherwise has
+    ///         had its shapes authored against a different topology, and an index list that means
+    ///         something else is worse than no shape at all.
+    ///     </para>
+    ///     <para>
+    ///         Normals are read where the shape has them and the base mesh does too. A shape that
+    ///         re-shades without moving is legitimate — a crease, a wrinkle map's geometric half — and
+    ///         <see cref="MorphTargetData.Sparsify" /> keeps a vertex for either delta.
+    ///     </para>
+    /// </remarks>
+    static unsafe MorphTargetData[] ReadMorphTargets(
+        AssimpMesh* mesh,
+        Vector3[] positions,
+        Vector3[] normals,
+        string name,
+        ModelImportSettings settings,
+        Action<ImportSeverity, string>? report
+    ) {
+        var shapes = (int)mesh->MNumAnimMeshes;
+
+        if (shapes == 0) {
+            return [];
+        }
+
+        var count = positions.Length;
+        var deltaPositions = new Vector3[count];
+        var deltaNormals = new Vector3[count];
+
+        List<MorphTargetData> targets = new(shapes);
+        HashSet<string> taken = new(StringComparer.Ordinal);
+
+        for (var index = 0; index < shapes; index++) {
+            var shape = mesh->MAnimMeshes[index];
+
+            if (shape is null) {
+                continue;
+            }
+
+            var shapeName = Unique(taken, Name(shape->MName, $"Shape{index}"));
+
+            if ((int)shape->MNumVertices != count) {
+                report?.Invoke(
+                    ImportSeverity.Warning,
+                    $"'{name}' has {count} vertices and its blend shape '{shapeName}' has "
+                    + $"{shape->MNumVertices}. The shape was authored against different topology and is "
+                    + "skipped; its indices would name other vertices."
+                );
+
+                continue;
+            }
+
+            if (shape->MVertices is null) {
+                continue;
+            }
+
+            for (var vertex = 0; vertex < count; vertex++) {
+                deltaPositions[vertex] = (Convert(shape->MVertices[vertex]) * settings.Scale) - positions[vertex];
+            }
+
+            var hasNormals = shape->MNormals is not null && normals.Length == count;
+
+            if (hasNormals) {
+                for (var vertex = 0; vertex < count; vertex++) {
+                    deltaNormals[vertex] = Convert(shape->MNormals[vertex]) - normals[vertex];
+                }
+            }
+
+            var target = MorphTargetData.Sparsify(
+                shapeName,
+                deltaPositions,
+                hasNormals ? deltaNormals : [],
+                settings.BlendShapeThreshold
+            );
+
+            if (target.Count == 0) {
+                report?.Invoke(
+                    ImportSeverity.Information,
+                    $"'{name}' declares a blend shape '{shapeName}' that moves nothing above "
+                    + $"{settings.BlendShapeThreshold}. It is dropped rather than stored empty."
+                );
+
+                continue;
+            }
+
+            targets.Add(target);
+        }
+
+        if (targets.Count > 0) {
+            var bytes = targets.Sum(target => target.SizeInBytes);
+
+            report?.Invoke(
+                ImportSeverity.Information,
+                $"'{name}' carries {targets.Count} blend shape(s), {bytes} bytes of deltas."
+            );
+        }
+
+        return [.. targets];
     }
 
     /// <summary>The four strongest influences on each vertex, normalised.</summary>

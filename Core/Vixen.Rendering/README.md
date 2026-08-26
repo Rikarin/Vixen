@@ -1134,6 +1134,39 @@ ten thousand dictionary lookups.
 A batch of one is *not* instanced. It would draw identically and would compile a second pipeline to
 do it.
 
+## Blend shapes, which reach the shader by not reaching it
+
+The fourth per-draw problem, and the answer is that it is not one. A morph target does not send data
+to a vertex stage at all — it **rewrites the vertices** in a pre-pass, and every stage then binds what
+it wrote. That is docs/plan/33 § D4's decision, and the reason is agreement rather than speed: a vertex
+stage that morphed inline would do the work again in the shadow pass, the velocity pass and the depth
+pre-pass, and the four could disagree. The symptom of that is a face whose shadow does not match it.
+
+`MorphTargetData` is the storage: one entry per moved vertex — an index, a quantised Δposition and a
+quantised Δnormal — sixteen bytes, sorted by index. Sparse because a brow-raise moves a few hundred
+vertices of a forty-thousand-vertex face, and quantised against a **per-target** range because a jaw
+worth ten centimetres and an eyelid worth two millimetres share one range only at the eyelid's expense.
+
+`MorphKernel` is the arithmetic, written once, and `Raven/Library/Pipeline/MorphScatter.rvn` is its
+transliteration; `Platform/Vixen.Graphics.Golden.Tests/MorphScatterDeviceTests` holds the two to the
+same floats on a device. Two things in it are worth knowing before touching either:
+
+- ⚠ **One dispatch per active target, with a barrier between**, not one per instance. Two shapes may
+  move the same vertex — a corrective is defined as the one that does — and Raven has no float atomic,
+  so a single dispatch over their concatenated entries resolves to whichever invocation landed last.
+  Within one target the indices are distinct by construction.
+- ⚠ **Nothing renormalises the morphed normal.** A shape may cancel one exactly, and `Vector3.Normalize`
+  gives up below an *absolute* `1e-6`; `ForwardPlus`'s fragment stage already `SafeNormalize`s the
+  interpolated normal at `1e-4`. Normalising here would also be a host/device divergence, since `rsqrt`
+  and `1/sqrt` are not the same function.
+
+⚠ **What is not here is the feature that drives it.** Nothing yet allocates the per-instance vertex
+buffer, copies the base mesh in, dispatches and overwrites `MeshDraw.VertexBuffer` — which is the seam,
+and it is the right one already: `MeshDraw` is per render object and every stage walks the same array,
+so a feature that swaps the handle morphs all four passes at once. Also owed: a scalar weight track on
+`AnimationClipData`, and the cluster-page scatter, since a virtualized mesh packs its own vertex
+records.
+
 ## The compositor
 
 `Compositor/` is docs/plan/06's third idea from Stride: **the frame's structure is data the user

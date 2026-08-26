@@ -4,6 +4,7 @@
 using System.Text;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Models;
+using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -141,6 +142,89 @@ public sealed class ModelReaderTests {
         Assert.NotEmpty(read.Meshes[0].Normals);
     }
 
+    // --- Blend shapes -------------------------------------------------------
+
+    /// <summary>
+    ///     ⚠ A glTF morph target arrives as a <em>delta</em>, and the delta is the one the file names.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The assertion the whole importer half reduces to, and it is numeric on purpose.</b>
+    ///     Assimp hands back a whole replacement vertex array rather than a delta — glTF's relative
+    ///     targets have already been added to the base by the time <c>aiAnimMesh</c> exists — so the
+    ///     subtraction is ours to get right, and getting it backwards produces a face that doubles its
+    ///     expression at weight one and un-expresses at weight zero. Both of those look like a
+    ///     <em>rig</em> problem rather than an import one.
+    /// </remarks>
+    [Fact]
+    public void AGltfMorphTargetArrivesAsTheDeltaTheFileNames() {
+        var read = ModelReader.Read(GltfMorphed(), ".gltf", "Face", Default);
+
+        var mesh = Assert.Single(read.Meshes);
+
+        Assert.True(mesh.IsMorphed);
+        Assert.Equal(2, mesh.MorphTargets.Length);
+
+        var jaw = mesh.MorphTargets[0];
+
+        // One vertex moved, and it is the one the target's accessor is non-zero at.
+        Assert.Equal([1], jaw.Indices);
+
+        var delta = jaw.PositionDelta(0);
+        var quantum = jaw.PositionScale / MorphTargetData.Quantum;
+
+        Assert.Equal(0f, delta.X, quantum);
+        Assert.Equal(0f, delta.Y, quantum);
+        Assert.Equal(2f, delta.Z, quantum);
+    }
+
+    /// <summary>
+    ///     ⚠ And it is scaled with the mesh, because it is added to positions that were.
+    /// </summary>
+    /// <remarks>
+    ///     A delta left in file units and applied to a mesh in metres is a shape a hundred times too
+    ///     large on anything out of Max or Maya, and it is invisible until somebody moves a slider.
+    /// </remarks>
+    [Fact]
+    public void ABlendShapeDeltaIsScaledWithTheMeshItBelongsTo() {
+        var read = ModelReader.Read(GltfMorphed(), ".gltf", "Face", Default with { Scale = 100f });
+
+        var jaw = read.Meshes[0].MorphTargets[0];
+        var quantum = jaw.PositionScale / MorphTargetData.Quantum;
+
+        Assert.Equal(200f, jaw.PositionDelta(0).Z, quantum);
+    }
+
+    /// <summary>Only the vertices a shape actually moves are stored.</summary>
+    /// <remarks>
+    ///     The whole point of the format. An exporter writes a delta for every vertex of the mesh and
+    ///     all but one of them here is zero; a target that kept them would cost a full vertex array
+    ///     per shape.
+    /// </remarks>
+    [Fact]
+    public void OnlyTheVerticesAShapeMovesAreStored() {
+        var read = ModelReader.Read(GltfMorphed(), ".gltf", "Face", Default);
+        var mesh = read.Meshes[0];
+
+        Assert.Equal(3, mesh.VertexCount);
+        Assert.All(mesh.MorphTargets, target => Assert.Equal(1, target.Count));
+    }
+
+    [Fact]
+    public void TurningBlendShapesOffLeavesNoneRatherThanEmptyOnes() {
+        var read = ModelReader.Read(GltfMorphed(), ".gltf", "Face", Default with { ImportBlendShapes = false });
+
+        Assert.Empty(read.Meshes[0].MorphTargets);
+        Assert.False(read.Meshes[0].IsMorphed);
+    }
+
+    /// <summary>A model with no shapes carries an empty array rather than paying for one.</summary>
+    [Fact]
+    public void AMeshWithNoBlendShapesCarriesNone() {
+        var read = ModelReader.Read(Obj(Triangle), ".obj", "Shape", Default);
+
+        Assert.Empty(read.Meshes[0].MorphTargets);
+    }
+
     const string Triangle = """
         o Tri
         v 0 0 0
@@ -201,6 +285,84 @@ public sealed class ModelReaderTests {
     }
 
     /// <summary>Two meshes, both called <c>Tri</c>, which is what an exporter does all the time.</summary>
+    /// <summary>
+    ///     A glTF triangle with two morph targets, one moving each of two vertices.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>glTF stores a target as a delta, and one accessor per target per attribute.</b> Both
+    ///     targets here are mostly zeros, which is the shape of every real one — a brow-raise's
+    ///     accessor is forty thousand vertices of nothing and a few hundred of something — and it is
+    ///     what makes the sparsify step the difference between sixteen bytes and a vertex array.
+    /// </remarks>
+    static byte[] GltfMorphed() {
+        float[] positions = [0, 0, 0, 1, 0, 0, 0, 1, 0];
+        ushort[] indices = [0, 1, 2];
+
+        // Vertex 1 moves two along Z; vertex 2 moves half a unit along X. Nothing else moves.
+        float[] jaw = [0, 0, 0, 0, 0, 2, 0, 0, 0];
+        float[] brow = [0, 0, 0, 0, 0, 0, 0.5f, 0, 0];
+
+        var buffer = new byte[(positions.Length * 4) + (indices.Length * 2) + (jaw.Length * 4) + (brow.Length * 4)];
+        var at = 0;
+
+        Buffer.BlockCopy(positions, 0, buffer, at, positions.Length * 4);
+        var indicesAt = at += positions.Length * 4;
+
+        Buffer.BlockCopy(indices, 0, buffer, at, indices.Length * 2);
+        var jawAt = at += indices.Length * 2;
+
+        Buffer.BlockCopy(jaw, 0, buffer, at, jaw.Length * 4);
+        var browAt = at += jaw.Length * 4;
+
+        Buffer.BlockCopy(brow, 0, buffer, at, brow.Length * 4);
+
+        var json = $$"""
+            {
+              "asset": { "version": "2.0" },
+              "scene": 0,
+              "scenes": [{ "nodes": [0] }],
+              "nodes": [{ "name": "Face", "mesh": 0 }],
+              "meshes": [{
+                "name": "Head",
+                "weights": [0, 0],
+                "extras": { "targetNames": ["jawOpen", "browRaise"] },
+                "primitives": [{
+                  "attributes": { "POSITION": 0 },
+                  "indices": 1,
+                  "targets": [{ "POSITION": 2 }, { "POSITION": 3 }]
+                }]
+              }],
+              "buffers": [{
+                "byteLength": {{buffer.Length}},
+                "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
+              }],
+              "bufferViews": [
+                { "buffer": 0, "byteOffset": 0, "byteLength": {{positions.Length * 4}}, "target": 34962 },
+                { "buffer": 0, "byteOffset": {{indicesAt}}, "byteLength": {{indices.Length * 2}}, "target": 34963 },
+                { "buffer": 0, "byteOffset": {{jawAt}}, "byteLength": {{jaw.Length * 4}}, "target": 34962 },
+                { "buffer": 0, "byteOffset": {{browAt}}, "byteLength": {{brow.Length * 4}}, "target": 34962 }
+              ],
+              "accessors": [
+                {
+                  "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+                  "min": [0, 0, 0], "max": [1, 1, 0]
+                },
+                { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" },
+                {
+                  "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3",
+                  "min": [0, 0, 0], "max": [0, 0, 2]
+                },
+                {
+                  "bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC3",
+                  "min": [0, 0, 0], "max": [0.5, 0, 0]
+                }
+              ]
+            }
+            """;
+
+        return Encoding.UTF8.GetBytes(json);
+    }
+
     static byte[] GltfTwins() {
         var text = Encoding.UTF8.GetString(Gltf(0f, 0f, 0f))
             .Replace(

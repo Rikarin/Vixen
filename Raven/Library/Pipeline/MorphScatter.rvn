@@ -1,0 +1,146 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+
+// Blend shapes: one active target's deltas, scattered into a per-instance vertex stream.
+//
+// **`docs/plan/33-character-creator.md` § D4, and the whole reason it is a compute pre-pass.** The
+// obvious implementation is a loop inside every vertex stage — for each target, read this vertex's
+// delta, add it. That reads every delta for every vertex including the ones the shape does not touch,
+// and then does it again in the shadow pass, the velocity pass and the depth pre-pass. This reads only
+// the vertices a shape actually moves, once a frame, and what it writes is the buffer all four of those
+// passes then bind. That second property is the one that matters for correctness rather than speed: it
+// is what stops a face's shadow disagreeing with the face.
+//
+// **One dispatch per active target, and a barrier between them.** Two shapes may move the same vertex —
+// a corrective is defined as the one that does — so a single dispatch over their concatenated entries
+// would have two invocations read-modify-writing one vertex and the answer would be whichever landed
+// last. There is no float atomic here to fix that with. Within *one* target the indices are distinct by
+// construction, so a dispatch per target is race-free, and the cost is a dispatch per active shape
+// rather than per instance. The one-dispatch form wants the deltas re-indexed by vertex at import time;
+// that is a format change, and it is named as owed rather than assumed here.
+//
+// **The vertex stream is addressed as bare floats.** `SurfaceVertex` is forty-eight bytes of
+// `float3 float3 float4 float2`, and the *std430* layout of a struct spelling that out is not those
+// forty-eight bytes — a `float3` aligns to sixteen, so the struct a reader would write here has holes
+// the host's does not. A stride in floats and an offset in floats has no such rule to get wrong, and
+// `MorphKernel.EntryWords`' opposite number is `stride`, which the host passes in rather than this file
+// assuming.
+
+/// One vertex a shape moves, and by how much — sixteen bytes, four words, no padding.
+///
+/// The two deltas are six signed sixteen-bit components packed two to a word, against the per-target
+/// ranges the host divides out into `positionStep` and `normalStep`. The bits arrive exactly as
+/// `MorphTargetData` quantised them, so the only arithmetic either processor does is one multiply per
+/// component — which is what makes the parity test's tolerance a matter of float multiplication rather
+/// than of two different rounding schemes.
+struct MorphEntry {
+    /// Which vertex of the mesh, before `baseVertex` is added.
+    var vertex: uint
+
+    /// Position `x` in the low half, `y` in the high.
+    var packed0: uint
+
+    /// Position `z` low, normal `x` high.
+    var packed1: uint
+
+    /// Normal `y` low, `z` high.
+    var packed2: uint
+}
+
+shader MorphScatter {
+    /// The stream being morphed, as raw floats. Already holds the base mesh.
+    ///
+    /// ⚠ **Read-modify-written, not written**, so the host has to have copied the mesh's own vertices
+    /// in first. A dispatch onto an uninitialised buffer produces a mesh made of whatever the allocator
+    /// left there, which does not look like a morph gone wrong — it looks like the geometry is missing.
+    [PerDraw] var vertices: RWBuffer<float>
+
+    /// This target's entries, ascending by vertex.
+    [PerDraw] var entries: Buffer<MorphEntry>
+
+    /// How many entries there are, since the dispatch is rounded up to whole groups.
+    [PerDraw] var entryCount: int
+
+    /// Where this mesh's vertices start in the stream, in whole vertices.
+    [PerDraw] var baseVertex: int
+
+    /// How many floats one vertex occupies. Twelve for `SurfaceVertex`.
+    [PerDraw] var stride: int
+
+    /// Where the position is within a vertex, in floats.
+    [PerDraw] var positionOffset: int
+
+    /// Where the normal is. Negative to leave normals alone.
+    [PerDraw] var normalOffset: int
+
+    /// How much of this shape to apply.
+    [PerDraw] var weight: float
+
+    /// What one quantised position unit is worth — the target's range over 32767.
+    [PerDraw] var positionStep: float
+
+    /// The same for the normal delta.
+    [PerDraw] var normalStep: float
+
+    /// One invocation, one entry.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        if (index >= entryCount) {
+            return
+        }
+
+        val entry = entries[index]
+        val at = (baseVertex + int(entry.vertex)) * stride
+
+        // `component × step`, then `× weight`, in that order and that association — `MorphKernel`
+        // spells it identically, because `(c × step) × w` and `c × (step × w)` are different floats and
+        // the difference is a parity test that fails on some entries and not others.
+        val position = float3(
+            Signed(entry.packed0),
+            Signed(entry.packed0 >> 16u),
+            Signed(entry.packed1)
+        ) * positionStep
+
+        val positionAt = at + positionOffset
+
+        vertices[positionAt + 0] = vertices[positionAt + 0] + position.x * weight
+        vertices[positionAt + 1] = vertices[positionAt + 1] + position.y * weight
+        vertices[positionAt + 2] = vertices[positionAt + 2] + position.z * weight
+
+        if (normalOffset < 0) {
+            return
+        }
+
+        // ⚠ **Nothing renormalises the result, here or on the host.** A shape may cancel a normal
+        // exactly, and a normalise of the zero vector is the one case `Vector3.Normalize` answers with
+        // infinities — its tolerance is an absolute `1e-6`, which a delta-sized quantity lives under.
+        // The consumer normalises safely already: `ForwardPlus`'s fragment stage calls
+        // `Math.SafeNormalize` on the interpolated normal, and its degenerate answer is zero.
+        val normal = float3(
+            Signed(entry.packed1 >> 16u),
+            Signed(entry.packed2),
+            Signed(entry.packed2 >> 16u)
+        ) * normalStep
+
+        val normalAt = at + normalOffset
+
+        vertices[normalAt + 0] = vertices[normalAt + 0] + normal.x * weight
+        vertices[normalAt + 1] = vertices[normalAt + 1] + normal.y * weight
+        vertices[normalAt + 2] = vertices[normalAt + 2] + normal.z * weight
+    }
+
+    /// The low sixteen bits of a word, read as a signed short.
+    ///
+    /// ⚠ **Sign-extended by arithmetic rather than by a cast**, because the cast that would do it is a
+    /// conversion between widths the language does not offer for a half-word. Anything at or above
+    /// `0x8000` is the negative half of the range and is `value − 65536`; `0x8000` itself is `−32768`,
+    /// which `MorphTargetData` never emits — it clamps to `±32767` so that both extremes are
+    /// representable — but which this decodes correctly anyway rather than saturating quietly.
+    func Signed(bits: uint): float {
+        val value = bits & 0xFFFFu
+        return value < 0x8000u ? float(value) : float(value) - 65536f
+    }
+}

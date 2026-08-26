@@ -3511,10 +3511,13 @@ Vixen.Rendering.MeshData.Clusters.set -> Vixen.Core.AssetReference
 Vixen.Rendering.MeshData.Indices.get -> int[]
 Vixen.Rendering.MeshData.Indices.set -> int[]
 Vixen.Rendering.MeshData.IsClustered.get -> bool
+Vixen.Rendering.MeshData.IsMorphed.get -> bool
 Vixen.Rendering.MeshData.IsSkinned.get -> bool
 Vixen.Rendering.MeshData.MaterialIndex.get -> int
 Vixen.Rendering.MeshData.MaterialIndex.set -> int
 Vixen.Rendering.MeshData.MeshData() -> void
+Vixen.Rendering.MeshData.MorphTargets.get -> Vixen.Rendering.MorphTargetData[]
+Vixen.Rendering.MeshData.MorphTargets.set -> Vixen.Rendering.MorphTargetData[]
 Vixen.Rendering.MeshData.Name.get -> string
 Vixen.Rendering.MeshData.Name.set -> string
 Vixen.Rendering.MeshData.Normals.get -> Vixen.Core.Mathematics.Vector3[]
@@ -3732,6 +3735,27 @@ Vixen.Rendering.ModelPart.Mesh.set -> string
 Vixen.Rendering.ModelPart.ModelPart() -> void
 Vixen.Rendering.ModelPart.Node.get -> int
 Vixen.Rendering.ModelPart.Node.set -> int
+Vixen.Rendering.MorphKernel -> static class
+Vixen.Rendering.MorphTargetData -> sealed record
+Vixen.Rendering.MorphTargetData : System.IEquatable<Vixen.Rendering.MorphTargetData>
+Vixen.Rendering.MorphTargetData.Count.get -> int
+Vixen.Rendering.MorphTargetData.HasNormals.get -> bool
+Vixen.Rendering.MorphTargetData.Indices.get -> int[]
+Vixen.Rendering.MorphTargetData.Indices.set -> int[]
+Vixen.Rendering.MorphTargetData.MorphTargetData() -> void
+Vixen.Rendering.MorphTargetData.Name.get -> string
+Vixen.Rendering.MorphTargetData.Name.set -> string
+Vixen.Rendering.MorphTargetData.NormalDelta(int entry) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MorphTargetData.NormalScale.get -> float
+Vixen.Rendering.MorphTargetData.NormalScale.set -> float
+Vixen.Rendering.MorphTargetData.Normals.get -> short[]
+Vixen.Rendering.MorphTargetData.Normals.set -> short[]
+Vixen.Rendering.MorphTargetData.PositionDelta(int entry) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MorphTargetData.PositionScale.get -> float
+Vixen.Rendering.MorphTargetData.PositionScale.set -> float
+Vixen.Rendering.MorphTargetData.Positions.get -> short[]
+Vixen.Rendering.MorphTargetData.Positions.set -> short[]
+Vixen.Rendering.MorphTargetData.SizeInBytes.get -> long
 Vixen.Rendering.OccluderProjections -> sealed class
 Vixen.Rendering.OccluderProjections.Count.get -> int
 Vixen.Rendering.OccluderProjections.Forget() -> void
@@ -5249,6 +5273,8 @@ const Vixen.Rendering.Materials.MaterialSurface.DielectricF0 = 0.04 -> float
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
 const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
+const Vixen.Rendering.MorphKernel.EntryWords = 4 -> int
+const Vixen.Rendering.MorphTargetData.Quantum = 32767 -> int
 const Vixen.Rendering.PersistentUploadBuffer<T>.MergeGap = 16 -> int
 const Vixen.Rendering.Photometry.MaximumTemperature = 25000 -> float
 const Vixen.Rendering.Photometry.MiddleGrey = 1.2 -> float
@@ -6417,6 +6443,13 @@ static Vixen.Rendering.MeshPrimitives.Plane(float size = 1, int divisions = 4) -
 static Vixen.Rendering.MeshPrimitives.Quad(float size = 1) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Sphere(float radius = 0.5, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Torus(float radius = 0.35, float tube = 0.15, int segments = 32, int sides = 16) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MorphKernel.Accumulate(Vixen.Rendering.MorphTargetData target, float weight, System.Span<Vixen.Rendering.SurfaceVertex> into) -> void
+static Vixen.Rendering.MorphKernel.Apply(System.ReadOnlySpan<Vixen.Rendering.SurfaceVertex> source, System.Collections.Generic.IReadOnlyList<Vixen.Rendering.MorphTargetData> targets, System.ReadOnlySpan<float> weights, System.Span<Vixen.Rendering.SurfaceVertex> into) -> void
+static Vixen.Rendering.MorphKernel.Pack(Vixen.Rendering.MorphTargetData target) -> uint[]
+static Vixen.Rendering.MorphKernel.Pack(Vixen.Rendering.MorphTargetData target, System.Span<uint> into) -> void
+static Vixen.Rendering.MorphKernel.Step(float scale) -> float
+static Vixen.Rendering.MorphTargetData.Encode(string name, System.ReadOnlySpan<int> indices, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals) -> Vixen.Rendering.MorphTargetData
+static Vixen.Rendering.MorphTargetData.Sparsify(string name, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals, float threshold) -> Vixen.Rendering.MorphTargetData
 static Vixen.Rendering.ParticleInstances.Schema.get -> Vixen.Rendering.VertexSchema
 static Vixen.Rendering.ParticleInstances.SizeInBytes.get -> int
 static Vixen.Rendering.ParticleLights.Collect(Vixen.Vfx.VfxSystem system, System.Collections.Generic.IList<Vixen.Rendering.RenderLight> lights, int maximum = 2147483647) -> int

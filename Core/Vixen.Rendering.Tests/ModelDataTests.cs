@@ -85,6 +85,35 @@ public sealed class ModelDataTests {
 
         Assert.Empty(loaded.Normals);
         Assert.False(loaded.IsSkinned);
+        Assert.False(loaded.IsMorphed);
+    }
+
+    /// <summary>
+    ///     A blend shape survives the chunk, quantised bits and all.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The assertion is on the dequantised delta rather than on the <c>short[]</c></b>,
+    ///     because that is what would be wrong if the array were written as an object array instead of
+    ///     a blittable one and came back byte-swapped on a big-endian target. Equal shorts and an
+    ///     unequal delta is not a state that can happen; an unequal delta is the one worth naming.
+    /// </remarks>
+    [Fact]
+    public void ABlendShapeSurvivesTheChunk() {
+        var mesh = new MeshData {
+            Positions = [Vector3.Zero, Vector3.UnitX],
+            MorphTargets = [
+                MorphTargetData.Encode("jawOpen", [1], [new(0.5f, -0.25f, 0f)], [new(0f, 0f, 0.5f)])
+            ]
+        };
+
+        var loaded = Serializer.Read<MeshData>(Serializer.ToBytes(mesh));
+        var target = Assert.Single(loaded.MorphTargets);
+
+        Assert.True(loaded.IsMorphed);
+        Assert.Equal("jawOpen", target.Name);
+        Assert.Equal([1], target.Indices);
+        Assert.Equal(mesh.MorphTargets[0].PositionDelta(0), target.PositionDelta(0));
+        Assert.Equal(mesh.MorphTargets[0].NormalDelta(0), target.NormalDelta(0));
     }
 
     [Fact]
