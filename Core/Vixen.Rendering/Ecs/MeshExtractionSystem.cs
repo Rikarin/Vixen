@@ -242,6 +242,24 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public IMeshSource? Meshes { get; set; }
 
+    /// <summary>
+    ///     The feature that morphs blend-shaped meshes, or null to draw every mesh at rest.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Set rather than constructed, on <see cref="Meshes" />' terms.</b> The feature owns a
+    ///         device buffer and a compute pipeline, and this system is stood up by an ECS runner that
+    ///         has neither — so a null one is "there is no renderer this run", which is what a headless
+    ///         server and most of this assembly's tests are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only a mesh <em>asset</em> is offered to it.</b> A <see cref="PrimitiveShape" /> is
+    ///         built by <c>MeshPrimitives</c> and carries no blend shapes, and asking for one would mean
+    ///         building a sphere's every vertex per entity to be told so.
+    ///     </para>
+    /// </remarks>
+    public MorphRenderFeature? Morphing { get; set; }
+
     /// <summary>How many entities are waiting for geometry that has not loaded yet.</summary>
     /// <remarks>
     ///     Counted per frame rather than accumulated, and expected to fall to zero a few frames after a
@@ -347,6 +365,11 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
             system.Objects.Remove(handle.Object);
 
+            // ⚠ Before the slot is reused. A morphed object holds a vertex range of its own, and a
+            // range nothing gives back is leaked for the run — which looks like a level that stops
+            // morphing faces after a few reloads rather than like a leak.
+            Morphing?.Forget(handle.Object);
+
             // Under the entity's name, which is the same claim the handle records — one release, not
             // two.
             Forget(entity);
@@ -377,6 +400,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
             var handle = world.Read<RenderHandle>(entity);
 
             system.Objects.Remove(handle.Object);
+            Morphing?.Forget(handle.Object);
             residency.Release(handle.Geometry);
             claimed.Remove(entity);
 
@@ -423,7 +447,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
                 continue;
             }
 
-            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh, material, renderable.CastsShadows);
+            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh, material, renderable.CastsShadows, mesh);
         }
 
         pending.Clear();
@@ -584,7 +608,15 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         return true;
     }
 
-    void Add(World world, Entity entity, GeometryKey key, Func<MeshData> build, Material? material, bool casts) {
+    void Add(
+        World world,
+        Entity entity,
+        GeometryKey key,
+        Func<MeshData> build,
+        Material? material,
+        bool casts,
+        MeshData? shaped = null
+    ) {
         if (!residency.Acquire(key, build, out var slice, out var local)) {
             Dropped++;
             return;
@@ -600,6 +632,17 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
                 FeatureIndex = meshes.Index
             }
         );
+
+        // ⚠ Before the record is stored, because attaching *rewrites* it. The feature gives the object
+        // its own copy of the mesh's vertices and points the draw at that copy, so a record stored
+        // first and morphed second would be the scene buffer's handle with the morph buffer's offset —
+        // which draws some other mesh's vertices in this one's shape rather than failing.
+        //
+        // Null, unshaped or full all leave the record alone, which is the mesh drawn at rest. See
+        // MorphRenderFeature.Attach and its Dropped counter.
+        if (shaped is not null) {
+            Morphing?.Attach(system, id, key, shaped, slice, ref draw);
+        }
 
         system.Objects.Data.Data(meshes.Draws)[id.Index] = draw;
 

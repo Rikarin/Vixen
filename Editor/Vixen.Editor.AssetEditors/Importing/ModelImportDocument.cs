@@ -51,6 +51,15 @@ public sealed class ModelImportEdits {
     ///     The mirror of <see cref="ImportAnimations" />, and it belongs in the inspector for the same
     ///     reason: a character exported once per outfit ships the same two hundred facial shapes in
     ///     every file, and only one of them needs to carry them.
+    ///     <para>
+    ///         ⚠ <b>This and <see cref="BlendShapeThreshold" /> reached the record and not this mirror
+    ///         when blend shapes landed</b>, so the two settings that decide whether a face can animate
+    ///         at all were reachable only by hand-editing a <c>.meta</c>. <c>ImportSettingsMirrorTests</c>
+    ///         is what noticed, the same way it noticed the five cluster settings above — which is the
+    ///         whole reason it compares the two by reflection rather than against a written-down list.
+    ///         ⚠ It stops at the FIRST missing member, so the failure named one of the two and a fix
+    ///         following the message alone would have gone red again.
+    ///     </para>
     /// </remarks>
     [Inspector]
     [Tooltip("Off for a character exported once per outfit, where every file repeats the same facial shapes.")]

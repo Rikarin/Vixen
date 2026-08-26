@@ -112,10 +112,16 @@ public sealed class GeometryBuffer : IDisposable {
         freeVertices.Add((0, vertexCapacity));
         freeIndices.Add((0, indexCapacity));
 
+        // ⚠ CopySource as well, and it is not speculative: it is what a blend-shaped mesh's rest pose
+        // is read *out* of. `MorphRenderFeature` copies a slice's vertices into a per-instance buffer
+        // and scatters deltas onto the copy, so this buffer is the source of that copy — and a buffer
+        // created without the usage is a validation error at the copy rather than at the creation,
+        // which is a frame that records and then dies in the layer. The flag costs nothing: it is a
+        // capability of the allocation, not a residency or a layout.
         Vertices = device.CreateBuffer(
             new(
                 (long)vertexCapacity * vertexStride,
-                BufferUsage.Vertex | BufferUsage.CopyDestination,
+                BufferUsage.Vertex | BufferUsage.CopyDestination | BufferUsage.CopySource,
                 MemoryAccess.DeviceLocal,
                 $"{name}.Vertices"
             )
@@ -160,6 +166,49 @@ public sealed class GeometryBuffer : IDisposable {
 
     /// <summary>How many slices are outstanding.</summary>
     public int SliceCount { get; private set; }
+
+    /// <summary>What the vertex buffer was last left in, which is what a barrier has to say it is.</summary>
+    /// <remarks>
+    ///     Readable because the tracking is here and the transition may be somebody else's — see
+    ///     <see cref="Transition" />. <see cref="ResourceState.Undefined" /> until the first
+    ///     <see cref="Flush" />, which is a buffer nothing has written and nothing may read.
+    /// </remarks>
+    public ResourceState VertexState => vertexState;
+
+    /// <summary>Moves the vertex buffer into another state, and remembers that it did.</summary>
+    /// <param name="list">An open command list, outside a render pass.</param>
+    /// <param name="state">What it is about to be used as.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="list" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Here rather than at the caller, because the state is here.</b> A caller that emitted
+    ///         its own barrier would be writing down a second opinion about what this buffer was last
+    ///         left in, and the two would agree until <see cref="Flush" /> ran on a frame the caller
+    ///         did not — which is a transition declared from a state the buffer is not in, and a
+    ///         validation error rather than a wrong picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Whoever moves it away is responsible for moving it back.</b> The draws that read
+    ///         this need <see cref="ResourceState.VertexInput" />, and nothing between here and them
+    ///         checks. <c>MorphRenderFeature</c> — the one caller — brackets its copies with a pair.
+    ///     </para>
+    ///     <para>
+    ///         A transition to the state it is already in records nothing. That is not an
+    ///         optimisation: a barrier from a state to itself is legal and would be a memory
+    ///         dependency nobody asked for, on a buffer the whole scene draws from.
+    ///     </para>
+    /// </remarks>
+    public void Transition(ICommandList list, ResourceState state) {
+        ArgumentNullException.ThrowIfNull(list);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (vertexState == state) {
+            return;
+        }
+
+        list.Barrier(new([new(Vertices, vertexState, state)], []));
+        vertexState = state;
+    }
 
     /// <summary>
     ///     How many free ranges the vertex space is in, which is what fragmentation looks like.

@@ -138,6 +138,14 @@ public class LibraryReflectionTests {
         ("Pipeline", "NearestReduce"),
         ("Pipeline", "DrawArguments"),
 
+        // Doc 33 § D4's blend-shape pre-pass. Published because MorphRenderFeature binds both of its
+        // buffers and writes every one of its ten constants by name, and because two of those
+        // constants are the reason a hand-interned key would be wrong rather than merely unchecked:
+        // `stride` and `normalOffset` describe a vertex layout, and a block written short leaves them
+        // zero — a stride of zero scatters every entry onto vertex zero, and a normal offset of zero
+        // adds the normal delta to the position. Both draw a mesh; neither draws this one.
+        ("Pipeline", "MorphScatter"),
+
         // And the raster that draws what the traversal chose — GpuClusterRaster binds all six of its
         // buffers by name, for the same reason and with the same consequence if a rename slips past.
         ("Pipeline", "ClusterRaster"),

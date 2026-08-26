@@ -511,7 +511,7 @@ Honest, and the three hard numbers at the bottom are the ones that matter.
 | Asset editors, inspector, `IEditorMode`, plugin surface | ✅ |
 | Cloth simulation | ⛔ nothing, anywhere. `Vixen.Physics` is Jolt, and Jolt's soft bodies are not a garment solver |
 | Strand hair geometry | ⛔ nothing |
-| Blend shapes / morph targets | 🟡 [D4](#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop) landed as a slice — `MorphTargetData`, `MorphKernel`, `Pipeline/MorphScatter.rvn` and the glTF/FBX import. The render feature is owed |
+| Blend shapes / morph targets | ✅ [D4](#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop) — `MorphTargetData`, `MorphKernel`, `Pipeline/MorphScatter.rvn`, the glTF/FBX import and `MorphRenderFeature`, which allocates the per-instance buffer and points the draw at it. Owed alongside: a scalar weight track on `AnimationClipData`, so a *clip* cannot drive one yet, and the cluster-page scatter |
 | Texture baking / render-to-texture compositing for skin layers | ⛔ nothing, though the compositor and compute path make it small |
 
 And the three numbers:
@@ -520,7 +520,7 @@ And the three numbers:
 |---|---|---|
 | **Four influences per vertex** | `MeshData.BoneIndices` — "Four joint indices per vertex"; `BonePalette` in `Skinning.rvn` is four `mat4`s; the vertex stream takes `bones0: float4, weights0: float4` | A MetaHuman face uses more than four on the regions that matter, and the fifth influence is *not* below threshold on a face the way `Skinning.rvn`'s comment correctly says it is on a body |
 | **`MaxBones = 256`** | `Skinning.rvn` — sized to Vulkan's guaranteed 16 KiB uniform range | ⚠ **Less serious than it looks.** The palette is already a `Buffer<BoneMatrix>` and `ShadowCaster.rvn` says why; 256 is what a *host* sizes by. An ~800-joint face needs the host constant raised and the indices to stay exact in a `float4` — which they are, well past 2²⁴ |
-| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` | ⚠ **The primitive exists and the wiring does not.** Storage, quantisation, the glTF/FBX import and the compute scatter are built and asserted numerically on a device; what no frame does yet is allocate the per-instance buffer and point `MeshDraw.VertexBuffer` at it. So P0 is half closed, and the half that is left is plumbing rather than design |
+| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` + `MorphRenderFeature` | ✅ **Closed.** Storage, quantisation, the glTF/FBX import and the compute scatter were built and asserted numerically on a device; the wiring landed 2026-08-26 — a vertex range per morphed instance, the rest pose copied in from the scene's `GeometryBuffer`, a dispatch per active shape, and `MeshDraw.VertexBuffer` and `VertexOffset` rewritten together, all of it constructed and recorded by `WorldRenderer`. ⚠ **What is still not claimed is animating one from a *clip*:** `AnimationChannel` has three vector tracks and no scalar one, so a weight track is a format change. Anything that writes `BlendShapeWeights` drives them today |
 
 ⚠ **The good news is the shape of the gap.** Nothing about the existing animation stack is wrong for
 this: local-space poses, a model-space pass at the end, palettes in a storage buffer, retargeting that
@@ -645,12 +645,20 @@ getting it wrong is expensive later.
   row, and a game that never touches a character gets facial animation on a hand-authored head out of
   it.
 
-🟡 **Built as far as the kernel** — `MorphTargetData`, `MorphKernel`,
-`Raven/Library/Pipeline/MorphScatter.rvn` and the glTF/FBX import, with the two processors held to the
-same floats on a device. [P0](#p0--the-two-missing-primitives-15-em) carries what is still owed and
-the three places the implementation amends this section, of which the first is structural: the
-dispatch is **per active target with a barrier between**, not per instance, because two shapes may
-move one vertex and there is no float atomic to arbitrate them with.
+✅ **Built, and a morphed mesh draws morphed.** `MorphTargetData`, `MorphKernel`,
+`Raven/Library/Pipeline/MorphScatter.rvn`, the glTF/FBX import — and, as of 2026-08-26,
+`MorphRenderFeature`, which is the wiring this section describes: a vertex range per morphed instance,
+the rest pose copied into it out of the scene's own `GeometryBuffer`, a dispatch per active shape, and
+`MeshDraw.VertexBuffer` and `VertexOffset` rewritten together. Wired end to end in `WorldRenderer` and
+fed by a `BlendShapeWeights` component through `MorphWeightSystem`, on `SkinningSystem`'s terms.
+
+[P0](#p0--the-two-missing-primitives-15-em) carries what is still owed and the three places the
+implementation amends this section, of which the first is structural: the dispatch is **per active
+target with a barrier between**, not per instance, because two shapes may move one vertex and there is
+no float atomic to arbitrate them with. The fourth amendment is smaller and is here: this section says
+"the morphed buffer is per instance", and so it is — but the *deltas* are per **mesh**, shared by every
+instance of it, because two characters wearing one head differ in their weights and not in their
+shapes.
 
 Alongside it, the second missing primitive: **eight influences behind a Raven permutation.** Four
 stays the default and the fast path, because it is right for a body and it is what glTF stores;

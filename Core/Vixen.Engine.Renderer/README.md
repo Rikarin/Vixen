@@ -120,6 +120,28 @@ So what is left is three calls in an order — reset the graph, build it, execut
 caller owns. It opens no command list and submits nothing: when a frame is presented is the
 application's business.
 
+## What `WorldRenderer.Draw` puts on the list before the frame
+
+Three things go on the caller's command list before `Host.Draw`, and every one of them is there because
+of *when* rather than *what*:
+
+| | |
+|---|---|
+| `Residency.Flush` | The vertices and indices themselves. Without it every draw reads whatever the allocator left, which is not a missing mesh but a wrong one. |
+| `Environment.Upload` | Set 0's buffers. A set binds whole or not at all, so a frame short one binding draws nothing rather than drawing dimly. |
+| `Morphing.Record` | The blend-shape pre-pass. |
+
+⚠ **The morph pass goes after the flush and before every draw, and both halves matter.** It copies each
+changed instance's rest pose out of the geometry buffer — so a pass recorded before the flush would
+scatter deltas onto bytes that had not arrived — and what it writes is the vertex buffer the shading,
+shadow, velocity and depth passes all read, which it leaves in `ResourceState.VertexInput` for them.
+Outside any render pass, because the copies are transfers.
+
+`WorldRenderer` owns all three ends of the feature: it constructs `Morphing`, adds it to `Meshes`, hands
+it to `MeshExtractionSystem.Morphing` so an extracted mesh with shapes gets a range, and registers
+`MorphWeightSystem` so a `BlendShapeWeights` component reaches it. A feature only one of the three
+reaches costs memory and draws nothing, which is the state this one was in before.
+
 ## Two draws, not one
 
 `DebugDraw` accumulates three things and they come out as two draw calls:
