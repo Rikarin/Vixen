@@ -46,6 +46,27 @@ public sealed class ModelImportEdits {
     [Tooltip("Off for a character exported once per animation, where every file repeats the same skeleton.")]
     public bool ImportAnimations { get; set; } = true;
 
+    /// <summary>Whether to import the blend shapes the file carries.</summary>
+    /// <remarks>
+    ///     The mirror of <see cref="ImportAnimations" />, and it belongs in the inspector for the same
+    ///     reason: a character exported once per outfit ships the same two hundred facial shapes in
+    ///     every file, and only one of them needs to carry them.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Off for a character exported once per outfit, where every file repeats the same facial shapes.")]
+    public bool ImportBlendShapes { get; set; } = true;
+
+    /// <summary>How far a vertex must move to be kept in a blend shape, in the model's own units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The dial that decides whether the shapes are sparse at all, so it is an author's dial
+    ///     rather than the pipeline's.</b> An exporter writes a delta for every vertex, most of them
+    ///     zero and the rest rounding noise; keeping those costs a full vertex array per target. It is
+    ///     applied after <see cref="Scale" />, so it is in the units the mesh ends up in.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Below this a vertex is not in the shape. In the mesh's final units, so it follows Scale. Zero keeps every rounding-noise delta.")]
+    public float BlendShapeThreshold { get; set; } = 1e-4f;
+
     /// <summary>Whether to bake a signed distance field for each of the model's meshes.</summary>
     [Inspector]
     [Tooltip("What distance-field shadows and occlusion read. The most expensive part of the import; off for a project not lighting this way.")]
