@@ -359,6 +359,29 @@ public class GlobalDistanceFieldTests {
         Assert.Throws<InvalidOperationException>(() => clipmap.BeginUpdate(Vector3.One, []));
     }
 
+    /// <summary>An abandoned refresh gives the spare buffers back.</summary>
+    /// <remarks>
+    ///     What a caller whose answer stopped being wanted does — a teleport, a level unload, a
+    ///     scheduling call that threw. The clipmap keeps the composite it had.
+    /// </remarks>
+    [Fact]
+    public void AnAbandonedRefreshLetsTheNextOneStart() {
+        var clipmap = new GlobalDistanceField(8, 4f, 2);
+
+        clipmap.Update(Vector3.Zero, []);
+
+        var box = clipmap.BoundsOf(0);
+
+        clipmap.BeginUpdate(new(64f, 0, 0), []).Abandon();
+
+        Assert.False(clipmap.IsRefreshing);
+        Assert.Equal(box, clipmap.BoundsOf(0));
+
+        clipmap.Update(new(64f, 0, 0), []);
+
+        Assert.NotEqual(box, clipmap.BoundsOf(0));
+    }
+
     [Theory]
     [InlineData(1, 4f, 4)]
     [InlineData(16, 0f, 4)]

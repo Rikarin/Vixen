@@ -386,6 +386,45 @@ public class GlobalDistanceFieldRendererTests {
         Assert.Equal(slices + field.LevelCount * field.Resolution, field.SlicesComposited);
     }
 
+    /// <summary>
+    ///     A refresh that could not be started leaves the clipmap able to start the next one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>There is one spare buffer per level, so there can be one refresh</b> — and a
+    ///         refresh nobody published or abandoned is a clipmap that can never start another. The
+    ///         throw would then arrive once and the refusal every frame for ever after, which is a far
+    ///         worse failure than whatever went wrong.
+    ///     </para>
+    ///     <para>
+    ///         A disposed scheduler is the cheapest way to make the scheduling call itself fail, and
+    ///         it is not a contrived one: a host tearing down while a frame is in flight is exactly
+    ///         this order.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARefreshThatCouldNotBeScheduledIsGivenBackRatherThanLeftOutstanding() {
+        using var device = new NullDevice(new() { Record = true });
+        var jobs = new JobScheduler(0);
+        using var node = Node(device, out _);
+        var context = Context(device);
+        var field = node.Field!;
+
+        node.Jobs = jobs;
+        Record(node, context);
+
+        jobs.Dispose();
+        node.ViewPosition = new Vector3(field.CellSizeOf(0) * 4f, 0, 0);
+
+        Assert.Throws<ObjectDisposedException>(() => Record(node, context));
+
+        Assert.False(node.IsRefreshing);
+        Assert.False(field.IsRefreshing);
+
+        // And the proof that it is usable rather than merely reporting so.
+        field.Update(Vector3.Zero, []);
+    }
+
     /// <summary>The name of the finest level's box, which is what says which composite is bound.</summary>
     const string Minimum = "DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0].minimum";
 
