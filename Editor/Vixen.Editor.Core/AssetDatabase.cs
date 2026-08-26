@@ -55,12 +55,21 @@ public sealed class AssetDatabase {
     // The sidecar stamp each entry was read from, by the entry's project-relative path. Held beside
     // the entries rather than inside AssetEntry, which is documented as being the envelope and only
     // the envelope: this is a fact about the file the envelope came out of, not about the asset.
+    //
+    // An entry whose sidecar this scan *wrote* — minted, or re-GUIDed — records MetaStamp.Unknown
+    // rather than the stamp the write left behind, which is what makes the next scan open it again.
     Dictionary<string, MetaStamp> stamps = new(StringComparer.Ordinal);
 
-    // Nothing whose sidecar was written at or after this instant is trusted, however well its stamp
-    // matches. See MetaStamp for why a timestamp alone is not enough. Kinded UTC so that it round
-    // trips through "O" as a UTC instant rather than as a local one nobody named.
+    // A second, weaker filter over the same question: nothing whose sidecar was written at or after
+    // this instant is trusted, however well its stamp matches. It catches an edit by *somebody else*
+    // that raced this scan — which the stamps cannot know about — on a filesystem whose write times
+    // are fine-grained enough to place it. See MetaStamp for what it cannot do. Kinded UTC so that
+    // it round trips through "O" as a UTC instant rather than as a local one nobody named.
     DateTime trustedBeforeUtc = DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
+
+    // Injectable only so that a test can run a clock that leads the filesystem, which is what NTFS
+    // and DateTime.UtcNow do to each other on Windows. Production always gets the system clock.
+    readonly TimeProvider time;
 
     /// <summary>Where the project's directories are.</summary>
     public ProjectPaths Paths { get; }
@@ -73,9 +82,16 @@ public sealed class AssetDatabase {
 
     /// <summary>Opens a database over a project.</summary>
     /// <param name="paths">The project's directories.</param>
-    public AssetDatabase(ProjectPaths paths) {
+    public AssetDatabase(ProjectPaths paths) : this(paths, TimeProvider.System) { }
+
+    /// <summary>Opens a database over a project, reading the time from somewhere a test chose.</summary>
+    /// <param name="paths">The project's directories.</param>
+    /// <param name="clock">Where "now" comes from.</param>
+    internal AssetDatabase(ProjectPaths paths, TimeProvider clock) {
         ArgumentNullException.ThrowIfNull(paths);
+        ArgumentNullException.ThrowIfNull(clock);
         Paths = paths;
+        time = clock;
     }
 
     /// <summary>Finds an asset by its identity.</summary>
@@ -114,11 +130,19 @@ public sealed class AssetDatabase {
         var clock = Stopwatch.StartNew();
         var issues = new ConcurrentBag<AssetIssue>();
 
-        // Taken before the walk, and it is what the *next* scan will refuse to trust from. A sidecar
-        // written while this scan is running has a write time at or after it, so the next scan reads
-        // that file however unchanged its stamp looks — which is the only defence against a
-        // filesystem whose write-time resolution is coarser than the gap between two edits.
-        var startedUtc = DateTime.UtcNow;
+        // Taken before the walk, and it is what the *next* scan will refuse to trust from. It catches
+        // an edit by somebody else that landed while this scan was walking, which nothing else here
+        // can see.
+        //
+        // ⚠ It is not, and cannot be, the defence against the scan's own writes, which is what this
+        // comment used to claim. "A sidecar written while this scan runs has a write time at or after
+        // startedUtc" is false wherever the clock is finer-grained than the filesystem's write times:
+        // on Windows DateTime.UtcNow resolves through GetSystemTimePreciseAsFileTime while NTFS
+        // stamps a write from the coarse clock, so a sidecar written a millisecond *after* this line
+        // carries a write time up to a tick *before* it, and the next scan trusts it. The scan's own
+        // writes are therefore recorded as MetaStamp.Unknown instead — a fact, not an inference from
+        // two clocks that do not agree.
+        var startedUtc = time.GetUtcNow().UtcDateTime;
 
         var previousEntries = byPath;
         var previousStamps = stamps;
@@ -389,6 +413,12 @@ public sealed class AssetDatabase {
     }
 
     /// <summary>Whether a stamp seen on disk is the one an index entry may be kept on.</summary>
+    /// <remarks>
+    ///     Two independent refusals. The recorded stamp is <see cref="MetaStamp.Unknown" /> — matching
+    ///     no real file — for every sidecar the recording scan wrote itself, so those are re-read on
+    ///     evidence rather than on a clock. The cutoff then adds what only a clock can say: that
+    ///     somebody else's edit landed while that scan was walking.
+    /// </remarks>
     static bool IsFresh(MetaStamp current, string relative, Dictionary<string, MetaStamp> previousStamps, DateTime cutoff) =>
         previousStamps.TryGetValue(relative, out var recorded) && recorded == current && current.WrittenUtc < cutoff;
 
@@ -444,9 +474,12 @@ public sealed class AssetDatabase {
             var minted = CreateMeta(metaPath);
             issues.Add(new(AssetIssueKind.MetaCreated, relative, $"Had no .meta; created one with GUID {minted}."));
 
+            // No stamp, rather than the one the write just left behind. This scan cannot tell an edit
+            // that lands a microsecond after its own write from the write itself — the two share a
+            // filesystem tick — so it records nothing to trust and the next scan opens the file.
             return new(
                 new(minted, relative, null, MetaMigrationChain.CurrentVersion, candidate.IsFolder),
-                StampOf(metaPath),
+                MetaStamp.Unknown,
                 false
             );
         }
@@ -510,10 +543,12 @@ public sealed class AssetDatabase {
         byGuid[minted] = repaired;
         byPath[repaired.Path] = repaired;
 
-        // Its sidecar was just rewritten, so the stamp the scan is about to record has to be the one
-        // the rewrite left behind. Recording the pre-rewrite stamp would be a claim about a file
-        // that no longer says what it says — the one shape of wrong an index must not persist.
-        stamps[repaired.Path] = StampOf(AssetMetaFile.PathFor(Paths.Absolute(repaired.Path)));
+        // Its sidecar was just rewritten, so the pre-rewrite stamp is a claim about a file that no
+        // longer says what it says — the one shape of wrong an index must not persist. Re-stamping it
+        // from the rewrite would only move the problem: this scan has no way to distinguish its own
+        // write from an edit landing in the same filesystem tick. So it records no stamp at all and
+        // the next scan reads the repaired sidecar back, which costs one file and settles it.
+        stamps[repaired.Path] = MetaStamp.Unknown;
         issues.Add(new(AssetIssueKind.DuplicateGuid, loser.Path, $"{message} '{loser.Path}' was re-GUIDed to {minted}."));
     }
 
@@ -636,11 +671,6 @@ public sealed class AssetDatabase {
         return Convert.ToHexStringLower(hash.GetCurrentHash());
     }
 
-    static MetaStamp StampOf(string metaPath) {
-        var info = new FileInfo(metaPath);
-        return info.Exists ? new(info.Length, info.LastWriteTimeUtc) : MetaStamp.Unknown;
-    }
-
     /// <summary>One directory walk, serving the candidates, every stamp and the quarantine pass.</summary>
     /// <param name="Candidates">Every asset — folders and non-sidecar files — in ordinal path order.</param>
     /// <param name="Sidecars">Every sidecar's stamp, keyed by the absolute path of the asset it belongs to.</param>
@@ -679,12 +709,25 @@ public sealed class AssetDatabase {
 ///         the index falsely stale wastes a scan, where falsely fresh loses an asset.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The write time also has to be old enough.</b> A filesystem whose write-time
-///         resolution is a whole second — HFS+, some network mounts — cannot distinguish an edit that
-///         lands while a scan is walking from one that landed before it. So a stamp is only trusted
-///         when its write time is strictly earlier than the instant the recording scan began, and
-///         anything written during or after that scan is read once more next time. That bounds the
-///         hole to files touched in the same tick as a scan, and it costs those files one extra read.
+///         ⚠ <b>A scan's own writes get no stamp at all.</b> A filesystem whose write-time resolution
+///         is coarser than the gap between two edits — HFS+ at a whole second, NTFS at a clock tick —
+///         cannot distinguish an edit that lands a moment after a scan minted a sidecar from the
+///         minting itself. So a scan records <see cref="Unknown" /> for every sidecar it wrote, which
+///         matches no real file, and the next scan opens it. That is a fact the scan knows rather
+///         than an inference from a timestamp, so it holds at every resolution, and it costs those
+///         files one extra read.
+///     </para>
+///     <para>
+///         ⚠ <b>The write-time cutoff is a weaker second filter</b>, and what it adds is the one
+///         thing the stamps cannot know: an edit by <em>somebody else</em> that raced the recording
+///         scan. A stamp is only trusted when its write time is strictly earlier than the instant
+///         that scan began. <b>Where the clock is finer-grained than the filesystem's write times it
+///         under-fires</b> — a file written after that instant can carry a write time floored below
+///         it, which is exactly what NTFS and <c>DateTime.UtcNow</c> do to each other — and no cutoff
+///         can fix that. Flooring it to the filesystem's own resolution would make it sound and would
+///         also refuse every file written in the tick before a scan, turning an untouched project
+///         into a full re-read. So the hole it leaves is a foreign edit landing in the same tick as a
+///         scan's walk, on a file that scan did not itself write.
 ///     </para>
 ///     <para>
 ///         Internal on purpose: the public contract is that a scan is incremental and says how much
@@ -694,6 +737,12 @@ public sealed class AssetDatabase {
 ///     </para>
 /// </remarks>
 readonly record struct MetaStamp(long Length, DateTime WrittenUtc) {
-    /// <summary>No sidecar there. Its negative length matches no real file's.</summary>
+    /// <summary>No stamp this index will stand behind. Its negative length matches no real file's.</summary>
+    /// <remarks>
+    ///     Two things reach it: no sidecar there at all, and a sidecar the recording scan wrote
+    ///     itself. Both mean the same thing to the next scan — open the file — and both survive
+    ///     <see cref="AssetDatabase.Save" /> as a length of <c>-1</c>, so a warm start is told the
+    ///     same thing the scan that wrote the index knew.
+    /// </remarks>
     public static MetaStamp Unknown { get; } = new(-1, DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc));
 }

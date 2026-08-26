@@ -216,10 +216,24 @@ leave it exactly as long.
 is invisible — hand-editing a GUID is the realistic one, since a GUID is fixed-width. A checkout or a
 copy stamps the files it touches with the time it ran, so it reads as *changed* and costs a re-read it
 did not strictly need. That is the direction to be wrong in: a false "stale" wastes a scan, a false
-"fresh" loses an asset. For the same reason a scan does not trust a stamp whose write time is not
-strictly older than the moment that scan began — a filesystem with one-second write-time resolution
-cannot tell an edit that landed during the walk from one that landed before it, so those files are
-read once more.
+"fresh" loses an asset.
+
+⚠ **A scan records no stamp at all for a sidecar it wrote itself** — one it minted, or one it
+re-GUIDed to settle a duplicate. A filesystem cannot tell an edit that lands a moment after that write
+from the write itself when both fall in one write-time tick, so the next scan opens the file. It does
+that on a fact the scan knows rather than on a timestamp, which is why it holds at every resolution
+and why a project settles in exactly two scans everywhere rather than in however many the machine's
+clock happens to allow.
+
+It used to be a timestamp: trust no stamp whose write time is not strictly older than the moment the
+recording scan began. ⚠ **That is only sound where the clock and the filesystem's write times share a
+resolution, and on Windows they do not** — `DateTime.UtcNow` reads the precise system clock while NTFS
+stamps a write from the coarse one, so a sidecar written *after* a scan started carries a write time
+up to a tick *before* it and the next scan trusted it. No cutoff fixes this: flooring it to the
+filesystem's resolution is sound and then refuses every file written in the tick before a scan, which
+costs an untouched project a full re-read. The cutoff stays as a second, weaker filter, for the one
+thing the stamps cannot know — an edit by *somebody else* that raced the walk — with the hole that it
+under-fires wherever the clock is the finer of the two.
 
 ⚠ **A partial rescan cannot leave the index wrong**, which is the case a crash makes real. The index
 is written beside itself and renamed over, and it ends with a terminator naming its own entry count,
