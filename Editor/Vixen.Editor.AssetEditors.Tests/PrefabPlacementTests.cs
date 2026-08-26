@@ -413,4 +413,232 @@ public class PrefabPlacementTests {
         Assert.True(scene.Prefabs.TryGet(root, out var outerLink));
         Assert.Equal(asset, outerLink.Prefab);
     }
+
+    // ── Nested reconciliation, and add-back ─────────────────────────────────────────────────────
+
+    /// <summary>The inner prefab: one entity, dim, low.</summary>
+    static SceneFile Bulb(EntityId source, Vector3 position, float intensity) =>
+        new() {
+            Name = "Bulb",
+            Roots = [
+                new() {
+                    Id = source,
+                    Name = "Bulb",
+                    Position = position,
+                    Components = [Lamp(intensity)]
+                }
+            ]
+        };
+
+    /// <summary>The outer prefab, holding an instance of the inner one with its intensity claimed.</summary>
+    static SceneFile Housing(AssetId inner, EntityId innerSource, float claimed) =>
+        new() {
+            Name = TemplateName,
+            Roots = [
+                new() {
+                    Id = Source,
+                    Name = TemplateName,
+                    Children = [
+                        new() {
+                            Id = EntityId.New(),
+                            Name = "Bulb",
+                            Prefab = new AssetReference(inner).ToString(),
+                            Source = innerSource,
+                            Overrides = ["Light.Intensity"],
+                            Components = [Lamp(claimed)]
+                        }
+                    ]
+                }
+            ]
+        };
+
+    /// <summary>A level holding one instance of the outer prefab, nested node and all.</summary>
+    static (string Path, AssetId Asset, EntityId Nested) NestedLevel(
+        EditorFixture fixture,
+        AssetId outer,
+        AssetId inner,
+        EntityId innerSource
+    ) {
+        var nested = EntityId.New();
+        var asset = AssetId.New();
+
+        var file = new SceneFile {
+            Name = "Level",
+            Roots = [
+                new() {
+                    Id = EntityId.New(),
+                    Name = TemplateName,
+                    Prefab = new AssetReference(outer).ToString(),
+                    Source = Source,
+                    Children = [
+                        new() {
+                            Id = nested,
+                            Name = "Bulb",
+                            Prefab = new AssetReference(inner).ToString(),
+                            Source = innerSource,
+                            Components = [Lamp(0f)]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var path = fixture.WriteAsset(
+            "Assets/level" + SceneFile.Extension,
+            file.ToYaml(),
+            $"guid: {asset}\nmetaVersion: 1\n"
+        );
+
+        fixture.Project.Open();
+
+        return (path, asset, nested);
+    }
+
+    /// <summary>⚠⚠ A nested instance follows the outer prefab's overrides and the inner prefab's rest.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Doc 47 row 5, and both halves of "outer over inner" at once. The scene node carries the
+    ///         <i>inner</i> prefab's link, so the obvious reading — reconcile it against the inner
+    ///         prefab — is available and wrong: it discards every override the outer prefab's author
+    ///         made over the inner one, silently, on every open.
+    ///     </para>
+    ///     <para>
+    ///         The intensity is the outer's claim and must survive; the position is a member the outer
+    ///         did not claim, so it has to come from the inner prefab <i>through</i> the outer — which
+    ///         is the template composition that runs before the scene is touched at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ANestedInstanceTakesTheOuterPrefabsClaimAndTheInnersRest() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var innerSource = EntityId.New();
+        var inner = AssetId.New();
+
+        fixture.WriteAsset(
+            $"Assets/bulb{SceneFile.PrefabExtension}",
+            Bulb(innerSource, new(0f, 3f, 0f), 1f).ToYaml(),
+            $"guid: {inner}\nmetaVersion: 1\n"
+        );
+
+        var outer = Publish(fixture, Housing(inner, innerSource, 42f), "housing");
+        var level = NestedLevel(fixture, outer, inner, innerSource);
+
+        var document = Open(fixture, world, level.Path, level.Asset);
+
+        Assert.True(document.TryGetEntity(level.Nested, out var entity));
+
+        // The outer prefab claimed the intensity, so the inner prefab's 1 must not reach it.
+        Assert.Equal(42f, world.Read<Light>(entity).Intensity);
+
+        // The outer prefab did not claim the position, so the inner prefab's is what it shows.
+        Assert.Equal(new Vector3(0f, 3f, 0f), world.Read<LocalTransform>(entity).Position);
+    }
+
+    /// <summary>⚠ A child the prefab gained arrives in every level that uses it — doc 47 row 4.</summary>
+    /// <remarks>
+    ///     The level on disk holds the instance root and nothing under it; the prefab holds a child.
+    ///     Propagation over structure, which is the half a prefab existed for and did not have.
+    /// </remarks>
+    [Fact]
+    public void AChildTheTemplateGainedReachesTheLevelOnOpen() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var prefab = Publish(fixture, Template(new(5f, 0f, 0f), 7f));
+        var level = Level(fixture, prefab, new(1f, 0f, 0f), 7f);
+
+        var document = Open(fixture, world, level.Path, level.Asset);
+
+        Assert.True(document.TryGetEntity(level.Instance, out var entity));
+
+        var child = Entity.Null;
+
+        foreach (var candidate in Hierarchy.ChildrenOf(world, entity)) {
+            child = candidate;
+        }
+
+        Assert.False(child.IsNull);
+        Assert.Equal("Barrel", document.NameOf(child));
+
+        // ⚠ Linked in its own right, so the next open finds it rather than adding it again.
+        Assert.True(document.Prefabs.TryGet(child, out var link));
+        Assert.Equal(prefab, link.Prefab);
+        Assert.Equal(ChildSource, link.Source);
+        Assert.Empty(document.Prefabs.OverridesOf(child));
+    }
+
+    /// <summary>⚠⚠ A child the designer deleted stays deleted across the template gaining it back.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The interaction doc 47 § 6 demands before add-back is allowed to exist, run through the
+    ///         whole pipe: a designer deletes a child of an instance, the level is saved, the level is
+    ///         opened again — and the template still has that child, because a designer deleting one
+    ///         from <i>their</i> level is not the prefab losing it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Every step is real. The removal is written by the delete command, carried through the
+    ///         save into <c>removed:</c>, and read back before the world exists. A break anywhere along
+    ///         that chain is a level that regrows the entity on every open, for ever.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AChildTheDesignerDeletedIsNotRegrownOnOpen() {
+        using var fixture = new EditorFixture();
+
+        var prefab = Publish(fixture, Template(new(5f, 0f, 0f), 7f));
+        string yaml;
+        EntityId instance;
+
+        using (var world = new World("Authoring")) {
+            var scene = Scene(fixture, world);
+
+            Assert.True(Prefab.TryPlace(scene, fixture.Project.Assets, prefab, Entity.Null, out var root, out _));
+
+            instance = scene.IdOf(root);
+
+            var child = Entity.Null;
+
+            foreach (var candidate in Hierarchy.ChildrenOf(world, root)) {
+                child = candidate;
+            }
+
+            Assert.False(child.IsNull);
+            scene.Delete([child]);
+
+            yaml = SceneSerializer.ToYaml(scene);
+        }
+
+        // The removal reached the file, which is the only place the next open can read it from.
+        Assert.Contains(ChildSource.ToString(), yaml, StringComparison.Ordinal);
+
+        var asset = AssetId.New();
+
+        var path = fixture.WriteAsset(
+            "Assets/level" + SceneFile.Extension,
+            yaml,
+            $"guid: {asset}\nmetaVersion: 1\n"
+        );
+
+        fixture.Project.Open();
+
+        using var reopened = new World("Scene");
+        var document = Open(fixture, reopened, path, asset);
+
+        Assert.True(document.TryGetEntity(instance, out var entity));
+
+        var regrown = 0;
+
+        foreach (var _ in Hierarchy.ChildrenOf(reopened, entity)) {
+            regrown++;
+        }
+
+        Assert.Equal(0, regrown);
+
+        Assert.DoesNotContain(
+            document.Reconciled?.Reports ?? [],
+            report => report.Kind == PrefabReportKind.AddedByTemplate
+        );
+    }
 }

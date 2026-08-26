@@ -1127,8 +1127,8 @@ shows that. `Remap` is the widest: a table that did not travel is empty after a 
 the next save writes a level in which every prefab has been unpacked, with no edit behind it.
 
 **`SceneSerializer.Open` is `Load` plus a reconcile**, and it is what the editor's factories call.
-Every instance takes its template's value for every member it does not claim, before a world is
-built. ⚠ Only the editor can do this: an importer is handed an `AssetId` and no way to resolve one to
+Every instance takes its template's value for every member it does not claim — *and* the children its
+template has gained, unless its `removed:` list says otherwise — before a world is built. ⚠ Only the editor can do this: an importer is handed an `AssetId` and no way to resolve one to
 a path, so neither a build nor the runtime can open the prefab a scene names. ⚠ The file on disk is
 not rewritten and the document opens clean — an editor that wrote to a level because somebody looked
 at it would put unasked-for changes in every level naming a prefab that moved.
@@ -1141,9 +1141,23 @@ ones.
 
 ⚠ **Deleting a child of an instance records it on the instance root, and an undo unsays it.** That is
 `SceneDocument.NoteRemoved`, called by `DestroyEntitiesCommand` *before* the delete, because finding
-which instance a subtree belonged to means walking up from it. The list has to exist before anything
-adds a template's children back — see doc 47 § 6 — and its use today is to stop a reconcile reporting
-a deliberate deletion as something the template gained.
+which instance a subtree belonged to means walking up from it. Add-back has landed, so the list is no
+longer only about what a reconcile *says*: it is the one thing that stops a level regrowing the
+entities its designer deleted.
+
+⚠⚠ **`NoteRemoved` had two ways of recording nothing**, and both became bugs the day add-back
+arrived — each one a level that regrows what its designer deleted, on every open, for ever:
+
+- **A whole *nested* instance.** A nested instance is a run of its own, so its root is the deleted
+  subtree's root and the old code returned early. It now walks out to the nearest linked ancestor and
+  records the entity by the **inner** link's source, because the outer file names that node the same
+  way the scene does. ⚠ And it stops there rather than descending: what is below belongs to the nested
+  run, so naming it in the outer instance's list would say something about the outer prefab that is
+  not true.
+- **A subtree with no link of its own.** An unpacked node keeps its children linked on purpose —
+  `PrefabInstances.Forget` — so deleting one takes an instance's entities with it while carrying no
+  link; so does an empty somebody grouped an instance's children under. The same walk covers it, and
+  it walks through *every* unlinked entity rather than one, because grouping stacks.
 
 ⚠ **Migration**: the four keys are additive and `SceneFile.Current` stays at `1`, but `OmitDefaults`
 is off for this format, so the first save of any existing scene gains all four on every entity.

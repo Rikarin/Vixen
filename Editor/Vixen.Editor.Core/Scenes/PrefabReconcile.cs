@@ -94,9 +94,27 @@ public sealed record PrefabReconcileReport(
 ///         prefab was touched.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One pass, outer over inner, and deliberately not a fixpoint</b> — R7's single level of
-///         nesting. It needs no ordering machinery: every entity carries at most one link, so the sets
-///         of entities each template touches are disjoint and the passes cannot interfere.
+///         ⚠ <b>One pass, outer over inner, and deliberately not a fixpoint</b> — R7's single level
+///         of nesting. It is two steps: every template is first brought in step with the prefabs
+///         <i>it</i> holds instances of, and only then is the scene brought in step with the templates.
+///         Composing the template first is what makes the scene's step one lookup — the outer file
+///         already holds the inner prefab's current values under the outer author's overrides, which is
+///         exactly what an instance of the outer should show.
+///     </para>
+///     <para>
+///         ⚠⚠ <b>An earlier note here said the passes could not interfere because every entity carries
+///         at most one link. That is true and it is not the question.</b> A scene node inside an instance
+///         of A carrying B's link is reachable from <i>both</i> templates, and the two disagree — B's
+///         file has none of A's overrides over B. The disjointness was of the link sets and not of the
+///         entities, and reconciling B on its own is how a nested prefab loses every override its outer
+///         author made. That is why
+///         <see cref="PrefabOverrides.Reconcile(SceneFile,IReadOnlyDictionary{string,SceneFile},ICollection{PrefabReport})" />
+///         takes every template at once.
+///     </para>
+///     <para>
+///         ⚠ <b>The composition happens to the parsed template in memory, and no <c>.vxprefab</c> is
+///         written either.</b> The same rule as the scene's: a prefab somebody merely has a level open
+///         against is not a prefab they asked to edit.
 ///     </para>
 /// </remarks>
 public static class PrefabReconcile {
@@ -132,20 +150,87 @@ public static class PrefabReconcile {
 
         List<PrefabReport> reports = [];
         List<PrefabUnresolved> unresolved = [];
-        var written = 0;
-        var templates = 0;
+
+        // Case-insensitively, because that is how every comparison of a reference is made here and a
+        // hand-edited `prefab:` key need not be the lower-case hex this editor writes.
+        Dictionary<string, SceneFile> opened = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (var prefab in named) {
-            if (!TryOpen(prefab, assets, out var template, out var why)) {
+            if (TryOpen(prefab, assets, out var template, out var why)) {
+                opened[prefab] = template;
+            } else {
                 unresolved.Add(why);
+            }
+        }
+
+        // ⚠ The templates are brought in step with *their* prefabs before the scene is brought in step
+        // with them — R7's one level, outer over inner. Without this, an instance of a prefab that
+        // itself holds an instance would show the inner prefab's raw values, because the outer's
+        // overrides over the inner live only in the outer's own file.
+        //
+        // In the scene's order rather than the dictionary's, for the reason `named` is a list at all.
+        foreach (var prefab in named) {
+            if (opened.TryGetValue(prefab, out var template)) {
+                Compose(prefab, template, assets, unresolved);
+            }
+        }
+
+        var written = PrefabOverrides.Reconcile(scene, opened, reports);
+
+        return new(instances, opened.Count, written, reports, unresolved);
+    }
+
+    /// <summary>Brings one prefab in step with the prefabs it holds instances of.</summary>
+    /// <param name="reference">The reference text this template is named by.</param>
+    /// <param name="template">The template file, rewritten in place.</param>
+    /// <param name="assets">The project's index.</param>
+    /// <param name="unresolved">Filled with the inner prefabs that could not be opened.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One level, and the recursion is where it stops.</b> The prefabs opened here are not
+    ///         composed in their turn, which is R7's restriction written as an absence rather than as a
+    ///         depth counter — and it is also what makes a prefab that names itself, directly or around
+    ///         a cycle, terminate rather than have to be detected.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its reports are dropped and only the unopenable prefabs are kept.</b> A report from
+    ///         here names an entity of a <i>prefab</i> by an id that means nothing in the scene somebody
+    ///         has open, so it is a sentence they cannot act on; the place to say it is that prefab's
+    ///         own editor. A prefab that could not be opened at all is different — it changes what the
+    ///         level on screen is showing, and it names a file.
+    ///     </para>
+    /// </remarks>
+    static void Compose(
+        string reference,
+        SceneFile template,
+        AssetDatabase assets,
+        List<PrefabUnresolved> unresolved
+    ) {
+        Dictionary<string, SceneFile> inner = new(StringComparer.OrdinalIgnoreCase);
+
+        // Seeded with the template's own reference, so a prefab that somehow names itself is not
+        // composed against a second parse of itself.
+        HashSet<string> asked = new(StringComparer.OrdinalIgnoreCase) { reference };
+
+        foreach (var entity in template.All()) {
+            if (!PrefabOverrides.IsInstance(entity) || !asked.Add(entity.Prefab)) {
                 continue;
             }
 
-            templates++;
-            written += PrefabOverrides.Reconcile(scene, prefab, template, reports);
+            // ⚠ A fresh parse even when the scene names this prefab too and it is already open. The
+            // two copies are edited independently — composing the outer writes into its nested nodes —
+            // and one shared instance would leave a prefab's own file holding another prefab's
+            // author's overrides for the rest of the pass.
+            if (TryOpen(entity.Prefab, assets, out var file, out var why)) {
+                inner[entity.Prefab] = file;
+            } else if (!unresolved.Contains(why)) {
+                unresolved.Add(why);
+            }
         }
 
-        return new(instances, templates, written, reports, unresolved);
+        if (inner.Count > 0) {
+            PrefabOverrides.Reconcile(template, inner);
+        }
     }
 
     /// <summary>Opens the prefab a reference names, as its file holds it.</summary>

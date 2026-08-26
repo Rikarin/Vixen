@@ -50,10 +50,8 @@ That is the whole job, and the two ways to get it wrong are both silent:
 
 There is a third, and it is why `removed` exists. Because the file carries every value in full, a
 child the author deleted from an instance is simply not in it — the same shape as a child the
-*template* has gained since. While nothing adds a template's children back, that is unambiguous. The
-moment anything does, the two become indistinguishable and a level regrows the entities its designer
-removed. `removed` is what tells them apart, and it is recorded now so that the day add-back lands,
-every scene saved since already carries the answer.
+*template* has gained since, and a reconcile now **adds** those. `removed` is the only thing that
+tells the two apart; without it a level regrows the entities its designer deleted, on every open.
 
 The design, the two models that were rejected and what is still owed are in
 [plan/47](https://github.com/Rikarin/Vixen/blob/master/docs/plan/47-prefab-overrides-and-nested-prefabs.md).
@@ -83,7 +81,8 @@ is the exception: it names entities that no longer exist, so it lives on the roo
 
 That instance has been moved and its light turned off. A reconcile against the prefab rewrites its
 name, rotation, scale, colour and range from the template, and leaves the position and the intensity
-exactly as they are.
+exactly as they are. It also brings across any child the prefab has gained since — except the one
+`removed` names, which stays gone.
 
 `Reconcile` takes the scene, the prefab's reference text and the prefab file, and returns how many
 members took the template's value:
@@ -108,6 +107,40 @@ whose prefab is missing still loads with all of its content.
 
 ⚠ The file on disk is **not** rewritten by a reconcile and the scene does not open with unsaved
 changes. What is repaired is what the editor holds; the bytes catch up on the next save you make.
+
+## What a reconcile does to the shape
+
+A prefab propagates structure as well as values: **a child added to a prefab reaches every instance of
+it**. The added entity arrives as a proper instance node — a fresh `id` of its own, the template's id
+as its `source`, the prefab's reference, and no overrides, exactly as a placement would write it.
+
+⚠ **A child you deleted from an instance stays deleted.** That is what `removed` is for, and it is why
+it is written on the instance root the moment you delete: the file carries resolved values, so "I
+deleted this" and "the prefab gained this" are the same absence, and the list is the only thing that
+distinguishes them. Undoing the delete unsays it.
+
+Nothing is ever removed by a reconcile — not an entity, not a key, not an override entry. Adding is
+the only structural thing it does, and it reports every entity it adds.
+
+## Nested prefabs
+
+A `.vxprefab` may hold an instance of another one. R7 allows a single level of that, and no new syntax
+is needed for it: because `prefab` and `source` are written on every node, the inner nodes simply keep
+the **inner** link, in the prefab file and in every scene that prefab is placed into.
+
+⚠ What that costs is that a nested node cannot be reconciled against the inner prefab. The inner
+prefab's file holds none of the *outer* prefab author's overrides over it, so taking values from there
+would discard every one of them, silently, on every open. A run sitting inside an instance of another
+prefab is therefore reconciled against **that** prefab's copy of it, and each prefab is itself brought
+in step with the prefabs it holds before any scene is touched — outer over inner, one lookup, never a
+fixpoint.
+
+⚠ If the outer prefab cannot be opened — unbuilt, renamed, deleted — the nested run is left exactly as
+the file has it rather than reconciled against the inner prefab. There is no telling a nested node
+from a separate instance dragged in under one without the outer template, and the available guess is
+the destructive one.
+
+**Prefab variants — a prefab that is itself an override of another prefab — are out of 1.0.**
 
 ## Examples
 
@@ -144,7 +177,7 @@ if (PrefabOverrides.IsInstance(entity)) { … }
 ## See also
 
 - [plan/47 — Prefab Overrides and Nested Prefabs](https://github.com/Rikarin/Vixen/blob/master/docs/plan/47-prefab-overrides-and-nested-prefabs.md)
-  — the format decision, the models rejected, and what an added or removed child still needs.
+  — the format decision, the models rejected, and what is still owed.
 - [plan/08 — Asset Pipeline and Addressables](https://github.com/Rikarin/Vixen/blob/master/docs/plan/08-asset-pipeline-and-addressables.md) — why
   a reference in a scene is `vx:` text rather than a bare id.
 - [plan/15 § R7](https://github.com/Rikarin/Vixen/blob/master/docs/plan/15-risks-and-open-questions.md) — the restriction this ships under:
