@@ -1,0 +1,62 @@
+# Expression — hand-authored, not imported. Two blend-shape weight curves and nothing else.
+#
+# ⚠ This file is the point. Everything else about blend shapes in Vixen was reachable only from a
+# model an artist exported: the deltas come out of a .gltf, and until now so did the curve that
+# drove them. `property: Weight` with a `shape:` beside it is what an author can type, and this is
+# the first file in the repository that types it.
+#
+# ⚠ `shape` is a NAME and not a slot, and that is load-bearing. The import drops a shape that moves
+# nothing above the threshold and deduplicates the names of the rest, so a source file's ordinal is
+# not MeshData.MorphTargets'. A curve stored against an index would re-target itself the next time
+# somebody re-exported the head. See docs/guide/rendering/blend-shapes.md.
+#
+# ⚠ `target` names the morphed mesh's NODE — Head, the node in head.gltf — and not a joint. That is
+# why AnimationClip.Create resolves a weight channel before it looks a joint up: a face's curves in
+# UnresolvedChannels would drown the number that count exists for.
+#
+# ⚠ `version: 2` is a compatibility FENCE and not a re-import trigger, unlike the two binary bumps
+# beside it. This is YAML bound by name and the value that moved is inside an enum, which
+# YamlSerializer binds with Enum.Parse — an older editor meeting `property: Weight` throws. A clip
+# with no weight curve is still written as version 1, so nothing else in a project is fenced.
+#
+# The shapes hold near full for most of the cycle rather than passing through it, so that a capture
+# of any single frame in the middle of the loop is a picture of the morph rather than a coin toss.
+version: 2
+name: Expression
+duration: 2.4
+frameRate: 30
+wrap: Loop
+targets:
+  - target: Head
+    curves:
+      - property: Weight
+        shape: jawOpen
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.5000
+            value: 1.000000
+            mode: Auto
+          - time: 1.9000
+            value: 1.000000
+            mode: Auto
+          - time: 2.4000
+            value: 0.000000
+            mode: Auto
+      - property: Weight
+        shape: browRaise
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.7000
+            value: 0.900000
+            mode: Auto
+          - time: 1.7000
+            value: 0.900000
+            mode: Auto
+          - time: 2.4000
+            value: 0.000000
+            mode: Auto
+events: []

@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Vixen.Animation;
 using Vixen.App;
+using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
@@ -52,6 +55,17 @@ public sealed class PbrShowcaseGame : Game {
     /// <summary>What the frame is called in content, so the host loads it instead of its built-in.</summary>
     public const string CompositorAddress = "Assets/Frame.vxcompositor";
 
+    /// <summary>The morphed head's mesh, as the content build published it.</summary>
+    /// <remarks>
+    ///     A <c>.gltf</c> rather than the <c>.obj</c> every other model in the samples is, because an
+    ///     <c>.obj</c> cannot carry a morph target. <c>Content/makehead.py</c> writes it and says why
+    ///     the file is JSON.
+    /// </remarks>
+    public const string HeadAddress = "Assets/Models/head.gltf#Head";
+
+    /// <summary>The hand-authored clip that drives the head's shapes.</summary>
+    public const string ExpressionAddress = "Assets/Animation/expression.vxanim";
+
     /// <summary>Which way the sun's light travels — a mid-morning sun, high enough for short shadows.</summary>
     /// <remarks>
     ///     The one authored fact the whole of the lighting comes out of: the sky is baked from it,
@@ -66,6 +80,8 @@ public sealed class PbrShowcaseGame : Game {
     ShowcaseFrame? frame;
     World? world;
     Entity? camera;
+    AnimationClipContent? expression;
+    Entity? morphed;
 
     /// <inheritdoc />
     protected override void OnConfigure(AppConfig config) {
@@ -166,6 +182,8 @@ public sealed class PbrShowcaseGame : Game {
         // A slow orbit, so the sample shows its point unattended: the highlight row sweeps the
         // grid, the sky's reflection slides across the mirror row, and the temporal resolve has
         // motion to resolve.
+        Drive(scene, time);
+
         var angle = (float)time.Total.TotalSeconds * 0.15f;
         var target = new Vector3(0f, 0.6f, 0f);
         var position = target + new Vector3(MathF.Sin(angle) * 7.5f, 3.6f, MathF.Cos(angle) * 7.5f);
@@ -222,6 +240,32 @@ public sealed class PbrShowcaseGame : Game {
                 // under TAA is the splice or the shaders missing.
                 SampleLog.GroundMotionReport(log!, ground.MotionVectors, ground.VelocityDraws);
             }
+
+            // ⚠ The line that would have caught this feature never running. Every counter a morphed
+            // frame reports reads healthy when the pre-pass did nothing — the mesh is still extracted,
+            // still shaded, still shadowed, and drawn at rest. `Dispatches` at zero with shapes bound
+            // and a weight above zero is the whole failure in one number, and there was no way to see
+            // it from outside the renderer until a sample printed it.
+            var weights = world is { } scene && morphed is { } head
+                ? scene.Read<BlendShapeWeights>(head).Weights
+                : null;
+
+            var morph = graphics.Renderer.Morphing;
+
+            SampleLog.MorphReport(
+                log!,
+                (world is { } bound && morphed is { } entity ? bound.Read<BlendShapeWeights>(entity).Shapes?.Length : 0)
+                ?? 0,
+                weights is null
+                    ? string.Empty
+                    : string.Join(", ", weights.Select(weight => weight.ToString("F2", CultureInfo.InvariantCulture))),
+                expression is null ? "no clip" : ExpressionAddress,
+                morph.MeshCount,
+                morph.InstanceCount,
+                morph.Copies,
+                morph.Dispatches,
+                morph.Dropped
+            );
         }
 
         frame?.Dispose();
@@ -316,10 +360,130 @@ public sealed class PbrShowcaseGame : Game {
             Unit = LightUnit.Lux
         });
 
+        Heads(scene);
+
         var lens = Hierarchy.CreateTransform(scene, LocalTransform.At(new(0f, 3.6f, 7.5f)));
 
         scene.Add(lens, Camera.Perspective);
         camera = lens;
+    }
+
+    /// <summary>The pair of heads in the foreground: one at rest, one driven by an authored clip.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two of the same mesh, because one proves nothing.</b> A single morphed head in a
+    ///         picture is a head — nobody looking at it can tell whether the pre-pass ran, and a frame
+    ///         in which <c>MorphScatter</c> silently did nothing looks exactly like a frame in which
+    ///         it did if there is nothing to compare against. Side by side, the same asset with the
+    ///         same material under the same sun, the difference between them is the whole of what this
+    ///         feature does and it is the only thing that differs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rest head carries no <see cref="BlendShapeWeights" /> at all, rather than one
+    ///         full of zeroes.</b> Those are different paths — a weighted instance still takes a vertex
+    ///         range of its own and still has its rest pose copied into it — and the useful control is
+    ///         the mesh drawn the way every other mesh in the scene is drawn.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>In front of the grid rather than among it.</b> The spheres are the sample's
+    ///         subject and the orbit is framed on them; a head standing in the middle of the grid would
+    ///         occlude the two axes the whole scene exists to separate.
+    ///     </para>
+    /// </remarks>
+    void Heads(World scene) {
+        var mesh = Services.Assets is { } assets && assets.Catalog.TryGet(HeadAddress, out var entry)
+            ? entry.Reference
+            : AssetReference.Null;
+
+        if (mesh.IsNull) {
+            // A build with no content is a supported way to run this — the frame still builds from
+            // the document — so a missing head is a line in the log and not a throw.
+            SampleLog.NoHead(log!, HeadAddress);
+            return;
+        }
+
+        Entity Head(float x, bool weighted) {
+            var head = Hierarchy.CreateTransform(
+                scene,
+                new LocalTransform {
+                    Position = new(x, 0.95f, 3.2f),
+                    Rotation = Quaternion.Identity,
+                    Scale = new(1.3f)
+                }
+            );
+
+            scene.Add(
+                head,
+                MeshRenderables.Default(mesh) with { Material = palette?.Skin ?? default }
+            );
+
+            if (weighted) {
+                // ⚠ Empty rather than sized, and the emptiness is deliberate. `MorphWeightSystem`
+                // publishes `Shapes` out of what the feature actually attached, which cannot happen
+                // until extraction has run — so a head is bound the frame *after* it appears, and
+                // `Drive` below reads the names it publishes instead of assuming an order.
+                scene.Add(head, default(BlendShapeWeights));
+            }
+
+            return head;
+        }
+
+        Head(-2.75f, weighted: false);
+        morphed = Head(2.75f, weighted: true);
+
+        // ⚠ Loaded once here rather than asked for per frame, and blocking rather than async: the
+        // scene is being built and nothing is on screen yet. Sample 13's rig makes the same call for
+        // the same reason.
+        expression = Services.Assets is { } catalog && catalog.Catalog.TryGet(ExpressionAddress, out _)
+            ? catalog.Load<AnimationClipContent>(ExpressionAddress).Result
+            : null;
+    }
+
+    /// <summary>Puts the authored clip's weights on the morphed head, by name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>By hand rather than through an <c>Animator</c>, because this head has no rig.</b>
+    ///         A character takes the baked path — <c>AnimationClip.Create</c>, a blend tree, and
+    ///         <c>BlendShapeAnimationSystem</c> landing the weights — and that path needs a
+    ///         <c>Skeleton</c> to resolve its channels against. A head that is one mesh and no joints
+    ///         has none, which is what <c>AnimationClipContent.TrySampleWeight</c> is for and is the
+    ///         same trade sample 13 makes with <c>TrySample</c> for its segmented rig.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The clip is asked about the shapes the feature attached, one name at a time, and
+    ///         the answer that matters is the <em>bool</em>.</b> A shape the clip says nothing about
+    ///         keeps whatever set it — a false read as a weight of zero would make playing any clip
+    ///         wipe an expression a script was holding. And the loop is over
+    ///         <c>BlendShapeWeights.Shapes</c> rather than over the clip, so nothing here assumes that
+    ///         the head's slot order is the order the shapes were authored in: it is not, and the
+    ///         import is allowed to change it.
+    ///     </para>
+    /// </remarks>
+    void Drive(World scene, GameTime time) {
+        if (expression is not { } clip || morphed is not { } head) {
+            return;
+        }
+
+        if (scene.Read<BlendShapeWeights>(head).Shapes is not { Length: > 0 } shapes) {
+            // The frame before the feature attached. Nothing to write and nothing wrong.
+            return;
+        }
+
+        var duration = clip.Data.Duration > 0f ? clip.Data.Duration : 1f;
+        var at = (float)(time.Total.TotalSeconds % duration);
+
+        var values = scene.Read<BlendShapeWeights>(head).Weights is { } existing
+            && existing.Length == shapes.Length
+                ? existing
+                : new float[shapes.Length];
+
+        for (var index = 0; index < shapes.Length; index++) {
+            if (clip.TrySampleWeight(shapes[index], at, out var weight)) {
+                values[index] = weight;
+            }
+        }
+
+        scene.Get<BlendShapeWeights>(head).Weights = values;
     }
 
     /// <summary>Hands the frame what its document cannot create, then rebuilds it against them.</summary>

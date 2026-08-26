@@ -34,6 +34,7 @@ Vixen.Animation.AnimationClipContent.Extensions.set -> System.Collections.Generi
 Vixen.Animation.AnimationClipContent.Name.get -> string
 Vixen.Animation.AnimationClipContent.Name.set -> string
 Vixen.Animation.AnimationClipContent.TrySample(string target, float time, out Vixen.Animation.BoneTransform transform) -> bool
+Vixen.Animation.AnimationClipContent.TrySampleWeight(string shape, float time, out float weight) -> bool
 Vixen.Animation.AnimationClipContent.Version.get -> int
 Vixen.Animation.AnimationClipContent.Version.set -> int
 Vixen.Animation.AnimationClipContent.Wrap.get -> Vixen.Animation.WrapMode

@@ -45,11 +45,12 @@ public static class AnimationClipCurves {
     /// <summary>The stored form of a control's curve.</summary>
     /// <param name="property">Which number it drives.</param>
     /// <param name="curve">The curve.</param>
+    /// <param name="shape">Which blend shape, when the property is a weight; empty otherwise.</param>
     /// <returns>The stored curve.</returns>
-    public static AnimationCurveData ToData(AnimationProperty property, AnimationCurve curve) {
+    public static AnimationCurveData ToData(AnimationProperty property, AnimationCurve curve, string shape = "") {
         ArgumentNullException.ThrowIfNull(curve);
 
-        var data = new AnimationCurveData { Property = property };
+        var data = new AnimationCurveData { Property = property, Shape = shape };
 
         foreach (var key in curve.Keys) {
             data.Keys.Add(new() {
@@ -77,12 +78,32 @@ public static class AnimationClipCurves {
         AnimationProperty.RotationW => "Rotation W",
         AnimationProperty.ScaleX => "Scale X",
         AnimationProperty.ScaleY => "Scale Y",
+        AnimationProperty.Weight => "Weight",
         _ => "Scale Z"
     };
+
+    /// <summary>What a curve is called in a dope sheet's row, shape and all.</summary>
+    /// <param name="property">The property.</param>
+    /// <param name="shape">The blend shape, for a weight curve; empty otherwise.</param>
+    /// <returns>The label.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The shape has to be in the row's name, because it is half of the row's identity.</b>
+    ///     A face's node carries one weight curve per shape and every one of them is "Weight" — a
+    ///     dope sheet that labelled them by property alone would show twenty identical rows, and the
+    ///     author would have no way to tell which one they were keying.
+    /// </remarks>
+    public static string Label(AnimationProperty property, string shape) =>
+        property == AnimationProperty.Weight && !string.IsNullOrEmpty(shape)
+            ? $"Weight · {shape}"
+            : Label(property);
 
     /// <summary>What a property rests at when nothing keys it.</summary>
     /// <param name="property">The property.</param>
     /// <returns>The value.</returns>
+    /// <remarks>
+    ///     A weight rests at zero, which is a face at rest — the same answer position gets and for
+    ///     the same reason: it is the value the thing has when nothing is driving it.
+    /// </remarks>
     public static float Rest(AnimationProperty property) => property switch {
         AnimationProperty.RotationW or AnimationProperty.ScaleX or AnimationProperty.ScaleY
             or AnimationProperty.ScaleZ => 1f,

@@ -47,16 +47,29 @@ sealed class GridMaterials : IMaterialSource {
         Dictionary<AssetReference, Material> cells,
         AssetReference[,] grid,
         AssetReference floor,
+        AssetReference skin,
         Material fallback
     ) {
         this.cells = cells;
         this.grid = grid;
         Floor = floor;
+        Skin = skin;
         Fallback = fallback;
     }
 
     /// <summary>The floor's material: a rough dielectric, mid-grey, so every shadow reads on it.</summary>
     public AssetReference Floor { get; }
+
+    /// <summary>What the morphed heads are painted in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Matte and untextured on purpose, and it is the only material here chosen for what it
+    ///     hides rather than for what it shows.</b> The heads are in the frame to make a blend shape
+    ///     visible, and a blend shape is visible as <em>shading</em>: the jaw drops, the normals turn,
+    ///     and the light across them changes. A metal would read as a reflection sliding and a
+    ///     textured surface would read as UVs stretching — both of which would be there whether or not
+    ///     the morph had run. A rough dielectric leaves the geometry as the only thing that moved.
+    /// </remarks>
+    public AssetReference Skin { get; }
 
     /// <summary>What a renderable with a broken reference draws in — never, in a healthy run.</summary>
     public Material Fallback { get; }
@@ -148,6 +161,13 @@ sealed class GridMaterials : IMaterialSource {
             log
         );
 
+        var skin = Bake(
+            new MetalRoughnessFeature { BaseColor = new(0.78f, 0.56f, 0.45f), Metalness = 0f, Roughness = 0.62f },
+            slots,
+            permutations,
+            log
+        );
+
         var fallback = Bake(
             new MetalRoughnessFeature { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f },
             slots,
@@ -155,14 +175,17 @@ sealed class GridMaterials : IMaterialSource {
             log
         );
 
-        if (floor is null || fallback is null) {
+        if (floor is null || skin is null || fallback is null) {
             return null;
         }
 
         var floorReference = new AssetReference(AssetId.New());
         cells[floorReference] = floor;
 
-        return new(cells, grid, floorReference, fallback);
+        var skinReference = new AssetReference(AssetId.New());
+        cells[skinReference] = skin;
+
+        return new(cells, grid, floorReference, skinReference, fallback);
     }
 
     /// <summary>An exact signed-distance field for a sphere — one subtraction per texel.</summary>

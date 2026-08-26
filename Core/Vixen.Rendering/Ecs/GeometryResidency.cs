@@ -125,7 +125,24 @@ public sealed class GeometryResidency(GeometryBuffer buffer) {
         var mesh = build();
         var vertices = SurfaceGeometry.Packed(mesh);
 
-        if (vertices.Length == 0 || !Buffer.TryAllocate(vertices.Length, mesh.Indices.Length, out slice)) {
+        // ⚠ The staging question is asked BEFORE the allocation, and both halves of that matter.
+        // `GeometryBuffer.Stage` throws outright when the region is part-full and the write will not
+        // fit — deliberately, because growing it would abandon the bytes a pending copy refers to —
+        // and this method's contract already has the answer that case wants: false means "did not
+        // fit", the caller counts it in `Dropped`, the entity keeps no handle, and `Appear` offers it
+        // again next frame against an empty region. Asking after `TryAllocate` would instead leak the
+        // range every deferred frame. `MeshInstanceRenderer` guards the same call the same way and
+        // says the same thing: the answer cannot be an exception.
+        //
+        // Found by a scene whose first frame registered a morphed head and a sphere: the head's 42 KB
+        // fit the fresh 64 KB region, the sphere behind it did not, and the frame loop threw on a
+        // mesh that was merely second.
+        var staging = ((long) vertices.Length * Buffer.VertexStride)
+            + ((long) mesh.Indices.Length * Buffer.IndexStride);
+
+        if (vertices.Length == 0
+            || !Buffer.CanStage(staging)
+            || !Buffer.TryAllocate(vertices.Length, mesh.Indices.Length, out slice)) {
             slice = default;
             bounds = default;
 

@@ -160,10 +160,16 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
 
             // Reported per target rather than per curve: a file with fifty duplicated properties is
             // one mistake, and fifty messages about it buries whatever else the build found.
+            //
+            // ⚠ Grouped by the property AND the shape, because that pair is what identifies a curve.
+            // Grouping by the property alone said that a face driving twenty shapes had nineteen
+            // duplicate weight curves and that "the first of each is the one that is sampled" — which
+            // was a warning describing a correct file, and would have been the first thing an author
+            // saw on the first facial clip anybody wrote.
             var duplicated = target.Curves
-                .GroupBy(curve => curve.Property)
+                .GroupBy(curve => (curve.Property, curve.Shape), TupleComparer)
                 .Where(group => group.Count() > 1)
-                .Select(group => group.Key.ToString())
+                .Select(group => Describe(group.Key.Property, group.Key.Shape))
                 .ToArray();
 
             if (duplicated.Length > 0) {
@@ -173,12 +179,60 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
                     + "each is the one that is sampled and the rest are ignored."
                 );
             }
+
+            // ⚠ An error rather than a warning, and it is the one mistake this format makes easy: a
+            // weight curve is bound by the shape's name, so one with no name binds to nothing. It
+            // would import, ship, play, and hold a face perfectly still — the failure a name-bound
+            // channel exists to make impossible, arrived at by leaving the name out.
+            if (target.Curves.Any(curve => curve.Property == AnimationProperty.Weight && curve.Shape.Length == 0)) {
+                context.Report(
+                    ImportSeverity.Error,
+                    $"'{target.Target}' has a weight curve that names no blend shape. A weight is bound by the "
+                    + "shape's name — the ordinal a source file used is not the one the mesh ended up with — so "
+                    + "a curve with no name would drive nothing and say nothing."
+                );
+
+                return false;
+            }
+
+            var misplaced = target.Curves
+                .Where(curve => curve.Property != AnimationProperty.Weight && curve.Shape.Length > 0)
+                .Select(curve => curve.Property.ToString())
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            if (misplaced.Length > 0) {
+                // Information rather than an error: the shape is ignored and the curve is otherwise
+                // fine, so nothing is broken. It is said because a shape typed onto a position curve
+                // is somebody expecting it to do something.
+                context.Report(
+                    ImportSeverity.Information,
+                    $"'{target.Target}' names a blend shape on {string.Join(", ", misplaced)}, which is not a "
+                    + "weight curve. Only a Weight curve is bound to a shape; the name is ignored here."
+                );
+            }
         }
 
         // ⚠ Non-shortcutting, so a clip with a bad constraint *and* a bad note is reported once with
         // both. The build already reports every broken file in one pass; reporting half of one file
         // would be the same mistake one level down.
         return Constraints(context, clip) & Metadata(context, clip);
+    }
+
+    /// <summary>Compares the pair that identifies a curve, ordinally on the name half.</summary>
+    static IEqualityComparer<(AnimationProperty Property, string Shape)> TupleComparer { get; } =
+        new PropertyShapeComparer();
+
+    /// <summary>What a curve is called in a message: the property, and the shape when it has one.</summary>
+    static string Describe(AnimationProperty property, string shape) =>
+        shape.Length > 0 ? $"{property} '{shape}'" : property.ToString();
+
+    sealed class PropertyShapeComparer : IEqualityComparer<(AnimationProperty Property, string Shape)> {
+        public bool Equals((AnimationProperty Property, string Shape) left, (AnimationProperty Property, string Shape) right) =>
+            left.Property == right.Property && string.Equals(left.Shape, right.Shape, StringComparison.Ordinal);
+
+        public int GetHashCode((AnimationProperty Property, string Shape) value) =>
+            HashCode.Combine(value.Property, StringComparer.Ordinal.GetHashCode(value.Shape));
     }
 
     /// <summary>Checks the extension blocks a kind was registered for, and names the ones nobody reads.</summary>

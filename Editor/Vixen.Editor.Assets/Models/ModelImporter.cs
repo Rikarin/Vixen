@@ -71,8 +71,16 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     all: the curves were being dropped at import, and only a re-import can go back to the
     ///     source file for them. So the cost is one content build over the project, and the benefit
     ///     is that a face that was silently still starts moving.
+    ///     Eleven since a <b>morphed mesh gets no cluster hierarchy</b>. A version-ten artefact of a
+    ///     morphed mesh has one, and a mesh that has one is taken down
+    ///     <c>VirtualGeometryRenderFeature</c>'s path by <c>MeshExtractionSystem.Clustered</c> —
+    ///     which packs vertices into pages and never reaches <c>MorphRenderFeature.Attach</c>. ⚠ So
+    ///     the artefact this version does not produce is the one that made a head with twenty shapes
+    ///     draw at rest, with every weight applied to nothing and nothing reported. A re-import
+    ///     trigger like the bump above it: no reader breaks, but only a re-import removes the
+    ///     hierarchy that is doing the harm.
     /// </remarks>
-    public override int Version => 10;
+    public override int Version => 11;
 
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>
@@ -171,6 +179,7 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         var skinned = 0;
         var clusters = 0;
         var refused = 0;
+        var morphed = 0;
         var pageBytes = 0L;
 
         // ⚠ Before anything else reads a mesh, and that ordering is the whole of the wiring.
@@ -180,7 +189,25 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         await RetopologiseAsync(context, settings, read, cancellationToken).ConfigureAwait(false);
 
         foreach (var mesh in read.Meshes) {
-            if (settings.GenerateMeshlets && mesh.Indices.Length > 0) {
+            if (mesh.IsMorphed && settings.GenerateMeshlets && mesh.Indices.Length > 0) {
+                // ⚠ A morphed mesh is NOT virtualized, and this is the one exclusion that is about
+                // correctness rather than cost. `MeshExtractionSystem.Clustered` takes any mesh
+                // carrying a cluster hierarchy down `VirtualGeometryRenderFeature`'s path, which packs
+                // its vertices into pages and never reaches `MorphRenderFeature.Attach` — so a head
+                // with twenty shapes draws at REST, silently, with every weight applied to nothing.
+                // The cluster-page scatter is the owed half of docs/plan/33 § D4; until it exists,
+                // refusing the hierarchy is what makes the two paths agree about what is built. The
+                // skinned case above is different in kind: skinning is designed into a cluster.
+                morphed++;
+
+                context.Report(
+                    ImportSeverity.Information,
+                    $"'{mesh.Name}' carries blend shapes, so no cluster hierarchy was built for it. A "
+                    + "virtualized mesh is drawn from its pages and the morph pre-pass writes a vertex "
+                    + "buffer, so a morphed mesh with clusters would be drawn at rest whatever its "
+                    + "weights said."
+                );
+            } else if (settings.GenerateMeshlets && mesh.Indices.Length > 0) {
                 // Skinned meshes are included, unlike the distance field below. A cluster carries the
                 // range of bones its vertices are weighted to, so a traversal can expand its bound by
                 // what those bones are doing — which is improvement 1 of docs/plan/22-virtualized-geometry.md
@@ -307,6 +334,18 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                 ImportSeverity.Information,
                 $"{skinned} skinned mesh(es) have no distance field. A field is baked in one pose and "
                 + "a skinned mesh does not stay in it, so it would occlude where the mesh is not."
+            );
+        }
+
+        if (morphed > 0) {
+            // Information for the same reason, and the summary line as well as the per-mesh ones,
+            // because "why is my head not virtualized" is a question asked about a model and not
+            // about a mesh.
+            context.Report(
+                ImportSeverity.Information,
+                $"{morphed} morphed mesh(es) have no cluster hierarchy. The morph pre-pass writes a "
+                + "vertex buffer and the virtualized path draws from pages, so one with clusters "
+                + "would be drawn at rest with its weights applied to nothing."
             );
         }
 
