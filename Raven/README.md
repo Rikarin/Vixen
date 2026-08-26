@@ -103,12 +103,12 @@ Exit codes are `0` for success, `1` when the input produced errors, and `2` when
 the command line or a path was wrong — so a build script can tell "you invoked
 me wrong" from "the shader is wrong".
 
-There are 126 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
+There are 127 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
 fires, and a **negative** — a shader that comes within one predicate of it and must stay silent.
 The second is the one that matters more, because an over-firing rule refuses correct work and cannot
-be argued with, while a missing rule only lets a mistake through. 42 ids have a negative today;
-`Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds most of them and explains the method. Two
-rules to keep if you add one:
+be argued with, while a missing rule only lets a mistake through. 57 ids have a negative today and 70
+do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 50 of the 57 and explains the
+method. Two rules to keep if you add one:
 
 - **A negative is a *near miss*, not an unrelated valid shader.** For "X may not appear under Y" it
   is Y with something that looks like X, or X under the Y′ that is allowed. It shares the shape of
@@ -116,6 +116,26 @@ rules to keep if you add one:
 - **Prove it by widening the rule in the compiler, watching the fixture go red, and reverting.** A
   fixture that was green before the widening and green after it proves nothing, and ⚠ a widening
   that fails to compile is not a red test — that attempt proved nothing and has to be tried again.
+  ⚠ Nor is one that leaves the test green: check that the predicate you added can change the answer
+  at all before you believe it. `RVN2061`'s first attempt demanded `IsConst`, which a
+  `[Permutation]` marker already forces true.
+
+The order to work in is **by the cost of an over-fire, not by id**. A rule scoped to a whole file
+refuses a file, and the shipped library's files each hold several entry points and several features:
+`RVN2050` keyed on anything but the stage refuses every graphics shader, `RVN2100`–`RVN2103` refuse
+every shader that has a varying, `RVN2054` narrowed to the shader refuses every `struct`, `protocol`
+and `enum` in the library. Above all of those sits the flow analysis — `RVN2127`, `RVN2128`,
+`RVN2129` — because it is an *approximation* rather than a predicate: every other rule over-fires
+only by being written down wrong, an analysis over-fires by being one lattice step too coarse, and it
+reaches every function in the language rather than one construct.
+
+⚠ **`RVN2064` was the first over-fire three batches of this found**, and it needed no widening — the
+fixture was red on the rule as shipped. `PermutationValues.TryParse` tries bool, then int, then uint,
+so `-D Slots=16` is an `int` whatever key it is for and the `uint` branch is reached only above
+`int.MaxValue`. Comparing CLR types therefore rejected every value a build could supply for a `uint`
+key: the define reported `RVN2064`, the key kept its declared default, and the variant compiled as
+though nothing had been asked for. `SuppliedValue.TryCoerce` lets the declared type decide and the
+parsed type only reach it; a negative against a `uint` is still a mismatch.
 
 `UnprovenDiagnosticTests` covers the other half: an id that nothing ever makes fire is not a rule at
 all. `Every_declared_descriptor_has_a_raise_site` fails on any descriptor declared without one —
@@ -220,6 +240,21 @@ struct Ray {
 
 The full syntax sample lives in [`Library/Example1.rvn`](Library/Example1.rvn), and a compute
 shader in [`Library/Example2.rvn`](Library/Example2.rvn).
+
+A file holds a `package` line, its imports, and **type declarations only** — `shader`, `struct`,
+`protocol`, `enum`. There are no free functions and no package-level constants. A helper is a
+`static func` on a field-less struct, which is what [`Library/Core/Math.rvn`](Library/Core/Math.rvn)
+has said in its own header since it was written: "there is no namespace-level function, and a
+field-less struct costs nothing — it never reaches the IR, only its functions do". A member written
+straight into a file is `RVN2054`.
+
+⚠ It reported *nothing at all* before that id existed, which is worse than either answer. The
+compilation unit and a type body share one `ParseMemberDeclaration`, so a package-level `func`
+parses into a real declaration; the compilation then kept the members that name a type and dropped
+the rest without a word. The body was never bound, so an undefined name inside it was silent too —
+the file compiled clean around a function that was not there, and calling it reported `RVN2010` at
+the call site, the one line that was right. Reported rather than bound because a namespace here
+holds namespaces and types and nothing else, so no lookup could ever reach one.
 
 ### Line breaks
 

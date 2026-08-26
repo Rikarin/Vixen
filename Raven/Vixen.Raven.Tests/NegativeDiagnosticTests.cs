@@ -1474,4 +1474,774 @@ public class NegativeDiagnosticTests {
                 """
             )
         );
+
+    // --- RVN2129 / RVN2128 / RVN2127: the flow analysis ---------------------
+    //
+    // The rules in this file are predicates over a declaration; these three are an
+    // *approximation*, which is a different kind of thing to get wrong. Every other rule
+    // over-fires only by being written down wrong. An analysis over-fires by being one
+    // lattice step too coarse, which is what it is designed to be everywhere else, so the
+    // question "does it fire only when it should" is a real question here rather than a
+    // formality — and it reaches every function in the language rather than one construct.
+    //
+    // ⚠ It is also the one place in the ids still owed a negative where accept coverage
+    // already exists: FlowAnalysisTests.What_the_analysis_accepts pins seven shapes with
+    // Assert.Empty. None is id-named and none was proved by widening, which is what these
+    // add; the shapes below are the ones that theory does not hold.
+
+    /// <summary>
+    ///     Three ways out of a value-returning function that are not a trailing <c>return</c>: both
+    ///     arms of an <c>if</c>, every section of a <c>switch</c>, and a <c>discard</c>.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>FlowAnalysisTests.A_value_returning_function_that_can_reach_its_end_is_refused</c>,
+    ///     which is a body with a path that does fall out. ⚠ <c>discard</c> is the one that carries
+    ///     this test: it is a separate <c>Exit</c> from <c>Returns</c> — kept apart only so a
+    ///     message can name what made the code after it dead — and reading the analysis as "the body
+    ///     must end in a return" rather than "the end must not be reachable" refuses every fragment
+    ///     stage that finishes by throwing the fragment away.
+    /// </remarks>
+    [Fact]
+    public void A_body_that_cannot_reach_its_end_need_not_end_in_a_return() =>
+        Silent(
+            "RVN2129",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var mode: int
+                    var tint: float4
+
+                    func ByArms(): float4 {
+                        if (mode > 0) {
+                            return tint
+                        } else {
+                            return tint * 2f
+                        }
+                    }
+
+                    func BySections(): float4 {
+                        switch (mode) {
+                            case 0:
+                                return tint
+                            case 1:
+                                return tint * 2f
+                            default:
+                                return tint * 3f
+                        }
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        if (mode > 0) {
+                            return ByArms() + BySections()
+                        }
+
+                        discard
+                    }
+                }
+
+                """
+            )
+        );
+
+    /// <summary>
+    ///     Statements after an <c>if</c> only one arm leaves by, after a loop whose body
+    ///     <c>break</c>s, and after a <c>switch</c> with no <c>default</c> every section returns
+    ///     from.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>FlowAnalysisTests.A_statement_after_a_jump_is_reported</c> and
+    ///     <c>Unreachable_code_inside_a_loop_after_a_break_is_reported</c>, which are these three
+    ///     shapes with the other path removed. Each is a jump followed by code, and in each the code
+    ///     is reached — by the arm that did not jump, by the iteration that did not break, by the
+    ///     value that matched no label. An analysis that let a nested jump escape its statement
+    ///     would put a warning on the ordinary early return.
+    /// </remarks>
+    [Fact]
+    public void Code_after_a_jump_that_only_one_path_takes_is_reachable() =>
+        Silent(
+            "RVN2128",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var mode: int
+                    var tint: float4
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        if (mode > 0) {
+                            return tint
+                        }
+
+                        var total = 0f
+
+                        for (i in 0 .. 4) {
+                            if (i > mode) {
+                                break
+                            }
+
+                            total = total + 1f
+                        }
+
+                        switch (mode) {
+                            case 1:
+                                return tint * total
+                            case 2:
+                                return tint * 2f
+                        }
+
+                        return float4(total, 0f, 0f, 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    /// <summary>
+    ///     Locals every path does assign: through an array index, through a struct field, by an
+    ///     <c>inout</c> argument, and in every section of a <c>switch</c> that has a
+    ///     <c>default</c>.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>FlowAnalysisTests.A_local_assigned_in_only_one_arm_is_not_assigned_after</c>
+    ///     and <c>A_switch_with_no_default_is_one_more_path</c>. The rule is sound and deliberately
+    ///     incomplete, so its cost is entirely in the other direction: a definite-assignment pass
+    ///     that intersects one state too few refuses code that is correct, and on a GPU the author
+    ///     cannot even reproduce the complaint by running it. ⚠ The <c>switch</c> is the sharp
+    ///     corner — a section that <em>returns</em> contributes no state to intersect and must also
+    ///     take none away, or a shader that handles two modes and returns early from a third loses
+    ///     the local both surviving paths assigned.
+    /// </remarks>
+    [Fact]
+    public void Locals_every_path_assigns_are_assigned() =>
+        Silent(
+            "RVN2127",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var mode: int
+                    var tint: float4
+
+                    func Fill(inout v: float) {
+                        v = 1f
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        var data: float[4]
+                        data[0] = 1f
+
+                        var uv: float2
+                        uv.x = 0f
+                        uv.y = 1f
+
+                        var filled: float
+                        Fill(filled)
+
+                        var picked: float
+
+                        switch (mode) {
+                            case 0:
+                                picked = 1f
+                            case 1:
+                                return tint
+                            default:
+                                picked = 2f
+                        }
+
+                        return tint * (data[0] + uv.x + filled + picked)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2054: a member written straight into a file ---------------------
+
+    /// <summary>
+    ///     All four things a file <em>may</em> hold at package level — an enum, a protocol, a
+    ///     struct and a shader — each holding the members that would be reported one level out.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.A_member_at_package_level_is_reported</c>,
+    ///     which is these same members with their type taken off. The rule turns on being a member
+    ///     of a compilation unit rather than of a type, and not on which type: narrow it to the
+    ///     shader — the only one a stage, a binding or a key can live in, and the one every other
+    ///     "must be a shader field" rule names — and every <c>struct</c>, <c>protocol</c> and
+    ///     <c>enum</c> in <c>Raven/Library</c> is refused, which is the vocabulary the shaders are
+    ///     written in.
+    /// </remarks>
+    [Fact]
+    public void The_four_type_declarations_a_file_may_hold_are_allowed() =>
+        Silent(
+            "RVN2054",
+            Semantic(
+                """
+                package A
+
+                enum Mode {
+                    Flat,
+                    Lit
+                }
+
+                protocol IFeature {
+                    func F(): float
+                }
+
+                struct Vertex {
+                    var uv: float2
+
+                    init(at: float2) {
+                        uv = at
+                    }
+                }
+
+                shader Lit: IFeature {
+                    const val Bias = 0.5f
+
+                    var tint: float4
+                    var mode: int
+
+                    var exposure: float {
+                        get => tint.a
+                    }
+
+                    func F(): float {
+                        return Bias * exposure
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        val vertex = Vertex(float2(0f, 0f))
+
+                        return mode == int(Mode.Lit) ? tint * F() : float4(vertex.uv.x, 0f, 0f, 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2060: where a permutation key may be declared -------------------
+
+    /// <summary>
+    ///     A key on a <em>feature</em> — a shader with no entry point, implementing a protocol,
+    ///     reached only through the slot another shader composes it into.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>PermutationTests.A_permutation_outside_a_shader_is_rejected</c>, which is
+    ///     this key on a <c>struct</c>. The rule turns on the declaring type being a
+    ///     <c>shader</c> and on nothing further: add "and one that is compiled as a pipeline" — take
+    ///     the entry points into the predicate — and every feature in <c>Raven/Library</c> loses its
+    ///     keys, which is the half of the library that has them.
+    /// </remarks>
+    [Fact]
+    public void A_key_on_a_feature_shader_with_no_entry_point_is_allowed() =>
+        Silent(
+            "RVN2060",
+            Semantic(
+                """
+                package A
+
+                protocol IFeature {
+                    func F(): float
+                }
+
+                shader Grain: IFeature {
+                    [Permutation] val Coarse: bool = false
+
+                    func F(): float {
+                        return Coarse ? 4f : 1f
+                    }
+                }
+
+                shader Lit {
+                    compose val feature: IFeature = Grain
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return float4(feature.F(), 0f, 0f, 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2061: a key that cannot be reassigned ---------------------------
+
+    /// <summary>
+    ///     Keys declared <c>val</c> rather than <c>const val</c>, beside the mutable binding the
+    ///     same shader has.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of <c>PermutationTests.A_mutable_permutation_is_rejected</c>, which is
+    ///         this shader with <c>var</c> in place of <c>val</c>. <c>const</c> is what the rule
+    ///         must not demand: a key <em>is</em> a compile-time constant, so asking for the keyword
+    ///         reads like the same claim and is not — every <c>[Permutation] val</c> in
+    ///         <c>Raven/Library</c> is written without it, and a key is not <c>const</c> precisely
+    ///         because its value comes from outside the source.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Proving that took two attempts, and the first is the interesting one. Adding
+    ///         <c>|| !field.IsConst</c> to the rule left this test <em>green</em>, because
+    ///         <c>SourceFieldSymbol.IsConst</c> is <c>IsPermutation || const</c> — the marker
+    ///         already forces it, exactly as it forces <c>IsReadOnly</c>, which is why the rule
+    ///         reads <c>IsDeclaredReadOnly</c> in the first place. A widening that cannot change the
+    ///         answer proves as little as one that will not compile. What did prove it was refusing
+    ///         the <c>val</c> keyword itself.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_key_declared_val_rather_than_const_val_is_allowed() =>
+        Silent(
+            "RVN2061",
+            Semantic(
+                """
+                package A
+
+                shader Lit {
+                    [Permutation] val Fancy: bool = false
+                    [Permutation] val Taps: int = 4
+
+                    var tint: float4
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return Fancy ? tint * float(Taps) : tint
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2062: what a key's type may be ----------------------------------
+
+    /// <summary>A key of each type a define can carry — <c>bool</c>, <c>int</c> and <c>uint</c>.</summary>
+    /// <remarks>
+    ///     The mirror of <c>PermutationTests.A_permutation_of_an_unsupported_type_is_rejected</c>,
+    ///     whose cases are the same declarations with a type outside that set. <c>uint</c> is the
+    ///     one worth pinning: it is the member of the set with no user in <c>Raven/Library</c>, so
+    ///     dropping it costs nothing that any shipped file would notice and it is exactly what
+    ///     <c>RVN2137</c>'s message tells an author to reach for — "declare it <c>uint</c>".
+    /// </remarks>
+    [Fact]
+    public void Keys_of_every_supported_type_are_allowed() =>
+        Silent(
+            "RVN2062",
+            Semantic(
+                """
+                package A
+
+                shader Lit {
+                    [Permutation] val Fancy: bool = false
+                    [Permutation] val Taps: int = 4
+                    [Permutation] val Slots: uint = 8u
+
+                    var factor: float
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return float4(factor * float(Taps) * float(Slots), 0f, 0f, Fancy ? 1f : 0f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2063: a key's default -------------------------------------------
+
+    /// <summary>A literal default on a key of each supported type.</summary>
+    /// <remarks>
+    ///     The mirror of <c>PermutationTests.A_permutation_without_a_default_is_rejected</c>, which
+    ///     is the <c>bool</c> key here with its <c>= false</c> taken off. The default is what a
+    ///     variant compiles with when nothing supplies a value, so the rule has to accept one for
+    ///     every type the previous rule admits: read the literal as well as look for it — accept a
+    ///     flag's default but not a count's — and <c>Bloom</c>, <c>Smaa</c>, <c>VolumetricFog</c>
+    ///     and every other <c>[Permutation] val … : int</c> in the library is refused.
+    /// </remarks>
+    [Fact]
+    public void A_literal_default_of_every_supported_type_is_allowed() =>
+        Silent(
+            "RVN2063",
+            Semantic(
+                """
+                package A
+
+                shader Lit {
+                    [Permutation] val Fancy: bool = false
+                    [Permutation] val Taps: int = 4
+                    [Permutation] val Slots: uint = 8u
+
+                    var factor: float
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return float4(factor * float(Taps) * float(Slots), 0f, 0f, Fancy ? 1f : 0f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2064: a supplied value against the declared type ----------------
+
+    /// <summary>
+    ///     Values supplied the way a build supplies them — through
+    ///     <see cref="PermutationValues.Parse" />, from <c>-D</c> text — for a key of each supported
+    ///     type, beside a define for a name no shader declares.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of <c>PermutationTests.A_supplied_value_of_the_wrong_type_is_rejected</c>,
+    ///         which supplies <c>true</c> for an <c>int</c> key. Two facts have to hold and neither
+    ///         is the obvious one. A define for a key nothing declares is not this rule's business —
+    ///         <c>A_key_no_shader_declares_is_ignored</c> is the positive side of that — so the walk
+    ///         is over the declared keys and not over the supplied values. And the comparison is
+    ///         against the <em>declared</em> type rather than against the CLR type the text parsed
+    ///         to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ This one needed no widening: it was <em>red on the rule as shipped</em>, which is
+    ///         the first over-fire three batches of these have turned up.
+    ///         <see cref="PermutationValues.TryParse" /> tries bool, then int, then uint, so
+    ///         <c>Slots=16</c> arrives as an <c>int</c> however the key is declared and the
+    ///         <c>uint</c> branch is reached only above <c>int.MaxValue</c>. Comparing CLR types
+    ///         therefore rejected every value a build could supply for a <c>uint</c> key: the define
+    ///         reported <c>RVN2064</c>, the key kept its declared default, and the variant compiled
+    ///         as though nothing had been asked for. <c>SuppliedValue.TryCoerce</c> is the fix, and
+    ///         <c>PermutationTests.A_uint_key_takes_the_value_a_define_supplies</c> is its positive.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Values_parsed_from_defines_match_the_keys_they_are_supplied_for() =>
+        Silent(
+            "RVN2064",
+            Semantic(
+                """
+                package A
+
+                shader Lit {
+                    [Permutation] val Fancy: bool = false
+                    [Permutation] val Taps: int = 4
+                    [Permutation] val Slots: uint = 8u
+
+                    var factor: float
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return float4(factor * float(Taps) * float(Slots), 0f, 0f, Fancy ? 1f : 0f)
+                    }
+                }
+
+                """,
+                PermutationValues.Parse(["Fancy=true", "Taps=6", "Slots=16", "NotAKeyHere=3"])
+            )
+        );
+
+    // --- RVN2100: where a stream may be declared ----------------------------
+
+    /// <summary>
+    ///     A shader carrying a stream, beside a <c>struct</c> whose ordinary field has that same
+    ///     name and that same type.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>StreamTests.AStreamOutsideAShaderIsReported</c>, which is this file with
+    ///     <c>stream</c> written on the struct's field. The rule turns on the modifier <em>and</em>
+    ///     on the kind of the type the field is declared in, and drop either half and this goes: a
+    ///     walk that checks every field of a non-shader type — rather than every <c>stream</c> field
+    ///     of one — reports both of <c>Vertex</c>'s, which is to say it refuses the ordinary practice
+    ///     of naming a struct's field after the varying it is packed from.
+    /// </remarks>
+    [Fact]
+    public void An_ordinary_field_named_like_a_stream_is_not_a_stream() =>
+        Silent(
+            "RVN2100",
+            Semantic(
+                """
+                package A
+
+                struct Vertex {
+                    var normalWS: float3
+                    var uv: float2
+                }
+
+                shader Lit {
+                    stream var normalWS: float3
+                    stream var uv: float2
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        normalWS = float3(0f, 1f, 0f)
+                        uv = float2(position.x, position.y)
+                        return float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade(): float4 {
+                        return float4(normalWS.x, uv.x, 0f, 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2101: a stream that is also something else ----------------------
+
+    /// <summary>
+    ///     One shader holding a stream, a <c>const</c>, a <c>[Permutation]</c> key and a
+    ///     <c>compose</c> slot — four fields, one modifier each.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>StreamTests.AStreamThatIsAlsoAConstantIsReported</c>, whose three cases
+    ///     are exactly these pairs collapsed onto a single field. The rule is about one declaration
+    ///     wearing two hats, so it has to be asked per field: asked per shader — "does this shader
+    ///     have both a stream and a permutation" — it refuses nearly every shader in
+    ///     <c>Raven/Library</c>, where a feature flag beside a varying is the normal shape.
+    /// </remarks>
+    [Fact]
+    public void A_stream_beside_a_constant_a_key_and_a_slot_is_allowed() =>
+        Silent(
+            "RVN2101",
+            Semantic(
+                """
+                package A
+
+                protocol IFeature {
+                    func F(): float
+                }
+
+                shader Plain: IFeature {
+                    func F(): float {
+                        return 1f
+                    }
+                }
+
+                shader Lit: IFeature {
+                    stream var uv: float2
+
+                    const val Bias = 0.5f
+                    [Permutation] val Fancy: bool = false
+                    compose val feature: IFeature = Plain
+
+                    func F(): float {
+                        return Bias
+                    }
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        uv = float2(position.x, position.y)
+                        return float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade(): float4 {
+                        return float4(uv.x, uv.y, Bias * feature.F(), 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2102: where a stream's value comes from -------------------------
+
+    /// <summary>
+    ///     A stream with no initializer that the vertex stage assigns the very literal the trigger
+    ///     puts on the declaration.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>StreamTests.AStreamWithAnInitializerIsReported</c>, which is this shader
+    ///     with <c>= float2(0f, 0f)</c> moved from the body up to the declaration. Being written by
+    ///     a stage is what a stream is <em>for</em>, and the <c>const</c> beside it is the second
+    ///     half: ask the shader whether any field has an initializer rather than asking this field,
+    ///     and every graphics shader that keeps a constant next to its varyings is refused.
+    /// </remarks>
+    [Fact]
+    public void A_stream_the_vertex_stage_assigns_has_no_initializer() =>
+        Silent(
+            "RVN2102",
+            Semantic(
+                """
+                package A
+
+                shader Lit {
+                    stream var uv: float2
+
+                    const val Bias = 0.5f
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        uv = float2(0f, 0f)
+                        return float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade(): float4 {
+                        return float4(uv.x, uv.y, Bias, 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2103: what a stage interface can carry --------------------------
+
+    /// <summary>
+    ///     A stream of every type a stage interface does carry — the scalars and the vectors —
+    ///     beside a <c>bool</c> and a <c>mat4</c> that are not streams.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>StreamTests.AStreamOfAnUncarryableTypeIsReported</c>, whose three cases
+    ///     are <c>bool</c>, <c>mat4</c> and <c>Texture2D</c> written with <c>stream</c> on them. Two
+    ///     of those three are here without it, so the rule is pinned to the modifier as well as to
+    ///     the type — and the vector cases are the ones that matter: drop <c>Vector</c> from the
+    ///     set a stage interface can carry and every varying normal, tangent and UV in
+    ///     <c>Raven/Library</c> goes with it.
+    /// </remarks>
+    [Fact]
+    public void Streams_of_every_carryable_type_are_allowed() =>
+        Silent(
+            "RVN2103",
+            Semantic(
+                """
+                package A
+
+                shader Lit {
+                    stream var depth: float
+                    stream var uv: float2
+                    stream var normalWS: float3
+                    stream var colour: float4
+                    stream var material: int
+                    stream var packed: uint
+                    stream var cell: int2
+
+                    const val Flag = true
+                    var world: mat4
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        depth = position.z
+                        uv = float2(position.x, position.y)
+                        normalWS = float3(0f, 1f, 0f)
+                        colour = float4(1f, 1f, 1f, 1f)
+                        material = 3
+                        packed = 7u
+                        cell = int2(1, 2)
+                        return world * float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade(): float4 {
+                        val lit = Flag ? colour : float4(0f, 0f, 0f, 1f)
+                        return lit * (depth + uv.x + normalWS.y + float(material) + float(packed) + float(cell.x))
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2120 / RVN2121: what a push constant is and is not --------------
+
+    /// <summary>
+    ///     Push constants of the value types, in a shader that also holds the descriptors — a
+    ///     texture and a sampler — that may not be pushed.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>PushConstantTests.A_descriptor_cannot_be_pushed</c>, which is this
+    ///     shader with <c>[PushConstant]</c> moved onto the texture. The rule is about the marked
+    ///     field's own kind: asked about the shader — "does anything here resolve to a handle" — it
+    ///     refuses every material shader there is, because a push constant beside a bound texture is
+    ///     the reason push constants exist.
+    /// </remarks>
+    [Fact]
+    public void A_push_constant_beside_a_texture_that_is_not_pushed_is_allowed() =>
+        Silent(
+            "RVN2120",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [PushConstant] var offset: float2
+                    [PushConstant] var world: mat4
+
+                    var albedo: Texture2D
+                    var linear: Sampler
+                    var tint: float4
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return albedo.Sample(linear, offset) * tint * world[0]
+                    }
+                }
+
+                """
+            )
+        );
+
+    /// <summary>
+    ///     A push constant with no marker on it, beside the set-marked bindings the same shader
+    ///     does have.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>PushConstantTests.A_set_marker_on_a_push_constant_says_something_untrue</c>,
+    ///     which is this shader with <c>[PerFrame]</c> moved onto the push constant. The notice is
+    ///     about the two markers meeting on one declaration, so a rule that asked whether the
+    ///     shader has any set marker at all would warn on every shader that pushes a per-draw
+    ///     transform and binds a per-frame camera — which is what the markers are for.
+    /// </remarks>
+    [Fact]
+    public void A_push_constant_beside_set_marked_bindings_is_not_marked_itself() =>
+        Silent(
+            "RVN2121",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [PushConstant] var offset: float2
+
+                    [PerFrame] var view: mat4
+                    [PerDraw] var world: mat4
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return (view * world)[0] + float4(offset.x, offset.y, 0f, 0f)
+                    }
+                }
+
+                """
+            )
+        );
 }

@@ -328,6 +328,39 @@ public static class SemanticDiagnostics {
         DiagnosticSeverity.Error
     );
 
+    /// <summary>
+    ///     A member written straight into a file rather than into a shader, struct, protocol or
+    ///     enum.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ These parse, and they parsed <em>silently</em> until this existed. The compilation
+    ///         unit and a type body share one <c>ParseMemberDeclaration</c>, so a package-level
+    ///         <c>func</c> builds a perfectly good <c>MethodDeclarationSyntax</c>;
+    ///         <c>Compilation.EnsureDeclarations</c> then kept only the members
+    ///         <c>TypeDeclarationInfo.From</c> yields a type for and dropped the rest without a
+    ///         word. Nothing bound the body, so an undefined name inside it was not reported either
+    ///         — the file compiled clean and the function did not exist.
+    ///     </para>
+    ///     <para>
+    ///         Reporting rather than binding, because a namespace in this language holds namespaces
+    ///         and types and nothing else — <c>NamespaceSymbol.GetMembers</c> is
+    ///         <c>[..Namespaces, ..Types]</c> — so there is no lookup path that could ever reach
+    ///         one. Every declaration rule in the language already says the same thing from its own
+    ///         side: a resource (<c>RVN2053</c>), a key (<c>RVN2060</c>), a slot (<c>RVN2070</c>), a
+    ///         value parameter (<c>RVN2080</c>), a stream (<c>RVN2100</c>) and group-shared storage
+    ///         (<c>RVN2131</c>) all have to be a shader's. This is the general case, and it is the
+    ///         one that was missing.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor MemberOutsideAType = new(
+        "RVN2054",
+        "Declaration outside a type",
+        "'{0}' is declared at package level; a {1} belongs to a shader, struct, protocol or enum",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
     // --- Permutations -----------------------------------------------------
     //
     // A [Permutation] field is a constant whose value arrives from outside the source

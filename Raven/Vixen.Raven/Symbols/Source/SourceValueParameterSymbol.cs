@@ -64,7 +64,9 @@ internal sealed class SourceValueParameterSymbol : FieldSymbol {
 
             // A missing or mismatched value is reported once, at the declaration. Falling back
             // to the type's zero keeps binding well-typed rather than cascading nulls.
-            return supplied is not null && MatchesDeclaredType(supplied) ? supplied : ZeroOfDeclaredType();
+            return supplied is not null && SuppliedValue.TryCoerce(Type, supplied, out var coerced)
+                ? coerced
+                : ZeroOfDeclaredType();
         }
     }
 
@@ -105,13 +107,7 @@ internal sealed class SourceValueParameterSymbol : FieldSymbol {
     }
 
     /// <summary>Whether a supplied value has this parameter's declared type.</summary>
-    internal bool MatchesDeclaredType(object value) =>
-        (Type as PrimitiveTypeSymbol)?.SpecialType switch {
-            SpecialType.Bool => value is bool,
-            SpecialType.Int => value is int,
-            SpecialType.UInt => value is uint,
-            _ => false
-        };
+    internal bool MatchesDeclaredType(object value) => SuppliedValue.TryCoerce(Type, value, out _);
 
     object? ZeroOfDeclaredType() =>
         (Type as PrimitiveTypeSymbol)?.SpecialType switch {

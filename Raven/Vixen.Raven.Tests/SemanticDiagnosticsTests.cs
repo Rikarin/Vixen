@@ -989,6 +989,112 @@ public class SemanticDiagnosticsTests {
         Assert.Single(AssertDiagnostics(InMethod("        for (i in true .. 4) {\n        }"), "RVN2020"));
     }
 
+    // --- RVN2054: a member written straight into a file ---------------------
+
+    /// <summary>
+    ///     A <c>func</c>, a <c>const val</c>, a <c>var</c>, an <c>init</c> and an <c>operator</c>,
+    ///     each written at package level, each named for what it is.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Every one of these parsed clean and reported nothing at all before <c>RVN2054</c>.
+    ///         The compilation unit and a type body share one <c>ParseMemberDeclaration</c>, so the
+    ///         syntax is real; <c>Compilation.EnsureDeclarations</c> kept the members
+    ///         <c>TypeDeclarationInfo.From</c> yields a type for and dropped these without a word.
+    ///         The body was never bound, so an undefined name inside it was silent too — see
+    ///         <see cref="A_body_at_package_level_is_reported_at_the_declaration_not_inside_it" />.
+    ///     </para>
+    ///     <para>
+    ///         An error rather than a warning: a namespace in this language holds namespaces and
+    ///         types and nothing else, so a declaration here is not merely unusual, it is
+    ///         unreachable — a call to it is <c>RVN2010</c> at the call site, which points at the
+    ///         one line that was right.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("func Luminance(c: float3): float {\n    return c.x\n}", "Luminance", "function")]
+    [InlineData("const val Bias = 0.5f", "Bias", "value")]
+    [InlineData("var counter: int", "counter", "variable")]
+    [InlineData("init() {\n}", "init", "constructor")]
+    [InlineData("var exposure: float {\n    get => 1f\n}", "exposure", "property")]
+    // ⚠ Every arm of the naming switch is exercised, this one included: they are reachable
+    // because the parser reaches them, not because a grammar for files was ever written.
+    [InlineData("float operator +(a: float, b: float) {\n    return a\n}", "+", "operator")]
+    public void A_member_at_package_level_is_reported(string member, string name, string kind) {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics($"package A\n\n{member}\n\nshader S {{\n}}\n", "RVN2054")
+        );
+
+        Assert.True(diagnostic.IsError);
+        Assert.Contains(name, diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains(kind, diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The report lands on the declaration, and the body it would have had is not bound.
+    /// </summary>
+    /// <remarks>
+    ///     This is the half that was the bug rather than the half that is the rule. The undefined
+    ///     name below is what the author would have been told about had the function been anywhere
+    ///     the language can hold one; here they are told the function itself has nowhere to be,
+    ///     which is the thing to fix first and the only thing worth saying twice.
+    /// </remarks>
+    [Fact]
+    public void A_body_at_package_level_is_reported_at_the_declaration_not_inside_it() {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(
+                """
+                package A
+
+                func Luminance(c: float3): float {
+                    return nrmalize(c).x
+                }
+
+                shader S {
+                }
+
+                """,
+                "RVN2054"
+            )
+        );
+
+        Assert.Contains("Luminance", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A shader, a struct, a protocol and an enum are what a file <em>does</em> hold, and a
+    ///     member inside any of them is where a member goes.
+    /// </summary>
+    [Fact]
+    public void The_four_type_declarations_are_not_reported() =>
+        CompileClean(
+            """
+            package A
+
+            enum Mode {
+                Flat,
+                Lit
+            }
+
+            protocol IFeature {
+                func F(): float
+            }
+
+            struct Vertex {
+                var uv: float2
+            }
+
+            shader S: IFeature {
+                const val Bias = 0.5f
+
+                func F(): float {
+                    return Bias
+                }
+            }
+
+            """
+        );
+
     /// <summary>Wraps a method body in a shader so error cases stay readable.</summary>
     static string InMethod(string body, string members = "") =>
         $$"""
