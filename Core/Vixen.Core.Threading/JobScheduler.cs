@@ -31,10 +31,10 @@ namespace Vixen.Core.Threading;
 ///     </para>
 ///     <para>
 ///         <b>Cost of scheduling.</b> Nothing on the path from
-///         <see cref="Schedule{TJob}(in TJob, JobHandle)" /> to the job running allocates. The job
-///         struct is copied into a preallocated array; the slot comes from a preallocated ring; the
-///         work item is a <see cref="long" /> in a preallocated buffer. A job type is generic all the
-///         way down, so there is no boxing and no delegate.
+///         <see cref="Schedule{TJob}(in TJob, JobHandle, JobPriority)" /> to the job running
+///         allocates. The job struct is copied into a preallocated array; the slot comes from a
+///         preallocated ring; the work item is a <see cref="long" /> in a preallocated buffer. A job
+///         type is generic all the way down, so there is no boxing and no delegate.
 ///     </para>
 ///     <para>
 ///         Thread-safe: any thread may schedule, and any thread may complete.
@@ -68,6 +68,19 @@ public sealed class JobScheduler : IDisposable {
 
     const int DequeCapacity = 1024;
 
+    // Smaller than the frame tier's, deliberately. Overflowing a deque is not a failure — the item
+    // goes on the shared queue instead — so the only thing capacity buys is locality, and locality
+    // is the thing background work is defined as not caring about.
+    const int BackgroundDequeCapacity = 256;
+
+    // The fairness share: after this many frame items, a thread takes a background one if there is
+    // one. Sized against the scheduler's own statement that a frame's graph is "tens to low
+    // hundreds of jobs" — so an ordinary frame pulls in at most one or two background items per
+    // thread, while a program that never stops scheduling frame work still drains the background
+    // tier at a sixty-fourth of the rate rather than never. It is the whole of the starvation
+    // guarantee, and it is asserted as work completed rather than as time elapsed.
+    const int FairnessStride = 64;
+
     // Measured, not guessed. The first version parked a worker after roughly a microsecond of
     // spinning, which meant a burst of a hundred jobs woke and re-parked the whole pool several
     // times over and cost 1.1 microseconds per job in semaphore traffic. Spinning for tens of
@@ -86,9 +99,21 @@ public sealed class JobScheduler : IDisposable {
     static readonly JobScheduler?[] Schedulers = new JobScheduler[MaxSchedulers];
     static readonly Lock RegistryGate = new();
 
+    // Never reused, where Id is: a thread's fairness counter below is keyed on it, and keying on Id
+    // would let a disposed scheduler's counter carry into whichever one takes its place in the
+    // table. Keying on the reference instead would keep a disposed scheduler — and its thousand
+    // slots — alive on every thread that ever helped it.
+    static long schedulerEpoch;
+
     [ThreadStatic] static JobScheduler? workerOf;
     [ThreadStatic] static int workerIndex;
     [ThreadStatic] static uint stealSeed;
+
+    // Per thread, not per scheduler: a shared counter incremented on every take is a cache line
+    // every worker writes to, which is the one thing the deques exist to avoid. Per thread it costs
+    // nothing and means the same thing — this thread has taken this many frame items in a row.
+    [ThreadStatic] static long fairnessEpoch;
+    [ThreadStatic] static int framesTakenSinceBackground;
 
     // Slot index *plus one*, so that zero — the value a thread that has never run a work item has —
     // means "this thread is running nothing" instead of aliasing slot 0. It aliased slot 0, and the
@@ -110,9 +135,20 @@ public sealed class JobScheduler : IDisposable {
     readonly JobFailureLog failures = new();
 
     readonly WorkStealingDeque[] deques;
+    readonly WorkStealingDeque[] backgroundDeques;
     readonly ConcurrentQueue<long> shared = new();
+    readonly ConcurrentQueue<long> sharedBackground = new();
     readonly SemaphoreSlim signal = new(0);
     readonly Thread[] workers;
+    readonly long epoch = Interlocked.Increment(ref schedulerEpoch);
+
+    // How many workers may be inside a background job at once, and how many background items exist.
+    // The second is what keeps an idle worker off the first: without it every failed take would
+    // write to the reservation counter, and a pool with nothing to do would spend its spin loop
+    // fighting over one cache line.
+    readonly int backgroundLimit;
+    int backgroundRunning;
+    int backgroundQueued;
 
     int sleepingWorkers;
     volatile bool stopping;
@@ -208,10 +244,18 @@ public sealed class JobScheduler : IDisposable {
         freeCount = MaxJobsInFlight;
 
         deques = new WorkStealingDeque[workerCount];
+        backgroundDeques = new WorkStealingDeque[workerCount];
         workers = new Thread[workerCount];
+
+        // One worker is always kept out of the background tier, so a burst of long background jobs
+        // cannot occupy the whole pool and leave a frame with nothing but the thread that is waiting
+        // for it. At one worker there is nothing to reserve and the rule degrades to the behaviour
+        // there was before it existed.
+        backgroundLimit = Math.Max(1, workerCount - 1);
 
         for (var index = 0; index < workerCount; index++) {
             deques[index] = new(DequeCapacity);
+            backgroundDeques[index] = new(BackgroundDequeCapacity);
         }
 
         for (var index = 0; index < workerCount; index++) {
@@ -230,12 +274,19 @@ public sealed class JobScheduler : IDisposable {
     /// <typeparam name="TJob">The job type. Generic all the way down, so nothing boxes.</typeparam>
     /// <param name="job">The job. Copied into the scheduler; later changes to your copy do nothing.</param>
     /// <param name="dependsOn">What must finish first, or <c>default</c> for nothing.</param>
+    /// <param name="priority">
+    ///     Which tier it goes in. <see cref="JobPriority.Frame" /> unless said otherwise.
+    /// </param>
     /// <returns>A handle for the scheduled job.</returns>
     /// <exception cref="ObjectDisposedException">The scheduler has been disposed.</exception>
-    public JobHandle Schedule<TJob>(in TJob job, JobHandle dependsOn = default) where TJob : struct, IJob {
+    public JobHandle Schedule<TJob>(
+        in TJob job,
+        JobHandle dependsOn = default,
+        JobPriority priority = JobPriority.Frame
+    ) where TJob : struct, IJob {
         ValidateDependency(dependsOn);
         var store = SequentialStore<TJob>();
-        var index = RentSlot(store, 1, 0, 0, out var version);
+        var index = RentSlot(store, 1, 0, 0, priority, out var version);
         store.Store(index, in job);
         return Publish(index, version, dependsOn);
     }
@@ -244,12 +295,19 @@ public sealed class JobScheduler : IDisposable {
     /// <typeparam name="TJob">The job type.</typeparam>
     /// <param name="job">The job.</param>
     /// <param name="dependsOn">What must finish first. Null handles are ignored.</param>
+    /// <param name="priority">
+    ///     Which tier it goes in. <see cref="JobPriority.Frame" /> unless said otherwise.
+    /// </param>
     /// <returns>A handle for the scheduled job.</returns>
     /// <exception cref="ObjectDisposedException">The scheduler has been disposed.</exception>
-    public JobHandle Schedule<TJob>(in TJob job, ReadOnlySpan<JobHandle> dependsOn) where TJob : struct, IJob {
+    public JobHandle Schedule<TJob>(
+        in TJob job,
+        ReadOnlySpan<JobHandle> dependsOn,
+        JobPriority priority = JobPriority.Frame
+    ) where TJob : struct, IJob {
         ValidateDependencies(dependsOn);
         var store = SequentialStore<TJob>();
-        var index = RentSlot(store, 1, 0, 0, out var version);
+        var index = RentSlot(store, 1, 0, 0, priority, out var version);
         store.Store(index, in job);
         return Publish(index, version, dependsOn);
     }
@@ -264,13 +322,23 @@ public sealed class JobScheduler : IDisposable {
     ///     work without making the per-batch overhead visible.
     /// </param>
     /// <param name="dependsOn">What must finish first, or <c>default</c> for nothing.</param>
+    /// <param name="priority">
+    ///     Which tier the batches go in. <see cref="JobPriority.Frame" /> unless said otherwise.
+    ///     Splitting long work into batches is what makes <see cref="JobPriority.Background" />
+    ///     effective, because the tier defers work rather than interrupting it.
+    /// </param>
     /// <returns>A handle for the scheduled job.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="length" /> is negative.</exception>
     /// <exception cref="ObjectDisposedException">The scheduler has been disposed.</exception>
-    public JobHandle ScheduleParallel<TJob>(in TJob job, int length, int batchSize = 0, JobHandle dependsOn = default)
-        where TJob : struct, IJobParallelFor {
+    public JobHandle ScheduleParallel<TJob>(
+        in TJob job,
+        int length,
+        int batchSize = 0,
+        JobHandle dependsOn = default,
+        JobPriority priority = JobPriority.Frame
+    ) where TJob : struct, IJobParallelFor {
         ValidateDependency(dependsOn);
-        var index = RentParallelSlot(in job, length, batchSize, out var version);
+        var index = RentParallelSlot(in job, length, batchSize, priority, out var version);
         return Publish(index, version, dependsOn);
     }
 
@@ -280,13 +348,21 @@ public sealed class JobScheduler : IDisposable {
     /// <param name="length">How many indices to run.</param>
     /// <param name="batchSize">How many indices one work item covers, or zero to let the scheduler choose.</param>
     /// <param name="dependsOn">What must finish first. Null handles are ignored.</param>
+    /// <param name="priority">
+    ///     Which tier the batches go in. <see cref="JobPriority.Frame" /> unless said otherwise.
+    /// </param>
     /// <returns>A handle for the scheduled job.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="length" /> is negative.</exception>
     /// <exception cref="ObjectDisposedException">The scheduler has been disposed.</exception>
-    public JobHandle ScheduleParallel<TJob>(in TJob job, int length, int batchSize, ReadOnlySpan<JobHandle> dependsOn)
-        where TJob : struct, IJobParallelFor {
+    public JobHandle ScheduleParallel<TJob>(
+        in TJob job,
+        int length,
+        int batchSize,
+        ReadOnlySpan<JobHandle> dependsOn,
+        JobPriority priority = JobPriority.Frame
+    ) where TJob : struct, IJobParallelFor {
         ValidateDependencies(dependsOn);
-        var index = RentParallelSlot(in job, length, batchSize, out var version);
+        var index = RentParallelSlot(in job, length, batchSize, priority, out var version);
         return Publish(index, version, dependsOn);
     }
 
@@ -295,9 +371,25 @@ public sealed class JobScheduler : IDisposable {
     /// <param name="job">The job.</param>
     /// <param name="length">How many indices to run.</param>
     /// <param name="batchSize">How many indices one work item covers, or zero to let the scheduler choose.</param>
+    /// <param name="priority">
+    ///     Which tier the batches go in. <see cref="JobPriority.Frame" /> unless said otherwise.
+    /// </param>
     /// <exception cref="JobExecutionException">The job threw.</exception>
-    public void ParallelFor<TJob>(in TJob job, int length, int batchSize = 0) where TJob : struct, IJobParallelFor =>
-        Complete(ScheduleParallel(in job, length, batchSize));
+    /// <remarks>
+    ///     ⚠ <b><see cref="JobPriority.Background" /> here does not stop the caller waiting.</b> The
+    ///     calling thread still blocks until every batch is done, and — because it participates —
+    ///     still runs batches itself. What the tier changes is only whether the <em>workers</em>
+    ///     prefer these batches over a frame's.
+    /// </remarks>
+    public void ParallelFor<TJob>(
+        in TJob job,
+        int length,
+        int batchSize = 0,
+        JobPriority priority = JobPriority.Frame
+    ) where TJob : struct, IJobParallelFor =>
+        // Named rather than positional. `default` on its own for the dependency is ambiguous
+        // between the two overloads, and naming the argument is the same thing a caller does.
+        Complete(ScheduleParallel(in job, length, batchSize, priority: priority));
 
     /// <summary>Waits for a job, executing other ready work while it waits.</summary>
     /// <param name="handle">The job to wait for. The null handle returns immediately.</param>
@@ -573,17 +665,24 @@ public sealed class JobScheduler : IDisposable {
         return (ParallelJobStore<TJob>)store;
     }
 
-    int RentParallelSlot<TJob>(in TJob job, int length, int batchSize, out int version)
+    int RentParallelSlot<TJob>(in TJob job, int length, int batchSize, JobPriority priority, out int version)
         where TJob : struct, IJobParallelFor {
         ArgumentOutOfRangeException.ThrowIfNegative(length);
         var store = ParallelStore<TJob>();
         ComputeBatching(length, batchSize, WorkerCount + 1, out var size, out var count);
-        var index = RentSlot(store, count, size, length, out version);
+        var index = RentSlot(store, count, size, length, priority, out version);
         store.Store(index, in job);
         return index;
     }
 
-    int RentSlot(JobPayloadStore store, int batchCount, int batchSize, int length, out int version) {
+    int RentSlot(
+        JobPayloadStore store,
+        int batchCount,
+        int batchSize,
+        int length,
+        JobPriority priority,
+        out int version
+    ) {
         while (true) {
             var index = -1;
 
@@ -594,7 +693,7 @@ public sealed class JobScheduler : IDisposable {
             }
 
             if (index >= 0) {
-                version = slots[index].Reset(store, batchCount, batchSize, length);
+                version = slots[index].Reset(store, batchCount, batchSize, length, priority);
                 return index;
             }
 
@@ -706,9 +805,10 @@ public sealed class JobScheduler : IDisposable {
 
     void MakeReady(int index, JobSlot slot) {
         var batches = slot.BatchCount;
+        var priority = slot.Priority;
 
         for (var batch = 0; batch < batches; batch++) {
-            Push(Pack(index, batch));
+            Push(Pack(index, batch), priority);
         }
 
         // One wake for the whole job. A parallel-for pushes a batch per participating thread times
@@ -716,7 +816,21 @@ public sealed class JobScheduler : IDisposable {
         Wake(batches);
     }
 
-    void Push(long item) {
+    void Push(long item, JobPriority priority) {
+        if (priority == JobPriority.Background) {
+            // Counted before it is pushed, never after. A taker that sees the count and finds
+            // nothing simply looks again; a taker that finds nothing because the count had not
+            // caught up goes to sleep next to work that exists.
+            Interlocked.Increment(ref backgroundQueued);
+
+            if (ReferenceEquals(workerOf, this) && backgroundDeques[workerIndex].TryPush(item)) {
+                return;
+            }
+
+            sharedBackground.Enqueue(item);
+            return;
+        }
+
         if (ReferenceEquals(workerOf, this) && deques[workerIndex].TryPush(item)) {
             return;
         }
@@ -738,16 +852,72 @@ public sealed class JobScheduler : IDisposable {
         signal.Release(Math.Min(items, sleeping));
     }
 
-    bool TryExecuteOneWorkItem() {
-        if (TryTakeWorkItem(out var item)) {
+    /// <param name="asWorker">
+    ///     Whether the caller is a worker scavenging for something to do, as opposed to a thread
+    ///     inside <see cref="Complete(JobHandle)" />, <see cref="Dispose" /> or
+    ///     <see cref="RentSlot" />.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>Only a scavenging worker is held out of the background tier.</b> A thread that is
+    ///     waiting for a specific handle has to be able to run <em>any</em> ready item, background
+    ///     ones included — otherwise <c>Complete</c> on a background handle could sit there while
+    ///     every worker declines the item that would finish it, and <c>Dispose</c> would never
+    ///     drain. The reservation is about which work a worker volunteers for, never about which
+    ///     work is reachable.
+    /// </remarks>
+    bool TryExecuteOneWorkItem(bool asWorker = false) {
+        if (!TryTakeWorkItem(asWorker, out var item, out var reserved)) {
+            return false;
+        }
+
+        try {
             Execute(item);
+        } finally {
+            if (reserved) {
+                Interlocked.Decrement(ref backgroundRunning);
+            }
+        }
+
+        return true;
+    }
+
+    bool TryTakeWorkItem(bool asWorker, out long item, out bool reserved) {
+        // A thread's fairness debt belongs to the scheduler it ran up against. Keyed on the epoch
+        // rather than the reference so a disposed scheduler is not kept alive by every thread that
+        // ever helped it, and not on Id because that is reused.
+        if (fairnessEpoch != epoch) {
+            fairnessEpoch = epoch;
+            framesTakenSinceBackground = 0;
+        }
+
+        // The fairness share. Held at the stride rather than counting past it, so a long stretch of
+        // frame-only work cannot bank credit and then pull in a run of background items the moment
+        // one appears: the most that is ever owed is one item.
+        if (framesTakenSinceBackground >= FairnessStride
+            && TryTakeBackground(asWorker, out item, out reserved)) {
+            framesTakenSinceBackground = 0;
             return true;
         }
 
+        if (TryTakeFrame(out item)) {
+            if (framesTakenSinceBackground < FairnessStride) {
+                framesTakenSinceBackground++;
+            }
+
+            reserved = false;
+            return true;
+        }
+
+        if (TryTakeBackground(asWorker, out item, out reserved)) {
+            framesTakenSinceBackground = 0;
+            return true;
+        }
+
+        reserved = false;
         return false;
     }
 
-    bool TryTakeWorkItem(out long item) {
+    bool TryTakeFrame(out long item) {
         // Own deque first: it is the hottest data and taking from it needs no interlocked operation.
         if (ReferenceEquals(workerOf, this) && deques[workerIndex].TryPop(out item)) {
             return true;
@@ -757,11 +927,48 @@ public sealed class JobScheduler : IDisposable {
             return true;
         }
 
-        return TrySteal(out item);
+        return TrySteal(deques, out item);
     }
 
-    bool TrySteal(out long item) {
-        var count = deques.Length;
+    bool TryTakeBackground(bool asWorker, out long item, out bool reserved) {
+        reserved = false;
+        item = 0;
+
+        // The cheap gate, and the reason it is here rather than inside the reservation: an idle pool
+        // reaches this line on every spin, and an unconditional interlocked write would turn the
+        // reservation counter into the contended global the deques exist to avoid.
+        if (Volatile.Read(ref backgroundQueued) <= 0) {
+            return false;
+        }
+
+        if (asWorker) {
+            if (Interlocked.Increment(ref backgroundRunning) > backgroundLimit) {
+                Interlocked.Decrement(ref backgroundRunning);
+                return false;
+            }
+
+            reserved = true;
+        }
+
+        if ((ReferenceEquals(workerOf, this) && backgroundDeques[workerIndex].TryPop(out item))
+            || sharedBackground.TryDequeue(out item)
+            || TrySteal(backgroundDeques, out item)) {
+            Interlocked.Decrement(ref backgroundQueued);
+            return true;
+        }
+
+        // Nothing after all — the count is a hint, and another thread got there first.
+        if (reserved) {
+            Interlocked.Decrement(ref backgroundRunning);
+            reserved = false;
+        }
+
+        item = 0;
+        return false;
+    }
+
+    bool TrySteal(WorkStealingDeque[] from, out long item) {
+        var count = from.Length;
 
         if (count == 0) {
             item = 0;
@@ -783,7 +990,7 @@ public sealed class JobScheduler : IDisposable {
                 continue;
             }
 
-            if (deques[victim].TrySteal(out item)) {
+            if (from[victim].TrySteal(out item)) {
                 return true;
             }
         }
@@ -875,7 +1082,7 @@ public sealed class JobScheduler : IDisposable {
         var spins = 0;
 
         while (!stopping) {
-            if (TryExecuteOneWorkItem()) {
+            if (TryExecuteOneWorkItem(true)) {
                 spins = 0;
                 continue;
             }
@@ -910,6 +1117,11 @@ public sealed class JobScheduler : IDisposable {
         workerOf = null;
     }
 
+    /// <remarks>
+    ///     Only <see cref="RunWorker" /> asks, which is why the background half is under the
+    ///     reservation rule. A reserved worker that counted background work as a reason to stay
+    ///     awake would spin at full tilt beside a tier it has already decided not to touch.
+    /// </remarks>
     bool HasWork() {
         if (!shared.IsEmpty) {
             return true;
@@ -921,7 +1133,8 @@ public sealed class JobScheduler : IDisposable {
             }
         }
 
-        return false;
+        return Volatile.Read(ref backgroundQueued) > 0
+            && Volatile.Read(ref backgroundRunning) < backgroundLimit;
     }
 
     static uint NextRandom() {

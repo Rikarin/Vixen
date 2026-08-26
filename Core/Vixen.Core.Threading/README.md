@@ -24,6 +24,7 @@ jobs.Complete(contacts);
 |---|---|
 | `IJob` / `IJobParallelFor` | Work, as a struct. Generic all the way down: no boxing, no delegate, no closure. |
 | `JobScheduler` | Persistent workers, work-stealing deques, the slot ring, and the graph. |
+| `JobPriority` | Two tiers: frame work, and work that would rather be late than make a frame late. |
 | `JobHandle` | Twelve bytes naming a scheduled job. Also an edge in the graph. |
 | `MainThreadDispatcher` | For work that has to happen on one particular thread, drained at frame points. |
 
@@ -76,6 +77,32 @@ work never runs, where with workers it happens anyway — code that relies on th
 web. And `ScheduleParallel` with an automatic batch size emits one batch instead of four per
 participant, because four batches for one thread is three extra work items and nobody to steal them.
 
+**Two tiers, and the second one is deferred rather than interrupted.** `JobPriority.Frame` is the
+default and everything a frame is made of; `JobPriority.Background` is work that has to finish
+eventually and would rather be late than make a frame late. Each worker gets a second, smaller deque
+and there is a second shared queue, and every frame source is drained before any background one.
+
+Three rules make that safe rather than merely fast, and each is a test:
+
+- **Deferral, not preemption.** A job is a struct's `Execute` on a worker thread and there is no
+  portable way to suspend one mid-call, so a background job that has started runs to completion. The
+  tier decides what a thread picks up *next* and nothing else — which means splitting long work into
+  batches is what makes it effective, and a single hundred-millisecond background job still costs a
+  frame a hundred milliseconds of one thread.
+- **A fairness share, or strict priority starves the tier it defers.** After 64 frame items a thread
+  takes a background one if there is one, so a program that never stops scheduling frame work still
+  drains the background tier at a sixty-fourth of the rate rather than never. The debt is held at 64
+  rather than counted past it, so a long frame-only stretch cannot bank credit.
+- **One worker is held out of the background tier.** Without it, `WorkerCount` long background jobs
+  occupy the whole pool and a frame is left with only the thread that is waiting for it. The
+  reservation applies to a worker *volunteering* for work and never to a thread inside `Complete`,
+  `Dispose` or a slot rental — those must be able to reach any ready item, or completing a background
+  handle could hang. It costs a batch-only workload one worker's throughput, which is the price of
+  the guarantee and is only paid by callers that ask for the tier.
+
+**No priority is a correctness device.** A dependency edge is what says "not yet"; a tier only says
+"not first". A frame job that depends on a background job waits for it exactly as before.
+
 **Failures survive the slot.** A slot is reused the moment its job finishes, which means it can no
 longer answer "did that throw" — and the answer must not depend on how quickly the caller asked. So
 the last `JobFailureLog.Capacity` failures move to a side table on the way out, and both
@@ -100,8 +127,12 @@ affinity API, the per-platform ones differ in kind rather than in spelling, and 
 pessimisation on a machine that is running anything else. It waits for `Vixen.Platform`, which is
 where the per-OS calls will already live.
 
-**Priorities and long-running jobs.** Every job here is equal and expected to be short. Streaming and
-asset decode want a lower-priority tier that never delays a frame job; that is a second deque per
-worker and a scheduling rule, and it should be built when there is something to measure it against.
+**A consumer for the background tier.** The tier itself exists and is tested; nothing in this tree
+sets it yet, which is the honest half of the row in `docs/overview.md`. Every current caller of this scheduler is fork-join frame work — `ParallelFor`, or
+`ScheduleParallel(…).Complete()` — and the long operations the engine actually has (`ThumbnailCache`,
+`AssetTextureSource`, `BackgroundTaskManager`) run on the thread pool on purpose, because they block
+and this pool cannot replace a blocked worker. The first real user is the asset import being
+parallelised now; the second is the geometry tool stack, which takes a `JobScheduler?` and is handed
+`null` by every production caller. Both are somebody else's file today.
 
 Licensed under Apache-2.0.

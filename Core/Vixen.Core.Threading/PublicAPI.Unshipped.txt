@@ -14,6 +14,10 @@ Vixen.Core.Threading.JobHandle.Complete() -> void
 Vixen.Core.Threading.JobHandle.IsCompleted.get -> bool
 Vixen.Core.Threading.JobHandle.IsNull.get -> bool
 Vixen.Core.Threading.JobHandle.JobHandle() -> void
+Vixen.Core.Threading.JobPriority -> enum : int
+Vixen.Core.Threading.JobPriority.Background = 1 -> Vixen.Core.Threading.JobPriority
+Vixen.Core.Threading.JobPriority.Frame = 0 -> Vixen.Core.Threading.JobPriority
+Vixen.Core.Threading.JobPriority.JobPriority() -> void
 Vixen.Core.Threading.JobScheduler -> sealed class
 Vixen.Core.Threading.JobScheduler : System.IDisposable
 Vixen.Core.Threading.JobScheduler.Complete(Vixen.Core.Threading.JobHandle handle) -> void
@@ -25,11 +29,11 @@ Vixen.Core.Threading.JobScheduler.IsWorkerThread.get -> bool
 Vixen.Core.Threading.JobScheduler.JobScheduler() -> void
 Vixen.Core.Threading.JobScheduler.JobScheduler(int workerCount) -> void
 Vixen.Core.Threading.JobScheduler.OutstandingJobs.get -> int
-Vixen.Core.Threading.JobScheduler.ParallelFor<TJob>(in TJob job, int length, int batchSize = 0) -> void
-Vixen.Core.Threading.JobScheduler.Schedule<TJob>(in TJob job, System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> dependsOn) -> Vixen.Core.Threading.JobHandle
-Vixen.Core.Threading.JobScheduler.Schedule<TJob>(in TJob job, Vixen.Core.Threading.JobHandle dependsOn = default(Vixen.Core.Threading.JobHandle)) -> Vixen.Core.Threading.JobHandle
-Vixen.Core.Threading.JobScheduler.ScheduleParallel<TJob>(in TJob job, int length, int batchSize = 0, Vixen.Core.Threading.JobHandle dependsOn = default(Vixen.Core.Threading.JobHandle)) -> Vixen.Core.Threading.JobHandle
-Vixen.Core.Threading.JobScheduler.ScheduleParallel<TJob>(in TJob job, int length, int batchSize, System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> dependsOn) -> Vixen.Core.Threading.JobHandle
+Vixen.Core.Threading.JobScheduler.ParallelFor<TJob>(in TJob job, int length, int batchSize = 0, Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> void
+Vixen.Core.Threading.JobScheduler.Schedule<TJob>(in TJob job, System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> dependsOn, Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> Vixen.Core.Threading.JobHandle
+Vixen.Core.Threading.JobScheduler.Schedule<TJob>(in TJob job, Vixen.Core.Threading.JobHandle dependsOn = default(Vixen.Core.Threading.JobHandle), Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> Vixen.Core.Threading.JobHandle
+Vixen.Core.Threading.JobScheduler.ScheduleParallel<TJob>(in TJob job, int length, int batchSize = 0, Vixen.Core.Threading.JobHandle dependsOn = default(Vixen.Core.Threading.JobHandle), Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> Vixen.Core.Threading.JobHandle
+Vixen.Core.Threading.JobScheduler.ScheduleParallel<TJob>(in TJob job, int length, int batchSize, System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> dependsOn, Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> Vixen.Core.Threading.JobHandle
 Vixen.Core.Threading.JobScheduler.WorkerCount.get -> int
 Vixen.Core.Threading.MainThreadDispatcher -> sealed class
 Vixen.Core.Threading.MainThreadDispatcher.AssertMainThread() -> void

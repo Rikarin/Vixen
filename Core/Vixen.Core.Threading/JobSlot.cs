@@ -68,6 +68,14 @@ sealed class JobSlot {
     /// <summary>The parallel-for length. Zero for an ordinary job.</summary>
     internal int Length;
 
+    /// <summary>Which tier the job's work items go in.</summary>
+    /// <remarks>
+    ///     On the slot rather than on the work item, because a work item is a packed
+    ///     <see cref="long" /> with no room left in it — and because every batch of one job shares
+    ///     the answer, so reading it once when the job is made ready is also the cheaper place.
+    /// </remarks>
+    internal JobPriority Priority;
+
     /// <summary>What the job threw, if it threw; or what it inherited from a failed dependency.</summary>
     internal ExceptionDispatchInfo? Failure;
 
@@ -76,8 +84,15 @@ sealed class JobSlot {
     /// <param name="batchCount">How many work items the job splits into.</param>
     /// <param name="batchSize">How many indices per work item.</param>
     /// <param name="length">The parallel-for length, or zero.</param>
+    /// <param name="priority">Which tier its work items go in.</param>
     /// <returns>The new generation.</returns>
-    internal int Reset(JobPayloadStore? store, int batchCount, int batchSize, int length) {
+    internal int Reset(
+        JobPayloadStore? store,
+        int batchCount,
+        int batchSize,
+        int length,
+        JobPriority priority
+    ) {
         lock (Gate) {
             Version++;
             IsComplete = false;
@@ -86,6 +101,7 @@ sealed class JobSlot {
             BatchCount = batchCount;
             BatchSize = batchSize;
             Length = length;
+            Priority = priority;
             PendingWork = batchCount;
 
             // One for the scheduler itself, released once every edge has been added.

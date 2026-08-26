@@ -39,6 +39,32 @@ struct IncrementJob(StrongBox<int> counter) : IJob {
     public void Execute() => Interlocked.Increment(ref counter.Value);
 }
 
+/// <summary>Counts how many copies of itself were running at once, and remembers the most.</summary>
+/// <remarks>
+///     The peak is a compare-and-swap loop rather than a `Math.Max` on a plain field, because two
+///     threads reading the same stale maximum and both writing theirs would lose the larger one —
+///     which is the direction that turns a failing bound into a passing one.
+/// </remarks>
+struct ConcurrencyProbeJob(StrongBox<int> live, StrongBox<int> peak, int spins) : IJobParallelFor {
+    public void Execute(int index) {
+        var now = Interlocked.Increment(ref live.Value);
+        var seen = Volatile.Read(ref peak.Value);
+
+        while (now > seen) {
+            var previous = Interlocked.CompareExchange(ref peak.Value, now, seen);
+
+            if (previous == seen) {
+                break;
+            }
+
+            seen = previous;
+        }
+
+        Thread.SpinWait(spins);
+        Interlocked.Decrement(ref live.Value);
+    }
+}
+
 /// <summary>Records that it ran at all.</summary>
 struct FlagJob(bool[] flags, int index) : IJob {
     public void Execute() => flags[index] = true;
