@@ -33,9 +33,12 @@ namespace Vixen.Core.Imaging.BlockCompression;
 ///         obvious what happened.
 ///     </para>
 ///     <para>
-///         <b>Not validated against an independent BC6H decoder.</b> The layout is written from the
-///         specification and checked byte-for-byte against a hand-computed block in the tests, which
-///         is the same standard — and the same limit — as <see cref="Ktx2" />.
+///         <b>Checked against an independent BC6H decoder, and it agreed on every block.</b>
+///         <c>BcnReferenceDecoderTests</c> puts four thousand mode-11 blocks and the encoder's own
+///         output past bcdec and gets identical halves — the only format here that was right the
+///         first time along with BC7, because BC6H's specification is bit-exact about its rounding
+///         and BC1's is not. ⚠ Mode 11 is all that was checked, since it is all this reads; the
+///         other thirteen are unverified in both directions.
 ///     </para>
 /// </remarks>
 static class Bc6HBlock {

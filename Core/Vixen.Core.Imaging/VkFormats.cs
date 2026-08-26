@@ -19,6 +19,18 @@ namespace Vixen.Core.Imaging;
 ///         is a number nobody has tested, and the alternative — hundreds of entries transcribed from
 ///         a header — is hundreds of chances to transcribe one wrongly.
 ///     </para>
+///     <para>
+///         ⚠ <b>Three of these twenty-four numbers were wrong, and nothing in this repository could
+///         have found them.</b> BC6H's unsigned block was 144, which is
+///         <c>VK_FORMAT_BC6H_SFLOAT_BLOCK</c> — so files carrying the unsigned payload
+///         <see cref="BlockCompression.Bc6HBlock" /> writes told every reader to decode it as signed.
+///         ETC2's two entries were 151 and 153, which are <c>ETC2_R8G8B8A8_UNORM</c> and
+///         <c>EAC_R11_UNORM</c>, so <see cref="To" /> answered <c>Etc2Rgb8A1UNorm</c> for a genuine
+///         ETC2 RGBA8 file and the second entry named a format with the wrong block size entirely.
+///         <see cref="From" /> and <see cref="To" /> agree with each other whatever the number is,
+///         which is exactly why a round trip proves nothing here; it took
+///         <c>Ktx2ConformanceTests</c> putting the files past Khronos's validator to see it.
+///     </para>
 /// </remarks>
 public static class VkFormats {
     static readonly (PixelFormat Format, uint VkFormat)[] Table = [
@@ -37,11 +49,11 @@ public static class VkFormats {
         (PixelFormat.Bc3RgbaUNormSrgb, 138),       // VK_FORMAT_BC3_SRGB_BLOCK
         (PixelFormat.Bc4RUNorm, 139),              // VK_FORMAT_BC4_UNORM_BLOCK
         (PixelFormat.Bc5RgUNorm, 141),             // VK_FORMAT_BC5_UNORM_BLOCK
-        (PixelFormat.Bc6HRgbUFloat, 144),          // VK_FORMAT_BC6H_UFLOAT_BLOCK
+        (PixelFormat.Bc6HRgbUFloat, 143),          // VK_FORMAT_BC6H_UFLOAT_BLOCK
         (PixelFormat.Bc7RgbaUNorm, 145),           // VK_FORMAT_BC7_UNORM_BLOCK
         (PixelFormat.Bc7RgbaUNormSrgb, 146),       // VK_FORMAT_BC7_SRGB_BLOCK
-        (PixelFormat.Etc2Rgb8A1UNorm, 151),        // VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK
-        (PixelFormat.Etc2Rgba8UNorm, 153),         // VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK
+        (PixelFormat.Etc2Rgb8A1UNorm, 149),        // VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK
+        (PixelFormat.Etc2Rgba8UNorm, 151),         // VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK
         (PixelFormat.Astc4X4UNorm, 157),           // VK_FORMAT_ASTC_4x4_UNORM_BLOCK
         (PixelFormat.Astc4X4UNormSrgb, 158),       // VK_FORMAT_ASTC_4x4_SRGB_BLOCK
         (PixelFormat.Astc8X8UNorm, 171),           // VK_FORMAT_ASTC_8x8_UNORM_BLOCK

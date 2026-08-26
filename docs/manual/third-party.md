@@ -328,7 +328,18 @@ each is expected on `PATH` and installed by `.github/workflows/ci.yml`:
   enforced by the acquisition path, not merely asserted.
 - **glslang** — optional; no CI leg installs it and the tests skip when it is absent.
 - **spirv-cross, astcenc, ispc_texcomp** — planned, unbound, referenced by no code path that runs.
-- **ktx tools, naga, dxc, tint** — not referenced anywhere in the tree.
+- **ktx tools** (`ktx validate`, Khronos KTX-Software, Apache-2.0) — the outside opinion in
+  `Ktx2ConformanceTests`. Nothing links against libktx; the CLI is expected on `PATH`
+  (`brew install ktx`) and the suite skips when it is absent. Its output is a verdict, not data that
+  enters a build.
+- **bcdec** (MIT / Unlicense, dual) — the reference BCn decoder in `BcnReferenceDecoderTests`.
+  ⚠ **This one is a header, so read the exclusion carefully.** `bcdec.h` is *source*, and source
+  compiled into something distributed would carry its notice — but it is not committed here and
+  nothing distributed is built from it. `Tools/Vixen.BcnOracle/build.sh` downloads it, pinned to a
+  commit, into `~/.cache/vixen/bcn-oracle/` and compiles a developer-run oracle binary there. Were it
+  ever vendored, or linked into anything shipped, it would need a row in the tables above and a line
+  in `NOTICE`; that is the reason it is not.
+- **naga, dxc, tint** — not referenced anywhere in the tree.
 
 Packages marked **build only** or **test only** in the managed tables are listed anyway rather than
 omitted, because "is this distributed?" is a question a reader should be able to answer from this file

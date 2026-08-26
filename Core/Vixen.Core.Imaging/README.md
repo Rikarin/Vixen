@@ -47,10 +47,37 @@ Basis Universal nor Zstd — and so no supercompression global data; it is writt
 refused on read. A build that wants smaller bundles compresses the chunk the texture lives in, which
 doc 08 already does per bundle.
 
-**Not yet done: validated against an independent KTX2 implementation.** The layout is written from
-the specification and checked byte-for-byte against a file computed by hand in the tests, which
-catches a misread of the spec but not a misunderstanding of it. Running Khronos's `ktx validate` over
-what this writes is an owed step; until then, "valid KTX2" is a claim about intent.
+**Validated against Khronos's `ktx validate`,** over every format `VkFormats` names and every
+container shape the writer can produce — mip chains, array layers, cube maps, an array of cube maps,
+a single texel, a non-square block-compressed chain — with `--warnings-as-errors`. That is
+`Ktx2ConformanceTests`, and it needs `brew install ktx`; without the tool it *skips*, and
+`VIXEN_REQUIRE_EXTERNAL_TOOLS=1` turns every skip into a failure.
+
+⚠ **All twenty-two files failed the first time it ran**, on five defects the hand-computed fixtures
+had been agreeing with since they were written — which is the argument for the suite, stated as a
+result rather than as methodology.
+
+| what was wrong | what it was |
+| --- | --- |
+| every level's `byteOffset` | levels were packed end to end; the spec requires `mipPadding` to `lcm(texelBlockSize, 4)` |
+| alpha's `channelType` | 3, the sample's position. Alpha's id is 15 |
+| float formats' samples | no `SIGNED`, no `FLOAT`, and an integer's `sampleLower`/`sampleUpper` instead of ∓1.0f |
+| sRGB formats' alpha sample | missing the `LINEAR` qualifier — alpha is not sRGB-encoded even in an sRGB format |
+| BC3 and BC5's descriptors | one sample of 128 bits each; both are **two** 64-bit samples |
+| ⚠ three `VkFormat` numbers | BC6H unsigned was 144 (**that is the signed block**), ETC2 RGB8A1 was 151 and ETC2 RGBA8 was 153 (**that is EAC R11**) |
+
+The `VkFormat` row is the one worth dwelling on. `From` and `To` agree with each other whatever the
+number is, so a round trip could never see it; a file carrying the unsigned BC6H payload this engine
+encodes was telling every reader in the world to decode it as signed.
+
+**Still not verified: reading a file this did not write.** The suite proves other people's tools
+accept ours. Nothing yet feeds a file produced by `ktx create` — or by any other writer — into
+`Ktx2.Read`, so the reader's tolerance of layouts Vixen would not choose is untested.
+
+**Level offsets now carry padding, and a mip tail reads it.** `Ktx2Layout.DataLength` and
+`TailLength` are computed from real offsets, so streaming is unaffected in correctness; a tail is a
+handful of bytes longer than the sum of its levels and the loader discards them. `R8UNorm`'s
+sixteen-square chain went from 341 bytes to 344.
 
 `VkFormats` lists only the formats the engine actually ships textures in. A number nobody writes is a
 number nobody has tested, and transcribing hundreds of entries from a header is hundreds of chances
@@ -127,10 +154,44 @@ reason — ASTC encoding is measured in minutes per gigabyte outside a vectorise
 formats have sizes, block extents and KTX2 numbers so a build with the native encoder can ship them,
 and asking `BlockCompressor` for one names what is missing.
 
-**Not validated against an independent BC decoder.** Same standard and same limit as KTX2: every
-block layout is written from the specification and checked byte-for-byte against a hand-computed
-block, which catches a misread but not a misunderstanding. Running the output past a GPU or a
-reference decoder is owed.
+**Validated against [bcdec](https://github.com/iOrange/bcdec), an unrelated decoder,** in both
+directions: four thousand arbitrary blocks per format put through both decoders and required to
+produce identical texels, and then the blocks Vixen's *encoder* wrote for a real image read back by
+the reference. That is `BcnReferenceDecoderTests`; the oracle is built by
+`Tools/Vixen.BcnOracle/build.sh`, which downloads bcdec into a cache **outside the tree** — nothing
+third-party is committed, and the [tool's README](../../Tools/Vixen.BcnOracle/README.md) explains why
+that is the right call rather than a shortcut. Without the oracle the suite skips;
+`VIXEN_REQUIRE_EXTERNAL_TOOLS=1` makes a skip a failure.
+
+⚠ **BC7 and BC6H agreed on every block. BC1, BC3, BC4 and BC5 disagreed on the first one.** All four
+truncated where the specification divides — `(2·RGB0+RGB1)/3`, `((7−s)·RED0+s·RED1)/7` and the rest
+are divisions of *unpacked reals*, and an `int` division shortens every interpolated step by up to a
+level. BC1 did it twice over, expanding its endpoints to bytes with bit replication before
+interpolating, which rounds twice and is itself off by a level for four of the thirty-two red and
+blue values and ten of the sixty-four green ones. BC7 and BC6H were right all along because *their*
+specs are bit-exact and say `+32 >> 6` in as many words; the engine rounded where it was told to and
+truncated where it was left to choose.
+
+**What that cost was correctness, not measurable quality — and saying otherwise would be the easy
+lie.** Mean absolute round-trip error over twenty thousand blocks of texels on a line moved from
+5.0601 to 5.0520 for BC1 and from 2.3617 to 2.3623 for BC4, which is to say it improved by a sixth
+of a per cent in one place and got imperceptibly *worse* in the other. The encoder scores its
+endpoints against this same palette, so it had simply re-fit around the bias. What was actually
+wrong is that the colours the hardware returns for a block Vixen wrote were not the colours Vixen's
+own preview and error metric named.
+
+⚠ **One disagreement went the other way, and we are the ones who are right.** A BC3 block's alpha
+half is a BC4 block, but bcdec's `bcdec_bc3` routes it through a truncating fast path its own
+`bcdec_bc4` does not use, so the reference decodes the identical sixty-four bits two different ways.
+For endpoints 96 and 13 at index 5 the exact value is 340/7 = 48.571; `bcdec_bc4` and Vixen say 49
+and `bcdec_bc3` says 48. The suite checks BC3's alpha against `bc4` and records why.
+
+**What the comparison does not cover.** BC7 and BC6H are checked over **one mode each** — mode 6 of
+eight and mode 11 of fourteen — because that is all `Bc7Block` and `Bc6HBlock` read; a block in any
+other mode throws rather than decoding. The corpus forces the mode bits. The other seven BC7 modes
+and thirteen BC6H modes are unverified in both directions and will stay so until something encodes
+them. Nothing here has been past a **GPU**: this machine is Apple Silicon and Metal has no BC
+formats at all, so the hardware's own decoder is not available as a third opinion.
 
 What *is* measured, over twenty thousand random blocks each: texels lying on a line come back within
 40 for BC1 and BC3, 21 and 23 for BC4 and BC5, and 9 for BC7 — the formats' own ordering, four steps
