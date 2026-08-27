@@ -478,19 +478,33 @@ shader VisibilityResolve : ClusteredShading {
     /// there is no direction left to recover; `VisibilityResolve` `SafeNormalize`s at 1e-4, which
     /// answers zero rather than a NaN. `MorphKernel` makes the argument at length.
     func Morphed(instance: CullInstance, mesh: RasterMesh, clusterIndex: uint, local: uint): MorphDelta {
-        var delta: MorphDelta
-        delta.position = float3(0f, 0f, 0f)
-        delta.normal = float3(0f, 0f, 0f)
+        // ⚠ Accumulated into locals and assigned to the record once, rather than read-modify-written
+        // through the record's own fields. `delta.position = delta.position + …` inside the loop
+        // compiled, drew, and kept the value it was initialised with — every table correct, every
+        // record correct, the loop body demonstrably running, and a plane at rest. A struct member is
+        // not a place to accumulate in.
+        var position = float3(0f, 0f, 0f)
+        var normal = float3(0f, 0f, 0f)
 
         // The cluster's own run of source indices, then this corner's entry in it. Two indirections,
         // because a page vertex carries no identity of its own — see `morphs`.
-        val run = morphs[int(instance.firstCluster + clusterIndex)]
+        val run = morphs[int(mesh.morphClusterBase + clusterIndex)]
         val source = morphs[int(run + local)]
 
-        var entry = morphs[int(mesh.morphRunBase + source)]
+        val start = morphs[int(mesh.morphRunBase + source)]
         val last = morphs[int(mesh.morphRunBase + source + 1u)]
 
-        while (entry < last) {
+        // ⚠ A counted loop with a break rather than a `while`, and the bound is not a guess.
+        // `MorphIndex.Build` refuses a mesh whose vertex is moved by more than `Morph.MaxShapes`
+        // shapes, naming the vertex — so this bound is unreachable rather than a truncation nobody
+        // would see. `ClusterCulling`'s light loop is the same shape for the same reason.
+        for (i in 0 .. Morph.MaxShapes - 1) {
+            val entry = start + uint(i)
+
+            if (entry >= last) {
+                break
+            }
+
             val at = mesh.morphEntryBase + entry * Morph.EntryWords
             val shape = morphs[int(at)]
             val weight = morphWeights[int(morphWeightBase + instance.firstWeight + shape)]
@@ -502,14 +516,13 @@ shader VisibilityResolve : ClusteredShading {
             // Six shorts across three words: the position occupies the first and a half, the normal the
             // last and a half. `MorphKernel.Pack` decides that layout and this reads it — a reader that
             // took both triples from the same half would read the position's z as the normal's x.
-            delta.position = delta.position
-                + float3(Morph.Low(first), Morph.High(first), Morph.Low(second)) * weight.x
-
-            delta.normal = delta.normal
-                + float3(Morph.High(second), Morph.Low(third), Morph.High(third)) * weight.y
-
-            entry = entry + 1u
+            position = position + float3(Morph.Low(first), Morph.High(first), Morph.Low(second)) * weight.x
+            normal = normal + float3(Morph.High(second), Morph.Low(third), Morph.High(third)) * weight.y
         }
+
+        var delta: MorphDelta
+        delta.position = position
+        delta.normal = normal
 
         return delta
     }

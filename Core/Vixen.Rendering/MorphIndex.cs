@@ -49,6 +49,22 @@ namespace Vixen.Rendering;
 ///     </para>
 /// </remarks>
 public sealed class MorphIndex {
+    /// <summary>How many shapes may move one vertex.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The device's gather is a counted loop, and this is its bound.</b> A vertex whose
+    ///         run were longer would have its remaining shapes silently dropped by the raster — right
+    ///         about every mesh anyone has and wrong about exactly one, with nothing anywhere to say
+    ///         so. So <see cref="Build" /> refuses instead, and names the vertex.
+    ///     </para>
+    ///     <para>
+    ///         Two hundred and fifty-six, which is more shapes than a MetaHuman face carries in total
+    ///         and far more than can move one vertex — a corrective moves the vertices two shapes
+    ///         already moved, and the stack is two or three deep.
+    ///     </para>
+    /// </remarks>
+    public const int MaxShapesPerVertex = 256;
+
     /// <summary>How many 32-bit words one entry occupies, which is <c>MorphKernel.EntryWords</c>.</summary>
     /// <remarks>
     ///     Four, and the same four: the last three words are <c>MorphKernel.Pack</c>'s quantised
@@ -219,6 +235,16 @@ public sealed class MorphIndex {
         }
 
         for (var vertex = 0; vertex < vertexCount; vertex++) {
+            if (runs[vertex + 1] > MaxShapesPerVertex) {
+                throw new ArgumentException(
+                    $"Vertex {vertex} is moved by {runs[vertex + 1]} shapes and the device's gather is "
+                    + $"a loop of at most {MaxShapesPerVertex}. Refused here rather than truncated "
+                    + "there, because a raster that dropped the rest would be right about every other "
+                    + "mesh and silently wrong about this one.",
+                    nameof(targets)
+                );
+            }
+
             runs[vertex + 1] += runs[vertex];
         }
 

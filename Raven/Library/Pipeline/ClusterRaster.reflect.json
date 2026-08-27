@@ -618,7 +618,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "meshes.morphShapeCount",
+              "Name": "meshes.morphClusterBase",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -1390,7 +1390,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "meshes.morphShapeCount",
+      "Name": "meshes.morphClusterBase",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
