@@ -418,10 +418,18 @@ shader GrassScatter {
         val originX = float(cell.cellX) * cellSize
         val originZ = float(cell.cellZ) * cellSize
 
-        val x = originX + (float(slotX) + 0.5f) * step
-            + (GrassMath.Unit(hash, GrassMath.JitterXStream) * 2f - 1f) * reach
-        val z = originZ + (float(slotZ) + 0.5f) * step
-            + (GrassMath.Unit(hash, GrassMath.JitterZStream) * 2f - 1f) * reach
+        // ⚠ **The jitter is named rather than continued onto a second line, and that is the whole
+        // point of these two `val`s.** A newline ends a statement here, so what stood in their place
+        // — `val x = … * step` and then `+ (…) * reach` on the line below — declared `x` without the
+        // jitter and left the jitter as a statement of its own that nothing read. It compiled clean,
+        // and `GrassScatter.comp.spv` shipped with the term computed and discarded: every blade on
+        // the exact centre of its grid cell, whatever `GrassType.Jitter` said. `RVN2141` refuses that
+        // arrangement now, which is what makes this the only spelling left.
+        val jitterX = (GrassMath.Unit(hash, GrassMath.JitterXStream) * 2f - 1f) * reach
+        val jitterZ = (GrassMath.Unit(hash, GrassMath.JitterZStream) * 2f - 1f) * reach
+
+        val x = originX + (float(slotX) + 0.5f) * step + jitterX
+        val z = originZ + (float(slotZ) + 0.5f) * step + jitterZ
 
         val local = float2(x - terrainOrigin.x, z - terrainOrigin.z)
 

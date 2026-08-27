@@ -194,14 +194,20 @@ shader Impostor {
             // The quad split on its diagonal: whichever triangle the point falls in supplies three
             // corners whose weights sum to one. Four views averaged would be a blur; three that share
             // a triangle are the smallest set that is still continuous across a boundary.
+            //
+            // ⚠ **Three statements rather than one sum broken over three lines.** A newline ends a
+            // statement here, so the second and third corners used to be `+ …` statements of their
+            // own whose value nothing read: `colour` took the first corner alone, weighted by a
+            // barycentric that falls to zero at the opposite edge, and the blend faded to black
+            // instead of to a neighbour. `RVN2141` refuses that arrangement now.
             if (f.x + f.y <= 1f) {
                 colour = Sample(Clamped(corner)) * (1f - f.x - f.y)
-                    + Sample(Clamped(corner + float2(1f, 0f))) * f.x
-                    + Sample(Clamped(corner + float2(0f, 1f))) * f.y
+                colour += Sample(Clamped(corner + float2(1f, 0f))) * f.x
+                colour += Sample(Clamped(corner + float2(0f, 1f))) * f.y
             } else {
                 colour = Sample(Clamped(corner + float2(1f, 1f))) * (f.x + f.y - 1f)
-                    + Sample(Clamped(corner + float2(0f, 1f))) * (1f - f.x)
-                    + Sample(Clamped(corner + float2(1f, 0f))) * (1f - f.y)
+                colour += Sample(Clamped(corner + float2(0f, 1f))) * (1f - f.x)
+                colour += Sample(Clamped(corner + float2(1f, 0f))) * (1f - f.y)
             }
         } else {
             colour = Sample(Clamped(floor(g + float2(0.5f, 0.5f))))

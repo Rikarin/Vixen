@@ -1379,4 +1379,51 @@ public static class SemanticDiagnostics {
         Binding,
         DiagnosticSeverity.Error
     );
+
+    // --- Statements --------------------------------------------------------
+
+    /// <summary>An expression standing alone as a statement that cannot do anything — <c>RVN2141</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         An expression statement is evaluated and its value thrown away, so unless the
+    ///         evaluation itself does something the statement is not there. Only three forms can:
+    ///         an assignment, a call — whose body may write a resource or an <c>inout</c> — and an
+    ///         increment. Everything else is dead, and Raven emitted it: <c>src[0]</c>,
+    ///         <c>s + src[0]</c>, <c>s == src[0]</c> and <c>-src[0]</c> each lowered to a load and
+    ///         an operation nothing read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is how a continued binary expression became a silent no-op.</b> A newline
+    ///         ends a statement here (README § Line breaks), so
+    ///     </para>
+    ///     <code>
+    ///         delta.position = delta.position
+    ///             + float3(…) * weight
+    ///     </code>
+    ///     <para>
+    ///         is not one statement continued. It is <c>delta.position = delta.position</c> — which
+    ///         is a legal assignment and stores what it just loaded — followed by a unary <c>+</c>
+    ///         whose value is discarded. It compiled, dispatched, ran, and left the target at the
+    ///         value it was initialised with; only a rendered picture said so. That is
+    ///         <c>Raven/Library/Pipeline/ClusterRaster.rvn</c> before <c>852bcca0</c>, and the
+    ///         commit that fixed it blamed the struct member rather than the newline — the same
+    ///         program with a plain <c>float</c> local fails identically.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mirror-image layout was already an error and that is what hid this one.</b>
+    ///         Trailing the operator — <c>x = x +</c> then the operand on the next line — is
+    ///         <c>RVN1001</c>, "expected an expression, found end of line". Leading it produced two
+    ///         well-formed statements instead, so the one arrangement an author reaches for after
+    ///         the other is refused is the one that says nothing.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ExpressionStatementHasNoEffect = new(
+        "RVN2141",
+        "Expression statement has no effect",
+        "This expression's value is discarded and evaluating it does nothing; only an assignment, "
+        + "a call or an increment can stand alone as a statement. A newline ends a statement, so an "
+        + "operator continued onto its own line starts a new one rather than extending the line above",
+        Binding,
+        DiagnosticSeverity.Error
+    );
 }
