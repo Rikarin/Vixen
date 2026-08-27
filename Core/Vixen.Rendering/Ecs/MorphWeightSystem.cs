@@ -44,6 +44,32 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public MorphRenderFeature? Feature { get; set; }
 
+    /// <summary>The feature that draws virtualized meshes. Null is a harmless no-op.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The second half, and its absence is what made a morphed cluster mesh draw at
+    ///         rest.</b> A mesh with a cluster hierarchy is extracted down
+    ///         <c>VirtualGeometryRenderFeature</c>'s path and never reaches
+    ///         <see cref="MorphRenderFeature.Attach" />, so every weight written here was applied to
+    ///         nothing — with no counter saying so, because the counters were the other feature's and
+    ///         it had nothing attached to count.
+    ///     </para>
+    ///     <para>
+    ///         The two are tried in order and the first that claims the object wins. They cannot both
+    ///         claim one: an object is extracted down one path or the other, and which one it is is
+    ///         decided by whether its mesh has a hierarchy at all.
+    ///     </para>
+    /// </remarks>
+    public VirtualGeometryRenderFeature? Virtualized { get; set; }
+
+    /// <summary>The render system the virtualized feature's records live in.</summary>
+    /// <remarks>
+    ///     Needed only by <see cref="Virtualized" />, whose per-object state is a
+    ///     <c>RenderDataKey</c> array rather than a dictionary the feature owns — so the weights go
+    ///     through the store the way a draw record does.
+    /// </remarks>
+    public RenderSystem? Renderer { get; set; }
+
     /// <summary>How many entities were given weights by the last run.</summary>
     public int Weighted { get; private set; }
 
@@ -55,6 +81,15 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>How many entities were told what their mesh calls its shapes by the last run.</summary>
     public int Bound { get; private set; }
+
+    /// <summary>How many of <see cref="Weighted" /> were virtualized rather than suballocated.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted separately because the two are indistinguishable from outside and were not
+    ///     always both real.</b> A frame in which every morphed head is virtualized and this reads zero
+    ///     is the defect this system was extended to close, and it is exactly the frame in which
+    ///     <see cref="Weighted" /> alone would look healthy.
+    /// </remarks>
+    public int VirtualizedCount { get; private set; }
 
     /// <inheritdoc />
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
@@ -71,9 +106,18 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
 
         Weighted = 0;
         Bound = 0;
+        VirtualizedCount = 0;
 
-        if (Feature is null) {
+        if (Feature is null && Virtualized is null) {
             return;
+        }
+
+        // ⚠ Every frame and before the first weight, exactly as BeginBones is. The buffer holds one
+        // frame's expressions and a run is claimed by position, so a frame that added without beginning
+        // would grow it with expressions no instance points at — and a frame that never began would
+        // hand every instance the previous frame's slot.
+        if (Virtualized is not null && Renderer is not null) {
+            Virtualized.BeginMorphs();
         }
 
         foreach (var chunk in world.Chunks(weighted)) {
@@ -95,7 +139,11 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
                 // the mesh has actually attached, which is why an entity that appeared this frame is
                 // bound on the next one.
                 if (world.Read<BlendShapeWeights>(entities[index]).Shapes is null) {
-                    var shapes = Feature.ShapesOf(handles[index].Object);
+                    var shapes = Feature is not null ? Feature.ShapesOf(handles[index].Object) : [];
+
+                    if (shapes.Length == 0 && Virtualized is not null && Renderer is not null) {
+                        shapes = Virtualized.ShapesOf(Renderer, handles[index].Object);
+                    }
 
                     if (shapes.Length > 0) {
                         world.Get<BlendShapeWeights>(entities[index]).Shapes = shapes.ToArray();
@@ -107,8 +155,21 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
                 // empty span rather than skipping is deliberate: it is what returns a face to rest when
                 // a script clears the array, where a skip would leave the last expression on it for
                 // ever.
-                if (Feature.SetWeights(handles[index].Object, weights ?? [])) {
+                if (Feature is not null && Feature.SetWeights(handles[index].Object, weights ?? [])) {
                     Weighted++;
+
+                    continue;
+                }
+
+                // ⚠ The other path, and the fall-through is what decides between them rather than a
+                // question about the mesh. SetWeights answers false for an object it never attached,
+                // which is exactly the object the other feature has — so neither system has to know
+                // what a cluster hierarchy is.
+                if (Virtualized is not null
+                    && Renderer is not null
+                    && Virtualized.SetMorphWeights(Renderer, handles[index].Object, weights ?? [])) {
+                    Weighted++;
+                    VirtualizedCount++;
                 }
             }
         }

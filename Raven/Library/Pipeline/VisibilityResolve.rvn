@@ -151,6 +151,32 @@ shader VisibilityResolve : ClusteredShading {
     /// Every skinned instance's matrices this frame — the same palette the raster read.
     var bones: Buffer<BoneMatrix>
 
+    /// Every morphed mesh's shapes, re-indexed by vertex, and the cluster-vertex table that reaches them.
+    ///
+    /// Three tables in one buffer, because they are read one after another by the same invocation and a
+    /// binding costs more than an offset. The first `clusterCount` words are indexed by *global* cluster
+    /// — `instance.firstCluster + clusterIndex`, the same index `geometry` takes — and hold where that
+    /// cluster's run of source-vertex indices starts. After them come the runs themselves, then per
+    /// mesh a prefix over its vertices and its entries, at `mesh.morphRunBase` and `mesh.morphEntryBase`.
+    ///
+    /// ⚠ **A page vertex does not know which mesh vertex it is**, which is the whole reason this table
+    /// exists. A cluster's vertex list is the DAG's — `MeshletMesh.Vertices` — and the page carries only
+    /// the position and attributes it copied out. A vertex on a locked boundary appears in a cluster on
+    /// each side and at several levels, and every copy of it must pick up the same delta or the cut
+    /// cracks; the source index is what makes them the same vertex again.
+    var morphs: Buffer<uint>
+
+    /// Every morphed instance's per-shape weights this frame, back to back.
+    ///
+    /// One buffer for the scene with a per-instance base, exactly as `bones` is, and for the same reason
+    /// — there is no per-object command to push a per-object index through.
+    ///
+    /// ⚠ **Pre-multiplied by the shape's quantisation step on the host**: `x` is `weight × positionStep`
+    /// and `y` is `weight × normalStep`. Uploading the weight and the step separately would be a second
+    /// multiplication for the two processors to round differently, and `MorphKernel.Step` already makes
+    /// the argument that one division on the host is one float both then agree about.
+    var morphWeights: Buffer<float2>
+
     /// Which material each cluster uses.
     var clusterMaterials: Buffer<uint>
 
@@ -171,6 +197,9 @@ shader VisibilityResolve : ClusteredShading {
     var boneBase: uint
 
     var residencyBase: uint
+
+    /// Where this frame's blend-shape weights start in `morphWeights`, in entries. `boneBase`'s twin.
+    var morphWeightBase: uint
 
     /// Where this dispatch's tiles start in `tiles`, and which material it is shading.
     var tileBase: uint
@@ -249,7 +278,7 @@ shader VisibilityResolve : ClusteredShading {
             return
         }
 
-        Shade(pixel, size, identity, record, page, instance, meshes[int(instance.mesh)])
+        Shade(pixel, size, identity, record, page, instance, meshes[int(instance.mesh)], Cull.VisibleCluster(packed))
     }
 
     /// Reconstructs one pixel's surface and shades it.
@@ -265,7 +294,8 @@ shader VisibilityResolve : ClusteredShading {
         record: RasterCluster,
         page: uint,
         instance: CullInstance,
-        mesh: RasterMesh
+        mesh: RasterMesh,
+        clusterIndex: uint
     ) {
         val triangle = Raster.Triangle(identity)
 
@@ -276,9 +306,9 @@ shader VisibilityResolve : ClusteredShading {
         val start = page * pageSize
         val at = start + record.triangleOffset + triangle * 3u
 
-        val v0 = Corner(start, record, mesh, instance, Byte(at))
-        val v1 = Corner(start, record, mesh, instance, Byte(at + 1u))
-        val v2 = Corner(start, record, mesh, instance, Byte(at + 2u))
+        val v0 = Corner(start, record, mesh, instance, clusterIndex, Byte(at))
+        val v1 = Corner(start, record, mesh, instance, clusterIndex, Byte(at + 1u))
+        val v2 = Corner(start, record, mesh, instance, clusterIndex, Byte(at + 2u))
 
         val clip0 = viewProjection * float4(v0.position, 1f)
         val clip1 = viewProjection * float4(v1.position, 1f)
@@ -381,6 +411,7 @@ shader VisibilityResolve : ClusteredShading {
         record: RasterCluster,
         mesh: RasterMesh,
         instance: CullInstance,
+        clusterIndex: uint,
         local: uint
     ): ResolvedVertex {
         val at = start + record.vertexOffset + local * record.vertexStride
@@ -394,6 +425,22 @@ shader VisibilityResolve : ClusteredShading {
         // The attributes, at their offsets past the six bytes of position: a normal as three halves and
         // a coordinate as two. `ModelCompiler.PageAttributeStride` is the other side of this layout.
         var normal = Math.SafeNormalize(float3(Half(at + 6u), Half(at + 8u), Half(at + 10u)))
+
+        // ⚠ **The blend shapes, before the pose and after the decode, on both halves of the vertex.**
+        // The raster morphs the position only, because that is all a visibility buffer needs; this is
+        // the pass that also needs the normal, and it is the pass that would be silently wrong without
+        // it — a face whose geometry opens its mouth and whose shading does not.
+        //
+        // The base normal is normalised above and the sum is not, which is the classic path's rule
+        // exactly: `SurfaceGeometry.Pack` normalises what goes into the vertex buffer and
+        // `MorphKernel` adds a delta to it without renormalising, because a shape may cancel a normal
+        // outright. What consumes it below is `Math.SafeNormalize`, whose degenerate answer is zero.
+        if (mesh.morphRunBase != RasterMesh.NoMorphs && instance.firstWeight != Cull.NoWeights) {
+            val delta = Morphed(instance, mesh, clusterIndex, local)
+
+            object = object + delta.position
+            normal = normal + delta.normal
+        }
 
         // **The pose, by the same call the raster makes on the same bytes.** A disagreement here does
         // not look like a bug: the picture is a plausible character, and the material is sampled from
@@ -415,6 +462,69 @@ shader VisibilityResolve : ClusteredShading {
         result.uv = float2(Half(at + 12u), Half(at + 14u))
 
         return result
+    }
+
+    /// What one page vertex's blend shapes moved it by, gathered.
+    ///
+    /// **`MorphIndex.Apply` transliterated**, and held to it the way `Skin` is held to `Skinning`: the
+    /// host writes the arithmetic once and `MorphIndexTests` holds *that* to `MorphKernel`, which the
+    /// device's own scatter kernel is already held to. Three parties, one definition.
+    ///
+    /// ⚠ **A vertex no shape moves costs two reads and returns zero**, which is most of a face and all
+    /// of a body. That is what the prefix table buys and why the entries are indexed by vertex rather
+    /// than searched per shape.
+    ///
+    /// ⚠ **The normal is not renormalised here or anywhere after.** A shape may cancel one exactly and
+    /// there is no direction left to recover; `VisibilityResolve` `SafeNormalize`s at 1e-4, which
+    /// answers zero rather than a NaN. `MorphKernel` makes the argument at length.
+    func Morphed(instance: CullInstance, mesh: RasterMesh, clusterIndex: uint, local: uint): MorphDelta {
+        // ⚠ Accumulated into locals and assigned to the record once, rather than read-modify-written
+        // through the record's own fields. `delta.position = delta.position + …` inside the loop
+        // compiled, drew, and kept the value it was initialised with — every table correct, every
+        // record correct, the loop body demonstrably running, and a plane at rest. A struct member is
+        // not a place to accumulate in.
+        var position = float3(0f, 0f, 0f)
+        var normal = float3(0f, 0f, 0f)
+
+        // The cluster's own run of source indices, then this corner's entry in it. Two indirections,
+        // because a page vertex carries no identity of its own — see `morphs`.
+        val run = morphs[int(mesh.morphClusterBase + clusterIndex)]
+        val source = morphs[int(run + local)]
+
+        val start = morphs[int(mesh.morphRunBase + source)]
+        val last = morphs[int(mesh.morphRunBase + source + 1u)]
+
+        // ⚠ A counted loop with a break rather than a `while`, and the bound is not a guess.
+        // `MorphIndex.Build` refuses a mesh whose vertex is moved by more than `Morph.MaxShapes`
+        // shapes, naming the vertex — so this bound is unreachable rather than a truncation nobody
+        // would see. `ClusterCulling`'s light loop is the same shape for the same reason.
+        for (i in 0 .. Morph.MaxShapes - 1) {
+            val entry = start + uint(i)
+
+            if (entry >= last) {
+                break
+            }
+
+            val at = mesh.morphEntryBase + entry * Morph.EntryWords
+            val shape = morphs[int(at)]
+            val weight = morphWeights[int(morphWeightBase + instance.firstWeight + shape)]
+
+            val first = morphs[int(at + 1u)]
+            val second = morphs[int(at + 2u)]
+            val third = morphs[int(at + 3u)]
+
+            // Six shorts across three words: the position occupies the first and a half, the normal the
+            // last and a half. `MorphKernel.Pack` decides that layout and this reads it — a reader that
+            // took both triples from the same half would read the position's z as the normal's x.
+            position = position + float3(Morph.Low(first), Morph.High(first), Morph.Low(second)) * weight.x
+            normal = normal + float3(Morph.High(second), Morph.Low(third), Morph.High(third)) * weight.y
+        }
+
+        var delta: MorphDelta
+        delta.position = position
+        delta.normal = normal
+
+        return delta
     }
 
     /// The one matrix a vertex's four influences blend to. `ClusterRaster.Skin`, verbatim.

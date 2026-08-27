@@ -1027,6 +1027,63 @@ validator, because a matrix in a storage buffer has to state its stride and its 
 member is the only place SPIR-V has to put them. `Transform.rvn` had made that decision and written
 down the reason; `BoneMatrix` is the same wrapper for the palette.
 
+#### Blend shapes go the same way, and could not have gone any other way
+
+**✅ Built 2026-08-27**, and it is worth recording because
+[33 § D4](33-character-creator.md#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop)
+asked for the opposite and named it the *cluster-page scatter*.
+
+The classic path morphs by a **compute pre-pass**: a vertex buffer per morphed instance, the rest pose
+copied in, a dispatch per active shape scattering deltas into it, and `MeshDraw.VertexBuffer` pointed
+at the result — so the shading, shadow, velocity and depth passes read one buffer and cannot disagree.
+
+⚠ **That has no analogue here, and the reason is this document's own foundation.** A page is per
+**mesh**. Every instance of a head traverses the same DAG, requests the same pages and reads the same
+pool slot — which is exactly the sharing that makes a hundred thousand clusters affordable to stream.
+Weights are per instance. So a per-instance scatter has nowhere to write short of giving every
+instance a private copy of every resident page it touches, which is the property the whole phase rests
+on.
+
+So blend shapes are a **gather**, where skinning already is: `ClusterRaster` decodes a shared page
+vertex, adds that vertex's own shapes, and then transforms it by that instance's palette. ⚠ **Morph
+before skin** — a delta is authored in the mesh's own space, which is the space a page decodes into
+and the space a bone matrix starts from.
+
+- ⚠ **A page vertex does not know which mesh vertex it is**, and that is the whole cost. A page
+  carries a quantized position and attributes; `MeshletMesh.Vertices` is what identifies the vertex,
+  and it already ships and is already resident. So the gather costs two indirections — a cluster to
+  its run of source indices, a source vertex to its entries — and needs **no content format change at
+  all**: `MorphIndex` is built at registration out of `MeshData.MorphTargets`.
+- ⚠ **The cut stays crack-free through an expression**, which falls out of that. A vertex on a locked
+  boundary appears in a cluster on each side and at several levels; all of them resolve to one source
+  vertex and add the same float terms. A scatter into quantized page bytes could not have promised it.
+- **Three words that were `RasterMesh`'s padding**, and one that was half of `CullInstance`'s — so
+  neither record's stride moved. `RasterMesh` had been **twenty bytes on the host and thirty-two on
+  the device** since phase 4, which is a second registered mesh decoding its grid out of the middle of
+  the first; one virtualized mesh is the only scene in which that is invisible. Found by computing the
+  stride to see what a new member would cost.
+- ⚠ **Only the resolve morphs the normal.** A visibility buffer carries an identity, so the two
+  rasters need a position and nothing else. A resolve left unmorphed is a face whose geometry opens
+  its mouth and whose shading does not.
+- **The bound is expanded per instance**, on the same terms as the pose: `Σ |wᵢ|·reach` goes into
+  `CullInstance.motionRadius` beside whatever the palette put there. Per instance rather than per
+  mesh, because the mesh-wide sum is loose by the number of shapes.
+
+⚠ **And one Raven finding, which is the reason this section exists at all.**
+`delta.position = delta.position + …` — a read-modify-write through a *struct member* inside a loop —
+compiled, dispatched, ran its loop, and kept the value the record was initialised with. Every table
+below it was correct, every host-side record was correct, and the plane drew at rest. Accumulating
+into a local and assigning the record once works. Nothing else in the library reads and writes a
+struct member that way, so nothing had ever exercised it. The defect was found by comparing two
+pictures and could not have been found by a counter — see
+`VirtualGeometryGoldenTests.A_virtualized_mesh_moves_where_its_blend_shapes_say`, whose oracle is a
+closed form rather than a second renderer.
+
+⚠ **Unverified on Apple silicon: the software raster's copy of the gather.** MoltenVK reports no
+64-bit buffer atomics, so phase 6's routing is forced off and no morphed cluster has been drawn
+through it here. Its `Morphed` is character-for-character the hardware raster's, which
+`MorphedClusterTests` asserts and which is the same defence `Skin` has.
+
 ### 2. Forward+ compatible resolve, instead of forced deferred
 
 **This is the most consequential deviation.** Nanite's visibility buffer resolves into a GBuffer, and

@@ -105,7 +105,7 @@ public sealed class GpuClusterRaster : IDisposable {
 
     readonly IGraphicsDevice device;
     readonly Dictionary<(Effect, PixelFormat, PixelFormat), PipelineHandle> pipelines = [];
-    readonly DescriptorWrite[] writes = new DescriptorWrite[8];
+    readonly DescriptorWrite[] writes = new DescriptorWrite[10];
 
     DescriptorSetHandle[] descriptors = [];
     int ring;
@@ -321,6 +321,12 @@ public sealed class GpuClusterRaster : IDisposable {
         writes[5] = DescriptorWrite.Storage(ClusterRasterKeys.PagesBinding, pages.Pages);
         writes[6] = DescriptorWrite.Storage(ClusterRasterKeys.BonesBinding, visibility.Bones);
 
+        // The blend shapes, which are two buffers for the reason skinning is one: the tables are per
+        // mesh and written once at registration, and the weights are per instance and rewritten every
+        // frame. Bound whole and indexed from morphWeightBase, as the palette is and for its reason.
+        writes[7] = DescriptorWrite.Storage(ClusterRasterKeys.MorphsBinding, visibility.Morphs);
+        writes[8] = DescriptorWrite.Storage(ClusterRasterKeys.MorphWeightsBinding, visibility.MorphWeights);
+
         // The uniform block, which holds the page size and the camera. Written into its own ring region
         // for the reason every per-frame block is: the previous frame may still be reading the last one.
         constants ??= new(device, "ClusterRaster.Constants");
@@ -330,11 +336,12 @@ public sealed class GpuClusterRaster : IDisposable {
         parameters.Set(ClusterRasterKeys.InstanceBase, (uint)visibility.InstanceBase);
         parameters.Set(ClusterRasterKeys.BoneBase, (uint)visibility.BoneBase);
         parameters.Set(ClusterRasterKeys.ResidencyBase, (uint)visibility.SlotBase);
+        parameters.Set(ClusterRasterKeys.MorphWeightBase, (uint)visibility.MorphWeightBase);
         parameters.Set(ClusterRasterKeys.ViewProjection, viewProjection);
 
         var updated = constants.Update(EffectOf(), parameters);
 
-        writes[7] = updated
+        writes[9] = updated
             ? DescriptorWrite.Uniform(
                 ClusterRasterKeys.ConstantBufferBinding,
                 constants.Buffer,
@@ -343,7 +350,7 @@ public sealed class GpuClusterRaster : IDisposable {
             )
             : default;
 
-        device.UpdateDescriptorSet(descriptors[ring], updated ? writes : writes.AsSpan(0, 7));
+        device.UpdateDescriptorSet(descriptors[ring], updated ? writes : writes.AsSpan(0, 9));
     }
 
     EffectConstants? constants;

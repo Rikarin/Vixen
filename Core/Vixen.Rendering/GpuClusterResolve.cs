@@ -507,6 +507,13 @@ public sealed class GpuClusterResolve : IDisposable {
             parameters.Set(VisibilityResolveKeys.Residency, visibility.Slots);
             parameters.Set(VisibilityResolveKeys.Pages, pages.Pages);
             parameters.Set(VisibilityResolveKeys.Bones, visibility.Bones);
+
+            // ⚠ The resolve morphs the normal as well as the position, and it is the only pass that
+            // does. The raster needs a position and nothing else — a visibility buffer carries an
+            // identity — so a resolve left unmorphed is a face whose geometry opens its mouth and whose
+            // shading does not, which reads as a lighting bug rather than as a missing feature.
+            parameters.Set(VisibilityResolveKeys.Morphs, visibility.Morphs);
+            parameters.Set(VisibilityResolveKeys.MorphWeights, visibility.MorphWeights);
             parameters.Set(VisibilityResolveKeys.ClusterMaterials, visibility.Materials);
             parameters.Set(VisibilityResolveKeys.Tiles, tiles.Tiles);
             parameters.Set(VisibilityResolveKeys.PageSize, (uint)visibility.PageSize);
@@ -519,6 +526,7 @@ public sealed class GpuClusterResolve : IDisposable {
             parameters.Set(VisibilityResolveKeys.InstanceBase, (uint)visibility.InstanceBase);
             parameters.Set(VisibilityResolveKeys.BoneBase, (uint)visibility.BoneBase);
             parameters.Set(VisibilityResolveKeys.ResidencyBase, (uint)visibility.SlotBase);
+            parameters.Set(VisibilityResolveKeys.MorphWeightBase, (uint)visibility.MorphWeightBase);
             parameters.Set(VisibilityResolveKeys.TileBase, (uint)tiles.TileBase(entry.Index));
             parameters.Set(VisibilityResolveKeys.Material, (uint)entry.Index);
             parameters.Set(VisibilityResolveKeys.TileCount, GpuVisibilityTiles.TilesFor(size));

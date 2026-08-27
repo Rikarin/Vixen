@@ -336,7 +336,9 @@ public sealed class VirtualGeometryGoldenTests {
         Fixture fixture,
         Geometry geometry,
         float softwareThreshold,
-        out int softwareClusters
+        out int softwareClusters,
+        MorphIndex? morphIndex = null,
+        float weight = 0f
     ) {
         var device = fixture.Device;
 
@@ -357,7 +359,7 @@ public sealed class VirtualGeometryGoldenTests {
 
         clusters.Register(system);
 
-        var registered = clusters.Content(0, geometry.Clusters, new MemoryStream(geometry.Pages.Data));
+        var registered = clusters.Content(0, geometry.Clusters, new MemoryStream(geometry.Pages.Data), morphIndex);
 
         var id = system.Objects.Add(
             new() {
@@ -456,6 +458,19 @@ public sealed class VirtualGeometryGoldenTests {
         for (var frame = 0; frame < Frames || (!Settled() && frame < Frames * 16); frame++) {
             fixture.Graph.Reset();
 
+            // ⚠ Every frame, before the compositor is built. The weight buffer holds one frame's
+            // expressions and a run is claimed by position, so a frame that never began would hand
+            // every instance the previous frame's slot — which for a settled loop is invisible right
+            // up until an instance appears or leaves.
+            if (morphIndex is not null) {
+                clusters.Feature.BeginMorphs();
+
+                Assert.True(
+                    clusters.Feature.SetMorphWeights(system, id, [weight]),
+                    "The feature refused the weights, so the mesh registered without its shapes."
+                );
+            }
+
             var built = compositor.Build(fixture.Graph, effects, device);
 
             picture = fixture.Render(built.Texture("harness", "VisibilityBuffer"));
@@ -469,6 +484,36 @@ public sealed class VirtualGeometryGoldenTests {
 
         softwareClusters = clusters.Visibility.SoftwareClusters;
 
+        // ⚠ The records the device actually reads, asserted here rather than inferred from the
+        // picture. Every one of these is a value whose wrong setting draws a plausible frame: a mesh
+        // that says it has no shapes, an instance that says it has no weights, a weight run that never
+        // reached the buffer. See "verify the instrument first" — a picture is evidence about the
+        // shader only once the records it reads are known to say what they should.
+        if (morphIndex is not null) {
+            var record = clusters.Visibility.MeshRecords[0];
+
+            Assert.True(
+                record.MorphRunBase != RasterMesh.NoMorphs,
+                "The registered mesh says it has no blend shapes, so the raster's branch is never taken."
+            );
+
+            Assert.True(
+                clusters.Visibility.MorphWords > 0,
+                "The morph tables are empty, so the mesh record points into nothing."
+            );
+
+            Assert.True(
+                clusters.Visibility.InstanceRecords[0].FirstWeight != GpuCulling.NoWeights,
+                "The instance says it has no weights, so the raster's branch is never taken."
+            );
+
+            Assert.True(
+                clusters.Visibility.MorphWeightCount > 1,
+                $"The weight buffer holds {clusters.Visibility.MorphWeightCount} entries, which is the "
+                + "seed and nothing else."
+            );
+        }
+
         Assert.True(clusters.Visibility.TraversedOnDevice, "The cluster traversal never dispatched.");
 
         Assert.True(
@@ -480,6 +525,191 @@ public sealed class VirtualGeometryGoldenTests {
         );
 
         return picture;
+    }
+
+    /// <summary>
+    ///     A virtualized mesh moves when its blend shapes do, and by exactly as much as they say.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The claim the whole of the paged morph path reduces to, and it needs a picture.</b>
+    ///         A head with twenty shapes drew at rest with every weight applied to nothing, and every
+    ///         counter read healthy — that defect is the reason the importer refused a cluster
+    ///         hierarchy for a morphed mesh, and no counter could have caught it. So this asserts
+    ///         where the pixels are.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is a closed form rather than a second renderer.</b> The shape scales the
+    ///         plane about the origin by <see cref="Shrink" />; the camera sits at the origin looking
+    ///         down negative <c>z</c> and the plane is at a constant depth, so its projection is
+    ///         linear in <c>x</c> and <c>y</c> and the covered bounding box must scale by exactly the
+    ///         same factor. A gather that applied the delta twice, at half strength, with the wrong
+    ///         sign, to the wrong axis or to the wrong vertex all fail this, and a gather that did
+    ///         nothing fails it hardest.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rest frame is asserted first and separately.</b> Two frames that both drew
+    ///         nothing scale perfectly, which is the failure this test is likeliest to have — and it
+    ///         is the failure the feature already had once. The rest frame is held to a plane's worth
+    ///         of pixels before anything is compared with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cut is not the same in the two frames and must not need to be.</b> The
+    ///         traversal picks a level from a rest-pose error, and a shrunk plane is smaller on screen
+    ///         and may settle a level coarser. A flat quad's silhouette is LOD-invariant and the
+    ///         shape is linear in position, so every simplification of it shrinks to the same
+    ///         silhouette — which is the same property this suite's other two tests lean on.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_virtualized_mesh_moves_where_its_blend_shapes_say() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var geometry = Plane();
+        var shapes = Shapes(geometry);
+
+        var rest = Virtualized(owned, geometry, softwareThreshold: 0f, out _, shapes, weight: 0f);
+
+        owned.Graph.Reset();
+
+        var morphed = Virtualized(owned, geometry, softwareThreshold: 0f, out _, shapes, weight: 1f);
+
+        var restMask = Mask(rest, pixel => Word(pixel) != GpuClusterRaster.Nothing);
+        var morphedMask = Mask(morphed, pixel => Word(pixel) != GpuClusterRaster.Nothing);
+
+        // Before anything is compared: a plane's worth of pixels, twice. Two empty frames shrink by
+        // exactly the right factor and mean nothing at all.
+        Assert.True(Count(restMask) > 2048, $"The rest frame covered {Count(restMask)} pixels.");
+        Assert.True(Count(morphedMask) > 512, $"The morphed frame covered {Count(morphedMask)} pixels.");
+
+        var restBox = Extent(restMask, rest.Width);
+        var morphedBox = Extent(morphedMask, morphed.Width);
+
+        // ⚠ The headline: the covered box scaled by the factor the shape scales the mesh by. A pixel
+        // of slack each side, because an edge lands where a quantized page vertex puts it.
+        AssertScaled(restBox.Width, morphedBox.Width, "width");
+        AssertScaled(restBox.Height, morphedBox.Height, "height");
+
+        // And it shrank about the centre rather than moving: a delta applied with a sign error, or to
+        // the position instead of the delta, would scale a box of the right size to the wrong place.
+        Assert.True(
+            Math.Abs(restBox.CentreX - morphedBox.CentreX) <= 1.5
+            && Math.Abs(restBox.CentreY - morphedBox.CentreY) <= 1.5,
+            $"The morphed plane's centre moved from ({restBox.CentreX:F1}, {restBox.CentreY:F1}) to "
+            + $"({morphedBox.CentreX:F1}, {morphedBox.CentreY:F1})."
+        );
+
+        if (Environment.GetEnvironmentVariable("VIXEN_MORPH_PICTURE") is { Length: > 0 } directory) {
+            Directory.CreateDirectory(directory);
+            PngCodec.Save(Path.Combine(directory, "virtualized-rest.png"), Visible(rest));
+            PngCodec.Save(Path.Combine(directory, "virtualized-morphed.png"), Visible(morphed));
+        }
+    }
+
+    /// <summary>How far the shape scales the plane in, at a weight of one.</summary>
+    /// <remarks>
+    ///     A half rather than a nudge, because the assertion is about a bounding box measured in whole
+    ///     pixels: a shape that moved a vertex by less than the edge's own quantisation would pass on a
+    ///     gather that did nothing.
+    /// </remarks>
+    const float Shrink = 0.5f;
+
+    /// <summary>One shape that scales the plane about its centre, re-indexed by vertex.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every vertex is moved, which a real face's shape does not do</b> — a brow-raise touches
+    ///     a few hundred of forty thousand. That is deliberate here: a dense shape is the case where a
+    ///     run table's off-by-one lands on a neighbour that also moved, and where a silhouette answers
+    ///     for every vertex rather than for the few a sparse shape would leave to chance.
+    /// </remarks>
+    static MorphIndex Shapes(in Geometry geometry) {
+        var positions = geometry.Clusters.Pages;
+        var count = geometry.Vertices.Length;
+
+        var indices = new int[count];
+        var deltas = new Vector3[count];
+
+        for (var index = 0; index < count; index++) {
+            var position = geometry.Vertices[index].Position;
+
+            indices[index] = index;
+
+            // In x and y only, and z left alone: the plane is at a constant depth and the projection
+            // of a point on it is linear in the other two, which is what makes the oracle a closed
+            // form rather than a second renderer.
+            deltas[index] = new((Shrink - 1f) * position.X, (Shrink - 1f) * position.Y, 0f);
+        }
+
+        _ = positions;
+
+        var target = MorphTargetData.Encode("shrink", indices, deltas, []);
+        var built = MorphIndex.Build([target], count);
+
+        Assert.NotNull(built);
+
+        return built;
+    }
+
+    /// <summary>The bounding box of a mask, in pixels.</summary>
+    static (double Width, double Height, double CentreX, double CentreY) Extent(bool[] mask, int width) {
+        int left = int.MaxValue, right = int.MinValue, top = int.MaxValue, bottom = int.MinValue;
+
+        for (var index = 0; index < mask.Length; index++) {
+            if (!mask[index]) {
+                continue;
+            }
+
+            var x = index % width;
+            var y = index / width;
+
+            left = Math.Min(left, x);
+            right = Math.Max(right, x);
+            top = Math.Min(top, y);
+            bottom = Math.Max(bottom, y);
+        }
+
+        return (right - left + 1, bottom - top + 1, (left + right) / 2.0, (top + bottom) / 2.0);
+    }
+
+    static void AssertScaled(double rest, double morphed, string what) {
+        var wanted = rest * Shrink;
+
+        Assert.True(
+            Math.Abs(morphed - wanted) <= 2.0,
+            $"The plane's {what} went from {rest} to {morphed} and a weight of one asks for "
+            + $"{wanted:F1}. A ratio of {morphed / rest:F3} against {Shrink}."
+        );
+    }
+
+    /// <summary>A visibility buffer as something a person can look at.</summary>
+    /// <remarks>
+    ///     The word is a slot and a triangle index, so its raw bytes are nearly black. This is the
+    ///     present pass's trick — hash the identity to a colour — reduced to what a saved file needs.
+    /// </remarks>
+    static Bitmap Visible(in Bitmap buffer) {
+        var pixels = new byte[buffer.Pixels.Length];
+
+        for (var index = 0; index < buffer.Width * buffer.Height; index++) {
+            var word = Word(buffer.Pixels.AsMemory(index * 4, 4));
+            var at = index * 4;
+
+            if (word == GpuClusterRaster.Nothing) {
+                pixels[at + 3] = 255;
+                continue;
+            }
+
+            var hash = (word * 2654435761u) ^ (word >> 13);
+
+            pixels[at + 0] = (byte)(64 + (hash & 0x7F));
+            pixels[at + 1] = (byte)(64 + ((hash >> 8) & 0x7F));
+            pixels[at + 2] = (byte)(64 + ((hash >> 16) & 0x7F));
+            pixels[at + 3] = 255;
+        }
+
+        return new(buffer.Width, buffer.Height, pixels);
     }
 
     /// <summary>The camera both paths draw through.</summary>

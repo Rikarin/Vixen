@@ -78,6 +78,9 @@ public static class VirtualGeometryContent {
     /// <param name="id">The id this mesh's pages carry in a <see cref="PageKey" />.</param>
     /// <param name="asset">The records, as one chunk holds them.</param>
     /// <param name="data">The blob. Owned by the source from here.</param>
+    /// <param name="morphIndex">
+    ///     The mesh's blend shapes re-indexed by vertex, or null for a mesh with none.
+    /// </param>
     /// <returns>The index to put in <see cref="Features.VirtualGeometryDraw.Mesh" />.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public static int Load(
@@ -85,7 +88,8 @@ public static class VirtualGeometryContent {
         StreamMeshletPageSource source,
         int id,
         VirtualGeometryAsset asset,
-        Stream data
+        Stream data,
+        MorphIndex? morphIndex = null
     ) {
         ArgumentNullException.ThrowIfNull(feature);
         ArgumentNullException.ThrowIfNull(source);
@@ -93,7 +97,7 @@ public static class VirtualGeometryContent {
 
         source.Add(id, asset.Pages, data);
 
-        return feature.Register(asset.Hierarchy, asset.Pages, id);
+        return feature.Register(asset.Hierarchy, asset.Pages, id, morphIndex);
     }
 
     /// <summary>Reads the two record artefacts, as separate blobs.</summary>
@@ -136,6 +140,9 @@ public static class VirtualGeometryContent {
     /// <param name="hierarchy">The <c>Meshlets</c> artefact's bytes.</param>
     /// <param name="pages">The <c>MeshletPages</c> artefact's bytes.</param>
     /// <param name="data">The <c>MeshletPageData</c> blob. Owned by the source from here.</param>
+    /// <param name="morphIndex">
+    ///     The mesh's blend shapes re-indexed by vertex, or null for a mesh with none.
+    /// </param>
     /// <returns>The index to put in <see cref="Features.VirtualGeometryDraw.Mesh" />.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>
@@ -157,7 +164,8 @@ public static class VirtualGeometryContent {
         int id,
         ReadOnlySpan<byte> hierarchy,
         ReadOnlySpan<byte> pages,
-        Stream data
+        Stream data,
+        MorphIndex? morphIndex = null
     ) {
         ArgumentNullException.ThrowIfNull(feature);
         ArgumentNullException.ThrowIfNull(source);
@@ -167,6 +175,6 @@ public static class VirtualGeometryContent {
 
         source.Add(id, asset.Pages, data);
 
-        return feature.Register(asset.Hierarchy, asset.Pages, id);
+        return feature.Register(asset.Hierarchy, asset.Pages, id, morphIndex);
     }
 }

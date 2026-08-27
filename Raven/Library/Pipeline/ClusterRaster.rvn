@@ -98,6 +98,15 @@ struct RasterMesh {
     /// What `influenceOffset` holds for a mesh with no skeleton.
     const val NoInfluences = 0xFFFFFFFFu
 
+    /// What `morphRunBase` holds for a mesh with no blend shapes.
+    ///
+    /// ⚠ All ones and not zero, unlike `Cull.NoWeights` next door — and the difference is which side of
+    /// the pair a zeroed record has to be safe on. An instance is filled per frame and a slot nobody
+    /// filled must be at rest, so zero means "none" there. A mesh record is filled once at registration
+    /// and zero is a real base: the first morphed mesh registered gets it, so a mesh whose word was
+    /// left zero would wear that mesh's deltas.
+    const val NoMorphs = 0xFFFFFFFFu
+
     var quantizationOrigin: float3
     var quantizationStep: float
 
@@ -109,6 +118,75 @@ struct RasterMesh {
     /// vertex's own mesh record answers. It also keeps a static mesh's page vertex at sixteen bytes
     /// instead of charging every rock in the project eight bytes of zeros.
     var influenceOffset: uint
+
+    /// Where this mesh's per-vertex run table starts in `morphs`, in words, or `NoMorphs`.
+    ///
+    /// **The three words the padding was**, so the record is still 32 bytes on both sides — which it
+    /// had to be declared to be, because a `float3` member aligns it to sixteen and the host was
+    /// writing twenty.
+    ///
+    /// ⚠ `NoMorphs` and not zero. Zero is a real base and the first morphed mesh registered gets it;
+    /// a mesh that read zero by default would be a rock with a face's deltas applied to it.
+    var morphRunBase: uint
+
+    /// Where its entries start in `morphs`, in words. Four words an entry.
+    var morphEntryBase: uint
+
+    /// Where its per-cluster table of source-vertex runs starts in `morphs`, in words.
+    ///
+    /// Indexed by the cluster's index *within this mesh*, which is what the raster already has —
+    /// `geometry` is reached as `instance.firstCluster + clusterIndex`. A table over every cluster in
+    /// the scene would need rebuilding whenever any mesh registered; this one is written once with its
+    /// mesh and never moves.
+    var morphClusterBase: uint
+}
+
+/// Morphing a page vertex: the gather three shaders do, written once.
+///
+/// **A gather rather than a scatter, and the reason is that a page is per mesh.** Every instance of a
+/// head traverses the same DAG and reads the same pool slot — that sharing is what makes streaming a
+/// hundred thousand clusters affordable — while weights are per instance. So there is nowhere for a
+/// per-instance scatter to write, and the deformation happens where the vertex is decoded, exactly as
+/// skinning already does. `MorphIndex` is the host's statement of the same arithmetic and the thing
+/// these are checked against.
+///
+/// ⚠ **Nothing renormalises the normal.** A shape may cancel one exactly, and the consumers
+/// `SafeNormalize` at 1e-4 — `MorphKernel` makes the argument at length.
+struct Morph {
+    /// How many words one entry occupies: the shape's slot, then six quantised components.
+    const val EntryWords = 4u
+
+    /// How many shapes may move one vertex.
+    ///
+    /// The gather is a counted loop with a break, because a data-dependent `while` is a shape no
+    /// shader in this library uses and this one silently emitted a body that never ran — the plane
+    /// drew at rest with every table correct, which is precisely the class of defect this whole path
+    /// was written to stop producing.
+    ///
+    /// ⚠ **The bound is not a truncation, because the host refuses to produce a run longer than it.**
+    /// `MorphIndex.Build` throws and names the vertex. A shader that silently dropped a vertex's
+    /// two-hundred-and-fifty-seventh shape would be right about every mesh anyone has and wrong about
+    /// exactly one, with nothing to say so.
+    const val MaxShapes = 256
+
+    /// One signed short out of a packed word, low half.
+    static func Low(word: uint): float => float(int(word << 16) >> 16)
+
+    /// One signed short out of a packed word, high half.
+    ///
+    /// ⚠ An arithmetic shift on a *signed* value, because a delta is signed. A logical shift reads
+    /// `-1` as `65535`, which is a vertex flung across the mesh rather than a vertex barely moved.
+    static func High(word: uint): float => float(int(word) >> 16)
+}
+
+/// What one vertex's shapes moved it and its normal by.
+///
+/// Both at once because both come out of the same three words — six shorts packed across them, the
+/// position occupying the first word and a half and the normal the last word and a half. A shader that
+/// wanted only the position would still read all three.
+struct MorphDelta {
+    var position: float3
+    var normal: float3
 }
 
 /// How a page vertex packs its four bone influences.
@@ -165,6 +243,32 @@ shader ClusterRaster {
     /// in a push constant, and here there is no per-object command to push it through.
     var bones: Buffer<BoneMatrix>
 
+    /// Every morphed mesh's shapes, re-indexed by vertex, and the cluster-vertex table that reaches them.
+    ///
+    /// Three tables in one buffer, because they are read one after another by the same invocation and a
+    /// binding costs more than an offset. The first `clusterCount` words are indexed by *global* cluster
+    /// — `instance.firstCluster + clusterIndex`, the same index `geometry` takes — and hold where that
+    /// cluster's run of source-vertex indices starts. After them come the runs themselves, then per
+    /// mesh a prefix over its vertices and its entries, at `mesh.morphRunBase` and `mesh.morphEntryBase`.
+    ///
+    /// ⚠ **A page vertex does not know which mesh vertex it is**, which is the whole reason this table
+    /// exists. A cluster's vertex list is the DAG's — `MeshletMesh.Vertices` — and the page carries only
+    /// the position and attributes it copied out. A vertex on a locked boundary appears in a cluster on
+    /// each side and at several levels, and every copy of it must pick up the same delta or the cut
+    /// cracks; the source index is what makes them the same vertex again.
+    var morphs: Buffer<uint>
+
+    /// Every morphed instance's per-shape weights this frame, back to back.
+    ///
+    /// One buffer for the scene with a per-instance base, exactly as `bones` is, and for the same reason
+    /// — there is no per-object command to push a per-object index through.
+    ///
+    /// ⚠ **Pre-multiplied by the shape's quantisation step on the host**: `x` is `weight × positionStep`
+    /// and `y` is `weight × normalStep`. Uploading the weight and the step separately would be a second
+    /// multiplication for the two processors to round differently, and `MorphKernel.Step` already makes
+    /// the argument that one division on the host is one float both then agree about.
+    var morphWeights: Buffer<float2>
+
     /// How many bytes one page occupies in the pool.
     var pageSize: uint
 
@@ -180,6 +284,9 @@ shader ClusterRaster {
     var boneBase: uint
 
     var residencyBase: uint
+
+    /// Where this frame's blend-shape weights start in `morphWeights`, in entries. `boneBase`'s twin.
+    var morphWeightBase: uint
 
     /// The camera.
     var viewProjection: mat4
@@ -244,6 +351,15 @@ shader ClusterRaster {
         // `inverseBindPose * boneWorld` in the *mesh's* space, which is the space the page just decoded
         // into. `VisibilityResolve` does this by the same call on the same bytes; that they are one
         // function is what phase 5's warning about the two transforms asks for.
+        // ⚠ Before the skin and after the decode, which is the order the classic path has by
+        // construction: `MorphRenderFeature` writes a morphed vertex buffer and `SkinningRenderFeature`
+        // skins out of it. A delta is authored in the mesh's own space, so skinning a rest vertex and
+        // then adding one would put a jaw's displacement in the head's bind pose rather than in its
+        // pose.
+        if (mesh.morphRunBase != RasterMesh.NoMorphs && instance.firstWeight != Cull.NoWeights) {
+            position = position + Morphed(instance, mesh, clusterIndex, local).position
+        }
+
         if (mesh.influenceOffset != RasterMesh.NoInfluences && instance.firstBone != Cull.NoBones) {
             position = Math.TransformPoint(Skin(at + mesh.influenceOffset, instance), position)
         }
@@ -253,6 +369,69 @@ shader ClusterRaster {
         identity = Raster.Pack(uint(slot), triangle)
 
         return viewProjection * float4(world, 1f)
+    }
+
+    /// What one page vertex's blend shapes moved it by, gathered.
+    ///
+    /// **`MorphIndex.Apply` transliterated**, and held to it the way `Skin` is held to `Skinning`: the
+    /// host writes the arithmetic once and `MorphIndexTests` holds *that* to `MorphKernel`, which the
+    /// device's own scatter kernel is already held to. Three parties, one definition.
+    ///
+    /// ⚠ **A vertex no shape moves costs two reads and returns zero**, which is most of a face and all
+    /// of a body. That is what the prefix table buys and why the entries are indexed by vertex rather
+    /// than searched per shape.
+    ///
+    /// ⚠ **The normal is not renormalised here or anywhere after.** A shape may cancel one exactly and
+    /// there is no direction left to recover; `VisibilityResolve` `SafeNormalize`s at 1e-4, which
+    /// answers zero rather than a NaN. `MorphKernel` makes the argument at length.
+    func Morphed(instance: CullInstance, mesh: RasterMesh, clusterIndex: uint, local: uint): MorphDelta {
+        // ⚠ Accumulated into locals and assigned to the record once, rather than read-modify-written
+        // through the record's own fields. `delta.position = delta.position + …` inside the loop
+        // compiled, drew, and kept the value it was initialised with — every table correct, every
+        // record correct, the loop body demonstrably running, and a plane at rest. A struct member is
+        // not a place to accumulate in.
+        var position = float3(0f, 0f, 0f)
+        var normal = float3(0f, 0f, 0f)
+
+        // The cluster's own run of source indices, then this corner's entry in it. Two indirections,
+        // because a page vertex carries no identity of its own — see `morphs`.
+        val run = morphs[int(mesh.morphClusterBase + clusterIndex)]
+        val source = morphs[int(run + local)]
+
+        val start = morphs[int(mesh.morphRunBase + source)]
+        val last = morphs[int(mesh.morphRunBase + source + 1u)]
+
+        // ⚠ A counted loop with a break rather than a `while`, and the bound is not a guess.
+        // `MorphIndex.Build` refuses a mesh whose vertex is moved by more than `Morph.MaxShapes`
+        // shapes, naming the vertex — so this bound is unreachable rather than a truncation nobody
+        // would see. `ClusterCulling`'s light loop is the same shape for the same reason.
+        for (i in 0 .. Morph.MaxShapes - 1) {
+            val entry = start + uint(i)
+
+            if (entry >= last) {
+                break
+            }
+
+            val at = mesh.morphEntryBase + entry * Morph.EntryWords
+            val shape = morphs[int(at)]
+            val weight = morphWeights[int(morphWeightBase + instance.firstWeight + shape)]
+
+            val first = morphs[int(at + 1u)]
+            val second = morphs[int(at + 2u)]
+            val third = morphs[int(at + 3u)]
+
+            // Six shorts across three words: the position occupies the first and a half, the normal the
+            // last and a half. `MorphKernel.Pack` decides that layout and this reads it — a reader that
+            // took both triples from the same half would read the position's z as the normal's x.
+            position = position + float3(Morph.Low(first), Morph.High(first), Morph.Low(second)) * weight.x
+            normal = normal + float3(Morph.High(second), Morph.Low(third), Morph.High(third)) * weight.y
+        }
+
+        var delta: MorphDelta
+        delta.position = position
+        delta.normal = normal
+
+        return delta
     }
 
     /// The one matrix a vertex's four influences blend to.

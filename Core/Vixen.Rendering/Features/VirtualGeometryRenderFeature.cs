@@ -50,11 +50,35 @@ public struct VirtualGeometryDraw {
     /// <seealso cref="CullInstance.MotionRadius" />
     public float MotionRadius;
 
+    /// <summary>
+    ///     Where this object's blend-shape weights start in the frame's weight buffer, or zero if it
+    ///     has none.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="FirstBone" />'s twin in every respect, including that zero means "none" — see
+    ///     <see cref="GpuCulling.NoWeights" />. Written by
+    ///     <see cref="VirtualGeometryRenderFeature.SetMorphWeights" /> rather than by whoever fills the
+    ///     draw, because it indexes a buffer that is rebuilt every frame.
+    /// </remarks>
+    public int FirstWeight;
+
+    /// <summary>How far this object's expression can move its geometry, in object space.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="MotionRadius" /> and not folded into it</b>, because the two are
+    ///     written by different callers on different frames — a face can be morphed and unskinned, and
+    ///     a single field would have whichever of the two wrote last. They are added where the record
+    ///     is packed, which is the one place that has both.
+    /// </remarks>
+    public float MorphRadius;
+
     /// <summary>Whether this object contributes an instance at all.</summary>
     public bool IsDrawable => Mesh >= 0;
 
     /// <summary>Whether it has a palette this frame.</summary>
     public bool IsSkinned => FirstBone > 0;
+
+    /// <summary>Whether it has blend-shape weights this frame.</summary>
+    public bool IsMorphed => FirstWeight > 0;
 }
 
 /// <summary>
@@ -110,6 +134,13 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///     object past the retired one at its neighbour's geometry. <c>-1</c> marks a retired slot.
     /// </remarks>
     readonly List<int> registered = [];
+
+    // Kept beside the registrations rather than only handed to the traversal, because the *host* needs
+    // them too: the steps a weight is multiplied by before upload, the names a clip binds by, and the
+    // reach a bound is inflated by are all here and nowhere else.
+    readonly List<MorphIndex?> morphs = [];
+
+    Vector2[] scaled = [];
 
     int retired;
 
@@ -205,6 +236,10 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     /// <param name="mesh">The DAG, as the build wrote it.</param>
     /// <param name="pages">Its page records, with or without their data.</param>
     /// <param name="source">The id the pool knows its page blob by.</param>
+    /// <param name="morphIndex">
+    ///     Its blend shapes re-indexed by vertex, or null for a mesh with none — see
+    ///     <see cref="MorphIndex" /> for why the paged path gathers rather than scatters.
+    /// </param>
     /// <returns>The index to put in <see cref="VirtualGeometryDraw.Mesh" />.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="InvalidOperationException">There is no traversal to register it with.</exception>
@@ -213,7 +248,7 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///     <see cref="IMeshletPageSource" /> was handed the same mesh's blob — and only the caller that
     ///     did both knows.
     /// </remarks>
-    public int Register(MeshletMesh mesh, MeshletPageSet pages, int source) {
+    public int Register(MeshletMesh mesh, MeshletPageSet pages, int source, MorphIndex? morphIndex = null) {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(pages);
 
@@ -224,8 +259,9 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
             );
         }
 
-        Visibility.Register(mesh, pages, source);
+        Visibility.Register(mesh, pages, source, morphIndex);
         registered.Add(source);
+        morphs.Add(morphIndex);
 
         return registered.Count - 1;
     }
@@ -263,6 +299,11 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
 
         Visibility.Unregister(mesh);
         registered[mesh] = -1;
+
+        // ⚠ Dropped with the registration. The traversal retires a mesh in place and keeps its slot, so
+        // an index stays valid for ever — and a table left behind would be the shapes of a mesh that is
+        // gone, handed to whatever draws next under the same index.
+        morphs[mesh] = null;
         retired++;
 
         return source;
@@ -331,6 +372,104 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
         draw.MotionRadius = draw.IsDrawable && draw.Mesh < Visibility.MeshCount
             ? GpuClusterCulling.MotionRadiusFor(palette, Visibility.MeshAt(draw.Mesh).Center, Visibility.MeshAt(draw.Mesh).Radius)
             : 0f;
+    }
+
+    /// <summary>Starts a frame's blend-shape weights. Call before the first <see cref="SetMorphWeights" />.</summary>
+    /// <exception cref="InvalidOperationException">There is no traversal to hold them.</exception>
+    /// <remarks>
+    ///     <see cref="BeginBones" />'s twin and explicit for its reason: what fills the weights is an
+    ///     animation system, and it runs before the render system's phases do.
+    /// </remarks>
+    public void BeginMorphs() {
+        if (Visibility is null) {
+            throw new InvalidOperationException(
+                "Set Visibility before beginning a frame's weights — the buffer they go in lives in it."
+            );
+        }
+
+        Visibility.BeginMorphs();
+    }
+
+    /// <summary>Gives an object its expression for this frame.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="weights">
+    ///     One per <c>MeshData.MorphTargets</c> entry, in that order. Shorter is read as zero for the
+    ///     rest and empty returns the object to rest, which is <c>MorphRenderFeature.SetWeights</c>'
+    ///     rule and has to be the same one.
+    /// </param>
+    /// <returns>Whether the object's mesh has blend shapes at all.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="system" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">There is no traversal to hold them.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The steps are folded in here.</b> What reaches the device is
+    ///         <c>(weight x positionStep, weight x normalStep)</c> per shape, so the shader multiplies
+    ///         once — <c>MorphKernel.Step</c>'s argument, that one division on the host is one float
+    ///         both processors then agree about exactly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An all-zero expression still takes a run.</b> It costs one entry per shape and it
+    ///         keeps the branch a property of the mesh rather than of the frame — an instance that
+    ///         dropped its run when every weight reached zero would flicker between two code paths,
+    ///         and the two are only equal if this one is right.
+    ///     </para>
+    /// </remarks>
+    public bool SetMorphWeights(RenderSystem system, RenderObjectId id, ReadOnlySpan<float> weights) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        if (Visibility is null) {
+            throw new InvalidOperationException(
+                "Set Visibility before giving an object weights — the buffer they go in lives in it."
+            );
+        }
+
+        ref var draw = ref system.Objects.Data.Data(Draws)[id.Index];
+
+        if (!draw.IsDrawable || draw.Mesh >= morphs.Count || morphs[draw.Mesh] is not { } index) {
+            draw.FirstWeight = 0;
+            draw.MorphRadius = 0f;
+
+            return false;
+        }
+
+        // Kept across frames rather than allocated per instance per frame. This runs for every morphed
+        // character every frame a scene has one, and twenty floats of garbage per face per frame is the
+        // sort of thing that is invisible until a crowd.
+        if (scaled.Length < index.ShapeCount) {
+            scaled = new Vector2[Math.Max(index.ShapeCount, 32)];
+        }
+
+        for (var shape = 0; shape < index.ShapeCount; shape++) {
+            var weight = shape < weights.Length ? weights[shape] : 0f;
+            scaled[shape] = new(weight * index.PositionSteps[shape], weight * index.NormalSteps[shape]);
+        }
+
+        draw.FirstWeight = Visibility.AddMorphWeights(scaled.AsSpan(0, index.ShapeCount));
+        draw.MorphRadius = index.Radius(weights);
+
+        return true;
+    }
+
+    /// <summary>What an object's mesh calls each of its weight slots.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <returns>The shape names, in slot order, or empty when its mesh has none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="system" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b><c>MorphRenderFeature.ShapesOf</c>'s counterpart, and it exists for the same reason.</b>
+    ///     A clip names a shape, <c>BlendShapeWeights</c> is addressed by slot, and the ordinal a
+    ///     source file used is not the ordinal <c>MeshData.MorphTargets</c> ended up with. Something on
+    ///     each path has to have seen both ends; on this one it is the registration.
+    /// </remarks>
+    public ReadOnlySpan<string> ShapesOf(RenderSystem system, RenderObjectId id) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        var draw = system.Objects.Data.Data(Draws)[id.Index];
+
+        return draw.IsDrawable && draw.Mesh < morphs.Count && morphs[draw.Mesh] is { } index
+            ? index.Names
+            : [];
     }
 
     /// <inheritdoc />
@@ -433,7 +572,13 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
             Flags = candidate.IsAlive ? GpuCulling.Alive : 0u,
             Mesh = (uint)draw.Mesh,
             FirstBone = draw.IsSkinned ? (uint)draw.FirstBone : GpuCulling.NoBones,
-            MotionRadius = draw.IsSkinned ? draw.MotionRadius : 0f
+            FirstWeight = draw.IsMorphed ? (uint)draw.FirstWeight : GpuCulling.NoWeights,
+
+            // ⚠ The two inflations added, and both guarded by their own flag. Every bound in the DAG is
+            // a rest-pose bound, so a traversal that tested them as they stand culls a dropped jaw by
+            // where it is not — and a cluster that is not drawn does not say so anywhere.
+            MotionRadius = (draw.IsSkinned ? draw.MotionRadius : 0f)
+                + (draw.IsMorphed ? draw.MorphRadius : 0f)
         };
     }
 

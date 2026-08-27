@@ -918,7 +918,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "instances.padding0",
+              "Name": "instances.firstWeight",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -2019,7 +2019,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "instances.padding0",
+      "Name": "instances.firstWeight",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,

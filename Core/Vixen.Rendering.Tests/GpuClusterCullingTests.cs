@@ -598,6 +598,16 @@ public class GpuClusterCullingTests {
         // the device, which reads instance one out of the middle of instance zero.
         Assert.Equal(64, System.Runtime.InteropServices.Marshal.SizeOf<CullInstance>());
 
+        // ⚠ The raster's two records, which this assertion did not cover until they were the ones that
+        // were wrong. `RasterMesh` is a float3 and some words, so the device aligns the record to
+        // sixteen and its array stride is the size rounded up to it — `ClusterRaster.reflect.json`
+        // says 32. The host wrote 20, and one mesh is the only scene in which that is invisible:
+        // registered mesh zero decodes correctly out of offset zero and every mesh after it reads its
+        // quantization grid out of the middle of the one before, which is geometry folded in on
+        // itself with a healthy cluster count beside it.
+        Assert.Equal(32, System.Runtime.InteropServices.Marshal.SizeOf<RasterMesh>());
+        Assert.Equal(32, System.Runtime.InteropServices.Marshal.SizeOf<RasterCluster>());
+
         Assert.Equal(1024, GpuClusterCulling.QueueCapacity);
         Assert.Equal(1u, GpuClusterCulling.ClusterRoot);
     }

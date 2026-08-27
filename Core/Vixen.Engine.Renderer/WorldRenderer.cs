@@ -877,7 +877,18 @@ public sealed class WorldRenderer : IDisposable {
         // slider, or an animation once the clip format carries a scalar track. Registered whether or
         // not the scene has a morphed mesh in it, on TerrainExtraction's terms: an empty query costs a
         // walk over no chunks, and a level that gains a character must not need the loop reassembled.
-        loop.Add(new MorphWeightSystem { Feature = Morphing });
+        // ⚠ Both features, because a morphed mesh takes one path or the other and the system cannot
+        // tell which from the entity. A mesh with a cluster hierarchy is extracted down
+        // VirtualGeometryRenderFeature's path and never reaches MorphRenderFeature.Attach, which is
+        // how a head with twenty shapes came to draw at rest with every weight applied to nothing and
+        // every counter reading healthy.
+        loop.Add(
+            new MorphWeightSystem {
+                Feature = Morphing,
+                Virtualized = Clusters?.Feature,
+                Renderer = Host.System
+            }
+        );
     }
 
     /// <summary>Draws the frame, having first put the content work the frame needs on the list.</summary>

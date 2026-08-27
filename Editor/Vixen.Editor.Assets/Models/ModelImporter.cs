@@ -74,13 +74,24 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     Eleven since a <b>morphed mesh gets no cluster hierarchy</b>. A version-ten artefact of a
     ///     morphed mesh has one, and a mesh that has one is taken down
     ///     <c>VirtualGeometryRenderFeature</c>'s path by <c>MeshExtractionSystem.Clustered</c> —
-    ///     which packs vertices into pages and never reaches <c>MorphRenderFeature.Attach</c>. ⚠ So
-    ///     the artefact this version does not produce is the one that made a head with twenty shapes
+    ///     which packs vertices into pages and never reached <c>MorphRenderFeature.Attach</c>. ⚠ So
+    ///     the artefact that version did not produce was the one that made a head with twenty shapes
     ///     draw at rest, with every weight applied to nothing and nothing reported. A re-import
     ///     trigger like the bump above it: no reader breaks, but only a re-import removes the
     ///     hierarchy that is doing the harm.
+    ///     Twelve since a <b>morphed mesh gets one again</b>, because the paged path now morphs. ⚠
+    ///     <b>This one is a re-import trigger in the other direction and it is the interesting
+    ///     case:</b> nothing is wrong with a version-eleven artefact — a morphed mesh without a
+    ///     hierarchy draws correctly through <c>MorphRenderFeature</c>, exactly as it did. What it
+    ///     does not do is stream, so a project that never re-imports keeps a suballocated head, a
+    ///     resident vertex range per instance and no level of detail on a face. The number is here so
+    ///     that one content build gets it back, and so that the two versions can be told apart when
+    ///     somebody asks why a head is not virtualized.
+    ///     ⚠ <b>What made the refusal safe to lift is a picture and not a counter</b>, because a
+    ///     counter is what said the feature was fine the first time — see
+    ///     <c>VirtualGeometryGoldenTests.A_virtualized_mesh_moves_where_its_blend_shapes_say</c>.
     /// </remarks>
-    public override int Version => 11;
+    public override int Version => 12;
 
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>
@@ -188,26 +199,63 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         // retopology replaced them would be the most expensive no-op in the pipeline.
         await RetopologiseAsync(context, settings, read, cancellationToken).ConfigureAwait(false);
 
-        foreach (var mesh in read.Meshes) {
-            if (mesh.IsMorphed && settings.GenerateMeshlets && mesh.Indices.Length > 0) {
-                // ⚠ A morphed mesh is NOT virtualized, and this is the one exclusion that is about
-                // correctness rather than cost. `MeshExtractionSystem.Clustered` takes any mesh
-                // carrying a cluster hierarchy down `VirtualGeometryRenderFeature`'s path, which packs
-                // its vertices into pages and never reaches `MorphRenderFeature.Attach` — so a head
-                // with twenty shapes draws at REST, silently, with every weight applied to nothing.
-                // The cluster-page scatter is the owed half of docs/plan/33 § D4; until it exists,
-                // refusing the hierarchy is what makes the two paths agree about what is built. The
-                // skinned case above is different in kind: skinning is designed into a cluster.
-                morphed++;
+        // ⚠ Whether a mesh gets a cluster hierarchy at all, beyond "was one asked for".
+        //
+        // `MorphIndex.Build` is what the runtime does with a mesh's shapes, and it refuses a target
+        // that names a vertex the mesh does not have — inside a page source's `TryGet`, which is a
+        // dead frame loop on a load rather than a failed import. `RetopologiseAsync` replaces a mesh's
+        // vertices and leaves `MeshData.MorphTargets` as they were, so this is reachable by an
+        // ordinary import setting and not only by a corrupt file.
+        bool Hierarchy(MeshData candidate) {
+            if (!candidate.IsMorphed
+                || MorphIndex.Refused(candidate.MorphTargets, candidate.Positions.Length) is not { } why) {
+                return true;
+            }
 
-                context.Report(
-                    ImportSeverity.Information,
-                    $"'{mesh.Name}' carries blend shapes, so no cluster hierarchy was built for it. A "
-                    + "virtualized mesh is drawn from its pages and the morph pre-pass writes a vertex "
-                    + "buffer, so a morphed mesh with clusters would be drawn at rest whatever its "
-                    + "weights said."
-                );
-            } else if (settings.GenerateMeshlets && mesh.Indices.Length > 0) {
+            refused++;
+
+            context.Report(
+                ImportSeverity.Error,
+                $"'{candidate.Name}' gets no cluster hierarchy, because {why}. A virtualized mesh "
+                + "gathers its blend shapes by mesh vertex, and the table that makes that a lookup "
+                + "cannot be built for this one — which would be a throw on load rather than an error "
+                + "here."
+            );
+
+            return false;
+        }
+
+        foreach (var mesh in read.Meshes) {
+            // ⚠ A condition rather than a `continue` inside the block, and the difference is the whole
+            // mesh. Everything
+            // below the hierarchy in this loop — the mesh chunk itself, the distance field — belongs
+            // to every mesh whatever happened to its clusters, and a `continue` in the refusal below
+            // dropped the mesh from the model rather than dropping its hierarchy.
+            if (settings.GenerateMeshlets && mesh.Indices.Length > 0 && Hierarchy(mesh)) {
+                // ⚠ A morphed mesh IS virtualized again, and the refusal that stood here is gone
+                // because the thing it was waiting for exists. Version 11 refused a cluster hierarchy
+                // for a morphed mesh: `MeshExtractionSystem.Clustered` takes any mesh that has one
+                // down `VirtualGeometryRenderFeature`'s path, which packs its vertices into pages and
+                // never reached `MorphRenderFeature.Attach` — so a head with twenty shapes drew at
+                // REST with every weight applied to nothing, and said so nowhere.
+                //
+                // What closes it is not the scatter docs/plan/33 § D4 asked for, and the difference is
+                // structural: a page is per *mesh* and every instance reads the same bytes, so a
+                // per-instance scatter has nowhere to write. The three shaders that decode a page
+                // vertex GATHER its shapes instead, exactly as they already gather an instance's bone
+                // palette. `MorphIndex` is the table, and
+                // `VirtualGeometryGoldenTests.A_virtualized_mesh_moves_where_its_blend_shapes_say` is
+                // the picture — which is what this refusal was owed, a counter having been no use.
+                // ⚠ And the one case where it still gets none, checked here rather than left to blow
+                // up at registration. `MorphIndex.Build` is what the runtime does with these targets
+                // and it refuses a target that names a vertex the mesh does not have — which is a
+                // throw inside a page source's TryGet, i.e. a dead frame loop on a load. Retopology
+                // rewrites a mesh's vertices and does not rewrite its shapes, so this is reachable by
+                // an ordinary import setting rather than by a corrupt file.
+                if (mesh.IsMorphed) {
+                    morphed++;
+                }
+
                 // Skinned meshes are included, unlike the distance field below. A cluster carries the
                 // range of bones its vertices are weighted to, so a traversal can expand its bound by
                 // what those bones are doing — which is improvement 1 of docs/plan/22-virtualized-geometry.md
@@ -338,14 +386,14 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         }
 
         if (morphed > 0) {
-            // Information for the same reason, and the summary line as well as the per-mesh ones,
-            // because "why is my head not virtualized" is a question asked about a model and not
-            // about a mesh.
+            // Information, and it stays because the question it answers changed rather than went
+            // away: "is my head virtualized" is asked about a model and not about a mesh, and the
+            // answer used to be no for every one of them.
             context.Report(
                 ImportSeverity.Information,
-                $"{morphed} morphed mesh(es) have no cluster hierarchy. The morph pre-pass writes a "
-                + "vertex buffer and the virtualized path draws from pages, so one with clusters "
-                + "would be drawn at rest with its weights applied to nothing."
+                $"{morphed} morphed mesh(es) have a cluster hierarchy. A virtualized mesh gathers its "
+                + "blend shapes where it decodes a page vertex, so its weights reach it through the "
+                + "traversal rather than through the morph pre-pass."
             );
         }
 
