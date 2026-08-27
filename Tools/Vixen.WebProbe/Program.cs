@@ -318,9 +318,27 @@ loop.Start(_ => {
         resizeObserved = true;
     }
 
-    if (frames % 30 == 0) {
+    // ⚠ Frame 1 as well as every 10th, and BOTH numbers were bought with a red leg.
+    //
+    // Frame 1, because the driver takes a baseline from these lines: the Linux CI runner reaches
+    // its input and prints `done` at frame TWELVE where this Mac takes until frame 52, so with a
+    // 30-frame cadence alone the baseline did not exist yet on the slower machine and the driver
+    // read a sentinel. Nothing was wrong with the engine.
+    //
+    // Every 10th rather than every 30th, because the driver has to see the count MOVE, and how
+    // long that takes is the cadence divided by the frame rate. At 30 frames a run below about
+    // 30 fps could go a whole second without crossing a boundary and look stopped — and the rAF
+    // the driver measured for itself on that Linux runner was 38/s. The driver no longer waits a
+    // fixed second either, but a cadence that is small next to the rate is what keeps the two
+    // independent.
+    if (frames == 1 || frames % 10 == 0) {
         // The driver reads this twice, a second apart, and requires it to have moved. A loop that
         // ran once and stopped reports a number and then reports it forever.
+        //
+        // `rate` is WebFrameLoop.RefreshRate, which is refreshRate() across the boundary: the
+        // median of the last two seconds' intervals, and 0 until ten of them have gone by. So it
+        // is legitimately 0 on the frame-1 line, and the driver reads it off the LAST line rather
+        // than the first.
         Console.WriteLine($"VIXENPROBE frames={frames} rate={loop.RefreshRate:0.#}");
     }
 

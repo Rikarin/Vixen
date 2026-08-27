@@ -745,30 +745,87 @@ async function main() {
         // stopped, which is exactly what defect 2 (`dotnet.run()` instead of `runMain()`)
         // produced and what `nuke PublishWeb` can only guess at from a published file's shape,
         // passes every check above and fails this one.
+        //
+        // ⚠ IT WAITS FOR THE BASELINE RATHER THAN ASSUMING ONE EXISTS, and that cost a red leg to
+        // learn. The probe used to report only every 30th frame, and the Linux CI runner sees its
+        // input and prints `done` at frame TWELVE where this Mac takes until frame 52 — so the
+        // driver read its baseline before any frames= line had been printed, got the -1 sentinel,
+        // and failed. Nothing was wrong with the engine. Waiting on a line the page actually
+        // emits is the rule this repository's flake row keeps restating, and this is the place
+        // the leg was not yet obeying it.
+        await waitForLine(
+            consoleLines,
+            'VIXENPROBE frames=',
+            'the page finished its checks but never reported a frame count, so the frame loop is '
+            + 'not running at all. ⚠ Read this together with the rAF line above: if the driver '
+            + 'measured a live compositor and the engine still never ticked, the callback never '
+            + 'reached managed code.',
+            30_000,
+            fullTranscript
+        );
+
+        // ⚠ Waits for the count to MOVE, within a budget — it does not sleep a second and then
+        // look. A fixed window couples this check to the probe's reporting cadence divided by the
+        // frame rate: with the old 30-frame cadence, a run below about 30 fps could go a whole
+        // second without crossing a boundary and be reported as a stopped loop. The driver
+        // measured 38 rAF/s for itself on the Linux runner, so that was not a hypothetical margin.
+        // Now the cadence is 10 and the wait is adaptive, and the two are independent.
+        // ⚠ It waits for SUSTAINED advance — three reporting blocks, thirty frames — and not for
+        // the first increment. Stopping at the first one was measured passing against a loop
+        // deliberately killed a tenth of a second later: "60 → 70 over 0.1 s", which is true and
+        // is not the claim this check is here to make. Thirty frames is half a second at 60 Hz and
+        // a second and a half at the 20 the slowest plausible runner manages, and the budget below
+        // covers down to about six.
         const framesBefore = framesSoFar(consoleLines);
-        await sleep(1000);
-        const framesAfter = framesSoFar(consoleLines);
+        const wanted = framesBefore + 30;
+        const startedAt = Date.now();
+        let framesAfter = framesBefore;
+
+        while (Date.now() - startedAt < 5_000) {
+            await sleep(100);
+            framesAfter = framesSoFar(consoleLines);
+            if (framesAfter >= wanted) break;
+        }
+
+        const elapsed = (Date.now() - startedAt) / 1000;
 
         check(
-            'the page reported a frame count at all',
-            framesBefore >= 0,
-            `highest frames= line seen: ${framesBefore}`
+            'the managed frame loop is still ticking after its checks are done',
+            framesAfter >= wanted,
+            `${framesBefore} → ${framesAfter} over ${elapsed.toFixed(1)} s, wanted ${wanted}`
         );
 
-        check(
-            'the managed frame loop is still ticking a second later',
-            framesAfter > framesBefore,
-            `${framesBefore} → ${framesAfter} in 1 s`
-        );
+        // ⚠ A floor, and a deliberately low one. The rate is the display's, and a headless runner
+        // compositing in software is under no obligation to hit 60 — the two machines this has run
+        // on measured 61/s and 38/s. What this floor is against is the only number a dead loop can
+        // produce, which is zero.
+        const observedRate = elapsed > 0 ? (framesAfter - framesBefore) / elapsed : 0;
 
-        // ⚠ A floor, and a deliberately low one. The rate is the display's — a software-composited
-        // headless runner is under no obligation to hit 60 — and the page reports every 30th frame,
-        // so the observable delta over a second is quantised to multiples of 30. What this floor
-        // is against is the only number a dead loop can produce, which is zero.
         check(
             'the frame loop ran at a plausible rate',
-            framesAfter - framesBefore >= 15,
-            `${framesAfter - framesBefore} frames in 1 s (reported in blocks of 30), floor 15`
+            observedRate >= 5,
+            `${observedRate.toFixed(1)} frames/s observed from outside (floor 5)`
+        );
+
+        // ⚠ The engine's OWN measurement of the rate, which is a different claim from the two
+        // above and the only check on `refreshRate()`. There is no browser API for a display's
+        // rate — WebFrameLoop.RefreshRate is the median of the last two seconds' intervals,
+        // computed in JavaScript and marshalled back — so it is arithmetic over a table that
+        // nothing else exercises, and its documented failure value is 0 (fewer than ten intervals
+        // seen). A band rather than a number: 60 on both machines measured so far, but a runner
+        // compositing in software is under no obligation, and 120 Hz hardware is common.
+        const lastRate = consoleLines
+            .map(line => /^VIXENPROBE frames=\d+ rate=([\d.]+)$/.exec(line.text))
+            .filter(Boolean)
+            .map(match => Number(match[1]))
+            .at(-1);
+
+        check(
+            'the engine measured its own refresh rate',
+            lastRate !== undefined && lastRate >= 10 && lastRate <= 360,
+            lastRate === undefined
+                ? 'no frames= line carried a rate'
+                : `${lastRate} Hz, from refreshRate()'s median of the last two seconds`
         );
 
         // ── The summary ──────────────────────────────────────────────────────────────────────
@@ -805,8 +862,8 @@ async function main() {
 
         console.log(
             `OK — ${ledger.length} checks, all passed. The [JSImport] boundary was executed in `
-            + `${version.Browser} and the frame loop was still ticking a second after the page `
-            + 'finished booting.'
+            + `${version.Browser}, and the frame loop was still advancing after the page had `
+            + 'finished every check it makes.'
         );
 
         return 0;

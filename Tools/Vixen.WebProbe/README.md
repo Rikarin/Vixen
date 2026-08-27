@@ -50,7 +50,7 @@ VIXENPROBE check indexeddb-round-trip pass 8 bytes back of 8
 VIXENPROBE done checks=23 failed=0
 ```
 
-`browser-smoke.mjs` parses those, adds twelve of its own, and fails the build if any of the
+`browser-smoke.mjs` parses those, adds fourteen of its own, and fails the build if any of the
 thirty-five did not pass — or if fewer than thirty-five ran at all. What each check reaches is set
 out in `Program.cs`; between them they execute every marshalling shape the boundary has: a `void`
 call, primitives, strings in both directions, `[JSMarshalAs<JSType.MemoryView>]` in both directions,
