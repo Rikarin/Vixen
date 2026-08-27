@@ -58,13 +58,34 @@ public sealed class MorphIndex {
     /// </remarks>
     public const int EntryWords = MorphKernel.EntryWords;
 
-    MorphIndex(uint[] runs, uint[] entries, float[] positionSteps, float[] normalSteps, int vertexCount) {
+    MorphIndex(
+        string[] names,
+        uint[] runs,
+        uint[] entries,
+        float[] positionSteps,
+        float[] normalSteps,
+        float[] reaches,
+        int vertexCount
+    ) {
+        Names = names;
         Runs = runs;
         Entries = entries;
         PositionSteps = positionSteps;
         NormalSteps = normalSteps;
+        Reaches = reaches;
         VertexCount = vertexCount;
     }
+
+    /// <summary>What the mesh calls each of its shapes, in slot order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The authoritative answer to "which slot is <c>jawOpen</c>" for a virtualized mesh</b>,
+    ///     as <c>MorphRenderFeature.ShapesOf</c> is for a suballocated one. A clip binds a shape by
+    ///     name and <c>BlendShapeWeights</c> is addressed by slot, and the ordinal a source file used
+    ///     is not the ordinal <c>MeshData.MorphTargets</c> ended up with — <c>ReadMorphTargets</c>
+    ///     drops a shape that moves nothing above the threshold and deduplicates the names of the
+    ///     rest. Something on each path has to have seen both ends, and on this one it is this.
+    /// </remarks>
+    public string[] Names { get; }
 
     /// <summary>
     ///     Where each vertex's entries start, with a trailing total — <c>VertexCount + 1</c> of them.
@@ -104,6 +125,24 @@ public sealed class MorphIndex {
 
     /// <summary>What one quantised normal unit is worth, per shape.</summary>
     public float[] NormalSteps { get; }
+
+    /// <summary>How far one shape moves the vertex it moves most, per shape.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What an instance's bound is actually inflated by, once its weights are known:
+    ///         <c>Σ |wᵢ|·Reaches[i]</c> rides in <c>CullInstance.MotionRadius</c>, which the traversal
+    ///         already adds to every cluster radius for a skinned instance's pose. So a face holding
+    ///         still inflates nothing and a face at full expression inflates by what it is actually
+    ///         doing, rather than by what twenty shapes could do at once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per shape and summed per instance, rather than one number per mesh</b>, because
+    ///         the mesh-wide sum is what <see cref="MaxDisplacement" /> is and it is loose by the
+    ///         number of shapes. A twenty-shape head making one expression would be tested against a
+    ///         bound twenty shapes wide, which draws clusters no camera can see.
+    ///     </para>
+    /// </remarks>
+    public float[] Reaches { get; }
 
     /// <summary>How many vertices the mesh has, which is <see cref="Runs" />'s length less one.</summary>
     public int VertexCount { get; }
@@ -188,13 +227,16 @@ public sealed class MorphIndex {
 
         runs.AsSpan(0, vertexCount).CopyTo(cursor);
 
+        var names = new string[targets.Count];
         var positionSteps = new float[targets.Count];
         var normalSteps = new float[targets.Count];
+        var reaches = new float[targets.Count];
         var displacement = 0f;
 
         for (var shape = 0; shape < targets.Count; shape++) {
             var target = targets[shape];
 
+            names[shape] = target.Name;
             positionSteps[shape] = MorphKernel.Step(target.PositionScale);
             normalSteps[shape] = MorphKernel.Step(target.NormalScale);
 
@@ -213,10 +255,41 @@ public sealed class MorphIndex {
                 reach = MathF.Max(reach, target.PositionDelta(entry).Length());
             }
 
+            reaches[shape] = reach;
             displacement += reach;
         }
 
-        return new(runs, entries, positionSteps, normalSteps, vertexCount) { MaxDisplacement = displacement };
+        return new(names, runs, entries, positionSteps, normalSteps, reaches, vertexCount) {
+            MaxDisplacement = displacement
+        };
+    }
+
+    /// <summary>How far these weights can move any vertex, in object space.</summary>
+    /// <param name="weights">One per shape. Shorter is read as zero for the rest.</param>
+    /// <returns>The bound, which is zero for a mesh at rest.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         What goes in <c>CullInstance.MotionRadius</c>, added to whatever a pose already put
+    ///         there. Every bound in the DAG is a rest-pose bound, so a traversal that tested them as
+    ///         they stand culls a dropped jaw by where it is not — and the failure is silent, because
+    ///         a cluster that is not drawn does not say so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The absolute weight, because a negative one displaces just as far.</b> An
+    ///         exporter that authored a shape as the inverse of its neighbour produces exactly that,
+    ///         and a bound that summed signed weights would shrink where it needs to grow.
+    ///     </para>
+    /// </remarks>
+    public float Radius(ReadOnlySpan<float> weights) {
+        var radius = 0f;
+
+        for (var shape = 0; shape < Reaches.Length; shape++) {
+            if (shape < weights.Length) {
+                radius += MathF.Abs(weights[shape]) * Reaches[shape];
+            }
+        }
+
+        return radius;
     }
 
     /// <summary>

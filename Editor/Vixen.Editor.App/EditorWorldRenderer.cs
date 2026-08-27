@@ -179,7 +179,15 @@ sealed class EditorWorldRenderer : IDisposable {
         };
 
         lights = new(Renderer.Lighting);
-        weights = new() { Feature = Renderer.Morphing };
+        weights = new() {
+            Feature = Renderer.Morphing,
+
+            // ⚠ And the virtualized half, so a morphed mesh with a cluster hierarchy moves in the
+            // scene view too. Without it the inspector's slider drives a feature that never attached
+            // the object, and the viewport shows a face at rest while the number changes.
+            Virtualized = Renderer.Clusters?.Feature,
+            Renderer = Renderer.Host.System
+        };
 
         // ⚠ The views before the build, the build before the mask, and the mask before anything
         // extracts. The first is the builder's rule — a `view:` is bound by name as each node is

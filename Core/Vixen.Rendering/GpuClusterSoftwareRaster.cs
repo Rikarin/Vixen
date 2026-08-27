@@ -84,7 +84,7 @@ public sealed class GpuClusterSoftwareRaster : IDisposable {
     public static uint IdentityOf(ulong key) => (uint)key;
 
     readonly IGraphicsDevice device;
-    readonly DescriptorWrite[] writes = new DescriptorWrite[11];
+    readonly DescriptorWrite[] writes = new DescriptorWrite[13];
 
     DescriptorSetHandle[] descriptors = [];
     int ring;
@@ -322,6 +322,12 @@ public sealed class GpuClusterSoftwareRaster : IDisposable {
         // for. Phase 5 found that the hard way — see EffectSetWriter.
         writes[9] = DescriptorWrite.StorageImage(ClusterSoftwareRasterKeys.IdentitiesBinding, identities);
 
+        // The blend shapes, on the raster's terms: the tables are per mesh and written once at
+        // registration, the weights per instance and rewritten every frame. This raster places the same
+        // vertex the hardware one does, so it morphs it by the same call on the same bytes.
+        writes[10] = DescriptorWrite.Storage(ClusterSoftwareRasterKeys.MorphsBinding, visibility.Morphs);
+        writes[11] = DescriptorWrite.Storage(ClusterSoftwareRasterKeys.MorphWeightsBinding, visibility.MorphWeights);
+
         constants ??= new(device, "ClusterSoftwareRaster.Constants");
 
         var parameters = new ParameterCollection();
@@ -329,12 +335,13 @@ public sealed class GpuClusterSoftwareRaster : IDisposable {
         parameters.Set(ClusterSoftwareRasterKeys.InstanceBase, (uint)visibility.InstanceBase);
         parameters.Set(ClusterSoftwareRasterKeys.BoneBase, (uint)visibility.BoneBase);
         parameters.Set(ClusterSoftwareRasterKeys.ResidencyBase, (uint)visibility.SlotBase);
+        parameters.Set(ClusterSoftwareRasterKeys.MorphWeightBase, (uint)visibility.MorphWeightBase);
         parameters.Set(ClusterSoftwareRasterKeys.Screen, size);
         parameters.Set(ClusterSoftwareRasterKeys.ViewProjection, viewProjection);
 
         var updated = constants.Update(effect, parameters);
 
-        writes[10] = updated
+        writes[12] = updated
             ? DescriptorWrite.Uniform(
                 ClusterSoftwareRasterKeys.ConstantBufferBinding,
                 constants.Buffer,
@@ -343,7 +350,7 @@ public sealed class GpuClusterSoftwareRaster : IDisposable {
             )
             : default;
 
-        device.UpdateDescriptorSet(descriptors[ring], updated ? writes : writes.AsSpan(0, 10));
+        device.UpdateDescriptorSet(descriptors[ring], updated ? writes : writes.AsSpan(0, 12));
     }
 
     /// <summary>The packed buffer, the dispatch arguments and the blank that zeroes the first.</summary>

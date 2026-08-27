@@ -1321,7 +1321,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "tileBase",
+              "Name": "morphWeightBase",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -1337,7 +1337,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "material",
+              "Name": "tileBase",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -1353,6 +1353,22 @@
               "DefaultValue": ""
             },
             {
+              "Name": "material",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 24,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
               "Name": "tileCount",
               "Type": {
                 "Scalar": "Int",
@@ -1362,7 +1378,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 24,
+              "Offset": 32,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -1378,7 +1394,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 32,
+              "Offset": 48,
               "Size": 64,
               "ArrayStride": 0,
               "MatrixStride": 16,
@@ -1394,7 +1410,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 96,
+              "Offset": 112,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -1410,7 +1426,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 108,
+              "Offset": 124,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -1426,14 +1442,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 112,
+              "Offset": 128,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.5"
             }
           ],
-          "Size": 128,
+          "Size": 144,
           "IsWritable": false
         },
         {
@@ -1690,7 +1706,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "instances.padding0",
+              "Name": "instances.firstWeight",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -1922,7 +1938,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "meshes.padding0",
+              "Name": "meshes.morphRunBase",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -1938,7 +1954,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "meshes.padding1",
+              "Name": "meshes.morphEntryBase",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -1954,7 +1970,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "meshes.padding2",
+              "Name": "meshes.morphShapeCount",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -2073,6 +2089,60 @@
         },
         {
           "Binding": 9,
+          "Name": "morphs",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Compute",
+          "Members": [
+            {
+              "Name": "morphs",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
+          "IsWritable": false
+        },
+        {
+          "Binding": 10,
+          "Name": "morphWeights",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Compute",
+          "Members": [
+            {
+              "Name": "morphWeights",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 8,
+          "IsWritable": false
+        },
+        {
+          "Binding": 11,
           "Name": "clusterMaterials",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -2099,7 +2169,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 10,
+          "Binding": 12,
           "Name": "tiles",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -2126,7 +2196,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 11,
+          "Binding": 13,
           "Name": "target",
           "Type": "StorageImage",
           "Count": 1,
@@ -2136,7 +2206,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 12,
+          "Binding": 14,
           "Name": "albedoTarget",
           "Type": "StorageImage",
           "Count": 1,
@@ -2146,7 +2216,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 13,
+          "Binding": 15,
           "Name": "normalTarget",
           "Type": "StorageImage",
           "Count": 1,
@@ -2156,7 +2226,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 14,
+          "Binding": 16,
           "Name": "specularTarget",
           "Type": "StorageImage",
           "Count": 1,
@@ -3682,7 +3752,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "tileBase",
+      "Name": "morphWeightBase",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -3700,7 +3770,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "material",
+      "Name": "tileBase",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -3718,6 +3788,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "material",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 24,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "tileCount",
       "Type": {
         "Scalar": "Int",
@@ -3729,7 +3817,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 24,
+      "Offset": 32,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3747,7 +3835,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 32,
+      "Offset": 48,
       "Size": 64,
       "ArrayStride": 0,
       "MatrixStride": 16,
@@ -3765,7 +3853,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 96,
+      "Offset": 112,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3783,7 +3871,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 108,
+      "Offset": 124,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3801,7 +3889,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 112,
+      "Offset": 128,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -4042,7 +4130,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "instances.padding0",
+      "Name": "instances.firstWeight",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -4240,7 +4328,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "meshes.padding0",
+      "Name": "meshes.morphRunBase",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -4258,7 +4346,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "meshes.padding1",
+      "Name": "meshes.morphEntryBase",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -4276,7 +4364,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "meshes.padding2",
+      "Name": "meshes.morphShapeCount",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -4348,7 +4436,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "clusterMaterials",
+      "Name": "morphs",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -4366,6 +4454,42 @@
       "DefaultValue": ""
     },
     {
+      "Name": "morphWeights",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 10,
+      "Offset": 0,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "clusterMaterials",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 11,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "tiles",
       "Type": {
         "Scalar": "UInt",
@@ -4376,7 +4500,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 10,
+      "Binding": 12,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,

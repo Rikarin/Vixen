@@ -80,6 +80,16 @@ public struct RasterMesh {
     /// <summary>What <see cref="InfluenceOffset" /> holds for a mesh with no skeleton.</summary>
     public const uint NoInfluences = 0xFFFFFFFFu;
 
+    /// <summary>What <see cref="MorphRunBase" /> holds for a mesh with no blend shapes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The record's three morph words are the twelve bytes of padding
+    ///     <c>RasterMesh</c> was carrying</b>, so the size and the stride are unchanged and every
+    ///     mesh registered before blend shapes existed reads <see cref="NoMorphs" /> out of the zeros
+    ///     it was padded with — which is not true, and is why the writer sets it explicitly rather
+    ///     than relying on a default.
+    /// </remarks>
+    public const uint NoMorphs = 0xFFFFFFFFu;
+
     /// <summary>The corner of the grid.</summary>
     public Vector3 QuantizationOrigin;
 
@@ -97,31 +107,56 @@ public struct RasterMesh {
     /// </remarks>
     public uint InfluenceOffset;
 
-    /// <summary>Twelve bytes of tail padding the shader declares and never reads.</summary>
+    /// <summary>
+    ///     Where this mesh's per-vertex run table starts in the morph buffer, in words, or
+    ///     <see cref="NoMorphs" />.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Declared rather than left to the compiler, and this one was not.</b> A
-    ///         <see cref="Vector3" /> member aligns the record to sixteen, so the device's array
-    ///         stride is the size rounded up to it: twenty bytes here read as thirty-two there, which
-    ///         <c>ClusterRaster.reflect.json</c> says outright. The host wrote twenty.
+    ///         <b>The word the padding was, and it pays for itself the way
+    ///         <see cref="CullInstance.Mesh" /> did.</b> A page holds a vertex's rest position and the
+    ///         weights that move it are the <em>instance's</em>, so a paged mesh is morphed where it
+    ///         is decoded rather than by a pre-pass — see <see cref="MorphIndex" /> for why a scatter
+    ///         has nowhere to write.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One virtualized mesh is the only scene in which that is invisible.</b> Registered
-    ///         mesh zero decodes correctly out of offset zero, and every mesh after it takes its
-    ///         quantization grid out of the middle of the one before — an origin built from a step and
-    ///         a step built from an influence offset, which is a mesh folded in on itself with a
-    ///         healthy cluster count and no validation error beside it. <see cref="CullInstance" />'s
-    ///         padding exists for the same reason and was earned the same way.
+    ///         ⚠ <b><see cref="NoMorphs" /> and not zero, because zero is a real base</b> — the first
+    ///         morphed mesh registered gets it. This is the field whose wrong default is a rock with a
+    ///         face's deltas applied to it.
     ///     </para>
     /// </remarks>
-    public uint Padding0;
+    public uint MorphRunBase;
 
-    /// <inheritdoc cref="Padding0" />
-    public uint Padding1;
+    /// <summary>Where its entries start in the morph buffer, in words.</summary>
+    /// <remarks>
+    ///     Four words an entry: the shape's slot, then the six quantised components
+    ///     <c>MorphKernel.Pack</c> writes. Meaningless when <see cref="MorphRunBase" /> is
+    ///     <see cref="NoMorphs" />.
+    /// </remarks>
+    public uint MorphEntryBase;
 
-    /// <inheritdoc cref="Padding0" />
-    public uint Padding2;
+    /// <summary>
+    ///     Where its per-cluster table of source-vertex runs starts in the morph buffer, in words.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Indexed by the cluster's index <em>within this mesh</em> — which is what the raster
+    ///         already has, because <c>geometry</c> is reached as
+    ///         <c>instance.FirstCluster + clusterIndex</c>. A table over every cluster in the scene
+    ///         would need rebuilding whenever any mesh registered; this one is written once with its
+    ///         mesh and never moves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A page vertex does not know which mesh vertex it is</b>, which is the whole reason
+    ///         this indirection exists. A cluster's vertex list belongs to the DAG —
+    ///         <c>MeshletMesh.Vertices</c> — and the page carries only the position and attributes it
+    ///         copied out. A vertex on a locked boundary appears in a cluster on each side and at
+    ///         several levels, and every copy has to pick up the same delta or the cut cracks.
+    ///     </para>
+    /// </remarks>
+    public uint MorphClusterBase;
 }
+
 
 /// <summary>
 ///     The device side of the cluster traversal: the DAG in buffers, the dispatch, and the page
@@ -214,6 +249,12 @@ public sealed class GpuClusterVisibility : IDisposable {
     readonly List<RasterMesh> grids = [];
     readonly List<uint> materials = [];
 
+    // Three tables in one list, per morphed mesh: where each of its clusters' source-vertex run starts,
+    // those runs themselves, its per-vertex prefix and its entries. One buffer because one invocation
+    // reads all four in sequence, and a binding costs more than an offset. A mesh with no shapes
+    // contributes nothing at all — which is every rock in the project.
+    readonly List<uint> morphs = [];
+
     // The instances, incrementally: a scene of a hundred thousand virtualized objects of which one
     // moved is one record uploaded, for PersistentUploadBuffer's reason and measured the same way.
     readonly PersistentUploadBuffer<CullInstance> instances = new("ClusterCulling.Instances");
@@ -223,6 +264,9 @@ public sealed class GpuClusterVisibility : IDisposable {
     // and a pose is different every frame, so there is nothing here for the incremental compare that
     // the instance records earn their keep with.
     readonly UploadBuffer<Matrix4x4> bones = new("ClusterCulling.Bones");
+
+    // Per instance per shape, and per frame, exactly as the palette is — see BeginMorphs.
+    readonly UploadBuffer<Vector2> morphWeights = new("ClusterCulling.MorphWeights");
     readonly UploadBuffer<uint> residencyBits = new("ClusterCulling.Residency");
     readonly DescriptorWrite[] writes = new DescriptorWrite[GpuCulling.SetBindings.Length + 1];
 
@@ -243,6 +287,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     BufferHandle geometryBuffer;
     BufferHandle gridBuffer;
     BufferHandle materialBuffer;
+    BufferHandle morphBuffer;
     BufferHandle visibleBuffer;
     BufferHandle requestBuffer;
     BufferHandle requestReadbackBuffer;
@@ -261,6 +306,8 @@ public sealed class GpuClusterVisibility : IDisposable {
 
     long visibleCapacity;
     bool meshesDirty = true;
+    bool morphsDirty = true;
+    long morphCapacity;
 
     ResourceState visibleState = ResourceState.Undefined;
     ResourceState requestState = ResourceState.Undefined;
@@ -282,6 +329,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         views.Device = device;
         residencyBits.Device = device;
         bones.Device = device;
+        morphWeights.Device = device;
     }
 
     /// <summary>Where the traversal variant is resolved from. Null does nothing.</summary>
@@ -402,6 +450,27 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// <summary>One quantization grid per registered mesh.</summary>
     public BufferHandle Grids => gridBuffer;
 
+    /// <summary>Every morphed mesh's shapes re-indexed by vertex, as the three rasters read them.</summary>
+    /// <remarks>
+    ///     Always valid once the buffers exist, even in a scene with no blend shapes in it: the three
+    ///     shaders declare the binding whether or not any branch reaches it, and a descriptor write
+    ///     naming nothing is something a recording backend accepts and a real device refuses. That is
+    ///     the same argument <see cref="BeginBones" /> makes for its identity.
+    /// </remarks>
+    public BufferHandle Morphs => morphBuffer;
+
+    /// <summary>How many words the morph tables occupy between them.</summary>
+    public int MorphWords => morphs.Count;
+
+    /// <summary>This frame's blend-shape weights, one run per morphed instance.</summary>
+    public BufferHandle MorphWeights => morphWeights.Buffer;
+
+    /// <summary>Where this frame's weights start in it, in entries — <see cref="BoneBase" />'s twin.</summary>
+    public int MorphWeightBase => (int)(morphWeights.Offset / Unsafe.SizeOf<Vector2>());
+
+    /// <summary>How many weight entries this frame has, the seed included.</summary>
+    public int MorphWeightCount => morphWeights.Count;
+
     /// <summary>Which material each cluster uses, for the resolve's binning.</summary>
     public BufferHandle Materials => materialBuffer;
 
@@ -458,6 +527,11 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// <param name="mesh">The DAG, from <c>MeshletBuilder</c>.</param>
     /// <param name="pages">Where its geometry is, from <c>MeshletPageBuilder</c>.</param>
     /// <param name="source">The id its pages will carry in a <see cref="PageKey" />.</param>
+    /// <param name="morphIndex">
+    ///     Its blend shapes re-indexed by vertex, or null for a mesh with none. Null is the ordinary
+    ///     answer and leaves <see cref="RasterMesh.MorphRunBase" /> at
+    ///     <see cref="RasterMesh.NoMorphs" />, which is the branch every rock in the project takes.
+    /// </param>
     /// <returns>Where its records landed.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>
@@ -476,7 +550,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///         all.
     ///     </para>
     /// </remarks>
-    public ClusterMesh Register(MeshletMesh mesh, MeshletPageSet pages, int source) {
+    public ClusterMesh Register(MeshletMesh mesh, MeshletPageSet pages, int source, MorphIndex? morphIndex = null) {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(pages);
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -532,9 +606,20 @@ public sealed class GpuClusterVisibility : IDisposable {
             new() {
                 QuantizationOrigin = pages.QuantizationOrigin,
                 QuantizationStep = pages.QuantizationStep,
-                InfluenceOffset = pages.IsSkinned ? (uint)pages.InfluenceOffset : RasterMesh.NoInfluences
+                InfluenceOffset = pages.IsSkinned ? (uint)pages.InfluenceOffset : RasterMesh.NoInfluences,
+
+                // ⚠ Written explicitly on both branches. These three words were RasterMesh's padding,
+                // so a record that left them alone would read zero — and zero is a real base that the
+                // first morphed mesh registered gets, which is a rock wearing a face's deltas.
+                MorphRunBase = RasterMesh.NoMorphs,
+                MorphEntryBase = RasterMesh.NoMorphs,
+                MorphClusterBase = RasterMesh.NoMorphs
             }
         );
+
+        if (morphIndex is not null) {
+            grids[^1] = Morphed(mesh, morphIndex, grids[^1]);
+        }
 
         // Which material each cluster uses. Per cluster rather than per mesh, and every cluster of a mesh
         // shares one value today — but phase 8 of the plan routes clusters whose material discards or
@@ -743,6 +828,56 @@ public sealed class GpuClusterVisibility : IDisposable {
         return bones.Add(palette);
     }
 
+    /// <summary>Begins a frame's blend-shape weights, discarding the last frame's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="BeginBones" />'s twin, called for its reason: whoever fills the weights is an
+    ///         animation system running before the render system's phases, so there is no callback of
+    ///         ours between "the expression is final" and "the first weight is written".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first entry is always zero and no instance ever points at it</b>, which is what
+    ///         makes <see cref="GpuCulling.NoWeights" /> able to be zero — and zero is what a record
+    ///         nobody filled holds. A dead slot, a draw a test forgot a field of, an instance extracted
+    ///         before any weight reached it: every one of them is at rest rather than wearing whichever
+    ///         expression happened to be first. It is also what makes the buffer exist at all in a
+    ///         frame with nothing morphed, which the descriptor write needs.
+    ///     </para>
+    /// </remarks>
+    public void BeginMorphs() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        ReadOnlySpan<Vector2> rest = [Vector2.Zero];
+
+        morphWeights.Begin();
+        morphWeights.Add(rest);
+    }
+
+    /// <summary>Adds one instance's weights to this frame's.</summary>
+    /// <param name="weights">
+    ///     One entry per shape of its mesh: the weight already multiplied by that shape's quantisation
+    ///     step, position in <c>X</c> and normal in <c>Y</c>.
+    /// </param>
+    /// <returns>Where they landed, for <see cref="CullInstance.FirstWeight" />.</returns>
+    /// <exception cref="InvalidOperationException"><see cref="BeginMorphs" /> has not been called.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Pre-multiplied on the host, rather than the step being uploaded beside the weight.</b>
+    ///     <c>MorphKernel.Step</c> makes the argument: one division here is one float both processors
+    ///     then agree about exactly, and two is two chances for them not to.
+    /// </remarks>
+    public int AddMorphWeights(ReadOnlySpan<Vector2> weights) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (morphWeights.Count == 0) {
+            throw new InvalidOperationException(
+                "Call BeginMorphs before adding weights. A frame that added weights without beginning "
+                + "one would keep growing the buffer with expressions no instance points at."
+            );
+        }
+
+        return morphWeights.Add(weights);
+    }
+
     /// <summary>Sets one instance's record, uploading it only if it differs.</summary>
     /// <param name="index">Which instance slot.</param>
     /// <param name="instance">Its record.</param>
@@ -769,8 +904,15 @@ public sealed class GpuClusterVisibility : IDisposable {
             BeginBones();
         }
 
+        // And the same for the weights, for the same reason and with the same consequence: three
+        // shaders declare the binding whether or not any instance is morphed.
+        if (morphWeights.Count == 0) {
+            BeginMorphs();
+        }
+
         instances.Upload();
         bones.Upload();
+        morphWeights.Upload();
     }
 
     /// <summary>
@@ -1059,7 +1201,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     path here would be machinery for a frame that never has any work for it.
     /// </remarks>
     void UploadMeshes() {
-        if (!meshesDirty || !staging.IsValid) {
+        if ((!meshesDirty && !morphsDirty) || !staging.IsValid) {
             return;
         }
 
@@ -1077,7 +1219,62 @@ public sealed class GpuClusterVisibility : IDisposable {
         Stage(gridBuffer, MemoryMarshal.AsBytes<RasterMesh>(grids.ToArray()));
         Stage(materialBuffer, MemoryMarshal.AsBytes<uint>(materials.Count > 0 ? materials.ToArray() : [0u]));
 
+        // ⚠ A single zero word for a scene with no blend shapes in it, not nothing. The three rasters
+        // declare the binding whatever the branch does, and an uninitialised device-local buffer is
+        // what a shader that took the branch by mistake would scatter a face across.
+        Stage(morphBuffer, MemoryMarshal.AsBytes<uint>(morphs.Count > 0 ? morphs.ToArray() : [0u]));
+
         meshesDirty = false;
+        morphsDirty = false;
+    }
+
+    /// <summary>Lays one mesh's blend shapes out in the morph buffer, and says where they went.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Four runs, appended and never moved: the per-cluster table, the source-vertex runs the
+    ///         table points into, the per-vertex prefix and the entries. A mesh is retired in place
+    ///         rather than removed — see <see cref="Unregister" /> — so an absolute offset written here
+    ///         stays true for the life of the system, which is what lets the cluster table hold
+    ///         absolute offsets and cost one read instead of two.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The source-vertex runs are <c>MeshletMesh.Vertices</c> verbatim</b>, laid out
+    ///         exactly as the DAG has them, so a cluster's run starts at its own
+    ///         <c>Meshlet.VertexOffset</c>. Re-packing them per cluster would be the same bytes in a
+    ///         different order and one more thing that can disagree with
+    ///         <c>MeshletPageBuilder.Write</c>, which walked the same array to build the page.
+    ///     </para>
+    /// </remarks>
+    RasterMesh Morphed(MeshletMesh mesh, MorphIndex index, RasterMesh grid) {
+        var clusterBase = morphs.Count;
+
+        for (var i = 0; i < mesh.Meshlets.Length; i++) {
+            morphs.Add(0u);
+        }
+
+        var verticesBase = morphs.Count;
+
+        foreach (var vertex in mesh.Vertices) {
+            morphs.Add((uint)vertex);
+        }
+
+        for (var i = 0; i < mesh.Meshlets.Length; i++) {
+            morphs[clusterBase + i] = (uint)(verticesBase + mesh.Meshlets[i].VertexOffset);
+        }
+
+        var runBase = morphs.Count;
+        morphs.AddRange(index.Runs);
+
+        var entryBase = morphs.Count;
+        morphs.AddRange(index.Entries);
+
+        morphsDirty = true;
+
+        return grid with {
+            MorphClusterBase = (uint)clusterBase,
+            MorphRunBase = (uint)runBase,
+            MorphEntryBase = (uint)entryBase
+        };
     }
 
     /// <summary>Copies one array into the staging buffer and remembers where it has to end up.</summary>
@@ -1096,7 +1293,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         ((long)clusters.Count * Unsafe.SizeOf<CullCluster>())
         + ((long)geometry.Count * Unsafe.SizeOf<RasterCluster>())
         + ((long)grids.Count * Unsafe.SizeOf<RasterMesh>())
-        + ((long)(children.Count + roots.Count + materials.Count + 3) * sizeof(uint));
+        + ((long)(children.Count + roots.Count + materials.Count + morphs.Count + 4) * sizeof(uint));
 
     void UploadViews(
         IReadOnlyList<RenderView> frameViews,
@@ -1272,8 +1469,14 @@ public sealed class GpuClusterVisibility : IDisposable {
         // would pack a slot that wraps into another cluster's triangle index.
         var entries = Math.Min((long)InstanceCount * VisiblePerInstance, GpuClusterRaster.MaximumSlots);
         var wanted = (entries + VisibleBase) * sizeof(uint);
+        var wantedMorphs = Math.Max((long)morphs.Count * sizeof(uint), 256);
 
-        if (clusterBuffer.IsValid && visibleCapacity >= wanted) {
+        // ⚠ The morph tables are in the condition, because they are the one mesh-record buffer that can
+        // grow after the first frame in a way nothing else notices. A morphed mesh registered into a
+        // scene whose buffers already exist would otherwise be staged into an allocation sized before
+        // it — a run of deltas truncated at whatever the last mesh needed, which is a face reading
+        // another mesh's entries and not a face at rest.
+        if (clusterBuffer.IsValid && visibleCapacity >= wanted && morphCapacity >= wantedMorphs) {
             return Occluding().IsValid;
         }
 
@@ -1314,6 +1517,17 @@ public sealed class GpuClusterVisibility : IDisposable {
                 "ClusterCulling.Geometry"
             )
         );
+
+        morphBuffer = device.CreateBuffer(
+            new(
+                wantedMorphs,
+                BufferUsage.Storage | BufferUsage.CopyDestination,
+                MemoryAccess.DeviceLocal,
+                "ClusterCulling.Morphs"
+            )
+        );
+
+        morphCapacity = wantedMorphs;
 
         gridBuffer = device.CreateBuffer(
             new(
@@ -1398,6 +1612,7 @@ public sealed class GpuClusterVisibility : IDisposable {
             && clusterBuffer.IsValid
             && geometryBuffer.IsValid
             && gridBuffer.IsValid
+            && morphBuffer.IsValid
             && materialBuffer.IsValid
             && childBuffer.IsValid
             && rootBuffer.IsValid
@@ -1440,7 +1655,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         foreach (var buffer in (BufferHandle[])
                  [
                      clusterBuffer, childBuffer, rootBuffer, geometryBuffer, gridBuffer, materialBuffer,
-                     visibleBuffer, requestBuffer, requestReadbackBuffer, zeros, staging
+                     morphBuffer, visibleBuffer, requestBuffer, requestReadbackBuffer, zeros, staging
                  ]) {
             if (buffer.IsValid) {
                 device.Destroy(buffer);
@@ -1453,6 +1668,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         geometryBuffer = default;
         gridBuffer = default;
         materialBuffer = default;
+        morphBuffer = default;
         visibleBuffer = default;
         requestBuffer = default;
         requestReadbackBuffer = default;
@@ -1462,6 +1678,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         pendingMeshCopies.Clear();
         stagedMeshBytes = 0;
         visibleCapacity = 0;
+        morphCapacity = 0;
     }
 
     /// <inheritdoc />
@@ -1496,11 +1713,13 @@ public sealed class GpuClusterVisibility : IDisposable {
         views.Dispose();
         residencyBits.Dispose();
         bones.Dispose();
+        morphWeights.Dispose();
 
         meshes.Clear();
         clusters.Clear();
         children.Clear();
         roots.Clear();
+        morphs.Clear();
         geometry.Clear();
         grids.Clear();
         materials.Clear();

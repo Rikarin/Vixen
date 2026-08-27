@@ -146,7 +146,16 @@ public sealed class AssetVirtualGeometrySource : IVirtualGeometrySource, IDispos
             return entry.State = ClusterState.None;
         }
 
-        entry.Index = index = geometry.Content(nextSource++, records.Result, blob);
+        // ⚠ The re-indexing happens here rather than at import, and this is the one place that has
+        // both halves: the MeshData carries the shapes a build wrote and the registration is what
+        // reaches the traversal. An offline form would be a second artefact that can be stale against
+        // the first, for a table that is O(entries) to derive once per mesh.
+        entry.Index = index = geometry.Content(
+            nextSource++,
+            records.Result,
+            blob,
+            MorphIndex.Build(mesh.MorphTargets, mesh.Positions.Length)
+        );
         entry.Bounds = bounds = Bound(entry.Index);
 
         return entry.State = ClusterState.Ready;

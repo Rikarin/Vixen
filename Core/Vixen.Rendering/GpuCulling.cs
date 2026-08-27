@@ -107,6 +107,15 @@ public static class GpuCulling {
     /// </remarks>
     public const uint NoBones = 0u;
 
+    /// <summary>What <see cref="CullInstance.FirstWeight" /> holds for an instance with no weights.</summary>
+    /// <remarks>
+    ///     Zero, and for exactly <see cref="NoBones" />' reason: the frame's weight buffer begins with
+    ///     a slot no instance points at — see <see cref="GpuClusterVisibility.BeginMorphs" /> — so a
+    ///     record nobody filled is unmorphed rather than wearing whichever instance's expression
+    ///     happened to be first.
+    /// </remarks>
+    public const uint NoWeights = 0u;
+
     /// <summary>The bit of <see cref="CullView.Flags" /> that says the view can be occlusion tested.</summary>
     /// <remarks>
     ///     Per view, because a view that is new this frame has no previous depth and no previous

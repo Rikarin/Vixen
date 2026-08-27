@@ -75,6 +75,22 @@
               "DefaultValue": ""
             },
             {
+              "Name": "morphWeightBase",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
               "Name": "viewProjection",
               "Type": {
                 "Scalar": "Float",
@@ -84,14 +100,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 16,
+              "Offset": 32,
               "Size": 64,
               "ArrayStride": 0,
               "MatrixStride": 16,
               "DefaultValue": ""
             }
           ],
-          "Size": 80,
+          "Size": 96,
           "IsWritable": false
         },
         {
@@ -338,7 +354,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "instances.padding0",
+              "Name": "instances.firstWeight",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -570,7 +586,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "meshes.padding0",
+              "Name": "meshes.morphRunBase",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -586,7 +602,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "meshes.padding1",
+              "Name": "meshes.morphEntryBase",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -602,7 +618,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "meshes.padding2",
+              "Name": "meshes.morphShapeCount",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -718,6 +734,60 @@
           ],
           "Size": 64,
           "IsWritable": false
+        },
+        {
+          "Binding": 8,
+          "Name": "morphs",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "morphs",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
+          "IsWritable": false
+        },
+        {
+          "Binding": 9,
+          "Name": "morphWeights",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "morphWeights",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 8,
+          "IsWritable": false
         }
       ]
     }
@@ -816,6 +886,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "morphWeightBase",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 16,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "viewProjection",
       "Type": {
         "Scalar": "Float",
@@ -827,7 +915,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 16,
+      "Offset": 32,
       "Size": 64,
       "ArrayStride": 0,
       "MatrixStride": 16,
@@ -1068,7 +1156,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "instances.padding0",
+      "Name": "instances.firstWeight",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -1266,7 +1354,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "meshes.padding0",
+      "Name": "meshes.morphRunBase",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -1284,7 +1372,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "meshes.padding1",
+      "Name": "meshes.morphEntryBase",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -1302,7 +1390,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "meshes.padding2",
+      "Name": "meshes.morphShapeCount",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -1371,6 +1459,42 @@
       "Size": 64,
       "ArrayStride": 0,
       "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "morphs",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 8,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "morphWeights",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 9,
+      "Offset": 0,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
       "DefaultValue": ""
     }
   ],

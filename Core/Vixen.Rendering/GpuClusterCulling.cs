@@ -199,15 +199,32 @@ public struct CullInstance {
     /// </remarks>
     public float MotionRadius;
 
-    /// <summary>Eight bytes of tail padding the shader declares and never reads.</summary>
+    /// <summary>
+    ///     Where this instance's blend-shape weights start in the frame's weight buffer, or
+    ///     <see cref="GpuCulling.NoWeights" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The traversal does not read it, as it reads neither <see cref="Mesh" /> nor
+    ///         <see cref="FirstBone" />. The raster and the resolve do, and it rides in the record for
+    ///         their reason: one indirect draw covers every cluster of every instance, so nothing is
+    ///         issued per object that could carry a per-object index.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This was half the padding</b>, so the record is still 64 bytes. A stride that
+    ///         disagrees does not fail — it reads instance one out of the middle of instance zero.
+    ///     </para>
+    /// </remarks>
+    public uint FirstWeight;
+
+    /// <summary>Four bytes of tail padding the shader declares and never reads.</summary>
     /// <remarks>
     ///     A <c>float3</c> member aligns the record to sixteen, so the device's stride is the size
-    ///     rounded up to it. The record was 48 bytes and needed nothing said; the two fields above make
-    ///     it 56, which the device reads as 64 — and a stride that disagrees does not fail, it reads
-    ///     instance one out of the middle of instance zero. <see cref="CullObject.Padding" /> is the
-    ///     same declaration for the same reason.
+    ///     rounded up to it. The record was 48 bytes and needed nothing said; the fields above make it
+    ///     60, which the device reads as 64. <see cref="CullObject.Padding" /> is the same declaration
+    ///     for the same reason.
     /// </remarks>
-    public ulong Padding;
+    public uint Padding;
 }
 
 /// <summary>

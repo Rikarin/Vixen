@@ -31,7 +31,7 @@ namespace Vixen.Rendering;
 ///     <para>
 ///         <b>One page pool for the scene, and that is the whole of the streaming budget.</b> Slots
 ///         times page size is the resident geometry a project has decided to pay for, and every mesh
-///         registered through <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream)" /> shares it — which is what makes a hundred
+///         registered through <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream, MorphIndex)" /> shares it — which is what makes a hundred
 ///         virtualized meshes cost one budget rather than a hundred.
 ///     </para>
 /// </remarks>
@@ -77,7 +77,7 @@ public sealed class VirtualGeometrySystem : IDisposable {
     ///     Exposed because a project that unloads a level wants its blobs closed —
     ///     <see cref="StreamMeshletPageSource.Remove" /> — and because a test asking whether a mesh's
     ///     bytes are reachable is asking this. Adding to it directly is possible and is not the way in:
-    ///     <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream)" /> adds the blob and registers the mesh under one id, so the two cannot
+    ///     <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream, MorphIndex)" /> adds the blob and registers the mesh under one id, so the two cannot
     ///     be given different ones.
     /// </remarks>
     public StreamMeshletPageSource Source { get; } = new();
@@ -185,35 +185,47 @@ public sealed class VirtualGeometrySystem : IDisposable {
     /// <param name="hierarchy">The <c>Meshlets</c> artefact's bytes.</param>
     /// <param name="pages">The <c>MeshletPages</c> artefact's bytes.</param>
     /// <param name="data">The <c>MeshletPageData</c> blob, seekable. Owned from here.</param>
+    /// <param name="morphIndex">
+    ///     The mesh's blend shapes re-indexed by vertex, or null for a mesh with none.
+    /// </param>
     /// <returns>The index to put in <see cref="VirtualGeometryDraw.Mesh" />.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="data" /> is null.</exception>
-    public int Content(int id, ReadOnlySpan<byte> hierarchy, ReadOnlySpan<byte> pages, Stream data) {
+    public int Content(
+        int id,
+        ReadOnlySpan<byte> hierarchy,
+        ReadOnlySpan<byte> pages,
+        Stream data,
+        MorphIndex? morphIndex = null
+    ) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        return VirtualGeometryContent.Load(Feature, Source, id, hierarchy, pages, data);
+        return VirtualGeometryContent.Load(Feature, Source, id, hierarchy, pages, data, morphIndex);
     }
 
     /// <summary>Loads a mesh out of the one chunk a build writes the records as.</summary>
     /// <param name="id">The id its pages carry. Unique across the meshes in this system.</param>
     /// <param name="asset">The records, as <c>MeshData.Clusters</c> resolves to.</param>
     /// <param name="data">The page blob, seekable. Owned from here.</param>
+    /// <param name="morphIndex">
+    ///     The mesh's blend shapes re-indexed by vertex, or null for a mesh with none.
+    /// </param>
     /// <returns>The index to put in <see cref="VirtualGeometryDraw.Mesh" />.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="data" /> is null.</exception>
-    public int Content(int id, VirtualGeometryAsset asset, Stream data) {
+    public int Content(int id, VirtualGeometryAsset asset, Stream data, MorphIndex? morphIndex = null) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        return VirtualGeometryContent.Load(Feature, Source, id, asset, data);
+        return VirtualGeometryContent.Load(Feature, Source, id, asset, data, morphIndex);
     }
 
     /// <summary>
     ///     Releases a mesh: its pages go back to the pool and its blob is closed.
     /// </summary>
-    /// <param name="mesh">The index <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream)" /> returned.</param>
+    /// <param name="mesh">The index <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream, MorphIndex)" /> returned.</param>
     /// <returns>Whether there was a live registration to release.</returns>
     /// <exception cref="ArgumentOutOfRangeException">There is no such registration.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b><see cref="Content(int, VirtualGeometryAsset, System.IO.Stream)" />'s counterpart, and
+    ///         <b><see cref="Content(int, VirtualGeometryAsset, System.IO.Stream, MorphIndex)" />'s counterpart, and
     ///         it undoes both halves for the reason that one does both.</b> A registration pins a root
     ///         page and opens a blob; releasing only the pin leaves a file handle, and releasing only the
     ///         blob leaves a slot of the pool pinned to content nothing draws — for ever, because nothing

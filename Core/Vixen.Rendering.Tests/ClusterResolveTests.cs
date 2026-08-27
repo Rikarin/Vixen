@@ -615,17 +615,23 @@ public sealed class ClusterResolveTests : IDisposable {
             // leaner variant lets the host get it wrong and says nothing, which is the whole reason the
             // comment above claims this list is the reflection's.
             new("bones", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
-            new("clusterMaterials", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
-            new("tiles", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageBuffer),
-            new("target", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageTexture),
+
+            // The blend shapes, which the resolve reads for the position *and* the normal — it is the
+            // only pass that needs the second, and a resolve left unmorphed is a face whose geometry
+            // opens its mouth and whose shading does not.
+            new("morphs", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
+            new("morphWeights", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageBuffer),
+            new("clusterMaterials", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageBuffer),
+            new("tiles", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageBuffer),
+            new("target", DescriptorSetSlot.PerMaterial, 13, DescriptorKind.StorageTexture),
 
             // The ambient split's three planes. In the set for every variant — a binding is
             // declared, not read into existence — which is what obliges Prepare to fill them even
             // with the split off, and what this fixture exists to hold it to: leave one out here and
             // a Prepare that forgot its alias would still return true.
-            new("albedoTarget", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture),
-            new("normalTarget", DescriptorSetSlot.PerMaterial, 13, DescriptorKind.StorageTexture),
-            new("specularTarget", DescriptorSetSlot.PerMaterial, 14, DescriptorKind.StorageTexture)
+            new("albedoTarget", DescriptorSetSlot.PerMaterial, 14, DescriptorKind.StorageTexture),
+            new("normalTarget", DescriptorSetSlot.PerMaterial, 15, DescriptorKind.StorageTexture),
+            new("specularTarget", DescriptorSetSlot.PerMaterial, 16, DescriptorKind.StorageTexture)
         ];
 
         // The traversal's own set, so this fixture can run `GpuClusterVisibility.Prepare` — which is

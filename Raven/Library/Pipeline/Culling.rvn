@@ -257,14 +257,20 @@ struct CullInstance {
     /// by having a skeleton at all.
     var motionRadius: float
 
-    /// Declared rather than left to the compiler, so the record is 64 bytes on both sides.
+    /// Where this instance's blend-shape weights start in the frame's weight buffer, or `NoWeights`.
     ///
-    /// `CullObject`'s padding exists for the same reason and this one was earned the hard way: the
-    /// record was 48 bytes and exactly a multiple of the 16 a `float3` member aligns a struct to, so
-    /// nothing had ever needed saying. Two more words made it 56 on the host and 64 on the device, and
-    /// a stride that disagrees does not fail — it reads instance one out of the middle of instance zero.
-    var padding0: uint
+    /// The traversal does not read this one, as it does not read `mesh` or `firstBone`. What reads it
+    /// is the raster and the resolve, and it rides here for their reason: one indirect draw covers
+    /// every cluster of every instance, so there is no per-object command to push a per-object index
+    /// through.
+    ///
+    /// ⚠ **This was `padding0`**, so the record is still 64 bytes and the stride is unchanged — which
+    /// matters, because a stride that disagrees does not fail, it reads instance one out of the middle
+    /// of instance zero. `CullObject`'s padding exists for the same reason and this record's was
+    /// earned the hard way.
+    var firstWeight: uint
 
+    /// Declared rather than left to the compiler, so the record is 64 bytes on both sides.
     var padding1: uint
 }
 
@@ -282,6 +288,14 @@ struct Cull {
     /// at. A record nobody filled is then unskinned rather than weighted to whichever matrix happened to
     /// be first, and that is worth more than the one index it spends.
     const val NoBones = 0u
+
+    /// What `CullInstance.firstWeight` holds when an instance has no blend-shape weights this frame.
+    ///
+    /// Zero, and for exactly `NoBones`' reason: the frame's weight buffer begins with a slot no
+    /// instance points at, so a record nobody filled is unmorphed rather than reading whichever
+    /// instance's expression happened to be first. Every zero-initialized record — a dead slot, a draw
+    /// nobody filled, a struct a test forgot a field of — is then at rest.
+    const val NoWeights = 0u
 
     /// The bit of `CullView.flags` that says the view has a usable depth pyramid this frame.
     ///
