@@ -462,6 +462,15 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// <summary>How many words the morph tables occupy between them.</summary>
     public int MorphWords => morphs.Count;
 
+    /// <summary>The morph tables themselves, as the device will read them.</summary>
+    /// <remarks>
+    ///     Exposed for <see cref="MeshRecords" />' reason: the two indirections a gather makes — a
+    ///     cluster to its run of source indices, a source vertex to its entries — are invisible from
+    ///     everywhere else, and a table that is right by luck for the first mesh registered is right
+    ///     for no other. A test that could only ask the shader would be asking the picture.
+    /// </remarks>
+    public ReadOnlySpan<uint> MorphRecords => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(morphs);
+
     /// <summary>This frame's blend-shape weights, one run per morphed instance.</summary>
     public BufferHandle MorphWeights => morphWeights.Buffer;
 

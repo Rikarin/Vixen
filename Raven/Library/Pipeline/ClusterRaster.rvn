@@ -412,7 +412,6 @@ shader ClusterRaster {
                 break
             }
 
-
             val at = mesh.morphEntryBase + entry * Morph.EntryWords
             val shape = morphs[int(at)]
             val weight = morphWeights[int(morphWeightBase + instance.firstWeight + shape)]
