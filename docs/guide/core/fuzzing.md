@@ -79,6 +79,33 @@ outcome.** `Run` still takes a `ReadOnlySpan<byte>`, the corpus is still bytes o
 still carries the exact bytes that broke something. A domain that had made the oracles care about
 trees would have thrown away the only reason to grow this harness instead of adopting `SharpFuzz`.
 
+### "Nothing took long" means nothing took long *twice*
+
+⚠ **Three of those four oracles measure the decode. The fourth measures the host.** A throw, an
+allocation figure and a retained count are properties of the input; elapsed wall time is a property of
+the input plus everything else the machine was doing, and on a shared CI runner the second term is the
+larger one. One Windows run reported six targets over a two-second budget in the same job, on inputs
+that replay in microseconds — including a **four-byte** one billed at 2.4 seconds. Three runs of the
+same seed on the same machine then nominated three *different* inputs as the slowest, which is the
+whole of it: in that tail the reading is not a function of the input.
+
+So a case over `FuzzSession.CaseBudget` is **not a finding yet**. It is run again, up to
+`CaseBudgetConfirmations` more times, and judged on the cheapest of those readings. A stall does not
+recur on demand and the next reading collapses to what the decode costs; a decoder that has genuinely
+gone quadratic costs the same seconds every time and every reading stays over the line. Timing noise is
+one-sided — the machine can only make a case look slower — so the minimum is the honest estimator.
+
+The budget itself did not move, and raising it would have been the wrong fix: on an idle machine the
+worst honest reading across all twenty targets is 306 ms and CI's stalls reach 6.2 s, so any threshold
+above the noise is one that can no longer see a real blowup.
+
+`FuzzOutcome.Acquitted` counts the cases that went over and then did not. It is on the summary line and
+⚠ **on stderr as well**, because a test runner shows a passing test's output to nobody and this number
+is only interesting on the runs that pass — an oracle that has quietly stopped accusing anybody
+otherwise looks exactly like one with nothing to accuse. ⚠ This narrows the property on purpose: an input expensive only the first time it
+is seen is now acquitted, because `TookTooLong` is about a decode slow enough to be a weapon and a cost
+that cannot be made to happen twice is not one.
+
 ## Using it
 
 The gate runs on every build, bounded by a case count rather than by the clock — every machine runs

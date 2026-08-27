@@ -129,6 +129,19 @@ enum FuzzStop {
 ///         suppressed count that dwarfs the run is a key that is still splitting one bug into many.
 ///     </para>
 /// </param>
+/// <param name="Acquitted">
+///     How many cases read over <see cref="FuzzSession.CaseBudget" /> and then did not, when asked
+///     again.
+///     <para>
+///         ⚠ <b>Printed because an oracle that quietly stops accusing anybody is indistinguishable
+///         from an oracle that has nothing to accuse.</b> Each of these is a case the machine made look
+///         like a defect and that re-measuring exonerated — so a run of a dozen is a loaded host and a
+///         run of none is a quiet one, and neither is visible from "clean" alone. It is also the only
+///         number that would move if <see cref="FuzzSession.CaseBudgetConfirmations" /> ever started
+///         swallowing real findings: a target that acquits steadily, build after build, is one whose
+///         budget is genuinely too tight for what it does.
+///     </para>
+/// </param>
 public sealed record FuzzOutcome(
     string Target,
     long Cases,
@@ -137,7 +150,8 @@ public sealed record FuzzOutcome(
     TimeSpan Elapsed,
     IReadOnlyList<FuzzFinding> Findings,
     string Stopped,
-    long Suppressed
+    long Suppressed,
+    long Acquitted
 ) {
     /// <summary>Whether every promise held.</summary>
     public bool Clean => Findings.Count == 0;
@@ -150,6 +164,7 @@ public sealed record FuzzOutcome(
             + $"{Cases / Math.Max(0.001, Elapsed.TotalSeconds),9:N0}/s  "
             + $"{(Clean ? "clean" : $"{Findings.Count} FINDING(S)")}"
             + $"{(Suppressed > 0 ? $" (+{Suppressed:N0} repeats)" : "")}"
+            + $"{(Acquitted > 0 ? $" ({Acquitted:N0} acquitted on a second reading)" : "")}"
             + $"  stopped on {Stopped}"
         );
 }
@@ -228,6 +243,7 @@ public sealed class FuzzSession {
 
     CaseGuard? guard;
     bool abandoned;
+    long acquitted;
 
     /// <summary>How long one input may take to decode before that is itself the finding.</summary>
     /// <remarks>
@@ -240,13 +256,57 @@ public sealed class FuzzSession {
     ///         normally speaks.
     ///     </para>
     ///     <para>
-    ///         Wide enough that a machine under load does not report a finding it cannot reproduce.
-    ///         Any real runaway here is orders of magnitude past it: the loops in these decoders are
-    ///         bounded by a length taken from a packet, so the failure mode is seconds, not
-    ///         milliseconds.
+    ///         ⚠ <b>The number is not what makes this survive a loaded machine —
+    ///         <see cref="CaseBudgetConfirmations" /> is.</b> No wall-clock threshold can separate a
+    ///         slow input from a stalled thread from one reading, and this one was set "generously"
+    ///         twice on that assumption. Read that property before changing this one; raising this
+    ///         alone is the same defect with a longer fuse.
     ///     </para>
     /// </remarks>
     public TimeSpan CaseBudget { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>How many further readings an over-budget case gets before it is called a finding.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A single reading of a wall clock is not evidence about an input, and treating it as
+    ///         evidence is what made this oracle flaky.</b> "This input is slow" is a claim about the
+    ///         input, so it is tested the way any claim about an input is tested — by running the input
+    ///         again. A scheduler stall or a collector pause does not recur on demand and the next
+    ///         reading collapses to what the decode actually costs; a decoder that has genuinely gone
+    ///         superlinear costs the same seconds every time and every reading stays over the line. The
+    ///         verdict is the <i>cheapest</i> reading, because timing noise is one-sided: the machine
+    ///         can only ever make a case look slower than it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured, not assumed.</b> One Windows CI run reported six targets over a two-second
+    ///         budget in the same job — 2.0 s to 6.2 s, one of them on a <i>four-byte</i> input. Replayed
+    ///         from the printed seeds on an idle machine, the six inputs cost 0.06 µs, 0.10 µs, 0.12 µs,
+    ///         0.47 µs, 2.8 µs and 21 µs a case: five to seven orders of magnitude under what was
+    ///         reported. Three runs of the same seed on the same machine then nominated three
+    ///         <i>different</i> inputs as the slowest, which is the whole argument in one line — in this
+    ///         tail the reading is not a function of the input at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>It costs the healthy path nothing</b>, because it only runs for a case that has
+    ///         already gone over the budget — about one in a million, and none at all on a quiet
+    ///         machine, where a run is therefore identical to what it was before this existed. A
+    ///         confirmed finding costs this many further decodes of an input already known to be
+    ///         expensive, once, before the run says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this deliberately narrows.</b> An input that is expensive only the first time
+    ///         it is seen — one that poisons a cache and is cheap afterwards — is now acquitted. That is
+    ///         the right property rather than a gap: <see cref="FuzzFailure.TookTooLong" /> exists to
+    ///         catch a decode slow enough to be a weapon, and a cost an attacker cannot make happen
+    ///         twice is not one.
+    ///     </para>
+    ///     <para>
+    ///         Zero restores the old behaviour exactly — one reading, believed. That is what
+    ///         <c>CaseBudgetTests</c> uses to show the same one-off stall failing without this and
+    ///         passing with it, so the property cannot quietly become one that never fires.
+    ///     </para>
+    /// </remarks>
+    public int CaseBudgetConfirmations { get; set; } = 4;
 
     /// <summary>How long one case may run before the run is abandoned rather than measured.</summary>
     /// <remarks>
@@ -372,6 +432,26 @@ public sealed class FuzzSession {
 
         clock.Stop();
 
+        // ⚠ On stderr rather than only in the outcome, and that is the difference between a claim and
+        // a claim somebody can check. A test runner shows a passing test's output to nobody, so an
+        // acquittal count that lived only on the summary line would be visible on exactly the runs
+        // where it did not matter — and a build where this oracle stopped accusing anybody would look
+        // identical to one where it had nobody to accuse. Silence here means the budget was never
+        // tripped; a line here means the machine was thrashing and says how badly.
+        if (acquitted > 0) {
+            Console.Error.WriteLine(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"fuzz: {target.Name} read {acquitted:N0} of {executed:N0} cases over the "
+                    + $"{CaseBudget.TotalMilliseconds:N0} ms budget and then under it, on up to "
+                    + $"{CaseBudgetConfirmations:N0} further readings each — those are the host's, "
+                    + $"not the decoder's."
+                )
+            );
+
+            Console.Error.Flush();
+        }
+
         // In the order the loop would have left: a runaway abandons everything, the cap is checked
         // before the clock, and the clock is what a nightly is supposed to end on.
         var stop = abandoned ? FuzzStop.Runaway
@@ -387,7 +467,8 @@ public sealed class FuzzSession {
             clock.Elapsed,
             findings,
             Phrase(stop),
-            suppressed
+            suppressed,
+            acquitted
         );
     }
 
@@ -488,24 +569,103 @@ public sealed class FuzzSession {
                 );
             }
 
+            // Last of the three checks, so that the further decodes a confirmation runs are seen by
+            // nothing else in this case's measurement: Weigh has already taken its reading and the
+            // corpus is offered the signature the first run produced.
             if (took > CaseBudget) {
-                Record(
-                    new(
-                        target.Name,
-                        FuzzFailure.TookTooLong,
-                        input,
-                        string.Create(
-                            CultureInfo.InvariantCulture,
-                            $"{took.TotalMilliseconds:N1} ms on {input.Length:N0} B of input"
+                var confirmed = Confirm(input, took);
+
+                if (confirmed > CaseBudget) {
+                    Record(
+                        new(
+                            target.Name,
+                            FuzzFailure.TookTooLong,
+                            input,
+                            // How many readings agreed is part of the finding, because the number on
+                            // its own is what somebody would otherwise read as a single sample — which
+                            // is exactly the mistake this stopped making.
+                            string.Create(
+                                CultureInfo.InvariantCulture,
+                                $"{confirmed.TotalMilliseconds:N1} ms on {input.Length:N0} B of input"
+                            )
+                            + (CaseBudgetConfirmations > 0
+                                ? string.Create(
+                                    CultureInfo.InvariantCulture,
+                                    $", the cheapest of {CaseBudgetConfirmations + 1:N0} readings — the "
+                                    + $"first was {took.TotalMilliseconds:N1} ms"
+                                )
+                                : ", read once and not confirmed")
                         )
-                    )
-                );
+                    );
+                } else {
+                    acquitted++;
+                }
             }
         }
 
         if (keep) {
             corpus.Offer(input, signature);
         }
+    }
+
+    /// <summary>Asks an over-budget case again, and answers with the cheapest reading it gave.</summary>
+    /// <param name="input">The bytes that read slow.</param>
+    /// <param name="first">What they read the first time.</param>
+    /// <returns>The smallest of that reading and the confirmations. See <see cref="CaseBudgetConfirmations" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         It stops at the first reading under the budget, because one is already the whole answer:
+    ///         an input that can be decoded inside the budget is not an input that costs more than the
+    ///         budget. A genuine blowup therefore pays the full count and a stall pays one repeat.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The target sees these decodes, and for a stateful one that is a real perturbation.</b>
+    ///         What it is not is a threat to reproducing a run from its seed: the mutator, the picker
+    ///         and the shaper never learn that a confirmation happened, so the stream of inputs stays a
+    ///         pure function of the seed and the corpus is offered the same signature either way. What
+    ///         moves is how many times a target that accumulates has decoded one input — on a machine
+    ///         quiet enough that no case goes over the budget, not at all.
+    ///     </para>
+    ///     <para>
+    ///         The guard is armed around each reading for the reason it is armed around the first: a
+    ///         repeat is as able to wedge as an original, and a confirmation nobody was watching would
+    ///         be the one place in the harness where a case that never returns is not a named finding.
+    ///     </para>
+    /// </remarks>
+    TimeSpan Confirm(byte[] input, TimeSpan first) {
+        var best = first;
+
+        for (var attempt = 0; attempt < CaseBudgetConfirmations && best > CaseBudget; attempt++) {
+            target.Maintain();
+
+            var started = clock.Elapsed;
+
+            guard?.Enter(input, started);
+
+            try {
+                target.Run(input);
+            }
+#pragma warning disable CA1031 // Same reason as the call site: nothing may escape a decoder.
+            catch (Exception) {
+                // A repeat that throws where the first did not says the target's state has moved on,
+                // not that the input is cheap. Stop asking, and let the reading already taken stand
+                // rather than acquitting on a question that was not answered.
+                guard?.Leave();
+
+                return best;
+            }
+#pragma warning restore CA1031
+
+            guard?.Leave();
+
+            var again = clock.Elapsed - started;
+
+            if (again < best) {
+                best = again;
+            }
+        }
+
+        return best;
     }
 
     /// <summary>Adds a case to the allocation window, and reports the window if it went over.</summary>

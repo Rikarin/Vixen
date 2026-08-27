@@ -109,9 +109,53 @@ is over the line within a millisecond.
 is proportionate and passes every ratio, and a hundred bytes that are never given back is a server that
 dies on the second day. Targets that accumulate declare what they are holding and what the bound is.
 
-**Nothing takes long.** A case that finished slowly is measured after the fact, per thread and exactly,
-because that is the reading worth reporting precisely — a decode that took four milliseconds on forty
-bytes is a number somebody can act on.
+**Nothing takes long — where "long" means *reproducibly* long, and that word is the whole of this
+oracle.** A case over `CaseBudget` (2 s) is not a finding yet. It is re-run up to
+`CaseBudgetConfirmations` (4) more times and judged on the **cheapest** reading, and only a case that
+stays over the budget on every one of the five is reported. `FuzzOutcome.Acquitted` counts the ones
+that did not; it is on the summary line, and ⚠ **also on stderr**, because a test runner shows a
+*passing* test's output to nobody and this number is only interesting on the runs that pass. Silence
+means the budget was never tripped. A line means the host was thrashing, and says how badly.
+
+⚠ **The other three oracles measure the decode; this one measures the decode plus everything else the
+machine was doing, and on a shared runner the second term is the larger one.** One Windows CI run
+(`33038897895`) reported six targets over the budget in a single job — `upgrade` 6,223.6 ms,
+`rpc` 5,277.0 ms, `bits` 4,187.5 ms, `stylevalue` 3,909.7 ms, `client` 2,395.7 ms, `packet`
+2,059.2 ms. Replayed from the printed seeds on an idle machine, those six inputs cost **0.056 µs,
+0.099 µs, 0.115 µs, 0.473 µs, 2.8 µs and 21.2 µs** a case: five to seven orders of magnitude under
+what was billed. One of them is **four bytes long**, and nothing is superlinear on four bytes.
+
+**Three runs of the same seed on the same machine then nominated three different inputs as the run's
+slowest** — 106.8 ms on 36 B, 14.8 ms on 166 B, 5.1 ms on 300 B. That is the argument in one line: in
+this tail the reading is not a function of the input, so a single reading is not evidence about the
+input and no threshold can make it one.
+
+The same thing had already happened with a different cast. Run `32897000404`, two days earlier,
+accused `upgrade`, `stylevalue`, `meta`, `chunk` and `input` — the last of those **eight bytes** long,
+billed 2,380.5 ms. Every target here runs a deterministic case stream from a fixed seed, so two runs
+see the same inputs in the same order; the two runs accused almost disjoint sets of them.
+
+**Which is why the answer is not a bigger number.** Measured across all twenty targets and 12.6 M
+cases on an idle machine, the worst honest reading is 306 ms (`raven`, which compiles a shader per
+case) and every other target stays under 43 ms — while CI's stalls reach 6.2 s and nothing bounds them
+there. Any threshold above the noise is one that can no longer see a real blowup. Asking the input
+again separates the two populations without moving the line at all: a descheduled thread or a
+collector pause does not recur on demand, and a decoder that has genuinely gone quadratic costs the
+same seconds every time. Timing noise is one-sided — the machine can only ever make a case look
+*slower* — so the minimum is the honest estimator.
+
+It costs the healthy path nothing, because it runs only for a case already over the budget; on a quiet
+machine a run is identical to what it was before. ⚠ It also **narrows the property on purpose**: an
+input expensive only the *first* time it is seen is now acquitted. `TookTooLong` exists to catch a
+decode slow enough to be a weapon, and a cost an attacker cannot make a server pay twice is not one.
+
+**What a genuine blowup looks like now.** A finding that reads
+`TookTooLong on 194 bytes (a9e47…) — 2,059.2 ms on 194 B of input, the cheapest of 5 readings — the
+first was 2,190.4 ms`. Five independent readings of the same input all over the budget is a property
+of the input, and it reproduces from the seed on any machine. `CaseBudgetConfirmations = 0` restores
+the old one-reading behaviour exactly, which is how `CaseBudgetTests` shows the same stall failing
+without it and passing with it — a budget that can never fire is worse than one that fires when it
+should not, and the only way to tell those apart is to run the same target both ways.
 
 ## The fifth oracle, which is the only one watched from outside the call
 
@@ -131,6 +175,13 @@ unbounded; here it is the *case*.
 | wall clock | the run's own `Stopwatch` | 30 s | a case that is not coming back |
 | allocation | `GC.GetTotalAllocatedBytes(false)` | 1 GiB | churn: a case allocating in a loop |
 | retention | `GC.GetTotalMemory(false)` | 512 MiB | the heap growing, which is what kills a host |
+
+⚠ **The guard's wall clock is the one reading in the harness that cannot be confirmed**, because the
+case it is about has not returned and cannot be asked again. It is left at 30 s and left coarse for
+that reason: the CI stalls that broke the post-hoc budget top out at 6.2 s, so the ceiling sits five
+times clear of the largest one measured — but that is a margin rather than a proof, and a runner that
+descheduled a thread for half a minute would abandon a run over nothing. Nothing has been seen doing
+that; if it ever is, the fix is the same shape as the budget's, not a bigger ceiling.
 
 **The two allocation figures are two different questions and only one of them describes a dying
 machine.** A loop that allocates a kilobyte and drops it never grows the heap, because the collector
