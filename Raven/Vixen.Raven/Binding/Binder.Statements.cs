@@ -45,8 +45,15 @@ internal abstract partial class Binder {
             case LocalDeclarationStatementSyntax declaration:
                 return BindLocalDeclaration(declaration);
 
-            case ExpressionStatementSyntax expression:
-                return new BoundExpressionStatement(expression, BindExpression(expression.Expression));
+            case ExpressionStatementSyntax expression: {
+                var value = BindExpression(expression.Expression);
+
+                if (!HasEffect(value)) {
+                    Report(SemanticDiagnostics.ExpressionStatementHasNoEffect, expression.Expression);
+                }
+
+                return new BoundExpressionStatement(expression, value);
+            }
 
             case IfStatementSyntax ifStatement: {
                 var condition = BindCondition(ifStatement.Condition);
@@ -96,6 +103,58 @@ internal abstract partial class Binder {
                 return new BoundNoOpStatement(syntax);
         }
     }
+
+    /// <summary>
+    ///     True when evaluating this expression as a statement can do something — <c>RVN2141</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Three forms, and the list is closed rather than a heuristic over the subtree. An
+    ///         <b>assignment</b> writes; a <b>call</b> may write a resource or an <c>inout</c>
+    ///         argument, and no caller can see which from here; an <b>increment</b> is an assignment
+    ///         spelled shorter. Nothing else in this language has an effect at all — there is no
+    ///         allocation, no exception and no <c>await</c>, so a discarded value really is
+    ///         discarded.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deliberately not "does the subtree contain a call".</b>
+    ///         <c>+ Morph.Low(word) * weight</c> contains two, and it is exactly the statement this
+    ///         rule exists to refuse: the calls are pure, their result is added to nothing, and the
+    ///         author believed they were the tail of the assignment on the line above. What matters
+    ///         is what the <em>statement</em> does with the value, which is the root node.
+    ///     </para>
+    ///     <para>
+    ///         An expression that failed to bind passes, on <see cref="ErrorTypeSymbol" />'s own
+    ///         terms — "reports one diagnostic, and then lets it flow through the rest of the
+    ///         expression so a single mistake does not cascade". <c>[]</c> as a statement is where
+    ///         that matters: it is <c>RVN2140</c>'s trigger and it lands in exactly this position,
+    ///         so without the guard the one program written to prove that rule fires would report
+    ///         two.
+    ///     </para>
+    /// </remarks>
+    static bool HasEffect(BoundExpression expression) =>
+        expression switch {
+            BoundAssignmentExpression => true,
+            BoundInvocationExpression => true,
+            BoundUnaryExpression unary => unary.OperatorKind
+                is UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PreDecrement
+                or UnaryOperatorKind.PostIncrement or UnaryOperatorKind.PostDecrement,
+            BoundErrorExpression => true,
+
+            // A conversion is inserted around a value, never around the effect: unwrap it so a
+            // widened call still reads as a call and a widened sum still reads as a sum.
+            BoundConversionExpression conversion => HasEffect(conversion.Operand),
+            _ => Erroneous(expression.Type)
+        };
+
+    /// <summary>True when this type is the stand-in for one that could not be resolved.</summary>
+    /// <remarks>
+    ///     Through an array's element, because that is the shape the failure takes: an empty
+    ///     collection literal is bound as <c>?[0]</c> rather than as <c>?</c>, so asking only about
+    ///     the outermost type would answer "array" and report a second time.
+    /// </remarks>
+    static bool Erroneous(TypeSymbol type) =>
+        type.TypeKind == TypeKind.Error || (type is ArrayTypeSymbol array && Erroneous(array.ElementType));
 
     BoundStatement BindLocalDeclaration(LocalDeclarationStatementSyntax syntax) {
         var declaration = syntax.Declaration;

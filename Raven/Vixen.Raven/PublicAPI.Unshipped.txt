@@ -3415,6 +3415,7 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.DuplicateEntryPoint 
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.EmptyCollectionHasNoElementType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.EntryPointCannotBeGeneric -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.EnumMemberValueNotConstant -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ExpressionStatementHasNoEffect -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.FormatOnNonImage -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.GroupSharedCannotBeReadOnly -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.GroupSharedCannotHaveInitializer -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

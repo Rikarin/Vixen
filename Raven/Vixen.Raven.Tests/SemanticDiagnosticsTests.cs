@@ -976,6 +976,66 @@ public class SemanticDiagnosticsTests {
         Assert.Contains("[]", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
+    // --- RVN2141: an expression statement that cannot do anything -----------
+
+    /// <summary>
+    ///     Each form that stands alone as a statement, evaluates, and leaves nothing behind.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The <c>Probe</c> body is one statement, so this is the whole method: an expression
+    ///     statement is the only position in the language where nothing asks what a value is for,
+    ///     which is the same hole <c>RVN2140</c> came out of.
+    /// </remarks>
+    [Theory]
+    [InlineData("        v")]
+    [InlineData("        v + 1f")]
+    [InlineData("        v == 1f")]
+    [InlineData("        -v")]
+    [InlineData("        float3(v, v, v)")]
+    [InlineData("        v > 0f ? 1f : 2f")]
+    public void An_expression_statement_that_does_nothing_is_reported(string body) =>
+        Assert.Single(AssertDiagnostics(InMethod(body, "    val v: float\n"), "RVN2141"));
+
+    /// <summary>
+    ///     The layout that made this a miscompile rather than a curiosity: a sum broken over two
+    ///     lines with the operator leading the second.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is <c>Raven/Library/Pipeline/ClusterRaster.rvn</c> before <c>852bcca0</c>,
+    ///         and <c>Terrain/GrassScatter.rvn</c> and <c>Terrain/Impostor.rvn</c> before this
+    ///         commit.</b> A newline ends a statement (README § Line breaks), so the two lines are
+    ///         <c>total = total</c> — a legal assignment that stores what it just loaded — and a
+    ///         unary <c>+</c> nobody reads. Every one of the three compiled clean, dispatched, and
+    ///         produced geometry that did not move: the shipped <c>GrassScatter.comp.spv</c> holds
+    ///         the jitter term as an <c>OpFMul</c> with no consumer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mirror layout was already an error, which is what hid this one.</b>
+    ///         Trailing the operator is <c>RVN1001</c>, "expected an expression, found end of
+    ///         line" — so the arrangement an author reaches for once that is refused is the one
+    ///         that said nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sum_continued_onto_the_next_line_is_reported() {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(
+                InMethod(
+                    """
+                            var total = 0f
+                            total = total
+                                + v
+                    """,
+                    "    val v: float\n"
+                ),
+                "RVN2141"
+            )
+        );
+
+        Assert.Contains("newline ends a statement", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
     /// <summary>
     ///     A range whose ends share no type is reported rather than defaulted to <c>int</c>.
     /// </summary>

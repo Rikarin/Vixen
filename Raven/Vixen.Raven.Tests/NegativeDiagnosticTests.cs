@@ -2746,4 +2746,74 @@ public class NegativeDiagnosticTests {
                 """
             )
         );
+
+    // --- RVN2141: an expression statement that cannot do anything -----------
+
+    /// <summary>Every form that is allowed to stand alone as a statement, in one body.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of
+    ///         <c>SemanticDiagnosticsTests.An_expression_statement_that_does_nothing_is_reported</c>,
+    ///         which is this body with the effects taken out — <c>v</c>, <c>v + 1f</c>, <c>-v</c>.
+    ///         The rule turns on the <em>root</em> node of the statement's expression and on
+    ///         nothing else, so the near miss is each root that does something: an assignment, a
+    ///         compound assignment, an increment, a call.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Pure(scale)</c> is the fixture's whole point.</b> Its result is discarded as
+    ///         completely as <c>v + 1f</c>'s is, and it must stay legal: a callee may write a
+    ///         resource or an <c>inout</c> argument, and the statement cannot see which from here —
+    ///         <c>Bump(c)</c> is the same shape and does. A rule that asked "is the value used"
+    ///         rather than "can evaluating this do anything" refuses both, and with them every
+    ///         <c>Store</c>, every atomic and every barrier in the library.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And it is deliberately not "does the subtree contain a call": the statement this
+    ///         rule was written for is
+    ///         <c>+ float3(Morph.Low(first), …) * weight.x</c>, which contains three.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_assignment_an_increment_and_a_call_may_stand_alone_as_statements() =>
+        Silent(
+            "RVN2141",
+            Semantic(
+                """
+                package A
+
+                struct Counter {
+                    var value: int
+                }
+
+                shader S {
+                    var output: RWBuffer<float>
+                    var scale: float
+
+                    func Bump(inout c: Counter) {
+                        c.value = c.value + 1
+                    }
+
+                    func Pure(v: float): float => v * 2f
+
+                    [ComputeShader(64)]
+                    func Main([Semantic("SV_GroupIndex")] local: uint) {
+                        var c: Counter
+                        c.value = 0
+
+                        var total = 0f
+
+                        total = scale
+                        total += scale
+                        total++
+                        Bump(c)
+                        Pure(scale)
+                        barrier()
+
+                        output[int(local)] = total + float(c.value)
+                    }
+                }
+
+                """
+            )
+        );
 }

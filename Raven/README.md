@@ -103,13 +103,13 @@ Exit codes are `0` for success, `1` when the input produced errors, and `2` when
 the command line or a path was wrong — so a build script can tell "you invoked
 me wrong" from "the shader is wrong".
 
-There are 127 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
+There are 128 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
 fires, and a **negative** — a shader that comes within one predicate of it and must stay silent.
 The second is the one that matters more, because an over-firing rule refuses correct work and cannot
-be argued with, while a missing rule only lets a mistake through. 69 ids have a negative today and 58
-do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 62 of the 69 and explains the
+be argued with, while a missing rule only lets a mistake through. 70 ids have a negative today and 58
+do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 63 of the 70 and explains the
 method. Of the 58 owed, two — `RVN2003` and `RVN2014` — cannot fire on any input and so can never
-have one, which puts the reachable ceiling at 125. Two rules to keep if you add one:
+have one, which puts the reachable ceiling at 126. Two rules to keep if you add one:
 
 - **A negative is a *near miss*, not an unrelated valid shader.** For "X may not appear under Y" it
   is Y with something that looks like X, or X under the Y′ that is allowed. It shares the shape of
@@ -316,6 +316,23 @@ Nothing else changes: the newlines are trivia, so the tree still reproduces the 
 signature reads the same to a caller, to the reflection and to both backends however it is laid
 out. The eleven-parameter signatures in `Library/DistanceFields/DistanceField.rvn` are what wanted
 this — they ran past 120 columns with nowhere to break.
+
+⚠ **A binary expression cannot be broken over lines at all, and for three shipped shaders that was a
+silent miscompile.** Grouping parentheses are not a call's, so `(\n a\n + b\n)` is `RVN1001`; so is
+trailing the operator, `x = x +` with the operand below. What is left is leading the operator:
+
+```typescript
+delta.position = delta.position
+    + float3(…) * weight          // ⚠ not a continuation — a second statement
+```
+
+which parses cleanly into *two* statements, because a newline ends one. The first stores what it
+just loaded, the second is a unary `+` whose value nothing reads, and the accumulation is not there.
+`ClusterRaster.rvn`, `Terrain/GrassScatter.rvn` and `Terrain/Impostor.rvn` each shipped in that
+state — `GrassScatter.comp.spv` held the jitter as an `OpFMul` with no consumer, so every blade
+stood on the exact centre of its cell whatever `GrassType.Jitter` said, and the host-side parity
+test was green because it re-implements the shader's arithmetic in C# rather than reading it.
+`RVN2141` refuses the second statement now. Name the operand in a `val`, or use `+=`.
 
 ### `compose`
 
