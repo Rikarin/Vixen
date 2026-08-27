@@ -1,8 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
+using Vixen.Engine.Transforms;
 using Vixen.Graphics.Null;
+using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Features;
 using Vixen.Rendering;
 using Vixen.Rendering.VirtualGeometry;
 using Xunit;
@@ -172,6 +177,127 @@ public sealed class MorphedClusterTests {
         // ⚠ Without this the whole loop passes on a mesh nothing moves, comparing zero with zero.
         Assert.True(moved > 100, $"Only {moved} vertices moved, which is not a shape.");
     }
+
+    // --- Built and fed ------------------------------------------------------
+
+    /// <summary>
+    ///     ⚠ An entity whose mesh has a cluster hierarchy is given its weights by the systems a frame
+    ///     runs, without anything here touching a feature.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The "built but never fed" assertion, and it is the one this whole task exists to
+    ///         make true.</b> `MorphRenderFeatureTests` makes it for the suballocated path. Everything
+    ///         else here drives the feature or the tables directly, which says the machinery works and
+    ///         says nothing about whether a frame reaches it — and "a frame that does not reach it"
+    ///         is precisely the defect that made a head with twenty shapes draw at rest.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fall-through is what routes it, rather than a question about the mesh.</b>
+    ///         `MorphRenderFeature.SetWeights` answers false for an object it never attached — which
+    ///         is exactly the virtualized object — so neither system has to know what a cluster
+    ///         hierarchy is. Here the first feature is absent entirely, which is the same branch.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_entity_with_a_hierarchy_is_given_its_weights_by_the_systems_a_frame_runs() {
+        var input = Grid(12);
+        var mesh = MeshletBuilder.Build(input);
+        var pages = MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = 16 * 1024 });
+
+        using var device = new NullDevice(new());
+        using var visibility = new GpuClusterVisibility(device);
+        using var system = new RenderSystem();
+        using var world = new World(nameof(An_entity_with_a_hierarchy_is_given_its_weights_by_the_systems_a_frame_runs));
+
+        var buffer = new GeometryBuffer(device, SurfaceVertex.SizeInBytes, 4096, 8192);
+        var residency = new GeometryResidency(buffer);
+
+        var meshes = new MeshRenderFeature();
+        var transforms = new TransformRenderFeature();
+        var materials = new MaterialRenderFeature();
+        var virtualized = new VirtualGeometryRenderFeature { Visibility = visibility };
+
+        var opaque = system.AddStage(new("Opaque"));
+
+        meshes.Add(transforms);
+        meshes.Add(materials);
+
+        system.AddFeature(meshes);
+        system.AddFeature(virtualized);
+
+        var registered = virtualized.Register(mesh, pages, 0, MorphIndex.Build(Shapes(input), input.Positions.Length));
+        Assert.Equal(0, registered);
+
+        var extraction = new MeshExtractionSystem(system, meshes, transforms, materials, residency) {
+            Stages = opaque.Mask,
+            Virtualized = virtualized,
+            Clusters = new OneCluster(registered),
+            Meshes = new OneTriangle()
+        };
+
+        var weights = new MorphWeightSystem { Virtualized = virtualized, Renderer = system };
+
+        var entity = world.Create();
+
+        MeshRenderables.Attach(world, entity, MeshRenderables.Default(Rock));
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
+        world.Add(entity, new BlendShapeWeights { Weights = [1f, 0.5f] });
+
+        extraction.Extract(world);
+
+        Assert.Equal(1, extraction.VirtualizedCount);
+
+        weights.Run(world);
+
+        Assert.Equal(1, weights.Weighted);
+        Assert.Equal(1, weights.VirtualizedCount);
+
+        // ⚠ And the record the traversal reads, not only the counter. A system that counted an entity
+        // and wrote nothing is what a counter cannot tell from one that worked.
+        var id = world.Read<RenderHandle>(entity).Object;
+        var draw = system.Objects.Data.Data(virtualized.Draws)[id.Index];
+
+        Assert.True(draw.IsMorphed, "The draw record says the instance has no weights.");
+        Assert.NotEqual(0, draw.FirstWeight);
+        Assert.True(draw.MorphRadius > 0f, "The bound was not inflated, so the expression can be culled.");
+
+        // The names came back out of what was actually registered, which is what a clip binds by.
+        var shapes = world.Read<BlendShapeWeights>(entity).Shapes;
+
+        Assert.NotNull(shapes);
+        Assert.Equal(["shrink", "lift"], shapes);
+        Assert.Equal(1, weights.Bound);
+
+        buffer.Dispose();
+    }
+
+    /// <summary>A source with one registered hierarchy, for every reference asked.</summary>
+    sealed class OneCluster(int mesh) : IVirtualGeometrySource {
+        public ClusterState TryGet(AssetReference reference, out int index, out BoundingSphere bounds) {
+            index = mesh;
+            bounds = new(Vector3.Zero, 2f);
+
+            return ClusterState.Ready;
+        }
+    }
+
+    /// <summary>The fallback mesh a clustered model also has, which nothing here draws.</summary>
+    sealed class OneTriangle : IMeshSource {
+        public bool TryGet(AssetReference reference, out MeshData mesh) {
+            mesh = new() {
+                Name = "fallback",
+                Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
+                Normals = [new(0f, 0f, 1f), new(0f, 0f, 1f), new(0f, 0f, 1f)],
+                TexCoords = [new(0f, 0f), new(1f, 0f), new(0f, 1f)],
+                Indices = [0, 1, 2]
+            };
+
+            return true;
+        }
+    }
+
+    static readonly AssetReference Rock = new(new AssetId(new("77777777-7777-7777-7777-777777777777")));
 
     // --- The three copies ---------------------------------------------------
 
