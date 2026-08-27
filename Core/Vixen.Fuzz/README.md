@@ -128,6 +128,11 @@ slowest** — 106.8 ms on 36 B, 14.8 ms on 166 B, 5.1 ms on 300 B. That is the a
 this tail the reading is not a function of the input, so a single reading is not evidence about the
 input and no threshold can make it one.
 
+The same thing had already happened with a different cast. Run `32897000404`, two days earlier,
+accused `upgrade`, `stylevalue`, `meta`, `chunk` and `input` — the last of those **eight bytes** long,
+billed 2,380.5 ms. Every target here runs a deterministic case stream from a fixed seed, so two runs
+see the same inputs in the same order; the two runs accused almost disjoint sets of them.
+
 **Which is why the answer is not a bigger number.** Measured across all twenty targets and 12.6 M
 cases on an idle machine, the worst honest reading is 306 ms (`raven`, which compiles a shader per
 case) and every other target stays under 43 ms — while CI's stalls reach 6.2 s and nothing bounds them
