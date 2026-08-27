@@ -222,12 +222,21 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
     }
 
     /// <summary>A source with one registered hierarchy, for every reference asked.</summary>
-    sealed class OneCluster(int mesh, float radius) : IVirtualGeometrySource {
+    /// <param name="mesh">The registration index it answers with.</param>
+    /// <param name="radius">Its bind-pose bound.</param>
+    /// <param name="caster">Whether its content carries a fallback mesh to cast through.</param>
+    sealed class OneCluster(int mesh, float radius, bool caster = true) : IVirtualGeometrySource {
         public ClusterState TryGet(AssetReference reference, out int index, out BoundingSphere bounds) {
             index = mesh;
             bounds = new(Vector3.Zero, radius);
 
             return ClusterState.Ready;
+        }
+
+        public bool TryGetCaster(AssetReference reference, out int[] triangles) {
+            triangles = caster ? [0, 1, 2] : [];
+
+            return caster;
         }
     }
 
@@ -238,6 +247,12 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
             bounds = default;
 
             return ClusterState.None;
+        }
+
+        public bool TryGetCaster(AssetReference reference, out int[] triangles) {
+            triangles = [];
+
+            return false;
         }
     }
 
@@ -252,6 +267,12 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
             bounds = new(Vector3.Zero, 1f);
 
             return ready ? ClusterState.Ready : ClusterState.Waiting;
+        }
+
+        public bool TryGetCaster(AssetReference reference, out int[] triangles) {
+            triangles = ready ? [0, 1, 2] : [];
+
+            return ready;
         }
     }
 

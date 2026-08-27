@@ -77,6 +77,13 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
     readonly List<Entity> pending = [];
     readonly Dictionary<Entity, GeometryKey> claimed = [];
+
+    // A second table rather than a second field on the first, because the two claims have different
+    // populations: every extracted entity has a primary claim (possibly a default one) and only a
+    // virtualized entity in a caster stage has this. Keeping them apart is what lets `ObjectCount`
+    // go on meaning "entities extracted".
+    readonly Dictionary<Entity, GeometryKey> casterClaims = [];
+
     readonly List<ResolveMaterial> resolved = [];
 
     /// <summary>Builds the bridge.</summary>
@@ -224,6 +231,27 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public int VirtualizedCount { get; private set; }
 
+    /// <summary>How many virtualized entities were given a shadow caster of their own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The number that says a virtualized scene casts shadows at all.</b> The cluster path
+    ///     issues no per-object draw, so a virtualized object left in a caster stage is walked past in
+    ///     silence — a mesh that draws perfectly and casts nothing, with every other counter healthy.
+    ///     This at zero in a scene whose <see cref="VirtualizedCount" /> is not is either a host that
+    ///     never named <see cref="CasterStages" /> or content with no fallback; see
+    ///     <see cref="CastersMissing" /> for the second.
+    /// </remarks>
+    public int CasterCount => casterClaims.Count;
+
+    /// <summary>
+    ///     How many virtualized entities wanted a caster and had no geometry to build one from.
+    /// </summary>
+    /// <remarks>
+    ///     Content built by a version that wrote no <c>MeshletMesh.Fallback</c>, or a host with no
+    ///     <see cref="Meshes" /> to supply the vertices the fallback indexes. Both draw correctly and
+    ///     cast nothing, which is why they are counted rather than merely allowed.
+    /// </remarks>
+    public int CastersMissing { get; private set; }
+
     /// <summary>The materials the resolve pass has to dispatch for, in material-index order.</summary>
     /// <remarks>
     ///     What a host hands to <c>GpuClusterResolve.Materials</c>. Built here because it is the scene
@@ -312,6 +340,14 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     ///     describes is what would let this be automatic, and it is behind a compile-time switch.
     /// </remarks>
     public bool Forget(Entity entity) {
+        // ⚠ Released whether or not the entity had a primary claim, and before the early return. A
+        // virtualized entity's primary key is the default one and its caster's is the real claim, so
+        // ordering these the other way round leaks the caster's slice on exactly the entities this
+        // exists for.
+        if (casterClaims.Remove(entity, out var caster)) {
+            residency.Release(caster);
+        }
+
         if (!claimed.Remove(entity, out var key)) {
             return false;
         }
@@ -370,6 +406,13 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
             // morphing faces after a few reloads rather than like a leak.
             Morphing?.Forget(handle.Object);
 
+            // The caster's object and its morph range go the same way, and its claim is released by
+            // `Forget` below with the entity's other one.
+            if (handle.HasCaster) {
+                system.Objects.Remove(handle.Caster);
+                Morphing?.Forget(handle.Caster);
+            }
+
             // Under the entity's name, which is the same claim the handle records — one release, not
             // two.
             Forget(entity);
@@ -386,7 +429,12 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
             residency.Release(key);
         }
 
+        foreach (var key in casterClaims.Values) {
+            residency.Release(key);
+        }
+
         claimed.Clear();
+        casterClaims.Clear();
     }
 
     void Retire(World world) {
@@ -404,8 +452,29 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
             residency.Release(handle.Geometry);
             claimed.Remove(entity);
 
+            RetireCaster(entity, handle);
+
             world.Remove<RenderHandle>(entity);
         }
+    }
+
+    /// <summary>Drops the caster half of a handle, if it had one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three things and not one.</b> A caster is a render object, a morph attachment and a
+    ///     residency claim, exactly as the drawn object is — so a retirement that removed the object
+    ///     alone would leave a vertex range and a slice behind, once per virtualized entity per level.
+    ///     That is the leak <see cref="Forget" /> was written for, in a second place.
+    /// </remarks>
+    void RetireCaster(Entity entity, in RenderHandle handle) {
+        casterClaims.Remove(entity);
+
+        if (!handle.HasCaster) {
+            return;
+        }
+
+        system.Objects.Remove(handle.Caster);
+        Morphing?.Forget(handle.Caster);
+        residency.Release(handle.CasterGeometry);
     }
 
     void Appear(World world) {
@@ -504,11 +573,29 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
         var matrix = world.Read<WorldTransform>(entity).Value;
         var bounds = Transformed(local, matrix);
+        var stages = Staged(world, entity, renderable.CastsShadows);
+        var casterStages = stages & CasterStages;
+
+        // ⚠ The caster is resolved *before* the object is added, because it may still answer "not yet".
+        // A virtualized entity that settled without its caster settles for ever — nothing re-extracts
+        // it — and what that looks like is a mesh that draws correctly and casts no shadow, which is
+        // the failure this whole path exists to end rather than to relocate.
+        var caster = Caster(renderable, bounds, casterStages, material);
+
+        if (caster is null) {
+            return false;
+        }
 
         var id = system.Objects.Add(
             new() {
                 Bounds = bounds,
-                Stages = Staged(world, entity, renderable.CastsShadows),
+
+                // ⚠ Minus the caster stages exactly when something else is standing in for them. The
+                // traversal draws no per-object command, so an instance left in a caster stage is an
+                // object the stage node walks past — which is what "its shadow agrees with it" was
+                // failing on. With no caster stages named the mask is unchanged and this is the frame
+                // every project already had.
+                Stages = caster.Value.IsValid ? stages.Except(CasterStages) : stages,
                 FeatureIndex = Virtualized.Index
             }
         );
@@ -530,11 +617,105 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         // A default key rather than the mesh's: a virtualized object holds no residency claim, because
         // its geometry is paged rather than suballocated. Releasing one nothing acquired is harmless by
         // design — see `GeometryResidency.Release`.
-        world.Add(entity, new RenderHandle { Object = id, Local = local });
+        var handle = new RenderHandle { Object = id, Local = local };
+
+        if (caster.Value.IsValid) {
+            handle.Caster = caster.Value;
+            handle.CasterGeometry = GeometryKey.Caster(renderable.Mesh);
+            casterClaims[entity] = handle.CasterGeometry;
+        }
+
+        world.Add(entity, handle);
         claimed[entity] = default;
         VirtualizedCount++;
 
         return true;
+    }
+
+    /// <summary>Builds the object that stands in for a virtualized one in the shadow stages.</summary>
+    /// <param name="renderable">What the entity draws.</param>
+    /// <param name="bounds">Its world-space bound, which the caster shares exactly.</param>
+    /// <param name="stages">The caster stages it belongs in. Empty asks for none.</param>
+    /// <param name="material">What it is painted with.</param>
+    /// <returns>
+    ///     The caster's id; <see cref="RenderObjectId.Invalid" /> for an entity that wants none or whose
+    ///     content has none; and null for one whose caster geometry has not arrived, which the caller
+    ///     must wait for rather than settle without.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fallback mesh, which is what phase 1 generates it for.</b>
+    ///         <c>MeshletMesh.Fallback</c> is a cut through the same DAG flattened into an ordinary index
+    ///         buffer, and its indices are the <em>source mesh's</em> vertices — so this is the mesh's own
+    ///         vertex arrays with a smaller set of triangles over them, and every per-vertex thing the
+    ///         ordinary path does to a mesh works on it unchanged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is what makes a morphed virtualized face cast a morphed shadow.</b> A blend
+    ///         shape's deltas are indexed by source vertex, so attaching the caster to
+    ///         <see cref="Morphing" /> gives it the same deformed copy the ordinary path would have
+    ///         drawn — one implementation of the morph, not a second one that could disagree with the
+    ///         cluster gather. The two are then held together by
+    ///         <c>MorphWeightSystem</c>, which writes the same weights to both objects.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does not do is match the receiver's level of detail.</b> The caster is
+    ///         one fixed cut and the camera's is chosen per cluster per frame, so a silhouette can
+    ///         differ by the fallback's own simplification error — see
+    ///         <c>docs/plan/22-virtualized-geometry.md</c> phase 7, which names that as what is owed.
+    ///     </para>
+    /// </remarks>
+    RenderObjectId? Caster(in MeshRenderable renderable, in BoundingSphere bounds, RenderStageMask stages, Material? material) {
+        if (stages.IsEmpty || Clusters is null) {
+            return RenderObjectId.Invalid;
+        }
+
+        // Content built before the fallback was written. Counted rather than papered over with the
+        // full-resolution index buffer, which would be a caster costing what virtualization exists to
+        // avoid, arrived at silently.
+        if (!Clusters.TryGetCaster(renderable.Mesh, out var triangles)) {
+            CastersMissing++;
+            return RenderObjectId.Invalid;
+        }
+
+        // ⚠ Null is "there is no ordinary mesh source", which is a host with no content mounted and
+        // most of this assembly's tests — not a mesh to wait for. Waiting on it would hang every such
+        // scene on its first virtualized entity.
+        if (Meshes is null) {
+            CastersMissing++;
+            return RenderObjectId.Invalid;
+        }
+
+        if (!Meshes.TryGet(renderable.Mesh, out var source)) {
+            return null;
+        }
+
+        var key = GeometryKey.Caster(renderable.Mesh);
+
+        // The same vertices and a different index buffer, which is the whole of the record — and the
+        // reason the key has a caster space of its own: this slice and the mesh's own are two
+        // residency entries under one asset reference.
+        if (!residency.Acquire(key, () => source with { Indices = triangles }, out var slice, out _)) {
+            Dropped++;
+            return RenderObjectId.Invalid;
+        }
+
+        var draw = new MeshDraw { InstanceCount = 1 };
+        residency.Buffer.Apply(ref draw, slice);
+
+        var id = system.Objects.Add(new() { Bounds = bounds, Stages = stages, FeatureIndex = meshes.Index });
+
+        // ⚠ Before the record is stored, for `Add`'s reason: attaching rewrites the draw's vertex
+        // buffer and offset to the object's own morphed copy.
+        Morphing?.Attach(system, id, key, source, slice, ref draw);
+
+        system.Objects.Data.Data(meshes.Draws)[id.Index] = draw;
+
+        if (material is not null) {
+            materials.Assign(system, id, material);
+        }
+
+        return id;
     }
 
     /// <summary>Which stages this entity is drawn in — the movers' set, or the level's, less the
@@ -667,6 +848,19 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
                 world_[id.Index] = matrix;
                 system.Objects[id].Bounds = Transformed(handles[i].Local, matrix);
+
+                // ⚠ The caster is placed from the same matrix in the same pass, not from a transform of
+                // its own. It stands in for this entity, so an entity that moved and a caster that did
+                // not is a shadow left behind — which is the shape of wrong this whole path exists to
+                // avoid, and it would look like a shadow bug rather than an extraction one.
+                if (!handles[i].HasCaster) {
+                    continue;
+                }
+
+                var caster = handles[i].Caster;
+
+                world_[caster.Index] = matrix;
+                system.Objects[caster].Bounds = system.Objects[id].Bounds;
             }
         }
     }

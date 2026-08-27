@@ -91,6 +91,17 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public int VirtualizedCount { get; private set; }
 
+    /// <summary>How many shadow casters were given the same weights their object got.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A virtualized entity's expression has to be written twice, to two features, from one
+    ///     array.</b> The cluster gather morphs the paged vertices for the camera and
+    ///     <see cref="MorphRenderFeature" /> morphs the fallback vertices for the shadow, and the two
+    ///     are the same shapes over the same source numbering — so a frame that wrote one and not the
+    ///     other is a face whose shadow is its rest pose. Nothing about the picture says which of the
+    ///     two was missed; this number does. See <c>RenderHandle.Caster</c>.
+    /// </remarks>
+    public int CastersWeighted { get; private set; }
+
     /// <inheritdoc />
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
         Run(context.World);
@@ -107,6 +118,7 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
         Weighted = 0;
         Bound = 0;
         VirtualizedCount = 0;
+        CastersWeighted = 0;
 
         if (Feature is null && Virtualized is null) {
             return;
@@ -155,6 +167,18 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
                 // empty span rather than skipping is deliberate: it is what returns a face to rest when
                 // a script clears the array, where a skip would leave the last expression on it for
                 // ever.
+                // ⚠ The shadow caster first, and outside the either/or below. A virtualized entity has
+                // *two* objects that morph — the paged one the camera sees and the fallback one the
+                // shadow stages draw — and the fall-through that picks between the two features is a
+                // choice about the first only. Writing the weights here, before that choice, is what
+                // makes a morphed face's shadow morph with it; leaving it to either branch would give
+                // the caster the rest pose on whichever branch forgot, silently.
+                if (Feature is not null
+                    && handles[index].HasCaster
+                    && Feature.SetWeights(handles[index].Caster, weights ?? [])) {
+                    CastersWeighted++;
+                }
+
                 if (Feature is not null && Feature.SetWeights(handles[index].Object, weights ?? [])) {
                     Weighted++;
 

@@ -381,6 +381,13 @@ public static class PrimitiveShapes {
 ///     </para>
 /// </remarks>
 public struct RenderHandle {
+    // ⚠ Stored offset by one, and that offset is the whole reason this is a field with a property in
+    // front of it. `RenderObjectId`'s default is index zero, which is a perfectly valid object — the
+    // first one the store ever hands out — so a zeroed handle carrying a bare id would claim the
+    // scene's first render object as its shadow caster and drive it from the wrong entity's
+    // transform. Zero here means none, which is what a zeroed struct should mean.
+    int caster;
+
     /// <summary>The object in the store.</summary>
     public RenderObjectId Object;
 
@@ -395,4 +402,34 @@ public struct RenderHandle {
 
     /// <summary>Its bounds in the mesh's own space, so a moved entity needs no mesh lookup.</summary>
     public BoundingSphere Local;
+
+    /// <summary>
+    ///     A second object that stands in for this one in the shadow stages, or
+    ///     <see cref="RenderObjectId.Invalid" /> when it needs none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a virtualized mesh casts through.</b> The cluster path draws no per-object
+    ///         command — one indirect draw covers every cluster of every instance — so an object on it
+    ///         cannot be put in a caster stage and drawn there. The mesh it would have drawn the
+    ///         ordinary way is still available: <c>MeshletMesh.Fallback</c> is a cut through the same
+    ///         DAG over the <em>same source vertices</em>, which is why a caster built from it deforms
+    ///         with the mesh rather than beside it. See <c>MeshExtractionSystem.Clustered</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invalid is the ordinary case.</b> Every object on the vertex-buffer path draws
+    ///         itself into the caster stages, so only the virtualized ones have one of these.
+    ///     </para>
+    /// </remarks>
+    public RenderObjectId Caster {
+        get => caster > 0 ? new(caster - 1) : RenderObjectId.Invalid;
+        set => caster = value.IsValid ? value.Index + 1 : 0;
+    }
+
+    /// <summary>Which geometry <see cref="Caster" /> holds a residency claim on.</summary>
+    /// <inheritdoc cref="Geometry" path="/remarks" />
+    public GeometryKey CasterGeometry;
+
+    /// <summary>Whether this entity draws its shadow through a second object.</summary>
+    public bool HasCaster => caster > 0;
 }

@@ -280,6 +280,13 @@ public sealed class MorphedClusterTests {
 
             return ClusterState.Ready;
         }
+
+        /// <summary>The one triangle <see cref="OneTriangle" /> supplies the vertices for.</summary>
+        public bool TryGetCaster(AssetReference reference, out int[] triangles) {
+            triangles = [0, 1, 2];
+
+            return true;
+        }
     }
 
     /// <summary>The fallback mesh a clustered model also has, which nothing here draws.</summary>
