@@ -13,7 +13,7 @@ Findings: [docs/plan/spikes/web-head/RESULT.md](../../docs/plan/spikes/web-head/
 the spike this head was promoted out of.
 
 ```bash
-./build.sh CompileWeb PublishWeb --configuration Release
+./build.sh CompileWeb PublishWeb BrowserSmoke --configuration Release
 ```
 
 ## Why a head exists at all, when three libraries already compile
@@ -33,20 +33,72 @@ found lives in exactly that gap:
 2. **`dotnet.run()` exits the runtime when `Main` returns**, killing every `requestAnimationFrame`
    callback `WebFrameLoop` registered. `wwwroot/main.js` uses `runtime.runMain()`; `PublishWeb`
    checks the *shape* of that in the published file, and only a loaded page can check the
-   behaviour — see below.
+   behaviour — which `nuke BrowserSmoke` now does, by reading the frame count out of the page twice
+   a second apart and requiring it to have **moved**.
 3. **`WasmMainJSPath` at the project root is not a static web asset**, so the page 404s on its own
    entry point and nothing at all happens, with no build error.
 
 ## It is a probe: it draws nothing, and says so
 
-`Program.cs` stands the platform up, asks for a window, reads the processor count, tries to reach
-`navigator.gpu`, and runs a frame loop that counts. It prints `VIXENPROBE …` lines and paints them
-into the page. **No pixel is drawn**: no WebGPU adapter was obtainable in headless Chromium on
-macOS at any flag combination tried, so `WebGpuDevice` has never been constructed on the web. Closing
-that needs a Linux job with `--enable-features=Vulkan` over a software Vulkan ICD.
+`Program.cs` stands the platform up, asks for a window, and then **calls `[JSImport]`s** — which is
+the whole point of it and the thing nothing else in this repository does. It prints one line per
+check:
+
+```
+VIXENPROBE check canvas-selector pass #view
+VIXENPROBE check indexeddb-round-trip pass 8 bytes back of 8
+VIXENPROBE done checks=23 failed=0
+```
+
+`browser-smoke.mjs` parses those, adds twelve of its own, and fails the build if any of the
+thirty-five did not pass — or if fewer than thirty-five ran at all. What each check reaches is set
+out in `Program.cs`; between them they execute every marshalling shape the boundary has: a `void`
+call, primitives, strings in both directions, `[JSMarshalAs<JSType.MemoryView>]` in both directions,
+a `JSType.Function` callback, and `Task<T>` with the buffer-handle dance on either side of it.
+
+**No pixel is drawn**: no WebGPU adapter was obtainable in headless Chromium on macOS at any flag
+combination tried, so `WebGpuDevice` has never been constructed on the web. That is reported as
+`VIXENPROBE observe gpu-unavailable …` and is deliberately **not** a failing check — making it one
+would make the leg red on every machine anyone has, which is how a gate gets ignored. Closing it
+needs a Linux job with `--enable-features=Vulkan` over a software Vulkan ICD.
 
 `MountContent` is `false` because nothing in this repository produces the `content/manifest.json`
-that `FetchFileProvider` requires.
+that `FetchFileProvider` requires — the fetch check builds a one-entry manifest by hand instead and
+reads the page's own `index.html` back through `FetchFileProvider`.
+
+## The gate: `nuke BrowserSmoke`
+
+```bash
+./build.sh BrowserSmoke --configuration Release
+```
+
+It publishes the head, serves it on an ephemeral loopback port with `Cross-Origin-Opener-Policy`
+and `Cross-Origin-Embedder-Policy`, launches the Chrome it can find, drives it over CDP, and asserts
+thirty-five things. `build/Build.BrowserSmoke.cs` carries the reasoning; the short version:
+
+- **No Playwright, no npm install, no vendored binary.** `playwright-core` would be a third-party
+  dependency that `nuke CheckAttribution` **cannot see** — it reads `Directory.Packages.props` and
+  `native-dependencies.json`, neither of which knows what npm is — so adding one would put an
+  unattributed dependency in the one place the attribution gate cannot look. The driver is ~200
+  lines of CDP over Node's built-in `WebSocket` (Node 22+). `Vixen.Platform.Web.Tests`'
+  `js/vixen-platform.test.mjs` already makes the same call in its own header.
+- **The browser is not vendored either.** It is whatever Chrome is on the machine: `VIXEN_CHROME`,
+  then `CHROME_PATH`/`CHROME_BIN`, then the usual paths. GitHub's `ubuntu-latest` image ships one.
+  ⚠ `chrome-headless-shell` is deliberately **not** in that list — see below.
+- ⚠ **A missing browser is a FAILURE, not a skip**, and so is a missing Node, a page that 404'd, a
+  transcript that arrived incomplete, and a run that executed fewer checks than it was told to
+  expect. On the day this gate does not run, it says so.
+
+## ⚠ It drives a browser; it does not dump the DOM
+
+`chrome-headless-shell --dump-dom` **never fires `requestAnimationFrame`** — with or without
+`--virtual-time-budget`, `--screenshot` or SwiftShader; a pure-JS control page counted **zero**
+callbacks in three seconds, while the same page over CDP counts 120/s. A leg built on `--dump-dom`
+would report a live frame loop as dead.
+
+So `browser-smoke.mjs` **verifies its own instrument before it believes the subject**: it counts
+`requestAnimationFrame` from the driver's side, in a page with none of our code in it, and reports a
+zero there as `INSTRUMENT FAILURE` in those words rather than as a broken engine.
 
 **A first web *sample* is a different, larger thing** and is still owed. `Samples/01-HelloTriangle`
 is deliberately backend-specific — `using Vixen.Graphics.Vulkan`, `VulkanDevice.Create`, embedded
@@ -54,6 +106,8 @@ is deliberately backend-specific — `using Vixen.Graphics.Vulkan`, `VulkanDevic
 needs a backend-agnostic game plus WGSL, not a head.
 
 ## Loading it by hand
+
+The gate does all of this for you; this is for when you want to sit and look at the page.
 
 ```bash
 dotnet publish Tools/Vixen.WebProbe/Vixen.WebProbe.csproj -c Release
@@ -63,24 +117,26 @@ node Tools/Vixen.WebProbe/serve.mjs \
 ```
 
 `serve.mjs` sets `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy`; drop them to watch
-`IProcessorTopology.AvailableProcessors` fall from 10 to 1.
+`IProcessorTopology.AvailableProcessors` fall from 10 to 1, and to watch the gate's
+`processors-see-isolation` check go red for it.
 
-Then, in another shell — **the full browser over CDP, not `--dump-dom`**:
+Then, in another shell — **the full browser over CDP, not `--dump-dom`**. `browser-smoke.mjs` takes
+a site root and does its own serving and launching, so it is also the one-liner:
 
 ```bash
-npm install --prefix Tools/Vixen.WebProbe playwright-core
+node Tools/Vixen.WebProbe/browser-smoke.mjs artifacts/web/wwwroot
+```
 
+`drive.mjs` is the older, chattier developer tool that attaches to a browser you started yourself.
+⚠ It needs `npm install --prefix Tools/Vixen.WebProbe playwright-core` — which is exactly why the
+**gate** does not use it, and why nothing that runs in CI depends on it.
+
+```bash
 chrome-headless-shell --headless --no-sandbox --enable-unsafe-swiftshader \
     --remote-debugging-port=9223 --user-data-dir=/tmp/vixen-cdp about:blank &
 
 node Tools/Vixen.WebProbe/drive.mjs http://localhost:8099/index.html 6000
 ```
-
-⚠ **`chrome-headless-shell --dump-dom` never fires `requestAnimationFrame`** — with or without
-`--virtual-time-budget`, `--screenshot` or SwiftShader; a pure-JS control page counted **zero**
-callbacks in three seconds, while the same page over CDP counts 120/s. The Playwright CI leg
-[doc 10](../../docs/plan/10-platforms.md) asks for is **owed**, and must not be built on `--dump-dom`:
-it would report a live frame loop as dead.
 
 ## Why it is not in `Vixen.slnx`
 
