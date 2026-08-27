@@ -4,7 +4,7 @@ slug: editor/prefab-overrides
 kind: guide
 area: Editor
 summary: How a scene records that an entity came from a prefab and which of its members it has changed, and what happens when the prefab changes underneath it.
-api: [T:Vixen.Editor.Core.Scenes.PrefabOverrides, T:Vixen.Editor.Core.Scenes.PrefabReport, T:Vixen.Editor.Core.Scenes.PrefabReportKind, T:Vixen.Editor.Core.Scenes.PrefabReconcile, T:Vixen.Editor.Core.Scenes.PrefabReconcileReport, T:Vixen.Editor.Core.Scenes.PrefabUnresolved, T:Vixen.Editor.Core.Scenes.PrefabUnresolvedKind]
+api: [T:Vixen.Editor.Core.Scenes.PrefabOverrides, T:Vixen.Editor.Core.Scenes.PrefabReport, T:Vixen.Editor.Core.Scenes.PrefabReportKind, T:Vixen.Editor.Core.Scenes.PrefabReconcile, T:Vixen.Editor.Core.Scenes.PrefabReconcileReport, T:Vixen.Editor.Core.Scenes.PrefabUnresolved, T:Vixen.Editor.Core.Scenes.PrefabUnresolvedKind, T:Vixen.Editor.AssetEditors.Prefabs.PrefabSource, T:Vixen.Editor.Inspector.IPrefabSource]
 tags: [editor, scenes, prefabs, overrides, asset-pipeline]
 since: 0.1
 status: preview
@@ -27,6 +27,10 @@ from, and is one undo step. Every other kind of asset dropped there makes a sing
 `PrefabOverrides` is the pure logic over those keys — read and write a member by path, mark and clear
 an override, and bring a scene back in step with a prefab that has changed underneath it. It works on
 the file, not on a world: no `SceneDocument`, no ECS, no project on disk.
+
+`PrefabSource` is the inspector's end of it: it pairs each object a panel shows with the entity it
+stands for, answers `IPrefabSource`'s four questions out of `SceneDocument.Prefabs`, and is what puts
+the override mark and the working Revert item on a row.
 
 `PrefabReport` and `PrefabReportKind` are what a reconcile could not resolve and therefore left alone.
 `PrefabReconcile` is the step above: it turns the `vx:` reference a scene carries into a prefab file
@@ -141,6 +145,34 @@ from a separate instance dragged in under one without the outer template, and th
 the destructive one.
 
 **Prefab variants — a prefab that is itself an override of another prefab — are out of 1.0.**
+
+## In the inspector
+
+Select an entity inside an instance and the rows behave differently from an ordinary entity's:
+
+- A member the instance claims is drawn **un-muted** — that is the mark, and it is deliberately quiet,
+  because a colour chosen for it would be wrong in somebody's palette.
+- **Revert to Prefab**, on the row's context menu, gives the member back: it writes the template's value
+  and drops the claim.
+- Editing any row of an instance **records the claim**. That is what makes a nudge survive the next
+  open: an unclaimed member takes the template's value when the scene is reconciled, so an edit that
+  recorded nothing would be an edit undone by reopening the level.
+
+⚠ **Reverting an override whose value already equals the template's still does something.** That case is
+the whole reason `overrides` is a list of names — the author may have typed the template's own number in
+on purpose, or turned a lamp that was already off to off — so a revert drops the claim even when there
+is no value to write. Until it does, the template's next change to that member cannot reach the
+instance.
+
+⚠ **Position and rotation are shown in world space and the file holds them relative to the parent.** The
+inspector converts, so a child of an instance you dragged across the level is *not* marked, and Revert
+puts it back where the prefab says relative to its parent rather than at the prefab's coordinates in
+the world. `Scale` is relative on both sides and is not converted.
+
+The claim is recorded on the scene's undo stack, so Ctrl+Z after an edit takes the value and the claim
+together. ⚠ The first edit of a member an instance had not claimed is two entries — "Override
+Intensity" and then "Set Intensity" — because a claim cannot merge into the value command that follows
+it. Every later edit of that member merges as usual.
 
 ## Examples
 

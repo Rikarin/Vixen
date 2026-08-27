@@ -43,11 +43,12 @@ What is already built and must not be duplicated:
 - **`SceneSerializer.Instantiate(..., sources)`** (`SceneSerializer.cs:323`) — instantiating a
   template into a document *without* adopting its ids, filling a map of entity → the id the file
   gave it. Its remarks already say this "is also exactly what an override comparison needs".
-- **`IPrefabSource`** (`Editor/Vixen.Editor.Inspector/InspectorField.cs:201`), `PrefabSource`
-  (`Prefabs.cs:203`), `InspectorField.IsOverridden` / `CanRevertToPrefab` and the revert button
-  (`InspectorView.cs:599`) — the inspector's whole override *presentation* exists and works at
-  **member** granularity, which constrains the format: anything coarser than a member would be a
-  file that cannot express what the UI already shows.
+- **`IPrefabSource`** (`Editor/Vixen.Editor.Inspector/InspectorField.cs`), `PrefabSource`
+  (`Editor/Vixen.Editor.AssetEditors/Prefabs/PrefabSource.cs`), `InspectorField.IsOverridden` /
+  `RevertToPrefab` and the revert item (`InspectorView.cs`) — the inspector's whole override
+  *presentation* exists and works at **member** granularity, which constrains the format: anything
+  coarser than a member would be a file that cannot express what the UI already shows. ⚠ **What it
+  was fed on, when this was written, was a value comparison and nothing at all** — see § 7c.
 
 So the overview's row is right in letter — nothing named `Override` exists under
 `Core/Vixen.Engine/Scenes` — and understates what is there. Roughly half of an override system is
@@ -294,7 +295,7 @@ Owed, in order:
 | 3 | The `removed` list of § 6, recorded on delete | Slice 1 | **Landed** — slice 2 |
 | 4 | Add-back of template children, reading the `removed` list | Slice 2 | **Landed** — slice 3 |
 | 5 | Nested reconciliation, one level | Slice 2 | **Landed** — slice 3 |
-| 6 | The inspector's override marks fed from `SceneDocument.Prefabs` rather than paired by hand | Slice 2 — and one decision, § 7b | Owed |
+| 6 | The inspector's override marks fed from `SceneDocument.Prefabs` rather than paired by hand | Slice 2 — and one decision, § 7b | **Landed** — slice 4 |
 | 7 | Model (B) — drop the resolved values, bump the format version | `ImportContext` resolving an `AssetId` to a path; shared with navigation's placement bake | Owed |
 
 ⚠ **Rows 3 and 4 were one row and are two, and the split is the ordering rule of § 6 written into the
@@ -397,14 +398,15 @@ half § 6 refused to build until the `removed` list existed to make absence unam
   in under one, and the two want opposite treatments — so the pass declines rather than guesses. The
   guess that is available is the destructive one.
 
-**What is left, and why it is not wiring.** Row 6 — the inspector's override marks.
+**What is left, and why it is not wiring.** Row 6 — the inspector's override marks. It landed as
+slice 4; § 7c is what it cost, and the two paragraphs below are the diagnosis it was built from.
 
-⚠ **`PrefabSource` has no caller outside `PrefabTests.cs`**, so the revert button § 1 counted as
-"already built and working" has never been shown a pairing in the running editor. It is the tree's
+⚠ **`PrefabSource` had no caller outside `PrefabTests.cs`**, so the revert button § 1 counted as
+"already built and working" had never been shown a pairing in the running editor. It is the tree's
 commonest defect — a finished consumer nothing calls — and it is why § 1's "roughly half an override
 system is built" was generous. Feeding it is what row 6 means, and it reads as plumbing and is not:
 
-1. ⚠ `PrefabSource.IsOverridden` **compares values**, which is model (A) of § 3, rejected there. It
+1. ⚠ `PrefabSource.IsOverridden` **compared values**, which is model (A) of § 3, rejected there. It
    cannot see an override *to zero* and cannot see an override to a value equal to the template's.
    Feeding it from `SceneDocument.Prefabs` unchanged would put the rejected model back on screen over
    a file that has the right answer written down. What the inspector wants is a source backed by the
@@ -416,6 +418,61 @@ system is built" was generous. Feeding it is what row 6 means, and it reads as p
 
 Neither is hard; both are decisions, and making them silently inside a wiring change is how the thing
 this document exists to prevent gets reintroduced at the layer nobody tests.
+
+---
+
+## 7c. The fourth slice — the marks, and the two halves the pairing was missing
+
+**The inspector, fed from the claim list. Row 6.**
+
+`InspectorView.Prefab` is assigned, per selection, from `EditorApplication.ShowSelection` — for the
+entity's own rows and, through `ComponentsView`, for every component foldout under them. `PrefabSource`
+is rewritten against `SceneDocument.Prefabs` and `PrefabReconcile`; the five tests that pinned its
+value comparison are gone, replaced by tests that fail if the comparison comes back.
+
+- **The pairing is an object, an entity and an alias.** An inspector edits *objects*, so the shell says
+  which entity each object stands for and — for a component's box — the `[DataContract]` alias the
+  format spells its path with. Everything else is `Member` or `Alias.Member` built from those two,
+  which is the same spelling `SceneSerializer` writes.
+- ⚠ **The template's transform is taken through the instance's parent.** § 7b's second objection, paid:
+  `Position` and `Rotation` are converted from parent-relative to world before the inspector sees them,
+  and `Scale` is not, because `SceneEntity.Scale` already reads `LocalScale`. ⚠ The rotation is
+  `local * parentWorld` and the order is not interchangeable — composition here reads left to right,
+  which is the same equation `Transform.Rotation`'s setter solves in the other direction.
+- ⚠⚠ **`IPrefabSource` grew `Release`, and it is what makes reverting an override to the template's own
+  value do anything.** The write is a no-op by definition in that case, so a revert that consisted only
+  of the write would leave the row marked, the file still claiming the member, and the template's next
+  change to it still blocked — a button that looks like it worked. It is called *outside* the value
+  comparison, deliberately, and the placement is what the mandated sabotage kills.
+- ⚠ **It also grew `Claim`, because nothing recorded an override.** `PrefabInstances.Mark` had no
+  production caller either: a freshly placed instance claims nothing, so a panel that only *read* the
+  list would have been correct and permanently empty — the same defect one level along, which is the
+  thing this slice was for. An edit through any inspector row now records the claim on the scene's own
+  stack, so one Ctrl+Z takes the value and the claim together.
+- ⚠ **`EditProperty.Apply` is virtual so that every write path funnels through one hook**, and the claim
+  opens a transaction only when there is a claim to make. A committed transaction records a
+  `CompositeCommand`, a `SetMembersCommand` cannot merge with one, and wrapping every write would turn a
+  three-hundred-frame slider drag into three hundred undo entries. The predicate is `TryGetPrefabValue`
+  rather than `IsOverridden`, because the latter is false for every object that never came from a
+  prefab, which is nearly all of them. The price is one extra entry — "Override Intensity" then "Set
+  Intensity" — on the first edit of a member an instance had not claimed.
+- **Nesting is the same lookup outward the reconciler uses**, restated over the live world: a run inside
+  an instance of a different prefab is paired with the node *that* template carries for the same link,
+  and a run inside an instance whose template cannot be opened is declined rather than guessed at. Each
+  template opened for a pairing is composed against its own inner prefabs first, for the reason the open
+  path composes a scene's.
+
+⚠ **Two things a value comparison would still get right by accident, and the test that separates them.**
+Writing `0` over a template's `7` leaves a difference, so the obvious "override to zero" test agrees
+with the claim list and stays green under the sabotage — which proves nothing. The case that separates
+the models is a template *already* at zero and an author who says off is theirs: equal values, equal to
+the type's default, and still an override. That is the test the model hangs on, and the shape of it is
+worth remembering, because "a sabotage that leaves the test green" was the first thing this slice found.
+
+⚠ **The mark is a class on the row and the theme draws it by un-muting the label.** That is a deliberate
+choice made when the theme was written — "a mark that survives every palette, which a chosen colour
+would not" — and it is a *quiet* mark. Worth knowing before somebody reports that overrides are not
+shown.
 
 ---
 
@@ -462,6 +519,14 @@ names, nothing is added twice (the check is by the template's id, which the graf
 template has an entity this instance does not, and it was **not** added"; it now means "…and it has
 been". It is still reported, deliberately — a level gaining entities is the one thing a reconcile does
 that shows up in a diff, and telling somebody only about the failures would make that the quiet case.
+
+⚠ **Slice 4 changes no key, no version and no file.** The inspector reads and writes the claim list a
+scene already carries, so a `.vxscene` written before it reads and writes byte-identically. What it
+does change is that a level edited through the inspector now *gains* `overrides:` entries it did not
+gain before — which is the feature: until this landed, nudging a prefab instance in the editor recorded
+nothing, so the next reconcile took the template's value back and the author's edit was gone on the
+following open. That was a data-loss bug wearing a missing-feature's clothes, and it is fixed rather
+than migrated.
 
 ⚠ **`SceneScalars.Register` already covers the new keys.** `EntityId` is registered as a scalar there
 (`SceneScalars.cs`), and `MathScalars.Register()` is called from the same place — so an override on a

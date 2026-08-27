@@ -5,6 +5,7 @@ using System.Collections;
 using System.Runtime.CompilerServices;
 using Vixen.Audio.Ecs;
 using Vixen.Core;
+using Vixen.Core.Reflection;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
@@ -17,6 +18,7 @@ using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using PrefabSource = Vixen.Editor.AssetEditors.Prefabs.PrefabSource;
 
 namespace Vixen.Editor.App;
 
@@ -86,6 +88,16 @@ sealed partial class ComponentsView : Control {
     ///     </para>
     /// </remarks>
     readonly List<string> order = [];
+
+    /// <summary>Where a row's override mark comes from, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The boxes are what get paired, and a box is replaced rather than mutated on every
+    ///     re-read</b> — see <see cref="working" /> — so every place that replaces one has to move the
+    ///     pairing with it. A pairing left on the old box answers for an object nothing can reach, and
+    ///     the new box answers for nothing at all: the marks would simply stop appearing after the
+    ///     first undo.
+    /// </remarks>
+    PrefabSource? prefabs;
 
     /// <summary>The foldout being dragged, or <see langword="null" />.</summary>
     Expander? dragging;
@@ -180,6 +192,16 @@ sealed partial class ComponentsView : Control {
     /// </remarks>
     public event Action<IReadOnlyList<string>>? Reordered;
 
+    /// <summary>Says where the foldouts' override marks and Revert items are to read from.</summary>
+    /// <param name="source">The pairing, or <see langword="null" /> when there is none.</param>
+    /// <remarks>
+    ///     ⚠ <b>Before <see cref="Show" />, because building a row is what asks whether its member is
+    ///     overridden.</b> A source handed over afterwards would draw one unmarked panel and start
+    ///     telling the truth at the next selection, which is the sort of bug that is only ever seen by
+    ///     somebody who was not looking for it.
+    /// </remarks>
+    public void Pair(PrefabSource? source) => prefabs = source;
+
     /// <summary>Shows an entity's components.</summary>
     /// <param name="target">The entity, or <see cref="Entity.Null" /> to show nothing.</param>
     /// <remarks>
@@ -199,6 +221,8 @@ sealed partial class ComponentsView : Control {
         while (host.Children.Count > 0) {
             host.Children[^1].Remove();
         }
+
+        Unpair();
 
         working.Clear();
         shown.Clear();
@@ -305,11 +329,15 @@ sealed partial class ComponentsView : Control {
         List<object> box = [bridge.Read(scene.World, entity)];
 
         working[bridge] = box;
+        Pair(bridge, box[0]);
 
         foreach (var member in descriptor.Members) {
-            // ⚠ No document. The row writes into the box and records nothing; the command below is
-            // the one thing that reaches the stack, and it carries the whole component.
-            var field = new InspectorField(descriptor, member, box);
+            // ⚠ No document, and a prefab source all the same. The row writes into the box and
+            // records nothing; the command below is the one thing that reaches the stack and it
+            // carries the whole component. The claim a write records goes on the *scene's* stack
+            // through the source, which is the one it belongs on — a component's override is a fact
+            // about the level, not about the copy this panel is editing.
+            var field = new InspectorField(descriptor, member, box, null, prefabs);
 
             if (InspectorRows.Add(
                     fold.Content,
@@ -350,12 +378,42 @@ sealed partial class ComponentsView : Control {
 
         foreach (var (bridge, box) in working) {
             if (box.Count > 0 && bridge.Has(scene.World, entity)) {
+                // ⚠ The pairing moves with the box. The old one names an object nothing can reach and
+                // the new one would name nothing, so the override marks would go out after the first
+                // undo and never come back.
+                prefabs?.Unlink(box[0]);
                 box[0] = bridge.Read(scene.World, entity);
+                Pair(bridge, box[0]);
             }
         }
 
         foreach (var (_, row) in rows) {
             InspectorRows.Show(row);
+        }
+    }
+
+    /// <summary>Tells the source which entity and component a box stands for.</summary>
+    /// <remarks>
+    ///     The <c>[DataContract]</c> alias rather than the type's name, because <c>Alias.Member</c> is
+    ///     the spelling a <c>.vxscene</c>'s <c>overrides:</c> list already uses for a component's
+    ///     member — doc 47 § 4 — and a second spelling of one name is a mark that never matches.
+    /// </remarks>
+    void Pair(IComponentBridge bridge, object box) {
+        if (prefabs is { } source && TypeRegistry.TryGet(bridge.ComponentType, out var described)) {
+            source.Link(box, entity, described.Alias);
+        }
+    }
+
+    /// <summary>Drops the pairings of the boxes about to be thrown away.</summary>
+    void Unpair() {
+        if (prefabs is not { } source) {
+            return;
+        }
+
+        foreach (var (_, box) in working) {
+            if (box.Count > 0) {
+                source.Unlink(box[0]);
+            }
         }
     }
 

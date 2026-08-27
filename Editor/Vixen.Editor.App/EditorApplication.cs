@@ -38,6 +38,7 @@ using Vixen.Ui.HotReload;
 // saying that conflating the two is the first way to get prefabs wrong here; the compiler says the
 // same thing as CS0104 the moment both usings are in one file.
 using EditorPrefab = Vixen.Editor.AssetEditors.Prefabs.Prefab;
+using PrefabSource = Vixen.Editor.AssetEditors.Prefabs.PrefabSource;
 using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.App;
@@ -3576,10 +3577,18 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     void ShowSelection() {
         if (inspectingAssets) {
+            if (inspector is { } assetView) {
+                // ⚠ Dropped rather than left pointing at the last entity. An asset did not come from a
+                // prefab, and a stale pairing keyed by reference would answer for whatever boxed value
+                // happened to land on the same object.
+                assetView.Prefab = null;
+            }
+
             inspector?.Inspect([.. project.Selection.Select(asset => new ProjectAsset(project, asset))]);
 
             // An asset has no components, and leaving the last entity's foldouts under it would be a
             // panel showing two different things at once.
+            components?.Pair(null);
             components?.Show(Entity.Null);
 
             Shell.Status = project.Selection.Count switch {
@@ -3593,18 +3602,43 @@ sealed partial class EditorApplication : IDisposable {
 
         var document = inspected ?? scene;
 
+        // ⚠ One per selection rather than one per editor, and this is what feeds doc 47 § 7's row 6.
+        // It pairs the objects below with the entities they stand for, so the panel's override marks
+        // and its Revert item read the instance's own claim list — `SceneDocument.Prefabs` — instead
+        // of comparing values, which is the model doc 47 § 3 rejects. Fresh each time because it
+        // caches the prefab files it read, and a prefab saved between two selections must be re-read.
+        var sources = new PrefabSource(document, project.Assets);
+
         if (inspector is { } view) {
             // ⚠ The document whose entities these are, not the editor's own scene. An inspector edit
             // is recorded on the stack of the document it changed, and a scene opened as an asset
             // has one of its own — so an edit made here with the wrong document set would be undone
             // by a Ctrl+Z aimed at something else entirely.
             view.EditedDocument = document;
-            view.Inspect([.. document.Selection.Select(entity => new SceneEntity(document, entity))]);
+            view.Prefab = sources;
+
+            List<object> shown = [];
+
+            foreach (var entity in document.Selection) {
+                var target = new SceneEntity(document, entity);
+
+                sources.Link(target, entity);
+                shown.Add(target);
+            }
+
+            // ⚠ Assigned before `Inspect`, because building the rows is what asks the source whether
+            // each member is overridden. Setting it afterwards would draw one unmarked panel and only
+            // start telling the truth at the next selection.
+            // ⚠ Spread rather than passed, because `Inspect` takes `params ReadOnlySpan<object>` and a
+            // `List<object>` binds to it as one element — an inspector showing the list.
+            view.Inspect([.. shown]);
         }
 
         // ⚠ Only this editor's own scene. The foldouts write through `scene.Stack`, and a document
         // opened as an asset has a stack of its own — showing its entity's components here would put
         // the edit on the wrong one, which is the hazard the line above guards for the rows.
+        components?.Pair(ReferenceEquals(document, scene) ? sources : null);
+
         components?.Show(
             ReferenceEquals(document, scene) && document.Selection.Count > 0 ? document.Selection[0] : Entity.Null
         );

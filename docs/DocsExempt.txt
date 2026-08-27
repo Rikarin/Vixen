@@ -1126,7 +1126,6 @@ T:Vixen.Editor.AssetEditors.Materials.TextureParameter sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.VectorParameter sweep-pending
 T:Vixen.Editor.AssetEditors.NodeTypes sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.Prefab sweep-pending
-T:Vixen.Editor.AssetEditors.Prefabs.PrefabSource sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.PrefabView sweep-pending
 T:Vixen.Editor.AssetEditors.Scenes.CompiledSceneView sweep-with-the-asset-editors — a pane, and every other pane in this assembly is exempt on the same terms; the argument for it is in Vixen.Editor.AssetEditors/README.md § The compiled tab is the other half of a scene
 T:Vixen.Editor.AssetEditors.Scenes.PrefabEditorFactory sweep-pending
@@ -1340,7 +1339,6 @@ T:Vixen.Editor.Inspector.EulerAngles sweep-pending
 T:Vixen.Editor.Inspector.Generator.InspectorDescriptorGenerator sweep-pending
 T:Vixen.Editor.Inspector.HeaderAttribute sweep-pending
 T:Vixen.Editor.Inspector.HideIfAttribute sweep-pending
-T:Vixen.Editor.Inspector.IPrefabSource sweep-pending
 T:Vixen.Editor.Inspector.IPropertyDrawer sweep-pending
 T:Vixen.Editor.Inspector.InspectorAttribute sweep-pending
 T:Vixen.Editor.Inspector.InspectorDescriptor sweep-pending
