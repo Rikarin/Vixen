@@ -113,7 +113,9 @@ dies on the second day. Targets that accumulate declare what they are holding an
 oracle.** A case over `CaseBudget` (2 s) is not a finding yet. It is re-run up to
 `CaseBudgetConfirmations` (4) more times and judged on the **cheapest** reading, and only a case that
 stays over the budget on every one of the five is reported. `FuzzOutcome.Acquitted` counts the ones
-that did not, and is printed on the summary line.
+that did not; it is on the summary line, and ⚠ **also on stderr**, because a test runner shows a
+*passing* test's output to nobody and this number is only interesting on the runs that pass. Silence
+means the budget was never tripped. A line means the host was thrashing, and says how badly.
 
 ⚠ **The other three oracles measure the decode; this one measures the decode plus everything else the
 machine was doing, and on a shared runner the second term is the larger one.** One Windows CI run

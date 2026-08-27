@@ -432,6 +432,26 @@ public sealed class FuzzSession {
 
         clock.Stop();
 
+        // ⚠ On stderr rather than only in the outcome, and that is the difference between a claim and
+        // a claim somebody can check. A test runner shows a passing test's output to nobody, so an
+        // acquittal count that lived only on the summary line would be visible on exactly the runs
+        // where it did not matter — and a build where this oracle stopped accusing anybody would look
+        // identical to one where it had nobody to accuse. Silence here means the budget was never
+        // tripped; a line here means the machine was thrashing and says how badly.
+        if (acquitted > 0) {
+            Console.Error.WriteLine(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"fuzz: {target.Name} read {acquitted:N0} of {executed:N0} cases over the "
+                    + $"{CaseBudget.TotalMilliseconds:N0} ms budget and then under it, on up to "
+                    + $"{CaseBudgetConfirmations:N0} further readings each — those are the host's, "
+                    + $"not the decoder's."
+                )
+            );
+
+            Console.Error.Flush();
+        }
+
         // In the order the loop would have left: a runaway abandons everything, the cap is checked
         // before the clock, and the clock is what a nightly is supposed to end on.
         var stop = abandoned ? FuzzStop.Runaway

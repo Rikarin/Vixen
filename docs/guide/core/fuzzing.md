@@ -99,9 +99,10 @@ The budget itself did not move, and raising it would have been the wrong fix: on
 worst honest reading across all twenty targets is 306 ms and CI's stalls reach 6.2 s, so any threshold
 above the noise is one that can no longer see a real blowup.
 
-`FuzzOutcome.Acquitted` counts the cases that went over and then did not, and is printed on the summary
-line — an oracle that has quietly stopped accusing anybody otherwise looks exactly like one with
-nothing to accuse. ⚠ This narrows the property on purpose: an input expensive only the first time it
+`FuzzOutcome.Acquitted` counts the cases that went over and then did not. It is on the summary line and
+⚠ **on stderr as well**, because a test runner shows a passing test's output to nobody and this number
+is only interesting on the runs that pass — an oracle that has quietly stopped accusing anybody
+otherwise looks exactly like one with nothing to accuse. ⚠ This narrows the property on purpose: an input expensive only the first time it
 is seen is now acquitted, because `TookTooLong` is about a decode slow enough to be a weapon and a cost
 that cannot be made to happen twice is not one.
 
