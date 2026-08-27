@@ -106,9 +106,10 @@ me wrong" from "the shader is wrong".
 There are 127 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
 fires, and a **negative** — a shader that comes within one predicate of it and must stay silent.
 The second is the one that matters more, because an over-firing rule refuses correct work and cannot
-be argued with, while a missing rule only lets a mistake through. 57 ids have a negative today and 70
-do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 50 of the 57 and explains the
-method. Two rules to keep if you add one:
+be argued with, while a missing rule only lets a mistake through. 69 ids have a negative today and 58
+do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 62 of the 69 and explains the
+method. Of the 58 owed, two — `RVN2003` and `RVN2014` — cannot fire on any input and so can never
+have one, which puts the reachable ceiling at 125. Two rules to keep if you add one:
 
 - **A negative is a *near miss*, not an unrelated valid shader.** For "X may not appear under Y" it
   is Y with something that looks like X, or X under the Y′ that is allowed. It shares the shape of
@@ -118,9 +119,18 @@ method. Two rules to keep if you add one:
   that fails to compile is not a red test — that attempt proved nothing and has to be tried again.
   ⚠ Nor is one that leaves the test green: check that the predicate you added can change the answer
   at all before you believe it. `RVN2061`'s first attempt demanded `IsConst`, which a
-  `[Permutation]` marker already forces true.
+  `[Permutation]` marker already forces true, and `RVN2033`'s widened `MinimumArgumentCount` — which
+  the applicability check never reads, because `TryMapArguments` fills defaults itself.
 
-The order to work in is **by the cost of an over-fire, not by id**. A rule scoped to a whole file
+The order to work in is **by the cost of an over-fire, not by id**. What separates a cheap over-fire
+from an expensive one is a difference of *kind*, and there have been two. The first is the
+approximation: the flow analysis over-fires by being one lattice step too coarse rather than by being
+written down wrong, so it went above every predicate. The second is the **comparison** — a rule that
+holds a parsed or inferred representation of a fact against a declared one. Those over-fire whenever
+the two disagree for a reason that is nobody's mistake (a normalisation, a parse order, an interning
+identity), they say nothing about it because the rule reads like a tautology, and they reach every
+declaration of their kind. `RVN2064` was one, and so are `RVN2083`, `RVN2108`, `RVN2109` and
+`RVN2138`. Hunt that shape before you work down the id list. A rule scoped to a whole file
 refuses a file, and the shipped library's files each hold several entry points and several features:
 `RVN2050` keyed on anything but the stage refuses every graphics shader, `RVN2100`–`RVN2103` refuse
 every shader that has a varying, `RVN2054` narrowed to the shader refuses every `struct`, `protocol`
