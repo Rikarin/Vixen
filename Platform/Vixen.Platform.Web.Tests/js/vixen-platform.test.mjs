@@ -88,9 +88,23 @@ globalThis.cancelAnimationFrame = () => { };
 globalThis.innerWidth = 800;
 globalThis.innerHeight = 600;
 
+// ⚠ Two slots, and the empty one is the load-bearing half. getGamepads() returns a sparse array
+// with a null for every unoccupied port, and pollGamepads has a separate branch for those — which
+// is where `view.fill()` was, a method a MemoryView does not have. A stub returning [] never
+// enters the write path at all, so it can only assert that a function with a TypeError in it
+// returns zero.
+const stubGamepad = {
+    index: 1,
+    id: "Vixen Test Pad (STANDARD GAMEPAD)",
+    mapping: "standard",
+    axes: [0.25, -0.5, 0, 0],
+    buttons: [{ value: 1 }, { value: 0 }],
+    vibrationActuator: null
+};
+
 // navigator is a getter-only global in modern Node, so it has to be redefined rather than assigned.
 Object.defineProperty(globalThis, "navigator", {
-    value: { hardwareConcurrency: 8, getGamepads: () => [] },
+    value: { hardwareConcurrency: 8, getGamepads: () => [null, stubGamepad] },
     configurable: true
 });
 
@@ -358,12 +372,22 @@ fire(canvasElement, "keydown", { code: "KeyA", timeStamp: 1, repeat: false, getM
 equal(platform.drainEvents(new MemoryView(drain)), 1, "drainEvents writes through a MemoryView");
 equal(drain[2], 1, "…and the record reached the buffer");
 
-const pads = new Float64Array(platform.gamepadStride() * 4);
+const stride = platform.gamepadStride();
+const pads = new Float64Array(stride * 4);
 
-// ⚠ Asserted as "does not throw", because navigator.getGamepads is absent from this stub and the
-// answer is legitimately zero records. What it covers is the shape: the old body called
-// view.fill(), which is a TypeError on a MemoryView whether there is a gamepad or not.
-equal(platform.pollGamepads(new MemoryView(pads)), 0, "pollGamepads reports no pads without throwing");
+equal(platform.pollGamepads(new MemoryView(pads)), 2, "pollGamepads writes a record per port");
+
+// The empty port, which is the branch that used to call view.fill().
+equal(pads[0], 0, "…an empty port reports its slot");
+equal(pads[1], 0, "…and reports itself disconnected");
+
+// The occupied one, which is the branch that used to write through an indexer a MemoryView has
+// not got — so with the old body every one of these read back as zero.
+equal(pads[stride], 1, "…a connected pad reports its index");
+equal(pads[stride + 1], 1, "…and reports itself connected");
+equal(pads[stride + 2], 1, "…and its standard mapping");
+equal(pads[stride + 3], 2, "…and how many buttons it has");
+near(pads[stride + 4], 0.25, "…and its first axis, which is the value a stick actually sends");
 
 const area = new Float64Array(4);
 platform.onScreenKeyboardArea(new MemoryView(area));

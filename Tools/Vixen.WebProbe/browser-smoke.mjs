@@ -477,6 +477,31 @@ async function main() {
         await client.send('Page.navigate', { url: pageUrl }, sessionId);
         await loaded;
 
+        // ⚠ Dumped on the way out of every timeout, and it is not belt and braces.
+        // wwwroot/main.js installs `window.onerror` and `unhandledrejection` handlers that write
+        // into #result and DO NOT call console.log — and both of the ways this page dies take that
+        // route: a boot that throws inside WebPlatform.CreateAsync, and an exception out of a frame
+        // callback, which WebFrameLoop deliberately rethrows on the browser's task queue rather
+        // than through the interop boundary. Without this, the transcript for either says only
+        // "the page printed nothing at all". Measured: with a [JSImport] pointed at a name the
+        // module does not export, this is the difference between that sentence and the name.
+        const resultPane = async () => {
+            try {
+                const value = await client.send('Runtime.evaluate', {
+                    expression: "document.getElementById('result')?.textContent ?? '(no #result)'",
+                    returnByValue: true
+                }, sessionId);
+
+                return '\n── the page\'s #result pane ─────────────────────────────────────\n'
+                    + String(value.result.value).split('\n').map(line => '  ' + line).join('\n');
+            } catch {
+                return '\n(the #result pane could not be read)';
+            }
+        };
+
+        const fullTranscript = async () =>
+            transcript(consoleLines, pageErrors, failedRequests, misses) + await resultPane();
+
         // ── ⚠ Verify the instrument, before believing anything the page says ─────────────────
         //
         // This is the check the whole leg turns on. A harness built to prove the frame loop runs
@@ -532,7 +557,7 @@ async function main() {
             `the page never printed 'VIXENPROBE ready-for-input' within ${timeoutMs} ms, so the `
             + 'probe did not finish booting. Nothing was dispatched at it.',
             timeoutMs,
-            () => transcript(consoleLines, pageErrors, failedRequests, misses)
+            fullTranscript
         );
 
         for (const [type, extra] of [
@@ -553,34 +578,13 @@ async function main() {
         }, sessionId);
 
         // ── Wait for the page's own verdict ──────────────────────────────────────────────────
-        // ⚠ On the way out of a timeout, the page's own #result pane is dumped too, and that is not
-        // belt and braces. wwwroot/main.js installs `window.onerror` and `unhandledrejection`
-        // handlers that write into #result and DO NOT call console.log — and an exception thrown
-        // out of a frame callback arrives by exactly that route, because WebFrameLoop rethrows it
-        // on the browser's task queue rather than through the interop boundary. Without this, the
-        // commonest way for the loop to die is invisible in the transcript.
-        const resultPane = async () => {
-            try {
-                const value = await client.send('Runtime.evaluate', {
-                    expression: "document.getElementById('result')?.textContent ?? '(no #result)'",
-                    returnByValue: true
-                }, sessionId);
-
-                return `\n── the page's #result pane ─────────────────────────────────────\n`
-                    + String(value.result.value).split('\n').map(l => '  ' + l).join('\n');
-            } catch {
-                return '\n(the #result pane could not be read)';
-            }
-        };
-
         const doneLine = await waitForLine(
             consoleLines,
             'VIXENPROBE done',
             `the page never printed 'VIXENPROBE done' within ${timeoutMs} ms. It booted and then `
             + 'either threw, hung, or never reached the end of its checks.',
             timeoutMs,
-            async () => transcript(consoleLines, pageErrors, failedRequests, misses)
-                + await resultPane()
+            fullTranscript
         );
 
         // ── What the page reported ───────────────────────────────────────────────────────────
@@ -767,10 +771,10 @@ async function main() {
             `${framesAfter - framesBefore} frames in 1 s (reported in blocks of 30), floor 15`
         );
 
-        await client.send('Target.closeTarget', { targetId });
-        client.close();
-
         // ── The summary ──────────────────────────────────────────────────────────────────────
+        //
+        // The page is still open here on purpose: a failing check wants the #result pane in its
+        // transcript, and reading that needs a live session.
 
         const failed = ledger.filter(entry => !entry.ok);
 
@@ -792,9 +796,12 @@ async function main() {
         if (failed.length > 0) {
             console.log(`FAILED — ${failed.length} of ${ledger.length} checks:`);
             for (const entry of failed) console.log(`  ${entry.name}: ${entry.detail}`);
-            console.log(transcript(consoleLines, pageErrors, failedRequests, misses));
+            console.log(await fullTranscript());
             return 1;
         }
+
+        await client.send('Target.closeTarget', { targetId }).catch(() => { });
+        client.close();
 
         console.log(
             `OK — ${ledger.length} checks, all passed. The [JSImport] boundary was executed in `
