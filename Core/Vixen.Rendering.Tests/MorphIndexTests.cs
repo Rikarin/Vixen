@@ -286,6 +286,52 @@ public class MorphIndexTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ What <see cref="MorphIndex.Refused" /> answers and what <see cref="MorphIndex.Build" />
+    ///     throws for are the same two rules.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         They are asked in different places for different reasons — a build refuses a mesh where
+    ///         a person is reading the log, a load throws where a frame loop is running — and two
+    ///         copies of a rule is two rules. So this asserts them against each other rather than
+    ///         against a fixture each.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that a good mesh passes both</b>, which is the half that makes the other half
+    ///         mean something: a predicate that refused everything would satisfy every "is it refused"
+    ///         case here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_predicate_and_the_builder_refuse_the_same_meshes() {
+        MorphTargetData[] good = [
+            MorphTargetData.Encode("jawOpen", [0, 2], [Exact(1, 0, 0), Exact(2, 0, 0)], [])
+        ];
+
+        Assert.Null(MorphIndex.Refused(good, 4));
+        Assert.NotNull(MorphIndex.Build(good, 4));
+
+        MorphTargetData[] stray = [MorphTargetData.Encode("jawOpen", [9], [Exact(1, 0, 0)], [])];
+
+        Assert.Contains("moves vertex 9", MorphIndex.Refused(stray, 4) ?? string.Empty, StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => MorphIndex.Build(stray, 4));
+
+        var stacked = new MorphTargetData[MorphIndex.MaxShapesPerVertex + 1];
+
+        for (var shape = 0; shape < stacked.Length; shape++) {
+            stacked[shape] = MorphTargetData.Encode($"shape{shape}", [1], [Exact(1, 0, 0)], []);
+        }
+
+        Assert.Contains(
+            "to move vertex 1",
+            MorphIndex.Refused(stacked, 4) ?? string.Empty,
+            StringComparison.Ordinal
+        );
+
+        Assert.Throws<ArgumentException>(() => MorphIndex.Build(stacked, 4));
+    }
+
     /// <summary>A target that names a vertex the mesh does not have is refused, loudly.</summary>
     /// <remarks>
     ///     ⚠ The failure this replaces is a read past the end of the runs array during registration,

@@ -6600,6 +6600,7 @@ static Vixen.Rendering.MeshPrimitives.Quad(float size = 1) -> Vixen.Rendering.Me
 static Vixen.Rendering.MeshPrimitives.Sphere(float radius = 0.5, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Torus(float radius = 0.35, float tube = 0.15, int segments = 32, int sides = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MorphIndex.Build(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.MorphTargetData> targets, int vertexCount) -> Vixen.Rendering.MorphIndex?
+static Vixen.Rendering.MorphIndex.Refused(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.MorphTargetData> targets, int vertexCount) -> string?
 static Vixen.Rendering.MorphKernel.Accumulate(Vixen.Rendering.MorphTargetData target, float weight, System.Span<Vixen.Rendering.SurfaceVertex> into) -> void
 static Vixen.Rendering.MorphKernel.Apply(System.ReadOnlySpan<Vixen.Rendering.SurfaceVertex> source, System.Collections.Generic.IReadOnlyList<Vixen.Rendering.MorphTargetData> targets, System.ReadOnlySpan<float> weights, System.Span<Vixen.Rendering.SurfaceVertex> into) -> void
 static Vixen.Rendering.MorphKernel.Pack(Vixen.Rendering.MorphTargetData target) -> uint[]

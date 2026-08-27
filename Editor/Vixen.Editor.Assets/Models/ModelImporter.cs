@@ -93,27 +93,6 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// </remarks>
     public override int Version => 12;
 
-    /// <summary>The first blend shape that moves a vertex the mesh does not have, or null.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Reachable by an ordinary import setting rather than by a corrupt file.</b>
-    ///     <c>RetopologiseAsync</c> replaces a mesh's vertices and leaves <c>MeshData.MorphTargets</c>
-    ///     as they were, so a retopologised morphed mesh has shapes indexing a mesh that no longer
-    ///     exists. The classic path survives it — <c>MorphKernel.Accumulate</c> throws for one target
-    ///     and the feature attaches nothing — and the paged path would throw during registration,
-    ///     inside a page source, which is a frame loop rather than an import.
-    /// </remarks>
-    static string? Mismatched(MeshData mesh) {
-        foreach (var target in mesh.MorphTargets) {
-            foreach (var vertex in target.Indices) {
-                if ((uint)vertex >= (uint)mesh.Positions.Length) {
-                    return target.Name;
-                }
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>
     ///     The kind and the artefact type are the same word on purpose — one sub-asset, one chunk, one
@@ -220,8 +199,39 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         // retopology replaced them would be the most expensive no-op in the pipeline.
         await RetopologiseAsync(context, settings, read, cancellationToken).ConfigureAwait(false);
 
+        // ⚠ Whether a mesh gets a cluster hierarchy at all, beyond "was one asked for".
+        //
+        // `MorphIndex.Build` is what the runtime does with a mesh's shapes, and it refuses a target
+        // that names a vertex the mesh does not have — inside a page source's `TryGet`, which is a
+        // dead frame loop on a load rather than a failed import. `RetopologiseAsync` replaces a mesh's
+        // vertices and leaves `MeshData.MorphTargets` as they were, so this is reachable by an
+        // ordinary import setting and not only by a corrupt file.
+        bool Hierarchy(MeshData candidate) {
+            if (!candidate.IsMorphed
+                || MorphIndex.Refused(candidate.MorphTargets, candidate.Positions.Length) is not { } why) {
+                return true;
+            }
+
+            refused++;
+
+            context.Report(
+                ImportSeverity.Error,
+                $"'{candidate.Name}' gets no cluster hierarchy, because {why}. A virtualized mesh "
+                + "gathers its blend shapes by mesh vertex, and the table that makes that a lookup "
+                + "cannot be built for this one — which would be a throw on load rather than an error "
+                + "here."
+            );
+
+            return false;
+        }
+
         foreach (var mesh in read.Meshes) {
-            if (settings.GenerateMeshlets && mesh.Indices.Length > 0) {
+            // ⚠ A condition rather than a `continue` inside the block, and the difference is the whole
+            // mesh. Everything
+            // below the hierarchy in this loop — the mesh chunk itself, the distance field — belongs
+            // to every mesh whatever happened to its clusters, and a `continue` in the refusal below
+            // dropped the mesh from the model rather than dropping its hierarchy.
+            if (settings.GenerateMeshlets && mesh.Indices.Length > 0 && Hierarchy(mesh)) {
                 // ⚠ A morphed mesh IS virtualized again, and the refusal that stood here is gone
                 // because the thing it was waiting for exists. Version 11 refused a cluster hierarchy
                 // for a morphed mesh: `MeshExtractionSystem.Clustered` takes any mesh that has one
@@ -242,20 +252,6 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                 // throw inside a page source's TryGet, i.e. a dead frame loop on a load. Retopology
                 // rewrites a mesh's vertices and does not rewrite its shapes, so this is reachable by
                 // an ordinary import setting rather than by a corrupt file.
-                if (mesh.IsMorphed && Mismatched(mesh) is { } shape) {
-                    refused++;
-
-                    context.Report(
-                        ImportSeverity.Error,
-                        $"'{mesh.Name}' has {mesh.Positions.Length} vertices and its blend shape "
-                        + $"'{shape}' moves one the mesh does not have, so it gets no cluster "
-                        + "hierarchy. A virtualized mesh gathers its shapes by mesh vertex, and a "
-                        + "shape from a different version of the mesh has no vertex to gather onto."
-                    );
-
-                    continue;
-                }
-
                 if (mesh.IsMorphed) {
                     morphed++;
                 }

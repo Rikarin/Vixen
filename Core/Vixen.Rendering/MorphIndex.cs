@@ -189,6 +189,53 @@ public sealed class MorphIndex {
     /// </remarks>
     public float MaxDisplacement { get; private set; }
 
+    /// <summary>
+    ///     The first shape that this type would refuse, or null when the mesh can be re-indexed.
+    /// </summary>
+    /// <param name="targets">The mesh's blend shapes.</param>
+    /// <param name="vertexCount">How many vertices the mesh has.</param>
+    /// <returns>The offending shape's name and why, or null.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="targets" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same two rules <see cref="Build" /> throws for, asked rather than raised</b> — so
+    ///         a build can refuse a mesh where a person is reading the log, instead of a load throwing
+    ///         where a frame loop is running. <c>ModelImporter</c> asks it before it decides whether a
+    ///         mesh gets a cluster hierarchy, because the paged path is the one that re-indexes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both rules are reachable without a corrupt file.</b> A shape naming a vertex the
+    ///         mesh does not have is what retopology leaves behind — it replaces a mesh's vertices and
+    ///         does not rewrite its shapes. A vertex moved by more than
+    ///         <see cref="MaxShapesPerVertex" /> shapes is what a generated corrective stack does if
+    ///         nobody bounds it.
+    ///     </para>
+    /// </remarks>
+    public static string? Refused(IReadOnlyList<MorphTargetData> targets, int vertexCount) {
+        ArgumentNullException.ThrowIfNull(targets);
+
+        if (vertexCount <= 0) {
+            return null;
+        }
+
+        var counts = new int[vertexCount];
+
+        foreach (var target in targets) {
+            foreach (var vertex in target.Indices) {
+                if ((uint)vertex >= (uint)vertexCount) {
+                    return $"'{target.Name}' moves vertex {vertex} and the mesh has {vertexCount}";
+                }
+
+                if (++counts[vertex] > MaxShapesPerVertex) {
+                    return $"'{target.Name}' is the {counts[vertex]}th shape to move vertex {vertex}, "
+                        + $"and the device's gather is a loop of at most {MaxShapesPerVertex}";
+                }
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Re-indexes a mesh's shapes by vertex.</summary>
     /// <param name="targets">The mesh's blend shapes, in <c>MeshData.MorphTargets</c> order.</param>
     /// <param name="vertexCount">How many vertices the mesh has.</param>
