@@ -1498,6 +1498,7 @@ Vixen.Rendering.Ecs.GeometryKey -> readonly struct
 Vixen.Rendering.Ecs.GeometryKey : System.IEquatable<Vixen.Rendering.Ecs.GeometryKey>
 Vixen.Rendering.Ecs.GeometryKey.Asset.get -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.GeometryKey.GeometryKey() -> void
+Vixen.Rendering.Ecs.GeometryKey.IsCaster.get -> bool
 Vixen.Rendering.Ecs.GeometryKey.IsPrimitive.get -> bool
 Vixen.Rendering.Ecs.GeometryKey.Primitive.get -> Vixen.Rendering.PrimitiveKind
 Vixen.Rendering.Ecs.GeometryResidency -> sealed class
@@ -1524,6 +1525,7 @@ Vixen.Rendering.Ecs.IVfxEffectSource -> interface
 Vixen.Rendering.Ecs.IVfxEffectSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Vfx.VfxCompiledGraph graph) -> bool
 Vixen.Rendering.Ecs.IVirtualGeometrySource -> interface
 Vixen.Rendering.Ecs.IVirtualGeometrySource.TryGet(Vixen.Core.AssetReference reference, out int mesh, out Vixen.Core.Mathematics.BoundingSphere bounds) -> Vixen.Rendering.Ecs.ClusterState
+Vixen.Rendering.Ecs.IVirtualGeometrySource.TryGetCaster(Vixen.Core.AssetReference reference, out int[] triangles) -> bool
 Vixen.Rendering.Ecs.Light -> struct
 Vixen.Rendering.Ecs.Light : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.Light>
 Vixen.Rendering.Ecs.Light.Colour -> Vixen.Core.Mathematics.Color3
@@ -1549,8 +1551,10 @@ Vixen.Rendering.Ecs.MeshExtractionSystem -> sealed class
 Vixen.Rendering.Ecs.MeshExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Ecs.MeshExtractionSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Rendering.Ecs.MeshExtractionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Rendering.Ecs.MeshExtractionSystem.CasterCount.get -> int
 Vixen.Rendering.Ecs.MeshExtractionSystem.CasterStages.get -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.Ecs.MeshExtractionSystem.CasterStages.set -> Vixen.Rendering.RenderStageMask
+Vixen.Rendering.Ecs.MeshExtractionSystem.CastersMissing.get -> int
 Vixen.Rendering.Ecs.MeshExtractionSystem.Clear() -> void
 Vixen.Rendering.Ecs.MeshExtractionSystem.Clusters.get -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
 Vixen.Rendering.Ecs.MeshExtractionSystem.Clusters.set -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
@@ -1589,6 +1593,7 @@ Vixen.Rendering.Ecs.MorphWeightSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Ecs.MorphWeightSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Rendering.Ecs.MorphWeightSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Rendering.Ecs.MorphWeightSystem.Bound.get -> int
+Vixen.Rendering.Ecs.MorphWeightSystem.CastersWeighted.get -> int
 Vixen.Rendering.Ecs.MorphWeightSystem.Feature.get -> Vixen.Rendering.Features.MorphRenderFeature?
 Vixen.Rendering.Ecs.MorphWeightSystem.Feature.set -> Vixen.Rendering.Features.MorphRenderFeature?
 Vixen.Rendering.Ecs.MorphWeightSystem.MorphWeightSystem() -> void
@@ -1667,7 +1672,11 @@ Vixen.Rendering.Ecs.PrimitiveShape.Material -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.PrimitiveShape.PrimitiveShape() -> void
 Vixen.Rendering.Ecs.PrimitiveShapes -> static class
 Vixen.Rendering.Ecs.RenderHandle -> struct
+Vixen.Rendering.Ecs.RenderHandle.Caster.get -> Vixen.Rendering.RenderObjectId
+Vixen.Rendering.Ecs.RenderHandle.Caster.set -> Vixen.Rendering.RenderObjectId
+Vixen.Rendering.Ecs.RenderHandle.CasterGeometry -> Vixen.Rendering.Ecs.GeometryKey
 Vixen.Rendering.Ecs.RenderHandle.Geometry -> Vixen.Rendering.Ecs.GeometryKey
+Vixen.Rendering.Ecs.RenderHandle.HasCaster.get -> bool
 Vixen.Rendering.Ecs.RenderHandle.Local -> Vixen.Core.Mathematics.BoundingSphere
 Vixen.Rendering.Ecs.RenderHandle.Object -> Vixen.Rendering.RenderObjectId
 Vixen.Rendering.Ecs.RenderHandle.RenderHandle() -> void
@@ -6458,6 +6467,7 @@ static Vixen.Rendering.Compositor.SceneRenderer.CollectChild(Vixen.Rendering.Com
 static Vixen.Rendering.Compositor.SceneRenderer.RecordChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 static Vixen.Rendering.Compositor.ShadowMapRenderer.CascadeCountKey(string shaderName) -> Vixen.Shaders.PermutationKey<int>
 static Vixen.Rendering.Ecs.BoxPostProcessShape.ExteriorDistance(Vixen.Core.Mathematics.Vector3 local, Vixen.Core.Mathematics.Vector3 extents) -> float
+static Vixen.Rendering.Ecs.GeometryKey.Caster(Vixen.Core.AssetReference asset) -> Vixen.Rendering.Ecs.GeometryKey
 static Vixen.Rendering.Ecs.GeometryKey.Of(Vixen.Core.AssetReference asset) -> Vixen.Rendering.Ecs.GeometryKey
 static Vixen.Rendering.Ecs.GeometryKey.Of(Vixen.Rendering.PrimitiveKind primitive) -> Vixen.Rendering.Ecs.GeometryKey
 static Vixen.Rendering.Ecs.LightExtractionSystem.Convert(Vixen.Rendering.Ecs.Light light, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Rendering.RenderLight

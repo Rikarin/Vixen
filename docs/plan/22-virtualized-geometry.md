@@ -873,6 +873,35 @@ through the **fallback mesh** phase 1 generates for exactly this case: "what run
 virtualized path does not reach". The shadow's *resolution* is what phase 7 is for and that is fixed;
 what is owed is the caster's level of detail matching the receiver's.
 
+⚠⚠ **And that sentence was itself untrue for as long as it stood: `MeshletMesh.Fallback` was produced
+and read by nothing.** `MeshExtractionSystem` stamped a virtualized object with the caster stages, the
+cluster path issues no per-object draw command, and so the stage node walked past it — a mesh that drew
+perfectly and cast nothing, with every counter in the frame healthy. Doc 33's P0 claim, "its shadow
+agrees with it", held for a suballocated mesh and not a paged one.
+
+**It is wired now.** A virtualized entity carries a second render object — the ordinary mesh feature,
+the fallback index buffer, and only the caster stages, which the drawn object is taken out of in
+exchange. See `RenderHandle.Caster`, `MeshExtractionSystem.Caster` and its `CasterCount` /
+`CastersMissing`, and `CompositorImageTests.VirtualizedShadowCaster`, which is `ShadowCascade`'s plan
+view with the caster extracted from a world rather than added by the test and held to the same
+closed-form oracle.
+
+⚠ **The fallback indexes the source mesh's vertices, and that is why it is the right answer rather than
+merely the available one.** Simplification only ever collapses a vertex onto a vertex that already
+existed, so the caster shares the numbering the blend-shape deltas and the skinning weights are written
+against — attaching it to `MorphRenderFeature` gives a morphed virtualized face a shadow morphed by the
+same implementation the ordinary path uses. `MorphedVirtualizedShadowCaster` asserts the shadow's
+rectangle halves when the shape does, on a device.
+
+**What is still owed is what this paragraph always said: the caster's level of detail matching the
+receiver's.** The caster is one fixed cut at `MeshletBuildSettings.FallbackTriangles`; the camera's is
+chosen per cluster per frame. A silhouette can therefore differ by the fallback's own simplification
+error, which for a shadow is the direction it is allowed to be wrong in — and closing it is still the
+per-view visible list, which is still a change to phase 3. Two smaller things go with it: a skinned
+virtualized caster (`SkinningSystem` drives `SkinningRenderFeature` only, so nothing feeds
+`VirtualGeometryRenderFeature.SetBones` from a scene either), and content built before the fallback was
+written, which `CastersMissing` counts rather than papers over.
+
 **Exit:** none was stated, and the honest reading of what is asserted is: the address space against its
 own definition (`VirtualShadowMapTests` — the level selection's rounding direction, every page of a level
 round-tripping through its projection, a page's window composing with its level to the identity, the
@@ -1283,7 +1312,9 @@ project.
 
 Phase 7 has since landed as a map without its cluster casters — see the phase — which moves that line
 too: what a project gets today is the sun's shadow at the resolution each pixel needs, cast by the
-fallback meshes, and what is left is the caster's level of detail matching the receiver's.
+fallback meshes, and what is left is the caster's level of detail matching the receiver's. ⚠ "Cast by
+the fallback meshes" was a claim about a mesh nothing read until the extraction was given a caster
+object of its own; it is now what the code does.
 
 ## What is deliberately not planned
 

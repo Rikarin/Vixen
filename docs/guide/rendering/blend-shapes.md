@@ -339,11 +339,22 @@ back — see below for what that bump is and is not.
   atomics, so phase 6's routing is forced off and no morph through it has been drawn on this machine.
   Its `Morphed` is character-for-character the hardware raster's, which is the only defence a
   duplicated fetch has and is the same one `Skin` has.
-- ⚠ **A virtualized mesh's shadow does not follow its expression, and neither does its rest pose.**
-  That is not this feature's doing: `docs/plan/22-virtualized-geometry.md` phase 7 records the caster
-  path as owed — the traversal appends every view's cut to one visible list with no view tag, so there
-  is no per-shadow-view cut yet. The pre-pass's guarantee that a face's shadow matches it holds for a
-  suballocated mesh and is waiting on that phase for a paged one.
+- ⚠ **A virtualized mesh's shadow follows its expression, and it does so through the fallback rather
+  than through the pages.** The traversal appends every view's cut to one visible list with no view
+  tag, so there is no per-shadow-view cut and the cluster path draws nothing per object — see
+  `docs/plan/22-virtualized-geometry.md` phase 7. What casts instead is a second render object built
+  from `MeshletMesh.Fallback`, in the caster stages only, which the drawn object is taken out of.
+  Because the fallback indexes the *source mesh's* vertices, that object is deformed by this pre-pass —
+  the same shapes, the same numbering, one implementation. `MorphWeightSystem` writes the frame's
+  weights to both and counts them separately as `CastersWeighted`; `CompositorImageTests`
+  `MorphedVirtualizedShadowCaster` asserts on a device that the shadow's rectangle scales by exactly
+  what the shape scales the mesh by.
+- **What the caster does not match is the receiver's level of detail.** It is one fixed cut at
+  `MeshletBuildSettings.FallbackTriangles` and the camera's is chosen per cluster per frame, so a
+  silhouette can differ by the fallback's own simplification error. For a shadow that is the direction
+  it is allowed to be wrong in; closing it is still phase 3's per-view visible list. A *skinned*
+  virtualized caster is a separate gap — nothing drives `VirtualGeometryRenderFeature.SetBones` from a
+  scene either.
 - **A mesh's shapes are resident whether or not it is paged.** `MorphIndex` is built from
   `MeshData.MorphTargets` at registration, so a virtualized head streams its geometry and keeps all
   1.28 MB of its deltas — the pre-pass's argument for residency, applied to a path that streams

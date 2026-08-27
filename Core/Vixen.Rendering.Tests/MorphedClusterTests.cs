@@ -6,9 +6,9 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Graphics.Null;
+using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
-using Vixen.Rendering;
 using Vixen.Rendering.VirtualGeometry;
 using Xunit;
 
