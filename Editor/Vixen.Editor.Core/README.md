@@ -88,6 +88,14 @@ The point of it being here rather than in the inspector is doc 36 § D1: an edit
 paths has five answers to "what happens when twenty things are selected", and a plugin cannot join
 an undo stack there is no shared way in to.
 
+⚠ **`EditProperty.Apply` is the one funnel every write goes through, and it is `virtual` for that
+reason.** `Write`, `WriteEach` and whatever a deriving type adds all end there, so a subclass hangs
+"a write landed" on one method instead of a list of callers. `InspectorField` is why: a prefab
+instance has to record that it now claims the member, for every write and exactly once per write.
+⚠ Anything hung there has to earn its transaction — a committed transaction records a
+`CompositeCommand` and a `SetMembersCommand` cannot merge with one, so an unconditional wrapper turns
+a three-hundred-frame slider drag into three hundred undo entries.
+
 A binding raises `EditProperty.Changed`, and the target aggregates all of them into
 `EditTarget.Changed`. Both, because they answer different questions: a surface that built a row knows
 which binding it is watching, and one whose body was filled in by a markup tree or by somebody else's

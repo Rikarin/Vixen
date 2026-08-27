@@ -1119,6 +1119,12 @@ the one a document owns, and it is where `SceneSerializer` writes the format's `
 reach a file: an instance placed today was an ordinary subtree tomorrow. The writer is here, so the
 table is.
 
+⚠ **`Mark` and `Clear` have production callers now, and until they did the table was half dead.** An
+edit made through the inspector recorded no claim, so the next open's reconcile wrote the template's
+value over it — a designer's nudge undone by reopening the level, with no diff and no message.
+`PrefabSource` in `Vixen.Editor.AssetEditors` is what calls them, from
+`InspectorField.Apply` and `RevertToPrefab`, on this document's own undo stack.
+
 ⚠ **It is keyed by handle, so it has to travel with the names — through `PruneNames`, through `Remap`
 and through a delete's `SubtreeSnapshot`.** Every one of those is a silent way to lose it. The
 snapshot is the sharpest: without it, deleting an instance and pressing Ctrl+Z gives back a subtree

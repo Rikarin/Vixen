@@ -156,22 +156,34 @@ reason.
 instead, so two instances of one prefab in one scene do not both claim the file's ids — and the map
 is also exactly what an override comparison needs.
 
-`PrefabSource` is `IPrefabSource` over pairs of *objects* rather than entities: the inspector edits
-whatever the shell decided an entity's row of editors is, and all it needs answered is whether this
-object's member differs from the one it was made from.
+### The inspector's override marks
 
-⚠⚠ **Nothing feeds it, and feeding it as it stands would be wrong twice.** It has no caller outside its
-own tests — the inspector's revert button is dead for every real inspection — and doc 47's row 6 is
-what would wire it. It is not a wiring job:
+`PrefabSource` is `IPrefabSource` over *objects*: an inspector edits whatever the shell decided an
+entity's row of editors is, so `Link` says which entity each object stands for and — for a component's
+box — the `[DataContract]` alias the format spells its member path with. `EditorApplication.ShowSelection`
+builds one per selection and hands it to `InspectorView.Prefab`; `ComponentsView` pairs the boxes under
+it. Doc 47's row 6.
 
-- `IsOverridden` **compares values**, which is the implicit model doc 47 § 3 rejected. It cannot see an
-  override *to zero* and cannot see an override to a value equal to the template's, and
-  `SceneDocument.Prefabs` now has the right answer written down. What the inspector wants is a source
-  backed by the list, not a pairing.
-- `SceneEntity.Position`/`Rotation` are **world space**; `SceneEntityData`'s are **relative to the
-  parent**. The two objects a pairing would join do not mean the same thing by "position", so a naive
-  pairing marks every child of a moved instance as overridden and a revert writes a local value into a
-  world-space setter.
+⚠⚠ **It answers out of `SceneDocument.Prefabs` and never by comparing values.** It used to compare —
+the implicit model doc 47 § 3 rejects — which cannot see an override *to zero*, nor an override to a
+value equal to the template's: the row would stop being marked and Revert would grey out on exactly the
+edits an author most wants back. The file has the right answer written down, as a list of names.
+
+⚠ **`SceneEntity.Position`/`Rotation` are world space and `SceneEntityData`'s are relative to the
+parent**, so the template's value is taken through the instance's parent before it is handed back.
+Without that a child of a moved instance reads as overridden and a revert writes a local value into a
+world-space setter. `Scale` is local on both sides and is not converted. ⚠ The rotation is
+`local * parentWorld`, left to right, which is `Transform.Rotation`'s own equation the other way round.
+
+⚠⚠ **`Release` is what makes reverting an override to the template's own value do anything.** The write
+is a no-op there by definition, so a revert consisting only of the write would leave the row marked and
+the file still claiming the member. ⚠ **`Claim` is why an edit becomes an override at all** —
+`PrefabInstances.Mark` had no production caller either, so before this an inspector edit recorded
+nothing and the next open's reconcile took the template's value back over it.
+
+A nested run is paired with the node the *outer* template carries for the same link, and a run inside an
+instance whose template cannot be opened is declined rather than guessed at — `PrefabOverrides.TryPair`'s
+rule, restated over the live world.
 
 ### Placing one
 

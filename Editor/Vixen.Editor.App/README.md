@@ -503,6 +503,15 @@ lies about what the next Delete, the next gizmo drag or the next rename will act
 - ⚠ **An asset editor's own hierarchy is not cleared.** `SceneHierarchyView` takes selection outwards
   only, by its own documented decision, so clearing its document's selection from here would leave a
   row highlighted with nothing behind it.
+- ⚠ **The prefab pairing is built here, and until it was, the override marks were dead.**
+  `ShowSelection` makes a `PrefabSource` per selection, links each `SceneEntity` to its entity and
+  hands it to `InspectorView.Prefab`; `ComponentsView.Pair` does the same for the component boxes, by
+  the `[DataContract]` alias the scene format spells a member path with. Nothing assigned that property
+  before — doc 47 § 7c — so the revert button had never been shown a pairing in a running editor.
+  ⚠ It is assigned **before** `Inspect`, because building a row is what asks whether its member is
+  overridden; set afterwards it would draw one unmarked panel and start telling the truth at the next
+  selection. ⚠ And `Inspect` takes `params ReadOnlySpan<object>`, so a `List<object>` handed to it
+  binds as a single element and the inspector shows the list.
 
 ⚠ **A panel's factory runs again when it is reopened**, so nothing durable may live in one. Each
 pane's camera is kept as a `ViewBookmark` on `EditorApplication` and restored when the scene panel is
