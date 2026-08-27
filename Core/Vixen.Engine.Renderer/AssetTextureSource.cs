@@ -776,8 +776,10 @@ public sealed class AssetTextureSource : IDisposable {
     ///         ⚠ <b>For a test that has to wait for the work rather than for a clock.</b> The header
     ///         read and the whole-file decode are <see cref="Task.Run(Action)" />, so how long a
     ///         fixture waits for one is decided by the thread pool and not by the read; a suite that
-    ///         gave up after an interval was measuring the runner. Returning the task lets the wait be
-    ///         the work itself — see <c>AssetTextureStreamingTests</c>, whose settle awaits this.
+    ///         gave up after an interval was measuring the runner. This is how a settle can say
+    ///         "something is still on its way" instead — see <c>AssetTextureStreamingTests</c>, which
+    ///         keeps running frames for as long as this, <c>TextureStreamer.Loading</c> or
+    ///         <c>TextureStreamer.PendingRequests</c> says there is anything left to arrive.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Null the moment the read finishes, rather than when its result is taken up.</b> A

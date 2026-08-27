@@ -133,6 +133,12 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     ///         the loop it precedes, so every frame of it counts towards the negative claim, and the
     ///         sixty that follow are sixty frames of a texture that is really there.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And then the wait itself failed, for the same reason one level up</b> — CI run
+    ///         33010276792 on 2026-08-26, with <c>StreamingSwaps</c> at zero after thirty seconds. The
+    ///         wait had a wall-clock deadline of its own and a deadline cannot survive a saturated
+    ///         thread pool; <see cref="Settle" /> now says what it is waiting for instead.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void SizingAStreamedTextureKeepsItBelowTheWholeFile() {
