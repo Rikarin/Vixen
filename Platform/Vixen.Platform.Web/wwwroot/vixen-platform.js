@@ -955,7 +955,10 @@ export function readClipboardImage(view) {
         return false;
     }
 
-    view.set(image.pixels);
+    // ⚠ Re-wrapped as a Uint8Array. ImageData.data is a Uint8ClampedArray, and MemoryView.set
+    // compares constructors exactly — the clamped variant throws `Assert failed: Expected function
+    // Uint8Array` rather than converting. Same buffer, no copy.
+    view.set(new Uint8Array(image.pixels.buffer, image.pixels.byteOffset, image.pixels.byteLength));
     return true;
 }
 
@@ -1135,29 +1138,35 @@ export function onScreenKeyboardArea(view) {
         return false;
     }
 
+    // ⚠ Float64Array and not an array literal. MemoryView.set compares the source's constructor
+    // against the view's exactly, so `view.set([x, y, w, h])` throws
+    // `Assert failed: Expected function Float64Array` — it does not convert. Every call here used
+    // to be an array literal, so ITextInput.OnScreenKeyboardArea threw on every path it took.
+    const write = (x, y, width, height) => view.set(Float64Array.of(x, y, width, height), 0);
+
     const keyboard = navigator.virtualKeyboard;
 
     if (keyboard?.boundingRect) {
         const rect = keyboard.boundingRect;
-        view.set([rect.x, rect.y, rect.width, rect.height]);
+        write(rect.x, rect.y, rect.width, rect.height);
         return rect.width > 0 && rect.height > 0;
     }
 
     const viewport = globalThis.visualViewport;
 
     if (!viewport || !state.textInput || document.activeElement !== state.textInput) {
-        view.set([0, 0, 0, 0]);
+        write(0, 0, 0, 0);
         return false;
     }
 
     const covered = globalThis.innerHeight - (viewport.height + viewport.offsetTop);
 
     if (covered <= 1) {
-        view.set([0, 0, 0, 0]);
+        write(0, 0, 0, 0);
         return false;
     }
 
-    view.set([0, globalThis.innerHeight - covered, globalThis.innerWidth, covered]);
+    write(0, globalThis.innerHeight - covered, globalThis.innerWidth, covered);
     return true;
 }
 
@@ -1190,34 +1199,47 @@ export function pollGamepads(view) {
     const capacity = Math.floor(view.length / GamepadRecord);
     let written = 0;
 
+    // ⚠ Staged in a real Float64Array and handed over with one set(), because `view` is a .NET
+    // MemoryView and NOT a typed array — see the note above readBuffer. This function used to
+    // write through `view[at] = …`, which silently set properties on a plain object and reached
+    // WebAssembly memory with nothing at all, and then called view.fill(), which does not exist:
+    // `TypeError: view.fill is not a function`, thrown out of the first PumpEvents of the first
+    // frame, caught by WebFrameLoop, which stopped the loop. The whole frame loop was dead on
+    // frame one on every browser build, and no gate could see it until `nuke BrowserSmoke`.
+    const staged = new Float64Array(capacity * GamepadRecord);
+
     for (let slot = 0; slot < pads.length && written < capacity; slot++) {
         const pad = pads[slot];
         let at = written * GamepadRecord;
 
         if (!pad) {
-            view[at] = slot;
-            view[at + 1] = 0;
-            view.fill(0, at + 2, at + GamepadRecord);
+            staged[at] = slot;
+            staged[at + 1] = 0;
+            staged.fill(0, at + 2, at + GamepadRecord);
             written++;
             continue;
         }
 
-        view[at++] = pad.index;
-        view[at++] = 1;
-        view[at++] = pad.mapping === "standard" ? 1 : 0;
-        view[at++] = Math.min(pad.buttons.length, GamepadButtons);
+        staged[at++] = pad.index;
+        staged[at++] = 1;
+        staged[at++] = pad.mapping === "standard" ? 1 : 0;
+        staged[at++] = Math.min(pad.buttons.length, GamepadButtons);
 
         for (let axis = 0; axis < GamepadAxes; axis++) {
-            view[at + axis] = axis < pad.axes.length ? pad.axes[axis] : 0;
+            staged[at + axis] = axis < pad.axes.length ? pad.axes[axis] : 0;
         }
 
         at += GamepadAxes;
 
         for (let button = 0; button < GamepadButtons; button++) {
-            view[at + button] = button < pad.buttons.length ? pad.buttons[button].value : 0;
+            staged[at + button] = button < pad.buttons.length ? pad.buttons[button].value : 0;
         }
 
         written++;
+    }
+
+    if (written > 0) {
+        view.set(staged.subarray(0, written * GamepadRecord), 0);
     }
 
     return written;
@@ -1327,6 +1349,30 @@ export function bufferLength(handle) {
     return bytes ? bytes.byteLength : 0;
 }
 
+// ── ⚠ A `view` parameter is a .NET MemoryView, which is NOT a typed array ────────────────────
+//
+// Every function below that takes a `view` is handed one by the marshaller for a
+// [JSMarshalAs<JSType.MemoryView>] Span<T>, and its whole surface is FOUR members:
+//
+//     set(source, offset)   source must be a typed array of EXACTLY the matching constructor —
+//                           Uint8Array for Span<byte>, Float64Array for Span<double>. A plain
+//                           Array, or a Uint8ClampedArray for a byte span, throws
+//                           `Assert failed: Expected function Uint8Array`.
+//     copyTo(target, from)  the other direction, same constructor rule.
+//     slice(start, end)     returns a real typed array holding a COPY.
+//     length / byteLength
+//
+// There is no indexer and no fill. `view[i] = x` sets a property on a plain object and reaches
+// WebAssembly memory with nothing; `view.fill(…)` is a TypeError; and passing a view where an
+// array-like is expected — `someTypedArray.set(view)` — reads `undefined` at every index and
+// writes a buffer of zeros that is exactly the right length.
+//
+// ⚠ All four of those mistakes were in this file, and every one of them survived every gate this
+// repository has: the compiler sees a declaration, PublishWeb sees a file, BrowserModuleUrlTests
+// sees a constant, and js/vixen-platform.test.mjs hands these functions REAL typed arrays, which
+// support all four operations. Only calling them from the runtime finds it, which is what
+// `nuke BrowserSmoke` is for and what it found on its first run against a real head.
+
 export function readBuffer(handle, view) {
     const bytes = state.buffers.get(handle);
 
@@ -1351,9 +1397,14 @@ export function releaseBuffer(handle) {
  * the shape that survives, and the copy it costs is one IndexedDB would make anyway.
  */
 export function stageBuffer(view) {
-    const bytes = new Uint8Array(view.length);
-    bytes.set(view);
-    return holdBuffer(bytes);
+    // ⚠ slice(), not `new Uint8Array(view.length)` followed by `bytes.set(view)`. A MemoryView is
+    // not array-like: `set` walked it with an indexer it does not have, read `undefined` at every
+    // position, and stored a buffer of ZEROS of exactly the right length. So every write through
+    // IndexedDbFileProvider stored the correct number of bytes and none of the correct ones, and
+    // the round trip that would have shown it — write, read back, compare — is the check
+    // `nuke BrowserSmoke` added. slice() copies out of WebAssembly memory itself and cannot be
+    // wrong in this way.
+    return holdBuffer(view.slice(0, view.length));
 }
 
 // ── Dropped files ────────────────────────────────────────────────────────────────────────────

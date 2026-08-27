@@ -88,9 +88,23 @@ globalThis.cancelAnimationFrame = () => { };
 globalThis.innerWidth = 800;
 globalThis.innerHeight = 600;
 
+// ⚠ Two slots, and the empty one is the load-bearing half. getGamepads() returns a sparse array
+// with a null for every unoccupied port, and pollGamepads has a separate branch for those — which
+// is where `view.fill()` was, a method a MemoryView does not have. A stub returning [] never
+// enters the write path at all, so it can only assert that a function with a TypeError in it
+// returns zero.
+const stubGamepad = {
+    index: 1,
+    id: "Vixen Test Pad (STANDARD GAMEPAD)",
+    mapping: "standard",
+    axes: [0.25, -0.5, 0, 0],
+    buttons: [{ value: 1 }, { value: 0 }],
+    vibrationActuator: null
+};
+
 // navigator is a getter-only global in modern Node, so it has to be redefined rather than assigned.
 Object.defineProperty(globalThis, "navigator", {
-    value: { hardwareConcurrency: 8, getGamepads: () => [] },
+    value: { hardwareConcurrency: 8, getGamepads: () => [null, stubGamepad] },
     configurable: true
 });
 
@@ -284,18 +298,100 @@ do {
 equal(seen.length, 10, "every event survives a drain smaller than the queue");
 check(seen.every((value, index) => value === index), `…in order — got ${seen.join(",")}`);
 
+// ── ⚠ A faithful MemoryView, because a typed array is NOT one ────────────────────────────────
+//
+// Every assertion above hands these functions a real Float64Array or Uint8Array, and that is a
+// stub which is MORE PERMISSIVE THAN THE RUNTIME. What the marshaller actually passes for a
+// [JSMarshalAs<JSType.MemoryView>] Span<T> has four members and no more:
+//
+//     set(source, offset)   source must be a typed array of exactly the matching constructor
+//     copyTo(target, from)  same constructor rule
+//     slice(start, end)     a real typed array holding a copy
+//     length / byteLength
+//
+// No indexer. No fill. Not array-like, so `someTypedArray.set(view)` reads undefined at every
+// index and writes zeros.
+//
+// ⚠ FOUR functions in this module got that wrong and this suite passed on all four, because a
+// typed array supports everything they did. `nuke BrowserSmoke` found them by calling them from
+// the runtime: pollGamepads wrote through an indexer that reached WebAssembly memory with nothing
+// and then threw on view.fill, which killed the frame loop on frame one of every browser build;
+// stageBuffer stored a buffer of zeros of exactly the right length, so every IndexedDB write was
+// silently empty; onScreenKeyboardArea and readClipboardImage passed set() a source of the wrong
+// constructor. The stub below is what makes those findable here, in a second, without a browser.
+
+class MemoryView {
+    constructor(typed) {
+        this.typed = typed;
+    }
+
+    set(source, offset = 0) {
+        if (!source || source.constructor !== this.typed.constructor) {
+            throw new Error(`Assert failed: Expected ${this.typed.constructor.name}`);
+        }
+
+        this.typed.set(source, offset);
+    }
+
+    copyTo(target, from = 0) {
+        if (!target || target.constructor !== this.typed.constructor) {
+            throw new Error(`Assert failed: Expected ${this.typed.constructor.name}`);
+        }
+
+        target.set(this.typed.subarray(from));
+    }
+
+    slice(start, end) { return this.typed.slice(start, end); }
+
+    get length() { return this.typed.length; }
+
+    get byteLength() { return this.typed.byteLength; }
+}
+
 // ── Buffers: the way bytes cross an asynchronous boundary ────────────────────────────────────
 
-const staged = platform.stageBuffer(new Uint8Array([1, 2, 3, 4]));
+const staged = platform.stageBuffer(new MemoryView(new Uint8Array([1, 2, 3, 4])));
 const out = new Uint8Array(4);
 
 equal(platform.bufferLength(staged), 4, "a staged buffer knows its length");
-check(platform.readBuffer(staged, out), "a staged buffer reads back");
-equal(out[3], 4, "…with its bytes intact");
+check(platform.readBuffer(staged, new MemoryView(out)), "a staged buffer reads back");
+equal(out[3], 4, "…with its bytes intact through a MemoryView, which has no indexer");
+equal(out[0], 1, "…from the first byte, not a correctly sized run of zeros");
 platform.releaseBuffer(staged);
 equal(platform.bufferLength(staged), 0, "and is gone once released");
 
-check(!platform.readBuffer(staged, new Uint8Array(4)), "reading a released buffer refuses rather than throwing");
+check(
+    !platform.readBuffer(staged, new MemoryView(new Uint8Array(4))),
+    "reading a released buffer refuses rather than throwing"
+);
+
+// ── The other three view-taking functions, through the same stub ─────────────────────────────
+
+const drain = new Float64Array(RECORD * 4);
+fire(canvasElement, "keydown", { code: "KeyA", timeStamp: 1, repeat: false, getModifierState: () => false });
+equal(platform.drainEvents(new MemoryView(drain)), 1, "drainEvents writes through a MemoryView");
+equal(drain[2], 1, "…and the record reached the buffer");
+
+const stride = platform.gamepadStride();
+const pads = new Float64Array(stride * 4);
+
+equal(platform.pollGamepads(new MemoryView(pads)), 2, "pollGamepads writes a record per port");
+
+// The empty port, which is the branch that used to call view.fill().
+equal(pads[0], 0, "…an empty port reports its slot");
+equal(pads[1], 0, "…and reports itself disconnected");
+
+// The occupied one, which is the branch that used to write through an indexer a MemoryView has
+// not got — so with the old body every one of these read back as zero.
+equal(pads[stride], 1, "…a connected pad reports its index");
+equal(pads[stride + 1], 1, "…and reports itself connected");
+equal(pads[stride + 2], 1, "…and its standard mapping");
+equal(pads[stride + 3], 2, "…and how many buttons it has");
+near(pads[stride + 4], 0.25, "…and its first axis, which is the value a stick actually sends");
+
+const area = new Float64Array(4);
+platform.onScreenKeyboardArea(new MemoryView(area));
+equal(area.length, 4, "onScreenKeyboardArea writes four doubles without throwing on set()");
 
 // ── Screen ───────────────────────────────────────────────────────────────────────────────────
 

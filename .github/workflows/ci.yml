@@ -387,23 +387,59 @@ jobs:
           path: artifacts/web/wwwroot/
           if-no-files-found: ignore
 
-      # ⚠ OWED, and deliberately not bolted on here: the Playwright smoke test docs/plan/10 asks for.
-      # It is the only thing that can cover the interop — every [JSImport] in these three projects is
-      # untested by everything above, and BrowserModuleUrlTests covers the constants and not the
-      # calls.
+      # ── The browser smoke leg ──────────────────────────────────────────────────────────────
       #
-      # It is owed rather than absent-by-oversight because there is a specific way to get it wrong
-      # that the spike measured. `chrome-headless-shell --dump-dom` NEVER FIRES
-      # requestAnimationFrame — a pure-JS control page counted zero callbacks in three seconds, with
-      # or without --virtual-time-budget, --screenshot or SwiftShader, while the same page over CDP
-      # counted 120/s. A leg built on --dump-dom would report a live frame loop as dead, which is the
-      # most expensive shape a red build can have. It has to drive a real browser over CDP, as
-      # Tools/Vixen.WebProbe/drive.mjs does.
+      # Node 22 or later, and pinned rather than taken from the image, for one reason: the driver
+      # uses the GLOBAL WebSocket, which Node did not have until 22. Nothing else here needs a
+      # particular Node, and there is no npm install — see below.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # `nuke BrowserSmoke` publishes the head (via PublishWeb, which the step above has already
+      # run and which is incremental), serves it over loopback with COOP/COEP, launches the Chrome
+      # that ships on this runner image, drives it over CDP and asserts 35 things.
       #
-      # And it needs a WebGPU adapter to be worth more than a load test, which no headless Chromium
-      # on macOS would give the spike at any flag combination. That is a Linux job with
-      # --enable-features=Vulkan over lavapipe — which this workflow already installs on the test
-      # leg — and nobody has watched it come up.
+      # ⚠ It is the only thing anywhere in this repository that CALLS a [JSImport]. Everything
+      # above covers the boundary from one side — CompileWeb compiles the declarations,
+      # BrowserModuleUrlTests knows the module-URL constants, PublishWeb knows where the files
+      # landed, js/vixen-platform.test.mjs tests the JavaScript half against a DOM stub — and none
+      # of them marshals a single call.
+      #
+      # ⚠ It drives a real browser over CDP and NOT `chrome-headless-shell --dump-dom`, which the
+      # web-head spike measured never firing requestAnimationFrame: zero callbacks in three seconds
+      # against 120/s over CDP, with or without --virtual-time-budget, --screenshot or SwiftShader.
+      # A leg built on --dump-dom would report a live frame loop as dead. The driver counts rAF from
+      # its own side before it believes anything the page says, and calls a zero there an INSTRUMENT
+      # FAILURE rather than an engine defect.
+      #
+      # ⚠ No Playwright and no npm install. docs/plan/10 names Playwright and this does the same job
+      # in ~200 lines of CDP over a WebSocket, because `nuke CheckAttribution` reads
+      # Directory.Packages.props and native-dependencies.json and would not see an npm package at
+      # all — so vendoring one would create an unattributed third-party dependency in the one place
+      # the attribution gate cannot look. The browser is not vendored either: it is the Google
+      # Chrome already on this runner image. If that image ever stops shipping one, this step FAILS
+      # saying so; it does not skip. A browser gate that goes green having started no browser is the
+      # failure mode this whole leg is written against.
+      - name: Drive the published head in a real browser
+        run: ./build.sh BrowserSmoke --configuration Release
+        shell: bash
+
+      - name: Upload the browser smoke transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke
+          path: artifacts/browser-smoke/
+          if-no-files-found: ignore
+
+      # ⚠ STILL OWED, and narrower than it was: a WebGPU adapter. No headless Chromium on macOS
+      # would give the spike one at any flag combination, so WebGpuDevice has still never been
+      # constructed on the web and the probe reports that as an observation rather than a failing
+      # check — making it a check would make the leg red everywhere and teach everyone to ignore it.
+      # Closing it is a Linux job with --enable-features=Vulkan over the lavapipe this workflow
+      # already installs on the test leg, and nobody has watched it come up.
 
   pack:
     name: pack
