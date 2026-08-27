@@ -767,6 +767,28 @@ public sealed class AssetTextureSource : IDisposable {
         streamed.Clear();
     }
 
+    /// <summary>
+    ///     The off-thread read a reference is waiting on, or null when it is waiting on none.
+    /// </summary>
+    /// <param name="reference">Which texture.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a test that has to wait for the work rather than for a clock.</b> The header
+    ///         read and the whole-file decode are <see cref="Task.Run(Action)" />, so how long a
+    ///         fixture waits for one is decided by the thread pool and not by the read; a suite that
+    ///         gave up after an interval was measuring the runner. Returning the task lets the wait be
+    ///         the work itself — see <c>AssetTextureStreamingTests</c>, whose settle awaits this.
+    ///     </para>
+    ///     <para>
+    ///         Null once the read has been taken up: <see cref="Enrol" /> clears
+    ///         <see cref="Entry.Layouted" /> when it registers the texture, and a reference nothing has
+    ///         asked for yet has no entry at all. Both mean "nothing to wait for" and both are answered
+    ///         the same way, so a caller awaits what it is given and asks again next frame.
+    ///     </para>
+    /// </remarks>
+    internal Task? Reading(AssetReference reference) =>
+        entries.TryGetValue(reference, out var entry) ? entry.Layouted ?? (Task?)entry.Decoded : null;
+
     /// <summary>One texture, somewhere between named and sampled.</summary>
     sealed class Entry {
         public Task<TextureData>? Decoded;
