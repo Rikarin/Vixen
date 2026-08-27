@@ -147,6 +147,17 @@ same reason `Vixen.Platform.Web` and its two siblings are absent, and the same r
 
 The cost is stated rather than hidden: `Test`, `CheckFormat`, `CheckApi` and `Pack` do not see this
 project. `CheckArchitecture` **does**, because it globs `Tools/**/*.csproj` rather than reading the
-solution.
+solution. `BrowserSmoke` sees it too, and is the only gate that *runs* it.
+
+⚠ **A measurement that does not fit the sentence above, recorded rather than acted on.** On a Mac
+with **no `wasm-tools` workload installed at all**, `nuke CompileWeb` — which is `dotnet build` on
+each of the three browser *libraries* — **succeeded, in four seconds**, while `nuke PublishWeb`
+failed on the next line with `NETSDK1147: the following workloads must be installed: wasm-tools`.
+So the workload is what the **head** needs, for the emcc relink; the three libraries built without
+it. That is not the whole question — the claim above is about *restoring a solution* that contains
+them, which is a different operation from building a csproj by path, and it was not measured — but
+it is enough that "the libraries cannot be evaluated without the workload" should be re-measured
+before it is relied on again, rather than repeated. It is repeated in `build/Build.cs`
+(`CompileWeb`'s remarks), in `Vixen.Platform.Web.Tests.csproj` and in `ci.yml`.
 
 Licensed under Apache-2.0.
