@@ -2420,8 +2420,11 @@ public class NegativeDiagnosticTests {
     ///     <em>declared</em> set, with a normalisation in between.
     ///     <c>DeclarationFacts.GetAttributeName</c> strips the suffix before the lookup, so
     ///     <c>[PermutationAttribute]</c> is the same name as <c>[Permutation]</c> everywhere in the
-    ///     compiler — including where the stage is read off the method. A check done on the raw
-    ///     token would warn about all five of these and, worse, quietly stop seeing the stage.
+    ///     compiler — including where the stage is read off the method. ⚠ Widening it to the raw
+    ///     token warns about all five and then reports <c>RVN2137</c> as well, because <c>Flag</c>
+    ///     stops being a permutation key and becomes a boolean uniform — which is the damage the
+    ///     notice is really guarding, and it is silent damage: the shader still compiles, at the
+    ///     wrong meaning.
     /// </remarks>
     [Fact]
     public void The_suffixed_spelling_of_a_recognised_attribute_is_the_same_name() =>
@@ -2542,7 +2545,10 @@ public class NegativeDiagnosticTests {
     ///     one-parameter function with none. The rule compares what was written against what the
     ///     signature <em>requires</em>, and a comparison against <c>Parameters.Count</c> — the
     ///     obvious one to write — refuses every call that leaves a defaulted parameter out, which is
-    ///     the only reason a default exists.
+    ///     the only reason a default exists. ⚠ Widening <c>MinimumArgumentCount</c> alone leaves
+    ///     this green and proves nothing: applicability fills the defaults in <c>TryMapArguments</c>
+    ///     without consulting it, so the call resolves and the arity message is never reached. What
+    ///     makes it red is <c>SourceParameterSymbol.HasDefaultValue</c>, which both of them read.
     /// </remarks>
     [Fact]
     public void A_call_may_leave_a_defaulted_parameter_out() =>
@@ -2615,7 +2621,11 @@ public class NegativeDiagnosticTests {
     ///     and what parameterises a shader sits on the shader instead — here a <c>val</c> parameter,
     ///     which is written in the same angle brackets and is not a type parameter at all. Asked of
     ///     the containing shader, the rule refuses every parameterised effect there is, which is the
-    ///     only kind whose entry point is worth varying.
+    ///     only kind whose entry point is worth varying. ⚠ The two representations disagree by
+    ///     design and that is what makes this reachable: <c>Blur</c>'s
+    ///     <c>Declaration.TypeParameterList</c> holds one entry and its <c>TypeParameters</c> is
+    ///     empty, so a check written off the syntax and a check written off the symbol give
+    ///     opposite answers about the same shader.
     /// </remarks>
     [Fact]
     public void An_entry_point_on_a_parameterised_shader_is_not_a_generic_entry_point() =>
