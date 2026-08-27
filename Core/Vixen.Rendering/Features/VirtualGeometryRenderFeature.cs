@@ -140,6 +140,8 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     // reach a bound is inflated by are all here and nowhere else.
     readonly List<MorphIndex?> morphs = [];
 
+    Vector2[] scaled = [];
+
     int retired;
 
     float[] errorScale = [];
@@ -431,14 +433,19 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
             return false;
         }
 
-        var scaled = new Vector2[index.ShapeCount];
+        // Kept across frames rather than allocated per instance per frame. This runs for every morphed
+        // character every frame a scene has one, and twenty floats of garbage per face per frame is the
+        // sort of thing that is invisible until a crowd.
+        if (scaled.Length < index.ShapeCount) {
+            scaled = new Vector2[Math.Max(index.ShapeCount, 32)];
+        }
 
-        for (var shape = 0; shape < scaled.Length; shape++) {
+        for (var shape = 0; shape < index.ShapeCount; shape++) {
             var weight = shape < weights.Length ? weights[shape] : 0f;
             scaled[shape] = new(weight * index.PositionSteps[shape], weight * index.NormalSteps[shape]);
         }
 
-        draw.FirstWeight = Visibility.AddMorphWeights(scaled);
+        draw.FirstWeight = Visibility.AddMorphWeights(scaled.AsSpan(0, index.ShapeCount));
         draw.MorphRadius = index.Radius(weights);
 
         return true;
