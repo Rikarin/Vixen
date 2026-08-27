@@ -119,7 +119,8 @@ have one, which puts the reachable ceiling at 125. Two rules to keep if you add 
   that fails to compile is not a red test — that attempt proved nothing and has to be tried again.
   ⚠ Nor is one that leaves the test green: check that the predicate you added can change the answer
   at all before you believe it. `RVN2061`'s first attempt demanded `IsConst`, which a
-  `[Permutation]` marker already forces true.
+  `[Permutation]` marker already forces true, and `RVN2033`'s widened `MinimumArgumentCount` — which
+  the applicability check never reads, because `TryMapArguments` fills defaults itself.
 
 The order to work in is **by the cost of an over-fire, not by id**. What separates a cheap over-fire
 from an expensive one is a difference of *kind*, and there have been two. The first is the
