@@ -109,6 +109,19 @@ struct RasterMesh {
     /// vertex's own mesh record answers. It also keeps a static mesh's page vertex at sixteen bytes
     /// instead of charging every rock in the project eight bytes of zeros.
     var influenceOffset: uint
+
+    /// Declared rather than left to the compiler, so the record is 32 bytes on both sides.
+    ///
+    /// ⚠ `CullInstance`'s padding exists for the same reason and this one was earned the same way. A
+    /// `float3` member aligns the record to sixteen, so the device's array stride is the size rounded
+    /// up to it — twenty bytes here is thirty-two there. The host wrote twenty, and one virtualized
+    /// mesh is the only scene in which that is invisible: registered mesh zero decodes out of offset
+    /// zero and every mesh after it reads its grid out of the middle of the one before.
+    var padding0: uint
+
+    var padding1: uint
+
+    var padding2: uint
 }
 
 /// How a page vertex packs its four bone influences.

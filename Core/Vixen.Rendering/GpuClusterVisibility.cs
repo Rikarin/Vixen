@@ -96,6 +96,31 @@ public struct RasterMesh {
     ///     in the scene, so there is no per-draw choice of variant to make.
     /// </remarks>
     public uint InfluenceOffset;
+
+    /// <summary>Twelve bytes of tail padding the shader declares and never reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Declared rather than left to the compiler, and this one was not.</b> A
+    ///         <see cref="Vector3" /> member aligns the record to sixteen, so the device's array
+    ///         stride is the size rounded up to it: twenty bytes here read as thirty-two there, which
+    ///         <c>ClusterRaster.reflect.json</c> says outright. The host wrote twenty.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One virtualized mesh is the only scene in which that is invisible.</b> Registered
+    ///         mesh zero decodes correctly out of offset zero, and every mesh after it takes its
+    ///         quantization grid out of the middle of the one before — an origin built from a step and
+    ///         a step built from an influence offset, which is a mesh folded in on itself with a
+    ///         healthy cluster count and no validation error beside it. <see cref="CullInstance" />'s
+    ///         padding exists for the same reason and was earned the same way.
+    ///     </para>
+    /// </remarks>
+    public uint Padding0;
+
+    /// <inheritdoc cref="Padding0" />
+    public uint Padding1;
+
+    /// <inheritdoc cref="Padding0" />
+    public uint Padding2;
 }
 
 /// <summary>
