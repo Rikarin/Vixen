@@ -1287,6 +1287,14 @@ oracle rather than a second renderer.
 
 `ModelImporter.Version` 12 builds a cluster hierarchy for a morphed mesh again.
 
+⚠ **P0's exit criterion — "its shadow and motion vectors agree with it" — holds for a suballocated
+mesh and not yet for a paged one**, and the reason is not this row's. `MorphRenderFeature` writes one
+buffer every stage reads, so the four passes agree by construction. A virtualized mesh has no caster
+path at all yet: [22](22-virtualized-geometry.md) phase 7 records it as owed, because the traversal
+appends every view's cut to one visible list with no view tag on an entry. A virtualized head's shadow
+does not follow its expression *and does not follow its rest pose either* — the gap is the phase's,
+and morphing does not widen it.
+
 Still owed: the whole of the eight-influence permutation, which is untouched; and the software
 raster's copy of the gather is **unverified on Apple silicon**, because MoltenVK offers no 64-bit
 buffer atomics and phase 6's routing is forced off — its `Morphed` is character-for-character the
