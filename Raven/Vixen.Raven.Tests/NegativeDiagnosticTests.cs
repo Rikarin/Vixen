@@ -2244,4 +2244,496 @@ public class NegativeDiagnosticTests {
                 """
             )
         );
+
+    // --- RVN2082 / RVN2083: a value supplied for a `val` parameter ----------
+
+    /// <summary>
+    ///     One <c>val</c> parameter supplied by its bare name and another by its qualified one, in
+    ///     one compilation that holds both shaders.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>ValueParameterTests.A_value_parameter_with_no_value_is_rejected</c>.
+    ///     ⚠ A key has two written forms and the rule accepts either — <c>Sharpen.Taps</c> first,
+    ///     then <c>Taps</c> — so a lookup narrowed to the qualified form alone refuses every build
+    ///     that supplies one value for every shader that reads it, which is what a bare <c>-D</c> on
+    ///     a command line is. <c>ValueParameterTests.A_qualified_value_wins_over_a_bare_one</c> is
+    ///     the positive side of the precedence; this is the side that says the bare form still
+    ///     arrives.
+    /// </remarks>
+    [Fact]
+    public void A_value_parameter_may_be_supplied_by_either_of_its_names() =>
+        Silent(
+            "RVN2082",
+            Semantic(
+                """
+                package A
+
+                shader Blur<val Taps: int> {
+                    var source: float4
+
+                    func Filter(): float4 {
+                        return source * float(Taps)
+                    }
+                }
+
+                shader Sharpen<val Taps: int> {
+                    var source: float4
+
+                    func Filter(): float4 {
+                        return source / float(Taps)
+                    }
+                }
+
+                """,
+                PermutationValues.Parse(["Taps=4", "Sharpen.Taps=8"])
+            )
+        );
+
+    /// <summary>
+    ///     Values supplied the way a build supplies them — through
+    ///     <see cref="PermutationValues.Parse" />, from <c>-D</c> text — for a <c>val</c> parameter
+    ///     of each supported type.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>ValueParameterTests.A_value_of_the_wrong_type_is_rejected</c>, which
+    ///     supplies <c>true</c> for an <c>int</c> parameter. ⚠ This is <c>RVN2064</c>'s sibling and
+    ///     shares its code: <c>SuppliedValue.TryCoerce</c> is what both call, so the over-fire that
+    ///     made <c>uint</c> permutation keys unusable made <c>uint</c> <c>val</c> parameters
+    ///     unusable at the same time and by the same reasoning — <c>Slots=16</c> parses as an
+    ///     <c>int</c> whatever it is meant for, and comparing CLR types rejected it. Pinned apart
+    ///     from <c>RVN2064</c> because the two have separate raise sites and only one of them was
+    ///     ever red.
+    /// </remarks>
+    [Fact]
+    public void Values_parsed_from_defines_match_the_val_parameters_they_are_supplied_for() =>
+        Silent(
+            "RVN2083",
+            Semantic(
+                """
+                package A
+
+                shader Blur<val Taps: int, val Slots: uint, val Fancy: bool> {
+                    var source: float4
+
+                    func Filter(): float4 {
+                        return source * float(Taps) * float(Slots) * (Fancy ? 1f : 0f)
+                    }
+                }
+
+                """,
+                PermutationValues.Parse(["Taps=6", "Slots=16", "Fancy=true"])
+            )
+        );
+
+    // --- RVN2108 / RVN2109: a stage's built-in table ------------------------
+
+    /// <summary>
+    ///     A vertex stage whose parameters mix a recognised vertex built-in, at its declared type,
+    ///     with the vertex attributes a host feeds — beside a compute stage using the closed
+    ///     compute table correctly.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of <c>ComputeTests.ASemanticThatNamesNoBuiltInIsRefused</c>, which is
+    ///         <c>SV_Position</c> on a compute parameter. ⚠ The asymmetry is the whole rule: the
+    ///         compute table is closed because a dispatch has no attributes, and the graphics table
+    ///         is open because a vertex parameter list is mostly attributes. A rule that closed the
+    ///         table everywhere — the easy way to write "an unknown semantic is a typo" — refuses
+    ///         <c>POSITION</c> and <c>TEXCOORD0</c>, and with them every vertex shader that has an
+    ///         input.
+    ///     </para>
+    ///     <para>
+    ///         Both stages are in one shader so the closed table is present in the same file rather
+    ///         than merely absent, which is what makes this a near miss instead of an unrelated
+    ///         graphics shader.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_unrecognised_semantic_on_a_graphics_stage_is_an_attribute() =>
+        Silent(
+            "RVN2108",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var output: RWBuffer<float4>
+
+                    [VertexShader]
+                    func Vertex(
+                        [Semantic("SV_VertexID")] id: int,
+                        [Semantic("POSITION")] position: float3,
+                        [Semantic("TEXCOORD0")] uv: float2
+                    ): float4 {
+                        return float4(position.x + uv.x, position.y + uv.y, float(id), 1f)
+                    }
+
+                    [ComputeShader(64)]
+                    func Main([Semantic("SV_DispatchThreadID")] tid: uint3) {
+                        output[int(tid.x)] = float4(0f, 0f, 0f, 0f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    /// <summary>The same parameter list, held to the rule about a built-in's <em>type</em>.</summary>
+    /// <remarks>
+    ///     The mirror of <c>StageBuiltInTests.A_built_in_declared_at_the_wrong_type_is_refused</c>,
+    ///     which is <c>SV_VertexID</c> declared <c>uint</c>. The rule compares a declared type
+    ///     against the one entry in a table, so it has an answer only where the table has an entry:
+    ///     a check that reached for a type whenever a parameter carried a <c>[Semantic]</c> at all
+    ///     would demand one of <c>POSITION</c> and refuse whatever the host actually feeds it.
+    /// </remarks>
+    [Fact]
+    public void A_semantic_with_no_built_in_behind_it_has_no_declared_type_to_disagree_with() =>
+        Silent(
+            "RVN2109",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [VertexShader]
+                    func Vertex(
+                        [Semantic("SV_VertexID")] id: int,
+                        [Semantic("SV_InstanceID")] instance: int,
+                        [Semantic("POSITION")] position: float3,
+                        [Semantic("TEXCOORD0")] uv: float2
+                    ): float4 {
+                        return float4(position.x + uv.x, position.y + uv.y, float(id + instance), 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2138: the attribute name, as written and as read ----------------
+
+    /// <summary>Every recognised attribute written in its <c>Attribute</c>-suffixed form.</summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.An_unrecognised_attribute_is_reported</c>,
+    ///     whose fixture is <c>[Permuation]</c> — one letter from a name that is read.
+    ///     ⚠ This is the shape the whole file hunts for: a <em>written</em> name compared against a
+    ///     <em>declared</em> set, with a normalisation in between.
+    ///     <c>DeclarationFacts.GetAttributeName</c> strips the suffix before the lookup, so
+    ///     <c>[PermutationAttribute]</c> is the same name as <c>[Permutation]</c> everywhere in the
+    ///     compiler — including where the stage is read off the method. A check done on the raw
+    ///     token would warn about all five of these and, worse, quietly stop seeing the stage.
+    /// </remarks>
+    [Fact]
+    public void The_suffixed_spelling_of_a_recognised_attribute_is_the_same_name() =>
+        Silent(
+            "RVN2138",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [PermutationAttribute] val Flag: bool = true
+                    [PushConstantAttribute] var offset: float4
+
+                    [FragmentShaderAttribute]
+                    [SemanticAttribute("SV_Target")]
+                    func Fragment([SemanticAttribute("TEXCOORD0")] uv: float2): float4 {
+                        return float4(uv.x, uv.y, offset.x, Flag ? 1f : 0f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2001: two declarations of one name ------------------------------
+
+    /// <summary>
+    ///     An overload set, a name reused in two disjoint blocks, and a parameter that shadows a
+    ///     field.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.Duplicate_method_signatures_are_reported_but_overloads_are_not</c>
+    ///     and <c>Duplicate_locals_are_reported</c>. The rule is a collision of <em>signatures</em>
+    ///     within one scope, not of names: keyed on the name alone it refuses every overload set in
+    ///     the shipped library — <c>float4</c>'s constructors, every <c>Sample</c> — and keyed on
+    ///     the enclosing function rather than on the block it refuses the second <c>val</c> in a
+    ///     body that branches.
+    /// </remarks>
+    [Fact]
+    public void Overloads_and_disjoint_scopes_are_not_collisions() =>
+        Silent(
+            "RVN2001",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var value: float4
+
+                    func Take(v: int): float => float(v)
+
+                    func Take(v: float): float => v
+
+                    func Take(a: int, b: int): float => float(a + b)
+
+                    func Probe(value: int): float {
+                        if (value > 0) {
+                            val scratch = 1
+                            return Take(scratch)
+                        }
+
+                        val scratch = 2f
+                        return Take(scratch) + Take(value, 1)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2011: a name after a dot that is not a declared member ----------
+
+    /// <summary>Swizzles, in both letter sets, and a matrix row's components.</summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.Unknown_member_names_the_receiver_type</c>,
+    ///     which is <c>v.missing</c> on a <c>float3</c>. ⚠ A swizzle is not a declared member and
+    ///     never could be — a <c>float4</c> has hundreds — so a lookup answered from the member list
+    ///     alone refuses <c>tint.rgb</c>, which is most of what a shader writes after a dot.
+    /// </remarks>
+    [Fact]
+    public void A_swizzle_is_not_a_missing_member() =>
+        Silent(
+            "RVN2011",
+            Semantic(
+                """
+                package A
+
+                struct Surface {
+                    var color: float3
+                    var roughness: float
+                }
+
+                shader S {
+                    var tint: float4
+                    var world: mat4
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        var surface: Surface
+                        surface.color = tint.rgb
+                        surface.roughness = tint.a
+                        val lane = tint.wzyx.xy
+
+                        return float4(surface.color.xy, lane.y, world[0].w) * surface.roughness
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2033: the arguments written against the parameters declared -----
+
+    /// <summary>A call that stops at the first default, and one that fills them all.</summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests</c>'s <c>RVN2033</c> case, which calls a
+    ///     one-parameter function with none. The rule compares what was written against what the
+    ///     signature <em>requires</em>, and a comparison against <c>Parameters.Count</c> — the
+    ///     obvious one to write — refuses every call that leaves a defaulted parameter out, which is
+    ///     the only reason a default exists.
+    /// </remarks>
+    [Fact]
+    public void A_call_may_leave_a_defaulted_parameter_out() =>
+        Silent(
+            "RVN2033",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var tint: float4
+
+                    func Blend(color: float4, scale: float = 1f, bias: float = 0f): float4 {
+                        return color * scale + float4(bias, bias, bias, bias)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return Blend(tint) + Blend(tint, 2f) + Blend(tint, 2f, 0.5f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2044: indexing something that has elements ----------------------
+
+    /// <summary>Every receiver an index may be written on: array, vector, matrix, buffer.</summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests</c>'s <c>flag[0]</c> on a <c>bool</c>. The rule
+    ///     is about a receiver with no elements at all, and a check that admitted only arrays — the
+    ///     one shape whose type is written with brackets — refuses the matrix row, the vector lane
+    ///     and the structured buffer read that every lighting shader in the library is made of.
+    /// </remarks>
+    [Fact]
+    public void An_index_may_be_written_on_anything_with_elements() =>
+        Silent(
+            "RVN2044",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var world: mat4
+                    var tint: float4
+                    var samples: Buffer<float4>
+                    var output: RWBuffer<float>
+
+                    [ComputeShader(64)]
+                    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                        var taps: float[4]
+                        taps[0] = tint[1]
+
+                        output[int(id.x)] = taps[0] + world[2][3] + samples[int(id.x)].w
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2051: what "generic" is being said about ------------------------
+
+    /// <summary>An entry point on a shader that is itself parameterised.</summary>
+    /// <remarks>
+    ///     The mirror of <c>ShaderSemanticsTests.A_generic_entry_point_is_rejected</c>, which is
+    ///     <c>func Vertex&lt;T&gt;</c>. ⚠ The rule is about the <em>method's</em> type parameters,
+    ///     and what parameterises a shader sits on the shader instead — here a <c>val</c> parameter,
+    ///     which is written in the same angle brackets and is not a type parameter at all. Asked of
+    ///     the containing shader, the rule refuses every parameterised effect there is, which is the
+    ///     only kind whose entry point is worth varying.
+    /// </remarks>
+    [Fact]
+    public void An_entry_point_on_a_parameterised_shader_is_not_a_generic_entry_point() =>
+        Silent(
+            "RVN2051",
+            Semantic(
+                """
+                package A
+
+                shader Blur<val Taps: int> {
+                    var source: float4
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return source * float(Taps)
+                    }
+                }
+
+                """,
+                PermutationValues.Parse(["Taps=4"])
+            )
+        );
+
+    // --- RVN2073: a slot that was filled, and one that did not need it ------
+
+    /// <summary>One compose slot bound from outside, one carrying its own default.</summary>
+    /// <remarks>
+    ///     The mirror of <c>ComposeTests.An_unfilled_slot_is_rejected</c>, which is this shader's
+    ///     second slot with nothing supplied. A default is the slot saying what it is when nobody
+    ///     asks, so a rule that asked only whether a binding was <em>supplied</em> refuses every
+    ///     shader that ships a sensible default — and a library's slots are defaulted precisely so a
+    ///     material does not have to name all of them.
+    /// </remarks>
+    [Fact]
+    public void A_compose_slot_with_a_default_is_bound() =>
+        Silent(
+            "RVN2073",
+            Lowered(
+                """
+                package A
+
+                protocol IDiffuseModel {
+                    func Diffuse(tint: float4): float4
+                }
+
+                shader Lambert : IDiffuseModel {
+                    func Diffuse(tint: float4): float4 {
+                        return tint * 0.5f
+                    }
+                }
+
+                shader Half : IDiffuseModel {
+                    func Diffuse(tint: float4): float4 {
+                        return tint * 0.25f
+                    }
+                }
+
+                shader Lit {
+                    compose val diffuse: IDiffuseModel = Lambert
+                    compose val rim: IDiffuseModel
+
+                    var tint: float4
+
+                    func Shade(): float4 {
+                        return diffuse.Diffuse(tint) + rim.Diffuse(tint)
+                    }
+                }
+
+                """,
+                ComposeBindings.Parse(["rim=Half"])
+            )
+        );
+
+    // --- RVN2133: what group-shared storage may hold ------------------------
+
+    /// <summary>The four shapes a workgroup tile is actually written as.</summary>
+    /// <remarks>
+    ///     The mirror of <c>GroupSharedTests</c>'s <c>groupshared var tile2: Texture2D</c>. The rule
+    ///     is "a descriptor is not memory", asked as <c>ResourceKind</c>; asked instead as "is it a
+    ///     scalar" — which is what the storage class looks like in the one-line examples — it
+    ///     refuses the array, the vector, the matrix and the struct, and a workgroup tile that is a
+    ///     single scalar is not a reduction.
+    /// </remarks>
+    [Fact]
+    public void Group_shared_storage_may_be_an_array_a_vector_a_matrix_or_a_struct() =>
+        Silent(
+            "RVN2133",
+            Semantic(
+                """
+                package A
+
+                struct Accum {
+                    var total: float3
+                    var weight: float
+                }
+
+                shader S {
+                    groupshared var tile: float[64]
+                    groupshared var sums: float3
+                    groupshared var basis: mat4
+                    groupshared var block: Accum
+
+                    var output: RWBuffer<float>
+
+                    [ComputeShader(64)]
+                    func Main([Semantic("SV_GroupIndex")] local: uint) {
+                        tile[int(local)] = 1f
+                        sums = float3(0f, 0f, 0f)
+                        block.total = sums
+                        block.weight = tile[0]
+                        barrier()
+
+                        output[int(local)] = block.weight + block.total.x + basis[0].x
+                    }
+                }
+
+                """
+            )
+        );
 }
