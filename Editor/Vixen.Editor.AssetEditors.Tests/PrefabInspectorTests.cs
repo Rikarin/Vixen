@@ -26,7 +26,7 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠⚠ <b><see cref="AnOverrideToTheTemplatesOwnValueIsStillAnOverride" /> and
-///         <see cref="AnOverrideToZeroRevertsFromTheInspector" /> are the pair that tells the right
+///         <see cref="AnOverrideToZeroAgainstATemplateAtZeroIsStillAnOverride" /> are the pair that tells the right
 ///         model from the wrong one.</b> Both hold a value equal to what a comparison would call
 ///         "unchanged" — one equal to the template's, one equal to the type's default — so a source
 ///         that answered <c>IsOverridden</c> by comparing values would report them as not overridden,
@@ -288,15 +288,72 @@ public class PrefabInspectorTests : IDisposable {
 
     // ── A component's members ───────────────────────────────────────────────────────────────────
 
-    /// <summary>⚠⚠ A lamp turned down to zero shows as overridden and reverts to the template's value.</summary>
+    /// <summary>⚠⚠ A lamp overridden to zero against a template that is also zero is still overridden.</summary>
     /// <remarks>
-    ///     Doc 47 § 4's zero-value trap, at the layer that displays it. <c>0</c> is both the type's
-    ///     default and "off", so nothing about the number distinguishes "the author turned this lamp
-    ///     off" from "nobody touched it" — which is why the file records the name and why this reads
-    ///     it rather than the value.
+    ///     <para>
+    ///         <b>Doc 47 § 4's zero-value trap, at the layer that displays it — and the shape of it
+    ///         that a value comparison actually gets wrong.</b> A prefab whose lamp is off, and an
+    ///         author who says "off is <i>mine</i>, do not brighten this one when the template
+    ///         changes", is a sentence the file can write down and a comparison cannot read: the
+    ///         numbers are equal, the type's default is the same number again, and everything about
+    ///         the value says "untouched".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The neighbouring <see cref="AnOverrideRevertsToTheTemplatesValue" /> does <i>not</i>
+    ///         catch this on its own, and finding that out is what this test is for: writing <c>0</c>
+    ///         over a template's <c>7</c> leaves a difference, so a comparison agrees with the claim
+    ///         list by accident and stays green. A zero test that only ever writes zero over something
+    ///         else proves nothing about the model.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void AnOverrideToZeroRevertsFromTheInspector() {
+    public void AnOverrideToZeroAgainstATemplateAtZeroIsStillAnOverride() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
+
+        // The prefab's lamp is off, and so is the instance's — and the instance means it.
+        var asset = Publish(fixture, Template(new(5f, 0f, 0f), 0f));
+
+        Assert.True(Prefab.TryPlace(scene, fixture.Project.Assets, asset, Entity.Null, out var root, out _));
+
+        var descriptor = ReflectedDescriptor.For(typeof(Light));
+
+        Assert.NotNull(descriptor);
+        Assert.True(descriptor.TryGetMember(nameof(Light.Intensity), out var intensity));
+
+        var source = new PrefabSource(scene, fixture.Project.Assets);
+
+        List<object> box = [world.Read<Light>(root)];
+
+        source.Link(box[0], root, "Light");
+        scene.Prefabs.Mark(root, "Light.Intensity");
+
+        var field = new InspectorField(descriptor, intensity, box, null, source);
+
+        Assert.Equal(0f, ((Light) box[0]).Intensity);
+        Assert.True(source.TryGetPrefabValue(box[0], intensity, out var template));
+        Assert.Equal(0f, template);
+
+        // Equal values, equal to the default, and still an override — because the file says so.
+        Assert.True(field.IsOverridden);
+
+        // And the revert has something to do: give the member back, so the template's next change
+        // reaches this instance.
+        Assert.True(field.RevertToPrefab());
+        Assert.False(field.IsOverridden);
+        Assert.Empty(scene.Prefabs.OverridesOf(root));
+    }
+
+    /// <summary>A lamp turned down to zero reverts to the brightness the template has.</summary>
+    /// <remarks>
+    ///     The other half: the claim is recorded by the edit itself, and the revert writes the
+    ///     template's value back. See the test above for why this one cannot tell the two models
+    ///     apart on its own.
+    /// </remarks>
+    [Fact]
+    public void AnOverrideRevertsToTheTemplatesValue() {
         using var fixture = new EditorFixture();
         using var world = new World("Scene");
 
