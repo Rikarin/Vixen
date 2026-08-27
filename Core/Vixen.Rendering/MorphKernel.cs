@@ -178,21 +178,38 @@ public static class MorphKernel {
 
         for (var entry = 0; entry < target.Count; entry++) {
             var at = entry * EntryWords;
-            var normals = target.HasNormals;
 
             into[at + 0] = (uint)target.Indices[entry];
-
-            into[at + 1] = Word(target.Positions[(entry * 3) + 0], target.Positions[(entry * 3) + 1]);
-
-            into[at + 2] = Word(
-                target.Positions[(entry * 3) + 2],
-                normals ? target.Normals[(entry * 3) + 0] : (short)0
-            );
-
-            into[at + 3] = normals
-                ? Word(target.Normals[(entry * 3) + 1], target.Normals[(entry * 3) + 2])
-                : 0u;
+            PackEntry(target, entry, into.Slice(at + 1, EntryWords - 1));
         }
+    }
+
+    /// <summary>
+    ///     One entry's six quantised components, in the three words that follow its first.
+    /// </summary>
+    /// <param name="target">The shape.</param>
+    /// <param name="entry">Which of its entries.</param>
+    /// <param name="into">Three words.</param>
+    /// <remarks>
+    ///     Split out of <see cref="Pack(MorphTargetData, Span{uint})" /> for <see cref="MorphIndex" />,
+    ///     whose entries carry the same six components behind a different first word — a scatter entry
+    ///     names the vertex it writes and a gather entry names the shape it came from. Sharing the
+    ///     packing is what keeps the two from rounding differently, which is the same reason the
+    ///     device kernel is a transliteration rather than a second derivation.
+    /// </remarks>
+    internal static void PackEntry(MorphTargetData target, int entry, Span<uint> into) {
+        var normals = target.HasNormals;
+
+        into[0] = Word(target.Positions[(entry * 3) + 0], target.Positions[(entry * 3) + 1]);
+
+        into[1] = Word(
+            target.Positions[(entry * 3) + 2],
+            normals ? target.Normals[(entry * 3) + 0] : (short)0
+        );
+
+        into[2] = normals
+            ? Word(target.Normals[(entry * 3) + 1], target.Normals[(entry * 3) + 2])
+            : 0u;
     }
 
     /// <summary>What one quantised unit of a scale is worth, which is the kernel's multiplier.</summary>
