@@ -511,7 +511,7 @@ Honest, and the three hard numbers at the bottom are the ones that matter.
 | Asset editors, inspector, `IEditorMode`, plugin surface | ✅ |
 | Cloth simulation | ⛔ nothing, anywhere. `Vixen.Physics` is Jolt, and Jolt's soft bodies are not a garment solver |
 | Strand hair geometry | ⛔ nothing |
-| Blend shapes / morph targets | ✅ [D4](#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop) — `MorphTargetData`, `MorphKernel`, `Pipeline/MorphScatter.rvn`, the glTF/FBX import and `MorphRenderFeature`, which allocates the per-instance buffer and points the draw at it. Owed alongside: a scalar weight track on `AnimationClipData`, so a *clip* cannot drive one yet, and the cluster-page scatter |
+| Blend shapes / morph targets | ✅ [D4](#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop) — `MorphTargetData`, `MorphKernel`, `Pipeline/MorphScatter.rvn`, the glTF/FBX import and `MorphRenderFeature`, which allocates the per-instance buffer and points the draw at it. Owed alongside: a scalar weight track on `AnimationClipData`, so a *clip* cannot drive one yet. ✅ **And the paged path morphs, as of 2026-08-27** — the row above called it the *cluster-page scatter* and a scatter is the one thing it cannot be: a page is per **mesh** and every instance reads the same bytes, while weights are per instance, so there is nowhere for a per-instance scatter to write. `ClusterRaster`, `ClusterSoftwareRaster` and `VisibilityResolve` **gather** a vertex's shapes where they decode it, exactly as they already gather an instance's bone palette; `MorphIndex` is the table, built at registration out of `MeshData.MorphTargets` and `MeshletMesh.Vertices` rather than as an artefact. ⚠ **A gather needs no barrier and has no race**, which is the one thing it is strictly better at. ⚠ **A page vertex does not know which mesh vertex it is**, so it costs two indirections — and the happy consequence is that every copy of a locked boundary vertex resolves to one source vertex and picks up one delta, so the cut stays crack-free through an expression. `ModelImporter.Version` 12 builds a hierarchy for a morphed mesh again |
 | Texture baking / render-to-texture compositing for skin layers | ⛔ nothing, though the compositor and compute path make it small |
 
 And the three numbers:
@@ -520,7 +520,7 @@ And the three numbers:
 |---|---|---|
 | **Four influences per vertex** | `MeshData.BoneIndices` — "Four joint indices per vertex"; `BonePalette` in `Skinning.rvn` is four `mat4`s; the vertex stream takes `bones0: float4, weights0: float4` | A MetaHuman face uses more than four on the regions that matter, and the fifth influence is *not* below threshold on a face the way `Skinning.rvn`'s comment correctly says it is on a body |
 | **`MaxBones = 256`** | `Skinning.rvn` — sized to Vulkan's guaranteed 16 KiB uniform range | ⚠ **Less serious than it looks.** The palette is already a `Buffer<BoneMatrix>` and `ShadowCaster.rvn` says why; 256 is what a *host* sizes by. An ~800-joint face needs the host constant raised and the indices to stay exact in a `float4` — which they are, well past 2²⁴ |
-| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` + `MorphRenderFeature` | ✅ **Closed.** Storage, quantisation, the glTF/FBX import and the compute scatter were built and asserted numerically on a device; the wiring landed 2026-08-26 — a vertex range per morphed instance, the rest pose copied in from the scene's `GeometryBuffer`, a dispatch per active shape, and `MeshDraw.VertexBuffer` and `VertexOffset` rewritten together, all of it constructed and recorded by `WorldRenderer`. **And a clip drives one, as of 2026-08-26:** `AnimationChannel` carries a fourth, scalar track — `Shape`/`WeightTimes`/`Weights` — the importer fills it from `aiAnimation.mMeshMorphChannels`, `ClipMotion` collects it into `Animator.MorphWeights` as the tree is evaluated, and `BlendShapeAnimationSystem` lands it on `BlendShapeWeights`. ⚠ **The binding is by *name*, because the slot is not stable:** the import drops a shape under the threshold and deduplicates the rest, so a source file's ordinal is not `MeshData.MorphTargets`' — `MorphWeightSystem` publishes the translation out of what the feature attached. ⚠ **Weights add across layers rather than overriding** (exact inside a tree, whose child weights sum to one). **And a `.vxanim` written by hand drives one, as of 2026-08-26:** `AnimationProperty.Weight` with `AnimationCurveData.Shape` beside it, the pair identifying a curve because a face's node carries one per shape, and a weight-only target emitting no transform channel so a correct facial clip reports no unresolved channels. **Owed:** the cluster-page scatter — until it exists the importer refuses a cluster hierarchy for a morphed mesh, because a virtualized one never reaches `MorphRenderFeature.Attach` and drew at rest |
+| ~~**No morph target path at all**~~ | `MorphTargetData` + `MorphKernel` + `Pipeline/MorphScatter.rvn` + `MorphRenderFeature` | ✅ **Closed.** Storage, quantisation, the glTF/FBX import and the compute scatter were built and asserted numerically on a device; the wiring landed 2026-08-26 — a vertex range per morphed instance, the rest pose copied in from the scene's `GeometryBuffer`, a dispatch per active shape, and `MeshDraw.VertexBuffer` and `VertexOffset` rewritten together, all of it constructed and recorded by `WorldRenderer`. **And a clip drives one, as of 2026-08-26:** `AnimationChannel` carries a fourth, scalar track — `Shape`/`WeightTimes`/`Weights` — the importer fills it from `aiAnimation.mMeshMorphChannels`, `ClipMotion` collects it into `Animator.MorphWeights` as the tree is evaluated, and `BlendShapeAnimationSystem` lands it on `BlendShapeWeights`. ⚠ **The binding is by *name*, because the slot is not stable:** the import drops a shape under the threshold and deduplicates the rest, so a source file's ordinal is not `MeshData.MorphTargets`' — `MorphWeightSystem` publishes the translation out of what the feature attached. ⚠ **Weights add across layers rather than overriding** (exact inside a tree, whose child weights sum to one). **And a `.vxanim` written by hand drives one, as of 2026-08-26:** `AnimationProperty.Weight` with `AnimationCurveData.Shape` beside it, the pair identifying a curve because a face's node carries one per shape, and a weight-only target emitting no transform channel so a correct facial clip reports no unresolved channels. ✅ **And the paged path morphs, as of 2026-08-27** — the row above called it the *cluster-page scatter* and a scatter is the one thing it cannot be: a page is per **mesh** and every instance reads the same bytes, while weights are per instance, so there is nowhere for a per-instance scatter to write. `ClusterRaster`, `ClusterSoftwareRaster` and `VisibilityResolve` **gather** a vertex's shapes where they decode it, exactly as they already gather an instance's bone palette; `MorphIndex` is the table, built at registration out of `MeshData.MorphTargets` and `MeshletMesh.Vertices` rather than as an artefact. ⚠ **A gather needs no barrier and has no race**, which is the one thing it is strictly better at. ⚠ **A page vertex does not know which mesh vertex it is**, so it costs two indirections — and the happy consequence is that every copy of a locked boundary vertex resolves to one source vertex and picks up one delta, so the cut stays crack-free through an expression. `ModelImporter.Version` 12 builds a hierarchy for a morphed mesh again |
 
 ⚠ **The good news is the shape of the gap.** Nothing about the existing animation stack is wrong for
 this: local-space poses, a model-space pass at the end, palettes in a storage buffer, retargeting that
@@ -1238,15 +1238,59 @@ fenced for a member none of them uses.
 lie.** First, **a morphed mesh was being virtualized**: `MeshExtractionSystem.Clustered` takes any
 mesh carrying a cluster hierarchy down the paged path, which never reaches
 `MorphRenderFeature.Attach` — so a head with twenty shapes drew at rest with every weight applied to
-nothing. Until the cluster-page scatter exists, `ModelImporter` refuses the hierarchy for a morphed
+nothing. `ModelImporter` refused the hierarchy for a morphed
 mesh (version 11, a re-import trigger), which is what makes the two paths agree about what is built.
 Second, **`GeometryResidency.Acquire` threw where its own contract says defer** — its false already
 means "did not fit" and the entity is offered again next frame, but it never asked
 `GeometryBuffer.CanStage`, so a first frame registering a 42 KB head and then a sphere killed the
 frame loop on a mesh that was merely second.
 
-Still owed: the **cluster-page scatter**, since a virtualized mesh packs its own vertex records; and
-the whole of the eight-influence permutation, which is untouched.
+✅ **The paged path morphs, as of 2026-08-27, and the shape of the answer is not what this row
+asked for.** It is named above as the *cluster-page scatter*; a scatter is the one thing it cannot be.
+⚠ **A page is per mesh and every instance reads the same bytes** — that sharing is what makes
+streaming a hundred thousand clusters affordable — while weights are per instance, so a per-instance
+scatter has nowhere to write short of a private copy of every resident page an instance touches.
+What the paged path already does with per-instance deformation is a **gather**: `ClusterRaster`
+decodes a shared page vertex and transforms it by that instance's own bone palette, with no
+intermediate buffer anywhere. Morphing is the same shape one field wider.
+
+So: `MorphIndex` re-indexes a mesh's shapes by vertex, `RasterMesh` gains three words that were its
+padding, `CullInstance` gains one that was half of its, and the three shaders that decode a page
+vertex gather a vertex's own shapes *before* they skin it — a delta is authored in the mesh's own
+space, so a skinned rest vertex with a delta added puts a jaw's displacement in the head's bind pose.
+
+Four things worth carrying forward:
+
+1. ⚠ **A gather has no race and needs no barrier**, which is the one respect in which it beats the
+   scatter outright. Amendment 1 above exists because two shapes may move one vertex and Raven has no
+   float atomic; a gather sums a vertex's own shapes inside one invocation.
+2. ⚠ **A page vertex does not know which mesh vertex it is.** The page carries a quantized position
+   and attributes; `MeshletMesh.Vertices` is what identifies it, and it already ships and is already
+   resident — so the table is built at **registration**, with no content format change and nothing
+   offline that can go stale. The happy consequence is that every copy of a locked boundary vertex
+   resolves to one source vertex and picks up one delta, so **the cut stays crack-free through an
+   expression**, which a scatter into quantized page bytes could not have promised.
+3. ⚠ **Only the resolve morphs the normal.** A visibility buffer carries an identity, so the rasters
+   need a position. A resolve left unmorphed is a face whose geometry opens its mouth and whose
+   shading does not, which reads as a lighting bug.
+4. ⚠ **`CullInstance.MotionRadius` takes the expression's reach too**, summed per instance from
+   `|wᵢ|·reach` rather than per mesh. Every bound in the DAG is a rest-pose bound and a cluster culled
+   by where it is not says so nowhere.
+
+⚠ **It was found wrong by a picture and right by a picture**, which is this row's own lesson twice
+over. The first working-looking version accumulated into a struct member —
+`delta.position = delta.position + …` — which compiled, dispatched, ran its loop, and kept the value
+it was initialised with. Every host-side record was correct and every counter healthy. What says so
+is `VirtualGeometryGoldenTests.A_virtualized_mesh_moves_where_its_blend_shapes_say`: a plane covering
+110×110 pixels at rest and 55×55 with a shape that halves it, on a real device, against a closed-form
+oracle rather than a second renderer.
+
+`ModelImporter.Version` 12 builds a cluster hierarchy for a morphed mesh again.
+
+Still owed: the whole of the eight-influence permutation, which is untouched; and the software
+raster's copy of the gather is **unverified on Apple silicon**, because MoltenVK offers no 64-bit
+buffer atomics and phase 6's routing is forced off — its `Morphed` is character-for-character the
+hardware raster's, which is the only defence a duplicated fetch has and is the same one `Skin` has.
 
 ### P1 — the rig (2.5 EM)
 

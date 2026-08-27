@@ -93,6 +93,27 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// </remarks>
     public override int Version => 12;
 
+    /// <summary>The first blend shape that moves a vertex the mesh does not have, or null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reachable by an ordinary import setting rather than by a corrupt file.</b>
+    ///     <c>RetopologiseAsync</c> replaces a mesh's vertices and leaves <c>MeshData.MorphTargets</c>
+    ///     as they were, so a retopologised morphed mesh has shapes indexing a mesh that no longer
+    ///     exists. The classic path survives it — <c>MorphKernel.Accumulate</c> throws for one target
+    ///     and the feature attaches nothing — and the paged path would throw during registration,
+    ///     inside a page source, which is a frame loop rather than an import.
+    /// </remarks>
+    static string? Mismatched(MeshData mesh) {
+        foreach (var target in mesh.MorphTargets) {
+            foreach (var vertex in target.Indices) {
+                if ((uint)vertex >= (uint)mesh.Positions.Length) {
+                    return target.Name;
+                }
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>
     ///     The kind and the artefact type are the same word on purpose — one sub-asset, one chunk, one
@@ -215,6 +236,26 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                 // palette. `MorphIndex` is the table, and
                 // `VirtualGeometryGoldenTests.A_virtualized_mesh_moves_where_its_blend_shapes_say` is
                 // the picture — which is what this refusal was owed, a counter having been no use.
+                // ⚠ And the one case where it still gets none, checked here rather than left to blow
+                // up at registration. `MorphIndex.Build` is what the runtime does with these targets
+                // and it refuses a target that names a vertex the mesh does not have — which is a
+                // throw inside a page source's TryGet, i.e. a dead frame loop on a load. Retopology
+                // rewrites a mesh's vertices and does not rewrite its shapes, so this is reachable by
+                // an ordinary import setting rather than by a corrupt file.
+                if (mesh.IsMorphed && Mismatched(mesh) is { } shape) {
+                    refused++;
+
+                    context.Report(
+                        ImportSeverity.Error,
+                        $"'{mesh.Name}' has {mesh.Positions.Length} vertices and its blend shape "
+                        + $"'{shape}' moves one the mesh does not have, so it gets no cluster "
+                        + "hierarchy. A virtualized mesh gathers its shapes by mesh vertex, and a "
+                        + "shape from a different version of the mesh has no vertex to gather onto."
+                    );
+
+                    continue;
+                }
+
                 if (mesh.IsMorphed) {
                     morphed++;
                 }
