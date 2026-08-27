@@ -574,7 +574,8 @@ jobs:
   # windows and macos-14 agree byte for byte on the 1 075-byte bundle, the 371-byte catalog, its
   # hash and scenes.bin, and a fourth machine — an M1 Max, outside CI — reproduces the same four
   # hashes. The bundle is 1 075 bytes because ~10 KB of fixture went through LZ4, so the encoder's
-  # output is inside what agreed.
+  # output is inside what agreed. Run 33039836864 is the one that watched the promoted step: three
+  # artifacts, the shape check below, the success line, and success as the *step's* exit code.
   #
   # ⚠ THREE MANIFESTS OF NOTHING ALSO AGREE WITH EACH OTHER, and the comparison below said so:
   # dry-run against three empty files it printed the success line and exited 0. `nuke ContentBytes`
