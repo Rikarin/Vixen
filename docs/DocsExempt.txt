@@ -2767,6 +2767,7 @@ T:Vixen.Rendering.CullPhase sweep-pending
 T:Vixen.Rendering.CullView sweep-pending
 T:Vixen.Rendering.CullView.Padding3 sweep-pending
 T:Vixen.Rendering.CullView.PlaneArray sweep-pending
+T:Vixen.Rendering.DistanceFields.ClipmapRefresh sweep-pending
 T:Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings sweep-pending
 T:Vixen.Rendering.DistanceFields.DistanceFieldHit sweep-pending
 T:Vixen.Rendering.DistanceFields.DistanceFieldInstance sweep-pending
