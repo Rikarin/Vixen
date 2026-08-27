@@ -3,8 +3,8 @@ title: Blend shapes
 slug: rendering/blend-shapes
 kind: concept
 area: Rendering
-summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass into a per-instance vertex buffer, so that every pass agrees about where a vertex is — driven by hand, by an imported clip, or by a weight curve typed into a .vxanim.
-api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, T:Vixen.Animation.MorphWeightBuffer, T:Vixen.Animation.AnimationClipContent, T:Vixen.Animation.Ecs.BlendShapeAnimationSystem, R:Pipeline/MorphScatter]
+summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass into a per-instance vertex buffer — or, for a virtualized mesh, gathered per vertex where a page is decoded — so that every pass agrees about where a vertex is, driven by hand, by an imported clip, or by a weight curve typed into a .vxanim.
+api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.MorphIndex, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, T:Vixen.Animation.MorphWeightBuffer, T:Vixen.Animation.AnimationClipContent, T:Vixen.Animation.Ecs.BlendShapeAnimationSystem, R:Pipeline/MorphScatter]
 tags: [rendering, animation, meshes, characters, morph-targets]
 since: 0.2
 status: preview
@@ -257,8 +257,8 @@ facial clip would report one unresolved channel per face.
 ⚠ **A weight curve with no `shape` is a build error.** It is the one mistake this format makes easy
 and the one that says nothing: it would import, ship, play, and hold a face perfectly still.
 
-⚠ **`version: 2` is a compatibility fence, and it is the odd one out.** The two version bumps beside
-it — `ModelImporter.Version` 10 and `AnimationClipContent.Current` 2 — are re-import triggers: those
+⚠ **`version: 2` is a compatibility fence, and it is the odd one out.** The version bumps beside it —
+`ModelImporter.Version` 10, 11 and 12, and `AnimationClipContent.Current` 2 — are re-import triggers: those
 are binary chunks whose generated reader takes an appended member as its default. This is YAML bound
 by name and the value that moved is inside an *enum*, which `Enum.Parse` throws on, so an older build
 meeting `property: Weight` fails outright. The number a file carries is therefore the minimum it
@@ -284,17 +284,65 @@ and let `BlendShapeAnimationSystem` land the weights.
 fact rather than the weight. A shape the clip says nothing about keeps whatever a script set; a false
 read as zero is an additive facial layer turned into an override by accident.
 
+### A virtualized mesh gathers instead
+
+A mesh with a cluster hierarchy is drawn by `VirtualGeometryRenderFeature`, out of pages, and never
+reaches `MorphRenderFeature.Attach`. It morphs anyway, and by a different mechanism — which is worth
+understanding before writing a shader that touches either path.
+
+⚠ **A page is per *mesh* and every instance reads the same bytes.** That sharing is what makes
+streaming a hundred thousand clusters affordable. Weights are per instance. So there is nowhere for a
+per-instance scatter to write, short of giving every instance a private copy of every resident page it
+touches — and that is the one property the whole of `docs/plan/22-virtualized-geometry.md` rests on.
+
+So the paged path does what it already does for skinning: it **gathers**, in the shader, per instance.
+`ClusterRaster` decodes a page vertex and then transforms it by that instance's own bone palette; it
+now adds that vertex's own shapes first. `MorphIndex` is the table that makes "that vertex's own
+shapes" a lookup — a mesh's targets re-indexed by vertex, built at registration out of
+`MeshData.MorphTargets`, not an artefact.
+
+| | |
+|---|---|
+| **No barrier, and no race** | `MorphKernel` dispatches per target because two shapes may move one vertex and there is no float atomic. A gather sums a vertex's own shapes inside one invocation, so the question never arises. |
+| **Three shaders, one function** | `ClusterRaster`, `ClusterSoftwareRaster` and `VisibilityResolve` each decode a page vertex, so each carries `Morphed` — character for character, which `MorphedClusterTests` asserts, exactly as `Skin` is. |
+| **Morph, then skin** | A delta is authored in the mesh's own space, which is what a page decodes into. Skinning first would put a jaw's displacement in the head's bind pose. |
+| **Only the resolve morphs the normal** | A visibility buffer carries an identity, so a raster needs a position. A resolve left unmorphed is a face whose geometry opens its mouth and whose shading does not. |
+
+⚠ **A page vertex does not know which mesh vertex it is**, which is why this costs two indirections
+where the classic path costs none. A cluster's vertex list is the DAG's — `MeshletMesh.Vertices` — and
+the page carries only the position and attributes copied out of it. The happy consequence is that a
+vertex on a locked boundary appears in a cluster on each side and at several levels, resolves to one
+source vertex from all of them, and picks up the same delta: **the cut stays crack-free through an
+expression**, which a scatter into quantized page bytes could not have promised.
+
+⚠ **The instance's bound is inflated by what its expression is actually doing** —
+`Σ |wᵢ|·MorphIndex.Reaches[i]`, added into `CullInstance.MotionRadius` beside whatever a pose put
+there. Every bound in the DAG is a rest-pose bound, and a cluster culled by where it is not says so
+nowhere. Per instance rather than per mesh, because the mesh-wide sum is loose by the number of
+shapes: a twenty-shape head making one expression would be tested against a bound twenty shapes wide.
+
+⚠ **A weight past one is applied and is not covered by that bound.** Every weight is applied, an
+animator overshooting a corrective relies on it, and a bound computed at full weight does not reach
+it. The failure is a cluster culled a frame early at the silhouette rather than corruption, and the
+alternative costs every frame for a case no exporter produces.
+
+`ModelImporter.Version` 12 is what turns this on for a project: version 11 refused a cluster hierarchy
+for a morphed mesh outright, because the paged path drew it at rest. Re-importing gets the hierarchy
+back — see below for what that bump is and is not.
+
 ## What is not built yet
 
-- **Cluster pages.** A virtualized mesh's vertices are packed into pages rather than a vertex buffer,
-  so morphing one is a different scatter against `ModelCompiler.PageAttributes`' layout. ⚠ **Until
-  that exists, the importer refuses a cluster hierarchy for a morphed mesh** — `ModelImporter.Version`
-  11 — because `MeshExtractionSystem.Clustered` takes any mesh that has one down
-  `VirtualGeometryRenderFeature`'s path, which never reaches `MorphRenderFeature.Attach`. A head with
-  twenty shapes drew at rest with every weight applied to nothing, and said so nowhere.
 - **Device-local growth.** `MorphRenderFeature`'s buffer is fixed at construction and an instance that
   does not fit is refused — `GeometryBuffer`'s trade, for `GeometryBuffer`'s reason: the handle is
   already in every `MeshDraw` that was attached.
+- **The software raster's copy is unverified on Apple silicon.** MoltenVK reports no 64-bit buffer
+  atomics, so phase 6's routing is forced off and no morph through it has been drawn on this machine.
+  Its `Morphed` is character-for-character the hardware raster's, which is the only defence a
+  duplicated fetch has and is the same one `Skin` has.
+- **A mesh's shapes are resident whether or not it is paged.** `MorphIndex` is built from
+  `MeshData.MorphTargets` at registration, so a virtualized head streams its geometry and keeps all
+  1.28 MB of its deltas — the pre-pass's argument for residency, applied to a path that streams
+  everything else.
 
 ## See also
 
@@ -303,4 +351,5 @@ read as zero is an additive facial layer turned into an override by accident.
 - [Meshes and materials, type by type](mesh-and-material.md) — where `MeshData` and `MeshDraw` sit in
   the chain.
 - `docs/plan/33-character-creator.md` § D4 — the design, and why it is a pre-pass.
+- `docs/plan/22-virtualized-geometry.md` — the paged path, and why a page is per mesh.
 - `docs/plan/06-rendering-pipeline.md` § Geometry — the row this closes half of.
