@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
@@ -98,28 +97,19 @@ public sealed class AssetTextureStreamingTests : IDisposable {
         // level alone is one page over, so the pinned page cannot cover it.
         Assert.Equal(1, source.Streaming.PinnedLevel(0));
 
-        var waited = Stopwatch.StartNew();
+        Until(
+            source,
+            () => source.Streaming.ResidentLevel(0) == 0 && source.StreamingSwaps > 0,
+            "the texture never reached its full resolution",
+            frame => Assert.True(frame.TryGet(Bark, out var view) && view.IsValid)
+        );
 
-        while (waited.Elapsed < Patience) {
-            Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
+        Assert.Contains(
+            device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
+            copy => copy is { D: 0, E: 256 }
+        );
 
-            Record(source);
-
-            if (source.Streaming.ResidentLevel(0) == 0 && source.StreamingSwaps > 0) {
-                Assert.Contains(
-                    device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
-                    copy => copy is { D: 0, E: 256 }
-                );
-
-                Assert.Equal(0L, source.StreamingRefusals);
-
-                return;
-            }
-
-            Thread.Sleep(5);
-        }
-
-        Assert.Fail($"the texture never reached its full resolution in {Patience}");
+        Assert.Equal(0L, source.StreamingRefusals);
     }
 
     /// <summary>
@@ -143,26 +133,22 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     ///         the loop it precedes, so every frame of it counts towards the negative claim, and the
     ///         sixty that follow are sixty frames of a texture that is really there.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And then the wait itself failed, for the same reason one level up</b> — CI run
+    ///         33010276792 on 2026-08-26, with <c>StreamingSwaps</c> at zero after thirty seconds. The
+    ///         wait had a wall-clock deadline of its own and a deadline cannot survive a saturated
+    ///         thread pool; <see cref="Settle" /> now says what it is waiting for instead.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void SizingAStreamedTextureKeepsItBelowTheWholeFile() {
         using var source = new AssetTextureSource(device, Content(256, 256), 4 * 1024 * 1024);
 
-        // Not Settle: that one does not narrow the want, and a source left at its default asks to be
-        // complete — which is the one thing this test exists to say does not happen.
-        var waited = Stopwatch.StartNew();
-
-        while (waited.Elapsed < Patience && !(source.TryGet(Bark, out _) && source.StreamingSwaps > 0)) {
-            source.Want(Bark, 32);
-
-            Record(source);
-            Thread.Sleep(1);
-        }
-
-        Assert.True(
-            source.TryGet(Bark, out var view) && view.IsValid,
-            $"the texture was never viewable in {Patience}"
-        );
+        // Sized rather than left alone, because a source at its default asks to be complete — which
+        // is the one thing this test exists to say does not happen. Every frame of the wait asks for
+        // 32 texels like the sixty that follow it, so every one of them counts towards the negative
+        // claim below.
+        Settle(source, 32);
 
         for (var frame = 0; frame < 60; frame++) {
             source.Want(Bark, 32);
@@ -177,7 +163,7 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             copy => copy.E == 256
         );
 
-        Assert.True(source.TryGet(Bark, out view) && view.IsValid);
+        Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
     }
 
     /// <summary>
@@ -192,18 +178,14 @@ public sealed class AssetTextureStreamingTests : IDisposable {
 
         Assert.Equal(1L, source.StreamingSwaps);
 
-        var waited = Stopwatch.StartNew();
+        Until(
+            source,
+            () => source.Streaming!.Rejections > 0,
+            "nothing was refused by a one-page pool",
+            frame => frame.TryGet(Bark, out _)
+        );
 
-        while (waited.Elapsed < Patience && source.Streaming!.Rejections == 0) {
-            source.TryGet(Bark, out _);
-
-            Record(source);
-
-            Thread.Sleep(1);
-        }
-
-        Assert.True(source.Streaming!.Rejections > 0, "nothing was refused by a one-page pool");
-        Assert.True(source.Streaming.ResidentBytes <= source.Streaming.Budget);
+        Assert.True(source.Streaming!.ResidentBytes <= source.Streaming.Budget);
         Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
         Assert.DoesNotContain(
             device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
@@ -249,15 +231,12 @@ public sealed class AssetTextureStreamingTests : IDisposable {
 
         Settle(source);
 
-        var waited = Stopwatch.StartNew();
-
-        while (waited.Elapsed < Patience && log.Lines.Count == 0) {
-            source.TryGet(Bark, out _);
-
-            Record(source);
-
-            Thread.Sleep(1);
-        }
+        Until(
+            source,
+            () => log.Lines.Count > 0,
+            "the refusal never reached the logger the host handed the source",
+            frame => frame.TryGet(Bark, out _)
+        );
 
         Assert.True(source.Streaming.Rejections > 0, "nothing was refused by a one-page pool");
 
@@ -315,26 +294,119 @@ public sealed class AssetTextureStreamingTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
     }
 
-    /// <summary>Asks and updates until the texture is viewable, or fails saying it never was.</summary>
-    void Settle(AssetTextureSource source) {
-        var waited = Stopwatch.StartNew();
+    /// <summary>
+    ///     Runs frames until the texture is viewable, and gives up only when nothing is left that
+    ///     could make it so.
+    /// </summary>
+    /// <param name="source">The source to drive.</param>
+    /// <param name="want">The width to size it at each frame, or <c>-1</c> to leave the want alone.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>There is no deadline here, and that is the point of the method.</b> This used to
+    ///         run frames for thirty seconds and fail if the texture had not arrived — and it failed
+    ///         that way on CI on 2026-08-26 (run 33010276792, the Windows leg) with
+    ///         <c>StreamingSwaps</c> still at zero. Nothing was slow. The reads this waits for are
+    ///         <see cref="Task.Run(Action)" /> — the KTX2 header in
+    ///         <see cref="AssetTextureSource" />, the pages in <c>PageResidency</c> — and the suite
+    ///         runs every test project at once, so the pool inside one test host is saturated by other
+    ///         collections sitting in settle loops of their own. A work item queued into a saturated
+    ///         pool waits on .NET's thread injection, which adds about two threads a second; the delay
+    ///         is therefore a property of how many workers the whole host has blocked and is unrelated
+    ///         to the read, which is a memcpy out of a mounted bundle.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reproduced on macOS by blocking two hundred pool workers</b>, which delayed a
+    ///         newly queued item by 1 m 45 s and produced the CI message exactly. Under it the loop
+    ///         sat at <c>Loading == 1</c> for the whole 1 m 45 s and then went viewable in the frame
+    ///         after the read was finally scheduled. So no number would have been right: thirty
+    ///         seconds, sixty, two hundred — each is a guess about the host's scheduler, and the
+    ///         previous guess is the one this file already paid for once.
+    ///     </para>
+    ///     <para>
+    ///         So the giving-up condition is a fact about the source instead. When there is no read
+    ///         outstanding, nothing loading and nothing queued, the source has done everything it is
+    ///         going to do and another frame cannot change the answer — that is a real failure and it
+    ///         is reported on the frame it becomes true, which is sooner than any deadline. While any
+    ///         of the three is non-zero the work exists and is waited for, however long the pool takes
+    ///         to run it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>All three, and <see cref="AssetTextureSource.Reading" /> is the one that is easy
+    ///         to leave out.</b> Before the header read has been taken up the streamer has no texture
+    ///         registered at all, so <c>Loading</c> and <c>PendingRequests</c> are both zero — the
+    ///         predicate would be vacuously satisfied on the first frame and the settle would fail
+    ///         before anything had been asked for.
+    ///     </para>
+    /// </remarks>
+    void Settle(AssetTextureSource source, int want = -1) =>
+        Until(
+            source,
+            () => source.TryGet(Bark, out var view) && view.IsValid,
+            "the texture never became viewable",
+            frame => {
+                if (want >= 0) {
+                    frame.Want(Bark, want);
+                }
 
-        while (waited.Elapsed < Patience) {
-            var ready = source.TryGet(Bark, out var view);
+                // Asked before the frame as well, because that is what starts the read.
+                frame.TryGet(Bark, out _);
+            }
+        );
 
+    /// <summary>Runs frames until something is true, or until nothing could make it true.</summary>
+    /// <param name="source">The source to drive.</param>
+    /// <param name="done">What is being waited for.</param>
+    /// <param name="never">What to say when the source runs out of things to do first.</param>
+    /// <param name="ask">What each frame asks for, before it is recorded.</param>
+    /// <remarks>
+    ///     ⚠ The predicate is read <em>after</em> the frame, because the view a texture is answered
+    ///     with is created inside <see cref="AssetTextureSource.Update" /> — a frame that finished the
+    ///     job answers on that frame and not the next one.
+    /// </remarks>
+    void Until(AssetTextureSource source, Func<bool> done, string never, Action<AssetTextureSource> ask) {
+        var quiet = 0;
+
+        while (true) {
+            var before = Working(source);
+
+            ask(source);
             Record(source);
 
-            if (ready && view.IsValid) {
+            if (done()) {
                 return;
             }
 
-            Thread.Sleep(5);
-        }
+            // ⚠ Consecutive frames, and reset on either end of one. A read that finishes part way
+            // through a frame leaves nothing outstanding by the end of it and has not been taken up
+            // yet — the take-up is in the next frame's ask — so a single idle observation says
+            // nothing. Eight in a row with no read outstanding, nothing loading and nothing queued at
+            // either end is a fact about the source: it has run out of things to do.
+            quiet = before || Working(source) ? 0 : quiet + 1;
 
-        Assert.Fail($"the texture was never viewable in {Patience}");
+            Assert.True(
+                quiet < 8,
+                $"{never}, and for {quiet} frames the source has had no read outstanding, nothing "
+                + "loading and nothing queued — so no number of further frames can change it"
+            );
+
+            // A yield rather than a budget: it hands the core to whatever is doing the reading, and
+            // nothing above decides anything by how many of these have gone by.
+            Thread.Sleep(1);
+        }
     }
 
-    static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+    /// <summary>Whether the source has anything outstanding that a further frame could take up.</summary>
+    /// <remarks>
+    ///     ⚠ <b>All three, and <see cref="AssetTextureSource.Reading" /> is the one that is easy to
+    ///     leave out.</b> Before the header read has been taken up the streamer has no texture
+    ///     registered at all, so <c>Loading</c> and <c>PendingRequests</c> are both zero — a settle
+    ///     that looked only at those two would call the source idle on its first frame, before
+    ///     anything had been asked for, and give up vacuously.
+    /// </remarks>
+    static bool Working(AssetTextureSource source) =>
+        source.Reading(Bark) is not null
+        || source.Streaming is { Loading: > 0 }
+        || source.Streaming is { PendingRequests: > 0 };
 
     /// <summary>A content manager holding one KTX2 texture of a given size.</summary>
     /// <remarks>

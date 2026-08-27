@@ -767,6 +767,38 @@ public sealed class AssetTextureSource : IDisposable {
         streamed.Clear();
     }
 
+    /// <summary>
+    ///     The off-thread read a reference is waiting on, or null when it is waiting on none.
+    /// </summary>
+    /// <param name="reference">Which texture.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a test that has to wait for the work rather than for a clock.</b> The header
+    ///         read and the whole-file decode are <see cref="Task.Run(Action)" />, so how long a
+    ///         fixture waits for one is decided by the thread pool and not by the read; a suite that
+    ///         gave up after an interval was measuring the runner. This is how a settle can say
+    ///         "something is still on its way" instead — see <c>AssetTextureStreamingTests</c>, which
+    ///         keeps running frames for as long as this, <c>TextureStreamer.Loading</c> or
+    ///         <c>TextureStreamer.PendingRequests</c> says there is anything left to arrive.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null the moment the read finishes, rather than when its result is taken up.</b> A
+    ///         handle that stayed non-null after the task completed would make "is anything still
+    ///         outstanding" permanently true, and a fixture that gives up when nothing is outstanding
+    ///         would then never give up at all — it would hang on a real regression instead of failing.
+    ///         A reference nothing has asked for yet has no entry, which is the same answer.
+    ///     </para>
+    /// </remarks>
+    internal Task? Reading(AssetReference reference) {
+        if (!entries.TryGetValue(reference, out var entry)) {
+            return null;
+        }
+
+        Task? read = entry.Layouted ?? (Task?)entry.Decoded;
+
+        return read is { IsCompleted: false } ? read : null;
+    }
+
     /// <summary>One texture, somewhere between named and sampled.</summary>
     sealed class Entry {
         public Task<TextureData>? Decoded;
