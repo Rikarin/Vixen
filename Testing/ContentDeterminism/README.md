@@ -55,4 +55,26 @@ stopping being true.
 
 Editing anything here changes the manifest, which is the point — it is what makes the instrument
 demonstrably live. Nothing is committed *about* the expected bytes, so there is no baseline to
-update: the three legs are compared to each other, not to a recorded number.
+update: the three legs are compared to each other, not to a recorded number. Measured: one byte
+appended to `Assets/Ui/hero.txt` moves three of the four hashes and the bundle's *name* with them
+(`UiCore_1052f5d77da251d1` → `UiCore_163a72a669242e7d`); `scenes.bin` is the one that does not move,
+because no scene changed.
+
+## Watching it fail
+
+The `content-bytes` job fails the run as of task #394, so the next question is what it looks like
+when it does. One machine can produce the real divergence — the one the pinned target exists to keep
+out — without touching CI:
+
+```sh
+./build.sh ContentBytes --configuration Release          # the fixture for Windows, as every leg builds it
+dotnet run --project Tools/Vixen.Cli/Vixen.Cli.csproj -c Release --no-build --no-launch-profile -- \
+  content build --project artifacts/content-bytes/project --target Linux \
+  --output artifacts/content-bytes/build-linux
+```
+
+Hash both directories. The bundle and `scenes.bin` are the same on both; `catalog.bin` is 371 bytes
+for `Windows` and 369 for `Linux`, first differing at offset 37, and `catalog.bin.hash` follows it.
+Hand those two manifests to the comparison step in `ci.yml` as two legs and it exits 1, naming the
+file, the two lengths and the offset. ⚠ Do not check the step by retyping it into a scratch file:
+what a copy does is a fact about the copy. Parse `ci.yml` and run the `run:` string it holds.

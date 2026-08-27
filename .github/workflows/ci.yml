@@ -566,11 +566,21 @@ jobs:
   # catalog.bin.hash and in nothing else. VixenCommandTests.TheSameContentBuiltForTwoTargetsIsNotThe-
   # SameBytes keeps that from silently stopping being true.
   #
-  # ⚠ AND IT REPORTS RATHER THAN FAILS, FOR NOW. `continue-on-error` on the comparison step, because
-  # nobody has watched this job run: what is verified is that the target produces a stable manifest
-  # on one macOS machine, and what is not verified is that Windows and Linux agree with it. The
-  # honest order is the one the WebGPU gate above uses — watch a run, then promote. Promoting is
-  # deleting the `continue-on-error: true` line and nothing else.
+  # AND IT NOW FAILS RATHER THAN REPORTS. `continue-on-error` came off after two runs were read
+  # line by line rather than by their colour — 33010525512 and 33013241274, both of which downloaded
+  # three artifacts of 1 592 bytes each, diffed three 4-line manifests and printed "All 3 runners
+  # built the fixture into identical bytes". The four build outputs travel with the manifests, so
+  # the claim was checked independently of the manifests that make it: re-hashed off CI, ubuntu,
+  # windows and macos-14 agree byte for byte on the 1 075-byte bundle, the 371-byte catalog, its
+  # hash and scenes.bin, and a fourth machine — an M1 Max, outside CI — reproduces the same four
+  # hashes. The bundle is 1 075 bytes because ~10 KB of fixture went through LZ4, so the encoder's
+  # output is inside what agreed.
+  #
+  # ⚠ THREE MANIFESTS OF NOTHING ALSO AGREE WITH EACH OTHER, and the comparison below said so:
+  # dry-run against three empty files it printed the success line and exited 0. `nuke ContentBytes`
+  # asserts the fixture built four files, so that case cannot arrive today — but that assertion is
+  # in the other job, and a comparator that cannot tell "identical" from "nothing was compared" is
+  # the failure this repository keeps having. The shape check below is this job's own.
   content-bytes:
     name: content-bytes
     runs-on: ubuntu-latest
@@ -584,7 +594,6 @@ jobs:
           path: manifests
 
       - name: Compare what the three runners built
-        continue-on-error: true
         shell: bash
         run: |
           set -uo pipefail
@@ -592,12 +601,30 @@ jobs:
 
           found=(manifests/content-bytes-*/manifest.txt)
 
-          # ⚠ A comparison of nothing agrees with itself. Three legs upload, so fewer than three
-          # manifests means a leg did not get here, and that is a finding rather than a pass.
-          if [ "${#found[@]}" -lt 3 ]; then
+          # ⚠ A comparison of nothing agrees with itself. Three legs upload, so a count that is not
+          # three means a leg did not get here — or that somebody grew the matrix and left this
+          # number behind — and either is a finding rather than a pass. Not `-lt 3`: a fourth leg
+          # would let a missing third one through.
+          if [ "${#found[@]}" -ne 3 ]; then
             echo "::error::expected three content manifests, one per test leg, and found ${#found[@]}."
             exit 1
           fi
+
+          # ⚠ Read the total, not only the count that passed. Four lines and four *well-formed*
+          # lines are two different claims, and a manifest that is empty or half-written satisfies
+          # the second on its own — three of those would diff clean and this job would report
+          # agreement on nothing.
+          for manifest in "${found[@]}"; do
+            leg="$(basename "$(dirname "$manifest")")"
+            total="$(wc -l < "$manifest" | tr -d '[:space:]')"
+            hashed="$(grep -cE '^[0-9a-f]{64}  [^ ]+$' "$manifest" || true)"
+
+            if [ "$total" -ne 4 ] || [ "$hashed" -ne 4 ]; then
+              echo "::error::$leg's manifest has $total lines of which $hashed name a hashed file, and the fixture has 4. Nothing was compared."
+              cat "$manifest"
+              exit 1
+            fi
+          done
 
           reference="${found[0]}"
           reference_leg="$(basename "$(dirname "$reference")")"
@@ -613,10 +640,35 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
 
-            if ! diff -u "$reference" "$manifest"; then
-              status=1
-              echo "::error::$leg and $reference_leg built the same content into different bytes."
+            if diff -u "$reference" "$manifest"; then
+              continue
             fi
+
+            status=1
+            echo "::error::$leg and $reference_leg built the same content into different bytes."
+
+            # The build output travels with the manifest, so this job can say which byte moved and
+            # not only which hash did. Four small files: whoever reads this next wants the offset,
+            # and going back to CI for the artifacts to get it is the difference between a report
+            # and a lead. The two sizes come first because the difference this fixture is most
+            # likely to see is a string in the catalog's ordinal table changing length, which moves
+            # every offset after it — a byte-by-byte listing of that is noise, and two lengths is
+            # the whole story. `cmp -l` is a decimal offset then the two bytes, in octal.
+            for name in $(awk '{ print $2 }' "$reference" "$manifest" | sort -u); do
+              theirs="$(dirname "$reference")/build/$name"
+              mine="$(dirname "$manifest")/build/$name"
+
+              if [ ! -f "$theirs" ] || [ ! -f "$mine" ]; then
+                echo "  $name was built by one of the two legs and not the other."
+                continue
+              fi
+
+              if ! cmp -s "$theirs" "$mine"; then
+                echo "  $name: $(wc -c < "$theirs" | tr -d '[:space:]') bytes on $reference_leg, $(wc -c < "$mine" | tr -d '[:space:]') on $leg."
+                cmp "$theirs" "$mine" 2>&1 | sed 's/^/    /' || true
+                cmp -l "$theirs" "$mine" 2>/dev/null | head -8 | sed 's/^/    /' || true
+              fi
+            done
           done
 
           if [ "$status" -eq 0 ]; then
