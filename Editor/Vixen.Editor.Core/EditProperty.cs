@@ -214,7 +214,14 @@ public class EditProperty {
     /// <param name="reached">The objects the write lands on.</param>
     /// <param name="value">The new value, boxed.</param>
     /// <returns>Whether anything was written, which at this point is always.</returns>
-    protected bool Apply(IReadOnlyList<object> reached, object? value) {
+    /// <remarks>
+    ///     ⚠ <b>Every path that writes comes through here</b> — <see cref="Write" />,
+    ///     <see cref="WriteEach" />, and whatever a deriving type adds — which is what makes it the
+    ///     one place a subclass can hang something on "a write landed" without listing the callers.
+    ///     <c>InspectorField</c> is why it is virtual: recording that a prefab instance now claims a
+    ///     member has to happen for every write and exactly once per write.
+    /// </remarks>
+    protected virtual bool Apply(IReadOnlyList<object> reached, object? value) {
         if (Document?.Stack is { } stack) {
             stack.Execute(Member.CreateSetCommand(reached, value, Document));
             Changed?.Invoke(this);
