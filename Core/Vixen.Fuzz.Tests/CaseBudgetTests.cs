@@ -119,7 +119,7 @@ public sealed class CaseBudgetTests {
         var finding = Assert.Single(outcome.Findings);
 
         Assert.Equal(FuzzFailure.TookTooLong, finding.Failure);
-        Assert.Contains("over 5 readings", finding.Detail, StringComparison.Ordinal);
+        Assert.Contains("the cheapest of 5 readings", finding.Detail, StringComparison.Ordinal);
         Assert.Equal(0L, outcome.Acquitted);
 
         // Every reading was taken: the first plus the four confirmations, and no early exit, because

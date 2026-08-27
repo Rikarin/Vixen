@@ -561,12 +561,20 @@ public sealed class FuzzSession {
                             target.Name,
                             FuzzFailure.TookTooLong,
                             input,
+                            // How many readings agreed is part of the finding, because the number on
+                            // its own is what somebody would otherwise read as a single sample — which
+                            // is exactly the mistake this stopped making.
                             string.Create(
                                 CultureInfo.InvariantCulture,
-                                $"{confirmed.TotalMilliseconds:N1} ms on {input.Length:N0} B of input, over "
-                                + $"{CaseBudgetConfirmations + 1:N0} readings — the first was "
-                                + $"{took.TotalMilliseconds:N1} ms"
+                                $"{confirmed.TotalMilliseconds:N1} ms on {input.Length:N0} B of input"
                             )
+                            + (CaseBudgetConfirmations > 0
+                                ? string.Create(
+                                    CultureInfo.InvariantCulture,
+                                    $", the cheapest of {CaseBudgetConfirmations + 1:N0} readings — the "
+                                    + $"first was {took.TotalMilliseconds:N1} ms"
+                                )
+                                : ", read once and not confirmed")
                         )
                     );
                 } else {
