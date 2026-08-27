@@ -106,43 +106,20 @@ public sealed class ZzRepro(ITestOutputHelper output) : IDisposable {
         );
     }
 
-    /// <summary>The candidate fix: the wait is the work, and the frames after it are counted.</summary>
+    /// <summary>
+    ///     The REAL fixture, run under a saturated pool. Not a copy of it — the method below is the
+    ///     one CI runs.
+    /// </summary>
     [Fact]
-    public async Task TheAwaitedLoopSurvivesASaturatedPool() {
-        using var source = new AssetTextureSource(device, Content(256, 256), 4 * 1024 * 1024);
+    public void TheRealSizingTestSurvivesASaturatedPool() {
         using var saturator = new Saturator(200);
+        using var real = new AssetTextureStreamingTests();
 
         var waited = Stopwatch.StartNew();
-        var frames = 0;
 
-        while (!(source.TryGet(Bark, out var view) && view.IsValid)) {
-            source.Want(Bark, 32);
+        real.SizingAStreamedTextureKeepsItBelowTheWholeFile();
 
-            // ORDER, not elapsed time.
-            if (source.Reading(Bark) is { } reading) {
-                await reading;
-            }
-
-            Record(source);
-            frames++;
-
-            if (frames % 5_000 == 0) {
-                output.WriteLine(
-                    $"frame {frames} at {waited.Elapsed}: reading={source.Reading(Bark) is not null}, "
-                    + $"textures={source.Streaming!.Textures}, loading={source.Streaming.Loading}, "
-                    + $"pending={source.Streaming.PendingRequests}, loads={source.Streaming.Loads}, "
-                    + $"swaps={source.StreamingSwaps}"
-                );
-            }
-
-            Thread.Sleep(1);
-
-            Assert.True(waited.Elapsed < TimeSpan.FromMinutes(5), $"nothing arrived in {waited.Elapsed}");
-        }
-
-        output.WriteLine($"viewable after {frames} frames and {waited.Elapsed}, swaps {source.StreamingSwaps}");
-
-        Assert.True(source.StreamingSwaps > 0);
+        output.WriteLine($"the real test passed in {waited.Elapsed} with {saturator.Running} workers blocked");
     }
 
     void Record(AssetTextureSource source) {

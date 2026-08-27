@@ -780,14 +780,22 @@ public sealed class AssetTextureSource : IDisposable {
     ///         the work itself — see <c>AssetTextureStreamingTests</c>, whose settle awaits this.
     ///     </para>
     ///     <para>
-    ///         Null once the read has been taken up: <see cref="Enrol" /> clears
-    ///         <see cref="Entry.Layouted" /> when it registers the texture, and a reference nothing has
-    ///         asked for yet has no entry at all. Both mean "nothing to wait for" and both are answered
-    ///         the same way, so a caller awaits what it is given and asks again next frame.
+    ///         ⚠ <b>Null the moment the read finishes, rather than when its result is taken up.</b> A
+    ///         handle that stayed non-null after the task completed would make "is anything still
+    ///         outstanding" permanently true, and a fixture that gives up when nothing is outstanding
+    ///         would then never give up at all — it would hang on a real regression instead of failing.
+    ///         A reference nothing has asked for yet has no entry, which is the same answer.
     ///     </para>
     /// </remarks>
-    internal Task? Reading(AssetReference reference) =>
-        entries.TryGetValue(reference, out var entry) ? entry.Layouted ?? (Task?)entry.Decoded : null;
+    internal Task? Reading(AssetReference reference) {
+        if (!entries.TryGetValue(reference, out var entry)) {
+            return null;
+        }
+
+        Task? read = entry.Layouted ?? (Task?)entry.Decoded;
+
+        return read is { IsCompleted: false } ? read : null;
+    }
 
     /// <summary>One texture, somewhere between named and sampled.</summary>
     sealed class Entry {
