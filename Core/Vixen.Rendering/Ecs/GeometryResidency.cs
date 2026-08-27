@@ -29,6 +29,19 @@ public readonly record struct GeometryKey {
     /// <summary>Whether this names a built-in shape rather than an asset.</summary>
     public bool IsPrimitive { get; private init; }
 
+    /// <summary>
+    ///     Whether this names a mesh's shadow-caster geometry rather than the mesh itself.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A third key space, and it exists because one asset can be resident twice for two
+    ///     different index buffers.</b> A virtualized mesh draws through the cluster pages and casts
+    ///     through <c>MeshletMesh.Fallback</c> — the same vertices, a reduced set of triangles — so the
+    ///     caster is a different slice of the geometry buffer under the same
+    ///     <see cref="AssetReference" />. Without this the two would share an entry, and whichever was
+    ///     acquired first would decide which index buffer the other one drew.
+    /// </remarks>
+    public bool IsCaster { get; private init; }
+
     /// <summary>A key naming a mesh asset.</summary>
     /// <param name="asset">The mesh's reference.</param>
     /// <returns>The key.</returns>
@@ -39,8 +52,18 @@ public readonly record struct GeometryKey {
     /// <returns>The key.</returns>
     public static GeometryKey Of(PrimitiveKind primitive) => new() { Primitive = primitive, IsPrimitive = true };
 
+    /// <summary>A key naming a mesh asset's shadow-caster geometry.</summary>
+    /// <param name="asset">The mesh's reference.</param>
+    /// <returns>The key.</returns>
+    /// <inheritdoc cref="IsCaster" path="/remarks" />
+    public static GeometryKey Caster(AssetReference asset) => new() { Asset = asset, IsCaster = true };
+
     /// <inheritdoc />
-    public override string ToString() => IsPrimitive ? Primitive.ToString() : Asset.ToString();
+    public override string ToString() => (IsPrimitive, IsCaster) switch {
+        (true, _) => Primitive.ToString(),
+        (false, true) => $"{Asset} (caster)",
+        _ => Asset.ToString()
+    };
 }
 
 /// <summary>What is resident in the shared geometry buffer, and how many entities want it.</summary>

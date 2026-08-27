@@ -60,4 +60,38 @@ public interface IVirtualGeometrySource {
     /// <param name="bounds">Its bind-pose bound in object space, for the culling loop.</param>
     /// <returns>What the reference turned out to be.</returns>
     ClusterState TryGet(AssetReference reference, out int mesh, out BoundingSphere bounds);
+
+    /// <summary>The caster geometry a registered mesh falls back to, as source-vertex indices.</summary>
+    /// <param name="reference">Which mesh. Only meaningful once <see cref="TryGet" /> answered
+    /// <see cref="ClusterState.Ready" /> for it.</param>
+    /// <param name="triangles">
+    ///     Three indices per triangle, into the same vertex arrays the mesh's own
+    ///     <see cref="MeshData" /> carries.
+    /// </param>
+    /// <returns>Whether there is one.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one thing the virtualized path cannot do is be drawn per object</b>, and a
+    ///         shadow map is exactly that: one draw of one object into one atlas page. The cluster
+    ///         traversal appends every view's cut to a single untagged visible list, so a shadow view
+    ///         cannot have a cut of its own until phase 3 grows one — see
+    ///         <c>docs/plan/22-virtualized-geometry.md</c> phase 7. Until then a virtualized mesh casts
+    ///         through <c>MeshletMesh.Fallback</c>, which phase 1 generates for precisely this case.
+    ///     </para>
+    ///     <para>
+    ///         <b>Indices into the source mesh's vertices, and that is what makes a morphed caster
+    ///         possible at all.</b> Simplification here only ever collapses a vertex onto a vertex that
+    ///         already existed, so the fallback shares the numbering the blend-shape deltas and the
+    ///         skinning weights are written against — a caster built from it is deformed by the ordinary
+    ///         pre-pass, on the same vertices, rather than by a second implementation that could
+    ///         disagree.
+    ///     </para>
+    ///     <para>
+    ///         <b>False is a mesh that will cast no shadow</b>, which is content built by a version that
+    ///         wrote no fallback. It is not a state to paper over with the full-resolution index buffer:
+    ///         that would be a caster whose cost is the thing virtualization exists to avoid, arrived at
+    ///         silently.
+    ///     </para>
+    /// </remarks>
+    bool TryGetCaster(AssetReference reference, out int[] triangles);
 }

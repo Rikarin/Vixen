@@ -113,6 +113,30 @@ public sealed class AssetVirtualGeometrySource : IVirtualGeometrySource, IDispos
         return Register(entry, handle.Result, out mesh, out bounds);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Read back out of the records handle rather than copied at registration, because the handle is
+    ///     held until the mesh is retired anyway and the fallback is one array of a chunk that is
+    ///     already resident — a copy would be the same triangles twice for the lifetime of the level.
+    /// </remarks>
+    public bool TryGetCaster(AssetReference reference, out int[] triangles) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        triangles = [];
+
+        if (!entries.TryGetValue(reference, out var entry) || entry.State != ClusterState.Ready) {
+            return false;
+        }
+
+        if (entry.Records is not { Status: AssetStatus.Loaded } records) {
+            return false;
+        }
+
+        triangles = records.Result.Hierarchy.Fallback;
+
+        return triangles.Length >= 3;
+    }
+
     /// <summary>Reads the two chunks and registers the mesh, once its records have loaded.</summary>
     /// <remarks>
     ///     ⚠ <b>The blob is opened as a stream and not loaded as an object.</b>

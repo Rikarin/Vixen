@@ -378,6 +378,17 @@ draw still recorded, with the set empty. That is a validation message with the l
 inside `vkQueueSubmit` without them; `MaterialRenderFeature.UnboundCount` and `Unbound` name the
 shader and the stage. Splitting one caster stage into three means filling three.
 
+⚠ **A virtualized mesh is not the object that casts its shadow.** The cluster path issues no
+per-object draw — one indirect draw covers every cluster of every instance — so a virtualized object
+put in a caster stage is walked past in silence: the mesh draws perfectly and casts nothing, with every
+counter healthy. `MeshExtractionSystem` therefore takes it *out* of the caster stages and adds a second
+render object in them, drawing `MeshletMesh.Fallback` — the same vertices, a reduced set of triangles —
+which follows the entity's transform and its blend shapes. `CasterCount` says how many exist and
+`CastersMissing` says how many wanted one and had no fallback to build it from; both at zero in a scene
+whose `VirtualizedCount` is not means the host never named its caster stages. The caster's level of
+detail is one fixed cut and does not track the camera's — `docs/plan/22-virtualized-geometry.md`
+phase 7 says what closing that would take.
+
 ⚠ **The cache's texture is the node's, not the document's.** Every `!Resource` a document declares is
 transient, and the graph's pool exists to recycle exactly the memory a cache must keep — so the node
 creates it from `CompositorBuilder`'s device. What the document must remember is `CopyDestination` in

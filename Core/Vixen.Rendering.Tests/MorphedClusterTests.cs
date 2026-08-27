@@ -272,6 +272,136 @@ public sealed class MorphedClusterTests {
         buffer.Dispose();
     }
 
+    /// <summary>
+    ///     One expression reaches both of a virtualized entity's objects: the one the camera sees and
+    ///     the one its shadow is cast from.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The assertion that keeps a morphed face's shadow from being its rest pose.</b> A
+    ///         virtualized entity now has two objects that deform — the paged one, gathered per cluster
+    ///         by the raster, and the fallback one <see cref="MorphRenderFeature" /> scatters for the
+    ///         caster stages — and they are the same shapes over the same source-vertex numbering
+    ///         because <c>MeshletMesh.Fallback</c> indexes the mesh's own vertices.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both counters, in one run, and that is the whole of it.</b> The fall-through that
+    ///         picks between the two features ends in a <c>continue</c>, so a caster written inside
+    ///         either branch is a caster the other branch silently leaves at rest. Nothing about the
+    ///         picture says which of the two was missed — a face and its shadow disagreeing is what a
+    ///         person notices, several frames later, and attributes to the shadow map.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void One_expression_reaches_both_the_drawn_mesh_and_the_shadow_it_casts() {
+        var input = Grid(12);
+        var mesh = MeshletBuilder.Build(input);
+        var pages = MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = 16 * 1024 });
+
+        using var device = new NullDevice(new());
+        using var visibility = new GpuClusterVisibility(device);
+        using var system = new RenderSystem();
+        using var world = new World(nameof(One_expression_reaches_both_the_drawn_mesh_and_the_shadow_it_casts));
+
+        var buffer = new GeometryBuffer(device, SurfaceVertex.SizeInBytes, 4096, 8192);
+        var residency = new GeometryResidency(buffer);
+
+        var meshes = new MeshRenderFeature();
+        var transforms = new TransformRenderFeature();
+        var materials = new MaterialRenderFeature();
+        var morphing = new MorphRenderFeature(device, vertexCapacity: 1024, entryCapacity: 4096) { Source = buffer };
+        var virtualized = new VirtualGeometryRenderFeature { Visibility = visibility };
+
+        var opaque = system.AddStage(new("Opaque"));
+        var casters = system.AddStage(new("Casters"));
+
+        meshes.Add(transforms);
+        meshes.Add(materials);
+        meshes.Add(morphing);
+
+        system.AddFeature(meshes);
+        system.AddFeature(virtualized);
+
+        var shapes = Shapes(input);
+        var registered = virtualized.Register(mesh, pages, 0, MorphIndex.Build(shapes, input.Positions.Length));
+
+        // The fallback: the same source vertices with a cut of the triangles over them, which is what
+        // the caster is built from and why one set of deltas moves both.
+        var source = new MeshData {
+            Name = "fallback",
+            Positions = input.Positions,
+            Normals = new Vector3[input.Positions.Length],
+            Indices = input.Indices,
+            MorphTargets = shapes
+        };
+
+        var extraction = new MeshExtractionSystem(system, meshes, transforms, materials, residency) {
+            Stages = opaque.Mask | casters.Mask,
+            CasterStages = casters.Mask,
+            Virtualized = virtualized,
+            Clusters = new OneCluster(registered),
+            Meshes = new OneMesh(source),
+            Morphing = morphing
+        };
+
+        var weights = new MorphWeightSystem {
+            Feature = morphing,
+            Virtualized = virtualized,
+            Renderer = system
+        };
+
+        var entity = world.Create();
+
+        MeshRenderables.Attach(world, entity, MeshRenderables.Default(Rock));
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
+        world.Add(entity, new BlendShapeWeights { Weights = [1f, 0.5f] });
+
+        extraction.Extract(world);
+
+        var handle = world.Read<RenderHandle>(entity);
+
+        Assert.Equal(1, extraction.VirtualizedCount);
+        Assert.Equal(1, extraction.CasterCount);
+        Assert.True(handle.HasCaster);
+
+        weights.Run(world);
+
+        // Both halves, in one run.
+        Assert.Equal(1, weights.VirtualizedCount);
+        Assert.Equal(1, weights.CastersWeighted);
+
+        // ⚠ And the records, not only the counters. A system that counted an entity and wrote nothing
+        // is what a counter cannot tell from one that worked — the defect this whole area produced
+        // twice in three days.
+        var draw = system.Objects.Data.Data(virtualized.Draws)[handle.Object.Index];
+
+        Assert.True(draw.IsMorphed, "The traversal's instance says it has no weights.");
+
+        var instance = system.Objects.Data.Data(morphing.Instances)[handle.Caster.Index];
+
+        Assert.Equal(input.Positions.Length, instance.VertexCount);
+        Assert.Equal(shapes.Length, instance.TargetCount);
+        Assert.True(instance.IsMorphed, "The caster's record says it draws from the rest pose.");
+
+        // The caster draws out of the morph feature's buffer rather than the scene's, which is what
+        // `Attach` rewrites the record for — a caster left on the rest-pose slice would be a shadow
+        // that never moves, with every counter above still green.
+        Assert.Equal(morphing.Buffer, system.Objects.Data.Data(meshes.Draws)[handle.Caster.Index].VertexBuffer);
+        Assert.NotEqual(buffer.Vertices, system.Objects.Data.Data(meshes.Draws)[handle.Caster.Index].VertexBuffer);
+
+        morphing.Dispose();
+        buffer.Dispose();
+    }
+
+    /// <summary>A mesh source that answers every reference with the one it was given.</summary>
+    sealed class OneMesh(MeshData source) : IMeshSource {
+        public bool TryGet(AssetReference reference, out MeshData mesh) {
+            mesh = source;
+
+            return true;
+        }
+    }
+
     /// <summary>A source with one registered hierarchy, for every reference asked.</summary>
     sealed class OneCluster(int mesh) : IVirtualGeometrySource {
         public ClusterState TryGet(AssetReference reference, out int index, out BoundingSphere bounds) {
@@ -279,6 +409,13 @@ public sealed class MorphedClusterTests {
             bounds = new(Vector3.Zero, 2f);
 
             return ClusterState.Ready;
+        }
+
+        /// <summary>The one triangle <see cref="OneTriangle" /> supplies the vertices for.</summary>
+        public bool TryGetCaster(AssetReference reference, out int[] triangles) {
+            triangles = [0, 1, 2];
+
+            return true;
         }
     }
 

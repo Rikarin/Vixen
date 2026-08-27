@@ -3,11 +3,15 @@
 
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
+using Vixen.Core;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
+using Vixen.Engine.Transforms;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
@@ -748,6 +752,384 @@ public sealed class CompositorImageTests {
     }
 
     /// <summary>
+    ///     A mesh the scene sends down the virtualized path casts a shadow, in the place the light
+    ///     says it should be.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="ShadowCascade" />'s fixture with one thing changed: the caster is
+    ///         extracted rather than hand-built.</b> That test adds a render object itself, so it says
+    ///         nothing about which objects a <em>scene</em> puts in a caster stage — and the answer,
+    ///         for a mesh with a cluster hierarchy, was none. The traversal draws no per-object command,
+    ///         so an instance stamped with the caster stages is walked past in silence: the mesh drew
+    ///         perfectly, every counter was healthy, and the shadow was absent. There is no picture of
+    ///         that failure that looks like a bug rather than like a scene with no light in it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is <see cref="AssertShadow" />'s, which is arithmetic.</b> A point on the
+    ///         caster reaches the ground at <c>P + tL</c> where <c>P.y + t·L.y = 0</c>, and the whole
+    ///         rectangle is checked rather than its middle — so a shadow of the right size in the wrong
+    ///         place and one of the wrong size in the right place both fail. Nothing the renderer
+    ///         produced is consulted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The caster's triangles are the fallback's and not the source mesh's</b>, which is
+    ///         what makes this a test of <c>MeshletMesh.Fallback</c> rather than of a second draw. The
+    ///         source is a nine-vertex quad of eight triangles and the fallback keeps two of them over
+    ///         four of its corners — the same silhouette out of a quarter of the triangles, which is
+    ///         the whole bargain of casting through a cut.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void VirtualizedShadowCaster() {
+        VirtualizedShadow(weight: 0f, scale: 1f);
+    }
+
+    /// <summary>
+    ///     A morphed virtualized mesh casts the shadow of its expression, not of its rest pose.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The claim that matters twice over, and the reason the caster is built from the
+    ///         fallback rather than from anything else.</b> <c>MeshletMesh.Fallback</c> indexes the
+    ///         <em>source mesh's</em> vertices, so the caster is deformed by
+    ///         <see cref="MorphRenderFeature" /> — the same pre-pass, over the same numbering, that the
+    ///         mesh would have used had it never been virtualized. A caster built any other way would
+    ///         need a second implementation of the morph, and a second implementation is a thing that
+    ///         can disagree.
+    ///     </para>
+    ///     <para>
+    ///         <b>A closed form again, and it is the same one the paged morph is held to.</b> The shape
+    ///         scales the quad about its centre by <see cref="Shrink" />; the receiver is a plan view,
+    ///         so the shadow's rectangle must scale by exactly that and its centre must not move. A
+    ///         morph applied twice, at half strength, with the wrong sign, to the wrong axis or to the
+    ///         wrong vertex all fail it — and one that never ran fails it hardest, because the shadow
+    ///         is then the full-sized one <see cref="VirtualizedShadowCaster" /> asserts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two legs are separate tests on purpose.</b> The rest leg's rectangle is the
+    ///         morphed leg's failure mode, stated in absolute pixels, so neither can pass by drawing
+    ///         nothing and neither is a comparison against the other.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void MorphedVirtualizedShadowCaster() {
+        VirtualizedShadow(weight: 1f, scale: Shrink);
+    }
+
+    /// <summary>How far the caster's one blend shape pulls the quad in, at a weight of one.</summary>
+    /// <remarks>
+    ///     A half rather than a nudge, because the assertion is a bounding rectangle measured in whole
+    ///     pixels of a hundred-and-twenty-eight-pixel plan view: a shape that moved the silhouette by
+    ///     less than the shadow map's own texel would pass on a morph that did nothing.
+    /// </remarks>
+    const float Shrink = 0.5f;
+
+    /// <param name="weight">What the caster's one blend shape is driven to.</param>
+    /// <param name="scale">What that weight scales the caster's silhouette by.</param>
+    /// <inheritdoc cref="VirtualizedShadowCaster" />
+    void VirtualizedShadow(float weight, float scale) {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        const int Tile = 256;
+
+        var display = owned.Owned("display", TextureUsage.ColourTarget | TextureUsage.CopySource);
+
+        var atlas = owned.Owned(
+            "atlas",
+            TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+            PixelFormat.Depth32Float,
+            Tile * 2,
+            Tile
+        );
+
+        using var allocator = new DescriptorAllocator(device);
+        using var samplers = new SamplerCache(device);
+        using var system = new RenderSystem();
+        using var world = new World(nameof(VirtualizedShadow));
+
+        var opaque = system.AddStage(new("Opaque"));
+
+        var casters = system.AddStage(new("ShadowCaster") {
+            ShaderName = "DepthOnly",
+            Rasterizer = RasterizerState.TwoSided
+        });
+
+        var describer = new EffectPipelineDescriber(device);
+
+        // ⚠ `SurfaceVertex`, not the fixture's own 28-byte vertex, because this caster's bytes come
+        // through `GeometryResidency` — which is the point: the geometry reaches the device by the
+        // route a scene's does. Location 1 is the tangent read as a colour; the caster stage has no
+        // fragment shader, so what it holds is never read, and a vertex input the shader declares and
+        // no buffer supplies is a validation error rather than a black pixel.
+        describer.VertexLayouts.Add([
+            new VertexBufferLayout(
+                SurfaceVertex.SizeInBytes,
+                [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 24)]
+            )
+        ]);
+
+        var effects = new EffectSystem();
+
+        effects.AddProvider(new ShadowedAndMorphing(owned, new Compiling(new(device))));
+
+        using var buffer = new GeometryBuffer(device, SurfaceVertex.SizeInBytes, 1024, 2048, name: "Caster.Scene");
+        var residency = new GeometryResidency(buffer);
+
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
+        var transforms = new TransformRenderFeature();
+        var materials = new MaterialRenderFeature { Effects = effects };
+        var virtualized = new VirtualGeometryRenderFeature();
+
+        using var morph = new MorphRenderFeature(device, vertexCapacity: 1024, entryCapacity: 1024) {
+            Effects = effects,
+            Pipelines = new(device),
+            Descriptors = allocator,
+            Source = buffer
+        };
+
+        meshes.Add(transforms);
+        meshes.Add(materials);
+        meshes.Add(morph);
+
+        system.AddFeature(meshes);
+        system.AddFeature(virtualized);
+
+        var source = CasterMesh();
+
+        var extraction = new MeshExtractionSystem(system, meshes, transforms, materials, residency) {
+            Stages = opaque.Mask | casters.Mask,
+            CasterStages = casters.Mask,
+            Material = new("Mesh"),
+            Virtualized = virtualized,
+            Clusters = new ClusteredQuad(),
+            Meshes = new OneMesh(source),
+            Morphing = morph
+        };
+
+        var entity = world.Create();
+
+        world.Add(entity, new WorldTransform { Value = CasterWorld });
+        world.Add(entity, MeshRenderables.Default(default));
+        world.Add(entity, new BlendShapeWeights { Weights = [weight] });
+
+        extraction.Extract(world);
+
+        // ⚠ Before a pixel is looked at. A frame in which the extraction produced no caster draws a
+        // plan view with no shadow in it, which is the picture a scene with no light also draws — and
+        // "nothing is shadowed anywhere" is the least informative way for this to fail.
+        Assert.Equal(1, extraction.VirtualizedCount);
+        Assert.Equal(1, extraction.CasterCount);
+        Assert.Equal(0, extraction.CastersMissing);
+
+        var handle = world.Read<RenderHandle>(entity);
+
+        Assert.Equal(meshes.Index, system.Objects[handle.Caster].FeatureIndex);
+        Assert.Equal(casters.Mask, system.Objects[handle.Caster].Stages);
+
+        var weights = new MorphWeightSystem { Feature = morph, Renderer = system };
+
+        weights.Run(world);
+
+        Assert.Equal(1, weights.CastersWeighted);
+
+        using var viewConstants = new ViewConstants(device) {
+            Descriptors = allocator,
+            Layout = Shadowed.ViewLayout(device, owned)
+        };
+
+        var camera = new RenderView("camera") {
+            Camera = RenderCamera.Default with { Position = new(0f, 0f, 10f) }
+        };
+
+        var shadows = new ShadowMapRenderer {
+            Name = "Shadows",
+            CasterStage = casters,
+            Atlas = "ShadowAtlas",
+            CascadeCount = Cascades,
+            Resolution = Tile,
+            Camera = camera,
+            ShadowDistance = 40f,
+            LightDirection = Vector3.Normalize(Light)
+        };
+
+        using var receiver = new FullScreenRenderer {
+            Name = "Receive",
+            ShaderName = "ShadowReceive",
+            Modules = describer,
+            Device = device,
+            ConstantBinding = 0,
+            Descriptors = { Allocator = allocator }
+        };
+
+        receiver.ColourTargets.Add("Display");
+        receiver.Reads.Add("ShadowAtlas");
+
+        receiver.Descriptors.Bindings.Add(
+            new() { Binding = 1, Kind = DescriptorKind.SampledTexture, Resource = "ShadowAtlas" }
+        );
+
+        receiver.Descriptors.Bindings.Add(
+            new() { Binding = 3, Kind = DescriptorKind.Sampler, Sampler = samplers.PointClamp }
+        );
+
+        receiver.Parameters.Set(Ground, new Vector4(GroundMinX, GroundMinZ, GroundSize, GroundSize));
+
+        var compositor = new GraphicsCompositor(system) {
+            FrameSize = new(Fixture.Side, Fixture.Side),
+            Game = new SceneRendererSequence { Children = { shadows, receiver } }
+        };
+
+        compositor.Imports["ShadowAtlas"] = new(atlas.Texture, atlas.View, atlas.Description);
+
+        compositor.Imports["Display"] = new(
+            display.Texture,
+            display.View,
+            display.Description,
+            ResourceState.Undefined,
+            ResourceState.CopySource
+        );
+
+        shadows.Constants = viewConstants;
+        shadows.Scene = receiver.Parameters;
+        shadows.ShaderName = "ShadowReceive";
+
+        compositor.Collect();
+
+        receiver.Parameters.Set(View, camera.Camera!.Value.View);
+
+        allocator.BeginFrame();
+
+        var frame = compositor.Build(owned.Graph, effects, device);
+
+        // ⚠ The order `WorldRenderer.Draw` keeps, and neither half is optional here. The residency
+        // flush is what puts the caster's vertices on the device at all, and the morph pre-pass is
+        // what puts this frame's expression into them — outside a render pass, because a transfer
+        // inside one is invalid.
+        var image = owned.Render(
+            frame.Texture("harness", "Display"),
+            list => {
+                residency.Flush(list);
+                Assert.True(morph.Record(list), "The morph pre-pass recorded nothing.");
+            }
+        );
+
+        // ⚠ A degraded morph copies the rest pose and draws a plausible picture — the full-sized
+        // shadow, which is exactly what the rest leg of this pair asserts is correct. So the reason
+        // is read rather than inferred.
+        Assert.Null(morph.Degraded);
+
+        // The rest pose reaches the caster's own vertex range either way, and a shape at zero is not
+        // dispatched for — which is `MorphRenderFeature`'s own rule and is why the two legs expect
+        // different numbers rather than one being "at least".
+        Assert.Equal(1, morph.Copies);
+        Assert.Equal(weight != 0f ? 1 : 0, morph.Dispatches);
+
+        AssertShadow(image, scale);
+
+        // A place to look at it, on `VirtualGeometryGoldenTests`' terms: the assertion is arithmetic
+        // and a person still wants to see the plan view once.
+        if (Environment.GetEnvironmentVariable("VIXEN_SHADOW_PICTURE") is { Length: > 0 } directory) {
+            Directory.CreateDirectory(directory);
+            PngCodec.Save(Path.Combine(directory, $"virtualized-caster-{weight:F1}.png"), image);
+        }
+    }
+
+    /// <summary>The caster's source mesh: a nine-vertex quad with one shape that shrinks it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Eight triangles, of which <see cref="ClusteredQuad" />'s fallback keeps two.</b> The
+    ///     fallback's indices are into these vertices — which is the property the whole caster path
+    ///     rests on, and the reason one set of blend-shape deltas moves both the paged mesh and the
+    ///     shadow it casts.
+    /// </remarks>
+    static MeshData CasterMesh() {
+        var positions = new Vector3[9];
+        var normals = new Vector3[9];
+        var deltas = new Vector3[9];
+        var indices = new int[9];
+
+        for (var y = 0; y < 3; y++) {
+            for (var x = 0; x < 3; x++) {
+                var at = (y * 3) + x;
+
+                positions[at] = new((x * 0.5f) - 0.5f, (y * 0.5f) - 0.5f, 0f);
+                normals[at] = new(0f, 0f, 1f);
+                indices[at] = at;
+
+                // In x and y about the origin, which `CasterWorld` maps onto the ground plane — so the
+                // silhouette scales and its centre does not move.
+                deltas[at] = positions[at] * (Shrink - 1f);
+            }
+        }
+
+        var triangles = new List<int>();
+
+        for (var y = 0; y < 2; y++) {
+            for (var x = 0; x < 2; x++) {
+                var a = (y * 3) + x;
+
+                triangles.AddRange([a, a + 1, a + 3]);
+                triangles.AddRange([a + 1, a + 4, a + 3]);
+            }
+        }
+
+        return new() {
+            Name = "caster",
+            Positions = positions,
+            Normals = normals,
+            Indices = [.. triangles],
+            MorphTargets = [MorphTargetData.Encode("shrink", indices, deltas, [])]
+        };
+    }
+
+    /// <summary>A cluster source that is always ready, whose fallback is the quad's four corners.</summary>
+    sealed class ClusteredQuad : IVirtualGeometrySource {
+        public ClusterState TryGet(AssetReference reference, out int index, out BoundingSphere bounds) {
+            index = 0;
+            bounds = new(Vector3.Zero, 1f);
+
+            return ClusterState.Ready;
+        }
+
+        /// <summary>Two triangles over the corners of the nine-vertex source: 0, 2, 6 and 8.</summary>
+        public bool TryGetCaster(AssetReference reference, out int[] triangles) {
+            triangles = [0, 2, 6, 2, 8, 6];
+
+            return true;
+        }
+    }
+
+    /// <summary>A mesh source that answers every reference with the one it was given.</summary>
+    sealed class OneMesh(MeshData source) : IMeshSource {
+        public bool TryGet(AssetReference reference, out MeshData mesh) {
+            mesh = source;
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    ///     <see cref="Shadowed" /> for the two graphics effects, and the shipped library for the
+    ///     compute one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Shadowed" /> answers every key</b> — anything that is not <c>DepthOnly</c>
+    ///     gets the receiver — so it would swallow <c>MorphScatter</c> and the pre-pass would degrade
+    ///     to copying the rest pose. Which is a plausible picture: the full-sized shadow.
+    /// </remarks>
+    sealed class ShadowedAndMorphing(Fixture fixture, Compiling library) : IEffectProvider {
+        readonly Shadowed shadowed = new(fixture);
+
+        public Effect? TryGet(EffectKey key) =>
+            key.ShaderName == MorphScatterKeys.ShaderName ? library.TryGet(key) : shadowed.TryGet(key);
+    }
+
+    /// <summary>
     ///     The shadow lands where the light direction says it should.
     /// </summary>
     /// <remarks>
@@ -755,18 +1137,27 @@ public sealed class CompositorImageTests {
     ///     renderer produced. A point on the caster reaches the ground at <c>P + tL</c> where
     ///     <c>P.y + t·L.y = 0</c>, which for a directional light is the whole of it.
     /// </remarks>
-    static void AssertShadow(in Bitmap image) {
+    static void AssertShadow(in Bitmap image) => AssertShadow(image, 1f);
+
+    /// <param name="image">The plan view.</param>
+    /// <param name="scale">
+    ///     What the caster's own geometry has been scaled to about its centre — one for a mesh at
+    ///     rest, and a blend shape's factor for a morphed one.
+    /// </param>
+    /// <inheritdoc cref="AssertShadow(in Bitmap)" />
+    static void AssertShadow(in Bitmap image, float scale) {
         var light = Vector3.Normalize(Light);
         var travel = -CasterCentre.Y / light.Y;
         var centre = new Vector2(CasterCentre.X + (travel * light.X), CasterCentre.Z + (travel * light.Z));
+        var half = CasterHalf * scale;
 
         // The whole rectangle, not just its middle. A shadow of the right size in the wrong place and
         // one of the wrong size in the right place both pass a centre probe, and the second is what a
         // mis-scaled cascade produces.
-        var minX = Column(centre.X - CasterHalf, image.Width);
-        var maxX = Column(centre.X + CasterHalf, image.Width);
-        var minY = Row(centre.Y - CasterHalf, image.Height);
-        var maxY = Row(centre.Y + CasterHalf, image.Height);
+        var minX = Column(centre.X - half, image.Width);
+        var maxX = Column(centre.X + half, image.Width);
+        var minY = Row(centre.Y - half, image.Height);
+        var maxY = Row(centre.Y + half, image.Height);
 
         var left = image.Width;
         var right = -1;
