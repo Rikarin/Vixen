@@ -1534,6 +1534,7 @@ sealed partial class EditorApplication : IDisposable {
         // second — and a load order that came from the filesystem's enumeration would put the
         // editor's look at the mercy of the order a directory happens to hand its entries back in.
         foreach (var file in Directory.EnumerateFiles(directory, "*.vcss", SearchOption.AllDirectories)
+                     .Where(file => !IsBuildOutput(directory, file))
                      .Order(StringComparer.Ordinal)) {
             // The `@theme` token source, which is a build input and not a stylesheet. See the
             // remarks: loading it can only produce a diagnostic, and the diagnostics are read now.
@@ -1594,6 +1595,33 @@ sealed partial class EditorApplication : IDisposable {
     ///     and is not a stylesheet.
     /// </remarks>
     const string TokenSource = "vixen.ui.vcss";
+
+    /// <summary>Whether a path found under the watched directory is a build artefact.</summary>
+    /// <param name="directory">The directory being watched.</param>
+    /// <param name="file">The candidate stylesheet.</param>
+    /// <returns><c>true</c> when the file is under an <c>obj</c> or <c>bin</c> segment.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The guard <c>DesktopHotReload</c> has and this method did not, which made it the only
+    ///     reader in the tree of a file that is supposed to have none.</b> The utility build step
+    ///     writes <c>obj/&lt;config&gt;/&lt;tfm&gt;/Vixen/&lt;Assembly&gt;.g.vcss</c>, and that sheet
+    ///     is the concatenation the document already holds — so it matches by text and
+    ///     <see cref="HotReloadWatcher.Load" /> <i>binds</i> to it, which looks like an improvement
+    ///     and is a trap. It is a build artefact, rewritten on every build, so every rebuild fires a
+    ///     reload of a file nobody edited; and with one copy per configuration the
+    ///     <c>obj/Release</c> one binds a sheet this process is not running.
+    ///     <para>
+    ///         Filtering by name would not have caught it. The name is the assembly's, so it is
+    ///         different in every project and matches no fixed spelling the way
+    ///         <see cref="TokenSource" /> does — the location is the only thing that identifies it.
+    ///     </para>
+    /// </remarks>
+    static bool IsBuildOutput(string directory, string file) =>
+        Path.GetRelativePath(directory, file)
+            .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Any(segment =>
+                segment.Equals("obj", StringComparison.OrdinalIgnoreCase)
+                || segment.Equals("bin", StringComparison.OrdinalIgnoreCase)
+            );
 
     /// <summary>Rescans when something outside the editor has changed the assets.</summary>
     /// <remarks>

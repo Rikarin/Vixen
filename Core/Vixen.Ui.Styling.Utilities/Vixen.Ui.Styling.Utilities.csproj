@@ -94,14 +94,26 @@
         <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
 
         <!--
-            ⚠ **Vixen.Core.Yaml is gone, and the consequence is bigger than a reference.** It was here
-            for `ThemeTokens.Parse`, which read a `vixen.ui.yaml`; under `@theme` a token is a custom
-            property in a stylesheet and the reader is a text scan over this assembly's own code. The
-            YamlDotNet dependency it dragged in is the *entire* stated reason `Tools/Vixen.StyleGen`
-            is an out-of-process step rather than an `IIncrementalGenerator` — an analyzer's
-            dependencies do not travel with it — so that argument has quietly expired. Turning the
-            step into a generator is a separate change and a real one; this file is the note that it
-            is now possible.
+            ⚠ **Vixen.Core.Yaml is gone, and this note used to say that made a generator possible.
+            It was asked and answered in 2026-08: the step stays a process, and the reason is no
+            longer about dependencies.** `ThemeTokens.Parse` read a `vixen.ui.yaml`; under `@theme` a
+            token is a custom property in a stylesheet and the reader is a text scan over this
+            assembly's own code, so there is no package reference here at all any more. That did
+            retire the "an analyzer's dependencies do not travel with it" argument — and retiring it
+            changed nothing, because two other blockers were behind it and the measurements went the
+            other way regardless.
+
+            This assembly is net10.0 and an analyzer must be netstandard, so a generator would have to
+            *link* these 5 995 lines and compile them under a second language surface. RS1035 bans
+            `System.IO` inside an analyzer, so it could not write the sheet or the report. And the
+            arithmetic: the process launch a generator removes is ~52 ms, once per build that changed
+            a scanned file and zero on a build that changed nothing, against ~20 ms of
+            `UtilityGenerator.Generate` that a generator would pay *per keystroke* — the candidate set
+            is deliberately over-inclusive, so it changes on nearly every edit and never caches.
+
+            The workings are in `Tools/Vixen.StyleGen/README.md`, which also records what would
+            reverse the decision. Note that the expiry of the YamlDotNet argument is not on that list;
+            it is what prompted the measurement, and the measurement is the answer.
         -->
     </ItemGroup>
 

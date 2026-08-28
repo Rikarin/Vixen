@@ -44,24 +44,84 @@ Three things were wrong with the bootstrap beyond its being repeated.
 
 ## Why a process and not a source generator
 
-The obvious shape for "read some files at build time and emit code" is an `IIncrementalGenerator`,
-and it cannot be one here.
+The obvious shape for "read some files at build time and emit code" is an `IIncrementalGenerator`.
+This is not one, and the reason **is no longer the one this section used to give.**
 
-`ThemeTokens` reads YAML through `Vixen.Core.Yaml`, which is YamlDotNet. A Roslyn analyzer's
-dependencies do not travel with it: `OutputItemType="Analyzer"` contributes exactly one DLL, so every
-consuming project would have to place YamlDotNet on the analyzer path itself — the route
-`Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj` considers at length and rejects,
-in the comment that is the best statement of this problem in the repository. That generator escapes
-it by *linking* its front end's source into the analyzer assembly, which works because its front end
-is Vixen's own code. It cannot work here: YamlDotNet is a package and there is no source to link.
+⚠ **The YamlDotNet argument is dead. Do not cite it, and do not re-open this on the strength of its
+having expired — that is already accounted for below.** `ThemeTokens` read YAML through
+`Vixen.Core.Yaml` until `@theme` replaced it, and `Vixen.Ui.Styling.Utilities` now has no
+`PackageReference` at all, so "an analyzer's dependencies do not travel with it" decides nothing
+here any more. The question was re-asked and re-measured in 2026-08 against the editor's own build.
+The answer came back the same and the reasons are different.
 
-An MSBuild `Task` assembly has the same problem twice over — it would have to be `netstandard2.0` to
-load in Visual Studio's msbuild.exe, and `Vixen.Ui.Styling.Utilities` is net10.0.
+### The measurement
+
+On an M1 Max, `Vixen.Editor.Ui` (43 scanned files, 528 KiB of text), twelve runs per figure:
+
+| | |
+|---|---|
+| the whole `VixenGenerateUtilityStyles` target | 117 ms (MSBuild's own performance summary; `Exec` is 115 ms of it) |
+| the same target on a build where nothing changed | **0 ms — skipped.** The `.stamp` is what buys this |
+| `dotnet` host start + assembly load | ~52 ms (a run with no scan files at all) |
+| scanning all 43 files | 11 ms — and 1 ms for one file |
+| `UtilityGenerator.Generate` over the candidate set | 20 ms |
+
+**~52 ms is the entire prize.** That is what disappears when the process does, and it is paid once
+per build that changed a scanned file — never on a build that changed nothing.
+
+**~20 ms is the price, and it would be paid per keystroke.** Scanning incrementalizes cleanly: one
+file per `IncrementalValuesProvider` entry, 1 ms for the edited one. Generation does not, because it
+runs after `.Collect()` over the whole candidate set — and that set is *designed* to be unstable.
+The scanner parses nothing, so `Vixen.Editor.Ui` produces 7 262 candidates of which 7 173 match no
+family at all: it is reading English out of comments. Almost any edit changes the set, so the
+collected stage re-runs almost every time and the cache that would have saved it never hits. Making
+the set stable means making the scanner parse, which is the one thing it must not do — a panel built
+in C# with `AddClass("flex")` is why.
+
+Six projects in this tree use the step. Trading 52 ms once per changed build for 20 ms per keystroke
+in each of them is the wrong way round.
+
+### Two blockers the YamlDotNet one was hiding, both still live
+
+- **The target framework.** `Vixen.Ui.Styling.Utilities` is net10.0 and an analyzer must be
+  netstandard, so it cannot be referenced from one — the same wall
+  `Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj` describes at length, in the
+  comment that is still the best statement of this problem in the repository. The escape it uses,
+  *linking* the source, **is** available here (5 995 lines across 8 files, and they touch nothing
+  outside the BCL — unlike YamlDotNet, which had no source to link). But it means the code compiles
+  twice under two language surfaces, with a `Compat` file to keep the second one holding. That
+  generator calls the same cost real, and it is buying rather more with it.
+- **RS1035.** `System.IO` is banned inside an analyzer, and every one of the thirteen generators in
+  this tree sets `EnforceExtendedAnalyzerRules` — there is no precedent here for switching it off.
+  Nor would switching it off help: a generator runs in the IDE's generator host, off any build's
+  working directory, on every edit, so writing the sheet from one means writing it on every
+  keystroke. So "make it a generator and keep the file too" is not the free option it sounds like —
+  keeping the file means keeping an MSBuild step, which is the process, which is the thing being
+  removed.
+
+An MSBuild `Task` assembly has the framework problem twice over — it would have to be
+`netstandard2.0` to load in Visual Studio's msbuild.exe.
 
 So the step runs where the implementation already runs: out of process, at net10.0, against the
-shipped assembly rather than a second copy of it. The cost is one process launch per build that
-changed a scanned file, which MSBuild's `Inputs`/`Outputs` keeps to the builds that changed one. The
-shape is not new — `Tools/Vixen.Sdk` invokes `Tools/Vixen.Cli` exactly this way for the content build.
+shipped assembly rather than a second copy of it. The shape is not new — `Tools/Vixen.Sdk` invokes
+`Tools/Vixen.Cli` exactly this way for the content build.
+
+### What would reverse this
+
+Not "the dependency went away" — that already happened, and this section is the answer to it. The
+decision turns on the 20 ms, so what reverses it is:
+
+- **The candidate set becoming stable across keystrokes** — a declarative source for class names, or
+  anything that stops the scanner emitting seven thousand English words. Then `.Collect()` caches,
+  the generation stage stops re-running, and the per-keystroke cost goes to roughly nothing.
+- **`UtilityGenerator.Generate` getting fast enough** — call it under ~2 ms for a project this size —
+  that paying it per keystroke stops mattering.
+- **Roslyn gaining a supported way for a generator to write a build artefact**, which removes the
+  RS1035 half.
+
+⚠ Note which way one familiar argument points. "The `.vcss` file is wanted downstream" is *not* a
+reason to move — it is a reason to stay, because a generator cannot write it. Today nothing reads it
+at all; see the table below.
 
 ## What it writes
 
@@ -70,9 +130,28 @@ Into `obj/…/Vixen/`:
 | | |
 |---|---|
 | `<Class>.g.cs` | The sheet as `const string` — added to `@(Compile)`, so the binary carries the text and a shipped game has no build artefact to deploy. |
-| `<Assembly>.g.vcss` | The same sheet as a file. Nothing compiles it; it is what a hot-reload watcher watches and what an asset-pipeline step will take as an input. |
-| `<Assembly>.unrecognised.txt` | Every candidate that emitted no rule, in two sections: the ones that named a registered family, then the ones that named nothing. |
+| `<Assembly>.g.vcss` | The same sheet as a file. **Nothing reads it** — see the warning below. |
+| `<Assembly>.unrecognised.txt` | Every candidate that emitted no rule, in two sections: the ones that named a registered family, then the ones that named nothing. Read by people, not by code. |
 | `stylegen.rsp` | The command line, because MSBuild writes it long. |
+
+⚠ **`<Assembly>.g.vcss` has no consumer, and this line used to claim two it never had.** It said the
+file "is what a hot-reload watcher watches and what an asset-pipeline step will take as an input".
+The asset-pipeline step is future tense and always was. The watcher is the opposite of true:
+`Platform/Vixen.Ui.Desktop.HotReload/DesktopHotReload.cs` excludes `obj` and `bin` *on purpose*, and
+its remarks explain why binding to this file is a trap rather than an improvement — it is a build
+artefact, so every rebuild would fire a reload of a file nobody edited, and the `obj/Release` copy
+would bind a sheet the running process is not using. Everything that wants the sheet takes the
+`const string` out of `<Class>.g.cs`: `Editor/Vixen.Editor.Ui.Tests/StylesheetTests.cs`,
+`Editor/Vixen.Editor.App.Tests/SharedThemeTests.cs` and `Samples/14-Mmo/Mmo.Ui.Tests` all read the
+constant, and `Core/Vixen.Ui.Styling.Utilities.Tests/ArbitraryPropertyTests.cs` carries a comment
+forbidding the switch to the file.
+
+Kept anyway, and the grounds are honest ones rather than a claimed reader: it costs one write of a
+few kilobytes on a build that was going to write the accessor regardless, it is the only form of the
+sheet a person can open while debugging what the step emitted, and it is the input an asset-pipeline
+step would need on the day one exists. If that day does not come, deleting it is a one-line change to
+the `.targets` and one to `StyleGenRunner.Write` — but note that its existence is an argument for
+keeping the CLI, since a Roslyn generator could not write it at all.
 
 ⚠ **`unrecognised.txt` is not a warning list and must not become one.** The scanner is over-inclusive
 on purpose, so with the C# scanned it is sixty kilobytes of ordinary English out of comments — a build
