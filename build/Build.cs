@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using Nuke.Common;
 using Nuke.Common.IO;
@@ -703,6 +704,69 @@ partial class Build : NukeBuild {
                     .EnableNoBuild()
                     .SetOutputDirectory(PackagesDirectory)
                 );
+
+                CheckStyleGenIsShippable();
             }
         );
+
+    /// <summary>
+    ///     Asserts that <c>Vixen.Ui.Styling.Utilities</c> ships a <c>tools/</c> the utility build step
+    ///     can actually start from.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the one failure in the tree that shipped in every package and could only be
+    ///     found by extracting one.</b> <c>Tools/Vixen.StyleGen</c> is packed by path into this
+    ///     package's <c>tools/</c> and run as <c>dotnet "…/Vixen.StyleGen.dll"</c> by
+    ///     <c>buildTransitive/Vixen.Ui.Styling.Utilities.targets</c>. For a while what was packed was
+    ///     the entry point alone — no <c>Vixen.Ui.Styling.Utilities.dll</c>, no <c>.deps.json</c> — so
+    ///     the first line of <c>Main</c> threw <c>FileNotFoundException</c> out of an <c>Exec</c> on
+    ///     the first build of the first project that referenced the package. Nothing in the tree could
+    ///     see it: every in-repo project takes the third rung of the tool-path ladder and runs
+    ///     <c>bin/</c> directly, so the packed copy is the one arrangement no build here exercises.
+    ///     <para>
+    ///         ⚠ <b>Conditional on the package having been produced, and that is deliberate rather
+    ///         than lenient.</b> The pack above is solution-wide, so the file is there on any ordinary
+    ///         run; a filtered pack that did not produce it should not fail on a package it was not
+    ///         asked to build. What must not happen is the file being produced and being empty.
+    ///     </para>
+    ///     <para>
+    ///         The four names are the four that were missing, not a sample: the host probes flat, so
+    ///         it needs the implementation assembly beside the entry point, and it will not start at
+    ///         all without both JSON files. A closure check rather than a launch — running the tool
+    ///         needs a project to point it at, and the failure being guarded is a file that is not
+    ///         in the package.
+    ///     </para>
+    /// </remarks>
+    void CheckStyleGenIsShippable() {
+        var package = PackagesDirectory.GlobFiles("Vixen.Ui.Styling.Utilities.*.nupkg")
+            .FirstOrDefault(file => !file.Name.EndsWith(".symbols.nupkg", StringComparison.Ordinal));
+
+        if (package is null) {
+            Log.Information("No Vixen.Ui.Styling.Utilities package was produced; skipping the tools/ check");
+            return;
+        }
+
+        using var archive = ZipFile.OpenRead(package);
+
+        var entries = archive.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var required in new[] {
+                     "tools/Vixen.StyleGen.dll",
+                     "tools/Vixen.StyleGen.deps.json",
+                     "tools/Vixen.StyleGen.runtimeconfig.json",
+                     "tools/Vixen.Ui.Styling.Utilities.dll",
+                     "buildTransitive/Vixen.Ui.Styling.Utilities.targets",
+                 }) {
+            Assert.True(
+                entries.Contains(required),
+                $"{package.Name} does not contain {required}. The utility build step is packed into "
+                + "this package's tools/ and started as `dotnet tools/Vixen.StyleGen.dll` by the "
+                + "targets in buildTransitive/ — a tools/ missing any of these throws out of an Exec "
+                + "on the consumer's first build. Packing has to follow a solution build, because the "
+                + "tool is packed by path from Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/."
+            );
+        }
+
+        Log.Information("{Package} ships a startable tools/ for the utility build step", package.Name);
+    }
 }

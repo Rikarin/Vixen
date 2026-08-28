@@ -28,14 +28,38 @@
 
     <ItemGroup>
         <!--
-            ⚠ **The whole reason this is a process and not an analyzer.** The utility system is
-            `ThemeTokens` → `Vixen.Core.Yaml` → YamlDotNet, and none of that can travel into a Roslyn
-            source generator: `OutputItemType="Analyzer"` contributes exactly one DLL, so a
-            generator's dependencies have to be placed on the analyzer path by hand-written MSBuild
-            in every consuming project — the route `Vixen.Ui.Markup.Generators`' own project file
-            considers and rejects at length. That generator solves it by *linking* its front end's
-            source, which works because its front end is Vixen's own code; it cannot work here,
-            because YamlDotNet is a package and there is no source to link.
+            ⚠ **Why this is a process and not an `IIncrementalGenerator`. The YamlDotNet argument
+            that used to be written here is dead — do not cite it.** `ThemeTokens` read YAML through
+            `Vixen.Core.Yaml` until `@theme` replaced it; `Vixen.Ui.Styling.Utilities` has no
+            `PackageReference` at all now, so "an analyzer's dependencies do not travel with it" no
+            longer decides anything. The decision was re-taken on measurements in 2026-08, and these
+            are the numbers rather than the argument. See README § "Why a process and not a source
+            generator" for the workings.
+
+            **What a generator would save: ~52 ms.** That is the `dotnet` host start plus assembly
+            load, measured as the difference between a run with 43 scan files (~106 ms) and one with
+            none (~52 ms), twelve runs each. It is paid once per build *that changed a scanned file*
+            and **zero times otherwise** — the `.stamp` in the .targets makes MSBuild skip the whole
+            target, which a no-change rebuild confirms.
+
+            **What a generator would still pay: ~20 ms, per keystroke.** Scanning is ~11 ms across
+            all 43 files and ~1 ms for one, so a per-file `IncrementalValuesProvider` caches it
+            properly. `UtilityGenerator.Generate` is the other ~20 ms and it runs after `.Collect()`,
+            over the whole candidate set — and that set is *designed* to be unstable: the scanner
+            parses nothing, so `Vixen.Editor.Ui` yields 7 262 candidates of which 7 173 match no
+            family at all. It is scanning English out of comments, so very nearly any edit changes
+            the set and the collected stage re-runs. Trading 52 ms once per changed build for 20 ms
+            per keystroke, in each of the six projects that use the step, is the wrong way round.
+
+            ⚠ **And two blockers the YamlDotNet one was hiding are still live.** This assembly is
+            net10.0 and an analyzer must be netstandard, so the only route is *linking* the 5 995
+            lines of `Vixen.Ui.Styling.Utilities` under a second language surface — available, unlike
+            for YamlDotNet, because it is Vixen's own code and uses nothing outside the BCL, but a
+            real cost that `Vixen.Ui.Markup.Generators` pays and documents. And RS1035 bans
+            `System.IO` inside an analyzer — all thirteen generators in this tree enforce it, and a
+            generator writing files would be writing them on every keystroke from the IDE's generator
+            host anyway — so keeping the `.vcss` and the report would mean keeping an MSBuild step,
+            which erases the saving.
 
             So the build step runs where the implementation already runs — out of process, at
             net10.0, against the shipped assembly and not a second copy of it.

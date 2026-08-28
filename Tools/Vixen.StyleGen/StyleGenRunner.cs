@@ -50,30 +50,39 @@ internal sealed record StyleGenResult(
 ///         <c>VixenUi</c> and the generated class keeps its name.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Out of process, and the reason it had to be has expired.</b> The obvious shape for
-///         "read some files at build time and emit code" is an <c>IIncrementalGenerator</c>, and it
-///         could not be one here: <see cref="ThemeTokens" /> read YAML through
-///         <c>Vixen.Core.Yaml</c>, which is YamlDotNet, and an analyzer's dependencies do not travel
-///         with it — <c>OutputItemType="Analyzer"</c> contributes one DLL, so every consuming project
-///         would have had to put the rest on the analyzer path itself.
-///         <c>Vixen.Ui.Markup.Generators</c> escapes the same trap by <em>linking</em> its front
-///         end's source into the analyzer, which works because that front end is Vixen's own code and
-///         could not have worked for a package.
+///         ⚠ <b>Out of process, and the YamlDotNet reason once written here is dead — do not cite
+///         it, and do not re-open the question on the strength of its having expired.</b>
+///         <see cref="ThemeTokens" /> read YAML through <c>Vixen.Core.Yaml</c> until <c>@theme</c>
+///         replaced it, and <c>Vixen.Ui.Styling.Utilities</c> has no package reference of any kind
+///         now, so "an analyzer's dependencies do not travel with it" no longer decides this. The
+///         question was re-asked and re-measured in 2026-08; the answer came back the same for
+///         entirely different reasons, which are in <c>Tools/Vixen.StyleGen/README.md</c> under
+///         "Why a process and not a source generator".
 ///     </para>
 ///     <para>
-///         Under <c>@theme</c> there is no YamlDotNet: a token is a custom property in a stylesheet
-///         and the reader is a text scan over <c>Vixen.Ui.Styling.Utilities</c>' own code, which has
-///         no package references left at all. So the blocker has lifted and this is still a process,
-///         which is a decision now rather than a constraint. Making it a generator is a real change
-///         and belongs in its own commit; the cost of leaving it is one process launch per build that
-///         changed a scanned file.
+///         The short of it: a process launch is ~52 ms and is paid <i>once per build that changed a
+///         scanned file</i> — never on a build that changed nothing, because the <c>.stamp</c> makes
+///         MSBuild skip the target. <see cref="UtilityGenerator.Generate" /> is ~20 ms and would be
+///         paid <i>per keystroke</i>, because it runs after a Roslyn <c>.Collect()</c> over a
+///         candidate set the scanner is built to make unstable — 7 262 candidates for
+///         <c>Vixen.Editor.Ui</c>, 7 173 of them ordinary English out of comments, so nearly any
+///         edit changes the set and the cache never hits. Two further blockers the YamlDotNet one was
+///         hiding are also still live: this assembly is net10.0 and an analyzer must be netstandard,
+///         and RS1035 bans <c>System.IO</c> inside an analyzer, so a generator could not write the
+///         sheet at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It writes a file, and that is worth more than it looks.</b> A generated constant is
-///         enough for the compiler and no use to anything else; a <c>.vcss</c> in <c>obj/</c> is what
-///         a hot-reload watcher can watch and what an asset-pipeline step can take as an input. The
-///         accessor is emitted <i>as well</i>, so a project that only wants to call
-///         <c>document.Load(…)</c> never touches the file system.
+///         ⚠ <b>It writes a file, and nothing reads that file — which is not the same as the file
+///         being pointless, but the difference matters and this remark used to get it wrong.</b> The
+///         claim was that a <c>.vcss</c> in <c>obj/</c> "is what a hot-reload watcher can watch".
+///         <c>Platform/Vixen.Ui.Desktop.HotReload/DesktopHotReload.cs</c> excludes <c>obj</c> and
+///         <c>bin</c> deliberately, and says why: the file is a build artefact, so binding to it
+///         would fire a reload on every rebuild and the <c>obj/Release</c> copy would bind a sheet
+///         the running process is not using. Every real consumer takes the constant out of the
+///         accessor instead. The sheet is kept because it costs one small write on a build that was
+///         writing the accessor anyway, because it is the only form a person can open while
+///         debugging the step, and because an asset-pipeline step would want exactly it — and note
+///         that it is an argument for keeping this a process, since a generator could not emit it.
 ///     </para>
 /// </remarks>
 internal static class StyleGenRunner {

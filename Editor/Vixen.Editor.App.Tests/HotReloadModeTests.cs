@@ -210,6 +210,45 @@ public class HotReloadModeTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>And the generated sheet under <c>obj/</c> is not watched either, which is the same
+    ///     rule one level further out and was the one place in the tree that read a file nothing is
+    ///     supposed to read.</b> The utility build step writes
+    ///     <c>obj/&lt;config&gt;/&lt;tfm&gt;/Vixen/&lt;Assembly&gt;.g.vcss</c>; point
+    ///     <c>--style-directory</c> at a source tree that has been built and it used to be picked up,
+    ///     because the only filter was on the file <i>name</i> and this file's name is the assembly's.
+    ///     <c>DesktopHotReload</c> has always excluded <c>obj</c> and <c>bin</c>, and its remarks say
+    ///     why binding to a build artefact is a trap rather than a bonus: it is rewritten on every
+    ///     build, so every rebuild fires a reload of a file nobody edited, and with one copy per
+    ///     configuration the <c>obj/Release</c> one binds a sheet the running process is not using.
+    ///     <para>
+    ///         Two configurations are written here on purpose. One would pass against a fix that
+    ///         happened to skip the first match; the failure this pins is a sheet from the
+    ///         configuration you are not running.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void The_generated_sheet_under_obj_is_not_watched() {
+        using var styles = new Folder();
+        using var fixture = EditorSession.Start();
+
+        var sheets = fixture.Document.Styles.SheetCount;
+
+        styles.Write(Path.Combine("obj", "Debug", "net10.0", "Vixen", "Probe.g.vcss"), "hot-reload-probe { width: 11px; }");
+        styles.Write(Path.Combine("obj", "Release", "net10.0", "Vixen", "Probe.g.vcss"), "hot-reload-probe { width: 22px; }");
+        styles.Write(Path.Combine("bin", "Debug", "net10.0", "Copied.vcss"), "hot-reload-probe { width: 44px; }");
+        styles.Write("dev.vcss", "hot-reload-probe { width: 33px; }");
+
+        // Only the hand-written one, out of four files that all end in .vcss.
+        Assert.Equal(1, fixture.Editor.WatchStyles(styles.Path));
+        Assert.Equal(sheets + 1, fixture.Document.Styles.SheetCount);
+
+        var probe = fixture.Document.Root.Add<UiElement>("hot-reload-probe");
+        fixture.Frame();
+
+        Assert.Equal(33f, probe.Width);
+    }
+
+    /// <summary>
     ///     ⚠ <b>The shell's one markup panel is mounted through the reload host, which is an
     ///     ordering fix rather than a markup one.</b> Only a component the host tracks is rebuilt
     ///     when the runtime replaces its <c>Build</c>, and <c>EditorShell</c> builds the task centre
@@ -264,8 +303,18 @@ public class HotReloadModeTests {
     sealed class Folder : IDisposable {
         public string Path { get; } = Directory.CreateTempSubdirectory("vixen-editor-styles-").FullName;
 
+        /// <summary>Writes a sheet, where <paramref name="name" /> may name a subdirectory.</summary>
+        /// <remarks>
+        ///     The directory is created, because the build artefact the exclusion test needs lives
+        ///     several levels down an <c>obj/</c> the temporary folder has no reason to have.
+        /// </remarks>
         public string Write(string name, string css) {
             var file = System.IO.Path.Combine(Path, name);
+
+            if (System.IO.Path.GetDirectoryName(file) is { Length: > 0 } directory) {
+                Directory.CreateDirectory(directory);
+            }
+
             File.WriteAllText(file, css);
             return file;
         }
