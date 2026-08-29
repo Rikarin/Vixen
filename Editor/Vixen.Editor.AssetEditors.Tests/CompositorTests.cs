@@ -349,6 +349,44 @@ public class CompositorSettingsTests {
         Assert.Contains("Select a node", view.Caption.Text, StringComparison.Ordinal);
     }
 
+    /// <summary>The graph takes the room the side column leaves, rather than none of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the gate the compositor did not have and the shader graph did, which is
+    ///     exactly why the bug survived.</b> <c>AssetEditorTheme.vcss</c> read
+    ///     <c>compositor-editor &gt; node-canvas</c>, and the direct child is <c>node-graph</c> —
+    ///     <c>node-canvas</c> is one level further in, inside <see cref="NodeGraphView" />. The rule
+    ///     had therefore never matched once since <c>f7d0572f</c>, and nothing noticed, because a
+    ///     panel every part of which is drawn at zero by zero passes every other test in this file.
+    ///     <para>
+    ///         ⚠ <b>And nothing else was going to give the graph a width either.</b>
+    ///         <c>NodeGraphTheme</c> declares <c>node-graph { flex-grow: 1 }</c>, but
+    ///         <c>NodeGraphTheme.Install</c> is called by one test fixture in
+    ///         <c>Vixen.Editor.NodeGraph.Tests</c> and by nothing in the editor application — so in
+    ///         the shipping editor the tag is styled only by whichever
+    ///         <c>&lt;x&gt;-editor &gt; node-graph</c> rule names it. That is what makes
+    ///         <c>shadergraph-editor &gt; node-graph</c> load-bearing rather than redundant, and what
+    ///         made the compositor's misspelling total: the graph's only in-flow child is a
+    ///         <c>node-canvas</c> whose own children are all absolutely positioned, so it contributes
+    ///         no max-content width and the column collapsed to nothing.
+    ///     </para>
+    ///     Modelled on <c>ShaderGraphTests.TheColumnsAreLaidOut</c>, which is the same assertion for
+    ///     the panel whose rule was spelt correctly.
+    /// </remarks>
+    [Fact]
+    public void TheGraphTakesTheRoomTheSideColumnLeaves() {
+        using var harness = new ViewHarness();
+        var view = Open(harness, out _);
+
+        Assert.True(view.Side.Bounds.Width > 0f, "The side column has no width.");
+        Assert.True(view.GraphView.Bounds.Width > 0f, "The graph has no width.");
+
+        // The two columns share one row: whatever the side does not take, the graph does.
+        Assert.True(
+            view.GraphView.Bounds.Width > view.Side.Bounds.Width,
+            "The graph did not take the room left over by the 280-point side column."
+        );
+    }
+
     static CompositorView Open(ViewHarness harness, out CompositorDocument document) {
         var path = harness.Project.Write("Assets/Forward.vxcomp", string.Empty);
         document = new(harness.Project.Project, AssetId.New(), path);

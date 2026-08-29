@@ -480,7 +480,7 @@ search-category { flex-shrink: 0; color: var(--text-muted); }
 
 /* ── The compositor editor ──────────────────────────────────────────── */
 compositor-editor { flex-direction: row; gap: 6px; }
-compositor-editor > node-canvas { flex-grow: 1; min-width: 0; }
+compositor-editor > node-graph { flex-grow: 1; min-width: 0; }
 compositor-side { flex-direction: column; width: 280px; flex-shrink: 0; gap: 6px; overflow: hidden; }
 
 /* ── The prefab editor ──────────────────────────────────────────────── */
