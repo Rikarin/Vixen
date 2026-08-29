@@ -19,12 +19,16 @@
     matters because moving a list restyles every row in it. A bound caption would also be right one
     frame later, and `CompositorSettingsTests` reads it after a `Restate` inside `Show`.
 
-    ⚠ **`compositor-editor > node-canvas` in `AssetEditorTheme.vcss` is a dead selector and this port
-    did not fix it.** The direct child here is `NodeGraphView`, whose tag is `node-graph`; `node-canvas`
-    is one level further in. The shader graph's equivalent rule is written correctly as
-    `shadergraph-editor > node-graph`. Fixing it gives the compositor's canvas `flex-grow: 1` that it
-    has never had, which is a visible layout change and belongs in a commit that says so rather than
-    inside a port.
+    ⚠ **`compositor-editor > node-canvas` in `AssetEditorTheme.vcss` was a dead selector and is now
+    `> node-graph`, which is a visible layout change rather than a typo fix.** The direct child here
+    is `NodeGraphView`, whose tag is `node-graph`; `node-canvas` is one level further in, so the rule
+    had never matched since `f7d0572f` and the graph had `flex-grow: 0` against a `flex-shrink: 0`
+    side column. Its only in-flow child is a `node-canvas` whose own children are all absolutely
+    positioned, so it contributed no max-content width either and the column was drawn at zero.
+    Nothing else styles the tag: `NodeGraphTheme.Install` is called by one test fixture and by nothing
+    in the editor application, which is what makes `shadergraph-editor > node-graph` load-bearing and
+    what made this misspelling total. `CompositorTests.TheGraphTakesTheRoomTheSideColumnLeaves` is the
+    gate the shader graph had and this panel did not.
 -->
 @component CompositorView
 @namespace Vixen.Editor.AssetEditors.Compositor

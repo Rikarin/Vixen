@@ -23,9 +23,15 @@
 # ⚠ **What it says nothing whatever about is INLINE interaction, which is the half of §9.5 everyone
 # means by "floats".** `grep -c '<text' Corpus/float.xml` is 0. Not one fixture in this corpus puts
 # text beside a float, so not one of them exercises the rule a float is famous for: shortening the
-# line boxes that pass it. `LayoutTree.Inline` has no exclusion awareness at all, and a paragraph
-# beside a float will run straight under it today. That is real, it is unmeasured by anything here,
-# and it is filed in `InlineKnownGaps.txt` rather than left to be inferred from an empty file.
+# line boxes that pass it. That sentence is still true of THIS corpus and always will be.
+#
+# ⚠ **The rule itself is no longer missing, and the fix had to bring its own oracle.** `LayoutTree.
+# Inline`'s `WalkInlineLines` now asks the exclusion list for the band at each line's own top and
+# height and shortens the line box to it, including §9.5's shift-downward clause when the band is too
+# narrow for the first item. The expected numbers could not come from here or from
+# `Tools/Vixen.TaffyTestGen` — Taffy has no inline layout, so there is nothing upstream to generate —
+# so they were read out of Chrome 148 case by case. See `InlineFloatInteractionTests` and the FLOATS
+# BESIDE LINES section of `InlineKnownGaps.txt`, which owns the residue.
 #
 #
 # ── OWED, WITH NO FIXTURE IN ANY CORPUS TO PIN IT ────────────────────────────────────────────────
@@ -34,7 +40,11 @@
 # will otherwise conclude floats are finished. These are the places the implementation knowingly
 # answers something other than what CSS 2.1 says, each because no fixture in 5 524 asks.
 #
-# float-beside-inline-content     §9.5's main event, above. `InlineKnownGaps.txt` owns it.
+# float-beside-inline-content     §9.5's main event, above. CLOSED against a Chrome-built oracle
+#                                 rather than against anything in this corpus; `InlineKnownGaps.txt`
+#                                 owns what is left, which is a float declared INSIDE a run, the
+#                                 staircase a broken text leaf would wrap around, and the intrinsic
+#                                 width of a shrink-to-fit container that holds a float.
 #
 # float-in-auto-centred-block     `LayoutTree.Block`'s float origin reads an `auto` inline margin as
 #                                 its stated value rather than its resolved one, because resolving

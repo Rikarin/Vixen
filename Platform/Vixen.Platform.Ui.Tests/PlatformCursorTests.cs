@@ -16,6 +16,36 @@ namespace Vixen.Platform.Ui.Tests;
 ///     unchanged on the day before this wire was built, and doc 43's consumption probe scored
 ///     <c>cursor-*</c> as <i>works</i> for exactly that reason. The only honest witness is the
 ///     window.
+///     <para>
+///         ⚠ <b>ONE OF THE TWO HOSTS THAT CALL <see cref="PlatformCursor.Apply" /> IS TESTED AND THE
+///         OTHER IS NOT, AND THE EXPOSURE IS BIGGER THAN THE CALL.</b> The call sites are
+///         <c>UiApplication.cs:497</c>, covered by
+///         <c>UiApplicationTests.TheLoopTellsTheWindowWhatThePointerIsOver</c>, and
+///         <c>EditorHost.cs:296</c>, covered by nothing. They are textually identical, which is an
+///         argument rather than a measurement.
+///     </para>
+///     <para>
+///         <b>It was looked at and deliberately not closed.</b> The route is cheap on paper —
+///         <c>Vixen.Editor.App.Tests</c> already links the <c>Vixen.Editor.Host</c> assembly through
+///         <c>Vixen.Editor.Testing</c> and already has its <c>InternalsVisibleTo</c>, so the fixture
+///         costs one <c>ProjectReference</c> to <c>Vixen.Platform.Headless</c> and one
+///         <c>[Fact]</c>; <c>EditorHost</c> takes only an <c>IPlatform</c> and an <c>IWindow</c> and
+///         runs headless by design. What stopped it is what such a test would <i>mean</i>: the class
+///         exposes no document and no per-frame hook, so the pointer would have to be posted through
+///         <c>HeadlessPlatform.Post</c> and the assertion would ride on whatever the startup Project
+///         Browser happens to render — and reaching that assertion means booting
+///         <c>EditorModules.Standard()</c>, the greeter and the data directory, so the test would go
+///         red for any editor startup regression while wearing the name of a cursor test.
+///     </para>
+///     <para>
+///         ⚠ <b>And the honest statement of the gap is not "one cursor call is untested".</b>
+///         <c>grep -rn "new EditorHost"</c> finds exactly one hit, <c>Program.cs:102</c>. Nothing in
+///         any suite builds one, so <c>EditorHost.Run</c>'s whole frame loop is uncovered — pump,
+///         resize coalescing, tick, document update, <b>this call</b>, editor update, draw, sync,
+///         geometry, present. Testing the cursor line alone would give false comfort about the other
+///         nine. What is owed is an editor-host smoke test, not a cursor assertion, and it is owed by
+///         whoever wants the smoke test rather than by whoever last touched cursors.
+///     </para>
 /// </remarks>
 public class PlatformCursorTests {
     static (HeadlessPlatform Platform, UiDocument Document, PlatformWindowHost Host) Open(string css) {

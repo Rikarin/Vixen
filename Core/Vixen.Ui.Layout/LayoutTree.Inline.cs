@@ -178,6 +178,14 @@ public sealed partial class LayoutTree {
             rawWidth = availableWidth - marginAxisRow;
         } else {
             var probeWidth = float.IsNaN(availableWidth) ? float.NaN : availableWidth - marginAxisRow - insetRow;
+
+            // ⚠ The same guard `CalculateBlockLayoutImpl` puts round its own content probe, for the
+            // same reason: asking a child how wide it wants to be lays the child out, and a nested
+            // layout that does not open a scope of its own appends any float it places to the
+            // ENCLOSING context — at an origin belonging to a box whose position is not decided yet.
+            // Left there, a measurement that was never a placement narrows a real box somewhere above.
+            var mark = floatExclusions.Count;
+
             var contentWidth = DetermineInlineContentWidth(
                 index,
                 0,
@@ -189,6 +197,10 @@ public sealed partial class LayoutTree {
                 ownerHeight,
                 currentDepth
             );
+
+            if (treeHasFloats) {
+                floatExclusions.RemoveRange(mark, floatExclusions.Count - mark);
+            }
 
             rawWidth = contentWidth + insetRow;
         }
@@ -203,6 +215,17 @@ public sealed partial class LayoutTree {
         var innerHeightForPercentages = float.IsNaN(definiteHeight) ? float.NaN : MathF.Max(0f, definiteHeight - insetColumn);
 
         // ── The block axis: one pass, breaking into lines ───────────────────────────────────────
+        // ⚠ <b>A container that establishes a formatting context opens an exclusion scope here for
+        // exactly one reason: to make the floats outside it invisible.</b> It can never place one of
+        // its own — <see cref="EstablishesInlineFormattingContext" /> refuses a container with a
+        // floated child — so the scope always closes empty and §10.6.3's contains-its-floats clause
+        // has nothing to say. What it does buy is §9.5's other half: an `overflow: hidden` paragraph
+        // beside a float is moved aside *whole* by its parent's walk, and its LINE boxes must then be
+        // full width rather than shortened a second time by a float the box has already cleared.
+        var floatScope = treeHasFloats && !BlockMarginsCollapsibleWithParent(index)
+            ? BeginFloatContext(insetLeft, insetTop, innerWidth)
+            : default;
+
         var walk = WalkInlineLines(
             index,
             0,
@@ -217,6 +240,10 @@ public sealed partial class LayoutTree {
             performLayout,
             currentDepth
         );
+
+        if (treeHasFloats && !BlockMarginsCollapsibleWithParent(index)) {
+            EndFloatContext(in floatScope);
+        }
 
         var intrinsicHeight = walk.ContentHeight + insetBottom;
 
@@ -359,69 +386,99 @@ public sealed partial class LayoutTree {
             }
 
             // ── Breaking and alignment ──────────────────────────────────────────────────────────
+            // ⚠ With no float anywhere in the tree every branch guarded by `floatsActive` below is
+            // dead and this loop is the one that passed before floats reached it: `BreakLine` is
+            // handed `innerWidth`, the start inset is zero, and there is one pass per line. That is
+            // deliberate — the float-active path breaks each line up to three times, and a tree with
+            // no floats must not pay for a rule it cannot be subject to.
+            var floatsActive = treeHasFloats;
             var y = contentTop;
             var lastBaseline = float.NaN;
             var cursor = streamBase;
             var open = OpenInlineBox.None;
 
             while (cursor < streamEnd) {
-                // Which items this line holds, and how wide it is.
                 var lineStart = cursor;
-                var lineWidth = 0f;
+                var lineTop = y;
+                var lineStartInset = 0f;
+                var lineEnd = lineStart;
                 var placed = 0;
+                var metrics = default(LineMetrics);
 
-                while (cursor < streamEnd) {
-                    var item = inlineItems[cursor];
+                if (!floatsActive) {
+                    (lineEnd, placed) = BreakLine(lineStart, streamEnd, direction, innerWidth, innerWidth);
 
-                    if (item.Kind != InlineItemKind.Atomic) {
-                        // An inline box's edge is not a break opportunity and cannot start a line on
-                        // its own; it just costs its border, padding and margin wherever it falls.
-                        lineWidth += item.Kind == InlineItemKind.Open
-                            ? InlineBoxStartEdge(item.Node, direction, innerWidth)
-                            : InlineBoxEndEdge(item.Node, direction, innerWidth);
-                        cursor++;
-
-                        continue;
-                    }
-
-                    var advance = InlineOuterWidth(item.Node, direction, innerWidth);
-
-                    // ⚠ A tolerance rather than a bare `>`, because the widths being compared are
-                    // sums of resolved percentages and a line that fits exactly is the commonest case
-                    // in a hand-written layout. Breaking `width: 50%` twice into two lines because the
-                    // two halves add to 100.00001 is the failure this prevents.
-                    if (placed > 0 && lineWidth + advance > innerWidth + 0.0001f) {
+                    if (placed == 0) {
                         break;
                     }
 
-                    lineWidth += advance;
-                    placed++;
-                    cursor++;
+                    metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth);
+                } else {
+                    // ── §9.5's main clause ──────────────────────────────────────────────────────
+                    // ⚠ <b>The band a line gets depends on how tall the line is, and how tall the
+                    // line is depends on which items fit in the band.</b> So this is a bounded search
+                    // rather than a single query: probe the band at zero height, break against it,
+                    // measure what came out, and re-ask with that height if the line turned out
+                    // taller than the probe assumed. A narrower band can only take items away, so the
+                    // second answer is normally final; the third attempt exists because a line that
+                    // was SHIFTED past a float can find a wider band and take items back. Three is a
+                    // cap and not a fixed point — see `InlineKnownGaps.txt`.
+                    //
+                    // ⚠ <b>The zero-height first probe is not an optimisation, it is the reason the
+                    // loop exists.</b> `FloatBandAt` excludes a float whose top edge is exactly the
+                    // slice's top, which is what lets a cleared box sit flush against what it
+                    // cleared — so a zero-height probe at the first line's top sees no float at all.
+                    // Chrome narrows that line: a 200-wide box with a 50x10 left float puts three
+                    // 50x20 items at x=50 and not four at x=0.
+                    var needed = FirstChunkWidth(lineStart, streamEnd, direction, innerWidth);
+                    var probeHeight = 0f;
+
+                    for (var attempt = 0; attempt < 3; attempt++) {
+                        lineTop = ShiftLinePastFloats(lineTop, probeHeight, needed, innerWidth, insetLeft);
+
+                        var (start, available) = InlineBandForLine(lineTop, probeHeight, innerWidth, insetLeft, direction);
+
+                        lineStartInset = start;
+                        (lineEnd, placed) = BreakLine(lineStart, streamEnd, direction, innerWidth, available);
+
+                        if (placed == 0) {
+                            break;
+                        }
+
+                        metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth);
+
+                        if (metrics.Height <= probeHeight) {
+                            break;
+                        }
+
+                        probeHeight = metrics.Height;
+                    }
+
+                    if (placed == 0) {
+                        break;
+                    }
                 }
 
-                if (placed == 0) {
-                    break;
-                }
-
-                var metrics = MeasureLine(lineStart, cursor, direction, innerWidth);
+                cursor = lineEnd;
 
                 if (performLayout) {
                     PlaceLine(
                         lineStart,
-                        cursor,
+                        lineEnd,
                         direction,
                         outerWidth,
                         innerWidth,
                         insetLeft,
                         insetRight,
-                        y,
+                        lineStartInset,
+                        lineTop,
                         in metrics,
                         ref open
                     );
                 }
 
-                lastBaseline = y + metrics.Ascent;
-                y += metrics.Height;
+                lastBaseline = lineTop + metrics.Ascent;
+                y = lineTop + metrics.Height;
             }
 
             return new InlineWalk(y, lastBaseline);
@@ -568,6 +625,170 @@ public sealed partial class LayoutTree {
         );
     }
 
+    /// <summary>Fills one line box from the stream, and reports where it ended.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><paramref name="innerWidth" /> and <paramref name="availableWidth" /> are two
+    ///         different questions and only the second one floats change.</b> The first is the
+    ///         containing block's inline size, which every percentage on the line resolves against —
+    ///         CSS 2.1 §8.3 makes even a percentage <c>margin-top</c> a fraction of it. The second is
+    ///         how much room this particular line box has, which §9.5 lets a float take away. Passing
+    ///         the band as the percentage base instead would make an item's own margins change
+    ///         depending on which line it landed on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An item that does not fit still goes on the line when the line is empty.</b>
+    ///         §9.4.2: a line box that cannot hold its one atomic item overflows rather than producing
+    ///         an empty line and then overflowing anyway. Dropping the <c>placed &gt; 0</c> guard turns
+    ///         a single over-wide item into an infinite loop, which is why it is a guard and not a
+    ///         clamp. Beside a float the line is moved down FIRST — see
+    ///         <see cref="ShiftLinePastFloats" /> — and only overflows once there is no float left to
+    ///         get out from under.
+    ///     </para>
+    /// </remarks>
+    (int End, int Placed) BreakLine(int lineStart, int streamEnd, Direction direction, float innerWidth, float availableWidth) {
+        var cursor = lineStart;
+        var lineWidth = 0f;
+        var placed = 0;
+
+        while (cursor < streamEnd) {
+            var item = inlineItems[cursor];
+
+            if (item.Kind != InlineItemKind.Atomic) {
+                // An inline box's edge is not a break opportunity and cannot start a line on its own;
+                // it just costs its border, padding and margin wherever it falls.
+                lineWidth += item.Kind == InlineItemKind.Open
+                    ? InlineBoxStartEdge(item.Node, direction, innerWidth)
+                    : InlineBoxEndEdge(item.Node, direction, innerWidth);
+                cursor++;
+
+                continue;
+            }
+
+            var advance = InlineOuterWidth(item.Node, direction, innerWidth);
+
+            // ⚠ A tolerance rather than a bare `>`, because the widths being compared are sums of
+            // resolved percentages and a line that fits exactly is the commonest case in a
+            // hand-written layout. Breaking `width: 50%` twice into two lines because the two halves
+            // add to 100.00001 is the failure this prevents.
+            if (placed > 0 && lineWidth + advance > availableWidth + LineFitTolerance) {
+                break;
+            }
+
+            lineWidth += advance;
+            placed++;
+            cursor++;
+        }
+
+        return (cursor, placed);
+    }
+
+    /// <summary>How much room a line box needs before it can hold anything at all.</summary>
+    /// <remarks>
+    ///     §9.5's shift-down clause is stated against "content", and the smallest unit of content this
+    ///     walk can put on a line is one atomic item — plus whichever inline box edges open before it,
+    ///     which are charged to the line wherever they fall and cannot be deferred to the next one.
+    /// </remarks>
+    float FirstChunkWidth(int lineStart, int streamEnd, Direction direction, float innerWidth) {
+        var width = 0f;
+
+        for (var i = lineStart; i < streamEnd; i++) {
+            var item = inlineItems[i];
+
+            if (item.Kind != InlineItemKind.Atomic) {
+                width += item.Kind == InlineItemKind.Open
+                    ? InlineBoxStartEdge(item.Node, direction, innerWidth)
+                    : InlineBoxEndEdge(item.Node, direction, innerWidth);
+
+                continue;
+            }
+
+            return width + InlineOuterWidth(item.Node, direction, innerWidth);
+        }
+
+        return width;
+    }
+
+    /// <summary>How much of a line box the floats crossing it leave, and where it starts.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three coordinate systems meet on these four lines, and getting the wrong one is
+    ///         silent.</b> The exclusion list is in the formatting context ROOT's content coordinates;
+    ///         <see cref="floatOriginX" /> holds where the container being walked has its BORDER box
+    ///         in them, so this container's own content box starts at <c>floatOriginX + insetLeft</c>.
+    ///         A line box is addressed in the container's coordinates, like every other output here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the band is clamped to this container rather than trusted.</b>
+    ///         <see cref="FloatBandAt" /> answers with <see cref="floatContextWidth" /> as its far
+    ///         edge, which belongs to the context root and not to this box — a narrower box nested in
+    ///         one would otherwise be handed a line box wider than itself the moment no float crossed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The returned inset is inline-relative and the band is physical, which is the whole
+    ///         of what RTL costs here.</b> In LTR a line starts at the band's left edge; in RTL it
+    ///         starts at the band's right edge, so the distance from the container's own start edge is
+    ///         what is left over on the other side. A left float narrows an RTL line without moving
+    ///         where it begins, and a right float moves where it begins without narrowing it any
+    ///         differently — both are one subtraction rather than two cases.
+    ///     </para>
+    /// </remarks>
+    (float StartInset, float Available) InlineBandForLine(
+        float lineTop,
+        float lineHeight,
+        float innerWidth,
+        float insetLeft,
+        Direction direction
+    ) {
+        var contentLeft = floatOriginX + insetLeft;
+        var (bandLeft, bandRight) = FloatBandAt(floatOriginY + lineTop, lineHeight);
+
+        var left = MathF.Max(0f, bandLeft - contentLeft);
+        var right = MathF.Min(innerWidth, bandRight - contentLeft);
+
+        return (direction == Direction.Ltr ? left : MathF.Max(0f, innerWidth - right), MathF.Max(0f, right - left));
+    }
+
+    /// <summary>
+    ///     CSS 2.1 §9.5's other clause: a line box with no room for content is moved down until it has
+    ///     some, or until there are no floats left to move past.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>"Or until there are no more floats present" is the half that keeps this from being a
+    ///     clamp.</b> An item wider than the container itself never fits any band, and the loop must
+    ///     still stop — below the last float, where §9.4.2's overflow takes over. Chrome answers
+    ///     exactly that: a 150-wide item in a 100-wide box with a 60×40 left float comes out at
+    ///     <c>x = 0, y = 40</c>, below the float and hanging 50 points off the right.
+    /// </remarks>
+    float ShiftLinePastFloats(float lineTop, float lineHeight, float needed, float innerWidth, float insetLeft) {
+        var y = lineTop;
+
+        while (true) {
+            var (_, available) = InlineBandForLine(y, lineHeight, innerWidth, insetLeft, Direction.Ltr);
+
+            if (available + LineFitTolerance >= needed) {
+                return y;
+            }
+
+            var next = NextFloatBottomBelow(floatOriginY + y, lineHeight);
+
+            if (float.IsNaN(next)) {
+                return y;
+            }
+
+            var candidate = next - floatOriginY;
+
+            if (candidate <= y) {
+                return y;
+            }
+
+            y = candidate;
+        }
+    }
+
+    /// <summary>The slack a line-fitting comparison is allowed, in points.</summary>
+    const float LineFitTolerance = 0.0001f;
+
     /// <summary>An item's width on the line, margins included.</summary>
     float InlineOuterWidth(int child, Direction direction, float innerWidth) =>
         results[child].MeasuredDimensions[(int) Dimension.Width]
@@ -674,6 +895,12 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Positions every item on one line box, and closes off any fragment it ends.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>lineStartInset</c> is how far this line box's own start edge sits inside the
+    ///     container's content start edge</b>, which is zero unless a float took some of it away. It
+    ///     is inline-relative, so seeding <c>x</c> with it adds it on the left in LTR and subtracts it
+    ///     from the right in RTL without a second branch — see <see cref="InlineBandForLine" />.
+    /// </remarks>
     void PlaceLine(
         int lineStart,
         int lineEnd,
@@ -682,11 +909,19 @@ public sealed partial class LayoutTree {
         float innerWidth,
         float insetLeft,
         float insetRight,
+        float lineStartInset,
         float lineTop,
         in LineMetrics metrics,
         ref OpenInlineBox open
     ) {
-        var x = 0f;
+        var x = lineStartInset;
+
+        // ⚠ A box that was still open when the last line ended reopens at THIS line's start edge, and
+        // beside a float that is not the same place the last one started. Resetting it when the
+        // fragment was emitted could only guess at an inset the next line had not chosen yet.
+        if (open.Node >= 0) {
+            open.Start = x;
+        }
 
         for (var i = lineStart; i < lineEnd; i++) {
             var item = inlineItems[i];
@@ -769,7 +1004,6 @@ public sealed partial class LayoutTree {
                 LayoutFragmentEnds.None
             );
 
-            open.Start = 0f;
             open.IsFirstFragment = false;
         }
     }
