@@ -339,8 +339,28 @@ public sealed class UiCompositingTests {
     ///         curved, the two straddle the arc in opposite directions. That was worth up to
     ///         seventeen levels of 255 on the corner arcs of a frame with no group in it at all, and
     ///         seventeen pixels of this fixture over the channel bound. Emulating the quad closed it:
-    ///         <b>one</b> pixel of 16384 now exceeds the bound, and that one is the 8-bit store the
-    ///         paragraph above describes. See the derivative in <c>SoftwareUiRasterizer.Box</c>.
+    ///         <b>one</b> pixel of 16384 now exceeds the bound. See the derivative in
+    ///         <c>SoftwareUiRasterizer.Box</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That surviving pixel is <i>not</i> the 8-bit store, which this said until it was
+    ///         looked at.</b> It is <c>(83, 9)</c> — inside the third group's <c>D</c> — where the
+    ///         device stores <c>238, 249, 253</c> and the software renderer <c>255, 255, 255</c>. A
+    ///         store rounding is worth one level; that is <b>seventeen</b>, and it is the glyph
+    ///         shader's field saturating a hair differently, not this one's. The measured histogram
+    ///         behind the numbers above is 10901 pixels identical, 5476 apart by one, five by two, one
+    ///         by three, and that one by seventeen — so the blend chain this tolerance is named for
+    ///         really does top out at three, and the channel bound has a level of margin over it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Where the box shader itself is held, which is not here.</b> A corner divergence
+    ///         reaches this fixture badly attenuated: reintroducing the derivative defect above shows
+    ///         up here as twenty-five pixels against a sixteen-pixel bound, and in
+    ///         <see cref="UiBoxAgreementTests" /> — same device, same run — as <b>86 levels of
+    ///         255</b>. That file compares the two executors on frames with no group in them at all,
+    ///         at <c>ImageTolerance.Slight</c>, which is where a shader disagreement has nowhere to
+    ///         hide. This one is sized for what <i>compositing</i> costs and should not be tightened
+    ///         to do that file's job.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>So why not zero.</b> <c>fwidth</c> is implementation-defined between a fine and a

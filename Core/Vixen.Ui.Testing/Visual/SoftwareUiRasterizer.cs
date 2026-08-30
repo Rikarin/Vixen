@@ -288,7 +288,21 @@ public static class SoftwareUiRasterizer {
             1e-4f
         );
 
-        var coverage = Coverage(distance, width);
+        // ⚠ <b>A blurred box is a shadow, and its edge is the blur rather than a pixel.</b> This
+        // branch is <c>ui-box.frag</c>'s and the port did not have it: every <c>box-shadow</c> in the
+        // engine reaches the box shader as a record with <c>axis.z</c> set, and a port that reads the
+        // record's size, radii, border, gradient axis, stops and interpolation space but not its blur
+        // draws a <i>hard-edged box</i> exactly where the soft shadow should be — at full opacity,
+        // and with nothing blank to notice. Measured against the device on two blurred boxes with no
+        // group in the frame: <b>1272 pixels of 16384 differing by up to 27 levels of 255</b>.
+        //
+        // ⚠ It hid because the fixture that compares the two executors has no
+        // <c>DrawCommandKind.Shadow</c> in it — its shadows are <c>UiDropShadow</c>, which is a
+        // <i>layer</i> and reaches the frame through <c>ShadowSurface</c> and the colour pipeline
+        // rather than through this shader at all. The two names are the trap <c>UiDropShadow</c>'s
+        // own remarks warn about, one level down.
+        var blur = shape.Axis.Z;
+        var coverage = blur > 0f ? ShadowCoverage(distance, blur) : Coverage(distance, width);
         var thickness = shape.Size.Z;
 
         if (thickness > 0f) {
@@ -486,6 +500,32 @@ public static class SoftwareUiRasterizer {
 
     /// <summary>Coverage across a one-pixel band, from the derivative of the distance itself.</summary>
     static float Coverage(float distance, float width) => Math.Clamp(0.5f - (distance / width), 0f, 1f);
+
+    /// <summary>A shadow's coverage: the same distance, faded over the blur instead of over a pixel.</summary>
+    /// <param name="distance">The signed distance to the box, negative inside.</param>
+    /// <param name="blur">The half-extent the edge fades over, in pixels.</param>
+    /// <returns>The coverage.</returns>
+    /// <remarks>
+    ///     <c>shadow_coverage</c> in <c>ui-box.frag</c>, and the cubic is load-bearing rather than
+    ///     decorative — see that file for why a linear falloff shows as a ring in a large soft shadow.
+    /// </remarks>
+    static float ShadowCoverage(float distance, float blur) => 1f - Smoothstep(-blur, blur, distance);
+
+    /// <summary>GLSL's <c>smoothstep</c>.</summary>
+    /// <param name="from">Where the ramp starts.</param>
+    /// <param name="to">Where it ends.</param>
+    /// <param name="value">Where to evaluate it.</param>
+    /// <returns>The ramp, clamped flat outside the two edges.</returns>
+    /// <remarks>
+    ///     ⚠ Written out rather than taken from <c>MathUtil</c>, for the reason the class remarks give
+    ///     about <see cref="BoxDistance" />: what this file ports is the shader as written, so a helper
+    ///     that clamped differently or interpolated on a different curve would make this renderer
+    ///     disagree with the one that ships while looking more correct.
+    /// </remarks>
+    static float Smoothstep(float from, float to, float value) {
+        var t = Math.Clamp((value - from) / (to - from), 0f, 1f);
+        return t * t * (3f - (2f * t));
+    }
 
     /// <summary>Branchless via min and max, as the shader has it.</summary>
     static float Median(float a, float b, float c) =>
