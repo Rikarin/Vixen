@@ -30,6 +30,24 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
                           LogicalName="Vixen.Ui.Testing.Tests.Fonts.TestShapeLana.ttf" />
+
+        <!--
+            And a Latin text face, because TestShapeLana cannot witness a clipped descender. Lana is
+            a Tai Tham face: its line box is sized for stacked marks, so its baseline sits high and
+            its Latin descenders stop four to six pixels above the bottom of the block. A box a pixel
+            shorter than its text therefore loses a blank row, and `TextChildDescenderTests` passes
+            against the very bug it exists to catch — measured, with the fix reverted, at every one
+            of thirty-five widths.
+
+            Open Sans is the face the editor actually ships and the one the panel port that found
+            this was rendered in, and its descenders reach the last row of a tight line box. It is
+            already in this repository with its OFL beside it, so this is a link and not a second
+            copy — the same arrangement Vixen.Ui.Styling.Utilities.Tests uses, and a build-time file
+            include rather than a project reference: nothing in this assembly's code knows the editor
+            exists.
+        -->
+        <EmbeddedResource Include="..\..\Editor\Vixen.Editor.App\Fonts\OpenSans-Regular.ttf"
+                          LogicalName="Vixen.Ui.Testing.Tests.Fonts.OpenSans-Regular.ttf" />
     </ItemGroup>
 
     <ItemGroup>
