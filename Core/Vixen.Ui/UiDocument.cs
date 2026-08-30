@@ -1421,9 +1421,23 @@ public sealed partial class UiDocument : IDisposable {
                     factor = float.NaN;
                     break;
 
-                case StyleValueKind.Length:
-                    lineHeight = value.Number * metrics.WithFontSize(fontSize).PixelsPer(value.Unit);
+                // ⚠ <b>Resolved through `LengthContext.ToLength` rather than `PixelsPer`.</b> That
+                // method answers zero for a unit that measures no distance, so `line-height: 200ms`
+                // used to compute a line height of *nothing* — every line of the element and of
+                // everything under it stacked on one baseline, with no diagnostic and no clamp. The
+                // percentage case above has already taken the one unit `ToLength` refuses that this
+                // property does accept, so what reaches here is a distance or a mistake.
+                case StyleValueKind.Length
+                    when metrics.WithFontSize(fontSize).ToLength(value) is { Unit: LayoutUnit.Point } resolved:
+                    lineHeight = resolved.Value;
                     factor = float.NaN;
+                    break;
+
+                // ⚠ A length-shaped value in a unit that is not a distance, which is an invalid
+                // declaration. Left inherited rather than zeroed or reset to `normal`: a browser
+                // drops the declaration at parse time, and what an element with no `line-height` of
+                // its own gets is its parent's — which is what `lineHeight` and `factor` still hold.
+                case StyleValueKind.Length:
                     break;
 
                 // `normal`, and anything else with no reading — the font's own recommendation.
@@ -1434,12 +1448,23 @@ public sealed partial class UiDocument : IDisposable {
             }
         }
 
+        // ⚠ <b>Three outcomes and not two, which is what `PixelsPer` could not express here.</b> A
+        // distance resolves; anything that is not length-shaped at all — `normal`, and every other
+        // keyword, which is the reading this property already gave them — is zero tracking; and a
+        // length-shaped value in a unit that measures no distance is an invalid declaration and is
+        // left inherited. Read through `PixelsPer` the third collapsed into the second:
+        // `letter-spacing: 2deg` was `normal` exactly, which is the initial value, so nothing about
+        // the frame could tell the declaration had been thrown away. That is the worst shape this
+        // bug takes anywhere in the file — the silent answer is not merely plausible, it is the
+        // default.
         if (style.TryGet(letterSpacing, out var spacing)) {
             var value = reader.Parse(spacing);
 
-            tracking = value.Kind == StyleValueKind.Length
-                ? value.Number * metrics.WithFontSize(fontSize).PixelsPer(value.Unit)
-                : 0f;
+            if (metrics.WithFontSize(fontSize).ToLength(value) is { Unit: LayoutUnit.Point } resolved) {
+                tracking = resolved.Value;
+            } else if (value.Kind != StyleValueKind.Length) {
+                tracking = 0f;
+            }
         }
 
         // ⚠ <b>A percentage is refused rather than resolved, and it is the one value of this
@@ -1449,12 +1474,21 @@ public sealed partial class UiDocument : IDisposable {
         // against the element that wrote it. `LayoutStyleBuilder.TryTextLength` made the same
         // refusal for the same reason before anything read the property. No utility can emit one:
         // `indent-*` is the spacing scale and `indent-px` is a pixel.
+        //
+        // ⚠ <b>A unit that is not a distance is a third case, and it is not the percentage's.</b> A
+        // percentage is a value this engine understands and cannot resolve here, so it lands on the
+        // initial value deliberately; `text-indent: 200ms` is not a value at all, and used to reach
+        // the same zero through `PixelsPer` — the declaration thrown away and the element indented by
+        // nothing, which is exactly what an element with no `text-indent` looks like. Left inherited
+        // instead, which is what a dropped declaration means.
         if (style.TryGet(textIndent, out var declared_indent)) {
             var value = reader.Parse(declared_indent);
 
-            indent = value.Kind == StyleValueKind.Length && value.Unit != StyleUnit.Percent
-                ? value.Number * metrics.WithFontSize(fontSize).PixelsPer(value.Unit)
-                : 0f;
+            if (metrics.WithFontSize(fontSize).ToLength(value) is { Unit: LayoutUnit.Point } resolved) {
+                indent = resolved.Value;
+            } else if (value.Kind != StyleValueKind.Length || value.Unit == StyleUnit.Percent) {
+                indent = 0f;
+            }
         }
 
         // ⚠ <b>Both are read off this element's own computed style rather than from the parent's

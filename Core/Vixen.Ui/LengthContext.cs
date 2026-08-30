@@ -54,6 +54,20 @@ public readonly record struct LengthContext(
     /// <param name="unit">The unit.</param>
     /// <returns>The pixels, or zero for a unit that is not a length.</returns>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Prefer <see cref="ToLength" />. Reading a declared value through this method is a
+    ///         bug with a plausible-looking answer, and it was written six separate times in one
+    ///         assembly before anybody noticed one of them.</b>
+    ///         A unit that measures no distance — <c>200ms</c>, <c>90deg</c>, a percentage — comes
+    ///         back as <i>zero</i>, and zero is a legal, visible answer for almost everything a
+    ///         length is used for: a shadow at no offset, a blur that does not blur, a spread of
+    ///         nothing, tracking of exactly <c>normal</c>. Nothing throws, nothing is logged, and the
+    ///         frame looks like one where the declaration was never written. Every caller in this
+    ///         repository that took a <see cref="StyleValue" /> from a stylesheet has been moved to
+    ///         <see cref="ToLength" />, which answers <see cref="StyleLength.Undefined" /> for the
+    ///         same input and therefore lets the caller refuse it; this method survives for a caller
+    ///         that already knows its unit is a distance and only wants the scale factor.
+    ///     </para>
     ///     ⚠ <see cref="StyleUnit.Percent" /> is not here, and its absence is the point. A percentage
     ///     resolves against the containing block, which only the layout pass knows — so it is carried
     ///     through to <see cref="LayoutUnit.Percent" /> unresolved rather than turned into a number

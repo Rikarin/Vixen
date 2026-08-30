@@ -617,6 +617,83 @@ public class DrawListTests {
         Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
     }
 
+    /// <summary>A shadow measured in something that is not a distance draws nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every row here <i>drew a shadow</i> before <c>EmitShadow</c> stopped reading its
+    ///         lengths through <c>LengthContext.PixelsPer</c>, and that is what makes them worth
+    ///         four rows rather than one.</b> That method answers zero for a unit that measures no
+    ///         distance, so each of these resolved to a perfectly well-formed shadow with one of its
+    ///         four numbers quietly replaced by nothing: an offset that does not offset, a blur that
+    ///         does not blur, a spread of no width. No diagnostic, no clamp, no exception — and every
+    ///         one of the four zeros is a value a stylesheet could legitimately have asked for, so
+    ///         there is nothing about the resulting frame that says the declaration was misread.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refused rather than resolved, which is the choice the rest of this method already
+    ///         made.</b> <c>inset</c> takes the whole declaration with it and so does a fifth length;
+    ///         a unit CSS does not allow on this property is the same kind of mistake and gets the
+    ///         same answer. The percentage row is not a near miss either — CSS has no percentage in
+    ///         <c>box-shadow</c>'s grammar, and the containing block a percentage would resolve
+    ///         against is not known here in any case.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("90deg 4px 12px #000000")]
+    [InlineData("0px 4px 200ms #000000")]
+    [InlineData("0px 4px 12px 2s #000000")]
+    [InlineData("50% 4px 12px #000000")]
+    public void A_shadow_length_in_a_unit_that_is_not_a_distance_is_refused(string shadow) {
+        using var document = Drawn(
+            $$"""
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: {{shadow}};
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
+    }
+
+    /// <summary>And the units that <i>are</i> distances still resolve to the distance they measure.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half of the theory above, and it is not decoration.</b> "It refuses the bad
+    ///     units" is satisfied by a method that refuses everything, and "it resolves the good ones" is
+    ///     satisfied by one that answers zero for all four — which is precisely the bug. All four
+    ///     numbers are therefore different, none is zero, and each lands in a different field, so a
+    ///     reader that dropped or transposed any one of them comes out red.
+    /// </remarks>
+    [Fact]
+    public void A_shadow_in_relative_units_resolves_to_what_they_measure() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; font-size: 20px; background-color: #ffffff;
+                box-shadow: 0.5em 1em 2em 0.25em #000000;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var shadow = document.Drawing.Commands[0];
+
+        Assert.Equal(DrawCommandKind.Shadow, shadow.Kind);
+
+        // Ten across and twenty down at a font size of twenty, less the five-pixel spread that grows
+        // the box in every direction.
+        Assert.Equal(5f, shadow.X, Tolerance);
+        Assert.Equal(15f, shadow.Y, Tolerance);
+        Assert.Equal(110f, shadow.Width, Tolerance);
+        Assert.Equal(70f, shadow.Height, Tolerance);
+
+        // Half of the forty-pixel blur, for the reason the fixed-length test above gives.
+        Assert.Equal(20f, shadow.Thickness, Tolerance);
+    }
+
     [Fact]
     public void A_shadow_fades_with_the_opacity_of_what_casts_it() {
         using var document = Drawn(

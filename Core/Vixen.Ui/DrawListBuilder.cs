@@ -1348,14 +1348,20 @@ public sealed class DrawListBuilder {
                 case StyleValueKind.Keyword:
                     return;
 
-                // A bare `0` is a length and only that one, which is the same rule `LengthContext`
-                // applies — `box-shadow: 0 2px 4px #000` is how everybody writes it.
-                case StyleValueKind.Number when item.Number == 0f && count < lengths.Length:
-                    lengths[count++] = 0f;
-                    continue;
-
-                case StyleValueKind.Length when count < lengths.Length:
-                    lengths[count++] = item.Number * context.PixelsPer(item.Unit);
+                // ⚠ <b><see cref="LengthContext.ToLength" /> and not
+                // <see cref="LengthContext.PixelsPer" />, which is the trap this method was in.</b>
+                // That method answers <i>zero</i> for a unit that measures no distance, so a
+                // `box-shadow: 90deg 2px #000` read through it was a shadow at no x-offset, a blur
+                // written `200ms` was a shadow with no blur, and a spread written `50%` was none —
+                // invalid CSS silently clamped to a plausible-looking number, which is the one
+                // behaviour the rest of this method refuses. `ToLength` is what tells "a length that
+                // came to nothing" from "not a length": a bare `0` is a length and only that one,
+                // which is how everybody writes `box-shadow: 0 2px 4px #000`, and a percentage is a
+                // real unit that this property has no meaning for. Both fall out of the same test,
+                // and anything that is not a `Point` drops through to the refusal below.
+                case StyleValueKind.Number or StyleValueKind.Length
+                    when count < lengths.Length && context.ToLength(item) is { Unit: LayoutUnit.Point } length:
+                    lengths[count++] = length.Value;
                     continue;
 
                 default:
@@ -1765,12 +1771,18 @@ public sealed class DrawListBuilder {
         }
 
         if (keyword == blurFunction) {
-            var pixels = argument.Kind switch {
-                StyleValueKind.Length => argument.Number
-                    * document.Viewport.WithFontSize(element.FontSize).PixelsPer(argument.Unit),
-                StyleValueKind.Number when argument.Number == 0f => 0f,
-                _ => float.NaN
-            };
+            // ⚠ <b><see cref="LengthContext.ToLength" /> and not
+            // <see cref="LengthContext.PixelsPer" />, the same swap <see cref="Shadow" /> and
+            // <see cref="EmitShadow" /> make and for the same reason.</b> `StyleValueParser` accepts
+            // any <see cref="StyleValueKind.Length" /> here — it checks the shape and leaves the
+            // meaning to this method — so `blur(200ms)` and `blur(50%)` both arrive, and read through
+            // `PixelsPer` both answered a σ of zero. A zero σ is not a refusal: it survives the
+            // finiteness test below and composes by quadrature into no change at all, so the whole
+            // `filter` was silently the identity. `ToLength` makes it the refusal it always should
+            // have been, which takes the declaration with it and is therefore visible. A bare `0` is
+            // still a length and only that one — `blur(0)` is the identity somebody wrote on purpose.
+            var length = document.Viewport.WithFontSize(element.FontSize).ToLength(argument);
+            var pixels = length.Unit == LayoutUnit.Point ? length.Value : float.NaN;
 
             if (float.IsNaN(pixels) || pixels < 0f || !float.IsFinite(pixels)) {
                 return null;
@@ -1895,13 +1907,13 @@ public sealed class DrawListBuilder {
 
                 // ⚠ <b><see cref="LengthContext.ToLength" /> and not
                 // <see cref="LengthContext.PixelsPer" />, which is the trap <see cref="EmitShadow" />
-                // is still in.</b> That method answers <i>zero</i> for a unit that measures no
-                // distance, so a `drop-shadow(90deg 2px black)` read through it is a shadow with a
-                // zero x-offset — invalid CSS silently clamped, which is the one behaviour the rest
-                // of this file refuses. `ToLength` distinguishes "a length that came to nothing"
-                // from "not a length", which is the whole reason it exists. A bare zero is a length
-                // and only that one, and a percentage is a real unit here that this function has no
-                // meaning for, so both fall out of the same test.
+                // was in too, until it was taken out of it.</b> That method answers <i>zero</i> for
+                // a unit that measures no distance, so a `drop-shadow(90deg 2px black)` read through
+                // it is a shadow with a zero x-offset — invalid CSS silently clamped, which is the
+                // one behaviour the rest of this file refuses. `ToLength` distinguishes "a length
+                // that came to nothing" from "not a length", which is the whole reason it exists. A
+                // bare zero is a length and only that one, and a percentage is a real unit here that
+                // this function has no meaning for, so both fall out of the same test.
                 case StyleValueKind.Number or StyleValueKind.Length
                     when count < lengths.Length && context.ToLength(item) is { Unit: LayoutUnit.Point } length:
                     lengths[count++] = length.Value;

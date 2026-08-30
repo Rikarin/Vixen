@@ -207,6 +207,51 @@ public class FilterBlurTests {
         Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
     }
 
+    /// <summary>A radius in a unit that measures no distance refuses the list it is in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every row carries a <c>brightness</c>, and that is the whole design of this
+    ///         theory rather than padding.</b> <c>blur(200ms)</c> read through
+    ///         <c>LengthContext.PixelsPer</c> answered a σ of <i>zero</i>, and a σ of zero is not a
+    ///         refusal — it survives the finiteness test, composes by quadrature into no change at
+    ///         all, and leaves a <c>filter</c> that opens no group. Which is exactly what
+    ///         <c>Anything_carrying_a_function_the_engine_cannot_run…</c> asserts, so these rows put
+    ///         on their own would have passed against the bug they exist to catch. The
+    ///         <c>brightness(0.5)</c> beside each one opens a group on its own account, so the layer
+    ///         count tells "the blur was refused, and took the list with it" apart from "the blur was
+    ///         silently nothing".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refused rather than clamped, for the reason <c>blur(-3px)</c> already is.</b> A
+    ///         duration is not a small blur or a large one; it is not a blur. And the identity a
+    ///         stylesheet meant to write is spelled <c>blur(0)</c>, which is still accepted.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("filter: blur(200ms) brightness(0.5);")]
+    [InlineData("filter: blur(90deg) brightness(0.5);")]
+    [InlineData("filter: blur(50%) brightness(0.5);")]
+    [InlineData("filter: brightness(0.5) blur(2turn);")]
+    public void A_radius_in_a_unit_that_is_not_a_distance_refuses_the_whole_list(string filter) {
+        using var ui = Square(filter);
+
+        Assert.Empty(ui.Geometry.Layers);
+        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+    }
+
+    /// <summary>And a colour function on its own still opens the group these rows deny.</summary>
+    /// <remarks>
+    ///     ⚠ The control for the theory above. Without it, a <c>brightness</c> that had stopped
+    ///     opening a group for some unrelated reason would make all four rows pass while asserting
+    ///     nothing about the blur at all.
+    /// </remarks>
+    [Fact]
+    public void A_brightness_on_its_own_opens_the_group_those_rows_refuse() {
+        using var ui = Square("filter: brightness(0.5);");
+
+        Assert.NotNull(Assert.Single(ui.Geometry.Layers).Filter);
+    }
+
     /// <summary>Relative units resolve against the element's own font size, as every other length does.</summary>
     [Fact]
     public void The_radius_is_a_length_and_not_a_number() {
