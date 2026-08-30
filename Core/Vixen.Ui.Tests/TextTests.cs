@@ -656,6 +656,78 @@ public class TextTests {
         Assert.Equal(15f, label.Block()!.Lines[0].Height, Tolerance);
     }
 
+    /// <summary>A <c>line-height</c> in a unit that measures no distance keeps the inherited one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The zero this used to answer is the most destructive one in the file and still says
+    ///     nothing.</b> <c>ResolveText</c> read the declaration through <c>LengthContext.PixelsPer</c>,
+    ///     which answers zero for a duration — so <c>line-height: 3s</c> computed a line height of
+    ///     <i>nothing</i> and every line of the element, and of everything beneath it, stacked onto
+    ///     one baseline. It reads as a shaping or a leading bug, and the declaration that caused it
+    ///     is three properties away from anything a reader would suspect. Left inherited now, because
+    ///     an invalid declaration is one a browser drops, and what an element with no
+    ///     <c>line-height</c> of its own has is its parent's.
+    /// </remarks>
+    [Fact]
+    public void A_line_height_in_a_unit_that_is_not_a_distance_is_refused_rather_than_zeroed() {
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            .panel { font-size: 20px; line-height: 50px; }
+            label { font-family: Test; }
+            .odd { line-height: 3s; }
+        """);
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        var kept = panel.Add("label");
+        var odd = panel.Add("label", null, "odd");
+
+        kept.Text = "AB";
+        odd.Text = "AB";
+
+        document.Update();
+
+        Assert.Equal(50f, kept.Block()!.Lines[0].Height, Tolerance);
+        Assert.Equal(50f, odd.Block()!.Lines[0].Height, Tolerance);
+    }
+
+    /// <summary>And a <c>letter-spacing</c> in one does too, where the silent answer was the default.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The worst-shaped instance of the whole class.</b> Zero tracking <i>is</i>
+    ///     <c>letter-spacing: normal</c>, which is the initial value — so a declaration silently read
+    ///     as zero produced a frame indistinguishable from one where nobody had written the property,
+    ///     with no diagnostic to say otherwise. The inherited four pixels are what makes the two
+    ///     outcomes tell apart here: a reader still zeroing the unit comes out at nought, and this
+    ///     comes out red.
+    /// </remarks>
+    [Fact]
+    public void A_letter_spacing_in_a_unit_that_is_not_a_distance_is_refused_rather_than_zeroed() {
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            .panel { font-size: 20px; letter-spacing: 4px; }
+            label { font-family: Test; }
+            .odd { letter-spacing: 2deg; }
+            .normal { letter-spacing: normal; }
+        """);
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        var kept = panel.Add("label");
+        var odd = panel.Add("label", null, "odd");
+        var cleared = panel.Add("label", null, "normal");
+
+        kept.Text = "AB";
+        odd.Text = "AB";
+        cleared.Text = "AB";
+
+        document.Update();
+
+        Assert.Equal(4f, kept.Block()!.Lines[0].Runs[0].Tracking, Tolerance);
+        Assert.Equal(4f, odd.Block()!.Lines[0].Runs[0].Tracking, Tolerance);
+
+        // ⚠ And `normal` still means nought, which is the outcome the refusal must not swallow: a
+        // reader that answered "inherited" for everything it did not resolve would keep four pixels
+        // here and break the one spelling CSS gives for turning the property off.
+        Assert.Equal(0f, cleared.Block()!.Lines[0].Runs[0].Tracking, Tolerance);
+    }
+
     [Fact]
     public void An_inherited_text_property_changing_rebuilds_the_children_that_never_declared_it() {
         // ⚠ The trap this design creates. `line-height` and `letter-spacing` are inherited outside

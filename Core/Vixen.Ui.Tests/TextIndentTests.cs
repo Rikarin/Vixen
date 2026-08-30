@@ -104,6 +104,32 @@ public class TextIndentTests {
         Assert.Equal(0f, Labelled(document, "aa bb").TextIndent);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A unit that is not a distance is refused, and it is not the percentage's refusal.</b>
+    ///     A percentage is a value this engine understands and cannot resolve here, so it lands on
+    ///     the initial value deliberately — the fact above. <c>text-indent: 200ms</c> is not a value
+    ///     at all, and reached that same zero through <c>LengthContext.PixelsPer</c>, which answers
+    ///     nothing for a duration: the declaration thrown away and the element indented by nought,
+    ///     which is exactly what an element that never declared the property looks like. It is left
+    ///     inherited now, which is what dropping a declaration means — and the inherited twelve
+    ///     pixels here are what tell the two outcomes apart.
+    /// </summary>
+    [Theory]
+    [InlineData("200ms")]
+    [InlineData("90deg")]
+    [InlineData("0.5turn")]
+    public void A_unit_that_is_not_a_distance_is_refused_rather_than_zeroed(string indent) {
+        using var document = Documented("width: 80px;");
+        document.Load($"#outer {{ text-indent: 12px; }} #inner {{ text-indent: {indent}; }}");
+
+        var outer = document.Root.Add("div", "outer");
+        var inner = outer.Add("label", "inner");
+        inner.Text = "aa bb";
+        document.Update();
+
+        Assert.Equal(12f, inner.TextIndent, Tolerance);
+    }
+
     /// <summary>The indent lands on the first line and on no other.</summary>
     [Fact]
     public void Only_the_first_line_carries_the_offset() {
