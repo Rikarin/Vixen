@@ -66,7 +66,7 @@ public sealed class NavigationAllocationTests {
         var corners = new NavPathPoint[16];
         var found = 0;
 
-        Assert.Equal(0, Measure(Search));
+        AllocatesNothing(Search);
         Assert.True(found > 0, "The search found nothing, so the measurement is of nothing.");
 
         return;
@@ -89,7 +89,7 @@ public sealed class NavigationAllocationTests {
         var visited = new NavPolyRef[32];
         var hits = 0;
 
-        Assert.Equal(0, Measure(Cast));
+        AllocatesNothing(Cast);
         Assert.True(hits > 0, "Nothing was hit, and this test is about the cast that hits a wall.");
 
         return;
@@ -109,7 +109,7 @@ public sealed class NavigationAllocationTests {
 
         query.FindNearestPoly(new(3, 0, 8), Extents, NavQueryFilter.Default, out var start, out var startPoint);
 
-        Assert.Equal(0, Measure(Move));
+        AllocatesNothing(Move);
 
         return;
 
@@ -158,7 +158,7 @@ public sealed class NavigationAllocationTests {
             crowd.SetTarget(handle, north);
         }
 
-        Assert.Equal(0, Measure(Frame, warmUp: 12_000));
+        AllocatesNothing(Frame, warmUp: 12_000);
         Assert.True(arrivals > 0, "Nobody finished a leg, so no replan was measured.");
 
         return;
@@ -176,9 +176,10 @@ public sealed class NavigationAllocationTests {
     }
 
     /// <summary>
-    ///     Runs the work until whatever it grows has stopped growing, then measures the same work
-    ///     again. See <see cref="Measured" /> for why the measurement is more than a subtraction.
+    ///     Runs the work until whatever it grows has stopped growing, then asserts that the same work
+    ///     run again allocates nothing. See <see cref="Measured" /> for why the measurement is more
+    ///     than a subtraction, and why a failure names types rather than only a byte count.
     /// </summary>
-    static long Measure(Action frame, int warmUp = WarmUpFrames)
-        => Measured.Bytes(frame, warmUp, MeasuredFrames);
+    static void AllocatesNothing(Action frame, int warmUp = WarmUpFrames)
+        => Measured.NothingAllocated(frame, warmUp, MeasuredFrames);
 }

@@ -328,9 +328,12 @@ public sealed class VfxGeometryTests {
 
         // Warmed so the sort's key and order arrays have been grown to capacity, which they are once
         // and not per frame.
-        var allocated = Measured.Bytes(Frame, warmUp: 180, passes: 180);
-
-        Assert.True(allocated == 0, $"Expanding and sorting a thousand particles for 180 frames allocated {allocated} bytes.");
+        Measured.NothingAllocated(
+            Frame,
+            warmUp: 180,
+            passes: 180,
+            because: "Expanding and sorting a thousand particles reuses the key and order arrays."
+        );
 
         return;
 

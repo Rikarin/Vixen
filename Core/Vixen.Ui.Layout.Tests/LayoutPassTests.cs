@@ -21,7 +21,7 @@ public class LayoutPassTests {
         using var tree = new LayoutTree();
         var root = BuildPanel(tree, rows: 20, columnsPerRow: 5);
 
-        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
+        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
 
         return;
 
@@ -38,7 +38,7 @@ public class LayoutPassTests {
         var moving = tree.GetChild(tree.GetChild(root, 0), 0);
         var frame = 0;
 
-        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
+        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
 
         return;
 
@@ -69,7 +69,7 @@ public class LayoutPassTests {
         var toggle = tree.GetChild(root, 0);
         var frame = 0;
 
-        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
+        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
 
         return;
 

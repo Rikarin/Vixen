@@ -363,12 +363,11 @@ public sealed class VfxSystemTests {
         // Warmed until the buffer is at its working population, so what is measured is a frame of a
         // running effect rather than one of a starting one: two seconds of warm-up at a sixtieth
         // each, then five seconds measured.
-        var allocated = Measured.Bytes(Frame, warmUp: 120, passes: 300);
-
-        Assert.True(
-            allocated == 0,
-            $"Three hundred frames of a running effect allocated {allocated} bytes. Particle storage is native and the "
-            + "graph is read-only, so the only right answer is none."
+        Measured.NothingAllocated(
+            Frame,
+            warmUp: 120,
+            passes: 300,
+            because: "Particle storage is native and the graph is read-only, so the only right answer is none."
         );
 
         return;
@@ -403,9 +402,12 @@ public sealed class VfxSystemTests {
 
         using var system = new VfxSystem(graph);
 
-        var allocated = Measured.Bytes(Frame, warmUp: 120, passes: 300);
-
-        Assert.True(allocated == 0, $"Three hundred frames of a field-driven effect allocated {allocated} bytes.");
+        Measured.NothingAllocated(
+            Frame,
+            warmUp: 120,
+            passes: 300,
+            because: "A field-driven effect reads the field rather than rebuilding it."
+        );
 
         return;
 

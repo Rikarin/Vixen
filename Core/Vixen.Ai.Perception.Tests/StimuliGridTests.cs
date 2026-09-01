@@ -86,7 +86,7 @@ public class StimuliGridTests {
         var points = Scatter(256, 200f);
         var found = new List<int>();
 
-        var bytes = Measured.Bytes(
+        Measured.NothingAllocated(
             () => {
                 grid.Build(points, 20f);
                 grid.Query(Vector3.Zero, 25f, found, out _);
@@ -94,8 +94,6 @@ public class StimuliGridTests {
             warmUp: 20,
             passes: 50
         );
-
-        Assert.Equal(0, bytes);
     }
 
     [Fact]

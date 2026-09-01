@@ -362,7 +362,7 @@ public sealed class CameraDirectorTests {
             }
         }
 
-        Assert.Equal(0, Measured.Bytes(Frame, warmUp: 8, passes: 500));
+        Measured.NothingAllocated(Frame, warmUp: 8, passes: 500);
 
         return;
 

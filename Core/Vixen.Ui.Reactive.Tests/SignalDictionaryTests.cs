@@ -42,7 +42,7 @@ public class SignalDictionaryTests {
 
         // Every pass writes a different value, so the equality short-circuit is not what is being
         // measured — this is the cost of a write that genuinely propagates.
-        Assert.Equal(0, Measured.Bytes(() => counters["fps"] = reading += 0.25));
+        Measured.NothingAllocated(() => counters["fps"] = reading += 0.25);
         Assert.True(reading > 0);
 
         var immutable = new Signal<ImmutableDictionary<string, double>>(
@@ -65,14 +65,13 @@ public class SignalDictionaryTests {
     public void Removing_and_clearing_allocate_nothing() {
         var counters = new SignalDictionary<string, double>(StringComparer.Ordinal);
 
-        Assert.Equal(0,
-            Measured.Bytes(() => {
-                    counters["fps"] = 60;
-                    counters.Remove("fps");
-                    counters["draws"] = 1;
-                    counters.Clear();
-                }
-            )
+        Measured.NothingAllocated(
+            () => {
+                counters["fps"] = 60;
+                counters.Remove("fps");
+                counters["draws"] = 1;
+                counters.Clear();
+            }
         );
     }
 

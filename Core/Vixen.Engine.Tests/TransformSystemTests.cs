@@ -274,7 +274,7 @@ public sealed class TransformSystemTests {
 
         // Warmed up until the buckets have grown to the depth this scene needs and every chunk has
         // been visited once, then measured over five hundred more.
-        Assert.Equal(0, Measured.Bytes(Frame, warmUp: 8, passes: 500));
+        Measured.NothingAllocated(Frame, warmUp: 8, passes: 500);
 
         return;
 

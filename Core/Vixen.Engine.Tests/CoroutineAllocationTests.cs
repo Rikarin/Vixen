@@ -44,7 +44,7 @@ public sealed class CoroutineAllocationTests {
         scheduler.BeginFrame(time = time.Advance(Sixtieth));
         scheduler.Run(Body());
 
-        Assert.Equal(0, Measure(Frame));
+        AllocatesNothing(Frame);
 
         // One resume per frame, whatever the number of frames turned out to be.
         Assert.Equal(frames, resumes);
@@ -82,7 +82,7 @@ public sealed class CoroutineAllocationTests {
             scheduler.Run(Body());
         }
 
-        Assert.Equal(0, Measure(Frame));
+        AllocatesNothing(Frame);
 
         // A thousand resumes per frame, whatever the number of frames turned out to be.
         Assert.Equal(1_000 * frames, resumes);
@@ -175,7 +175,7 @@ public sealed class CoroutineAllocationTests {
         scheduler.BeginFrame(time = time.Advance(Sixtieth));
         scheduler.Run(Body());
 
-        Assert.Equal(0, Measure(Frame));
+        AllocatesNothing(Frame);
         Assert.True(loops > 0);
         return;
 
@@ -202,4 +202,11 @@ public sealed class CoroutineAllocationTests {
     /// <param name="frame">One frame.</param>
     /// <returns>Bytes allocated on this thread over the measured frames.</returns>
     static long Measure(Action frame) => Measured.Bytes(frame, WarmUpFrames, MeasuredFrames);
+
+    /// <summary>
+    ///     The same, asserted rather than returned, so that a failure names the types the frame
+    ///     allocated and not only how many bytes they came to.
+    /// </summary>
+    static void AllocatesNothing(Action frame)
+        => Measured.NothingAllocated(frame, WarmUpFrames, MeasuredFrames);
 }

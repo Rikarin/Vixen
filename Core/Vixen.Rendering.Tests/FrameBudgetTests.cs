@@ -81,12 +81,11 @@ public class FrameBudgetTests {
         Assert.NotEmpty(system.Nodes(camera, opaque));
         Assert.NotEmpty(system.Nodes(camera, blended));
 
-        var allocated = Measured.Bytes(system.Draw, warmUp: 0, passes: 16);
-
-        Assert.True(
-            allocated == 0,
-            $"A settled frame allocated {allocated / 16} bytes on average over 16 frames; the "
-            + "per-frame path is meant to reuse every array it touches."
+        Measured.NothingAllocated(
+            system.Draw,
+            warmUp: 0,
+            passes: 16,
+            because: "The per-frame path is meant to reuse every array it touches."
         );
     }
 

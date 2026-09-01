@@ -163,12 +163,11 @@ public sealed class NavPathQueueJobTests {
 
         // Warmed until nothing is still settling: the node pools, and the scheduler's payload array
         // for this job type, which is allocated once per type and never again.
-        var allocated = Measured.Bytes(Search, warmUp: 400, passes: 400);
-
-        Assert.True(
-            allocated == 0,
-            $"Four hundred searches on the job system allocated {allocated} bytes on the calling thread. "
-            + "A job is a struct in a preallocated array, so the only right answer is none."
+        Measured.NothingAllocated(
+            Search,
+            warmUp: 400,
+            passes: 400,
+            because: "A job is a struct in a preallocated array, so the only right answer is none."
         );
 
         return;

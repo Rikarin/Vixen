@@ -457,12 +457,13 @@ public class JobSchedulerTests {
         // warm-up is the measurement, run twice and read the second time — which is exactly one
         // warm-up pass and one measured one.
         var rounds = 0;
-        var allocated = Measured.Bytes(Chain, warmUp: 1, passes: 1);
+
+        Measured.NothingAllocated(Chain, warmUp: 1, passes: 1);
 
         // Counted rather than predicted: a non-zero reading is measured again, so the chain may have
-        // run more than the two passes asked for.
+        // run more than the two passes asked for. It has to be read after the measurement for the
+        // second reason too — a reading that fails is explained by running the chain again.
         Assert.Equal((64 * rounds) + 1, counter.Value);
-        Assert.Equal(0, allocated);
 
         return;
 

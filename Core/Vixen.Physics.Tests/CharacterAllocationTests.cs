@@ -56,7 +56,7 @@ public sealed class CharacterAllocationTests {
         }
 
         Assert.Equal(4, scene.CharacterCount);
-        Assert.Equal(0, Measured.Bytes(() => scene.StepCharacters(Step), warmUp: 16, passes: 300));
+        Measured.NothingAllocated(() => scene.StepCharacters(Step), warmUp: 16, passes: 300);
     }
 
     /// <summary>
@@ -69,13 +69,10 @@ public sealed class CharacterAllocationTests {
         var state = default(CharacterState);
         var intent = new MoveIntent { Move = new(0.7f, 0.7f), Yaw = 1.1f, Buttons = MoveButtons.Sprint };
 
-        Assert.Equal(
-            0,
-            Measured.Bytes(
-                () => CharacterMotion.Step(settings, ref state, intent, CharacterGround.Grounded, Step),
-                warmUp: 16,
-                passes: 1_000
-            )
+        Measured.NothingAllocated(
+            () => CharacterMotion.Step(settings, ref state, intent, CharacterGround.Grounded, Step),
+            warmUp: 16,
+            passes: 1_000
         );
     }
 }

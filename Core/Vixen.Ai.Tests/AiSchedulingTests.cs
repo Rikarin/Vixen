@@ -45,9 +45,8 @@ public class AiSchedulingTests {
         // The joins, the blackboards and the pool's pages all happen in the first step, and the
         // warm-up in Measured is what puts them behind us. What is being measured is the frame after
         // the population stopped changing, which is what a game spends its time in.
-        var bytes = Measured.Bytes(() => system.Step(world, Frame(frame++)), warmUp: 20, passes: 200);
+        Measured.NothingAllocated(() => system.Step(world, Frame(frame++)), warmUp: 20, passes: 200);
 
-        Assert.Equal(0, bytes);
         Assert.Equal(Population, system.Population);
     }
 

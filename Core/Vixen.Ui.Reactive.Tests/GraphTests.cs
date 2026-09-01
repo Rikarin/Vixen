@@ -132,7 +132,7 @@ public class GraphTests {
 
         var next = 0;
 
-        Assert.Equal(0, Measured.Bytes(Frame, warmUp: 100, passes: 1_000));
+        Measured.NothingAllocated(Frame, warmUp: 100, passes: 1_000);
         Assert.True(total > 0);
 
         return;
@@ -154,7 +154,7 @@ public class GraphTests {
 
         using var effect = new Effect(() => seen = either.Value, scheduler);
 
-        Assert.Equal(0, Measured.Bytes(Frame, warmUp: 50, passes: 500));
+        Measured.NothingAllocated(Frame, warmUp: 50, passes: 500);
         Assert.True(seen is 1 or 2);
 
         return;

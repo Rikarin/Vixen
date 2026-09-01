@@ -357,7 +357,7 @@ public class InlineFragmentationTests {
         var toggle = tree.GetChild(leading, 0);
         var frame = 0;
 
-        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
+        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
 
         return;
 
@@ -391,7 +391,7 @@ public class InlineFragmentationTests {
         var toggle = tree.GetChild(span, 0);
         var frame = 0;
 
-        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
+        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
 
         return;
 

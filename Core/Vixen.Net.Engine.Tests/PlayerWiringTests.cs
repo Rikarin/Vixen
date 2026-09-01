@@ -250,7 +250,7 @@ public sealed class PredictionSmoothingTests : IDisposable {
 
         system.Take([new PredictionCorrection { Id = Id, From = new(0.5f, 0f, 0f), To = Vector3.Zero }]);
 
-        Assert.Equal(0, Measured.Bytes(() => system.Apply(world, elapsed), warmUp: 16, passes: 500));
+        Measured.NothingAllocated(() => system.Apply(world, elapsed), warmUp: 16, passes: 500);
         Assert.Equal(1, system.SmoothedCount);
     }
 }

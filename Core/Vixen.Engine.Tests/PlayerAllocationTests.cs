@@ -47,7 +47,7 @@ public sealed class PlayerAllocationTests {
         system.Bind(Player.Create(world), new Constant());
         system.Bind(Player.Create(world, slot: 1), new Constant());
 
-        Assert.Equal(0, Measured.Bytes(() => system.Sample(world, 1f / 60f), warmUp: 16, passes: 500));
+        Measured.NothingAllocated(() => system.Sample(world, 1f / 60f), warmUp: 16, passes: 500);
     }
 
     /// <summary>
@@ -75,7 +75,7 @@ public sealed class PlayerAllocationTests {
         // is not the steady state this is about.
         system.Apply(world);
 
-        Assert.Equal(0, Measured.Bytes(() => system.Apply(world), warmUp: 16, passes: 500));
+        Measured.NothingAllocated(() => system.Apply(world), warmUp: 16, passes: 500);
     }
 
     /// <summary>
@@ -91,7 +91,7 @@ public sealed class PlayerAllocationTests {
         Player.Possess(world, controller, Hierarchy.CreateTransform(world, LocalTransform.Identity));
         system.Apply(world);
 
-        Assert.Equal(0, Measured.Bytes(() => system.Apply(world), warmUp: 16, passes: 500));
+        Measured.NothingAllocated(() => system.Apply(world), warmUp: 16, passes: 500);
         Assert.Equal(0, system.ReleasedCount);
     }
 
@@ -103,17 +103,14 @@ public sealed class PlayerAllocationTests {
     public void AimingAllocatesNothing() {
         var rotation = ControlRotation.Default;
 
-        Assert.Equal(
-            0,
-            Measured.Bytes(
-                () => {
-                    rotation.Turn(0.01f, 0.002f);
-                    _ = rotation.Forward();
-                    _ = rotation.YawRotation();
-                },
-                warmUp: 16,
-                passes: 1_000
-            )
+        Measured.NothingAllocated(
+            () => {
+                rotation.Turn(0.01f, 0.002f);
+                _ = rotation.Forward();
+                _ = rotation.YawRotation();
+            },
+            warmUp: 16,
+            passes: 1_000
         );
     }
 
@@ -121,16 +118,13 @@ public sealed class PlayerAllocationTests {
     public void TurningAnIntentIntoADirectionAllocatesNothing() {
         var intent = new MoveIntent { Move = new(0.6f, 0.8f), Yaw = 1.1f, Buttons = MoveButtons.Sprint };
 
-        Assert.Equal(
-            0,
-            Measured.Bytes(
-                () => {
-                    _ = intent.WorldDirection();
-                    _ = intent.IsHeld(MoveButtons.Sprint);
-                },
-                warmUp: 16,
-                passes: 1_000
-            )
+        Measured.NothingAllocated(
+            () => {
+                _ = intent.WorldDirection();
+                _ = intent.IsHeld(MoveButtons.Sprint);
+            },
+            warmUp: 16,
+            passes: 1_000
         );
     }
 }

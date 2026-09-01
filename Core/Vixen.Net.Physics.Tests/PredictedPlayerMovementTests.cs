@@ -320,13 +320,10 @@ public sealed class PredictedPlayerMovementTests : IDisposable {
             client.Movement.Step(client.Entities, new(++tick), walking);
         }
 
-        Assert.Equal(
-            0,
-            Measured.Bytes(
-                () => client.Movement.Step(client.Entities, new(++tick), walking),
-                warmUp: 16,
-                passes: 300
-            )
+        Measured.NothingAllocated(
+            () => client.Movement.Step(client.Entities, new(++tick), walking),
+            warmUp: 16,
+            passes: 300
         );
     }
 

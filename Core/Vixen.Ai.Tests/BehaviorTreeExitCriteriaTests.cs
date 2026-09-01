@@ -69,9 +69,7 @@ public class BehaviorTreeCostTests {
         fleet.Step(0);
 
         var frame = 1;
-        var bytes = Measured.Bytes(() => fleet.Step(frame++), warmUp: 20, passes: 100);
-
-        Assert.Equal(0, bytes);
+        Measured.NothingAllocated(() => fleet.Step(frame++), warmUp: 20, passes: 100);
     }
 
     /// <summary>

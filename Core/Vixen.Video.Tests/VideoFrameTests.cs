@@ -158,8 +158,9 @@ public sealed class VideoFrameTests {
 
         // The claim playback rests on: three megabytes a frame at sixty a second is 180 MB/s into
         // gen 2 if this is ever false.
-        var bytes = Measured.Bytes(() => pool.Return(pool.Rent(in format)));
-
-        Assert.Equal(0, bytes);
+        Measured.NothingAllocated(
+            () => pool.Return(pool.Rent(in format)),
+            because: "Three megabytes a frame at sixty a second is 180 MB/s into gen 2."
+        );
     }
 }

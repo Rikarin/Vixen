@@ -25,4 +25,12 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
     </ItemGroup>
+
+    <!--
+      Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. This project is
+      where Measured's own failure message is tested: it already owns "what a thing costs the
+      allocator" as a subject (AllocationTests), and Testing/ has no test project of its own.
+    -->
+    <Import Project="..\..\Testing\Vixen.Testing.props" />
+
 </Project>

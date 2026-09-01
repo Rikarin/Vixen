@@ -177,7 +177,7 @@ public sealed class NavMeshDebugDrawTests {
         // Warm the enumerator's first walk, then measure the next thousand.
         var seen = 0;
 
-        Assert.Equal(0, Measured.Bytes(Walk, warmUp: 1));
+        Measured.NothingAllocated(Walk, warmUp: 1);
         Assert.True(seen > 0);
 
         return;
