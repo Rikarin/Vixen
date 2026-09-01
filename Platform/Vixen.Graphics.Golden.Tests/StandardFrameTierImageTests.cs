@@ -330,6 +330,93 @@ public sealed class StandardFrameTierImageTests {
     ///         which is the regression this test is for.
     ///     </para>
     /// </remarks>
+    /// <summary>
+    ///     A frame rendered below native is still a picture of the same scene.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The claim every structural test of <c>RenderScale</c> misses.</b>
+    ///         <c>RenderQualityTests</c> asserts that a tier's scale reaches the six scene planes'
+    ///         <c>Scale</c> in the expanded <em>document</em>, and it passed throughout the whole
+    ///         period in which no consumer of those planes measured in their grid — because a
+    ///         document is not a frame. What was wrong lived in the nodes that read the planes, and
+    ///         nothing there is visible to a test that never renders.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both bounds, because the two failures look nothing alike.</b> Under it, the scale
+    ///         reached nothing and the tier is a knob wired to no frame — <c>Tolerance.Shaded</c>
+    ///         allows 0.35 of mean channel between two renderings of the <em>same</em> picture, so
+    ///         anything at or below that is two renderings of the native frame. Over it, the scale
+    ///         reached the frame and broke it: a march indexing a rectangle its depth plane does not
+    ///         occupy, or a neighbourhood collapsed onto one texel, moves a picture far further than
+    ///         resolving it more coarsely does. The ceiling is this fixture's own worst recorded
+    ///         silent defect for scale — the split frame that had lost its diffuse ambient, measured
+    ///         at 8.473 over 86% of the frame.
+    ///     </para>
+    ///     <para>
+    ///         Measured at <b>mean 1.361</b>, 3.28% of pixels, worst channel 74 — half resolution
+    ///         upscaled back, which is what the number should be. Stated as the mean rather than as a
+    ///         pixel count for <see cref="ASplitFrameLooksLikeItsReference" />'s reason: at 128² the
+    ///         count sits on <c>Tolerance.Shaded</c>'s 12/255 cliff and a driver rounding differently
+    ///         moves it without moving the frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Half, not three quarters.</b> 128² is the fixture's whole budget; at 0.75 the
+    ///         scene plane is 96² and several of the differences this is watching for round away.
+    ///     </para>
+    ///     <para>
+    ///         No reference image, deliberately. What is asserted is the relationship between two
+    ///         pictures rendered in the same run on the same device, which is exactly the claim a
+    ///         committed PNG cannot make and would go on matching after the scale stopped reaching
+    ///         the frame — the failure this fixture has already been caught by twice.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AFrameRenderedBelowNativeIsTheSameScene() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var half = new RenderQualityAsset {
+            High = new() { Resolution = new() { RenderScale = 0.5f } }
+        };
+
+        Bitmap native;
+        Bitmap scaled;
+
+        using (var scene = Stage(owned, QualityTier.High, SplitDocument)) {
+            native = scene.Frames(Frames);
+        }
+
+        using (var scene = Stage(owned, QualityTier.High, new() { Game = SplitFrame with { Preset = half } })) {
+            scaled = scene.Frames(Frames);
+        }
+
+        var comparison = GoldenImage.Compare(native, scaled, Tolerance.Shaded);
+
+        Assert.True(
+            comparison.MeanChannel > 0.35,
+            $"A half-scale frame and a native one differ by a mean channel of "
+            + $"{comparison.MeanChannel:F3}/255, where 0.35 is what Tolerance.Shaded allows two "
+            + "renderings of the same picture — so the render scale reached nothing. The tier's "
+            + "value lands on the six scene planes' Scale in StandardFrame.Emit; if those are still "
+            + "the frame's size, the expansion stopped reading resolution.renderScale."
+        );
+
+        Assert.True(
+            comparison.MeanChannel < 8.0,
+            $"A half-scale frame and a native one differ by a mean channel of "
+            + $"{comparison.MeanChannel:F3}/255 over {comparison.Fraction:P3} of the frame, where "
+            + "8.000 is this fixture's worst recorded silent defect and 1.361 is what half "
+            + "resolution upscaled back measures. The scale reached the frame and something read "
+            + "the scaled planes in the window's grid — the suspects are the ones that ask a size "
+            + "rather than the plane: a texel uniform, a march's screenViewport, the depth "
+            + "pyramid's extent, or a probe lattice."
+        );
+    }
+
     static double Least(QualityTier left, QualityTier right) =>
         (left, right) is (QualityTier.High, QualityTier.Epic) or (QualityTier.Epic, QualityTier.High)
             ? 0d
