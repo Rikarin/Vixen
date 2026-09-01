@@ -265,6 +265,14 @@ public sealed class CoroutineScheduler {
     public int Cancel(ICoroutineOwner owner) {
         ArgumentNullException.ThrowIfNull(owner);
 
+        // ⚠ An O(1) refusal for the overwhelmingly common call, because this is on the destroy path
+        // and a game destroys behaviours by the hundred. A suspended coroutine is a running one, so
+        // nothing running means nothing waiting and nothing in `arrivals` either — and `Take` below
+        // is a linear scan of four lists that would otherwise be paid per bullet.
+        if (RunningCount == 0) {
+            return 0;
+        }
+
         // The same claim `Drain` makes: whoever cancels is the loop thread. A detach before the
         // first frame would otherwise leave `loopThread` at zero, and a coroutine that suspended
         // again while unwinding would be told it was on the wrong thread.
