@@ -197,10 +197,9 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///         <c>AssetMaterialSourceTests.AMaterialWhoseBundleHasNotArrivedIsCountedAsReading</c>
     ///         is the guard, and it is what "shown moving" means: a bundle source that has not
     ///         arrived holds this at one across sixteen asks, and it falls to zero once the bundle
-    ///         lands. Sabotaged to answer zero always, that test fails in 27 ms with the settle
-    ///         giving up on a load that is still outstanding, and the five that read local content
-    ///         stay green — which is the shape of the flake this whole exercise replaced, seen from
-    ///         the other side.
+    ///         lands. Sabotaged to count a status no handle here reaches, so that this answers zero
+    ///         always, that test fails in <b>80 ms</b> on the first reading and the other six —
+    ///         every one of which loads over local content — stay green.
     ///     </para>
     /// </remarks>
     internal int Reading {

@@ -68,6 +68,20 @@ static class Settling {
     ///         however loaded the machine is; starvation refuses nothing, so a starved run never
     ///         reaches this number however long it takes.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured rather than argued, because the cost of being wrong is a red test on a
+    ///         busy runner.</b> Two hundred pool workers blocked — queued rather than
+    ///         <c>SetMinThreads</c>ed, since the delay being modelled is an item behind them in a
+    ///         pool that grows by about two threads a second, and raising the minimum hands it two
+    ///         hundred threads for free and models nothing. Under that, a bare work item queued
+    ///         alongside the settle started after <b>1 m 40 s</b>, and three fixtures ran to green:
+    ///         <c>AssetTextureStreamingTests.AStreamedTextureWithAPoolThatFitsItEndsUpAtTheWholeFile</c>
+    ///         in 1 m 40.1 s, and — the cases that matter, because a one-page pool refuses pages on a
+    ///         <em>healthy</em> run — <c>APoolTooSmallForTheTextureStillDrawsItAtTheFloor</c> and
+    ///         <c>ARefusalReachesTheLoggerTheHostHandedTheSource</c> in 1 m 39.7 s each. So a
+    ///         starvation three times the deadline this replaced, on a fixture whose refusal count
+    ///         does climb, does not reach the window.
+    ///     </para>
     /// </remarks>
     public const int Rounds = 64;
 
@@ -242,8 +256,12 @@ static class Settling {
     ///         one header read and two streamer clauses. The mesh and material clauses were true
     ///         <b>zero</b> times in either, because both of those loads complete synchronously over an
     ///         in-memory bundle — see <see cref="AssetMaterialSource.Reading" />, which records the
-    ///         measurement. They are kept for the day the content is a real one, and they are honest
-    ///         about costing nothing today.
+    ///         measurement and, since
+    ///         <c>AssetMaterialSourceTests.AMaterialWhoseBundleHasNotArrivedIsCountedAsReading</c>,
+    ///         the reason it is a fact about this content rather than about the source: the one await
+    ///         in a load that a local bundle answers synchronously is the one a downloaded bundle
+    ///         does not. So these two are kept for the day the content is a real one, and they are
+    ///         honest about costing nothing today.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A livelock reads as outstanding for ever, so the outstanding flag is not the
@@ -256,7 +274,8 @@ static class Settling {
     ///         modelled on and was shared by both, which is what made it the helper's and not a
     ///         fixture's. It is the same shape <c>TextureStreamingTests.Drain</c> and
     ///         <c>TextureDemandTests.Quiet</c> already carried, and it is here rather than in each
-    ///         fixture for the same reason.
+    ///         fixture for the same reason. Under the same sabotage now, both fail in
+    ///         <b>1 to 2 s</b> saying which counters moved.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The state guarded is one <c>PageResidency.Service</c> argues is unreachable</b> —
