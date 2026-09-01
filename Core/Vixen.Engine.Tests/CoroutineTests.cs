@@ -411,6 +411,10 @@ public sealed class CoroutineTests {
         var entity = loop.World.Create();
         var behavior = loop.Behaviors.Add(entity, new StartsACoroutine());
 
+        // ⚠ Three, not two. `Start` is deferred to the drain after the one that ran `Awake`, so the
+        // coroutine is not started until the second frame and its first resume is the third. Written
+        // with two this asserted `0 > 0` and was red against the defect for the wrong reason.
+        loop.Frame(Sixtieth);
         loop.Frame(Sixtieth);
         loop.Frame(Sixtieth);
 

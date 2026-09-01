@@ -20,6 +20,14 @@ namespace Vixen.Engine.Coroutines;
 ///         a <c>Cancel</c> that quietly misses the nested half, the unit of cancellation is the
 ///         owner, which reaches all of it.
 ///     </para>
+///     <para>
+///         ⚠ <b>These two members say a coroutine <i>should</i> stop; they do not make it let go.</b>
+///         Both are read at a resume point, so an owner that goes away between drains leaves its
+///         continuations sitting in the scheduler's waiting lists until the next one. That is fine
+///         for a game and fatal for an editor, where a detach and an assembly unload happen inside
+///         one call with no frame in between — see <see cref="CoroutineScheduler.Cancel" />, which
+///         is what an owner calls to be let go of rather than merely marked.
+///     </para>
 /// </remarks>
 public interface ICoroutineOwner {
     /// <summary>Whether the owner is gone. Its coroutines cancel at their next resume point.</summary>

@@ -89,6 +89,15 @@ This is the part worth reading before writing a plugin, because three of the fou
    loaded a second time and its statics are not what it expected.
    `PluginHost.WaitForCollection` is what turns that silence into a warning, and `Reload Plugins`
    in the editor calls it.
+5. **A coroutine a behaviour started is undone by detaching the behaviour, and by nothing else.**
+   `BehaviorStore.Remove` cancels every coroutine the behaviour has suspended and unwinds them
+   through their `finally` blocks before it returns — so the scheduler is no longer holding a state
+   machine whose type is in the context about to be dropped. This is why `ProjectAssemblies.Unload`
+   is safe to call in the same breath as the detach, with no frame in between: there is no "next
+   resume point" in that sequence, and a cancellation deferred to one would never happen. An owner
+   that is *not* a behaviour — a tool the plugin registered that starts coroutines of its own —
+   calls `CoroutineScheduler.Cancel(this)` from its `OnUnload`, for the same reason a command's
+   lambda has to be unregistered from one.
 
 ## The extension points, and which are here
 
