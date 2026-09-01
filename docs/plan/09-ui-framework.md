@@ -774,9 +774,19 @@ promise below writable: `Render` for the tree as comparable text, `Unnamed` for 
 cannot pass vacuously — every widget-role element has a non-empty name, and every focusable element
 has a role.
 
-**Owed:** the remaining ~35 controls in `Vixen.Ui.Controls` and all 11 in `.Controls.Advanced`. It is
-mechanical — a virtual per control — and the shapes that were not mechanical are the ones already
-done.
+✅ **Not owed any more, and the measure that said it was has been retired.** Both assemblies are
+populated, and `AccessibilityCoverageTests` in each control test project now says so with a number
+rather than with a file count: it builds one of every public element type the assembly offers and
+holds each to *a role, or a written reason for not having one*. **60 element types and 44 roles in
+`Vixen.Ui.Controls`; 40 and 17 in `.Controls.Advanced`.**
+
+⚠ **A file count could never have answered this, which is why two documents disagreed about it for
+so long.** "17 of 30 files declare an accessible view" is compatible with the population being
+finished *and* with it being half done, because roughly a third of both assemblies is `None` on
+purpose — a `Panel`, a `CodeLine`, a paint layer. The sweep's exemption table is where that decision
+is now written down, one reason per type, and it fails in both directions: a control with no role
+and no entry fails by name, and an entry for a control that has since been given a role fails as an
+expired exemption. See 46 § A2 for the two things this turned up.
 
 
 ## Control library

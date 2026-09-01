@@ -365,6 +365,48 @@ canvases — `ColorField`, `ColorStrip`, `ColorSwatch`, `GradientRail`, `NodeIte
 reachable, so a screen reader would announce a set of widgets that cannot be operated. What they
 need first is a keyboard, and that is a control change rather than an accessibility one.
 
+#### Landed: the deliberate `None` is now written down, and the file count is retired
+
+✅ **The per-fixture assertions are backed by a sweep, and the sweep is what settles doc 09's
+[#323](https://github.com/Rikarin/Vixen/issues/323).** `AccessibilityCoverageTests`, one per control
+test project, builds one of every public element type the assembly offers and holds each to *a role,
+or an entry in a declared exemption table carrying a written reason*. The numbers replace the file
+count, which could never distinguish "not done" from "deliberately `None`":
+
+| Assembly | Element types built | With a role | Exempted, with a reason |
+|---|--:|--:|--:|
+| `Vixen.Ui.Controls` | **60** | 44 | 16 |
+| `Vixen.Ui.Controls.Advanced` | **40** | 17 | 23 |
+
+**So "17 of 30 files" and "11 of 25 files" were both true and both meaningless.** Every one of the
+39 roleless types is roleless on purpose, and every reason is now prose in a table that fails if it
+is wrong in either direction — a control with no role and no entry fails by name, and an entry for a
+control that has since been given a role fails as an expired exemption.
+
+⚠ **The list of fourteen above was right and was not the whole set.** `ComboBox` and `KeyValueRow`
+are `None` for reasons this document records in prose elsewhere and never added to the list. One
+assembly over it is starker: **23 roleless types against the seven the "pointer-only sub-parts"
+paragraph names.** The other seventeen are structure — paint layers, lanes, rulers, rows and the
+containers whose children carry the roles — and none of them was ever written down as a decision.
+
+⚠ **`TimelineTrack` is on the owed list and cannot ever have a role: it is not a `UiElement`.** It
+is a plain model class, so no accessibility work will ever reach it, and the owed set is six rather
+than seven.
+
+⚠ **And the existing reflection sweep filters on `Control`, which is one class narrower than the
+tree.** That silently omits seven public element types in `.Controls.Advanced` — `ViewportGizmo`,
+`CodeLine`, `CodeSpan`, `CodeGutterRow`, `TimelineLanes`, `NodeWireLayer`, `NodeOverlayLayer` — one
+of which this section names as owed. The coverage sweep filters on `UiElement`, because a screen
+reader does not know what a `Control` is.
+
+**Sabotaged three ways**: dropping `Slider`'s role fails it as
+`Slider has no role and no written reason for not having one` (4 of 507 in that project); dropping
+`DockPanel`'s fails it by name in the advanced project (2 of 362 — and ⚠ **not** the existing
+`Control`-filtered sweep, which only looks at tab stops and `DockPanel` is not one); giving `Panel` a
+role fails it as `Panel is exempted as roleless and answers Group; the exemption has expired`. And
+the instrument itself: a filter narrowed to match nothing fails with `only 0 element types were
+built` rather than passing, which is what the count assertion exists for.
+
 ⚠ **One thing the second reference window cost, and it is a fact about `Strings` rather than about
 accessibility.** `Strings.Use` is a process-wide static, and xunit runs test *classes* in parallel —
 so a reference window built under a pseudo-locale had its catalogue swapped out from under it by the
@@ -675,8 +717,11 @@ say. `CheckStrings` is what found it.
   (45's first criterion; its route half is done.)
 - Subscribing to one coalesced per-frame event is enough to keep an out-of-process menu bar's enabled
   bits correct, with no polling and no per-mutation callback.
-- Doc 09's promised **ARIA-role snapshot test can be written**, for every control in both control
-  assemblies.
+- ✅ Doc 09's promised **ARIA-role snapshot test can be written**, for every control in both control
+  assemblies — and now is, as a sweep rather than as a set of fixtures.
+  `AccessibilityCoverageTests` in both control test projects builds every public element type the
+  assembly offers and holds each to *a role, or a written reason for not having one*. 60 element
+  types and 44 roles in `Vixen.Ui.Controls`; 40 and 17 in `.Controls.Advanced`. See A2.
 - ✅ A language change re-labels a running interface, under a test that changes the catalogue between
   two frames and asserts a bound label changed — with no code in the application.
   `Core/Vixen.Ui.Controls.Tests/LocalisationTests.cs`, against a real `.vxml`, sabotage-checked.
