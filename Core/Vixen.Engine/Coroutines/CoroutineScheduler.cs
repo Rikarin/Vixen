@@ -51,8 +51,9 @@ public sealed class CoroutineScheduler {
     ///     <c>catch (OperationCanceledException)</c> that waits again, which is legal and is how a
     ///     coroutine "cleans up over two frames". What needs more than this many is code that catches
     ///     cancellation in a loop and never lets go, and the honest answer to that is to stop rather
-    ///     than to spin: the entries have already been taken out of the waiting lists by then, so
-    ///     the reference this whole method exists to release is released either way.
+    ///     than to spin — leaving those entries where they are, still cancelled and still holding
+    ///     what they hold. A bound that stops is a leak in one pathological case; no bound at all is
+    ///     a hang in the same case, and a hang is worse.
     /// </remarks>
     const int CancelPasses = 16;
 
