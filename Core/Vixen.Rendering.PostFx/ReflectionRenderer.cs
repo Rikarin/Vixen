@@ -177,7 +177,20 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
         var normals = frame.Texture(ToString(), Normals);
         var colour = Colour is { } name ? frame.Texture(ToString(), name) : default;
 
-        EnsureOutput(device, frame.Size);
+        // ⚠ **The screen this node marches is the depth plane, not the window.** Every read in
+        // `ReflectionTrace.rvn` is an integer `Load` at a coordinate built from `screenViewport`, and
+        // the dispatch is bounded by `reflectionViewport`; both of those and the atlas this writes
+        // have to be one number or the march indexes a rectangle the depth buffer does not occupy.
+        // A `Load` outside a sampled texture returns zero rather than faulting, so at a render scale
+        // below one the old `frame.Size` made the trace read the outer corner of a smaller plane and
+        // report reflections of geometry that is not there — with no validation error anywhere.
+        //
+        // Sizing the atlas to match is safe rather than merely consistent: `AmbientCombine.rvn`
+        // samples this plane with `linearSampler` at a normalised uv and names reflections among the
+        // planes that "may be half resolution".
+        var screen = frame.SizeOf(ToString(), Depth);
+
+        EnsureOutput(device, screen);
 
         trace ??= new(device);
         trace.Effects = Effects;
@@ -203,7 +216,7 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
             frame.Graph.ImportTexture(
                 output,
                 outputView,
-                Description(frame.Size, Target),
+                Description(screen, Target),
                 ResourceState.ShaderRead,
                 ResourceState.ShaderRead
             ),
@@ -246,7 +259,7 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
                         // The chain first, into the same list: the march may only skip by texels
                         // the reduce has written, and the pyramid's own barriers order the two.
                         var chain = Pyramid is { Reduction: HiZReduction.Nearest } pyramid
-                            && pyramid.Build(commands, context.View(depth), frame.Size)
+                            && pyramid.Build(commands, context.View(depth), screen)
                                 ? Pyramid
                                 : null;
 
@@ -262,8 +275,8 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
                         trace.ViewProjection = ViewProjection;
                         trace.InverseViewProjection = InverseViewProjection;
                         trace.CameraPosition = CameraPosition;
-                        trace.Viewport = frame.Size;
-                        trace.ScreenViewport = frame.Size;
+                        trace.Viewport = screen;
+                        trace.ScreenViewport = screen;
 
                         commands.Barrier(
                             new(

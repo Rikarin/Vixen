@@ -178,7 +178,11 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
         // The texel of the *source* depth, not of this pass's own half-resolution target: every step
         // of the march is a tap in the depth buffer's grid, and stepping in the target's would march
         // twice as far per step and measure a horizon that is not there.
-        parameters.Set(SsaoKeys.TexelSize, TexelSize(frame.Size));
+        //
+        // ⚠ Asked of the depth plane rather than of the frame, which is the same answer at native
+        // resolution and a different one under a render scale — the sentence above was already the
+        // intent, and `frame.Size` only expressed it while every scene plane was the window's size.
+        parameters.Set(SsaoKeys.TexelSize, TexelOf(frame, Depth));
         parameters.Set(SsaoKeys.Radius, Radius);
         parameters.Set(SsaoKeys.Intensity, Intensity);
         parameters.Set(SsaoKeys.Falloff, Falloff);

@@ -55,7 +55,10 @@ public sealed class FxaaRenderer() : PostEffectRenderer(
         ArgumentNullException.ThrowIfNull(parameters);
 
         parameters.Set(FxaaKeys.Subpixel, Subpixel);
-        parameters.Set(FxaaKeys.TexelSize, TexelSize(frame.Size));
+
+        // The source's texel, not the frame's — the four luminance taps and the final blend all step
+        // through `source`, and at a render scale below one that plane is smaller than the window.
+        parameters.Set(FxaaKeys.TexelSize, TexelOf(frame, Source));
         parameters.Set(FxaaKeys.EdgeThreshold, EdgeThreshold);
         parameters.Set(FxaaKeys.EdgeThresholdMin, EdgeThresholdMinimum);
         parameters.Set(FxaaKeys.SubpixelQuality, SubpixelQuality);
@@ -102,14 +105,19 @@ public sealed class SharpenRenderer() : PostEffectRenderer(
         ArgumentNullException.ThrowIfNull(parameters);
 
         parameters.Set(SharpenKeys.PerChannel, PerChannel);
-        parameters.Set(SharpenKeys.TexelSize, TexelSize(frame.Size));
+
+        // ⚠ The source's texel, and here it is load-bearing rather than merely correct. The sampler
+        // below is point, so a step shorter than one source texel does not blur — it quantises every
+        // one of the five taps onto the centre texel, which makes the kernel's minimum, maximum and
+        // centre the same number and CAS a nearest-neighbour copy at full cost.
+        parameters.Set(SharpenKeys.TexelSize, TexelOf(frame, Source));
         parameters.Set(SharpenKeys.Sharpness, Sharpness);
 
         Read(bindings, SharpenKeys.SourceBinding, Source);
 
         // Point, deliberately: the kernel reads named neighbours a texel apart, and a linear tap at a
-        // texel centre is the same value at a higher cost — until the target is a different size from
-        // the source, where it would quietly average two of them and blur what this exists to sharpen.
+        // texel centre is the same value at a higher cost — and the step above is measured in the
+        // source's texels, which is what keeps that true when the target is a different size.
         Sample(bindings, SharpenKeys.PointSamplerBinding, Samplers!.PointClamp);
     }
 }
@@ -626,7 +634,9 @@ public sealed class OutlineRenderer() : PostEffectRenderer(
         parameters.Set(OutlineKeys.UseNormals, UseNormals && !string.IsNullOrEmpty(Normals));
         parameters.Set(OutlineKeys.SelectionOnly, SelectionOnly && !string.IsNullOrEmpty(SelectionMask));
 
-        parameters.Set(OutlineKeys.TexelSize, TexelSize(frame.Size));
+        // The source's texel: every one of the eight neighbour taps steps through `source` and the
+        // depth plane beside it, both of which are scene planes and neither of which is the window.
+        parameters.Set(OutlineKeys.TexelSize, TexelOf(frame, Source));
         parameters.Set(OutlineKeys.OutlineColor, Colour);
         parameters.Set(OutlineKeys.Thickness, Thickness);
         parameters.Set(OutlineKeys.NearPlane, NearPlane);

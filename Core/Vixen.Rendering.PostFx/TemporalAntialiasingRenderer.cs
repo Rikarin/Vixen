@@ -141,7 +141,13 @@ public sealed class TemporalAntialiasingRenderer() : PostEffectRenderer(
         ArgumentNullException.ThrowIfNull(parameters);
 
         parameters.Set(TaaKeys.VarianceClipping, VarianceClipping);
-        parameters.Set(TaaKeys.TexelSize, TexelSize(frame.Size));
+
+        // ⚠ The current plane's texel. The only thing this number steps through is the 3×3
+        // neighbourhood, which is read out of `current` with a point sampler — so a step measured in
+        // the window's texels against a scene plane rendered smaller collapses all nine taps onto one
+        // and hands `Constrain` a box of zero extent. The clamp then pins history to the current
+        // colour exactly, and TAA accumulates nothing while every counter says it ran.
+        parameters.Set(TaaKeys.TexelSize, TexelOf(frame, Source));
 
         // No history to blend on the first frame, so take the current one whole. Blending against
         // undefined memory is a frame of garbage that fades out over twenty more.

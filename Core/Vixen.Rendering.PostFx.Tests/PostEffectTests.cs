@@ -2228,7 +2228,97 @@ public class PostEffectTests : IDisposable {
         combine.Dispose();
     }
 
+    /// <summary>
+    ///     A neighbour tap steps through the plane the shader reads, not through the window.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The claim <c>RenderScale</c> rests on, and the one nothing made.</b> Every offset
+    ///         tap in this library is <c>uv + offset * texelSize</c>, and <c>texelSize</c> came from
+    ///         <c>frame.Size</c> everywhere — which is the window's, not the sampled plane's. Those
+    ///         are the same number in a frame rendered at native resolution, so the mistake was
+    ///         invisible: it only appears once a quality tier declares the scene planes at a fraction
+    ///         and the window stays where it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing about the failure is loud.</b> Every tap still lands inside the texture,
+    ///         the pass still runs, the draw is still recorded and the frame still arrives. What
+    ///         changes is only the distance: at half scale FXAA's four luminance taps fall half a
+    ///         source texel apart, the range collapses under the edge threshold, and the pass costs
+    ///         what it always cost and blends nothing. The point-sampled ones are worse — sharpen,
+    ///         the outline, TAA's neighbourhood — because sub-texel steps quantise onto the centre
+    ///         texel and the kernel's minimum, maximum and centre become one number.
+    ///     </para>
+    ///     <para>
+    ///         Stated per plane rather than per pass, because the plane is what the number is about:
+    ///         the occlusion march wants the depth it unprojects, motion blur wants the grid its
+    ///         vectors were written on, and the three colour filters want their source. A pass whose
+    ///         key described its own target instead would be asserting the old bug.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Fxaa", "SceneColour")]
+    [InlineData("Sharpen", "SceneColour")]
+    [InlineData("Outline", "SceneColour")]
+    [InlineData("Ssao", "SceneDepth")]
+    [InlineData("MotionBlur", "Motion")]
+    [InlineData("Taa", "SceneColour")]
+    public void A_neighbour_tap_is_measured_in_the_plane_it_reads(string shader, string plane) {
+        using var effect = Create(shader);
+        using var h = Build(effect);
+
+        // The scene planes at half the window, which is what a tier's render scale below one
+        // declares. The frame stays 320×180 — it is the window, and scaling it would be describing a
+        // smaller display rather than a cheaper frame.
+        h.Compositor.Imports[plane] = Sized(plane, 160, 90);
+
+        Frame(h);
+
+        var texel = effect.Pass.Parameters.Get(TexelKey(shader));
+
+        Assert.Equal(1f / 160f, texel.X, 5);
+        Assert.Equal(1f / 90f, texel.Y, 5);
+    }
+
+    /// <summary>The same passes at native resolution are unmoved, which is the safety half.</summary>
+    /// <remarks>
+    ///     Asked separately rather than folded into the theory above, because the two claims fail for
+    ///     opposite reasons: that one catches a texel that stayed the window's, and this one catches a
+    ///     texel that stopped being anything. Together they say the change is a no-op wherever the
+    ///     scene is rendered at the window's size — which is every tier the engine ships.
+    /// </remarks>
+    [Theory]
+    [InlineData("Fxaa")]
+    [InlineData("Sharpen")]
+    [InlineData("Outline")]
+    [InlineData("Ssao")]
+    [InlineData("MotionBlur")]
+    [InlineData("Taa")]
+    public void At_native_resolution_the_texel_is_still_the_frames(string shader) {
+        using var effect = Create(shader);
+        using var h = Build(effect);
+
+        Frame(h);
+
+        var texel = effect.Pass.Parameters.Get(TexelKey(shader));
+
+        Assert.Equal(1f / 320f, texel.X, 5);
+        Assert.Equal(1f / 180f, texel.Y, 5);
+    }
+
     // --- The fixture --------------------------------------------------------
+
+    /// <summary>Where each effect keeps the texel of the plane it taps.</summary>
+    static ParameterKey<Vector2> TexelKey(string shader) =>
+        shader switch {
+            "Fxaa" => FxaaKeys.TexelSize,
+            "Sharpen" => SharpenKeys.TexelSize,
+            "Outline" => OutlineKeys.TexelSize,
+            "Ssao" => SsaoKeys.TexelSize,
+            "MotionBlur" => MotionBlurKeys.TexelSize,
+            "Taa" => TaaKeys.TexelSize,
+            _ => throw new ArgumentOutOfRangeException(nameof(shader), shader, "no such effect")
+        };
 
     static PostEffectRenderer Create(string shader) =>
         shader switch {
@@ -2237,6 +2327,17 @@ public class PostEffectTests : IDisposable {
             "Vignette" => new VignetteRenderer { Source = "SceneColour", Output = "Out" },
             "Fog" => new FogRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Out" },
             "Outline" => new OutlineRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Out" },
+            "MotionBlur" => new MotionBlurRenderer {
+                Source = "SceneColour",
+                MotionVectors = "Motion",
+                Output = "Out"
+            },
+            "Taa" => new TemporalAntialiasingRenderer {
+                Source = "SceneColour",
+                MotionVectors = "Motion",
+                Depth = "SceneDepth",
+                Output = "Out"
+            },
             "Ssao" => new AmbientOcclusionRenderer {
                 Depth = "SceneDepth",
                 Normals = "SceneNormals",

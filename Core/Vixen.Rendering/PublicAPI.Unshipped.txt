@@ -346,6 +346,7 @@ Vixen.Rendering.Compositor.CompositorFrame.Device.init -> Vixen.Graphics.IGraphi
 Vixen.Rendering.Compositor.CompositorFrame.FormatOf(string node, string name) -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.Compositor.CompositorFrame.Has(string name) -> bool
 Vixen.Rendering.Compositor.CompositorFrame.HasBuffer(string name) -> bool
+Vixen.Rendering.Compositor.CompositorFrame.SizeOf(string node, string name) -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Compositor.CompositorFrame.Names.get -> System.Collections.Generic.IEnumerable<string>
 Vixen.Rendering.Compositor.CompositorFrame.Size.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Compositor.CompositorFrame.Size.init -> Vixen.Core.Mathematics.Int2

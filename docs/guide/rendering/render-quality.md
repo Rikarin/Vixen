@@ -130,6 +130,21 @@ low: !QualityTierOverrides
   resolution: !ResolutionQuality { renderScale: 0.75 }
 ```
 
+⚠ **`renderScale` is not finished, and every shipped tier sets it to 1 for that reason.** Declaring
+the scene planes at a fraction was only ever half of a render scale; the other half is that
+everything reading them measures in *their* grid rather than the window's. That half is now true of
+the neighbour taps (FXAA, sharpen, the outline, TAA's clamp, motion blur, the occlusion march), the
+SMAA chain, the reduced depth pyramid, the screen-space reflection march, the screen-probe lattice
+and the visibility buffer. It is **not** yet true of the post chain's intermediate targets, which
+are declared at the frame's size — so the upscale lands at the first effect after shading and every
+pass below it still costs full resolution, which is most of what the scale was meant to buy. TAA's
+history is allocated there too, and the camera's Halton jitter is aimed at the window, so a scaled
+frame accumulates against a native history at offsets that are a fraction of a rendered pixel.
+
+Until those land, a project setting this below 1 buys a fraction of the saving and pays for it in a
+frame nothing reports as wrong — the upscale itself is a bilinear resample in the tonemap's linear
+sampler and nothing more, because the engine has no upscaler yet.
+
 Resolving and reading the fold in code — what the expansion does internally, and what a test
 asserts against:
 
