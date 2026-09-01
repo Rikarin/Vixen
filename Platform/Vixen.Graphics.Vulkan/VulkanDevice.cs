@@ -166,6 +166,16 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     VkSemaphore lastSignalled;
     bool disposed;
 
+    /// <summary>Whether <see cref="BeginFrame" /> has run and <see cref="EndFrame" /> has not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What <see cref="Retire" /> needs and <see cref="FrameSlot" /> cannot say.</b>
+    ///     <see cref="EndFrame" /> advances <see cref="frame" />, so between the two calls
+    ///     <see cref="FrameSlot" /> already names the frame that has not begun — and filing a
+    ///     retirement under it puts the action in the list the very next <see cref="BeginFrame" />
+    ///     drains. See <see cref="Retire" /> for what that cost.
+    /// </remarks>
+    bool recording;
+
     VulkanDevice(
         VulkanInstance instance,
         VulkanAdapter adapter,
@@ -485,6 +495,11 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             }
 
             retiring[slot].Clear();
+
+            // ⚠ After the drain above, never before it. A destroy issued between frames was filed
+            // against the previous slot precisely so that *this* call would not run it.
+            recording = true;
+
             semaphoreCursor = slot * (semaphores.Length / FramesInFlight);
             lastSignalled = default;
 
@@ -516,6 +531,10 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
                 var info = new SubmitInfo { SType = StructureType.SubmitInfo };
                 Api.QueueSubmit(queue.Handle, 1, &info, queue.FenceFor(FrameSlot));
             }
+
+            // ⚠ Before the advance, so that a destroy issued after this call is filed against the
+            // frame that has just been submitted rather than the one about to begin.
+            recording = false;
 
             frame++;
         }
@@ -611,13 +630,36 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         }
     }
 
-    /// <summary>Runs an action once the frame being recorded now cannot still be on the GPU.</summary>
+    /// <summary>Runs an action once no submitted frame can still be on the GPU.</summary>
     /// <param name="action">What to do.</param>
     /// <remarks>
-    ///     Every <c>Destroy</c> goes through here. Destroying a Vulkan object that a submitted command
-    ///     buffer still references is undefined behaviour, and the window in which it is unsafe is
-    ///     exactly <see cref="FramesInFlight" /> frames wide — which the caller has no way of knowing
-    ///     and should not have to.
+    ///     <para>
+    ///         Every <c>Destroy</c> goes through here. Destroying a Vulkan object that a submitted
+    ///         command buffer still references is undefined behaviour, and the window in which it is
+    ///         unsafe is exactly <see cref="FramesInFlight" /> frames wide — which the caller has no
+    ///         way of knowing and should not have to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which slot, and it is not always <see cref="FrameSlot" />.</b>
+    ///         <see cref="EndFrame" /> is what advances <see cref="frame" />, so between
+    ///         <see cref="EndFrame" /> and the next <see cref="BeginFrame" /> the slot already names
+    ///         the frame that has not started — and <see cref="BeginFrame" /> drains that slot's list
+    ///         as its first act, having waited only on the fence of frame <em>n</em> −
+    ///         <see cref="FramesInFlight" />. Filing under it therefore gave a caller outside a frame
+    ///         a deferral of <i>zero</i> frames while the frame it had just submitted was still
+    ///         running: <c>vkDestroyBuffer(): can't be called on VkBuffer … that is currently in use
+    ///         by VkCommandBuffer …</c>, which is what
+    ///         <c>ValidationCleanTests.DestroyingBetweenFramesProducesNoValidationMessages</c>
+    ///         witnesses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And between frames is not an exotic place to destroy from.</b> It is where
+    ///         <c>EditorHost.Sync</c> hands back a retired thumbnail, and it is the moment
+    ///         <c>GraphicsCompositor.Dispose</c> documents as <i>the only</i> safe one — advice that
+    ///         named the unsafe half of the loop. So the previous slot is used instead, which is the
+    ///         one whose <see cref="BeginFrame" /> waits on the fence of the frame that has just been
+    ///         submitted. Inside a frame nothing changes.
+    ///     </para>
     /// </remarks>
     internal void Retire(Action action) {
         lock (gate) {
@@ -626,7 +668,9 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
                 return;
             }
 
-            retiring[FrameSlot].Add(action);
+            var slot = recording ? FrameSlot : ((FrameSlot + FramesInFlight) - 1) % FramesInFlight;
+
+            retiring[slot].Add(action);
         }
     }
 

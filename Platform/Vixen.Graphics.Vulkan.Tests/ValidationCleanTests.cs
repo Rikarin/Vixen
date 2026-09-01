@@ -140,6 +140,92 @@ public sealed class ValidationCleanTests {
     }
 
     /// <summary>
+    ///     Destroying a resource <i>between</i> frames, which is the window the test above does not
+    ///     cover and the one the deferral used to get wrong.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="DestroyingAResourceAFrameIsUsingProducesNoValidationMessages" />
+    ///         destroys inside the <c>BeginFrame</c>/<c>EndFrame</c> pair, and that is the easy
+    ///         half.</b> <see cref="VulkanDevice.Retire" /> files an action under
+    ///         <c>FrameSlot</c>, and <c>EndFrame</c> is what advances <c>frame</c> — so a destroy
+    ///         issued after <c>EndFrame</c> is filed under the slot the <i>next</i> <c>BeginFrame</c>
+    ///         is about to drain. It was run one call later, having waited only on the fence of frame
+    ///         <em>n</em> − <see cref="VulkanDevice.FramesInFlight" />; the frame that was just
+    ///         submitted, and every frame between, was still on the GPU. The deferral advertised as
+    ///         <c>FramesInFlight</c> frames wide was zero frames wide for every caller outside a
+    ///         frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Between frames is not an exotic place to destroy from.</b> It is where
+    ///         <c>EditorHost.Sync</c> retires thumbnails, and it is the moment
+    ///         <c>GraphicsCompositor.Dispose</c> documents as <i>the only</i> safe one.
+    ///     </para>
+    ///     <para>
+    ///         The witness is deterministic rather than a race: the layers hold a submission "in use"
+    ///         until a fence covering it is waited on, and no frame in this loop ever waits on the
+    ///         previous frame's fence. There is nothing here that can happen to come out right.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void DestroyingBetweenFramesProducesNoValidationMessages() {
+        VulkanRequirement.Available(VulkanInstance.ValidationLayerInstalled, "the validation layer is not installed");
+
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new(), out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
+
+        using var owned = device!;
+
+        VulkanRequirement.Available(
+            owned.ValidationEnabled,
+            "the instance came up without validation, so there is nothing to assert"
+        );
+
+        VulkanDiagnostics.Reset();
+
+        var buffer = owned.CreateBuffer(new(256, BufferUsage.CopySource, MemoryAccess.HostUpload, "read between"));
+
+        for (var frame = 1; frame <= owned.FramesInFlight + 2; frame++) {
+            var destination = owned.CreateBuffer(
+                new(256, BufferUsage.CopyDestination, MemoryAccess.DeviceLocal, "sink")
+            );
+
+            owned.BeginFrame();
+
+            using (var commands = owned.BeginCommandList(QueueKind.Graphics, "between frames")) {
+                commands.CopyBuffer(buffer, 0, destination, 0, 256);
+                commands.Finish();
+                owned.GraphicsQueue.Submit([commands]);
+            }
+
+            owned.EndFrame();
+
+            // ⚠ Here, and the whole test is this line's position. The frame above has been submitted
+            // and nothing has waited on it; `EditorHost.Sync` hands its thumbnails back at exactly
+            // this point in exactly this loop.
+            owned.Destroy(buffer);
+            owned.Destroy(destination);
+
+            buffer = owned.CreateBuffer(
+                new(256 * (frame + 1), BufferUsage.CopySource, MemoryAccess.HostUpload, "read between")
+            );
+        }
+
+        owned.WaitIdle();
+        owned.Destroy(buffer);
+
+        Assert.True(
+            VulkanDiagnostics.ErrorCount == 0 && VulkanDiagnostics.WarningCount == 0,
+            $"The validation layers reported {VulkanDiagnostics.ErrorCount} error(s) and "
+            + $"{VulkanDiagnostics.WarningCount} warning(s):"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine + Environment.NewLine, VulkanDiagnostics.Messages)
+        );
+    }
+
+    /// <summary>
     ///     Device creation itself, which is where the dynamic-rendering dependency bug lived — after
     ///     the reset, so nothing else can be blamed for it.
     /// </summary>

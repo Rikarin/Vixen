@@ -303,4 +303,101 @@ public sealed class ThumbnailSurfaceDeviceTests {
             Assert.Equal(0, VulkanDiagnostics.ErrorCount);
         }
     }
+
+    /// <summary>Retiring a thumbnail the previous frame read does not destroy it under that frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The loop below is <c>EditorHost.Run</c>'s, with the calls where the host makes
+    ///         them.</b> <c>Sync</c> — which is where <c>ThumbnailSurface.Retire</c> is called —
+    ///         runs <i>between</i> <c>EndFrame</c> and the next <c>BeginFrame</c>, and that is the
+    ///         one detail the whole test turns on. Moving the release inside the frame makes it pass
+    ///         for a reason the editor does not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The claim it used to break was the backend's, not this class's.</b>
+    ///         <c>ThumbnailSurface.Retire</c> is already deferred and already correct in its own
+    ///         terms — it hands the handles to <c>IGraphicsDevice.Destroy</c>, whose contract is that
+    ///         the object outlives every frame that could reference it. What was wrong is that
+    ///         <c>VulkanDevice.Retire</c> filed an action from outside a frame under the slot the
+    ///         next <c>BeginFrame</c> was about to drain, so the deferral was zero frames wide here
+    ///         and <c>FramesInFlight</c> frames wide everywhere else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does not establish.</b> The frame that reads the thumbnail here copies
+    ///         out of it rather than sampling it through a descriptor set, because a real interface
+    ///         draw needs a swapchain this test does not have. The object whose lifetime is under
+    ///         test is the same <c>VkImage</c> either way and the layers track it the same way, but a
+    ///         descriptor-side hazard — a set still naming a destroyed view — is outside what a copy
+    ///         can see. It also proves nothing about a driver with no layers, which is the
+    ///         configuration the defect was silent in.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_thumbnail_retired_between_frames_outlives_the_frame_that_read_it() {
+        using (var device = Open()) {
+            VulkanDiagnostics.Reset();
+
+            var shaders = Shaders(device);
+            var renderer = new UiRenderer(device, shaders, new RenderOutput([PixelFormat.Bgra8UNorm]));
+
+            using var surface = new ThumbnailSurface(device, renderer);
+
+            const int Bytes = Size * Size * 4;
+
+            var readback = device.CreateBuffer(
+                new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "retirement readback")
+            );
+
+            // `EditorApplication.Update` — outside the frame, which is where `ThumbnailCache.Pump`
+            // runs and where the texture is made.
+            var image = surface.Upload(Size, Size, Gradient());
+
+            Assert.NotEqual(0ul, image);
+
+            var texture = surface.TextureOf(image);
+
+            Assert.True(texture.IsValid, "the surface has no texture for the image it just handed out");
+
+            // `EditorHost.Present` — the frame that copies the pixels in and then reads them.
+            device.BeginFrame();
+
+            Assert.Equal(1, surface.Flush());
+
+            using (var commands = device.BeginCommandList(QueueKind.Graphics, "reads the thumbnail")) {
+                commands.Barrier(
+                    new BarrierGroup(
+                        [],
+                        [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)]
+                    )
+                );
+
+                commands.CopyTextureToBuffer(new TextureRegion(texture), new(Size, Size, 1), readback, 0);
+                commands.Finish();
+                device.GraphicsQueue.Submit([commands]);
+            }
+
+            device.EndFrame();
+
+            // ⚠ `EditorHost.Sync`, and there is deliberately no wait between it and the frame above.
+            // A tile scrolled off screen is evicted from `ThumbnailCache` here, in the update of the
+            // frame after the one that drew it.
+            surface.Release(image);
+            surface.Retire();
+
+            // The next frame. On a backend that filed the retirement under this slot, the destroy
+            // ran as this call's first act — with the frame above still on the GPU.
+            device.BeginFrame();
+            device.EndFrame();
+
+            device.WaitIdle();
+            device.Destroy(readback);
+
+            Assert.True(
+                VulkanDiagnostics.ErrorCount == 0,
+                $"Retiring a thumbnail produced {VulkanDiagnostics.ErrorCount} validation error(s):"
+                + Environment.NewLine
+                + string.Join(Environment.NewLine + Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+        }
+    }
 }
