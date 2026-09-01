@@ -113,6 +113,32 @@ static class Settling {
     ///         is what a fixture over mounted content is waiting for. A pattern match rather than a
     ///         cast, so a renderer built without mounting reads as idle instead of throwing.
     ///     </para>
+    ///     <para>
+    ///         <b>Which clauses actually hold a settle open, counted 2026-09-01 under two hundred
+    ///         blocked pool workers.</b> <c>WorldRendererTests.AMountedWorldDrawsItsMeshInItsOwnMaterial</c>:
+    ///         33 168 of 33 170 calls true, <em>all</em> of them the texture header read, over 1 m 38 s.
+    ///         <c>TextureDemandTests.AWidthDriftingAcrossARungDoesNotOscillate</c>: three of five true,
+    ///         one header read and two streamer clauses. The mesh and material clauses were true
+    ///         <b>zero</b> times in either, because both of those loads complete synchronously over an
+    ///         in-memory bundle — see <see cref="AssetMaterialSource.Reading" />, which records the
+    ///         measurement. They are kept for the day the content is a real one, and they are honest
+    ///         about costing nothing today.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this cannot see is a livelock, and that is a known gap rather than an
+    ///         oversight.</b> A page that loads, is refused a slot and is put back by
+    ///         <c>PageResidency.Renew</c> leaves <c>Loading</c> above zero on every frame for ever,
+    ///         so a settle waiting on it waits for ever rather than failing. Reproduced by sabotaging
+    ///         <c>PageResidency.Place</c> to refuse every arrival, which hangs
+    ///         <c>AssetTextureStreamingTests</c> as well — the gap is inherited from the settle this
+    ///         one is modelled on, not introduced here. The two waits that could be given a
+    ///         progress-based give-up have one — <c>TextureStreamingTests.Drain</c> and
+    ///         <c>TextureDemandTests.Quiet</c>, both of which detect it — and doing the same for a
+    ///         whole renderer needs a signal this predicate does not have. The state it guards is one
+    ///         <c>PageResidency.Service</c> explicitly argues is unreachable ("Pin's own budget check
+    ///         is what stops this being reachable"), so it is written down here rather than defended
+    ///         against with a guard invented in a hurry.
+    ///     </para>
     /// </remarks>
     public static bool Working(WorldRenderer renderer, AssetReference texture) =>
         (renderer.Source is AssetMeshSource meshes && meshes.Requested - meshes.Loaded - meshes.Failed > 0)

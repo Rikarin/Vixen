@@ -288,32 +288,68 @@ public sealed class TextureStreamingTests {
     ///     </para>
     /// </remarks>
     static void Drain(TextureStreamer streamer) {
-        var quiet = 0;
-        var pending = streamer.PendingRequests;
+        var stuck = 0;
+        var refusals = streamer.Rejections;
 
         while (true) {
             var placed = streamer.Service(256);
-            var queued = streamer.PendingRequests;
 
             // ⚠ Loading counts arrived-and-unplaced as well as in-flight, so there is no instant
             // between a read finishing and its page reaching a slot where this reads as drained.
-            if (placed == 0 && streamer.Loading == 0 && queued == 0) {
+            if (placed == 0 && streamer.Loading == 0 && streamer.PendingRequests == 0) {
                 return;
             }
 
-            quiet = placed > 0 || streamer.Loading > 0 || queued < pending ? 0 : quiet + 1;
-            pending = queued;
+            // ⚠ A page reaching a slot is the ONLY thing that counts as progress, and a queue that
+            // got shorter deliberately does not. Renew puts every pinned page that is neither
+            // resident nor in flight back on the queue, so under a livelock the queue length
+            // oscillates — up on Renew, down on the loads Service starts — and "the queue got
+            // shorter" is true on about every other round for ever. Measured: that clause alone
+            // kept this loop running indefinitely under a sabotaged Place.
+            if (placed > 0) {
+                stuck = 0;
+                refusals = streamer.Rejections;
+            } else {
+                stuck++;
+            }
+
+            // ⚠ A long fruitless window is only worth waiting on while the streamer is WAITING
+            // rather than SPINNING, and telling those apart is what this loop exists to do now.
+            // Under a saturated pool the same pages sit in flight and no counter moves at all: that
+            // is starvation, and tolerating it however long it lasts is the point of the rewrite.
+            // Under a livelock — a page that loads, is refused a slot, and is put back by Renew —
+            // something is in flight on every round for ever, and the refusal count climbing is the
+            // only thing that says so.
+            //
+            // ⚠ Over the WINDOW, not per round. Measured under a sabotaged Place that refuses every
+            // arrival: Loading sat at 1 for ever while Rejections climbed only every one to three
+            // rounds, so a per-round comparison reset the counter on most rounds and the loop never
+            // ended. Loads is no good either — it counts pages that reached a SLOT, so it holds
+            // perfectly still through exactly the livelock it would have to detect.
+            var spinning = streamer.Rejections > refusals;
 
             Assert.True(
-                quiet < Settling.Quiet,
-                $"the streamer stalled: {streamer.Loading} loading and {queued} queued, unchanged "
-                + $"for {quiet} rounds with nothing placed — so no number of further rounds can "
-                + "change it"
+                stuck < Rounds || (!spinning && streamer.Loading > 0),
+                $"the streamer never drained: {streamer.Loading} loading, "
+                + $"{streamer.PendingRequests} queued and {streamer.Rejections} refused against "
+                + $"{refusals} when it last placed a page, with nothing placed for {stuck} rounds — "
+                + "it is spinning rather than waiting, so no number of further rounds can change it"
             );
 
             Thread.Sleep(1);
         }
     }
+
+    /// <summary>How many fruitless rounds mean the streamer is spinning rather than waiting.</summary>
+    /// <remarks>
+    ///     Larger than <see cref="Settling.Quiet" /> and for a different reason. That one counts
+    ///     attempts on a source that has said it has nothing outstanding, where eight is already
+    ///     generous; this one has to let a full pipeline fill — a round may start loads and place
+    ///     nothing yet — before calling it a spin. It is still not a patience: every round of it is a
+    ///     round in which the streamer started work and placed none of it, which for an in-memory
+    ///     store is anomalous however loaded the machine is.
+    /// </remarks>
+    const int Rounds = 64;
 
     /// <summary>A set of KTX2 files in memory, served as byte ranges.</summary>
     sealed class Files : ITextureStreamSource {

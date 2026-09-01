@@ -173,6 +173,25 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///         would not compile, which is a defect and is reported as one. Counting "asked for but
     ///         no material yet" instead would wait on that for ever.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured 2026-09-01: over an in-memory bundle this is never non-zero, because
+    ///         the load never yields.</b> <c>AssetManager.LoadRootAsync</c> is a plain
+    ///         <c>async Task</c> rather than a <see cref="Task.Run(Action)" />, so when every await
+    ///         in it completes synchronously — which they do over a <c>MemoryFileProvider</c> — it
+    ///         returns an already-completed task and the handle is <c>Loaded</c> the instant
+    ///         <c>LoadAsync</c> returns. Probed with two hundred pool workers blocked:
+    ///         <c>TryGet</c> answered on the <b>first</b> ask, in 26 ms, with the highest
+    ///         <c>Reading</c> ever observed at <b>0</b>.
+    ///     </para>
+    ///     <para>
+    ///         So the settles that read this are not exercised by the fixtures that have it, and
+    ///         that is worth writing down rather than mistaking for a wait that works. It is kept
+    ///         because it is right in the direction that matters: it is trivially <em>false</em>
+    ///         rather than trivially true, so a settle reading it gives up in milliseconds on a
+    ///         broken source instead of masking it — verified by sabotage, five of the six tests in
+    ///         <c>AssetMaterialSourceTests</c> going red in 0.7 s — and it becomes a real wait the
+    ///         day this content is a real bundle or the manager yields.
+    ///     </para>
     /// </remarks>
     internal int Reading {
         get {
