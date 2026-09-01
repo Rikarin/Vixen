@@ -97,7 +97,10 @@ public sealed class MotionBlurRenderer() : PostEffectRenderer(
 
         parameters.Set(MotionBlurKeys.Samples, Math.Max(Samples, 1));
         parameters.Set(MotionBlurKeys.UseNeighbourMax, UseNeighbourMax);
-        parameters.Set(MotionBlurKeys.TexelSize, TexelSize(frame.Size));
+        // The motion plane's texel: this number turns a motion vector into a count of pixels and
+        // sets the neighbour-dilation reach, and both are measured in the grid the vectors were
+        // written on — a scene plane, which a render scale makes smaller than the window.
+        parameters.Set(MotionBlurKeys.TexelSize, TexelOf(frame, MotionVectors));
         parameters.Set(MotionBlurKeys.ShutterFraction, ShutterFraction);
         parameters.Set(MotionBlurKeys.MaxRadius, MaximumRadius);
         parameters.Set(MotionBlurKeys.MinRadius, MinimumRadius);

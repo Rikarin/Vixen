@@ -146,6 +146,30 @@ public sealed class CompositorFrame {
             ? entry.Description
             : throw new CompositorBindingException(node, "target", name);
 
+    /// <summary>How large the resource a node named actually is, in pixels.</summary>
+    /// <param name="node">The node asking, for the refusal's message.</param>
+    /// <param name="name">The resource.</param>
+    /// <exception cref="CompositorBindingException">Nothing was declared or imported under that name.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="Size" />, and the difference is the whole of what a render scale
+    ///         is.</b> <see cref="Size" /> is the <em>window's</em>; a scene plane declared with
+    ///         <c>RenderResourceAsset.Scale</c> below one is smaller than it, and a node that steps
+    ///         through such a plane in <see cref="Size" />'s texels steps by the wrong distance —
+    ///         which is not an error anywhere, because every tap still lands inside the texture.
+    ///     </para>
+    ///     <para>
+    ///         Off the graph's own description rather than off the declaration, so it answers for an
+    ///         import — the swapchain, a history plane, a node's own published target — exactly as it
+    ///         answers for a transient.
+    ///     </para>
+    /// </remarks>
+    public Int2 SizeOf(string node, string name) {
+        var described = Graph.DescribeTexture(Texture(node, name));
+
+        return new(described.Width, described.Height);
+    }
+
     /// <summary>Whether a name resolves to a texture.</summary>
     public bool Has(string name) => resources.ContainsKey(name);
 

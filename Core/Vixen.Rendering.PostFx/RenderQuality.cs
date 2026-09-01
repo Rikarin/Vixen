@@ -55,10 +55,38 @@ public enum FxaaPreset {
 public sealed record ResolutionQuality {
     /// <summary>The fraction of the window the scene is rendered at, 1 for native.</summary>
     /// <remarks>
-    ///     Applied as the declared scale of every scene-sized resource the expansion emits — the
-    ///     generalisation of the AO passes' own <c>Scale</c>. The output resource stays native: the
-    ///     upscale happens wherever a pass reads a scaled plane and writes an unscaled one. An
-    ///     upscaling filter choice is reserved for when the engine has more than bilinear to offer.
+    ///     <para>
+    ///         Applied as the declared scale of every scene-sized resource the expansion emits — the
+    ///         generalisation of the AO passes' own <c>Scale</c>. The output resource stays native:
+    ///         the upscale happens wherever a pass reads a scaled plane and writes an unscaled one,
+    ///         which is a bilinear resample in the tonemap's linear sampler and nothing more. An
+    ///         upscaling filter choice is reserved for when the engine has more than that to offer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every shipped tier sets this to 1, and that is a statement about the path rather
+    ///         than about the tiers.</b> Declaring the six scene planes smaller was only ever half of
+    ///         a render scale; the other half is that everything reading them has to measure in
+    ///         <em>their</em> grid. That was the window's everywhere, and at native resolution the
+    ///         two are the same number — so the knob has always been authorable and has never been
+    ///         exercised. What is honoured now: the six planes; the neighbour taps of FXAA, sharpen,
+    ///         the outline, TAA's clamp, motion blur and the occlusion march; the SMAA chain; the
+    ///         reduced depth pyramid; the screen-space reflection march; the screen-probe lattice;
+    ///         and the visibility buffer, whose colour and depth attachments had to agree or the
+    ///         backend refuses the framebuffer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is not, and why 1 is still the honest value to ship.</b> The post chain's
+    ///         intermediate targets are declared at <c>CompositorFrame.Size</c>
+    ///         (<c>PostEffectRenderer.TargetSize</c>), so the upscale happens at the first effect
+    ///         after shading rather than at a chosen point — every pass downstream of it then costs
+    ///         full resolution, which is most of what the scale was meant to buy. TAA's history is
+    ///         allocated there too, so a scaled frame accumulates against a native history; the
+    ///         camera's Halton jitter is aimed at the window (<c>AppGraphics.AimTheJitter</c>), so
+    ///         the offsets are a fraction of a rendered pixel; and depth of field's circle of
+    ///         confusion is derived in target pixels and applied in source texels, which cancel only
+    ///         at 1. Setting a tier below 1 before those land would buy a fraction of the saving and
+    ///         pay for it in a frame nothing reports as wrong.
+    ///     </para>
     /// </remarks>
     public float? RenderScale { get; init; }
 }

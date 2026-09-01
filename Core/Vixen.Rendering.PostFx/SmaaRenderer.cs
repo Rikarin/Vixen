@@ -181,7 +181,13 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
                 + "chain was declared — Output holds whatever the graph last aliased into it";
         }
 
-        var size = frame.Size;
+        // The source's size, not the frame's. The chain's three passes step through `edges` and
+        // `weights` at whole-texel offsets, and the first of them reads `source` the same way — so
+        // the whole chain has to be laid on the grid the source is on, or the edge pass looks for
+        // discontinuities at coordinates between the source's texels and finds none. `Output` is
+        // exempt by construction: where it is the frame's own target the host has already declared
+        // it, and `Declare` leaves a resource that exists alone.
+        var size = frame.Has(Source) ? frame.SizeOf(ToString(), Source) : frame.Size;
 
         Declare(frame, EdgesName, size, MaskFormat);
         Declare(frame, WeightsName, size, MaskFormat);

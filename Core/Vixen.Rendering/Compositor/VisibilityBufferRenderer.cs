@@ -220,7 +220,11 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
         var resolve = Resolve;
         var view = system.Views[ViewIndex];
         var viewProjection = system.Views[ViewIndex].ViewProjection;
-        var size = frame.Size;
+        // ⚠ The depth plane's size, because the identity buffer is attached beside that depth in one
+        // render pass — and a colour attachment of a different extent from its depth attachment is
+        // not a subtle mistake, it is a framebuffer the backend refuses. The two were the same number
+        // until a quality tier could scale the scene planes and leave this one at the window's.
+        var size = frame.SizeOf(ToString(), Depth);
 
         // A declaration wins over a creation, and that is the whole of what makes the buffer
         // inspectable. A transient this node creates is stored only if something inside the frame reads

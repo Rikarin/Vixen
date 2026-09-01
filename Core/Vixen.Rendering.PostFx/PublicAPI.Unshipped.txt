@@ -846,6 +846,8 @@ Vixen.Rendering.PostFx.PostEffectRenderer.PostEffectRenderer(string shaderName, 
 Vixen.Rendering.PostFx.PostEffectRenderer.Read(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, string resource) -> void
 Vixen.Rendering.PostFx.PostEffectRenderer.ReadBuffer(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, string resource) -> void
 Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.PostEffectRenderer.SizeOf(Vixen.Rendering.Compositor.CompositorFrame frame, string? plane) -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.PostFx.PostEffectRenderer.TexelOf(Vixen.Rendering.Compositor.CompositorFrame frame, string? plane) -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?

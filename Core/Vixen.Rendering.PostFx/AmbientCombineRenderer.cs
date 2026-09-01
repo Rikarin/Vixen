@@ -306,17 +306,4 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         Sample(bindings, AmbientCombineKeys.LinearSamplerBinding, Samplers!.LinearClamp);
     }
 
-    /// <summary>One texel of the named plane, off the texture the graph actually declared.</summary>
-    /// <remarks>
-    ///     The frame's own texel where the plane is absent or not yet declared — a harmless answer,
-    ///     because both cases are ones the shader's switches keep from being read.
-    /// </remarks>
-    Vector2 TexelOf(CompositorFrame frame, string? plane) {
-        if (plane is null || !frame.Has(plane)) {
-            return TexelSize(frame.Size);
-        }
-
-        var declared = frame.Graph.DescribeTexture(frame.Texture(ToString(), plane));
-        return TexelSize(new(declared.Width, declared.Height));
-    }
 }

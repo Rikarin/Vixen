@@ -182,6 +182,46 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
     protected static Vector2 TexelSize(Int2 size) =>
         new(1f / Math.Max(size.X, 1), 1f / Math.Max(size.Y, 1));
 
+    /// <summary>How large the named plane actually is, or the frame's size where it is absent.</summary>
+    /// <param name="frame">The frame being built.</param>
+    /// <param name="plane">The resource, or null for an effect whose source is switched off.</param>
+    /// <remarks>
+    ///     The frame's own size where the plane is absent or not yet declared — a harmless answer,
+    ///     because both cases are ones the shader's switches keep from being read.
+    /// </remarks>
+    protected Int2 SizeOf(CompositorFrame frame, string? plane) {
+        ArgumentNullException.ThrowIfNull(frame);
+
+        return plane is null || !frame.Has(plane) ? frame.Size : frame.SizeOf(ToString(), plane);
+    }
+
+    /// <summary>
+    ///     One texel of the plane this effect <em>samples</em>, which is not one texel of the frame.
+    /// </summary>
+    /// <param name="frame">The frame being built.</param>
+    /// <param name="plane">The resource the shader taps, or null for a source switched off.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every neighbour tap in this library is <c>uv + offset * texelSize</c>, so this
+    ///         number is a statement about the texture being read and never about the target being
+    ///         written.</b> The two are the same size in a frame rendered at native resolution, which
+    ///         is why <c>TexelSize(frame.Size)</c> stood everywhere and was right everywhere — and
+    ///         why it stops being right the moment a tier scales the scene planes down.
+    ///     </para>
+    ///     <para>
+    ///         What that costs when it is wrong is nothing an error can catch: at half scale FXAA's
+    ///         four neighbours land half a source texel away, the luminance range collapses under the
+    ///         edge threshold, and the pass runs at full cost and blends nothing. A point-sampled
+    ///         chain — sharpen, TAA's neighbourhood clamp — is worse: every tap quantises to the
+    ///         centre texel, so the filter's own minimum, maximum and centre are one number.
+    ///     </para>
+    ///     <para>
+    ///         Generalised from <c>AmbientCombineRenderer</c>, which was the only node in the tree
+    ///         that asked the plane instead of the window.
+    ///     </para>
+    /// </remarks>
+    protected Vector2 TexelOf(CompositorFrame frame, string? plane) => TexelSize(SizeOf(frame, plane));
+
     /// <inheritdoc />
     /// <remarks>
     ///     ⚠ <b>The inner pass is not in <see cref="SceneRenderer.Nested" />, so its answer is carried

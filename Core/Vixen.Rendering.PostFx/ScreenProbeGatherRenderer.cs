@@ -234,7 +234,12 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
         var depthFormat = frame.FormatOf(ToString(), Depth);
         var normalFormat = frame.FormatOf(ToString(), Normals);
 
-        EnsureLattice(frame.Size);
+        // ⚠ The depth plane's size, not the window's. The lattice is a grid of tiles over the pixels
+        // the probes are placed from, and every consumer of it — the placement readback, the trace's
+        // `screenViewport`, the pyramid it marches, the upsample's `viewport` — derives from
+        // `atlas.Layout.Viewport`. One number, so the only thing that can be wrong is which screen it
+        // describes; under a render scale the window is the wrong one and nothing says so.
+        EnsureLattice(frame.SizeOf(ToString(), Depth));
         EnsureReadback(device, depthFormat, normalFormat);
 
         texture!.EnsureCreated(device);

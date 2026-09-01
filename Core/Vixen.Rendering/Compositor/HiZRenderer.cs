@@ -60,7 +60,15 @@ public sealed class HiZRenderer : SceneRenderer {
         }
 
         var depth = frame.Texture(ToString(), Depth);
-        var size = frame.Size;
+
+        // ⚠ The depth plane's size, which is what `HiZPyramid.Build` documents its parameter to be —
+        // and which stopped being the frame's the moment a quality tier could scale the scene planes
+        // down. The pyramid is allocated at half of whatever it is told, and level zero reduces
+        // texels (2x, 2y) of the source: told the window's size against a smaller depth, the chain
+        // covers only the region the window's coordinates reach and the reduce clamps past it. The
+        // shader cannot catch that — `HiZReduce.rvn` bounds itself with `GetDimensions` — so the
+        // culler simply tests against a pyramid of the wrong part of the screen, silently.
+        var size = frame.SizeOf(ToString(), Depth);
 
         frame.Graph.AddPass(
             ToString(),
