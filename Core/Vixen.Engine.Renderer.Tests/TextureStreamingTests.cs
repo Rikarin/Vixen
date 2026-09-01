@@ -342,14 +342,12 @@ public sealed class TextureStreamingTests {
 
     /// <summary>How many fruitless rounds mean the streamer is spinning rather than waiting.</summary>
     /// <remarks>
-    ///     Larger than <see cref="Settling.Quiet" /> and for a different reason. That one counts
-    ///     attempts on a source that has said it has nothing outstanding, where eight is already
-    ///     generous; this one has to let a full pipeline fill — a round may start loads and place
-    ///     nothing yet — before calling it a spin. It is still not a patience: every round of it is a
-    ///     round in which the streamer started work and placed none of it, which for an in-memory
-    ///     store is anomalous however loaded the machine is.
+    ///     The argument is <see cref="Settling.Rounds" />'s and so is the number, which is why it is
+    ///     read from there rather than written again: three copies of a livelock threshold is three
+    ///     chances for one of them to drift, and this loop, <c>TextureDemandTests.Quiet</c> and
+    ///     <see cref="Settling.Until" /> are all asking the same question about the same streamer.
     /// </remarks>
-    const int Rounds = 64;
+    const int Rounds = Settling.Rounds;
 
     /// <summary>A set of KTX2 files in memory, served as byte ranges.</summary>
     sealed class Files : ITextureStreamSource {
