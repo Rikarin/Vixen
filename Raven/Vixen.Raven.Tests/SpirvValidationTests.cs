@@ -242,6 +242,17 @@ public class SpirvValidationTests {
         "        return albedo.Sample(linear, count)"
     )]
 
+    // `dot` on one lane. OpDot takes vectors and nothing else, and the intrinsic is declared over
+    // the scalar as well — Corpus/raven/3a9c4beb4aea379c.bin, five red nightlies.
+    [InlineData(
+        "a dot product of two scalars",
+        "        return float4(dot(level, level), 0, 0, 1)"
+    )]
+    [InlineData(
+        "a dot product of two scalar literals",
+        "        return float4(dot(1, 0f), 0, 0, 1)"
+    )]
+
     // A range whose ends are not the same type. The loop variable takes the ends' common type, so
     // the ends have to be converted to it — leaving the limit as it was stored an `i32` through an
     // `f32` pointer, which is `Corpus/raven/244478dae1621493.bin`.
@@ -329,6 +340,54 @@ public class SpirvValidationTests {
         );
 
         Assert.Contains($"OpDecorate {IdNamed(listing, "in_tile")} Flat", listing, StringComparison.Ordinal);
+    }
+
+    /// <summary>A <c>dot</c> of two scalars is a multiply, because SPIR-V's dot product is not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>OpDot</c> is a vector instruction and the language's <c>dot</c> is not.</b>
+    ///         <c>Intrinsics</c> declares <c>dot</c> in the same loop as <c>length</c>,
+    ///         <c>distance</c> and <c>normalize</c> — over <c>float</c>, <c>float2</c>,
+    ///         <c>float3</c> and <c>float4</c> — and the other four are GLSL.std.450 instructions
+    ///         that take a scalar happily. <c>OpDot</c> is core, requires "a vector of
+    ///         floating-point type" on both operands, and was emitted for the scalar anyway. The
+    ///         module generated, every golden matched (they come from the same emitter), and
+    ///         <c>spirv-val</c> refused it: <c>Expected float vector as operand: Dot operand
+    ///         index 2</c>.
+    ///     </para>
+    ///     <para>
+    ///         The multiply is not a substitution: a dot product of one lane <em>is</em> the
+    ///         product, it is what GLSL's <c>dot</c> means for a <c>float</c>, and it is what
+    ///         glslang emits for the GLSL this compiler's own other backend writes. So the
+    ///         assertion is both halves — an <c>OpFMul</c>, and no <c>OpDot</c> left anywhere in
+    ///         the module.
+    ///     </para>
+    ///     <para>
+    ///         The nightly's <c>raven</c> target found it as <c>saturate(dot(1, 0f))</c>, one edit
+    ///         from <c>Example1.rvn</c>'s <c>saturate(dot(sampled.rgb, tint.rgb))</c>:
+    ///         <c>Corpus/raven/3a9c4beb4aea379c.bin</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_dot_of_two_scalars_is_a_multiply() {
+        var listing = Fragment("        return float4(dot(level, level), 0, 0, 1)", "    var level: float\n");
+
+        Assert.Contains("OpFMul", listing, StringComparison.Ordinal);
+        Assert.DoesNotContain("OpDot", listing, StringComparison.Ordinal);
+    }
+
+    /// <summary>The vector case still reaches <c>OpDot</c>, which is what the scalar case is not.</summary>
+    /// <remarks>
+    ///     Beside the scalar test rather than assumed by it: a fix that answered every <c>dot</c>
+    ///     with a multiply would pass the one above and be silently wrong on every shipped shader,
+    ///     since <c>Raven/Library</c> calls <c>dot</c> forty-odd times and every one of them is on
+    ///     a vector.
+    /// </remarks>
+    [Fact]
+    public void A_dot_of_two_vectors_is_still_a_dot_product() {
+        var listing = Fragment("        return float4(dot(colour, colour), 0, 0, 1)", "    var colour: float3\n");
+
+        Assert.Contains("OpDot", listing, StringComparison.Ordinal);
     }
 
     [Fact]

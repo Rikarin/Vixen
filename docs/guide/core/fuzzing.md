@@ -307,6 +307,20 @@ Worth reading as a description of what these invariants are for rather than as h
 - **Two one-token edits of a shipped shader compiled with no diagnostic at all and emitted modules a
   driver would reject** — a `bool` in a uniform block, and `OpConstantNull` of `void`. Nothing threw,
   nothing amplified, the round-trip held and the reparse agreed. Only the validator saw it.
+- **`dot` on two scalars emitted `OpDot`, which takes vectors only.** `Example1.rvn`'s
+  `saturate(dot(sampled.rgb, tint.rgb))` became `saturate(dot(1, 0f))`, which is a call the language
+  declares — `dot` is built over `float` as well as `float2`–`float4`, in the same loop as `length`
+  and `normalize` — and which the GLSL backend spells correctly, because GLSL's own `dot` takes a
+  `float`. Only SPIR-V has no one-instruction form for it, and the emitter reached for `OpDot`
+  anyway. Nothing threw and every golden matched, because the goldens come from the same emitter.
+  `Corpus/raven/3a9c4beb4aea379c.bin`.
+
+⚠ **A run's depth is not the only thing a night changes.** That last one appeared five nightlies
+running while the night before it had gone *twice as far* — 26.8 M cases clean against 13–14 M with
+the finding — because the corpus keeps an input whose signature is new and the mutator draws its
+parents from the corpus. A diagnostic added anywhere in the compiler re-signs part of the population
+and every case after that is a different case. So "the fuzzer found it last night" is not evidence
+that anything broke last night, and "the run was shorter" is not evidence that it looked less hard.
 
 ⚠ **`spirv-val` being absent is not a silent skip.** Without it the Raven target still generates
 modules and validates nothing while the run goes on printing "clean", so
