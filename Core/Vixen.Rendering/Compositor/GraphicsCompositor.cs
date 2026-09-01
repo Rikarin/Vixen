@@ -125,6 +125,35 @@ public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
     ///         before it; and idempotent, because a host that disposes a compositor it has also
     ///         replaced should not have to remember which.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"A type holding a <see cref="GraphicsCompositor" /> must be
+    ///         <see cref="IDisposable" />" was costed as a checked rule and declined, and the reason
+    ///         it was declined is not the one it looks like.</b> It is not that the rule would fire
+    ///         on correct code — every one of the twenty-one types that holds a compositor today is
+    ///         already <c>IDisposable</c>, so it would ship green and stay green. It is that
+    ///         <em>being</em> <c>IDisposable</c> is not <em>calling</em> this. Eighteen of them are
+    ///         test fixtures carrying
+    ///         <c>public required GraphicsCompositor Compositor { get; init; }</c>, a borrowed
+    ///         reference; they implement <c>IDisposable</c> for a <c>RenderSystem</c> and a graph
+    ///         pool of their own and never dispose the compositor at all — see
+    ///         <c>PostProcessTests.Harness</c> and <c>BloomTests.Harness</c>, which are correct as
+    ///         written. So the rule is satisfied by exactly the code it exists to catch: a holder
+    ///         that grew a <c>Dispose</c> for something else and forgot this call passes it, which
+    ///         is the shape #327 had.
+    ///     </para>
+    ///     <para>
+    ///         The formulation with teeth — "a type with a compositor field must call
+    ///         <c>Dispose</c> on it" — inverts the cost and fires on all eighteen borrowers, because
+    ///         ownership is not recoverable from a type: an <c>init</c> auto-property is a field, and
+    ///         nothing distinguishes the compositor a host built from the one a fixture was handed.
+    ///         Nor could either live in <c>CheckArchitecture</c>, which reads <c>.csproj</c> XML and
+    ///         knows nothing of types. What <em>is</em> checkable is checked: that every node a
+    ///         builder makes reaches <see cref="Own" /> and that disposing gives the memory back, by
+    ///         <c>CompositorLifetimeTests</c> against <c>NullDevice.LiveResourceCount</c>; and that
+    ///         each of the two production holders releases the tree it replaces, by
+    ///         <c>SceneRenderHostTests.Loading_a_second_document_disposes_the_first_ones_tree</c> and
+    ///         <c>EditorWorldRendererTests</c>' reload test.
+    ///     </para>
     /// </remarks>
     public void Dispose() {
         if (disposed) {
