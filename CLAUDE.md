@@ -6,6 +6,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 file is what the README does not say: how to run things, how this codebase decides a claim is proved,
 and the architecture that only emerges from reading several files at once.
 
+## The working agreement
+
+Standing, for every session, unless the current session says otherwise.
+
+1. **Audit before fixing.** When pointed at a subsystem, survey it first and report findings with
+   `file:line` before changing anything. Turn the findings into tasks and show the list.
+
+2. **Use parallel agents in isolated worktrees for anything decomposable.** Write briefs that name the
+   specific failure classes to look for, grounded in bugs this engine has actually had. ⚠ A brief
+   saying *"look for bugs"* finds nothing; one saying *"check whether the first sample shell can be
+   smaller than a texel"* finds the bug.
+
+3. **Every agent verifies before it fixes.** Claims Jiu makes, claims in code comments, claims in plan
+   documents — confirm or refute each with evidence, and say which turned out wrong. **A refuted claim
+   is worth as much as a fix.** Where practical, sabotage-test: show the new test fails against the old
+   code.
+
+4. **Merge each task as it lands** — merge the branch, run the affected suites, merge to master. Do not
+   batch them.
+
+5. **Gates: targeted `dotnet test` while working; the full `./build.sh` gates once, on master, at the
+   end.** Per-branch runs cannot see cross-branch drift. Run each gate as its own unpiped command and
+   read its tail — do not pipe a batch through `grep`, it misreports.
+
+6. **Report honestly**: what landed versus where you stopped, what stayed owed and why, what you could
+   not verify. *"I stopped here"* beats a half-finished claim of done. Commit before any optional
+   verification step, so an interruption cannot cost the work.
+
+7. **"Tests pass" is not evidence for a visual defect.** If the symptom is visual, get a picture —
+   build the pre-fix commit and A/B the same view.
+
+8. **Check memory first** for conventions and traps; write new ones when something durable is learned.
+
+9. **When Jiu asks a question rather than for a change, answer it.** Do not start fixing until asked.
+
+10. **Ask when a decision needs domain knowledge you do not have.**
+
 ## Build and test
 
 `./build.sh <targets>` (`build.cmd` on Windows) is the entry point; targets are in `build/Build*.cs`.
@@ -144,9 +181,20 @@ zero is a valid-looking value.
 - **`docs/overview.md` is the state and wins** where a `docs/plan/` document disagrees; plan documents
   record intent, not what exists. Per-module `README.md` files carry the reasoning for that subsystem,
   including what it deliberately does not do — they are the best entry point into an unfamiliar area.
-- **Every new task is also filed as a public GitHub issue** on `Rikarin/Vixen`
-  (`gh issue create --repo Rikarin/Vixen …` — always pass `--repo`; `gh` otherwise infers it from the
-  working directory). Close issues with the real outcome, including "refuted, not fixed".
+- **GitHub issues on `Rikarin/Vixen` are the task tracker**, and every new task is filed as one —
+  `gh issue create --repo Rikarin/Vixen …`. ⚠ **Always pass `--repo`**; `gh` otherwise infers it from
+  the working directory, which is wrong inside an agent's worktree.
+  - **Work an agent turns up is filed too, not just work Jiu names.** An agent that finds a second
+    defect while fixing the first, or refutes a claim and uncovers the real one, files an issue for it
+    rather than widening its own change or leaving it in a report nobody re-reads. Search the open
+    issues before filing, so a finding two agents hit independently lands once.
+  - **An issue is closed when the work is finished *and merged to master*** — not when a branch is
+    green and not when an agent says it is done. Close it with the real outcome, including
+    "refuted, not fixed" and "closed by deciding not to".
+  - ⚠ **If it is not complete, the issue says what is left**, in the issue rather than in a session
+    that ends. Partly-done work is a comment naming what landed, what did not, and why — and the issue
+    stays open. An issue closed on a half-landed change is how a finished-looking thing nothing calls
+    gets created.
 - **Commit messages are declarative and explain the insight, not the diff**, and mark anything
   surprising or previously believed false with ⚠. Read `git log` before writing one.
 - **The commonest defect here is a finished thing nothing calls.** Before assuming a feature works,
