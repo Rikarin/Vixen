@@ -317,4 +317,57 @@ public class EffectTests {
             }
         }
     }
+
+    /// <summary>
+    ///     ⚠ <b>Issue #365, and the detach is where it happened.</b> Every read and write in this
+    ///     assembly asserts the owning thread and a detach did not, which is the more dangerous
+    ///     omission rather than the less: <c>RemoveLiveConsumerAt</c> does
+    ///     <c>--liveConsumerCount</c> unguarded, so two threads unhooking from one producer at once
+    ///     drive the count negative and the next detach indexes <c>liveConsumers[-1]</c>. The
+    ///     symptom was an <c>IndexOutOfRangeException</c> on a line that reads exactly like an
+    ///     off-by-one, in a suite that passed when run alone.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The second assertion is the one that matters.</b> Throwing is worth little if the
+    ///     edge came out on the way: the point of refusing is that the producer's list is exactly as
+    ///     it was, so the mistake is reported rather than half-applied.
+    /// </remarks>
+    [Fact]
+    public void An_effect_is_only_detachable_from_the_thread_that_owns_the_graph() {
+        var scheduler = new EffectScheduler();
+        var source = new Signal<int>(1);
+
+        ReactiveGraph.OwningThread = Thread.CurrentThread;
+        try {
+            var effect = new Effect(() => _ = source.Value, scheduler);
+            scheduler.Flush();
+
+            Assert.Equal(1, source.LiveConsumerCount);
+
+            Exception? fromOtherThread = null;
+            var thread = new Thread(() => {
+                    try {
+                        effect.Dispose();
+                    } catch (Exception exception) {
+                        fromOtherThread = exception;
+                    }
+                }
+            );
+
+            thread.Start();
+            thread.Join();
+
+            Assert.IsType<InvalidOperationException>(fromOtherThread);
+            Assert.False(effect.IsDisposed);
+            Assert.Equal(1, source.LiveConsumerCount);
+
+            // And the owning thread's detach still works, so what was refused was the thread and
+            // not the call.
+            effect.Dispose();
+
+            Assert.Equal(0, source.LiveConsumerCount);
+        } finally {
+            ReactiveGraph.OwningThread = null;
+        }
+    }
 }

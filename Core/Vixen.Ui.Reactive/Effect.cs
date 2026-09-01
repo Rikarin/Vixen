@@ -89,11 +89,28 @@ public sealed class Effect : ReactiveNode, IDisposable {
 
     /// <summary>Unhooks the effect from everything it reads. It will not run again.</summary>
     /// <remarks>
-    ///     This is what <c>ctx.If</c> calls when a branch leaves the tree, and it has to be complete:
-    ///     an effect that keeps one edge alive keeps its whole closure, and therefore its part of the
-    ///     element tree, alive with it.
+    ///     <para>
+    ///         This is what <c>ctx.If</c> calls when a branch leaves the tree, and it has to be
+    ///         complete: an effect that keeps one edge alive keeps its whole closure, and therefore
+    ///         its part of the element tree, alive with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The owning thread is asserted here, and it was the one graph mutation in this
+    ///         assembly that did not.</b> Every read and every write checks — <c>Signal</c>,
+    ///         <c>Computed</c>, <c>LinkedSignal</c>, <c>CollectionSignal</c>, <c>SignalDictionary</c>
+    ///         and this type's own constructor all call it — and a detach was the exception, which
+    ///         is the more dangerous omission rather than the less: a read from the wrong thread
+    ///         returns a stale answer, whereas <c>RemoveLiveConsumerAt</c> does
+    ///         <c>--liveConsumerCount</c> unguarded, so two threads unhooking from one producer at
+    ///         once drive the count negative and the next detach indexes <c>liveConsumers[-1]</c>.
+    ///         That is issue #365, and its stack was <c>Dispose</c> → <c>DetachFromGraph</c> →
+    ///         <c>RemoveLiveConsumerAt</c> with nothing in between to say which thread was wrong.
+    ///     </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">Called from a thread that does not own the graph.</exception>
     public void Dispose() {
+        ReactiveGraph.AssertOwningThread();
+
         if (IsDisposed) {
             return;
         }
@@ -108,7 +125,12 @@ public sealed class Effect : ReactiveNode, IDisposable {
     ///     precisely what has to be defeated: the poll on the way in would otherwise find every
     ///     dependency unmoved and skip the body.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">Called from a thread that does not own the graph.</exception>
     public void Invalidate() {
+        // The queue an effect schedules itself on is a plain `Queue<Effect>`, for the reason
+        // `EffectScheduler` gives: everything here is single-threaded, so nothing is interlocked.
+        ReactiveGraph.AssertOwningThread();
+
         Dirty = true;
         hasRun = false;
         Schedule();
@@ -119,7 +141,10 @@ public sealed class Effect : ReactiveNode, IDisposable {
     ///     Deliberately manual. Automatic resumption would mean the runaway detector fires every
     ///     frame, logs every frame, and the application is still hung — just noisily.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">Called from a thread that does not own the graph.</exception>
     public void Resume() {
+        ReactiveGraph.AssertOwningThread();
+
         if (!IsSuspended) {
             return;
         }

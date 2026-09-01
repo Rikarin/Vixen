@@ -270,6 +270,21 @@ public abstract class ReactiveNode {
     }
 
     /// <summary>Removes the live-consumer edge at <paramref name="index" />, in O(1).</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>--liveConsumerCount</c> is not an off-by-one and no guard belongs on it.</b> It
+    ///     was read as one: issue #365 landed as an <c>IndexOutOfRangeException</c> on the line
+    ///     below, in a suite that passed when run alone, and the obvious story was that a second
+    ///     detach reached <c>liveConsumers[-1]</c>. It cannot: the only caller of
+    ///     <see cref="DetachFromGraph" /> is <see cref="Effect.Dispose" />, which returns on
+    ///     <c>IsDisposed</c>, and twenty thousand randomised single-threaded programs over this
+    ///     graph never produced a negative count. Two threads did, in milliseconds. The decrement is
+    ///     unguarded because this assembly is single-threaded by contract, and the answer to a
+    ///     negative count is to find out who called it from the wrong thread — which is what
+    ///     <see cref="ReactiveGraph.OwningThread" /> is for, and why <see cref="Effect.Dispose" />
+    ///     asserts it. An interlocked decrement here would keep the count non-negative and leave the
+    ///     two edge lists disagreeing about each other's twin indices, which is the same corruption
+    ///     with the crash removed.
+    /// </remarks>
     void RemoveLiveConsumerAt(int index) {
         var last = --liveConsumerCount;
         if (index < last) {
