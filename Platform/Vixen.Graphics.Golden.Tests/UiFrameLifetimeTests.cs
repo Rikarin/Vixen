@@ -295,6 +295,168 @@ public sealed class UiFrameLifetimeTests {
         }
     }
 
+    /// <summary>A number given up and a new one taken, as a thumbnail cache and a resize both do.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of the neighbour above, and the half that had no observer.</b> That
+    ///         one re-registers one number, which takes the cheap path and allocates nothing. This
+    ///         one <em>unregisters</em> and registers a different number — which is what
+    ///         <c>ThumbnailSurface</c> does for every picture the asset browser decodes, because it
+    ///         never reuses a number, and what <see cref="UiRenderer" /> does to itself on every
+    ///         frame of a window drag: <c>DestroySurfaces</c> unregisters every composited group's
+    ///         number and <c>EnsureSurfaces</c> registers them straight back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Handing a ring back used to free nothing and lose it.</b>
+    ///         <c>IGraphicsDevice.Destroy(DescriptorSetHandle)</c> is a no-op for a set that does not
+    ///         own its pool — <c>VulkanDevice.Pipelines</c> says why, and it is deliberate — so
+    ///         unregistering struck the handles out of the backend's table and left the descriptor
+    ///         memory allocated for the life of the device. <see cref="UiRenderer.ImageSets" /> is
+    ///         the only place that was ever visible, exactly as its own remarks say.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the layers are the other assertion, because reusing a ring is a hazard as
+    ///         well as a saving.</b> The sets being handed back were bound by a frame that may still
+    ///         be on the device, so a registration that wrote them on the spot — which is what a
+    ///         <em>fresh</em> ring correctly does — is
+    ///         <c>VUID-vkUpdateDescriptorSets-None-03047</c>. The loop runs long enough for the ring
+    ///         to come round several times, so most of these registrations happen with a submitted
+    ///         frame holding the sets they take.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void UnregisteringAnImageKeepsItsSetsForTheNumberAfterIt() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var renderer = new UiRenderer(
+            device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ) {
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
+            },
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        var target = owned.Owned("ui recycle", TextureUsage.ColourTarget | TextureUsage.CopySource);
+
+        var sampled = owned.Sampled(
+            "ui recycle source",
+            2,
+            [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]
+        );
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var uploaded = false;
+        var drawn = 0;
+
+        VulkanDiagnostics.Reset();
+
+        // ⚠ A different number every frame and the one before it given up, which is a thumbnail
+        // cache scrolling: `ThumbnailSurface` counts up from `0x1000` and never comes back.
+        for (var index = 0; index < 8; index++) {
+            Frame((ulong) (16 + index));
+        }
+
+        device.WaitIdle();
+
+        Assert.True(
+            VulkanDiagnostics.ErrorCount == 0,
+            "the layers reported an error while frames were in flight: "
+            + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+        );
+
+        // One ring for eight numbers. Eight rings is the leak, and it was the reading here until the
+        // sets an unregistration gives up started being kept.
+        Assert.True(
+            renderer.ImageSets == device.FramesInFlight,
+            $"eight registrations sharing one recycled ring should allocate {device.FramesInFlight} "
+            + $"set(s) in total, and {renderer.ImageSets} were allocated"
+        );
+
+        // And every one of those frames drew the image, so the count above is not a run in which
+        // nothing was ever registered — the failure that would make it true for the wrong reason.
+        Assert.Equal(8, drawn);
+
+        void Frame(ulong image) {
+            var list = new DrawList();
+            list.BeginFrame();
+
+            list.Add(
+                new DrawCommand(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = image }
+            );
+
+            list.EndFrame();
+
+            var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
+
+            device.BeginFrame();
+
+            // Between frames, which is where a host does both: the tile that scrolled off screen is
+            // released in the same update that decoded the one replacing it.
+            if (image > 16) {
+                Assert.True(renderer.UnregisterImage(image - 1), "the previous number was not registered");
+            }
+
+            renderer.RegisterImage(image, sampled.View);
+
+            var imported = owned.Graph.ImportTexture(
+                target.Texture,
+                target.View,
+                target.Description,
+                ResourceState.Undefined,
+                ResourceState.CopySource
+            );
+
+            using (var commands = device.BeginCommandList(QueueKind.Graphics, "ui")) {
+                renderer.Upload(commands, geometry, cache.Atlas);
+
+                if (!uploaded) {
+                    commands.Barrier(
+                        new([], [new(sampled.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                    );
+
+                    commands.CopyBufferToTexture(sampled.Staging, 0, new(sampled.Texture), new(2, 2, 1));
+
+                    commands.Barrier(
+                        new([], [new(sampled.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                    );
+
+                    uploaded = true;
+                }
+
+                owned.Graph.AddPass("ui", pass => {
+                    pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                    pass.SideEffect();
+
+                    pass.Execute(
+                        context => renderer.Record(context.CommandList, geometry, new(Side, Side))
+                    );
+                });
+
+                owned.Graph.Execute(commands);
+                owned.Graph.Reset();
+
+                commands.Finish();
+                device.GraphicsQueue.Submit([commands]);
+            }
+
+            drawn += renderer.Draws;
+
+            device.EndFrame();
+        }
+    }
+
     /// <summary>A frame of that many rounded boxes, tiled across the surface.</summary>
     static UiGeometry Boxes(int count, GlyphFieldCache cache) {
         var list = new DrawList();

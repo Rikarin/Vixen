@@ -321,6 +321,35 @@ public sealed class UiRenderer : IDisposable {
     // will be drawn", which is a thing that happens when a viewport is resized, not per frame.
     readonly Dictionary<ulong, ImageEntry> imageDescriptors = [];
 
+    /// <summary>Rings <see cref="UnregisterImage" /> gave up, for the next number that wants one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Kept rather than destroyed, because destroying one frees nothing.</b>
+    ///         <c>IGraphicsDevice.Destroy(DescriptorSetHandle)</c> is a no-op for a set that does not
+    ///         own its pool — the pools are created without <c>FreeDescriptorSetBit</c> on purpose,
+    ///         which is what lets the driver bump-allocate in them — so an unregistered ring was
+    ///         memory nothing would ever reclaim, and the handles were struck out of the backend's
+    ///         table on the way. Every unregistration was a leak of <see cref="slots" /> sets.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not a thumbnail-sized leak.</b> <see cref="DestroySurfaces" /> unregisters
+    ///         every layer number and <see cref="EnsureSurfaces" /> registers them straight back with
+    ///         the same numbers, so a window being dragged to a new size leaked one ring per group
+    ///         <i>per frame</i> of the drag. <see cref="ImageSets" /> is where that was visible and
+    ///         nothing was reading it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A recycled ring is handed back stale, and that is the one thing that separates it
+    ///         from a fresh one.</b> A fresh ring can be written on the spot because it was allocated
+    ///         a line ago and no submitted frame can be reading it. A recycled one was being read by
+    ///         a frame that may still be in flight — a host unregisters between frames, like it
+    ///         registers — so writing it here is
+    ///         <c>VUID-vkUpdateDescriptorSets-None-03047</c> exactly. The writes are deferred to
+    ///         <see cref="RebindImage" />, which is the same deferral a re-registration already used.
+    ///     </para>
+    /// </remarks>
+    readonly Stack<DescriptorSetHandle[]> spareImageSets = [];
+
     readonly PipelineHandle imagePipeline;
 
     /// <summary>The composite pipeline a filtered group uses instead of <see cref="imagePipeline" />.</summary>
@@ -2477,6 +2506,22 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
+        // ⚠ A ring a previous number gave up, in preference to a new one — see `spareImageSets`.
+        // Nothing can free a set here, so a registration that always allocated made every
+        // unregistration permanent.
+        if (spareImageSets.TryPop(out var recycled)) {
+            var reused = new ImageEntry(recycled, view, new bool[slots]);
+            imageDescriptors[image] = reused;
+
+            // ⚠ Marked and not written, unlike the fresh ring below. These sets were last bound by a
+            // frame that may still be on the device, so the write waits for each frame to come round
+            // in `RebindImage` — which is the same rule a re-registration above obeys, for the same
+            // reason.
+            Array.Fill(reused.Stale, true);
+
+            return;
+        }
+
         var sets = new DescriptorSetHandle[slots];
 
         for (var index = 0; index < slots; index++) {
@@ -2541,18 +2586,24 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="image">The number it was registered under.</param>
     /// <returns>Whether it was registered.</returns>
     /// <remarks>
-    ///     ⚠ <b>Call it before destroying the texture, not after.</b> A draw list built before this
-    ///     may still name the number; an unregistered number is skipped, which is a hole in the
-    ///     interface, and a registered one whose texture is gone is undefined behaviour.
+    ///     <para>
+    ///         ⚠ <b>Call it before destroying the texture, not after.</b> A draw list built before
+    ///         this may still name the number; an unregistered number is skipped, which is a hole in
+    ///         the interface, and a registered one whose texture is gone is undefined behaviour.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sets are kept rather than destroyed</b>, because destroying one gives nothing
+    ///         back and takes the handle out of the backend's table on the way. See
+    ///         <see cref="spareImageSets" />, which is what the next registration takes instead of
+    ///         allocating.
+    ///     </para>
     /// </remarks>
     public bool UnregisterImage(ulong image) {
         if (!imageDescriptors.Remove(image, out var entry)) {
             return false;
         }
 
-        foreach (var set in entry.Sets) {
-            device.Destroy(set);
-        }
+        spareImageSets.Push(entry.Sets);
 
         return true;
     }
@@ -2568,6 +2619,16 @@ public sealed class UiRenderer : IDisposable {
         }
 
         imageDescriptors.Clear();
+
+        // ⚠ And the rings nobody took back. `Destroy` frees no memory for these — that is the whole
+        // reason they are kept — but it is what strikes them out of the backend's table, and a
+        // renderer that swept only what it was still holding would leave every recycled ring
+        // registered against a device that is about to go.
+        while (spareImageSets.TryPop(out var spare)) {
+            foreach (var set in spare) {
+                device.Destroy(set);
+            }
+        }
 
         if (imagePipeline.IsValid) {
             device.Destroy(imagePipeline);

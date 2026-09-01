@@ -31,6 +31,14 @@ namespace Vixen.Editor.App;
 ///         <see cref="Retire" />.
 ///     </para>
 ///     <para>
+///         ⚠ <b>An image number is handed back as well as its texture, and the two are not the same
+///         resource.</b> The texture is the device's to free once no frame holds it; the
+///         <i>number</i> is a registration in the renderer, holding a descriptor set per frame in
+///         flight that no backend can free — so a class that destroyed only the texture left a
+///         descriptor naming freed memory and grew the renderer's set count for every picture the
+///         browser ever decoded. See <see cref="Destroy" />.
+///     </para>
+///     <para>
 ///         ⚠ <b><see cref="Upload" /> makes the resources and <see cref="Flush" /> is what submits
 ///         the copy, and the split is about which frame the command buffer belongs to.</b>
 ///         <c>ThumbnailCache.Pump</c> runs from the application's update, which is <i>outside</i>
@@ -106,7 +114,7 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         var image = next++;
 
         renderer.RegisterImage(image, view);
-        live[image] = new Uploaded(texture, view, staging);
+        live[image] = new Uploaded(image, texture, view, staging);
         waiting.Add(new Pending(image, texture, staging, width, height));
 
         return image;
@@ -228,13 +236,43 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         live.Clear();
     }
 
+    /// <summary>Takes the number back and then frees what it named.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The unregistration is first, and it is the half this class went without.</b>
+    ///         <c>UiRenderer.RegisterImage</c> does not own the view — its own remarks say
+    ///         "unregister before destroying" — and a registration left behind is a descriptor set
+    ///         naming freed memory for as long as the renderer lives. What kept that from being a
+    ///         crash is that <see cref="next" /> never reuses a number, so no <i>new</i> draw could
+    ///         name a retired one; what a draw list built earlier still names is
+    ///         <c>ProjectBrowser.Rebind</c>'s business, and resting a lifetime on a panel three
+    ///         classes away calling <c>Refresh</c> before the frame draws is not a guarantee. After
+    ///         this, a draw that still carries the number is skipped by <c>UiRenderer.SubmitDraw</c>
+    ///         — a tile with no picture in it, which is what the grid shows before a decode finishes
+    ///         anyway.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is also the whole of the leak.</b> A registration holds one descriptor set per
+    ///         frame in flight, and a backend cannot free one — so a browser scrolled through a
+    ///         thousand textures took a thousand rings and gave none of them back.
+    ///         <c>UiRenderer.UnregisterImage</c> keeps the ring for the next number, which is why
+    ///         handing it back is what makes the re-decode free rather than merely correct.
+    ///     </para>
+    /// </remarks>
     void Destroy(Uploaded uploaded) {
+        renderer.UnregisterImage(uploaded.Image);
+
         device.Destroy(uploaded.View);
         device.Destroy(uploaded.Texture);
         device.Destroy(uploaded.Staging);
     }
 
-    readonly record struct Uploaded(TextureHandle Texture, TextureViewHandle View, BufferHandle Staging);
+    readonly record struct Uploaded(
+        ulong Image,
+        TextureHandle Texture,
+        TextureViewHandle View,
+        BufferHandle Staging
+    );
 
     readonly record struct Pending(ulong Image, TextureHandle Texture, BufferHandle Staging, int Width, int Height);
 }

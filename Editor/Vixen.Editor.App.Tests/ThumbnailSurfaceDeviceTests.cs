@@ -1,11 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Shaders.Generated;
+using Vixen.Ui;
 using Vixen.Ui.Renderer;
+using Vixen.Ui.Rendering;
+using Vixen.Ui.Text.Rasterizing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -398,6 +402,253 @@ public sealed class ThumbnailSurfaceDeviceTests {
                 + Environment.NewLine
                 + string.Join(Environment.NewLine + Environment.NewLine, VulkanDiagnostics.Messages)
             );
+        }
+    }
+
+    // ── The registration, which is a second resource with a second lifetime ──────────────────
+
+    /// <summary>How big the pane the interface is drawn into is, in pixels.</summary>
+    const int Pane = 128;
+
+    /// <summary>A frame of interface whose only element is one thumbnail.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Built fresh each frame and always naming the same number</b>, which is a tile that
+    ///     has not been rebound since the picture behind it was evicted. The grid does rebind — that
+    ///     is <c>ProjectBrowser.Rebind</c> — but it rebinds because a panel subscribes to an event,
+    ///     and that is not what a lifetime should rest on.
+    /// </remarks>
+    static UiGeometry Frame(ulong image, GlyphFieldCache glyphs) {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        list.Add(
+            new Vixen.Ui.DrawCommand(DrawCommandKind.Image, 8, 8, Pane - 16, Pane - 16, Color4.White, 0, 0) {
+                Image = image
+            }
+        );
+
+        list.EndFrame();
+
+        return new UiGeometryBuilder().Build(list, glyphs, new Rectangle(0, 0, Pane, Pane));
+    }
+
+    /// <summary>A retired thumbnail is no longer something a draw list can reach a descriptor for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the frame the suite above says it cannot see.</b>
+    ///         <see cref="A_thumbnail_retired_between_frames_outlives_the_frame_that_read_it" />
+    ///         copies out of the thumbnail rather than sampling it, so it watches the <c>VkImage</c>
+    ///         and nothing about the <c>VkImageView</c> a descriptor set holds. Here the interface
+    ///         actually draws the tile — one image quad through <c>UiImage.frag</c>, into an
+    ///         offscreen colour target rather than a swapchain — so the set is bound and read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The release is between <c>EndFrame</c> and the next <c>BeginFrame</c></b>, which
+    ///         is where <c>EditorHost.Sync</c> puts it, and the frames after it still name the
+    ///         number. That is the arrangement in which a registration nobody took back is a
+    ///         descriptor pointing at a view the device has since freed — the destroy is deferred by
+    ///         <c>FramesInFlight</c>, so the frames have to keep coming for it to land at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The answer it settled: this is a use-after-free and not merely a leak.</b> Run
+    ///         against a <c>Destroy</c> that skips the unregistration, the layers say
+    ///         <c>VUID-vkDestroyImageView-imageView-01026</c> — the view freed while a descriptor set
+    ///         in a submitted list still names it — and <c>VUID-vkCmdDrawIndexed-None-08114</c> for
+    ///         each set in the ring: <i>"the sampled image descriptor … is using imageView
+    ///         VkImageView 0x0 that is invalid or has been destroyed"</i>. What kept the editor out
+    ///         of that today is <c>ProjectBrowser.Rebind</c> refreshing every visible tile from the
+    ///         same <c>Pump</c> that evicted the picture, so no drawn tile still carries the number
+    ///         — which is a coincidence of a panel's event wiring, not a lifetime rule.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the draw counts are for.</b> Zero errors is also what a run that drew
+    ///         nothing reports, so the first frame's count is asserted to be one: the set really was
+    ///         bound and sampled before anything was released. The frames after it draw nothing, and
+    ///         that is the fix rather than a disappointment — an unregistered number is skipped by
+    ///         <c>UiRenderer.SubmitDraw</c>, which is a tile with no picture in it, exactly what the
+    ///         grid shows while a decode is in flight.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_retired_thumbnail_leaves_no_descriptor_naming_its_destroyed_view() {
+        using (var device = Open()) {
+            VulkanDiagnostics.Reset();
+
+            var shaders = Shaders(device);
+            using var renderer = new UiRenderer(device, shaders, new RenderOutput([PixelFormat.Rgba8UNorm]));
+            using var surface = new ThumbnailSurface(device, renderer);
+
+            var target = device.CreateTexture(
+                new(
+                    PixelFormat.Rgba8UNorm,
+                    Pane,
+                    Pane,
+                    TextureUsage.ColourTarget | TextureUsage.Sampled,
+                    Name: "thumbnail pane"
+                )
+            );
+
+            var view = device.CreateTextureView(target);
+            var glyphs = new GlyphFieldCache(new GlyphAtlas(64, 64));
+
+            // `EditorApplication.Update`, outside the frame — where `ThumbnailCache.Pump` uploads.
+            var image = surface.Upload(Size, Size, Gradient());
+
+            Assert.NotEqual(0ul, image);
+
+            var drawn = new List<int>();
+
+            // Four, because the destroy is deferred by `FramesInFlight` and a two-frame run would
+            // end before the view was actually freed — which is the reading that would pass on the
+            // defect.
+            for (var pass = 0; pass < 4; pass++) {
+                var geometry = Frame(image, glyphs);
+
+                device.BeginFrame();
+                surface.Flush();
+
+                using (var commands = device.BeginCommandList(QueueKind.Graphics, "ui")) {
+                    // Outside the pass, for the reason `UiRenderer.Upload` gives: the atlas copy is a
+                    // transfer and a layout transition, and neither may happen inside one.
+                    renderer.Upload(commands, geometry, glyphs.Atlas);
+
+                    commands.Barrier(
+                        new(
+                            [],
+                            [
+                                new TextureBarrier(
+                                    target,
+                                    pass == 0 ? ResourceState.Undefined : ResourceState.ShaderRead,
+                                    ResourceState.ColourTarget
+                                )
+                            ]
+                        )
+                    );
+
+                    commands.BeginRenderPass(
+                        new([new ColourAttachment(view, LoadAction.Clear, StoreAction.Store)], name: "ui")
+                    );
+
+                    renderer.Record(commands, geometry, new Int2(Pane, Pane));
+
+                    commands.EndRenderPass();
+
+                    commands.Barrier(
+                        new(
+                            [],
+                            [new TextureBarrier(target, ResourceState.ColourTarget, ResourceState.ShaderRead)]
+                        )
+                    );
+
+                    commands.Finish();
+                    device.GraphicsQueue.Submit([commands]);
+                }
+
+                drawn.Add(renderer.Draws);
+
+                device.EndFrame();
+
+                // `EditorHost.Sync`, with no wait between it and the frame above.
+                if (pass == 0) {
+                    surface.Release(image);
+                    surface.Retire();
+                }
+            }
+
+            device.WaitIdle();
+            device.Destroy(view);
+            device.Destroy(target);
+
+            // The instrument, checked before the thing it is an instrument for: the first frame
+            // really did bind the thumbnail's descriptor set and sample through it. Without this the
+            // three assertions below are all true of a run that drew nothing at all.
+            Assert.Equal(1, drawn[0]);
+
+            // ⚠ The layers before the draw counts, because this is the assertion that says what the
+            // defect *was*, and the count below only says the repair took the shape it was meant to.
+            // Without the unregistration this reads three: `VUID-vkDestroyImageView-imageView-01026`
+            // for the view being freed while a descriptor set in an in-flight list still names it,
+            // and `VUID-vkCmdDrawIndexed-None-08114` twice — "the sampled image descriptor … is
+            // using imageView VkImageView 0x0 that is invalid or has been destroyed", once per set
+            // in the ring. So it is a use-after-free wherever a draw list still carries the number,
+            // and not merely a leak.
+            Assert.True(
+                VulkanDiagnostics.ErrorCount == 0,
+                $"Drawing a tile that still names a retired thumbnail produced "
+                + $"{VulkanDiagnostics.ErrorCount} validation error(s):"
+                + Environment.NewLine
+                + string.Join(Environment.NewLine + Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+
+            // And every frame after the retirement skipped the number, which is what taking the
+            // registration back buys. A registration left behind draws all three instead — which is
+            // how the errors above are reached.
+            Assert.All(drawn.Skip(1), count => Assert.Equal(0, count));
+        }
+    }
+
+    /// <summary>Decoding and retiring in a loop does not grow the renderer's descriptor set count.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Counting is the only way this one is visible.</b> A registration holds one
+    ///         descriptor set per frame in flight, a backend cannot free one — the pools are made
+    ///         without <c>FreeDescriptorSetBit</c> on purpose — and <c>ThumbnailSurface</c> hands out
+    ///         a number it never reuses. So a browser scrolled through a folder took a fresh ring per
+    ///         picture and gave none of them back, and neither the picture nor the validation layers
+    ///         said a word. <see cref="UiRenderer.ImageSets" /> is the observer that file documents
+    ///         itself for.
+    ///     </para>
+    ///     <para>
+    ///         Before the fix this read 2, 4, 6, 8… on a device with two frames in flight. The shape
+    ///         is the assertion rather than the number: every round ends where the first one did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the first round is asserted to have allocated a ring at all</b>, because a
+    ///         flat line at zero is what a loop that registered nothing produces, and that would
+    ///         satisfy the assertion above for the opposite reason.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Re_decoding_a_thumbnail_does_not_grow_the_renderers_descriptor_set_count() {
+        using (var device = Open()) {
+            VulkanDiagnostics.Reset();
+
+            var shaders = Shaders(device);
+            using var renderer = new UiRenderer(device, shaders, new RenderOutput([PixelFormat.Bgra8UNorm]));
+            using var surface = new ThumbnailSurface(device, renderer);
+
+            var counts = new List<int>();
+
+            for (var round = 0; round < 8; round++) {
+                // The editor's own order: made in the application's update, copied inside the frame,
+                // released and retired between `EndFrame` and the next `BeginFrame`.
+                var image = surface.Upload(Size, Size, Gradient());
+
+                Assert.NotEqual(0ul, image);
+
+                device.BeginFrame();
+
+                Assert.Equal(1, surface.Flush());
+
+                device.EndFrame();
+
+                surface.Release(image);
+                surface.Retire();
+
+                counts.Add(renderer.ImageSets);
+            }
+
+            device.WaitIdle();
+
+            Assert.True(
+                counts[0] == device.FramesInFlight,
+                $"the first upload should allocate {device.FramesInFlight} descriptor set(s) and "
+                + $"allocated {counts[0]}, so the flat line below would not be about registration"
+            );
+
+            Assert.All(counts, count => Assert.Equal(counts[0], count));
+
+            Assert.Equal(0, VulkanDiagnostics.ErrorCount);
         }
     }
 }
