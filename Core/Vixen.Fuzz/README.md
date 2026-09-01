@@ -406,6 +406,34 @@ All eleven inputs are in `Corpus/raven`. The two the same runs found that are **
 a parse-level input and an entry point whose call graph has a cycle — are somebody else's, and are
 deliberately not committed: promotion follows the fix.
 
+#### And a twelfth, five nightlies old before anybody looked, which is a statement about the search
+
+`saturate(dot(sampled.rgb, tint.rgb))` in `Example1.rvn` became `saturate(dot(1, 0f))` — a call the
+language *declares*: `Intrinsics` builds `dot` over `float` as well as `float2`–`float4`, in the same
+loop as `length`, `distance` and `normalize`, and those four are GLSL.std.450 instructions that take
+a scalar happily. `OpDot` is core, requires "a vector of floating-point type" on both operands, and
+the emitter reached for it anyway — `Expected float vector as operand: Dot operand index 2`. A dot
+product of one lane is the product, which is what GLSL's own `dot` means for a `float` and what
+glslang emits for it, so the fix is `OpFMul` in the SPIR-V emitter and nothing in the front end: the
+GLSL backend writes `dot(a, b)` for this and is right to. `raven/3a9c4beb4aea379c.bin`.
+
+Nothing shipped was affected — every `dot` in `Raven/Library` is on a vector, and all 66 committed
+`.spv` modules validate clean — and the defect had been there since the emitter was written in July.
+
+⚠ **The interesting half is why it appeared on 2026-08-27 and not before.** The night before had run
+**26.8 M cases clean**; every night after ran **13–14 M and found it**, at the same fixed seed, from
+the same committed corpus. A shorter run found what a run twice its length had not, so the *stream*
+changed rather than its depth. It changes whenever the compiler's *reports* change: `Corpus.Offer`
+keeps an input whose signature is new, the signature is built from the diagnostics, and the mutator
+draws its parents from what was kept. Two new diagnostics landed in that window, and `RVN2054` is the
+one that bites this population — three of the twenty fragments `SyntaxDomain` builds a file from are
+package-level members (`func G…`, `val k…`, `var v…`), those files used to bind clean and silent, and
+one case in sixteen is built from fragments.
+
+So: **a fuzz finding's first appearance dates the search, not the defect.** Bisecting the onset of a
+`raven` finding to a compiler change finds the commit that re-signed the corpus, which is almost never
+the commit that introduced the fault.
+
 ### And guidance, which such a target should turn off
 
 `IFuzzTarget.NoveltyGuides` is true for a decoder and false for a compiler, and the difference is the

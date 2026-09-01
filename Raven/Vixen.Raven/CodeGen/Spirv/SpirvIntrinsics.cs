@@ -23,7 +23,9 @@ readonly record struct SpirvIntrinsicMapping(GlslStd450? Extended, SpirvOp? Core
 ///     <c>saturate</c> (a clamp against constants it has to materialize),
 ///     <c>sampleTexture</c> and <c>loadTexture</c> (which pair an image with a
 ///     sampler first), and <c>arrayLength</c> (a constant, since the IR has no
-///     runtime-sized arrays).
+///     runtime-sized arrays). <c>dot</c> is a fifth for one of its shapes: the
+///     mapping below is the vector case, and a scalar <c>dot</c> is an
+///     <c>OpFMul</c> the emitter writes, because <c>OpDot</c> takes vectors only.
 /// </remarks>
 static class SpirvIntrinsics {
     static SpirvIntrinsicMapping Extended(GlslStd450 op) => new(op, null);
@@ -95,6 +97,8 @@ static class SpirvIntrinsics {
             // OpFRem that the `%` operator lowers to.
             IrIntrinsic.Mod => Numeric(component, SpirvOp.FMod, SpirvOp.SMod, SpirvOp.UMod),
 
+            // ⚠ The vector case only. OpDot requires float *vectors*, and `dot` is declared on the
+            // scalar too, so the emitter answers that shape with OpFMul before it gets here.
             IrIntrinsic.Dot => Core(SpirvOp.Dot),
             IrIntrinsic.Transpose => Core(SpirvOp.Transpose),
             IrIntrinsic.All => Core(SpirvOp.All),

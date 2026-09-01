@@ -905,6 +905,22 @@ partial class SpirvEmitter {
 
             case IrIntrinsic.TraceRayQuery:
                 return EmitTraceRayQuery(intrinsic, resultType, arguments);
+
+            case IrIntrinsic.Dot when intrinsic.Arguments[0].Type.IsScalar:
+                // ⚠ OpDot is a *vector* instruction — "Vector 1 must be a vector of floating-point
+                // type" — and it is the one place a shape the language accepts has no single
+                // opcode. `dot` is declared over every float shape including the scalar
+                // (Intrinsics.cs builds it in the same loop as length, distance and normalize),
+                // and on one lane a dot product is the product, which is what GLSL's own `dot`
+                // means for a `float` and what glslang emits for it: OpFMul. Emitting OpDot
+                // instead produced a module every driver is free to reject and spirv-val does —
+                // `Expected float vector as operand: Dot operand index 2`.
+                //
+                // Here rather than in the Lowerer because it is a fact about SPIR-V and not about
+                // Raven: the GLSL backend writes `dot(a, b)` for this and is right to. It is the
+                // same shape as the BitCast identity above — an operation the language has whose
+                // single-instruction SPIR-V form is illegal for one operand shape.
+                return Emit(SpirvOp.FMul, resultType, arguments[0], arguments[1]);
         }
 
         var mapping = SpirvIntrinsics.Map(intrinsic.Intrinsic, result.Type.ComponentType.Kind);
