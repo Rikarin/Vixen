@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.Loader;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
@@ -130,9 +131,25 @@ public class IconContributionTests {
         // two files over registers a component to prove the bridge list is a live view of it, and
         // that type is then visible to every test that runs afterwards in the same process. What is
         // being asserted here is what the editor *ships*.
+        //
+        // ⚠ And a plugin's components are not in this assembly, which is the half that was missing.
+        // `OutOfTreePluginTests` compiles `Sample.Runtime` at run time and loads it through a
+        // `PluginLoadContext`, whose module initializer declares a component into the same
+        // process-wide registry — so the filter above let it through and this failed with
+        // `Sample.Runtime.WidgetCount`. It was green only while xunit ran the two classes at once
+        // and this one usually won: `Every_builtin_component_has_a_picture_of_its_own` takes a
+        // second and the plugin test spends its first ten compiling with Roslyn. Disabling this
+        // assembly's parallelism for #365 fixed the order and made the pollution certain, which is
+        // the better failure — but the defect is the filter, and the load context is what says
+        // "shipped" exactly: everything the editor was built with is in the default one, and
+        // everything a plugin brought is deliberately not.
         var bare = ComponentsView.Default(null, editor.Extensions)
             .Where(bridge => bridge.Kind == AuthoringKind.Component)
             .Where(bridge => bridge.ComponentType.Assembly != typeof(IconContributionTests).Assembly)
+            .Where(
+                bridge => AssemblyLoadContext.GetLoadContext(bridge.ComponentType.Assembly)
+                    == AssemblyLoadContext.Default
+            )
             .Where(bridge => EditorArt.Of(icons, bridge.ComponentType) is null)
             .Select(bridge => bridge.ComponentType.FullName)
             .ToList();
