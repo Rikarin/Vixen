@@ -462,9 +462,13 @@ sealed class EditorHost : IDisposable {
             editor.ShaderGraphPreviews = previews;
         }
 
-        // ⚠ After the wait the loop below performs, and before anything draws again. A tile scrolled
-        // off screen released its image while a frame that sampled it was still in flight; retiring
-        // here is the moment that is known to be over.
+        // ⚠ NOT after a wait, and the comment that claimed otherwise cost task #364. The only
+        // `WaitIdle` in this method belongs to the loop below and runs on the frames a pane is
+        // removed — a window being closed — which is not the frames a thumbnail is evicted on. This
+        // call happens between `EndFrame` and the next `BeginFrame` with the last frame still on the
+        // GPU, and what makes it safe is that `IGraphicsDevice.Destroy` defers. See
+        // `VulkanDevice.Retire`, where that deferral used to be zero frames wide for exactly this
+        // caller.
         thumbnails?.Retire();
 
         for (var i = panes.Count - 1; i >= 0; i--) {

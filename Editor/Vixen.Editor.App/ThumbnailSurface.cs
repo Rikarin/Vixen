@@ -24,8 +24,11 @@ namespace Vixen.Editor.App;
 ///         ⚠ <b>Everything is deferred to <see cref="Retire" /> rather than destroyed on the spot.</b>
 ///         A tile scrolled off screen releases its image, and the frame that drew it may still be in
 ///         flight — destroying the texture underneath it is a use-after-free the validation layer
-///         reports as a crash somewhere else entirely. The host retires them when it knows no frame
-///         is using them, which is the same rule <c>EditorPane</c> follows for a resized swapchain.
+///         reports as a crash somewhere else entirely. ⚠ <b>But the frame is kept alive by
+///         <c>IGraphicsDevice.Destroy</c>'s deferral, not by <see cref="Retire" />'s timing</b>: the
+///         host calls it between frames without waiting for anything, so a backend that freed on the
+///         spot would be freeing under the last frame however this class batched. See
+///         <see cref="Retire" />.
 ///     </para>
 ///     <para>
 ///         ⚠ <b><see cref="Upload" /> makes the resources and <see cref="Flush" /> is what submits
@@ -175,11 +178,23 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         waiting.RemoveAll(pending => pending.Image == image);
     }
 
-    /// <summary>Destroys what has been released, once no frame can still be using it.</summary>
+    /// <summary>Hands back what has been released, for the device to free once no frame holds it.</summary>
     /// <remarks>
-    ///     Called by the host after it has waited for the device, which is the only moment this is
-    ///     safe. A surface that destroyed on <see cref="Release" /> would be freeing a texture the
-    ///     frame in flight is sampling.
+    ///     <para>
+    ///         ⚠ <b>The host does <i>not</i> wait for the device before calling this, and the comment
+    ///         that said it did was the whole of task #364.</b> <c>EditorHost.Sync</c> calls this
+    ///         between <c>EndFrame</c> and the next <c>BeginFrame</c>; the only <c>WaitIdle</c> near
+    ///         it belongs to the loop that closes a removed pane, which runs on the frames a window
+    ///         is closed and no others. What keeps this safe is
+    ///         <see cref="IGraphicsDevice.Destroy(TextureHandle)" />'s own deferral — and that
+    ///         deferral was zero frames wide for a caller outside a frame until
+    ///         <c>VulkanDevice.Retire</c> was taught which slot it was in.
+    ///     </para>
+    ///     <para>
+    ///         So this is a batching step and not a safety one: it holds a released image until the
+    ///         host's next <c>Sync</c> so that a release and its destroy are one pass rather than
+    ///         scattered through the update. The lifetime guarantee is the device's.
+    ///     </para>
     /// </remarks>
     public void Retire() {
         foreach (var uploaded in retiring) {
