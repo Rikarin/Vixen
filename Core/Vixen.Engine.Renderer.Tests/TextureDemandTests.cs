@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Imaging;
@@ -410,41 +409,31 @@ public sealed class TextureDemandTests : IDisposable {
 
     /// <summary>Runs frames until the streamed texture's resident level is the one asked for.</summary>
     /// <remarks>
-    ///     Stream number zero because there is one streamed texture in this content and it is the
-    ///     first thing registered. Sleeping rather than spinning: a page arrives on a task, and a
-    ///     loop that only records frames never yields to the one carrying the bytes.
+    ///     <para>
+    ///         Stream number zero because there is one streamed texture in this content and it is the
+    ///         first thing registered. Sleeping rather than spinning: a page arrives on a task, and a
+    ///         loop that only records frames never yields to the one carrying the bytes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No deadline</b> — see <see cref="Settling" /> for why a number cannot be right
+    ///         here. What ends the wait unhappily is the streamer having no page on its way and no
+    ///         header still being read, which is a fact about the renderer rather than about the
+    ///         runner.
+    ///     </para>
     /// </remarks>
     void Resident(EngineLoop loop, WorldRenderer renderer, int level) {
         var streaming = renderer.Painted!.Streaming!;
-        var waited = Stopwatch.StartNew();
 
-        while (waited.Elapsed < Patience) {
-            Frame(loop, renderer);
+        Settling.Until(
+            () => Frame(loop, renderer),
+            () => streaming.Textures > 0 && streaming.ResidentLevel(0) <= level,
+            () => Settling.Working(renderer, Bark),
+            $"the texture never became resident down to level {level}"
+        );
 
-            if (streaming.Textures > 0 && streaming.ResidentLevel(0) <= level) {
-                // One more, so the swap the arrival caused is recorded before the count is read.
-                Frame(loop, renderer);
-
-                return;
-            }
-
-            Thread.Sleep(5);
-        }
-
-        Assert.Fail($"the texture never became resident down to level {level} in {Patience}");
+        // One more, so the swap the arrival caused is recorded before the count is read.
+        Frame(loop, renderer);
     }
-
-    /// <summary>How long a settle waits before the thing it waits for is a defect rather than a queue.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Thirty seconds, and it is the same thirty the rest of this assembly already uses</b> —
-    ///     <c>AssetTextureSourceTests</c>, <c>AssetTextureStreamingTests</c>,
-    ///     <c>AssetMaterialSourceTests</c>, <c>AssetTerrainSourceTests</c> and
-    ///     <c>AssetWaterSourceTests</c> all wait exactly this long. This file was the one still
-    ///     counting frames. Nothing here asserts a duration: a deadline that is never approached by
-    ///     working code is the only kind a suite this asynchronous can honestly carry, and the
-    ///     failures it prints name what was still in flight rather than how many frames had gone by.
-    /// </remarks>
-    static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
     /// <summary>Runs frames until the streamer is idle and the counts it moves have held still.</summary>
     /// <remarks>
@@ -475,12 +464,14 @@ public sealed class TextureDemandTests : IDisposable {
     ///         repository's test suite". This loop was the one left not using it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Patience" /> rather than six hundred frames, for the reason the whole
-    ///         file was revisited.</b> Six hundred frames of a millisecond is a wall-clock budget
-    ///         wearing a frame count, and it was measured at five frames used on an idle machine —
-    ///         a number that says nothing about a loaded one. What is asserted is that the streamer
-    ///         goes idle at all, which is a claim about the code; how long that takes is a claim about
-    ///         the machine, and this suite makes none.
+    ///         ⚠ <b>And then no budget at all, which is the third and last thing this loop has given
+    ///         up on.</b> Six hundred frames of a millisecond was a wall-clock budget wearing a frame
+    ///         count; thirty seconds was the same budget said honestly. Both are claims about how
+    ///         fast a thread pool dispatches a page read, and <c>build.sh Test</c> runs a hundred and
+    ///         seventy assemblies at once — see <see cref="Settling" />. What is asserted is that the
+    ///         streamer goes idle at all, which is a claim about the code; how long that takes is a
+    ///         claim about the machine, and this suite makes none. What ends the loop unhappily is a
+    ///         frame that moved nothing with the streamer not idle, repeated.
     ///     </para>
     /// </remarks>
     void Quiet(EngineLoop loop, WorldRenderer renderer) {
@@ -488,11 +479,12 @@ public sealed class TextureDemandTests : IDisposable {
         var painted = renderer.Painted!;
         var streaming = painted.Streaming!;
         var quiet = 0;
+        var stuck = 0;
 
         var last = (demand.Promotions, demand.Demotions, painted.StreamingSwaps);
-        var waited = Stopwatch.StartNew();
+        var refusals = streaming.Rejections;
 
-        while (waited.Elapsed < Patience && quiet < 5) {
+        while (quiet < 5) {
             Frame(loop, renderer);
 
             var now = (demand.Promotions, demand.Demotions, painted.StreamingSwaps);
@@ -502,17 +494,51 @@ public sealed class TextureDemandTests : IDisposable {
             // caught up with it yet — that gap is the whole failure — and counters that moved are not
             // quiet even with nothing left in flight.
             quiet = idle && now == last ? quiet + 1 : 0;
+
+            // ⚠ And the give-up is progress, not idleness, because idleness is what this waits for.
+            // Progress is a counter moving or the streamer going idle, and NOT "a page is on its
+            // way" or "the queue got shorter" — both of those are true for ever under a livelock,
+            // where a page loads, is refused a slot and is put back by PageResidency.Renew. See
+            // TextureStreamingTests.Drain, which was hung by exactly that until the two were
+            // dropped, and which is where this shape is measured.
+            //
+            // ⚠ Unproven here, and honestly so: this loop cannot be shown failing on a livelock,
+            // because Settle and Resident run before it in every test that reaches it and they wait
+            // on Settling.Working, which has no signal for a spin and hangs first. What is proven is
+            // that the two clauses removed above are the ones that hang — measured on Drain — and
+            // this carries the same fix rather than a different guess.
+            if (idle || now != last) {
+                stuck = 0;
+                refusals = streaming.Rejections;
+            } else {
+                stuck++;
+            }
+
             last = now;
+
+            // A fruitless window is worth waiting on only while the streamer is waiting rather than
+            // spinning: starvation moves no counter at all, and a spin moves the refusal count.
+            var spinning = streaming.Rejections > refusals;
+
+            Assert.True(
+                stuck < Rounds || (!spinning && streaming.Loading > 0),
+                $"the demand never settled at {last}, with {streaming.Loading} loading, "
+                + $"{streaming.PendingRequests} pending and {streaming.Rejections} refused against "
+                + $"{refusals} when it last moved, unchanged for {stuck} frames — it is spinning "
+                + "rather than waiting, so no number of further frames can change it"
+            );
 
             Thread.Sleep(1);
         }
-
-        Assert.True(
-            quiet >= 5,
-            $"the demand never settled in {Patience}: {last}, with {streaming.Loading} loading and "
-            + $"{streaming.PendingRequests} pending"
-        );
     }
+
+    /// <summary>How many fruitless frames mean the streamer is spinning rather than waiting.</summary>
+    /// <remarks>
+    ///     <c>TextureStreamingTests.Rounds</c>'s argument, and the same number: this has to let a
+    ///     pipeline fill — a frame may start loads and move no counter yet — before calling it a
+    ///     spin, which is a longer window than <see cref="Settling.Quiet" /> needs.
+    /// </remarks>
+    const int Rounds = 64;
 
     /// <summary>Runs one frame of the loop and one of the renderer.</summary>
     void Frame(EngineLoop loop, WorldRenderer renderer) {
@@ -541,34 +567,27 @@ public sealed class TextureDemandTests : IDisposable {
     ///         settles, idle and with the assembly under fortyfold load: <b>two frames used, every
     ///         time</b>. That is not evidence the budget was right — it is evidence nobody knew what
     ///         it was, because a hundred and sixty milliseconds is a claim about how fast a thread
-    ///         pool dispatches a decode and the answer on a loaded runner is "later than that". The
-    ///         deadline is <see cref="Patience" /> now, which the rest of this assembly already uses
-    ///         and which is unreachable by anything that works.
+    ///         pool dispatches a decode and the answer on a loaded runner is "later than that". It
+    ///         became thirty seconds and then nothing at all: the wait is now the mesh, the material
+    ///         and the texture having nothing left on their way. See <see cref="Settling" />.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The no-pool case is decided inside the loop rather than after it, which is a fix
-    ///         and not a tidy-up.</b> It used to fall through the fallback below, so
+    ///         and not a tidy-up.</b> It used to fall through to a failure, so
     ///         <see cref="WithNoPoolNothingIsSurveyedAtAll" /> spent the entire budget every run
-    ///         waiting for a survey that by construction never exists — harmless at thirty-two frames
-    ///         and thirty seconds of doing nothing at <see cref="Patience" />.
+    ///         waiting for a survey that by construction never exists. It costs nothing now — a
+    ///         renderer with no pool has no streamer, so the objects landing is the whole wait.
     ///     </para>
     /// </remarks>
-    void Settle(EngineLoop loop, WorldRenderer renderer) {
-        var waited = Stopwatch.StartNew();
-
-        while (waited.Elapsed < Patience) {
-            Frame(loop, renderer);
+    void Settle(EngineLoop loop, WorldRenderer renderer) =>
+        Settling.Until(
+            () => Frame(loop, renderer),
 
             // A renderer with no pool has no survey and nothing to wait for beyond the objects.
-            if (renderer.Extraction!.ObjectCount > 0 && (renderer.Demand is null || renderer.Demand.Sized > 0)) {
-                return;
-            }
-
-            Thread.Sleep(5);
-        }
-
-        Assert.Fail($"the world never reached a frame with a sized texture in it in {Patience}");
-    }
+            () => renderer.Extraction!.ObjectCount > 0 && (renderer.Demand is null || renderer.Demand.Sized > 0),
+            () => Settling.Working(renderer, Bark),
+            "the world never reached a frame with a sized texture in it"
+        );
 
     /// <summary>A renderer over mounted content, looking down the negative Z axis.</summary>
     WorldRenderer Build(EngineLoop loop, out RenderView view, int pool = 8) {

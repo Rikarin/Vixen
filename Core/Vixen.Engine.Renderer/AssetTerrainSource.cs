@@ -50,6 +50,56 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
     /// <summary>How many references have been asked for.</summary>
     public int Requested => terrains.Count + grasses.Count + foliage.Count + volumes.Count;
 
+    /// <summary>How many reads are on their way and have not finished.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a test that has to wait for the work rather than for a clock.</b> Every read
+    ///         above is <see cref="Task.Run{TResult}(Func{Task{TResult}})" />, so how long a fixture
+    ///         waits for one is decided by the thread pool and not by the read. See
+    ///         <see cref="AssetWaterSource.Reading" /> and <see cref="AssetTextureSource.Reading" />,
+    ///         which are the same hook in the two neighbouring sources, and the remarks on the first
+    ///         of them for why a clock cannot be the giving-up condition.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Counted on <see cref="Task.IsCompleted" /> rather than on the handle being
+    ///         non-null</b>, so it falls the moment a read finishes rather than when the next ask
+    ///         takes its result up — a count that stayed up until take-up would turn a settle's
+    ///         giving-up condition into one that never fires, and a regression would hang rather
+    ///         than fail.
+    ///     </para>
+    /// </remarks>
+    internal int Reading {
+        get {
+            var count = 0;
+
+            foreach (var entry in terrains.Values) {
+                if (entry.Loading is { IsCompleted: false }) {
+                    count++;
+                }
+            }
+
+            foreach (var entry in grasses.Values) {
+                if (entry.Loading is { IsCompleted: false }) {
+                    count++;
+                }
+            }
+
+            foreach (var entry in foliage.Values) {
+                if (entry.Loading is { IsCompleted: false }) {
+                    count++;
+                }
+            }
+
+            foreach (var entry in volumes.Values) {
+                if (entry.Loading is { IsCompleted: false }) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     /// <summary>How many of them will never arrive.</summary>
     /// <remarks>
     ///     An address the catalog does not know, bytes that are not a terrain, a grass whose chunk

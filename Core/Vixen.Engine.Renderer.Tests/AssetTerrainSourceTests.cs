@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
@@ -48,7 +47,7 @@ public sealed class AssetTerrainSourceTests {
         var authored = Map();
         var source = new AssetTerrainSource(Content(authored, null));
 
-        Assert.True(Settles(() => source.Terrain(TerrainAddress) is not null));
+        Settles(source, () => source.Terrain(TerrainAddress) is not null, "the terrain never arrived");
 
         var loaded = source.Terrain(TerrainAddress)!;
 
@@ -67,7 +66,7 @@ public sealed class AssetTerrainSourceTests {
         var meadow = GrassType.Of("Meadow") with { Layer = "Grass", Density = 24f };
         var source = new AssetTerrainSource(Content(Map(), meadow));
 
-        Assert.True(Settles(() => source.Grass(GrassAddress) is not null));
+        Settles(source, () => source.Grass(GrassAddress) is not null, "the grass rule never arrived");
 
         var loaded = source.Grass(GrassAddress)!.Value;
 
@@ -89,7 +88,7 @@ public sealed class AssetTerrainSourceTests {
         var pine = FoliageType.Of("Pine") with { Mesh = "vx:9e8a44c9930c64e388ca034c5fe4c426", Radius = 3f };
         var source = new AssetTerrainSource(Content(Map(), null, pine));
 
-        Assert.True(Settles(() => source.Foliage(FoliageAddress) is not null));
+        Settles(source, () => source.Foliage(FoliageAddress) is not null, "the foliage type never arrived");
 
         var loaded = source.Foliage(FoliageAddress)!.Value;
 
@@ -117,7 +116,7 @@ public sealed class AssetTerrainSourceTests {
         var source = new AssetTerrainSource(Content(Map(), null, volume: bytes));
         var palette = new List<FoliageType> { pine };
 
-        Assert.True(Settles(() => source.Volume(VolumeAddress, palette) is not null));
+        Settles(source, () => source.Volume(VolumeAddress, palette) is not null, "the foliage volume never arrived");
 
         var loaded = source.Volume(VolumeAddress, palette)!;
 
@@ -136,33 +135,45 @@ public sealed class AssetTerrainSourceTests {
 
         // The reads start on the first ask and their failures land with the tasks, so keep asking —
         // which is what a frame does — until both are settled rather than asserting a race.
-        Assert.True(
-            Settles(
-                () => source.Terrain("Assets/Terrain/Gone.vxterrain") is null
-                    && source.Grass("Assets/Terrain/Gone.vxgrass") is null
-                    && source.Failed == 2
-            )
+        Settles(
+            source,
+            () => source.Terrain("Assets/Terrain/Gone.vxterrain") is null
+                && source.Grass("Assets/Terrain/Gone.vxgrass") is null
+                && source.Failed == 2,
+            "the two missing references were never both counted as failed"
         );
     }
 
-    /// <summary>Asks until the load lands, which is what extraction does by asking next frame.</summary>
+    /// <summary>Asks until the load lands, or until nothing is left that could make it land.</summary>
+    /// <param name="source">The source being asked, whose outstanding reads decide when to give up.</param>
+    /// <param name="landed">What is being waited for. Called once per attempt, and it is the ask.</param>
+    /// <param name="never">What to say when the source runs out of things to do first.</param>
     /// <remarks>
-    ///     A deadline rather than a count of attempts, for the reason
-    ///     <c>AssetWaterSourceTests.Settles</c> gives: one second is an idle machine's answer, and
-    ///     this file has failed a CI leg on it too.
+    ///     <para>
+    ///         ⚠ <b>No deadline, for the reason <c>AssetWaterSourceTests.Settles</c> now gives at
+    ///         length.</b> Every read here is <see cref="Task.Run{TResult}(Func{Task{TResult}})" />,
+    ///         <c>build.sh Test</c> runs every test project at once, and a work item queued into a
+    ///         saturated pool waits on .NET's thread injection — about two threads a second. The
+    ///         delay is therefore a property of how many workers the whole host has blocked and not
+    ///         of the read, which is a memcpy out of a mounted bundle. Four CI legs of this file have
+    ///         gone red on the thirty seconds this replaces, and raising the number is the remedy
+    ///         that already failed once.
+    ///     </para>
+    ///     <para>
+    ///         So the giving-up condition is a fact about the source:
+    ///         <see cref="AssetTerrainSource.Reading" /> zero at both ends of eight consecutive
+    ///         attempts means nothing is on its way and no number of further attempts can change the
+    ///         answer. Consecutive, because a read that finishes part way through an attempt is taken
+    ///         up by the next attempt's ask and a single idle observation would call that source
+    ///         stuck.
+    ///     </para>
     /// </remarks>
-    static bool Settles(Func<bool> landed) {
-        var deadline = Stopwatch.StartNew();
+    static void Settles(AssetTerrainSource source, Func<bool> landed, string never) {
+        var reached = false;
 
-        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
-            if (landed()) {
-                return true;
-            }
-
-            Thread.Sleep(5);
-        }
-
-        return false;
+        // The ask and the answer are one call here — Terrain both starts the read and reports it — so
+        // the attempt is the predicate and the result is remembered for the line after it.
+        Settling.Until(() => reached = landed(), () => reached, () => source.Reading > 0, never);
     }
 
     /// <summary>A small terrain that still exercises every stored section: 2×2 tiles, one painted

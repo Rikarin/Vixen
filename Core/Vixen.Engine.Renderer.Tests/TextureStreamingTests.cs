@@ -1,12 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering;
 using Xunit;
+
+// The settle vocabulary this assembly shares. In the root namespace, because it is used by the
+// fixtures that sit there too.
+using Settling = global::Tests.Settling;
 
 namespace Vixen.Engine.Renderer.Tests;
 
@@ -263,32 +266,90 @@ public sealed class TextureStreamingTests {
 
     /// <summary>Services until nothing is in flight and nothing is queued.</summary>
     /// <remarks>
-    ///     ⚠ <b>A deadline in wall-clock time, and it fails rather than returning.</b> This used to give
-    ///     up after four hundred one-millisecond rounds and return as if it had drained — so on a
-    ///     runner where the loader's threads were not scheduled inside 400 ms, every assertion after
-    ///     the call read a half-loaded streamer and the test failed on a resident level or an eviction
-    ///     count. The number that expired was never the number under test, which is what made the
-    ///     failure look like a streaming bug on CI and like nothing at all on a developer's machine.
-    ///     Thirty seconds is far past anything this work takes and is a hang's timeout, not a race's.
+    ///     <para>
+    ///         ⚠ <b>The deadline is gone, and it is the third number this loop has given up on.</b>
+    ///         It was four hundred one-millisecond rounds and <em>returned</em> as if it had drained,
+    ///         so every assertion after the call read a half-loaded streamer; then it was thirty
+    ///         seconds and a failure, which is honest and is still a guess about the runner. The page
+    ///         reads are <see cref="Task.Run(Action)" /> inside <c>PageResidency</c>, and
+    ///         <c>build.sh Test</c> runs every test project at once, so how long one waits is decided
+    ///         by how many pool workers the whole host has blocked — about two threads a second of
+    ///         thread injection — and not by the read. See <see cref="Settling" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Idle is what this waits for, so idle cannot also be what it gives up on</b> — and
+    ///         that is why the give-up here is progress rather than <see cref="Settling.Until" />'s
+    ///         outstanding-work test. A round makes progress if it placed a page, if a page is on its
+    ///         way, or if the queue got shorter. Eight rounds of none of those with the queue still
+    ///         non-empty is a real stall and not a slow pool: <see cref="PageResidency.Service" />
+    ///         keeps a pinned request it could not reserve rather than dropping it — counted as
+    ///         <c>PinRefusals</c> — so a queue that stops draining with nothing in flight stays that
+    ///         way for ever, and a bare <c>while (true)</c> would hang on it instead of failing.
+    ///     </para>
     /// </remarks>
     static void Drain(TextureStreamer streamer) {
-        var deadline = Stopwatch.StartNew();
+        var stuck = 0;
+        var refusals = streamer.Rejections;
 
-        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
+        while (true) {
             var placed = streamer.Service(256);
 
+            // ⚠ Loading counts arrived-and-unplaced as well as in-flight, so there is no instant
+            // between a read finishing and its page reaching a slot where this reads as drained.
             if (placed == 0 && streamer.Loading == 0 && streamer.PendingRequests == 0) {
                 return;
             }
 
+            // ⚠ A page reaching a slot is the ONLY thing that counts as progress, and a queue that
+            // got shorter deliberately does not. Renew puts every pinned page that is neither
+            // resident nor in flight back on the queue, so under a livelock the queue length
+            // oscillates — up on Renew, down on the loads Service starts — and "the queue got
+            // shorter" is true on about every other round for ever. Measured: that clause alone
+            // kept this loop running indefinitely under a sabotaged Place.
+            if (placed > 0) {
+                stuck = 0;
+                refusals = streamer.Rejections;
+            } else {
+                stuck++;
+            }
+
+            // ⚠ A long fruitless window is only worth waiting on while the streamer is WAITING
+            // rather than SPINNING, and telling those apart is what this loop exists to do now.
+            // Under a saturated pool the same pages sit in flight and no counter moves at all: that
+            // is starvation, and tolerating it however long it lasts is the point of the rewrite.
+            // Under a livelock — a page that loads, is refused a slot, and is put back by Renew —
+            // something is in flight on every round for ever, and the refusal count climbing is the
+            // only thing that says so.
+            //
+            // ⚠ Over the WINDOW, not per round. Measured under a sabotaged Place that refuses every
+            // arrival: Loading sat at 1 for ever while Rejections climbed only every one to three
+            // rounds, so a per-round comparison reset the counter on most rounds and the loop never
+            // ended. Loads is no good either — it counts pages that reached a SLOT, so it holds
+            // perfectly still through exactly the livelock it would have to detect.
+            var spinning = streamer.Rejections > refusals;
+
+            Assert.True(
+                stuck < Rounds || (!spinning && streamer.Loading > 0),
+                $"the streamer never drained: {streamer.Loading} loading, "
+                + $"{streamer.PendingRequests} queued and {streamer.Rejections} refused against "
+                + $"{refusals} when it last placed a page, with nothing placed for {stuck} rounds — "
+                + "it is spinning rather than waiting, so no number of further rounds can change it"
+            );
+
             Thread.Sleep(1);
         }
-
-        Assert.Fail(
-            $"the streamer did not settle in 30 s: {streamer.Loading} loading, "
-            + $"{streamer.PendingRequests} queued"
-        );
     }
+
+    /// <summary>How many fruitless rounds mean the streamer is spinning rather than waiting.</summary>
+    /// <remarks>
+    ///     Larger than <see cref="Settling.Quiet" /> and for a different reason. That one counts
+    ///     attempts on a source that has said it has nothing outstanding, where eight is already
+    ///     generous; this one has to let a full pipeline fill — a round may start loads and place
+    ///     nothing yet — before calling it a spin. It is still not a patience: every round of it is a
+    ///     round in which the streamer started work and placed none of it, which for an in-memory
+    ///     store is anomalous however loaded the machine is.
+    /// </remarks>
+    const int Rounds = 64;
 
     /// <summary>A set of KTX2 files in memory, served as byte ranges.</summary>
     sealed class Files : ITextureStreamSource {

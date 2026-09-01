@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
@@ -47,7 +46,7 @@ public sealed class AssetWaterSourceTests {
     public void ASplineReferenceBecomesTheCurveTheBuildWrote() {
         var source = new AssetWaterSource(Content(Lake(), null));
 
-        Assert.True(Settles(() => source.SplineFor(SplineAddress, Matrix4x4.Identity) is not null));
+        Settles(source, () => source.SplineFor(SplineAddress, Matrix4x4.Identity) is not null, "the curve never arrived");
 
         var curve = source.SplineFor(SplineAddress, Matrix4x4.Identity)!;
 
@@ -72,7 +71,7 @@ public sealed class AssetWaterSourceTests {
         var source = new AssetWaterSource(Content(Lake(), null));
         var moved = Matrix4x4.FromTranslation(new(100f, 5f, -40f));
 
-        Assert.True(Settles(() => source.SplineFor(SplineAddress, moved) is not null));
+        Settles(source, () => source.SplineFor(SplineAddress, moved) is not null, "the curve never arrived");
 
         var placed = source.SplineFor(SplineAddress, moved)!;
         var origin = source.SplineFor(SplineAddress, Matrix4x4.Identity)!;
@@ -96,7 +95,7 @@ public sealed class AssetWaterSourceTests {
     public void ACurveIsBuiltOncePerPlacement() {
         var source = new AssetWaterSource(Content(Lake(), null));
 
-        Assert.True(Settles(() => source.SplineFor(SplineAddress, Matrix4x4.Identity) is not null));
+        Settles(source, () => source.SplineFor(SplineAddress, Matrix4x4.Identity) is not null, "the curve never arrived");
 
         var first = source.SplineFor(SplineAddress, Matrix4x4.Identity);
 
@@ -110,7 +109,7 @@ public sealed class AssetWaterSourceTests {
         var north = WaterWaveSpectrum.Default with { WindSpeed = 18f, Seed = 7u, Count = WaterWaveCount.ThirtyTwo };
         var source = new AssetWaterSource(Content(Lake(), north));
 
-        Assert.True(Settles(() => source.SpectrumFor(WavesAddress) is not null));
+        Settles(source, () => source.SpectrumFor(WavesAddress) is not null, "the sea state never arrived");
 
         var loaded = source.SpectrumFor(WavesAddress)!.Value;
 
@@ -127,12 +126,12 @@ public sealed class AssetWaterSourceTests {
 
         // The reads start on the first ask and their failures land with the tasks, so keep asking —
         // which is what a frame does — until both are settled rather than asserting a race.
-        Assert.True(
-            Settles(
-                () => source.SplineFor("Assets/Water/Gone.vxspline", Matrix4x4.Identity) is null
-                    && source.SpectrumFor("Assets/Water/Gone.vxwaves") is null
-                    && source.Failed == 2
-            )
+        Settles(
+            source,
+            () => source.SplineFor("Assets/Water/Gone.vxspline", Matrix4x4.Identity) is null
+                && source.SpectrumFor("Assets/Water/Gone.vxwaves") is null
+                && source.Failed == 2,
+            "the two missing references were never both counted as failed"
         );
     }
 
@@ -180,14 +179,14 @@ public sealed class AssetWaterSourceTests {
         Assert.Equal(0, system.BodyCount);
         Assert.Equal(1, system.UnresolvedBodies);
 
-        Assert.True(
-            Settles(
-                () => {
-                    system.Fold(world);
+        Settles(
+            source,
+            () => {
+                system.Fold(world);
 
-                    return system.BodyCount == 1;
-                }
-            )
+                return system.BodyCount == 1;
+            },
+            "the lake never appeared, however many folds it was given"
         );
 
         Assert.Equal(0, system.UnresolvedBodies);
@@ -195,27 +194,51 @@ public sealed class AssetWaterSourceTests {
         Assert.True(system.States[zone].Field!.Sample(Vector2.Zero).Coverage > 0.9f);
     }
 
-    /// <summary>Asks until the load lands, which is what the fold does by asking next frame.</summary>
+    /// <summary>Asks until the load lands, or until nothing is left that could make it land.</summary>
+    /// <param name="source">The source being asked, whose outstanding reads decide when to give up.</param>
+    /// <param name="landed">What is being waited for. Called once per attempt, and it is the ask.</param>
+    /// <param name="never">What to say when the source runs out of things to do first.</param>
     /// <remarks>
-    ///     ⚠ A deadline in seconds rather than a count of attempts, and it is deliberately generous.
-    ///     Two hundred attempts five milliseconds apart is one second, which is plenty of time for a
-    ///     load on an idle machine and is not on a CI runner with several test assemblies competing
-    ///     for it — measured, both tests here failed on the Windows leg for that and nothing else.
-    ///     A long deadline costs a run nothing while the answer arrives and costs a broken build
-    ///     thirty seconds, which is the right way round.
+    ///     <para>
+    ///         ⚠ <b>There is no deadline here, and that is the point of the method.</b> This used to
+    ///         wait thirty seconds and return false, and that thirty seconds is the CI failure it was
+    ///         meant to prevent: nine Windows legs of this file have gone red on it. The remark it
+    ///         replaces already recorded the remedy that did not work — <b>raising the number</b>,
+    ///         from two hundred five-millisecond attempts to thirty seconds — and raising it again is
+    ///         the same mistake with a bigger constant.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No number can be right, because the delay is not the read's.</b> Both reads this
+    ///         waits for are <see cref="Task.Run{TResult}(Func{Task{TResult}})" /> —
+    ///         <c>AssetWaterSource.LoadSpline</c> and <c>LoadWaves</c> — and <c>build.sh Test</c> runs
+    ///         every test project at once, so the pool inside one test host is saturated by other
+    ///         collections sitting in settle loops of their own. A work item queued into a saturated
+    ///         pool waits on .NET's thread injection, about two threads a second, so the delay is a
+    ///         property of how many workers the whole host has blocked. Measured on this machine:
+    ///         blocking two hundred pool workers delayed a newly queued item by <b>1 m 45 s</b>.
+    ///         Thirty seconds, sixty, two hundred — each is a guess about somebody else's scheduler.
+    ///     </para>
+    ///     <para>
+    ///         So the giving-up condition is a fact about the source instead, as
+    ///         <c>AssetTextureStreamingTests</c> does it. While <see cref="AssetWaterSource.Reading" />
+    ///         is non-zero a read exists and is worth another attempt, however long the pool takes to
+    ///         run it. When it has been zero at both ends of eight consecutive attempts the source has
+    ///         nothing left on its way and no number of further attempts can change the answer — that
+    ///         is a real failure, and it is reported in milliseconds rather than in thirty seconds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Consecutive, and read at both ends of the attempt.</b> A read that finishes part
+    ///         way through one leaves nothing outstanding by the end of it and has not been taken up
+    ///         yet — the take-up is the next attempt's ask — so a single idle observation says
+    ///         nothing.
+    ///     </para>
     /// </remarks>
-    static bool Settles(Func<bool> landed) {
-        var deadline = Stopwatch.StartNew();
+    static void Settles(AssetWaterSource source, Func<bool> landed, string never) {
+        var reached = false;
 
-        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
-            if (landed()) {
-                return true;
-            }
-
-            Thread.Sleep(5);
-        }
-
-        return false;
+        // The ask and the answer are one call here — SplineFor both starts the read and reports it —
+        // so the attempt is the predicate and the result is remembered for the line after it.
+        Settling.Until(() => reached = landed(), () => reached, () => source.Reading > 0, never);
     }
 
     /// <summary>A closed square, which is the smallest thing a lake can be.</summary>

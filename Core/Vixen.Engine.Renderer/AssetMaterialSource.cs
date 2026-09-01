@@ -157,6 +157,56 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     /// <summary>How many distinct materials have been asked for.</summary>
     public int Requested => entries.Count;
 
+    /// <summary>How many documents are on their way and have not landed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a test that has to wait for the work rather than for a clock.</b> The load is
+    ///         <c>AssetManager.LoadAsync</c> and runs off the frame's
+    ///         thread, so how long a fixture waits for one is decided by the thread pool and not by
+    ///         the read. See <see cref="AssetTextureSource.Reading" /> for why no interval can be the
+    ///         giving-up condition.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The handle's status and not the material, deliberately.</b> This falls to zero
+    ///         when the document has arrived, which is before <see cref="Compile" /> has turned it
+    ///         into a material — so a settle waiting on this gives up on a document that arrived and
+    ///         would not compile, which is a defect and is reported as one. Counting "asked for but
+    ///         no material yet" instead would wait on that for ever.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured 2026-09-01: over an in-memory bundle this is never non-zero, because
+    ///         the load never yields.</b> <c>AssetManager.LoadRootAsync</c> is a plain
+    ///         <c>async Task</c> rather than a <see cref="Task.Run(Action)" />, so when every await
+    ///         in it completes synchronously — which they do over a <c>MemoryFileProvider</c> — it
+    ///         returns an already-completed task and the handle is <c>Loaded</c> the instant
+    ///         <c>LoadAsync</c> returns. Probed with two hundred pool workers blocked:
+    ///         <c>TryGet</c> answered on the <b>first</b> ask, in 26 ms, with the highest
+    ///         <c>Reading</c> ever observed at <b>0</b>.
+    ///     </para>
+    ///     <para>
+    ///         So the settles that read this are not exercised by the fixtures that have it, and
+    ///         that is worth writing down rather than mistaking for a wait that works. It is kept
+    ///         because it is right in the direction that matters: it is trivially <em>false</em>
+    ///         rather than trivially true, so a settle reading it gives up in milliseconds on a
+    ///         broken source instead of masking it — verified by sabotage, five of the six tests in
+    ///         <c>AssetMaterialSourceTests</c> going red in 0.7 s — and it becomes a real wait the
+    ///         day this content is a real bundle or the manager yields.
+    ///     </para>
+    /// </remarks>
+    internal int Reading {
+        get {
+            var count = 0;
+
+            foreach (var entry in entries.Values) {
+                if (entry.Handle is { Status: AssetStatus.Loading }) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     /// <summary>How many have compiled.</summary>
     public int Loaded {
         get {

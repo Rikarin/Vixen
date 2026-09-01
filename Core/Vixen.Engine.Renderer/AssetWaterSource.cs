@@ -56,6 +56,49 @@ public sealed class AssetWaterSource : IWaterSplineSource, IWaterWaveSource {
     /// <summary>How many references have been asked for.</summary>
     public int Requested => splines.Count + waves.Count;
 
+    /// <summary>How many reads are on their way and have not finished.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a test that has to wait for the work rather than for a clock.</b> Every read
+    ///         above is <see cref="Task.Run{TResult}(Func{Task{TResult}})" />, so how long a fixture
+    ///         waits for one is decided by the thread pool and not by the read — a suite that gave up
+    ///         after an interval was measuring the runner, and did, on the Windows leg. This is how a
+    ///         settle can say "something is still on its way" instead: while this is non-zero the work
+    ///         exists and is worth another frame, and when it is zero for several frames running the
+    ///         source has run out of things to do and no number of further frames can change the
+    ///         answer. See <see cref="AssetTextureSource.Reading" />, which is the same hook one
+    ///         subsystem over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Counted on <see cref="Task.IsCompleted" /> rather than on the handle being
+    ///         non-null</b>, so it falls the moment a read finishes rather than when the next ask
+    ///         takes its result up. A count that stayed up until take-up would make "anything
+    ///         outstanding" true on a source that had finished, and a fixture that gives up when
+    ///         nothing is outstanding would hang on a real regression instead of failing. The gap
+    ///         that opens the other way — finished, not yet taken up, so this reads zero for one
+    ///         frame — is why a settle counts <em>consecutive</em> quiet frames.
+    ///     </para>
+    /// </remarks>
+    internal int Reading {
+        get {
+            var count = 0;
+
+            foreach (var entry in splines.Values) {
+                if (entry.Loading is { IsCompleted: false }) {
+                    count++;
+                }
+            }
+
+            foreach (var entry in waves.Values) {
+                if (entry.Loading is { IsCompleted: false }) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     /// <summary>How many of them will never arrive.</summary>
     /// <remarks>
     ///     An address the catalog does not know, bytes that are not a spline, a sea state whose chunk
