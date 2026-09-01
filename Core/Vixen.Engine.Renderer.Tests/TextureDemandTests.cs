@@ -482,14 +482,13 @@ public sealed class TextureDemandTests : IDisposable {
         var stuck = 0;
 
         var last = (demand.Promotions, demand.Demotions, painted.StreamingSwaps);
-        var pending = streaming.PendingRequests;
+        var refusals = streaming.Rejections;
 
         while (quiet < 5) {
             Frame(loop, renderer);
 
             var now = (demand.Promotions, demand.Demotions, painted.StreamingSwaps);
-            var queued = streaming.PendingRequests;
-            var idle = streaming.Loading == 0 && queued == 0;
+            var idle = streaming.Loading == 0 && streaming.PendingRequests == 0;
 
             // ⚠ Both, and reset on either. A page arriving is not quiet even if the counters have not
             // caught up with it yet — that gap is the whole failure — and counters that moved are not
@@ -497,26 +496,49 @@ public sealed class TextureDemandTests : IDisposable {
             quiet = idle && now == last ? quiet + 1 : 0;
 
             // ⚠ And the give-up is progress, not idleness, because idleness is what this waits for.
-            // A frame makes progress if something is on its way, if a counter moved, or if the queue
-            // got shorter; eight frames of none of those, with the streamer not idle, is a stall that
-            // no number of further frames can clear — PageResidency.Service keeps a pinned request it
-            // could not reserve rather than dropping it, so that queue never drains on its own. The
-            // deadline this replaces was thirty seconds; see Settling for why no number is right.
-            stuck = idle || streaming.Loading > 0 || now != last || queued < pending ? 0 : stuck + 1;
-
-            Assert.True(
-                stuck < Settling.Quiet,
-                $"the demand stalled at {last}, with {streaming.Loading} loading and {queued} "
-                + $"pending, unchanged for {stuck} frames — so no number of further frames can "
-                + "change it"
-            );
+            // Progress is a counter moving or the streamer going idle, and NOT "a page is on its
+            // way" or "the queue got shorter" — both of those are true for ever under a livelock,
+            // where a page loads, is refused a slot and is put back by PageResidency.Renew. See
+            // TextureStreamingTests.Drain, which was hung by exactly that until the two were
+            // dropped, and which is where this shape is measured.
+            //
+            // ⚠ Unproven here, and honestly so: this loop cannot be shown failing on a livelock,
+            // because Settle and Resident run before it in every test that reaches it and they wait
+            // on Settling.Working, which has no signal for a spin and hangs first. What is proven is
+            // that the two clauses removed above are the ones that hang — measured on Drain — and
+            // this carries the same fix rather than a different guess.
+            if (idle || now != last) {
+                stuck = 0;
+                refusals = streaming.Rejections;
+            } else {
+                stuck++;
+            }
 
             last = now;
-            pending = queued;
+
+            // A fruitless window is worth waiting on only while the streamer is waiting rather than
+            // spinning: starvation moves no counter at all, and a spin moves the refusal count.
+            var spinning = streaming.Rejections > refusals;
+
+            Assert.True(
+                stuck < Rounds || (!spinning && streaming.Loading > 0),
+                $"the demand never settled at {last}, with {streaming.Loading} loading, "
+                + $"{streaming.PendingRequests} pending and {streaming.Rejections} refused against "
+                + $"{refusals} when it last moved, unchanged for {stuck} frames — it is spinning "
+                + "rather than waiting, so no number of further frames can change it"
+            );
 
             Thread.Sleep(1);
         }
     }
+
+    /// <summary>How many fruitless frames mean the streamer is spinning rather than waiting.</summary>
+    /// <remarks>
+    ///     <c>TextureStreamingTests.Rounds</c>'s argument, and the same number: this has to let a
+    ///     pipeline fill — a frame may start loads and move no counter yet — before calling it a
+    ///     spin, which is a longer window than <see cref="Settling.Quiet" /> needs.
+    /// </remarks>
+    const int Rounds = 64;
 
     /// <summary>Runs one frame of the loop and one of the renderer.</summary>
     void Frame(EngineLoop loop, WorldRenderer renderer) {
