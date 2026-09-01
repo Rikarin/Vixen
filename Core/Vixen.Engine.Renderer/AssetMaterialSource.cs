@@ -157,6 +157,37 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     /// <summary>How many distinct materials have been asked for.</summary>
     public int Requested => entries.Count;
 
+    /// <summary>How many documents are on their way and have not landed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a test that has to wait for the work rather than for a clock.</b> The load is
+    ///         <c>AssetManager.LoadAsync</c> and runs off the frame's
+    ///         thread, so how long a fixture waits for one is decided by the thread pool and not by
+    ///         the read. See <see cref="AssetTextureSource.Reading" /> for why no interval can be the
+    ///         giving-up condition.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The handle's status and not the material, deliberately.</b> This falls to zero
+    ///         when the document has arrived, which is before <see cref="Compile" /> has turned it
+    ///         into a material — so a settle waiting on this gives up on a document that arrived and
+    ///         would not compile, which is a defect and is reported as one. Counting "asked for but
+    ///         no material yet" instead would wait on that for ever.
+    ///     </para>
+    /// </remarks>
+    internal int Reading {
+        get {
+            var count = 0;
+
+            foreach (var entry in entries.Values) {
+                if (entry.Handle is { Status: AssetStatus.Loading }) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     /// <summary>How many have compiled.</summary>
     public int Loaded {
         get {

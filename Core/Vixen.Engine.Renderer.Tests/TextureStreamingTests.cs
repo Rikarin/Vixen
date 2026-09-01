@@ -1,12 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering;
 using Xunit;
+
+// The settle vocabulary this assembly shares. In the root namespace, because it is used by the
+// fixtures that sit there too.
+using Settling = global::Tests.Settling;
 
 namespace Vixen.Engine.Renderer.Tests;
 
@@ -263,31 +266,53 @@ public sealed class TextureStreamingTests {
 
     /// <summary>Services until nothing is in flight and nothing is queued.</summary>
     /// <remarks>
-    ///     ⚠ <b>A deadline in wall-clock time, and it fails rather than returning.</b> This used to give
-    ///     up after four hundred one-millisecond rounds and return as if it had drained — so on a
-    ///     runner where the loader's threads were not scheduled inside 400 ms, every assertion after
-    ///     the call read a half-loaded streamer and the test failed on a resident level or an eviction
-    ///     count. The number that expired was never the number under test, which is what made the
-    ///     failure look like a streaming bug on CI and like nothing at all on a developer's machine.
-    ///     Thirty seconds is far past anything this work takes and is a hang's timeout, not a race's.
+    ///     <para>
+    ///         ⚠ <b>The deadline is gone, and it is the third number this loop has given up on.</b>
+    ///         It was four hundred one-millisecond rounds and <em>returned</em> as if it had drained,
+    ///         so every assertion after the call read a half-loaded streamer; then it was thirty
+    ///         seconds and a failure, which is honest and is still a guess about the runner. The page
+    ///         reads are <see cref="Task.Run(Action)" /> inside <c>PageResidency</c>, and
+    ///         <c>build.sh Test</c> runs every test project at once, so how long one waits is decided
+    ///         by how many pool workers the whole host has blocked — about two threads a second of
+    ///         thread injection — and not by the read. See <see cref="Settling" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Idle is what this waits for, so idle cannot also be what it gives up on</b> — and
+    ///         that is why the give-up here is progress rather than <see cref="Settling.Until" />'s
+    ///         outstanding-work test. A round makes progress if it placed a page, if a page is on its
+    ///         way, or if the queue got shorter. Eight rounds of none of those with the queue still
+    ///         non-empty is a real stall and not a slow pool: <see cref="PageResidency.Service" />
+    ///         keeps a pinned request it could not reserve rather than dropping it — counted as
+    ///         <c>PinRefusals</c> — so a queue that stops draining with nothing in flight stays that
+    ///         way for ever, and a bare <c>while (true)</c> would hang on it instead of failing.
+    ///     </para>
     /// </remarks>
     static void Drain(TextureStreamer streamer) {
-        var deadline = Stopwatch.StartNew();
+        var quiet = 0;
+        var pending = streamer.PendingRequests;
 
-        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
+        while (true) {
             var placed = streamer.Service(256);
+            var queued = streamer.PendingRequests;
 
-            if (placed == 0 && streamer.Loading == 0 && streamer.PendingRequests == 0) {
+            // ⚠ Loading counts arrived-and-unplaced as well as in-flight, so there is no instant
+            // between a read finishing and its page reaching a slot where this reads as drained.
+            if (placed == 0 && streamer.Loading == 0 && queued == 0) {
                 return;
             }
 
+            quiet = placed > 0 || streamer.Loading > 0 || queued < pending ? 0 : quiet + 1;
+            pending = queued;
+
+            Assert.True(
+                quiet < Settling.Quiet,
+                $"the streamer stalled: {streamer.Loading} loading and {queued} queued, unchanged "
+                + $"for {quiet} rounds with nothing placed — so no number of further rounds can "
+                + "change it"
+            );
+
             Thread.Sleep(1);
         }
-
-        Assert.Fail(
-            $"the streamer did not settle in 30 s: {streamer.Loading} loading, "
-            + $"{streamer.PendingRequests} queued"
-        );
     }
 
     /// <summary>A set of KTX2 files in memory, served as byte ranges.</summary>

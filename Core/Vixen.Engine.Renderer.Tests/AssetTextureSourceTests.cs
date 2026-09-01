@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Imaging;
@@ -63,30 +62,34 @@ public sealed class AssetTextureSourceTests : IDisposable {
     public void ATextureIsViewableOnlyOnceItsCopyIsRecorded() {
         using var source = new AssetTextureSource(device, Content());
 
-        var waited = Stopwatch.StartNew();
+        var viewable = false;
 
-        while (waited.Elapsed < Patience) {
-            // Decoded or not, and deliberately not answerable either way: nothing has copied the pixels.
-            Assert.False(source.TryGet(Bark, out _));
-            Assert.Equal(0, source.Failed);
+        Settling.Until(
+            () => {
+                // Decoded or not, and deliberately not answerable either way: nothing has copied the
+                // pixels. This is the claim of the test and it is made on every attempt, including
+                // the last.
+                Assert.False(source.TryGet(Bark, out _));
+                Assert.Equal(0, source.Failed);
 
-            var commands = device.BeginCommandList();
+                var commands = device.BeginCommandList();
 
-            source.Update(commands);
-            commands.Finish();
+                source.Update(commands);
+                commands.Finish();
 
-            if (source.TryGet(Bark, out var view)) {
-                Assert.True(view.IsValid);
-                Assert.Equal(1, source.Loaded);
+                viewable = source.TryGet(Bark, out var view);
 
-                return;
-            }
-
-            Assert.Equal(0, source.Loaded);
-            Thread.Sleep(5);
-        }
-
-        Assert.Fail($"the decode never landed in {Patience}");
+                if (viewable) {
+                    Assert.True(view.IsValid);
+                    Assert.Equal(1, source.Loaded);
+                } else {
+                    Assert.Equal(0, source.Loaded);
+                }
+            },
+            () => viewable,
+            () => source.Reading(Bark) is not null,
+            "the decode never landed"
+        );
     }
 
     /// <summary>A reference this build shipped nothing for is counted, not thrown for.</summary>
@@ -126,11 +129,13 @@ public sealed class AssetTextureSourceTests : IDisposable {
         using var materials = new AssetMaterialSource(assets, textures);
 
         Material material = null!;
-        var waited = Stopwatch.StartNew();
 
-        while (waited.Elapsed < Patience && !materials.TryGet(Hero, out material)) {
-            Thread.Sleep(5);
-        }
+        Settling.Until(
+            () => materials.TryGet(Hero, out material!),
+            () => material is not null,
+            () => materials.Reading > 0,
+            "the material never compiled"
+        );
 
         Assert.NotNull(material);
         Assert.Equal(1, materials.Unpainted);
@@ -139,25 +144,20 @@ public sealed class AssetTextureSourceTests : IDisposable {
 
         Assert.False(material.Parameters.Has(key));
 
-        waited.Restart();
+        Settling.Until(
+            () => {
+                var commands = device.BeginCommandList();
 
-        while (waited.Elapsed < Patience) {
-            var commands = device.BeginCommandList();
+                materials.Update(commands);
+                commands.Finish();
+            },
+            () => material.Parameters.Has(key),
+            () => textures.Reading(Bark) is not null,
+            "the material was never painted"
+        );
 
-            materials.Update(commands);
-            commands.Finish();
-
-            if (material.Parameters.Has(key)) {
-                Assert.True(material.Parameters.Get(key).IsValid);
-                Assert.Equal(0, materials.Unpainted);
-
-                return;
-            }
-
-            Thread.Sleep(5);
-        }
-
-        Assert.Fail($"the material was never painted in {Patience}");
+        Assert.True(material.Parameters.Get(key).IsValid);
+        Assert.Equal(0, materials.Unpainted);
     }
 
     /// <summary>
@@ -193,29 +193,25 @@ public sealed class AssetTextureSourceTests : IDisposable {
         using var materials = new AssetMaterialSource(assets, textures);
 
         var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
-        var waited = Stopwatch.StartNew();
         Material material = null!;
 
-        while (waited.Elapsed < Patience) {
-            if (material is null && !materials.TryGet(Hero, out material!)) {
-                Thread.Sleep(5);
-                continue;
-            }
+        Settling.Until(
+            () => {
+                if (material is null && !materials.TryGet(Hero, out material!)) {
+                    return;
+                }
 
-            var commands = device.BeginCommandList();
+                var commands = device.BeginCommandList();
 
-            materials.Update(commands);
-            commands.Finish();
-
-            if (material.Parameters.Has(key)) {
-                break;
-            }
-
-            Thread.Sleep(5);
-        }
+                materials.Update(commands);
+                commands.Finish();
+            },
+            () => material is not null && material.Parameters.Has(key),
+            () => materials.Reading > 0 || textures.Reading(Bark) is not null,
+            "the material was never painted"
+        );
 
         Assert.NotNull(material);
-        Assert.True(material.Parameters.Has(key), $"the material was never painted in {Patience}");
 
         var painted = material.Parameters.Get(key);
 
@@ -233,18 +229,6 @@ public sealed class AssetTextureSourceTests : IDisposable {
     }
 
     static readonly AssetReference Hero = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
-
-    /// <summary>
-    ///     How long a decode off the thread pool is given before the test calls it a failure rather than
-    ///     a slow machine.
-    /// </summary>
-    /// <remarks>
-    ///     Generous on purpose. Nothing here waits the whole of it in the ordinary case — each loop
-    ///     returns on the frame the work lands — so the only run that pays this is one that was going to
-    ///     fail anyway, and a bound tight enough to be worth shortening is one that fails on a busy CI
-    ///     runner for no reason.
-    /// </remarks>
-    static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
     /// <summary>A content manager holding one KTX2 texture and one material that samples it.</summary>
     static AssetManager Content() {

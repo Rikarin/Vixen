@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.IO;
@@ -54,7 +53,7 @@ public sealed class AssetMaterialSourceTests {
 
         // Loading is asynchronous, so the first ask starts it and the answer arrives afterwards. That
         // is the protocol rather than an inconvenience — see IMaterialSource.
-        Assert.True(Settles(source, out var material));
+        Settles(source, out var material);
 
         Assert.Equal("ForwardPlus", material.ShaderName);
 
@@ -74,7 +73,8 @@ public sealed class AssetMaterialSourceTests {
     public void OneReferenceIsOneMaterialHoweverOftenItIsAsked() {
         using var source = new AssetMaterialSource(Content(new()));
 
-        Assert.True(Settles(source, out var first));
+        Settles(source, out var first);
+
         Assert.True(source.TryGet(Hero, out var second));
 
         Assert.Same(first, second);
@@ -116,7 +116,8 @@ public sealed class AssetMaterialSourceTests {
             )
         );
 
-        Assert.True(Settles(source, out _));
+        Settles(source, out _);
+
         Assert.Equal(1, source.Unpainted);
     }
 
@@ -151,7 +152,7 @@ public sealed class AssetMaterialSourceTests {
 
         // The state under test, and the one WorldRenderer.Mount leaves a project in.
         Assert.Null(source.Permutations);
-        Assert.True(Settles(source, out var material));
+        Settles(source, out var material);
 
         var key = EffectKey.From(
             material.ShaderName,
@@ -185,29 +186,44 @@ public sealed class AssetMaterialSourceTests {
             Permutations = permutations
         };
 
-        Assert.True(Settles(without, out var plain));
-        Assert.True(Settles(with, out var told));
+        Settles(without, out var plain);
+        Settles(with, out var told);
 
         Assert.False(plain.Parameters.Get(ForwardPlusKeys.UseReflectionProbe));
         Assert.True(told.Parameters.Get(ForwardPlusKeys.UseReflectionProbe));
     }
 
-    /// <summary>Asks until the load lands, which is what a frame does by asking again next frame.</summary>
-    static bool Settles(AssetMaterialSource source, out Material material) {
-        var deadline = Stopwatch.StartNew();
+    /// <summary>Asks until the load lands, or until nothing is left that could make it land.</summary>
+    /// <param name="source">The source being asked, whose outstanding load decides when to give up.</param>
+    /// <param name="material">The material it compiled.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>No deadline, for the reason <c>AssetWaterSourceTests.Settles</c> now gives at
+    ///         length.</b> The load is off the frame's thread, <c>build.sh Test</c> runs every test
+    ///         project at once, and a work item queued into a saturated pool waits on .NET's thread
+    ///         injection — about two threads a second — so the delay is a property of how many
+    ///         workers the whole host has blocked. Thirty seconds was a guess about somebody else's
+    ///         scheduler, and raising the number is the remedy that already failed once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The predicate is the handle's status, not "is there a material yet".</b>
+    ///         <see cref="AssetMaterialSource.Reading" /> falls to zero when the document has
+    ///         arrived, which is before <c>Compile</c> has run — so a document that arrives and
+    ///         will not compile is given up on and reported, where waiting on "no material yet"
+    ///         would wait on it for ever and turn a defect into a hang.
+    ///     </para>
+    /// </remarks>
+    static void Settles(AssetMaterialSource source, out Material material) {
+        Material found = null!;
 
-        // A deadline rather than a count of attempts, for the reason AssetWaterSourceTests.Settles
-        // gives: two hundred attempts is one second, which is an idle machine's answer.
-        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
-            if (source.TryGet(Hero, out material)) {
-                return true;
-            }
+        Settling.Until(
+            () => source.TryGet(Hero, out found!),
+            () => found is not null,
+            () => source.Reading > 0,
+            "the material never compiled"
+        );
 
-            Thread.Sleep(5);
-        }
-
-        material = null!;
-        return false;
+        material = found;
     }
 
     /// <summary>A content manager holding one material at <see cref="Hero" />.</summary>

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
@@ -203,26 +202,26 @@ public sealed class WorldRendererTests : IDisposable {
         loop.World.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
         loop.World.Add(entity, new MeshRenderable { Mesh = Rock, Material = Painted });
 
-        // Long enough for three asynchronous hops and no longer: a count that has to grow to keep this
-        // passing is a load that has stopped being asynchronous and started being slow.
-        // ⚠ A deadline as well as the count, and the count is no longer the thing that ends it. The
-        // remark above is right that a growing *frame* count means a load has stopped being
-        // asynchronous — but sixteen frames is also about a fifth of a second of wall clock, and on a
-        // CI runner sharing itself with several test assemblies the three hops take longer than that
-        // while remaining perfectly asynchronous. Time is what this was really asserting.
-        var patience = Stopwatch.StartNew();
+        // ⚠ Neither a frame count nor a deadline. Sixteen frames was really asserting a fifth of a
+        // second of wall clock, and thirty seconds was asserting thirty — and on a runner sharing
+        // itself with a hundred and seventy other assemblies the three hops take longer than either
+        // while remaining perfectly asynchronous. This file was the worst of them: seventeen CI
+        // failures, on all three operating systems. What ends the loop now is the mesh, the material
+        // and the texture having nothing left on their way. See Settling.
+        Settling.Until(
+            () => {
+                loop.Frame(TimeSpan.FromMilliseconds(16));
 
-        while (renderer.Extraction!.ObjectCount == 0 && patience.Elapsed < TimeSpan.FromSeconds(30)) {
-            loop.Frame(TimeSpan.FromMilliseconds(16));
+                var frame = device.BeginCommandList();
 
-            var commands = device.BeginCommandList();
-
-            renderer.Draw(commands);
-            commands.Finish();
-            device.GraphicsQueue.Submit([commands]);
-
-            Thread.Sleep(10);
-        }
+                renderer.Draw(frame);
+                frame.Finish();
+                device.GraphicsQueue.Submit([frame]);
+            },
+            () => renderer.Extraction!.ObjectCount > 0,
+            () => Settling.Working(renderer, Bark),
+            "the mesh was never drawn"
+        );
 
         Assert.Equal(1, renderer.Extraction!.ObjectCount);
 
@@ -237,21 +236,21 @@ public sealed class WorldRendererTests : IDisposable {
         // name its feature samples, so the feature has something to give a table slot to.
         var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
 
-        // ⚠ A condition with a deadline, the shape the loop above now has, and not a fixed count. The
-        // texture is the last of the three hops and the only one waiting on a page from the streamer,
-        // so eight frames is plenty on an idle machine and a coin toss on a loaded one — this is one
-        // of the tests that failed on CI on a different leg most runs, and sixty-four frames was
-        // still only two thirds of a second.
-        patience.Restart();
+        // ⚠ The same shape as the loop above, and this is the half that failed most: the texture is
+        // the last hop and the only one waiting on a page from the streamer, so eight frames was
+        // plenty on an idle machine and a coin toss on a loaded one. The wait is now the streamer's
+        // own "nothing on its way" rather than any number of frames or seconds.
+        Settling.Until(
+            () => {
+                var frame = device.BeginCommandList();
 
-        while (!Carries(renderer.Materials.Materials[index], key) && patience.Elapsed < TimeSpan.FromSeconds(30)) {
-            var commands = device.BeginCommandList();
-
-            renderer.Draw(commands);
-            commands.Finish();
-
-            Thread.Sleep(10);
-        }
+                renderer.Draw(frame);
+                frame.Finish();
+            },
+            () => Carries(renderer.Materials.Materials[index], key),
+            () => Settling.Working(renderer, Bark),
+            "the material was never painted with its texture"
+        );
 
         var material = renderer.Materials.Materials[index];
 
