@@ -385,6 +385,8 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     HotReloadWatcher? styleWatcher;
 
+    readonly List<ReloadReport> styleReloads = [];
+
     /// <summary>Every stylesheet reload the watcher has reported, in the order it reported them.</summary>
     /// <remarks>
     ///     ⚠ <b>Kept so that a test can wait on the reload rather than on the clock.</b> A save is
@@ -396,8 +398,6 @@ sealed partial class EditorApplication : IDisposable {
     ///     have. This is the counter that tells the two apart.
     /// </remarks>
     internal IReadOnlyList<ReloadReport> StyleReloads => styleReloads;
-
-    readonly List<ReloadReport> styleReloads = [];
 
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
