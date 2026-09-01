@@ -450,6 +450,17 @@ public sealed class ThumbnailSurfaceDeviceTests {
     ///         <c>FramesInFlight</c>, so the frames have to keep coming for it to land at all.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The answer it settled: this is a use-after-free and not merely a leak.</b> Run
+    ///         against a <c>Destroy</c> that skips the unregistration, the layers say
+    ///         <c>VUID-vkDestroyImageView-imageView-01026</c> — the view freed while a descriptor set
+    ///         in a submitted list still names it — and <c>VUID-vkCmdDrawIndexed-None-08114</c> for
+    ///         each set in the ring: <i>"the sampled image descriptor … is using imageView
+    ///         VkImageView 0x0 that is invalid or has been destroyed"</i>. What kept the editor out
+    ///         of that today is <c>ProjectBrowser.Rebind</c> refreshing every visible tile from the
+    ///         same <c>Pump</c> that evicted the picture, so no drawn tile still carries the number
+    ///         — which is a coincidence of a panel's event wiring, not a lifetime rule.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>What the draw counts are for.</b> Zero errors is also what a run that drew
     ///         nothing reports, so the first frame's count is asserted to be one: the set really was
     ///         bound and sampled before anything was released. The frames after it draw nothing, and
@@ -553,10 +564,14 @@ public sealed class ThumbnailSurfaceDeviceTests {
             // three assertions below are all true of a run that drew nothing at all.
             Assert.Equal(1, drawn[0]);
 
-            // And every frame after the retirement skipped the number, which is what taking the
-            // registration back buys. A registration left behind makes these ones instead.
-            Assert.All(drawn.Skip(1), count => Assert.Equal(0, count));
-
+            // ⚠ The layers before the draw counts, because this is the assertion that says what the
+            // defect *was*, and the count below only says the repair took the shape it was meant to.
+            // Without the unregistration this reads three: `VUID-vkDestroyImageView-imageView-01026`
+            // for the view being freed while a descriptor set in an in-flight list still names it,
+            // and `VUID-vkCmdDrawIndexed-None-08114` twice — "the sampled image descriptor … is
+            // using imageView VkImageView 0x0 that is invalid or has been destroyed", once per set
+            // in the ring. So it is a use-after-free wherever a draw list still carries the number,
+            // and not merely a leak.
             Assert.True(
                 VulkanDiagnostics.ErrorCount == 0,
                 $"Drawing a tile that still names a retired thumbnail produced "
@@ -564,6 +579,11 @@ public sealed class ThumbnailSurfaceDeviceTests {
                 + Environment.NewLine
                 + string.Join(Environment.NewLine + Environment.NewLine, VulkanDiagnostics.Messages)
             );
+
+            // And every frame after the retirement skipped the number, which is what taking the
+            // registration back buys. A registration left behind draws all three instead — which is
+            // how the errors above are reached.
+            Assert.All(drawn.Skip(1), count => Assert.Equal(0, count));
         }
     }
 
