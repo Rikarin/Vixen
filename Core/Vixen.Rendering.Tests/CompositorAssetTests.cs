@@ -1560,6 +1560,44 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal(height, description.Height);
     }
 
+    /// <summary>
+    ///     A frame answers how big a plane <em>is</em>, which is not how big the frame is.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The distinction a render scale is made of.</b> <c>Size</c> is the window's, and a
+    ///         scene plane declared with a <c>Scale</c> below one is smaller than it — so a node that
+    ///         steps through such a plane in <c>Size</c>'s texels steps by the wrong distance, and
+    ///         nothing catches that anywhere: every tap still lands inside the texture.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are the claim. The declared plane has to come back smaller, or the answer
+    ///         is the old bug wearing a new method's name; and the imported one has to come back at
+    ///         the window's size, because an import's extent is the host's and no scale applies to
+    ///         it — which is what keeps the frame's final target native while the scene shrinks.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_frame_reports_a_scaled_planes_own_size_and_not_its_own() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+
+        var compositor = Compose(h, asset);
+        var depth = compositor.Resources.Single(resource => resource.Name == "SceneDepth");
+
+        compositor.Resources[compositor.Resources.IndexOf(depth)] = depth with { Scale = 0.5f };
+
+        h.Graph.Reset();
+
+        var frame = compositor.Build(h.Graph, effects, device);
+
+        Assert.Equal(new(512, 512), frame.Size);
+        Assert.Equal(new(256, 256), frame.SizeOf("test", "SceneDepth"));
+
+        // The host's import, untouched by any scale: this is the plane the player is shown.
+        Assert.Equal(new(512, 512), frame.SizeOf("test", "SceneColour"));
+    }
+
     /// <summary>A volume is a resource the document can name, extent and shape and all.</summary>
     /// <remarks>
     ///     ⚠ The depth takes no <see cref="RenderResourceAsset.Scale" />: a froxel grid's slice count
