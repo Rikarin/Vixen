@@ -365,6 +365,19 @@ public sealed class StandardFrameTierImageTests {
     ///         scene plane is 96² and several of the differences this is watching for round away.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The ceiling is a sanity bound and not a guard, and the difference was measured.</b>
+    ///         The floor fires: asking the preset for a scale of 1 makes the two pictures
+    ///         bit-identical and the first assertion reports 0.000. The ceiling could not be made to
+    ///         fire — reverting <c>ReflectionRenderer</c> to size its march by the window while the
+    ///         depth plane is half that leaves this test <em>green</em>. So the screen-space
+    ///         reflection path's own render-scale correctness is <b>not</b> under a picture here, and
+    ///         nothing else in the suite covers it either; at 128² the traced term is too small a
+    ///         part of the frame, and a <c>Load</c> off the end of a smaller plane returns zero
+    ///         rather than a wrong colour, so the failure subtracts reflection instead of adding
+    ///         nonsense. Read the second assertion as "the frame did not fall apart", not as
+    ///         "every consumer measured in the right grid".
+    ///     </para>
+    ///     <para>
     ///         No reference image, deliberately. What is asserted is the relationship between two
     ///         pictures rendered in the same run on the same device, which is exactly the claim a
     ///         committed PNG cannot make and would go on matching after the scale stopped reaching
