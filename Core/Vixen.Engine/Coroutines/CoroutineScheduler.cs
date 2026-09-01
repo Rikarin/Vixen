@@ -250,9 +250,9 @@ public sealed class CoroutineScheduler {
     ///     <para>
     ///         ⚠ <b>Re-entrant, and it has to be.</b> This is reachable from inside a drain — a
     ///         behaviour destroyed in <c>Update</c> reaches it through the lifecycle pass — and from
-    ///         inside itself, when a <c>finally</c> detaches something else. Neither
-    ///         <see cref="ready" /> nor a single scratch list would survive that, so the entries
-    ///         being cancelled go into a list rented per call.
+    ///         inside itself, when a <c>finally</c> detaches something else. Neither the drain's own
+    ///         <c>ready</c> list nor a single scratch field would survive that, so the entries being
+    ///         cancelled go into a list rented per call.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What it does not reach is a coroutine that is not suspended <i>here</i></b> — one
