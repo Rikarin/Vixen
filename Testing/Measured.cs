@@ -191,6 +191,13 @@ static class Measured {
 ///         while the runtime's native events do not.
 ///     </para>
 ///     <para>
+///         ⚠ <b>A nested type is named by its simple name only.</b> A top-level type comes back as its
+///         <see cref="Type.FullName" /> — <c>Vixen.Core.Diagnostics.Tests.DeliberateAllocation</c> — but
+///         a type nested inside another comes back as <c>SabotageProbe</c>, with neither namespace nor
+///         declaring type. Confirmed by sabotaging a real gate. It is still a name worth having; it is
+///         also why the drain sentinel below is top level and matched exactly.
+///     </para>
+///     <para>
 ///         <b>Verify the instrument.</b> Three things can go wrong silently — the runtime source is
 ///         absent, the marker never arrives so no sample can be attributed, or the sampler is armed and
 ///         genuinely sees nothing. Each produces a different sentence, and only the third claims that

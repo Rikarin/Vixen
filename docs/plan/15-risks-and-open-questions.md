@@ -181,8 +181,17 @@ It always does. One `List<T>` in an extraction loop, one closure in a query, one
 log, and the promise is quietly gone. It is usually discovered at ship time.
 
 **Mitigation:** the allocation gates in [12](12-build-ci-and-testing.md) are **ordinary tests that run on
-every PR**, and they name the allocating call site via a `GCHeapAllocationEventSource` listener. A red
-build on the PR that introduces it is the only mechanism that works.
+every PR**, and a failure names the **types** the allocating passes produced, via an `AllocationSampled`
+listener armed for a second explanatory run. A red build on the PR that introduces it is the only
+mechanism that works.
+
+⚠ **This mitigation used to claim the call site, and the call site cannot be had.** There is no
+`GCHeapAllocationEventSource`; the runtime's sampled allocation event carries a type name and an object
+size, no stack, and fires on the dispatcher thread rather than the allocating one — see
+[12](12-build-ci-and-testing.md) § allocation gates for the measurements. So the gate narrows a red
+build to a type and a per-pass byte count rather than to a line, which is a weaker mitigation than this
+risk was written against: on a several-hundred-line frame path a named type is usually enough to find
+the line, and when it is not, the follow-up is a `dotnet-trace` capture by hand.
 
 ### R5 — Six-platform maintenance cost *(likelihood: certain · impact: medium)*
 

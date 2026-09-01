@@ -184,9 +184,33 @@ public void EmptyScene_TenThousandFrames_AllocatesNothing()
 ```
 
 Equivalents exist for: a 10 k-entity scene, a steady-state UI frame, a signal-update storm, a layout
-pass over an unchanged tree, and an asset-load/release cycle. When one of these fails, it names the
-exact allocation via a `GCHeapAllocationEventSource` listener in the failure message — otherwise
-"something allocated 48 bytes" is an unactionable red build.
+pass over an unchanged tree, and an asset-load/release cycle. When one of these fails,
+`Measured.NothingAllocated` names the **types** the allocation came from, in a second explanatory pass
+run with the runtime's allocation sampler armed — otherwise "something allocated 48 bytes" is an
+unactionable red build.
+
+⚠ **It names the type, not the call site, and that is the mechanism's ceiling rather than a shortcut
+taken.** This section previously specified "the exact allocation via a `GCHeapAllocationEventSource`
+listener". There is no such event source; the runtime's provider is `Microsoft-Windows-DotNETRuntime`,
+and measured on .NET 10 against an in-process `EventListener`:
+
+- `GCAllocationTick`, the event that sentence meant, **is never delivered at all** — not at keyword
+  `GC` (0x1) at Informational, not with all sixty-four keyword bits set at Verbose, not over a 96 MB
+  window in which nine hundred other runtime events arrived.
+- What *is* delivered is `AllocationSampled`, and only at keyword `0x800_0000_0000` (bit 43). Its
+  payload is `TypeName` and `ObjectSize` with **no stack**, and the callback runs on the EventPipe
+  dispatcher thread rather than the allocating one — so there is no call site to be had, by any
+  arrangement of the listener.
+- It **samples one allocation in ~100 KB** (941 samples over 96,000,040 B), and the budget is not
+  tunable through the provider's filter arguments.
+
+The last point is why the naming has to be a *second* pass: the counted window these gates fail on is
+of the order of 9,640 B or 48,040 B, and at both of those the sampler produces nothing at all. The
+explanatory run scales the pass count until enough of the same allocation has gone by, and is armed
+only around itself — never around the counted window, and never around a re-measurement `Measured`
+discarded. A genuine call site needs a profiler-grade capture (`dotnet-trace` with a stack-carrying
+provider, or a heap diff), which is an opt-in investigation tool and not something a per-PR gate can
+afford.
 
 ### Test infrastructure worth building early
 
