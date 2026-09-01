@@ -41,10 +41,31 @@ namespace Vixen.Engine.Coroutines;
 public sealed class CoroutineScheduler {
     const int PointCount = 4;
 
+    /// <summary>
+    ///     How many times <see cref="Cancel" /> re-scans before it gives up on an owner whose
+    ///     coroutines keep suspending after being cancelled.
+    /// </summary>
+    /// <remarks>
+    ///     A cancelled coroutine unwinds, and a <c>finally</c> cannot <c>await</c> — so one pass is
+    ///     enough for everything anybody writes. What needs more than one is a
+    ///     <c>catch (OperationCanceledException)</c> that waits again, which is legal and is how a
+    ///     coroutine "cleans up over two frames". What needs more than this many is code that catches
+    ///     cancellation in a loop and never lets go, and the honest answer to that is to stop rather
+    ///     than to spin — leaving those entries where they are, still cancelled and still holding
+    ///     what they hold. A bound that stops is a leak in one pathological case; no bound at all is
+    ///     a hang in the same case, and a hang is worse.
+    /// </remarks>
+    const int CancelPasses = 16;
+
     readonly List<Entry>[] waiting = [[], [], [], []];
     readonly List<Entry> ready = [];
     readonly List<RunningCoroutine> slots = [];
     readonly Stack<int> free = new();
+
+    // ⚠ A pool rather than one reusable list, because `Cancel` can nest: a coroutine unwinding
+    // through a `finally` may detach another behaviour, which cancels that owner from inside this
+    // one's walk. A single field would be the outer walk's list, emptied under it.
+    readonly Stack<List<Entry>> spare = new();
 
     // Only ResumePoint-crossing arrivals from another thread go through here — a coroutine coming
     // back from real async I/O. Everything else is added straight to the list, on the loop thread,
@@ -204,6 +225,105 @@ public sealed class CoroutineScheduler {
         }
 
         ThrowPendingFault();
+    }
+
+    /// <summary>Cancels everything an owner has suspended, now, and lets go of it.</summary>
+    /// <param name="owner">The owner.</param>
+    /// <returns>How many suspended coroutines were resumed to be cancelled.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="owner" /> is <see langword="null" />.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The difference from marking an owner destroyed is <i>when</i>, and it is the whole
+    ///         point.</b> A destroyed owner's coroutines cancel at their next resume point, which
+    ///         assumes there will be one. The case this exists for is the one where there is not: the
+    ///         editor detaches every authored behaviour, unloads the assembly they came from, and
+    ///         builds the next one — all inside a single call, with no frame in between. A
+    ///         continuation still sitting in a waiting list at that moment is a delegate over a state
+    ///         machine whose type is in the context being dropped, so the context is never collected
+    ///         and the reload has leaked an assembly.
+    ///     </para>
+    ///     <para>
+    ///         Resumed rather than abandoned, for the reason <see cref="CoroutineAwaitable.GetResult" />
+    ///         gives: dropping a state machine runs neither its <c>using</c> blocks nor its
+    ///         <c>finally</c> blocks, and cleanup that does not happen is worse than an exception per
+    ///         cancelled coroutine.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Re-entrant, and it has to be.</b> This is reachable from inside a drain — a
+    ///         behaviour destroyed in <c>Update</c> reaches it through the lifecycle pass — and from
+    ///         inside itself, when a <c>finally</c> detaches something else. Neither the drain's own
+    ///         <c>ready</c> list nor a single scratch field would survive that, so the entries being
+    ///         cancelled go into a list rented per call.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it does not reach is a coroutine that is not suspended <i>here</i></b> — one
+    ///         awaiting a <see cref="Task" /> or a file read, whose continuation the thread pool
+    ///         holds. That one cancels when it next comes back through a wait of this scheduler's,
+    ///         which is what the owner's generation is for: bump it first, and the arrival cancels
+    ///         when it lands.
+    ///     </para>
+    /// </remarks>
+    public int Cancel(ICoroutineOwner owner) {
+        ArgumentNullException.ThrowIfNull(owner);
+
+        // ⚠ An O(1) refusal for the overwhelmingly common call, because this is on the destroy path
+        // and a game destroys behaviours by the hundred. A suspended coroutine is a running one, so
+        // nothing running means nothing waiting and nothing in `arrivals` either — and `Take` below
+        // is a linear scan of four lists that would otherwise be paid per bullet.
+        if (RunningCount == 0) {
+            return 0;
+        }
+
+        // The same claim `Drain` makes: whoever cancels is the loop thread. A detach before the
+        // first frame would otherwise leave `loopThread` at zero, and a coroutine that suspended
+        // again while unwinding would be told it was on the wrong thread.
+        loopThread = Environment.CurrentManagedThreadId;
+
+        var list = spare.Count > 0 ? spare.Pop() : [];
+        var cancelled = 0;
+
+        try {
+            for (var pass = 0; pass < CancelPasses; pass++) {
+                // Arrivals first. A coroutine coming back from real asynchrony is this owner's just
+                // the same, and it is in the queue rather than in a list until something drains it.
+                while (arrivals.TryDequeue(out var arrived)) {
+                    waiting[(int)arrived.Point].Add(arrived);
+                }
+
+                Take(owner, list);
+
+                if (list.Count == 0) {
+                    break;
+                }
+
+                cancelled += list.Count;
+
+                // Saved and restored rather than set and cleared: the drain that this may be running
+                // inside of set it for the entry it is part-way through resuming.
+                var resuming = IsResumingCancelled;
+                IsResumingCancelled = true;
+
+                try {
+                    foreach (var entry in list) {
+                        entry.Continuation();
+                    }
+                } finally {
+                    IsResumingCancelled = resuming;
+                    list.Clear();
+                }
+            }
+        } finally {
+            list.Clear();
+            spare.Push(list);
+        }
+
+        // Not while draining, for the reason `Run` gives: throwing here would unwind out of the
+        // middle of a drain and strand the continuations it had already taken off the waiting list.
+        if (!draining) {
+            ThrowPendingFault();
+        }
+
+        return cancelled;
     }
 
     /// <summary>How many coroutines are waiting on a resume point.</summary>
@@ -374,6 +494,29 @@ public sealed class CoroutineScheduler {
         };
     }
 
+    /// <summary>Takes every wait an owner has out of the waiting lists, keeping the order.</summary>
+    /// <remarks>
+    ///     Order-preserving compaction and not the swap-back used elsewhere, for
+    ///     <see cref="Drain" />'s reason: the order coroutines suspended in is the order they resume
+    ///     in, and a cancellation that reordered the survivors would make the next drain's order
+    ///     depend on which behaviour happened to be detached.
+    /// </remarks>
+    void Take(ICoroutineOwner owner, List<Entry> into) {
+        foreach (var list in waiting) {
+            var keep = 0;
+
+            for (var index = 0; index < list.Count; index++) {
+                if (ReferenceEquals(list[index].Owner, owner)) {
+                    into.Add(list[index]);
+                } else {
+                    list[keep++] = list[index];
+                }
+            }
+
+            list.RemoveRange(keep, list.Count - keep);
+        }
+    }
+
     RunningCoroutine Rent() {
         if (free.Count > 0) {
             return slots[free.Pop()];
@@ -460,6 +603,15 @@ sealed class RunningCoroutine {
         } catch (Exception failure) {
             scheduler.ReportFault(failure);
         } finally {
+            // ⚠ Blanked, and before the slot goes back on the free list. A `RunningCoroutine` is
+            // pooled and `slots` never shrinks, so a field left pointing at a finished coroutine's
+            // state machine box holds it until the scheduler dies — and the box's type is the
+            // author's `async Coroutine` method, which for a plugin or a project script is a type
+            // in a collectible context. Ten slots the pool has stopped reusing is ten assemblies
+            // that cannot be collected. After `GetResult` because that is what returns the box to
+            // its pool, and before `Release` because releasing makes this instance rentable and a
+            // completion that starts another coroutine would `Attach` into the field being blanked.
+            awaiter = default;
             scheduler.Release(this);
         }
     }

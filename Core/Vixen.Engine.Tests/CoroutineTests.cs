@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Vixen.Core;
+using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Coroutines;
 using Vixen.Engine.Frames;
@@ -369,6 +371,100 @@ public sealed class CoroutineTests {
         loop.Frame(Sixtieth);
 
         Assert.True(behavior.Resumes > 0);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Detaching is the plugin-reload path, and it has to cancel now rather than at the next
+    ///     drain.</b> <c>Destroy</c> queues and the next frame cancels; <c>Remove</c> is the editor's
+    ///     path — <c>SaveProjectBehaviors</c> detaches every authored behaviour and the assembly is
+    ///     unloaded before another frame is ever run. A coroutine that cancels "at its next resume
+    ///     point" never gets one, so its continuation sits in the scheduler's waiting list holding a
+    ///     state machine of a type in the context being dropped.
+    /// </summary>
+    [Fact]
+    public void DetachingABehaviourCancelsItsCoroutinesBeforeTheCallReturns() {
+        using var loop = new EngineLoop();
+        var entity = loop.World.Create();
+        var behavior = loop.Behaviors.Add(entity, new HoldsAResource());
+
+        loop.Frame(Sixtieth);
+        loop.Frame(Sixtieth);
+
+        Assert.True(behavior.Held);
+        Assert.Equal(1, loop.Coroutines.RunningCount);
+
+        Assert.True(loop.Behaviors.Remove(behavior));
+
+        // Not "after one more frame" — there is no more frame in the sequence this exists for.
+        Assert.False(behavior.Held);
+        Assert.Equal(0, loop.Coroutines.RunningCount);
+        Assert.Equal(0, loop.Coroutines.WaitingCount(ResumePoint.Update));
+    }
+
+    /// <summary>
+    ///     The same property stated as work rather than as a flag: a detached behaviour's coroutine
+    ///     does not run again, however many frames follow.
+    /// </summary>
+    [Fact]
+    public void ADetachedBehavioursCoroutineDoesNoMoreWork() {
+        using var loop = new EngineLoop();
+        var entity = loop.World.Create();
+        var behavior = loop.Behaviors.Add(entity, new StartsACoroutine());
+
+        // ⚠ Three, not two. `Start` is deferred to the drain after the one that ran `Awake`, so the
+        // coroutine is not started until the second frame and its first resume is the third. Written
+        // with two this asserted `0 > 0` and was red against the defect for the wrong reason.
+        loop.Frame(Sixtieth);
+        loop.Frame(Sixtieth);
+        loop.Frame(Sixtieth);
+
+        var resumes = behavior.Resumes;
+
+        Assert.True(resumes > 0);
+        Assert.True(loop.Behaviors.Remove(behavior));
+
+        for (var frame = 0; frame < 5; frame++) {
+            loop.Frame(Sixtieth);
+        }
+
+        Assert.Equal(resumes, behavior.Resumes);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the scheduler lets go of it, which is the leak the two above are symptoms of.</b>
+    ///     A coroutine's state machine holds the behaviour it is a method on; the scheduler holds the
+    ///     state machine's continuation. One detached behaviour kept by the scheduler keeps its type,
+    ///     and the type keeps the collectible context it was compiled into — see
+    ///     <c>BehaviorTests</c> for why the assertion is on the instance rather than on the context.
+    /// </summary>
+    [Fact]
+    public void DetachingABehaviourLetsTheSchedulerGoOfIt() {
+        using var loop = new EngineLoop();
+        var weak = AddRunAndDetach(loop, loop.World.Create());
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.False(weak.IsAlive, "the scheduler still holds a detached behaviour's coroutine");
+    }
+
+    /// <summary>
+    ///     Runs the coroutine up to a suspension and detaches, in a frame that returns — so the only
+    ///     reference left when the caller collects is one the scheduler kept. Inlining this would
+    ///     leave the behaviour in a live stack slot and the test would pass either way.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference AddRunAndDetach(EngineLoop loop, Entity entity) {
+        var behavior = loop.Behaviors.Add(entity, new StartsACoroutine());
+
+        loop.Frame(Sixtieth);
+        loop.Frame(Sixtieth);
+
+        Assert.Equal(1, loop.Coroutines.RunningCount);
+        Assert.True(loop.Behaviors.Remove(behavior));
+
+        return new(behavior);
     }
 
     /// <summary>

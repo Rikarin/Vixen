@@ -177,6 +177,21 @@ handle could reach, because a nested coroutine's continuation is held by its cal
 rather than by the scheduler. Cancelling throws into the coroutine rather than abandoning it, so
 `finally` blocks run.
 
+⚠ **Detaching a behaviour cancels its coroutines before `Remove` returns**, rather than at their next
+resume point. `Destroy` can afford to wait a drain; detach cannot, because the caller it exists for
+is the editor's script reload, which takes every authored behaviour off the scene and unloads the
+assembly they came from inside a single call. A continuation still sitting in a waiting list at that
+moment is a delegate over a state machine whose type is in the context being dropped — so the
+context is never collected and every reload leaks an assembly. `BehaviorStore.Detach` bumps the
+generation *and* calls `CoroutineScheduler.Cancel(owner)`: the bump is what cancels a coroutine that
+is off the loop thread awaiting a `Task`, when it comes back; `Cancel` unwinds everything suspended
+here, now, through its `finally` blocks. `Cancel` is public, and is what an owner that is not a
+behaviour — a system, an editor tool — calls on its own way out.
+
+There is still no `Cancel` on a `CoroutineHandle`, and that is unchanged by the above: an owner
+reaches the nested waits a handle cannot name, which is the reason cancellation is scoped to owners
+in the first place.
+
 Four resume points — `Update`, `LateUpdate`, `FixedStep`, `EndOfFrame` — and `FixedStep` ticks with
 the steps rather than the frames, so a frame owing three steps resumes a waiter three times.
 

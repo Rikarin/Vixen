@@ -55,6 +55,15 @@ public readonly record struct ProjectBuild(Assembly? Assembly, string Output, bo
 ///         existing, and <c>ISceneBehaviorBinder.Save</c> is how its values cross the gap. The editor
 ///         does that around its call — see <c>EditorApplication.BuildProjectCode</c>.
 ///     </para>
+///     <para>
+///         ⚠ <b>Taking a behaviour off also ends its coroutines, which is what makes that enough.</b>
+///         <c>BehaviorStore.Remove</c> cancels everything the behaviour has suspended and unwinds it
+///         through its <c>finally</c> blocks before returning, so the scheduler is not left holding a
+///         state machine of a type in the context this is about to drop. It has to happen there
+///         rather than here: there is no frame between the detach and the unload, so a cancellation
+///         deferred to "the next resume point" would never come, and every reload of a project whose
+///         scripts run coroutines would leak its assembly. See <c>ProjectCoroutineUnloadTests</c>.
+///     </para>
 /// </remarks>
 public sealed class ProjectAssemblies {
     readonly ProjectPaths paths;

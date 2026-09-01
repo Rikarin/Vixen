@@ -493,7 +493,36 @@ public sealed class BehaviorStore {
         }
     }
 
+    /// <summary>Takes a behaviour off its entity, and its coroutines off the scheduler.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The coroutines go here rather than in <see cref="Destroy" />, because detaching is
+    ///         the path that had nothing at all.</b> <c>Destroy</c> sets
+    ///         <see cref="Behavior.IsDestroyed" />, which the scheduler reads at the next resume
+    ///         point — so a destroyed behaviour's coroutines did end, one drain later.
+    ///         <see cref="Remove" /> sets neither that nor the generation, so a <i>detached</i>
+    ///         behaviour's coroutines ran for ever: they were owned by something the store had let
+    ///         go of and the scheduler had never been told about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, and neither is enough alone.</b> The generation bump is what cancels
+    ///         a coroutine that is <i>not</i> suspended here — one awaiting a file read, which comes
+    ///         back through <c>ResumeOnLoop</c> some frames later and finds a generation it does not
+    ///         match. <see cref="CoroutineScheduler.Cancel" /> is what deals with the ones that are:
+    ///         it unwinds them now, because the caller that needs this is the editor's reload, which
+    ///         unloads the assembly before another frame is ever run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Before the bucket and the link, so the unwinding sees an attached behaviour.</b>
+    ///         A <c>finally</c> that reads a component or a sibling is ordinary cleanup code, and one
+    ///         that threw because the store had already forgotten its author would be a cure worse
+    ///         than the leak.
+    ///     </para>
+    /// </remarks>
     void Detach(Behavior behavior) {
+        behavior.StopCoroutines();
+        Coroutines.Cancel(behavior);
+
         buckets[behavior.BucketKey].Remove(behavior);
 
         if (!world.IsAlive(behavior.Entity) || !world.TryGet<BehaviorRef>(behavior.Entity, out var link)) {

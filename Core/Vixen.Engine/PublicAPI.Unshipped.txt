@@ -320,6 +320,7 @@ Vixen.Engine.Coroutines.CoroutineMethodBuilder.Task.get -> Vixen.Engine.Coroutin
 Vixen.Engine.Coroutines.CoroutineScheduler -> sealed class
 Vixen.Engine.Coroutines.CoroutineScheduler.BeginFrame(in Vixen.Core.GameTime time) -> void
 Vixen.Engine.Coroutines.CoroutineScheduler.BeginStep() -> void
+Vixen.Engine.Coroutines.CoroutineScheduler.Cancel(Vixen.Engine.Coroutines.ICoroutineOwner owner) -> int
 Vixen.Engine.Coroutines.CoroutineScheduler.CoroutineScheduler() -> void
 Vixen.Engine.Coroutines.CoroutineScheduler.CurrentPoint.get -> Vixen.Engine.Coroutines.ResumePoint
 Vixen.Engine.Coroutines.CoroutineScheduler.Drain(Vixen.Engine.Coroutines.ResumePoint point) -> void
