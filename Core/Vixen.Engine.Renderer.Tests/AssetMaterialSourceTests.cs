@@ -193,6 +193,66 @@ public sealed class AssetMaterialSourceTests {
         Assert.True(told.Parameters.Get(ForwardPlusKeys.UseReflectionProbe));
     }
 
+    /// <summary>
+    ///     A material whose bundle has not arrived is counted as reading, and is waited for rather
+    ///     than given up on.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The measurement this exists to correct.</b>
+    ///         <see cref="AssetMaterialSource.Reading" /> was landed with a note saying it is never
+    ///         non-zero — probed with two hundred pool workers blocked, <c>TryGet</c> answered on the
+    ///         first ask in 26 ms with the highest reading ever seen at zero — and a predicate that
+    ///         is never true is worth less than the flake it replaced. That measurement was right and
+    ///         its conclusion was about the fixture rather than about the source: nothing in
+    ///         <c>AssetManager.LoadRootAsync</c> is a <see cref="Task.Run(Action)" />, so it yields
+    ///         only where one of its awaits does, and over a <c>MemoryFileProvider</c> none of them
+    ///         does.
+    ///     </para>
+    ///     <para>
+    ///         <b>One of them does over a bundle that is not here yet</b>, which is
+    ///         <c>MountFor</c>'s <c>IBundleSource.OpenAsync</c> — the call
+    ///         <see cref="RemoteBundleSource" /> answers by downloading. So the counter is
+    ///         load-bearing for a game that ships an expansion pack in a bundle of its own, and
+    ///         deleting it would have been asserting that this source cannot starve, which is false
+    ///         of every project whose content is not all local. Modelled here with a source that
+    ///         answers when it is told to, because what matters is that the await does not complete
+    ///         synchronously and not how far the bytes travelled.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sixteen asks with the bundle held back, and the count still one.</b> A single
+    ///         reading would be satisfied by a load that had not started; the point of the loop is
+    ///         that the settle above would wait here for ever rather than giving up, which is exactly
+    ///         what it should do while the work exists.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMaterialWhoseBundleHasNotArrivedIsCountedAsReading() {
+        Arriving arriving = null!;
+
+        using var source = new AssetMaterialSource(Content(new(), local => arriving = new(local)));
+
+        // The ask is what starts the load, and the bundle it needs is not here.
+        Assert.False(source.TryGet(Hero, out _));
+        Assert.Equal(1, source.Reading);
+
+        for (var attempt = 0; attempt < 16; attempt++) {
+            Assert.False(source.TryGet(Hero, out _));
+            Thread.Sleep(1);
+        }
+
+        Assert.Equal(1, source.Reading);
+        Assert.Equal(0, source.Loaded);
+
+        arriving.Arrive();
+
+        Settles(source, out var material);
+
+        Assert.Equal(0, source.Reading);
+        Assert.Equal(1, source.Loaded);
+        Assert.NotNull(material);
+    }
+
     /// <summary>Asks until the load lands, or until nothing is left that could make it land.</summary>
     /// <param name="source">The source being asked, whose outstanding load decides when to give up.</param>
     /// <param name="material">The material it compiled.</param>
@@ -227,7 +287,16 @@ public sealed class AssetMaterialSourceTests {
     }
 
     /// <summary>A content manager holding one material at <see cref="Hero" />.</summary>
-    static AssetManager Content(MaterialContent material) {
+    static AssetManager Content(MaterialContent material) => Content(material, local => local);
+
+    /// <summary>The same, with the bundle source it reads through wrapped.</summary>
+    /// <param name="material">The document to write.</param>
+    /// <param name="around">
+    ///     What to put between the manager and the bundles — the seam a project fills with
+    ///     <see cref="RoutedBundleSource" />, and the only place in a load that can fail to complete
+    ///     synchronously over local content.
+    /// </param>
+    static AssetManager Content(MaterialContent material, Func<IBundleSource, IBundleSource> around) {
         var files = new VirtualFileSystem();
         var storage = new MemoryFileProvider();
 
@@ -254,6 +323,35 @@ public sealed class AssetMaterialSourceTests {
             [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
         );
 
-        return new(catalog, new LocalBundleSource(files, new("/bundles")));
+        return new(catalog, around(new LocalBundleSource(files, new("/bundles"))));
+    }
+
+    /// <summary>A bundle that is not here yet, and is here when it is told to be.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The point is the incomplete await and not the delay.</b>
+    ///     <c>AssetManager.LoadRootAsync</c> is a plain <c>async Task</c>, so it runs on the caller's
+    ///     thread until one of its awaits does not complete synchronously; over local content in
+    ///     memory none of them does, and the handle is <c>Loaded</c> before <c>LoadAsync</c> has
+    ///     returned. <see cref="RemoteBundleSource" /> is the shipped source for which this one does
+    ///     not, and this stands in for it without a socket.
+    /// </remarks>
+    sealed class Arriving(IBundleSource inner) : IBundleSource {
+        readonly TaskCompletionSource arrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Lets the bundle land.</summary>
+        public void Arrive() => arrived.TrySetResult();
+
+        /// <inheritdoc />
+        public bool IsAvailable(CatalogBundle bundle) => inner.IsAvailable(bundle);
+
+        /// <inheritdoc />
+        public async ValueTask<IOdbBackend> OpenAsync(
+            CatalogBundle bundle,
+            CancellationToken cancellationToken = default
+        ) {
+            await arrived.Task.ConfigureAwait(false);
+
+            return await inner.OpenAsync(bundle, cancellationToken).ConfigureAwait(false);
+        }
     }
 }

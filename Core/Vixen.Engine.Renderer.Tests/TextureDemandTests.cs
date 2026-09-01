@@ -534,11 +534,11 @@ public sealed class TextureDemandTests : IDisposable {
 
     /// <summary>How many fruitless frames mean the streamer is spinning rather than waiting.</summary>
     /// <remarks>
-    ///     <c>TextureStreamingTests.Rounds</c>'s argument, and the same number: this has to let a
-    ///     pipeline fill — a frame may start loads and move no counter yet — before calling it a
-    ///     spin, which is a longer window than <see cref="Settling.Quiet" /> needs.
+    ///     <see cref="Settling.Rounds" />'s argument and its number, read from there rather than
+    ///     written again — this has to let a pipeline fill, a frame may start loads and move no
+    ///     counter yet, and that is a longer window than <see cref="Settling.Quiet" /> needs.
     /// </remarks>
-    const int Rounds = 64;
+    const int Rounds = Settling.Rounds;
 
     /// <summary>Runs one frame of the loop and one of the renderer.</summary>
     void Frame(EngineLoop loop, WorldRenderer renderer) {

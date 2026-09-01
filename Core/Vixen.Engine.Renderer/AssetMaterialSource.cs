@@ -184,13 +184,22 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///         <c>Reading</c> ever observed at <b>0</b>.
     ///     </para>
     ///     <para>
-    ///         So the settles that read this are not exercised by the fixtures that have it, and
-    ///         that is worth writing down rather than mistaking for a wait that works. It is kept
-    ///         because it is right in the direction that matters: it is trivially <em>false</em>
-    ///         rather than trivially true, so a settle reading it gives up in milliseconds on a
-    ///         broken source instead of masking it — verified by sabotage, five of the six tests in
-    ///         <c>AssetMaterialSourceTests</c> going red in 0.7 s — and it becomes a real wait the
-    ///         day this content is a real bundle or the manager yields.
+    ///         ⚠ <b>That measurement is right and the conclusion drawn from it — "this counter is
+    ///         vacuous" — was about the fixture rather than about this source.</b> The load has one
+    ///         await that a <c>MemoryFileProvider</c> answers synchronously and a shipped source
+    ///         does not: <c>MountFor</c>'s <c>IBundleSource.OpenAsync</c>, which
+    ///         <c>RemoteBundleSource</c> answers by downloading the bundle. A project whose content
+    ///         is all local never sees this above zero and a project that ships an expansion pack in
+    ///         a bundle of its own does, so the counter is load-bearing and deleting it would have
+    ///         been a claim that this source cannot starve.
+    ///     </para>
+    ///     <para>
+    ///         <c>AssetMaterialSourceTests.AMaterialWhoseBundleHasNotArrivedIsCountedAsReading</c>
+    ///         is the guard, and it is what "shown moving" means: a bundle source that has not
+    ///         arrived holds this at one across sixteen asks, and it falls to zero once the bundle
+    ///         lands. Sabotaged to count a status no handle here reaches, so that this answers zero
+    ///         always, that test fails in <b>80 ms</b> on the first reading and the other six —
+    ///         every one of which loads over local content — stay green.
     ///     </para>
     /// </remarks>
     internal int Reading {

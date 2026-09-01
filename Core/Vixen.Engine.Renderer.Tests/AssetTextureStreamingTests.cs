@@ -359,43 +359,32 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     /// <param name="never">What to say when the source runs out of things to do first.</param>
     /// <param name="ask">What each frame asks for, before it is recorded.</param>
     /// <remarks>
-    ///     ⚠ The predicate is read <em>after</em> the frame, because the view a texture is answered
-    ///     with is created inside <see cref="AssetTextureSource.Update" /> — a frame that finished the
-    ///     job answers on that frame and not the next one.
+    ///     <para>
+    ///         ⚠ The predicate is read <em>after</em> the frame, because the view a texture is
+    ///         answered with is created inside <see cref="AssetTextureSource.Update" /> — a frame
+    ///         that finished the job answers on that frame and not the next one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A hand-written copy of <see cref="Settling.Until" /> rather than a call to it is
+    ///         what let this fixture inherit a hang the shared helper was later given a guard
+    ///         against.</b> Under a <c>PageResidency</c> sabotaged to refuse every arrival this class
+    ///         ran past 300 s without finishing a test, because the copy had the idle give-up and not
+    ///         the spin one. It is a call now, so there is one loop to fix and one place that says
+    ///         why.
+    ///     </para>
     /// </remarks>
-    void Until(AssetTextureSource source, Func<bool> done, string never, Action<AssetTextureSource> ask) {
-        var quiet = 0;
+    void Until(AssetTextureSource source, Func<bool> done, string never, Action<AssetTextureSource> ask) =>
+        Settling.Until(
+            () => {
+                ask(source);
+                Record(source);
+            },
+            done,
+            () => Working(source),
+            never
+        );
 
-        while (true) {
-            var before = Working(source);
-
-            ask(source);
-            Record(source);
-
-            if (done()) {
-                return;
-            }
-
-            // ⚠ Consecutive frames, and reset on either end of one. A read that finishes part way
-            // through a frame leaves nothing outstanding by the end of it and has not been taken up
-            // yet — the take-up is in the next frame's ask — so a single idle observation says
-            // nothing. Eight in a row with no read outstanding, nothing loading and nothing queued at
-            // either end is a fact about the source: it has run out of things to do.
-            quiet = before || Working(source) ? 0 : quiet + 1;
-
-            Assert.True(
-                quiet < 8,
-                $"{never}, and for {quiet} frames the source has had no read outstanding, nothing "
-                + "loading and nothing queued — so no number of further frames can change it"
-            );
-
-            // A yield rather than a budget: it hands the core to whatever is doing the reading, and
-            // nothing above decides anything by how many of these have gone by.
-            Thread.Sleep(1);
-        }
-    }
-
-    /// <summary>Whether the source has anything outstanding that a further frame could take up.</summary>
+    /// <summary>What the source has outstanding, and how the outstanding work is going.</summary>
     /// <remarks>
     ///     ⚠ <b>All three, and <see cref="AssetTextureSource.Reading" /> is the one that is easy to
     ///     leave out.</b> Before the header read has been taken up the streamer has no texture
@@ -403,10 +392,14 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     ///     that looked only at those two would call the source idle on its first frame, before
     ///     anything had been asked for, and give up vacuously.
     /// </remarks>
-    static bool Working(AssetTextureSource source) =>
-        source.Reading(Bark) is not null
-        || source.Streaming is { Loading: > 0 }
-        || source.Streaming is { PendingRequests: > 0 };
+    static Settling.Work Working(AssetTextureSource source) =>
+        new(
+            source.Reading(Bark) is not null
+            || source.Streaming is { Loading: > 0 }
+            || source.Streaming is { PendingRequests: > 0 },
+            source.Streaming?.Loads ?? 0,
+            source.Streaming?.Rejections ?? 0
+        );
 
     /// <summary>A content manager holding one KTX2 texture of a given size.</summary>
     /// <remarks>
