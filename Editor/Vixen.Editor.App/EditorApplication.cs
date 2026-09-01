@@ -385,6 +385,20 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     HotReloadWatcher? styleWatcher;
 
+    readonly List<ReloadReport> styleReloads = [];
+
+    /// <summary>Every stylesheet reload the watcher has reported, in the order it reported them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept so that a test can wait on the reload rather than on the clock.</b> A save is
+    ///     delivered by the platform on its own schedule and applied by whichever frame comes after,
+    ///     so "did the watcher act on it yet" has no answer a frame count can give — and the claim
+    ///     that interests <c>HotReloadModeTests</c> most is a negative one, that a <i>broken</i>
+    ///     sheet changed nothing. A negative claim waited out on a fixed span passes on a machine
+    ///     where the save never arrived at all, which is a test that reports coverage it does not
+    ///     have. This is the counter that tells the two apart.
+    /// </remarks>
+    internal IReadOnlyList<ReloadReport> StyleReloads => styleReloads;
+
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
@@ -1565,6 +1579,8 @@ sealed partial class EditorApplication : IDisposable {
         // of a typo is that saving stopped changing anything, with no way to tell that from a
         // watcher that had quietly died.
         styleWatcher.Reloaded += report => {
+            styleReloads.Add(report);
+
             if (report.Succeeded) {
                 return;
             }

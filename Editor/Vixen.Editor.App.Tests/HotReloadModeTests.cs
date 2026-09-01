@@ -119,6 +119,16 @@ public class HotReloadModeTests {
     ///     used to match — and it is a selector that is usually half-typed, which only the selector
     ///     compiler's diagnostics report. See <c>HotReloadWatcherTests</c>.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Waits for the reload, not for a second, and that is the difference between this
+    ///     asserting something and asserting nothing.</b> The claim is negative — the width did
+    ///     <i>not</i> move — so a version that framed for a fixed span and then looked would pass
+    ///     just as green on a machine where the save was never delivered, which is coverage that
+    ///     exists only on the days it was not needed. <c>StyleReloads</c> is the watcher's own count
+    ///     of what it has acted on; the assertion below is about a save that has certainly been
+    ///     read, parsed and refused. The clock that remains is a ceiling on a filesystem
+    ///     notification that never comes, not a bound on how long the reload may take.
+    /// </remarks>
     [Fact]
     public async Task A_broken_save_leaves_the_editor_looking_as_it_did() {
         using var styles = new Folder();
@@ -130,17 +140,33 @@ public class HotReloadModeTests {
         fixture.Editor.WatchStyles(styles.Path);
         fixture.Frame();
 
+        Assert.Equal(33f, probe.Width);
+        Assert.Empty(fixture.Editor.StyleReloads);
+
         await File.WriteAllTextAsync(
             sheet,
             "hot-reload-probe:nonsense-pseudo { width: 77px; }",
             TestContext.Current.CancellationToken
         );
 
-        for (var attempt = 0; attempt < 20; attempt++) {
+        for (var attempt = 0; attempt < 600 && fixture.Editor.StyleReloads.Count == 0; attempt++) {
             await Task.Delay(50, TestContext.Current.CancellationToken);
             fixture.Frame();
         }
 
+        // ⚠ Not `Single`: one save is one report per *poll* it is pending at, and a frame landing
+        // between the platform's two events for one write is a second report about the same text.
+        Assert.NotEmpty(fixture.Editor.StyleReloads);
+        Assert.All(fixture.Editor.StyleReloads, report => {
+                Assert.Equal(ReloadChannel.Styles, report.Channel);
+                Assert.False(
+                    report.Succeeded,
+                    "the editor accepted a stylesheet with a selector it cannot compile"
+                );
+            }
+        );
+
+        // And having refused it, the sheet that was already there is the one still applying.
         Assert.Equal(33f, probe.Width);
     }
 
