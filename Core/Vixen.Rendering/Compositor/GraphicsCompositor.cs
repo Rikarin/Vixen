@@ -154,6 +154,29 @@ public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
     ///         <c>SceneRenderHostTests.Loading_a_second_document_disposes_the_first_ones_tree</c> and
     ///         <c>EditorWorldRendererTests</c>' reload test.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured since rather than argued, and the measurement is worse for the rule than
+    ///         the argument was.</b> The rule was written out as a reflection test over
+    ///         <c>Vixen.Rendering</c>, <c>Vixen.Engine.Renderer</c> and a test assembly, and run three
+    ///         ways. <b>It is green under the exact defect:</b> with <c>SceneRenderHost</c>'s two
+    ///         <c>Compositor?.Dispose()</c> calls deleted — #327's 95 MB reload leak, restored — the
+    ///         rule passed, and only <c>Loading_a_second_document_disposes_the_first_ones_tree</c>
+    ///         went red. <b>Its only red is synthetic:</b> the single arrangement that failed it was a
+    ///         non-disposable class holding a compositor field, written for the purpose. And
+    ///         ⚠ <b>"a type holding a compositor" is not a well-defined set below source level</b> —
+    ///         unfiltered it found seven holders and called six of them offenders, all six
+    ///         <c>&lt;&gt;c__DisplayClass</c> closures over a captured <c>compositor</c> parameter in
+    ///         <c>ShadowMapRenderer</c>, <c>PunctualShadowRenderer</c>, <c>RenderPassRenderer</c>,
+    ///         <c>VirtualShadowRenderer</c> and <c>GlobalDistanceFieldRenderer</c>. So it could only
+    ///         ever be a Roslyn source analyzer, at a cost the two green results do not justify.
+    ///     </para>
+    ///     <para>
+    ///         The form that would have teeth is narrower than either, and nobody has needed it yet:
+    ///         ownership is not recoverable from a field, but it <em>is</em> recoverable from the
+    ///         construction — a type that assigns <c>CompositorBuilder.Build</c>'s result to one of
+    ///         its own members owns it, and not one of the eighteen fixtures calls the builder. That
+    ///         is what a third host would make worth building, and it is what #124 stays open for.
+    ///     </para>
     /// </remarks>
     public void Dispose() {
         if (disposed) {
