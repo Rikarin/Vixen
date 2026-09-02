@@ -599,13 +599,29 @@ addresses, which is what "dependencies" was trying to say.
 This is how Stride integrates (`Stride.AssetCompiler.targets`) and it is the right pattern: a user
 should never have to run a separate content build step manually.
 
-**Built, with 1 and 5 owed.** Steps 2, 4 and 6 are done — `vixen import` before `CoreCompile`,
-`vixen content build` after `Build`, and diagnostics in MSBuild's own form so they reach the IDE's
-error list ([codes](../manual/diagnostic-codes.md)). Step 3 is ordering with nothing to order yet; the
-generators arrive in Phases 4d and 5. Step 1 is not done: the CLI is not shipped inside the SDK
-package, so a consumer needs `vixen` restored or installed. Step 5 copies the content beside the
-binary and into a publish, but the *platform* packages — APK assets, iOS bundle, `wwwroot` — wait for
-those platforms.
+**Built, with only 5 part-owed.** Steps 1, 2, 3, 4 and 6 are done — the CLI ships inside
+`Vixen.Sdk.nupkg` where the targets have always looked for it, `vixen import` runs before
+`CoreCompile`, `vixen content build` after `Build`, and diagnostics arrive in MSBuild's own form so
+they reach the IDE's error list ([codes](../manual/diagnostic-codes.md)). Step 5 copies the content
+beside the binary and into a publish, but the *platform* packages — APK assets, iOS bundle,
+`wwwroot` — wait for those platforms.
+
+⚠ **Step 2 does not mean the CLI generates that C#, and step 3 is not the SDK's to do.** Read as a
+promise that `vixen import` writes VXML components and shader parameter keys, step 2 contradicts
+ADR-002, which gives both to source generators — and `ShaderBindingsGenerator`'s own header says why
+the other shape is wrong: a build task writing `.cs` into `obj/` gets there eventually and gets there
+*wrong* for the first build after a shader changes. What step 2 buys is the **ordering**, and the
+first thing to need it is `Addresses.g.cs`, which is a property of the content build and so cannot be
+a generator's. Step 3's generators are not analyzers the SDK adds either: each travels inside the
+package that owns the types its output names, so a consumer referencing `Vixen.Ui` or `Vixen.Shaders`
+gets one without knowing it exists.
+
+⚠ That last sentence was false for `Vixen.Shaders` for as long as the generator existed, and nothing
+could see it. Every consumer of `Vixen.Shaders.Generators` in this repository is a `ProjectReference`
+— through which analyzers do not flow — so each project names it, the generator runs, and every test
+of it is green; none of that is a claim about the *package*. A consumer restoring `Vixen.Rendering`
+got the runtime assembly and no keys at all. `Vixen.Shaders` packs it now, asserted over the bytes of
+a real `.nupkg` by `Vixen.Shaders.Tests.PackagedGeneratorTests`.
 
 One rule the implementation had to find by running a real build, recorded because it reads perfectly
 on the page and fails silently: **anything derived from another property belongs in the `.targets`,

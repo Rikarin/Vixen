@@ -17,6 +17,42 @@
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
     </ItemGroup>
 
+    <!--
+        ⚠ The binding generator travels inside this package, so a consumer that references
+        Vixen.Shaders — or Vixen.Rendering, which brings it — gets a `…Keys` type for its own
+        .reflect.json without knowing a generator exists. It did not, and that was the whole of the
+        "shader parameter keys" gap: doc 08 § Vixen.Sdk step 3 and ADR-002 both put the keys in a
+        source generator rather than in a tool writing .cs to disk, the generator was written, and
+        every consumer of it in this repository is a ProjectReference — through which analyzers do
+        not flow. So it worked here and shipped to nobody, which is the shape a `dotnet pack` will
+        never complain about.
+
+        Here rather than on Vixen.Rendering because what the generated code names — ParameterKeys,
+        the std140 writers — is this assembly's, so the generator and the types its output calls
+        travel together and a consumer cannot get one without the other.
+    -->
+    <PropertyGroup>
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackShaderGenerator
+        </TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <!-- GetTargetPath, not Build — as in Vixen.Ui and Vixen.Input: asking for Build fails a
+         no-build `dotnet pack` with NETSDK1085, because NoBuild is a global property handed to the
+         invoked project. -->
+    <Target Name="PackShaderGenerator">
+        <MSBuild Projects="..\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="ShaderGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(ShaderGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
+
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
