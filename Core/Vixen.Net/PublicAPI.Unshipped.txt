@@ -839,15 +839,18 @@ Vixen.Net.Rules.NetworkRulesRegistry.Clear(Vixen.Net.Replication.NetworkId id) -
 Vixen.Net.Rules.NetworkRulesRegistry.Default.get -> Vixen.Net.Rules.NetworkRules
 Vixen.Net.Rules.NetworkRulesRegistry.Default.set -> Vixen.Net.Rules.NetworkRules
 Vixen.Net.Rules.NetworkRulesRegistry.For(Vixen.Net.Replication.NetworkId id) -> Vixen.Net.Rules.NetworkRules
+Vixen.Net.Rules.NetworkRulesRegistry.Load(string! name, Vixen.Net.Rules.NetworkRules! rules) -> void
 Vixen.Net.Rules.NetworkRulesRegistry.MayCallServerRpc(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester, bool requiresOwnership) -> bool
 Vixen.Net.Rules.NetworkRulesRegistry.MayChangeOwner(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester) -> bool
 Vixen.Net.Rules.NetworkRulesRegistry.MayDespawn(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester) -> bool
 Vixen.Net.Rules.NetworkRulesRegistry.MaySpawn(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester) -> bool
 Vixen.Net.Rules.NetworkRulesRegistry.MayWrite(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester) -> bool
+Vixen.Net.Rules.NetworkRulesRegistry.NamedCount.get -> int
 Vixen.Net.Rules.NetworkRulesRegistry.NetworkRulesRegistry(Vixen.Net.Rpc.NetworkOwnership ownership) -> void
 Vixen.Net.Rules.NetworkRulesRegistry.OnOwnerLeft(Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Net.Rules.DisconnectAction> actions) -> int
 Vixen.Net.Rules.NetworkRulesRegistry.OverrideCount.get -> int
 Vixen.Net.Rules.NetworkRulesRegistry.Set(Vixen.Net.Replication.NetworkId id, Vixen.Net.Rules.NetworkRules rules) -> void
+Vixen.Net.Rules.NetworkRulesRegistry.TryGetNamed(string! name, out Vixen.Net.Rules.NetworkRules? rules) -> bool
 Vixen.Net.Rules.OwnershipClaim -> enum : byte
 Vixen.Net.Rules.OwnershipClaim.Anytime = 0 -> Vixen.Net.Rules.OwnershipClaim
 Vixen.Net.Rules.OwnershipClaim.OwnershipClaim() -> void

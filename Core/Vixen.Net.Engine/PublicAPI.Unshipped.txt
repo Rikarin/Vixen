@@ -65,6 +65,16 @@ Vixen.Net.Engine.NetworkPrefabRegistry.Register(string address, Vixen.Engine.Sce
 Vixen.Net.Engine.NetworkPrefabRegistry.Require(string address) -> Vixen.Net.Engine.NetworkPrefab
 Vixen.Net.Engine.NetworkPrefabRegistry.TryGet(Vixen.Net.Replication.NetworkPrefabId id, out Vixen.Net.Engine.NetworkPrefab? prefab) -> bool
 Vixen.Net.Engine.NetworkPrefabRegistry.TryGet(string address, out Vixen.Net.Engine.NetworkPrefab? prefab) -> bool
+Vixen.Net.Engine.NetworkRulesAsset -> sealed class
+Vixen.Net.Engine.NetworkRulesAsset.Name.get -> string!
+Vixen.Net.Engine.NetworkRulesAsset.Name.set -> void
+Vixen.Net.Engine.NetworkRulesAsset.NetworkRulesAsset() -> void
+Vixen.Net.Engine.NetworkRulesAsset.Rules.get -> Vixen.Net.Rules.NetworkRules!
+Vixen.Net.Engine.NetworkRulesAsset.Rules.set -> void
+Vixen.Net.Engine.NetworkRulesAsset.Validate() -> string?
+Vixen.Net.Engine.NetworkRulesReference -> struct
+Vixen.Net.Engine.NetworkRulesReference.Asset -> string!
+Vixen.Net.Engine.NetworkRulesReference.NetworkRulesReference() -> void
 Vixen.Net.Engine.NetworkSceneId -> readonly struct
 Vixen.Net.Engine.NetworkSceneId : System.IEquatable<Vixen.Net.Engine.NetworkSceneId>
 Vixen.Net.Engine.NetworkSceneId.BakedId(int index) -> Vixen.Net.Replication.NetworkId
@@ -115,6 +125,7 @@ Vixen.Net.Engine.NetworkSpawner.Scenes.set -> Vixen.Engine.Scenes.SceneManager?
 Vixen.Net.Engine.NetworkSpawner.Spawn(Vixen.Ecs.World world, Vixen.Net.Engine.NetworkPrefab prefab, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle), Vixen.Net.Sessions.PlayerId owner = default(Vixen.Net.Sessions.PlayerId)) -> Vixen.Core.Entity
 Vixen.Net.Engine.NetworkSpawner.Spawn(Vixen.Ecs.World world, string address, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle), Vixen.Net.Sessions.PlayerId owner = default(Vixen.Net.Sessions.PlayerId)) -> Vixen.Core.Entity
 Vixen.Net.Engine.NetworkSpawner.SpawnedCount.get -> long
+Vixen.Net.Engine.NetworkSpawner.UnresolvedRules.get -> int
 Vixen.Net.Engine.NetworkTeleport -> struct
 Vixen.Net.Engine.NetworkTeleport : Vixen.Ecs.ITagComponent
 Vixen.Net.Engine.NetworkTeleport.NetworkTeleport() -> void
@@ -292,6 +303,7 @@ Vixen.Net.Engine.SyncVar<T>.Value.get -> T
 Vixen.Net.Engine.SyncVar<T>.Value.set -> T
 Vixen.Net.Engine.SyncVar<T>.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
 abstract Vixen.Net.Engine.NetworkBehaviour.Build() -> Vixen.Net.Engine.NetworkModule
+const Vixen.Net.Engine.NetworkRulesAsset.Extension = ".vxnetrules" -> string
 const Vixen.Net.Engine.NetworkSceneId.MaxBakedObjects = 32768 -> int
 override Vixen.Net.Engine.NetworkSceneId.ToString() -> string
 override Vixen.Net.Engine.NetworkSpawnSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle

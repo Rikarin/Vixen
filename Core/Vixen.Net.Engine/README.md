@@ -119,6 +119,33 @@ wherever they overlap: the wire's position is where the object is, and the prefa
 artist left it. That path only happens under loss — which is to say never on a developer's machine —
 so it has a test of its own rather than a comment.
 
+## Rules a prefab carries
+
+A `.vxnetrules` is a `NetworkRulesAsset`: a name and a `NetworkRules`. A node names one with a
+`NetworkRulesReference`, and `NetworkSpawner` resolves the name against
+`NetworkRulesRegistry.TryGetNamed` at the moment it allocates that node's id — the one instant at
+which the authored name and the runtime handle both exist.
+
+⚠ **Both types live here rather than in `Vixen.Net`, and it is the same reason `NetworkObject` does.**
+What a compiled prefab may name is a component carrying `[Component]` **and** `[DataContract]`;
+`Vixen.Net` may not reference `Vixen.Engine`, so it runs neither generator. The asset lives beside the
+reference so one assembly answers for both halves.
+
+⚠ **A name nothing loaded is not an error.** The node stays on `NetworkRulesRegistry.Default` —
+server-authoritative, so nothing unsafe happens — and `NetworkSpawner.UnresolvedRules` counts it. The
+counter exists because that failure is otherwise invisible: what an author sees is a game rule that
+does not work, beside a policy file that reads exactly right. Same counter, same class of bug, as
+`WaterZoneSystem.UnresolvedWaves`.
+
+⚠ **The string is the part that can fail quietly.** `NetworkObject` is a tag — a compiled prefab has
+the bit or it does not. A reference carries a `string` through `SceneContent.Capture`, a chunk, a
+bundle and `AssetManager`, so it can arrive *present and empty*, which resolves to nothing.
+`APolicyReferenceSurvivesTheContentBuild` reads it back off an instance for that reason.
+
+**Owed: filling the registry from the catalog by label**, the way `NetworkPrefabContent` fills the
+prefab registry. Until that lands a game calls `NetworkRulesRegistry.Load` itself.
+[Network rules as a file](../../docs/guide/engine/network-rules.md) is the authoring story.
+
 ## Scenes
 
 A `SceneHandle` is a number the local `SceneManager` hands out in load order, so the same level is

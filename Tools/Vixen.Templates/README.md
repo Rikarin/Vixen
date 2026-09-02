@@ -10,6 +10,7 @@ dotnet new vixen-app  -n Painter        # an application: Vixen.Ui, a window, an
 dotnet new vixen-lib  -n Physics        # a library either of them can reference
 dotnet new vixen-mmo  -n Kestrel        # a dedicated-server game: contracts, rules, realm, client
 dotnet new vixen-plugin -n Kestrel      # an editor plugin: a manifest, an IEditorPlugin, a panel
+dotnet new vixen-tool -n Bake           # a batch head: the host, with no window and no device
 ```
 
 Spec: [docs/plan/17 § Project templates](../../docs/plan/17-app-heads-and-shipping.md),
@@ -19,7 +20,9 @@ Spec: [docs/plan/17 § Project templates](../../docs/plan/17-app-heads-and-shipp
 
 `templates/` is the source. This package ships it, and [`Vixen.Cli`](../Vixen.Cli/README.md)
 **embeds** it — so `vixen new game` and `dotnet new vixen-game` produce the same directory rather
-than two directories that happen to look alike. A test asserts they still do.
+than two directories that happen to look alike. A test asserts they still do — by packing this
+package, installing it into the real `dotnet new` engine, and comparing what each path writes byte
+for byte.
 
 That matters because the two exist for different people. `dotnet new` is right for somebody who has
 installed the SDK; `vixen new` is right before anything is installed, which is the state a person is
@@ -72,8 +75,49 @@ somebody else's project and are outside every glob — so without this a templat
 overload that was dropped last month builds a perfectly good package and fails on the machine of the
 first person to run `dotnet new`.
 
-What it does not check is whether the project file *restores*: that needs a feed with the engine
-packages on it, which is CI's job and doc 14's Phase 11 clean-machine criterion.
+⚠ **And it packs the package and installs it into the real `dotnet new` engine**, into a hive of its
+own (`--debug:custom-hive`), then instantiates every template into a directory outside the
+repository and compares the result byte for byte against what `TemplateCatalog` writes.
+
+That second half exists because everything else here reads the templates through `TemplateCatalog`,
+which is *ours*: it parses `template.json` with its own reader and applies its own substitution, so a
+package the real engine cannot even open passes every other test in the project. That is not
+hypothetical — `NoDefaultExcludes` above is load-bearing for exactly this reason, and turning it off
+leaves a package that "builds, installs, and contains no templates at all". It was a sentence in a
+comment with nothing behind it; it is now seven red tests.
+
+It is also the first thing that actually checks the claim two sections up, that `vixen new game` and
+`dotnet new vixen-game` produce the same directory. Both paths read the same embedded files, so they
+agree about *content* by construction and say nothing about *substitution* — and substitution is
+where the two implementations differ.
+
+### What still needs a clean machine, and what a test here cannot fake
+
+**None of doc 14 § Phase 11's six targets is exercised.** Every one of them needs a restore, and a
+restore needs a feed with the engine packages on it. That criterion is a feed problem rather than a
+template problem, and no test on a developer's machine can stand in for it.
+
+⚠ **The obvious way to fake it passes, and not for the reason anybody would guess.** A scaffolded
+project restored from a temp directory outside this repository restores *successfully* on a
+developer's machine here — not because the repository is on disk, but because the machine's **global
+NuGet cache** holds ~57 `Vixen.*` packages at `0.1.0` from somebody's earlier `Pack`. Measured:
+
+```
+$ dotnet restore                                                       # succeeds
+$ dotnet restore --packages <empty dir> --source https://api.nuget.org/v3/index.json
+  error NU1101: Unable to find package Vixen.App.
+```
+
+A "does it restore outside the repo" test would therefore be green here, green on any CI runner with
+a warm cache, and a statement about nothing. So there is no such test. What is asserted instead is
+the **necessary condition** it would have been standing in for: every package and SDK version a
+template pins is one this repository actually produces, read off the project files — which is the
+failure `vixen-plugin` waited a whole phase to avoid and the reason three of doc 27's eight projects
+are still not scaffolded.
+
+What genuinely needs CI, in order: a feed with the packages on it; a runner with an empty package
+cache; and the Android, iOS and Web workloads for the three of the six targets a desktop machine
+cannot publish at all.
 
 ## `vixen-game`
 
@@ -209,13 +253,62 @@ the editor's own copy, deliberately.
 No `Vixen.Sdk`, for the reason `vixen-app` and `vixen-lib` do without it: a plugin has no assets to
 import and no content to build.
 
+## `vixen-tool`
+
+[Doc 17 § Q5d](../../docs/plan/17-app-heads-and-shipping.md)'s console head: the same boot path a
+game takes, minus everything that needs a person in front of it. Content validation, CI screenshot
+generation, batch conversion, custom pipeline steps.
+
+```
+Bake.csproj      Microsoft.NET.Sdk, Exe, one PackageReference
+Program.cs       the two calls VixenApp.Run<T> makes, written out
+BakeTool.cs      a Game whose OnConfigure turns the head off and whose OnInitialise is the step
+```
+
+**One `PackageReference`, and doc 17's "nearly free" is true.** `Vixen.App` chooses the platform, and
+what it chooses under `AppConfig.Headless` is
+[`Vixen.Platform.Headless`](../../Platform/Vixen.Platform.Headless/README.md). No `Vixen.Sdk`, for the
+reason `vixen-app`, `vixen-lib` and `vixen-plugin` do without it: a tool operates on somebody else's
+content and has no `Assets/` of its own to import.
+
+⚠ **`Window = null` rather than an invisible window.** A hidden window still asks the platform for a
+surface a swapchain could be built on, which a build agent with no display cannot give — so the
+failure would be at start-up rather than at the step. `AppBuilder.Build` handles the null case
+deliberately, and says so.
+
+⚠ **The frame budget is a default and not an assignment, and that is the one thing about this
+template that would have been silently wrong.** `AppConfig.Apply` runs *before* `Game.OnConfigure`,
+so `config.MaxFrames = 1` would throw away a `--vixen-frames 120` the operator typed. It has to be
+`if (config.MaxFrames <= 0)`. A budget is needed at all because `ExitWhenAllWindowsClose` cannot end
+this run — that check is skipped when there is no window, so that a headless run is not over before
+it starts.
+
+`TheToolTemplateIsAHeadlessHeadThatEndsAndStillObeysItsCommandLine` asserts all of it by *running*
+it: the scaffolded project is compiled, emitted, loaded, and put through the host's own two calls in
+the host's own order. Reading the source as text cannot assert an ordering.
+
 ## Still to come
 
-**`vixen-tool`** — doc 17 § Q5d's headless batch head — is the last one doc 17 names and is not
-blocked either: `Vixen.Platform.Headless` is built, and nobody has written the template.
-
 **Platform heads.** Doc 17 describes `vixen-game` as producing "platform heads" as well; today it
-produces one project and `vixen build --target Android` publishes it. The per-platform sibling
-projects `Samples/01` carries by hand are what that line means, and they are owed.
+produces one project and `vixen build --target Android` publishes it.
+
+⚠ **They are blocked on this package's own rules rather than owed, and the block is worth stating
+because "nearly free" is what it looks like.** `Samples/01`'s hand-written Android and iOS heads are
+`net10.0-android` and `net10.0-ios` projects that reference `Vixen.Platform.Android` and
+`Vixen.Platform.iOS` — which is why they are **out of the solution**, and why `Test`, `CheckFormat`,
+`CheckApi` and `Pack` never evaluate them. A template cannot follow them there:
+
+- **No conditionals.** Only `sourceName` identity substitution is available (§ *What the templates
+  may use*), so heads cannot be opt-in. Every scaffold would carry them, and `dotnet build` on a
+  machine without the workloads would fail on a project its author never asked for.
+- **No gate.** `TemplateCompiler` compiles a multi-project template as *one* compilation against the
+  assemblies this test project references. A `MainActivity.cs` would need `Vixen.Platform.Android` in
+  that list — a `net10.0-android` assembly, so the whole test project would need the workload — and
+  without it the heads would be the only scaffolded C# nothing compiles, which is the exact failure
+  this package's tests exist to prevent.
+
+Making them possible means one of: a template-engine conditional and a second implementation of it in
+`TemplateCatalog`; a separate `vixen-game-android` template, which is a conditional spelled as a name;
+or heads that ship ungated. None is free, and the choice is a decision rather than a task.
 
 Licensed under Apache-2.0.

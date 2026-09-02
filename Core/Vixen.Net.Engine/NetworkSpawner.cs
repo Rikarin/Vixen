@@ -59,6 +59,19 @@ public sealed class NetworkSpawner {
     /// <summary>How many have been despawned.</summary>
     public long DespawnedCount { get; private set; }
 
+    /// <summary>
+    ///     How many spawned nodes named a policy file nothing had loaded.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The counter exists because the failure is otherwise invisible.</b> A node whose
+    ///     <see cref="NetworkRulesReference" /> resolves to nothing is governed by
+    ///     <see cref="NetworkRulesRegistry.Default" /> — server-authoritative, so nothing unsafe
+    ///     happens — and the symptom is a game rule that simply does not work: a weapon nobody can
+    ///     pick up, with a policy file sitting in the project that reads exactly right.
+    ///     <c>WaterZoneSystem.UnresolvedWaves</c> is the same counter for the same class of bug.
+    /// </remarks>
+    public int UnresolvedRules { get; private set; }
+
     /// <summary>Creates a spawner.</summary>
     /// <param name="prefabs">What may be spawned.</param>
     /// <param name="ids">Where ids come from.</param>
@@ -234,7 +247,7 @@ public sealed class NetworkSpawner {
     ///     The order is the registry's, which is the template's capture order, which is what the
     ///     receiving side walks too.
     /// </remarks>
-    static void Number(World world, NetworkPrefab prefab, ReadOnlySpan<Entity> instance, NetworkId first) {
+    void Number(World world, NetworkPrefab prefab, ReadOnlySpan<Entity> instance, NetworkId first) {
         for (var index = 0; index < prefab.Networked.Length; index++) {
             var entity = instance[prefab.Networked[index]];
             var id = new NetworkId(first.Value + (uint)index);
@@ -244,6 +257,39 @@ public sealed class NetworkSpawner {
             } else {
                 world.Add(entity, id);
             }
+
+            Govern(world, entity, id);
+        }
+    }
+
+    /// <summary>Applies the policy file a node names, if it names one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Here and nowhere else, because this is the moment the two halves exist at once.</b>
+    ///         <see cref="NetworkRulesReference" /> is authored content and carries a name;
+    ///         <see cref="NetworkRulesRegistry" /> is keyed by <see cref="NetworkId" />, which was
+    ///         allocated one line above. Resolving earlier has no id to key on and resolving later
+    ///         means a window in which the object is governed by the default.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unresolved name leaves the object on the default and counts.</b> The default
+    ///         is server-authoritative, so the failure is safe rather than permissive — but it is
+    ///         also invisible, and a policy that quietly did not apply reads as a game rule that
+    ///         does not work. <see cref="UnresolvedRules" /> is where that shows, on
+    ///         <c>WaterZoneSystem.UnresolvedWaves</c>' terms.
+    ///     </para>
+    /// </remarks>
+    void Govern(World world, Entity entity, NetworkId id) {
+        if (Rules is not { } registry
+            || !world.TryGet<NetworkRulesReference>(entity, out var reference)
+            || reference.Asset is not { Length: > 0 } name) {
+            return;
+        }
+
+        if (registry.TryGetNamed(name, out var rules)) {
+            registry.Set(id, rules);
+        } else {
+            UnresolvedRules++;
         }
     }
 

@@ -34,6 +34,21 @@
         <PackageType>MSBuildSdk</PackageType>
     </PropertyGroup>
 
+    <!--
+        ==============================================================================================
+        Where the CLI this package ships is built.
+
+        A property rather than a literal so that a pack can be pointed at an output directory it did
+        not produce — which is how the packed layout is checked without rebuilding the whole engine
+        first, and how a CI job that builds and packs in two steps names the first step's output.
+        ==============================================================================================
+    -->
+    <PropertyGroup>
+        <VixenCliOutputDirectory Condition="'$(VixenCliOutputDirectory)' == ''">$(MSBuildThisFileDirectory)../Vixen.Cli/bin/$(Configuration)/net10.0/</VixenCliOutputDirectory>
+        <VixenCliIsBuilt>false</VixenCliIsBuilt>
+        <VixenCliIsBuilt Condition="Exists('$(VixenCliOutputDirectory)vixen.dll')">true</VixenCliIsBuilt>
+    </PropertyGroup>
+
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
 
@@ -46,6 +61,69 @@
         <None Include="Sdk\Sdk.targets" Pack="true" PackagePath="Sdk\" />
         <None Include="build\Vixen.Sdk.props" Pack="true" PackagePath="build\" />
         <None Include="build\Vixen.Sdk.targets" Pack="true" PackagePath="build\" />
+    </ItemGroup>
+
+    <!--
+        ==============================================================================================
+        The CLI, inside the package, which is what makes `dotnet build` work with nothing installed.
+
+        `build/Vixen.Sdk.targets` has looked for `../tools/vixen.dll` beside itself since it was
+        written and nothing ever put one there, so every consumer fell through to the third rung —
+        `dotnet vixen`, a tool they had to restore or install themselves. Doc 08's "restores the Vixen
+        tool versions matching the referenced packages" was not met, and the SDK and the tool could
+        drift: an SDK and a tool that can drift apart will, and the failure is a content build that
+        half works.
+
+        ⚠ **Inside this package rather than in one it depends on, and that is forced rather than
+        preferred.** `<Project Sdk="Vixen.Sdk/x.y.z">` is resolved by the MSBuild SDK resolver, which
+        downloads exactly the one package and never walks its dependency graph — so a `Vixen.Cli.Tools`
+        package next door would be restored for the `PackageReference` form and silently absent for the
+        `Sdk` form, which is the form the templates scaffold. One package is the only arrangement in
+        which both forms get the same tool, and it is also the only one in which the version cannot be
+        wrong: it is the same `.nupkg`.
+
+        ⚠ **Packed by path, with a condition, and the consequence is stated rather than hidden:**
+        `dotnet pack` on this project alone produces a package with an empty `tools/`, and the targets
+        then fall through to `dotnet vixen` exactly as they do today. Packing has to follow a solution
+        build. This is the same bargain `Vixen.Ui.Styling.Utilities` makes with `Vixen.StyleGen`, and
+        `Build.CheckCliIsShippable` is what turns "the pack ran too early" into a failed gate rather
+        than into a package that is quietly missing its tool.
+
+        ⚠ **Portable, and no `-r`.** A framework-dependent build carries every RID's natives under
+        `runtimes/` and picks one at run time from its own `.deps.json`, so one copy serves win-x64,
+        win-arm64, linux-x64, linux-arm64, linux-musl (an Alpine CI container), osx-x64 and osx-arm64
+        alike. Three RID-specific copies would be smaller per RID and would leave every RID not in the
+        list with no tool at all — and the list would be a second hand-maintained thing to be wrong.
+        What it costs is that each of the three desktop RIDs downloads all of them: ~170 MB
+        uncompressed, of which the RID actually running uses about 30 MB. Assimp and HarfBuzz across
+        twenty RIDs are most of it.
+
+        ⚠ **Named by extension, and the extension-less files are excluded on purpose.** `vixen`,
+        `vixen-content-server` and `Vixen.AssetCompiler` beside the assemblies are *apphosts* — native
+        executables built for whichever machine ran the build — so packing `**/*` would put a Mach-O
+        binary called `vixen` into the package a Windows consumer restores. Nothing needs them: the
+        targets run `dotnet "…/vixen.dll"`, and `CompilerPool` starts its workers as
+        `dotnet "…/Vixen.AssetCompiler.dll"` for the same reason.
+
+        ⚠ **`.pdb` and `.xml` are dropped**, which is 67 MB of native symbols and 15 MB of doc
+        comments for an assembly nobody debugs or reads IntelliSense from here.
+        ==============================================================================================
+    -->
+    <ItemGroup Condition="'$(VixenCliIsBuilt)' == 'true'">
+        <None Include="$(VixenCliOutputDirectory)*.dll" Pack="true" PackagePath="tools/" Visible="false" />
+        <None Include="$(VixenCliOutputDirectory)*.deps.json" Pack="true" PackagePath="tools/" Visible="false" />
+        <None Include="$(VixenCliOutputDirectory)*.runtimeconfig.json" Pack="true" PackagePath="tools/" Visible="false" />
+
+        <!--
+            ⚠ One directory and no `%(RecursiveDir)`, for the reason `Tools/Vixen.Templates` records:
+            NuGet appends an item's own recursive path to a PackagePath that has no extension on it, so
+            spelling the path out gives every file its directory twice.
+        -->
+        <None Include="$(VixenCliOutputDirectory)runtimes/**/*"
+              Exclude="$(VixenCliOutputDirectory)runtimes/**/*.pdb"
+              Pack="true"
+              PackagePath="tools/runtimes/"
+              Visible="false" />
     </ItemGroup>
 
 </Project>

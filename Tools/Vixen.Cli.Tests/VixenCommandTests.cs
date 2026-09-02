@@ -1162,6 +1162,27 @@ public sealed class VixenCommandTests : IDisposable {
     }
 
     /// <summary>
+    ///     A batch head, and the sentence a scaffolded one cannot say for itself.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A new <c>vixen-tool</c> project run as-is reports that there is nothing to check,
+    ///     which reads exactly like a broken scaffold.</b> It is not: a batch head reads the content
+    ///     beside its own binary and a project one minute old has none. Where content comes from is
+    ///     the one thing about this template that is in no file it writes, so `new` says it — the
+    ///     same argument the `vixen-plugin` and `vixen-mmo` blocks above are there for.
+    /// </remarks>
+    [Fact]
+    public async Task NewToolSaysWhereItsContentComesFrom() {
+        var where = Path.Combine(root, "Tool");
+
+        var (code, output, _) = await RunFull("new", "tool", "Bake", "-o", where);
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.True(File.Exists(Path.Combine(where, "BakeTool.cs")), "a batch head is a Game with no head.");
+        Assert.Contains("--vixen-loose-content", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     A template that does not exist is answered with the ones that do, because the next thing
     ///     the person is going to do is guess again.
     /// </summary>

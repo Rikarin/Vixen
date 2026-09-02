@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+
 namespace Vixen.Net.Rules;
 
 /// <summary>Which clients may do a thing. The server always may — it is the authority.</summary>
@@ -79,7 +81,16 @@ public enum OwnershipClaim : byte {
 ///         because nothing can spawn a networked object from a client or write replicated state from
 ///         one — when those arrive they ask the same question rather than inventing a second policy.
 ///     </para>
+///     <para>
+///         ⚠ <b><c>[DataContract]</c>, because the authoring shape is a file.</b> A
+///         <c>.vxnetrules</c> is a document somebody edits and a record a dedicated server
+///         deserialises, so this type has to be reachable by both the editor's YAML binder and the
+///         binary serializer — which means a generated descriptor and a generated serializer, in
+///         <em>this</em> assembly. Nothing about that changes what the type is: the enums below are
+///         still the whole vocabulary, and the file names them.
+///     </para>
 /// </remarks>
+[DataContract]
 public sealed record NetworkRules {
     /// <summary>Everything the server's, which is what a competitive game wants.</summary>
     public static NetworkRules ServerAuthoritative { get; } = new();

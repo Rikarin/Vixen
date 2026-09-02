@@ -430,6 +430,66 @@ public class NetworkPrefabContentTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ <b>And the policy a node names survives it too — the string and all.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same failure as the one above, one component along, and worth its own test
+    ///         because the payload differs in kind.</b> <see cref="NetworkObject" /> is a tag: a
+    ///         compiled prefab either has the bit or it does not. <c>NetworkRulesReference</c>
+    ///         carries a <c>string</c> through <c>SceneContent.Capture</c>, an <c>ObjectDatabase</c>
+    ///         chunk, a bundle, a catalog and <c>AssetManager</c> — so it can fail in a way a tag
+    ///         cannot: arrive present and empty.
+    ///     </para>
+    ///     <para>
+    ///         An empty name resolves to nothing, which leaves the instance on the registry's
+    ///         server-authoritative default and counts into <c>NetworkSpawner.UnresolvedRules</c>.
+    ///         Safe, and invisible: what an author sees is a game rule that does not work, beside a
+    ///         policy file that reads exactly right.
+    ///     </para>
+    ///     <para>
+    ///         Read off an <em>instance</em> rather than off the template, because that is where the
+    ///         spawner reads it, and because a value that survived the capture and not the stamp
+    ///         would be the same bug one step later.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task APolicyReferenceSurvivesTheContentBuild() {
+        var shipped = new Shipped()
+            .Prefab("prefabs/sword", Sword(), NetworkPrefabContent.Label)
+            .Build();
+
+        await NetworkPrefabContent.LoadAsync(registry, shipped.Assets, TestContext.Current.CancellationToken);
+
+        var loaded = registry.Require("prefabs/sword").Prefab;
+
+        Assert.True(loaded.NodeHas<NetworkRulesReference>(1));
+
+        using var world = new World("spawned:sword");
+
+        var instance = new Entity[loaded.EntityCount];
+
+        loaded.Instantiate(world, instance, null);
+
+        Assert.Equal("Pickup", world.Get<NetworkRulesReference>(instance[1]).Asset);
+    }
+
+    /// <summary>A root and a blade that names a policy, compiled the way SceneImporter writes one.</summary>
+    static PrefabAsset Sword() {
+        using var world = new World("authoring:sword");
+
+        var root = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        var blade = Hierarchy.CreateTransform(world, LocalTransform.At(new(0f, 1f, 0f)));
+
+        world.Add<NetworkObject>(blade);
+        world.Add(blade, new NetworkRulesReference { Asset = "Pickup" });
+
+        Hierarchy.SetParent(world, blade, root);
+
+        return new() { Name = "sword", Content = SceneContent.Capture(world, [root]) };
+    }
+
+    /// <summary>
     ///     A template captured out of a world that has been in a session is marked by what that world
     ///     had on it, which is a <see cref="NetworkId" /> and not a <see cref="NetworkObject" />.
     /// </summary>

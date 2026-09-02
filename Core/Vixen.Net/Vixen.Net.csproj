@@ -27,6 +27,33 @@
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!-- What the generated descriptors are registered into. -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ <b>Named here because <c>NetworkRules</c> is authored.</b> A <c>.vxnetrules</c> is a
+            document somebody edits, and the editor's YAML binder resolves a member through a
+            generated <c>TypeDescriptor</c> — which is emitted per assembly, because analyzers do not
+            flow through a ProjectReference. Without this the nested `rules:` mapping in that document
+            binds to nothing at all, with the same message the missing-analyzer case always gives:
+            "nothing in this build claims the name".
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            And the binary one, on Vixen.Water's terms: the policy is written into the content build
+            as its serialized record because a dedicated server reads it back, and a type no
+            serializer is registered for cannot be written by the importer or read by a game — on a
+            trimmed build or otherwise.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

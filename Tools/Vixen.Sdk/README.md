@@ -151,13 +151,45 @@ Worth recording twice, because the first sabotage written to verify it was wrong
 `VixenTarget` derivation into the `.props` changes nothing at all, for the reason in the paragraph
 above. Moving `VixenToolCommand` fails six of this package's seven tests.
 
-## Still to come
+## The CLI ships inside this package
 
-**The tool is not shipped inside the package yet.** `VixenToolPath` resolves to
-`tools/vixen.dll` beside these targets if it is there, and nothing puts it there — so today a consumer
-needs `vixen` as a restored or installed tool, and doc 08's "restores the Vixen tool versions matching
-the referenced packages" is not met. Shipping it here is what makes the SDK and the tool
-version-locked, and an SDK and a tool that can drift apart will.
+`tools/vixen.dll` is in the `.nupkg`, so a consumer who has restored this package has the tool the
+targets run and installs nothing. That is the second rung of the ladder above, and it was written
+before anything put a file there — until then every consumer fell through to `dotnet vixen`, and doc
+08's "restores the Vixen tool versions matching the referenced packages" was not met.
+
+**One package rather than two, and that is forced rather than preferred.** `<Project
+Sdk="Vixen.Sdk/x.y.z">` is resolved by the MSBuild SDK resolver, which downloads exactly this package
+and never walks its dependency graph — so a `Vixen.Cli.Tools` package next door would be restored for
+the `PackageReference` form and silently absent for the `Sdk` form, which is the form the templates
+scaffold. Being one file is also what makes the version unable to be wrong.
+
+**One portable copy rather than three RID-specific ones.** A framework-dependent build carries every
+runtime identifier's natives under `runtimes/` and chooses one at run time from its own `.deps.json`,
+so the same package serves win-x64, linux-x64 and osx-arm64 — and linux-musl-x64, which is what a CI
+container usually is and what a hand-maintained list of "the three desktop RIDs" would have left with
+no tool at all.
+
+⚠ **What it costs is size: ~170 MB unpacked, ~69 MB on the wire, downloaded by every consumer on
+every one of the three desktop RIDs, of which the RID actually running uses about 30 MB.** Assimp
+across five RIDs and HarfBuzz across twenty are most of it. `.pdb` and `.xml` are excluded, which is
+another 82 MB that would otherwise have travelled. The way out is a smaller tool rather than a
+cleverer package: the SDK calls `vixen import` and `vixen content build` and nothing else, while what
+is packed is the whole CLI — `live`, `content serve`, Roslyn workspaces and the text stack included.
+
+⚠ **The apphosts are not packed.** `vixen`, `vixen-content-server` and `Vixen.AssetCompiler` sit in
+the build output beside the assemblies with no extension: they are native launchers built for
+whichever machine ran the build. Everything here is started as `dotnet "….dll"` — the targets, and
+`CompilerPool` for its import workers — so nothing needs them, and packing them would put a Mach-O
+binary called `vixen` into the package a Windows consumer restores.
+
+⚠ **Packed by path, so packing has to follow a solution build.** `dotnet pack` on this project alone
+produces a package with an empty `tools/`, and the targets then fall through to `dotnet vixen`
+exactly as they did before. `Build.CheckCliIsShippable` extracts the produced package and *starts*
+the tool, which is a stronger question than the file list its `Vixen.Ui.Styling.Utilities` sibling
+asks and is available here only because `vixen --version` needs no project to point it at.
+
+## Still to come
 
 **Nothing generates C# yet**, so the `BeforeTargets="CoreCompile"` hook is ordering without cargo.
 VXML and shader generators arrive in Phases 4d and 5.

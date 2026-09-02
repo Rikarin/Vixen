@@ -184,18 +184,19 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Path-derived default addresses + `excluded:` | ✅ | Editor/Vixen.Editor.Assets | An asset with no `address` ships as `Assets/Textures/Crate.png`, reversing doc 08's "no `addressable` block means not shipped". An explicit address… |
 | Duplicate sub-asset names survive import | ✅ | Editor/Vixen.Editor.Assets | The second of two meshes called `Cube` in a `.glb` is `Cube_1` with a warning, rather than the whole asset failing with advice nothing in the editor… |
 | A typed load out of a real content build | ✅ | Core/Vixen.Assets, Editor/Vixen.Editor.Assets | Pinned by the first test to put a whole build into an `AssetManager` — which is what found two defects that made every shipped `Load<T>` fail and… |
-| `.vxnetrules` asset (importer + serialised form + per-prefab reference) | ⬜ | — | `NetworkRulesRegistry` is what it loads into; only prose in [plan/16](plan/16-networking.md) and the registry's own doc comment exist |
+| `.vxnetrules` asset (importer + serialised form + per-prefab reference) | ✅ | Core/Vixen.Net.Engine, Editor/Vixen.Editor.Assets | `NetworkRulesAsset` + `NetworkRulesReference` in `Vixen.Net.Engine` (⚠ not `Vixen.Net`, which may not reference `Vixen.Engine` and so runs neither the component nor the contract generator), `NetworkRulesImporter` in the built-in list, and `NetworkSpawner` resolving the name at the moment it allocates the id. ⚠ A name nothing loaded leaves the node on the server-authoritative default and counts into `NetworkSpawner.UnresolvedRules`. **Owed: filling the registry from the catalog by label**, the way `NetworkPrefabContent` does for prefabs |
 | Colour-grading `.cube` LUT importer | ✅ | Editor/Vixen.Editor.Assets | `CubeLutImporter` reads what Resolve, Baselight, Nuke and Photoshop export into an `Rgba16Float` volume, and `Tonemap.rvn` samples it with the… |
 | **The unregistered-importer gate** | ✅ | Editor/Vixen.Editor.Assets.Tests | Task #168, and the reason #167 was one of **six**: `[Importer]` is a declaration nothing scans for and `BuiltInImporters.Create` is a hand-written… |
 | Server content profile | ✅ | Editor/Vixen.Editor.Assets | `vixen content build --variant Server`, passed by `Vixen.Sdk` from `VixenVariant`. **A group membership question, per doc 17 and doc 27 § the realm**… |
-| `Vixen.Sdk` MSBuild integration | ✅ | Tools/Vixen.Sdk | 7 tests, each a real `dotnet build` |
-| SDK ships the `vixen` CLI in the package | ⬜ | — | Consumer still needs the tool restored or installed |
+| `Vixen.Sdk` MSBuild integration | ✅ | Tools/Vixen.Sdk | 19 tests — 13 of them a real `dotnet build`, and six a real `dotnet pack` read back from inside the produced `.nupkg` |
+| SDK ships the `vixen` CLI in the package | ✅ | Tools/Vixen.Sdk | `tools/vixen.dll` is in the `.nupkg`, so a restored SDK needs nothing installed. One portable copy rather than three RID-specific ones — ⚠ the `Sdk=` form is resolved by the MSBuild SDK resolver, which never walks a dependency graph, so a second package next door would be silently absent for the form the templates scaffold. Costs ~170 MB unpacked |
 | Platform packaging (APK assets, iOS bundle, `wwwroot`) | ⬜ | — | Waits for those platforms |
 | `Vixen.Cli` — `import`, `content build`, `content serve`, `doctor`, `doctor systems`, `new`, `build`, `run` | ✅ | Tools/Vixen.Cli | 47 tests incl. a byte-for-byte determinism gate |
 | Signing, notarisation, DMG/IPA/AAB | ⬜ | — | `Build.Publish.cs` is the first half and says so; `Sign` and `Notarize` do not exist. Doc 17's table is still Nuke's |
-| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` / `vixen-mmo` / `vixen-plugin` | ✅ | Tools/Vixen.Templates | 48 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its… |
+| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` / `vixen-mmo` / `vixen-plugin` / `vixen-tool` | ✅ | Tools/Vixen.Templates | 76 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its… |
 | `vixen-plugin` template | ✅ | Tools/Vixen.Templates/templates/vixen-plugin | `plugin.yaml` + a class library + one `IEditorPlugin` that adds a command, a menu entry and a panel **through `PluginContext`**, which a test asserts… |
-| `vixen-tool` template; per-platform heads in `vixen-game` | ⬜ | — | Unblocked — `Vixen.Platform.Headless` is built |
+| `vixen-tool` template | ✅ | Tools/Vixen.Templates/templates/vixen-tool | Doc 17 § Q5d's batch head: `Vixen.App` with `Headless`, no window, no world, and a device only under `--vixen-capture`. ⚠ The frame budget is a *default* — `AppConfig.Apply` runs before `OnConfigure`, so an assignment would discard a `--vixen-frames`; asserted by compiling, loading and running the scaffolded type |
+| Per-platform heads in `vixen-game` | ⛔ | — | ⚠ **Blocked on the templates' own rules rather than owed.** A head is a `net10.0-android`/`net10.0-ios` project (`Samples/01`'s are out of the solution for that reason); the templates have no conditionals to make one opt-in, and `TemplateCompiler` compiles a multi-project template as one compilation against assemblies a machine without the workloads cannot supply. Three ways out in the package README |
 | `vixen doctor systems` | ✅ | Tools/Vixen.Cli · Core/Vixen.Ecs | Reads a built game assembly's frame: the resolved run order by phase, the ordering attributes that turn out to do nothing, what each system's… |
 ## 1.7 UI framework
 
@@ -539,7 +540,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | Awaitable RPC (`CallAsync<T>` → `Task<T>`) | ✅ | Core/Vixen.Net | Doc 16 said `ValueTask<T>` and was corrected |
 | Broadcasts (`IBroadcast<TSelf>`) | ✅ | Core/Vixen.Net |  |
 | `NetworkRules` policy (stricter-wins composition) | ✅ | Core/Vixen.Net |  |
-| `.vxnetrules` **asset** | ⬜ | — | Importer + serialised form + per-prefab reference; `NetworkRulesRegistry` is what it loads into. Was ⛔ on "the asset pipeline's half", which exists… |
+| `.vxnetrules` **asset** | ✅ | Core/Vixen.Net.Engine, Editor/Vixen.Editor.Assets | Format, importer and per-prefab reference. ⚠ `NetworkRules` gained `[DataContract]` and `Vixen.Net` two generators with it — a document the editor binds and a record a server deserialises both resolve through generated code emitted per assembly. Owed: the catalog-by-label load |
 | Replication — bit packing, `[Quantize]`, capture-once/copy-many, two-stage filter, ack'd baselines, shedding | ✅ | Core/Vixen.Net |  |
 | Field-level delta (`DeltaCodec`) | ✅ | Core/Vixen.Net | 19.2 → 9.7 kbit/s a client on `Samples/08` |
 | `SyncVar<T>` / `SyncList<T>` / `NetworkModule` | ✅ | Core/Vixen.Net.Engine | ⚠ **The dirty-marking system was missing until 2026-08-25**: `NetworkBehaviour.MarkChanged`'s own remarks said it is "called by the sync system… |
@@ -656,7 +657,7 @@ Thirteen numbered samples exist: `01`–`04`, `07`–`15`. `05` and `06` have no
 | `vixen-mcp` + the `vixen` skill | ✅ ([www/mcp](../www/mcp/README.md), [.claude/skills/vixen](../.claude/skills/vixen/SKILL.md)) — six tools over the graph |
 | Manual: getting started, per-subsystem guides, UI tutorial, Raven reference, Unity migration | 🟡 — [`docs/guide/`](guide) holds 155 pages across eleven areas. The per-type sweep is still P7, gated by `docs/DocsExempt.txt` |
 | 12+ runnable samples | ✅ — 12 numbered samples (`05` and `06` are the two absent numbers), plus Android and iOS heads for `01` |
-| `dotnet new` templates verified on six targets | 🟡 — five templates ship (`vixen-game`, `vixen-app`, `vixen-lib`, `vixen-mmo`, `vixen-plugin`); `vixen-tool` is the last one doc 17 names, and no template is verified on a clean machine — that needs a feed, not a template |
+| `dotnet new` templates verified on six targets | 🟡 — all six templates ship, and the pack is now verified through the **real** `dotnet new`: `Vixen.Templates.Tests` packs it, installs it into a private hive and instantiates every template outside the repository, byte-comparing the result against `TemplateCatalog`. ⚠ **Zero of the six *targets* are exercised** — each needs a restore and a restore needs a feed. ⚠ And the obvious stand-in is a lie: a scaffolded project restores fine from a temp directory here because the machine's global NuGet cache holds ~57 `Vixen.*` 0.1.0 packages from an earlier `Pack`; the same restore with an empty cache against nuget.org is `NU1101`. What is asserted instead is the necessary condition — every package and SDK version a template pins is one this repository produces |
 | `PublicAPI.Shipped.txt` freeze + API review | 🟡 — the fold is one command (`nuke Release` → `vixen-api-check --fold`, the same `Approved` path the gate uses). The reading nobody has done is now ~55 000 unshipped entries across 129 projects |
 | Release automation (tag → signed builds + NuGet + GitHub Release) | 🟡 — `nuke Release` does the API fold, the graph archive and the changelog; `nuke PublishEditor` produces the bundle. Signing, notarisation, packaging and the GitHub release are not wired ([Build.Publish.cs](../build/Build.Publish.cs)) |
 | 24 h editor / 24 h game soak | ⬜ — `nightly.yml` runs fuzz, properties, Postgres, Docker and Kubernetes legs, none of them a soak |
@@ -817,7 +818,7 @@ what is left.
 | ~~W0-10~~ | ~~Wire `LineWrapper` into `TextRun`/controls~~ | Built (`TextLayout`). The *editing* half — a caret that moves between lines — and `CodeEditor`'s own wrap are owed (#46, #47) |
 | ~~W0-11~~ | ~~`Vixen.Core.Diagnostics` sinks + rate limiting~~ | Built — all five sinks, one shared `LogFilter`, `LogRateLimiter`. The downstream items want the editor UI and the inspector protocol; `RemoteSink` streams JSON lines into whatever `IRemoteLogTransport` that turns out to be |
 | ~~W0-12~~ | ~~`Vixen.Editor.Plugin` (`AssemblyLoadContext`)~~ | Built — manifest, discovery, a collectible context per plugin, a registration scope that makes unloading undoing, an API baseline. `Vixen.Editor.App`'s AOT position is JIT, and it says why |
-| ~~W0-13~~ | ~~`Tools/Vixen.Templates`~~ | Built — `vixen-game`, `vixen-app`, `vixen-lib`, `vixen-mmo` and now `vixen-plugin`, one file tree that `dotnet new` packs and `vixen new` embeds. `vixen-tool` is the one still owed. Phase 11's clean-machine criterion needs a feed, not a template |
+| ~~W0-13~~ | ~~`Tools/Vixen.Templates`~~ | Built — all six doc 17 names: `vixen-game`, `vixen-app`, `vixen-lib`, `vixen-mmo`, `vixen-plugin` and `vixen-tool`, one file tree that `dotnet new` packs and `vixen new` embeds. Phase 11's clean-machine criterion needs a feed, not a template |
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS. Still absent from `native-dependencies.json` |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises. Still absent |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
@@ -859,7 +860,6 @@ what is left.
 | Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |
 | ~~`Vixen.Editor.Profiler` · `.Debugger` · editor console~~ | — | Built. The console reads `RingBufferSink` live and the profiler reads the sample rings; the GPU and memory *tracks* underneath are still owed (#10) |
 | ~~Editor network panel~~ | — | Built — `NetworkView.vxml` in `Vixen.Editor.Debugger`, which already referenced `Vixen.Net` for the remote inspector's transport. No new public surface on `Vixen.Net`; see §1.11 |
-| `.vxnetrules` asset | W0-1 (asset-pipeline shape) | |
 | Prefab registry filled from the content catalog | W0-1 | |
 | `Samples/05-PlatformerGame` | W0-1 + W0-14 | Phase 8 exit criterion |
 
@@ -962,7 +962,7 @@ Detail, evidence and history live in the linked issue and the owning module `REA
 | 64 | `Vixen.Net` | `Relay` transport + fallback | [#200](https://github.com/Rikarin/Vixen/issues/200) |
 | 65 | `Vixen.Net` | UDP congestion control, ack piggybacking, path MTU, DTLS | [#201](https://github.com/Rikarin/Vixen/issues/201) |
 | 66 | `Vixen.Net` | Session bandwidth budgeting / priority shedding | [#202](https://github.com/Rikarin/Vixen/issues/202) |
-| 67 | `Vixen.Net` | `.vxnetrules` asset — the registry it would fill is built and reached, the format and importer do not exist; a prefab… | [#203](https://github.com/Rikarin/Vixen/issues/203) |
+| 67 | `Vixen.Net` | ~~`.vxnetrules` asset~~ — format, importer and per-prefab reference built; **still owed**: the registry filled from the catalog by label, scene messages, client-requested spawns, `OnOwnerDisconnect` → `Despawn` | [#203](https://github.com/Rikarin/Vixen/issues/203) |
 | 68 | `Vixen.Net` | Team/room/fog-of-war rules; resolver composition | [#204](https://github.com/Rikarin/Vixen/issues/204) |
 | 69 | `Vixen.Net` | ~~Per-axis / parent-relative `NetworkTransform`~~ (built — `NetworkTransformAxes`, `NetworkParent`); per-bone quantisation; pose interpolation | [#205](https://github.com/Rikarin/Vixen/issues/205) |
 | 70 | `Vixen.Net` | Hit-claim message; per-bone rewind; rewind cost budget; rewind visualisation | [#206](https://github.com/Rikarin/Vixen/issues/206) |

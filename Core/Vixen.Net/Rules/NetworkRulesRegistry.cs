@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
 using Vixen.Net.Sessions;
@@ -16,9 +17,16 @@ public readonly record struct DisconnectAction(NetworkId Object, DisconnectBehav
 /// <remarks>
 ///     <para>
 ///         One default and a per-object override, which is the shape the policy takes at run time.
-///         The authoring shape is a <c>.vxnetrules</c> asset referenced by a prefab — the asset
-///         pipeline's half of this, and not built: what is here is the thing that asset will be
-///         loaded into, and the questions it answers are the questions it will answer then.
+///         The authoring shape is a <c>.vxnetrules</c> asset referenced by a prefab — a
+///         <c>NetworkRulesAsset</c>, imported into the content build and named on a prefab node by
+///         <c>NetworkRulesReference</c>, both in <c>Vixen.Net.Engine</c> because they need the
+///         engine's generators.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is why there are two tables here and not one.</b> The by-object table is a
+///         <see cref="NetworkId" />, allocated when something spawns; a named one is an asset, loaded
+///         before anything has spawned at all. A registry with only the first would have nowhere to
+///         put a policy file until the moment it was already too late to apply it.
 ///     </para>
 ///     <para>
 ///         The registry is also the only place that knows both the rules and the ownership, which is
@@ -28,6 +36,7 @@ public readonly record struct DisconnectAction(NetworkId Object, DisconnectBehav
 /// </remarks>
 public sealed class NetworkRulesRegistry {
     readonly Dictionary<uint, NetworkRules> byObject = [];
+    readonly Dictionary<string, NetworkRules> byName = new(StringComparer.Ordinal);
     readonly NetworkOwnership ownership;
 
     /// <summary>What applies to an object that has not been given anything more specific.</summary>
@@ -35,6 +44,9 @@ public sealed class NetworkRulesRegistry {
 
     /// <summary>How many objects have rules of their own.</summary>
     public int OverrideCount => byObject.Count;
+
+    /// <summary>How many policy files have been loaded.</summary>
+    public int NamedCount => byName.Count;
 
     /// <summary>Creates a registry over an ownership table.</summary>
     /// <param name="ownership">Who owns what, which half of every rule depends on.</param>
@@ -49,6 +61,34 @@ public sealed class NetworkRulesRegistry {
     public void Set(NetworkId id, NetworkRules rules) {
         ArgumentNullException.ThrowIfNull(rules);
         byObject[id.Value] = rules;
+    }
+
+    /// <summary>Loads a policy file under the name a prefab refers to it by.</summary>
+    /// <param name="name">What the asset calls itself.</param>
+    /// <param name="rules">What it says.</param>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is null or empty.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="rules" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>By name and not by address, for <c>WaterZoneComponent.WaveAsset</c>'s reason.</b> The
+    ///     thing that refers to it is authored content — a prefab node — and content cannot hold a
+    ///     handle to something the content build has not loaded yet. The name is what survives the
+    ///     build; resolving it is <c>NetworkSpawner</c>'s, at the moment an instance gets its id.
+    /// </remarks>
+    public void Load(string name, NetworkRules rules) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(rules);
+
+        byName[name] = rules;
+    }
+
+    /// <summary>The policy loaded under a name, if one was.</summary>
+    /// <param name="name">The name a prefab refers to.</param>
+    /// <param name="rules">What it says, if anything does.</param>
+    /// <returns>Whether it resolved.</returns>
+    public bool TryGetNamed(string name, [NotNullWhen(true)] out NetworkRules? rules) {
+        ArgumentNullException.ThrowIfNull(name);
+
+        return byName.TryGetValue(name, out rules);
     }
 
     /// <summary>Puts an object back on the default rules.</summary>

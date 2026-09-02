@@ -22,6 +22,24 @@
         <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     </PropertyGroup>
 
+    <!--
+        Where the two things the installation tests need are, handed over as metadata rather than
+        found at run time by walking up from the test assembly looking for a repository — the same
+        arrangement, and the same reason, as Tools/Vixen.Sdk.Tests: a test that has to find its own
+        subject is a test that breaks when somebody moves a directory.
+    -->
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>VixenTemplateProject</_Parameter1>
+            <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Templates/Vixen.Templates.csproj</_Parameter2>
+        </AssemblyAttribute>
+
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>VixenRepositoryRoot</_Parameter1>
+            <_Parameter2>$(MSBuildThisFileDirectory)../..</_Parameter2>
+        </AssemblyAttribute>
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="xunit.v3" Version="3.2.2" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />

@@ -236,6 +236,7 @@ A step-by-step version of this, including the dedicated server, is in
 vixen new game Asteroids     # a project the SDK drives
 vixen new app Painter        # Vixen.Ui, a window, and no engine
 vixen new lib Physics        # a library either of them can reference
+vixen new tool Bake          # the host with no window and no device
 vixen build --target iOS     # content, then dotnet publish
 vixen run -- --vixen-frames 5
 ```
@@ -251,8 +252,8 @@ to type next.
 this assembly embeds it, and `TemplateCatalog` is the fifty lines that apply the one substitution the
 templates use. Until that existed the scaffold was C# string literals beside a template pack that did
 not exist yet — two copies of every file, waiting to disagree. Which templates `new` offers is
-therefore the pack's answer rather than this tool's: `game`, `app` and `lib` today, and the pack's
-short names with the `vixen-` prefix taken off in general.
+therefore the pack's answer rather than this tool's: `game`, `app`, `lib`, `mmo`, `plugin` and
+`tool` today, and the pack's short names with the `vixen-` prefix taken off in general.
 
 **`new` scaffolds against the SDK rather than against a package list.** A game project is
 `<Project Sdk="Vixen.Sdk/x.y.z">` plus one `PackageReference` for the host, and the import-before-compile
@@ -262,6 +263,12 @@ assembly, so a scaffolded project asks for the engine matching the tool that mad
 
 It refuses rather than overwriting, and refuses *entirely*: every collision is found before anything is
 written, because a half-scaffolded directory is worse than an untouched one.
+
+**Three of the six templates say something extra after scaffolding, and the rest say nothing.**
+`plugin`, `mmo` and `tool` each have a fact that is in no file they write — where to put a plugin
+folder, which of five directories to open, and where a batch head's content comes from — so `new`
+says it. A template whose output explains itself gets no block, deliberately: advice nobody needed is
+noise on the one screen a person reads carefully.
 
 **`build` runs the content build and then `dotnet publish`.** That ordering is the reason the command
 exists — content is stale unless something rebuilt it, and a publish that copies last week's bundles is
@@ -287,11 +294,6 @@ need credentials. `--target iOS` produces what the iOS SDK produces and says so.
 **A consumer still needs the engine packages.** `vixen build` works against a feed that has them —
 verified end to end against a local one — and until they are on nuget.org a scaffolded project needs a
 `nuget.config` pointing somewhere they exist.
-
-**`plugin` and `tool` templates are not written.** Doc 17 lists five; `game`, `app` and `lib` are
-here. Neither of the two is blocked any more — `plugin` was waiting on `Vixen.Editor.Plugin` and
-`tool` on `Vixen.Platform.Headless`, and both of those exist. See
-[`Vixen.Templates`](../Vixen.Templates/README.md) § Still to come.
 
 ## Still to come
 

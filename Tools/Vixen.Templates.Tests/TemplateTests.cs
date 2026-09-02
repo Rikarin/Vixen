@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using System.Text;
+using Vixen.App;
 using Vixen.Cli;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
@@ -28,16 +30,18 @@ public class TemplateTests {
     // ── Every template ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    ///     The five that are written. `vixen-tool` — doc 17 § Q5d's headless batch head — is named
-    ///     in doc 17 too and is not here; it is owed rather than blocked, because
-    ///     `Vixen.Platform.Headless` exists and nobody has written the template. `vixen-plugin` was
-    ///     in that sentence until `Vixen.Editor.Plugin` landed in wave W0-12, which is what a
-    ///     template pinning a package nobody publishes was waiting on. This list is what has to be
-    ///     edited when the last one arrives.
+    ///     All six of the ones doc 17 § Project templates names, which is now every one of them.
     /// </summary>
+    /// <remarks>
+    ///     Two of these were written down as owed rather than blocked and then landed: `vixen-plugin`
+    ///     when `Vixen.Editor.Plugin` did, and `vixen-tool` — doc 17 § Q5d's headless batch head —
+    ///     which was waiting on nothing at all, because `Vixen.Platform.Headless` has existed since
+    ///     Phase 1. This list is what has to be edited when a seventh arrives, and the assertion is
+    ///     on the whole list rather than on membership so that adding one is a deliberate act.
+    /// </remarks>
     [Fact]
     public void TheTemplatesAreTheOnesThatCanBeWrittenToday() {
-        string[] expected = ["vixen-app", "vixen-game", "vixen-lib", "vixen-mmo", "vixen-plugin"];
+        string[] expected = ["vixen-app", "vixen-game", "vixen-lib", "vixen-mmo", "vixen-plugin", "vixen-tool"];
 
         Assert.Equal(expected, TemplateCatalog.All.Select(template => template.Id).ToArray());
     }
@@ -607,5 +611,90 @@ public class TemplateTests {
         // And nothing that goes round it. `Shell.Commands.Add` is allowed and is occasionally right,
         // but it is not what a first example should show.
         Assert.DoesNotContain("Shell.Commands.Add", source, StringComparison.Ordinal);
+    }
+
+    // ── vixen-tool ──────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     A batch head is a console application on the engine's host, and it has no assets of its
+    ///     own — it operates on somebody else's content, so the SDK's import and content-build steps
+    ///     would be two no-ops and a tool dependency for nothing.
+    /// </summary>
+    /// <remarks>
+    ///     One package reference, and it is the host. <c>Vixen.App</c> is what chooses a platform,
+    ///     and what it chooses under <c>AppConfig.Headless</c> is <c>Vixen.Platform.Headless</c> —
+    ///     which is the whole of doc 17 § Q5d's "nearly free once <c>Vixen.Platform.Headless</c>
+    ///     exists".
+    /// </remarks>
+    [Fact]
+    public void TheToolTemplateIsAConsoleHeadWithoutTheSdk() {
+        var project = TextOf(Template("vixen-tool"), "Kestrel", "Kestrel.csproj");
+
+        Assert.Contains("Sdk=\"Microsoft.NET.Sdk\"", project, StringComparison.Ordinal);
+        Assert.Contains("<OutputType>Exe</OutputType>", project, StringComparison.Ordinal);
+        // The SDK attribute rather than the word: the project file explains in a comment why it is
+        // not this SDK, and a template that says why it does something is worth more than one that
+        // is merely searchable.
+        Assert.DoesNotContain("Sdk=\"Vixen.Sdk", project, StringComparison.Ordinal);
+        Assert.Contains("Include=\"Vixen.App\"", project, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>What the head is, asserted by running it rather than by reading it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The scaffolded project is compiled and loaded, its <c>Game</c> is constructed, and the
+    ///         host's own call sequence is performed on it: <c>AppConfig.Apply(arguments)</c> and
+    ///         then <c>OnConfigure</c>, in that order, because that is the order
+    ///         <c>AppBuilder.Build</c> uses. What comes back is the configuration a real run would
+    ///         have, which is the only form in which the claims below can be checked at all — "no
+    ///         window", "no world", "ends by itself" are behaviours and not strings.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>MaxFrames</c> is the one that would have been wrong.</b> A batch head has to
+    ///         end, and <c>ExitWhenAllWindowsClose</c> cannot end it — that check is skipped when
+    ///         there is no window — so the template names a frame budget. Assigning it outright
+    ///         reads perfectly and silently discards a <c>--vixen-frames</c> the operator typed,
+    ///         because <c>Apply</c> has already run by then. The three cases below are the whole
+    ///         difference between a default and an assignment.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheToolTemplateIsAHeadlessHeadThatEndsAndStillObeysItsCommandLine() {
+        var plain = Configured();
+
+        Assert.True(plain.Headless);
+        Assert.Null(plain.Window);
+        Assert.False(plain.UseEngine);
+        Assert.Equal(1, plain.MaxFrames);
+
+        // No device unless somebody asked for a picture, so a validation run on a build agent with
+        // no Vulkan is unaffected — and a CI screenshot job gets the device it came for.
+        Assert.False(plain.Graphics.Enabled);
+        Assert.True(Configured("--vixen-capture", "shot.png").Graphics.Enabled);
+
+        // And the frame budget is a default rather than an assignment.
+        Assert.Equal(120, Configured("--vixen-frames", "120").MaxFrames);
+    }
+
+    /// <summary>The configuration the scaffolded tool leaves behind for a given command line.</summary>
+    /// <param name="arguments">What the operator typed.</param>
+    /// <returns>The config, after the host's own two calls.</returns>
+    static AppConfig Configured(params string[] arguments) {
+        var assembly = TemplateCompiler.Load(Template("vixen-tool"), "Kestrel");
+        var tool = Activator.CreateInstance(assembly.GetType("Kestrel.KestrelTool")!)!;
+
+        var config = new AppConfig();
+        config.Apply(AppArguments.Parse(arguments));
+
+        // ⚠ Reflected for, because `OnConfigure` is `protected internal` — the host calls it and
+        // nothing else may. Invoking the base declaration on a derived instance dispatches
+        // virtually, so what runs is the template's override.
+        typeof(Game)
+            .GetMethod("OnConfigure", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(tool, [config]);
+
+        return config;
     }
 }

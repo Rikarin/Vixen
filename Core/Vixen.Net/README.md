@@ -489,9 +489,24 @@ which requires ownership unless a method says otherwise; the rule is the knob th
 | `OnOwnerDisconnect` | `NetworkRulesRegistry.OnOwnerLeft` |
 | `Spawn`, `Despawn`, `Write` | declared and answered; **no enforcement point yet** — nothing can spawn or write from a client |
 
-The authoring shape is a `.vxnetrules` asset referenced per prefab. That is the asset pipeline's half
-and is not built; `NetworkRulesRegistry` is what it will be loaded into, and it already answers the
-questions that asset will answer.
+The authoring shape is a `.vxnetrules` asset referenced per prefab, and it is built: a
+`NetworkRulesAsset` and a `NetworkRulesReference`, both in `Vixen.Net.Engine` — which is where they
+have to be, because a component a compiled prefab may name needs `[Component]` *and* `[DataContract]`
+and this package may not reference `Vixen.Engine`. `NetworkSpawner` resolves the name against
+`NetworkRulesRegistry.TryGetNamed` at the moment it allocates the node's id.
+
+⚠ **`NetworkRules` is `[DataContract]` for that reason and this package runs two generators it did not
+before.** A `.vxnetrules` is a document somebody edits and a record a dedicated server deserialises, so
+the type has to be reachable by both the editor's YAML binder and the binary serializer — and both
+resolve through generated code that is emitted per assembly, because analyzers do not flow through a
+`ProjectReference`. Without them the nested `rules:` mapping binds to nothing, with the message that
+class of mistake always gives: "nothing in this build claims the name".
+
+⚠ **What is still owed is filling the registry from the catalog by label**, the way
+`NetworkPrefabContent` fills the prefab registry. Until that lands a game calls
+`NetworkRulesRegistry.Load` itself.
+
+[Network rules as a file](../../docs/guide/engine/network-rules.md) is the authoring story.
 
 ## What goes over a session
 
