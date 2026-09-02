@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            The host, and the only reference a batch head needs. Vixen.App is what chooses a
+            platform, and the choice it makes when AppConfig.Headless is set is
+            Vixen.Platform.Headless — no window server, no GPU, no audio device, no user. It also
+            mounts the content beside the binary, which is what makes Services.Assets a thing this
+            tool can ask questions of.
+
+            No Vixen.Sdk, for the reason vixen-app, vixen-lib and vixen-plugin do without it: a tool
+            operates on somebody else's content and has no Assets/ of its own to import.
+        -->
+        <PackageReference Include="Vixen.App" Version="VIXEN_PACKAGE_VERSION" />
+    </ItemGroup>
+
+</Project>

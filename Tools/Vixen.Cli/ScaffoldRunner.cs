@@ -109,6 +109,16 @@ public static class ScaffoldRunner {
             output.WriteLine($"  Copy it to <project>/Plugins/{name}/, then Reload Plugins in the editor.");
         }
 
+        // ⚠ A batch head reads the content beside its own binary, and a freshly scaffolded one has
+        // none — so `dotnet run` on it reports nothing to check and reads as broken. Where the
+        // content comes from is the one thing about this template that is in no file it wrote.
+        if (chosen.Id is "vixen-tool") {
+            output.WriteLine();
+            output.WriteLine("  dotnet run     — checks the content beside the binary; a new project has none");
+            output.WriteLine("  dotnet run -- --vixen-loose-content <game>/Build/<target>   — point it at a real build");
+            output.WriteLine("  --vixen-capture <path> opens a device and writes a frame; --vixen-frames N runs more than one");
+        }
+
         // Five directories and no idea which one to open is a worse first minute than one project
         // and no advice at all, so the multi-project scaffold says where to start and what the one
         // thing it cannot do for you is.

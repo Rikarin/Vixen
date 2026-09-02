@@ -193,9 +193,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Platform packaging (APK assets, iOS bundle, `wwwroot`) | ⬜ | — | Waits for those platforms |
 | `Vixen.Cli` — `import`, `content build`, `content serve`, `doctor`, `doctor systems`, `new`, `build`, `run` | ✅ | Tools/Vixen.Cli | 47 tests incl. a byte-for-byte determinism gate |
 | Signing, notarisation, DMG/IPA/AAB | ⬜ | — | `Build.Publish.cs` is the first half and says so; `Sign` and `Notarize` do not exist. Doc 17's table is still Nuke's |
-| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` / `vixen-mmo` / `vixen-plugin` | ✅ | Tools/Vixen.Templates | 48 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its… |
+| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` / `vixen-mmo` / `vixen-plugin` / `vixen-tool` | ✅ | Tools/Vixen.Templates | 63 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its… |
 | `vixen-plugin` template | ✅ | Tools/Vixen.Templates/templates/vixen-plugin | `plugin.yaml` + a class library + one `IEditorPlugin` that adds a command, a menu entry and a panel **through `PluginContext`**, which a test asserts… |
-| `vixen-tool` template; per-platform heads in `vixen-game` | ⬜ | — | Unblocked — `Vixen.Platform.Headless` is built |
+| `vixen-tool` template | ✅ | Tools/Vixen.Templates/templates/vixen-tool | Doc 17 § Q5d's batch head: `Vixen.App` with `Headless`, no window, no world, and a device only under `--vixen-capture`. ⚠ The frame budget is a *default* — `AppConfig.Apply` runs before `OnConfigure`, so an assignment would discard a `--vixen-frames`; asserted by compiling, loading and running the scaffolded type |
+| Per-platform heads in `vixen-game` | ⛔ | — | ⚠ **Blocked on the templates' own rules rather than owed.** A head is a `net10.0-android`/`net10.0-ios` project (`Samples/01`'s are out of the solution for that reason); the templates have no conditionals to make one opt-in, and `TemplateCompiler` compiles a multi-project template as one compilation against assemblies a machine without the workloads cannot supply. Three ways out in the package README |
 | `vixen doctor systems` | ✅ | Tools/Vixen.Cli · Core/Vixen.Ecs | Reads a built game assembly's frame: the resolved run order by phase, the ordering attributes that turn out to do nothing, what each system's… |
 ## 1.7 UI framework
 
@@ -817,7 +818,7 @@ what is left.
 | ~~W0-10~~ | ~~Wire `LineWrapper` into `TextRun`/controls~~ | Built (`TextLayout`). The *editing* half — a caret that moves between lines — and `CodeEditor`'s own wrap are owed (#46, #47) |
 | ~~W0-11~~ | ~~`Vixen.Core.Diagnostics` sinks + rate limiting~~ | Built — all five sinks, one shared `LogFilter`, `LogRateLimiter`. The downstream items want the editor UI and the inspector protocol; `RemoteSink` streams JSON lines into whatever `IRemoteLogTransport` that turns out to be |
 | ~~W0-12~~ | ~~`Vixen.Editor.Plugin` (`AssemblyLoadContext`)~~ | Built — manifest, discovery, a collectible context per plugin, a registration scope that makes unloading undoing, an API baseline. `Vixen.Editor.App`'s AOT position is JIT, and it says why |
-| ~~W0-13~~ | ~~`Tools/Vixen.Templates`~~ | Built — `vixen-game`, `vixen-app`, `vixen-lib`, `vixen-mmo` and now `vixen-plugin`, one file tree that `dotnet new` packs and `vixen new` embeds. `vixen-tool` is the one still owed. Phase 11's clean-machine criterion needs a feed, not a template |
+| ~~W0-13~~ | ~~`Tools/Vixen.Templates`~~ | Built — all six doc 17 names: `vixen-game`, `vixen-app`, `vixen-lib`, `vixen-mmo`, `vixen-plugin` and `vixen-tool`, one file tree that `dotnet new` packs and `vixen new` embeds. Phase 11's clean-machine criterion needs a feed, not a template |
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS. Still absent from `native-dependencies.json` |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises. Still absent |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |

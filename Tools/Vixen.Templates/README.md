@@ -10,6 +10,7 @@ dotnet new vixen-app  -n Painter        # an application: Vixen.Ui, a window, an
 dotnet new vixen-lib  -n Physics        # a library either of them can reference
 dotnet new vixen-mmo  -n Kestrel        # a dedicated-server game: contracts, rules, realm, client
 dotnet new vixen-plugin -n Kestrel      # an editor plugin: a manifest, an IEditorPlugin, a panel
+dotnet new vixen-tool -n Bake           # a batch head: the host, with no window and no device
 ```
 
 Spec: [docs/plan/17 § Project templates](../../docs/plan/17-app-heads-and-shipping.md),
@@ -209,13 +210,62 @@ the editor's own copy, deliberately.
 No `Vixen.Sdk`, for the reason `vixen-app` and `vixen-lib` do without it: a plugin has no assets to
 import and no content to build.
 
+## `vixen-tool`
+
+[Doc 17 § Q5d](../../docs/plan/17-app-heads-and-shipping.md)'s console head: the same boot path a
+game takes, minus everything that needs a person in front of it. Content validation, CI screenshot
+generation, batch conversion, custom pipeline steps.
+
+```
+Bake.csproj      Microsoft.NET.Sdk, Exe, one PackageReference
+Program.cs       the two calls VixenApp.Run<T> makes, written out
+BakeTool.cs      a Game whose OnConfigure turns the head off and whose OnInitialise is the step
+```
+
+**One `PackageReference`, and doc 17's "nearly free" is true.** `Vixen.App` chooses the platform, and
+what it chooses under `AppConfig.Headless` is
+[`Vixen.Platform.Headless`](../../Platform/Vixen.Platform.Headless/README.md). No `Vixen.Sdk`, for the
+reason `vixen-app`, `vixen-lib` and `vixen-plugin` do without it: a tool operates on somebody else's
+content and has no `Assets/` of its own to import.
+
+⚠ **`Window = null` rather than an invisible window.** A hidden window still asks the platform for a
+surface a swapchain could be built on, which a build agent with no display cannot give — so the
+failure would be at start-up rather than at the step. `AppBuilder.Build` handles the null case
+deliberately, and says so.
+
+⚠ **The frame budget is a default and not an assignment, and that is the one thing about this
+template that would have been silently wrong.** `AppConfig.Apply` runs *before* `Game.OnConfigure`,
+so `config.MaxFrames = 1` would throw away a `--vixen-frames 120` the operator typed. It has to be
+`if (config.MaxFrames <= 0)`. A budget is needed at all because `ExitWhenAllWindowsClose` cannot end
+this run — that check is skipped when there is no window, so that a headless run is not over before
+it starts.
+
+`TheToolTemplateIsAHeadlessHeadThatEndsAndStillObeysItsCommandLine` asserts all of it by *running*
+it: the scaffolded project is compiled, emitted, loaded, and put through the host's own two calls in
+the host's own order. Reading the source as text cannot assert an ordering.
+
 ## Still to come
 
-**`vixen-tool`** — doc 17 § Q5d's headless batch head — is the last one doc 17 names and is not
-blocked either: `Vixen.Platform.Headless` is built, and nobody has written the template.
-
 **Platform heads.** Doc 17 describes `vixen-game` as producing "platform heads" as well; today it
-produces one project and `vixen build --target Android` publishes it. The per-platform sibling
-projects `Samples/01` carries by hand are what that line means, and they are owed.
+produces one project and `vixen build --target Android` publishes it.
+
+⚠ **They are blocked on this package's own rules rather than owed, and the block is worth stating
+because "nearly free" is what it looks like.** `Samples/01`'s hand-written Android and iOS heads are
+`net10.0-android` and `net10.0-ios` projects that reference `Vixen.Platform.Android` and
+`Vixen.Platform.iOS` — which is why they are **out of the solution**, and why `Test`, `CheckFormat`,
+`CheckApi` and `Pack` never evaluate them. A template cannot follow them there:
+
+- **No conditionals.** Only `sourceName` identity substitution is available (§ *What the templates
+  may use*), so heads cannot be opt-in. Every scaffold would carry them, and `dotnet build` on a
+  machine without the workloads would fail on a project its author never asked for.
+- **No gate.** `TemplateCompiler` compiles a multi-project template as *one* compilation against the
+  assemblies this test project references. A `MainActivity.cs` would need `Vixen.Platform.Android` in
+  that list — a `net10.0-android` assembly, so the whole test project would need the workload — and
+  without it the heads would be the only scaffolded C# nothing compiles, which is the exact failure
+  this package's tests exist to prevent.
+
+Making them possible means one of: a template-engine conditional and a second implementation of it in
+`TemplateCatalog`; a separate `vixen-game-android` template, which is a conditional spelled as a name;
+or heads that ship ungated. None is free, and the choice is a decision rather than a task.
 
 Licensed under Apache-2.0.

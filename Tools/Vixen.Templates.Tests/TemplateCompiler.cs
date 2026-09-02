@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -116,7 +117,57 @@ static class TemplateCompiler {
     /// <param name="template">The template.</param>
     /// <param name="projectName">The name to instantiate it under.</param>
     /// <returns>The errors, one per line, or an empty list.</returns>
-    public static IReadOnlyList<string> Errors(ProjectTemplate template, string projectName) {
+    public static IReadOnlyList<string> Errors(ProjectTemplate template, string projectName) =>
+        Compile(template, projectName).Errors;
+
+    /// <summary>Compiles one template's C# and loads it, so a test can call what it wrote.</summary>
+    /// <param name="template">The template.</param>
+    /// <param name="projectName">The name to instantiate it under.</param>
+    /// <returns>The scaffolded project, as a loaded assembly.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A step past what the rest of this file does, and worth the extra thirty lines
+    ///         for exactly one kind of claim: what a template's code <em>does</em> when the host
+    ///         calls it.</b> A template can name every type correctly, compile clean, and still be
+    ///         wrong about the order the host calls it in — <c>AppConfig.Apply</c> runs before
+    ///         <c>Game.OnConfigure</c>, so a scaffold that assigns a property the command line also
+    ///         sets silently throws the operator's value away. That is a behaviour, and no amount of
+    ///         reading the source as text asserts it.
+    ///     </para>
+    ///     <para>
+    ///         The references are the same ones the compilation uses, which are the assemblies
+    ///         loaded beside the test — so the loaded assembly resolves <c>Vixen.*</c> to the very
+    ///         objects the test already holds, and a <c>Game</c> it produces really is a
+    ///         <c>Vixen.App.Game</c>.
+    ///     </para>
+    /// </remarks>
+    public static Assembly Load(ProjectTemplate template, string projectName) {
+        var (compilation, errors) = Compile(template, projectName);
+
+        if (errors.Count > 0) {
+            throw new InvalidOperationException(
+                $"{template.Id} does not compile, so it cannot be loaded:{Environment.NewLine}"
+                + string.Join(Environment.NewLine, errors)
+            );
+        }
+
+        using var image = new MemoryStream();
+        var emitted = compilation.Emit(image);
+
+        if (!emitted.Success) {
+            throw new InvalidOperationException(
+                $"{template.Id} compiles and does not emit:{Environment.NewLine}"
+                + string.Join(Environment.NewLine, emitted.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            );
+        }
+
+        return Assembly.Load(image.ToArray());
+    }
+
+    static (CSharpCompilation Compilation, IReadOnlyList<string> Errors) Compile(
+        ProjectTemplate template,
+        string projectName
+    ) {
         var files = template.Instantiate(projectName, "0.1.0");
 
         var sources = files
@@ -188,18 +239,19 @@ static class TemplateCompiler {
             // The generator's own diagnostics point at the `.vxml`, with its line and column. They
             // are the ones worth reading when a template's markup is wrong, so they are reported
             // rather than left to show up as a missing type in the C# that mounts the component.
-            return [
+            return (compilation, [
                 .. produced
                     .Concat(compilation.GetDiagnostics())
                     .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
                     .Select(diagnostic => diagnostic.ToString())
-            ];
+            ]);
         }
 
-        return compilation.GetDiagnostics()
-            .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
-            .Select(diagnostic => diagnostic.ToString())
-            .ToArray();
+        return (compilation, [
+            .. compilation.GetDiagnostics()
+                .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
+                .Select(diagnostic => diagnostic.ToString())
+        ]);
     }
 
     /// <summary>Where the scaffolded project is pretended to live.</summary>
