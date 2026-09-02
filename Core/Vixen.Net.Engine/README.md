@@ -157,6 +157,15 @@ the join between the two on each peer.
   system, so **a capture must come after the `LateUpdate` phase in the same tick**, and a server that
   captures inside `FixedUpdate` calls `Sweep(world)` itself — public for the same reason
   `NetworkTransformCaptureSystem.Publish` is.
+- **An adopter for the behaviour style, and the obstacle is the assembly graph.** `NetworkBehaviour`
+  has no production subclass; every one in the tree is a test, and so is every caller of `Sweep` and
+  of `Publish`. ⚠ **This is not "nobody got round to it".** No sample in the repository references
+  both `Vixen.Engine` and `Vixen.Net`: `04`, `13` and `15` have a behaviour loop and no session, `08`,
+  `09` and `14-Mmo` have a session and no behaviour loop, and **nothing references
+  `Vixen.Net.Engine` outside `Core/` and `Vixen.Editor.Assets`**. So the intersection where this
+  authoring style is usable at all is empty, and `Samples/08` — which two remarks in this assembly
+  used to name as their caller, wrongly — cannot host one without gaining an `EngineLoop` and two
+  project references it deliberately does not have. Tracked as issue 133.
 - **Codecs beyond the built-in set.** `SyncCodecs.Register` is the door; only the types the generator
   already understands are through it.
 - ~~**Registering prefabs from the catalog.**~~ **Built, in

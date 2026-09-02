@@ -129,8 +129,19 @@ public sealed class SyncStateSweepSystem : SystemBase, IDeclaredAccess {
     /// <returns>How many marks were made, state and lists together.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
     /// <remarks>
-    ///     Public so a server loop that drives its own schedule — which is what <c>Samples/08</c>
-    ///     does — can call it immediately before its <c>Capture</c> rather than standing up a runner.
+    ///     <para>
+    ///         Public so a server loop that drives its own schedule can call it immediately before
+    ///         its <c>Capture</c> rather than standing up a runner.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to name <c>Samples/08</c> as that loop, and it cannot be.</b> That
+    ///         sample references <c>Vixen.Net</c> and not <c>Vixen.Net.Engine</c>, so it cannot reach
+    ///         this type — and it holds a bare <c>World</c> rather than an <c>EngineLoop</c>, so it
+    ///         has no <c>BehaviorStore</c> to sweep. <b>Every caller of this method is a test</b>, and
+    ///         so is every subclass of <see cref="NetworkBehaviour" />: no sample in the tree
+    ///         references both <c>Vixen.Engine</c> and <c>Vixen.Net</c>, so the intersection where
+    ///         this style is usable is empty rather than merely unvisited.
+    ///     </para>
     /// </remarks>
     public int Sweep(World world) {
         ArgumentNullException.ThrowIfNull(world);

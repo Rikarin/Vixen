@@ -135,8 +135,18 @@ public sealed class NetworkTransformCaptureSystem : SystemBase, IDeclaredAccess 
     /// <param name="world">The world.</param>
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
     /// <remarks>
-    ///     Public so a server loop that drives its own schedule — which is what
-    ///     <c>Samples/08</c> does — can call it directly rather than standing up a runner.
+    ///     <para>
+    ///         Public so a server loop that drives its own schedule can call it directly rather than
+    ///         standing up a runner.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to name <c>Samples/08</c> as that loop, and it cannot be.</b> That
+    ///         sample references <c>Vixen.Net</c> and not <c>Vixen.Net.Engine</c>, so it cannot reach
+    ///         this type at all — it captures a world of <c>[Replicated]</c> components and owns no
+    ///         transform bridge. <b>No caller outside a test drives this by hand today</b>, and the
+    ///         reason is structural: no sample in the tree references both <c>Vixen.Engine</c> and
+    ///         <c>Vixen.Net</c>, so nothing has both a behaviour loop and a session.
+    ///     </para>
     /// </remarks>
     public void Publish(World world) {
         ArgumentNullException.ThrowIfNull(world);
