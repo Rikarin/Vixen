@@ -24,7 +24,6 @@ decision that has been made and built, kept because the reasons stay useful.
 
 | | Open item | Where | Blocks |
 |---|---|---|---|
-| 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, the CI workflows | § A, § G | shipping the library as a package. SPDX enforcement is no longer part of this row — `CheckFormat` checks it, over `.cs`, `.g4`, `.vxml`, `.vcss` and `.ts`, and `.rvn` is deliberately outside that scope |
 | ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
 
@@ -932,7 +931,7 @@ Nothing here is engine-blocking except where marked.
 | | Gap |
 |---|---|
 | 🔴 | **Four nodes silently drop their tokens.** `RepeatStatementSyntax` has no `repeat`/`while` keywords or parens, `CastExpressionSyntax` no parens, `SelfExpressionSyntax`/`BaseExpressionSyntax` no keyword at all. Fix is the recipe every other node already follows: token slots in `Syntax.xml`, then wire the visitor |
-| 🟡 | **String interpolation** — needs lexer modes for embedded expressions. Nothing shipped uses it |
+| ✂️ | **String interpolation** — ⚠ **not a gap, and this row contradicted the Example2 paragraph below**, which lists it among the constructs *deliberately removed*. That is the reading the language supports: an interpolation is an expression whose value is a `string`, `string` is not a type, and a string literal in expression position is `RVN2025`. Lexer modes would buy the syntax for a value nothing can hold. Pinned in `RemovedConstructsTests` — including ⚠ that the `$` is `RVN1002` carried as **trivia**, so `[Semantic($"SV_Target{0}")]` binds `SemanticName` to the braces verbatim and only the error stops it |
 | ✅ | **Sized array types as type syntax** — `float4[4]`, `mat4[MaxBones]`. The `a[i]` ambiguity is resolved by *position* rather than by token shape; see [§ Sized arrays](#sized-arrays-the-length-is-part-of-the-type) |
 
 The first is worse than "loses a keyword", and it is verified rather than inherited. All four parse

@@ -37,6 +37,12 @@ Never had them:
 - **`string` as a type.** String *literals* still exist, because attribute
   arguments such as `[Semantic("SV_Target")]` are compile-time metadata. Using
   one as a value is an error.
+- **String interpolation**, which follows from the line above rather than being a
+  separate decision: an interpolation is an expression whose value is a `string`.
+  ⚠ `$` is `RVN1002` and the lexer carries it as **trivia**, so in an attribute —
+  the one position a literal is legal — `[Semantic($"SV_Target{0}")]` binds the
+  semantic name to the braces verbatim, and only `RVN1002` being an error keeps
+  that out of a backend. Both halves are pinned in `RemovedConstructsTests`.
 
 An integer literal too large for `int` takes the `uint` shape rather than
 widening to a type that does not exist.
