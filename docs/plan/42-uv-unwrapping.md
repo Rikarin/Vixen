@@ -569,13 +569,18 @@ GarmentCodeData and this is eleven primitives chosen so each fails differently.
    LSCM fixes scale from two independently chosen pins. Six charts each measuring 1.002 to 1.018
    combined to **2.245**, a number no chart had, above a threshold every chart passed. U2 never saw it
    because its fixtures are uniform strips of one surface, where the two forms agree exactly.
-3. ⚠ **`TriangleTree.Raycast` rejects a triangle whose Möller–Trumbore determinant falls under an
+3. ⚠ **`TriangleTree.Raycast` rejected a triangle whose Möller–Trumbore determinant fell under an
    absolute `MathUtil.ZeroTolerance`, and that determinant scales as the square of the model.** So the
    occlusion term silently read zero on a small model and five of nine shapes charted differently at
    1/1024 scale. This is the **third** time `ZeroTolerance` has met a cross product here — after
-   `EditMesh.Normal` and `ManifoldMesh.TriangleNormal`. Worked around by casting at a rescaled copy;
-   ⚠ **the fix belongs in `TriangleTree`, whose test should be relative to the triangle's own scale**,
-   and that assembly was owned by other work at the time.
+   `EditMesh.Normal` and `ManifoldMesh.TriangleNormal`. Initially worked around by casting at a
+   rescaled copy while that assembly was owned by other work. **The fix has since landed in
+   `TriangleTree`: its determinant test is relative to the triangle's and ray's own scale.** #415
+   removes the rescaled copy from `SeamGraph`; rays use the original positions and a diagonal-relative
+   origin offset. The nine-shape scale-invariance suite covers exact chart assignments at 1/1024 and
+   1024, and chart counts and fold-free flattening at 1e±3. Restoring the old absolute determinant
+   predicate reproduces five of nine chart failures at 1/1024; the direct visibility-cost regression
+   also fails under that sabotage and under an absolute origin offset.
 
 ### U4 — Packing · 1.5 EM
 

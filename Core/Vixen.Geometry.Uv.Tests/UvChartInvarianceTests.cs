@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Geometry.Uv.Charting;
 using Xunit;
 
 namespace Vixen.Geometry.Uv.Tests;
@@ -41,6 +42,45 @@ public class UvChartInvarianceTests {
             "strip"
         ];
 
+    /// <summary>Occlusion itself survives a unit conversion, before chart thresholds can hide a change.</summary>
+    /// <remarks>
+    ///     Both an absolute determinant threshold in TriangleTree and an absolute ray-origin offset
+    ///     in SeamGraph make the 1/1024 case fail. The other seam terms are disabled so neither can
+    ///     hide the lost visibility contribution.
+    /// </remarks>
+    [Theory]
+    [InlineData(1f / 1024f)]
+    [InlineData(1024f)]
+    public void VisibilityCostsScaleWithEveryEdge(float scale) {
+        var settings = new UvSettings {
+            SeamCost = new() {
+                Concavity = 0f,
+                Visibility = 1f,
+                Feature = 0f,
+                Material = 0f,
+                Symmetry = 0f,
+                Length = 0f,
+                Existing = 0f
+            }
+        };
+
+        var reference = SeamGraph.Build(ShapeCorpus.Dumbbell(), settings);
+        var scaled = SeamGraph.Build(ShapeCorpus.Dumbbell(scale), settings);
+
+        // Fully exposed edges pay their whole length. Require a partially occluded edge so that
+        // rays which all miss, or a visibility term which is never evaluated, cannot pass vacuously.
+        Assert.Contains(
+            Enumerable.Range(0, reference.Cut.Length),
+            edge => reference.Cut[edge] > 0d && reference.Cut[edge] < reference.EdgeLengths[edge]
+        );
+
+        Assert.Equal(reference.Cut.Length, scaled.Cut.Length);
+
+        for (var edge = 0; edge < reference.Cut.Length; edge++) {
+            Assert.Equal(reference.Cut[edge] * scale, scaled.Cut[edge]);
+        }
+    }
+
     /// <summary>A power of two scales the model exactly, so it must not move a single chart.</summary>
     /// <remarks>
     ///     <para>
@@ -52,11 +92,12 @@ public class UvChartInvarianceTests {
     ///         constant with units in it can make this fail.
     ///     </para>
     ///     <para>
-    ///         <b>And one did.</b> Five of these nine shapes charted differently at 1/1024 before
-    ///         <c>SeamGraph.RayScale</c> existed: <c>TriangleTree.Raycast</c> rejects a triangle whose
-    ///         Möller–Trumbore determinant falls under an absolute <c>MathUtil.ZeroTolerance</c>, that
-    ///         determinant scales as the <b>square</b> of the model, and so every occlusion ray silently
-    ///         missed and the visibility term read zero.
+    ///         <b>And one did.</b> Five of these nine shapes charted differently at 1/1024 when
+    ///         <c>TriangleTree.Raycast</c> tested its Möller–Trumbore determinant against an absolute
+    ///         <c>MathUtil.ZeroTolerance</c>. The determinant scales as the <b>square</b> of the model,
+    ///         so occlusion rays missed and the visibility term read zero. The tree now uses a relative
+    ///         test, and <c>SeamGraph</c> casts in the mesh's original space; this test guards that fix
+    ///         without the normalized copy that used to hide the tree's scale dependence.
     ///     </para>
     /// </remarks>
     [Theory]

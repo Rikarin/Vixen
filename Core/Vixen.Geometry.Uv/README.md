@@ -83,14 +83,12 @@ revolution the two are close to opposite — a narrow waist has short circumfere
 crossing it looks cheap under edge length while being the longest way round under any real geodesic.
 Measured before the fix: the dumbbell was cut lengthwise down the model instead of round its waist.
 
-⚠ **Occlusion rays are cast at a rescaled copy of the mesh, and that is a workaround rather than a
-modelling choice.** `TriangleTree.Raycast` rejects a triangle whose Möller–Trumbore determinant falls
-under an absolute `MathUtil.ZeroTolerance`, and that determinant scales as the **square** of the
-model — so at a thousandth scale every ray silently missed, the visibility term read zero, and the
-charter cut somewhere else. Five of nine shapes charted differently at 1/1024 before `SeamGraph`
-normalized the geometry it casts at. The fix belongs in `TriangleTree`, whose test should be relative
-to the triangle's own scale; that assembly is owned elsewhere. This is the third time `ZeroTolerance`
-has met a cross product in this repository.
+**Occlusion rays use the mesh's original positions, with an origin offset proportional to its bounds
+diagonal.** `TriangleTree.Raycast` now tests its determinant relative to the triangle's and ray's own
+scale, so `SeamGraph` no longer needs a normalized copy. The old absolute `MathUtil.ZeroTolerance`
+made small triangles disappear to occlusion rays: five of nine shapes charted differently at 1/1024
+scale. `UvChartInvarianceTests` guards that failure with exact chart assignments at power-of-two
+scales, including 1/1024, and checks chart counts and fold-free flattening at decimal scales.
 
 ## Coordinates are per corner
 

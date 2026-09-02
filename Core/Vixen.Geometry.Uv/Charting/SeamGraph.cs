@@ -54,37 +54,6 @@ sealed class SeamGraph {
     /// </remarks>
     const double RayOffset = 1e-4;
 
-    /// <summary>How big the mesh is made before a ray is cast at it.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The visibility rays are cast at a rescaled copy of the mesh, and that is a workaround
-    ///         for an absolute tolerance one assembly down rather than a modelling choice.</b>
-    ///         <see cref="TriangleTree.Raycast(Vector3, Vector3, out bool)" /> rejects a triangle whose Möller–Trumbore determinant
-    ///         falls below <c>MathUtil.ZeroTolerance</c> — an absolute <c>1e-6</c> — and that determinant
-    ///         is <c>edge · (direction × edge)</c>, which for a unit direction scales as the <b>square</b>
-    ///         of the model. So the same mesh at a thousandth of its size has determinants a millionth
-    ///         the size, every ray silently misses, the occlusion term reads zero, and <b>the charter
-    ///         cuts somewhere else</b>. Measured: five of this corpus's nine shapes charted differently
-    ///         at 1/1024 scale, and a power of two is exact everywhere else in the seam cost, so nothing
-    ///         but an absolute epsilon could have done it.
-    ///     </para>
-    ///     <para>
-    ///         This is the third time this repository has been bitten by <c>ZeroTolerance</c> meeting a
-    ///         cross product — <c>EditMesh.Normal</c> and <c>ManifoldMesh.TriangleNormal</c> were the
-    ///         first two. The fix belongs in <c>TriangleTree</c>, whose test should be relative to the
-    ///         triangle's own scale; <c>Vixen.Core.Mathematics</c> is owned by other work, so the mesh is
-    ///         brought to a fixed size here instead and the rays are cast in that space.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A power of two, so the workaround does not itself break the invariance it exists to
-    ///         restore.</b> Scaling by <c>1024/diagonal</c> where the diagonal has itself scaled by a
-    ///         power of two leaves every mantissa untouched, so the normalized copy is bit-identical at
-    ///         any power-of-two input scale. A round decimal here would have traded one scale dependency
-    ///         for a subtler one.
-    ///     </para>
-    /// </remarks>
-    const float RayScale = 1024f;
-
     /// <summary>How near a reflected position must land to count as a mirror, over the diagonal.</summary>
     const double MirrorTolerance = 1e-3;
 
@@ -248,7 +217,7 @@ sealed class SeamGraph {
             diagonal = 1d;
         }
 
-        var exposure = Exposure(mesh, centroids, normals, bounds, diagonal);
+        var exposure = Exposure(mesh, centroids, normals, diagonal);
         var mirrors = Mirrors(mesh, bounds, diagonal);
 
         var edges = mesh.Edges;
@@ -530,7 +499,6 @@ sealed class SeamGraph {
         EditMesh mesh,
         Vector3[] centroids,
         Vector3[] normals,
-        BoundingBox bounds,
         double diagonal
     ) {
         var exposure = new double[mesh.FaceCount];
@@ -542,17 +510,11 @@ sealed class SeamGraph {
             return exposure;
         }
 
-        // The rescaled copy the rays are actually cast at — see RayScale for why there is one.
-        var centre = (bounds.Minimum + bounds.Maximum) * 0.5f;
-        var factor = RayScale / (float)diagonal;
-        var scaled = new Vector3[mesh.PositionCount];
-
-        for (var position = 0; position < scaled.Length; position++) {
-            scaled[position] = (mesh.Positions[position] - centre) * factor;
-        }
-
-        var tree = new TriangleTree(scaled, triangles);
-        var offset = (float)(RayScale * RayOffset);
+        // TriangleTree tests against the triangle's and ray's own scale, so the original positions
+        // need no normalization. The origin offset must remain relative to the model for the same
+        // reason: changing units must not change which rays escape.
+        var tree = new TriangleTree(mesh.Positions, triangles);
+        var offset = (float)(diagonal * RayOffset);
 
         for (var face = 0; face < mesh.FaceCount; face++) {
             var normal = normals[face];
@@ -574,7 +536,7 @@ sealed class SeamGraph {
 
             var tangent = Unit(Vector3.Cross(normal, away));
             var bitangent = Unit(Vector3.Cross(normal, tangent));
-            var origin = ((centroids[face] - centre) * factor) + (normal * offset);
+            var origin = centroids[face] + (normal * offset);
             var escaped = 0;
 
             for (var ray = 0; ray < OcclusionRays; ray++) {
