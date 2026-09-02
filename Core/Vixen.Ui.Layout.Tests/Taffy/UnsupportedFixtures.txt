@@ -267,11 +267,12 @@
 #
 # ⚠ Worth recording precisely because they are absent, and because they are the ones a reader
 # guesses at. `TaffyStyleMap` also refuses `min-content sizing`, `fit-content()` and `fr units` from
-# its `Length` helper, and `grid-template-areas` and `clear` by name. Not one of them accounts for a
-# single fixture. `min-content`, `fit-content()` and `fr` reach the corpus only inside track lists,
+# its `Length` helper, `clear` by name, and an area template that is not a rectangle. Not one of
+# them accounts for a single fixture. `min-content`, `fit-content()` and `fr` reach the corpus only inside track lists,
 # which go through `TaffyTrackListParser` and are fully supported; no fixture writes any of the
 # three as a `width`, a `height`, an inset or a `flex-basis`, which is the only path into `Length`.
-# `grid-template-areas` appears nowhere in the corpus at all. `clear` appeared 32 times, every one of
+# `grid-template-areas` appears nowhere in the corpus at all — and is no longer refused as a whole
+# property, because the store carries named areas now; only an INVALID template is. `clear` appeared 32 times, every one of
 # them in the `float` corpus, whose fixtures were all refused already and recorded `float` as the
 # reason — so `clear` was real debt that was invisible here because a bigger one shadowed it, which
 # is a third category and the reason this heading was never just a curiosity. ⚠ It is now the ONLY
@@ -284,7 +285,9 @@
 # bucket by bucket, so the day one of them fires it appears as a new line and the suite goes red.
 # ⚠ That is no longer sufficient on its own, because an empty census cannot demonstrate that its
 # instrument still works — so `TaffyUnsupportedCensusTests` now feeds the map `float: inline-start`,
-# `clear: inline-end` and a `grid-template-areas` directly and requires all three to be refused.
+# `clear: inline-end` and a non-rectangular `grid-template-areas` directly and requires all three to
+# be refused — plus a VALID area template, which must NOT be, since a probe that refused everything
+# would satisfy the other three.
 #
 #
 # ══ TOTAL ════════════════════════════════════════════════════════════════════════════════════════

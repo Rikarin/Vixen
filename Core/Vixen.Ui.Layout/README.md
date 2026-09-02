@@ -21,11 +21,11 @@ and **none fail** — `Taffy/BlockKnownGaps.txt` is down to its refusal list, an
 count is zero, so the next block regression names itself. See
 [the block section](#block-layout-and-what-a-second-algorithm-cost) below.
 
-**Grid landed with doc 43 § B2 and is the third.** 1 974 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 132 are refused, and 14 fail in the buckets `Taffy/GridKnownGaps.txt`
+**Grid landed with doc 43 § B2 and is the third.** 2 038 of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, 40 are refused, and 42 fail in the buckets `Taffy/GridKnownGaps.txt`
 names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
-sizing (§12), §11.8's baseline alignment and CSS Grid §9's containing block for an out-of-flow
-child are done, and `grid-template-areas` is **not implemented at all** — see
+sizing (§12), §11.8's baseline alignment, CSS Grid §9's containing block for an out-of-flow child
+and §7.3's `grid-template-areas` are done; **named lines written into a track list** are not — see
 [the grid section](#grid-and-the-part-with-no-oracle).
 
 **Inline formatting landed with doc 43 § B3 and is the fourth**, and it is the first mode to arrive
@@ -360,17 +360,48 @@ with a watermark** (`GridScratch`), because a grid can contain a grid: track siz
 items, and measuring an item may run the whole algorithm on another grid container whose scratch
 must not overwrite the outer one's.
 
-### `grid-template-areas` has zero fixtures, and it is not implemented
+### `grid-template-areas` has zero fixtures, and it landed against somebody else's suite
 
-⚠ **This is the one part of grid with no oracle at all.** Taffy's own XML harness leaves
+⚠ **This is the one part of grid with no oracle in either corpus.** Taffy's own XML harness leaves
 `grid-template-areas` at `Default::default()`, so not one of the 5 524 fixtures sets it — verified
 across all eight corpus files, not assumed. Named lines are the same story: no track list in the
 corpus contains a `[name]`, and all 6 636 placement values match `-?<int>` or `span <int>` exactly.
 
-So named areas would have been code whose expectations were written by the same person who wrote the
-code, sitting behind a suite that is green either way. **It is left out and recorded as left out**,
-here and in `LayoutTree.Grid.cs` and in the guide page. Implementing it later means writing the
-oracle first — WPT's `css-grid/grid-definition/` reftests, re-expressed the way `OrderTests` was.
+This section used to end "it is left out and recorded as left out", with one condition on
+implementing it later: **write the oracle first**. That is what `GridTemplateAreasTests` is.
+`web-platform-tests`' `css/css-grid/grid-definition/grid-support-grid-template-areas-001.html` drives
+thirty values through `getComputedStyle` and asserts each one's **serialisation**, plus sixteen it
+requires to compute to `none` — and it is a far better oracle than a reftest, because a serialisation
+is an assertion about the *tokenisation*. Six of the thirty come back different from how they were
+written, which is the whole of what it can see that a geometric test cannot: a run of full stops is
+**one** null cell, so `".a..."` is three columns and not five, and a per-character reading round-trips
+its own mistake into a grid that lays out at the wrong width.
+
+⚠ **Eight of the sixteen refusals lay out perfectly well if they are accepted**, which is why the
+refusal half is worth as much as the acceptance half. `"a b a"`, `"a b" "b a"` and four more are
+areas that are not a single filled rectangle; an implementation that takes each name's bounding box
+and asks no further question puts an item over cells another area owns and says nothing. The three
+row-count mismatches are the other half — §7.3 invalidates the whole declaration rather than the
+row, so a parser that padded the short row would build a grid nobody wrote.
+
+⚠ **And the placement half needed three things outside this assembly, any one of which left out
+would have shipped a property nothing could use.** `grid-area` was a shorthand `ShorthandExpansion`
+deliberately did not expand — its own header said so — so `grid-area: header`, which is how a named
+area is written, resolved and did nothing. §8.4's rule that an omitted edge repeats a
+`<custom-ident>` and not a number was unreachable while a name could not be stored, and a comment in
+that file warned that whoever added names had to add the duplication in the same change. And a
+placement longhand now has two grammars, so `LayoutStyleBuilder` reads each of the four twice — once
+as a line, once as a name — and exactly one of the two readers reports a refusal.
+
+⚠ **What is still not implemented is named lines written into a track list** — `[col] 50px [col]`.
+WPT's files for those are reftests whose geometry is not stated, `GridTrackList` has nowhere to put a
+name, and no fixture in either corpus writes one. `grid-template-areas`' implicit `name-start` and
+`name-end` lines are the half that had an oracle.
+
+⚠ **One divergence, pinned rather than left to drift**: §8.3 says a name matching no line makes every
+*implicit* line carry it, which places an item on a line the author never wrote. This store
+auto-places instead, which is what makes a typo look like a typo.
+`GridTemplateAreasTests.A_name_no_area_carries_is_auto_placed` is that decision written down.
 
 ### What is done, per feature, and what is not
 
@@ -383,11 +414,17 @@ oracle first — WPT's `css-grid/grid-definition/` reftests, re-expressed the wa
 | `fit-content()` | **done** against a definite container; a percentage argument against an indefinite one is listed |
 | Gaps, including percentage gaps | **done** |
 | `justify-*`/`align-*` items, self and content, including §4.4's `safe` overflow fallback | **done** |
-| Baseline alignment (§11.8) | **not implemented** — the largest named gap, 64 of the corpus's 80 `align-items` values |
-| An out-of-flow child's grid area as its containing block (§9) | **not implemented** — see below |
-| `grid-template-areas`, named lines, `subgrid`, `masonry` | **not implemented**, no oracle |
+| Baseline alignment (§11.8) | **done** — `ResolveBaselineShims`, and every `grid_align_items_baseline_*` family is green |
+| An out-of-flow child's grid area as its containing block (§9) | **done** — 96 `grid_absolute_*` fixtures, see below |
+| `grid-template-areas` (§7.3), including the implicit `name-start`/`name-end` lines | **done** — no corpus fixture sets it; the oracle is WPT, see above |
+| Named lines in a track list, `subgrid`, `masonry` | **not implemented**, no oracle |
 
-⚠ **One of those is a measurement rather than a judgement.** The static-position half of §9 — record
+⚠ **Two rows of that table said "not implemented" long after they were**, which is worth recording
+because it is the same staleness the state document is written to prevent: §11.8 and §9 both landed
+from separate branches and `GridKnownGaps.txt` says so at the top, while this table went on naming
+them as the largest gap. Where the two disagree the gaps file is the one measured by a test.
+
+⚠ **One thing about §9 is a measurement rather than a judgement.** The static-position half — record
 each abspos child's grid-area corner, reuse block's `BlockStaticLeft`/`BlockStaticTop` pair, let the
 absolute walk read it for a grid parent too — was written, measured, and **taken back out**: it fixed
 six fixtures and broke eight, for a net loss of two. The half that pays is resolving an *inset*
@@ -628,15 +665,18 @@ It reports every fixture it could not translate and why. Nine are skipped today,
 
 ## Deliberately not here
 
-**`grid-template-areas`, named grid lines, `subgrid` and `masonry`** — the parts of grid with no
+**Named grid lines in a track list, `subgrid` and `masonry`** — the parts of grid still with no
 oracle in either corpus. See the grid section above for why writing them against expectations of our
-own devising was the wrong trade.
+own devising is the wrong trade.
 
 **What remains in grid is arithmetic rather than a missing feature**, listed per fixture in
-`Taffy/GridKnownGaps.txt`. The two whole features this section used to name — §11.8's baseline
-alignment and §9's containing block for an out-of-flow child — both landed: the grid area is cut
-out of the finished tracks and handed to `LayoutTree.Absolute` as a per-child rectangle, which is
-what closed 96 `grid_absolute_*` fixtures.
+`Taffy/GridKnownGaps.txt`. The three whole features this section used to name have all landed.
+§11.8's baseline alignment and §9's containing block for an out-of-flow child came from separate
+branches — the grid area is cut out of the finished tracks and handed to `LayoutTree.Absolute` as a
+per-child rectangle, which is what closed 96 `grid_absolute_*` fixtures. ⚠ **`grid-template-areas`
+came from somewhere else entirely: it is the first layout feature here judged by a suite neither
+corpus contains**, and the condition this section set on it — write the oracle first — was met by
+lifting WPT's parsing suite case for case rather than by re-expressing a reftest's geometry.
 
 **The strut, `text-align`, and generated boxes** — the parts of inline formatting still open. Two
 of the four this line used to name have closed: non-atomic inline fragmentation, and anonymous block

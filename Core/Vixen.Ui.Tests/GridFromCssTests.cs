@@ -342,30 +342,39 @@ public class GridFromCssTests {
         Assert.Equal(height, placed.Height, Tolerance);
     }
 
-    /// <summary>A named line is refused rather than auto-placed in silence.</summary>
+    /// <summary>
+    ///     A placement value that is neither a line nor an area's name is refused rather than
+    ///     auto-placed in silence.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The diagnostic names <c>grid-column-start</c> and not <c>grid-column</c>, which is a
-    ///     real cost of expanding at load and is worth stating rather than leaving to be
-    ///     discovered.</b> <c>ShorthandExpansion</c> divides the shorthand before anything can judge
-    ///     its halves — it lives in <c>Vixen.Ui.Styling</c>, which has no <c>GridPlacement</c> to ask
-    ///     — so by the time the bridge finds <c>sidebar</c> unreadable, the name it has to report is
-    ///     the longhand's. What the test is for survives that intact: the declaration is refused out
-    ///     loud, the item is not quietly auto-placed, and the reported name still carries the value
-    ///     the author wrote.
+    ///     <para>
+    ///         ⚠ <b>The diagnostic names <c>grid-column-start</c> and not <c>grid-column</c>, which is
+    ///         a real cost of expanding at load and is worth stating rather than leaving to be
+    ///         discovered.</b> <c>ShorthandExpansion</c> divides the shorthand before anything can
+    ///         judge it, so what reaches the bridge is the half that failed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This test used to write <c>grid-column: sidebar</c>, and that value is no longer
+    ///         a refusal.</b> A bare identifier is an area's name now, and a name that matches no area
+    ///         is auto-placed — legal CSS with a defined meaning, so refusing it would be reporting a
+    ///         correct declaration. What is left loud is a value that is neither, and a single
+    ///         diagnostic is asserted because the four placement longhands are now read twice, once
+    ///         as a line and once as a name; the second reader is the only one that speaks.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void A_named_line_is_refused_rather_than_auto_placed_in_silence() {
+    public void A_placement_that_is_neither_a_line_nor_a_name_is_refused() {
         using var document = Laid(
             """
             root { width: 400px; height: 300px; }
             .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 100px); }
-            .placed { grid-column: sidebar; height: 10px; }
+            .placed { grid-column: 4px; height: 10px; }
             """,
             document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
         );
 
         var refusal = Assert.Single(document.Builder.Diagnostics);
-        Assert.StartsWith("grid-column-start: sidebar", refusal.Text, StringComparison.Ordinal);
+        Assert.StartsWith("grid-column-start: 4px", refusal.Text, StringComparison.Ordinal);
     }
 
     /// <summary>A shorthand the expander will not divide is still read, by the bridge, as before.</summary>
@@ -463,5 +472,163 @@ public class GridFromCssTests {
         // Back to a single automatic column, so the second child stacks under the first.
         Assert.Equal(cells[0].AbsoluteLeft, cells[1].AbsoluteLeft, Tolerance);
         Assert.True(cells[1].AbsoluteTop > cells[0].AbsoluteTop, "the tracks outlived the declaration");
+    }
+
+    // ── Named areas ─────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     <c>grid-template-areas</c> and <c>grid-area</c>, end to end: the CSS half of a feature the
+    ///     layout corpus can see no part of.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every step between the stylesheet and §8 is new here, and each is invisible on its
+    ///         own.</b> The declaration reaches a <c>VariableLengthProperty</c> rather than
+    ///         <c>LayoutStyleBuilder.Build</c>, because a template belongs to a node and a
+    ///         <c>LayoutStyle</c> never sees one; <c>grid-area: head</c> is expanded into four
+    ///         longhands, three of which §8.4 fills in by duplication; and each longhand is read once
+    ///         as a line and once as a name. Take away the duplication alone and <c>head</c> is one
+    ///         cell rather than two, which lays out and reads as a track-sizing bug.
+    ///     </para>
+    ///     <para>
+    ///         The template is <c>"head head" "nav main"</c> over two 100-point columns and two
+    ///         50-point rows, so the numbers are the three rectangles and nothing else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_item_lands_in_the_area_its_grid_area_names() {
+        using var document = Laid(
+            """
+            root { width: 400px; height: 300px; }
+            .grid {
+                display: grid;
+                width: 200px;
+                grid-template-columns: 100px 100px;
+                grid-template-rows: 50px 50px;
+                grid-template-areas: "head head" "nav main";
+            }
+            .head { grid-area: head; }
+            .nav { grid-area: nav; }
+            .main { grid-area: main; }
+            """,
+            document => {
+                var host = document.Root.Add("div", classNames: "grid");
+                host.Add("div", classNames: "head");
+                host.Add("div", classNames: "nav");
+                host.Add("div", classNames: "main");
+            }
+        );
+
+        var cells = document.Root.ChildList[0].ChildList;
+
+        Assert.Empty(document.Builder.Diagnostics);
+
+        Assert.Equal(0f, cells[0].AbsoluteLeft, Tolerance);
+        Assert.Equal(200f, cells[0].Width, Tolerance);
+        Assert.Equal(50f, cells[0].Height, Tolerance);
+
+        Assert.Equal(0f, cells[1].AbsoluteLeft, Tolerance);
+        Assert.Equal(50f, cells[1].AbsoluteTop, Tolerance);
+        Assert.Equal(100f, cells[1].Width, Tolerance);
+
+        Assert.Equal(100f, cells[2].AbsoluteLeft, Tolerance);
+        Assert.Equal(50f, cells[2].AbsoluteTop, Tolerance);
+    }
+
+    /// <summary>The rows a template names are explicit rows even where no track list sizes them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>§7.1's "larger of", measured through CSS.</b> This grid states
+    ///     <c>grid-template-columns</c> and no rows at all, so both rows come from the template and
+    ///     are sized by <c>grid-auto-rows</c>. A bridge that stored the template and a store that
+    ///     ignored it would put the item in row one.
+    /// </remarks>
+    [Fact]
+    public void The_rows_a_template_names_exist_without_a_grid_template_rows() {
+        using var document = Laid(
+            """
+            root { width: 400px; height: 300px; }
+            .grid {
+                display: grid;
+                width: 200px;
+                grid-template-columns: 100px 100px;
+                grid-auto-rows: 30px;
+                grid-template-areas: "a b" "c c";
+            }
+            .c { grid-area: c; }
+            """,
+            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "c")
+        );
+
+        var placed = document.Root.ChildList[0].ChildList[0];
+
+        Assert.Equal(0f, placed.AbsoluteLeft, Tolerance);
+        Assert.Equal(30f, placed.AbsoluteTop, Tolerance);
+        Assert.Equal(200f, placed.Width, Tolerance);
+    }
+
+    /// <summary>An area template that stops being declared stops applying.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same failure the track lists have, one property over, and reachable only through
+    ///     the reset half of the registry.</b> An element whose <c>grid-template-areas</c> disappears
+    ///     from the cascade would otherwise keep its areas for the rest of its life, and every item
+    ///     naming one would keep landing in a template the stylesheet no longer holds.
+    /// </remarks>
+    [Fact]
+    public void An_area_template_that_stops_being_declared_is_cleared_rather_than_remembered() {
+        using var document = Laid(
+            """
+            root { width: 400px; height: 300px; }
+            .grid { display: grid; width: 200px; grid-template-columns: 100px 100px; grid-auto-rows: 30px; }
+            .named { grid-template-areas: "a b" "c c"; }
+            .c { grid-area: c; }
+            """,
+            document => document.Root.Add("div", id: "host", classNames: ["grid", "named"]).Add("div", classNames: "c")
+        );
+
+        var host = document.Root.ChildList[0];
+        var placed = host.ChildList[0];
+
+        Assert.Equal(30f, placed.AbsoluteTop, Tolerance);
+
+        host.RemoveClass("named");
+        document.Update();
+
+        // With no areas the name matches nothing, so the item is auto-placed into the first cell —
+        // which is a different place, and the only reason this assertion can fail.
+        Assert.Equal(0f, placed.AbsoluteTop, Tolerance);
+        Assert.Equal(100f, placed.Width, Tolerance);
+    }
+
+    /// <summary>An invalid template is dropped whole and reported.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A non-rectangular area is the case worth carrying as far as the bridge</b>, because it
+    ///     is the one that lays out if it is accepted. <c>"a b" "b a"</c> gives each name a bounding
+    ///     box holding the other, and an implementation that took the box and asked no further
+    ///     question draws two items over each other and says nothing.
+    /// </remarks>
+    [Fact]
+    public void A_template_whose_areas_are_not_rectangles_is_refused() {
+        using var document = Laid(
+            """
+            root { width: 400px; height: 300px; }
+            .grid {
+                display: grid;
+                width: 200px;
+                grid-template-columns: 100px 100px;
+                grid-auto-rows: 30px;
+                grid-template-areas: "a b" "b a";
+            }
+            .a { grid-area: a; }
+            """,
+            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "a")
+        );
+
+        var refusal = Assert.Single(document.Builder.Diagnostics);
+        Assert.StartsWith("grid-template-areas:", refusal.Text, StringComparison.Ordinal);
+
+        // Dropped whole: no areas, so the item is auto-placed at the origin.
+        var placed = document.Root.ChildList[0].ChildList[0];
+        Assert.Equal(0f, placed.AbsoluteLeft, Tolerance);
+        Assert.Equal(0f, placed.AbsoluteTop, Tolerance);
     }
 }

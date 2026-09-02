@@ -48,6 +48,15 @@ public sealed partial class LayoutTree : IDisposable {
     List<int>? reorderQueue;
     long[] orderKeys = [];
 
+    // ⚠ The same bargain again for `grid-template-areas` and for a placement written as an area's
+    // name. Both are reference-typed and neither fits in `LayoutStyle`, but unlike a track list they
+    // are also not worth an arena: an area template is one object per grid *container*, and a
+    // document has a handful of those beside a hundred thousand boxes. So these are two lazily
+    // allocated managed arrays, exactly as `measureFunctions` is, and a tree with no named area in
+    // it allocates neither. See GridAreaTemplate.
+    GridAreaTemplate?[]? gridAreas;
+    GridPlacementNames[]? placementNames;
+
     ChildArena children = new();
 
     // ⚠ The second arena, and the only thing grid asked of the store that block did not. A track
@@ -133,6 +142,8 @@ public sealed partial class LayoutTree : IDisposable {
             contexts[index] = null;
         }
 
+        ClearGridNames(index);
+
         return new LayoutNodeId(index);
     }
 
@@ -148,6 +159,7 @@ public sealed partial class LayoutTree : IDisposable {
         Detach(index);
         children.Free(links[index].ChildOffset, links[index].ChildCapacity);
         ReleaseGridTemplates(index);
+        ClearGridNames(index);
         ReleaseOrderedBlock(index);
         ReleaseFragments(index);
         links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
@@ -543,6 +555,14 @@ public sealed partial class LayoutTree : IDisposable {
             var previous = orderedChildren.Length;
             Array.Resize(ref orderedChildren, next);
             ClearOrderedRange(orderedChildren, previous);
+        }
+
+        if (gridAreas is not null) {
+            Array.Resize(ref gridAreas, next);
+        }
+
+        if (placementNames is not null) {
+            Array.Resize(ref placementNames, next);
         }
 
         capacity = next;

@@ -138,6 +138,14 @@ public sealed partial class LayoutTree {
     /// <param name="totalTracks">How many tracks the grid ended up with, from §8.</param>
     /// <param name="leadingImplicit">How many implicit tracks sit before the explicit grid.</param>
     /// <param name="explicitCount">How many explicit tracks there are, after repetitions.</param>
+    /// <param name="templateCount">
+    ///     ⚠ How many of those the <i>track list</i> sized, which is not the same number once
+    ///     <c>grid-template-areas</c> is in play. §7.1 makes the explicit grid the larger of the two,
+    ///     and §7.1's own note says the tracks the areas add "take their size from the
+    ///     <c>grid-auto-rows</c>/<c>grid-auto-columns</c> properties" — so they are explicit for
+    ///     every purpose that counts lines and implicit for the one that sizes them. Where there is
+    ///     no area template the two counts are equal and every branch below is what it was.
+    /// </param>
     /// <param name="availableSpace">The container's content-box size on this axis, or NaN.</param>
     /// <returns>Where the tracks start in the scratch.</returns>
     int BuildGridTracks(
@@ -146,6 +154,7 @@ public sealed partial class LayoutTree {
         int totalTracks,
         int leadingImplicit,
         int explicitCount,
+        int templateCount,
         float availableSpace
     ) {
         var at = Scratch.AllocateTracks(totalTracks);
@@ -173,12 +182,16 @@ public sealed partial class LayoutTree {
                 // `grid_auto_rows` differ only in how many that is, which is why one list of three
                 // sizes disagrees in two different ways.
                 size = ImplicitTrackSize(in automatic, explicitIndex);
-            } else if (explicitIndex < explicitCount) {
+            } else if (explicitIndex < templateCount) {
                 size = ExplicitTrackSize(stored, in template, explicitIndex);
             } else {
-                // Trailing tracks are numbered from the explicit grid's end edge, so the leading
-                // ones must not be added in: they are a separate run of the same cycle.
-                size = ImplicitTrackSize(in automatic, explicitIndex - explicitCount);
+                // Trailing tracks are numbered from the end of what the TRACK LIST sized, so the
+                // leading ones must not be added in: they are a separate run of the same cycle. The
+                // area-created explicit tracks and the implicit ones past them are one continuous
+                // forward run of `grid-auto-*`, because §7.1 gives the first of them the same
+                // sentence that gives the implicit ones theirs — and where there is no area template
+                // `templateCount == explicitCount` and this is the ordinal it has always been.
+                size = ImplicitTrackSize(in automatic, explicitIndex - templateCount);
             }
 
             Scratch.Track(at + track).Size = size;
@@ -193,7 +206,7 @@ public sealed partial class LayoutTree {
 
             // Before the repetition, inside it, or after it — the stored list holds exactly one
             // repetition inline, so the "after" case skips over however many were generated.
-            var repetitions = (explicitCount - (owner.Count - owner.AutoRepeatCount)) / owner.AutoRepeatCount;
+            var repetitions = (templateCount - (owner.Count - owner.AutoRepeatCount)) / owner.AutoRepeatCount;
             var repeatedTracks = repetitions * owner.AutoRepeatCount;
 
             if (ordinal < owner.AutoRepeatIndex) {

@@ -83,6 +83,12 @@ Vixen.Ui.Layout.FloatSide.FloatSide() -> void
 Vixen.Ui.Layout.FloatSide.Left = 1 -> Vixen.Ui.Layout.FloatSide
 Vixen.Ui.Layout.FloatSide.None = 0 -> Vixen.Ui.Layout.FloatSide
 Vixen.Ui.Layout.FloatSide.Right = 2 -> Vixen.Ui.Layout.FloatSide
+Vixen.Ui.Layout.GridAreaTemplate -> sealed class
+Vixen.Ui.Layout.GridAreaTemplate.Columns.get -> int
+Vixen.Ui.Layout.GridAreaTemplate.NameAt(int row, int column) -> string?
+Vixen.Ui.Layout.GridAreaTemplate.Names.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Layout.GridAreaTemplate.Rows.get -> int
+Vixen.Ui.Layout.GridAreaTemplate.TryGetArea(string name, out int rowStart, out int rowEnd, out int columnStart, out int columnEnd) -> bool
 Vixen.Ui.Layout.GridAutoFlow -> enum : byte
 Vixen.Ui.Layout.GridAutoFlow.Column = 1 -> Vixen.Ui.Layout.GridAutoFlow
 Vixen.Ui.Layout.GridAutoFlow.ColumnDense = 3 -> Vixen.Ui.Layout.GridAutoFlow
@@ -299,6 +305,8 @@ Vixen.Ui.Layout.LayoutTree.GetFragment(Vixen.Ui.Layout.LayoutNodeId node, int fr
 Vixen.Ui.Layout.LayoutTree.GetFragmentCount(Vixen.Ui.Layout.LayoutNodeId node) -> int
 Vixen.Ui.Layout.LayoutTree.GetGridAutoColumns(Vixen.Ui.Layout.LayoutNodeId node) -> System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize>
 Vixen.Ui.Layout.LayoutTree.GetGridAutoRows(Vixen.Ui.Layout.LayoutNodeId node) -> System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize>
+Vixen.Ui.Layout.LayoutTree.GetGridPlacementName(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> string?
+Vixen.Ui.Layout.LayoutTree.GetGridTemplateAreas(Vixen.Ui.Layout.LayoutNodeId node) -> Vixen.Ui.Layout.GridAreaTemplate?
 Vixen.Ui.Layout.LayoutTree.GetGridTemplateColumns(Vixen.Ui.Layout.LayoutNodeId node) -> System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize>
 Vixen.Ui.Layout.LayoutTree.GetGridTemplateRows(Vixen.Ui.Layout.LayoutNodeId node) -> System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize>
 Vixen.Ui.Layout.LayoutTree.GetHadOverflow(Vixen.Ui.Layout.LayoutNodeId node) -> bool
@@ -344,6 +352,8 @@ Vixen.Ui.Layout.LayoutTree.SetGridAutoColumns(Vixen.Ui.Layout.LayoutNodeId node,
 Vixen.Ui.Layout.LayoutTree.SetGridAutoFlow(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.GridAutoFlow flow) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridAutoRows(Vixen.Ui.Layout.LayoutNodeId node, System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize> tracks) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridPlacement(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.GridPlacement placement) -> void
+Vixen.Ui.Layout.LayoutTree.SetGridPlacement(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, string? name) -> void
+Vixen.Ui.Layout.LayoutTree.SetGridTemplateAreas(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.GridAreaTemplate? template) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridTemplateColumns(Vixen.Ui.Layout.LayoutNodeId node, System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize> tracks) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridTemplateColumns(Vixen.Ui.Layout.LayoutNodeId node, System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize> tracks, Vixen.Ui.Layout.GridAutoRepeat kind, int autoRepeatIndex, int autoRepeatCount) -> void
 Vixen.Ui.Layout.LayoutTree.SetGridTemplateRows(Vixen.Ui.Layout.LayoutNodeId node, System.ReadOnlySpan<Vixen.Ui.Layout.GridTrackSize> tracks) -> void
@@ -446,6 +456,9 @@ Vixen.Ui.Layout.Wrap.WrapReverse = 2 -> Vixen.Ui.Layout.Wrap
 const Vixen.Ui.Layout.LayoutLimits.MaximumCachedMeasurements = 8 -> int
 const Vixen.Ui.Layout.LayoutLimits.MaximumGridTracks = 65535 -> int
 const Vixen.Ui.Layout.LayoutLimits.MaximumLayoutDepth = 60 -> int
+override Vixen.Ui.Layout.GridAreaTemplate.Equals(object? obj) -> bool
+override Vixen.Ui.Layout.GridAreaTemplate.GetHashCode() -> int
+override Vixen.Ui.Layout.GridAreaTemplate.ToString() -> string
 override Vixen.Ui.Layout.GridPlacement.ToString() -> string
 override Vixen.Ui.Layout.GridSizingFunction.ToString() -> string
 override Vixen.Ui.Layout.GridTrackSize.ToString() -> string
@@ -455,6 +468,8 @@ override Vixen.Ui.Layout.StyleLength.GetHashCode() -> int
 override Vixen.Ui.Layout.StyleLength.ToString() -> string
 readonly Vixen.Ui.Layout.StyleLength.Unit -> Vixen.Ui.Layout.LayoutUnit
 readonly Vixen.Ui.Layout.StyleLength.Value -> float
+static Vixen.Ui.Layout.GridAreaTemplate.IsAreaName(string value) -> bool
+static Vixen.Ui.Layout.GridAreaTemplate.TryParse(string value, out Vixen.Ui.Layout.GridAreaTemplate? template, out string? refusal) -> bool
 static Vixen.Ui.Layout.GridAutoRepeatSpan.None.get -> Vixen.Ui.Layout.GridAutoRepeatSpan
 static Vixen.Ui.Layout.GridPlacement.Line(int line) -> Vixen.Ui.Layout.GridPlacement
 static Vixen.Ui.Layout.GridPlacement.Span(int tracks) -> Vixen.Ui.Layout.GridPlacement
