@@ -884,7 +884,9 @@ what is left.
 No dependency in either direction; pick any up whenever there is a gap. UDP congestion control /
 ack piggybacking / path MTU / DTLS; `SharpFuzz` instrumentation and structure-aware mutation;
 ~~per-axis `NetworkTransform`~~ (built — `NetworkTransformAxes`, and parent-relative with it); team/room/fog-of-war interest rules and resolver composition; ~~`SyncVar`
-dirty-marking system~~ (built — `SyncStateSweepSystem`); `ReplicationChannel` helper; OpenTelemetry traces and the client-side metrics
+dirty-marking system~~ (built — `SyncStateSweepSystem`); ~~`ReplicationChannel` helper~~ (⚠ **refuted, and it is a
+protocol decision rather than an ergonomics one** — see the § 1.12 row and item 71: the duplication has one instance in the tree
+and that instance argues against it); OpenTelemetry traces and the client-side metrics
 route; Raven string interpolation; ~~blend shapes~~ (built — storage, import, kernel, compute scatter and
 `MorphRenderFeature`; what is left is a scalar weight track on the clip format and the cluster-page
 scatter); parallel asset import; ECS read/write inference
