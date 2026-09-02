@@ -221,15 +221,41 @@ cannot disagree, and gimbal lock is *resolved* rather than avoided — at ninety
 whole turn goes into yaw and roll is reported as zero. That is a real loss of the numbers the user
 typed, and it is why the stored value stays a quaternion: only the display round-trips imperfectly.
 
+### A curve over several objects, and what "mixed" means for one
+
+Two curves agree when their keys agree — the same number of them, each at the same time and value
+with the same tangents and mode. Disagreement is **not per-key**: two curves with different key
+counts have no third key to call mixed, so there is nothing between "the same curve" and "not". The
+row is mixed or it is not.
+
+⚠ **Compared key by key rather than by `EditProperty.Read`, and that is a fix rather than a
+preference.** `Read` compares with `Equals(object, object)`, which for a type with no equality is
+reference identity — and `AnimationCurve` has none. A member written `= AnimationCurve.Linear()`
+gives every instance its own object, so *every* multi-selection read as mixed whatever it held, and
+`IsModified` was permanently true beside it. The comparison lives in the drawer rather than on the
+type on purpose: an `AnimationCurve` is edited in place, raises `Changed`, and its keys sit in a
+`HashSet` inside `CurveEditor`'s selection — value equality on a mutable model obliges a hash code,
+and a hash that moves when a key is dragged takes the dragged key out of the set tracking it.
+
+**A mixed curve shows an empty graph and stays editable.** Empty rather than one of them: showing
+the first object's curve has the user editing "the" curve while looking at one arbitrary object's,
+which is what `EditValue`'s remarks say must never happen. Editable because the only thing an empty
+graph can produce is a curve authored in front of them, which every selected object then gets.
+
+⚠ **And every write is a separate copy per object, through `WriteEach`.** One `Write` puts the *same
+instance* on all of them, and twenty objects sharing one curve is not "they all have the same curve"
+— it is "editing any of them edits all of them", silently, for the rest of the session.
+
+⚠ **`Show` does not re-assign a curve the editor is already showing.** It runs on every change a
+gizmo drag makes, and `CurveEditor.Curve` no-ops only on *reference* equality — so a fresh copy per
+call swaps the object out from under the control forty times a second, clearing its selection and
+re-subscribing.
+
 ## Not in
 
 **A drawer for a nested object.** A member whose type has its own descriptor is drawn read-only rather
 than expanding into a sub-inspector. The descriptor and the field binding both already support it; what
 is missing is the row grouping and the decision about how a nested mixed value reads.
-
-**Multi-edit of a curve.** A curve is edited one object at a time, and a mixed one says so. Merging
-twenty curves has no answer that is not a guess, and "apply this one to all" is a button rather than a
-state of the editor.
 
 **The asset picker's picker.** `AssetDrawer` raises `PickRequested` and shows the name the host
 resolves; the browser it opens belongs to the shell, as does the drop — this assembly has no
