@@ -11,3 +11,8 @@ VXS0403 | Vixen.Engine | Warning | A behaviour is generic, so a scene cannot nam
 VXS0404 | Vixen.Engine | Warning | A [GameSystem] type does not implement ISystem, so nothing could add it to a frame
 VXS0405 | Vixen.Engine | Warning | A [GameSystem] type does not have exactly one public constructor, so what it needs is ambiguous
 VXS0406 | Vixen.Engine | Warning | A [GameSystem] type is abstract or generic, so there is no one system to add
+VXS0407 | Vixen.Engine | Warning | An [InferAccess] type does not implement ISystem, so nothing would read the declaration
+VXS0408 | Vixen.Engine | Warning | An [InferAccess] type is not a partial top-level non-generic class, so the declaration has nowhere to go
+VXS0409 | Vixen.Engine | Warning | An [InferAccess] type already implements IDeclaredAccess, so the inferred declaration is dropped
+VXS0410 | Vixen.Engine | Warning | An [InferAccess] type also carries [Reads] or [Writes], so the attributes win and nothing is inferred
+VXS0411 | Vixen.Engine | Warning | An [InferAccess] type's body yielded no component access, so it stays undeclared and conflicts with everything

@@ -126,7 +126,17 @@ public sealed class SystemRunner : IDisposable {
         }
 
         for (var index = 0; index < nodes.Count; index++) {
-            handles[index] = nodes[index].System.Update(in context, Dependency(nodes[index], handles));
+            // The declaration the graph ordered this system by, handed to the scheduler for the
+            // length of its Update — so every job the system schedules carries it, and a job that
+            // outlives the system's turn is caught against the next system's instead of racing it.
+            // Compiled out where the safety system is; see JobScheduler.DeclareAccess.
+            var declaration = Jobs?.DeclareAccess(nodes[index].Access.JobAccess) ?? default;
+
+            try {
+                handles[index] = nodes[index].System.Update(in context, Dependency(nodes[index], handles));
+            } finally {
+                declaration.Dispose();
+            }
         }
 
         // Complete before playback, not after: a structural change moves rows between chunks, and a

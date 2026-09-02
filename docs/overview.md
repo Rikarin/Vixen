@@ -69,7 +69,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Core.Collections` | ✅ | Core/Vixen.Core.Collections | `RobinHoodDictionary` and `FixedBitSet<N>` deferred with reasons |
 | `Vixen.Core.Memory` — `NativeArray`, arena, buddy allocator | ✅ | Core/Vixen.Core.Memory | `GpuUploadRing` still owed — see the [module README](../Core/Vixen.Core.Memory/README.md) and [plan/03](plan/03-core-foundation.md) |
 | `Vixen.Core.Threading` — Chase–Lev deques, `JobHandle` DAG, `ScheduleParallel` | ✅ | Core/Vixen.Core.Threading | 70 tests |
-| `VIXEN_JOB_SAFETY` access declarations | ⬜ | — | The flag exists and `JobScheduler` compiles checks under it, but only the ones needing no declarations. The declarations themselves need the ECS to… |
+| `VIXEN_JOB_SAFETY` access declarations | ✅ | Core/Vixen.Core.Threading · Core/Vixen.Ecs | `JobAccess` over opaque resource ids, declared for a thread by `JobScheduler.DeclareAccess` and supplied by `SystemRunner` from the same `SystemAccess` the system graph orders by. Checked at schedule time against every in-flight job that is not an ancestor; `DeclaredJobsScheduled` and `AccessComparisons` say whether the check ran |
 | Thread pinning / affinity | ✅ | Platform/Vixen.Platform.{Windows,Linux} | The platform half. `SetThreadGroupAffinity` and `sched_setaffinity`, with performance/efficiency core classes; macOS reports `SupportsAffinity =… |
 | Job priorities / long-running tier | ✅ | Core/Vixen.Core.Threading · Core/Vixen.Rendering | `JobPriority.Frame` (default) and `JobPriority.Background`: a second deque per worker plus a second shared queue, every frame source drained before… |
 | `Vixen.Core.IO` — `VirtualPath`, mount table, providers, mmap, coalesced watch | ✅ | Core/Vixen.Core.IO | 123 tests. Android `AAssetManager` and Web IndexedDB/fetch providers landed with their platforms |
@@ -94,9 +94,9 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 |---|---|---|---|
 | `Vixen.Ecs` — archetypes, chunks, edge graph, queries + generator, `CommandBuffer`, change versions | ✅ | Core/Vixen.Ecs | 90 tests |
 | System scheduler — 9 phases, conflict graph, DAG on jobs, DOT/Mermaid dumps | ✅ | Core/Vixen.Ecs |  |
-| Read/write **inference** from query bodies | ⬜ | — | Attributes and programmatic declaration exist; the generator does not |
+| Read/write **inference** from query bodies | ✅ | Core/Vixen.Engine.Generators | `[InferAccess]` on a partial system emits `IDeclaredAccess`, read by `SystemGraph` and by the job safety system. `Values`/`ReadValues` and `Get`/`Read` give the direction; the delegate and visitor forms cannot, so they are inferred as writes. `VXS0407`–`VXS0411` refuse the shapes it cannot honour |
 | World serialisation | ✅ | Core/Vixen.Engine | `WorldSerializer` + `WorldContent`, in `Vixen.Engine` because the ECS references no serializer by design and the binders are… |
-| `VIXEN_ECS_EVENTS` hooks | ⬜ | — | Named in [plan/04](plan/04-ecs-and-scripting.md); no flag and no hooks in the tree |
+| `VIXEN_ECS_EVENTS` hooks | ✅ | Core/Vixen.Ecs | `World.EntityCreated`/`EntityDestroyed`/`ComponentAdded`/`ComponentRemoved`/`ComponentSet`, raised through `[Conditional]` so the call site is gone in a release build. ⚠ The flag is `DEBUG` or `VIXEN_ECS_EVENTS`, so the default configuration exercises them; `World.EventsEnabled` says which build it is. `Get` raises nothing and cannot |
 | Entity handle **reservation** (`World.TryRecreate`) | ✅ | Core/Vixen.Ecs | Allowed only when the slot's version is *exactly* one past the requested one — anything else would let one handle name two entities across its life |
 | `Hierarchy.SetParentAfter` / `PreviousSiblingOf` | ✅ | Core/Vixen.Engine | Linking prepends, so undo needs a neighbour rather than an index — an index is invalidated by every insertion in front of it |
 | Transform hierarchy with dirty propagation | 🟡 | Core/Vixen.Engine | Not depth-split — needs shared components. One visit per moved entity either way |
@@ -889,8 +889,8 @@ protocol decision rather than an ergonomics one** — see the § 1.12 row and it
 and that instance argues against it); OpenTelemetry traces and the client-side metrics
 route; Raven string interpolation; ~~blend shapes~~ (built — storage, import, kernel, compute scatter and
 `MorphRenderFeature`; what is left is a scalar weight track on the clip format and the cluster-page
-scatter); parallel asset import; ECS read/write inference
-generator; `WhenAny` in coroutines; `GpuUploadRing`; transform decomposition. (Shadow caching has since been built for
+scatter); parallel asset import; ~~ECS read/write inference
+generator~~ (built as `[InferAccess]`); `WhenAny` in coroutines; `GpuUploadRing`; transform decomposition. (Shadow caching has since been built for
 both — `ShadowMapRenderer.StaticAtlas` for the cascades, `PunctualShadowRenderer.Cached` for the
 lamps.)
 
@@ -906,7 +906,7 @@ Detail, evidence and history live in the linked issue and the owning module `REA
 |---|---|---|---|
 | 1 | `Vixen.Core.Memory` | `GpuUploadRing` | [#145](https://github.com/Rikarin/Vixen/issues/145) |
 | 2 | `Vixen.Core.Collections` | `RobinHoodDictionary`, `FixedBitSet<N>` | [#146](https://github.com/Rikarin/Vixen/issues/146) |
-| 3 | `Vixen.Core.Threading` | `VIXEN_JOB_SAFETY` access declarations | [#147](https://github.com/Rikarin/Vixen/issues/147) |
+| 3 | ~~`Vixen.Core.Threading`~~ |  | [#147](https://github.com/Rikarin/Vixen/issues/147) |
 | 4 | `Vixen.Core.Threading` | The scheduler *using* thread affinity — the platform half is built (K3) | [#148](https://github.com/Rikarin/Vixen/issues/148) |
 | 5 | `Vixen.Core.Threading` | Job priority tier for streaming/decode | [#149](https://github.com/Rikarin/Vixen/issues/149) |
 | 6 | `Vixen.Core.IO` | The synchronous-IO ban (the `System.IO.Path` half is built) | [#150](https://github.com/Rikarin/Vixen/issues/150) |
@@ -915,7 +915,7 @@ Detail, evidence and history live in the linked issue and the owning module `REA
 | 9 | `Vixen.Core.Diagnostics` | UTF-8 record packing in the ring ( built: `LogRateLimiter`) | [#153](https://github.com/Rikarin/Vixen/issues/153) |
 | 10 | `Vixen.Core.Diagnostics` | Memory attribution; Perfetto **protobuf** (the exporter emits Chrome JSON). GPU profiling is built and reached… | [#154](https://github.com/Rikarin/Vixen/issues/154) |
 | 11 | `Vixen.Core.Imaging` | ASTC/ETC2 encoders (enum values only today); a full-quality BC7 path. Managed BC1/BC4/BC6H/BC7 encode is built… | [#155](https://github.com/Rikarin/Vixen/issues/155) |
-| 14 | `Vixen.Ecs` | Read/write inference generator; `VIXEN_ECS_EVENTS` | [#156](https://github.com/Rikarin/Vixen/issues/156) |
+| 14 | ~~`Vixen.Ecs`~~ |  | [#156](https://github.com/Rikarin/Vixen/issues/156) |
 | 16 | `Vixen.Engine` | Depth-split transform hierarchy | [#157](https://github.com/Rikarin/Vixen/issues/157) |
 | 17 | `Vixen.Engine` | Doc 13's render-mode, UI-debug and streaming overlays — the frame-stats, log, console, frame-graph and GPU ones are… | [#158](https://github.com/Rikarin/Vixen/issues/158) |
 | 18 | `Vixen.Engine` | `WhenAny` in coroutines | [#159](https://github.com/Rikarin/Vixen/issues/159) |

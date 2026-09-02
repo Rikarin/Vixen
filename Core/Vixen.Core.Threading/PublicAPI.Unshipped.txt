@@ -3,6 +3,17 @@ Vixen.Core.Threading.IJob -> interface
 Vixen.Core.Threading.IJob.Execute() -> void
 Vixen.Core.Threading.IJobParallelFor -> interface
 Vixen.Core.Threading.IJobParallelFor.Execute(int index) -> void
+Vixen.Core.Threading.JobAccess -> sealed class
+Vixen.Core.Threading.JobAccess.ConflictsWith(Vixen.Core.Threading.JobAccess other) -> bool
+Vixen.Core.Threading.JobAccess.IsEverything.get -> bool
+Vixen.Core.Threading.JobAccess.IsUndeclared.get -> bool
+Vixen.Core.Threading.JobAccess.JobAccess(System.ReadOnlySpan<int> reads, System.ReadOnlySpan<int> writes) -> void
+Vixen.Core.Threading.JobAccess.Reads.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Core.Threading.JobAccess.Writes.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Core.Threading.JobAccessScope -> readonly struct
+Vixen.Core.Threading.JobAccessScope : System.IDisposable
+Vixen.Core.Threading.JobAccessScope.Dispose() -> void
+Vixen.Core.Threading.JobAccessScope.JobAccessScope() -> void
 Vixen.Core.Threading.JobExecutionException -> sealed class
 Vixen.Core.Threading.JobExecutionException : System.Exception
 Vixen.Core.Threading.JobExecutionException.JobExecutionException() -> void
@@ -20,7 +31,10 @@ Vixen.Core.Threading.JobPriority.Frame = 0 -> Vixen.Core.Threading.JobPriority
 Vixen.Core.Threading.JobPriority.JobPriority() -> void
 Vixen.Core.Threading.JobScheduler -> sealed class
 Vixen.Core.Threading.JobScheduler : System.IDisposable
+Vixen.Core.Threading.JobScheduler.AccessComparisons.get -> long
 Vixen.Core.Threading.JobScheduler.Complete(Vixen.Core.Threading.JobHandle handle) -> void
+Vixen.Core.Threading.JobScheduler.DeclareAccess(Vixen.Core.Threading.JobAccess access) -> Vixen.Core.Threading.JobAccessScope
+Vixen.Core.Threading.JobScheduler.DeclaredJobsScheduled.get -> long
 Vixen.Core.Threading.JobScheduler.Dispose() -> void
 Vixen.Core.Threading.JobScheduler.Id.get -> int
 Vixen.Core.Threading.JobScheduler.IsCompleted(Vixen.Core.Threading.JobHandle handle) -> bool
@@ -49,5 +63,8 @@ Vixen.Core.Threading.MainThreadDispatcher.ThreadId.get -> int
 const Vixen.Core.Threading.JobScheduler.MaxJobsInFlight = 1024 -> int
 const Vixen.Core.Threading.JobScheduler.MaxSchedulers = 8 -> int
 const Vixen.Core.Threading.JobScheduler.SafetyChecksEnabled = false -> bool
+override Vixen.Core.Threading.JobAccess.ToString() -> string
 override Vixen.Core.Threading.JobHandle.ToString() -> string
+static Vixen.Core.Threading.JobAccess.Everything.get -> Vixen.Core.Threading.JobAccess
+static Vixen.Core.Threading.JobAccess.None.get -> Vixen.Core.Threading.JobAccess
 static Vixen.Core.Threading.JobHandle.Combine(params System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> handles) -> Vixen.Core.Threading.JobHandle

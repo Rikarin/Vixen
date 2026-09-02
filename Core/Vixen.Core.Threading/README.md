@@ -169,18 +169,53 @@ the last `JobFailureLog.Capacity` failures move to a side table on the way out, 
 `Complete` and a dependency edge added after the fact read from there. A job whose dependency threw
 is marked failed and skipped rather than run against inputs that were never produced.
 
+## The safety system
+
+Two checks, both compiled in under `DEBUG` or `VIXEN_JOB_SAFETY` and out of everything else;
+`JobScheduler.SafetyChecksEnabled` says which build this is.
+
+The first needs nothing from anybody: a job that completes its own handle is caught and told so,
+instead of waiting forever for the work item that is doing the waiting.
+
+The second is [doc 03](../../docs/plan/03-core-foundation.md)'s — jobs declare what they touch and
+the scheduler refuses a schedule that lets two conflicting ones run together. It differs from the
+design in two ways, both because of where the declarations come from.
+
+- **A resource is an `int`, not a `NativeArray`.** This assembly cannot know what a resource is. A
+  `JobAccess` is two sets of opaque ids, and the one consumer that gives them meaning is `Vixen.Ecs`,
+  which passes component type ids. Doc 03 named `NativeArray` because Unity's safety system is built
+  on one; the numbering being somebody else's is the same design with the dependency the right way
+  round.
+- **The declaration is a scope, not an argument.** `scheduler.DeclareAccess(access)` returns a
+  disposable that applies to every job the calling thread schedules inside it. The caller that knows
+  the access and the caller that schedules the work are usually not the same one: `SystemRunner`
+  brackets each system's `Update` with what the system graph ordered that system by, and the system
+  inside schedules whatever it likes.
+
+**The check is at schedule time, and it is exact rather than opportunistic.** A new job is compared
+against every declared job that is in flight and that it does not — directly or transitively — depend
+on, because those are precisely the ones the scheduler is free to run alongside it. Ancestry is a bit
+per slot, inherited from each dependency's row at `Publish`. Checking instead whether two conflicting
+jobs *happened* to overlap would make the detector's own tests a matter of how busy the machine was.
+
+⚠ **What it actually catches is a system that drops its handle.** `Update` returning `dependency`
+instead of the handle for the work it just scheduled compiles, type-checks, and produces a phase
+whose `Complete` loop waits for nothing — so the job runs on into the next system's turn, where the
+runner's conflict graph, which is about systems and not about jobs, cannot see it. Nothing else in
+the repository catches that.
+
+⚠ **A clean run is three different facts, so read the counters.** `DeclaredJobsScheduled` and
+`AccessComparisons` are public for that reason: a build with the checks compiled out, a build where
+nothing ever opened a scope, and a build that compared every pair and found nothing all raise no
+exception, and only those two numbers tell them apart.
+
+**`JobAccess.None` and `JobAccess.Everything` are not opposites.** `None` means *undeclared* — not
+policed at all, which is what every job outside the ECS is, and what keeps the detector from firing
+on an asset import that overlapped a frame. `Everything` means *declared, and touching all of it*.
+An undeclared **system** maps onto `Everything`, because "I did not say" already means "conflicts
+with everything" in `SystemAccess`.
+
 ## What is not here yet
-
-**The safety system.** [Doc 03](../../docs/plan/03-core-foundation.md) describes `VIXEN_JOB_SAFETY`
-as jobs declaring read/write access to `NativeArray` regions, with the scheduler asserting that no
-two concurrent jobs write the same one. That check is only as good as the declarations, and the
-declarations have to come from somewhere — in Unity's design, from the ECS's component access. Vixen
-has no ECS yet, so building the declaration API now would be inventing the shape of something whose
-only consumer does not exist. It lands with `Vixen.Ecs` in Phase 2.
-
-What *is* compiled in under `DEBUG` or `VIXEN_JOB_SAFETY` is the check that does not need any of
-that: a job that completes its own handle is caught and told so, instead of waiting forever for the
-work item that is doing the waiting.
 
 **Thread affinity.** Doc 03 asks for workers pinned where the OS allows. `Thread` has no portable
 affinity API, the per-platform ones differ in kind rather than in spelling, and pinning is a

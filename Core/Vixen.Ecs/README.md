@@ -121,12 +121,74 @@ is, and a write implies a read so "only writes X" and "only reads X" are never m
 disjoint. **A system that declares nothing conflicts with everything** — the only safe reading of "I
 did not say".
 
+**Or the access is read out of the body.** `[InferAccess]` on a partial system class asks
+`Vixen.Engine.Generators` to walk that class's own query calls and emit the other half of it,
+implementing `IDeclaredAccess` — which is the interface rather than the attributes because
+`Declare().Write<Position>()` *assigns* `Position` its component id, where an attribute can only look
+one up.
+
+⚠ **It is opt-in, and where the direction is not knowable it errs towards writing.** `Values<T>` is a
+write and `ReadValues<T>` a read, exactly as `Get` and `Read` are; but the delegate and visitor forms
+take every component by `ref` whether or not the body assigns through one, so their type arguments
+are all inferred as writes. Over-declaring costs parallelism; under-declaring is a data race. A
+`WithNone<T>` filter is neither — an entity that matched it has no `T` for anyone to race over. An
+explicit `[Reads]`/`[Writes]` on the same class overrides the inference and the generator says so
+(`VXS0410`) rather than emitting a declaration nothing reads, and a class it could infer nothing from
+is told (`VXS0411`) rather than left silently undeclared.
+
+**The same declaration is handed to the job scheduler.** For the length of a system's `Update` the
+runner opens a `JobAccessScope` carrying that system's access, so every job the system schedules
+carries it too and the scheduler refuses a schedule that lets two conflicting systems' jobs run at
+once. It costs nothing in a release build — the whole mechanism is under `DEBUG || VIXEN_JOB_SAFETY`
+— and one declaration feeds both the ordering and the check, because two statements of the same
+thing would agree everywhere except where it matters.
+
+⚠ **What that catches is a system that drops its handle.** Returning `dependency` instead of the
+handle for the work just scheduled leaves the runner waiting for nothing, so the job runs on into the
+next system's turn — and the conflict graph, which is about systems and not about jobs, cannot see
+it. `Vixen.Core.Threading/README.md` § The safety system has the rest, including why a clean run and
+a run that never checked anything have to be told apart by a counter.
+
 A phase is bracketed: the world version moves on, the systems run, their work is completed, the
 command buffer is played back. Completing before playback is not a detail — a structural change
 moves rows between chunks, and a job still walking one would be walking overwritten memory.
 
 `runner.Graph.ToDot()` and `.ToMermaid()` dump the schedule. The fixed-step accumulator is *not*
 here: how many times `FixedUpdate` runs in a frame is the game loop's decision.
+
+## Events
+
+`World` raises `EntityCreated`, `EntityDestroyed`, `ComponentAdded`, `ComponentRemoved` and
+`ComponentSet` — for editor tooling and user code. **The engine subscribes to none of them**; it uses
+the change versions, which is what makes turning them off a real option rather than a claim.
+
+```csharp
+world.ComponentAdded += (entity, component) => mirror.Add(entity, component);
+```
+
+The contract is one sentence: **an addition is announced once the value is readable, and a removal
+while it still is.** That is why `Create<T0>(…)` allocates the row and announces it in two steps — the
+typed overloads write their components *after* the row exists, so announcing from inside the
+allocation would hand a listener a zero, which is a value that looks perfectly plausible and is not
+the one that was passed.
+
+⚠ **`Get<T>` raises nothing, and cannot.** It hands out a `ref`, so there is no moment at which the
+new value exists to announce — the same reason a `ref` counts as a write for the change version
+whether or not one happens. A tool that must see every write watches the chunk's version.
+
+⚠ **A listener must not change the world.** The events are raised from inside the structural change
+they describe, and an add or a destroy from a handler would move rows under the walk announcing them.
+`Clear` announces every live entity in a pass of its own before it takes anything apart, and it runs
+from `Dispose` too — which is where a listener that outlives its world finds out.
+
+⚠ **The flag is `DEBUG || VIXEN_ECS_EVENTS`, not the bare `VIXEN_ECS_EVENTS`
+[plan/04](../../docs/plan/04-ecs-and-scripting.md) names.** A flag no test in the default
+configuration sets is a flag whose tests skip everywhere and whose suite is green on the day it stops
+working. `World.EventsEnabled` says which build this is, and it is the difference between "nothing
+happened" and "nothing was watched". The release build is still free of the branch: the raisers are
+`[Conditional]`, so the call site itself is gone — no call, no null check, no argument evaluation.
+The events themselves are declared in every configuration, because the public surface may not differ
+between them and code that subscribes has to compile against both.
 
 ## Decisions worth knowing about
 
