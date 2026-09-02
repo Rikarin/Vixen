@@ -188,6 +188,39 @@ public sealed class WaterProfileTests {
         Assert.Null(scene.Viewport.Cursor);
     }
 
+    /// <summary>⚠ The centre line is drawn too, and not only the markers at the control points.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>SplineOverlay</c> was complete, tested and called by nothing but its own tests
+    ///         — GitHub #118.</b> This is its first caller: the Profile tool draws the body's curve
+    ///         before the handles that hang off it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The discriminator is a vertex <i>between</i> the control points.</b> The river's
+    ///         two points are at x = 0 and x = 100, and every marker <c>WaterProfileHandles</c> emits
+    ///         sits at one of them — so a line vertex strictly inside that span can only have come
+    ///         from the sampled curve. Asserting the list merely grew would have stayed green with
+    ///         the handles alone, which is what the test above already covers.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_hover_cursor_draws_the_curve_the_handles_hang_off() {
+        using var scene = new Harness();
+
+        Assert.False(scene.Pointer(PointerAction.Moved, PointerButton.None, new(0f, 0f, 0f)));
+
+        var lines = new List<Vixen.Rendering.LineVertex>();
+
+        scene.Viewport.Cursor!.Invoke(new(lines));
+
+        Assert.Contains(
+            lines,
+            vertex => vertex.Colour == SplineOverlay.CurveColour
+                && vertex.Position.X > 1f
+                && vertex.Position.X < 99f
+        );
+    }
+
     /// <summary>Preview is a state and not a gesture, so it takes no pointer event at all.</summary>
     /// <remarks>
     ///     ⚠ <b>The whole point of the tool is being able to fly around and look</b>, which a mode

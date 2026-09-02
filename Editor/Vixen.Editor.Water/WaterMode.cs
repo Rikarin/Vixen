@@ -630,12 +630,21 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
         aimed = null;
     }
 
-    /// <summary>Draws the handles. Read every frame, so it reads fields and allocates nothing.</summary>
+    /// <summary>Draws the curve and its handles. Read every frame, so it reads fields and allocates nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The centre line first, and it is what the three handles per point are measured
+    ///     from.</b> Without it the Profile tool draws two bars and a cross at each control point and
+    ///     nothing between them — so a river with a bend in it reads as a row of unrelated markers,
+    ///     and the author widening it cannot see the shape they are widening. <c>SplineOverlay</c> is
+    ///     the one that knows how to sample a curve, and it samples by arc length rather than by
+    ///     parameter for the reason that class states.
+    /// </remarks>
     void Handles(GizmoDraw draw) {
         if (Tool != WaterTool.Profile || hovered is not { } pane || aimed is not { } body) {
             return;
         }
 
+        SplineOverlay.Curve(body.Curve, draw);
         WaterProfileHandles.Draw(draw, pane, body.Curve, body.Component.Profile, Editing.Holding, Editing.HoldingPoint);
     }
 

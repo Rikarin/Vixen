@@ -235,6 +235,20 @@ person dragging it would move the curve the other way.
 halfway through being authored and `Build` throws there; the point is still drawn, because somebody
 who has clicked once has to see where they clicked.
 
+⚠ **Every method has a `GizmoDraw` overload, and that one is the implementation.** A pane hands a
+drawer a `GizmoDraw` and never its list — `SceneViewport.Cursor` and `ComponentGizmos` both — so an
+overlay that only took a `List<LineVertex>` was one no viewport could call, and for two phases that
+is what it was: complete, tested, and reached by nothing but its own tests. The list overloads wrap a
+`GizmoDraw` over the list rather than emitting twice.
+
+**One caller so far, and it is the water tool.** `WaterMode`'s Profile hover draws the body's centre
+line before `WaterProfileHandles` draws the three handles that hang off it — without it the tool is a
+row of crosses with nothing between them, and an author widening a river cannot see the shape being
+widened.
+
+⚠ **`SplineEdit` is still not reached from any viewport**, so a curve is drawn and is not yet
+draggable; the Terrain Splines panel says so where an author would look for it.
+
 ## Placing meshes into a scene
 
 `TerrainSplineSpawner` turns `PlaceAlong`'s list into entities. `PlaceAlong` itself deliberately

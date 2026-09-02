@@ -156,9 +156,35 @@ public sealed class SplineOverlayTests {
         Assert.True(firstPoint > lastCurve, "a control point was drawn before the curve was finished.");
     }
 
+    /// <remarks>
+    ///     ⚠ <b>The sink is named rather than left as <c>null!</c>.</b> Both overloads take one, so
+    ///     an untyped null is ambiguous — and both are asserted, because each has its own guard.
+    /// </remarks>
     [Fact]
     public void DrawingNothingIsRefused() {
-        Assert.Throws<ArgumentNullException>(() => SplineOverlay.Draw(null!, []));
-        Assert.Throws<ArgumentNullException>(() => SplineOverlay.Draw(Road(), null!));
+        Assert.Throws<ArgumentNullException>(() => SplineOverlay.Draw(null!, new List<LineVertex>()));
+        Assert.Throws<ArgumentNullException>(() => SplineOverlay.Draw(Road(), (List<LineVertex>) null!));
+        Assert.Throws<ArgumentNullException>(() => SplineOverlay.Draw(Road(), (GizmoDraw) null!));
+    }
+
+    /// <summary>⚠ The pane channel gets exactly what the list does, because it is the same code.</summary>
+    /// <remarks>
+    ///     <b>The overload a viewport can actually call — GitHub #118.</b> <c>SceneViewport.Cursor</c>
+    ///     and <c>ComponentGizmos</c> both hand a drawer a <see cref="GizmoDraw" /> and never the
+    ///     underlying list, so before this every method here was unreachable from a pane. The list
+    ///     overloads now wrap one, and this is what says the wrapping did not change the drawing.
+    /// </remarks>
+    [Fact]
+    public void TheGizmoOverloadDrawsWhatTheListOverloadDraws() {
+        var asset = Road(points: 4, spacing: 12f);
+        var listed = new List<LineVertex>();
+        var drawn = new List<LineVertex>();
+
+        var fromList = SplineOverlay.Draw(asset, listed, selected: 1);
+        var fromDraw = SplineOverlay.Draw(asset, new GizmoDraw(drawn), selected: 1);
+
+        Assert.Equal(fromList, fromDraw);
+        Assert.NotEmpty(drawn);
+        Assert.Equal(listed, drawn);
     }
 }
