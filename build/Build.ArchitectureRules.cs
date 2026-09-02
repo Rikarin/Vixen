@@ -75,6 +75,26 @@ partial class Build {
     /// </remarks>
     static readonly (string From, string To)[] AllowedUpwardReferences = [("Vixen.Live.Realm", "Vixen.App")];
 
+    /// <summary>The edges out of <c>Core/</c> that are allowed, named rather than hidden.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>Vixen.Fuzz</c> is in <c>Core/</c> and is not a shipped library.</b> Its own
+    ///         project file says so — <c>IsPackable</c> is false, and the comment above it reads
+    ///         "test infrastructure, not a shipped library … it stays out of the packages even
+    ///         though it lives in Core alongside what it tests". It links <c>Vixen.Raven</c> because
+    ///         the compiler is one of its twenty fuzz targets, and per its README the Raven target
+    ///         is "the only oracle here that is not marking its own homework".
+    ///     </para>
+    ///     <para>
+    ///         The rule skips <c>*.Tests</c> for exactly this reason and this project does not carry
+    ///         the suffix. Keying the exemption on <c>IsPackable</c> would be a second, weaker rule —
+    ///         a shipped assembly is one edit from exempting itself — so it is a named pair, and a
+    ///         second <c>Core/</c> project reaching into <c>Raven/</c> is a new decision that fails
+    ///         here until somebody makes it.
+    ///     </para>
+    /// </remarks>
+    static readonly (string From, string To)[] AllowedCoreEdges = [("Vixen.Fuzz", "Vixen.Raven")];
+
     /// <summary>
     ///     Orleans, which ADR-016 confines to the control plane and ADR-017 keeps out of the client.
     /// </summary>
@@ -207,7 +227,17 @@ partial class Build {
                         // Core sits below Platform, and both sit below Editor and Tools. A
                         // reference upward makes the lower layer unusable without the higher one,
                         // which defeats the point of having layers.
-                        if (layer == "Core" && referenced is "Gameplay" or "Platform" or "Editor" or "Tools" or "Live") {
+                        //
+                        // ⚠ Raven is in the list, and it was not. docs/plan/37's `AiLayeringTests`
+                        // has forbidden `Vixen.Raven` to a Core assembly since it was written and
+                        // this rule did not — so the assembly test and the gate meant to replace it
+                        // disagreed, and the gate was the permissive one. Raven is a layer here
+                        // already (see the Live rule below), it sits on Core rather than under it,
+                        // and a shipped runtime library that links a shader compiler is the thing
+                        // this whole block exists to refuse.
+                        if (layer == "Core"
+                            && referenced is "Gameplay" or "Platform" or "Editor" or "Tools" or "Live" or "Raven"
+                            && !AllowedCoreEdges.Contains((name, reference))) {
                             violations.Add($"{name} is in Core and references {reference}, which is not.");
                         }
 

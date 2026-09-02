@@ -264,7 +264,12 @@ ZRemesher structurally cannot offer.
 
 **`Core/Vixen.Geometry.Remeshing`**, referencing `Vixen.Geometry`, `Vixen.Core.Mathematics` and
 `Vixen.Core.Threading`. Nothing else — no graphics, no assets, no editor. A `RemeshingLayeringTests`
-asserts both halves, the way `AiLayeringTests` does for doc 37.
+asserts both halves, the way `AiLayeringTests` did for doc 37 — ⚠ **of which only the *allowlist*
+half is still a test.** "Nothing above `Core/`" is `Build.ArchitectureRules.cs`'s now and the
+assembly-test form of it was deleted; what a layer rule cannot express, and what
+`AiReferenceAllowlistTests` therefore kept, is the named list of assemblies a `Core/` project is
+allowed to reference — which is the half that catches an arriving reference to another `Core/`
+project.
 
 ⚠ **Doc 40 § D9 put inference in an *editor* assembly, and that was right for inference and is wrong
 here.** The reasons it gave — a shipped game infers nothing, the weights are the author's to accept,

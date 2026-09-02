@@ -22,8 +22,10 @@
             ⚠ The reference list is the point of this assembly, not an accident of it. docs/plan/37
             § "Why this is Core and not Gameplay": a behaviour tree that depends on a combat package
             is a behaviour tree that cannot run a stealth patrol, a shopkeeper or a formation of
-            ships. Nothing here may reference the gameplay spine, and `AiLayeringTests` asserts it
-            until the `Core/` ⇸ `Gameplay/` line lands in Build.ArchitectureRules.cs.
+            ships. Nothing here may reference the gameplay spine, and the `Core/` ⇸ `Gameplay/` line
+            in Build.ArchitectureRules.cs is what refuses it — so a violation stops compiling rather
+            than failing a test. `AiReferenceAllowlistTests` is the other half and the stricter one:
+            these six by name, so that a new reference is a decision somebody makes.
         -->
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />

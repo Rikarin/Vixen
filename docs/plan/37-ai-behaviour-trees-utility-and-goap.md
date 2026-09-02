@@ -125,24 +125,40 @@ the gameplay spine means a game that wants the first sentence has to take the se
 can reference each other freely and the boundary would have had to be asserted by a hand-written
 assembly test that somebody eventually deletes.
 
-**The gameplay framework moves to a `Gameplay/` folder of its own, referencing `Core/` in one
+**The gameplay framework moved to a `Gameplay/` folder of its own, referencing `Core/` in one
 direction and nothing referencing it back.** With that, the rule this whole document exists to
-establish is one line beside the three that are already there:
+establish is one line beside the others, and it is written:
 
 ```csharp
-// Core sits below Gameplay: an engine that cannot be used without a threat table and an
-// item definition is not an engine. The AI libraries are the case this was added for —
-// docs/plan/37 § Why this is Core and not Gameplay.
-if (layer == "Core" && LayerOfProject(projects, reference) is "Gameplay") { … }
+// Core sits below Platform, and both sit below Editor and Tools. A reference upward makes
+// the lower layer unusable without the higher one, which defeats the point of having layers.
+if (layer == "Core"
+    && referenced is "Gameplay" or "Platform" or "Editor" or "Tools" or "Live" or "Raven"
+    && !AllowedCoreEdges.Contains((name, reference))) { … }
 ```
 
-⚠ **This document does not own that relocation.** It is [02](02-repository-layout.md)'s tree and
-[28](28-gameplay-framework.md) § Library structure that record it, and both still show `Core/`. What
-this document owns is the consequence: `Vixen.Ai` sits in `Core/` on `Vixen.Core.*`, `Vixen.Ecs` and
-`Vixen.Engine`, `Vixen.Gameplay.Ai` sits in `Gameplay/` on top of it, and the gate refuses the edge
-in the wrong direction. If the relocation does not happen, the fallback is the assembly test in
-[Testing](#testing) — weaker, because it is a test somebody can delete rather than a layer somebody
-would have to argue for.
+⚠ **This document did not own that relocation, and the relocation happened.** It is
+[02](02-repository-layout.md)'s tree and [28](28-gameplay-framework.md) § Library structure that
+record it, and both now draw `Gameplay/` as a top level of its own — doc 02 as *"two top levels added
+after the fact … folding either into `Core/` would have made a decision by accident"*, doc 28 with a
+§ *Why `Gameplay/` rather than `Core/Vixen.Gameplay*`*. What this document owns is the consequence:
+`Vixen.Ai` sits in `Core/` on `Vixen.Core.*`, `Vixen.Ecs` and `Vixen.Engine`, `Vixen.Gameplay.Ai`
+sits in `Gameplay/` on top of it, and the gate refuses the edge in the wrong direction.
+
+✅ **The gate line is in, and the fallback is gone.** `Build.ArchitectureRules.cs` carries the rule
+above; `AiLayeringTests.VixenAiReferencesNothingAboveIt` — the weaker form, a test somebody could
+delete rather than a layer somebody would have to argue for — was deleted by the commit that widened
+it (2026-09-02, [#404](https://github.com/Rikarin/Vixen/issues/404)).
+
+> ⚠ **Widened, because the fallback banned one layer the gate did not.** The assembly test's
+> forbidden list was `Vixen.Gameplay`, `Vixen.Editor`, `Vixen.Platform.` **and `Vixen.Raven`**; the
+> Core rule banned `Gameplay`, `Platform`, `Editor`, `Tools` and `Live`. `Raven` is a layer
+> elsewhere in the same file, so a `Core/` assembly referencing `Vixen.Raven` passed the gate and
+> failed the test — the gate being the *permissive* one, which is the direction that matters. It was
+> a gap and it is closed: `Raven` is in the Core rule now. One edge exists and is named rather than
+> hidden — `Vixen.Fuzz → Vixen.Raven`, because the fuzzer's twenty targets include the Raven
+> compiler and `Vixen.Fuzz` is `IsPackable=false` test infrastructure that happens not to carry the
+> `.Tests` suffix the rule already skips.
 
 ### Why three, and not one
 
@@ -970,9 +986,15 @@ recording because they were decisions rather than transcription:
 
 `Vixen.Ai` references `Vixen.Core`, `Vixen.Core.Mathematics`, `Vixen.Core.Threading` and
 `Vixen.Ecs` — **not** `Vixen.Engine`, which the reference set above names because P4's world-facing
-tasks want it and those live in `Vixen.Ai.Nodes`. `AiLayeringTests` asserts both halves: nothing
-above `Core/`, and nothing outside those four. It is the fallback [Testing](#testing) describes and
-is meant to be deleted by the commit that adds the gate line.
+tasks want it and those live in `Vixen.Ai.Nodes`. `AiLayeringTests` asserted both halves: nothing
+above `Core/`, and nothing outside those four.
+
+✅ **Half of it is gone and the file is now `AiReferenceAllowlistTests`.** "Nothing above `Core/`" is
+the gate's, as [Testing](#testing) said it would be, and the fallback was deleted with the commit
+that widened the rule. The allowlist stayed, because a layer rule cannot express it: it is a check
+about six named assemblies rather than about directories, so it is the only thing that catches
+`Vixen.Ai` growing a reference to `Vixen.Engine` — which is in `Core/` and therefore allowed by
+every layer rule there is.
 
 ### P1 — behaviour trees, runtime — 1.2 em ✅
 
@@ -1533,7 +1555,7 @@ nothing asserted them — and both are marked below with what reading of the row
 | **GOAP** ✅ | Plans compared against hand-solved optimal sequences on small graphs; the budget test; an unreachable goal fails rather than searching for ever; a mid-plan world change produces a different, still-valid plan. ⚠ **The last of those was the half a "throw the stale head away" test does not reach** and was written in the sweep after P9: discarding a broken plan is the safety property, and making a *new and correct* one out of the world as it now is, unprompted, is what the planner is for |
 | **Perception** | Occlusion against real geometry; the lose-sight hysteresis asserted by walking a target out and back; affiliation filtering |
 | **Scheduling** | Zero steady-state allocation across a whole frame of 10 000 agents, under `Measured`; and the governor's fairness — no agent starves over 1 000 frames |
-| **Layering** | ⚠ **`Core/` must not reference `Gameplay/`** — the single rule this whole document exists to establish, and once the gameplay spine moves out of `Core/` it is one line in `Build.ArchitectureRules.cs` rather than a test. Until it does, the same rule as an assembly test over `Vixen.Ai*`'s references, deleted in the same commit that adds the gate line |
+| **Layering** ✅ | ⚠ **`Core/` must not reference `Gameplay/`** — the single rule this whole document exists to establish, and it is now one line in `Build.ArchitectureRules.cs` rather than a test: the gameplay spine is out of `Core/` and `layer == "Core" && referenced is "Gameplay" or …` refuses the edge, so a violation stops compiling. The assembly test's negative half is deleted. ⚠ **What survives it is `AiReferenceAllowlistTests`, and it is the stricter check** — a layer rule is about directories and this is about six named assemblies, so it also catches a new *downward* reference, including the one to `Vixen.Engine` that is invisible to a rule over `Core/`. It has been red once for real, when P2 added `Vixen.Core.Serialization` |
 | **Editor** | Round-trip: author → save → load → save is a no-op in the diff. Compiler golden tests: a document compiles to a stable template dump. The abort-scope overlay against hand-computed ranges |
 
 ---
@@ -1548,7 +1570,7 @@ nothing asserted them — and both are marked below with what reading of the row
 | A-R4 | **Three planners is three half-built things** | Medium | They share [D2](#d2--three-planners-one-action)'s action surface, [D1](#d1--the-blackboard-is-a-compiled-key-table-not-a-dictionary)'s blackboard, [D13](#d13--sensors-are-how-the-world-reaches-the-blackboard-and-there-are-two-kinds)'s sensors, [D16](#d16--the-planner-is-a-job-and-the-budget-is-per-frame-not-per-agent)'s governor and [D20](#d20--one-debug-surface-and-it-runs-in-a-shipped-build)'s debugger. The unshared part is one scorer and one search. If a phase must be cut, cut **P6**: a game without GOAP has two planners; a game without the blackboard has none |
 | A-R5 | **Perception cost scales as a product and someone ships a 1 000-NPC village** | Medium | The three bounds in [D15](#d15--perception-is-a-system-and-its-cost-is-a-schedule) are mandatory, not tuning, and P3's exit criterion measures both sides |
 | A-R6 | **A desync from AI, six months into a networked project** | Medium | [D17](#d17--ai-runs-on-the-authority-and-the-client-is-never-told-the-tree) — nothing replicates, so there is no second planner to disagree with. [D18](#d18--determinism-is-a-property-of-the-decision-not-of-the-schedule) — and the governor hole is named there rather than left to be found |
-| A-R7 | **The engine grows a behaviour library.** A `CastAbility` node arrives, then a `Flee` node, then a threat model | ~~Medium~~ **Low, once `Gameplay/` is its own layer** | The `Core/` ⇸ `Gameplay/` layer rule is the enforcement, and it is the strongest form available: the node cannot compile, so nobody has to notice it in review. [Part 3](#part-3--the-node-library)'s *"not shipping, and why"* is the standing answer for the ones the compiler cannot catch, and doc 28's sentence is the policy — a planner and a perception model, not a behaviour library |
+| A-R7 | **The engine grows a behaviour library.** A `CastAbility` node arrives, then a `Flee` node, then a threat model | ~~Medium~~ **Low — `Gameplay/` is its own layer** | The `Core/` ⇸ `Gameplay/` layer rule is the enforcement, it is in `Build.ArchitectureRules.cs`, and it is the strongest form available: the node cannot compile, so nobody has to notice it in review. [Part 3](#part-3--the-node-library)'s *"not shipping, and why"* is the standing answer for the ones the compiler cannot catch, and doc 28's sentence is the policy — a planner and a perception model, not a behaviour library |
 | A-R8 | ~~**`Symbol` moving to `Vixen.Core` breaks `Vixen.Animation`'s public surface**~~ | ~~Low~~ **Spent** | Done in P0, and it cost less than the row predicted: the type was still *unshipped*, so no type-forward was needed — a baseline rewrite, a `using` sweep across 37 files, and one `<see cref>` that had to stop naming `MoveSet` because `Vixen.Core` cannot see it |
 
 ---
