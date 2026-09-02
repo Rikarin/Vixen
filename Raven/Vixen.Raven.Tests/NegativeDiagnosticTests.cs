@@ -2816,4 +2816,215 @@ public class NegativeDiagnosticTests {
                 """
             )
         );
+
+    // --- RVN2111: an inout argument whose type is already the parameter's ---
+
+    /// <summary>
+    ///     A call whose <c>inout</c> argument matches exactly, beside a by-value parameter in the
+    ///     same call taking an implicit widening — which is the fact the rule turns on.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>InOutTests.AWidenedArgumentIsRefused</c>, which is an <c>int</c> local
+    ///     passed to an <c>inout float</c>. The rule exists because overload resolution inserts the
+    ///     conversion and a widening has no way back out, so what it reads is "did a
+    ///     <c>BoundConversionExpression</c> reach an <c>inout</c> parameter" — and the conversion is
+    ///     entirely correct one parameter to the left. Ask it of every parameter instead of only the
+    ///     by-reference ones and every call in the language that passes a literal <c>1</c> for a
+    ///     <c>float</c> is refused, which is most of them.
+    /// </remarks>
+    [Fact]
+    public void An_inout_argument_of_the_parameters_own_type_is_allowed_beside_a_widened_one() =>
+        Silent(
+            "RVN2111",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    var tint: float4
+
+                    func Blend(inout target: float4, weight: float) {
+                        target = target * weight
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        var accumulated = tint
+                        Blend(accumulated, 1)
+
+                        return accumulated
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2096: a type argument that satisfies by something but identity ---
+
+    /// <summary>
+    ///     The three ways an argument satisfies a <c>where</c> without <em>being</em> the
+    ///     constraint: it implements the protocol, it is a type parameter carrying the same
+    ///     constraint, and it is that same parameter one level further in.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>ModifierAndConstraintTests.A_type_argument_must_satisfy_the_constraint</c>,
+    ///     which is <c>Box&lt;float&gt;</c>. ⚠ This is the comparison shape the README says to hunt:
+    ///     a rule holding an inferred fact against a declared one, where the two are the same fact
+    ///     reached by different routes. <c>SatisfiesConstraint</c> has three arms and the identity
+    ///     of the symbols is not any of them — narrow it to identity and every one of the four
+    ///     positions below is refused, including the two where a generic forwards its own type
+    ///     parameter to another generic, which is what a container of containers is.
+    ///     <para>
+    ///         ⚠ <b>The first widening left this green, and what it found is dead code.</b> Deleting
+    ///         <c>SatisfiesConstraint</c>'s third arm — the one whose comment says "a type parameter
+    ///         passed through satisfies what its own constraints imply" — changes no answer, because
+    ///         <c>TypeParameterSymbol.Interfaces</c> already returns its <c>ConstraintTypes</c>, so
+    ///         <c>IsSubtypeOf</c> walks them one arm earlier and returns first. The arm is reachable
+    ///         only for a constraint that is not a <c>NamedTypeSymbol</c> — a type parameter
+    ///         constrained by another — which nothing here exercises. What does go red is removing
+    ///         the <c>IsSubtypeOf</c> arm, and it reports all four positions.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_type_argument_satisfying_a_constraint_indirectly_is_allowed() =>
+        Silent(
+            "RVN2096",
+            Semantic(
+                """
+                package A
+
+                protocol Shaded {
+                    func Tint(): float4
+                }
+
+                struct Box<T> where T : Shaded {
+                    var item: T
+                }
+
+                struct Leaf : Shaded {
+                    var value: float4
+
+                    func Tint(): float4 => value
+                }
+
+                struct Outer<U> where U : Shaded {
+                    var direct: Box<Leaf>
+                    var forwarded: Box<U>
+                    var nested: Box<U>
+                }
+
+                shader S {
+                    var held: Outer<Leaf>
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return held.direct.item.Tint()
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2072: a compose default that is a bare name ---------------------
+
+    /// <summary>
+    ///     A slot carrying the one initializer shape that is legal, beside an ordinary field
+    ///     carrying one that would not be.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>ComposeTests</c>'s <c>compose val thing: IThing = 1</c>. What a slot's
+    ///     initializer names is a <em>type</em>, so there is nothing to evaluate and the only shape
+    ///     it can take is an identifier — but the rule is scoped by <c>IsCompose</c> as well as by
+    ///     shape, and both halves matter. Ask it of any initializer rather than of a non-identifier
+    ///     one and every defaulted slot in the library is refused, which is the feature § compose
+    ///     added defaults for; ask it of every field and the field below goes with it.
+    /// </remarks>
+    [Fact]
+    public void A_compose_default_written_as_a_bare_name_is_allowed() =>
+        Silent(
+            "RVN2072",
+            Semantic(
+                """
+                package A
+
+                protocol IIrradiance {
+                    func Sample(): float3
+                }
+
+                shader NoIrradiance : IIrradiance {
+                    func Sample(): float3 => float3(0f, 0f, 0f)
+                }
+
+                shader Forward {
+                    compose val irradiance: IIrradiance = NoIrradiance
+
+                    var exposure: float = 1f
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return float4(irradiance.Sample() * exposure, 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2105: the workgroup sizes that can be read ----------------------
+
+    /// <summary>
+    ///     One, two and three positional integer literals — the whole legal range, with both of its
+    ///     ends.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>ComputeTests.AWorkgroupSizeThatCannotBeReadIsRefused</c>, which is a
+    ///     fourth dimension, a zero, a named argument and three kinds of non-integer. A dimension
+    ///     not written is 1, because that is what both targets default to and what a 1-D dispatch
+    ///     means — so the count is a range and not a number, and a rule reading it as
+    ///     "exactly three" refuses <c>[ComputeShader(64)]</c>, which is how every reduction and
+    ///     every scan in the library is written.
+    /// </remarks>
+    [Fact]
+    public void A_workgroup_size_of_one_two_or_three_dimensions_is_read() =>
+        Silent(
+            "RVN2105",
+            Semantic(
+                """
+                package A
+
+                shader OneDimension {
+                    var output: RWBuffer<float>
+
+                    [ComputeShader(64)]
+                    func Main([Semantic("SV_GroupIndex")] local: uint) {
+                        output[int(local)] = 1f
+                    }
+                }
+
+                shader TwoDimensions {
+                    var output: RWBuffer<float>
+
+                    [ComputeShader(8, 8)]
+                    func Main([Semantic("SV_GroupIndex")] local: uint) {
+                        output[int(local)] = 2f
+                    }
+                }
+
+                shader ThreeDimensions {
+                    var output: RWBuffer<float>
+
+                    [ComputeShader(4, 4, 4)]
+                    func Main([Semantic("SV_GroupIndex")] local: uint) {
+                        output[int(local)] = 3f
+                    }
+                }
+
+                """
+            )
+        );
 }

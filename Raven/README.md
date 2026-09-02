@@ -112,10 +112,20 @@ me wrong" from "the shader is wrong".
 There are 128 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
 fires, and a **negative** — a shader that comes within one predicate of it and must stay silent.
 The second is the one that matters more, because an over-firing rule refuses correct work and cannot
-be argued with, while a missing rule only lets a mistake through. 70 ids have a negative today and 58
-do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 63 of the 70 and explains the
-method. Of the 58 owed, two — `RVN2003` and `RVN2014` — cannot fire on any input and so can never
-have one, which puts the reachable ceiling at 126. Two rules to keep if you add one:
+be argued with, while a missing rule only lets a mistake through. 74 ids have a negative today and 54
+do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 67 of the 74 and explains the
+method. Of the 54 owed, two — `RVN2003` and `RVN2014` — cannot fire on any input and so can never
+have one, which puts the reachable ceiling at 126.
+
+⚠ **Those five numbers are derived rather than typed, and this paragraph is held to them.** Four
+batches of this work have run and every one found a figure in its brief wrong, twice in a correction
+that was itself off by one — because a number in prose is a claim nothing evaluates.
+`DiagnosticCoverageTests` counts the descriptors by reflection and the negatives out of the fixtures,
+carries the owed ids as a list that only shrinks, and fails on any disagreement with this paragraph
+or with `docs/overview.md` § 1.8 — in both directions. Landing a negative therefore fails the suite
+until the id is struck off and the numbers here are corrected, which is the point.
+
+Two rules to keep if you add one:
 
 - **A negative is a *near miss*, not an unrelated valid shader.** For "X may not appear under Y" it
   is Y with something that looks like X, or X under the Y′ that is allowed. It shares the shape of
