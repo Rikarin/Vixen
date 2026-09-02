@@ -12,12 +12,13 @@ public readonly record struct SeatChange(PlayerId Player, int Seat, bool IsDrive
 /// <summary>One vehicle in the world: who is in which seat.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The transform half of this is blocked, and doc 28 predicted it.</b> § Movement says
-///         mounts and vehicles are where doc 16's owed <em>parent-relative replication</em> stops
-///         being optional, <em>"because a passenger replicating world coordinates fights the
-///         vehicle's own"</em>. That is item 69 in <c>docs/overview.md</c> and it is still owed, so
-///         nothing here touches a position: what is built is the seat model, which is the half that
-///         is not waiting on anything.
+///         ⚠ <b>The transform half of this is unbuilt and no longer blocked.</b> § Movement says
+///         mounts and vehicles are where doc 16's <em>parent-relative replication</em> stops being
+///         optional, <em>"because a passenger replicating world coordinates fights the vehicle's
+///         own"</em>. That landed as <c>Vixen.Net.Motion.NetworkParent</c>; what stops this library
+///         from using it is that it cannot reach an ECS from where it sits. So nothing here touches
+///         a position: what is built is the seat model, which is the half that never waited on
+///         anything.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The driver leaving does not delete the vehicle or eject anybody.</b> It becomes

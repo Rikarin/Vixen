@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Net.Replication;
 
 namespace Vixen.Net.Motion;
 
@@ -39,4 +40,37 @@ public struct NetworkTransform {
     ///     it: the receiver compares it with the last one it saw and only asks whether it changed.
     /// </remarks>
     public byte TeleportCount;
+}
+
+/// <summary>Which frame a <see cref="NetworkTransform" /> is expressed in.</summary>
+/// <remarks>
+///     <para>
+///         <b>A component of its own rather than a field on <see cref="NetworkTransform" />, and that
+///         is the whole design.</b> Almost nothing in a world has a parent, and a field would put
+///         thirty-two bits on every transform in the game so that the handful of riders and turrets
+///         could have theirs. As a separate replicated component an unparented entity pays nothing
+///         at all — no record, no lane, no mask bit — and the transform stays the 88 bits doc 16
+///         costed it at.
+///     </para>
+///     <para>
+///         <b>It is a <see cref="NetworkId" /> and not an <c>Entity</c></b>, for the reason
+///         <see cref="NetworkId" /> exists: the same vehicle is a different handle on every peer.
+///         Zero means world space, which is also what a default-initialised one means, so an entity
+///         that never had a parent and one that has just lost it are the same value.
+///     </para>
+///     <para>
+///         <b>Its arrival is not ordered against the parent's.</b> A rider can be told which vehicle
+///         it is in several ticks before the vehicle itself is spawned — interest resolved them in
+///         one order and the budget shed them in another. What the receiving side does about that is
+///         <c>NetworkTransformApplySystem</c>'s, and the answer is that the rider does not move until
+///         the frame it is quoted in exists. Applying the numbers as world coordinates meanwhile is
+///         the one thing that must never happen: it puts the rider at the vehicle's seat offset from
+///         the world origin and then corrects itself, which reads as the netcode teleporting people
+///         into the ground.
+///     </para>
+/// </remarks>
+[Component]
+public struct NetworkParent {
+    /// <summary>The <see cref="NetworkId" /> the position and rotation are relative to. Zero is the world.</summary>
+    public uint Value;
 }

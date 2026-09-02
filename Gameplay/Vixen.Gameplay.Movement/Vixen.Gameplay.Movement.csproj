@@ -5,8 +5,9 @@
         <RootNamespace>Vixen.Gameplay.Movement</RootNamespace>
         <Description>
             Mounts and vehicles as one type with seats: a mount is a single-seat vehicle whose model
-            is a creature. ⚠ The seat model only — the transform half waits on doc 16's owed
-            parent-relative replication, which doc 28 predicted it would.
+            is a creature. ⚠ The seat model only — the transform half is unbuilt, though no longer
+            blocked: doc 16's parent-relative replication landed and this library cannot yet reach
+            an ECS to use it.
         </Description>
         <PackageTags>gameplay;movement;mounts;vehicles;seats;mmo;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>

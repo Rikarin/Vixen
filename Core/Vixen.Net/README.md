@@ -597,9 +597,12 @@ in that package's README; the roadmap has the whole of Phase 9 in one place.
   supplies. What it should be is a re-entrant run of `SystemPhase.FixedUpdate`, so "what is simulated"
   and "what is replayed" cannot drift apart — and that wants the scheduler to be re-entrant, which it
   is not.
-- **`NetworkTransform` per-axis enable and parent-relative replication.** A door that only rotates
-  pays for a position; a crate on a moving ship replicates world coordinates that fight the ship's.
-  Both are on the component and neither is built.
+- **A producer for `NetworkParent`.** Per-axis enable and parent-relative replication are built —
+  `NetworkTransformAxes` narrows a replicator's lanes, `NetworkParent` names the frame a transform is
+  quoted in, and `NetworkTransformApplySystem` holds a rider still until that frame exists rather than
+  placing it at the seat offset from the world origin. ⚠ **Nothing in the tree registers
+  `NetworkParentReplicator`**: `Samples/08` has nothing parented and `Vixen.Gameplay.Movement` cannot
+  reach an ECS from where it sits. See `docs/guide/engine/parent-relative-transforms.md` and issue 434.
 - **`ResendDelayTicks` should be the connection's measured round trip.** The session keeps a
   `RoundTripEstimator` per player and `ReplicationServer` does not see it, so one figure stands in for
   every connection. Measured on the soak: four ticks gave 137 kbit/s a client and five gave 80, which

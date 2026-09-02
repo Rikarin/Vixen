@@ -61,8 +61,9 @@ answer, the same boundary `PvpMatch.Occupy` sits on.
 
 G7 is six libraries and this is one of them. Still owed, tracked as a task:
 
-- **`Vixen.Gameplay.Movement`** — mounts and vehicles as one `IVehicle` with seats, which doc 28 says
-  is where doc 16's parent-relative replication stops being optional.
+- **`Vixen.Gameplay.Movement`** — mounts and vehicles as one `IVehicle` with seats. Doc 16's
+  parent-relative replication, which doc 28 says is where it stops being optional, has landed; the
+  seat model is built and its transform half is not.
 - **`Vixen.Gameplay.Travel`** — portals, waypoints, taxis, all resolving to doc 27's `RequestTransfer`.
 - **`Vixen.Gameplay.Exploration`** — points of interest and a revealed-area bitmap per character.
 - **`Vixen.Gameplay.Ai`** — leashing, spawn tables and dialogue, on [37](../../docs/plan/37-ai-behaviour-trees-utility-and-goap.md)'s

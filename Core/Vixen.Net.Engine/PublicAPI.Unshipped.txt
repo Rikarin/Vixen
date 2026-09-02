@@ -124,7 +124,11 @@ Vixen.Net.Engine.NetworkTransformApplySystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Net.Engine.NetworkTransformApplySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Net.Engine.NetworkTransformApplySystem.AppliedCount.get -> long
 Vixen.Net.Engine.NetworkTransformApplySystem.Apply(Vixen.Ecs.World world) -> void
+Vixen.Net.Engine.NetworkTransformApplySystem.Client.get -> Vixen.Net.Replication.ReplicationClient?
+Vixen.Net.Engine.NetworkTransformApplySystem.Client.set -> Vixen.Net.Replication.ReplicationClient?
 Vixen.Net.Engine.NetworkTransformApplySystem.NetworkTransformApplySystem() -> void
+Vixen.Net.Engine.NetworkTransformApplySystem.ReparentedCount.get -> long
+Vixen.Net.Engine.NetworkTransformApplySystem.UnresolvedFrameCount.get -> long
 Vixen.Net.Engine.NetworkTransformCaptureSystem -> sealed class
 Vixen.Net.Engine.NetworkTransformCaptureSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Net.Engine.NetworkTransformCaptureSystem : Vixen.Ecs.Systems.SystemBase
@@ -132,7 +136,9 @@ Vixen.Net.Engine.NetworkTransformCaptureSystem.Access.get -> Vixen.Ecs.Systems.S
 Vixen.Net.Engine.NetworkTransformCaptureSystem.NetworkTransformCaptureSystem() -> void
 Vixen.Net.Engine.NetworkTransformCaptureSystem.Publish(Vixen.Ecs.World world) -> void
 Vixen.Net.Engine.NetworkTransformCaptureSystem.PublishedCount.get -> long
+Vixen.Net.Engine.NetworkTransformCaptureSystem.ReframedCount.get -> long
 Vixen.Net.Engine.NetworkTransformCaptureSystem.TeleportCount.get -> long
+Vixen.Net.Engine.NetworkTransformCaptureSystem.UnnameableFrameCount.get -> long
 Vixen.Net.Engine.Players.LocalPlayerSystem -> sealed class
 Vixen.Net.Engine.Players.LocalPlayerSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Net.Engine.Players.LocalPlayerSystem : Vixen.Ecs.Systems.SystemBase

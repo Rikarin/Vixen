@@ -150,4 +150,194 @@ public sealed class NetworkTransformBridgeTests {
 
         Assert.Equal(server.Read<LocalTransform>(here).Position, client.Read<LocalTransform>(there).Position);
     }
+
+    /// <summary>A passenger is published in the vehicle's frame, and the frame is named.</summary>
+    /// <remarks>
+    ///     Doc 28 § Movement's whole requirement in one test: what goes on the wire for a rider is a
+    ///     seat offset and the id of the seat it is an offset from, not a world position that fights
+    ///     the vehicle's own.
+    /// </remarks>
+    [Fact]
+    public void ARiderIsPublishedRelativeToTheVehicleItIsParentedTo() {
+        using var world = new World("frame-publish");
+        var capture = new NetworkTransformCaptureSystem();
+
+        var vehicle = Networked(world, 1, new(100f, 0f, 0f));
+        var rider = Networked(world, 2, Vector3.Zero);
+
+        Hierarchy.SetParent(world, rider, vehicle);
+        world.Get<LocalTransform>(rider).Position = new(0f, 1.5f, -0.5f);
+
+        world.AdvanceVersion();
+        capture.Publish(world);
+
+        // The offset, not the offset plus a hundred.
+        Assert.Equal(new Vector3(0f, 1.5f, -0.5f), world.Read<NetworkTransform>(rider).Position);
+        Assert.Equal(1u, world.Read<NetworkParent>(rider).Value);
+        Assert.Equal(1, capture.ReframedCount);
+
+        // And the vehicle itself is in nobody's frame, so it never grows the component at all.
+        Assert.False(world.Has<NetworkParent>(vehicle));
+    }
+
+    /// <summary>Getting off puts the rider back in the world, and says so.</summary>
+    [Fact]
+    public void DismountingPutsTheRiderBackInWorldSpace() {
+        using var world = new World("frame-dismount");
+        var capture = new NetworkTransformCaptureSystem();
+
+        var vehicle = Networked(world, 1, new(100f, 0f, 0f));
+        var rider = Networked(world, 2, Vector3.Zero);
+
+        Hierarchy.SetParent(world, rider, vehicle);
+        world.AdvanceVersion();
+        capture.Publish(world);
+        Assert.Equal(1u, world.Read<NetworkParent>(rider).Value);
+
+        Hierarchy.SetParent(world, rider, Entity.Null);
+        world.AdvanceVersion();
+        capture.Publish(world);
+
+        // Zero and not "the component is gone": replication never removes a component, so the frame
+        // a rider has left has to be a value rather than an absence.
+        Assert.Equal(0u, world.Read<NetworkParent>(rider).Value);
+        Assert.Equal(2, capture.ReframedCount);
+    }
+
+    /// <summary>
+    ///     ⚠ An entity hanging off a parent the wire cannot name is published in world space, which
+    ///     is what it always should have been.
+    /// </summary>
+    /// <remarks>
+    ///     The defect this pass fixes rather than a feature it adds. <c>LocalTransform</c> is
+    ///     relative to the parent and the bridge published it verbatim, so a networked entity under a
+    ///     purely local parent sent an offset that the other end read as a world position — silently,
+    ///     and wrong by however far the parent was from the origin.
+    /// </remarks>
+    [Fact]
+    public void AnEntityUnderAnUnnamedParentIsPublishedInWorldSpace() {
+        using var world = new World("frame-unnameable");
+        var capture = new NetworkTransformCaptureSystem();
+
+        // A parent with no NetworkId: an art pivot, a spawn point, anything the game did not network.
+        var pivot = Hierarchy.CreateTransform(world, LocalTransform.At(new(100f, 0f, 0f)));
+        var child = Networked(world, 1, new(0f, 0f, 5f));
+
+        Hierarchy.SetParent(world, child, pivot);
+
+        world.AdvanceVersion();
+        capture.Publish(world);
+
+        Assert.Equal(new Vector3(100f, 0f, 5f), world.Read<NetworkTransform>(child).Position);
+        Assert.Equal(1, capture.UnnameableFrameCount);
+
+        // And no frame is claimed for it, because there is no id that names one.
+        Assert.False(world.Has<NetworkParent>(child));
+    }
+
+    /// <summary>
+    ///     ⚠ A transform quoted in a frame that has not arrived is not applied at all.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The ordering defect this feature is mostly about.</b> The rider's numbers are a seat
+    ///     offset; read as world coordinates they put it a metre and a half above the world origin
+    ///     until the vehicle turns up. Holding it still instead is the only answer that is never
+    ///     visibly wrong, and it has to survive the transform not changing again — the value arrived,
+    ///     it simply could not be used, so a change-filtered pass would look once and never again.
+    /// </remarks>
+    [Fact]
+    public void ARiderWhoseVehicleHasNotArrivedIsHeldRatherThanPlacedAtTheOrigin() {
+        using var world = new World("frame-ordering");
+        var client = new ReplicationClient(new());
+        var apply = new NetworkTransformApplySystem { Client = client };
+
+        var rider = Networked(world, 2, new(-50f, 0f, -50f));
+        client.Bind(new(2), rider);
+
+        world.Get<NetworkTransform>(rider).Position = new(0f, 1.5f, -0.5f);
+        world.Add(rider, new NetworkParent { Value = 1 });
+        world.AdvanceVersion();
+
+        apply.Apply(world);
+        apply.Apply(world);
+
+        // Where it was, not at the seat offset from the origin.
+        Assert.Equal(new Vector3(-50f, 0f, -50f), world.Read<LocalTransform>(rider).Position);
+        Assert.Equal(2, apply.UnresolvedFrameCount);
+        Assert.Equal(0, apply.AppliedCount);
+
+        // Now the vehicle arrives. Nothing about the rider's records has changed since.
+        var vehicle = Networked(world, 1, new(100f, 0f, 0f));
+        client.Bind(new(1), vehicle);
+
+        apply.Apply(world);
+
+        Assert.Equal(vehicle, Hierarchy.ParentOf(world, rider));
+        Assert.Equal(new Vector3(0f, 1.5f, -0.5f), world.Read<LocalTransform>(rider).Position);
+        Assert.Equal(1, apply.ReparentedCount);
+        Assert.Equal(2, apply.UnresolvedFrameCount);
+    }
+
+    /// <summary>The two ends agree about where a rider is in the world, which is the point.</summary>
+    [Fact]
+    public void AServerAndAClientAgreeAboutWhereARiderIs() {
+        using var server = new World("frame-round-server");
+        using var client = new World("frame-round-client");
+
+        var capture = new NetworkTransformCaptureSystem();
+        var replication = new ReplicationClient(new());
+        var apply = new NetworkTransformApplySystem { Client = replication };
+
+        var vehicle = Networked(server, 1, new(100f, 0f, 0f));
+        var rider = Networked(server, 2, Vector3.Zero);
+        Hierarchy.SetParent(server, rider, vehicle);
+        server.Get<LocalTransform>(rider).Position = new(0f, 1.5f, -0.5f);
+
+        var theirVehicle = Networked(client, 1, new(100f, 0f, 0f));
+        var theirRider = Networked(client, 2, Vector3.Zero);
+        replication.Bind(new(1), theirVehicle);
+        replication.Bind(new(2), theirRider);
+
+        server.AdvanceVersion();
+        capture.Publish(server);
+
+        // Standing in for the wire, which has its own tests. Both records, because both are records.
+        client.AdvanceVersion();
+        client.Get<NetworkTransform>(theirRider) = server.Read<NetworkTransform>(rider);
+        client.Add(theirRider, server.Read<NetworkParent>(rider));
+        apply.Apply(client);
+
+        Assert.Equal(theirVehicle, Hierarchy.ParentOf(client, theirRider));
+        Assert.Equal(
+            Hierarchy.ResolveWorldMatrix(server, rider).Translation,
+            Hierarchy.ResolveWorldMatrix(client, theirRider).Translation
+        );
+    }
+
+    /// <summary>An entity with no frame at all is untouched, which is every entity that ships today.</summary>
+    [Fact]
+    public void AnEntityWithNoFrameIsNotReparentedByAnything() {
+        using var world = new World("frame-absent");
+        var apply = new NetworkTransformApplySystem { Client = new(new()) };
+
+        var pivot = Hierarchy.CreateTransform(world, LocalTransform.At(new(10f, 0f, 0f)));
+        var child = Networked(world, 1, Vector3.Zero);
+        Hierarchy.SetParent(world, child, pivot);
+
+        world.AdvanceVersion();
+        world.Get<NetworkTransform>(child).Position = new(1f, 2f, 3f);
+        apply.Apply(world);
+
+        Assert.Equal(pivot, Hierarchy.ParentOf(world, child));
+        Assert.Equal(new Vector3(1f, 2f, 3f), world.Read<LocalTransform>(child).Position);
+        Assert.Equal(0, apply.ReparentedCount);
+    }
+
+    static Entity Networked(World world, uint id, Vector3 at) {
+        var entity = Hierarchy.CreateTransform(world, LocalTransform.At(at));
+        world.Add(entity, new NetworkId(id));
+        world.Add(entity, new NetworkTransform { Position = at, Rotation = Quaternion.Identity });
+
+        return entity;
+    }
 }

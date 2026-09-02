@@ -214,20 +214,47 @@ Vixen.Net.Messaging.WireLane.Offset.get -> bool
 Vixen.Net.Messaging.WireLane.Offset.init -> bool
 Vixen.Net.Messaging.WireLane.WireLane() -> void
 Vixen.Net.Messaging.WireLane.WireLane(string Name, int Bits, bool Offset) -> void
+Vixen.Net.Motion.NetworkParent -> struct
+Vixen.Net.Motion.NetworkParent.NetworkParent() -> void
+Vixen.Net.Motion.NetworkParent.Value -> uint
+Vixen.Net.Motion.NetworkParentReplicator -> sealed class
+Vixen.Net.Motion.NetworkParentReplicator : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Motion.NetworkParentReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Motion.NetworkParentReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Motion.NetworkParentReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Motion.NetworkParentReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Motion.NetworkParentReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Motion.NetworkParentReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Motion.NetworkParentReplicator.NetworkParentReplicator() -> void
+Vixen.Net.Motion.NetworkParentReplicator.Priority.get -> int
+Vixen.Net.Motion.NetworkParentReplicator.TypeId.get -> uint
+Vixen.Net.Motion.NetworkParentReplicator.TypeName.get -> string
+Vixen.Net.Motion.NetworkParentReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
 Vixen.Net.Motion.NetworkTransform -> struct
 Vixen.Net.Motion.NetworkTransform.NetworkTransform() -> void
 Vixen.Net.Motion.NetworkTransform.Position -> Vixen.Core.Mathematics.Vector3
 Vixen.Net.Motion.NetworkTransform.Rotation -> Vixen.Core.Mathematics.Quaternion
 Vixen.Net.Motion.NetworkTransform.TeleportCount -> byte
+Vixen.Net.Motion.NetworkTransformAxes -> enum : int
+Vixen.Net.Motion.NetworkTransformAxes.All = Vixen.Net.Motion.NetworkTransformAxes.Position | Vixen.Net.Motion.NetworkTransformAxes.Rotation -> Vixen.Net.Motion.NetworkTransformAxes
+Vixen.Net.Motion.NetworkTransformAxes.NetworkTransformAxes() -> void
+Vixen.Net.Motion.NetworkTransformAxes.None = 0 -> Vixen.Net.Motion.NetworkTransformAxes
+Vixen.Net.Motion.NetworkTransformAxes.Position = Vixen.Net.Motion.NetworkTransformAxes.PositionX | Vixen.Net.Motion.NetworkTransformAxes.PositionY | Vixen.Net.Motion.NetworkTransformAxes.PositionZ -> Vixen.Net.Motion.NetworkTransformAxes
+Vixen.Net.Motion.NetworkTransformAxes.PositionX = 1 -> Vixen.Net.Motion.NetworkTransformAxes
+Vixen.Net.Motion.NetworkTransformAxes.PositionY = 2 -> Vixen.Net.Motion.NetworkTransformAxes
+Vixen.Net.Motion.NetworkTransformAxes.PositionZ = 4 -> Vixen.Net.Motion.NetworkTransformAxes
+Vixen.Net.Motion.NetworkTransformAxes.Rotation = 8 -> Vixen.Net.Motion.NetworkTransformAxes
 Vixen.Net.Motion.NetworkTransformReplicator -> sealed class
 Vixen.Net.Motion.NetworkTransformReplicator : Vixen.Net.Replication.IComponentReplicator
 Vixen.Net.Motion.NetworkTransformReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Motion.NetworkTransformReplicator.Axes.get -> Vixen.Net.Motion.NetworkTransformAxes
 Vixen.Net.Motion.NetworkTransformReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
 Vixen.Net.Motion.NetworkTransformReplicator.Channel.get -> Vixen.Net.Channel
 Vixen.Net.Motion.NetworkTransformReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
 Vixen.Net.Motion.NetworkTransformReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
 Vixen.Net.Motion.NetworkTransformReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
 Vixen.Net.Motion.NetworkTransformReplicator.NetworkTransformReplicator() -> void
+Vixen.Net.Motion.NetworkTransformReplicator.NetworkTransformReplicator(Vixen.Net.Motion.NetworkTransformAxes axes) -> void
 Vixen.Net.Motion.NetworkTransformReplicator.Priority.get -> int
 Vixen.Net.Motion.NetworkTransformReplicator.TypeId.get -> uint
 Vixen.Net.Motion.NetworkTransformReplicator.TypeName.get -> string
@@ -1116,6 +1143,7 @@ const Vixen.Net.Diagnostics.NetworkMetrics.MeterName = "Vixen.Net" -> string
 const Vixen.Net.Messaging.DeltaCodec.MinimumOffsetBits = 9 -> int
 const Vixen.Net.Messaging.DeltaCodec.SelectorBits = 2 -> int
 const Vixen.Net.Messaging.MathCodec.RotationBits = 10 -> int
+const Vixen.Net.Motion.NetworkParentReplicator.ParentPriority = 500 -> int
 const Vixen.Net.Motion.NetworkTransformReplicator.PositionBits = 16 -> int
 const Vixen.Net.Replication.ConnectionBaseline.MaxPendingTicks = 64 -> int
 const Vixen.Net.Replication.NetworkId.FirstBaked = 2147483648 -> uint

@@ -547,7 +547,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | Interest management — resolver chain, rules, `InterestGrid` (a source, not a filter), hysteresis, `NetworkLOD` rate | ✅ | Core/Vixen.Net | Two corrections to doc 16 recorded. ⚠ Built and correct but **unreached** — `InterestChain` is constructed only by tests; no sample or game wires one |
 | Team / room / fog-of-war rules; resolver **composition** | 🟡 | Core/Vixen.Net(.Engine) | Composition landed: `InterestChain` takes an `IInterestSource` plus ordered `IInterestRule`s, and `InterestGrid` + `SceneInterestRule` chain distance… |
 | Motion — `SnapshotBuffer`, clamped extrapolation, `NetworkTransform`, owner smoothing | ✅ | Core/Vixen.Net(.Engine) | 88 bits against 224 in memory |
-| Per-axis enable, parent-relative replication | ⬜ | — | ⚠ Blocks [doc 28](plan/28-gameplay-framework.md) § Movement's *transform* half — a rider parented to a vehicle has no way to replicate |
+| Per-axis enable, parent-relative replication | ✅ | Core/Vixen.Net(.Engine) | `NetworkParent` is a component of its own, so an unparented entity pays nothing and the transform stays 88 bits. ⚠ A frame that has not arrived holds the rider still rather than placing it at the seat offset from the origin. ⚠ Unblocks [doc 28](plan/28-gameplay-framework.md) § Movement but does not build it — no in-tree producer registers `NetworkParentReplicator` yet ([#434](https://github.com/Rikarin/Vixen/issues/434)) |
 | Networked rigid bodies, authority as a `NetworkRules` audience | ✅ | Core/Vixen.Net.Physics | Correction via velocity, not teleport |
 | Lag compensation (pose ring, rewind scope, `ClampFor`) | ✅ | Core/Vixen.Net.Physics |  |
 | Hit-claim message; per-bone rewind; rewind cost budget; drawing it | 🟡 | Gameplay/Vixen.Gameplay.Shooting | `HitClaim`, `HitClaimValidator` and `RewindBudget` landed with doc 28, one layer above networking. Per-bone rewind (wants animation pose history) and… |
@@ -883,7 +883,7 @@ what is left.
 
 No dependency in either direction; pick any up whenever there is a gap. UDP congestion control /
 ack piggybacking / path MTU / DTLS; `SharpFuzz` instrumentation and structure-aware mutation;
-per-axis `NetworkTransform`; team/room/fog-of-war interest rules and resolver composition; ~~`SyncVar`
+~~per-axis `NetworkTransform`~~ (built — `NetworkTransformAxes`, and parent-relative with it); team/room/fog-of-war interest rules and resolver composition; ~~`SyncVar`
 dirty-marking system~~ (built — `SyncStateSweepSystem`); `ReplicationChannel` helper; OpenTelemetry traces and the client-side metrics
 route; Raven string interpolation; ~~blend shapes~~ (built — storage, import, kernel, compute scatter and
 `MorphRenderFeature`; what is left is a scalar weight track on the clip format and the cluster-page
@@ -962,7 +962,7 @@ Detail, evidence and history live in the linked issue and the owning module `REA
 | 66 | `Vixen.Net` | Session bandwidth budgeting / priority shedding | [#202](https://github.com/Rikarin/Vixen/issues/202) |
 | 67 | `Vixen.Net` | `.vxnetrules` asset — the registry it would fill is built and reached, the format and importer do not exist; a prefab… | [#203](https://github.com/Rikarin/Vixen/issues/203) |
 | 68 | `Vixen.Net` | Team/room/fog-of-war rules; resolver composition | [#204](https://github.com/Rikarin/Vixen/issues/204) |
-| 69 | `Vixen.Net` | Per-axis / parent-relative `NetworkTransform`; per-bone quantisation; pose interpolation | [#205](https://github.com/Rikarin/Vixen/issues/205) |
+| 69 | `Vixen.Net` | ~~Per-axis / parent-relative `NetworkTransform`~~ (built — `NetworkTransformAxes`, `NetworkParent`); per-bone quantisation; pose interpolation | [#205](https://github.com/Rikarin/Vixen/issues/205) |
 | 70 | `Vixen.Net` | Hit-claim message; per-bone rewind; rewind cost budget; rewind visualisation | [#206](https://github.com/Rikarin/Vixen/issues/206) |
 | 71 | `Vixen.Net` | built, `SyncStateSweepSystem`; `ReplicationChannel` helper — ⚠ **the "every game writes the same six lines" premise has… | [#207](https://github.com/Rikarin/Vixen/issues/207) |
 | 72 | `Vixen.Net` | Predicted spawns; scheduler fixed-step group | [#208](https://github.com/Rikarin/Vixen/issues/208) |

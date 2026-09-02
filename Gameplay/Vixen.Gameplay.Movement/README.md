@@ -10,12 +10,15 @@ Spec: [docs/plan/28](../../docs/plan/28-gameplay-framework.md) § Movement, part
 **Built: vehicles with seats, roles, requirements and tags; mount, dismount, seat changes and eject.
 17 tests.**
 
-⚠ **Not built, and deliberately not worked around: anything to do with a position.** Doc 28 says
-mounts and vehicles are where doc 16's owed **parent-relative replication** stops being optional,
-*"because a passenger replicating world coordinates fights the vehicle's own"*. That is item 69 in
-[`docs/overview.md`](../../docs/overview.md) and it is still ⬜. Building the networked half now would
-mean building a workaround for something that is supposed to land, so nothing here touches a
-transform.
+⚠ **Not built: anything to do with a position — but the reason has changed.** Doc 28 says mounts and
+vehicles are where doc 16's owed **parent-relative replication** stops being optional, *"because a
+passenger replicating world coordinates fights the vehicle's own"*. **That has landed** —
+`Vixen.Net.Motion.NetworkParent` and `NetworkTransformApplySystem.Client`, see
+[the guide](../../docs/guide/engine/parent-relative-transforms.md). What is still missing is this
+library's own half, and the obstacle is now the reference set below rather than the engine: nothing
+here can reach an ECS, so a system that parents a rider to its seat has nowhere to live yet, and a
+`SeatDefinition` has no offset to parent to. Where that system belongs is a decision, tracked as
+issue 434.
 
 | | |
 |---|---|
@@ -51,8 +54,10 @@ miles an hour.
 
 ## What is owed
 
-- **The transform**, above. When doc 16 #69 lands, what this library needs from it is that a
-  passenger's position is expressed relative to the vehicle's body rather than in world space.
+- **The transform**, above. Doc 16 #69's parent-relative half has landed and this library still does
+  not use it: it needs a seat offset on `SeatDefinition`, a home for a system that can touch an ECS,
+  and a first adopter — `Samples/14-Mmo`, whose `AvatarComponents` models the seat and not the
+  position for exactly this reason.
 - **Control mapping.** `SeatRole.Gunner` is authored and nothing reads it; what a gunner may fire is
   `Vixen.Gameplay.Shooting`'s and the wiring is a game's.
 - **Swimming and gliding**, which doc 28 lists under movement and which are player states rather than

@@ -260,6 +260,133 @@ public sealed class MotionTests {
         Assert.Equal(7, got.TeleportCount);
     }
 
+    /// <summary>A door that only rotates stops paying for a position.</summary>
+    [Fact]
+    public void ARotationOnlyTransformCostsFortyBitsRatherThanEightyEight() {
+        using var world = new World();
+
+        var entity = world.Create(
+            new NetworkTransform {
+                Position = new(1, 2, 3),
+                Rotation = Quaternion.Identity,
+                TeleportCount = 2
+            }
+        );
+
+        Span<byte> buffer = stackalloc byte[64];
+        var writer = new BitWriter(buffer);
+        var replicator = new NetworkTransformReplicator(NetworkTransformAxes.Rotation);
+
+        replicator.Write(world, entity, ref writer);
+
+        // 32 for the rotation and 8 for the teleport counter. The forty-eight the position cost are
+        // the saving, and they are saved on every tick rather than only on the ones it did not move.
+        Assert.Equal(40, writer.BitsWritten);
+        Assert.Equal(40, DeltaCodec.TotalBits(replicator.Lanes));
+    }
+
+    /// <summary>
+    ///     ⚠ An axis nobody sends keeps the value the receiver already had, and is emphatically not
+    ///     zero.
+    /// </summary>
+    /// <remarks>
+    ///     The whole risk of a narrowed replicator. A door replicating only its rotation has its
+    ///     position from the prefab that built it; writing a fresh <c>NetworkTransform</c> would put
+    ///     every door in the level at the world origin — a zeroed field whose zero is a perfectly
+    ///     valid position, which is how this class of bug always looks.
+    /// </remarks>
+    [Fact]
+    public void AnAxisThatIsNotSentKeepsWhatTheReceiverHad() {
+        using var server = new World();
+        using var client = new World();
+
+        var replicator = new NetworkTransformReplicator(NetworkTransformAxes.Rotation);
+
+        var sent = server.Create(
+            new NetworkTransform {
+                Position = new(500f, 0f, -250f),
+                Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 1.1f)
+            }
+        );
+
+        // The door, where the prefab put it.
+        var door = client.Create(new NetworkTransform { Position = new(12f, 0f, 34f), Rotation = Quaternion.Identity });
+
+        Span<byte> buffer = stackalloc byte[64];
+        var writer = new BitWriter(buffer);
+        replicator.Write(server, sent, ref writer);
+
+        Assert.True(writer.TryFinish(out var packet));
+
+        var reader = new BitReader(packet);
+        Assert.True(replicator.Apply(client, door, ref reader));
+
+        ref readonly var got = ref client.Read<NetworkTransform>(door);
+        Assert.Equal(new Vector3(12f, 0f, 34f), got.Position);
+        Assert.Equal(server.Read<NetworkTransform>(sent).Rotation.Y, got.Rotation.Y, 2);
+    }
+
+    /// <summary>
+    ///     ⚠ A narrowed replicator has a different wire id, so two peers that disagree about the mask
+    ///     fail the handshake rather than each other's transforms.
+    /// </summary>
+    /// <remarks>
+    ///     The instrument, checked first. Two masks over one type id would decode each other's lanes
+    ///     into plausible wrong numbers and nothing would say so; folding the mask into the type name
+    ///     folds it into <c>ManifestHash</c>, which the handshake compares. The unmasked default
+    ///     keeps the bare name, so nothing that ships today moves.
+    /// </remarks>
+    [Fact]
+    public void ANarrowedReplicatorIsADifferentTypeOnTheWire() {
+        var all = new NetworkTransformReplicator();
+        var rotationOnly = new NetworkTransformReplicator(NetworkTransformAxes.Rotation);
+
+        Assert.Equal("Vixen.Net.Motion.NetworkTransform", all.TypeName);
+        Assert.Equal(ReplicationRegistry.HashTypeName("Vixen.Net.Motion.NetworkTransform"), all.TypeId);
+        Assert.NotEqual(all.TypeId, rotationOnly.TypeId);
+
+        var one = new ReplicationRegistry();
+        var other = new ReplicationRegistry();
+        one.Register(all);
+        other.Register(rotationOnly);
+
+        Assert.NotEqual(one.ManifestHash, other.ManifestHash);
+    }
+
+    /// <summary>A replicator that sends no axis is refused rather than registered.</summary>
+    [Fact]
+    public void AReplicatorWithNoAxesIsRefused() {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new NetworkTransformReplicator(NetworkTransformAxes.None)
+        );
+    }
+
+    /// <summary>The frame a transform is quoted in survives the wire.</summary>
+    [Fact]
+    public void ANetworkParentSurvivesTheRoundTrip() {
+        using var server = new World();
+        using var client = new World();
+
+        var entity = server.Create(new NetworkParent { Value = 41 });
+        var replicator = new NetworkParentReplicator();
+        Span<byte> buffer = stackalloc byte[16];
+        var writer = new BitWriter(buffer);
+
+        replicator.Write(server, entity, ref writer);
+
+        Assert.True(writer.TryFinish(out var packet));
+
+        var mirrored = client.Create();
+        var reader = new BitReader(packet);
+
+        Assert.True(replicator.Apply(client, mirrored, ref reader));
+        Assert.Equal(41u, client.Read<NetworkParent>(mirrored).Value);
+
+        // ⚠ And it outranks the transform, so within one snapshot the frame precedes what is quoted
+        // in it. Records are written in descending priority.
+        Assert.True(replicator.Priority > new NetworkTransformReplicator().Priority);
+    }
+
     [Fact]
     public void AMalformedTransformIsRefusedRatherThanApplied() {
         using var world = new World();

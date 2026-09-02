@@ -86,9 +86,10 @@ public struct Appearance {
 
 /// <summary>What a mount or a waggon is carrying. Absent when nobody is riding.</summary>
 /// <remarks>
-///     ⚠ <b>The passenger's <em>seat</em> and not their position.</b> Doc 16's parent-relative
-///     replication is still owed, and until it lands a passenger replicating world coordinates
-///     fights the vehicle's own. A seat index is the one fact that does not.
+///     ⚠ <b>The passenger's <em>seat</em> and not their position.</b> A passenger replicating world
+///     coordinates fights the vehicle's own; a seat index is the one fact that does not. Doc 16's
+///     parent-relative replication has since landed — <c>Vixen.Net.Motion.NetworkParent</c> — and
+///     this sample has not adopted it, which is issue 434 rather than an omission here.
 /// </remarks>
 [Replicated(Priority = 50)]
 public struct Riding {

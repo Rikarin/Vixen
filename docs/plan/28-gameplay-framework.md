@@ -556,10 +556,11 @@ hard; the value is in it being *the same* system as gathering and using the same
 > [`Vixen.Gameplay.Travel`](../../Gameplay/Vixen.Gameplay.Travel/README.md), 14,
 > [`Vixen.Gameplay.Movement`](../../Gameplay/Vixen.Gameplay.Movement/README.md), 17, and
 > [`Vixen.Gameplay.Ai`](../../Gameplay/Vixen.Gameplay.Ai/README.md), 23.
-> ⚠ **Movement's *transform* half is blocked on doc 16's owed parent-relative replication**, which
-> this section itself predicted — `overview.md` still has it ⬜ as item 69, so a passenger's position
-> cannot be replicated correctly and nothing here touches one. The seat model is built and is the
-> half that was never waiting on anything. ⚠ **The AI half turned out to be a fraction of what the
+> ⚠ **Movement's *transform* half is unbuilt and no longer blocked.** This section predicted the
+> block and it was real; doc 16's parent-relative replication has since landed (item 69,
+> `NetworkParent`), so what is left is this library's own wiring — a seat offset, a home for a system
+> that can reach an ECS, and a first adopter. The seat model is built and is the half that was never
+> waiting on anything. ⚠ **The AI half turned out to be a fraction of what the
 > cost row implies**: threat, aggro and taunt landed in `Vixen.Gameplay.Combat` at G2, the planners,
 > blackboard, action surface and perception are `Core/Vixen.Ai`'s, and encounter scripting is an
 > *address* on an `EncounterDefinition` — so what was actually left is leashing and spawn tables, and
