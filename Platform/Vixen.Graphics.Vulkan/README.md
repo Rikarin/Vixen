@@ -127,6 +127,18 @@ the surface does not care which kind it was. What a headless surface still canno
 underneath the swapchain — their translation is asserted directly instead, because a rebuild loop that
 never converges is what collapsing those two costs.
 
+**A multisample resolve needs dynamic rendering, and the `VkRenderPass` path refuses one.** ⚠ It used
+to *drop* it: `AttachmentKey` has no notion of a resolve and `StoreAction.Resolve` translates to
+`VK_ATTACHMENT_STORE_OP_STORE` like any other store, so the pass stored the multisampled image, never
+wrote the resolve target, and said nothing. Measured on MoltenVK with a 4× red clear — the dynamic
+path reads `(255, 0, 0, 255)` out of the resolve target and this one read `(255, 0, 255, 255)` with
+`ErrorCount = 0`. Both resolve fixtures were blind to it, because each runs on whichever path its
+device picks and every machine here picks the other. Filling it in is `vkCreateRenderPass2`:
+`pResolveAttachments` in the subpass, the resolve views in the framebuffer, and
+`VkSubpassDescriptionDepthStencilResolve` for the depth half, which `VkRenderPassCreateInfo` cannot
+carry at all — [#438](https://github.com/Rikarin/Vixen/issues/438). Until then a refusal that names
+both causes, because a wrong picture with a clean validation log is worse than a stop.
+
 **A stated sample type is checked here, and an unstated one is not.** `DescriptorBinding.SampleType`
 is WebGPU's requirement — Vulkan takes any view a layout's "sampled image" binding is given, and the
 shader's own type decides how it is read. But a layout that *does* say `Depth`, and is then handed a

@@ -947,6 +947,34 @@ sealed unsafe class VulkanCommandList : ICommandList {
 
     void BeginWithPassObject(in RenderPassDescription description, Extent2D extent) {
         var colour = description.ColourAttachments;
+
+        // ⚠ Refused, because until this it was *dropped*. `AttachmentKey` has no notion of a resolve
+        // — `StoreAction.Resolve` translates to `VK_ATTACHMENT_STORE_OP_STORE` like any other store
+        // — so a pass that asked for one got a multisampled image stored, a resolve target nothing
+        // ever wrote, and no validation message at all. Measured on MoltenVK with a 4× red clear:
+        // the dynamic-rendering path reads (255, 0, 0, 255) out of the resolve target and this one
+        // reads (255, 0, 255, 255), which is whatever the allocation happened to hold, with
+        // ErrorCount = 0. A silently wrong picture on the one path that is mandatory rather than
+        // optional ([10](../../docs/plan/10-platforms.md) § Android: a large slice of Android is
+        // still on Vulkan 1.1), and invisible to both resolve fixtures, which only ever run here
+        // with dynamic rendering.
+        //
+        // Filling it in means `vkCreateRenderPass2` — resolve attachments in the description,
+        // `pResolveAttachments` in the subpass, their views in the framebuffer, and
+        // `VkSubpassDescriptionDepthStencilResolve` chained for the depth half, which
+        // `VkRenderPassCreateInfo` cannot carry at all. That is a rewrite of `RenderPassCache` and
+        // is filed rather than smuggled in here; a refusal that names the gap is the honest state
+        // until it lands, and it cannot be mistaken for a frame that worked.
+        foreach (var attachment in colour) {
+            if (attachment.Store == StoreAction.Resolve && attachment.ResolveView.IsValid) {
+                throw new NotSupportedException(Unresolvable("A colour attachment"));
+            }
+        }
+
+        if (description.DepthStencil is { DepthStore: StoreAction.Resolve, ResolveView.IsValid: true }) {
+            throw new NotSupportedException(Unresolvable("The depth attachment"));
+        }
+
         var total = colour.Length + (description.DepthStencil is null ? 0 : 1);
         var keys = new AttachmentKey[colour.Length];
         var views = new ImageView[total];
@@ -1012,6 +1040,15 @@ sealed unsafe class VulkanCommandList : ICommandList {
 
         api.CmdBeginRenderPass(Buffer, &info, SubpassContents.Inline);
     }
+
+    /// <summary>Why a resolve cannot be honoured without dynamic rendering, said once.</summary>
+    static string Unresolvable(string what) =>
+        $"{what} of '{nameof(StoreAction.Resolve)}' was recorded on a device using VkRenderPass "
+        + "objects, and the Vulkan backend cannot resolve there yet — it would store the "
+        + "multisampled image and leave the resolve target untouched, with nothing said. Either the "
+        + "device has no VK_KHR_dynamic_rendering, or VulkanDeviceOptions.PreferRenderPassObjects "
+        + "was set; render single-sampled on such a device until the render-pass path carries "
+        + "resolve attachments.";
 
     /// <summary>The pass's render area: the caller's, clamped inside the attachment, or all of it.</summary>
     /// <remarks>
