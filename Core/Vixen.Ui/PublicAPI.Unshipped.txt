@@ -892,6 +892,7 @@ Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float th
 Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Ui.GradientShape shape, Vixen.Ui.GradientSpace space, Vixen.Core.Mathematics.Vector2 gradientAxis, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Color4 gradientVia, bool hasVia, Vixen.Ui.GradientStops stops, float blur = 0) -> void
 Vixen.Ui.Rendering.UiTransform -> readonly struct
 Vixen.Ui.Rendering.UiTransform : System.IEquatable<Vixen.Ui.Rendering.UiTransform>
+Vixen.Ui.Rendering.UiTransform.About(Vixen.Core.Mathematics.Vector2 origin) -> Vixen.Ui.Rendering.UiTransform
 Vixen.Ui.Rendering.UiTransform.Apply(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.UiTransform.Bounds(Vixen.Core.Mathematics.Rectangle rectangle) -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiTransform.Determinant.get -> float

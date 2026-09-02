@@ -591,4 +591,248 @@ public class TransformTests {
         Assert.Same(bar, document.HitTest(140f, 120f));
         Assert.Same(document.Root, document.HitTest(105f, 150f));
     }
+
+    // ── `transform`, the property, and its function list ────────────────────────────────────────
+
+    /// <summary>
+    ///     <c>transform: rotate(90deg)</c> reaches the same matrix <c>rotate: 90deg</c> does, and is
+    ///     asserted with the same two probes.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Deliberately the same fixture as
+    ///     <see cref="A_rotation_moves_the_box_it_draws_and_the_box_it_is_clicked_on" />, because the
+    ///     one thing worth knowing first about a new property is whether it lands where the old one
+    ///     does.</b> Transforms 2 §3 says the two spellings are the same rotation about the same
+    ///     origin, and a list that composed about the box's corner instead — the natural mistake,
+    ///     since a function list has no origin written in it — passes an assertion about the turned
+    ///     bar's own extent and fails these.
+    /// </remarks>
+    [Fact]
+    public void A_function_list_reaches_the_same_place_the_independent_property_does() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .bar { position: absolute; left: 100px; top: 140px; width: 80px; height: 20px;
+                   background-color: #111; transform: rotate(90deg); }
+            """,
+            document => document.Root.Add("div", classNames: "bar")
+        );
+
+        var bar = document.Root.Children[0];
+
+        Assert.Equal(100f, bar.AbsoluteLeft, Tolerance);
+        Assert.Same(bar, document.HitTest(140f, 120f));
+        Assert.Same(document.Root, document.HitTest(105f, 150f));
+    }
+
+    /// <summary>The last function in a list is applied to a point first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two boxes that do not overlap at all, which is the only way to state this.</b>
+    ///         <c>transform: A B</c> is the matrix product <c>A · B</c>, so <c>B</c> maps the point
+    ///         first — <c>rotate(90deg) translate(40px)</c> moves the element forty points along its
+    ///         own <i>turned</i> axis, and <c>translate(40px) rotate(90deg)</c> moves it forty points
+    ///         across the screen. A 40×40 box at (100, 100) about its centre (120, 120) lands at
+    ///         x ∈ [100, 140], y ∈ [140, 180] under the first and at x ∈ [140, 180], y ∈ [100, 140]
+    ///         under the second: disjoint, so each probe rejects the other reading rather than merely
+    ///         preferring one.
+    ///     </para>
+    ///     <para>
+    ///         Composing left to right is the mistake this exists for, and it is invisible on every
+    ///         single-function declaration — which is most of them.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_last_function_written_is_the_first_one_applied() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            div { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                  background-color: #111; }
+            .turned-then-moved { transform: rotate(90deg) translate(40px); }
+            .moved-then-turned { transform: translate(40px) rotate(90deg); }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "turned-then-moved");
+                document.Root.Add("div", classNames: "moved-then-turned");
+            }
+        );
+
+        var first = document.Root.Children[0];
+        var second = document.Root.Children[1];
+
+        Assert.Same(first, document.HitTest(120f, 160f));
+        Assert.Same(second, document.HitTest(160f, 120f));
+    }
+
+    /// <summary><c>matrix()</c>'s six numbers are the six cells, in CSS's order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A non-uniform, non-symmetric matrix, because half the orderings agree on anything
+    ///     else.</b> <c>matrix(2, 0, 0, 1, 10, 0)</c> doubles x, leaves y, and shifts by ten — so a
+    ///     40×40 box about (120, 120) paints x ∈ [90, 170] and keeps y ∈ [100, 140]. A reading that
+    ///     transposed the two middle cells, or that took <c>e</c>/<c>f</c> as a scale, moves the box
+    ///     somewhere else entirely and one of these three probes says so.
+    /// </remarks>
+    [Fact]
+    public void A_matrix_is_read_cell_for_cell() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .cell { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                    background-color: #111; transform: matrix(2, 0, 0, 1, 10, 0); }
+            """,
+            document => document.Root.Add("div", classNames: "cell")
+        );
+
+        var cell = document.Root.Children[0];
+
+        Assert.Same(cell, document.HitTest(160f, 120f));
+        Assert.Same(document.Root, document.HitTest(180f, 120f));
+        Assert.Same(document.Root, document.HitTest(85f, 120f));
+    }
+
+    /// <summary><c>skewX</c> shifts a point's x by its y, which is the other row.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Probed off the axis on purpose.</b> A skew leaves the line through the origin alone,
+    ///     so every probe on the element's own centre row hits under either reading and under none at
+    ///     all. The point below is above the centre — 15 points up — where a 45° <c>skewX</c> has
+    ///     moved the covered range 15 points to the left. Written into the wrong cell the box slants
+    ///     the other way, along y, and the same point misses.
+    /// </remarks>
+    [Fact]
+    public void A_skew_shifts_the_axis_it_names_by_the_other_one() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .slanted { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                       background-color: #111; transform: skewX(45deg); }
+            """,
+            document => document.Root.Add("div", classNames: "slanted")
+        );
+
+        var slanted = document.Root.Children[0];
+
+        // Fifteen points above the centre, the covered range is x ∈ [85, 125].
+        Assert.Same(slanted, document.HitTest(90f, 105f));
+        Assert.Same(document.Root, document.HitTest(130f, 105f));
+
+        // And fifteen below it is the mirror, x ∈ [115, 155].
+        Assert.Same(slanted, document.HitTest(150f, 135f));
+        Assert.Same(document.Root, document.HitTest(110f, 135f));
+    }
+
+    /// <summary>
+    ///     The list is the innermost factor, so <c>scale</c> the property applies <i>after</i> it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Transforms 2 §3 orders the four as translate, rotate, scale, then <c>transform</c> —
+    ///     as matrix multiplications, which reverses them for a point.</b> A 40×40 box at (100, 100)
+    ///     with <c>transform: translate(40px)</c> and <c>scale: 2</c> is translated first and then
+    ///     doubled about its own centre, landing at x ∈ [160, 240]. Scaled first and translated
+    ///     after, it lands at x ∈ [120, 200] — overlapping, which is why both probes are needed and
+    ///     why a test written with a uniform scale and no translation could not tell the two apart.
+    /// </remarks>
+    [Fact]
+    public void The_list_is_applied_before_the_independent_properties() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .both { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                    background-color: #111; transform: translate(40px); scale: 2; }
+            """,
+            document => document.Root.Add("div", classNames: "both")
+        );
+
+        var both = document.Root.Children[0];
+
+        Assert.Same(both, document.HitTest(220f, 120f));
+        Assert.Same(document.Root, document.HitTest(130f, 120f));
+    }
+
+    /// <summary>A percentage inside <c>translate()</c> is of the element's own border box.</summary>
+    /// <remarks>
+    ///     Transforms 1 §8, the same rule the <c>translate</c> property follows and the opposite of
+    ///     every percentage in the box model. Fifty per cent of an 80-point box is 40 points, and the
+    ///     containing block is 400 wide — so a reading against the parent would put it at 200 and both
+    ///     probes would miss.
+    /// </remarks>
+    [Fact]
+    public void A_percentage_inside_a_function_is_of_the_elements_own_box() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .moved { position: absolute; left: 0px; top: 100px; width: 80px; height: 80px;
+                     background-color: #111; transform: translate(50%); }
+            """,
+            document => document.Root.Add("div", classNames: "moved")
+        );
+
+        var moved = document.Root.Children[0];
+
+        Assert.Same(moved, document.HitTest(100f, 140f));
+        Assert.Same(document.Root, document.HitTest(20f, 140f));
+    }
+
+    /// <summary>
+    ///     A list this cannot read is dropped whole, and the properties beside it still apply.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The three-dimensional functions are why "dropped whole" is the rule.</b>
+    ///         <c>rotateX</c>, <c>translate3d</c> and <c>perspective</c> are legal CSS and there is no
+    ///         third axis here; reading the functions that happen to be flat and skipping the rest
+    ///         turns a card flip into a card that never moves, which is a different picture rather
+    ///         than a degraded one. The same judgement <c>rotate: x 45deg</c> already gets.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is the <i>list</i> that is dropped, not the element's transform.</b> CSS
+    ///         drops an invalid declaration and leaves its neighbours alone, so the <c>scale: 2</c>
+    ///         beside it still doubles the box — which is what the second probe is for. Returning "no
+    ///         transform at all" would let one pasted <c>perspective()</c> cancel a scale two lines
+    ///         above it.
+    ///     </para>
+    /// </remarks>
+    /// <param name="value">The <c>transform</c> value.</param>
+    [Theory]
+    [InlineData("rotateX(45deg)")]
+    [InlineData("translate3d(10px, 10px, 10px)")]
+    [InlineData("perspective(400px)")]
+    [InlineData("rotate(45)")]
+    [InlineData("translate(10)")]
+    [InlineData("matrix(1, 0, 0, 1, 0)")]
+    [InlineData("matrix(1, 0, 0, 1, 0, 0, 0)")]
+    [InlineData("scale(calc(1 + 1))")]
+    [InlineData("rotate(45deg) rotateY(20deg)")]
+    [InlineData("nonsense")]
+    public void A_function_list_with_no_reading_is_dropped_whole(string value) {
+        using var document = Drawn(
+            $$"""
+              root { width: 400px; height: 300px; }
+              .still { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                       background-color: #111; transform: {{value}}; scale: 2; }
+              """,
+            document => document.Root.Add("div", classNames: "still")
+        );
+
+        var still = document.Root.Children[0];
+
+        // The scale survives: 40x40 about (120, 120) doubled paints x in [80, 160].
+        Assert.Same(still, document.HitTest(150f, 120f));
+        Assert.Same(document.Root, document.HitTest(170f, 120f));
+    }
+
+    /// <summary><c>transform: none</c> is the initial value written out, and is not a refusal.</summary>
+    [Fact]
+    public void None_leaves_the_element_untransformed() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .plain { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                     background-color: #111; transform: none; }
+            """,
+            document => document.Root.Add("div", classNames: "plain")
+        );
+
+        Assert.Null(document.Root.Children[0].Transform);
+    }
 }
