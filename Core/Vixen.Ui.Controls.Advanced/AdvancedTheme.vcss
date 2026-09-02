@@ -608,6 +608,12 @@ code-gutter-row {
 code-gutter-row.parked { display: none; }
 code-gutter-row icon { width: 9px; height: 9px; flex-shrink: 0; }
 code-gutter-row.unfoldable icon { visibility: hidden; }
+
+/* The rows a wrapped line continues onto. They keep their height so the margin stays aligned with
+   the text, and carry no number — the line is numbered once, on the row it starts on. The class is
+   here so a theme can mark them if it wants to; nothing is drawn by default because a repeated
+   ellipsis down the margin is noise on every long line in the file. */
+code-gutter-row.continued icon { visibility: hidden; }
 code-gutter-number { flex-grow: 1; justify-content: flex-end; }
 
 code-gutter-row.has-warning { color: #b7791f; }

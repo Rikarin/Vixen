@@ -514,4 +514,230 @@ public class CodeEditorTests {
         Assert.Equal(new TextPosition(0, 1), editor.Caret);
         Assert.Equal(0, Assert.Single(editor.Rows));
     }
+
+
+    // ────────────────────────────────────────────────────────────── word wrap
+
+    /// <summary>How many characters the viewport holds, which is what the wrap column is.</summary>
+    /// <remarks>
+    ///     Read off the control rather than written down, because the cell width comes from the test
+    ///     font. A test asserting "three rows" against a hard-coded column count would be asserting
+    ///     what the font happens to measure.
+    /// </remarks>
+    static int Columns(CodeEditor editor) => (int) (editor.Scroller.Width / editor.CharacterWidth);
+
+    [Fact]
+    public void A_line_too_long_for_the_viewport_becomes_several_rows() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x");
+
+        var columns = Columns(editor);
+        Assert.True(columns > 4, $"the viewport holds {columns} characters, which is too few to wrap in");
+
+        editor.Source = new string('x', columns * 3);
+        fixture.Update();
+
+        // One row until it is asked for, which is what keeps a column number meaning what a compiler
+        // says it means.
+        Assert.Equal(0, Assert.Single(editor.Rows));
+
+        editor.WordWrap = true;
+        fixture.Update();
+
+        Assert.Equal([0, 0, 0], editor.Rows);
+        Assert.Equal([0, columns, columns * 2], editor.RowStarts);
+    }
+
+    [Fact]
+    public void Turning_wrapping_off_puts_every_row_back_on_its_own_line() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x");
+
+        editor.Source = new string('x', Columns(editor) * 3);
+        editor.WordWrap = true;
+        fixture.Update();
+
+        Assert.Equal(3, editor.Rows.Count);
+
+        editor.WordWrap = false;
+        fixture.Update();
+
+        Assert.Equal(0, Assert.Single(editor.Rows));
+        Assert.Equal(0, Assert.Single(editor.RowStarts));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A word is never cut while there is a space to break at</b>, which in a code editor is
+    ///     the one thing wrapping must not do to an identifier. The trailing space stays on the row it
+    ///     ended, so the next row does not begin with a blank cell.
+    /// </summary>
+    [Fact]
+    public void A_row_breaks_after_a_space_rather_than_inside_a_word() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x");
+
+        var line = string.Join(' ', Enumerable.Repeat("alpha", 60));
+
+        editor.Source = line;
+        editor.WordWrap = true;
+        fixture.Update();
+
+        Assert.True(editor.Rows.Count > 2, $"expected several rows, got {editor.Rows.Count}");
+
+        foreach (var start in editor.RowStarts.Skip(1)) {
+            Assert.Equal(' ', line[start - 1]);
+            Assert.NotEqual(' ', line[start]);
+        }
+    }
+
+    /// <summary>And a word with nowhere to break is cut, because a row cannot be wider than its box.</summary>
+    [Fact]
+    public void A_word_longer_than_the_viewport_is_cut_at_the_column() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x");
+
+        var columns = Columns(editor);
+
+        editor.Source = new string('a', columns + 5);
+        editor.WordWrap = true;
+        fixture.Update();
+
+        Assert.Equal([0, columns], editor.RowStarts);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Numbered once, on the row the line starts on.</b> Numbering every visual row prints
+    ///     the same number three times down the margin; numbering them consecutively makes the gutter
+    ///     disagree with every compiler error in the file.
+    /// </summary>
+    [Fact]
+    public void The_gutter_numbers_a_wrapped_line_once() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x");
+
+        editor.Source = new string('x', Columns(editor) * 3) + "\nsecond";
+        editor.WordWrap = true;
+        fixture.Update();
+
+        var numbered = editor.Gutter.Children
+            .OfType<CodeGutterRow>()
+            .Where(row => row.Index >= 0)
+            .Select(row => row.Number.Text ?? string.Empty)
+            .ToArray();
+
+        Assert.Equal(["1", string.Empty, string.Empty, "2"], numbered);
+    }
+
+    /// <summary>
+    ///     Down moves one <i>visual</i> row, keeping the offset within it — which is the whole reason
+    ///     the caret's row is looked up in the row list rather than worked out from the line number.
+    /// </summary>
+    [Fact]
+    public void Down_moves_one_visual_row_and_keeps_the_offset_within_it() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x");
+
+        var columns = Columns(editor);
+
+        editor.Source = new string('x', columns * 3);
+        editor.WordWrap = true;
+        fixture.Update();
+
+        editor.Move(new TextPosition(0, 3));
+        fixture.Type(InputKey.Down);
+
+        Assert.Equal(new TextPosition(0, columns + 3), editor.Caret);
+
+        fixture.Type(InputKey.Up);
+        Assert.Equal(new TextPosition(0, 3), editor.Caret);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A click on the second visual row lands on the character under it, not on the one that
+    ///     many columns from the start of the line.</b> The x is an offset into the row, so the
+    ///     column is the row's own start plus it — the same arithmetic <c>ToScreen</c> undoes.
+    /// </summary>
+    [Fact]
+    public void A_click_on_a_wrapped_row_lands_on_the_character_under_it() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x");
+
+        var columns = Columns(editor);
+
+        editor.Source = new string('x', columns * 3);
+        editor.WordWrap = true;
+        fixture.Update();
+
+        var target = new TextPosition(0, columns + 4);
+        var point = editor.ToScreen(target);
+
+        fixture.Press(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.RowHeight * 0.5f));
+        fixture.Release(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.RowHeight * 0.5f));
+
+        Assert.Equal(target, editor.Caret);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a click past the end of a wrapped row stays on that row.</b> Clamping only to the
+    ///     line's length would put the caret two rows down, on a character the pointer was nowhere
+    ///     near.
+    /// </summary>
+    [Fact]
+    public void A_click_past_the_end_of_a_wrapped_row_stays_on_it() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x");
+
+        var columns = Columns(editor);
+        var line = string.Join(' ', Enumerable.Repeat("alpha", 60));
+
+        editor.Source = line;
+        editor.WordWrap = true;
+        fixture.Update();
+
+        var start = editor.ToScreen(new TextPosition(0, 0));
+
+        // Far to the right of the first row, which is shorter than the viewport because it broke at
+        // a space.
+        fixture.Press(start.X + (editor.CharacterWidth * (columns - 0.5f)), start.Y + (editor.RowHeight * 0.5f));
+        fixture.Release(start.X + (editor.CharacterWidth * (columns - 0.5f)), start.Y + (editor.RowHeight * 0.5f));
+
+        Assert.True(
+            editor.Caret.Column < editor.RowStarts[1],
+            $"the caret landed at {editor.Caret.Column}, past the row's break at {editor.RowStarts[1]}"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A wrapped row is coloured by the whole line's tokens, not by re-tokenizing from its
+    ///     own start.</b> A string that crosses a break would otherwise come back plain on the second
+    ///     row — the state a tokenizer carries along a line is exactly what a slice does not have.
+    /// </summary>
+    [Fact]
+    public void A_string_that_crosses_a_wrap_is_still_a_string_on_the_second_row() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "x", CStyleTokenizer.CSharp);
+
+        var columns = Columns(editor);
+
+        editor.Source = "var s = \"" + new string('a', columns * 2) + "\";";
+        editor.WordWrap = true;
+        fixture.Update();
+
+        Assert.True(editor.Rows.Count >= 2, $"expected the line to wrap, got {editor.Rows.Count} rows");
+
+        var second = editor.Pool[1];
+
+        Assert.Equal(0, second.Index);
+        Assert.Equal(CodeTokenKind.String, second.Spans[0].Kind);
+
+        // And the slice is exactly the row — every character once, which is the same property the
+        // tokenizer's own coverage test asserts one level down.
+        var from = editor.RowStarts[1];
+        var to = editor.Rows.Count > 2 && editor.Rows[2] == 0 ? editor.RowStarts[2] : editor.Source.Length;
+
+        Assert.Equal(
+            editor.Source[from..to],
+            string.Concat(second.Spans.Where(static span => !span.HasClass("parked")).Select(static span => span.Text))
+        );
+    }
 }

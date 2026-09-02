@@ -708,9 +708,25 @@ public abstract partial class TextField : Control {
                 SelectAll();
                 break;
 
-            // ⚠ A newline in a text area and a submission everywhere else. Ctrl-Enter still submits
-            // in a text area, because a form's default button has to stay reachable from a field
-            // that has claimed the plain key.
+            // ⚠ Two consumers want Enter in a text area and only one of them can have it, so this is
+            // where the collision is settled and written down.
+            //
+            //   * The *field* wants a line break. That is the whole of what `AcceptsNewlines` is
+            //     for, and a field that will not take a second line is a bug with nothing on screen
+            //     to explain it.
+            //   * The *form around it* wants its default action. A dialog's accept button is not
+            //     focused while a field is, so Enter never reaches it as an activation — the route
+            //     is `Submitted`, which is what `DialogService.Prompt` binds. A `TextBox` gives it
+            //     the plain key; a text area cannot.
+            //
+            // Ctrl-Enter is the field's answer: the modified chord submits, the plain one breaks the
+            // line. ⚠ `word` is Control *or* Meta, so Cmd-Enter submits too — which is what a Mac
+            // expects and costs nothing on Windows, where nothing else claims it.
+            //
+            // ⚠ `CodeEditor` deliberately does not join this, and it is not an oversight: Ctrl-Enter
+            // there inserts a newline like any other Enter, because nothing in this tree puts a code
+            // editor inside a form and the second consumer therefore does not exist for it. The day
+            // one does, it raises `SubmitEvent` on the chord and this comment is why.
             case InputKey.Enter or InputKey.KeypadEnter when AcceptsNewlines && !word:
                 Replace("\n");
                 break;

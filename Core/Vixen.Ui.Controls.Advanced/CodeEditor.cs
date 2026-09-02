@@ -68,26 +68,44 @@ public sealed class CodeLine : UiElement {
     /// <summary>The runs, including the parked ones.</summary>
     public IReadOnlyList<CodeSpan> Spans => spans;
 
-    internal void Bind(string text, List<CodeToken> tokens) {
+    internal void Bind(string text, List<CodeToken> tokens) => Bind(text, tokens, 0, text.Length);
+
+    /// <summary>Shows the characters between two columns, coloured by the tokens that cover them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The tokens are the whole line's and the range is one wrapped row's.</b> A tokenizer
+    ///     carries state along a line — a string, a block comment — so the caller cannot hand over
+    ///     only the tokens of the slice without re-tokenizing from the middle of one, which colours
+    ///     the second row of every wrapped line as though the file began there. Clipping here costs
+    ///     one comparison per token and keeps that state intact.
+    /// </remarks>
+    internal void Bind(string text, List<CodeToken> tokens, int from, int to) {
         while (spans.Count < tokens.Count) {
             spans.Add(Add<CodeSpan>());
         }
 
-        for (var i = 0; i < spans.Count; i++) {
-            var span = spans[i];
+        var next = 0;
 
-            if (i >= tokens.Count) {
-                span.AddClass("parked");
-                span.Text = null;
+        foreach (var token in tokens) {
+            var start = Math.Max(token.Start, from);
+            var end = Math.Min(token.Start + token.Length, to);
 
+            // ⚠ A token of no length is still a span, because it was one before wrapping existed and
+            // the spans are addressed by position in tests. Only a token the slice misses entirely
+            // is dropped.
+            if (token.Length > 0 && end <= start) {
                 continue;
             }
 
-            var token = tokens[i];
+            var span = spans[next++];
 
             span.RemoveClass("parked");
             span.Recolour(token.Kind);
-            span.Text = text.Substring(token.Start, token.Length);
+            span.Text = text[start..Math.Max(start, end)];
+        }
+
+        for (var i = next; i < spans.Count; i++) {
+            spans[i].AddClass("parked");
+            spans[i].Text = null;
         }
     }
 }
@@ -196,7 +214,20 @@ public sealed partial class CodeEditor : Control {
     readonly HashSet<int> collapsed = [];
 
     /// <summary>Which buffer line each visible row shows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A line appears once per <i>visual</i> row, so with <see cref="WordWrap" /> on the
+    ///     same number appears several times in a run.</b> That is what keeps wrapping out of the
+    ///     virtualiser, the scroll range and the gutter — all three count rows and none of them has
+    ///     to know a line can be more than one.
+    /// </remarks>
     readonly List<int> rows = [];
+
+    /// <summary>Which column of its line each visible row starts at.</summary>
+    /// <remarks>
+    ///     Zero everywhere while <see cref="WordWrap" /> is off, which is what makes every formula
+    ///     below reduce to the one it had before wrapping existed.
+    /// </remarks>
+    readonly List<int> starts = [];
 
     /// <summary>The tokenizer's state at the start of each line.</summary>
     readonly List<int> states = [];
@@ -333,7 +364,16 @@ public sealed partial class CodeEditor : Control {
     public IReadOnlyList<CodeLine> Pool => pool;
 
     /// <summary>Which buffer line each visible row shows, folding taken out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not one entry per line once <see cref="WordWrap" /> is on.</b> A line that wraps
+    ///     three ways is three consecutive entries with the same number, and
+    ///     <see cref="RowStarts" /> is which column each of them begins at.
+    /// </remarks>
     public IReadOnlyList<int> Rows => rows;
+
+    /// <summary>Which column of its line each visible row begins at.</summary>
+    /// <remarks>All zero while <see cref="WordWrap" /> is off. Always the same length as <see cref="Rows" />.</remarks>
+    public IReadOnlyList<int> RowStarts => starts;
 
     /// <summary>Where the caret is.</summary>
     public TextPosition Caret { get; private set; }
@@ -377,6 +417,41 @@ public sealed partial class CodeEditor : Control {
     /// <summary>Whether the text may be changed.</summary>
     [UiProperty]
     public partial bool ReadOnly { get; set; }
+
+    /// <summary>Whether a line too long for the viewport is broken across several rows.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Off, and it has to stay off by default.</b> Code is written with the column
+    ///         mattering — a diff, a compiler's column number, an editorconfig ruler — and an editor
+    ///         that rewrapped it on open would be arguing with all three. It is a per-view setting
+    ///         everywhere it exists, which is what this is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The break is arithmetic and not a text layout, because this control is a
+    ///         monospace grid.</b> Every column is <see cref="CharacterWidth" /> wide by
+    ///         construction — that is what makes the caret, the selection, the hit test and the
+    ///         gutter one multiplication each — so the wrap column is
+    ///         <c>viewport ÷ CharacterWidth</c> exactly, with no measurement and nothing to disagree
+    ///         with. Handing the line to <c>TextLayout</c> instead would measure a width the rest of
+    ///         this file does not believe in, and the caret would land next to the character it is
+    ///         supposed to be on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The row list is the seam, and folding already proved it works.</b> A collapsed
+    ///         fold is lines missing from <see cref="Rows" />; a wrapped line is a line appearing in
+    ///         it more than once. The virtualiser, the scroll range, the caret's row and the gutter
+    ///         all count rows, so neither feature is a special case in any of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A width the layout has not measured yet gives no wrap for one pass.</b> The
+    ///         first <see cref="Refresh" /> of a new editor runs before its scroller has a size, and
+    ///         a wrap column derived from nought would be one character wide. It asks the document
+    ///         for a pass in that case, and <c>WhenResized</c> re-runs the whole thing whenever the
+    ///         box actually changes — which is also what re-wraps a splitter drag.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnWrapChanged))]
+    public partial bool WordWrap { get; set; }
 
     /// <summary>What to offer when a completion is asked for.</summary>
     /// <remarks>
@@ -522,12 +597,32 @@ public sealed partial class CodeEditor : Control {
             RebuildFolds();
         }
 
+        // ⚠ A pass before the row list rather than only after it, and only when it is needed. The
+        // first refresh of a new editor runs before anything has been laid out, so the viewport is
+        // nought wide and a wrap column taken from it would be one character.
+        if (WordWrap && Scroller.Width <= 0f) {
+            Document.Update();
+        }
+
+        var columns = WrapColumns;
+
         rows.Clear();
+        starts.Clear();
         longest = 0;
 
         for (var line = 0; line < buffer.LineCount; line++) {
-            rows.Add(line);
-            longest = Math.Max(longest, buffer[line].Length);
+            var text = buffer[line];
+            longest = Math.Max(longest, text.Length);
+
+            // The unwrapped case is the wrapped one with a single row starting at column zero, which
+            // is why nothing below this method asks which it is.
+            var at = 0;
+
+            do {
+                rows.Add(line);
+                starts.Add(at);
+                at = columns > 0 ? BreakAfter(text, at, columns) : text.Length;
+            } while (at < text.Length);
 
             // A collapsed fold is lines that are simply not in the row list. Everything below —
             // virtualisation, the caret's row, the scroll range — then works without knowing that
@@ -538,7 +633,14 @@ public sealed partial class CodeEditor : Control {
         }
 
         Scroller.Content.SetStyle("height", Inline.Px(rows.Count * RowHeight));
-        Scroller.Content.SetStyle("width", Inline.Px((longest + 2) * CharacterWidth));
+
+        // ⚠ The viewport's own width when wrapping, which is what takes the horizontal scrollbar
+        // away. Leaving it at the longest line would keep a bar that scrolls past the right-hand
+        // edge of text that now ends there.
+        Scroller.Content.SetStyle(
+            "width",
+            Inline.Px(columns > 0 ? Scroller.Width : (longest + 2) * CharacterWidth)
+        );
 
         // A pass before anything reads a size, for the reason `TreeView.Refresh` gives: the height
         // above is a declaration and `ScrollView.Refresh` needs a measurement.
@@ -547,6 +649,78 @@ public sealed partial class CodeEditor : Control {
         Scroller.Refresh();
         Realise();
     }
+
+    /// <summary>How many characters fit across the viewport, or nought when nothing is wrapping.</summary>
+    int WrapColumns =>
+        WordWrap && Scroller.Width > 0f && CharacterWidth > 0f
+            ? Math.Max(1, (int) (Scroller.Width / CharacterWidth))
+            : 0;
+
+    /// <summary>Where the row starting at <paramref name="at" /> ends, which is where the next begins.</summary>
+    /// <remarks>
+    ///     ⚠ <b>After the last space that fits, so a word is not cut in half — and the space stays on
+    ///     the row it ended.</b> Breaking at the column would split identifiers, which in a code
+    ///     editor is the one thing wrapping must not do; keeping the trailing space on the earlier
+    ///     row is what stops the next one from starting with a blank cell. A word longer than the
+    ///     whole viewport has nowhere to break and is cut at the column, because the alternative is
+    ///     a row wider than the box it is in.
+    /// </remarks>
+    static int BreakAfter(string text, int at, int columns) {
+        var limit = at + columns;
+
+        if (limit >= text.Length) {
+            return text.Length;
+        }
+
+        for (var i = limit; i > at; i--) {
+            if (text[i - 1] is ' ' or '\t') {
+                return i;
+            }
+        }
+
+        return limit;
+    }
+
+    /// <summary>Which visible row a place in the text is on, or -1 if its line is folded away.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <i>last</i> row of the line that starts at or before the column</b>, so a caret
+    ///     sitting exactly on a break shows at the start of the row below rather than past the end of
+    ///     the one above. Both are defensible and only one of them is where the next character will
+    ///     appear.
+    /// </remarks>
+    int RowAt(TextPosition position) {
+        var row = rows.IndexOf(position.Line);
+
+        if (row < 0) {
+            return -1;
+        }
+
+        while (row + 1 < rows.Count && rows[row + 1] == position.Line && starts[row + 1] <= position.Column) {
+            row++;
+        }
+
+        return row;
+    }
+
+    /// <summary>The column just past the last character a row shows.</summary>
+    int EndOf(int row) =>
+        row + 1 < rows.Count && rows[row + 1] == rows[row] ? starts[row + 1] : buffer[rows[row]].Length;
+
+    /// <summary>Whether a row is the last one its line occupies, so the swallowed newline is drawn on it.</summary>
+    bool IsLastRowOf(int row) => row + 1 >= rows.Count || rows[row + 1] != rows[row];
+
+    /// <summary>The furthest column a caret may sit at and still be drawn on this row.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One short of the next row's start, and that is not an off-by-one.</b>
+    ///     <see cref="RowAt" /> puts a caret sitting exactly on a break at the start of the row
+    ///     below, so clamping a click or a Down key to the break itself would move the caret two
+    ///     rows for one press. On the last row of a line there is no break and the limit is the
+    ///     line's own end, which is what every row is while nothing is wrapping.
+    /// </remarks>
+    int CaretLimitOf(int row) =>
+        IsLastRowOf(row) ? buffer[rows[row]].Length : Math.Max(starts[row], starts[row + 1] - 1);
+
+    void OnWrapChanged(bool previous, bool current) => Refresh();
 
     void Realise() {
         var height = Scroller.Height;
@@ -583,9 +757,13 @@ public sealed partial class CodeEditor : Control {
             line.RemoveClass("parked");
             line.Index = index;
 
+            // ⚠ The whole line is tokenized and only a slice of it is shown. A tokenizer's state
+            // runs along the line — a string, a block comment — so tokenizing from the middle of one
+            // would recolour the second visual row of every wrapped line as though the file started
+            // there.
             scratch.Clear();
             Tokenizer.Tokenize(buffer[index], StateAt(index), scratch);
-            line.Bind(buffer[index], scratch);
+            line.Bind(buffer[index], scratch, starts[row], EndOf(row));
 
             line.SetStyle("top", Inline.Px(row * cell));
             line.SetStyle("height", Inline.Px(cell));
@@ -606,9 +784,23 @@ public sealed partial class CodeEditor : Control {
 
             var index = rows[row];
 
+            // ⚠ A wrapped line is numbered once, on the row it starts on. Numbering every visual row
+            // would print the same number three times down the margin, and numbering them
+            // consecutively would make the gutter disagree with every compiler error in the file.
+            var continued = row > 0 && rows[row - 1] == index;
+
             gutterRow.RemoveClass("parked");
             gutterRow.Index = index;
-            gutterRow.Number.Text = (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            if (continued) {
+                gutterRow.AddClass("continued");
+            } else {
+                gutterRow.RemoveClass("continued");
+            }
+
+            gutterRow.Number.Text = continued
+                ? string.Empty
+                : (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
             // ⚠ Positioned against the viewport rather than against the content, because the gutter
             // is outside the scroller: it follows the vertical scroll and must not follow the
@@ -616,7 +808,9 @@ public sealed partial class CodeEditor : Control {
             gutterRow.SetStyle("top", Inline.Px((row * cell) - Scroller.ScrollTop));
             gutterRow.SetStyle("height", Inline.Px(cell));
 
-            if (FoldAt(index) is not null) {
+            // The arrow belongs to the line rather than to the row, so a continuation row does not
+            // get a second one that would collapse the region the row is inside.
+            if (!continued && FoldAt(index) is not null) {
                 gutterRow.RemoveClass("unfoldable");
                 gutterRow.Fold.Geometry = collapsed.Contains(index) ? ControlIcons.ChevronRight : ControlIcons.ChevronDown;
             } else {
@@ -836,14 +1030,17 @@ public sealed partial class CodeEditor : Control {
     /// <param name="position">The place.</param>
     /// <returns>The top-left of the character cell.</returns>
     public Vector2 ToScreen(TextPosition position) {
-        var row = RowOf(position.Line);
+        var row = RowAt(position);
         var content = Scroller.Content;
 
         return new Vector2(
-            content.AbsoluteLeft + (position.Column * CharacterWidth),
+            content.AbsoluteLeft + ((position.Column - StartOf(row)) * CharacterWidth),
             content.AbsoluteTop + (Math.Max(row, 0) * RowHeight)
         );
     }
+
+    /// <summary>The column a row begins at, or nought for a row that does not exist.</summary>
+    int StartOf(int row) => row >= 0 && row < starts.Count ? starts[row] : 0;
 
     /// <summary>Which character a point is over.</summary>
     /// <param name="x">Its x, in document space.</param>
@@ -852,12 +1049,19 @@ public sealed partial class CodeEditor : Control {
     public TextPosition ToPosition(float x, float y) {
         var content = Scroller.Content;
 
-        var row = (int) MathF.Floor((y - content.AbsoluteTop) / RowHeight);
-        var line = rows.Count == 0 ? 0 : rows[Math.Clamp(row, 0, rows.Count - 1)];
+        var row = Math.Clamp((int) MathF.Floor((y - content.AbsoluteTop) / RowHeight), 0, Math.Max(0, rows.Count - 1));
+        var line = rows.Count == 0 ? 0 : rows[row];
 
         // ⚠ Rounded rather than floored, so a click on the right half of a character puts the caret
         // after it. Flooring makes the last column of every line unreachable by clicking.
-        var column = (int) MathF.Round((x - content.AbsoluteLeft) / CharacterWidth);
+        var column = StartOf(row) + (int) MathF.Round((x - content.AbsoluteLeft) / CharacterWidth);
+
+        // ⚠ Clamped to this row's own end and not only to the line's. Clicking past the end of the
+        // first of three wrapped rows would otherwise land two rows further on, on a character the
+        // pointer was nowhere near.
+        if (rows.Count > 0) {
+            column = Math.Min(column, CaretLimitOf(row));
+        }
 
         return buffer.Clamp(new TextPosition(line, column));
     }
@@ -870,7 +1074,7 @@ public sealed partial class CodeEditor : Control {
         var content = Scroller.Content;
 
         if (!HasSelection) {
-            var only = RowOf(Caret.Line);
+            var only = RowAt(Caret);
 
             if (only >= 0 && Document.ColorOf(Style, currentLineColor) is { } lit) {
                 context.FillRectangle(
@@ -903,16 +1107,20 @@ public sealed partial class CodeEditor : Control {
                 continue;
             }
 
-            var start = line == from.Line ? from.Column : 0;
-
             // ⚠ A line inside a multi-line selection is drawn one character wider than its text, so
             // the newline it swallowed is visible. Without it a block selection has ragged holes
-            // where the short lines are, and nobody can tell whether the newline is included.
-            var end = line == to.Line ? to.Column : buffer[line].Length + 1;
+            // where the short lines are, and nobody can tell whether the newline is included. ⚠ On
+            // the line's *last* row only, or a wrapped line would show a swallowed newline at every
+            // break, where there is no newline at all.
+            var lower = line == from.Line ? from.Column : 0;
+            var upper = line == to.Line ? to.Column : buffer[line].Length + 1;
+
+            var start = Math.Max(lower, starts[row]);
+            var end = Math.Min(upper, IsLastRowOf(row) ? buffer[line].Length + 1 : starts[row + 1]);
 
             context.FillRectangle(
                 new Rectangle(
-                    content.AbsoluteLeft + (start * width),
+                    content.AbsoluteLeft + ((start - starts[row]) * width),
                     content.AbsoluteTop + (row * cell),
                     MathF.Max(0f, (end - start) * width),
                     cell
@@ -923,7 +1131,7 @@ public sealed partial class CodeEditor : Control {
     }
 
     internal void DrawCaret(DrawContext context) {
-        var row = RowOf(Caret.Line);
+        var row = RowAt(Caret);
 
         if (!IsFocused || row < 0) {
             return;
@@ -933,7 +1141,7 @@ public sealed partial class CodeEditor : Control {
 
         context.FillRectangle(
             new Rectangle(
-                content.AbsoluteLeft + (Caret.Column * CharacterWidth),
+                content.AbsoluteLeft + ((Caret.Column - starts[row]) * CharacterWidth),
                 content.AbsoluteTop + (row * RowHeight),
                 MathF.Max(1f, CharacterWidth * 0.1f),
                 RowHeight
@@ -1050,7 +1258,7 @@ public sealed partial class CodeEditor : Control {
 
     /// <summary>Scrolls until the caret is on screen.</summary>
     public void Reveal() {
-        var row = RowOf(Caret.Line);
+        var row = RowAt(Caret);
 
         if (row < 0) {
             return;
@@ -1065,7 +1273,7 @@ public sealed partial class CodeEditor : Control {
             Scroller.ScrollTop = top + cell - Scroller.Height;
         }
 
-        var x = Caret.Column * CharacterWidth;
+        var x = (Caret.Column - starts[row]) * CharacterWidth;
 
         if (x < Scroller.ScrollLeft) {
             Scroller.ScrollLeft = x;
@@ -1148,6 +1356,13 @@ public sealed partial class CodeEditor : Control {
                 Erase(true);
                 break;
 
+            // ⚠ Whatever is held. `TextArea` gives Ctrl-Enter to submission so a form's default
+            // button stays reachable from a field that took the plain key; this control does not,
+            // and that is a decision rather than an omission. Nothing in this tree puts a code
+            // editor inside a form, so the second claimant on the chord does not exist here — and a
+            // chord that silently stopped inserting a newline would be a worse surprise than one
+            // that does nothing. The day a code editor lives in a dialog, it raises `SubmitEvent`
+            // on Ctrl-Enter and `TextField.Keyed`'s comment says why.
             case InputKey.Enter or InputKey.KeypadEnter:
                 Insert(AutoIndent ? "\n" + buffer[Caret.Line][..buffer.IndentOf(Caret.Line)] : "\n");
                 break;
@@ -1188,7 +1403,7 @@ public sealed partial class CodeEditor : Control {
     }
 
     void Step(int delta, bool extend) {
-        var row = RowOf(Caret.Line);
+        var row = RowAt(Caret);
 
         if (row < 0) {
             return;
@@ -1196,9 +1411,13 @@ public sealed partial class CodeEditor : Control {
 
         // ⚠ Through the row list rather than by adding to the line number, because a collapsed fold
         // means the line below the caret is not the next line. Down would step into a hidden line
-        // and the caret would vanish.
+        // and the caret would vanish. ⚠ And rows rather than lines is also what makes Down move one
+        // *visual* line in a wrapped file: the offset within the row is what is kept, so the caret
+        // comes down where the eye expects rather than jumping a whole paragraph.
         var target = Math.Clamp(row + delta, 0, rows.Count - 1);
-        Move(new TextPosition(rows[target], Caret.Column), extend);
+        var column = Math.Min(starts[target] + (Caret.Column - starts[row]), CaretLimitOf(target));
+
+        Move(new TextPosition(rows[target], column), extend);
     }
 
     /// <summary>Tab: indents the selected lines, or inserts spaces.</summary>
