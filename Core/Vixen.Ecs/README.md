@@ -156,6 +156,40 @@ moves rows between chunks, and a job still walking one would be walking overwrit
 `runner.Graph.ToDot()` and `.ToMermaid()` dump the schedule. The fixed-step accumulator is *not*
 here: how many times `FixedUpdate` runs in a frame is the game loop's decision.
 
+## Events
+
+`World` raises `EntityCreated`, `EntityDestroyed`, `ComponentAdded`, `ComponentRemoved` and
+`ComponentSet` — for editor tooling and user code. **The engine subscribes to none of them**; it uses
+the change versions, which is what makes turning them off a real option rather than a claim.
+
+```csharp
+world.ComponentAdded += (entity, component) => mirror.Add(entity, component);
+```
+
+The contract is one sentence: **an addition is announced once the value is readable, and a removal
+while it still is.** That is why `Create<T0>(…)` allocates the row and announces it in two steps — the
+typed overloads write their components *after* the row exists, so announcing from inside the
+allocation would hand a listener a zero, which is a value that looks perfectly plausible and is not
+the one that was passed.
+
+⚠ **`Get<T>` raises nothing, and cannot.** It hands out a `ref`, so there is no moment at which the
+new value exists to announce — the same reason a `ref` counts as a write for the change version
+whether or not one happens. A tool that must see every write watches the chunk's version.
+
+⚠ **A listener must not change the world.** The events are raised from inside the structural change
+they describe, and an add or a destroy from a handler would move rows under the walk announcing them.
+`Clear` announces every live entity in a pass of its own before it takes anything apart, and it runs
+from `Dispose` too — which is where a listener that outlives its world finds out.
+
+⚠ **The flag is `DEBUG || VIXEN_ECS_EVENTS`, not the bare `VIXEN_ECS_EVENTS`
+[plan/04](../../docs/plan/04-ecs-and-scripting.md) names.** A flag no test in the default
+configuration sets is a flag whose tests skip everywhere and whose suite is green on the day it stops
+working. `World.EventsEnabled` says which build this is, and it is the difference between "nothing
+happened" and "nothing was watched". The release build is still free of the branch: the raisers are
+`[Conditional]`, so the call site itself is gone — no call, no null check, no argument evaluation.
+The events themselves are declared in every configuration, because the public surface may not differ
+between them and code that subscribes has to compile against both.
+
 ## Decisions worth knowing about
 
 **Three storage classes, not one.** A plain struct lives inline in the chunk. A tag

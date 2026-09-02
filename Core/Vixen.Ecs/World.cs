@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Vixen.Core;
 
@@ -76,6 +77,50 @@ public sealed class World : IDisposable {
     /// <summary>Whether <see cref="Dispose" /> has been called.</summary>
     public bool IsDisposed { get; private set; }
 
+#if DEBUG || VIXEN_ECS_EVENTS
+    /// <summary>Whether the structural-change events are raised by this build.</summary>
+    public const bool EventsEnabled = true;
+#else
+    /// <summary>Whether the structural-change events are raised by this build.</summary>
+    public const bool EventsEnabled = false;
+#endif
+
+    // ⚠ Declared in every configuration and raised in only some, which is the deliberate half. The
+    // public surface has to be the same shape in Debug and Release — `CheckApi` baselines Release,
+    // and code that subscribes has to compile against both — so what the flag removes is the
+    // raising, not the ability to subscribe. `EventsEnabled` is how a subscriber finds out which
+    // build it is in, and it is the difference between "nothing happened" and "nothing was watched".
+    //
+    // ⚠ And the flag is `DEBUG || VIXEN_ECS_EVENTS` rather than the bare `VIXEN_ECS_EVENTS`
+    // [04](../../docs/plan/04-ecs-and-scripting.md) § Events and hooks names. A flag no test in the
+    // default configuration ever sets is a flag whose tests are skipped everywhere and whose suite
+    // is green on the day it does not work — the same reason `JobScheduler.SafetyChecksEnabled` is
+    // spelled this way. What the flag was for is the release build, and release is still free of it.
+#pragma warning disable CS0067 // Never raised where the hooks are compiled out. See above.
+
+    /// <summary>An entity now exists. Raised before any of its components are announced.</summary>
+    public event Action<Entity>? EntityCreated;
+
+    /// <summary>An entity is about to stop existing. Its components are still readable.</summary>
+    public event Action<Entity>? EntityDestroyed;
+
+    /// <summary>A component has been added, and its value is readable.</summary>
+    public event Action<Entity, ComponentTypeId>? ComponentAdded;
+
+    /// <summary>A component is about to be removed, and its value is still readable.</summary>
+    public event Action<Entity, ComponentTypeId>? ComponentRemoved;
+
+    /// <summary>A component has been overwritten through <see cref="Set{T}" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Get{T}" /> does not raise this, and cannot.</b> It hands out a
+    ///     <c>ref</c>, so there is no moment at which the new value exists to announce — which is
+    ///     the same reason a <c>ref</c> counts as a write for the change version whether or not one
+    ///     happens. A tool that has to see every write watches the chunk's version instead.
+    /// </remarks>
+    public event Action<Entity, ComponentTypeId>? ComponentSet;
+
+#pragma warning restore CS0067
+
     /// <summary>Creates a world and gives it the lowest free id.</summary>
     /// <param name="name">A name for diagnostics.</param>
     public World(string name = "World") {
@@ -115,8 +160,10 @@ public sealed class World : IDisposable {
     /// <param name="component0">Its value.</param>
     /// <returns>Its handle.</returns>
     public Entity Create<T0>(in T0 component0) {
-        var entity = Create(CachedArchetype(ArchetypeKey<T0>.Index, [ComponentType<T0>.Id]));
+        var archetype = CachedArchetype(ArchetypeKey<T0>.Index, [ComponentType<T0>.Id]);
+        var entity = Allocate(archetype);
         Write(entity, component0);
+        RaiseCreated(entity, archetype);
         return entity;
     }
 
@@ -127,12 +174,15 @@ public sealed class World : IDisposable {
     /// <param name="component1">The second value.</param>
     /// <returns>Its handle.</returns>
     public Entity Create<T0, T1>(in T0 component0, in T1 component1) {
-        var entity = Create(
-            CachedArchetype(ArchetypeKey<T0, T1>.Index, [ComponentType<T0>.Id, ComponentType<T1>.Id])
+        var archetype = CachedArchetype(
+            ArchetypeKey<T0, T1>.Index,
+            [ComponentType<T0>.Id, ComponentType<T1>.Id]
         );
 
+        var entity = Allocate(archetype);
         Write(entity, component0);
         Write(entity, component1);
+        RaiseCreated(entity, archetype);
         return entity;
     }
 
@@ -145,16 +195,16 @@ public sealed class World : IDisposable {
     /// <param name="component2">The third value.</param>
     /// <returns>Its handle.</returns>
     public Entity Create<T0, T1, T2>(in T0 component0, in T1 component1, in T2 component2) {
-        var entity = Create(
-            CachedArchetype(
-                ArchetypeKey<T0, T1, T2>.Index,
-                [ComponentType<T0>.Id, ComponentType<T1>.Id, ComponentType<T2>.Id]
-            )
+        var archetype = CachedArchetype(
+            ArchetypeKey<T0, T1, T2>.Index,
+            [ComponentType<T0>.Id, ComponentType<T1>.Id, ComponentType<T2>.Id]
         );
 
+        var entity = Allocate(archetype);
         Write(entity, component0);
         Write(entity, component1);
         Write(entity, component2);
+        RaiseCreated(entity, archetype);
         return entity;
     }
 
@@ -174,17 +224,17 @@ public sealed class World : IDisposable {
         in T2 component2,
         in T3 component3
     ) {
-        var entity = Create(
-            CachedArchetype(
-                ArchetypeKey<T0, T1, T2, T3>.Index,
-                [ComponentType<T0>.Id, ComponentType<T1>.Id, ComponentType<T2>.Id, ComponentType<T3>.Id]
-            )
+        var archetype = CachedArchetype(
+            ArchetypeKey<T0, T1, T2, T3>.Index,
+            [ComponentType<T0>.Id, ComponentType<T1>.Id, ComponentType<T2>.Id, ComponentType<T3>.Id]
         );
 
+        var entity = Allocate(archetype);
         Write(entity, component0);
         Write(entity, component1);
         Write(entity, component2);
         Write(entity, component3);
+        RaiseCreated(entity, archetype);
         return entity;
     }
 
@@ -192,6 +242,19 @@ public sealed class World : IDisposable {
     /// <param name="archetype">Where to put it. Its components are zeroed.</param>
     /// <returns>Its handle.</returns>
     public Entity Create(Archetype archetype) {
+        var entity = Allocate(archetype);
+        RaiseCreated(entity, archetype);
+        return entity;
+    }
+
+    /// <summary>Allocates a row without announcing it, so a caller can fill it in first.</summary>
+    /// <remarks>
+    ///     ⚠ The typed <c>Create</c> overloads write their components <em>after</em> the row exists,
+    ///     so announcing from inside this would hand a listener a component whose value is still
+    ///     zero — and <see cref="ComponentAdded" /> promises the value is readable. Whoever allocates
+    ///     raises, once the row says what it is going to say.
+    /// </remarks>
+    Entity Allocate(Archetype archetype) {
         ArgumentNullException.ThrowIfNull(archetype);
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
@@ -324,6 +387,7 @@ public sealed class World : IDisposable {
         EntityCount++;
 
         MarkAllColumnsWritten(chunk);
+        RaiseCreated(entity, archetype);
         return true;
     }
 
@@ -516,6 +580,10 @@ public sealed class World : IDisposable {
         var chunk = info.Chunk!;
         var row = info.Row;
 
+        // Before anything is released, so the contract holds: a removal is announced while the
+        // value it names is still readable.
+        RaiseDestroying(entity, archetype);
+
         ReleaseManagedComponents(archetype, chunk, row);
         var moved = archetype.Release(chunk, row);
 
@@ -624,6 +692,7 @@ public sealed class World : IDisposable {
         var column = Column<T>(entity, in info);
         info.Chunk!.MarkWritten(column, Version);
         Reference<T>(info.Chunk, column, info.Row) = value;
+        RaiseSet(entity, ComponentType<T>.Id);
     }
 
     /// <summary>Adds a component, moving the entity to the archetype that has it.</summary>
@@ -646,6 +715,7 @@ public sealed class World : IDisposable {
 
         Move(entity, ref info, AddTarget(source, id));
         Write(entity, value);
+        RaiseAdded(entity, id);
     }
 
     /// <summary>Adds a component zeroed — the usual way to add a tag.</summary>
@@ -691,11 +761,14 @@ public sealed class World : IDisposable {
             throw new ComponentNotFoundException(entity, typeof(T), source.Signature);
         }
 
+        RaiseRemoving(entity, id);
         Move(entity, ref info, RemoveTarget(source, id));
     }
 
     /// <summary>Destroys every entity, keeping the archetypes and their chunk memory.</summary>
     public void Clear() {
+        RaiseClearing();
+
         foreach (var archetype in archetypes) {
             foreach (var chunk in archetype.Chunks) {
                 ReleaseManagedComponents(archetype, chunk);
@@ -738,6 +811,74 @@ public sealed class World : IDisposable {
         lock (WorldsGate) {
             if ((uint)Id < (uint)worlds.Length && ReferenceEquals(worlds[Id], this)) {
                 worlds[Id] = null;
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- events
+
+    // `[Conditional]` rather than an `#if` inside each body, so that in a build without the flag the
+    // *call site* is gone — no call, no null check, no argument evaluation. That is what
+    // [04](../../docs/plan/04-ecs-and-scripting.md) asks for when it says the branch costs something
+    // in the inner loop. Two attributes are an OR, so either symbol turns them on.
+    //
+    // ⚠ A listener must not change the world. These are raised from inside the structural change
+    // they describe, so an add or a destroy from a handler would move rows under the walk that is
+    // announcing them. They exist for editor tooling and user code; the engine itself uses the
+    // change versions and subscribes to none of them.
+
+    [Conditional("DEBUG")]
+    [Conditional("VIXEN_ECS_EVENTS")]
+    void RaiseCreated(Entity entity, Archetype archetype) {
+        EntityCreated?.Invoke(entity);
+
+        foreach (var id in archetype.Signature.Ids) {
+            ComponentAdded?.Invoke(entity, id);
+        }
+    }
+
+    [Conditional("DEBUG")]
+    [Conditional("VIXEN_ECS_EVENTS")]
+    void RaiseDestroying(Entity entity, Archetype archetype) {
+        foreach (var id in archetype.Signature.Ids) {
+            ComponentRemoved?.Invoke(entity, id);
+        }
+
+        EntityDestroyed?.Invoke(entity);
+    }
+
+    [Conditional("DEBUG")]
+    [Conditional("VIXEN_ECS_EVENTS")]
+    void RaiseAdded(Entity entity, ComponentTypeId component) => ComponentAdded?.Invoke(entity, component);
+
+    [Conditional("DEBUG")]
+    [Conditional("VIXEN_ECS_EVENTS")]
+    void RaiseRemoving(Entity entity, ComponentTypeId component) => ComponentRemoved?.Invoke(entity, component);
+
+    [Conditional("DEBUG")]
+    [Conditional("VIXEN_ECS_EVENTS")]
+    void RaiseSet(Entity entity, ComponentTypeId component) => ComponentSet?.Invoke(entity, component);
+
+    /// <summary>Announces every live entity's destruction before <see cref="Clear" /> takes it apart.</summary>
+    /// <remarks>
+    ///     A pass of its own, ahead of the release loops, so the contract holds here too: a
+    ///     <see cref="ComponentRemoved" /> arrives while the value is still readable. ⚠ It runs from
+    ///     <see cref="Dispose" /> as well, which is where a listener that outlives its world finds
+    ///     out — and is the one place a handler that touched the world would be walking storage that
+    ///     is being torn down.
+    /// </remarks>
+    [Conditional("DEBUG")]
+    [Conditional("VIXEN_ECS_EVENTS")]
+    void RaiseClearing() {
+        if (EntityDestroyed is null && ComponentRemoved is null) {
+            return;
+        }
+
+        for (var id = 1; id < nextId; id++) {
+            ref var info = ref infos[id];
+
+            if (info.Archetype is not null) {
+                RaiseDestroying(new(id, info.Version, Id), info.Archetype);
             }
         }
     }

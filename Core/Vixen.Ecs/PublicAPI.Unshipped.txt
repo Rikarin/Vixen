@@ -399,6 +399,9 @@ Vixen.Ecs.World.Archetypes.get -> System.Collections.Generic.IReadOnlyList<Vixen
 Vixen.Ecs.World.CanRecreate(Vixen.Core.Entity entity) -> bool
 Vixen.Ecs.World.Chunks(Vixen.Ecs.QueryDescription description, uint since = 0) -> Vixen.Ecs.ChunkSequence
 Vixen.Ecs.World.Clear() -> void
+Vixen.Ecs.World.ComponentAdded -> System.Action<Vixen.Core.Entity, Vixen.Core.ComponentTypeId>?
+Vixen.Ecs.World.ComponentRemoved -> System.Action<Vixen.Core.Entity, Vixen.Core.ComponentTypeId>?
+Vixen.Ecs.World.ComponentSet -> System.Action<Vixen.Core.Entity, Vixen.Core.ComponentTypeId>?
 Vixen.Ecs.World.CopyComponentsFrom(Vixen.Core.Entity target, Vixen.Ecs.World source, Vixen.Core.Entity sourceEntity) -> void
 Vixen.Ecs.World.Create() -> Vixen.Core.Entity
 Vixen.Ecs.World.Create(Vixen.Ecs.Archetype archetype) -> Vixen.Core.Entity
@@ -411,6 +414,8 @@ Vixen.Ecs.World.Destroy(Vixen.Core.Entity entity) -> void
 Vixen.Ecs.World.Dispose() -> void
 Vixen.Ecs.World.EmptyArchetype.get -> Vixen.Ecs.Archetype
 Vixen.Ecs.World.EntityCount.get -> int
+Vixen.Ecs.World.EntityCreated -> System.Action<Vixen.Core.Entity>?
+Vixen.Ecs.World.EntityDestroyed -> System.Action<Vixen.Core.Entity>?
 Vixen.Ecs.World.Get<T>(Vixen.Core.Entity entity) -> T
 Vixen.Ecs.World.Has<T>(Vixen.Core.Entity entity) -> bool
 Vixen.Ecs.World.Id.get -> short
@@ -430,6 +435,7 @@ Vixen.Ecs.WorldDigest -> static class
 Vixen.Ecs.WorldQueryExtensions -> static class
 abstract Vixen.Ecs.Systems.SystemBase.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 const Vixen.Ecs.Archetype.ChunkBudget = 16384 -> int
+const Vixen.Ecs.World.EventsEnabled = false -> bool
 override Vixen.Ecs.Archetype.ToString() -> string
 override Vixen.Ecs.ComponentSignature.Equals(object? obj) -> bool
 override Vixen.Ecs.ComponentSignature.GetHashCode() -> int
