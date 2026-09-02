@@ -243,6 +243,17 @@ knobs that move nothing at 128². High rather than Epic because High's `gi.ssaoS
 occlusion planes arrive at half resolution and the combine's bilateral upsample is a path the
 picture takes; at Epic's scale of 1 it degenerates to its own texel.
 
+**And a tenth scene, because the ninth measured itself unable to see the thing it looked like it
+covered.** `AFrameRenderedBelowNativeIsTheSameScene` compares a native frame against a half-scale one
+and its own remarks record that reverting `ReflectionRenderer` to size its march by the window leaves
+it green. Re-measured here: that sabotage moves it from a mean channel of 1.361 to 1.879, under a
+ceiling of 8.0 — a real signal four times below the guard, in a scene where the traced term is a
+highlight on one slab. `AHalfScaleFrameReflectsWhatANativeOneDoes` is the same comparison over a
+mirrored floor beneath an emitter at 40 000 cd/m², where the same sabotage measures **25.641 over
+99.518% of the frame** against a correct **3.020 over 7.977%**. ⚠ Its first assertion is the
+instrument and not the claim: reflections on against off must differ by more than the correctness
+bound permits, because a frame whose reflection is absent in both runs agrees with itself perfectly.
+
 **Three things had to be wired before it rendered at all, and each was a real gap.**
 
 - `CompositorBuilder.Effects` was set in exactly one place in the tree — sample 13 — and never by
