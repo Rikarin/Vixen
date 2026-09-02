@@ -53,6 +53,23 @@ public sealed class VixenApplication : IDisposable {
 
         logger = services.LoggerFactory.CreateLogger("Vixen.App");
 
+        // ⚠ FIRST, WHICH IS WHAT MAKES IT LAST. `DisposeBag` disposes in reverse registration order,
+        // and this line used to be at the bottom of this block carrying a comment that said "last, so
+        // that everything above it has already said why it was shutting down". It was doing the
+        // opposite: the factory was the first thing torn down, so every record any subsystem wrote
+        // inside its own `Dispose` — the whole teardown phase — was dropped by the file sink.
+        //
+        // Measured rather than reasoned: `Samples/03-PbrShowcase` at 16 frames with `--vixen-log-file`
+        // ends its .jsonl at the game's last shutdown line, while the console carries a further
+        // Vulkan record 74 ms later. Anything logged at Error during teardown was therefore invisible
+        // to `nuke SampleFrame`, whose whole job is to read that file.
+        //
+        // ⚠ The rest of this block is registered in the order the comments describe and is therefore
+        // torn down backwards as well — the platform that owns the window goes before the graphics
+        // that made a surface from it. Filed separately; only the logging half is corrected here,
+        // because reordering a GPU teardown needs evidence this change does not carry.
+        disposables.Add(services.LoggerFactory);
+
         // Torn down in the reverse of construction: the game first, because it may still be using
         // everything below it, then the jobs it may have scheduled, then the platform that owns the
         // window those jobs might touch.
@@ -74,11 +91,6 @@ public sealed class VixenApplication : IDisposable {
         disposables.Add(services.Content);
         disposables.Add(services.Jobs);
         disposables.Add(services.Platform);
-
-        // Last, so that everything above it has already said why it was shutting down: disposing the
-        // factory disposes the sinks, and the file sink's dispose is what flushes its background
-        // buffer to disk. A log missing its final seconds is missing the part that explains them.
-        disposables.Add(services.LoggerFactory);
     }
 
     /// <summary>Everything the host built.</summary>

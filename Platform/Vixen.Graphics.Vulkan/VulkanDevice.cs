@@ -624,8 +624,35 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             khrDynamicRendering?.Dispose();
             khrAccelerationStructure?.Dispose();
 
+            var validationActive = instance.ValidationEnabled;
+
             if (ownsInstance) {
                 instance.Dispose();
+            }
+
+            // ⚠ Last, and through the logger rather than the console, because a message on the
+            // console is a thing that scrolls past. `VulkanDiagnostics` has been able to answer
+            // "did anything complain" since it was written and only a test ever asked it — so a run
+            // of an application could produce validation errors on every frame, print them to
+            // stderr, exit 0 and be read by a gate as clean. This is the line that puts the answer
+            // where structured output can be asserted on.
+            //
+            // ⚠ `ValidationActive` travels with the counts because zero errors from layers that
+            // never loaded is the same number as zero errors from a clean run, and an unloadable
+            // layer does not stop the instance being created — see `VulkanInstance.TryCreate`.
+            //
+            // The counts are process-wide, so a process that opened several devices reports the
+            // running total on each teardown. That is the honest answer to "did anything complain
+            // during this run" and the question the counter was built for; per-device attribution
+            // would need a per-instance context the messenger's bare function pointer has no room
+            // for.
+            if (logger is { } sink) {
+                VulkanLog.ValidationSummary(
+                    sink,
+                    validationActive,
+                    VulkanDiagnostics.ErrorCount,
+                    VulkanDiagnostics.WarningCount
+                );
             }
         }
     }

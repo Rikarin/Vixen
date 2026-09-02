@@ -370,12 +370,22 @@ public sealed class StandardFrameTierImageTests {
     ///         bit-identical and the first assertion reports 0.000. The ceiling could not be made to
     ///         fire — reverting <c>ReflectionRenderer</c> to size its march by the window while the
     ///         depth plane is half that leaves this test <em>green</em>. So the screen-space
-    ///         reflection path's own render-scale correctness is <b>not</b> under a picture here, and
-    ///         nothing else in the suite covers it either; at 128² the traced term is too small a
-    ///         part of the frame, and a <c>Load</c> off the end of a smaller plane returns zero
-    ///         rather than a wrong colour, so the failure subtracts reflection instead of adding
-    ///         nonsense. Read the second assertion as "the frame did not fall apart", not as
-    ///         "every consumer measured in the right grid".
+    ///         reflection path's own render-scale correctness is <b>not</b> under a picture here; at
+    ///         128² the traced term is too small a part of the frame, and a <c>Load</c> off the end
+    ///         of a smaller plane returns zero rather than a wrong colour, so the failure subtracts
+    ///         reflection instead of adding nonsense. Read the second assertion as "the frame did not
+    ///         fall apart", not as "every consumer measured in the right grid".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the numbers say the fixture is not blind, it is watching with the wrong
+    ///         bound.</b> Re-measured on an M1 Max: that sabotage moves this comparison from 1.361
+    ///         over 3.284% of the frame to 1.879 over 4.407%, against a ceiling of 8.0 — a real signal
+    ///         four times under the guard. Tightening the ceiling is <em>not</em> the answer, because
+    ///         1.6 would be a cross-driver bound 1.38× over the correct value while
+    ///         <see cref="Tolerance" />.<c>Shaded</c> already allows 0.35 between two renderings of
+    ///         the same picture. What was needed was a bigger reflection, and that is
+    ///         <see cref="AHalfScaleFrameReflectsWhatANativeOneDoes" /> — a mirrored floor under an
+    ///         emitter, where the same sabotage measures 25.641 against a correct 3.020.
     ///     </para>
     ///     <para>
     ///         No reference image, deliberately. What is asserted is the relationship between two
@@ -427,6 +437,127 @@ public sealed class StandardFrameTierImageTests {
             + "the scaled planes in the window's grid — the suspects are the ones that ask a size "
             + "rather than the plane: a texel uniform, a march's screenViewport, the depth "
             + "pyramid's extent, or a probe lattice."
+        );
+    }
+
+    /// <summary>
+    ///     A half-scale frame reflects the same thing a native one does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The claim <see cref="AFrameRenderedBelowNativeIsTheSameScene" /> measured itself
+    ///         unable to make.</b> That test's remarks record the limitation in full: reverting
+    ///         <c>ReflectionRenderer</c> to size its march by the window while the depth plane is half
+    ///         that leaves it green, so the screen-space path's render-scale correctness was under no
+    ///         picture. Re-measured here on an M1 Max rather than taken on trust — the sabotage moves
+    ///         that fixture from a mean channel of 1.361 over 3.284% of the frame to 1.879 over
+    ///         4.407%. It is not blind: it is watching with a ceiling of 8.0, set for a different
+    ///         failure, four times above the signal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the answer is a bigger reflection and not a tighter threshold.</b> Tightening
+    ///         the other test to 1.6 would put a cross-driver bound 1.38× above the correct value,
+    ///         with <c>Tolerance.Shaded</c> already allowing 0.35 between two renderings of the same
+    ///         picture. What this scene changes instead is what is being reflected: the floor is a
+    ///         mirror rather than a rough plane, and what it reflects is an emitter three orders of
+    ///         magnitude over the tonemap's shoulder — so the traced term is most of the lower frame
+    ///         rather than a highlight on a slab.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first assertion is the instrument and it has to come first.</b> A frame whose
+    ///         reflection is absent in both runs agrees with itself perfectly, and every SSR test that
+    ///         only compares two scaled renderings passes on a path that has stopped tracing. So the
+    ///         same scene is rendered once with <c>reflections: screen</c> and once with them off, and
+    ///         the two must disagree by more than the correctness bound is allowed to permit — which
+    ///         is what makes the second assertion a statement about the reflection rather than about
+    ///         the rest of the frame.
+    ///     </para>
+    ///     <para>
+    ///         <b>Measured on an M1 Max, this repository, 2026-09-03, all three numbers from the same
+    ///         session:</b>
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item><description>
+    ///             reflections on against off — <b>25.997</b> over 99.780% of the frame, which is the
+    ///             instrument: the traced term is nearly the whole picture, so 8.0 is 3.2× under it;
+    ///         </description></item>
+    ///         <item><description>
+    ///             native against half scale, correct — <b>3.020</b> over 7.977%. A mirror reflects
+    ///             something genuinely blurrier at half resolution, so this is not near zero and
+    ///             should not be;
+    ///         </description></item>
+    ///         <item><description>
+    ///             native against half scale, with <c>ReflectionRenderer</c>'s <c>screen</c> reverted
+    ///             to <c>frame.Size</c> — <b>25.641</b> over 99.518%, which is almost exactly the
+    ///             reflections-off number. At half scale the march indexes a rectangle the depth plane
+    ///             does not occupy, every <c>Load</c> past the edge answers zero, and the frame loses
+    ///             very nearly all of its reflection.
+    ///         </description></item>
+    ///     </list>
+    ///     <para>
+    ///         The bound is 9.0: 2.98× over what a correct half-scale frame measures and 2.85× under
+    ///         what the defect measures, which is the widest both-sided margin the three numbers
+    ///         allow. Compare the sibling test, whose ceiling is 5.9× over its correct value and
+    ///         4.3× <em>over</em> the defect as well — headroom in one direction only is what made it
+    ///         unable to fire.
+    ///     </para>
+    ///     <para>
+    ///         No reference image, for <see cref="AFrameRenderedBelowNativeIsTheSameScene" />'s
+    ///         reason: what is asserted is a relationship between pictures rendered in the same run on
+    ///         the same device, which a committed PNG cannot state and would go on matching after the
+    ///         relationship stopped holding.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AHalfScaleFrameReflectsWhatANativeOneDoes() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var half = new RenderQualityAsset {
+            High = new() { Resolution = new() { RenderScale = 0.5f } }
+        };
+
+        Bitmap native;
+        Bitmap scaled;
+        Bitmap unreflected;
+
+        using (var scene = Mirror(owned, new() { Game = MirrorFrame })) {
+            native = scene.Frames(Frames);
+        }
+
+        using (var scene = Mirror(owned, new() { Game = MirrorFrame with { Preset = half } })) {
+            scaled = scene.Frames(Frames);
+        }
+
+        using (var scene = Mirror(owned, new() { Game = MirrorFrame with { Reflections = ReflectionsMode.Off } })) {
+            unreflected = scene.Frames(Frames);
+        }
+
+        var traced = GoldenImage.Compare(native, unreflected, Tolerance.Shaded);
+
+        Assert.True(
+            traced.MeanChannel > 8.0,
+            $"Turning the screen-space reflections off changes this frame by a mean channel of "
+            + $"{traced.MeanChannel:F3}/255 over {traced.Fraction:P3}, which is not enough of the "
+            + "picture for the comparison below to be about the reflection. Either the trace stopped "
+            + "producing anything — check ReflectionRenderer.Skipped and the roughness threshold "
+            + "against Mirror — or the mirror stopped being in frame."
+        );
+
+        var comparison = GoldenImage.Compare(native, scaled, Tolerance.Shaded);
+
+        Assert.True(
+            comparison.MeanChannel < 9.0,
+            $"A half-scale frame and a native one differ by a mean channel of "
+            + $"{comparison.MeanChannel:F3}/255 over {comparison.Fraction:P3} of the frame, in a "
+            + "scene whose lower half is a mirror, where 3.020 over 7.977% is what a correct one "
+            + "measures and 25.641 over 99.518% is what sizing the march by the window measures. The suspect is a screen-space pass that sized "
+            + "itself by the window rather than by the plane it marches: ReflectionRenderer's "
+            + "`screen` is `frame.SizeOf(…, Depth)` for exactly this reason, and a Load off the end "
+            + "of a smaller plane returns zero rather than faulting."
         );
     }
 
@@ -522,6 +653,82 @@ public sealed class StandardFrameTierImageTests {
 
         return scene;
     }
+
+    /// <summary>The frame <see cref="AHalfScaleFrameReflectsWhatANativeOneDoes" /> renders.</summary>
+    /// <remarks>
+    ///     ⚠ <c>Gi</c> is <see cref="GiMode.Ambient" /> rather than off, because the split targets are
+    ///     what the reflection is composited into — <c>AmbientCombine</c> reads the reflections plane,
+    ///     and a frame with no split has nowhere for the trace's answer to go. Bloom's own knobs are
+    ///     the tier's and the tier is the same in all three runs, so nothing here varies but the
+    ///     scale and the reflections switch.
+    /// </remarks>
+    static StandardFrameAsset MirrorFrame => Frame with {
+        Name = "Mirror",
+        Gi = GiMode.Ambient,
+        Reflections = ReflectionsMode.Screen
+    };
+
+    /// <summary>
+    ///     The mirror scene: a specular floor, and something over it worth reflecting.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Deliberately not <see cref="Stage(Fixture, QualityTier, GraphicsCompositorAsset)" />'s
+    ///         scene, and not a change to it: those boxes are what four committed tier goldens are
+    ///         pictures of, and the reflection this test needs is the opposite of what that scene is
+    ///         arranged for — there the traced term is a highlight on one slab, and here it has to be
+    ///         most of the frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The beacon is over the floor rather than behind it.</b> A screen-space trace can
+    ///         only reflect what the frame already drew, so an emitter outside the view reflects as
+    ///         nothing at all — which would be a scene whose instrument assertion fails for a reason
+    ///         that has nothing to do with the render scale.
+    ///     </para>
+    /// </remarks>
+    static TierScene Mirror(Fixture fixture, GraphicsCompositorAsset document) {
+        var effects = new EffectSystem();
+
+        effects.AddProvider(new Compiling(new(fixture.Device), Compiler));
+
+        var scene = TierScene.Open(fixture, effects, document, QualityTier.High);
+        var casters = scene.Stages.TryGetValue("Shadow", out var shadow) ? shadow.Mask : default;
+        var opaque = scene.Stages["Opaque"].Mask;
+
+        // The mirror, wide enough to run out of the frame on every side: a reflective plane with a
+        // visible edge would put the render scale's difference on that edge rather than in the
+        // reflection.
+        scene.Box(new(0f, -0.25f, 0f), new(24f, 0.25f, 24f), Mirrored, opaque);
+
+        // What it reflects. Emissive in cd/m² rather than merely lit, on `Bright`'s terms — a surface
+        // that is only brightly lit is at the mercy of the sun's intensity and the exposure, and this
+        // has to be over the tonemap's shoulder in every tier.
+        scene.Box(new(0.6f, 1.9f, -0.9f), new(2.6f, 0.18f, 2.6f), Beacon, opaque | casters);
+
+        // One ordinary object, so the frame is not two flat rectangles: a scene with no silhouette in
+        // it is one where "the picture fell apart" and "the picture is fine" look the same.
+        scene.Box(new(-1.85f, 1.05f, -2.35f), new(0.5f, 1.05f, 0.62f), Rough, opaque | casters);
+
+        scene.Commit(opaque);
+
+        return scene;
+    }
+
+    /// <summary>The floor of the mirror scene: metal, and as smooth as the trace will accept.</summary>
+    /// <remarks>
+    ///     ⚠ Roughness well under <c>ReflectionRenderer.RoughnessThreshold</c>, which is what decides
+    ///     whether a pixel is traced at all — a mirror authored just over it produces a frame with no
+    ///     reflection in it and an instrument assertion that fails for the wrong reason.
+    /// </remarks>
+    static Material Mirrored => Compile(new(0.95f, 0.95f, 0.95f), metalness: 1f, roughness: 0.03f);
+
+    /// <summary>What the mirror reflects: a slab bright enough that losing it is not a darker frame.</summary>
+    static Material Beacon => Compile(
+        new(0.95f, 0.75f, 0.35f),
+        metalness: 0f,
+        roughness: 0.4f,
+        emissive: new(40_000f, 26_000f, 9_000f)
+    );
 
     /// <summary>The floor and the caster: matte, and a colour no light in the scene is.</summary>
     static Material Rough => Compile(new(0.42f, 0.46f, 0.38f), metalness: 0f, roughness: 0.85f);

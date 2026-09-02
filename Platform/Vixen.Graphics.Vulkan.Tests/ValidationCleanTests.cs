@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Core.Mathematics;
 using Xunit;
 
@@ -250,6 +251,79 @@ public sealed class ValidationCleanTests {
             + Environment.NewLine
             + string.Join(Environment.NewLine + Environment.NewLine, VulkanDiagnostics.Messages)
         );
+    }
+
+    /// <summary>A device that is torn down says what the layers reported, through the logger.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a validation message on the console is not a gate, and until this record
+    ///         existed the console was the only place it went.</b> <see cref="VulkanDiagnostics" />
+    ///         has been able to answer "did anything complain" since it was written, and the only
+    ///         thing that ever asked was a test in this assembly — so an <i>application</i> could
+    ///         produce a validation error on every frame, print it to stderr, exit 0, and be read as
+    ///         clean by anything looking at its structured log. <c>nuke SampleFrame</c> is exactly
+    ///         such a reader.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>All three properties, and <c>ValidationActive</c> is the one that matters.</b> A
+    ///         run whose layers are missing reports zero errors, which is the number a clean run
+    ///         reports — and a missing layer does not stop the instance being created, because
+    ///         <see cref="VulkanInstance" /> retries without it. A gate reading the count alone would
+    ///         be green on the day the instrument was absent, which is the whole failure this record
+    ///         exists to make impossible.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TearingDownADeviceReportsWhatTheLayersSaid() {
+        var log = new RecordingLogger();
+
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new() { Logger = log }, out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
+
+        var expectedActive = device!.ValidationEnabled;
+
+        device.Dispose();
+
+        var summary = log.Records.LastOrDefault(record => record.ContainsKey("ValidationActive"));
+
+        Assert.True(
+            summary is not null,
+            "tearing the device down logged no validation summary, so an application's structured "
+            + "log carries no answer to 'did the layers complain'. The record is VulkanLog 2004."
+        );
+
+        Assert.Equal(expectedActive, Assert.IsType<bool>(summary!["ValidationActive"]));
+        Assert.True(summary.ContainsKey("ValidationErrors"), "the summary carries no error count.");
+        Assert.True(summary.ContainsKey("ValidationWarnings"), "the summary carries no warning count.");
+
+        // Against the counter rather than against zero: this test runs in a serialised collection
+        // with the rest of the driver tests and the counter is process-wide, so a zero here would be
+        // an assertion about test ordering. What is under test is that the number reported is the
+        // number the recorder holds.
+        Assert.Equal(VulkanDiagnostics.ErrorCount, Assert.IsType<int>(summary["ValidationErrors"]));
+    }
+
+    /// <summary>An <see cref="ILogger" /> that keeps each record's structured properties.</summary>
+    sealed class RecordingLogger : ILogger {
+        public List<Dictionary<string, object?>> Records { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter
+        ) {
+            if (state is IReadOnlyList<KeyValuePair<string, object?>> properties) {
+                Records.Add(properties.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal));
+            }
+        }
     }
 
     /// <summary>A frame that touches every part of the backend a headless device can reach.</summary>

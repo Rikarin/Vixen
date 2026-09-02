@@ -69,6 +69,7 @@ the subsystems between.
 | 2001 | Warning | The Vulkan validation layers were asked for and are not installed | 0.1.0 |
 | 2002 | Warning | The validation layer was found but would not load; the instance was created without it | 0.1.0 |
 | 2003 | Information | `Vulkan device created on '{Adapter}' ({Kind}, Vulkan {ApiVersion}) using {RenderPath}; validation {ValidationEnabled}.` | 0.1.0 |
+| 2004 | Information | `Vulkan validation was {ValidationActive} and reported {ValidationErrors} error(s) and {ValidationWarnings} warning(s) over the life of this device.` — written when the device is torn down. ⚠ `ValidationActive` is on the record because zero errors from layers that never loaded reads exactly like zero errors from a clean run, and an unloadable layer does not stop the instance being created | 0.1.0 |
 | 2100 | Information | `WebGPU device created on '{Adapter}' ({Kind}, {Driver}), {Mode}.` — on the web three of those four are "unknown", and knowing they are unknown rather than unlogged is the useful part | 0.1.0 |
 | 2101 | Warning | `WebGPU reported an error the backend could not attribute to a call: {Message}` — WebGPU has no return codes, so this callback is the only place a failure appears | 0.1.0 |
 | 2102 | Debug | `WaitIdle did nothing: this WebGPU surface cannot block on the queue.` — a browser tab has one thread and blocking on it is a deadlock | 0.1.0 |

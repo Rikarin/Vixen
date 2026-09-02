@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Platform;
@@ -325,6 +326,54 @@ public sealed class VixenApplicationTests : IDisposable {
         application.Dispose();
     }
 
+    /// <summary>Everything that logs on the way down is still able to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It was not, and the comment on the line said the opposite.</b>
+    ///         <see cref="DisposeBag" /> disposes in reverse registration order, and the logger
+    ///         factory was registered last under a note explaining that this made it the last thing
+    ///         torn down. It made it the <i>first</i>: every record the game, the graphics, the
+    ///         engine, the content, the jobs and the platform wrote inside their own
+    ///         <c>Dispose</c> went to a factory that had already closed its sinks.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The console kept working, which is what hid it.</b> Measured on
+    ///         <c>Samples/03-PbrShowcase</c> with <c>--vixen-log-file</c>: the .jsonl ended at the
+    ///         game's last shutdown line and the console carried a further Vulkan record 74 ms
+    ///         later. So a developer watching a terminal saw a complete shutdown, and
+    ///         <c>nuke SampleFrame</c> — which asserts over the file — was reading a log with the
+    ///         whole teardown phase missing from it, including anything logged at Error.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first version of this test asked the factory whether it was disposed, and
+    ///         the sabotage left it green.</b> <c>HostLoggerFactory.Dispose</c> disposes its
+    ///         providers and then <i>clears the list</i>, so <c>CreateLogger</c> on a disposed
+    ///         factory does not throw — it returns a fan-out over no providers, an
+    ///         <see cref="ILogger" /> that accepts everything and writes it nowhere. A disposed
+    ///         logger here is not dead, it is deaf, which is the same shape as the defect being
+    ///         tested one level down. So the oracle has to be a provider that says what it received.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheLoggerOutlivesEverythingThatLogsOnTheWayDown() {
+        var sink = new RecordingProvider();
+        var game = new LoggingOnDisposeGame(sink);
+        var application = Build(game);
+
+        application.Initialise();
+
+        Assert.Contains("initialise", sink.Records, StringComparer.Ordinal);
+
+        application.Shutdown();
+
+        Assert.True(game.Attempted, "the game's Dispose never ran, so nothing was tried.");
+
+        Assert.Contains(
+            "teardown",
+            sink.Records
+        );
+    }
+
     public void Dispose() => files.Dispose();
 
     HeadlessPlatform NewPlatform() => new(new() { FileSystem = files });
@@ -337,6 +386,52 @@ public sealed class VixenApplicationTests : IDisposable {
         VixenApp.Create(["--vixen-variant", variant.ToString(), "--vixen-workers", "1", "--vixen-frame-limit", "0"])
             .WithPlatform(platform ?? NewPlatform())
             .Build(game);
+
+    /// <summary>A provider that keeps what it was given, so a dropped record is visible.</summary>
+    sealed class RecordingProvider : ILoggerProvider {
+        public List<string> Records { get; } = [];
+
+        public ILogger CreateLogger(string categoryName) => new Sink(Records);
+
+        public void Dispose() { }
+
+        sealed class Sink(List<string> records) : ILogger {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter
+            ) => records.Add(formatter(state, exception));
+        }
+    }
+
+    /// <summary>A game that says something as it is torn down, the way every subsystem does.</summary>
+    sealed class LoggingOnDisposeGame(ILoggerProvider sink) : Game {
+        static readonly Action<ILogger, string, Exception?> Say =
+            LoggerMessage.Define<string>(LogLevel.Information, new EventId(1), "{Phase}");
+
+        public bool Attempted { get; private set; }
+
+        protected internal override void OnConfigure(AppConfig config) => config.Name = "Test";
+
+        protected internal override void OnInitialise() {
+            // Added through the factory's own public seam, so what is under test is the order the
+            // application tears things down in and not a stubbed factory of the test's own.
+            Services.LoggerFactory.AddProvider(sink);
+            Say(Services.LoggerFactory.CreateLogger("Teardown"), "initialise", null);
+        }
+
+        protected override void Dispose(bool disposing) {
+            Attempted = true;
+            Say(Services.LoggerFactory.CreateLogger("Teardown"), "teardown", null);
+            base.Dispose(disposing);
+        }
+    }
 
     sealed class RecordingGame : Game {
         public List<string> Calls { get; } = [];
