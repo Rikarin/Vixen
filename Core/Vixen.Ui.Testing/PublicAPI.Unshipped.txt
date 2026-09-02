@@ -68,6 +68,7 @@ Vixen.Ui.Testing.UiTest.Advance(System.TimeSpan duration) -> void
 Vixen.Ui.Testing.UiTest.At(float x, float y) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiTest.Capture() -> Vixen.Core.Imaging.Bitmap
 Vixen.Ui.Testing.UiTest.ColorOf(Vixen.Ui.UiElement element, string property) -> Vixen.Core.Mathematics.Color4?
+Vixen.Ui.Testing.UiTest.Compose(string text, int caret = -1) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTest.Contains(string text) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiTest.Create(string tag, Vixen.Ui.UiElement? parent = null, string? id = null, params string[] classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.Testing.UiTest.Dispose() -> void
