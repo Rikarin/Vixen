@@ -68,8 +68,22 @@ public static class StageInterface {
     ///     </para>
     ///     <para>
     ///         Asked of the type rather than declared by the shader, because there is no other legal
-    ///         answer for an integer and no legal way to ask for it on a float. A qualifier would be a
-    ///         syntax whose only correct value the compiler already knows.
+    ///         answer for an integer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This paragraph used to go on to say "and no legal way to ask for it on a float",
+    ///         and that half is wrong</b> — it is the reason nothing was built. <c>noperspective</c>
+    ///         is legal on a float varying and means something different from the default, and so is
+    ///         a deliberately-<c>flat</c> float, which is how a per-primitive value rides the
+    ///         provoking vertex. What is true is narrower: the compiler already knows the only
+    ///         correct answer for an <em>integer</em>. Author-declared interpolation is doc 07
+    ///         § Streams's open item, and it needs this predicate to become a default rather than
+    ///         the whole answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And it is a default with two sides. SPIR-V decorates only the fragment input, since
+    ///         a stage is its own module; GLSL is linked as one program by the GL backend, so the
+    ///         producing stage has to say the same thing — see <c>GlslEmitter.EmitStreamInterface</c>.
     ///     </para>
     /// </remarks>
     public static bool MustBeFlat(IrType type) =>
