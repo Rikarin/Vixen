@@ -706,6 +706,7 @@ partial class Build : NukeBuild {
                 );
 
                 CheckStyleGenIsShippable();
+                CheckCliIsShippable();
             }
         );
 
@@ -768,5 +769,64 @@ partial class Build : NukeBuild {
         }
 
         Log.Information("{Package} ships a startable tools/ for the utility build step", package.Name);
+    }
+
+    /// <summary>
+    ///     Asserts that <c>Vixen.Sdk</c> ships a CLI, by extracting the package and starting it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A launch and not a file list, and the difference is the whole reason this is worth
+    ///         more than its sibling above.</b> <see cref="CheckStyleGenIsShippable" /> can only name
+    ///         the four files that were missing, because running that tool needs a project to point it
+    ///         at; <c>vixen --version</c> needs nothing at all. So the question asked here is the one
+    ///         that actually matters — does the host start this thing — and it is asked of the
+    ///         assembly closure the package really contains rather than of a list somebody remembered
+    ///         to keep up to date. The <c>Vixen.StyleGen</c> failure was exactly a missing dependency
+    ///         that no list named.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Conditional on the package having been produced, for the reason its sibling gives:</b>
+    ///         a filtered pack should not fail on a package it was not asked to build. What must not
+    ///         happen is the package being produced with an empty <c>tools/</c> — which is what a pack
+    ///         that ran before the solution build produces, because the CLI is packed by path.
+    ///     </para>
+    ///     <para>
+    ///         The extraction is ~170 MB and the run is a fraction of a second. That size is the cost
+    ///         of the decision recorded in <c>Tools/Vixen.Sdk/Vixen.Sdk.csproj</c>: one portable copy
+    ///         carrying every RID's natives, so that the same package serves a developer's laptop and
+    ///         an Alpine CI container without a hand-maintained list of runtime identifiers.
+    ///     </para>
+    /// </remarks>
+    void CheckCliIsShippable() {
+        var package = PackagesDirectory.GlobFiles("Vixen.Sdk.*.nupkg")
+            .FirstOrDefault(file => !file.Name.EndsWith(".symbols.nupkg", StringComparison.Ordinal));
+
+        if (package is null) {
+            Log.Information("No Vixen.Sdk package was produced; skipping the tools/ check");
+            return;
+        }
+
+        var extracted = TemporaryDirectory / "vixen-sdk-tools";
+        extracted.CreateOrCleanDirectory();
+        ZipFile.ExtractToDirectory(package, extracted);
+
+        var tool = extracted / "tools" / "vixen.dll";
+
+        Assert.True(
+            tool.FileExists(),
+            $"{package.Name} has no tools/vixen.dll. The CLI is packed by path from "
+            + "Tools/Vixen.Cli/bin/$(Configuration)/net10.0/, so packing has to follow a solution "
+            + "build — and without it every consumer falls through to `dotnet vixen`, a tool they "
+            + "have to install themselves and which is then free to be a different version from "
+            + "these targets."
+        );
+
+        // ⚠ Started the way build/Vixen.Sdk.targets starts it — `dotnet` plus the assembly — because
+        // the apphost beside it is deliberately not packed: it is native, and built for whichever
+        // machine ran the build.
+        DotNet($"\"{tool}\" --version", workingDirectory: extracted);
+
+        Log.Information("{Package} ships a CLI that starts from its packed layout", package.Name);
     }
 }

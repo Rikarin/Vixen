@@ -188,8 +188,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Colour-grading `.cube` LUT importer | ✅ | Editor/Vixen.Editor.Assets | `CubeLutImporter` reads what Resolve, Baselight, Nuke and Photoshop export into an `Rgba16Float` volume, and `Tonemap.rvn` samples it with the… |
 | **The unregistered-importer gate** | ✅ | Editor/Vixen.Editor.Assets.Tests | Task #168, and the reason #167 was one of **six**: `[Importer]` is a declaration nothing scans for and `BuiltInImporters.Create` is a hand-written… |
 | Server content profile | ✅ | Editor/Vixen.Editor.Assets | `vixen content build --variant Server`, passed by `Vixen.Sdk` from `VixenVariant`. **A group membership question, per doc 17 and doc 27 § the realm**… |
-| `Vixen.Sdk` MSBuild integration | ✅ | Tools/Vixen.Sdk | 7 tests, each a real `dotnet build` |
-| SDK ships the `vixen` CLI in the package | ⬜ | — | Consumer still needs the tool restored or installed |
+| `Vixen.Sdk` MSBuild integration | ✅ | Tools/Vixen.Sdk | 19 tests — 13 of them a real `dotnet build`, and six a real `dotnet pack` read back from inside the produced `.nupkg` |
+| SDK ships the `vixen` CLI in the package | ✅ | Tools/Vixen.Sdk | `tools/vixen.dll` is in the `.nupkg`, so a restored SDK needs nothing installed. One portable copy rather than three RID-specific ones — ⚠ the `Sdk=` form is resolved by the MSBuild SDK resolver, which never walks a dependency graph, so a second package next door would be silently absent for the form the templates scaffold. Costs ~170 MB unpacked |
 | Platform packaging (APK assets, iOS bundle, `wwwroot`) | ⬜ | — | Waits for those platforms |
 | `Vixen.Cli` — `import`, `content build`, `content serve`, `doctor`, `doctor systems`, `new`, `build`, `run` | ✅ | Tools/Vixen.Cli | 47 tests incl. a byte-for-byte determinism gate |
 | Signing, notarisation, DMG/IPA/AAB | ⬜ | — | `Build.Publish.cs` is the first half and says so; `Sign` and `Notarize` do not exist. Doc 17's table is still Nuke's |
