@@ -23,6 +23,14 @@ namespace Vixen.Editor.SceneView;
 ///         it is most likely to have is arithmetic, not binding.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Every method has a <see cref="GizmoDraw" /> overload, and that one is the
+///         implementation.</b> A pane hands a drawer a <see cref="GizmoDraw" /> and never its list —
+///         <c>SceneViewport.Cursor</c> and <c>ComponentGizmos</c> both — so an overlay that only took
+///         a <c>List&lt;LineVertex&gt;</c> was one no viewport could call, which is what it was for
+///         two phases. The list overloads wrap a <see cref="GizmoDraw" /> over the list rather than
+///         emitting twice; a second copy of the arc-length sampling is the thing that would drift.
+///     </para>
+///     <para>
 ///         ⚠ <b>The curve is sampled by arc length, not by parameter.</b> A Hermite segment's
 ///         parameter runs at a different speed on every segment, so a fixed count per segment draws a
 ///         tight corner with the same number of lines as a straight kilometre — the corner reads as
@@ -86,6 +94,17 @@ public static class SplineOverlay {
     public static int Curve(in Spline spline, List<LineVertex> into) {
         ArgumentNullException.ThrowIfNull(into);
 
+        return Curve(spline, new GizmoDraw(into));
+    }
+
+    /// <summary>Emits the curve into a viewport channel.</summary>
+    /// <param name="spline">The curve.</param>
+    /// <param name="draw">Where the segments go — a pane's overlay or its depth-tested lines.</param>
+    /// <returns>How many line segments were emitted.</returns>
+    /// <exception cref="ArgumentNullException">There is nowhere to put them.</exception>
+    public static int Curve(in Spline spline, GizmoDraw draw) {
+        ArgumentNullException.ThrowIfNull(draw);
+
         if (spline.Points.Length < 2) {
             return 0;
         }
@@ -103,8 +122,7 @@ public static class SplineOverlay {
         for (var step = 1; step <= samples; step++) {
             var next = spline.EvaluateAtDistance(length * step / samples);
 
-            into.Add(new(previous, CurveColour));
-            into.Add(new(next, CurveColour));
+            draw.Line(previous, next, CurveColour);
 
             previous = next;
             emitted++;
@@ -123,12 +141,24 @@ public static class SplineOverlay {
     public static int Point(in SplinePoint point, List<LineVertex> into, float size = 0.4f, bool selected = false) {
         ArgumentNullException.ThrowIfNull(into);
 
+        return Point(point, new GizmoDraw(into), size, selected);
+    }
+
+    /// <summary>Emits a control point's cross and its two tangent handles into a viewport channel.</summary>
+    /// <param name="point">The control point.</param>
+    /// <param name="draw">Where the segments go.</param>
+    /// <param name="size">How long the cross's arms are, in metres.</param>
+    /// <param name="selected">Whether it is selected.</param>
+    /// <returns>How many line segments were emitted.</returns>
+    /// <exception cref="ArgumentNullException">There is nowhere to put them.</exception>
+    public static int Point(in SplinePoint point, GizmoDraw draw, float size = 0.4f, bool selected = false) {
+        ArgumentNullException.ThrowIfNull(draw);
+
         var colour = selected ? SelectedColour : PointColour;
         var arms = 0;
 
         foreach (var axis in (Vector3[]) [Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ]) {
-            into.Add(new(point.Position - (axis * size), colour));
-            into.Add(new(point.Position + (axis * size), colour));
+            draw.Line(point.Position - (axis * size), point.Position + (axis * size), colour);
 
             arms++;
         }
@@ -144,8 +174,7 @@ public static class SplineOverlay {
                 continue;
             }
 
-            into.Add(new(point.Position, TangentColour));
-            into.Add(new(point.Position + (tangent / 3f), TangentColour));
+            draw.Line(point.Position, point.Position + (tangent / 3f), TangentColour);
 
             arms++;
         }
@@ -169,17 +198,36 @@ public static class SplineOverlay {
         ArgumentNullException.ThrowIfNull(asset);
         ArgumentNullException.ThrowIfNull(into);
 
+        return Draw(asset, new GizmoDraw(into), selected, size);
+    }
+
+    /// <summary>Emits a whole spline into a viewport channel: its curve, every point and every handle.</summary>
+    /// <param name="asset">The authored curve.</param>
+    /// <param name="draw">Where the segments go.</param>
+    /// <param name="selected">Which control point is selected, or −1 for none.</param>
+    /// <param name="size">How long a control point's arms are, in metres.</param>
+    /// <returns>How many line segments were emitted.</returns>
+    /// <exception cref="ArgumentNullException">There is no asset or nowhere to put them.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The curve first and the handles after, because the line renderer draws in order and
+    ///     does not sort.</b> Points drawn under the curve are points a person cannot see on a road
+    ///     that runs along them, which is every road.
+    /// </remarks>
+    public static int Draw(SplineAsset asset, GizmoDraw draw, int selected = -1, float size = 0.4f) {
+        ArgumentNullException.ThrowIfNull(asset);
+        ArgumentNullException.ThrowIfNull(draw);
+
         var emitted = 0;
 
         // ⚠ Asked rather than caught. `SplineAsset.Build` throws for one point, and one point is what
         // a spline looks like halfway through being authored — an overlay that let that exception out
         // would take the viewport down on the frame after the first click.
         if (asset.CanBuild) {
-            emitted += Curve(asset.Build(), into);
+            emitted += Curve(asset.Build(), draw);
         }
 
         for (var index = 0; index < asset.Points.Count; index++) {
-            emitted += Point(asset.Points[index], into, size, index == selected);
+            emitted += Point(asset.Points[index], draw, size, index == selected);
         }
 
         return emitted;
