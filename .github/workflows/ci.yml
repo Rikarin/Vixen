@@ -593,12 +593,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libassimp5
 
       # lavapipe, which is the whole reason this runs on Linux: a conformant Vulkan driver on a
-      # runner with no GPU. The validation layers are not optional here either — the engine *asks*
-      # for VK_LAYER_KHRONOS_validation, and an instance that cannot load a layer it requested fails
-      # to create, whereupon GraphicsHost falls through to the device that draws nothing and this leg
-      # reports a Null device rather than a missing package. That is not a hypothesis: it is exactly
-      # how the target behaved on macOS before it was taught to pass DYLD_LIBRARY_PATH, and it is why
-      # .runsettings exists. vulkan-tools is for the summary printed below and nothing else.
+      # runner with no GPU. The validation layers are not optional here either, though ⚠ NOT for the
+      # reason this comment used to give: an instance that cannot load the layer it asked for does
+      # *not* fail to create. `VulkanInstance.TryCreate` retries without the layer and logs a warning
+      # (VulkanLog 2001/2002), so a runner missing the package renders a perfectly good picture with
+      # no validation at all behind it — the leg's validation assertion then fails on
+      # `ValidationActive` rather than on a count that would have read zero either way. The DYLD
+      # story on macOS is the same shape, which is why .runsettings and `LayerEnvironment` exist.
+      # vulkan-tools is for the summary printed below and nothing else.
       #
       # ⚠ No SDL2, deliberately, unlike the test leg. `--vixen-headless` reaches PlatformHost.Create
       # before any window is made and returns HeadlessPlatform, so no SDL entry point is ever called;
@@ -611,8 +613,9 @@ jobs:
       # One target, and it is the same one a developer types. It builds the solution, runs
       # Samples/03-PbrShowcase with no display for 64 frames, captures the last one, and fails unless
       # the log names a device that is not the Null one, the run happened on the Headless platform,
-      # nothing was logged at Error, and the picture that came back has more than a thousand distinct
-      # colours in it. Sample 03 measures around 44 000; a frame that lost its content measures 1.
+      # nothing was logged at Error, the validation layers were loaded and reported no error, and the
+      # picture that came back has more than a thousand distinct colours in it. Sample 03 measures
+      # around 44 000; a frame that lost its content measures 1.
       - name: Run a sample with no display and check the frame it captured
         run: ./build.sh SampleFrame --configuration Release
         shell: bash

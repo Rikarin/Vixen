@@ -47,6 +47,24 @@ using Serilog;
 ///         and checked the exit code would have passed on both, forever.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The validation assertions are three and not one, because "no validation errors" is a
+///         sentence a run with no validation layers says just as loudly.</b> An instance that asks for
+///         <c>VK_LAYER_KHRONOS_validation</c> and cannot load it is <em>not</em> refused —
+///         <c>VulkanInstance.TryCreate</c> retries without the layer and logs a warning — so the
+///         package being absent produces a picture, an exit code of 0 and a validation error count of
+///         zero. The gate therefore asks whether a summary was written at all, whether the layers were
+///         active, and only then what they counted.
+///     </para>
+///     <para>
+///         ⚠ <b>And the summary is in the file only because the logger factory now outlives the
+///         device.</b> <c>DisposeBag</c> disposes in reverse registration order, and
+///         <c>VixenApplication</c> registered the factory last under a comment saying it was
+///         therefore torn down last — so it was torn down <em>first</em>, and the whole teardown phase
+///         reached the console and no log file. Anything logged at <c>Error</c> on the way down was
+///         invisible to this target's error assertion for the same reason. Measured: the .jsonl ended
+///         at the game's last shutdown line while the console carried a Vulkan record 74 ms later.
+///     </para>
+///     <para>
 ///         ⚠ <b>"A real device rather than a software one" is the WRONG test here and would break the
 ///         leg this target is written for.</b> The Linux runner has no GPU and renders on lavapipe,
 ///         which <c>VulkanAdapter.Kind</c> maps from <c>PhysicalDeviceType.Cpu</c> to
@@ -227,6 +245,60 @@ partial class Build {
                     + string.Join("\n  ", record.Errors)
                 );
 
+                // ⚠ Three assertions rather than one, and the first two are the instrument. A run
+                // with no validation layers reports zero errors, which is character for character
+                // what a clean run reports — and an unloadable layer does not stop the instance
+                // being created: VulkanInstance.TryCreate retries without it and logs a warning. So
+                // "no errors" is only evidence when something also says the layers were there.
+                //
+                // ⚠ And the record is only in the file because the logger factory outlives the
+                // device. It used to be torn down first — DisposeBag disposes in reverse
+                // registration order and this line was registered last — so the whole teardown phase
+                // was dropped by the file sink while still reaching the console. Anything logged at
+                // Error on the way down was invisible to the Errors assertion above for the same
+                // reason.
+                Assert.True(
+                    record.ValidationReported,
+                    $"{FrameSample}'s log carries no validation summary, so nothing in this run said "
+                    + "whether the layers had anything to report. The record is VulkanLog 2004, "
+                    + "written when the Vulkan device is disposed and carrying ValidationActive, "
+                    + "ValidationErrors and ValidationWarnings. Its absence means the device was "
+                    + "never torn down, the record was renamed, or the log sink stopped accepting "
+                    + $"records before shutdown. The console is at '{console}'."
+                );
+
+                Assert.True(
+                    record.ValidationActive,
+                    $"{FrameSample} ran without the Vulkan validation layers, so it could not have "
+                    + "reported a validation error whatever it did wrong. On Linux install "
+                    + "vulkan-validationlayers; on macOS the layer is Homebrew's and needs "
+                    + "DYLD_LIBRARY_PATH=/opt/homebrew/lib, which this target passes — see "
+                    + "LayerEnvironment. A missing layer is a warning in the log rather than a "
+                    + "failure to start, which is exactly why this is asserted here."
+                );
+
+                Assert.True(
+                    record.ValidationErrors == 0,
+                    $"the validation layers reported {record.ValidationErrors} error(s) during "
+                    + $"{FrameSample}. The picture below may look perfectly ordinary and still be "
+                    + "the product of undefined behaviour — a resource destroyed between frames, a "
+                    + "descriptor set that was never bound — which is the class of defect this "
+                    + $"property exists to catch. The messages are on the console at '{console}'."
+                );
+
+                if (record.ValidationWarnings > 0) {
+                    // Reported and not asserted. A warning is frequently the layers telling us
+                    // something true and harmless about a driver — sample 03 raises one about a
+                    // vertex output the fragment stage does not read — and a gate that failed on
+                    // those would be turned off within a week.
+                    Log.Warning(
+                        "{Sample}: the validation layers reported {Count} warning(s); see {Console}",
+                        FrameSample,
+                        record.ValidationWarnings,
+                        console
+                    );
+                }
+
                 var captured = shots / "frame.png";
 
                 Assert.FileExists(
@@ -399,6 +471,16 @@ partial class Build {
         public int Height { get; init; }
 
         public IReadOnlyList<string> Errors { get; init; } = [];
+
+        /// <summary>Whether the run reported a validation summary at all. See VulkanLog 2004.</summary>
+        public bool ValidationReported { get; init; }
+
+        /// <summary>Whether the layers were actually loaded, as the run itself reported it.</summary>
+        public bool ValidationActive { get; init; }
+
+        public int ValidationErrors { get; init; }
+
+        public int ValidationWarnings { get; init; }
     }
 
     /// <summary>Reads the run's own account of itself.</summary>
@@ -430,6 +512,10 @@ partial class Build {
         var width = 0;
         var height = 0;
         var errors = new List<string>();
+        var validationReported = false;
+        var validationActive = false;
+        var validationErrors = 0;
+        var validationWarnings = 0;
 
         foreach (var line in files.SelectMany(file => file.ReadAllLines())) {
             if (line.Length == 0) {
@@ -454,6 +540,18 @@ partial class Build {
 
             if (root.TryGetProperty("Platform", out var host) && root.TryGetProperty("Workers", out _)) {
                 platform = host.GetString();
+            }
+
+            // VulkanLog 2004, written when the device is torn down. Found by its properties like
+            // everything else here — and all three are read, because the count alone is a number a
+            // run with no validation layers at all also produces.
+            if (root.TryGetProperty("ValidationActive", out var active)
+                && root.TryGetProperty("ValidationErrors", out var reportedErrors)
+                && root.TryGetProperty("ValidationWarnings", out var reportedWarnings)) {
+                validationReported = true;
+                validationActive = active.GetBoolean();
+                validationErrors = reportedErrors.GetInt32();
+                validationWarnings = reportedWarnings.GetInt32();
             }
 
             if (root.TryGetProperty("Path", out var path)
@@ -490,7 +588,11 @@ partial class Build {
             CapturePath = capturePath!,
             Width = width,
             Height = height,
-            Errors = errors
+            Errors = errors,
+            ValidationReported = validationReported,
+            ValidationActive = validationActive,
+            ValidationErrors = validationErrors,
+            ValidationWarnings = validationWarnings
         };
     }
 
