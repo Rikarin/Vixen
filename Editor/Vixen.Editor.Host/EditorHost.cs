@@ -18,6 +18,7 @@ using Vixen.Rendering.Terrain;
 using Vixen.Shaders.Generated;
 using Vixen.Ui;
 using Vixen.Ui.Desktop;
+using Vixen.Ui.Reactive;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text;
@@ -238,7 +239,27 @@ sealed class EditorHost : IDisposable {
     /// <summary>Runs until the window closes, or for a fixed number of frames.</summary>
     /// <param name="frames">How many, or zero for as many as it takes.</param>
     /// <returns>A process exit code.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The twin of the claim in <see cref="UiApplication" />'s loop, and it has to be here
+    ///     too because the editor never runs that loop.</b> <c>ReactiveGraph.OwningThread</c> is
+    ///     process-wide and was assigned by nothing in the tree, so every
+    ///     <c>AssertOwningThread</c> in the reactive layer was inert in the editor as well —
+    ///     including on <c>Strings</c>, the one static reactive node every panel in the shell
+    ///     attaches an effect to. Restored on the way out because <c>Program</c> builds a second
+    ///     host over the same window when a project is swapped.
+    /// </remarks>
     public int Run(int frames) {
+        var previousOwner = ReactiveGraph.OwningThread;
+        ReactiveGraph.OwningThread = Thread.CurrentThread;
+
+        try {
+            return Loop(frames);
+        } finally {
+            ReactiveGraph.OwningThread = previousOwner;
+        }
+    }
+
+    int Loop(int frames) {
         var clock = Stopwatch.StartNew();
         var previous = TimeSpan.Zero;
         var drawn = 0;

@@ -12,6 +12,7 @@ using Vixen.Platform.Desktop;
 using Vixen.Platform.Ui;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Reactive;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
@@ -437,7 +438,36 @@ public sealed class UiApplication : IDisposable {
 
     /// <summary>Runs until the window closes, or for <see cref="UiApplicationOptions.Frames" /> frames.</summary>
     /// <returns>A process exit code.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is where the signal graph is told which thread owns it, and until this line
+    ///         existed nothing in the tree ever told it.</b> Every write in <c>Vixen.Ui.Reactive</c>
+    ///         calls <c>ReactiveGraph.AssertOwningThread</c>, and that assert compares against
+    ///         <see cref="ReactiveGraph.OwningThread" /> — a static that was null in every shipping
+    ///         build, so a plug-in writing a signal from a
+    ///         pool thread was reported by nobody and corrupted an edge list instead. The loop thread
+    ///         is the graph's thread by construction: everything under this line reads and writes
+    ///         signals on it, and <see cref="EffectScheduler.Post" /> is the only sanctioned way in
+    ///         from anywhere else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Restored rather than cleared on the way out, because the owner is process-wide. A
+    ///         test host that runs two applications one after the other, or an editor that opens a
+    ///         second graph, must find the static as it left it.
+    ///     </para>
+    /// </remarks>
     internal int Run() {
+        var previousOwner = ReactiveGraph.OwningThread;
+        ReactiveGraph.OwningThread = Thread.CurrentThread;
+
+        try {
+            return Loop();
+        } finally {
+            ReactiveGraph.OwningThread = previousOwner;
+        }
+    }
+
+    int Loop() {
         var clock = Stopwatch.StartNew();
         var previous = TimeSpan.Zero;
 

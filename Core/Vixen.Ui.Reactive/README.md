@@ -91,6 +91,15 @@ a caller that `foreach` over the thing yields `KeyValuePair`.
   is set, so a test host — or an editor with more than one independent graph — is not forced into a
   single thread by a library default.
 
+  ⚠ **And for a long time nothing set it, so the check was off everywhere.** Every write in this
+  assembly called `AssertOwningThread`, the assert compared against a static that no line outside this
+  library's own tests ever assigned, and it therefore reported success on every day it did not run.
+  The two frame loops claim it now — `UiApplication.Run` and `EditorHost.Run`, each restoring the
+  previous owner on the way out because the field is process-wide — and
+  `UiApplicationTests.AForeignThreadWritingASignalDuringTheLoopIsRefused` is what keeps it from going
+  inert again: it writes a signal from a second thread *while a real loop is running* and requires the
+  throw, which asserting the field alone would not have proved.
+
 - **`Batch` is about flush ordering, not about coalescing.** Doc 09 lists it as "coalesce writes;
   effects run once at the end", which is what `batch` is for in every other signal library. Here it
   mostly is not needed: effects are queued and drained at a defined point in the frame, and computeds

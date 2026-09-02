@@ -6,6 +6,7 @@ using Vixen.Platform;
 using Vixen.Platform.Headless;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Reactive;
 using Xunit;
 
 namespace Vixen.Ui.Desktop.Tests;
@@ -333,5 +334,85 @@ public class UiApplicationTests {
         Assert.True(task.Cancellation.IsCancellationRequested);
         Assert.Equal(BackgroundTaskState.Cancelled, task.State);
         Assert.Empty(application.Tasks.Tasks);
+    }
+
+    /// <summary>The loop claims the signal graph for its own thread, and gives it back on the way out.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument, not the mechanism.</b> <c>ReactiveGraph.AssertOwningThread</c> has
+    ///         been called from every signal write in the framework for as long as it has existed, and
+    ///         <c>ReactiveGraph.OwningThread</c> was assigned by <i>nothing outside this repository's
+    ///         own tests</i> — so on the day the guard did not run, which was every day, it reported
+    ///         success. Asserting the field from inside a frame is the only thing that can tell those
+    ///         two states apart.
+    ///     </para>
+    ///     <para>
+    ///         The restore half matters because the owner is a process-wide static: a loop that left
+    ///         it set would make every later test in this process throw from whatever thread xunit
+    ///         gave it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheLoopOwnsTheSignalGraphWhileItRuns() {
+        var before = ReactiveGraph.OwningThread;
+        Thread? duringFrame = null;
+        Thread? duringStopping = null;
+
+        var (application, _) = Run(
+            frames: 2,
+            configure: options => {
+                options.Frame = (_, _) => duringFrame = ReactiveGraph.OwningThread;
+                options.Stopping = _ => duringStopping = ReactiveGraph.OwningThread;
+            }
+        );
+
+        Assert.NotNull(application);
+        Assert.Same(Thread.CurrentThread, duringFrame);
+        Assert.Same(Thread.CurrentThread, duringStopping);
+        Assert.Same(before, ReactiveGraph.OwningThread);
+    }
+
+    /// <summary>A signal written from another thread while the loop runs throws on that thread.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The end-to-end half, and the one that would have caught the crash behind issue #136.</b>
+    ///     Asserting that the field is set proves an assignment happened; only writing a signal from a
+    ///     foreign thread proves the assignment reaches the assert. The signal is created on this
+    ///     thread before the loop starts — construction takes no lock and no assert — so the only
+    ///     thing crossing the boundary is the write, which is the shape a plug-in poking the document
+    ///     model from the pool has.
+    /// </remarks>
+    [Fact]
+    public void AForeignThreadWritingASignalDuringTheLoopIsRefused() {
+        var signal = new Signal<int>(0);
+        Exception? caught = null;
+        var attempted = false;
+
+        Run(
+            frames: 3,
+            configure: options => options.Frame = (_, _) => {
+                if (attempted) {
+                    return;
+                }
+
+                attempted = true;
+
+                var worker = new Thread(
+                    () => {
+                        try {
+                            signal.Value = 1;
+                        } catch (Exception exception) {
+                            caught = exception;
+                        }
+                    }
+                );
+
+                worker.Start();
+                worker.Join();
+            }
+        );
+
+        Assert.True(attempted, "the frame handler never ran, so nothing was tried.");
+        Assert.IsType<InvalidOperationException>(caught);
+        Assert.Equal(0, signal.Peek());
     }
 }
