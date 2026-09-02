@@ -476,6 +476,17 @@ public static class GlConstants {
     /// <summary><c>GL_ALL_BARRIER_BITS</c>.</summary>
     public const uint AllBarrierBits = 0xFFFFFFFF;
 
+    /// <summary><c>GL_READ_WRITE</c>: what a storage image is bound as.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Always this one, never the narrower two.</b> A Vulkan storage image carries no access
+    ///     direction — <c>DescriptorKind.StorageTexture</c> says what the resource is, and whether a
+    ///     given shader reads it, writes it or both is the shader's business. GL asks at bind time,
+    ///     so the only answer that cannot be wrong is the widest: binding <c>GL_WRITE_ONLY</c> to a
+    ///     shader that also reads returns undefined values rather than an error, which is a picture
+    ///     that is wrong in a way nothing reports.
+    /// </remarks>
+    public const uint ReadWrite = 0x88BA;
+
     /// <summary><c>GL_SHADER_STORAGE_BARRIER_BIT</c>.</summary>
     public const uint ShaderStorageBarrierBit = 0x00002000;
 

@@ -40,6 +40,7 @@ sealed class GlStateCache(IGlApi gl) {
     readonly Dictionary<uint, uint> boundBuffers = [];
     readonly Dictionary<uint, uint> boundTextures = [];
     readonly Dictionary<uint, uint> boundSamplers = [];
+    readonly Dictionary<uint, (uint Texture, int Level, bool Layered, int Layer, uint Format)> boundImages = [];
     readonly Dictionary<uint, (uint Buffer, nint Offset, nuint Size)> boundRanges = [];
     readonly HashSet<uint> enabled = [];
     readonly HashSet<uint> disabled = [];
@@ -75,6 +76,7 @@ sealed class GlStateCache(IGlApi gl) {
         boundBuffers.Clear();
         boundTextures.Clear();
         boundSamplers.Clear();
+        boundImages.Clear();
         boundRanges.Clear();
         enabled.Clear();
         disabled.Clear();
@@ -194,6 +196,31 @@ sealed class GlStateCache(IGlApi gl) {
 
         boundSamplers[unit] = sampler;
         gl.BindSampler(unit, sampler);
+    }
+
+    /// <summary>Binds a storage image to an image unit, if it is not already there.</summary>
+    /// <param name="unit">The image unit. ⚠ Its own namespace, not a texture unit.</param>
+    /// <param name="texture">The texture name.</param>
+    /// <param name="level">The mip level.</param>
+    /// <param name="layered">Whether the whole array or volume is bound.</param>
+    /// <param name="layer">The layer, when it is not.</param>
+    /// <param name="format">The sized internal format the shader sees.</param>
+    /// <remarks>
+    ///     ⚠ <b>Every argument is part of the key, which is why this is a tuple and the texture
+    ///     cache above is a name.</b> Two views of one texture at different mip levels are the
+    ///     ordinary case for a compute chain that writes a pyramid, and a cache keyed on the texture
+    ///     alone would bind level 0 for all of them and produce a mip chain whose every level is the
+    ///     first — a picture that is blurry rather than absent.
+    /// </remarks>
+    public void BindImageTexture(uint unit, uint texture, int level, bool layered, int layer, uint format) {
+        var wanted = (texture, level, layered, layer, format);
+
+        if (boundImages.TryGetValue(unit, out var current) && current == wanted) {
+            return;
+        }
+
+        boundImages[unit] = wanted;
+        gl.BindImageTexture(unit, texture, level, layered, layer, GlConstants.ReadWrite, format);
     }
 
     /// <summary>Selects a texture unit.</summary>

@@ -69,6 +69,33 @@ decidable from the call stream. So `EglContext` talks to `IEglApi` and the tests
   nothing it could catch that a GLSL compile would not. It exists for WebGPU, where a bind group
   layout has to state it before there is a resource to ask.
 
+## Storage images
+
+⚠ **The backend used to say yes twice and then throw.** `GlProfiles.Features` reports `HasCompute`
+from GLES 3.2 up, `GlDevice.CreateTexture` accepts `TextureUsage.Storage` on the same profiles, and
+`GlBindingPlan` has counted image units apart from texture units since it was written — and then
+replay refused a `DescriptorKind.StorageTexture` write outright. A renderer asking the capability
+question got a yes, created its texture, built its descriptor set, and failed at the draw. That is a
+bug rather than a missing feature: an absent capability is answered by `HasCompute` being false, and
+below GLES 3.2 it is.
+
+`glBindImageTexture` is routed now, with the three things GL asks for and Vulkan does not:
+
+- **`GL_READ_WRITE`, always.** A storage image carries no access direction in the RHI, so binding it
+  narrower would hand a shader that also reads undefined values — with no error anywhere.
+- **The sized internal format**, which the image unit reinterprets the storage through. Taken from
+  the *view*, even though a format-reinterpreting view is refused here on every profile: the day that
+  refusal lifts, this reads the right one already.
+- **Layered when the view spans more than one layer**, or when the texture is 3D — whose slices are
+  not array layers, so `ArrayLayers` is 1 for one and the first rule alone would bind a single
+  z-slice of a volume the shader means to fill.
+
+The state cache keys an image binding on all of unit, texture, level, layer and format, unlike the
+sampled-texture cache beside it, which keys on the name. A compute chain writing a pyramid binds one
+texture at successive levels; a cache that missed the level would elide every bind after the first
+and write level 0 each time — a mip chain whose every level is the base, which is blurry rather than
+absent.
+
 ## Two things worth knowing before reading the code
 
 **Textures are stored bottom-up.** GL's viewport transform puts what the RHI calls the top of an

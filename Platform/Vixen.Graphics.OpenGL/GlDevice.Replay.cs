@@ -439,12 +439,43 @@ public sealed partial class GlDevice {
                         break;
                     }
 
-                    case DescriptorKind.StorageTexture:
-                        throw new NotSupportedException(
-                            "Storage images need glBindImageTexture, which this backend does not yet "
-                            + "route — the compute paths that would use one all have a "
-                            + "fullscreen-fragment variant for WebGL2 already (docs/plan/06)."
+                    // ⚠ An *image* unit, not a texture unit: two namespaces with separate limits,
+                    // which GlBindingPlan has always counted apart. Reusing the texture index here
+                    // would bind a storage image over a sampled texture on the first pipeline that
+                    // had one of each — and GL reports nothing, because both binds are legal.
+                    case DescriptorKind.StorageTexture: {
+                        var view = View(write.TextureView);
+                        var texture = Texture(view.Texture);
+
+                        // The sized internal format, which the image unit reinterprets the storage
+                        // through — not a hint. Taken from the view rather than the texture even
+                        // though `CreateTextureView` refuses a differing format on every GL profile:
+                        // the day that refusal lifts, this reads the right one already, and the
+                        // alternative reads the wrong one silently.
+                        var format = GlFormats.Of(view.Format, Profile).Internal;
+
+                        // ⚠ Layered when the *view* covers more than one layer, not when the texture
+                        // does. A pass that writes one cascade of a shadow array binds a
+                        // single-layer view and must get that layer; binding it layered hands the
+                        // shader the whole array with `layer` ignored, which is every cascade
+                        // written into slice zero — a shadow map that is right for one light.
+                        //
+                        // ⚠ And a 3D texture is always layered, because its slices are not array
+                        // layers: `ArrayLayers` is 1 for one, so the rule above alone would bind a
+                        // single z-slice of a volume the shader means to fill.
+                        var layered = view.ArrayLayerCount > 1 || texture.Target == GlConstants.Texture3D;
+
+                        state.BindImageTexture(
+                            index,
+                            texture.Name,
+                            view.BaseMipLevel,
+                            layered,
+                            layered ? 0 : view.BaseArrayLayer,
+                            format
                         );
+
+                        break;
+                    }
 
                     // Unreachable in principle — GlBindingPlan.Build refuses the layout — but a
                     // write that somehow got here must not silently bind nothing.

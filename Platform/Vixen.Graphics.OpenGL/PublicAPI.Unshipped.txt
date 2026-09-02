@@ -137,6 +137,7 @@ Vixen.Graphics.OpenGL.IGlApi.AttachShader(uint program, uint shader) -> void
 Vixen.Graphics.OpenGL.IGlApi.BindBuffer(uint target, uint buffer) -> void
 Vixen.Graphics.OpenGL.IGlApi.BindBufferRange(uint target, uint index, uint buffer, nint offset, nuint size) -> void
 Vixen.Graphics.OpenGL.IGlApi.BindFramebuffer(uint target, uint framebuffer) -> void
+Vixen.Graphics.OpenGL.IGlApi.BindImageTexture(uint unit, uint texture, int level, bool layered, int layer, uint access, uint format) -> void
 Vixen.Graphics.OpenGL.IGlApi.BindSampler(uint unit, uint sampler) -> void
 Vixen.Graphics.OpenGL.IGlApi.BindTexture(uint target, uint texture) -> void
 Vixen.Graphics.OpenGL.IGlApi.BindVertexArray(uint array) -> void
@@ -260,6 +261,7 @@ Vixen.Graphics.OpenGL.SilkGlApi.AttachShader(uint program, uint shader) -> void
 Vixen.Graphics.OpenGL.SilkGlApi.BindBuffer(uint target, uint buffer) -> void
 Vixen.Graphics.OpenGL.SilkGlApi.BindBufferRange(uint target, uint index, uint buffer, nint offset, nuint size) -> void
 Vixen.Graphics.OpenGL.SilkGlApi.BindFramebuffer(uint target, uint framebuffer) -> void
+Vixen.Graphics.OpenGL.SilkGlApi.BindImageTexture(uint unit, uint texture, int level, bool layered, int layer, uint access, uint format) -> void
 Vixen.Graphics.OpenGL.SilkGlApi.BindSampler(uint unit, uint sampler) -> void
 Vixen.Graphics.OpenGL.SilkGlApi.BindTexture(uint target, uint texture) -> void
 Vixen.Graphics.OpenGL.SilkGlApi.BindVertexArray(uint array) -> void
@@ -364,6 +366,7 @@ Vixen.Graphics.OpenGL.SilkGlesApi.AttachShader(uint program, uint shader) -> voi
 Vixen.Graphics.OpenGL.SilkGlesApi.BindBuffer(uint target, uint buffer) -> void
 Vixen.Graphics.OpenGL.SilkGlesApi.BindBufferRange(uint target, uint index, uint buffer, nint offset, nuint size) -> void
 Vixen.Graphics.OpenGL.SilkGlesApi.BindFramebuffer(uint target, uint framebuffer) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BindImageTexture(uint unit, uint texture, int level, bool layered, int layer, uint access, uint format) -> void
 Vixen.Graphics.OpenGL.SilkGlesApi.BindSampler(uint unit, uint sampler) -> void
 Vixen.Graphics.OpenGL.SilkGlesApi.BindTexture(uint target, uint texture) -> void
 Vixen.Graphics.OpenGL.SilkGlesApi.BindVertexArray(uint array) -> void
@@ -600,6 +603,7 @@ const Vixen.Graphics.OpenGL.GlConstants.Points = 0 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.PolygonOffsetFill = 32823 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.PrimitiveRestartFixedIndex = 36201 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.ReadFramebuffer = 36008 -> uint
+const Vixen.Graphics.OpenGL.GlConstants.ReadWrite = 35002 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.Red = 6403 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.RedGreen = 33319 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.RedInteger = 36244 -> uint

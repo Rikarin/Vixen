@@ -192,6 +192,17 @@ public sealed class SilkGlesApi : IGlApi, IDisposable {
     public void ActiveTexture(uint unit) => gl.ActiveTexture(GLEnum.Texture0 + (int)unit);
 
     /// <inheritdoc />
+    public void BindImageTexture(
+        uint unit,
+        uint texture,
+        int level,
+        bool layered,
+        int layer,
+        uint access,
+        uint format
+    ) => gl.BindImageTexture(unit, texture, level, layered, layer, (GLEnum)access, (GLEnum)format);
+
+    /// <inheritdoc />
     public void TexStorage2D(uint target, int levels, uint internalFormat, int width, int height) =>
         gl.TexStorage2D((GLEnum)target, (uint)levels, (GLEnum)internalFormat, (uint)width, (uint)height);
 

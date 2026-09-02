@@ -74,6 +74,32 @@ public interface IGlApi {
     /// <summary><c>glActiveTexture</c>, taking a unit index rather than <c>GL_TEXTURE0 + n</c>.</summary>
     void ActiveTexture(uint unit);
 
+    /// <summary><c>glBindImageTexture</c>: a storage image on an image unit.</summary>
+    /// <param name="unit">The image unit, which is its own namespace and not a texture unit.</param>
+    /// <param name="texture">The texture name, or <c>0</c> to unbind.</param>
+    /// <param name="level">The mip level the image is a view of.</param>
+    /// <param name="layered">
+    ///     Whether the whole array or 3D volume is bound. When false, <paramref name="layer" /> names
+    ///     the one layer.
+    /// </param>
+    /// <param name="layer">The layer, when <paramref name="layered" /> is false.</param>
+    /// <param name="access">
+    ///     <c>GL_READ_ONLY</c>, <c>GL_WRITE_ONLY</c> or <c>GL_READ_WRITE</c> — see
+    ///     <see cref="GlConstants.ReadWrite" />.
+    /// </param>
+    /// <param name="format">
+    ///     The sized internal format the shader reads and writes it as. ⚠ Not a hint: it is the
+    ///     format the image unit reinterprets the texture through, and GL requires it to be format-
+    ///     compatible with what the texture was allocated as.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>An image unit is not a texture unit.</b> They are separate namespaces with separate
+    ///     limits, and a backend that reused one index space for both would bind a storage image over
+    ///     a sampled texture at the first pipeline that had one of each. <see cref="GlBindingPlan" />
+    ///     has always counted them apart; this is the call that was missing at the other end.
+    /// </remarks>
+    void BindImageTexture(uint unit, uint texture, int level, bool layered, int layer, uint access, uint format);
+
     /// <summary><c>glTexStorage2D</c>.</summary>
     void TexStorage2D(uint target, int levels, uint internalFormat, int width, int height);
 

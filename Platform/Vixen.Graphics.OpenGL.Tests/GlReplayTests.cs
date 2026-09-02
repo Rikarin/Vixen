@@ -675,6 +675,235 @@ public sealed class GlReplayTests {
         Assert.Equal(expected, gl.Count("DebugMarker"));
     }
 
+    /// <summary>A storage image reaches <c>glBindImageTexture</c> rather than an exception.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It used to throw, on a profile that had already said yes twice.</b>
+    ///     <c>GlProfiles.Features</c> reports <c>HasCompute</c> true from GLES 3.2 up,
+    ///     <c>CreateTexture</c> accepts <c>TextureUsage.Storage</c> there, and <c>GlBindingPlan</c>
+    ///     has always reserved an image unit for the binding — and then replay refused the write. A
+    ///     renderer that asked the capability question got yes, built everything, and failed at the
+    ///     draw.
+    /// </remarks>
+    [Fact]
+    public void BindsAStorageImageToAnImageUnit() {
+        var gl = new RecordingGlApi();
+        using var device = new GlDevice(new(gl));
+        var view = Colour(device, out _);
+
+        var (pipeline, setLayout) = MaterialPipeline(
+            device,
+            new DescriptorBinding(0, DescriptorKind.StorageTexture, ShaderStage.Fragment)
+        );
+
+        var set = device.CreateDescriptorSet(setLayout, "material");
+
+        var target = device.CreateTexture(
+            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "storage")
+        );
+
+        device.UpdateDescriptorSet(set, [DescriptorWrite.StorageImage(0, device.CreateTextureView(target))]);
+        gl.Clear();
+
+        Submit(device, commands => {
+            commands.BeginRenderPass(new([new(view)]));
+            commands.BindPipeline(pipeline);
+            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+            commands.Draw(3);
+            commands.EndRenderPass();
+        });
+
+        var bind = gl.Single("BindImageTexture");
+
+        Assert.Equal(0u, bind.Arguments[0]);
+        Assert.Equal(0, bind.Arguments[2]);
+        Assert.Equal(false, bind.Arguments[3]);
+        Assert.Equal(0, bind.Arguments[4]);
+
+        // ⚠ GL_READ_WRITE, always. A storage image carries no direction in the RHI, so the widest
+        // access is the only one that cannot silently hand undefined values to a shader that reads
+        // what was bound write-only.
+        Assert.Equal(GlConstants.ReadWrite, bind.Arguments[5]);
+
+        // RGBA8's sized internal format, which is what the image unit reinterprets through.
+        Assert.Equal(0x8058u, bind.Arguments[6]);
+    }
+
+    /// <summary>
+    ///     ⚠ An image unit and a texture unit are separate namespaces, and both start at zero.
+    /// </summary>
+    /// <remarks>
+    ///     The mistake this pins down is the tempting one: a single running index for everything a
+    ///     shader reads. <c>GlBindingPlan</c> counts them apart already, so a set holding a sampled
+    ///     texture and a storage image gives unit 0 to each — of its own kind. Sharing the counter
+    ///     would leave them fighting over one slot, and GL reports nothing, because both binds are
+    ///     perfectly legal.
+    /// </remarks>
+    [Fact]
+    public void AStorageImageAndASampledTextureBothTakeSlotZeroOfTheirOwnKind() {
+        var gl = new RecordingGlApi();
+        using var device = new GlDevice(new(gl));
+        var view = Colour(device, out _);
+
+        var (pipeline, setLayout) = MaterialPipeline(
+            device,
+            new DescriptorBinding(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new DescriptorBinding(1, DescriptorKind.StorageTexture, ShaderStage.Fragment)
+        );
+
+        var set = device.CreateDescriptorSet(setLayout, "material");
+
+        var sampled = device.CreateTexture(
+            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Sampled, Name: "albedo")
+        );
+
+        var stored = device.CreateTexture(
+            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "stored")
+        );
+
+        device.UpdateDescriptorSet(set, [
+            DescriptorWrite.Texture(0, device.CreateTextureView(sampled)),
+            DescriptorWrite.StorageImage(1, device.CreateTextureView(stored))
+        ]);
+
+        gl.Clear();
+
+        Submit(device, commands => {
+            commands.BeginRenderPass(new([new(view)]));
+            commands.BindPipeline(pipeline);
+            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+            commands.Draw(3);
+            commands.EndRenderPass();
+        });
+
+        Assert.Equal(0u, gl.Single("BindImageTexture").Arguments[0]);
+        Assert.Equal(0u, gl.Named("ActiveTexture")[^1].Arguments[0]);
+    }
+
+    /// <summary>A view of one mip level binds that level, not level zero.</summary>
+    /// <remarks>
+    ///     ⚠ <b>And the state cache has to key on it.</b> A compute chain writing a pyramid binds the
+    ///     same texture at successive levels; a cache keyed on the texture name alone — which is what
+    ///     the sampled-texture cache beside it is — would elide every bind after the first and write
+    ///     level 0 three times, producing a chain whose every level is the base. Blurry rather than
+    ///     absent, which is why it wants an assertion rather than an eye.
+    /// </remarks>
+    [Fact]
+    public void SuccessiveMipLevelsOfOneTextureAreEachBound() {
+        var gl = new RecordingGlApi();
+        using var device = new GlDevice(new(gl));
+        var view = Colour(device, out _);
+
+        var (pipeline, setLayout) = MaterialPipeline(
+            device,
+            new DescriptorBinding(0, DescriptorKind.StorageTexture, ShaderStage.Fragment)
+        );
+
+        var pyramid = device.CreateTexture(
+            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, MipLevels: 4, Name: "pyramid")
+        );
+
+        var sets = new DescriptorSetHandle[3];
+
+        for (var level = 0; level < sets.Length; level++) {
+            sets[level] = device.CreateDescriptorSet(setLayout, $"level {level}");
+
+            device.UpdateDescriptorSet(sets[level], [
+                DescriptorWrite.StorageImage(
+                    0,
+                    device.CreateTextureView(pyramid, baseMipLevel: level, mipLevelCount: 1)
+                )
+            ]);
+        }
+
+        gl.Clear();
+
+        Submit(device, commands => {
+            commands.BeginRenderPass(new([new(view)]));
+            commands.BindPipeline(pipeline);
+
+            foreach (var set in sets) {
+                commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                commands.Draw(3);
+            }
+
+            commands.EndRenderPass();
+        });
+
+        var binds = gl.Named("BindImageTexture");
+
+        Assert.Equal(3, binds.Count);
+        Assert.Equal([0, 1, 2], binds.Select(call => call.Arguments[2]));
+    }
+
+    /// <summary>And binding the same image twice running costs one call.</summary>
+    /// <remarks>
+    ///     The other half of the claim above, and the half a cache keyed on every argument could
+    ///     still fail: a set rebound between draws must not re-issue the same
+    ///     <c>glBindImageTexture</c>, which is what the cache is for.
+    /// </remarks>
+    [Fact]
+    public void RebindingTheSameStorageImageCostsNothing() {
+        var gl = new RecordingGlApi();
+        using var device = new GlDevice(new(gl));
+        var view = Colour(device, out _);
+
+        var (pipeline, setLayout) = MaterialPipeline(
+            device,
+            new DescriptorBinding(0, DescriptorKind.StorageTexture, ShaderStage.Fragment)
+        );
+
+        var set = device.CreateDescriptorSet(setLayout, "material");
+
+        var stored = device.CreateTexture(
+            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "stored")
+        );
+
+        device.UpdateDescriptorSet(set, [DescriptorWrite.StorageImage(0, device.CreateTextureView(stored))]);
+        gl.Clear();
+
+        Submit(device, commands => {
+            commands.BeginRenderPass(new([new(view)]));
+            commands.BindPipeline(pipeline);
+            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+            commands.Draw(3);
+            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+            commands.Draw(3);
+            commands.EndRenderPass();
+        });
+
+        Assert.Equal(1, gl.Count("BindImageTexture"));
+    }
+
+    /// <summary>A pipeline whose layout declares the per-material bindings a test needs.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The layout has to be the <em>pipeline's</em>, not just the set's.</b>
+    ///     <c>ApplyDescriptorSets</c> resolves every write through
+    ///     <c>pipeline.Layout.Plan.Resolve(slot, binding)</c> and skips what the plan does not know —
+    ///     so a test that declared a storage image on the set and reused <c>Pipelines.Layout</c>
+    ///     would record no bind at all and look like the feature was still missing.
+    /// </remarks>
+    static (PipelineHandle Pipeline, DescriptorSetLayoutHandle Material) MaterialPipeline(
+        GlDevice device,
+        params DescriptorBinding[] material
+    ) {
+        var perDraw = device.CreateDescriptorSetLayout(new(
+            DescriptorSetSlot.PerDraw,
+            [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
+            "draw"
+        ));
+
+        var perMaterial = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerMaterial, material, "material")
+        );
+
+        var layout = device.CreatePipelineLayout(new([perDraw, perMaterial], null, "material layout"));
+
+        return (
+            Pipelines.Handle(device, BlendState.Opaque, DepthStencilState.Disabled, layout: layout),
+            perMaterial
+        );
+    }
+
     static TextureViewHandle Colour(GlDevice device, out TextureHandle texture) {
         texture = device.CreateTexture(new(
             PixelFormat.Rgba8UNorm,

@@ -134,6 +134,17 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
     public void ActiveTexture(uint unit) => Record("ActiveTexture", unit);
 
     /// <inheritdoc />
+    public void BindImageTexture(
+        uint unit,
+        uint texture,
+        int level,
+        bool layered,
+        int layer,
+        uint access,
+        uint format
+    ) => Record("BindImageTexture", unit, texture, level, layered, layer, access, format);
+
+    /// <inheritdoc />
     public void TexStorage2D(uint target, int levels, uint internalFormat, int width, int height) =>
         Record("TexStorage2D", target, levels, internalFormat, width, height);
 
