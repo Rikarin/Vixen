@@ -7,6 +7,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
+using Vixen.Engine.Frames;
 using Vixen.Engine.Transforms;
 
 namespace Vixen.Samples.AiVillage;
@@ -103,8 +104,24 @@ public static class Intrusion {
 ///         that hands it whatever deltas it likes — and it is the property
 ///         <c>Elapsed_is_the_sum_of_the_deltas_and_not_a_wall_clock</c> asserts.
 ///     </para>
+///     <para>
+///         ⚠ <b>The repository's first <c>[GameSystem]</c> on a system class</b>, and it was picked
+///         because its dependency is an <c>Entity</c> rather than because it is small. Every other
+///         candidate takes a class, which the declaration has always been able to express; this one
+///         is the shape that declared itself and then sat in <c>FrameActivation.Missing</c> forever,
+///         until <c>ServiceRegistry.AddValue</c> gave a value somewhere to be registered. An adopter
+///         that only exercised what already worked would say nothing about whether the convention is
+///         usable.
+///     </para>
+///     <para>
+///         ⚠ <b>So the village registers the <em>intruder</em>, not the system</b> — see
+///         <c>Village.Register</c>. Marking it and going on calling <c>loop.Add</c> would run the
+///         script twice a frame, because nothing dedupes and a declared system and a hand-built one
+///         are the same thing to <c>SystemGraph</c>.
+///     </para>
 /// </remarks>
 /// <param name="intruder">Which entity to walk.</param>
+[GameSystem]
 [UpdateInGroup(SystemPhase.Update)]
 [UpdateBefore(typeof(PerceptionSystem))]
 public sealed class IntruderSystem(Entity intruder) : SystemBase, IDeclaredAccess {

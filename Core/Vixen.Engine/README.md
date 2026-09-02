@@ -86,6 +86,11 @@ has to write. `GameSystemGenerator` collects them and emits a `[ModuleInitialize
 calling `GameSystemRegistry.Declare` — so the set is readable without running a line of the game's
 boot path, which is how the editor's Play mode runs a project's own systems.
 
+⚠ **A dependency that is a value goes in with `ServiceRegistry.AddValue`**, not `Add` — an `Entity`,
+a handle, a small settings struct. The generator always emitted the right constructor call for one;
+what was missing was anywhere to put it, so such a system declared itself and stayed in `Missing`
+forever. `Samples/15`'s `IntruderSystem(Entity)` is the tree's adopter and is exactly that shape.
+
 **The host calls `AddDeclaredSystems`**, in a game (`VixenApplication.Initialise`, right after
 `OnInitialise` returns) and in the editor (`PlayModeController.Contribute`, after every `IPlaySystems`
 contribution has provided its services). That symmetry is the point: a declaration that ran in play

@@ -187,6 +187,14 @@ projects would — pass a predicate:
 var frame = loop.AddDeclaredSystems(services, declaration => declaration.SystemType.Assembly == project);
 ```
 
+## Where it is used
+
+`Samples/15-AiVillage` is the in-tree adopter: `IntruderSystem` carries the attribute, `Village.Register`
+puts the intruder in the registry with `AddValue`, and a full run's boot log says
+`Declared systems: 1 added — IntruderSystem.` It was picked over the easier candidates because its
+dependency is a value, which is the half of the declaration that had no way to be satisfied at all
+until `AddValue` existed.
+
 ## See also
 
 - [What a play session runs](../editor/play-mode-systems.md) — the other half of the seam: how the

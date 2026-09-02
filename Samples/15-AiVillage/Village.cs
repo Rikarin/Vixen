@@ -81,6 +81,10 @@ public sealed class Village {
     // Reused: a snapshot is a picture rather than a view, so one buffer serves every reading.
     readonly AiAgentSnapshot snapshot = new();
 
+    // The frame the village was registered against, and the declared system found in it. See Script.
+    EngineLoop? frame;
+    IntruderSystem? script;
+
     /// <summary>Builds the level, the systems and the three agents.</summary>
     /// <param name="world">The world to spawn into.</param>
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
@@ -161,8 +165,6 @@ public sealed class Village {
             LocalTransform.At(Intrusion.Start),
             AiStimuliSource.Perceivable(team: 2, senses: SenseMask.Sight)
         );
-
-        Script = new IntruderSystem(Intruder);
     }
 
     /// <summary>The world everything is in.</summary>
@@ -198,28 +200,63 @@ public sealed class Village {
     /// <summary>What the first two are deciding about.</summary>
     public Entity Intruder { get; }
 
-    /// <summary>Hands the three systems to the engine.</summary>
+    /// <summary>Hands the engine's three systems to the loop, and the intruder to the registry.</summary>
     /// <param name="loop">The frame loop.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="loop" /> is null.</exception>
+    /// <param name="services">Where a declared system's constructor parameters are looked up.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="loop" /> or <paramref name="services" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Three <c>Add</c> calls and no ordering argument, which is the point of doing this in
-    ///     a game rather than in a fixture.</b> <c>PerceptionSystem</c> carries
-    ///     <c>[UpdateBefore(typeof(AiSystem))]</c> and both are in <c>SystemPhase.Update</c>; the
-    ///     scheduler reads those and sorts them. Every existing caller of this stack called
-    ///     <c>Step</c> by hand in the order it had decided on, so the declaration had never once
-    ///     been the thing that put them in order.
+    ///     <para>
+    ///         ⚠ <b>Three <c>Add</c> calls and no ordering argument, which is the point of doing this
+    ///         in a game rather than in a fixture.</b> <c>PerceptionSystem</c> carries
+    ///         <c>[UpdateBefore(typeof(AiSystem))]</c> and both are in <c>SystemPhase.Update</c>; the
+    ///         scheduler reads those and sorts them. Every existing caller of this stack called
+    ///         <c>Step</c> by hand in the order it had decided on, so the declaration had never once
+    ///         been the thing that put them in order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a fourth system that is <em>not</em> added here, which is the whole of the
+    ///         difference.</b> <see cref="IntruderSystem" /> carries <c>[GameSystem]</c>, so what
+    ///         crosses is the <em>intruder</em> rather than the system: whoever hosts this village
+    ///         builds it — <c>VixenApplication</c> the moment <c>OnInitialise</c> returns, a test by
+    ///         calling <c>AddDeclaredSystems</c> itself. Adding it here as well would put it in the
+    ///         frame twice, because nothing dedupes.
+    ///     </para>
+    ///     <para>
+    ///         The three that stay are <c>Vixen.Ai</c>'s and <c>Vixen.Navigation</c>'s, and an
+    ///         engine system deliberately carries no attribute: whoever built the service it runs
+    ///         against is the only thing that knows its lifetime, and here that is this constructor.
+    ///     </para>
     /// </remarks>
-    public void Register(EngineLoop loop) {
+    public void Register(EngineLoop loop, ServiceRegistry services) {
         ArgumentNullException.ThrowIfNull(loop);
+        ArgumentNullException.ThrowIfNull(services);
 
-        loop.Add(Script);
+        frame = loop;
+
+        services.AddValue(Intruder);
+
         loop.Add(Perception);
         loop.Add(Agents);
         loop.Add(Navigation);
     }
 
     /// <summary>What walks the intruder, and the clock the sample's log is stamped with.</summary>
-    public IntruderSystem Script { get; }
+    /// <exception cref="InvalidOperationException">The host has not built the declared systems yet.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Found in the frame rather than held, because the village no longer constructs it.</b>
+    ///     That is the consequence of declaring a system: the instance belongs to whoever resolved
+    ///     the declaration, and a game that wants a handle on one asks the loop. Throwing rather than
+    ///     answering <see langword="null" /> is deliberate — reading this before the host has run is
+    ///     a caller in the wrong order, and a zero <c>Elapsed</c> would read as a script that never
+    ///     started.
+    /// </remarks>
+    public IntruderSystem Script =>
+        script ??= frame?.Systems.Graph.All.Select(node => node.System).OfType<IntruderSystem>().FirstOrDefault()
+        ?? throw new InvalidOperationException(
+            "The intruder's script is declared with [GameSystem], so it is in the frame only once the "
+            + "host has added the declared systems — for VixenApplication that is after OnInitialise "
+            + "returns, and for a test it is the AddDeclaredSystems call."
+        );
 
     /// <summary>Where the agent is.</summary>
     /// <param name="entity">Which one.</param>

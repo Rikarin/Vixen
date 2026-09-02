@@ -32,6 +32,23 @@ cannot see. So the evidence here is a decision *log*, and it records transitions
 "the guard is patrolling" is true of a guard that has never done anything else and of one that has
 just given up a chase.
 
+### And it is the first thing in the tree that declares its frame
+
+`IntruderSystem` carries `[GameSystem]`. That attribute shipped with a generator, a registry and two
+hosts and had no application on a class anywhere — every hit in the repository was prose in a doc
+comment — which is the "built but never fed" shape at the level of an authoring convention.
+
+⚠ **It was chosen because it is representative, not because it is easy.** Its dependency is an
+`Entity`, which is a struct: the one shape that declared itself and was then permanently
+unsatisfiable, because `ServiceRegistry.Add<T>` is `where T : class`. `ServiceRegistry.AddValue` is
+what closed that, and adopting a system whose dependency was already a class would have exercised
+only what already worked.
+
+So `Village.Register` puts the *intruder* in the registry and the three engine systems in the loop;
+`VixenApplication` builds the fourth out of the declaration as soon as `OnInitialise` returns, and
+says so — `Declared systems: 1 added — IntruderSystem.` ⚠ Marking a system **and** going on calling
+`loop.Add` for it would run it twice; nothing dedupes.
+
 ## What it does
 
 | | Planner | What it decides |

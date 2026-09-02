@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Engine.Frames;
 
 namespace Vixen.Samples.AiVillage.Tests;
@@ -28,14 +29,33 @@ public sealed class VillageRun : IDisposable {
     long frame;
 
     /// <summary>Builds the loop, the village and the log.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This constructor is the host, and that is the point of it.</b> The sample's
+    ///     <c>IntruderSystem</c> carries <c>[GameSystem]</c>, so in the game
+    ///     <c>VixenApplication.Initialise</c> resolves it against <c>AppServices.Registry</c>; here
+    ///     the same declaration is resolved against a registry this fixture owns. If the two ever
+    ///     disagreed the sample would run one frame and the suite another, which is exactly the
+    ///     failure a hand-stepped fixture cannot see.
+    /// </remarks>
     public VillageRun() {
         Loop = new EngineLoop();
         Village = new Village(Loop.World);
-        Village.Register(Loop);
+        Village.Register(Loop, Services);
+
+        // Only this project's own, because the suite links the sample's sources and nothing else
+        // here declares a frame — naming the assembly is what a host embedding two projects does.
+        Declared = Loop.AddDeclaredSystems(Services, Ours);
+
         Decisions = new DecisionLog(Village);
 
         Village.Agents.Debug.Enabled = true;
     }
+
+    /// <summary>Where the intruder is looked up from — a game's <c>AppServices.Registry</c> stands in.</summary>
+    public ServiceRegistry Services { get; } = new();
+
+    /// <summary>What the declaration bought: the systems that were added, and any that were not.</summary>
+    public FrameActivation Declared { get; }
 
     /// <summary>The engine's frame loop.</summary>
     public EngineLoop Loop { get; }
@@ -69,4 +89,7 @@ public sealed class VillageRun : IDisposable {
 
     /// <inheritdoc />
     public void Dispose() => Loop.Dispose();
+
+    static bool Ours(GameSystemDeclaration declaration) =>
+        declaration.SystemType.Assembly == typeof(Village).Assembly;
 }

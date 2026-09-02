@@ -93,8 +93,13 @@ public sealed class AiVillageGame : Game {
             return;
         }
 
+        // ⚠ The registry, not just the loop — and this is the whole of what adopting `[GameSystem]`
+        // costs a game. `Village.Register` puts the three engine systems in the frame and the
+        // *intruder* in the registry; `VixenApplication` builds `IntruderSystem` out of that the
+        // moment this method returns, and logs 13031/13032 saying what it did. Calling
+        // `AddDeclaredSystems` here as well would run the script twice.
         village = new Village(loop.World);
-        village.Register(loop);
+        village.Register(loop, Services.Registry);
         decisions = new DecisionLog(village);
 
         // ⚠ On, and the sample says why: the recorder is off by default because it costs a ring

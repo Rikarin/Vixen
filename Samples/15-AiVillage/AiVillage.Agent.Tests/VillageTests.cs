@@ -6,8 +6,10 @@ using Vixen.Ai.Ecs;
 using Vixen.Ai.Nodes;
 using Vixen.Ai.Perception.Ecs;
 using Vixen.Core;
+using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Diagnostics;
+using Vixen.Engine.Frames;
 using Xunit;
 
 namespace Vixen.Samples.AiVillage.Tests;
@@ -163,6 +165,68 @@ public class VillageTests {
         // `Wait` the scavenger's domain waits on.
         Assert.Equal(village.Pause, village.Agents.Sets[0][1].Action);
         Assert.Equal(village.Pause, village.Agents.Domains[0][2].Action);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The script is in the frame because it was declared, not because anything added
+    ///     it.</b> `[GameSystem]` shipped 2026-08-21 with a generator, a registry, two hosts and no
+    ///     application carrying it on a class — the "built but never fed" shape at the level of an
+    ///     authoring convention. This is the first adopter, and it is a value-taking system on
+    ///     purpose: the half of the declaration that could not be satisfied at all until
+    ///     `ServiceRegistry.AddValue` existed.
+    /// </summary>
+    /// <remarks>
+    ///     Nothing in this suite or in the sample calls <c>loop.Add(new IntruderSystem(…))</c>. What
+    ///     the village registers is the intruder; what puts the system in the frame is
+    ///     <c>AddDeclaredSystems</c>, in the fixture here and in <c>VixenApplication</c> in the game.
+    ///     ⚠ And exactly one of it. A system that was both marked <em>and</em> passed to
+    ///     <c>loop.Add</c> is in the graph twice — the one mistake this convention makes possible,
+    ///     and the one that costs nothing to assert while the sample is the only adopter.
+    /// </remarks>
+    [Fact]
+    public void The_declaration_is_what_puts_the_intruders_script_in_the_frame() {
+        using var run = new VillageRun();
+
+        Assert.Equal([nameof(IntruderSystem)], run.Declared.Running);
+        Assert.Empty(run.Declared.Missing);
+
+        Assert.Equal(1, run.Loop.Systems.Graph.All.Count(node => node.System is IntruderSystem));
+
+        // Past the three seconds the script waits outside, so that "it moved" and "it moved to the
+        // right place" are the same assertion — `Intrusion.At` is the closed form the system walks.
+        run.Frames(300);
+
+        var where = run.Village.Where(run.Village.Intruder);
+
+        // The entity the *value* carried is the one it walks. A registry keyed on anything but
+        // `typeof(Entity)` leaves the intruder standing at Start with every counter healthy.
+        Assert.NotEqual(Intrusion.Start, where);
+        Assert.Equal(Intrusion.At(run.Elapsed), where);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the value is what it could not have.</b> An <c>Entity</c> is a struct, so before
+    ///     <c>ServiceRegistry.AddValue</c> this declaration resolved to nothing at every host: the
+    ///     system compiled, declared itself, and was named in <c>Missing</c> for the life of the
+    ///     process. Registering nothing reproduces exactly that.
+    /// </summary>
+    [Fact]
+    public void Without_the_intruder_the_declared_system_is_named_rather_than_skipped() {
+        using var loop = new EngineLoop();
+
+        _ = new Village(loop.World);
+
+        var frame = loop.AddDeclaredSystems(
+            new ServiceRegistry(),
+            declaration => declaration.SystemType == typeof(IntruderSystem)
+        );
+
+        Assert.Empty(frame.Running);
+
+        var absent = Assert.Single(frame.Missing);
+
+        Assert.Contains(nameof(IntruderSystem), absent, StringComparison.Ordinal);
+        Assert.Contains(nameof(Entity), absent, StringComparison.Ordinal);
     }
 
     /// <summary>
