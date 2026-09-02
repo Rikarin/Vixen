@@ -35,6 +35,34 @@ public sealed record AppArguments {
     /// <summary>Whether <c>--vixen-headless</c> was given.</summary>
     public bool Headless { get; private init; }
 
+    /// <summary>Whether <c>--vixen-offscreen</c> was given.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>"A real device, no window, no picture" — in as many words.</b> It is the second
+    ///         statement of intent <see cref="CapturePath" /> used to be the only one of. A run that
+    ///         wants counters rather than a photograph — <c>VIXEN_VSMTRACE</c>, GPU timings, a CSV —
+    ///         had to name a capture directory it would never open, because asking for a picture was
+    ///         the only sentence <c>GraphicsHost</c> accepted as "yes, I know there is no surface,
+    ///         open the device anyway".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It lifts the no-surface refusal; it does not relax it.</b> The refusal itself is
+    ///         load-bearing — without it a dedicated server, which asks for no window, would stop
+    ///         running on the device that draws nothing and start needing a driver
+    ///         (<a href="../../docs/plan/17-app-heads-and-shipping.md">doc 17</a>). A server that
+    ///         does not type this flag is unaffected, which is the whole design.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it makes the Null fall-through a boot failure rather than a quiet
+    ///         downgrade.</b> The failure this flag exists to end is a run that opens the device
+    ///         drawing nothing and prints counters indistinguishable from a healthy one, so a
+    ///         request for a real device that cannot be met has to stop the run — including when
+    ///         <see cref="GraphicsBackend.Null" /> was named in <c>--vixen-backend</c>. See
+    ///         <see cref="GraphicsOptions.Offscreen" /> for why there is no escape hatch.
+    ///     </para>
+    /// </remarks>
+    public bool Offscreen { get; private init; }
+
     /// <summary>Whether <c>--vixen-gpu-profile</c> was given.</summary>
     /// <remarks>
     ///     Turns on <see cref="GraphicsOptions.GpuProfiling" />, which times every render-graph pass.
@@ -228,6 +256,13 @@ public sealed record AppArguments {
             switch (name) {
                 case "--vixen-headless":
                     parsed = parsed with { Headless = true };
+                    continue;
+
+                // Deliberately does not imply --vixen-headless. The two are orthogonal: this one is
+                // about which device opens, that one about whether a display server is used at all,
+                // and a run under Xvfb wants the first without the second.
+                case "--vixen-offscreen":
+                    parsed = parsed with { Offscreen = true };
                     continue;
 
                 case "--vixen-gpu-profile":

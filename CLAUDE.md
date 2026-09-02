@@ -85,9 +85,12 @@ configuration.
 
 ### GPU and golden tests
 
-- ⚠ **`--vixen-capture` is what buys a real GPU device.** Without it a headless run falls back to the
-  Null device on *every* platform, exits 0, and prints character-for-character identical healthy
-  counters. Confirm the adapter (`Vulkan device created on '<name>'`) before trusting any GPU number.
+- ⚠ **`--vixen-capture` or `--vixen-offscreen` is what buys a real GPU device.** Without one a
+  headless run falls back to the Null device on *every* platform, exits 0, and prints
+  character-for-character identical healthy counters. `--vixen-offscreen` is the one to reach for
+  when the run wants numbers rather than a picture. Confirm the adapter
+  (`Vulkan device created on '<name>'`) before trusting any GPU number — though a run given either
+  flag now *refuses* the Null device rather than falling through to it.
 - `VIXEN_REQUIRE_VULKAN=1` turns a missing device into a failure rather than a silent skip. It does
   **not** cover missing *capabilities* — several suites skip legitimately on MoltenVK.
 - ⚠ **Read the `Total`, not the pass count.** A crashed suite still prints `Passed! Failed: 0`; only a

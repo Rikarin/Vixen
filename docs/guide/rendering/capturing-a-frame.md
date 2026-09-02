@@ -118,12 +118,19 @@ that meant to profile a real GPU, that is a pass timeline of **plausible, monoto
 invented milliseconds** — which will not look wrong, will not read as zero, and will survive being
 pasted into a table. Check the device line before the timings, never the other way round.
 
-⚠ **There is no capture-free way to ask for it today.** `--vixen-backend vulkan` under
-`--vixen-headless` does not lift the refusal; it throws, because the list it was given has no Null in
-it to fall through to. Whether a run should be able to say "a real device, no window, no picture" in
-as many words is an open question — the answer is a second statement of intent as explicit as this
-one, not a relaxation of the refusal, because the refusal is what keeps a dedicated server off a
-driver. Until there is one, a measurement run pays for a PNG it does not read.
+**A capture-free way to ask for it is `--vixen-offscreen`.** It is the second statement of intent this
+paragraph used to say was owed: a real device, no window, no picture, and nothing else changed. A
+measurement run no longer pays for a PNG it does not read. ⚠ `--vixen-backend vulkan` under
+`--vixen-headless` still does *not* lift the refusal and still throws — the refusal is what keeps a
+dedicated server off a driver, so naming an API is not the same sentence as asking for a surfaceless
+device, and it was deliberately not made one.
+
+⚠ **And either flag now makes the fall-through to `null` a boot failure**, whatever the preference
+list says. That closes the same hole one backend further down: before this, `--vixen-capture` on a
+machine whose Vulkan would not load fell through the default order to the device that draws nothing
+and wrote a black PNG under a startup log that read as success — the exact defect the flag exists to
+prevent. There is no escape hatch on purpose: to say "a GPU if there is one, the device that draws
+nothing if there is not", leave both flags off and write `--vixen-backend vulkan,null`.
 
 ### How many frames — many more than you would guess
 

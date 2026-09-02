@@ -292,8 +292,11 @@ instrument and not about your code — **except the GPU profiler, which does not
 plausible invented milliseconds. That is the one counter here that lies convincingly rather than
 obviously.
 
-There is currently **no way to ask for a capture-free headless GPU device** — `--vixen-backend vulkan`
-under `--vixen-headless` throws rather than falling back — so pay the PNG.
+A capture-free headless GPU device is **`--vixen-offscreen`**: the same real device, no PNG, for a run
+that only wants the trace. (`--vixen-backend vulkan` under `--vixen-headless` still throws rather than
+falling back — naming an API is not the same request.) ⚠ Both flags now *refuse* the Null device
+rather than falling through to it, so a run that would previously have printed the zeros above stops
+with a reason instead.
 
 ### Walking, because a still frame cannot show a temporal defect
 

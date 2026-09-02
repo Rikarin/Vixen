@@ -203,6 +203,32 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public string? CapturePath { get; set; }
 
+    /// <summary>Whether to open a real device with no surface, and write no picture.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>--vixen-offscreen</c>. What <see cref="CapturePath" /> already implies, without the
+    ///         PNG: a measurement run gets the device it is measuring and no file it will not read.
+    ///         Setting both is not a contradiction — the capture is then written as it always was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Either of the two turns the Null fall-through into a boot failure.</b> A
+    ///         request for a device that draws, answered by the device that draws nothing, is the
+    ///         precise shape of the defect both settings exist to prevent: identical healthy
+    ///         counters, a black PNG, exit zero. So a chain that reaches
+    ///         <see cref="GraphicsBackend.Null" /> while this is in force refuses there, and the
+    ///         host reports every candidate's refusal instead of running.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Even when <see cref="GraphicsBackend.Null" /> was named in
+    ///         <see cref="Backends" />.</b> There is no escape hatch on purpose, because there is
+    ///         already a way to say the thing an escape hatch would say: leave this off and write
+    ///         <c>--vixen-backend vulkan,null</c>, which is "a GPU if there is one, the device that
+    ///         draws nothing if there is not". Two spellings of that, one of which also claims a
+    ///         real device was wanted, is how the silent downgrade comes back.
+    ///     </para>
+    /// </remarks>
+    public bool Offscreen { get; set; }
+
     /// <summary>Which graphics APIs to try, most preferred first.</summary>
     /// <remarks>
     ///     <para>

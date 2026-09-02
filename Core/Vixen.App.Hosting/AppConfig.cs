@@ -322,6 +322,13 @@ public sealed class AppConfig {
             Graphics.CapturePath = capture;
         }
 
+        // The same one-way rule, and here the reason is the flag's whole point: a head that opens a
+        // real device without a window in OnConfigure — a measurement head, a screenshot tool — must
+        // not lose it because this run's command line did not repeat the request.
+        if (arguments.Offscreen) {
+            Graphics.Offscreen = true;
+        }
+
         // ⚠ Zero is a value and not an absence: it is how a run says "not this time" to a fixed step
         // a game asked for in OnConfigure, and to the one a capture implies. See
         // `ImplyCaptureFrameTime`, which is what turns the implication into a value and is called

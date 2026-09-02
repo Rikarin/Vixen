@@ -230,6 +230,122 @@ public sealed class AppBackendTests {
         Assert.Contains(nameof(GraphicsBackend.Null), refusal.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A run that asked to render offscreen is refused by the Null device rather than
+    ///     served by it — even when the caller named Null itself.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the whole of issue #126's ⚠: a new way to ask for a real device must not
+    ///         become a fourth quiet route to the one that draws nothing. The failure it prevents has
+    ///         no symptom — <c>NullDevice</c> exits 0, writes a black PNG, and prints CPU counters
+    ///         character for character identical to a healthy run, so an A/B between a branch that
+    ///         fixed a renderer and one that broke it comes out equal.
+    ///     </para>
+    ///     <para>
+    ///         Null is named explicitly here on purpose, because that is the case an escape hatch
+    ///         would have allowed and the one worth pinning: there is no ordering of a preference
+    ///         list that makes the device drawing nothing an answer to "render offscreen". The way
+    ///         to ask for the fall-through is still there and unchanged — it is
+    ///         <c>--vixen-backend vulkan,null</c> with neither of these two settings.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnOffscreenRunIsRefusedByTheDeviceThatDrawsNothing() {
+        var options = new GraphicsOptions { Offscreen = true };
+
+        options.Backends.Add(GraphicsBackend.Null);
+
+        var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+
+        Assert.Null(device);
+        Assert.Contains("draws nothing", reason!, StringComparison.Ordinal);
+        Assert.Contains("--vixen-offscreen", reason!, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And it is what lifts Vulkan's no-surface refusal, which until now only a capture
+    ///     path could.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The assertion is about the <em>refusal</em> rather than about a device, deliberately.
+    ///         Whether Vulkan opens is a fact about the machine — this suite runs on CI boxes with no
+    ///         driver — but whether the chain even asked it to is a fact about this code, and it is
+    ///         the one that was wrong: without the flag the answer is "the application asked for no
+    ///         window", decided before any loader is touched.
+    ///     </para>
+    ///     <para>
+    ///         So the pair is the test. The same options with the flag off must give that sentence,
+    ///         and with it on must not — leaving either a device or a refusal Vulkan itself wrote.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OffscreenIsWhatLetsVulkanBeAskedWithNoSurfaceAtAll() {
+        var refusing = new GraphicsOptions();
+
+        refusing.Backends.Add(GraphicsBackend.Vulkan);
+
+        Assert.Null(GraphicsHost.Create(refusing, window: null, logs: null, out var declined));
+        Assert.Contains("asked for no window", declined!, StringComparison.Ordinal);
+
+        var asking = new GraphicsOptions { Offscreen = true };
+
+        asking.Backends.Add(GraphicsBackend.Vulkan);
+
+        using var device = GraphicsHost.Create(asking, window: null, logs: null, out var reason);
+
+        // One or the other, and never the sentence above: either this machine has Vulkan and the
+        // device is real, or it does not and the refusal is the loader's rather than the chain's.
+        if (device is null) {
+            Assert.DoesNotContain("asked for no window", reason!, StringComparison.Ordinal);
+        } else {
+            Assert.IsNotType<NullDevice>(device);
+            Assert.Contains("drawing offscreen", reason!, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>And a capture is the same request, so it is refused by the same device.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This half was broken before <c>Offscreen</c> existed and nobody had said so.</b>
+    ///     <c>--vixen-capture</c> on a machine with no working Vulkan fell through the default
+    ///     order to Null and wrote a black PNG with a startup log that read as success — the exact
+    ///     defect the flag lifting the refusal was added to avoid, one backend further down the
+    ///     chain. <c>build/Build.SampleFrame.cs</c> caught it after the fact by inspecting the
+    ///     adapter name in the run's log; it now cannot happen.
+    /// </remarks>
+    [Fact]
+    public void ACaptureRunIsRefusedByItToo() {
+        var options = new GraphicsOptions { CapturePath = "shots" };
+
+        options.Backends.Add(GraphicsBackend.Null);
+
+        Assert.Null(GraphicsHost.Create(options, window: null, logs: null, out var reason));
+        Assert.Contains("draws nothing", reason!, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And with neither, the fall-through is exactly what it was: Null opens, and says why
+    ///     nothing will appear.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half of the claim, and the one that keeps a dedicated server working.</b>
+    ///     Doc 17 runs a server on this device on purpose; a refusal that fired for every windowless
+    ///     run rather than for the two that state an intent would have taken the server's backend
+    ///     away, which is a far worse bug than the one being fixed.
+    /// </remarks>
+    [Fact]
+    public void AWindowlessRunThatAskedForNeitherStillGetsTheDeviceThatDrawsNothing() {
+        var options = new GraphicsOptions();
+
+        options.Backends.Add(GraphicsBackend.Null);
+
+        using var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+
+        Assert.IsType<NullDevice>(device);
+        Assert.Contains("draws nothing by design", reason!, StringComparison.Ordinal);
+    }
+
     /// <summary>OpenGL needs a window, and says so rather than being quietly absent.</summary>
     /// <remarks>
     ///     ⚠ <b>A different reason from Vulkan's, for a different cause.</b> Vulkan and WebGPU want a

@@ -40,6 +40,14 @@ namespace Vixen.App;
 ///         there — and not otherwise, because an operator who asked for Vulkan alone is owed the
 ///         answer rather than a silent downgrade.
 ///     </para>
+///     <para>
+///         ⚠ <b>And it is off entirely for a run that asked to render offscreen.</b>
+///         <see cref="GraphicsOptions.Offscreen" /> and <see cref="GraphicsOptions.CapturePath" />
+///         are the two ways of saying "a real device, with no surface to present to". Answering
+///         either with <see cref="GraphicsBackend.Null" /> produces a black PNG, a table of zeroed
+///         counters and exit code 0 — the one failure shape this whole area keeps producing — so
+///         Null declines while either is set, whatever the preference list says.
+///     </para>
 /// </remarks>
 public static class GraphicsHost {
     /// <summary>What is tried when an application named no preference.</summary>
@@ -83,10 +91,11 @@ public static class GraphicsHost {
         IReadOnlyList<GraphicsBackend> order = options.Backends.Count > 0 ? [.. options.Backends] : Default;
         var refusals = new List<string>(order.Count);
 
-        // ⚠ Asking for a picture is what buys a device with no surface. See TryOpen's comment for
-        // why the refusal is there; this is the one statement of intent specific enough to overrule
-        // it, because a capture written by the Null device is a black PNG and a passing run.
-        var offscreen = options.CapturePath is { Length: > 0 };
+        // ⚠ Asking for a picture, or saying so outright, is what buys a device with no surface. See
+        // TryOpen's comment for why the refusal is there; these are the two statements of intent
+        // specific enough to overrule it, because a capture written by the Null device is a black
+        // PNG and a passing run, and a measurement taken on it is a table of healthy zeros.
+        var offscreen = options.Offscreen || options.CapturePath is { Length: > 0 };
 
         foreach (var backend in order) {
             if (TryOpen(backend, window, logs, offscreen, out var device, out var refusal)) {
@@ -94,7 +103,15 @@ public static class GraphicsHost {
                 // surface — an application that asked for no window, or a window made without the
                 // backend's surface flag — and the host logs that as the reason a picture is not
                 // appearing. Asked once, here, where the answer can still be turned into a sentence.
-                reason = Presentable(backend, offscreen && !(window?.Surface.Handle ?? SurfaceHandle.None).CanPresent, refusals);
+                reason = Presentable(
+                    backend,
+                    offscreen && !(window?.Surface.Handle ?? SurfaceHandle.None).CanPresent
+                        ? options.CapturePath is { Length: > 0 }
+                            ? "a capture was asked for"
+                            : "offscreen rendering was asked for"
+                        : null,
+                    refusals
+                );
 
                 return device;
             }
@@ -182,12 +199,26 @@ public static class GraphicsHost {
         // needs is a window, and whether that window can give it a context is the window's answer.
         //
         // ⚠ `offscreen` is the one thing that lifts the first of those, and only for Vulkan. It
-        // means the caller asked for a picture written to a file, which is a request the Null device
-        // can only answer with a black PNG — so declining and falling through is the wrong answer
-        // there, and VulkanOffscreenSwapChain is what makes the right one possible. WebGPU keeps the
-        // refusal because it has no equivalent: its swapchain is its surface, and a WebGPU device
-        // with none has nothing for the frame's last pass to write into.
+        // means the caller said in as many words that a device with no surface is what it wants —
+        // a picture written to a file, or a measurement with no picture at all — which is a request
+        // the Null device can only answer with a black PNG and a page of zeroes, so declining and
+        // falling through is the wrong answer there, and VulkanOffscreenSwapChain is what makes the
+        // right one possible. WebGPU keeps the refusal because it has no equivalent: its swapchain
+        // is its surface, and a WebGPU device with none has nothing for the frame's last pass to
+        // write into.
         var refused = backend switch {
+            // ⚠ The one refusal here that is not about a surface, and it runs even when Null was
+            // named outright. Everything above is "this backend cannot do what was asked"; this is
+            // the same sentence. A caller that asked to render offscreen asked for a device that
+            // renders, and no ordering of a preference list makes this one of those — so the chain
+            // ends in a refusal that names the flags, rather than in a downgrade whose counters,
+            // PNG and exit code are indistinguishable from a healthy run. There is deliberately no
+            // escape hatch: `--vixen-backend vulkan,null` without the flag is already the way to
+            // say "a GPU if there is one, the device that draws nothing if there is not".
+            GraphicsBackend.Null when offscreen =>
+                "a device that draws nothing cannot render offscreen. Drop --vixen-offscreen and "
+                + "--vixen-capture (GraphicsOptions.Offscreen and CapturePath) to run on it "
+                + "deliberately.",
             GraphicsBackend.Vulkan when !surface.CanPresent && offscreen => null,
             GraphicsBackend.Vulkan or GraphicsBackend.WebGpu when !surface.CanPresent => window is null
                 ? "the application asked for no window."
@@ -299,16 +330,25 @@ public static class GraphicsHost {
     /// <remarks>
     ///     ⚠ <b>Two winners can have no surface, and they mean opposite things.</b> Null draws
     ///     nothing because that is what it is for; an offscreen Vulkan device draws the whole frame
-    ///     and keeps it, because a capture asked for it. Both are "nothing will appear on a screen"
+    ///     and keeps it, because something asked it to. Both are "nothing will appear on a screen"
     ///     and only one of them is a downgrade, so they are worth different sentences — a run that
     ///     said "the Null backend draws nothing" while writing a real picture would send its reader
     ///     hunting for a bug that is not there.
     /// </remarks>
-    static string? Presentable(GraphicsBackend backend, bool offscreen, List<string> refusals) {
+    /// <param name="backend">The backend that opened.</param>
+    /// <param name="offscreen">
+    ///     Why there is no surface — <c>a capture was asked for</c>, <c>offscreen rendering was
+    ///     asked for</c> — or <see langword="null" /> when the device can present. ⚠ The wording is
+    ///     quoted verbatim by <c>docs/guide/rendering/capturing-a-frame.md</c> and sample 13's
+    ///     README as the line to read before believing a headless number, so the capture phrasing is
+    ///     the one it always was.
+    /// </param>
+    /// <param name="refusals">What each candidate before this one said.</param>
+    static string? Presentable(GraphicsBackend backend, string? offscreen, List<string> refusals) {
         var note = backend switch {
             GraphicsBackend.Null => "the Null backend draws nothing by design.",
-            _ when offscreen => $"{Spell(backend)} is drawing offscreen, because a capture was asked "
-                + "for and there is nothing to present to.",
+            _ when offscreen is not null => $"{Spell(backend)} is drawing offscreen, because {offscreen} "
+                + "and there is nothing to present to.",
             _ => null
         };
 

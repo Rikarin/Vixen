@@ -173,6 +173,7 @@ Every host argument starts `--vixen-`; anything else is left for the game. `--vi
 | `--vixen-frames <n>` | Runs *n* frames and exits — what makes any head CI-runnable |
 | `--vixen-fixed-step <s>` | Tells every frame it took *s* seconds, whatever the clock says, so frame *n* is a fixed instant. Implied by `--vixen-capture`; `0` puts the wall clock back |
 | `--vixen-headless` | No display server, whatever the variant says |
+| `--vixen-offscreen` | Open a real GPU device with no window and write no picture — what `--vixen-capture` implies, for a run that wants counters rather than a photograph. ⚠ Either of them refuses the `null` backend rather than falling through to it |
 | `--vixen-workers <n>` | Job-system workers. `0` is supported and tested |
 | `--vixen-frame-limit <n>` | Frames per second, `0` for uncapped |
 | `--vixen-log-level <level>` | The lowest level kept and printed |

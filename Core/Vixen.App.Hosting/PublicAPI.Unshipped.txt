@@ -13,6 +13,7 @@ Vixen.App.AppArguments.LogFilePath.get -> string?
 Vixen.App.AppArguments.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel??
 Vixen.App.AppArguments.LooseContentPath.get -> string?
 Vixen.App.AppArguments.MaxFrames.get -> int?
+Vixen.App.AppArguments.Offscreen.get -> bool
 Vixen.App.AppArguments.Overlays.get -> bool
 Vixen.App.AppArguments.Remaining.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.App.AppArguments.StartupScene.get -> string?
@@ -183,6 +184,8 @@ Vixen.App.GraphicsOptions.IndexCapacity.get -> int
 Vixen.App.GraphicsOptions.IndexCapacity.set -> int
 Vixen.App.GraphicsOptions.Look.get -> string?
 Vixen.App.GraphicsOptions.Look.set -> string?
+Vixen.App.GraphicsOptions.Offscreen.get -> bool
+Vixen.App.GraphicsOptions.Offscreen.set -> bool
 Vixen.App.GraphicsOptions.Output.get -> string
 Vixen.App.GraphicsOptions.Output.set -> string
 Vixen.App.GraphicsOptions.Overlays.get -> bool

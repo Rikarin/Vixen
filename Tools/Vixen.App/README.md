@@ -122,6 +122,7 @@ untouched and in order.
 |---|---|
 | `--vixen-headless` | Run with no display server. |
 | `--vixen-backend <list>` | Which graphics APIs to try, most preferred first: `vulkan,null`. Replaces the list rather than adding to it. One unreadable name rejects the whole argument rather than half-applying it. See [Which device](#which-device). |
+| `--vixen-offscreen` | Open a **real** device with no surface, and write no picture. What `--vixen-capture` already implied, for a run that wants counters rather than a photograph. ⚠ It also makes the fall-through to `null` a boot failure — see [Which device](#which-device). |
 | `--vixen-variant <name>` | Override the build variant. |
 | `--vixen-video-driver <name>` | Insist on an SDL video driver: `x11`, `wayland`, `dummy`. |
 | `--vixen-workers <n>` | Job-system workers. `0` is supported and tested. |
@@ -365,6 +366,33 @@ the entire renderer on a machine with no GPU, which is the only kind of machine 
 ⚠ **The fallback to it is opt-in.** A list with nothing openable in it fails the boot and says what
 each candidate refused with; there is no implicit downgrade, because an operator who asked for one
 API is asking a question that "here is a device that draws nothing" answers with silence.
+
+### Rendering with no window
+
+Vulkan and WebGPU **decline a surface they cannot present to**, and that refusal is load-bearing
+rather than an optimisation: without it a dedicated server, which asks for no window, would stop
+running on the device that draws nothing and start needing a driver.
+
+Two settings say the opposite in as many words and lift it for Vulkan, which has
+`VulkanOffscreenSwapChain` to render into:
+
+| | |
+|---|---|
+| `config.Graphics.CapturePath` / `--vixen-capture <dir>` | A real device **and** a PNG of the last frame. |
+| `config.Graphics.Offscreen` / `--vixen-offscreen` | A real device and **no** PNG. |
+
+The second exists because the first was the only one, so a measurement run — GPU timings, a trace, a
+CSV nobody looks at a picture for — had to name a capture directory it would never open. It does not
+imply `--vixen-headless`: which device opens and whether a display server is used are different
+questions, and a run under `Xvfb` wants one without the other.
+
+⚠ **Either of them turns the `null` fall-through into a boot failure**, whatever the preference list
+says — including a list that names `null` outright. A request for a device that renders, answered by
+the device that draws nothing, is this area's signature defect: a black PNG, a page of zeroed
+counters and exit code 0, indistinguishable from a healthy run. There is deliberately no escape
+hatch, because there is already a way to say what one would say — leave both off and write
+`--vixen-backend vulkan,null`, which is "a GPU if there is one, the device that draws nothing if
+there is not".
 
 ⚠ **`GraphicsBackend.OpenGl` has to be first in the list.** A GL device draws into the window's own
 default framebuffer, so the window must have been created for OpenGL — and SDL fixes a window's

@@ -69,6 +69,56 @@ public class AppArgumentsTests {
     }
 
     /// <summary>
+    ///     <c>--vixen-offscreen</c> is the same request without the picture, and reaches the same
+    ///     options object.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>It does not imply <c>--vixen-headless</c>, and must not.</b> The two answer different
+    ///     questions — which device opens, and whether a display server is used at all — and a run
+    ///     under a virtual X server wants the first without the second.
+    /// </remarks>
+    [Fact]
+    public void TheOffscreenFlagReachesTheGraphicsOptionsAndImpliesNoPictureAndNoHeadless() {
+        var config = new AppConfig();
+        var parsed = AppArguments.Parse(["--vixen-offscreen"]);
+
+        config.Apply(parsed);
+
+        Assert.True(parsed.Offscreen);
+        Assert.True(config.Graphics.Offscreen);
+        Assert.Null(config.Graphics.CapturePath);
+        Assert.False(parsed.Headless);
+        Assert.Empty(parsed.Unrecognised);
+    }
+
+    /// <summary>
+    ///     ⚠ And a capture run does not become one: the two are separate statements, and a run that
+    ///     asked for a picture is not thereby claiming it wants no picture.
+    /// </summary>
+    [Fact]
+    public void ACaptureDoesNotSetTheOffscreenFlagItself() {
+        var config = new AppConfig();
+
+        config.Apply(AppArguments.Parse(["--vixen-capture", "shots"]));
+
+        Assert.False(config.Graphics.Offscreen);
+    }
+
+    /// <summary>
+    ///     ⚠ The same one-way stance every flag here takes: <c>Apply</c> runs before
+    ///     <c>OnConfigure</c>, so a measurement head that opens a surfaceless device in code must
+    ///     not lose it because this run's command line did not repeat the request.
+    /// </summary>
+    [Fact]
+    public void AnAbsentOffscreenFlagDoesNotClearOneAGameSet() {
+        var config = new AppConfig { Graphics = { Offscreen = true } };
+
+        config.Apply(AppArguments.Parse(["--vixen-headless"]));
+
+        Assert.True(config.Graphics.Offscreen);
+    }
+
+    /// <summary>
     ///     ⚠ The same stance <c>GpuProfiling</c> takes, and for the same reason: <c>Apply</c> runs
     ///     before <c>OnConfigure</c>, so a head that always captures sets the option there and the
     ///     absence of the flag must not undo it.

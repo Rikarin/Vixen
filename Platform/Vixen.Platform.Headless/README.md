@@ -30,11 +30,13 @@ server does not quietly acquire a real GPU device — and the chain fell through
 which draws nothing. A whole game booting headless therefore produced a black frame with every counter
 reporting success.
 
-It is true now for Vulkan, and only when something asks for a picture: `--vixen-capture` opens the
-device without a surface and `VulkanOffscreenSwapChain` gives the frame an ordinary texture to write.
-Without that flag, headless still means the device that draws nothing, which is the right default for
-the head this platform was built for. See
-[capturing a frame](../../docs/guide/rendering/capturing-a-frame.md).
+It is true now for Vulkan, and only when something asks for it in as many words: `--vixen-capture`
+(a real device and a PNG) or `--vixen-offscreen` (a real device and no PNG) opens the device without a
+surface, and `VulkanOffscreenSwapChain` gives the frame an ordinary texture to write. Without one of
+those, headless still means the device that draws nothing, which is the right default for the head
+this platform was built for. ⚠ With one of them, the fall-through to that device is a boot failure
+rather than a downgrade — a request for a device that renders cannot be answered by one that does not.
+See [capturing a frame](../../docs/guide/rendering/capturing-a-frame.md).
 
 Its state is also *writable* in a way a real window's is not, deliberately. Setting `ClientSize` here
 really does resize and really does raise `WindowResized`; `SetDpiScale` is the only way to exercise a
