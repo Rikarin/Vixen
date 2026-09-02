@@ -3682,7 +3682,6 @@ T:Vixen.Ui.Text.WordBreakClass sweep-pending
 T:Vixen.Ui.Text.WordBreakMode sweep-pending
 T:Vixen.Ui.Text.WordBreaker sweep-pending
 T:Vixen.Ui.Text.WrappedLine sweep-pending
-T:Vixen.Ui.TextInputEvent sweep-pending
 T:Vixen.Ui.TextLayout sweep-pending
 T:Vixen.Ui.TextLine sweep-pending
 T:Vixen.Ui.TextRun sweep-pending

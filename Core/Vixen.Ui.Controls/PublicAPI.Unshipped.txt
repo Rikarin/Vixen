@@ -685,7 +685,10 @@ Vixen.Ui.Controls.TextField.ClearMaxLength() -> void
 Vixen.Ui.Controls.TextField.ClearPlaceholder() -> void
 Vixen.Ui.Controls.TextField.ClearReadOnly() -> void
 Vixen.Ui.Controls.TextField.ClearValue() -> void
+Vixen.Ui.Controls.TextField.Composition.get -> string
+Vixen.Ui.Controls.TextField.DisplayCaret.get -> int
 Vixen.Ui.Controls.TextField.HasSelection.get -> bool
+Vixen.Ui.Controls.TextField.IsComposing.get -> bool
 Vixen.Ui.Controls.TextField.MaxLength.get -> int
 Vixen.Ui.Controls.TextField.MaxLength.set -> int
 Vixen.Ui.Controls.TextField.MoveCaret(int index, bool extend = false) -> void

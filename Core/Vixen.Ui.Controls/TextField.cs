@@ -45,6 +45,12 @@ public abstract partial class TextField : Control {
     int caretColorStandard;
     bool dragging;
 
+    // The input method's pre-edit and its own cursor within it. Empty for the whole life of a field
+    // nobody types Japanese into, which is why they are two plain fields rather than state anything
+    // else has to know about.
+    string composition = string.Empty;
+    int compositionCaret;
+
     /// <inheritdoc />
     protected override string TagName => "textbox";
 
@@ -99,6 +105,40 @@ public abstract partial class TextField : Control {
     /// <summary>The selected text.</summary>
     public string SelectedText =>
         Value is { } value ? value[SelectionStart..SelectionEnd] : string.Empty;
+
+    /// <summary>What an input method is composing at the caret, and has not committed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It is deliberately <i>not</i> in <see cref="Value" />, and that is the whole
+    ///         design.</b> A pre-edit is provisional: it is replaced in place on every keystroke and
+    ///         may be abandoned entirely, so a field that put it in the value would raise
+    ///         <see cref="ValueChanged" /> for every intermediate reading of every word — and would
+    ///         hand each one to <see cref="Coerce" />, which for a
+    ///         <c>NumericInput</c> means a Japanese pre-edit is rejected character by character and
+    ///         the user cannot type into the field at all.
+    ///     </para>
+    ///     <para>
+    ///         It <i>is</i> in what the field <b>displays</b>, spliced in at the caret, because the
+    ///         alternative is a box that shows nothing while somebody types into it with the
+    ///         candidate window floating over it. So the value and the display are two strings while
+    ///         a composition is running, and every index into one of them belongs to exactly one —
+    ///         which is what <see cref="DisplayCaret" /> is for.
+    ///     </para>
+    /// </remarks>
+    public string Composition => composition;
+
+    /// <summary>Whether an input method has an uncommitted pre-edit in this field.</summary>
+    public bool IsComposing => composition.Length > 0;
+
+    /// <summary>Where the caret is in the string the field is <i>displaying</i>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same as <see cref="CaretIndex" /> except while composing</b>, when the pre-edit
+    ///     sits between them and the input method's own cursor decides how far into it the caret
+    ///     goes. Drawing the caret from <see cref="CaretIndex" /> instead puts it in front of a
+    ///     half-converted phrase rather than inside it, which is where every IME expects it not to
+    ///     be.
+    /// </remarks>
+    public int DisplayCaret => CaretIndex + (IsComposing ? compositionCaret : 0);
 
     /// <summary>Raised after the value changes, whoever changed it.</summary>
     public event Action<TextField, string?>? ValueChanged;
@@ -179,6 +219,7 @@ public abstract partial class TextField : Control {
 
         AddHandler<KeyEvent>(static (element, args) => ((TextField) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((TextField) element).Typed(args));
+        AddHandler<TextCompositionEvent>(static (element, args) => ((TextField) element).Composing(args));
         AddHandler<PointerEvent>(static (element, args) => ((TextField) element).Pointed(args));
         AddHandler<TapEvent>(static (element, args) => ((TextField) element).Tapped(args));
         AddHandler<FocusEvent>(static (element, args) => ((TextField) element).Refocused(args));
@@ -401,7 +442,12 @@ public abstract partial class TextField : Control {
         // path. This used to read `block.Lines[0]` and say so — which was true while nothing wrapped
         // and became a lie the moment `TextArea` grew a newline: the caret stayed pinned to the first
         // line's baseline and a selection spanning two lines was drawn as one band across the first.
-        if (HasSelection) {
+        // ⚠ Not while an input method is composing. The composition has already replaced whatever
+        // was selected, so `SelectionStart` and `SelectionEnd` are indices into the VALUE while every
+        // other number in this method is an index into the displayed string — and the two differ by
+        // the pre-edit. Painting a band from them puts it in the wrong place, over text nobody
+        // selected.
+        if (HasSelection && !IsComposing) {
             var first = block.LineOf(SelectionStart);
             var last = block.LineOf(SelectionEnd);
             var colour = Document.ColorOf(Style, selectionColor) ?? new Color4(0.25f, 0.45f, 0.85f, 0.35f);
@@ -429,6 +475,10 @@ public abstract partial class TextField : Control {
             }
         }
 
+        if (IsComposing) {
+            PaintComposition(context, block, origin, top, text.Text?.Length ?? 0);
+        }
+
         if (!ShowsCaret) {
             return;
         }
@@ -436,18 +486,49 @@ public abstract partial class TextField : Control {
         // ⚠ The caret is drawn even when there is a selection. Every editor does — the caret is the
         // end you are extending from, and hiding it during a Shift-Arrow leaves the user unable to
         // tell which way the next keystroke will grow the selection.
-        var (caretX, caretY) = block.CaretAt(CaretIndex);
+        var (caretX, caretY) = block.CaretAt(DisplayCaret);
 
         context.FillRectangle(
-            new Rectangle(origin + caretX, top + caretY, 1f, block.Lines[block.LineOf(CaretIndex)].Height),
+            new Rectangle(origin + caretX, top + caretY, 1f, block.Lines[block.LineOf(DisplayCaret)].Height),
             CaretColour(context)
         );
+    }
+
+    /// <summary>Underlines the input method's pre-edit, which is what says it is not committed yet.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Drawn in the caret's colour and not the selection's</b>, because a pre-edit is not
+    ///     selected text: it is text that does not exist yet. Every native field marks it with a rule
+    ///     under it, and a field that shows it looking exactly like committed text gives a user no
+    ///     way to tell what a Return will keep and what an Escape will take away.
+    /// </remarks>
+    void PaintComposition(DrawContext context, TextLayout block, float origin, float top, int displayed) {
+        var start = Math.Clamp(CaretIndex, 0, displayed);
+        var end = Math.Clamp(start + composition.Length, 0, displayed);
+        var first = block.LineOf(start);
+        var last = block.LineOf(end);
+        var colour = CaretColour(context);
+
+        for (var index = first; index <= last; index++) {
+            var line = block.Lines[index];
+            var from = origin + line.CaretOffset(Math.Max(start, line.Start));
+            var to = origin + line.CaretOffset(Math.Min(end, line.Start + line.Length));
+
+            context.FillRectangle(
+                new Rectangle(
+                    MathF.Min(from, to),
+                    top + block.TopOf(index) + line.Height - 1f,
+                    MathF.Abs(to - from),
+                    1f
+                ),
+                colour
+            );
+        }
     }
 
     string? CoerceValue(string? value) => Coerce(value);
 
     void OnValueChanged(string? previous, string? current) {
-        text.Text = current;
+        Display();
 
         var length = current?.Length ?? 0;
         CaretIndex = Math.Clamp(CaretIndex, 0, length);
@@ -516,7 +597,11 @@ public abstract partial class TextField : Control {
             return;
         }
 
-        var caret = line.CaretOffset(CaretIndex);
+        // ⚠ The DISPLAY caret, because this measures the string `text` is holding — which,
+        // while an input method is composing, is the value with the pre-edit spliced into it. Read
+        // from `CaretIndex` the field scrolls to where the caret would be if the pre-edit were not
+        // there, so a long composition runs off the right-hand edge as it is typed.
+        var caret = line.CaretOffset(DisplayCaret);
         var shift = -text.OffsetX;
 
         // A margin of one caret width at each edge, so that the caret is never flush against the
@@ -544,6 +629,12 @@ public abstract partial class TextField : Control {
             }
         } else {
             dragging = false;
+
+            // ⚠ A field that has lost the focus is no longer the one the input method is talking to,
+            // and the platform will not send it the end of the composition — it sends that to
+            // whatever took the focus. Left alone, the pre-edit stays drawn in a field nobody is
+            // typing into.
+            CancelComposition();
         }
     }
 
@@ -647,12 +738,89 @@ public abstract partial class TextField : Control {
     }
 
     void Typed(TextInputEvent args) {
+        // ⚠ <b>The commit ends the composition, and it has to be cleared BEFORE the value moves.</b>
+        // A platform delivers a committed composition as ordinary typed text, so this event is both
+        // "here is what you typed" and "the pre-edit is over" — and `Replace` raises the change,
+        // which re-reads what to display. Clearing afterwards leaves one frame showing the pre-edit
+        // twice: once committed into the value and once still spliced in beside it.
+        var wasComposing = IsComposing;
+
+        composition = string.Empty;
+        compositionCaret = 0;
+
         if (string.IsNullOrEmpty(args.Text)) {
+            if (wasComposing) {
+                Display();
+            }
+
             return;
         }
 
         Replace(args.Text);
         args.Handled = true;
+    }
+
+    /// <summary>An input method's pre-edit, which replaces itself and is not yet a value.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An empty text is a cancellation rather than nothing to do.</b> Every platform
+    ///         ends an abandoned composition by sending one, so returning early on it is how the last
+    ///         pre-edit stays on screen for ever — visible, uncommittable, and belonging to an input
+    ///         method that has forgotten about it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The selection is deleted when a composition <i>starts</i>.</b> A pre-edit
+    ///         replaces what was selected, exactly as typing would.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>!IsComposing</c> half of that guard is insurance and is labelled as
+    ///         such.</b> Deleting the selection makes <c>HasSelection</c> false, so a version without
+    ///         the guard deletes nothing on the updates that follow and every test here stays green —
+    ///         measured, not assumed. What it is there for is a selection made <i>during</i> a
+    ///         composition, which a drag can still produce, and which the pre-edit has no business
+    ///         swallowing.
+    ///     </para>
+    /// </remarks>
+    void Composing(TextCompositionEvent args) {
+        if (ReadOnly || Disabled) {
+            return;
+        }
+
+        if (!IsComposing && HasSelection) {
+            Replace(string.Empty);
+        }
+
+        composition = args.Text;
+        compositionCaret = Math.Clamp(args.Start, 0, composition.Length);
+
+        Display();
+        Reveal();
+
+        args.Handled = true;
+    }
+
+    /// <summary>Abandons any pre-edit, for a field that has stopped being the one being typed into.</summary>
+    void CancelComposition() {
+        if (!IsComposing) {
+            return;
+        }
+
+        composition = string.Empty;
+        compositionCaret = 0;
+        Display();
+    }
+
+    /// <summary>Writes what the field shows, which is the value with any pre-edit spliced in.</summary>
+    void Display() {
+        var value = Value ?? string.Empty;
+
+        if (!IsComposing) {
+            text.Text = Value;
+            return;
+        }
+
+        var at = Math.Clamp(CaretIndex, 0, value.Length);
+        text.Text = string.Concat(value.AsSpan(0, at), composition, value.AsSpan(at));
     }
 
     void Keyed(KeyEvent args) {

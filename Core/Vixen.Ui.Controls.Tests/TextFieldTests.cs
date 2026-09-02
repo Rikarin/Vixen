@@ -577,4 +577,164 @@ public class TextFieldTests {
                 or DrawCommandKind.ClipPush
                 or DrawCommandKind.ClipPop)
         );
+
+    // ── The input method ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>A pre-edit is shown at the caret and is not in the value.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because either alone passes a field broken in the opposite
+    ///     direction.</b> One that puts the pre-edit in <c>Value</c> displays it correctly and raises
+    ///     a change per keystroke of the composition — and hands every intermediate reading to
+    ///     <c>Coerce</c>, which is how a numeric field becomes untypable in Japanese. One that
+    ///     ignores the event keeps <c>Value</c> right and shows nothing at all while somebody types.
+    ///     Only an assertion naming the value <i>and</i> the displayed string can tell them apart.
+    /// </remarks>
+    [Fact]
+    public void A_composition_is_displayed_at_the_caret_and_is_not_the_value() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "ab";
+        field.MoveCaret(1);
+        fixture.Document.Focus(field);
+
+        var changes = 0;
+        field.ValueChanged += (_, _) => changes++;
+
+        fixture.Compose("に");
+        fixture.Compose("にほ");
+
+        Assert.True(field.IsComposing);
+        Assert.Equal("にほ", field.Composition);
+        Assert.Equal("ab", field.Value);
+        Assert.Equal(0, changes);
+        Assert.Equal("aにほb", Displayed(field));
+
+        // The caret is inside the pre-edit, where the input method's own cursor put it.
+        Assert.Equal(1, field.CaretIndex);
+        Assert.Equal(3, field.DisplayCaret);
+    }
+
+    /// <summary>Committing ends the composition and moves the value once.</summary>
+    /// <remarks>
+    ///     ⚠ A platform delivers a committed composition as ordinary typed text, so the commit is the
+    ///     <i>same event</i> as typing. A field that did not clear the pre-edit first shows the
+    ///     committed word twice — once in the value and once still spliced in beside it.
+    /// </remarks>
+    [Fact]
+    public void Committing_a_composition_writes_the_value_once() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "ab";
+        field.MoveCaret(1);
+        fixture.Document.Focus(field);
+
+        var changes = 0;
+        field.ValueChanged += (_, _) => changes++;
+
+        fixture.Compose("にほ");
+        fixture.TypeText("日本");
+
+        Assert.False(field.IsComposing);
+        Assert.Equal(string.Empty, field.Composition);
+        Assert.Equal("a日本b", field.Value);
+        Assert.Equal("a日本b", Displayed(field));
+        Assert.Equal(1, changes);
+        Assert.Equal(3, field.CaretIndex);
+        Assert.Equal(3, field.DisplayCaret);
+    }
+
+    /// <summary>An empty pre-edit abandons the composition rather than meaning nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one a handler written from the shape of the typing handler gets wrong.</b> Every
+    ///     platform ends an abandoned composition with an empty string, and a guard that returns
+    ///     early on it leaves the last pre-edit drawn in the field for ever, belonging to an input
+    ///     method that has forgotten about it.
+    /// </remarks>
+    [Fact]
+    public void An_empty_composition_abandons_it() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "ab";
+        field.MoveCaret(1);
+        fixture.Document.Focus(field);
+
+        fixture.Compose("に");
+        fixture.Compose(string.Empty);
+
+        Assert.False(field.IsComposing);
+        Assert.Equal("ab", field.Value);
+        Assert.Equal("ab", Displayed(field));
+    }
+
+    /// <summary>A composition replaces what was selected, as typing would.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What this proves is the replacement, and not the "once".</b> Measured: removing the
+    ///     <c>!IsComposing</c> half of the field's guard leaves this green, because deleting the
+    ///     selection makes <c>HasSelection</c> false and the updates that follow delete nothing
+    ///     anyway. Removing the replacement altogether is what turns it red. The guard's real job is
+    ///     a selection made <i>during</i> a composition, which nothing here produces.
+    /// </remarks>
+    [Fact]
+    public void A_composition_replaces_the_selection() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "abcd";
+        field.MoveCaret(1);
+        field.MoveCaret(3, extend: true);
+        fixture.Document.Focus(field);
+
+        fixture.Compose("に");
+        fixture.Compose("にほ");
+        fixture.Compose("にほん");
+
+        Assert.Equal("ad", field.Value);
+        Assert.Equal("aにほんd", Displayed(field));
+    }
+
+    /// <summary>Losing the focus abandons the pre-edit.</summary>
+    /// <remarks>
+    ///     ⚠ The platform sends the end of a composition to whatever has the focus, so a field that
+    ///     has lost it never hears the end of its own. Left alone the pre-edit stays drawn in a field
+    ///     nobody is typing into.
+    /// </remarks>
+    [Fact]
+    public void Losing_the_focus_abandons_a_composition() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        var other = fixture.Add<TextBox>();
+        field.Value = "ab";
+        fixture.Document.Focus(field);
+
+        fixture.Compose("に");
+        fixture.Document.Focus(other);
+        fixture.Update();
+
+        Assert.False(field.IsComposing);
+        Assert.Equal("ab", Displayed(field));
+    }
+
+    /// <summary>A read-only field takes no composition at all.</summary>
+    [Fact]
+    public void A_read_only_field_composes_nothing() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "ab";
+        field.ReadOnly = true;
+        fixture.Document.Focus(field);
+
+        fixture.Compose("に");
+
+        Assert.False(field.IsComposing);
+        Assert.Equal("ab", Displayed(field));
+    }
+
+    /// <summary>What the field is showing, which is not the same string as its value.</summary>
+    static string? Displayed(TextField field) =>
+        Descendants(field).First(child => child.Tag == "field-text").Text;
 }
