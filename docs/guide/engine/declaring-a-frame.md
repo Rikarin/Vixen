@@ -49,6 +49,26 @@ not a special case:
 public sealed class ColliderSystem(PhysicsScene physics, ITerrainScene terrain) : SystemBase { … }
 ```
 
+**A dependency that is a value is registered with `AddValue`.** An `Entity`, a handle, a small
+settings struct — the generator always emitted the right constructor call for one, and until
+`ServiceRegistry.AddValue` existed nothing could put one in the table, so such a system compiled
+clean, declared itself, and stayed in `Missing` for the life of every process:
+
+```csharp no-compile="a fragment; the entity comes from whatever built the level"
+[GameSystem]
+[UpdateInGroup(SystemPhase.Update)]
+public sealed class IntruderSystem(Entity intruder) : SystemBase { … }
+
+// In Game.OnInitialise, beside the Add calls for the project's services.
+Services.Registry.AddValue(village.Intruder);
+```
+
+⚠ **It is one slot per type, exactly as a service is.** `AddValue(entity)` registers under
+`typeof(Entity)`, so a project wanting two entity-shaped dependencies gives them distinguishing types
+— `readonly record struct Intruder(Entity Entity)` — which is the same answer as for two services of
+one class. `PlaySession.ProvideValue<T>` is the editor's half, so the declaration means the same
+thing in play mode.
+
 **And the host adds them, in a game and in the editor both.** That symmetry is the reason the
 declaration is worth having: a `[GameSystem]` that ran in play mode and quietly did not run in the
 shipped game would be a worse trap than no declaration at all. The editor's
@@ -82,6 +102,7 @@ presents as a script that stopped working. This is the same rule `PlayModeContro
 | Piece | What it is for |
 |---|---|
 | `[GameSystem]` | On a concrete class implementing `ISystem`, with one public constructor |
+| `ServiceRegistry.AddValue<T>` | Registers a `struct` dependency — an `Entity`, a handle — under its own type |
 | `GameSystemRegistry.Declared` | Every declaration the loaded assemblies made, by type name |
 | `GameSystemDeclaration.Requires` | The constructor's parameter types, in order |
 | `GameSystemDeclaration.TryCreate` | Builds it, or names the first service that was not there |

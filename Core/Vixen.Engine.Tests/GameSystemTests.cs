@@ -116,6 +116,75 @@ public sealed class GameSystemTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A dependency that is a value, which until <c>ServiceRegistry.AddValue</c> was
+    ///     declarable and unsatisfiable.</b> The generator never had a problem with it — it emits
+    ///     <c>(Ticket) services[0]</c> for a struct parameter exactly as it does for a class, and
+    ///     reports no diagnostic — so <c>NeedsAValue</c> compiled clean, declared itself, and then
+    ///     sat in <c>Missing</c> for the life of every process, because <c>Add&lt;T&gt;</c> is
+    ///     <c>where T : class</c> and nothing else writes to the table.
+    /// </summary>
+    [Fact]
+    public void ASystemWhoseDependencyIsAValueIsBuiltFromTheValueThatWasRegistered() {
+        var services = new ServiceRegistry();
+        services.AddValue(new Ticket(7));
+
+        using var loop = new EngineLoop();
+        var frame = loop.AddDeclaredSystems(services, Valued);
+
+        Assert.Equal(["NeedsAValue"], frame.Running);
+        Assert.Empty(frame.Missing);
+
+        // The box the registry made, unboxed by the emitted cast. A registry that keyed on
+        // anything but the static parameter type resolves nothing and this reads as Missing.
+        Assert.Equal(new Ticket(7), NeedsAValue.Built);
+
+        Assert.True(services.TryGetValue<Ticket>(out var read));
+        Assert.Equal(new Ticket(7), read);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the rule survives the new shape.</b> A value nobody registered is named in the
+    ///     report, exactly as an absent service is — the alternative is a system that silently is
+    ///     not in the frame, which is what <c>FrameActivation.Missing</c> exists to make impossible.
+    /// </summary>
+    [Fact]
+    public void AValueNobodyRegisteredIsNamedLikeAnAbsentService() {
+        using var loop = new EngineLoop();
+        var frame = loop.AddDeclaredSystems(new ServiceRegistry(), Valued);
+
+        Assert.Empty(frame.Running);
+
+        var absent = Assert.Single(frame.Missing);
+        Assert.Contains("NeedsAValue", absent, StringComparison.Ordinal);
+        Assert.Contains(nameof(Ticket), absent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     <see langword="default" /> is a value like any other, and a registry that treated it as
+    ///     "not registered" would put a system asking for a zeroed handle in <c>Missing</c> forever.
+    /// </summary>
+    [Fact]
+    public void TheDefaultValueIsRegisteredRatherThanAbsent() {
+        var services = new ServiceRegistry();
+        services.AddValue(default(Ticket));
+
+        Assert.True(services.TryGetValue<Ticket>(out var read));
+        Assert.Equal(default, read);
+
+        using var loop = new EngineLoop();
+
+        Assert.Empty(loop.AddDeclaredSystems(services, Valued).Missing);
+    }
+
+    [Fact]
+    public void AValueRegisteredTwiceIsRefusedRatherThanReplaced() {
+        var services = new ServiceRegistry();
+        services.AddValue(new Ticket(1));
+
+        Assert.Throws<ArgumentException>(() => services.AddValue(new Ticket(2)));
+    }
+
+    /// <summary>
     ///     The imperative path is untouched: a hand-constructed system and a declared one are the
     ///     same thing to the runner, and a game may use either or both.
     /// </summary>
@@ -154,6 +223,9 @@ public sealed class GameSystemTests {
         || declaration.SystemType == typeof(NeedsOne)
         || declaration.SystemType == typeof(NeedsTwo);
 
+    static bool Valued(GameSystemDeclaration declaration) =>
+        declaration.SystemType == typeof(NeedsAValue);
+
     static bool Throws(GameSystemDeclaration declaration) =>
         declaration.SystemType == typeof(ThrowsOnConstruction);
 
@@ -179,6 +251,9 @@ public sealed class Clerk : IClerk;
 /// <summary>A service nothing but the throwing system wants.</summary>
 public sealed class Tantrum;
 
+/// <summary>A dependency that is a value — the shape `ServiceRegistry.AddValue` exists for.</summary>
+public readonly record struct Ticket(int Number);
+
 [GameSystem]
 public sealed class NeedsNothing : SystemBase {
     public override JobHandle Update(in SystemContext context, JobHandle dependency) => dependency;
@@ -203,6 +278,16 @@ public sealed class NeedsTwo(Ledger ledger, IClerk clerk) : SystemBase {
         Ran = true;
         return dependency;
     }
+}
+
+[GameSystem]
+public sealed class NeedsAValue : SystemBase {
+    public NeedsAValue(Ticket ticket) => Built = ticket;
+
+    /// <summary>What the last one built was handed. The unboxing is what is under test.</summary>
+    public static Ticket Built { get; private set; }
+
+    public override JobHandle Update(in SystemContext context, JobHandle dependency) => dependency;
 }
 
 [GameSystem]

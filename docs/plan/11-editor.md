@@ -429,8 +429,17 @@ Owed, in the order that unblocks the most:
 
    Owed from it: the engine's own systems carry no attribute, by design — `AppBuilder`'s and
    `AppGraphics`' rows are still hand-registrations, and the editor's answer for those stays
-   `IPlaySystems`. A system whose service is a *value* rather than a class — `IntruderSystem(Entity)`
-   in `Samples/15` — is not declarable, because `ServiceRegistry` keys on reference types.
+   `IPlaySystems`.
+
+   ⚠ This paragraph used to end "a system whose service is a *value* rather than a class —
+   `IntruderSystem(Entity)` in `Samples/15` — is not declarable, because `ServiceRegistry` keys on
+   reference types", and that was wrong in a way worth recording. Such a system **was** declarable:
+   the generator emits `(Entity) services[0]` for a struct parameter and reports nothing, so it
+   declared itself and then sat in `FrameActivation.Missing` for the life of every process, because
+   the `where T : class` on `Add<T>` left no way to satisfy it. The constraint was never about what a
+   dependency may be — it is what lets `Get<T>` answer "not registered" with `null` — so the fix is
+   `ServiceRegistry.AddValue<T>` and `PlaySession.ProvideValue<T>`, one slot per type as a service
+   is, and an unregistered value is still named in the report rather than defaulted.
 2. ✅ **A `PhysicsScene` in the editor** — [31 § D10](31-terrain-grass-and-trees.md)'s blocker,
    closed 2026-08-21. `Vixen.Editor.App` references `Vixen.Physics` and contributes a `PlayPhysics`
    that builds a scene over the world being edited on Play and disposes it on Stop; `AddPhysics` puts

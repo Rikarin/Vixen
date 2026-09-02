@@ -92,6 +92,59 @@ public class PlayDeclaredSystemsTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>And the same for a dependency that is a value, or the declaration would mean two
+    ///     different things.</b> <c>ServiceRegistry.AddValue</c> is what lets a shipped game satisfy
+    ///     an <c>IntruderSystem(Entity)</c>; without <c>PlaySession.ProvideValue</c> that identical
+    ///     project would run the system in the game and report it missing for the whole of every play
+    ///     session — the asymmetry <c>[GameSystem]</c> exists to rule out.
+    /// </summary>
+    [Fact]
+    public void A_declared_system_whose_dependency_is_a_value_runs_in_a_session_too() {
+        using var world = new World("Scene");
+
+        var extensions = new EditorRegistry();
+
+        using var provider = extensions.Add<IPlaySystems>(new SuppliesAQuota());
+        using var play = new PlayModeController(world, extensions: extensions);
+
+        ValuedSystem.Ran = 0;
+        ValuedSystem.Built = default;
+
+        play.Play();
+
+        Assert.Contains(nameof(ValuedSystem), play.Declared.Running);
+        Assert.Equal(new Quota(12), ValuedSystem.Built);
+
+        play.Tick(Frame);
+
+        Assert.Equal(1, ValuedSystem.Ran);
+    }
+
+    /// <summary>A value nobody provided is named, exactly as an absent service is.</summary>
+    [Fact]
+    public void A_declared_system_whose_value_is_absent_is_named() {
+        using var world = new World("Scene");
+        using var play = new PlayModeController(world);
+
+        ValuedSystem.Ran = 0;
+
+        play.Play();
+
+        Assert.DoesNotContain(nameof(ValuedSystem), play.Declared.Running);
+
+        var absent = Assert.Single(
+            play.Declared.Missing,
+            line => line.Contains(nameof(ValuedSystem), StringComparison.Ordinal)
+        );
+
+        Assert.Contains(nameof(Quota), absent, StringComparison.Ordinal);
+
+        play.Tick(Frame);
+
+        Assert.Equal(0, ValuedSystem.Ran);
+    }
+
+    /// <summary>
     ///     The session's own loop and world are askable, so a declared system can take either — which
     ///     a game's <c>ServiceRegistry</c> also offers, and a frame that differed on that point would
     ///     differ for a reason that has nothing to do with the editor.
@@ -116,12 +169,44 @@ public class PlayDeclaredSystemsTests {
             session.Runs("the warehouse");
         }
     }
+
+    /// <summary>And one that provides a value, which has no lifetime to own.</summary>
+    sealed class SuppliesAQuota : IPlaySystems {
+        public void Attach(PlaySession session) {
+            session.ProvideValue(new Quota(12));
+            session.Runs("the quota");
+        }
+    }
 }
+
+/// <summary>A dependency that is a value — an <c>Entity</c>'s shape, without the world.</summary>
+public readonly record struct Quota(int Number);
 
 /// <summary>A service only this file's contribution provides.</summary>
 public sealed class Warehouse : IDisposable {
     /// <inheritdoc />
     public void Dispose() { }
+}
+
+/// <summary>The same, taking a value instead of a service.</summary>
+[GameSystem]
+public sealed class ValuedSystem : SystemBase {
+    /// <summary>Builds it from the quota a contribution provided.</summary>
+    /// <param name="quota">What it was handed.</param>
+    public ValuedSystem(Quota quota) => Built = quota;
+
+    /// <summary>How many frames have reached it.</summary>
+    public static int Ran { get; set; }
+
+    /// <summary>What the last one built was handed.</summary>
+    public static Quota Built { get; set; }
+
+    /// <inheritdoc />
+    public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+        Ran++;
+
+        return dependency;
+    }
 }
 
 /// <summary>What a project would write: a system, marked, taking the service it needs.</summary>

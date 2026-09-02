@@ -287,6 +287,7 @@ Vixen.Core.ServiceRegistry -> sealed class
 Vixen.Core.ServiceRegistry : System.IServiceProvider
 Vixen.Core.ServiceRegistry.Add<T>(T service) -> void
 Vixen.Core.ServiceRegistry.AddOrReplace<T>(T service) -> T?
+Vixen.Core.ServiceRegistry.AddValue<T>(T value) -> void
 Vixen.Core.ServiceRegistry.Clear() -> void
 Vixen.Core.ServiceRegistry.Contains<T>() -> bool
 Vixen.Core.ServiceRegistry.Count.get -> int
@@ -297,6 +298,7 @@ Vixen.Core.ServiceRegistry.ServiceRegistry() -> void
 Vixen.Core.ServiceRegistry.ServiceTypes.get -> System.Collections.Generic.IReadOnlyCollection<System.Type>
 Vixen.Core.ServiceRegistry.TryAdd<T>(T service) -> bool
 Vixen.Core.ServiceRegistry.TryGet<T>(out T? service) -> bool
+Vixen.Core.ServiceRegistry.TryGetValue<T>(out T value) -> bool
 Vixen.Core.SubAssetId -> readonly struct
 Vixen.Core.SubAssetId : System.IComparable<Vixen.Core.SubAssetId>
 Vixen.Core.SubAssetId : System.IEquatable<Vixen.Core.SubAssetId>

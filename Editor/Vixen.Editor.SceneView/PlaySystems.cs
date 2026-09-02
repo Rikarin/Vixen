@@ -155,6 +155,28 @@ public sealed class PlaySession : IServiceProvider {
         }
     }
 
+    /// <summary>Offers a value to the contributors that have not attached yet.</summary>
+    /// <typeparam name="T">The contract, which is how they will ask for it.</typeparam>
+    /// <param name="value">The value.</param>
+    /// <remarks>
+    ///     ⚠ <b>Here because a declaration has to mean the same thing in the editor as in the
+    ///     game.</b> <c>ServiceRegistry.AddValue&lt;T&gt;</c> is what lets a shipped game satisfy a
+    ///     <c>[GameSystem]</c> whose constructor takes an <c>Entity</c> or a handle; without the
+    ///     matching call here that same declaration would resolve at boot and sit in
+    ///     <c>FrameActivation.Missing</c> for the whole of a play session, which is the asymmetry
+    ///     <see cref="GameSystemAttribute" /> exists to rule out.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Something already provided that contract.</exception>
+    public void ProvideValue<T>(T value) where T : struct {
+        if (!provided.TryAdd(typeof(T), value)) {
+            throw new InvalidOperationException(
+                $"Two contributions both provided a {typeof(T).Name} to this play session. One "
+                + "value per contract is the rule; a second one is a dependency whose meaning "
+                + "depends on which contribution attached first."
+            );
+        }
+    }
+
     /// <summary>Asks for a service an earlier contribution provided.</summary>
     /// <typeparam name="T">The contract.</typeparam>
     /// <param name="service">The service, if there is one.</param>
