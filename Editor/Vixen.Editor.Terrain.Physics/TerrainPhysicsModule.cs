@@ -85,8 +85,18 @@ public sealed class TerrainPhysicsModule : IEditorPlugin {
 }
 
 /// <summary>Builds one play session's terrain collision, over the simulation the session provides.</summary>
+/// <remarks>
+///     ⚠ <b><c>[RunsAfter]</c> names the <em>service</em>, and it has to.</b> What this needs is
+///     whatever attached <c>PlayPhysics</c>' scene, and <c>PlayPhysics</c> lives in
+///     <c>Vixen.Editor.App</c> — above this assembly, so naming the contribution would invert the
+///     layering. Naming <c>PhysicsScene</c> costs no reference this file does not already have, and
+///     it says the thing that is actually true: this attaches after whoever hands one over. Until
+///     the declaration existed the ordering was <c>EditorApplication</c> registering physics before
+///     it activates a module, which is two lines in two assemblies and a comment.
+/// </remarks>
 /// <param name="colliders">The switch the sculpt tools push through.</param>
 /// <param name="extensions">Where the <c>ITerrainScene</c> contributions are.</param>
+[RunsAfter(typeof(PhysicsScene))]
 sealed class PlayTerrainColliders(PlayColliders colliders, IEditorRegistry extensions) : IPlaySystems {
     /// <inheritdoc />
     public void Attach(PlaySession session) {

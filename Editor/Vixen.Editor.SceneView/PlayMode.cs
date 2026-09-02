@@ -141,6 +141,17 @@ public sealed class PlayModeController : IDisposable {
     /// </remarks>
     public IReadOnlyList<string> Refused { get; private set; } = [];
 
+    /// <summary>Every ordering declaration this session could not honour, one readable line each.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty is the ordinary answer, and it is empty for a session with no ordering
+    ///     declarations at all.</b> What lands here is a <c>[RunsAfter]</c> for a service nothing
+    ///     declares, a cycle among the declarations, and — the one worth reading twice — a
+    ///     <c>[Provides]</c> that attached without providing. None of the three stops the session:
+    ///     each leaves the contribution where registration order put it, which is where every
+    ///     contribution was before <see cref="PlaySystemOrder" /> existed.
+    /// </remarks>
+    public IReadOnlyList<string> Ordering { get; private set; } = [];
+
     /// <summary>What the project's own declared systems did when this session started.</summary>
     /// <remarks>
     ///     <para>
@@ -433,15 +444,29 @@ public sealed class PlayModeController : IDisposable {
 
         Session = session;
 
-        foreach (var contribution in extensions?.All<IPlaySystems>() ?? []) {
+        // ⚠ Sorted here and nowhere earlier. `Play` has already captured the snapshot, so no order a
+        // contribution is given can move what a Stop takes away — which is the property that keeps
+        // an entity a play-mode system creates inside the restore. A sort at registration time would
+        // be the one arrangement able to break it.
+        var contributions = PlaySystemOrder.Sort(extensions?.All<IPlaySystems>() ?? [], out var notes);
+        List<string> ordering = [.. notes];
+
+        foreach (var contribution in contributions) {
             try {
                 contribution.Attach(session);
             } catch (Exception failure) {
                 refused.Add($"{contribution.GetType().Name} ({failure.Message})");
+
+                continue;
             }
+
+            // Asked rather than believed: a [Provides] that has stopped being true still orders
+            // everything that asked for it.
+            PlaySystemOrder.Verify(contribution, session, ordering);
         }
 
         Refused = refused;
+        Ordering = ordering;
 
         // ⚠ Last, and that ordering is the whole design. A contribution `Provide`s the service it
         // owns — a `PhysicsScene`, a terrain scene — and a project's declared systems are resolved

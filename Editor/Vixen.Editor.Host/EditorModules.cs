@@ -48,7 +48,8 @@ static class EditorModules {
         // the collider system a play session runs over the application's `PhysicsScene`. Registered
         // after Terrain because the two are read in that order by a person looking at this list, and
         // *not* because of a dependency: the module publishes a switch that is bound whenever the
-        // toolset next asks, whichever activated first.
+        // toolset next asks, whichever activated first — and its play-mode contribution now says
+        // what it needs with `[RunsAfter(typeof(PhysicsScene))]` rather than resting on this list.
         (TerrainPhysicsModule.ModuleId, TerrainPhysicsModule.ModuleName, new TerrainPhysicsModule()),
 
         // ⚠ After terrain, because the mode bar reads left to right and water is drawn *on* ground:

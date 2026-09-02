@@ -534,9 +534,13 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ The editor's own contribution to the frame a session runs, and the one service this
         // application can honestly own. Doc 31 § D10 said an embedding host would have to add the
-        // four physics passes by hand; it does not, because `IPlaySystems` is read at every Play and
-        // this is registered before any module activates — which is also what lets the terrain
-        // module's collider contribution find the scene this one provides.
+        // four physics passes by hand; it does not, because `IPlaySystems` is read at every Play.
+        //
+        // ⚠ This comment used to go on "and this is registered before any module activates — which
+        // is also what lets the terrain module's collider contribution find the scene this one
+        // provides". That dependency is now declared: `PlayPhysics` carries
+        // `[Provides(typeof(PhysicsScene))]` and the collider contribution `[RunsAfter]` for the
+        // same type, so the sequence of these two lines in two assemblies no longer decides it.
         contributions.Add(Extensions.Add<IPlaySystems>(new PlayPhysics()));
 
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the

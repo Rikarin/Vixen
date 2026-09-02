@@ -175,6 +175,143 @@ public class PlaySystemsTests {
         Assert.Equal(["a shared thing", "something over it"], play.Session!.Running);
     }
 
+    /// <summary>
+    ///     ⚠ <b>And it finds it registered the wrong way round, which is the whole of #342.</b>
+    ///     Registration order is what decided this until now, and the two contributions that need it
+    ///     in the product are registered from two different assemblies — <c>PlayPhysics</c> from
+    ///     <c>EditorApplication</c>, the terrain colliders from a module — so the dependency was held
+    ///     together by the sequence of two unrelated lines and a comment above one of them.
+    /// </summary>
+    [Fact]
+    public void A_declared_consumer_attaches_after_its_provider_however_they_were_registered() {
+        using var world = new World("Scene");
+
+        var extensions = new EditorRegistry();
+        var consumer = new DeclaredConsumer();
+
+        // Backwards on purpose.
+        using var first = extensions.Add<IPlaySystems>(consumer);
+        using var second = extensions.Add<IPlaySystems>(new DeclaredProvider());
+        using var play = new PlayModeController(world, extensions: extensions);
+
+        play.Play();
+
+        Assert.NotNull(consumer.Found);
+        Assert.Equal(["a shared thing", "something over it"], play.Session!.Running);
+        Assert.Empty(play.Ordering);
+    }
+
+    /// <summary>
+    ///     Nothing declared means nothing moves: registration order is the default and the tie-break.
+    /// </summary>
+    [Fact]
+    public void Contributions_that_declare_nothing_keep_the_order_they_were_added_in() {
+        using var world = new World("Scene");
+
+        var extensions = new EditorRegistry();
+
+        using var first = extensions.Add<IPlaySystems>(new Consumer());
+        using var second = extensions.Add<IPlaySystems>(new Provider());
+        using var play = new PlayModeController(world, extensions: extensions);
+
+        play.Play();
+
+        // The undeclared consumer went first and found nothing, exactly as before this existed.
+        Assert.Equal(["a shared thing"], play.Session!.Running);
+        Assert.Empty(play.Ordering);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A <c>[RunsAfter]</c> nothing satisfies is named, not thrown.</b> "No provider" is an
+    ///     ordinary session — the terrain colliders run over no simulation at all when the host
+    ///     provides none — so the contribution attaches where it was registered and the report says
+    ///     the declaration went unmet.
+    /// </summary>
+    [Fact]
+    public void A_declaration_no_contribution_can_meet_is_named() {
+        using var world = new World("Scene");
+
+        var extensions = new EditorRegistry();
+
+        using var only = extensions.Add<IPlaySystems>(new DeclaredConsumer());
+        using var play = new PlayModeController(world, extensions: extensions);
+
+        play.Play();
+
+        var unmet = Assert.Single(play.Ordering);
+
+        Assert.Contains(nameof(DeclaredConsumer), unmet, StringComparison.Ordinal);
+        Assert.Contains(nameof(Native), unmet, StringComparison.Ordinal);
+        Assert.Empty(play.Refused);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The instrument that catches a declaration going stale.</b> A <c>[Provides]</c> that
+    ///     no longer provides still sorts everything that asked for it, so it would go on deciding
+    ///     the frame's order for a service nothing can find. The session is asked afterwards rather
+    ///     than the attribute believed.
+    /// </summary>
+    [Fact]
+    public void A_provider_that_declares_a_service_and_does_not_provide_it_is_named() {
+        using var world = new World("Scene");
+
+        var extensions = new EditorRegistry();
+
+        using var only = extensions.Add<IPlaySystems>(new LyingProvider());
+        using var play = new PlayModeController(world, extensions: extensions);
+
+        play.Play();
+
+        var stale = Assert.Single(play.Ordering);
+
+        Assert.Contains(nameof(LyingProvider), stale, StringComparison.Ordinal);
+        Assert.Contains(nameof(Native), stale, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Sorting must not move the snapshot boundary, and this is what says so.</b> Doc 11 §
+    ///     Play mode's rule is that the capture happens <em>before</em> any contribution attaches, so
+    ///     that an entity a play-mode system creates is outside the snapshot and goes away with a
+    ///     Stop. <c>PlaySystemOrder.Sort</c> runs inside <c>Contribute</c>, after
+    ///     <c>WorldSnapshot.Capture</c> — a sort performed at registration time would be the one
+    ///     arrangement able to break it, and this asserts the property rather than the call order.
+    /// </summary>
+    [Fact]
+    public void Ordering_does_not_move_what_a_stop_takes_away() {
+        using var world = new World("Scene");
+
+        Hierarchy.CreateTransform(world, LocalTransform.Identity);
+
+        var authored = Count(world);
+
+        var extensions = new EditorRegistry();
+        var consumer = new DeclaredConsumer();
+
+        using var first = extensions.Add<IPlaySystems>(consumer);
+        using var second = extensions.Add<IPlaySystems>(new SpawningProvider());
+        using var play = new PlayModeController(world, extensions: extensions);
+
+        play.Play();
+
+        // The provider was sorted first and made two entities the author never placed.
+        Assert.NotNull(consumer.Found);
+        Assert.Equal(authored + 2, Count(world));
+
+        play.Stop();
+
+        Assert.Equal(authored, Count(world));
+    }
+
+    static int Count(World world) {
+        var total = 0;
+
+        foreach (var chunk in world.Chunks(new QueryDescription())) {
+            total += chunk.Count;
+        }
+
+        return total;
+    }
+
     /// <summary>How far the one moving entity has got, whatever handle it has now.</summary>
     static float Furthest(World world) {
         var furthest = 0f;
@@ -266,6 +403,46 @@ public class PlaySystemsTests {
                 Found = shared;
                 session.Runs("something over it");
             }
+        }
+    }
+
+    /// <summary>The same pair, saying what they do — which is the only difference that matters.</summary>
+    [Provides(typeof(Native))]
+    sealed class DeclaredProvider : IPlaySystems {
+        public void Attach(PlaySession session) {
+            session.Provide(session.Owns(new Native()));
+            session.Runs("a shared thing");
+        }
+    }
+
+    [RunsAfter(typeof(Native))]
+    sealed class DeclaredConsumer : IPlaySystems {
+        public Native? Found { get; private set; }
+
+        public void Attach(PlaySession session) {
+            if (session.TryGet<Native>(out var shared)) {
+                Found = shared;
+                session.Runs("something over it");
+            }
+        }
+    }
+
+    /// <summary>Says it provides one and does not. The declaration that has gone stale.</summary>
+    [Provides(typeof(Native))]
+    sealed class LyingProvider : IPlaySystems {
+        public void Attach(PlaySession session) => session.Runs("a promise");
+    }
+
+    /// <summary>A provider that also makes entities, so a Stop has something to take away.</summary>
+    [Provides(typeof(Native))]
+    sealed class SpawningProvider : IPlaySystems {
+        public void Attach(PlaySession session) {
+            session.Provide(session.Owns(new Native()));
+
+            session.World.Create(LocalTransform.Identity);
+            session.World.Create(LocalTransform.Identity);
+
+            session.Runs("a shared thing");
         }
     }
 }

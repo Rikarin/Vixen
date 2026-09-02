@@ -4,7 +4,7 @@ slug: editor/play-mode-systems
 kind: guide
 area: Editor
 summary: How a module adds systems to the frame the editor's Play button steps — the `IPlaySystems` contribution, the `PlaySession` that owns their lifetime, and the physics world the editor now stands up on Play and takes away on Stop.
-api: [T:Vixen.Editor.SceneView.IPlaySystems, T:Vixen.Editor.SceneView.PlaySession, T:Vixen.Editor.Terrain.Physics.TerrainPhysicsModule]
+api: [T:Vixen.Editor.SceneView.IPlaySystems, T:Vixen.Editor.SceneView.PlaySession, T:Vixen.Editor.SceneView.PlaySystemOrder, T:Vixen.Editor.SceneView.ProvidesAttribute, T:Vixen.Editor.SceneView.RunsAfterAttribute, T:Vixen.Editor.Terrain.Physics.TerrainPhysicsModule]
 tags: [editor, play-mode, systems, physics, terrain, collision]
 since: 0.1
 status: preview
@@ -91,11 +91,40 @@ sealed class PlayPhysics : IPlaySystems {
 }
 ```
 
-**Contributions attach in registration order, and `TryGet` answers for what came before.** The
-editor application registers its physics contribution before any module activates, which is what lets
-the terrain module's collider contribution ask for the scene rather than stand up a second one — two
-simulations over one scene being a world where nothing collides with anything and nothing is raised.
-A `TryGet` that answers `false` means "run without it", not "fail".
+**Contributions attach in registration order, and `TryGet` answers for what came before.** A
+`TryGet` that answers `false` means "run without it", not "fail".
+
+**Say what you need and it stops being a matter of registration order.** `[Provides]` and
+`[RunsAfter]` name the *service*, and `PlaySystemOrder` puts every provider before everything that
+asked for it:
+
+```csharp no-compile="fragments; each is a contribution class in its own assembly"
+[Provides(typeof(PhysicsScene))]
+sealed class PlayPhysics : IPlaySystems { … }          // in Vixen.Editor.App
+
+[RunsAfter(typeof(PhysicsScene))]
+sealed class PlayTerrainColliders : IPlaySystems { … } // in Vixen.Editor.Terrain.Physics
+```
+
+⚠ **They name a service and not a contribution, and that is the only form that works here.** The two
+that need the ordering in the shipped editor live in different assemblies, one above the other, so a
+`[RunsAfter(typeof(PlayPhysics))]` could not be written without inverting the layering. Both already
+name `PhysicsScene`, because that is what one hands over and the other asks for.
+
+⚠ **Registration order stays the default and the tie-break.** Contributions with nothing to say about
+each other come out in the order they were added, so a set with no attributes anywhere behaves
+exactly as it did before these existed.
+
+⚠ **Three things it will not do quietly**, each one a line in `PlayModeController.Ordering` and none
+of them a failure: a `[RunsAfter]` for a service nothing declares, a cycle, and — worth reading twice
+— a `[Provides]` that attached without providing. The last is checked by asking the session
+afterwards rather than by trusting the attribute, because a declaration that has gone stale still
+orders everything that asked for it.
+
+⚠ **The sort happens after the world snapshot is captured**, inside `Play`'s call to `Contribute`,
+which is what keeps an entity a contribution creates *outside* the snapshot and therefore inside what
+Stop clears. An ordering mechanism that ran at registration time would be the one arrangement able to
+move that boundary.
 
 **An `Attach` that throws does not stop the session.** The contribution is named in
 `PlayModeController.Refused` and reported to the person, because standing systems up takes native

@@ -1235,6 +1235,15 @@ halves share. What could not be built is named in `PlayModeController.Declared.M
 [docs/plan/11 § Play mode runs a system graph](../../docs/plan/11-editor.md#play-mode-runs-a-system-graph)
 and [the guide](../../docs/guide/engine/declaring-a-frame.md).
 
+⚠ **And the order those contributions attach in is declared rather than registered.** `[Provides]`
+and `[RunsAfter]` name a *service* — not a contribution, because the two that need it ship in
+assemblies one above the other — and `PlaySystemOrder.Sort` puts every provider first, with
+registration order as the default and the tie-break. Everything it cannot honour is a line in
+`PlayModeController.Ordering`: an unmet `[RunsAfter]`, a cycle, and a `[Provides]` that attached
+without providing, which is asked of the session rather than taken on trust. ⚠ The sort runs inside
+`Contribute` and therefore *after* `WorldSnapshot.Capture` — moving it earlier is the one change that
+would take an entity a play-mode system creates out of what a Stop clears.
+
 **Out-of-process** is `PlayerSessions`. Networking is what requires it — testing a server-authoritative
 game needs a server and several clients — and it doubles as the way to check release-configuration
 behaviour and to isolate a game that hangs, which is why a hung player is killed rather than waited for.

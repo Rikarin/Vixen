@@ -40,7 +40,15 @@ namespace Vixen.Editor.App;
 ///         <c>PlaySession.Provide</c> has the scene's own lifetime, and a later contribution — terrain
 ///         collision, buoyancy, navigation — asks for it there.
 ///     </para>
+///     <para>
+///         ⚠ <b>And "later" is now declared rather than arranged.</b> <c>[Provides]</c> is what
+///         <c>PlayTerrainColliders</c>' <c>[RunsAfter(typeof(PhysicsScene))]</c> sorts against.
+///         Before it, the only thing putting this first was that <c>EditorApplication</c> registers
+///         it before any module activates — a real dependency between two assemblies, held together
+///         by the sequence of two unrelated lines and a comment.
+///     </para>
 /// </remarks>
+[Provides(typeof(PhysicsScene))]
 sealed class PlayPhysics : IPlaySystems {
     /// <inheritdoc />
     public void Attach(PlaySession session) {
