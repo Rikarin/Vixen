@@ -73,11 +73,14 @@ public readonly record struct GridPlacement(GridPlacementKind Kind, int Value) {
 
     /// <summary>Reads one <c>grid-{row,column}-{start,end}</c> value.</summary>
     /// <remarks>
-    ///     ⚠ <b>A named line is refused rather than taken as <c>auto</c>.</b> There is nowhere in
-    ///     this struct to put a name, and <c>grid-column-start: sidebar</c> silently becoming
-    ///     auto-placement is precisely the failure this whole grammar is written to avoid — the item
-    ///     lands somewhere plausible and nothing says the line it named was never found. Named lines
-    ///     arrive with <c>grid-template-areas</c> or not at all.
+    ///     ⚠ <b>A name is refused here and read one layer up.</b> There is nowhere in this struct to
+    ///     put one — it is an unmanaged pair in an unmanaged style — so a name lives beside the
+    ///     style, on the node, where <see cref="LayoutTree.SetGridPlacement(LayoutNodeId,Edge,string)" />
+    ///     puts it. A caller therefore asks this <i>first</i> and treats a refusal as "perhaps a
+    ///     name": that order is not cosmetic, because <c>10</c> is a legal area name and a line
+    ///     number at once, and CSS tells them apart by token type. What this must never do is take a
+    ///     name as <c>auto</c>, which is the failure the whole grammar is written to avoid — the item
+    ///     lands somewhere plausible and nothing says the line it named was never found.
     /// </remarks>
     /// <param name="value">The value, verbatim.</param>
     /// <param name="placement">Receives the placement.</param>
@@ -131,10 +134,17 @@ public readonly record struct GridPlacement(GridPlacementKind Kind, int Value) {
     /// <remarks>
     ///     ⚠ <b>An omitted second value is <c>auto</c>, and that is not the same as repeating the
     ///     first.</b> CSS Grid §8.4: when the slash is absent the end edge is <c>auto</c> unless the
-    ///     start was a <c>&lt;custom-ident&gt;</c>, which this grammar has no reading of anyway. So
+    ///     start was a <c>&lt;custom-ident&gt;</c>, which this grammar has no reading of. So
     ///     <c>grid-column: span 2</c> spans two tracks from wherever auto-placement puts it, while
     ///     <c>grid-column: span 2 / span 2</c> is over-constrained and §8.3 drops the end edge —
     ///     the two are written down as different declarations and are stored as different ones.
+    ///     <br />
+    ///     ⚠ <b>The <c>&lt;custom-ident&gt;</c> half of §8.4 is implemented, and it is implemented in
+    ///     <c>Vixen.Ui.Styling.ShorthandExpansion</c> rather than here</b>, because that is where a
+    ///     shorthand is taken apart before the cascade sees it. This overload is now only reached for
+    ///     the values the expander refuses — a <c>var()</c> that may be holding the slash — so it
+    ///     never sees a bare name, and leaving it unable to read one is a statement about which of
+    ///     the two paths is the real one rather than a gap.
     /// </remarks>
     /// <param name="value">The shorthand's value, verbatim.</param>
     /// <param name="start">Receives the start edge.</param>

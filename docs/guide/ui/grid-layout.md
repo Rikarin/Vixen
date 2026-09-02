@@ -4,8 +4,8 @@ slug: ui/grid-layout
 kind: guide
 area: Core
 summary: CSS Grid over Vixen's layout store — track sizing functions, minmax and fr, automatic repetitions, item placement and spans, and the one thing grid needed from the store that flexbox and block did not.
-api: [T:Vixen.Ui.Layout.GridTrackSize, T:Vixen.Ui.Layout.GridSizingFunction, T:Vixen.Ui.Layout.GridSizingKind, T:Vixen.Ui.Layout.GridPlacement, T:Vixen.Ui.Layout.GridPlacementKind, T:Vixen.Ui.Layout.GridAutoFlow, T:Vixen.Ui.Layout.GridAutoRepeat, T:Vixen.Ui.Layout.GridTrackList, T:Vixen.Ui.Layout.GridAutoRepeatSpan]
-tags: [ui, layout, grid, css, tracks, placement]
+api: [T:Vixen.Ui.Layout.GridTrackSize, T:Vixen.Ui.Layout.GridSizingFunction, T:Vixen.Ui.Layout.GridSizingKind, T:Vixen.Ui.Layout.GridPlacement, T:Vixen.Ui.Layout.GridPlacementKind, T:Vixen.Ui.Layout.GridAutoFlow, T:Vixen.Ui.Layout.GridAutoRepeat, T:Vixen.Ui.Layout.GridTrackList, T:Vixen.Ui.Layout.GridAutoRepeatSpan, T:Vixen.Ui.Layout.GridAreaTemplate]
+tags: [ui, layout, grid, css, tracks, placement, areas]
 since: 0.2
 status: preview
 related: [ui/inline-layout, ui/box-alignment, ui/utility-composition, ui/markup-panels]
@@ -96,6 +96,65 @@ An item that says nothing is placed by the auto-placement cursor, whose directio
 from <xref:Vixen.Ui.Layout.GridAutoFlow>. Tracks the cursor has to invent take their sizes from
 `SetGridAutoRows` / `SetGridAutoColumns`, which are **cycling lists** rather than single values.
 
+## Named areas
+
+`grid-template-areas` draws the grid as a picture and gives each rectangle a name, and
+`grid-area: <name>` puts an item in one. In a stylesheet that is the whole feature:
+
+```css
+.shell {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    grid-template-rows: 48px 1fr 24px;
+    grid-template-areas:
+        "head head"
+        "nav  main"
+        "foot foot";
+}
+
+.shell > header { grid-area: head; }
+.shell > nav    { grid-area: nav; }
+.shell > main   { grid-area: main; }
+.shell > footer { grid-area: foot; }
+```
+
+From C# the template is parsed once and handed to the container, and an item names its area on each
+of the four edges — which is exactly what `grid-area: head` expands to:
+
+```csharp no-compile="a fragment; `shell` and `header` are nodes the caller made"
+GridAreaTemplate.TryParse("\"head head\" \"nav main\" \"foot foot\"", out var areas, out _);
+tree.SetGridTemplateAreas(shell, areas);
+
+tree.SetGridPlacement(header, Edge.Top, "head");
+tree.SetGridPlacement(header, Edge.Bottom, "head");
+tree.SetGridPlacement(header, Edge.Left, "head");
+tree.SetGridPlacement(header, Edge.Right, "head");
+```
+
+Three rules are worth knowing before the first one surprises you.
+
+**A run of full stops is one empty cell, not one per stop.** `"..a"` is two columns. So the columns
+can be lined up in the source without changing the grid — which is the point of writing the template
+as a picture — and `"foot ...."` is the same two-cell row as `"foot ."`.
+
+**An area must be a single filled rectangle.** `"a b" "b a"` is not, and the whole declaration is
+dropped and reported rather than half-applied; so is a template whose rows disagree about how many
+columns they have.
+
+⚠ **The areas enlarge the *explicit* grid.** CSS Grid §7.1 makes the explicit grid the larger of what
+`grid-template-rows`/`-columns` sizes and what the template names, and the tracks the template adds
+take their size from `grid-auto-rows`/`grid-auto-columns`. A three-row template over a one-track
+`grid-template-rows` has three explicit rows — so `grid-row: -1` counts back from the third, not
+from the first.
+
+⚠ **A name that matches no area is auto-placed.** That is a deliberate divergence: the specification
+says every implicit line is assumed to carry the name, which puts the item on a line nobody wrote.
+Auto-placement is what makes a typo look like a typo.
+
+**Named lines written into a track list** — `grid-template-columns: [main-start] 1fr [main-end]` —
+are **not implemented**, and a placement naming one is refused rather than guessed at. Only the
+`name-start`/`name-end` lines an *area* creates can be pointed at.
+
 ## Examples
 
 **As many columns as fit, with the empty ones removed.** The single stored repetition is written
@@ -134,8 +193,9 @@ cursor from the first line for every item, which fills holes a wide item left be
 
 - [Inline layout](inline-layout.md) — the store's fourth algorithm, and the invariant it could not keep.
 - [Composed utilities](utility-composition.md) — how a stylesheet reaches the layout store.
-  `display: grid`, the four track lists, the placement longhands and `grid-auto-flow` all cross that
-  bridge; `grid-template-areas` and named lines do not. See the note below.
+  `display: grid`, the four track lists, `grid-template-areas`, the placement longhands, the
+  `grid-row`/`grid-column`/`grid-area` shorthands and `grid-auto-flow` all cross that bridge; named
+  lines in a track list do not. See the note below.
 - `Core/Vixen.Ui.Layout/README.md` — the store, the conformance corpora, and `GridKnownGaps.txt`,
   which is the honest list of what grid does not yet get right.
 - `docs/plan/43-web-styling-parity.md` § B2 — the plan this landed against, and the sizing it was
@@ -161,11 +221,19 @@ handles it finds rather than overwriting them. So the variable-length half is a 
 `LayoutStyleBuilder.ApplyVariableLength(style, tree, node)`, made straight after `SetStyle` at the
 one seam where the node is in hand.
 
-It is a registry rather than four special cases, because this is the shape of every variable-length
-property and `grid-template-areas` is next. A property is a class with a grammar and a store call;
-the driver knows only present, absent and refused. **Absent is the interesting one:** a track list is
-written only by its own setter, so an element whose `grid-template-columns` disappears from the
-cascade would keep its old tracks for the rest of its life unless absence is itself a write.
+It is a registry rather than four special cases, because this is the shape of every property whose
+value cannot live in the style struct — and `grid-template-areas` is what proved it, arriving as one
+subclass and one line in the array. A property is a class with a grammar and a store call; the driver
+knows only present, absent and refused. **Absent is the interesting one:** a track list is written
+only by its own setter, so an element whose `grid-template-columns` disappears from the cascade would
+keep its old tracks for the rest of its life unless absence is itself a write.
+
+⚠ The registry turned out to answer a second question as well, which is where a value goes that is
+not long but *is* a reference. A named placement is one word and still cannot ride in a
+`LayoutStyle`: the name is resolved against the container's template, so it belongs to the node. The
+four placement longhands are therefore read **twice** — once by `Build` as a line, once here as a
+name — and the reader that fails writes the absence, because CSS has one declaration per edge and the
+store has two places to put it.
 
 ### Reading a track list
 

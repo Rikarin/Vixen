@@ -24,11 +24,15 @@ namespace Vixen.Ui.Layout;
 ///         tracks, each item's resolved width — is an input to the row pass.
 ///     </para>
 ///     <para>
-///         Named areas (<c>grid-template-areas</c>) are <b>not implemented</b>, and the reason is
-///         written down rather than left to be discovered: B0's corpus contains no fixture that sets
-///         the property — Taffy's own XML harness leaves it at its default — so it is the one part of
-///         grid with no oracle at all. Implementing it against expectations of our own devising would
-///         have put untested code behind a green suite. See the README.
+///         ⚠ <b>Named areas (<c>grid-template-areas</c>) reach §8 as ordinary lines and are resolved
+///         in exactly two places</b> — <c>PlaceGridItems</c> for an in-flow item and
+///         <c>RecordAbsoluteGridAreas</c> for an out-of-flow one, both through
+///         <c>ResolveNamedPlacement</c>. This paragraph said the property was not implemented and
+///         said why: B0's corpus sets it in no fixture, so it is the one part of grid with no oracle
+///         <i>here</i>. The oracle it landed against is WPT's, quoted in
+///         <c>GridTemplateAreasTests</c>; §7.1's rule that the areas enlarge the <i>explicit</i> grid
+///         is the part of it that touches this file, and it is why <c>explicitColumns</c> and
+///         <c>templateColumns</c> are now two numbers. See <see cref="GridAreaTemplate" />.
 ///     </para>
 /// </remarks>
 public sealed partial class LayoutTree {
@@ -147,8 +151,17 @@ public sealed partial class LayoutTree {
         }
 
         // ── §7.2.3.2, then §8 ───────────────────────────────────────────────────────────────────
-        var explicitColumns = ExplicitTrackCount(in styles[index].GridTemplateColumns, innerWidth, columnGap);
-        var explicitRows = ExplicitTrackCount(in styles[index].GridTemplateRows, innerHeight, rowGap);
+        // ⚠ §7.1: the explicit grid is the LARGER of what the track lists size and what
+        // `grid-template-areas` names. A template with three rows against `grid-template-rows: 40px`
+        // has three explicit rows — so `grid-row: -1` counts back from the third — and the two the
+        // track list did not size take `grid-auto-rows`, which `BuildGridTracks` does off
+        // `templateColumns`/`templateRows` below. Reading the areas as implicit instead is the same
+        // grid until something writes a negative line, and then it is two tracks out.
+        var templateColumns = ExplicitTrackCount(in styles[index].GridTemplateColumns, innerWidth, columnGap);
+        var templateRows = ExplicitTrackCount(in styles[index].GridTemplateRows, innerHeight, rowGap);
+
+        var explicitColumns = int.Max(templateColumns, AreaTrackCount(index, inline: true));
+        var explicitRows = int.Max(templateRows, AreaTrackCount(index, inline: false));
 
         var placement = PlaceGridItems(index, explicitColumns, explicitRows);
 
@@ -158,10 +171,11 @@ public sealed partial class LayoutTree {
             placement.Columns,
             placement.ColumnOffset,
             explicitColumns,
+            templateColumns,
             innerWidth
         );
 
-        CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, explicitColumns, inline: true);
+        CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, templateColumns, inline: true);
 
         // ── The inline axis ─────────────────────────────────────────────────────────────────────
         var columnAxis = new GridAxis(
@@ -272,10 +286,11 @@ public sealed partial class LayoutTree {
             placement.Rows,
             placement.RowOffset,
             explicitRows,
+            templateRows,
             innerHeight
         );
 
-        CollapseAutoFitTracks(in styles[index].GridTemplateRows, in placement, rowsAt, explicitRows, inline: false);
+        CollapseAutoFitTracks(in styles[index].GridTemplateRows, in placement, rowsAt, templateRows, inline: false);
 
         var rowAxis = new GridAxis(
             Inline: false,
@@ -594,14 +609,25 @@ public sealed partial class LayoutTree {
     ///     collapsed track is zero wide and shares a single line with its neighbour, which is why
     ///     <see cref="UsedTrackSpace" /> counts surviving tracks when it adds up the gutters.
     /// </remarks>
-    void CollapseAutoFitTracks(in GridTemplate template, in GridPlacementResult placement, int tracksAt, int explicitCount, bool inline) {
+    /// <param name="template">The explicit template.</param>
+    /// <param name="placement">What §8 settled.</param>
+    /// <param name="tracksAt">Where the tracks start in the scratch.</param>
+    /// <param name="templateCount">
+    ///     ⚠ How many tracks the <i>track list</i> sized, not how many the explicit grid has. The two
+    ///     differ once <c>grid-template-areas</c> widens the explicit grid, and the difference is
+    ///     entirely the repetition's business: <c>repeated</c> below is the count minus the written
+    ///     tracks, so an explicit count that includes area-created tracks would collapse tracks past
+    ///     the end of the repetition.
+    /// </param>
+    /// <param name="inline">Which axis.</param>
+    void CollapseAutoFitTracks(in GridTemplate template, in GridPlacementResult placement, int tracksAt, int templateCount, bool inline) {
         if (template.AutoRepeatKind != GridAutoRepeat.AutoFit || template.AutoRepeatCount <= 0) {
             return;
         }
 
         var leading = inline ? placement.ColumnOffset : placement.RowOffset;
         var from = leading + template.AutoRepeatIndex;
-        var repeated = explicitCount - (template.Count - template.AutoRepeatCount);
+        var repeated = templateCount - (template.Count - template.AutoRepeatCount);
         var to = from + repeated;
 
         for (var track = from; track < to; track++) {
@@ -979,10 +1005,14 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            var columnStart = AbsoluteLine(styles[child].GridColumnStart, explicitColumns, placement.ColumnOffset, columnAxis.TrackCount);
-            var columnEnd = AbsoluteLine(styles[child].GridColumnEnd, explicitColumns, placement.ColumnOffset, columnAxis.TrackCount);
-            var rowStart = AbsoluteLine(styles[child].GridRowStart, explicitRows, placement.RowOffset, rowAxis.TrackCount);
-            var rowEnd = AbsoluteLine(styles[child].GridRowEnd, explicitRows, placement.RowOffset, rowAxis.TrackCount);
+            // ⚠ Through `ResolveNamedPlacement` for the reason §8's own walk is: an out-of-flow child
+            // reads the same four properties from a different file, and a `grid-area: header` that
+            // reached only one of them is an absolutely positioned child silently falling back to the
+            // padding box while its in-flow sibling lands in the area.
+            var columnStart = AbsoluteLine(ResolveNamedPlacement(index, child, Edge.Left, styles[child].GridColumnStart), explicitColumns, placement.ColumnOffset, columnAxis.TrackCount);
+            var columnEnd = AbsoluteLine(ResolveNamedPlacement(index, child, Edge.Right, styles[child].GridColumnEnd), explicitColumns, placement.ColumnOffset, columnAxis.TrackCount);
+            var rowStart = AbsoluteLine(ResolveNamedPlacement(index, child, Edge.Top, styles[child].GridRowStart), explicitRows, placement.RowOffset, rowAxis.TrackCount);
+            var rowEnd = AbsoluteLine(ResolveNamedPlacement(index, child, Edge.Bottom, styles[child].GridRowEnd), explicitRows, placement.RowOffset, rowAxis.TrackCount);
 
             // Two definite lines the wrong way round name the same area as the right way round.
             if (columnStart >= 0 && columnEnd >= 0 && columnEnd < columnStart) {

@@ -159,8 +159,20 @@ public sealed partial class LayoutTree {
             ref var item = ref Scratch.Item(itemsAt + count);
             item.Node = child;
 
-            var column = ResolveAxisPlacement(styles[child].GridColumnStart, styles[child].GridColumnEnd, explicitColumns);
-            var row = ResolveAxisPlacement(styles[child].GridRowStart, styles[child].GridRowEnd, explicitRows);
+            // ⚠ A named area is turned into a line here rather than in `ResolveAxisPlacement`,
+            // because a name is resolved against the CONTAINER and that method is static and knows
+            // only the two properties. See `ResolveNamedPlacement`.
+            var column = ResolveAxisPlacement(
+                ResolveNamedPlacement(index, child, Edge.Left, styles[child].GridColumnStart),
+                ResolveNamedPlacement(index, child, Edge.Right, styles[child].GridColumnEnd),
+                explicitColumns
+            );
+
+            var row = ResolveAxisPlacement(
+                ResolveNamedPlacement(index, child, Edge.Top, styles[child].GridRowStart),
+                ResolveNamedPlacement(index, child, Edge.Bottom, styles[child].GridRowEnd),
+                explicitRows
+            );
 
             // ⚠ Clamped here rather than trusted, because the corpus writes `grid-column-start: -19553`
             // and `span 20000` and CSS lets an implementation cap the grid. Without this the extents

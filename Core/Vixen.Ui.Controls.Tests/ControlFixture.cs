@@ -162,6 +162,23 @@ sealed class ControlFixture : IDisposable {
         Update();
     }
 
+    /// <summary>Sends an input method's pre-edit, the way a platform head does.</summary>
+    /// <param name="text">The pre-edit string. Empty abandons the composition.</param>
+    /// <param name="caret">Where the input method's own cursor sits inside it.</param>
+    public void Compose(string text, int caret = -1) {
+        clock += TimeSpan.FromMilliseconds(16);
+
+        Document.Dispatch(
+            new TextCompositionEvent {
+                Text = text,
+                Start = caret < 0 ? text.Length : caret,
+                Timestamp = clock
+            }
+        );
+
+        Update();
+    }
+
     public void Wheel(UiElement over, float deltaY, float deltaX = 0f) {
         var bounds = over.Bounds;
         clock += TimeSpan.FromMilliseconds(16);

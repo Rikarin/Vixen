@@ -122,7 +122,6 @@ public class ShorthandExpansionTests {
     [InlineData("color")]
     [InlineData("background-color")]
     [InlineData("transition")]
-    [InlineData("grid-area")]
     [InlineData("place-self")]
     [InlineData("place-items")]
     [InlineData("place-content")]
@@ -141,6 +140,7 @@ public class ShorthandExpansionTests {
     [Theory]
     [InlineData("grid-column", "1 / 3")]
     [InlineData("grid-row", "span 2 / span 2")]
+    [InlineData("grid-area", "1 / 2 / 3 / 4")]
     public void ExCSS_leaves_a_placement_shorthand_whole(string property, string literal) =>
         Assert.Equal([property], ExpandedBy(Parser, property, literal));
 
@@ -154,6 +154,7 @@ public class ShorthandExpansionTests {
     [InlineData("margin", "var(--m)", true)]
     [InlineData("inset", "0", false)]
     [InlineData("grid-template-columns", "1fr 1fr", false)]
+    [InlineData("grid-area", "header", true)]
     public void Whether_it_needs_expanding_is_the_property_and_the_value(string property, string value, bool expected) =>
         Assert.Equal(expected, ShorthandExpansion.NeedsExpanding(property, value));
 
@@ -171,6 +172,11 @@ public class ShorthandExpansionTests {
     [InlineData("grid-row", "span 2 / span 2", "span 2", "span 2")]
     [InlineData("grid-column", "span 2", "span 2", "auto")]
     [InlineData("grid-row", "auto", "auto", "auto")]
+    [InlineData("grid-column", "sidebar", "sidebar", "sidebar")]
+    [InlineData("grid-row", "A1", "A1", "A1")]
+    [InlineData("grid-row", "-minus", "-minus", "-minus")]
+    [InlineData("grid-column", "2", "2", "auto")]
+    [InlineData("grid-column", "-1", "-1", "auto")]
     [InlineData("grid-column", "  2  /  4  ", "2", "4")]
     [InlineData("grid-row", "var(--a) / var(--b)", "var(--a)", "var(--b)")]
     public void A_placement_divides_into_a_start_and_an_end(string property, string value, string start, string end) {
@@ -205,6 +211,70 @@ public class ShorthandExpansionTests {
     public void An_undividable_placement_is_refused_rather_than_guessed(string property, string value) {
         List<KeyValuePair<string, string>> expanded = [];
         Assert.False(ShorthandExpansion.TryExpand(property, value, expanded));
+    }
+
+    /// <summary>
+    ///     CSS Grid §8.4's <c>grid-area</c>, whose four edges are the two axes interleaved and whose
+    ///     omitted ones fall back to the value <i>two</i> places before them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one-word row is what named areas are actually written as, and it is the row
+    ///         a plausible implementation gets wrong.</b> <c>grid-area: header</c> is <c>header</c>
+    ///         on all four edges — an item covering the whole area — while <c>grid-area: 2</c> is
+    ///         <c>2</c> and three <c>auto</c>s, a single cell. §8.4's duplication applies to a
+    ///         <c>&lt;custom-ident&gt;</c> and to nothing else, so the difference between the two
+    ///         rows is a token type and not a count.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This property was expanded by nothing until named areas landed</b>, and
+    ///         <c>ShorthandExpansion</c>'s own header said so: it parsed, cascaded, resolved and then
+    ///         did nothing whatever, because the bridge has a branch for each longhand and none for
+    ///         it. The row above named it among four properties in that state; it is now one of
+    ///         three.
+    ///     </para>
+    /// </remarks>
+    /// <param name="value">The shorthand's value.</param>
+    /// <param name="rowStart">The <c>grid-row-start</c> it expands to.</param>
+    /// <param name="columnStart">The <c>grid-column-start</c>.</param>
+    /// <param name="rowEnd">The <c>grid-row-end</c>.</param>
+    /// <param name="columnEnd">The <c>grid-column-end</c>.</param>
+    [Theory]
+    [InlineData("1 / 2 / 3 / 4", "1", "2", "3", "4")]
+    [InlineData("header", "header", "header", "header", "header")]
+    [InlineData("2", "2", "auto", "auto", "auto")]
+    [InlineData("main / sidebar", "main", "sidebar", "main", "sidebar")]
+    [InlineData("1 / 2", "1", "2", "auto", "auto")]
+    [InlineData("main / 2 / footer", "main", "2", "footer", "auto")]
+    [InlineData("  1  /  2  /  3  ", "1", "2", "3", "auto")]
+    public void An_area_divides_into_four_edges_in_the_order_the_shorthand_names_them(
+        string value,
+        string rowStart,
+        string columnStart,
+        string rowEnd,
+        string columnEnd
+    ) {
+        List<KeyValuePair<string, string>> expanded = [];
+        Assert.True(ShorthandExpansion.TryExpand("grid-area", value, expanded));
+
+        Assert.Equal(
+            ["grid-row-start", "grid-column-start", "grid-row-end", "grid-column-end"],
+            expanded.Select(pair => pair.Key).ToArray()
+        );
+
+        Assert.Equal([rowStart, columnStart, rowEnd, columnEnd], expanded.Select(pair => pair.Value).ToArray());
+    }
+
+    /// <summary>What <c>grid-area</c> will not divide, for the two-slash rule's reasons.</summary>
+    [Theory]
+    [InlineData("var(--place)")]
+    [InlineData("1 / var(--c)")]
+    [InlineData("1 / 2 / 3 / 4 / 5")]
+    [InlineData("1 / / 3")]
+    [InlineData("   ")]
+    public void An_undividable_area_is_refused_rather_than_guessed(string value) {
+        List<KeyValuePair<string, string>> expanded = [];
+        Assert.False(ShorthandExpansion.TryExpand("grid-area", value, expanded));
     }
 
     /// <summary>End to end: the later declaration wins, and it wins in both directions.</summary>

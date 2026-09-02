@@ -111,17 +111,25 @@ public class TaffyUnsupportedCensusTests {
         Assert.Equal(5524, TaffyCorpus.Categories.Sum(category => TaffyCorpus.Load(category).Count));
 
         // ⚠ And the map can still say no. `TaffyStyleMap` keeps refusal arms for values no fixture
-        // writes today — `grid-template-areas`, the flow-relative `float` and `clear` keywords,
-        // `min-content` as a length — precisely so that a refreshed corpus which starts writing one
-        // is SKIPPED rather than mis-parsed into a silent pass. Nothing else in this directory would
-        // notice if those arms were deleted, because nothing else in this directory reaches one.
+        // writes today — the flow-relative `float` and `clear` keywords, `min-content` as a length,
+        // an area template that is not a rectangle — precisely so that a refreshed corpus which
+        // starts writing one is SKIPPED rather than mis-parsed into a silent pass. Nothing else in
+        // this directory would notice if those arms were deleted, because nothing else in this
+        // directory reaches one.
+        //
+        // ⚠ `grid-template-areas` used to be on that list as a whole property and is not any more:
+        // the store carries named areas now, so a VALID template is applied and only an invalid one
+        // is refused. The probe below is the invalid one, which is the stronger question anyway —
+        // it asks whether the grammar's own validation reaches this harness rather than whether the
+        // property name does.
         var refused = TaffyFixtureRunner.Run(Probe("float", "inline-start"));
 
         Assert.Equal(TaffyOutcome.Unsupported, refused.Outcome);
         Assert.Contains("float", refused.Detail, StringComparison.Ordinal);
 
         Assert.Equal(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("clear", "inline-end")).Outcome);
-        Assert.Equal(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("grid-template-areas", "\"a b\"")).Outcome);
+        Assert.Equal(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("grid-template-areas", "\"a b\" \"b a\"")).Outcome);
+        Assert.NotEqual(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("grid-template-areas", "\"a b\"")).Outcome);
 
         // ⚠ …and it says no for the RIGHT reason. A map that threw `TaffyUnsupportedException` at
         // everything would satisfy the three lines above, so one declaration the map really does

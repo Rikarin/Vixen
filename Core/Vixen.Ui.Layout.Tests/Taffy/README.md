@@ -135,11 +135,17 @@ That is worth more than a caveat. It says the two corpora are *complementary* ra
 a superset — Taffy's is ten times the size and covers two modes Yoga's cannot reach, and Yoga's
 still holds the only test of a property Taffy's cannot express. Neither retires the other.
 
-⚠ **`grid-template-areas` is not in it either, which matters for B2.** Zero of the 2 040 grid
+⚠ **`grid-template-areas` is not in it either, which mattered for B2.** Zero of the 2 040 grid
 fixtures set it, and the reason is upstream: Taffy's own `tests/xml.rs` builds every other grid
 property from the XML and then writes `grid_template_areas: Default::default()`. So named grid areas
-— one of the features people reach for grid *for* — arrive with no oracle, and B2 has to bring its
-own. WPT's `css/css-grid/grid-definition/` is the place to look.
+— one of the features people reach for grid *for* — arrive with no oracle, and B2 had to bring its
+own. It did: `GridTemplateAreasTests` is WPT's
+`css/css-grid/grid-definition/grid-support-grid-template-areas-001.html`, thirty accepted values with
+their serialisation and sixteen refused ones, quoted case for case. ⚠ **A serialisation assertion is a
+better oracle than the reftests beside it**, because six of the thirty come back different from how
+they were written — which is an assertion about the tokenisation that no measurement of a box can
+make. `TaffyStyleMap` now maps the property instead of refusing it, so a refreshed corpus that starts
+writing one asserts rather than skips.
 
 **`order` is absent here too**, exactly as it is from Yoga. Taffy's `Style` has no `order` field and
 its XML format has no attribute for it, so `LayoutTree.Order` keeps `OrderTests` and its WPT

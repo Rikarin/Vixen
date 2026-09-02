@@ -56,18 +56,24 @@ namespace Vixen.Ui.Styling;
 ///         is not known yet.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>grid-area</c>, <c>place-self</c>, <c>place-items</c> and <c>place-content</c> have
-///         the same hole and are deliberately still in it.</b> ExCSS leaves all four whole, and every
-///         longhand they cover <i>is</i> read — <c>LayoutStyleBuilder</c> reads all four grid edges
-///         and all six of <c>align-</c>/<c>justify-items</c>, <c>-self</c> and <c>-content</c> — so
-///         each of the four is a declaration that parses, cascades, resolves, and then does nothing
-///         whatever. That is the border-colour silence one more time. It is <i>not</i> the bug this
-///         file was changed for, though: nothing overwrites them, because the bridge has no branch
-///         for any of the four, so there is no precedence to get wrong. No utility family and no
-///         sheet in the repository emits one either. Adding them is a feature with a test surface of
-///         its own — four grammars, <c>place-*</c>'s one-value form meaning both axes — and doing it
-///         quietly alongside a precedence fix is how a table entry lands without the tests that make
-///         it true. Recorded here so the next reader finds the list rather than the gap.
+///         ⚠ <b><c>place-self</c>, <c>place-items</c> and <c>place-content</c> have the same hole
+///         and are deliberately still in it.</b> ExCSS leaves all three whole, and every longhand
+///         they cover <i>is</i> read — <c>LayoutStyleBuilder</c> reads all six of
+///         <c>align-</c>/<c>justify-items</c>, <c>-self</c> and <c>-content</c> — so each of the
+///         three is a declaration that parses, cascades, resolves, and then does nothing whatever.
+///         That is the border-colour silence one more time. It is <i>not</i> a precedence bug:
+///         nothing overwrites them, because the bridge has no branch for any of the three, so there
+///         is no precedence to get wrong. No utility family and no sheet in the repository emits one
+///         either. Adding them is a feature with a test surface of its own — three grammars,
+///         <c>place-*</c>'s one-value form meaning both axes. Recorded here so the next reader finds
+///         the list rather than the gap.
+///     </para>
+///     <para>
+///         ⚠ <b><c>grid-area</c> was the fourth name on that list until named areas landed, and it
+///         had to come off it in the same change.</b> A named area is written <c>grid-area: header</c>
+///         far more often than it is written as four longhands, so leaving the shorthand inert would
+///         have shipped <c>grid-template-areas</c> with no ordinary way to use it — the "finished
+///         thing nothing calls" shape, one property wide.
 ///     </para>
 /// </remarks>
 public static class ShorthandExpansion {
@@ -99,7 +105,7 @@ public static class ShorthandExpansion {
             "border-radius" => true,
             "gap" => true,
             "border" or "border-top" or "border-right" or "border-bottom" or "border-left" => true,
-            "grid-column" or "grid-row" => true,
+            "grid-column" or "grid-row" or "grid-area" => true,
             _ => false
         };
     }
@@ -129,7 +135,7 @@ public static class ShorthandExpansion {
     }
 
     /// <summary>The two shorthands ExCSS hands back whole however they are written.</summary>
-    static bool IsPlacement(string property) => property is "grid-column" or "grid-row";
+    static bool IsPlacement(string property) => property is "grid-column" or "grid-row" or "grid-area";
 
     /// <summary>Takes a shorthand apart into the longhands its consumers read.</summary>
     /// <param name="property">The property name. <see cref="IsShorthand" /> must hold.</param>
@@ -146,6 +152,10 @@ public static class ShorthandExpansion {
 
         // Before the split, because a placement's two edges are whole values rather than components:
         // `span 2 / span 2` is two of them and five of what `Split` returns.
+        if (property == "grid-area") {
+            return Area(value, into);
+        }
+
         if (IsPlacement(property)) {
             return Placement(property, value, into);
         }
@@ -290,14 +300,15 @@ public static class ShorthandExpansion {
     ///     </para>
     ///     <para>
     ///         ⚠ <b><c>auto</c> is only <i>half</i> of what CSS Grid §8.4 says, and the other half is
-    ///         unreachable rather than handled.</b> The rule is that an omitted second value repeats
-    ///         the first <i>when the first is a</i> <c>&lt;custom-ident&gt;</c>, and is <c>auto</c>
-    ///         otherwise — so <c>grid-column: sidebar</c> should mean <c>sidebar / sidebar</c>, not
-    ///         <c>sidebar / auto</c>. It cannot mean anything here yet: <c>GridPlacement.TryParse</c>
-    ///         refuses a named line outright because there is nowhere in the store to put one, so the
-    ///         declaration is refused whichever edge it lands on. ⚠ <b>Whoever adds named lines has to
-    ///         add the duplication here in the same change</b>, or the feature arrives with this
-    ///         already wrong and no test able to see it.
+    ///         <see cref="Duplicated" />.</b> The rule is that an omitted second value repeats the
+    ///         first <i>when the first is a</i> <c>&lt;custom-ident&gt;</c>, and is <c>auto</c>
+    ///         otherwise — so <c>grid-column: sidebar</c> means <c>sidebar / sidebar</c> and
+    ///         <c>grid-column: 2</c> means <c>2 / auto</c>. ⚠ This paragraph used to say the rule was
+    ///         unreachable because a named line had nowhere to be stored, and warned that whoever
+    ///         added names had to add the duplication in the same change. That is this change: an
+    ///         area named once covers its whole area, and duplicating only the numeric case would
+    ///         have made every one-word <c>grid-area</c> a single row of a multi-row area — which
+    ///         lays out, and is wrong by exactly the height of the area.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A <c>var()</c> with no slash beside it is refused</b>, because the slash may be
@@ -320,7 +331,7 @@ public static class ShorthandExpansion {
             }
 
             into.Add(new($"{property}-start", only));
-            into.Add(new($"{property}-end", "auto"));
+            into.Add(new($"{property}-end", Duplicated(only)));
 
             return true;
         }
@@ -339,6 +350,104 @@ public static class ShorthandExpansion {
         into.Add(new($"{property}-end", end));
 
         return true;
+    }
+
+    /// <summary><c>grid-area</c>, CSS Grid §8.4's four-edge shorthand.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The order is row-start, column-start, row-end, column-end — the two axes
+    ///         interleaved rather than one after the other</b>, which is the same order
+    ///         <c>margin</c>'s four values go round the box and the reason a hand-written expansion
+    ///         reads wrong: <c>grid-area: 1 / 2 / 3 / 4</c> is rows 1–3 and columns 2–4, not rows 1–2.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Each omitted value follows §8.4's duplication rule against the value <i>two</i>
+    ///         places before it</b>, not against the one beside it: the fourth falls back to the
+    ///         second, the third to the first, and the second to the first. So
+    ///         <c>grid-area: header</c> is <c>header</c> on all four edges and an item covering the
+    ///         whole named area, while <c>grid-area: 2</c> is one cell at row 2 with three
+    ///         <c>auto</c>s. This is the one place a one-word declaration means four things, and it
+    ///         is by far the commonest way a named area is written.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written out as four longhands even where three of them are <c>auto</c></b>, for
+    ///         <see cref="Placement" />'s reason: a shorthand resets everything it covers, and an
+    ///         omitted longhand would let a stronger-cascaded <c>grid-row-end</c> survive a later
+    ///         <c>grid-area</c> that meant to replace it.
+    ///     </para>
+    /// </remarks>
+    static bool Area(string value, List<KeyValuePair<string, string>> into) {
+        List<string> edges = [];
+        var from = 0;
+
+        while (true) {
+            var slash = TopLevelSlash(value[from..]);
+
+            if (slash < 0) {
+                edges.Add(value[from..].Trim());
+                break;
+            }
+
+            edges.Add(value.Substring(from, slash).Trim());
+            from += slash + 1;
+
+            if (edges.Count == 4) {
+                // A fifth component: `grid-area` has four edges and nothing sensible to do with a
+                // value that names five, so the whole declaration is left for the loader to report.
+                return false;
+            }
+        }
+
+        if (edges.Count == 0 || edges.Exists(static edge => edge.Length == 0 || VarSubstitution.NeedsSubstitution(edge))) {
+            return false;
+        }
+
+        var rowStart = edges[0];
+        var columnStart = edges.Count > 1 ? edges[1] : Duplicated(rowStart);
+        var rowEnd = edges.Count > 2 ? edges[2] : Duplicated(rowStart);
+        var columnEnd = edges.Count > 3 ? edges[3] : Duplicated(columnStart);
+
+        into.Add(new("grid-row-start", rowStart));
+        into.Add(new("grid-column-start", columnStart));
+        into.Add(new("grid-row-end", rowEnd));
+        into.Add(new("grid-column-end", columnEnd));
+
+        return true;
+    }
+
+    /// <summary>§8.4's fallback for an omitted edge: the value it repeats, or <c>auto</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Anything that is not a bare identifier is <c>auto</c>, including <c>auto</c> itself
+    ///     and including <c>span 2</c>.</b> A number does not repeat — <c>grid-row: 2</c> is one row
+    ///     and not rows 2 to 2 — and a span repeated against itself would be over-constrained and
+    ///     dropped by §8.3 anyway. The test is therefore "does this look like a
+    ///     <c>&lt;custom-ident&gt;</c>", which here means a first character that cannot start a
+    ///     number and no whitespace in it.
+    ///     <br />
+    ///     ⚠ <b>The digit test is on the first character only, and that is not a shortcut.</b>
+    ///     <c>A1</c>, <c>col2</c> and <c>main-1</c> are area names the conformance oracle accepts, so
+    ///     rejecting an edge for holding a digit anywhere would silently drop the duplication for
+    ///     most of the names a real layout uses — and drop it into <c>auto</c>, which lays out.
+    /// </remarks>
+    static string Duplicated(string edge) {
+        if (edge.Length == 0 || edge.Equals("auto", StringComparison.OrdinalIgnoreCase)) {
+            return "auto";
+        }
+
+        // A sign or a stop starts a number unless a letter follows it: `-1` is a line and `-minus`
+        // is one of the names the conformance oracle accepts.
+        if (edge[0] is (>= '0' and <= '9') or '.'
+            || (edge[0] is '+' or '-' && (edge.Length == 1 || edge[1] is (>= '0' and <= '9') or '.'))) {
+            return "auto";
+        }
+
+        foreach (var code in edge) {
+            if (char.IsWhiteSpace(code)) {
+                return "auto";
+            }
+        }
+
+        return edge;
     }
 
     /// <summary>The first slash that is not inside a function, or −1.</summary>

@@ -442,6 +442,31 @@ public sealed class UiTest : IDisposable {
         return Document.Dispatch(new TextInputEvent { Text = text, Timestamp = Now });
     }
 
+    /// <summary>Sends an input method's pre-edit, the way a platform head does.</summary>
+    /// <param name="text">The pre-edit string, or empty to abandon the composition.</param>
+    /// <param name="caret">
+    ///     Where the input method's own cursor sits inside it, or −1 for its end.
+    /// </param>
+    /// <returns>What it went to.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Provisional text, and pointedly not <see cref="TypeText" />.</b> A composition is
+    ///     replaced in place on every keystroke and is only real when it commits — as an ordinary
+    ///     <see cref="TextInputEvent" />, which is what <see cref="TypeText" /> sends. A driver that
+    ///     spelled a Japanese word with <c>TypeText</c> alone would be testing a field that has no
+    ///     input method in front of it, which is the one arrangement the feature is not for.
+    /// </remarks>
+    public UiElement? Compose(string text, int caret = -1) {
+        ArgumentNullException.ThrowIfNull(text);
+
+        return Document.Dispatch(
+            new TextCompositionEvent {
+                Text = text,
+                Start = caret < 0 ? text.Length : caret,
+                Timestamp = Now
+            }
+        );
+    }
+
     /// <summary>Moves the focus the way Tab does.</summary>
     /// <param name="backwards">Whether to go the other way, as Shift-Tab does.</param>
     /// <returns>Whether the focus moved.</returns>

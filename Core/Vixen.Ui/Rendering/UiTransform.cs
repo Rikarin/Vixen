@@ -101,6 +101,37 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     /// <summary>A scale about a point.</summary>
     public static UiTransform Scale(float x, float y, Vector2 about) => About(x, 0f, 0f, y, about);
 
+    /// <summary>This transform performed about <paramref name="origin" /> rather than about zero.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>T(origin) · this · T(−origin)</c>, and the one thing worth saying about it is why it
+    ///         is a method rather than a parameter on the two factories above. A
+    ///         <c>&lt;transform-list&gt;</c> is several functions sharing <b>one</b> origin, not one
+    ///         origin each: <c>transform: rotate(45deg) translate(20px)</c> rotates about the box's
+    ///         centre and translates in the rotated frame. Re-centring each function separately gives
+    ///         a different picture, and the list has to be composed first and re-centred once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Composing several already-centred transforms is <i>not</i> a mistake, though</b>,
+    ///         which is why <see cref="Rotation" /> and <see cref="Scale" /> still fold the origin in
+    ///         themselves. Adjacent <c>T(o) · L · T(−o)</c> factors cancel their inner translations
+    ///         exactly, so <c>rotate</c> and <c>scale</c> as separate <i>properties</i> compose to the
+    ///         same matrix either way. It is only a list of functions with a translation among them
+    ///         that can tell the two apart.
+    ///     </para>
+    /// </remarks>
+    /// <param name="origin">The point to perform it about, in the same space as this transform.</param>
+    /// <returns>The re-centred transform.</returns>
+    public UiTransform About(Vector2 origin) =>
+        new(
+            M11,
+            M12,
+            M21,
+            M22,
+            Dx + origin.X - ((M11 * origin.X) + (M21 * origin.Y)),
+            Dy + origin.Y - ((M12 * origin.X) + (M22 * origin.Y))
+        );
+
     /// <summary>A linear map re-centred on <paramref name="about" />.</summary>
     /// <remarks>
     ///     <c>T(about) · M · T(-about)</c>, written out rather than composed from three

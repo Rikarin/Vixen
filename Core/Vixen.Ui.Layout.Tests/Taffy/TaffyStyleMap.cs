@@ -430,13 +430,20 @@ static class TaffyStyleMap {
 
                 break;
 
-            // ⚠ Named areas are not a track list and are deliberately still refused even though B2
-            // landed. `grid-template-areas` declares named *lines* that `grid-row-start: header`
-            // then points at, and neither GridPlacement nor the track arena carries a name — so the
-            // only faithful answer is a refusal. No fixture in the corpus writes one today; the arm
-            // is kept so that a refreshed corpus that does is skipped rather than mis-parsed.
-            case "grid-template-areas":
-                throw new TaffyUnsupportedException(name);
+            // ⚠ Mapped rather than refused since named areas landed, and the arm is still worth
+            // reading: it was a refusal for as long as the store had nowhere to put a name, and
+            // nothing in this corpus ever exercised either half — Taffy's own harness leaves
+            // `grid_template_areas` at `Default::default()`, so no fixture writes one. What this
+            // line does is make a REFRESHED corpus that starts writing one assert rather than skip.
+            // Its oracle is `GridTemplateAreasTests`, which is WPT's.
+            case "grid-template-areas": {
+                if (!GridAreaTemplate.TryParse(value, out var areas, out var refusal)) {
+                    throw new TaffyUnsupportedException($"{name}: {refusal}");
+                }
+
+                tree.SetGridTemplateAreas(node, areas);
+                break;
+            }
 
             default:
                 // ⚠ Not "unsupported" — unknown. A new attribute in an updated corpus lands here, and

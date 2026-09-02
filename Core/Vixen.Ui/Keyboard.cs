@@ -114,6 +114,43 @@ public sealed class TextInputEvent : UiEvent {
     public TimeSpan Timestamp { get; init; }
 }
 
+/// <summary>Text an input method is still composing, which is not yet text the user typed.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The separate event is the whole design, and folding it into
+///         <see cref="TextInputEvent" /> is how an interface becomes unusable in Japanese without
+///         anybody noticing.</b> A composition is <i>provisional</i>: it is replaced in place on
+///         every keystroke, may be abandoned entirely, and is only real when a
+///         <see cref="TextInputEvent" /> arrives carrying the committed string. A control that
+///         inserted each pre-edit as typed text ends up with every intermediate reading of every
+///         word in the field, and a control that ignored the event shows nothing at all while the
+///         user types — the field looks broken and the candidate window floats over a blank box.
+///     </para>
+///     <para>
+///         ⚠ <b>An empty <see cref="Text" /> is a <i>cancellation</i> and not "nothing happened".</b>
+///         Every platform ends an abandoned composition by sending one, and a handler that returns
+///         early on an empty string leaves the last pre-edit on screen for ever.
+///     </para>
+///     <para>
+///         <see cref="Start" /> and <see cref="Length" /> are the input method's own cursor
+///         <i>within the pre-edit</i>, which is what puts the caret in the middle of a
+///         half-converted phrase where the IME thinks it is rather than at the end of it.
+///     </para>
+/// </remarks>
+public sealed class TextCompositionEvent : UiEvent {
+    /// <summary>The pre-edit string, or empty to abandon the composition.</summary>
+    public string Text { get; init; } = string.Empty;
+
+    /// <summary>Where the input method's own cursor sits inside <see cref="Text" />.</summary>
+    public int Start { get; init; }
+
+    /// <summary>How much of <see cref="Text" /> that cursor has selected.</summary>
+    public int Length { get; init; }
+
+    /// <summary>When, on the same clock as the rest.</summary>
+    public TimeSpan Timestamp { get; init; }
+}
+
 public sealed partial class UiDocument {
     /// <summary>Whether the most recent input came from the keyboard.</summary>
     /// <remarks>
@@ -188,6 +225,24 @@ public sealed partial class UiDocument {
         ArgumentNullException.ThrowIfNull(args);
 
         KeyboardMode = true;
+
+        var target = Focused ?? Root;
+        target.Raise(args);
+        return target;
+    }
+
+    /// <summary>Sends an input method's pre-edit to whatever has the focus.</summary>
+    /// <param name="args">The event.</param>
+    /// <returns>The element it went to.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It does <i>not</i> enter keyboard mode, and that is the one difference from
+    ///     <see cref="Dispatch(TextInputEvent)" />.</b> A composition is a consequence of keystrokes
+    ///     the focus has already had, so the mode is already right; raising it here as well would
+    ///     light the focus ring on a field somebody is typing into with the mouse still moving,
+    ///     which is the case the mode exists to distinguish.
+    /// </remarks>
+    public UiElement? Dispatch(TextCompositionEvent args) {
+        ArgumentNullException.ThrowIfNull(args);
 
         var target = Focused ?? Root;
         target.Raise(args);

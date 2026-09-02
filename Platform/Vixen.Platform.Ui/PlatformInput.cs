@@ -139,6 +139,26 @@ public static class PlatformInput {
                 document.Dispatch(new TextInputEvent { Text = platformEvent.Text, Timestamp = when });
                 return true;
 
+            // ⚠ <b>This arm was missing, and its absence was invisible from either end.</b> Two
+            // platform heads produce `TextEditing` — `DesktopPlatform` from SDL and `WebPlatform`
+            // from the invisible `<input>`'s composition events — and this bridge dropped it through
+            // the `default` below, so nothing in `Vixen.Ui` had ever seen an input method's pre-edit.
+            // The symptom is not an error: a Japanese user types, the field stays empty until the
+            // composition commits, and the candidate window floats over a blank box. Nothing in
+            // either assembly's tests could see it, because the producers had no consumer to
+            // disagree with.
+            case PlatformEventKind.TextEditing:
+                document.Dispatch(
+                    new TextCompositionEvent {
+                        Text = platformEvent.Text,
+                        Start = platformEvent.SelectionStart,
+                        Length = platformEvent.SelectionLength,
+                        Timestamp = when
+                    }
+                );
+
+                return true;
+
             default:
                 return false;
         }

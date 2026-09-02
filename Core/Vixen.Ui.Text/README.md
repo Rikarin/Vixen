@@ -25,7 +25,7 @@ Both suites were committed before their implementations, which is what those com
 | `ShapingCache` | Shaped paragraphs with LRU eviction. Keyed without the size. |
 | `FontFace.Decoration` | Where the face wants an underline and a line-through, and how thick. |
 | MSDF atlas, font fallback, rich-text runs | ⏳ |
-| `TextEditor` model with IME and caret affinity | ⏳ |
+| `TextEditor` model with IME and caret affinity | IME ✅, affinity ⏳ — see below |
 
 ## ⚠ A conformance suite says nothing about the caller
 

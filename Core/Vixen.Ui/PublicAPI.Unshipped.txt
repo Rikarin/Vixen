@@ -892,6 +892,7 @@ Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float th
 Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Ui.GradientShape shape, Vixen.Ui.GradientSpace space, Vixen.Core.Mathematics.Vector2 gradientAxis, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Color4 gradientVia, bool hasVia, Vixen.Ui.GradientStops stops, float blur = 0) -> void
 Vixen.Ui.Rendering.UiTransform -> readonly struct
 Vixen.Ui.Rendering.UiTransform : System.IEquatable<Vixen.Ui.Rendering.UiTransform>
+Vixen.Ui.Rendering.UiTransform.About(Vixen.Core.Mathematics.Vector2 origin) -> Vixen.Ui.Rendering.UiTransform
 Vixen.Ui.Rendering.UiTransform.Apply(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.UiTransform.Bounds(Vixen.Core.Mathematics.Rectangle rectangle) -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiTransform.Determinant.get -> float
@@ -969,6 +970,17 @@ Vixen.Ui.TapEvent.X.get -> float
 Vixen.Ui.TapEvent.X.init -> float
 Vixen.Ui.TapEvent.Y.get -> float
 Vixen.Ui.TapEvent.Y.init -> float
+Vixen.Ui.TextCompositionEvent -> sealed class
+Vixen.Ui.TextCompositionEvent : Vixen.Ui.UiEvent
+Vixen.Ui.TextCompositionEvent.Length.get -> int
+Vixen.Ui.TextCompositionEvent.Length.init -> int
+Vixen.Ui.TextCompositionEvent.Start.get -> int
+Vixen.Ui.TextCompositionEvent.Start.init -> int
+Vixen.Ui.TextCompositionEvent.Text.get -> string
+Vixen.Ui.TextCompositionEvent.Text.init -> string
+Vixen.Ui.TextCompositionEvent.TextCompositionEvent() -> void
+Vixen.Ui.TextCompositionEvent.Timestamp.get -> System.TimeSpan
+Vixen.Ui.TextCompositionEvent.Timestamp.init -> System.TimeSpan
 Vixen.Ui.TextDecoration -> readonly struct
 Vixen.Ui.TextDecoration : System.IEquatable<Vixen.Ui.TextDecoration>
 Vixen.Ui.TextDecoration.Color.get -> Vixen.Core.Mathematics.Color4?
@@ -1132,6 +1144,7 @@ Vixen.Ui.UiDocument.Cursor.get -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument.CursorOf(Vixen.Ui.Styling.ComputedStyle style) -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextCompositionEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?

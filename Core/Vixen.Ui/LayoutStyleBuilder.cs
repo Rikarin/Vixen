@@ -106,7 +106,12 @@ public sealed class LayoutStyleBuilder {
             new TrackListProperty(names.GridTemplateColumns, GridTrackSlot.Columns),
             new TrackListProperty(names.GridTemplateRows, GridTrackSlot.Rows),
             new TrackListProperty(names.GridAutoColumns, GridTrackSlot.AutoColumns),
-            new TrackListProperty(names.GridAutoRows, GridTrackSlot.AutoRows)
+            new TrackListProperty(names.GridAutoRows, GridTrackSlot.AutoRows),
+            new AreaTemplateProperty(names.GridTemplateAreas),
+            new NamedPlacementProperty(names.GridColumnStart, Edge.Left),
+            new NamedPlacementProperty(names.GridColumnEnd, Edge.Right),
+            new NamedPlacementProperty(names.GridRowStart, Edge.Top),
+            new NamedPlacementProperty(names.GridRowEnd, Edge.Bottom)
         ];
     }
 
@@ -339,8 +344,12 @@ public sealed class LayoutStyleBuilder {
     ///     <para>
     ///         The mechanism generalises to any property whose value is a list: a new one is a class
     ///         with a grammar and a store call, and the driver below neither knows nor asks what it
-    ///         parses. <c>grid-template-areas</c> and named grid lines are the two this was shaped
-    ///         for, and both are out of scope here.
+    ///         parses. ⚠ <b><c>grid-template-areas</c> was named here as the thing this was shaped
+    ///         for and is now one of its entries</b>, at the promised cost of one subclass and one
+    ///         line. It also showed what the mechanism is really for, which is not length: a named
+    ///         placement is <i>one word</i> and still cannot ride in a <see cref="LayoutStyle" />,
+    ///         because a name resolves against the container's template and so belongs to the node.
+    ///         Named grid <i>lines</i> in a track list are still out of scope.
     ///     </para>
     /// </remarks>
     public void ApplyVariableLength(ComputedStyle style, LayoutTree tree, LayoutNodeId node) {
@@ -540,7 +549,12 @@ public sealed class LayoutStyleBuilder {
             return true;
         }
 
-        Refuse(property, text, "not a line, a span or auto");
+        // ⚠ <b>Silent here, and loud one pass later.</b> Since named areas landed, these four
+        // longhands are read twice — as a line by this and as an area's name by
+        // <see cref="NamedPlacementProperty" /> — and exactly one reading can be right. Reporting
+        // both refusals would put two diagnostics on one declaration and, worse, would report
+        // `grid-row-start: header` as broken on every document that uses a named area. The other
+        // reader knows both grammars and is the one that speaks.
         return false;
     }
 
@@ -905,8 +919,10 @@ public sealed class LayoutStyleBuilder {
     ///     ⚠ <b>The driver knows only "present, absent, refused" — everything about the grammar and
     ///     about where the value is stored belongs to the subclass.</b> That is the whole of what
     ///     makes this a mechanism rather than four special cases: adding
-    ///     <c>grid-template-areas</c> is a new subclass and one line in the array, and it brings its
-    ///     own scratch buffer with it rather than widening a signature everything else has to carry.
+    ///     <c>grid-template-areas</c> was a new subclass and one line in the array, and it brought
+    ///     its own scratch buffer with it rather than widening a signature everything else has to
+    ///     carry. ⚠ The five entries beside the four track lists are what that promise cost when it
+    ///     was called in.
     /// </remarks>
     /// <param name="property">The interned property name.</param>
     abstract class VariableLengthProperty(int property) {
@@ -1016,6 +1032,86 @@ public sealed class LayoutStyleBuilder {
         }
     }
 
+    /// <summary><c>grid-template-areas</c>, the second shape this registry was built for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It is here rather than in <see cref="Build" /> for the reason the track lists are,
+    ///     and the reason is not that the value is long.</b> A <see cref="LayoutStyle" /> never sees
+    ///     a node id, and an area template belongs to the <i>node</i> — the store keeps one object
+    ///     per grid container beside the style array, exactly as it keeps a measure function. A
+    ///     value returned from <c>Build</c> would be a reference two elements that resolved alike
+    ///     would share.
+    /// </remarks>
+    sealed class AreaTemplateProperty(int property) : VariableLengthProperty(property) {
+        public override bool TryApply(
+            string value,
+            LayoutTree tree,
+            LayoutNodeId node,
+            [NotNullWhen(false)] out string? refusal
+        ) {
+            if (!GridAreaTemplate.TryParse(value, out var template, out refusal)) {
+                return false;
+            }
+
+            tree.SetGridTemplateAreas(node, template);
+            return true;
+        }
+
+        public override void Reset(LayoutTree tree, LayoutNodeId node) => tree.SetGridTemplateAreas(node, null);
+    }
+
+    /// <summary>One placement longhand, read as the name of a grid area.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same declaration is read twice, by two different halves of this bridge, and
+    ///         that is deliberate rather than an oversight.</b> <c>grid-row-start</c> is a line
+    ///         number to <see cref="ApplyPlacements" /> and an area name to this, and exactly one of
+    ///         the two can be true of any one value — so each reads it, one of them succeeds, and the
+    ///         one that does not <i>writes the absence</i>. Leaving the name alone when the number
+    ///         wins is the failure this shape exists to stop: an element restyled from
+    ///         <c>grid-area: header</c> to <c>grid-row-start: 2</c> would keep the name, and the name
+    ///         beats the number in the store.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A number is read first, because a number is also a legal area name.</b> The
+    ///         conformance oracle accepts <c>"10"</c> as an area, so <c>grid-row-start: 10</c> is
+    ///         ambiguous to a character test and is not ambiguous in CSS, where the two are different
+    ///         token types. Call order is what stands in for the token type here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Anything that is neither is refused rather than ignored</b>, which restores what
+    ///         <see cref="TryPlacement" /> gave up when this class took the identifier case off it:
+    ///         <c>grid-row-start: 4px</c> still reaches the diagnostics list, and an item whose
+    ///         placement did not parse still says so rather than auto-placing into a plausible cell.
+    ///     </para>
+    /// </remarks>
+    sealed class NamedPlacementProperty(int property, Edge edge) : VariableLengthProperty(property) {
+        public override bool TryApply(
+            string value,
+            LayoutTree tree,
+            LayoutNodeId node,
+            [NotNullWhen(false)] out string? refusal
+        ) {
+            refusal = null;
+
+            if (GridPlacement.TryParse(value, out _)) {
+                tree.SetGridPlacement(node, edge, name: null);
+                return true;
+            }
+
+            var name = value.Trim();
+
+            if (!GridAreaTemplate.IsAreaName(name)) {
+                refusal = "not a line, a span, an area's name or auto";
+                return false;
+            }
+
+            tree.SetGridPlacement(node, edge, name);
+            return true;
+        }
+
+        public override void Reset(LayoutTree tree, LayoutNodeId node) => tree.SetGridPlacement(node, edge, name: null);
+    }
+
     sealed class Properties {
         public Properties(NameTable table) {
             Direction = table.Intern("direction");
@@ -1070,6 +1166,7 @@ public sealed class LayoutStyleBuilder {
             GridTemplateRows = table.Intern("grid-template-rows");
             GridAutoColumns = table.Intern("grid-auto-columns");
             GridAutoRows = table.Intern("grid-auto-rows");
+            GridTemplateAreas = table.Intern("grid-template-areas");
 
             GridAutoFlow = table.Intern("grid-auto-flow");
             JustifyItems = table.Intern("justify-items");
@@ -1127,6 +1224,8 @@ public sealed class LayoutStyleBuilder {
         public int ColumnGap { get; }
         public int GridTemplateColumns { get; }
         public int GridTemplateRows { get; }
+
+        public int GridTemplateAreas { get; }
         public int GridAutoColumns { get; }
         public int GridAutoRows { get; }
         public int GridAutoFlow { get; }

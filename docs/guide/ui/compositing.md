@@ -540,14 +540,41 @@ change `UiLayer` argues against, and it cannot be pooled away: every group's sur
 when the frame's own pass samples it. What has changed is the *case* for making it — the time
 argument is now mostly spent, so what is left to buy is memory alone.
 
-### `rotate` and `scale`
+### `transform`, `rotate` and `scale`
 
 A transform is the fifth thing that opens a group, and the only one where the group is not an
 isolation but a change of coordinates:
 
 ```css
 .badge { rotate: -12deg; scale: 110%; }
+.card  { transform: translate(20px) rotate(-6deg) skewX(4deg); }
 ```
+
+CSS Transforms 2 splits the same idea two ways: three independent properties — `translate`, `rotate`,
+`scale` — and one `transform` taking a list of functions. Both are read, and both end up in the same
+`UiTransform`. What this engine reads inside a list is `matrix()`, `translate()`/`translateX()`/
+`translateY()`, `scale()`/`scaleX()`/`scaleY()`, `rotate()` and `skew()`/`skewX()`/`skewY()`.
+
+⚠ **Three orderings decide the picture, and none of them is the one a reader guesses.**
+
+- **The last function in a list is applied to a point first.** `transform: A B` is the matrix product
+  `A · B`, so `rotate(90deg) translate(40px)` moves the element along its own *turned* axis while
+  `translate(40px) rotate(90deg)` moves it across the screen. Invisible on every one-function
+  declaration, which is most of them.
+- **`transform` is applied before the three independent properties**, per Transforms 2 § 3, which
+  builds the matrix as translate, then rotate, then scale, then `transform` — again as multiplications,
+  so the list is the innermost factor.
+- **A list shares one `transform-origin`.** It is composed first and re-centred once; re-centring each
+  function separately is a different picture as soon as a translation is among them.
+
+⚠ **A list this engine cannot read is dropped whole, and only the list.** `rotateX`, `translate3d`
+and `perspective` are legal CSS and there is no third axis here — reading the functions that happen
+to be flat and skipping the rest turns a card flip into a card that never moves, which is a different
+picture rather than a degraded one. The `rotate` or `scale` beside it still applies, because CSS drops
+an invalid declaration and leaves its neighbours alone.
+
+⚠ **A percentage inside `translate()` is of the element's own border box**, per Transforms 1 § 8 —
+the opposite of every percentage in the box model, and the same rule the `translate` property follows.
 
 **A `DrawCommand` is an axis-aligned rectangle, and none of them was rotated.** That is worth stating
 first because it was the standing reason this could not be done. The subtree rasterises into the
