@@ -961,6 +961,7 @@ T:Vixen.Ecs.QueryEntityAction`7 sweep-pending
 T:Vixen.Ecs.QueryEntityAction`8 sweep-pending
 T:Vixen.Ecs.QueryEntityAction`9 sweep-pending
 T:Vixen.Ecs.Systems.IDeclaredAccess sweep-pending
+T:Vixen.Ecs.Systems.InferAccessAttribute sweep-with-the-system-attributes — it sits beside [Reads] and [Writes] and is exempt on their terms; what it infers and what it refuses is in Vixen.Ecs/README.md § Systems
 T:Vixen.Ecs.Systems.ISystem sweep-pending
 T:Vixen.Ecs.Systems.ReadsAttribute sweep-pending
 T:Vixen.Ecs.Systems.SystemAccess sweep-pending

@@ -272,6 +272,9 @@ Vixen.Ecs.Systems.ISystem -> interface
 Vixen.Ecs.Systems.ISystem : System.IDisposable
 Vixen.Ecs.Systems.ISystem.Initialize(in Vixen.Ecs.Systems.SystemContext context) -> void
 Vixen.Ecs.Systems.ISystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+Vixen.Ecs.Systems.InferAccessAttribute -> sealed class
+Vixen.Ecs.Systems.InferAccessAttribute : System.Attribute
+Vixen.Ecs.Systems.InferAccessAttribute.InferAccessAttribute() -> void
 Vixen.Ecs.Systems.ReadsAttribute -> sealed class
 Vixen.Ecs.Systems.ReadsAttribute : System.Attribute
 Vixen.Ecs.Systems.ReadsAttribute.ComponentTypes.get -> System.Collections.Generic.IReadOnlyList<System.Type>

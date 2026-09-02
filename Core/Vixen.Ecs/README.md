@@ -121,6 +121,21 @@ is, and a write implies a read so "only writes X" and "only reads X" are never m
 disjoint. **A system that declares nothing conflicts with everything** — the only safe reading of "I
 did not say".
 
+**Or the access is read out of the body.** `[InferAccess]` on a partial system class asks
+`Vixen.Engine.Generators` to walk that class's own query calls and emit the other half of it,
+implementing `IDeclaredAccess` — which is the interface rather than the attributes because
+`Declare().Write<Position>()` *assigns* `Position` its component id, where an attribute can only look
+one up.
+
+⚠ **It is opt-in, and where the direction is not knowable it errs towards writing.** `Values<T>` is a
+write and `ReadValues<T>` a read, exactly as `Get` and `Read` are; but the delegate and visitor forms
+take every component by `ref` whether or not the body assigns through one, so their type arguments
+are all inferred as writes. Over-declaring costs parallelism; under-declaring is a data race. A
+`WithNone<T>` filter is neither — an entity that matched it has no `T` for anyone to race over. An
+explicit `[Reads]`/`[Writes]` on the same class overrides the inference and the generator says so
+(`VXS0410`) rather than emitting a declaration nothing reads, and a class it could infer nothing from
+is told (`VXS0411`) rather than left silently undeclared.
+
 **The same declaration is handed to the job scheduler.** For the length of a system's `Update` the
 runner opens a `JobAccessScope` carrying that system's access, so every job the system schedules
 carries it too and the scheduler refuses a schedule that lets two conflicting systems' jobs run at
