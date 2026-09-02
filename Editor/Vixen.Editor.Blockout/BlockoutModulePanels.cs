@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Ui;
-using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -50,7 +49,7 @@ public sealed partial class BlockoutModule {
             SettingsPanel,
             new StringId("editor.panel.blockout", "Blockout"),
             panel => {
-                Contextual(panel, BlockoutMode.BlockoutContext);
+                panel.WhenPressedIn(() => Shell.Context = BlockoutMode.BlockoutContext);
 
                 Section(panel, "Retopology");
 
@@ -84,20 +83,4 @@ public sealed partial class BlockoutModule {
     /// <summary>A titled divider, which is all a section is.</summary>
     static void Section(DockPanel panel, string title) => panel.Add("world-title").Text = title;
 
-    /// <summary>Makes the panel claim the blockout command context when it is pressed in.</summary>
-    /// <remarks>
-    ///     ⚠ <b>On the capture leg, so it lands before anything inside the panel handles the
-    ///     press.</b> Leaving a context matters as much as entering one: clicking a settings field has
-    ///     to stop Delete meaning "delete the selected entity".
-    /// </remarks>
-    void Contextual(DockPanel panel, string context) =>
-        panel.AddHandler<PointerEvent>(
-            (_, args) => {
-                if (args.Action == PointerAction.Pressed) {
-                    Shell.Context = context;
-                }
-            },
-            RoutingStrategy.Capture,
-            handledEventsToo: true
-        );
 }

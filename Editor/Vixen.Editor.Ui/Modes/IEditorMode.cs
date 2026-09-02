@@ -78,7 +78,8 @@ public interface IEditorMode {
     ///         ⚠ <b>The context is the mode's, and where it applies is the application's.</b> This
     ///         interface says nothing about the viewport, because <c>Vixen.Editor.Ui</c> has never
     ///         heard of one; the host is what decides that pressing in the scene pane means this
-    ///         context rather than the outliner's. See <c>EditorApplication.Contextual</c>.
+    ///         context rather than the outliner's — by handing <c>DockPanel.WhenPressedIn</c> a claim
+    ///         that reads <c>Modes.Context</c> on every press.
     ///     </para>
     /// </remarks>
     string? Context { get; }

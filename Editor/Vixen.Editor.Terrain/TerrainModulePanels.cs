@@ -104,7 +104,7 @@ public sealed partial class TerrainModule {
             TerrainPanel,
             new StringId("editor.panel.terrain", "Terrain"),
             panel => {
-                Contextual(panel, TerrainMode.TerrainContext);
+                panel.WhenPressedIn(() => Shell.Context = TerrainMode.TerrainContext);
 
                 Section(panel, "Create");
 
@@ -180,7 +180,7 @@ public sealed partial class TerrainModule {
             FoliagePanel,
             new StringId("editor.panel.foliage", "Foliage"),
             panel => {
-                Contextual(panel, FoliageMode.FoliageContext);
+                panel.WhenPressedIn(() => Shell.Context = FoliageMode.FoliageContext);
 
                 Section(panel, "Palette");
 
@@ -220,7 +220,7 @@ public sealed partial class TerrainModule {
             GrassPanel,
             new StringId("editor.panel.grass", "Grass"),
             panel => {
-                Contextual(panel, TerrainMode.TerrainContext);
+                panel.WhenPressedIn(() => Shell.Context = TerrainMode.TerrainContext);
 
                 Section(panel, "The rule");
 
@@ -244,7 +244,7 @@ public sealed partial class TerrainModule {
             GrowthPanel,
             new StringId("editor.panel.growth", "Growth"),
             panel => {
-                Contextual(panel, FoliageMode.FoliageContext);
+                panel.WhenPressedIn(() => Shell.Context = FoliageMode.FoliageContext);
 
                 Section(panel, "Simulation");
 
@@ -268,7 +268,7 @@ public sealed partial class TerrainModule {
             SplinePanel,
             new StringId("editor.panel.splines", "Splines"),
             panel => {
-                Contextual(panel, TerrainMode.TerrainContext);
+                panel.WhenPressedIn(() => Shell.Context = TerrainMode.TerrainContext);
 
                 Section(panel, "Profile");
 

@@ -170,22 +170,4 @@ public sealed partial class TerrainModule : IEditorPlugin {
         SaveFoliage();
     }
 
-    /// <summary>Makes a panel claim a command context when it is pressed in.</summary>
-    /// <remarks>
-    ///     ⚠ <b>On the capture leg, so it lands before anything inside the panel handles the
-    ///     press.</b> Leaving a context matters as much as entering one: clicking a terrain slider
-    ///     has to stop Delete meaning "delete the selected entity". The application has a copy of
-    ///     this for its own panels; it is eight lines over public API, which is cheaper than a
-    ///     contract for it.
-    /// </remarks>
-    void Contextual(DockPanel panel, string context) =>
-        panel.AddHandler<PointerEvent>(
-            (_, args) => {
-                if (args.Action == PointerAction.Pressed) {
-                    Shell.Context = context;
-                }
-            },
-            RoutingStrategy.Capture,
-            handledEventsToo: true
-        );
 }

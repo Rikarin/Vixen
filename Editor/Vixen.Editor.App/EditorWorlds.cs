@@ -115,7 +115,7 @@ sealed partial class EditorApplication {
             WorldPanel,
             new StringId("editor.panel.world", "World Settings"),
             panel => {
-                Contextual(panel, WorldContext);
+                panel.WhenPressedIn(() => Shell.Context = WorldContext);
 
                 Settings(panel, () => world0.Environment, "Environment");
                 Settings(panel, () => world0.Physics, "Physics");
@@ -126,7 +126,7 @@ sealed partial class EditorApplication {
             LightingPanel,
             new StringId("editor.panel.lighting", "Lighting"),
             panel => {
-                Contextual(panel, WorldContext);
+                panel.WhenPressedIn(() => Shell.Context = WorldContext);
 
                 Settings(panel, () => world0.Lighting, "Global Illumination");
 
@@ -153,7 +153,7 @@ sealed partial class EditorApplication {
             NavigationPanel,
             new StringId("editor.panel.navigation", "Navigation"),
             panel => {
-                Contextual(panel, WorldContext);
+                panel.WhenPressedIn(() => Shell.Context = WorldContext);
 
                 Settings(panel, () => world0.Navigation, "Agent");
 
@@ -176,7 +176,7 @@ sealed partial class EditorApplication {
             ScenesPanel,
             new StringId("editor.panel.scenes", "Scenes"),
             panel => {
-                Contextual(panel, SceneContext);
+                panel.WhenPressedIn(() => Shell.Context = SceneContext);
 
                 sceneList = panel.Add("scene-list");
                 RefreshScenes();

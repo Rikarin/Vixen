@@ -234,7 +234,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                 // the panel's height to be the panel's height and not the content's.
                 panel.Scrolls = false;
 
-                Contextual(panel);
+                panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
                 panel.Add<ProfilerView>().Show(profiler);
             }
@@ -249,7 +249,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                 // wants the panel's box, not a content-sized one.
                 panel.Scrolls = false;
 
-                Contextual(panel);
+                panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
                 var timeline = panel.Add<GpuTimelineView>();
 
@@ -269,7 +269,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                 // Its own scroller, with the refresh button and the status line kept out of it.
                 panel.Scrolls = false;
 
-                Contextual(panel);
+                panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
                 // ⚠ Built rather than added, because doc 36 § F7 made this panel a `.vxml` and a
                 // markup component is a `Component` — it *builds* elements and is not one. The host
@@ -296,7 +296,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             "statistics",
             new StringId("editor.panel.statistics", "Statistics"),
             panel => {
-                Contextual(panel);
+                panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
                 var statistics = BuildContext.Build<StatisticsView>(panel.Document, panel);
 
@@ -311,7 +311,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             "network",
             new StringId("editor.panel.network", "Network"),
             panel => {
-                Contextual(panel);
+                panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
                 // ⚠ Built rather than added, because the panel is a `.vxml` and a markup component
                 // is a `Component` — it *builds* elements and is not one. The host element it
@@ -346,7 +346,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             "frame-debugger",
             new StringId("editor.panel.frame-debugger", "Frame Debugger"),
             panel => {
-                Contextual(panel);
+                panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
                 var frames = panel.Add<FrameDebuggerView>();
                 frames.Source = FrameCaptureSource;
@@ -362,7 +362,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             "remote-inspector",
             new StringId("editor.panel.remote-inspector", "Remote Inspector"),
             panel => {
-                Contextual(panel);
+                panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
                 panel.Add<RemoteInspectorView>().Show(Inspector());
             }
@@ -372,7 +372,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             "devices",
             new StringId("editor.panel.devices", "Devices"),
             panel => {
-                Contextual(panel);
+                panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
                 var manager = panel.Add<DeviceManagerView>();
 
@@ -434,18 +434,6 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     string? Refuse(DeviceEntry device) =>
         deployer?.Refuse(device)
         ?? "This editor cannot build a player, so there is nothing to put on a device.";
-
-    /// <summary>Makes a panel claim the diagnostics context when it is pressed in.</summary>
-    void Contextual(DockPanel panel) =>
-        panel.AddHandler<PointerEvent>(
-            (_, args) => {
-                if (args.Action == PointerAction.Pressed) {
-                    shell.Context = DiagnosticsContext;
-                }
-            },
-            RoutingStrategy.Capture,
-            handledEventsToo: true
-        );
 
     /// <summary>The remote inspector's client, made on first use.</summary>
     RemoteInspectorClient Inspector() {

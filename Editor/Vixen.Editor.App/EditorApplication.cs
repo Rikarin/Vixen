@@ -1823,58 +1823,6 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    /// <summary>Makes a pointer press anywhere in a panel say which context the user is in.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>On press and on the tunnel leg, so it lands before anything acts on it.</b> A
-    ///         click in the outliner is what makes Delete mean an entity; recording it from a handler
-    ///         that runs after the tree's own would mean the first Delete of a visit to a panel was
-    ///         still aimed at the panel before it.
-    ///     </para>
-    ///     <para>
-    ///         <b>The press rather than the focus, because most of these panels do not take one.</b>
-    ///         A tree row is focusable and a viewport is not, and "which panel did the user last act
-    ///         in" is the question a scoped command is actually asking.
-    ///     </para>
-    /// </remarks>
-    void Contextual(DockPanel panel, string context) =>
-        panel.AddHandler<PointerEvent>(
-            (_, args) => {
-                if (args.Action == PointerAction.Pressed) {
-                    Shell.Context = context;
-                }
-            },
-            RoutingStrategy.Capture,
-            handledEventsToo: true
-        );
-
-    /// <summary>Ditto for the scene pane, whose context is whatever the active mode says it is.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The one panel that does not report a constant, and the editor mode is why.</b> A
-    ///         mode is "a statement about what the viewport's input means right now" — doc 20's A1 —
-    ///         and the way Blockout claims <c>1</c>, <c>2</c>, <c>3</c> and <c>4</c> from view-bookmark
-    ///         recall without taking them from anywhere else is by being the context the pane reports
-    ///         while it is active. A mode with no context of its own — Select — leaves the pane
-    ///         reporting <see cref="SceneContext" />, which is the editor exactly as it was.
-    ///     </para>
-    ///     <para>
-    ///         The other half is <see cref="RegisterModes" />: entering a mode claims the context
-    ///         without waiting for a press, because somebody who has just pressed the Blockout button
-    ///         has aimed at the viewport and should not have to click it as well.
-    ///     </para>
-    /// </remarks>
-    void ContextualViewport(DockPanel panel) =>
-        panel.AddHandler<PointerEvent>(
-            (_, args) => {
-                if (args.Action == PointerAction.Pressed) {
-                    Shell.Context = Shell.Modes.Context ?? SceneContext;
-                }
-            },
-            RoutingStrategy.Capture,
-            handledEventsToo: true
-        );
-
     /// <summary>Gives every pane of a rearranged layout what only this application can supply.</summary>
     /// <remarks>
     ///     <para>
@@ -1992,7 +1940,7 @@ sealed partial class EditorApplication : IDisposable {
             "hierarchy",
             new StringId("editor.panel.hierarchy", "Hierarchy"),
             panel => {
-                Contextual(panel, SceneContext);
+                panel.WhenPressedIn(() => Shell.Context = SceneContext);
 
                 // ⚠ Above the tree and outside it, because a filter is about the panel rather than
                 // about the control: the tree is a view of whatever it is handed, and what it is
@@ -2079,7 +2027,7 @@ sealed partial class EditorApplication : IDisposable {
                 "project",
                 new StringId("editor.panel.project", "Project"),
                 panel => {
-                    Contextual(panel, AssetContext);
+                    panel.WhenPressedIn(() => Shell.Context = AssetContext);
 
                     browser = new ProjectBrowser(project, panel, Extensions);
 
@@ -2147,7 +2095,18 @@ sealed partial class EditorApplication : IDisposable {
                     // needed to scroll because the viewport fills it by construction.
                     panel.Scrolls = false;
 
-                    ContextualViewport(panel);
+                    // ⚠ The one panel that does not report a constant, and the editor mode is why. A
+                    // mode is "a statement about what the viewport's input means right now" — doc
+                    // 20's A1 — and the way Blockout claims 1, 2, 3 and 4 from view-bookmark recall
+                    // without taking them from anywhere else is by being the context the pane reports
+                    // while it is active. A mode with no context of its own — Select — leaves the
+                    // pane reporting `SceneContext`, which is the editor exactly as it was. That is
+                    // why `WhenPressedIn` reads the claim on every press rather than capturing one.
+                    //
+                    // The other half is `RegisterModes`: entering a mode claims the context without
+                    // waiting for a press, because somebody who has just pressed the Blockout button
+                    // has aimed at the viewport and should not have to click it as well.
+                    panel.WhenPressedIn(() => Shell.Context = Shell.Modes.Context ?? SceneContext);
 
                     // ⚠ A layout rather than a control, and every pane in it is a whole
                     // `SceneViewport`. Doc 11 asks for "multiple simultaneous viewports with
@@ -2259,7 +2218,7 @@ sealed partial class EditorApplication : IDisposable {
             "console",
             new StringId("editor.panel.console", "Console"),
             panel => {
-                Contextual(panel, ConsoleContext);
+                panel.WhenPressedIn(() => Shell.Context = ConsoleContext);
 
                 console = panel.Add<ConsoleView>();
 

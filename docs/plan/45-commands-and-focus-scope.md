@@ -103,6 +103,18 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > The genuine defect the audit *did* find here is a different one and is worth a line: `Contextual`
 > is six copies of eight identical lines across five assemblies. That is a `DockPanel` member, not a
 > command-system problem.
+>
+> **Done 2026-09-02 ([#419](https://github.com/Rikarin/Vixen/issues/419)).** `DockPanel.WhenPressedIn`
+> takes the claim as an `Action` and all six copies are gone. The claim is read on *every* press
+> rather than captured once, which is what let `ContextualViewport` — the one that reports whichever
+> mode is active rather than a constant — fold into the same member instead of needing a second.
+> ⚠ **And the eleven cases of `CommandContextTests` did not pin the thing every one of those copies'
+> comments called the point.** Rewriting the shared member to the bubble leg with
+> `handledEventsToo: false` left all eleven green: a press in an *empty* panel reaches the panel on
+> either leg, and every panel those tests press is empty. `DockPanelPressTests` puts a child that
+> consumes the press in the panel and asserts the order, which is what makes the leg falsifiable.
+> This changes nothing about what a scope is derived from — that is still step 2's decision, and it
+> is now one edit rather than six.
 
 **G3 — A command has exactly one implementation.** `EditorCommand.Run` is an `Action` captured at
 registration. The property that makes AppKit's Edit ▸ Copy work everywhere — the menu declares

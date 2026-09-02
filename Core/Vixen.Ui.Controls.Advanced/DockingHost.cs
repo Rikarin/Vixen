@@ -242,6 +242,48 @@ public sealed partial class DockPanel : Control {
         return false;
     }
 
+    /// <summary>Runs something when a pointer press lands anywhere in this panel.</summary>
+    /// <param name="claim">
+    ///     What the press means. Read on every press rather than once, so a caller whose answer
+    ///     changes — the scene pane's, which reports whichever mode is active — needs no second
+    ///     overload.
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On press and on the capture leg, so it lands before anything inside the panel
+    ///         acts on it.</b> A click in the outliner is what makes Delete mean an entity; a handler
+    ///         that ran after the tree's own would mean the first Delete of a visit to a panel was
+    ///         still aimed at the panel before it. <c>handledEventsToo</c> for the same reason —
+    ///         a press a control consumes is still a press in this panel.
+    ///     </para>
+    ///     <para>
+    ///         <b>The press rather than the focus, because most docked panels do not take one.</b> A
+    ///         tree row is focusable and a viewport is not, and "which panel did the user last act
+    ///         in" is the question a scoped command is actually asking. That is a fact about docked
+    ///         panels rather than about any one application, which is why it is a member here: five
+    ///         assemblies had copied these eight lines, and a plugin adding a sixth panel had no way
+    ///         to say "presses in this one mean this" without copying them again.
+    ///     </para>
+    ///     <para>
+    ///         Leaving a context matters as much as entering one: clicking a settings field has to
+    ///         stop Delete meaning "delete the selected entity", which is what makes every panel
+    ///         claiming its own the whole mechanism.
+    ///     </para>
+    /// </remarks>
+    public void WhenPressedIn(Action claim) {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Pressed) {
+                    claim();
+                }
+            },
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+    }
+
     /// <summary>Scrolls by a distance, clamped to what there is.</summary>
     /// <param name="delta">How far, positive towards the end of the content.</param>
     public void Scroll(float delta) => ScrollTo(ScrollTop + delta);

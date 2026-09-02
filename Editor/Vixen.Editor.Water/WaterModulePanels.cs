@@ -34,7 +34,7 @@ public sealed partial class WaterModule {
             ZonePanel,
             new StringId("editor.panel.water.zone", "Water Zone"),
             panel => {
-                Contextual(panel, WaterMode.WaterContext);
+                panel.WhenPressedIn(() => Shell.Context = WaterMode.WaterContext);
 
                 Section(panel, "Window");
 
@@ -64,7 +64,7 @@ public sealed partial class WaterModule {
             BodyPanel,
             new StringId("editor.panel.water", "Water"),
             panel => {
-                Contextual(panel, WaterMode.WaterContext);
+                panel.WhenPressedIn(() => Shell.Context = WaterMode.WaterContext);
 
                 Section(panel, "Draw");
 

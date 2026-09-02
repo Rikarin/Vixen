@@ -221,24 +221,6 @@ public sealed partial class WaterModule : IEditorPlugin {
         }
     }
 
-    /// <summary>Makes a panel claim a command context when it is pressed in.</summary>
-    /// <remarks>
-    ///     ⚠ <b>On the capture leg, so it lands before anything inside the panel handles the
-    ///     press.</b> Leaving a context matters as much as entering one: clicking a water slider has
-    ///     to stop Delete meaning "delete the selected entity". <c>TerrainModule</c> has the same
-    ///     eight lines for the same reason.
-    /// </remarks>
-    void Contextual(DockPanel panel, string context) =>
-        panel.AddHandler<PointerEvent>(
-            (_, args) => {
-                if (args.Action == PointerAction.Pressed) {
-                    Shell.Context = context;
-                }
-            },
-            RoutingStrategy.Capture,
-            handledEventsToo: true
-        );
-
     /// <summary>One "label: value" row in a derived-facts readout.</summary>
     /// <remarks>
     ///     <see cref="FactRow" />, which is where <c>TerrainModule.Fact</c>'s four lines now live —
