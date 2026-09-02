@@ -184,7 +184,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Path-derived default addresses + `excluded:` | ✅ | Editor/Vixen.Editor.Assets | An asset with no `address` ships as `Assets/Textures/Crate.png`, reversing doc 08's "no `addressable` block means not shipped". An explicit address… |
 | Duplicate sub-asset names survive import | ✅ | Editor/Vixen.Editor.Assets | The second of two meshes called `Cube` in a `.glb` is `Cube_1` with a warning, rather than the whole asset failing with advice nothing in the editor… |
 | A typed load out of a real content build | ✅ | Core/Vixen.Assets, Editor/Vixen.Editor.Assets | Pinned by the first test to put a whole build into an `AssetManager` — which is what found two defects that made every shipped `Load<T>` fail and… |
-| `.vxnetrules` asset (importer + serialised form + per-prefab reference) | ⬜ | — | `NetworkRulesRegistry` is what it loads into; only prose in [plan/16](plan/16-networking.md) and the registry's own doc comment exist |
+| `.vxnetrules` asset (importer + serialised form + per-prefab reference) | ✅ | Core/Vixen.Net.Engine, Editor/Vixen.Editor.Assets | `NetworkRulesAsset` + `NetworkRulesReference` in `Vixen.Net.Engine` (⚠ not `Vixen.Net`, which may not reference `Vixen.Engine` and so runs neither the component nor the contract generator), `NetworkRulesImporter` in the built-in list, and `NetworkSpawner` resolving the name at the moment it allocates the id. ⚠ A name nothing loaded leaves the node on the server-authoritative default and counts into `NetworkSpawner.UnresolvedRules`. **Owed: filling the registry from the catalog by label**, the way `NetworkPrefabContent` does for prefabs |
 | Colour-grading `.cube` LUT importer | ✅ | Editor/Vixen.Editor.Assets | `CubeLutImporter` reads what Resolve, Baselight, Nuke and Photoshop export into an `Rgba16Float` volume, and `Tonemap.rvn` samples it with the… |
 | **The unregistered-importer gate** | ✅ | Editor/Vixen.Editor.Assets.Tests | Task #168, and the reason #167 was one of **six**: `[Importer]` is a declaration nothing scans for and `BuiltInImporters.Create` is a hand-written… |
 | Server content profile | ✅ | Editor/Vixen.Editor.Assets | `vixen content build --variant Server`, passed by `Vixen.Sdk` from `VixenVariant`. **A group membership question, per doc 17 and doc 27 § the realm**… |
@@ -540,7 +540,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | Awaitable RPC (`CallAsync<T>` → `Task<T>`) | ✅ | Core/Vixen.Net | Doc 16 said `ValueTask<T>` and was corrected |
 | Broadcasts (`IBroadcast<TSelf>`) | ✅ | Core/Vixen.Net |  |
 | `NetworkRules` policy (stricter-wins composition) | ✅ | Core/Vixen.Net |  |
-| `.vxnetrules` **asset** | ⬜ | — | Importer + serialised form + per-prefab reference; `NetworkRulesRegistry` is what it loads into. Was ⛔ on "the asset pipeline's half", which exists… |
+| `.vxnetrules` **asset** | ✅ | Core/Vixen.Net.Engine, Editor/Vixen.Editor.Assets | Format, importer and per-prefab reference. ⚠ `NetworkRules` gained `[DataContract]` and `Vixen.Net` two generators with it — a document the editor binds and a record a server deserialises both resolve through generated code emitted per assembly. Owed: the catalog-by-label load |
 | Replication — bit packing, `[Quantize]`, capture-once/copy-many, two-stage filter, ack'd baselines, shedding | ✅ | Core/Vixen.Net |  |
 | Field-level delta (`DeltaCodec`) | ✅ | Core/Vixen.Net | 19.2 → 9.7 kbit/s a client on `Samples/08` |
 | `SyncVar<T>` / `SyncList<T>` / `NetworkModule` | ✅ | Core/Vixen.Net.Engine | ⚠ **The dirty-marking system was missing until 2026-08-25**: `NetworkBehaviour.MarkChanged`'s own remarks said it is "called by the sync system… |
@@ -860,7 +860,6 @@ what is left.
 | Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |
 | ~~`Vixen.Editor.Profiler` · `.Debugger` · editor console~~ | — | Built. The console reads `RingBufferSink` live and the profiler reads the sample rings; the GPU and memory *tracks* underneath are still owed (#10) |
 | ~~Editor network panel~~ | — | Built — `NetworkView.vxml` in `Vixen.Editor.Debugger`, which already referenced `Vixen.Net` for the remote inspector's transport. No new public surface on `Vixen.Net`; see §1.11 |
-| `.vxnetrules` asset | W0-1 (asset-pipeline shape) | |
 | Prefab registry filled from the content catalog | W0-1 | |
 | `Samples/05-PlatformerGame` | W0-1 + W0-14 | Phase 8 exit criterion |
 
@@ -963,7 +962,7 @@ Detail, evidence and history live in the linked issue and the owning module `REA
 | 64 | `Vixen.Net` | `Relay` transport + fallback | [#200](https://github.com/Rikarin/Vixen/issues/200) |
 | 65 | `Vixen.Net` | UDP congestion control, ack piggybacking, path MTU, DTLS | [#201](https://github.com/Rikarin/Vixen/issues/201) |
 | 66 | `Vixen.Net` | Session bandwidth budgeting / priority shedding | [#202](https://github.com/Rikarin/Vixen/issues/202) |
-| 67 | `Vixen.Net` | `.vxnetrules` asset — the registry it would fill is built and reached, the format and importer do not exist; a prefab… | [#203](https://github.com/Rikarin/Vixen/issues/203) |
+| 67 | `Vixen.Net` | ~~`.vxnetrules` asset~~ — format, importer and per-prefab reference built; **still owed**: the registry filled from the catalog by label, scene messages, client-requested spawns, `OnOwnerDisconnect` → `Despawn` | [#203](https://github.com/Rikarin/Vixen/issues/203) |
 | 68 | `Vixen.Net` | Team/room/fog-of-war rules; resolver composition | [#204](https://github.com/Rikarin/Vixen/issues/204) |
 | 69 | `Vixen.Net` | ~~Per-axis / parent-relative `NetworkTransform`~~ (built — `NetworkTransformAxes`, `NetworkParent`); per-bone quantisation; pose interpolation | [#205](https://github.com/Rikarin/Vixen/issues/205) |
 | 70 | `Vixen.Net` | Hit-claim message; per-bone rewind; rewind cost budget; rewind visualisation | [#206](https://github.com/Rikarin/Vixen/issues/206) |
