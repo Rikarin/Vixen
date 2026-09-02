@@ -20,7 +20,9 @@ Spec: [docs/plan/17 § Project templates](../../docs/plan/17-app-heads-and-shipp
 
 `templates/` is the source. This package ships it, and [`Vixen.Cli`](../Vixen.Cli/README.md)
 **embeds** it — so `vixen new game` and `dotnet new vixen-game` produce the same directory rather
-than two directories that happen to look alike. A test asserts they still do.
+than two directories that happen to look alike. A test asserts they still do — by packing this
+package, installing it into the real `dotnet new` engine, and comparing what each path writes byte
+for byte.
 
 That matters because the two exist for different people. `dotnet new` is right for somebody who has
 installed the SDK; `vixen new` is right before anything is installed, which is the state a person is
@@ -73,8 +75,49 @@ somebody else's project and are outside every glob — so without this a templat
 overload that was dropped last month builds a perfectly good package and fails on the machine of the
 first person to run `dotnet new`.
 
-What it does not check is whether the project file *restores*: that needs a feed with the engine
-packages on it, which is CI's job and doc 14's Phase 11 clean-machine criterion.
+⚠ **And it packs the package and installs it into the real `dotnet new` engine**, into a hive of its
+own (`--debug:custom-hive`), then instantiates every template into a directory outside the
+repository and compares the result byte for byte against what `TemplateCatalog` writes.
+
+That second half exists because everything else here reads the templates through `TemplateCatalog`,
+which is *ours*: it parses `template.json` with its own reader and applies its own substitution, so a
+package the real engine cannot even open passes every other test in the project. That is not
+hypothetical — `NoDefaultExcludes` above is load-bearing for exactly this reason, and turning it off
+leaves a package that "builds, installs, and contains no templates at all". It was a sentence in a
+comment with nothing behind it; it is now seven red tests.
+
+It is also the first thing that actually checks the claim two sections up, that `vixen new game` and
+`dotnet new vixen-game` produce the same directory. Both paths read the same embedded files, so they
+agree about *content* by construction and say nothing about *substitution* — and substitution is
+where the two implementations differ.
+
+### What still needs a clean machine, and what a test here cannot fake
+
+**None of doc 14 § Phase 11's six targets is exercised.** Every one of them needs a restore, and a
+restore needs a feed with the engine packages on it. That criterion is a feed problem rather than a
+template problem, and no test on a developer's machine can stand in for it.
+
+⚠ **The obvious way to fake it passes, and not for the reason anybody would guess.** A scaffolded
+project restored from a temp directory outside this repository restores *successfully* on a
+developer's machine here — not because the repository is on disk, but because the machine's **global
+NuGet cache** holds ~57 `Vixen.*` packages at `0.1.0` from somebody's earlier `Pack`. Measured:
+
+```
+$ dotnet restore                                                       # succeeds
+$ dotnet restore --packages <empty dir> --source https://api.nuget.org/v3/index.json
+  error NU1101: Unable to find package Vixen.App.
+```
+
+A "does it restore outside the repo" test would therefore be green here, green on any CI runner with
+a warm cache, and a statement about nothing. So there is no such test. What is asserted instead is
+the **necessary condition** it would have been standing in for: every package and SDK version a
+template pins is one this repository actually produces, read off the project files — which is the
+failure `vixen-plugin` waited a whole phase to avoid and the reason three of doc 27's eight projects
+are still not scaffolded.
+
+What genuinely needs CI, in order: a feed with the packages on it; a runner with an empty package
+cache; and the Android, iOS and Web workloads for the three of the six targets a desktop machine
+cannot publish at all.
 
 ## `vixen-game`
 
