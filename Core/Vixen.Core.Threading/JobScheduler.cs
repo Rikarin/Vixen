@@ -123,6 +123,26 @@ public sealed class JobScheduler : IDisposable {
     [ThreadStatic] static int executingSlotPlusOne;
     [ThreadStatic] static int executingVersion;
 
+#if DEBUG || VIXEN_JOB_SAFETY
+    // The declaration in force on this thread. Process-wide rather than per scheduler, because a
+    // thread scheduling into two schedulers at once inside one scope is not a shape any caller has,
+    // and a per-scheduler table would cost a lookup on the scheduling path to describe it.
+    [ThreadStatic] static JobAccess? declaredAccess;
+
+    // 64 bits of ancestry per slot, one row per slot: bit s of row i means "job i transitively
+    // depends on whatever is in slot s". A row is rebuilt from the dependencies at Publish, which is
+    // the only moment a job's ancestry can change — nothing may be added to a job's dependencies
+    // after its handle exists.
+    const int AncestorWords = MaxJobsInFlight / 64;
+
+    readonly Lock accessGate = new();
+    readonly JobAccess?[] slotAccess = new JobAccess[MaxJobsInFlight];
+    readonly int[] slotAccessVersion = new int[MaxJobsInFlight];
+    ulong[]? ancestors;
+    long accessComparisons;
+    long declaredJobsScheduled;
+#endif
+
     readonly JobSlot[] slots = new JobSlot[MaxJobsInFlight];
     readonly int[] freeSlots = new int[MaxJobsInFlight];
     readonly Lock freeGate = new();
@@ -195,6 +215,85 @@ public sealed class JobScheduler : IDisposable {
             }
         }
     }
+
+    // The three members below read nothing but a thread-static in a build with the safety system
+    // compiled out, and CA1822 would have them static there and instance in a build with it. The
+    // public surface is not allowed to differ between the two — `CheckApi` baselines the Release one
+    // and the ECS calls the Debug one — so the shape is fixed and the rule is answered here.
+#pragma warning disable CA1822 // Instance in both configurations on purpose; see above.
+
+    /// <summary>How many jobs have been scheduled carrying a declaration.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read this before believing a clean run.</b> A build with
+    ///     <see cref="SafetyChecksEnabled" /> false, a build where nothing ever opened a
+    ///     <see cref="JobAccessScope" />, and a build where the check ran against every pair and
+    ///     found nothing all report no conflict. Only this and <see cref="AccessComparisons" />
+    ///     separate them: zero here means the safety system was never fed, which is a different fact
+    ///     from "no race".
+    /// </remarks>
+    public long DeclaredJobsScheduled {
+        get {
+#if DEBUG || VIXEN_JOB_SAFETY
+            return Interlocked.Read(ref declaredJobsScheduled);
+#else
+            return 0;
+#endif
+        }
+    }
+
+    /// <summary>How many pairs of jobs the safety system has actually compared.</summary>
+    /// <remarks>
+    ///     The other half of the instrument. A declared job with nothing else in flight is compared
+    ///     against nothing, so <see cref="DeclaredJobsScheduled" /> can be large while this is zero —
+    ///     which says the declarations exist and never overlapped, and is again not the same fact as
+    ///     "no race".
+    /// </remarks>
+    public long AccessComparisons {
+        get {
+#if DEBUG || VIXEN_JOB_SAFETY
+            return Interlocked.Read(ref accessComparisons);
+#else
+            return 0;
+#endif
+        }
+    }
+
+    /// <summary>Declares what every job this thread schedules from here on reads and writes.</summary>
+    /// <param name="access">The declaration, or <see cref="JobAccess.None" /> to declare nothing.</param>
+    /// <returns>A scope that puts the previous declaration back when it is disposed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Inside the scope, a job scheduled on this thread is checked at the moment it is
+    ///         scheduled against every other declared job that is in flight and that this one does
+    ///         not, directly or transitively, depend on. Two such jobs can run at the same time, so
+    ///         if their declarations conflict the schedule is a data race and
+    ///         <see cref="Schedule{TJob}(in TJob, JobHandle, JobPriority)" /> throws instead of
+    ///         letting it happen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The check is only as honest as the declaration.</b> A job that touches more than
+    ///         it declared is invisible to it — which is why the ECS derives the declaration from the
+    ///         same <c>SystemAccess</c> the system graph orders systems by, rather than from a second
+    ///         statement that could disagree with the first.
+    ///     </para>
+    ///     <para>
+    ///         Compiled out entirely unless <see cref="SafetyChecksEnabled" />, where it returns a
+    ///         scope whose disposal does nothing.
+    ///     </para>
+    /// </remarks>
+    public JobAccessScope DeclareAccess(JobAccess access) {
+        ArgumentNullException.ThrowIfNull(access);
+
+#if DEBUG || VIXEN_JOB_SAFETY
+        var previous = declaredAccess;
+        declaredAccess = access;
+        return new(this, previous);
+#else
+        return default;
+#endif
+    }
+
+#pragma warning restore CA1822
 
     /// <summary>Creates a scheduler with one worker per processor beyond the calling thread.</summary>
     /// <remarks>
@@ -724,7 +823,27 @@ public sealed class JobScheduler : IDisposable {
             InheritFailure(slot, dependsOn);
         }
 
-        return Release(index, slot, version);
+#if DEBUG || VIXEN_JOB_SAFETY
+        ReadOnlySpan<JobHandle> only = [dependsOn];
+        var violation = RecordDeclaredAccess(index, version, slot, only);
+
+        if (violation is not null) {
+            // Failed rather than abandoned: a failed job is skipped by the executor and its slot
+            // travels the ordinary completion path, so the racing work never runs and the ring does
+            // not leak the slot the throw below is about to abandon.
+            Interlocked.CompareExchange(ref slot.Failure, ExceptionDispatchInfo.Capture(violation), null);
+        }
+#endif
+
+        var handle = Release(index, slot, version);
+
+#if DEBUG || VIXEN_JOB_SAFETY
+        if (violation is not null) {
+            throw violation;
+        }
+#endif
+
+        return handle;
     }
 
     JobHandle Publish(int index, int version, ReadOnlySpan<JobHandle> dependsOn) {
@@ -739,8 +858,151 @@ public sealed class JobScheduler : IDisposable {
             }
         }
 
-        return Release(index, slot, version);
+#if DEBUG || VIXEN_JOB_SAFETY
+        var violation = RecordDeclaredAccess(index, version, slot, dependsOn);
+
+        if (violation is not null) {
+            Interlocked.CompareExchange(ref slot.Failure, ExceptionDispatchInfo.Capture(violation), null);
+        }
+#endif
+
+        var handle = Release(index, slot, version);
+
+#if DEBUG || VIXEN_JOB_SAFETY
+        if (violation is not null) {
+            throw violation;
+        }
+#endif
+
+        return handle;
     }
+
+    /// <summary>Puts back the declaration a scope replaced.</summary>
+    /// <remarks>
+    ///     Static because the declaration is the thread's rather than the scheduler's — see
+    ///     <see cref="DeclareAccess" />. The scope still remembers which scheduler issued it, so that
+    ///     the default scope, which no scheduler issued, disposes to nothing.
+    /// </remarks>
+    internal static void RestoreDeclaredAccess(JobAccess? previous) {
+#if DEBUG || VIXEN_JOB_SAFETY
+        declaredAccess = previous;
+#endif
+    }
+
+#if DEBUG || VIXEN_JOB_SAFETY
+    /// <summary>
+    ///     Records what this job declared and its ancestry, and looks for a job it could race.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Why the answer comes back rather than being thrown here.</b> The slot is rented and
+    ///         its setup guard is still held at this point, so throwing would leave a slot that is
+    ///         neither runnable nor free and <see cref="Dispose" /> would drain it forever. The
+    ///         caller instead marks the slot failed — which makes the job skipped rather than run —
+    ///         releases it through the ordinary path, and only then throws.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It can miss, and never invents.</b> An ancestor row is inherited from the
+    ///         dependency's row, and a dependency whose slot has since been re-rented no longer has
+    ///         one — that dependency finished, so it cannot be racing anything, but a job it depended
+    ///         on and that is somehow still in flight would no longer be recognised as an ancestor.
+    ///         The result of that is a conflict reported that a human has to dismiss, not one
+    ///         silently dropped, so the direction of the error is the safe one.
+    ///     </para>
+    /// </remarks>
+    InvalidOperationException? RecordDeclaredAccess(
+        int index,
+        int version,
+        JobSlot slot,
+        ReadOnlySpan<JobHandle> dependsOn
+    ) {
+        var access = declaredAccess;
+
+        lock (accessGate) {
+            var rows = ancestors ??= new ulong[MaxJobsInFlight * AncestorWords];
+            var row = index * AncestorWords;
+
+            // Cleared whether or not anything is declared: a later job that depends on this one
+            // inherits this row, and a row left over from whoever had the slot before would name
+            // ancestors this job does not have.
+            Array.Clear(rows, row, AncestorWords);
+
+            foreach (var dependency in dependsOn) {
+                if (dependency.IsNull || dependency.SchedulerId != Id) {
+                    continue;
+                }
+
+                if (Volatile.Read(ref slots[dependency.Index].Version) != dependency.Version) {
+                    continue;
+                }
+
+                var source = dependency.Index * AncestorWords;
+
+                for (var word = 0; word < AncestorWords; word++) {
+                    rows[row + word] |= rows[source + word];
+                }
+
+                rows[row + (dependency.Index >> 6)] |= 1ul << (dependency.Index & 63);
+            }
+
+            if (access is null || access.IsUndeclared) {
+                // Undeclared, so this job is not policed — and must not be left claiming whatever
+                // the slot's previous tenant declared.
+                slotAccess[index] = null;
+                return null;
+            }
+
+            slotAccess[index] = access;
+            slotAccessVersion[index] = version;
+            Interlocked.Increment(ref declaredJobsScheduled);
+
+            for (var other = 0; other < MaxJobsInFlight; other++) {
+                if (other == index) {
+                    continue;
+                }
+
+                var candidate = slotAccess[other];
+
+                if (candidate is null) {
+                    continue;
+                }
+
+                var otherSlot = slots[other];
+
+                // A slot whose version has moved on holds a different job, and one that is complete
+                // cannot overlap anything scheduled after it.
+                if (slotAccessVersion[other] != Volatile.Read(ref otherSlot.Version)
+                    || Volatile.Read(ref otherSlot.IsComplete)) {
+                    continue;
+                }
+
+                // Ordered by an edge, so the two can never be in flight together.
+                if ((rows[row + (other >> 6)] & (1ul << (other & 63))) != 0) {
+                    continue;
+                }
+
+                Interlocked.Increment(ref accessComparisons);
+
+                if (!access.ConflictsWith(candidate)) {
+                    continue;
+                }
+
+                return new(
+                    $"{Describe(slot)} declares {access} and {Describe(otherSlot)} declares "
+                    + $"{candidate}, they conflict, and neither depends on the other — so the "
+                    + "scheduler is free to run them at the same time. Add a dependency between "
+                    + "them, or narrow one of the declarations if it claims more than the job "
+                    + "touches."
+                );
+            }
+        }
+
+        return null;
+    }
+
+    static string Describe(JobSlot slot) => slot.Store?.Key.Name ?? "a job";
+#endif
+
 
     JobHandle Release(int index, JobSlot slot, int version) {
         // Drop the setup guard. If every dependency already finished, this is what starts the job.

@@ -848,6 +848,8 @@ T:Vixen.Core.Syntax.Text.TextChangeRange sweep-pending
 T:Vixen.Core.Syntax.Text.TextSpan sweep-pending
 T:Vixen.Core.Threading.IJob sweep-pending
 T:Vixen.Core.Threading.IJobParallelFor sweep-pending
+T:Vixen.Core.Threading.JobAccess sweep-with-JobScheduler — the declaration the safety system reads, and it is documented where the check is: Vixen.Core.Threading/README.md § The safety system
+T:Vixen.Core.Threading.JobAccessScope sweep-with-JobScheduler — the bracket that attaches a JobAccess to a thread's schedules; it has no meaning apart from JobScheduler.DeclareAccess and is described there
 T:Vixen.Core.Threading.JobExecutionException sweep-pending
 T:Vixen.Core.Threading.JobHandle sweep-pending
 T:Vixen.Core.Threading.JobScheduler sweep-pending

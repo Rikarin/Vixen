@@ -4,6 +4,7 @@
 using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.Collections;
+using Vixen.Core.Threading;
 
 namespace Vixen.Ecs.Systems;
 
@@ -32,6 +33,29 @@ public sealed class SystemAccess {
     /// <summary>Whether this declares nothing, and so conflicts with nothing.</summary>
     public bool IsEmpty => Reads.Count == 0 && Writes.Count == 0;
 
+    /// <summary>The same declaration in the terms the job scheduler's safety system reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Derived from this object rather than declared a second time, because a second
+    ///         statement is a second thing to keep true: the system graph orders systems by
+    ///         <see cref="ConflictsWith" /> and the scheduler polices the jobs those systems schedule,
+    ///         and the two disagreeing would mean the check passes exactly where the ordering is
+    ///         wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Undeclared maps onto <see cref="JobAccess.Everything" />, not
+    ///         <see cref="JobAccess.None" />.</b> The two mean opposite things: a system that declares
+    ///         nothing conflicts with everything here, so the jobs it schedules have to be checked
+    ///         against everything too. <see cref="JobAccess.None" /> means "not declared, not
+    ///         policed", which is what a job scheduled outside any system is.
+    ///     </para>
+    ///     <para>
+    ///         Computed once. A frame opens one scope per system per phase, and rebuilding two
+    ///         bitsets in each would be work the safety system did not ask for.
+    ///     </para>
+    /// </remarks>
+    public JobAccess JobAccess { get; }
+
     /// <summary>Builds an access set.</summary>
     /// <param name="reads">What is read.</param>
     /// <param name="writes">What is written.</param>
@@ -55,6 +79,10 @@ public sealed class SystemAccess {
         foreach (var id in written) {
             this.writes.Set(id.Value);
         }
+
+        JobAccess = read.Length == 0
+            ? JobAccess.Everything
+            : new([.. read.Select(id => id.Value)], [.. written.Select(id => id.Value)]);
     }
 
     /// <summary>Whether two systems may not run at the same time.</summary>

@@ -121,6 +121,19 @@ is, and a write implies a read so "only writes X" and "only reads X" are never m
 disjoint. **A system that declares nothing conflicts with everything** — the only safe reading of "I
 did not say".
 
+**The same declaration is handed to the job scheduler.** For the length of a system's `Update` the
+runner opens a `JobAccessScope` carrying that system's access, so every job the system schedules
+carries it too and the scheduler refuses a schedule that lets two conflicting systems' jobs run at
+once. It costs nothing in a release build — the whole mechanism is under `DEBUG || VIXEN_JOB_SAFETY`
+— and one declaration feeds both the ordering and the check, because two statements of the same
+thing would agree everywhere except where it matters.
+
+⚠ **What that catches is a system that drops its handle.** Returning `dependency` instead of the
+handle for the work just scheduled leaves the runner waiting for nothing, so the job runs on into the
+next system's turn — and the conflict graph, which is about systems and not about jobs, cannot see
+it. `Vixen.Core.Threading/README.md` § The safety system has the rest, including why a clean run and
+a run that never checked anything have to be told apart by a counter.
+
 A phase is bracketed: the world version moves on, the systems run, their work is completed, the
 command buffer is played back. Completing before playback is not a detail — a structural change
 moves rows between chunks, and a job still walking one would be walking overwritten memory.

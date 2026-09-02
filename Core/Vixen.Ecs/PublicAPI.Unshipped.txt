@@ -284,6 +284,7 @@ Vixen.Ecs.Systems.SystemAccess.Builder.Read<T>() -> Vixen.Ecs.Systems.SystemAcce
 Vixen.Ecs.Systems.SystemAccess.Builder.Write<T>() -> Vixen.Ecs.Systems.SystemAccess.Builder
 Vixen.Ecs.Systems.SystemAccess.ConflictsWith(Vixen.Ecs.Systems.SystemAccess other) -> bool
 Vixen.Ecs.Systems.SystemAccess.IsEmpty.get -> bool
+Vixen.Ecs.Systems.SystemAccess.JobAccess.get -> Vixen.Core.Threading.JobAccess
 Vixen.Ecs.Systems.SystemAccess.Reads.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.ComponentTypeId>
 Vixen.Ecs.Systems.SystemAccess.SystemAccess(System.Collections.Generic.IEnumerable<Vixen.Core.ComponentTypeId> reads, System.Collections.Generic.IEnumerable<Vixen.Core.ComponentTypeId> writes) -> void
 Vixen.Ecs.Systems.SystemAccess.Writes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.ComponentTypeId>

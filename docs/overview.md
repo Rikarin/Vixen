@@ -69,7 +69,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Core.Collections` | ✅ | Core/Vixen.Core.Collections | `RobinHoodDictionary` and `FixedBitSet<N>` deferred with reasons |
 | `Vixen.Core.Memory` — `NativeArray`, arena, buddy allocator | ✅ | Core/Vixen.Core.Memory | `GpuUploadRing` still owed — see the [module README](../Core/Vixen.Core.Memory/README.md) and [plan/03](plan/03-core-foundation.md) |
 | `Vixen.Core.Threading` — Chase–Lev deques, `JobHandle` DAG, `ScheduleParallel` | ✅ | Core/Vixen.Core.Threading | 70 tests |
-| `VIXEN_JOB_SAFETY` access declarations | ⬜ | — | The flag exists and `JobScheduler` compiles checks under it, but only the ones needing no declarations. The declarations themselves need the ECS to… |
+| `VIXEN_JOB_SAFETY` access declarations | ✅ | Core/Vixen.Core.Threading · Core/Vixen.Ecs | `JobAccess` over opaque resource ids, declared for a thread by `JobScheduler.DeclareAccess` and supplied by `SystemRunner` from the same `SystemAccess` the system graph orders by. Checked at schedule time against every in-flight job that is not an ancestor; `DeclaredJobsScheduled` and `AccessComparisons` say whether the check ran |
 | Thread pinning / affinity | ✅ | Platform/Vixen.Platform.{Windows,Linux} | The platform half. `SetThreadGroupAffinity` and `sched_setaffinity`, with performance/efficiency core classes; macOS reports `SupportsAffinity =… |
 | Job priorities / long-running tier | ✅ | Core/Vixen.Core.Threading · Core/Vixen.Rendering | `JobPriority.Frame` (default) and `JobPriority.Background`: a second deque per worker plus a second shared queue, every frame source drained before… |
 | `Vixen.Core.IO` — `VirtualPath`, mount table, providers, mmap, coalesced watch | ✅ | Core/Vixen.Core.IO | 123 tests. Android `AAssetManager` and Web IndexedDB/fetch providers landed with their platforms |
@@ -906,7 +906,7 @@ Detail, evidence and history live in the linked issue and the owning module `REA
 |---|---|---|---|
 | 1 | `Vixen.Core.Memory` | `GpuUploadRing` | [#145](https://github.com/Rikarin/Vixen/issues/145) |
 | 2 | `Vixen.Core.Collections` | `RobinHoodDictionary`, `FixedBitSet<N>` | [#146](https://github.com/Rikarin/Vixen/issues/146) |
-| 3 | `Vixen.Core.Threading` | `VIXEN_JOB_SAFETY` access declarations | [#147](https://github.com/Rikarin/Vixen/issues/147) |
+| 3 | ~~`Vixen.Core.Threading`~~ |  | [#147](https://github.com/Rikarin/Vixen/issues/147) |
 | 4 | `Vixen.Core.Threading` | The scheduler *using* thread affinity — the platform half is built (K3) | [#148](https://github.com/Rikarin/Vixen/issues/148) |
 | 5 | `Vixen.Core.Threading` | Job priority tier for streaming/decode | [#149](https://github.com/Rikarin/Vixen/issues/149) |
 | 6 | `Vixen.Core.IO` | The synchronous-IO ban (the `System.IO.Path` half is built) | [#150](https://github.com/Rikarin/Vixen/issues/150) |
