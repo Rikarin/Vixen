@@ -309,6 +309,18 @@ public sealed class GpuClusterVisibility : IDisposable {
     bool morphsDirty = true;
     long morphCapacity;
 
+    /// <summary>
+    ///     What <see cref="MeshStagingBytes" /> was when the mesh-record buffers were made — so the
+    ///     size they <em>have</em>, rather than the size the current registrations want.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The distinction is the whole of issue #140. <c>MeshStagingBytes</c> is recomputed from the
+    ///     lists every time it is read, so it grows with the data it was being used to bound, and both
+    ///     the reallocation check and the staging write's own overflow guard were comparing a number
+    ///     against itself.
+    /// </remarks>
+    long meshRecordCapacity;
+
     ResourceState visibleState = ResourceState.Undefined;
     ResourceState requestState = ResourceState.Undefined;
 
@@ -1287,8 +1299,16 @@ public sealed class GpuClusterVisibility : IDisposable {
     }
 
     /// <summary>Copies one array into the staging buffer and remembers where it has to end up.</summary>
+    /// <remarks>
+    ///     ⚠ Against <see cref="meshRecordCapacity" /> and not against <see cref="MeshStagingBytes" />.
+    ///     The property is recomputed from the lists on every read, so it grew in step with the data
+    ///     it was supposed to be bounding: this guard could not fire, and a registration after the
+    ///     buffers were made wrote past the end of the staging allocation instead. `EnsureBuffers`
+    ///     now grows the buffer before this runs, so this should never refuse — it stays because a
+    ///     guard whose failure is a host write into somebody else's memory is not one to remove.
+    /// </remarks>
     void Stage(BufferHandle destination, ReadOnlySpan<byte> bytes) {
-        if (bytes.IsEmpty || stagedMeshBytes + bytes.Length > MeshStagingBytes) {
+        if (bytes.IsEmpty || stagedMeshBytes + bytes.Length > meshRecordCapacity) {
             return;
         }
 
@@ -1480,12 +1500,31 @@ public sealed class GpuClusterVisibility : IDisposable {
         var wanted = (entries + VisibleBase) * sizeof(uint);
         var wantedMorphs = Math.Max((long)morphs.Count * sizeof(uint), 256);
 
-        // ⚠ The morph tables are in the condition, because they are the one mesh-record buffer that can
-        // grow after the first frame in a way nothing else notices. A morphed mesh registered into a
-        // scene whose buffers already exist would otherwise be staged into an allocation sized before
-        // it — a run of deltas truncated at whatever the last mesh needed, which is a face reading
-        // another mesh's entries and not a face at rest.
-        if (clusterBuffer.IsValid && visibleCapacity >= wanted && morphCapacity >= wantedMorphs) {
+        // ⚠ **Every mesh-record buffer is in the condition, and the morph tables were only ever the
+        // one that had been noticed.** `Register` grows `clusters`, `children`, `roots`, `geometry`,
+        // `grids`, `materials` and `morphs` together, and each of those buffers is sized from its own
+        // `.Count` at the moment it is created — so a mesh registered into a scene whose buffers
+        // already exist was staged into allocations made before it existed. `MeshStagingBytes` is
+        // their sum and every term of it only grows, so one comparison catches any of them.
+        //
+        // ⚠ **And it has to be against the capacity rather than against the property.**
+        // `MeshStagingBytes` is recomputed from the current lists on every read: the earlier form of
+        // this check, and `Stage`'s own overflow guard, were both comparing that number against
+        // itself and could not fail. What that permitted is not a truncated record but a *host write
+        // past the end of the staging buffer* — `NullDevice.Write` refuses it and names the two
+        // sizes; a real driver has a mapped pointer and does not.
+        //
+        // The visible list is separate because it is sized from the instance count instead, which is
+        // also why the first fixture written for this passed: a frame that adds an instance
+        // reallocates everything as a side effect and carries the mesh records along with it. The
+        // reachable case is a registration into a scene of fixed population, which is what a
+        // streaming load is.
+        var wantedRecords = Math.Max(MeshStagingBytes, 256);
+
+        if (clusterBuffer.IsValid
+            && visibleCapacity >= wanted
+            && morphCapacity >= wantedMorphs
+            && meshRecordCapacity >= wantedRecords) {
             return Occluding().IsValid;
         }
 
@@ -1591,12 +1630,14 @@ public sealed class GpuClusterVisibility : IDisposable {
 
         staging = device.CreateBuffer(
             new(
-                Math.Max(MeshStagingBytes, 256),
+                wantedRecords,
                 BufferUsage.CopySource,
                 MemoryAccess.HostUpload,
                 "ClusterCulling.Staging"
             )
         );
+
+        meshRecordCapacity = wantedRecords;
 
         if (zeros.IsValid) {
             device.Write(zeros, 0, MemoryMarshal.AsBytes<uint>([0u, 0u, 0u, 0u]));
@@ -1688,6 +1729,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         stagedMeshBytes = 0;
         visibleCapacity = 0;
         morphCapacity = 0;
+        meshRecordCapacity = 0;
     }
 
     /// <inheritdoc />

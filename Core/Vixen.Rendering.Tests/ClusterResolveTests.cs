@@ -480,6 +480,100 @@ public sealed class ClusterResolveTests : IDisposable {
         return visibility;
     }
 
+    /// <summary>A mesh registered after the first frame is staged into buffers that fit it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>EnsureBuffers</c> only ever watched two numbers, and the mesh records were not
+    ///         among them.</b> Its early-out asked whether the visible list had outgrown its capacity
+    ///         and whether the morph tables had, and returned. Every other buffer it makes —
+    ///         <c>Clusters</c>, <c>Children</c>, <c>Roots</c>, <c>Geometry</c>, <c>Grids</c>,
+    ///         <c>Materials</c> and the host-visible <c>Staging</c> they are all copied through — is
+    ///         sized from a <c>.Count</c> at the moment of allocation, and every one of those counts
+    ///         grows in <c>Register</c>. So a mesh registered after the first prepared frame had its
+    ///         records staged into an allocation made before it existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the guard that should have caught the overflow was measuring the wrong thing.</b>
+    ///         <c>Stage</c> refuses a write that would run past <c>MeshStagingBytes</c> — but that is a
+    ///         property recomputed from the current lists, not the size the staging buffer was actually
+    ///         created with, so it grew in step with the data it was supposed to be bounding and
+    ///         permitted every write. The null device is what says so out loud:
+    ///         <c>NullDevice.Write</c> refuses an offset past the end of a buffer, and a real driver
+    ///         would not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The instance count is held at two across both frames, and that is the whole
+    ///         fixture.</b> A first draft grew it from one to two and passed against the unfixed code —
+    ///         because the visible list is sized from the instance count, so a frame that adds an
+    ///         instance reallocates everything as a side effect and the mesh records come along for
+    ///         free. The defect is only reachable when the registration is the thing that changed,
+    ///         which is what a streaming load into a scene of fixed population is: content lands, the
+    ///         instances that will point at it are already there.
+    ///     </para>
+    ///     <para>
+    ///         The second registration is the same sphere under a second source, so the counts exactly
+    ///         double and the arithmetic is closed-form rather than a measured threshold.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_mesh_registered_after_the_first_frame_still_fits() {
+        var input = Sphere(8, 16);
+        var mesh = MeshletBuilder.Build(input);
+        var pages = MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = 4 * 1024 });
+
+        using var visibility = new GpuClusterVisibility(device) { Effects = effects, Pipelines = pipelines };
+
+        visibility.Register(mesh, pages, 0);
+        Populate(visibility);
+
+        Assert.True(visibility.Prepare([Camera()], [1f], [1f]), "the first frame did not prepare.");
+
+        var firstClusters = visibility.ClusterCount;
+        var firstCopies = MeshRecordCopies(visibility);
+
+        // The load that arrives while the level is already drawing, which is the ordinary case rather
+        // than an exotic one: streaming registers as content lands.
+        visibility.Register(mesh, pages, 1);
+
+        Assert.Equal(firstClusters * 2, visibility.ClusterCount);
+
+        Populate(visibility);
+
+        Assert.True(visibility.Prepare([Camera()], [1f], [1f]), "the second frame did not prepare.");
+
+        // ⚠ The second half of the claim, and the half a "did not throw" would not make. `Stage`
+        // returns silently when a write would not fit, so a fix that stopped the overflow without
+        // growing the buffers would stop the exception and quietly upload six of the seven record
+        // arrays instead. Eleven copies a frame: the seven record arrays, plus the four the traversal
+        // makes for its own counters and readback. Measured, and the sabotage that leaves the
+        // reallocation check out counts ten.
+        Assert.Equal(11, firstCopies);
+        Assert.Equal(firstCopies, MeshRecordCopies(visibility));
+
+        static void Populate(GpuClusterVisibility visibility) {
+            visibility.Begin(2);
+            visibility.Set(0, new() { Flags = GpuCulling.Alive, Scale = 1f });
+            visibility.Set(1, new() { Flags = GpuCulling.Alive, Scale = 1f });
+        }
+    }
+
+    /// <summary>How many buffer copies the prepared frame recorded, this frame alone.</summary>
+    /// <remarks>
+    ///     ⚠ <b>From an index taken before the recording, because <c>CommandRecorder</c> is
+    ///     cumulative over the whole fixture.</b> The first draft grouped every <c>CopyBuffer</c> in
+    ///     the stream by its source handle and took the largest group, reasoning that the mesh copies
+    ///     all come out of the staging buffer — which is true, and which made the count 7 only
+    ///     because the fixed code <em>reallocates</em> the staging buffer and so gives the second
+    ///     frame a handle of its own. Under sabotage the handle was reused, the two frames' copies
+    ///     landed in one group, and the number went up instead of down.
+    /// </remarks>
+    int MeshRecordCopies(GpuClusterVisibility visibility) {
+        var before = device.Recorder!.Commands.Count;
+        var commands = Record(list => visibility.Record(list));
+
+        return commands.Skip(before).Count(command => command.Kind == RecordedCommandKind.CopyBuffer);
+    }
+
     /// <summary>The same as <see cref="Record" />, keeping what the recorded call answered.</summary>
     bool Recorded(Func<ICommandList, bool> record) {
         var answer = false;
