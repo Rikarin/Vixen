@@ -1528,7 +1528,28 @@ two front ends" was always claiming.
 the exit criterion measures is that three agents are *visibly different* and *share every system*, and
 both of those are statements about positions and object identity rather than about pixels. A graphical
 sample would need a level, art and a renderer this document does not own, and it would assert none of
-it. A `Samples/` entry remains a good addition on top of this rather than instead of it.
+it. That argument still holds and is why the test came first.
+
+✅ **The `Samples/` entry that was owed on top of it exists: [`Samples/15-AiVillage`](../../Samples/15-AiVillage/README.md)**,
+with `AiVillage.Agent.Tests` beside it, both in `Vixen.slnx`. It is the first `Samples/` project in
+this repository to reference `Vixen.Ai` at all, and the first thing anywhere to construct § D20's
+`AiOverlaySystem` — nine tests and no application had registered one. ⚠ **Its evidence is still a log
+rather than a picture, and that vindicates the deviation rather than reversing it.** What it asserts
+happens in `SystemPhase.Update`, several phases before anything draws, so a headless run with no
+capture path prints every `SampleLog.Decided` line — *"a stack that runs and decides nothing is the
+failure to expect, and it is the one a frame counter cannot see"*. The log records **transitions**
+because "the guard is patrolling" is true of a guard that has never done anything else and of one that
+has just given up a chase.
+
+⚠ **What it caught is the argument for having built it.** Two defects, neither visible in review, both
+of the shape this phase's own § P6 warns about. `AiSnapshots.Take` filled `Snapshot.Action` from the
+field the *other two* planners maintain, so every behaviour-tree agent reported action index zero to
+the overlay and the panel — a valid registry index, so the answer always looked like an answer, and
+the existing tree-snapshot test registered exactly one action and was therefore right by accident.
+And a zeroed `NavigationDestination` is the world origin: it carries a `Vector3` and a version and no
+"has one" flag, so the villager set off for the corner on frame one with nothing erroring anywhere.
+Both are the same trap one level apart, and it is the one this repository keeps paying for: **zero is
+a valid-looking value**, so the wrong answer never presents as an error and every counter stays clean.
 
 ⚠ **And the sample deleted a symptom P7 had shipped.** `AiSymptom.NeverFinishes` reported an agent
 that had run one action for the whole window — and a patrol between two waypoints, a `MoveTo` across a
