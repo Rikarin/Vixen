@@ -66,14 +66,14 @@ Vixen.Net.Engine.NetworkPrefabRegistry.Require(string address) -> Vixen.Net.Engi
 Vixen.Net.Engine.NetworkPrefabRegistry.TryGet(Vixen.Net.Replication.NetworkPrefabId id, out Vixen.Net.Engine.NetworkPrefab? prefab) -> bool
 Vixen.Net.Engine.NetworkPrefabRegistry.TryGet(string address, out Vixen.Net.Engine.NetworkPrefab? prefab) -> bool
 Vixen.Net.Engine.NetworkRulesAsset -> sealed class
-Vixen.Net.Engine.NetworkRulesAsset.Name.get -> string!
-Vixen.Net.Engine.NetworkRulesAsset.Name.set -> void
+Vixen.Net.Engine.NetworkRulesAsset.Name.get -> string
+Vixen.Net.Engine.NetworkRulesAsset.Name.set -> string
 Vixen.Net.Engine.NetworkRulesAsset.NetworkRulesAsset() -> void
-Vixen.Net.Engine.NetworkRulesAsset.Rules.get -> Vixen.Net.Rules.NetworkRules!
-Vixen.Net.Engine.NetworkRulesAsset.Rules.set -> void
+Vixen.Net.Engine.NetworkRulesAsset.Rules.get -> Vixen.Net.Rules.NetworkRules
+Vixen.Net.Engine.NetworkRulesAsset.Rules.set -> Vixen.Net.Rules.NetworkRules
 Vixen.Net.Engine.NetworkRulesAsset.Validate() -> string?
 Vixen.Net.Engine.NetworkRulesReference -> struct
-Vixen.Net.Engine.NetworkRulesReference.Asset -> string!
+Vixen.Net.Engine.NetworkRulesReference.Asset -> string
 Vixen.Net.Engine.NetworkRulesReference.NetworkRulesReference() -> void
 Vixen.Net.Engine.NetworkSceneId -> readonly struct
 Vixen.Net.Engine.NetworkSceneId : System.IEquatable<Vixen.Net.Engine.NetworkSceneId>

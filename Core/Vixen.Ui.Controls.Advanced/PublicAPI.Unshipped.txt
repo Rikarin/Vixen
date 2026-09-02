@@ -68,6 +68,7 @@ Vixen.Ui.Controls.Advanced.CodeEditor.ClearAutoFold() -> void
 Vixen.Ui.Controls.Advanced.CodeEditor.ClearAutoIndent() -> void
 Vixen.Ui.Controls.Advanced.CodeEditor.ClearReadOnly() -> void
 Vixen.Ui.Controls.Advanced.CodeEditor.ClearTabSize() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.ClearWordWrap() -> void
 Vixen.Ui.Controls.Advanced.CodeEditor.CodeEditor() -> void
 Vixen.Ui.Controls.Advanced.CodeEditor.Completion.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.CodeEditor.CompletionAccepted -> System.Action<Vixen.Ui.Controls.Advanced.CodeEditor, Vixen.Ui.Controls.Advanced.CompletionItem>?
@@ -456,7 +457,7 @@ Vixen.Ui.Controls.Advanced.DockPanel.Scrolls.get -> bool
 Vixen.Ui.Controls.Advanced.DockPanel.Scrolls.set -> bool
 Vixen.Ui.Controls.Advanced.DockPanel.Title.get -> string?
 Vixen.Ui.Controls.Advanced.DockPanel.Title.set -> string?
-Vixen.Ui.Controls.Advanced.DockPanel.WhenPressedIn(System.Action! claim) -> void
+Vixen.Ui.Controls.Advanced.DockPanel.WhenPressedIn(System.Action claim) -> void
 Vixen.Ui.Controls.Advanced.DockSplitNode -> sealed class
 Vixen.Ui.Controls.Advanced.DockSplitNode : Vixen.Ui.Controls.Advanced.DockNode
 Vixen.Ui.Controls.Advanced.DockSplitNode.DockSplitNode(Vixen.Ui.Controls.Orientation orientation, Vixen.Ui.Controls.Advanced.DockNode first, Vixen.Ui.Controls.Advanced.DockNode second, float ratio = 0.5) -> void
