@@ -700,12 +700,28 @@ public sealed class EditorShell : IDisposable {
         // resumes before `Toolbar.Refresh` and before `RefreshStatus`, so a command that was
         // awaiting a dialog is entitled to change both, and before `Effects.Flush` at the bottom, so
         // a signal it writes is drained on this frame. See `DialogService.Pump`.
+        //
+        // ⚠ **Still polled, and doc 45 step 4 expected this line to go.** Every button on both
+        // strips is now bound to its id, so each one follows `UiDocument.CommandsInvalidated` by
+        // itself — which is the whole point of step 5 and does make the poll unnecessary for a
+        // command whose state says it changed. Two of the editor's own do not say so. `file.save`
+        // reads a scene's dirty signal and `assets.build` reads a content build's busy flag —
+        // `Volatile.Read` over a counter a worker thread moves — and neither has any notification
+        // to hang an invalidation on. Deleting this would leave Save greyed after the first edit
+        // and Build enabled through a build, with nothing failing anywhere, which is worse than a
+        // poll.
+        //
+        // ⚠ And it asks *these buttons*, not the document. `Document.InvalidateCommands()` here
+        // would be the same poll spelled correctly and would wake every bound `MenuItem` on the bar
+        // as well — two hundred lines that are not on screen, asked sixty times a second, in place
+        // of ten that are. See #430.
         Toolbar.Refresh();
 
-        // ⚠ Only when there is one. A mode button's `Checked` predicate is what draws which mode you
-        // are in, so the strip has to be refreshed on the tick like every other toolbar — and asking
-        // an empty strip's predicates every frame is the cost every shell with no modes would pay for
-        // a feature it has not got.
+        // ⚠ Only when there is one, and for the mode's *tools* rather than for the mode buttons.
+        // Entering a mode raises `Modes.Changed`, which rebuilds this strip outright — so which
+        // mode you are in is drawn without any help from here. What is left is the strip the active
+        // mode contributes: Blockout's element kinds and Terrain's brush categories are radio groups
+        // whose `Checked` moves when a tool command runs, and a command running invalidates nothing.
         if (Modes.Modes.Count > 0) {
             ModeBar.Refresh();
         }

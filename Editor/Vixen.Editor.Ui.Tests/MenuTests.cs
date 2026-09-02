@@ -127,7 +127,11 @@ public class MenuTests : IDisposable {
         model.AddMenu(Title("File")).Add("file.save");
 
         var presenter = Present(model);
-        presenter.Bar.Items[0].Menu.Items[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+        // ⚠ `Activate` rather than a raised `ClickEvent`, and the change is the wiring rather than
+        // the test. A bound command runs from the activation and the click is the *notification*
+        // that it did — see `ButtonBase.Activate` — so a synthesised click is now the report of a
+        // thing that did not happen. This is the path a real press takes.
+        presenter.Bar.Items[0].Menu.Items[0].Activate();
 
         Assert.Equal(1, ran);
     }
@@ -193,7 +197,7 @@ public class MenuTests : IDisposable {
         var toolbar = new ToolbarPresenter(document.Root, commands, keys);
         toolbar.Show("file.save");
 
-        toolbar.Strip.Children[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+        Assert.IsAssignableFrom<ButtonBase>(toolbar.Strip.Children[0]).Activate();
         Assert.Equal(1, ran);
     }
 
@@ -207,7 +211,7 @@ public class MenuTests : IDisposable {
 
         Assert.Equal(2, menu.Items.Count);
 
-        menu.Items[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+        menu.Items[0].Activate();
         Assert.Equal(1, ran);
     }
 
@@ -239,10 +243,10 @@ public class MenuTests : IDisposable {
         var shapes = Assert.IsType<Menu>(menu.Items[1].Submenu, exactMatch: false);
         Assert.Equal(2, shapes.Items.Count);
 
-        // ⚠ Raised on the submenu's item, which is the case the flat overload cannot express: the
-        // click handler is on the submenu rather than on the menu it hangs off, because a submenu is
-        // a sibling of its parent rather than a child of it.
-        shapes.Items[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+        // ⚠ On the submenu's own item, which is the case the flat overload cannot express: a
+        // submenu is a sibling of its parent rather than a child of it, so a line inside one is
+        // reached and bound in its own right.
+        shapes.Items[0].Activate();
         Assert.Equal(1, ran);
     }
 

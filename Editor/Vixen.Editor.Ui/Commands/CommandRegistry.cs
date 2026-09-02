@@ -121,7 +121,23 @@ public sealed class CommandRegistry : ICommandResponder {
         // bypassed it would be the one that broke it.
         responders.Add(
             command.Id,
-            CommandHandler.For(command.Id, this, () => Run(command), () => CanExecute(command), isChecked: command.Checked)
+            CommandHandler.For(
+                command.Id,
+                this,
+                () => Run(command),
+                () => CanExecute(command),
+
+                // ⚠ Only for the handful of commands whose name *is* their state, and `null` for
+                // every other one. `CommandHandler.Title` of `null` means "leave the surface's own
+                // label alone", which is right for every command named once where its menu line is
+                // written; a delegate here for all of them would hand a bound surface a string to
+                // re-read on every refresh in order to assign it the label it already had.
+                //
+                // ⚠ And the decision is made now rather than per lookup, because `Caption` is an
+                // `init` property: whether a command renames itself cannot change after this line.
+                command.Caption is null ? null : () => command.CurrentTitle.Text,
+                command.Checked
+            )
         );
 
         Changed?.Invoke(this);
@@ -167,11 +183,19 @@ public sealed class CommandRegistry : ICommandResponder {
     ///         nothing after this to catch it.
     ///     </para>
     ///     <para>
-    ///         <b>No title.</b> <see cref="EditorCommand.CurrentTitle" /> is a <c>StringId</c> and
-    ///         the route's title is a string, so resolving one here would need a catalogue this
-    ///         table does not have; <c>null</c> means "leave the surface's own label alone", which
-    ///         is right for every editor command whose menu line is already written.
-    ///         <c>MenuPresenter</c> is where a caption is resolved, and stays so.
+    ///         ⚠ <b>A title only for a command that renames itself, and this used to say there could
+    ///         be none at all.</b> The stated reason was that
+    ///         <see cref="EditorCommand.CurrentTitle" /> is a <c>StringId</c> and the route's title
+    ///         is a string, "so resolving one here would need a catalogue this table does not have".
+    ///         That is wrong: <c>StringId.Text</c> resolves through <c>Strings</c>, which is static
+    ///         and process-wide — the one static reactive node in <c>Vixen.Ui</c> — so every table
+    ///         has it. Without the title a bound toolbar button showed <i>Local Space</i> in both
+    ///         states, which is the exact defect <see cref="EditorCommand.Caption" /> exists to fix.
+    ///     </para>
+    ///     <para>
+    ///         For every other command it is still <c>null</c>, meaning "leave the surface's own
+    ///         label alone" — right for the overwhelming majority, whose name is written once where
+    ///         their menu line is.
     ///     </para>
     /// </remarks>
     public bool TryGetCommandHandler(string id, out CommandHandler handler) {

@@ -58,6 +58,7 @@ Vixen.Ui.Controls.ButtonBase.Command.set -> string?
 Vixen.Ui.Controls.ButtonBase.HasIcon.get -> bool
 Vixen.Ui.Controls.ButtonBase.LabelPart.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.ButtonBase.LeadingIcon.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.ButtonBase.RefreshCommand() -> void
 Vixen.Ui.Controls.Card -> sealed class
 Vixen.Ui.Controls.Card : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Card.Body.get -> Vixen.Ui.UiElement

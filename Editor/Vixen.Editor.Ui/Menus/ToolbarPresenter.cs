@@ -3,7 +3,6 @@
 
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Styling;
 
 namespace Vixen.Editor.Ui;
 
@@ -15,11 +14,22 @@ namespace Vixen.Editor.Ui;
 ///         enabled state is looked up rather than declared here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Enablement is refreshed on a tick rather than when something changes.</b> A menu can
-///         wait until it opens; a toolbar is on screen the whole time, and there is no event for
-///         "the selection changed in a way that makes Delete meaningful". One predicate per button
-///         per frame is a handful of comparisons — and it is the same trade the command's own
-///         remarks make about keeping the predicate cheap.
+///         ⚠ <b>Nothing here computes enablement any more; every button is bound to its id.</b>
+///         <c>ButtonBase.Command</c> is what writes <c>Disabled</c>, the label and the check state,
+///         from whatever the route resolves the id to — so this class no longer knows that a
+///         registry is the thing that answers, and a strip built by an application with a different
+///         responder behind it works the same. What it costs is a requirement: the registry has to
+///         be reachable from the document, which <c>EditorShell</c> does by installing it as the
+///         <c>ApplicationCommandResponder</c>. A presenter over a registry nothing installed shows
+///         every button greyed, because nothing responds — which is the binding telling the truth
+///         and not a bug in it.
+///     </para>
+///     <para>
+///         ⚠ <b>A bound button follows the invalidation, and this strip is still polled anyway.</b>
+///         See <see cref="Refresh" />: two of the editor's own toolbar predicates read state that
+///         tells the document nothing, so <c>EditorShell.Tick</c> still asks. The poll is now one
+///         line calling the same refresh the invalidation would, rather than a second implementation
+///         of what a bound button already does.
 ///     </para>
 ///     <para>
 ///         <b>A command with an icon gets an icon button; one without gets its title.</b> A toolbar
@@ -39,7 +49,7 @@ namespace Vixen.Editor.Ui;
 ///     </para>
 /// </remarks>
 public sealed class ToolbarPresenter {
-    readonly List<(ButtonBase Button, EditorCommand Command)> buttons = [];
+    readonly List<ButtonBase> buttons = [];
     readonly List<ContextMenu> popovers = [];
     readonly CommandRegistry commands;
     readonly KeyMap keys;
@@ -71,6 +81,14 @@ public sealed class ToolbarPresenter {
         this.host = host;
         this.commands = commands;
         this.keys = keys;
+
+        // ⚠ A strip of bound buttons is only as good as the chain that answers them, and a presenter
+        // handed a registry nothing installed would draw every button greyed with no error anywhere
+        // — the failure this repository calls "ask what the gate prints on the day it does not run".
+        // `??=` rather than an assignment: a host that has already said what answers its commands
+        // outranks this, and `EditorShell` installs the same instance itself, so this changes
+        // nothing in the editor and makes a presenter usable on its own everywhere else.
+        host.Document.ApplicationCommandResponder ??= commands;
 
         slot = host.Children.Count;
     }
@@ -134,8 +152,6 @@ public sealed class ToolbarPresenter {
             host.Document.Move(strip, Math.Min(slot, host.Children.Count - 1));
         }
 
-        strip.AddHandler<ClickEvent>((_, args) => Chosen(args));
-
         foreach (var entry in Entries) {
             switch (entry) {
                 case ToolbarSeparator:
@@ -143,7 +159,7 @@ public sealed class ToolbarPresenter {
                     break;
 
                 case ToolbarButton(var id) when commands.TryGet(id, out var command):
-                    buttons.Add((Button(strip, command), command));
+                    buttons.Add(Button(strip, command));
                     break;
 
                 case ToolbarGroup(var ids):
@@ -162,30 +178,28 @@ public sealed class ToolbarPresenter {
         Refresh();
     }
 
-    /// <summary>Asks every command on the strip whether it can run, and shows the answer.</summary>
+    /// <summary>Asks the route about every command on the strip, and shows the answers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One line per button, and the three things it used to set are the binding's now.</b>
+    ///         <c>ButtonBase.RefreshCommand</c> resolves the id through <c>CommandRoute</c> and
+    ///         writes <c>Disabled</c>, the label from <c>CommandHandler.Title</c> and the check
+    ///         state — the same three, from the same predicates, reached through the chain rather
+    ///         than through this class's private knowledge that a registry is what answers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Still a poll, and this is the honest half of moving onto the binding.</b> A
+    ///         bound button follows <see cref="UiDocument.CommandsInvalidated" /> by itself, so a
+    ///         strip whose commands' state all invalidates needs nobody to call this. The editor's
+    ///         does not: <c>file.save</c> reads a scene's dirty signal and <c>assets.build</c> reads
+    ///         a content build's busy flag, and neither says so to the document. Until they do,
+    ///         <c>EditorShell.Tick</c> calls this — and it asks <i>these</i> buttons rather than
+    ///         invalidating the document, which would wake every menu item on the bar as well.
+    ///     </para>
+    /// </remarks>
     public void Refresh() {
-        foreach (var (button, command) in buttons) {
-            button.Disabled = !commands.CanExecute(command);
-
-            // ⚠ Re-read, for the handful of commands whose name is their state — see
-            // `EditorCommand.Caption`. A label written once at build time is right for every other
-            // button on the strip and wrong for exactly these, and a strip rebuilt to change one
-            // word would throw away the popovers with it.
-            if (command.Caption is not null) {
-                button.Label = command.CurrentTitle.Text;
-            }
-
-            if (command.Checked is null) {
-                continue;
-            }
-
-            // Through the state rather than a class, because `:checked` is what the control theme
-            // already draws a pressed toggle with.
-            if (command.IsChecked) {
-                button.State |= ElementState.Checked;
-            } else {
-                button.State &= ~ElementState.Checked;
-            }
+        foreach (var button in buttons) {
+            button.RefreshCommand();
         }
     }
 
@@ -200,7 +214,7 @@ public sealed class ToolbarPresenter {
 
         foreach (var id in commandIds) {
             if (commands.TryGet(id, out var command)) {
-                buttons.Add((Button(group, command), command));
+                buttons.Add(Button(group, command));
             }
         }
 
@@ -236,6 +250,12 @@ public sealed class ToolbarPresenter {
         if (command.ClassName is { Length: > 0 } className) {
             button.AddClass(className);
         }
+
+        // ⚠ Last, after the face is built and classed. Setting it resolves the id straight away, so
+        // a button bound before it had a label would be greyed and named by the route on a control
+        // that is not finished — and `Face` writes `Label` for the icon variants, which would then
+        // overwrite the name a captioned command had just supplied.
+        button.Command = command.Id;
 
         return button;
     }
@@ -302,14 +322,5 @@ public sealed class ToolbarPresenter {
         chevron.AddClass("chevron");
 
         return button;
-    }
-
-    void Chosen(ClickEvent args) {
-        foreach (var (button, command) in buttons) {
-            if (ReferenceEquals(args.Source, button)) {
-                commands.Execute(command.Id);
-                return;
-            }
-        }
     }
 }

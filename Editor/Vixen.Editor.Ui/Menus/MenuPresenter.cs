@@ -16,9 +16,20 @@ namespace Vixen.Editor.Ui;
 ///         after the menu item went grey.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Enablement is applied as the menu opens, not as it is built.</b> A menu built at
-///         start-up and never touched again would show whatever was true then. Opening is the last
-///         moment before the user reads it, and it is cheap: one predicate per visible line.
+///         ⚠ <b>Enablement is applied as the menu opens, not as it is built — and this class no
+///         longer applies it.</b> A menu built at start-up and never touched again would show
+///         whatever was true then; opening is the last moment before the user reads it, and it is
+///         cheap, one predicate per visible line. What changed is who does it: every line is bound
+///         to its id through <c>ButtonBase.Command</c>, and <c>Menu</c> refreshes its bound items
+///         from its own <c>OpenChanged</c>. Same moment, same predicate, one implementation.
+///     </para>
+///     <para>
+///         ⚠ <b>Which means the registry has to be answerable in the document.</b> A bound id
+///         resolves through <c>CommandRoute</c>, whose last link is
+///         <see cref="UiDocument.ApplicationCommandResponder" /> — so a presenter built over a
+///         registry nothing installed would grey every line with nothing failing anywhere. The
+///         constructor and both <c>Context</c> overloads install it when the document has not
+///         already been told, which <c>EditorShell</c> does for itself.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A rebuild replaces the bar rather than editing it.</b> <see cref="MenuBar" /> can be
@@ -35,7 +46,6 @@ namespace Vixen.Editor.Ui;
 ///     </para>
 /// </remarks>
 public sealed class MenuPresenter : IDisposable {
-    readonly Dictionary<MenuItem, string> itemCommands = [];
     readonly List<Menu> menus = [];
     readonly UiElement host;
     readonly CommandRegistry commands;
@@ -65,6 +75,11 @@ public sealed class MenuPresenter : IDisposable {
         this.host = host;
         this.commands = commands;
         this.keys = keys;
+
+        // ⚠ See `ToolbarPresenter`'s constructor: a bar of bound items is only as good as the chain
+        // that answers them, and one built over a registry nothing installed greys every line with
+        // no error anywhere. `??=`, so a host that has already said what answers outranks this.
+        host.Document.ApplicationCommandResponder ??= commands;
 
         // Taken before the first bar exists, so it is the position the host was handed over for
         // rather than the position the bar happens to be at — which is the same thing on the first
@@ -128,7 +143,6 @@ public sealed class MenuPresenter : IDisposable {
         }
 
         menus.Clear();
-        itemCommands.Clear();
         bar?.Remove();
 
         bar = host.Add<MenuBar>();
@@ -198,8 +212,9 @@ public sealed class MenuPresenter : IDisposable {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(keys);
 
+        document.ApplicationCommandResponder ??= commands;
+
         var menu = document.Root.Add<ContextMenu>();
-        var map = new Dictionary<MenuItem, string>();
 
         foreach (var id in commandIds) {
             if (id is null) {
@@ -208,23 +223,9 @@ public sealed class MenuPresenter : IDisposable {
             }
 
             if (commands.TryGet(id, out var command)) {
-                map[Line(menu, command, keys)] = id;
+                Line(menu, command, keys);
             }
         }
-
-        menu.AddHandler<ClickEvent>(
-            (_, args) => {
-                if (args.Source is MenuItem item && map.TryGetValue(item, out var id)) {
-                    commands.Execute(id);
-                }
-            }
-        );
-
-        menu.OpenChanged += (opened, isOpen) => {
-            if (isOpen) {
-                Enable((Menu) opened, map, commands);
-            }
-        };
 
         return menu;
     }
@@ -261,21 +262,21 @@ public sealed class MenuPresenter : IDisposable {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(keys);
 
-        var menu = document.Root.Add<ContextMenu>();
-        var map = new Dictionary<MenuItem, string>();
+        document.ApplicationCommandResponder ??= commands;
 
-        Fill(menu, group, commands, keys, map, null);
+        var menu = document.Root.Add<ContextMenu>();
+
+        Fill(menu, group, commands, keys, null);
         return menu;
     }
 
-    void Fill(Menu menu, MenuGroup group) => Fill(menu, group, commands, keys, itemCommands, menus);
+    void Fill(Menu menu, MenuGroup group) => Fill(menu, group, commands, keys, menus);
 
     /// <summary>Puts a group's entries into a menu, and its submenus into menus of their own.</summary>
     /// <param name="menu">The menu.</param>
     /// <param name="group">What goes in it.</param>
     /// <param name="commands">What its lines run.</param>
     /// <param name="keys">What the shortcuts say.</param>
-    /// <param name="map">Where each line's command id is recorded, so a click can find it.</param>
     /// <param name="track">
     ///     Every menu built, for a caller that rebuilds — or <see langword="null" /> for one that
     ///     does not. A context menu is removed with the panel that owns it and needs no list.
@@ -285,28 +286,9 @@ public sealed class MenuPresenter : IDisposable {
         MenuGroup group,
         CommandRegistry commands,
         KeyMap keys,
-        Dictionary<MenuItem, string> map,
         List<Menu>? track
     ) {
         track?.Add(menu);
-
-        // ⚠ On the menu rather than on the bar, and this is not a detail. `MenuBar.AddMenu` puts
-        // the dropdown on the *document root* so that it can hang below the bar without being
-        // clipped by it — so the bar is not an ancestor of its own menu items, and a routed handler
-        // on the bar sees a click on "File" and never sees the click on "Save".
-        menu.AddHandler<ClickEvent>(
-            (_, args) => {
-                if (args.Source is MenuItem item && map.TryGetValue(item, out var id)) {
-                    commands.Execute(id);
-                }
-            }
-        );
-
-        menu.OpenChanged += (opened, isOpen) => {
-            if (isOpen) {
-                Enable((Menu) opened, map, commands);
-            }
-        };
 
         // ⚠ Separators are held back rather than added, and only emitted once something follows
         // them. A menu whose entries are ids, some of which no longer resolve, otherwise comes out
@@ -324,14 +306,14 @@ public sealed class MenuPresenter : IDisposable {
                 // arrow on it that opens onto nothing is worse than no line.
                 case MenuSubmenu(var child) when HasContent(child, commands):
                     Rule(menu, ref pending);
-                    Fill(menu.AddSubmenu(child.Title.Text), child, commands, keys, map, track);
+                    Fill(menu.AddSubmenu(child.Title.Text), child, commands, keys, track);
 
                     any = true;
                     break;
 
                 case MenuCommand(var id) when commands.TryGet(id, out var command):
                     Rule(menu, ref pending);
-                    map[Line(menu, command, keys)] = id;
+                    Line(menu, command, keys);
 
                     any = true;
                     break;
@@ -343,7 +325,7 @@ public sealed class MenuPresenter : IDisposable {
                         }
 
                         Rule(menu, ref pending);
-                        map[Line(menu, command, keys)] = id;
+                        Line(menu, command, keys);
 
                         any = true;
                     }
@@ -379,6 +361,15 @@ public sealed class MenuPresenter : IDisposable {
             item.Mark.Geometry = command.RadioGroup is null ? ControlIcons.Check : EditorIcons.RadioMark;
         }
 
+        // ⚠ The whole of the wiring, and it replaces two things rather than one: the click handler
+        // that used to run the id, and the pass over every line that used to grey it. `Menu` asks
+        // the route about each bound item as it opens — the same moment `Enable` ran — so the line
+        // is right the instant it is on screen rather than on the frame after.
+        //
+        // After the mark's geometry, because setting it resolves at once and a checkable command
+        // whose mark did not exist yet would be shown ticked with an empty gutter.
+        item.Command = command.Id;
+
         // ⚠ Swapped out of the table's vocabulary before it is drawn: the keymap holds Ctrl+S and a
         // Mac has to read ⌘S, which is the key its user will actually press. See
         // `KeyChord.ForPlatform`.
@@ -388,28 +379,5 @@ public sealed class MenuPresenter : IDisposable {
         }
 
         return item;
-    }
-
-    /// <summary>Applies enablement and tick marks to a menu that is about to be read.</summary>
-    static void Enable(Menu menu, Dictionary<MenuItem, string> map, CommandRegistry commands) {
-        foreach (var item in menu.Items) {
-            if (!map.TryGetValue(item, out var id) || !commands.TryGet(id, out var command)) {
-                continue;
-            }
-
-            // ⚠ Scope as well as enablement, through the registry rather than the command. A line
-            // for a command belonging to a context the user is not in is one that would do nothing
-            // if it were clicked — `CommandRegistry.Execute` refuses it — and a menu that offered it
-            // anyway would be the menu lying about what a click will do.
-            item.Disabled = !commands.CanExecute(command);
-
-            // The mark is a part that exists only once something asks for it, so a command that is
-            // not a toggle never grows one — which is what keeps the ordinary menu from being
-            // indented by a column of empty ticks. An inline `display` rather than a class,
-            // because a class relies on a rule this assembly did not write.
-            if (command.Checked is not null) {
-                item.Mark.SetStyle("display", command.IsChecked ? "flex" : "none");
-            }
-        }
     }
 }

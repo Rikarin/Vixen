@@ -102,7 +102,7 @@ public class ToolbarSectionTests : IDisposable {
         var menu = Assert.Single(document.Root.Children.OfType<ContextMenu>());
         Assert.Equal(2, menu.Items.Count);
 
-        menu.Items[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+        menu.Items[0].Activate();
         Assert.Equal(1, ran);
     }
 

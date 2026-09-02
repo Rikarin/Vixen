@@ -130,7 +130,17 @@ public abstract partial class ButtonBase : Control {
     ///     refreshed by whatever happened to notice. It is cheap by construction: a resolve is a walk
     ///     up a handful of parents and the three predicates are the handler's own.
     /// </remarks>
-    internal void RefreshCommand() {
+    /// <remarks>
+    ///     ⚠ <b>Public for the surface that knows something changed and the document does not, and
+    ///     not as an invitation to poll.</b> <see cref="UiDocument.InvalidateCommands" /> is the
+    ///     right call for anything that has just changed state, and it costs one raise a frame for
+    ///     the whole document. This is for the opposite case: a caller that wants <i>these</i>
+    ///     buttons re-asked without waking every bound item in the tree — the editor's toolbar,
+    ///     whose predicates read a dirty flag and a background build's busy flag, neither of which
+    ///     invalidates anything. A caller reaching for this on a timer should wire the invalidation
+    ///     instead.
+    /// </remarks>
+    public void RefreshCommand() {
         if (command is null) {
             return;
         }

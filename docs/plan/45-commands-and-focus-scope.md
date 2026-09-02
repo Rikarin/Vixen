@@ -264,7 +264,51 @@ Each step is independently shippable and leaves the editor working.
    four ordering tests, leaving `The_document_is_asked_after_the_root_and_the_root_wins` green
    because it is about the other join.
 
-4. **Editor menus and toolbars move onto the binding**, deleting the hand-maintained enablement.
+4. ✅ **Editor menus and toolbars move onto the binding**, deleting the hand-maintained enablement. —
+   *Landed 2026-09-02 ([#418](https://github.com/Rikarin/Vixen/issues/418)).* `MenuPresenter.Line`
+   and `ToolbarPresenter.Button` set `ButtonBase.Command`; both `!commands.CanExecute(command)`
+   lines are gone, and so are the two `ClickEvent` handlers that used to run the id and
+   `MenuPresenter.Enable`'s pass over every line. A menu is still asked as it opens — `Menu`
+   refreshes its bound items from `OpenChanged`, which step 3 built for exactly this — so the moment
+   enablement is applied has not moved.
+
+   > ⚠️ **The step's own note that all three of `Disabled`, the label and the check state were
+   > "covered" was wrong about the label, and the reason it gave was wrong too.** `CommandHandler`
+   > has carried `Title` since step 3, but `CommandRegistry` passed none, on the written grounds
+   > that `EditorCommand.CurrentTitle` is a `StringId` and "resolving one here would need a
+   > catalogue this table does not have". `Strings` is static and process-wide — the one static
+   > reactive node in `Vixen.Ui` — so every table has it. Ported as it stood, the gizmo's space
+   > button would have read *Local Space* in both states: the exact defect `EditorCommand.Caption`
+   > was added to fix. The registry now supplies a title for captioned commands and `null` for the
+   > rest, which is what leaves an ordinary menu line's own label alone.
+
+   > ⚠️ **A presenter now needs the registry to be answerable in its document, so it installs it.**
+   > A bound id resolves through `CommandRoute`, which ends at the document's
+   > `ApplicationCommandResponder`; a presenter handed a registry nothing installed would draw every
+   > button greyed with nothing failing anywhere. Both constructors and both static `Context`
+   > overloads do `document.ApplicationCommandResponder ??= commands` — `??=`, so a host that has
+   > already said what answers outranks them, and `EditorShell` installs the same instance itself.
+
+   > ⚠️ **And `EditorShell.Tick`'s `Toolbar.Refresh()` had to stay, which the step expected to
+   > delete.** The mode strip is fine: entering a mode raises `Modes.Changed`, which rebuilds that
+   > strip outright, so which mode you are in is drawn without the tick. The main strip is not:
+   > `file.save` reads a scene's dirty signal and `assets.build` reads `ContentTasks.IsBusy`, a
+   > `Volatile.Read` over a counter a worker thread moves, and neither tells the document anything.
+   > Deleting the poll would leave Save greyed after the first edit with nothing failing. It is now
+   > one line calling the same refresh the invalidation would, and it asks *those buttons* rather
+   > than invalidating the document — which with the menus bound would wake two hundred off-screen
+   > menu items sixty times a second in place of ten visible buttons. Filed as
+   > [#430](https://github.com/Rikarin/Vixen/issues/430); `CommandRegistry.Executed →
+   > InvalidateCommands` is most of it.
+
+   `ToolbarBindingTests` asserts both directions the way step 5 did — an item greys and un-greys on
+   an invalidation nobody helped along, *and* ten quiet frames ask no predicate at all — plus the
+   check state and the caption, each with its counter-assertion. Sabotage: not setting `Command` on
+   the toolbar fails **12 of 428** (four of them the chrome goldens); dropping the registry's title
+   fails exactly **1**; dropping its check state fails **6**; not setting `Command` on menu lines
+   fails **6**. ⚠ Five existing tests changed and no others: `Raise(new ClickEvent …)` is no longer
+   how a bound item runs — the command runs from `Activate` and the click is the notification that
+   it did — so those five call `Activate()`, which is the path a real press takes.
 5. ✅ **`Invalidated`**, and the two persistently visible surfaces subscribe. — *Landed 2026-08-25.*
    `UiDocument.CommandsInvalidated` and `UiDocument.InvalidateCommands()`, raised from
    `UiDocument.Tick`; `ButtonBase` subscribes for as long as it has a bound id, so the event ships
