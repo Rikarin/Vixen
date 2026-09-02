@@ -241,7 +241,7 @@ sealed class AllocationNames : EventListener {
     /// </summary>
     static readonly string DrainName = typeof(AllocationDrainSentinel).FullName!;
 
-    static readonly AllocationDrainSentinel?[] sink = new AllocationDrainSentinel?[1];
+    static readonly AllocationDrainSentinel?[] Sink = new AllocationDrainSentinel?[1];
 
     readonly Lock gate = new();
     readonly Dictionary<string, Sampled> mine = [];
@@ -362,7 +362,7 @@ sealed class AllocationNames : EventListener {
 
         while (Volatile.Read(ref drained) == 0 && drain.Elapsed < Patience) {
             for (var index = 0; index < DrainBatch; index++) {
-                sink[0] = new();
+                Sink[0] = new();
             }
         }
 
