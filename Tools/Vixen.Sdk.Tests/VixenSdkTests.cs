@@ -228,6 +228,63 @@ public sealed class VixenSdkTests : IDisposable {
         Assert.True(File.Exists(Path.Combine(root, "Build", HostTarget, "catalog.bin")));
     }
 
+    /// <summary>
+    ///     <b>The only thing the <c>BeforeTargets="CoreCompile"</c> ordering exists for, proved by
+    ///     compiling against it.</b> The opt-in makes the import write <c>Addresses.g.cs</c> into
+    ///     <c>obj/</c> and add it to <c>Compile</c> from inside the target, and this asserts the
+    ///     whole chain the only way it can be asserted: a program that names the constant, built.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Every step of that chain was untested. The CLI half has its own tests
+    ///     (<c>VixenCommandTests.ImportingWritesTheAddressConstantsWhenAskedTo</c>) and the emitter
+    ///     has twenty more, but nothing asked whether the SDK passes <c>--addresses</c>, whether
+    ///     the file lands where the <c>Compile</c> item looks for it, or whether what the emitter
+    ///     writes is C# the compiler accepts. The first two are properties of an MSBuild
+    ///     evaluation and the third is a property of Roslyn, so only a real build sees any of them
+    ///     — and a generated file that does not compile fails a game's build, not ours.
+    /// </remarks>
+    [Fact]
+    public void AnAddressConstantTheImportWroteCompilesIntoTheAssembly() {
+        Project(
+            properties: "<VixenAddressConstants>true</VixenAddressConstants>"
+            + "<VixenAddressNamespace>Probe</VixenAddressNamespace>",
+            entryPoint: AddressProbe
+        );
+
+        var build = Run("run");
+
+        Assert.True(build.Succeeded, build.Output);
+
+        var generated = Path.Combine(root, "obj", "Debug", "net10.0", "Vixen", "Addresses.g.cs");
+        Assert.True(File.Exists(generated), build.Output);
+        Assert.Contains("namespace Probe;", File.ReadAllText(generated), StringComparison.Ordinal);
+
+        // Run rather than built, so the address is read back out of the assembly the compiler
+        // produced: a file written and never reached by Compile cannot get this far, and a
+        // constant carrying the wrong text would print the wrong thing rather than nothing.
+        Assert.Contains("address=ui/hero", build.Output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The control that stops the test above passing for the wrong reason.
+    /// </summary>
+    /// <remarks>
+    ///     Same program, same assets, opt-in off — and it must fail to compile. Without this the
+    ///     test above would still be green if <c>Probe.Addresses</c> came from anywhere else, or if
+    ///     the SDK had started writing the constants unconditionally, which is the one outcome
+    ///     neither of us wants: a project that declined a build step and got it anyway.
+    /// </remarks>
+    [Fact]
+    public void WithoutTheOptInTheSameProgramDoesNotCompile() {
+        Project(entryPoint: AddressProbe);
+
+        var build = Run();
+
+        Assert.False(build.Succeeded, build.Output);
+        Assert.Contains("CS0103", build.Output, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(root, "obj", "Debug", "net10.0", "Vixen", "Addresses.g.cs")));
+    }
+
     /// <summary>A project with no assets is a normal .NET project, and nothing runs.</summary>
     [Fact]
     public void AProjectWithNoAssetsDirectoryJustBuilds() {
@@ -379,6 +436,16 @@ public sealed class VixenSdkTests : IDisposable {
                 public BuildVariant Variant { get; } = variant;
             }
         }
+        """;
+
+    /// <summary>
+    ///     Prints the address the content build wrote a constant for. It names nothing the project
+    ///     declares itself — unlike <see cref="VariantProbe" />, which has to declare the attribute
+    ///     it looks for — so the only way this compiles is the generated file reaching
+    ///     <c>Compile</c>, which is the whole claim.
+    /// </summary>
+    const string AddressProbe = """
+        System.Console.WriteLine($"address={Probe.Addresses.Ui.Hero.Address}");
         """;
 
     void Project(

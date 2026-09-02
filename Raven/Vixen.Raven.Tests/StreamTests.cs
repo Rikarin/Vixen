@@ -365,6 +365,12 @@ public class StreamTests {
     ///         stage that wrote it has no interpolation to describe, and decorating its output would
     ///         be a claim about the wrong end of the wire.
     ///     </para>
+    ///     <para>
+    ///         ⚠ That last paragraph is true of SPIR-V and <em>only</em> of SPIR-V, because a stage
+    ///         is its own module here and nothing links the two. It was applied to GLSL as well and
+    ///         was wrong there — see
+    ///         <see cref="GlslQualifiesTheSameStreamFlatAtBothEnds" />.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void AnIntegerStreamIsFlat() {
@@ -401,21 +407,46 @@ public class StreamTests {
         );
     }
 
-    /// <summary>And GLSL says the same thing in its own words.</summary>
+    /// <summary>
+    ///     And GLSL says the same thing in its own words — <b>at both ends</b>, which is where it
+    ///     stops agreeing with SPIR-V.
+    /// </summary>
     /// <remarks>
-    ///     GLSL rejects the declaration without the qualifier, so this is the same rule and not a
-    ///     second one — which is why both backends ask <c>StageInterface.MustBeFlat</c> rather than
-    ///     each deciding. Two copies of a rule is how they come to differ.
+    ///     <para>
+    ///         GLSL rejects the declaration without the qualifier, so this is the same rule and not
+    ///         a second one — which is why both backends ask <c>StageInterface.MustBeFlat</c> rather
+    ///         than each deciding. Two copies of a rule is how they come to differ.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This test asserted <c>flat out</c>'s absence, and that was the bug.</b> The
+    ///         reasoning it inherited — the decoration describes how a value is <em>received</em>,
+    ///         so only the fragment input carries it — is SPIR-V's, where a stage is its own module
+    ///         and the vertex output genuinely must not be decorated (asserted above, and still
+    ///         true). GLSL is not modules: <c>Platform/Vixen.Graphics.OpenGL/GlslTranslator</c>
+    ///         hands these two strings to <c>glShaderSource</c> and links them into one program, and
+    ///         a linked program whose halves disagree about an interpolation qualifier does not
+    ///         link. An integer vertex output is separately required to be <c>flat</c> in GLSL ES.
+    ///     </para>
+    ///     <para>
+    ///         It is reachable rather than theoretical: <c>vixen content build --shader-target glsl</c>
+    ///         is the GLES and WebGL2 path, and two shipped library shaders carry an integer stream
+    ///         across the boundary — <c>Pipeline/ForwardPlus.rvn</c>'s <c>objectIndex</c> and
+    ///         <c>Pipeline/ClusterRaster.rvn</c>'s <c>identity</c>.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void GlslQualifiesTheSameStreamFlat() {
+    public void GlslQualifiesTheSameStreamFlatAtBothEnds() {
         var module = Lower(Indexed);
         var fragment = GlslFor(module, ShaderStage.Fragment);
         var vertex = GlslFor(module, ShaderStage.Vertex);
 
         Assert.Contains("flat in int in_objectIndex;", fragment, StringComparison.Ordinal);
+        Assert.Contains("flat out int out_objectIndex;", vertex, StringComparison.Ordinal);
+
+        // The float stream at both ends too, for the reason the SPIR-V test gives: qualifying
+        // everything flat links perfectly and quietly kills interpolation.
         Assert.DoesNotContain("flat in vec2", fragment, StringComparison.Ordinal);
-        Assert.DoesNotContain("flat out", vertex, StringComparison.Ordinal);
+        Assert.DoesNotContain("flat out vec2", vertex, StringComparison.Ordinal);
     }
 
     /// <summary>A stream is not a binding: nothing about it reaches a descriptor set.</summary>

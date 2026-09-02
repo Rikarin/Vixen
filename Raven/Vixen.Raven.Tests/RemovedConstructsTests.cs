@@ -233,6 +233,91 @@ public class RemovedConstructsTests {
             "RVN2025"
         );
 
+    /// <summary>
+    ///     <b>String interpolation is refused, and belongs on this list rather than on a gap list.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <c>docs/plan/07</c> disagrees with itself about this. § I carries it as an open
+    ///         syntax-fidelity gap — "needs lexer modes for embedded expressions" — while the
+    ///         paragraph retiring <c>Library/Example2.rvn</c> lists it among the <em>deliberately
+    ///         removed</em> constructs that made that file unfixable, beside <c>class</c>,
+    ///         <c>string</c> as a type, <c>long</c>, <c>null</c>, <c>int?</c> and <c>!</c>. The
+    ///         second is the one that follows from the language: an interpolation is an expression
+    ///         whose value is a <c>string</c>, there is no such type, and
+    ///         <see cref="A_string_literal_in_expression_position_is_rejected" /> is <c>RVN2025</c>
+    ///         saying so about the simpler case. A lexer mode would buy the syntax for a value
+    ///         nothing could hold.
+    ///     </para>
+    ///     <para>
+    ///         So this pins what the compiler does now rather than proposing what it should. The
+    ///         <c>$</c> is <c>RVN1002</c> from the lexer, which carries it as trivia — and that
+    ///         second half is what makes the attribute case worth an assertion of its own below.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_interpolated_string_in_expression_position_is_rejected_twice_over() {
+        var tree = SyntaxTree.ParseText(
+            """
+            package A
+
+            shader S {
+                var tint: float4
+
+                func M() {
+                    val s = $"tint is {tint}"
+                }
+            }
+
+            """,
+            path: "Test.rvn"
+        );
+
+        Assert.Equal("RVN1002", Assert.Single(tree.Diagnostics).Id);
+
+        Assert.Contains(
+            Vixen.Raven.Compilation.Create("Test", tree).GetDiagnostics(),
+            d => d.Id == "RVN2025"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ And in the one position a string literal <em>is</em> legal, the interpolation is not
+    ///     merely refused — the text is read as though the holes were literal characters.
+    /// </summary>
+    /// <remarks>
+    ///     An attribute argument is compile-time metadata, so it is the one place an interpolation
+    ///     could plausibly be asked for: <c>[Semantic($"TEXCOORD{Index}")]</c> over a permutation
+    ///     key. What happens instead is that the lexer reports the <c>$</c> and carries it as
+    ///     <em>trivia</em>, so the token stream the parser sees is an ordinary string literal and
+    ///     <c>SemanticName</c> comes back holding the braces. Only <c>RVN1002</c> being an error
+    ///     stops that reaching a backend, which is a thin thing to rest on — and it is the argument
+    ///     for the syntax staying refused rather than half-understood.
+    /// </remarks>
+    [Fact]
+    public void An_interpolated_attribute_argument_is_read_as_its_own_braces() {
+        const string Source = """
+                              package A
+
+                              shader S {
+                                  [Semantic($"SV_Target{0}")]
+                                  var tint: float4
+                              }
+
+                              """;
+
+        var tree = SyntaxTree.ParseText(Source, path: "Test.rvn");
+
+        Assert.Equal("RVN1002", Assert.Single(tree.Diagnostics).Id);
+
+        var compilation = Vixen.Raven.Compilation.Create("Test", tree);
+
+        Assert.Equal(
+            "SV_Target{0}",
+            GetMember<FieldSymbol>(FindType(compilation, "S"), "tint").SemanticName
+        );
+    }
+
     [Fact]
     public void An_integer_literal_too_large_for_int_takes_the_unsigned_shape() {
         var (compilation, tree, model) = Compile(

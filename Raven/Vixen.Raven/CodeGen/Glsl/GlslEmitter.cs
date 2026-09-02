@@ -445,12 +445,21 @@ sealed class GlslEmitter {
             var name = Reserve("out_" + output.Name);
             outputNames.Add(name);
 
+            // The matching half of the stream-output rule below, for a stage output that is not a
+            // stream. A fragment stage's outputs are render targets and take no qualifier; anything
+            // else is a varying a fragment stage will declare `flat`, and in a linked GL program
+            // the two declarations have to agree.
+            var flat = entryPoint.Stage != ShaderStage.Fragment && StageInterface.MustBeFlat(output.Type)
+                ? "flat "
+                : string.Empty;
+
             // The member index rather than the list position, so a target lowering pruned as
             // unwritten leaves a hole instead of renumbering its neighbours — the same rule the
             // vertex inputs follow, and for the same reason: the host's attachment list is built
             // from declaration order.
             writer.Line(
-                $"layout(location = {outputBase + (output.Member ?? i)}) out {Declare(output.Type, name, output.Name)};"
+                $"layout(location = {outputBase + (output.Member ?? i)}) {flat}out "
+                + $"{Declare(output.Type, name, output.Name)};"
                 + Comment(output.Semantic)
             );
         }
@@ -542,8 +551,7 @@ sealed class GlslEmitter {
             streamReads[stream.Variable] = name;
 
             // The same rule SPIR-V states as `Flat`: an integer has no interpolation to take, so GLSL
-            // requires the qualifier here and rejects the declaration without it. Only on the input,
-            // because it describes how a value is received.
+            // requires the qualifier here and rejects the declaration without it.
             var flat = entryPoint.Stage == ShaderStage.Fragment && StageInterface.MustBeFlat(stream.Type)
                 ? "flat "
                 : string.Empty;
@@ -558,8 +566,26 @@ sealed class GlslEmitter {
         foreach (var stream in entryPoint.StreamOutputs) {
             var name = Reserve("out_" + stream.Name);
             streamWrites[stream.Variable] = name;
+
+            // ⚠ And on the producing side too, which is where GLSL and SPIR-V stop agreeing. In
+            // SPIR-V the decoration describes how a fragment input is *received*, so only that
+            // input carries it and the vertex output must not — which is what the SPIR-V emitter
+            // does and what `StreamTests` pins. GLSL is not a set of separate modules: the GL
+            // backend hands these two strings to `glShaderSource` and links them into one program
+            // (`Platform/Vixen.Graphics.OpenGL/GlslTranslator`, reached by
+            // `vixen content build --shader-target glsl` for GLES and WebGL2), and a linked program
+            // whose two halves disagree about an interpolation qualifier is a link error. An
+            // integer vertex output is separately required to be `flat` in GLSL ES.
+            //
+            // `!= Fragment` rather than `== Vertex`: a fragment stage's outputs are render targets,
+            // which are not interpolated and which `flat out` would be an error on — and a compute
+            // stage cannot carry a stream at all (RVN3006).
+            var flat = entryPoint.Stage != ShaderStage.Fragment && StageInterface.MustBeFlat(stream.Type)
+                ? "flat "
+                : string.Empty;
+
             writer.Line(
-                $"layout(location = {StreamPlan.LocationOf(shader, stream)}) out "
+                $"layout(location = {StreamPlan.LocationOf(shader, stream)}) {flat}out "
                 + $"{Declare(stream.Type, name, stream.Name)};"
                 + Comment("stream")
             );
