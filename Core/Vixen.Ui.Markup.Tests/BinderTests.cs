@@ -66,6 +66,33 @@ public class BinderTests {
         Assert.Equal(name, attribute.Name);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A <c>bind:</c>'s dots are event names and an <c>on:</c>'s are filter words</b>, so
+    ///     nothing here checks them against a list: which events exist is the runtime's table, and a
+    ///     control library adds to it. That is the same bargain an <c>on:</c> event <i>name</i> is
+    ///     already emitted under, and the failure is the same one at compose.
+    /// </summary>
+    [Fact]
+    public void A_binding_keeps_the_events_that_commit_it_in_source_order() {
+        var attribute = Assert.Single(FirstElement("@component A\n<div bind:Value.submit.blur=\"@x\" />").Attributes);
+
+        Assert.Equal(BoundAttributeKind.Bind, attribute.Kind);
+        Assert.Equal("Value", attribute.Name);
+        Assert.Equal(["submit", "blur"], attribute.Modifiers);
+    }
+
+    /// <summary>
+    ///     And a name an <c>on:</c> would have refused is passed straight through, because it is not
+    ///     one of the same words. <c>stop</c> is a filter there and an event name that does not exist
+    ///     here, which the runtime says loudly rather than this side saying it wrongly.
+    /// </summary>
+    [Fact]
+    public void A_bindings_events_are_not_checked_against_the_event_modifiers() {
+        var attribute = Assert.Single(FirstElement("@component A\n<div bind:Value.stop=\"@x\" />").Attributes);
+
+        Assert.Equal(["stop"], attribute.Modifiers);
+    }
+
     [Fact]
     public void An_event_keeps_its_modifiers_in_source_order() {
         var attribute = Assert.Single(FirstElement("@component A\n<div on:click.stop.once=\"@Go\" />").Attributes);

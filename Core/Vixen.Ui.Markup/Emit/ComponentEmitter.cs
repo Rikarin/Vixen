@@ -518,12 +518,20 @@ public sealed class ComponentEmitter {
                 break;
             }
 
-            case BoundAttributeKind.Bind when attribute.Expression is { } bound:
+            case BoundAttributeKind.Bind when attribute.Expression is { } bound: {
                 // Two-way: a getter and a setter over the same expression. Roslyn rejects the
                 // setter if the expression is not assignable, at the character that wrote it.
+                //
+                // ⚠ The trailing names are events and not the filter words `on:` takes, so they say
+                // *when* the write-back happens rather than qualifying it. No names at all is every
+                // change, which is what every binding in the tree wants and what the default has to
+                // stay: a control with no commit moment would otherwise never write.
+                var commits = string.Concat(attribute.Modifiers.Select(m => $", {Quote(m)}"));
+
                 Mapped(bound, $"{context}.TwoWay({Target(element, name)}, {Quote(attribute.Name)}, () => ", ",");
-                Indented(() => Mapped(bound, "__v => ", " = __v);"));
+                Indented(() => Mapped(bound, "__v => ", $" = __v{commits});"));
                 break;
+            }
 
             case BoundAttributeKind.Changed when attribute.Expression is { } handler: {
                 // ⚠ The property is read back as well as named, and the reader is what types the

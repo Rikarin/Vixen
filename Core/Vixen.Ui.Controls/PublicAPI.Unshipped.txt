@@ -643,6 +643,9 @@ Vixen.Ui.Controls.Spinner.Sweep.get -> float
 Vixen.Ui.Controls.Spinner.Sweep.set -> float
 Vixen.Ui.Controls.Spinner.Thickness.get -> float
 Vixen.Ui.Controls.Spinner.Thickness.set -> float
+Vixen.Ui.Controls.SubmitEvent -> sealed class
+Vixen.Ui.Controls.SubmitEvent : Vixen.Ui.UiEvent
+Vixen.Ui.Controls.SubmitEvent.SubmitEvent() -> void
 Vixen.Ui.Controls.Switch -> sealed class
 Vixen.Ui.Controls.Switch : Vixen.Ui.Controls.ToggleBase
 Vixen.Ui.Controls.Switch.Knob.get -> Vixen.Ui.UiElement

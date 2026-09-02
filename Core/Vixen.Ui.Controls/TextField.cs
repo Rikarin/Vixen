@@ -715,9 +715,16 @@ public abstract partial class TextField : Control {
                 Replace("\n");
                 break;
 
+            // ⚠ Both, and in this order. `OnSubmit` is what reformats a half-typed number, so a
+            // listener that reads the value back — which is what `bind:Value.submit` does — has to
+            // hear about it afterwards or it takes `007` rather than the `7` the field settled on.
+            // The routed event is raised last because it is the one an ancestor can see, and an
+            // ancestor seeing the submission before the field's own handler has is a form whose
+            // default button fires on a value the field has not finished with.
             case InputKey.Enter or InputKey.KeypadEnter:
                 OnSubmit();
                 Submitted?.Invoke(this);
+                Raise(new SubmitEvent());
                 break;
 
             default:
