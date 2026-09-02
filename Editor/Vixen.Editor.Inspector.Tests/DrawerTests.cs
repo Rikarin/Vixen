@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Testing;
 using Xunit;
 
@@ -109,6 +110,117 @@ public class DrawerTests {
 
         Assert.True(first.UseFoam);
         Assert.False(second.UseFoam);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Two objects whose curves are identical are not a mixed selection, and until this
+    ///     landed every one of them was.</b> <c>EditProperty.Read</c> compares with
+    ///     <c>Equals(object, object)</c>, which for a type with no equality is reference identity —
+    ///     and a member initialised <c>= AnimationCurve.Linear()</c> gives each instance its own
+    ///     object. So the row was mixed the moment a second thing was selected, whatever it held.
+    /// </summary>
+    [Fact]
+    public void Two_objects_holding_the_same_curve_are_not_a_mixed_selection() {
+        using var document = new UiDocument(600f, 400f);
+        var host = document.Root.Add("host");
+
+        var first = new WaterMaterial();
+        var second = new WaterMaterial();
+
+        // Distinct objects with identical keys, which is what a field initializer produces.
+        Assert.NotSame(first.Amplitude, second.Amplitude);
+        Assert.True(new InspectorField(Water, Member("Amplitude"), [first, second]).Read().IsMixed);
+
+        var field = new InspectorField(Water, Member("Amplitude"), [first, second]);
+        var drawer = (IPropertyDrawer) new CurveDrawer();
+        var editor = Assert.IsType<CurveEditor>(drawer.Build(field, host));
+
+        drawer.Show(field, editor);
+
+        Assert.False(editor.HasClass("mixed"));
+        Assert.Equal(first.Amplitude.Keys.Count, editor.Curve.Keys.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And curves that differ show an <i>empty</i> graph, not one of them.</b> A drawer that
+    ///     showed the first object's curve would have the user editing "the" curve and looking at one
+    ///     arbitrary object's — the thing <c>EditValue</c>'s own remarks say must never happen.
+    /// </summary>
+    [Fact]
+    public void Curves_that_disagree_show_an_empty_graph_rather_than_one_of_them() {
+        using var document = new UiDocument(600f, 400f);
+        var host = document.Root.Add("host");
+
+        var first = new WaterMaterial();
+        var second = new WaterMaterial { Amplitude = AnimationCurve.EaseInOut() };
+
+        var field = new InspectorField(Water, Member("Amplitude"), [first, second]);
+        var drawer = (IPropertyDrawer) new CurveDrawer();
+        var editor = Assert.IsType<CurveEditor>(drawer.Build(field, host));
+
+        drawer.Show(field, editor);
+
+        Assert.True(editor.HasClass("mixed"));
+        Assert.Empty(editor.Curve.Keys);
+
+        // And showing it wrote nothing: the empty graph is a picture of the disagreement, not a value
+        // being pushed onto every object.
+        Assert.Equal(2, first.Amplitude.Keys.Count);
+        Assert.Equal(2, second.Amplitude.Keys.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Every object gets its own copy, because twenty objects sharing one curve is an alias
+    ///     rather than an agreement.</b> A single <c>Write</c> puts the same instance on all of them,
+    ///     and the next key drag on any one of them then moves the curve on all twenty, silently.
+    /// </summary>
+    [Fact]
+    public void An_edit_over_several_objects_gives_each_of_them_its_own_curve() {
+        using var document = new UiDocument(600f, 400f);
+        var host = document.Root.Add("host");
+
+        var first = new WaterMaterial();
+        var second = new WaterMaterial { Amplitude = AnimationCurve.EaseInOut() };
+
+        var field = new InspectorField(Water, Member("Amplitude"), [first, second]);
+        var drawer = (IPropertyDrawer) new CurveDrawer();
+        var editor = Assert.IsType<CurveEditor>(drawer.Build(field, host));
+
+        drawer.Show(field, editor);
+
+        // What the user does with a mixed row: authors a curve in front of themselves.
+        editor.Curve.Add(0.25f, 0.5f);
+
+        Assert.NotSame(first.Amplitude, second.Amplitude);
+        Assert.Single(first.Amplitude.Keys);
+        Assert.Single(second.Amplitude.Keys);
+
+        // The proof that they are not aliases: moving one leaves the other alone.
+        first.Amplitude.Move(first.Amplitude.Keys[0], 0.75f, 0.1f);
+
+        Assert.Equal(0.25f, second.Amplitude.Keys[0].Time);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Re-showing an unchanged row leaves the curve object alone.</b> <c>Show</c> runs on
+    ///     every change a gizmo drag makes, and assigning <c>Curve</c> no-ops only on reference
+    ///     equality — so a fresh copy per call swaps the object out from under the control, clearing
+    ///     its selection and re-subscribing forty times a second.
+    /// </summary>
+    [Fact]
+    public void Showing_a_row_again_does_not_swap_the_curve_out_from_under_the_editor() {
+        using var document = new UiDocument(600f, 400f);
+        var host = document.Root.Add("host");
+
+        var field = new InspectorField(Water, Member("Amplitude"), [new WaterMaterial()]);
+        var drawer = (IPropertyDrawer) new CurveDrawer();
+        var editor = Assert.IsType<CurveEditor>(drawer.Build(field, host));
+
+        drawer.Show(field, editor);
+        var shown = editor.Curve;
+
+        drawer.Show(field, editor);
+        Assert.Same(shown, editor.Curve);
     }
 
     [Fact]

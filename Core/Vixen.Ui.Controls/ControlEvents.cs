@@ -65,6 +65,26 @@ public sealed class ValueChangedEvent<T> : UiEvent {
     public T? Value { get; init; }
 }
 
+/// <summary>A field was finished with: Enter, in a field where Enter is not a line break.</summary>
+/// <remarks>
+///     <para>
+///         <b>The routed half of <see cref="TextField.Submitted" />, and what makes that moment
+///         reachable from markup at all.</b> <c>on:</c> subscribes routed events, so a
+///         <c>.vxml</c> could hear a field's keystrokes and its focus and not the one keystroke a
+///         form is about; every panel that wanted it held a <c>ref</c> and wired the C# event by
+///         hand.
+///     </para>
+///     <para>
+///         ⚠ <b>The control decides, which is the whole reason this is not a filtered
+///         <c>on:keydown</c>.</b> Enter in a <c>TextArea</c> inserts a line break and submits
+///         nothing, Ctrl-Enter in one submits, and a <c>NumericInput</c> has already reformatted
+///         what it holds by the time this is raised. A handler reconstructing those rules from a
+///         key event would be a second copy of them, disagreeing with the first as soon as either
+///         moved.
+///     </para>
+/// </remarks>
+public sealed class SubmitEvent : UiEvent;
+
 /// <summary>Something that opens and closes did one of them.</summary>
 /// <remarks>
 ///     Distinct from <c>ValueChangedEvent&lt;bool&gt;</c> rather than an alias for it, because a

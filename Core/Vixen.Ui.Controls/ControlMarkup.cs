@@ -92,6 +92,15 @@ static class ControlMarkup {
                 );
             }
         );
+
+        // ⚠ Here rather than in `Vixen.Ui` for `click`'s reason exactly: what counts as submitting
+        // is a control's decision — Enter is a line break in a `TextArea` and a submission in every
+        // other field — and `Vixen.Ui` has no fields. It is the moment `bind:Value.submit` commits
+        // on, and the only route by which `TextField.Submitted` was ever reachable from markup.
+        BuildContext.Subscribe(
+            "submit",
+            (element, handler, how) => how.Listen<SubmitEvent>(element, (_, args) => handler(args))
+        );
     }
 
     /// <summary>Whether the activation this tap produced has already been reported to the handler.</summary>

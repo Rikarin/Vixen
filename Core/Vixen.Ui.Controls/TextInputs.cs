@@ -34,7 +34,11 @@ public partial class TextBox : TextField {
 ///     <para>
 ///         ⚠ <b>Ctrl-Enter still submits</b>, so a form whose default button lives behind
 ///         <c>Submitted</c> is still reachable from inside the one field that has claimed the plain
-///         key.
+///         key. That is a keybinding collision with exactly two claimants and only one plain key —
+///         the field wants a line break, the form wants its default action, and a dialog's accept
+///         button is not focused while a field is, so Enter never reaches it as an activation.
+///         <c>TextField.Keyed</c> carries the resolution; <see cref="SubmitEvent" /> is the routed
+///         half, so an ancestor can hear it without holding a reference to the field.
 ///     </para>
 /// </remarks>
 public sealed partial class TextArea : TextField {

@@ -727,7 +727,16 @@ of a string.
   is what makes it sound: `openElements` is the only enclosing state a content node's parse reads,
   and every branch that reads it reports. `IncrementalTests` pins that an incremental reparse equals a
   full one, including over a run of edits.
-- **`bind:` update events** (`bind:value:oninput`).
+- ~~**`bind:` update events.**~~ Landed, and not with the second colon this bullet used to promise.
+  The dots after a `bind:` are *event names* — `bind:Value.submit.blur` — read out of the same table
+  `on:` subscribes to, so "which event commits the write" needs no vocabulary of its own and no
+  per-control registration. ⚠ **The default stays every change, which is the opposite of Blazor's**,
+  because almost every binding's other end is a `Signal<T>` where a write per keystroke is idempotent
+  — and because a commit-by-default would silently never write on a control that publishes no commit
+  moment, which is most of them. ⚠ **`blur` and `focus` were in `EventAliases` and not in the
+  runtime's table**, so `onblur` bound and then threw at compose, exactly as `on:keydown` did before
+  the table was fixed; they are registered now. `submit` is `SubmitEvent`, which `TextField` raises
+  where it raises `Submitted` — the moment a `.vxml` had no way to hear at all.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
 

@@ -152,7 +152,17 @@ public sealed class BuildContext {
             // and an author who cannot name the event that carries characters reaches for the one
             // that is there. The two exist together so the right one is always available.
             ["textinput"] = (element, handler, how) =>
-                how.Listen<TextInputEvent>(element, (_, args) => handler(args))
+                how.Listen<TextInputEvent>(element, (_, args) => handler(args)),
+
+            // ⚠ Two names over one event again, and the pair was *promised* long before it existed:
+            // the binder's alias list has accepted `onfocus` and `onblur` since it was written, so
+            // both bound happily and then threw "'blur' is not an event" when the element was built.
+            // `blur` is also the moment a two-way binding most often wants to commit — see
+            // <see cref="TwoWay{T}" /> — which is what turned a latent alias into a missing feature.
+            ["focus"] = (element, handler, how) =>
+                how.Listen<FocusEvent>(element, (_, args) => { if (args.Gained) { handler(args); } }),
+            ["blur"] = (element, handler, how) =>
+                how.Listen<FocusEvent>(element, (_, args) => { if (!args.Gained) { handler(args); } })
         };
 
     /// <summary>The region currently being built into, per parent element.</summary>
@@ -891,17 +901,49 @@ public sealed class BuildContext {
     /// <param name="name">The property's name.</param>
     /// <param name="get">Reads the source.</param>
     /// <param name="set">Writes it back.</param>
-    /// <exception cref="ArgumentException">The element has no such property.</exception>
+    /// <param name="commits">
+    ///     The events that commit the write, as written after <c>on:</c>. None means every change
+    ///     commits, which is what a <c>bind:</c> with no modifiers does.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    ///     The element has no such property, or one of the names is not an event.
+    /// </exception>
     /// <remarks>
-    ///     The write-back arrives through <see cref="UiElement.PropertyChanged" /> rather than
-    ///     through a poll, and is guarded so that the assignment this binding just made does not
-    ///     come straight back as a change to write to the source — which would be a loop the effect
-    ///     scheduler's runaway detector would catch, several frames after the cause.
+    ///     <para>
+    ///         With no <paramref name="commits" /> the write-back arrives through
+    ///         <see cref="UiElement.PropertyChanged" /> rather than through a poll, and is guarded so
+    ///         that the assignment this binding just made does not come straight back as a change to
+    ///         write to the source — which would be a loop the effect scheduler's runaway detector
+    ///         would catch, several frames after the cause.
+    ///     </para>
+    ///     <para>
+    ///         <b>Which event commits the write, and it is an event name rather than a vocabulary of
+    ///         its own.</b> <c>bind:Value.blur</c>, <c>bind:Value.submit</c> and
+    ///         <c>bind:Value.dragend</c> all read out of the same table <c>on:</c> reads, so
+    ///         "commit" needs no per-control registration and no second list of names to keep in
+    ///         step with the first. A control that publishes a moment publishes it once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default is unchanged and stays unchanged.</b> Every <c>bind:</c> in the tree
+    ///         writes a <c>Signal&lt;T&gt;</c>, where a write per keystroke is idempotent and a
+    ///         deferred one would only make the panel lag its own field. What per-change costs is
+    ///         paid by a consumer that treats each write as a decision — an undo entry per frame of
+    ///         a slider drag — and that consumer is the one that asks for a commit event. Blazor
+    ///         defaults the other way round; this table's names are the reason it cannot here, since
+    ///         a control with no commit moment would then never write at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The value is read at the event and not remembered from the change.</b> So a
+    ///         field that reformats what it holds on commit — <c>NumericInput</c> turns <c>007</c>
+    ///         into <c>7</c> in <c>OnSubmit</c>, before <c>submit</c> is raised — hands the model
+    ///         what it settled on rather than what was typed.
+    ///     </para>
     /// </remarks>
-    public void TwoWay<T>(UiElement target, string name, Func<T> get, Action<T> set) {
+    public void TwoWay<T>(UiElement target, string name, Func<T> get, Action<T> set, params string[] commits) {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(get);
         ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(commits);
 
         var key = KeyOf(target, name);
         var writing = false;
@@ -915,7 +957,19 @@ public sealed class BuildContext {
             }
         });
 
-        Watch(target, key, () => !writing, () => set((T)key.GetValue(target)!));
+        if (commits.Length == 0) {
+            Watch(target, key, () => !writing, () => set((T)key.GetValue(target)!));
+            return;
+        }
+
+        foreach (var commit in commits) {
+            // ⚠ No `writing` guard, and it is not an oversight. That guard exists to stop the
+            // forward leg's own assignment arriving back as a change; an event is delivered from
+            // input, never from inside `key.SetValue`, so there is nothing to suppress — and
+            // suppressing on `IsFlushing` the way `Changed` does would drop a commit that landed in
+            // the same frame as an unrelated binding's write.
+            On(target, commit, () => set((T)key.GetValue(target)!));
+        }
     }
 
     /// <summary>Calls a handler whenever a property changes, other than because a binding wrote it.</summary>

@@ -94,6 +94,7 @@ Vixen.Ui.Controls.Advanced.CodeEditor.Refresh() -> void
 Vixen.Ui.Controls.Advanced.CodeEditor.Reveal() -> void
 Vixen.Ui.Controls.Advanced.CodeEditor.RowHeight.get -> float
 Vixen.Ui.Controls.Advanced.CodeEditor.RowOf(int line) -> int
+Vixen.Ui.Controls.Advanced.CodeEditor.RowStarts.get -> System.Collections.Generic.IReadOnlyList<int>
 Vixen.Ui.Controls.Advanced.CodeEditor.Rows.get -> System.Collections.Generic.IReadOnlyList<int>
 Vixen.Ui.Controls.Advanced.CodeEditor.Scroller.get -> Vixen.Ui.Controls.ScrollView
 Vixen.Ui.Controls.Advanced.CodeEditor.SelectAll() -> void
@@ -111,6 +112,8 @@ Vixen.Ui.Controls.Advanced.CodeEditor.ToScreen(Vixen.Ui.Controls.Advanced.TextPo
 Vixen.Ui.Controls.Advanced.CodeEditor.ToggleFold(int line) -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Tokenizer.get -> Vixen.Ui.Controls.Advanced.ICodeTokenizer
 Vixen.Ui.Controls.Advanced.CodeEditor.Tokenizer.set -> Vixen.Ui.Controls.Advanced.ICodeTokenizer
+Vixen.Ui.Controls.Advanced.CodeEditor.WordWrap.get -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.WordWrap.set -> bool
 Vixen.Ui.Controls.Advanced.CodeFold -> readonly struct
 Vixen.Ui.Controls.Advanced.CodeFold : System.IEquatable<Vixen.Ui.Controls.Advanced.CodeFold>
 Vixen.Ui.Controls.Advanced.CodeFold.CodeFold() -> void
@@ -1332,6 +1335,7 @@ static readonly Vixen.Ui.Controls.Advanced.CodeEditor.AutoFoldProperty -> Vixen.
 static readonly Vixen.Ui.Controls.Advanced.CodeEditor.AutoIndentProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.CodeEditor.ReadOnlyProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.CodeEditor.TabSizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.CodeEditor.WordWrapProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.ColorPicker.AllowAlphaProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.ColorPicker.AllowHdrProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.ColorPicker.IntensityProperty -> Vixen.Ui.UiPropertyKey

@@ -665,8 +665,21 @@ public sealed class Binder {
         var prefix = written[..colon];
         var rest = written[(colon + 1)..];
 
+        // ⚠ The dots after a `bind:` are *event names*, not the filter words `on:` takes, so there is
+        // no closed list to check them against and none is checked. `bind:Value.blur` says which
+        // moment commits the write, and the moments are the same names `on:` subscribes to — which
+        // is why they cannot be validated here: the table is the runtime's and a control library
+        // adds to it. That is the bargain an `on:` event name is already emitted under, and the
+        // failure is the same one, at compose, naming every event the runtime does know.
         if (string.Equals(prefix, "bind", StringComparison.Ordinal)) {
-            return (BoundAttributeKind.Bind, rest, []);
+            var names = rest.Split('.');
+            var commits = ImmutableArray.CreateBuilder<string>(names.Length - 1);
+
+            for (var i = 1; i < names.Length; i++) {
+                commits.Add(names[i]);
+            }
+
+            return (BoundAttributeKind.Bind, names[0], commits.ToImmutable());
         }
 
         // ⚠ A directive of its own rather than `on:change`, because it is not an event. `on:` maps a

@@ -233,6 +233,34 @@ public class EmitterTests {
         Assert.Contains(".Bind(n1, \"class\", () => string.Concat(", emitted, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A binding's dots ride to the runtime as event names, where an event's dots are eaten
+    ///     as filters.</b> They are trailing arguments in both cases and mean opposite things: on an
+    ///     <c>on:</c> they qualify a subscription this side understands, and on a <c>bind:</c> they
+    ///     say <i>when</i> the write-back happens, which only the runtime's table can resolve. A
+    ///     binding with none of them keeps the call it always emitted.
+    /// </summary>
+    [Fact]
+    public void A_bindings_commit_events_are_emitted_as_names_and_no_events_emits_the_old_call() {
+        var emitted = Emit(
+            """
+            @component Form
+            @using Vixen.Ui.Reactive
+
+            @code {
+                private readonly Signal<string?> _query = new(null);
+                private readonly Signal<string?> _live = new(null);
+            }
+
+            <search-box bind:Value.submit.blur="@_query.Value" />
+            <search-box bind:Value="@_live.Value" />
+            """
+        );
+
+        Assert.Contains("= __v, \"submit\", \"blur\");", emitted, StringComparison.Ordinal);
+        Assert.Contains("= __v);", emitted, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_scoped_style_block_reaches_the_generated_class() {
         var emitted = Emit(Counter);

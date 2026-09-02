@@ -421,11 +421,20 @@ Said out loud rather than left to be discovered:
   which broke everything that *measures* the pane: gizmo hit-testing, picking rays and vertical
   camera drags all go through the unmirrored projection, so their error was zero at the centreline
   and the full height of the pane at its edges.
-- **`CodeEditor` does not wrap and has no caret blink.** ⚠ The first half's reason has changed: the
-  framework *does* wrap a line now — `TextLayout` over `TextLine` over `TextRun` — so what is missing
-  is this control using it, which is a caret that moves between visual lines rather than logical ones
-  and a gutter that numbers the logical ones anyway. Blinking still needs a host tick, which
-  `Tooltip` and `ToastHost` get from `UiDocument.Ticked`.
+- ~~**`CodeEditor` does not wrap.**~~ `WordWrap` does, and ⚠ **not through `TextLayout`, which is
+  what the previous version of this bullet said it was waiting for.** This control is a monospace
+  grid by construction — a column becomes an x by multiplying — so the wrap column is
+  `viewport ÷ CharacterWidth` exactly, with nothing to measure and nothing to disagree with;
+  handing the line to the text stack would measure a width the caret, the selection and the hit test
+  do not believe in, and the caret would land beside the character it is on. ⚠ **The seam is the
+  row list, and folding had already proved it works**: a collapsed fold is lines missing from `Rows`
+  and a wrapped line is a line appearing in it more than once, so the virtualiser, the scroll range,
+  the caret's row and the gutter are untouched by either feature. `RowStarts` is which column each
+  row begins at, and is all zeroes while wrapping is off — which is what makes every formula reduce
+  to the one it had before. Off by default: code is written with the column mattering, and a diff, a
+  compiler's column number and a ruler all agree with the unwrapped one.
+- **`CodeEditor` has no caret blink.** Blinking needs a host tick, which `Tooltip` and `ToastHost`
+  get from `UiDocument.Ticked`.
 - **`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma. Real
   gamut mapping walks the chroma down until the colour fits; `IsInGamut` is how a picker can say so
   meanwhile.

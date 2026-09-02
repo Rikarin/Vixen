@@ -131,6 +131,23 @@ asset-field.drop-rejected {
     border-radius: 3px;
 }
 
+/* ⚠ The `mixed` class had no rule anywhere, so an editor that carries it looked exactly like
+   one holding a value: a mixed colour was a transparent swatch and a mixed curve an empty
+   graph, both of which are things a real value can be. The fields answer this with a "—"
+   placeholder and the toggles with an indeterminate state; the two that draw rather than
+   print — the colour swatch and the curve — had nothing at all.
+
+   A border rather than a fade, because dimming is what `Disabled` already means and these are
+   editable: the point of a mixed row is that editing it sets every selected object. Inset, for
+   `drop-target`'s reason — the row is two pixels from its neighbours and an outset halo lands
+   on the wrong one. */
+inspector-editor .mixed {
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--text-muted, #6b7280);
+    border-radius: 3px;
+}
+
 /* Right of the editor and out of the tab order — it appears and disappears as the value
    moves off and onto the type's default, and a row whose width jumped when it did would
    make every neighbouring editor twitch. */

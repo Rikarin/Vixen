@@ -422,4 +422,212 @@ public class MarkupTests {
         protected override void Build(BuildContext ctx) =>
             ctx.On(ctx.Element(null, "div"), "click", () => Clicks++);
     }
+
+
+    // ================================================================== bind:, and what commits it
+
+    /// <summary>
+    ///     <b>Every change, which is what <c>bind:X</c> with no modifier means and has to keep
+    ///     meaning.</b> A binding whose other end is a <c>Signal&lt;T&gt;</c> wants the keystroke —
+    ///     a deferred one is a panel lagging its own field — and a control with no commit moment
+    ///     would never write at all if the default were the other way round.
+    /// </summary>
+    [Fact]
+    public void A_binding_with_no_commit_event_writes_on_every_change() {
+        using var fixture = new ControlFixture();
+        var form = BuildContext.Build<Form>(fixture.Document, fixture.Document.Root);
+
+        fixture.Document.Effects.Flush();
+        form.LiveBox.Value = "que";
+
+        Assert.Equal("que", form.Live.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a binding that names <c>submit</c> writes nothing until Enter.</b> This is the
+    ///     whole of what the modifier buys: the value moves through the control the entire time and
+    ///     reaches the model once, so a consumer that treats a write as a decision — an undo entry,
+    ///     a query, a file save — gets one decision rather than one per keystroke.
+    /// </summary>
+    [Fact]
+    public void A_binding_that_names_submit_writes_nothing_until_enter() {
+        using var fixture = new ControlFixture();
+        var form = BuildContext.Build<Form>(fixture.Document, fixture.Document.Root);
+
+        fixture.Document.Effects.Flush();
+        fixture.Document.Focus(form.SubmitBox);
+        form.SubmitBox.Value = "que";
+
+        Assert.Null(form.Committed.Value);
+
+        fixture.Type(InputKey.Enter);
+
+        Assert.Equal("que", form.Committed.Value);
+    }
+
+    /// <summary>
+    ///     And <c>blur</c>, which is the other half of what "commit" means to anyone who has used a
+    ///     form. ⚠ Both names were absent from the runtime's table until this landed, while the
+    ///     binder's alias list had accepted <c>onfocus</c> and <c>onblur</c> all along — so they
+    ///     bound and threw at compose, which is the same shape of failure <c>on:keydown</c> had.
+    /// </summary>
+    [Fact]
+    public void A_binding_that_names_blur_writes_when_the_focus_leaves() {
+        using var fixture = new ControlFixture();
+        var form = BuildContext.Build<Form>(fixture.Document, fixture.Document.Root);
+
+        fixture.Document.Effects.Flush();
+        fixture.Document.Focus(form.BlurBox);
+        form.BlurBox.Value = "hello";
+
+        Assert.Null(form.Blurred.Value);
+
+        fixture.Document.Focus(form.LiveBox);
+
+        Assert.Equal("hello", form.Blurred.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The value is read at the event, so a field that reformats on commit hands over what
+    ///     it settled on.</b> <c>NumericInput</c> only rereads its text in <c>OnSubmit</c>, so a
+    ///     routed submission raised before that would have handed the model the number the field
+    ///     held <i>before</i> anything was typed — nought — while the box read <c>7</c>.
+    /// </summary>
+    [Fact]
+    public void A_commit_binding_is_given_what_the_field_settled_on_and_not_what_was_typed() {
+        using var fixture = new ControlFixture();
+        var form = BuildContext.Build<Form>(fixture.Document, fixture.Document.Root);
+
+        fixture.Document.Effects.Flush();
+        fixture.Document.Focus(form.NumberBox);
+        form.NumberBox.Value = "007";
+        fixture.Type(InputKey.Enter);
+
+        Assert.Equal(7d, form.Number.Value);
+    }
+
+    /// <summary>
+    ///     The forward leg is untouched by any of it: a value arriving from the model still reaches
+    ///     the control, which is what stops a commit binding being a one-way write dressed up.
+    /// </summary>
+    [Fact]
+    public void A_commit_binding_still_takes_the_value_the_model_hands_it() {
+        using var fixture = new ControlFixture();
+        var form = BuildContext.Build<Form>(fixture.Document, fixture.Document.Root);
+
+        form.Committed.Value = "from the model";
+        fixture.Document.Effects.Flush();
+
+        Assert.Equal("from the model", form.SubmitBox.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>TextField.Submitted</c> was unreachable from markup until it had a routed
+    ///     half.</b> <c>on:</c> subscribes routed events, so a <c>.vxml</c> could hear a field's
+    ///     keys and its focus and not the one keystroke a form is about; every panel that wanted it
+    ///     held a <c>ref</c> and wired the C# event by hand.
+    /// </summary>
+    [Fact]
+    public void On_submit_hears_the_field_being_finished_with() {
+        using var fixture = new ControlFixture();
+        var form = BuildContext.Build<Form>(fixture.Document, fixture.Document.Root);
+
+        fixture.Document.Effects.Flush();
+        fixture.Document.Focus(form.SubmitBox);
+
+        Assert.Equal(0, form.Submissions);
+
+        fixture.Type(InputKey.Enter);
+
+        Assert.Equal(1, form.Submissions);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Enter in a text area is a line break and submits nothing, and Ctrl-Enter submits.</b>
+    ///     That rule lives in the control, which is exactly why the commit moment is an event the
+    ///     control raises rather than a filtered <c>on:keydown</c> the binding would reconstruct —
+    ///     a second copy of it would disagree with the first the moment either moved.
+    /// </summary>
+    [Fact]
+    public void A_text_area_commits_on_ctrl_enter_and_not_on_the_line_break() {
+        using var fixture = new ControlFixture();
+
+        var area = fixture.Add<TextArea>();
+        var submissions = 0;
+
+        area.AddHandler<SubmitEvent>((_, _) => submissions++);
+        fixture.Document.Focus(area);
+
+        fixture.Type(InputKey.Enter);
+        Assert.Equal(0, submissions);
+        Assert.Equal("\n", area.Value);
+
+        fixture.KeyDown(InputKey.Enter, ModifierKeys.Control);
+        Assert.Equal(1, submissions);
+    }
+
+    /// <summary>
+    ///     A name the runtime does not know is the same loud failure <c>on:</c> gives it, and for
+    ///     the same reason: the markup compiler cannot check the table, so the runtime has to.
+    /// </summary>
+    [Fact]
+    public void A_commit_event_the_runtime_does_not_know_says_so_at_compose() {
+        using var fixture = new ControlFixture();
+
+        var thrown = Assert.Throws<ArgumentException>(
+            () => BuildContext.Build<Misspelt>(fixture.Document, fixture.Document.Root)
+        );
+
+        Assert.Contains("blurr", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The four bindings the commit rule has to tell apart, in one panel.</summary>
+    /// <remarks>
+    ///     Written against <c>BuildContext</c> rather than as a <c>.vxml</c>, for this file's
+    ///     reason: these are the calls <c>&lt;TextBox bind:Value.submit="@…" /&gt;</c> compiles to,
+    ///     and that the compiler produces exactly them is <c>Vixen.Ui.Markup.Tests</c>' question.
+    /// </remarks>
+    sealed class Form : Component {
+        public Signal<string?> Live { get; } = new(null);
+
+        public Signal<string?> Committed { get; } = new(null);
+
+        public Signal<string?> Blurred { get; } = new(null);
+
+        public Signal<double> Number { get; } = new(0d);
+
+        public int Submissions { get; private set; }
+
+        public TextBox LiveBox { get; private set; } = null!;
+
+        public TextBox SubmitBox { get; private set; } = null!;
+
+        public TextBox BlurBox { get; private set; } = null!;
+
+        public NumericInput NumberBox { get; private set; } = null!;
+
+        protected override void Build(BuildContext ctx) {
+            LiveBox = ctx.Child<TextBox>(null);
+            ctx.TwoWay(LiveBox, "Value", () => Live.Value, value => Live.Value = value);
+
+            SubmitBox = ctx.Child<TextBox>(null);
+            ctx.TwoWay(SubmitBox, "Value", () => Committed.Value, value => Committed.Value = value, "submit");
+            ctx.On(SubmitBox, "submit", () => Submissions++);
+
+            BlurBox = ctx.Child<TextBox>(null);
+            ctx.TwoWay(BlurBox, "Value", () => Blurred.Value, value => Blurred.Value = value, "blur");
+
+            NumberBox = ctx.Child<NumericInput>(null);
+            ctx.TwoWay(NumberBox, "Number", () => Number.Value, value => Number.Value = value, "submit");
+        }
+    }
+
+    sealed class Misspelt : Component {
+        readonly Signal<string?> name = new(null);
+
+        protected override void Build(BuildContext ctx) {
+            var box = ctx.Child<TextBox>(null);
+            ctx.TwoWay(box, "Value", () => name.Value, value => name.Value = value, "blurr");
+        }
+    }
 }

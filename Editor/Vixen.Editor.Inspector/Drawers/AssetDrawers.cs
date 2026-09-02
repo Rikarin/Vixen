@@ -116,11 +116,42 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 
 /// <summary>A curve editor over the member's own curve.</summary>
 /// <remarks>
-///     ⚠ <b>The curve is a reference type, so the editor edits the object the member holds.</b> That
-///     makes every key drag a mutation the command stack never saw. What is recorded instead is one
-///     command per <i>edit session</i>, holding a copy of the curve from before it: the editor
-///     announces changes, and the drawer writes a snapshot back through
-///     <see cref="InspectorField.Write" /> so undo has something to put back.
+///     <para>
+///         ⚠ <b>The curve is a reference type, so the editor edits the object the member holds.</b>
+///         That makes every key drag a mutation the command stack never saw. What is recorded
+///         instead is one command per <i>edit session</i>, holding a copy of the curve from before
+///         it: the editor announces changes, and the drawer writes a snapshot back so undo has
+///         something to put back.
+///     </para>
+///     <para>
+///         <b>What "mixed" means for a curve, which had to be decided before any of this could be
+///         written.</b> Two curves agree when their keys agree — the same number of them, each at
+///         the same time and value with the same tangents and mode. Disagreement is <i>not</i>
+///         per-key: two curves with different key counts have no third key to call mixed, so there
+///         is nothing between "these are the same curve" and "they are not". The row is mixed or it
+///         is not, and a mixed one shows an <b>empty</b> graph rather than one of the curves.
+///     </para>
+///     <para>
+///         ⚠ <b>Compared key by key rather than by <c>EditProperty.Read</c>'s answer, and that is a
+///         defect this fixes rather than a preference.</b> <c>Read</c> compares with
+///         <c>Equals(object, object)</c>, which for a type with no equality is reference identity —
+///         and <c>AnimationCurve</c> has none. So two objects holding structurally identical curves
+///         read as mixed the moment they are selected together, which is every multi-selection
+///         there has ever been: a member initialised <c>= AnimationCurve.Linear()</c> gives each
+///         instance its own object. The comparison is here rather than on the type on purpose: an
+///         <c>AnimationCurve</c> is edited in place, has a <c>Changed</c> event, and its keys live
+///         in a <c>HashSet</c> inside <c>CurveEditor</c> — giving a mutable model value equality
+///         and a hash code is how a selection stops containing the key that is being dragged.
+///     </para>
+///     <para>
+///         ⚠ <b>Every write is a separate copy per object, through
+///         <see cref="EditProperty.WriteEach" />, and one <see cref="EditProperty.Write" /> would
+///         have been wrong for a reason that has nothing to do with mixing.</b> A single write puts
+///         the <i>same instance</i> on every selected object, and twenty objects sharing one curve
+///         is not "they all have the same curve" — it is "editing any of them edits all of them",
+///         silently, for the rest of the session. Twenty distinct copies is the only reading of
+///         "set them all to this" that survives the next edit.
+///     </para>
 /// </remarks>
 public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
     /// <inheritdoc />
@@ -139,7 +170,15 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
         editor.Disabled = !field.CanWrite;
 
         editor.CurveChanged += control => {
-            field.Write(Copy(control.Curve));
+            // One copy per object rather than one instance shared by all of them. See the remarks:
+            // a shared curve is an alias, not an agreement.
+            var written = new object?[field.Objects.Count];
+
+            for (var index = 0; index < written.Length; index++) {
+                written[index] = Copy(control.Curve);
+            }
+
+            field.WriteEach(written);
             field.Seal();
         };
 
@@ -147,19 +186,111 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b><paramref name="value" /> and <paramref name="isMixed" /> are recomputed rather than
+    ///     used, and the base class is not wrong to have handed them over.</b> It gets them from
+    ///     <c>EditProperty.Read</c>, whose comparison is <c>Equals(object, object)</c> — reference
+    ///     identity for a curve — so <paramref name="isMixed" /> is true for any two objects that do
+    ///     not literally share one object, however identical their curves. The class remarks say why
+    ///     the fix is here and not on the type.
+    /// </remarks>
     protected override void Show(InspectorField field, CurveEditor editor, AnimationCurve? value, bool isMixed) {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(editor);
 
-        // A curve is only ever edited one object at a time. Merging twenty curves has no answer that
-        // is not a guess, and "apply this one to all" is a button rather than a state of the editor.
-        if (isMixed) {
+        var (shared, mixed) = Agreement(field);
+
+        // ⚠ Inside a refresh, because parking the editor at a curve none of the objects hold is
+        // exactly the shape `EditProperty.Refreshing` exists for. ⚠ And it is defence rather than a
+        // fix for an observed write: `CurveEditor.Curve`'s setter does not raise `CurveChanged`
+        // today, so no test can redden this line. It is here because the control is one event away
+        // from being able to, and because every other row in this file is shown under the same
+        // guard.
+        using var refreshing = field.Refreshing();
+
+        if (mixed) {
+            // ⚠ Empty rather than one of them. Showing the first object's curve is the answer this
+            // has to refuse: the user would then edit "the" curve, and what they were shown was one
+            // arbitrary object's. An empty graph is honest — nothing is being claimed — and it stays
+            // editable, because the only thing it can produce is a curve authored in front of them,
+            // which every selected object then gets a copy of.
             editor.AddClass("mixed");
+            Park(editor, new AnimationCurve());
+
             return;
         }
 
         editor.RemoveClass("mixed");
-        editor.Curve = Copy(value ?? new AnimationCurve());
+        Park(editor, shared ?? new AnimationCurve());
+    }
+
+    /// <summary>Puts a curve into the editor, unless it is already showing that curve.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The test matters more than the assignment.</b> <c>Show</c> runs on every change a
+    ///     gizmo drag makes — forty times a second — and assigning <c>Curve</c> is not idempotent:
+    ///     the setter no-ops only on reference equality, so a fresh copy each time swaps the object
+    ///     out from under the control, which clears its selection and re-subscribes. That is a row
+    ///     whose selected keys vanish while something else in the scene is being dragged, and during
+    ///     the drag it is a row editing a curve that is replaced under the pointer.
+    /// </remarks>
+    static void Park(CurveEditor editor, AnimationCurve curve) {
+        if (!SameKeys(editor.Curve, curve)) {
+            editor.Curve = Copy(curve);
+        }
+    }
+
+    /// <summary>The curve every selected object holds, or nothing when they disagree.</summary>
+    static (AnimationCurve? Shared, bool Mixed) Agreement(InspectorField field) {
+        AnimationCurve? first = null;
+
+        for (var index = 0; index < field.Objects.Count; index++) {
+            var curve = field.Member.GetBoxed(field.Objects[index]) as AnimationCurve;
+
+            if (index == 0) {
+                first = curve;
+                continue;
+            }
+
+            if (!SameKeys(first, curve)) {
+                return (null, true);
+            }
+        }
+
+        return (first, false);
+    }
+
+    /// <summary>Whether two curves have the same keys, which is what "the same curve" means here.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>Equals</c> on <c>AnimationCurve</c>, deliberately.</b> Value equality on a
+    ///     type obliges a matching hash code, and this one is a mutable model with a <c>Changed</c>
+    ///     event whose keys sit in a <c>HashSet</c> inside <c>CurveEditor</c>'s selection — a hash
+    ///     that moved when a key was dragged would take the dragged key out of the set that is
+    ///     tracking it. Whether two curves count as the same value is an editing question, so it is
+    ///     answered where the editing is.
+    /// </remarks>
+    static bool SameKeys(AnimationCurve? left, AnimationCurve? right) {
+        if (ReferenceEquals(left, right)) {
+            return true;
+        }
+
+        if (left is null || right is null || left.Keys.Count != right.Keys.Count) {
+            return false;
+        }
+
+        for (var index = 0; index < left.Keys.Count; index++) {
+            var a = left.Keys[index];
+            var b = right.Keys[index];
+
+            if (!a.Time.Equals(b.Time)
+                || !a.Value.Equals(b.Value)
+                || !a.InTangent.Equals(b.InTangent)
+                || !a.OutTangent.Equals(b.OutTangent)
+                || a.Mode != b.Mode) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     static AnimationCurve Copy(AnimationCurve source) {

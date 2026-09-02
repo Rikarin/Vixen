@@ -214,7 +214,7 @@ Vixen.Ui.Composition.BuildContext.Slot(Vixen.Ui.UiElement? parent, string name) 
 Vixen.Ui.Composition.BuildContext.Switch(Vixen.Ui.UiElement? parent, System.Func<int> arm, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, int> build) -> void
 Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, System.Func<object?> text) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, string text) -> Vixen.Ui.UiElement
-Vixen.Ui.Composition.BuildContext.TwoWay<T>(Vixen.Ui.UiElement target, string name, System.Func<T> get, System.Action<T> set) -> void
+Vixen.Ui.Composition.BuildContext.TwoWay<T>(Vixen.Ui.UiElement target, string name, System.Func<T> get, System.Action<T> set, params string[] commits) -> void
 Vixen.Ui.Composition.BuildContext.Use<T>(T target, System.Action<T> action) -> void
 Vixen.Ui.Composition.Component -> abstract class
 Vixen.Ui.Composition.Component : Vixen.Ui.Composition.IComposable

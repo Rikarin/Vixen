@@ -4,7 +4,7 @@ slug: ui/markup-panels
 kind: guide
 area: Core
 summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref and refs for the parts they read, change: for the values they edit, and the key rule — for @for and for @if alike — that decides whether a row updates at all.
-api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1, T:Vixen.Ui.Composition.EventSubscription]
+api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1, T:Vixen.Ui.Composition.EventSubscription, T:Vixen.Ui.Controls.SubmitEvent]
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
@@ -173,8 +173,10 @@ code to which an absent key is an answer.
 ```
 
 The names are `tap`, `click`, `dblclick`, `longpress`, `pointerdown`, `pointerup`, `pointermove`,
-`dragstart`, `drag`, `dragend`, `keydown`, `keyup` and `textinput`. `keydown` and `keyup` split one
-`KeyEvent` on its action, the way the two pointer names split a `PointerEvent`.
+`dragstart`, `drag`, `dragend`, `keydown`, `keyup`, `textinput`, `focus`, `blur` and — where
+`Vixen.Ui.Controls` is referenced — `submit`. `keydown` and `keyup` split one `KeyEvent` on its
+action, the way `focus` and `blur` split one `FocusEvent` and the two pointer names split a
+`PointerEvent`.
 
 ⚠ **`keydown` is a key's *position* and `textinput` is what was typed.** `KeyEvent.Key` is the
 US-QWERTY legend of the physical key, so a handler that reads a letter out of it types `q` where an
@@ -248,6 +250,41 @@ the same instance before and after every change, so no property system could rep
 control publishes for this is a *snapshot*: `<TreeView change:SelectedNodes="@(nodes => Chose(nodes))" />`
 is the whole of the subscription a panel used to write by hand, and it is quieter than the
 `SelectionChanged` event, which fires again for a click on the row that was already selected.
+
+### `bind:X.submit`, for the event that commits the write
+
+```vxml
+<TextBox bind:Value="@model.Name.Value" />
+<TextBox bind:Value.submit.blur="@model.Title.Value" />
+<Slider bind:Value.dragend="@model.Gain.Value" />
+```
+
+`bind:X` on its own writes the model on every change — every keystroke, every frame of a drag. The
+dots say otherwise: each one names an **event**, out of the same table `on:` subscribes to, and the
+write-back happens when one of them arrives rather than when the value moves. Several names are
+several moments, so `bind:Value.submit.blur` is what a form field usually wants.
+
+⚠ **They are event names, not the filter words `on:` takes.** `on:click.stop` qualifies a
+subscription; `bind:Value.stop` asks the runtime to commit on an event called `stop`, which does not
+exist, and says so at compose. Nothing checks the names at build time, for the same reason nothing
+checks `on:`'s: the table belongs to the runtime and a control library adds to it.
+
+⚠ **Every-change stays the default, which is the opposite of Blazor's.** Almost every binding's other
+end is a `Signal<T>`, where writing per keystroke is idempotent and deferring it only makes the panel
+lag its own field. And a commit-by-default would silently never write on a control that publishes no
+commit moment — most of them. The consumer that wants the other behaviour is the one that treats a
+write as a *decision*: an undo entry, a query, a save. Ask for it there.
+
+The moments a control publishes are ordinary events. `blur` and `focus` are `Vixen.Ui`'s, raised on
+any element the focus reaches. `submit` is `Vixen.Ui.Controls`' [`SubmitEvent`](/docs/api/vixen.ui.controls/submitevent),
+raised by a `TextField` when Enter finishes it — which is *not* Enter in a `TextArea`, where Enter is
+a line break and Ctrl-Enter submits. That rule lives in the control, which is why the commit is an
+event it raises and not an `on:keydown` a binding would have to reconstruct.
+
+⚠ **The value is read at the event, not remembered from the change.** So `NumericInput`, which only
+rereads its text in `OnSubmit`, hands the model the `7` it settled on rather than the `007` that was
+typed. `on:submit` is the same moment without a binding, and is the only way a `.vxml` has ever been
+able to hear `TextField.Submitted`.
 
 ### `tag`, for a capitalised tag under another name
 
