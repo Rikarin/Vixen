@@ -1017,6 +1017,38 @@ rather than the target moved.
    feature. **The fix is an anisotropic feature term, and it is a piece of work of its own rather than
    a tolerance.**
 3. **Determinism.** Ten runs × {1, 4, 16} threads × three platforms, byte-identical output.
+
+   ⚠️ **Two of the three axes were gated and the third was not, because every assertion that measured
+   it was self-relative.** `RemeshDeterminismTests` does the runs and the thread sweep and is honest
+   about the part it does not cover — *"each against the calling thread is a weaker claim than each
+   against each"* — but ten runs on a machine agree with ten runs on that machine, so all three legs
+   of `ci.yml`'s `test` job would have passed while producing three different meshes. Nothing anywhere
+   compared a remesh made on one runner with the same remesh made on another. § D14 calls determinism
+   *a gate rather than an aspiration*; what was gated was reproducibility, and portability is a
+   different claim.
+
+   **Closed by `nuke RemeshBytes` and `ci.yml`'s `remesh-bytes` job**, in the shape the content build
+   already answers the same question in: each of the three test legs remeshes one pinned procedural
+   fixture at the calling thread and at 1, 4 and 16 workers, writes a line of SHA-256 per leg, and a
+   job downloads all three manifests and diffs them. The per-worker-count lines are what make the
+   whole grid: a difference that appears only at sixteen workers on arm64 names itself rather than
+   collapsing into *"the manifests differ"*.
+
+   ⚠️ **The fixture is procedural and nothing is imported**, which rules out the closer parallel of
+   driving `vixen remesh`. Its input goes through `ModelReader` and therefore Assimp, of which the
+   three runners install three different builds — a difference in a native library reported as a
+   determinism defect, red on day one. `Build.ContentBytes` refused a model in its own fixture for
+   exactly this.
+
+   ⚠️ **The cross-runner leg has never been watched running, and the comparison step is
+   `continue-on-error` until it has been.** Nobody has ever measured a remesh produced on Windows
+   against one produced on macOS, so whether the three agree today is genuinely unknown; a red first
+   run for a reason nobody has read is how a leg stops being read at all. The shape check beside it —
+   three manifests arrived, each with four hashed lines — fails hard, because *three manifests of
+   nothing agree with each other* is the failure this repository keeps having. **What was measured, on
+   one machine:** the manifest is stable across two runs, and a one-part-in-ten-million change to every
+   projected position moves the hash — while leaving the within-runner determinism assertions green,
+   which is exactly the blindness the comparison exists to cover.
 4. **Symmetry.** A symmetric input with `Symmetry` on: output vertex *k* and its mirror are exact
    negations, and every vertex on the plane has an exactly zero coordinate.
 5. **Attributes.** A rigged character remeshed and re-bound by transfer: max vertex deviation against

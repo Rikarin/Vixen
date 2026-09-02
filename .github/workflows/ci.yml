@@ -279,6 +279,31 @@ jobs:
             artifacts/content-bytes/build/
           if-no-files-found: error
 
+      # The half of docs/plan/41 § Exit 3 that has to happen ON the runner. That criterion is "ten
+      # runs × {1, 4, 16} threads × three platforms, byte-identical output"; RemeshDeterminismTests
+      # covers the first two axes and every assertion in it is self-relative, so all three legs pass
+      # while producing three different meshes. This remeshes one pinned procedural fixture at each
+      # of those worker counts and writes down the bytes; the `remesh-bytes` job at the bottom of
+      # this file compares them to each other.
+      #
+      # ⚠ Seconds, not minutes, and it is here rather than in nightly.yml for that reason. The
+      # fixture is a 400-quad sphere — the same one the determinism suite already remeshes thirty
+      # times in this job — so the marginal cost is four more remeshes on a build that is already
+      # done. nightly.yml's properties matrix is where the expensive remeshing lives and its
+      # timeouts are measured rather than chosen; widening that matrix to three runners would have
+      # tripled a leg budgeted at ~18 minutes to buy a comparison this buys for nothing.
+      - name: Build the remesh-determinism manifest
+        run: ./build.sh RemeshBytes --configuration Release
+        shell: bash
+
+      - name: Upload the remesh manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remesh-bytes-${{ matrix.os }}
+          path: artifacts/remesh-bytes/manifest.txt
+          if-no-files-found: error
+
   checks:
     name: checks
     runs-on: ubuntu-latest
@@ -710,6 +735,131 @@ jobs:
 
           if [ "$status" -eq 0 ]; then
             echo "All ${#found[@]} runners built the fixture into identical bytes."
+          fi
+
+          exit "$status"
+
+  # ── Remesh determinism, between the runners rather than within each ───────────────────────────
+  #
+  # docs/plan/41 § Exit 3 asks for "ten runs × {1, 4, 16} threads × three platforms, byte-identical
+  # output" and § D14 calls determinism "a gate, not an aspiration". Two of the three axes were
+  # gated: RemeshDeterminismTests does the runs and the thread sweep, and is honest that "each
+  # against the calling thread is a weaker claim than each against each". The third was not gated at
+  # all, because every assertion it makes is self-relative — ten runs here agree with ten runs here.
+  # Three runners producing three different meshes would have gone green on all three.
+  #
+  # ⚠ WHAT ONLY A COMPARISON CAN FIND IS THE POINT. Math.Fma contracting a multiply-add on one JIT
+  # and not another, an x87 spill on x86, a different Vector<T> width on macos-14's arm64 — each of
+  # those changes the hierarchical field solve and none of them is visible to a machine comparing
+  # itself against itself. The gate as it stood proved reproducibility; this is the half that proves
+  # portability.
+  #
+  # ⚠ THE FULL {1, 4, 16} × THREE GRID IS BOUGHT BY TWO HALVES AND NOT BY THIS JOB ALONE, and that
+  # is worth writing down rather than leaving as arithmetic somebody has to redo. Each leg's manifest
+  # carries a line per worker count, so this job's diff is already per-thread-count; and the `test`
+  # job runs the whole suite on all three runners, so RemeshDeterminismTests' ten-runs sweep also
+  # happens three times. A difference that only appears at sixteen workers on one runner therefore
+  # has two ways to show up, and the diff below names which leg and which count.
+  #
+  # ⚠ THE FIXTURE IS PROCEDURAL AND NOTHING IS IMPORTED. `vixen remesh` would have been the closer
+  # parallel to the content job above, and it reads its input through Assimp — of which these three
+  # runners install three different builds. Mesh bytes differing between two versions of a native
+  # library is a real thing to know and is not a determinism defect in Vixen; it would have made this
+  # red on day one for the wrong reason. Build.ContentBytes refused a model in its own fixture for
+  # exactly this, in its own words.
+  #
+  # ⚠ THE COMPARISON DOES NOT FAIL THE BUILD YET, AND THAT IS DELIBERATE RATHER THAN TIMID. The
+  # content job above shipped the same way and says so: `continue-on-error` came off after two runs
+  # were read line by line rather than by their colour. Nobody has ever measured a remesh produced
+  # on Windows against one produced on macOS, so whether these three agree today is unknown — and a
+  # gate that is red on its first run for a reason nobody has looked at is a gate people learn to
+  # ignore. THE SHAPE CHECK BELOW IS NOT EXEMPT: a missing leg or a malformed manifest fails hard,
+  # because that is the failure mode this repository actually keeps having, and three manifests of
+  # nothing agree with each other. Take `continue-on-error` off the compare step once one green run
+  # has been read line by line; if the first runs disagree, that disagreement is the finding this
+  # job was written to produce and it belongs in an issue rather than in a relaxed threshold.
+  remesh-bytes:
+    name: remesh-bytes
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    steps:
+      - name: Download every leg's remesh manifest
+        uses: actions/download-artifact@v4
+        with:
+          pattern: remesh-bytes-*
+          path: manifests
+
+      # ⚠ A comparison of nothing agrees with itself, so the shape is checked before the contents
+      # and this step is the one that fails hard. Three legs upload; a count that is not three means
+      # a leg did not get here, or somebody grew the matrix and left this number behind. Not `-lt 3`:
+      # a fourth leg would let a missing third one through.
+      - name: Check that three well-formed manifests arrived
+        shell: bash
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+
+          found=(manifests/remesh-bytes-*/manifest.txt)
+
+          if [ "${#found[@]}" -ne 3 ]; then
+            echo "::error::expected three remesh manifests, one per test leg, and found ${#found[@]}."
+            exit 1
+          fi
+
+          # Read the total, not only the count that is well formed. Four lines and four *hashed*
+          # lines are two different claims, and a truncated manifest satisfies the second alone.
+          for manifest in "${found[@]}"; do
+            leg="$(basename "$(dirname "$manifest")")"
+            total="$(wc -l < "$manifest" | tr -d '[:space:]')"
+            hashed="$(grep -cE '^[0-9a-f]{64}  [^ ]+$' "$manifest" || true)"
+
+            if [ "$total" -ne 4 ] || [ "$hashed" -ne 4 ]; then
+              echo "::error::$leg's manifest has $total lines of which $hashed name a hashed leg, and the fixture has 4. Nothing was compared."
+              cat "$manifest"
+              exit 1
+            fi
+          done
+
+      # ⚠ Reported rather than enforced, for now, and the block above this job says for how long.
+      - name: Compare what the three runners remeshed
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+
+          found=(manifests/remesh-bytes-*/manifest.txt)
+          reference="${found[0]}"
+          reference_leg="$(basename "$(dirname "$reference")")"
+          status=0
+
+          for manifest in "${found[@]}"; do
+            leg="$(basename "$(dirname "$manifest")")"
+
+            {
+              echo "### $leg"
+              echo '```'
+              cat "$manifest"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            if diff -u "$reference" "$manifest"; then
+              continue
+            fi
+
+            status=1
+
+            # Which worker counts moved, not only that the files differ. Every leg on one runner
+            # differing is a portable arithmetic difference in the pipeline; one leg differing is a
+            # threading difference that the other runner's thread sweep did not reach.
+            differing="$(diff --unchanged-group-format='' --old-group-format='%<' --new-group-format='' --changed-group-format='%<' "$reference" "$manifest" | awk '{ print $2 }' | tr '\n' ' ')"
+
+            echo "::error::$leg and $reference_leg remeshed the same fixture into different bytes at: ${differing:-every leg}."
+          done
+
+          if [ "$status" -eq 0 ]; then
+            echo "All ${#found[@]} runners remeshed the fixture into identical bytes at every worker count."
           fi
 
           exit "$status"

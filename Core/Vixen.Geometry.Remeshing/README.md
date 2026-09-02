@@ -152,6 +152,16 @@ program whose answer depends on its solver's version.
 and vendors is not achievable, and this is an import-time cost rather than a frame cost. Recorded as
 a decision, because "why is this not on the GPU" is the first question anyone reading the code has.
 
+⚠ **"On any platform" was the half nothing measured, and a same-machine suite cannot measure it.**
+`RemeshDeterminismTests` runs ten times at each of {1, 4, 16} workers and every comparison it makes is
+against another run on the same machine — so `Math.Fma` contracting a multiply-add on one JIT and not
+another, an x87 spill, or a different `Vector<T>` width on arm64 would change the field solve and go
+green on all three CI legs. `RemeshBytesTests` writes a hash per worker count, `nuke RemeshBytes`
+produces it as an artefact, and `ci.yml`'s `remesh-bytes` job diffs the three runners' manifests
+against each other. ⚠ **That job has never been watched running** and its comparison step is
+`continue-on-error` until it has been; the shape check beside it is not, because three manifests of
+nothing agree with each other.
+
 ## One packer, not two
 
 The atlas comes out of the patch layout — a quantized quad patch *is* a rectangle, so the layout is
