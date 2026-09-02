@@ -280,7 +280,24 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         }
     }
 
-    static SwapChainStatus Translate(Result result) => result switch {
+    /// <summary>What a presentation result means to the frame loop.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three of these four rows are load-bearing and only one of them is obvious.</b>
+    ///         <c>VK_SUBOPTIMAL_KHR</c> is a <em>success</em>: the image was acquired or presented,
+    ///         and the surface would merely prefer other parameters — which a scaled display keeps
+    ///         saying, every frame, forever. Mapping it to <see cref="SwapChainStatus.OutOfDate" />
+    ///         would put the host into a rebuild it can never finish; mapping it to
+    ///         <see cref="SwapChainStatus.Ready" /> would leave a resized window stretched.
+    ///     </para>
+    ///     <para>
+    ///         And the default arm is <see cref="SwapChainStatus.DeviceLost" /> rather than a throw,
+    ///         because <c>OutOfDate</c> arrives on every frame of a window drag and an exception per
+    ///         frame for the duration of a drag is not a cost a renderer can pay
+    ///         ([05](../../docs/plan/05-graphics-rhi.md)).
+    ///     </para>
+    /// </remarks>
+    internal static SwapChainStatus Translate(Result result) => result switch {
         Result.Success => SwapChainStatus.Ready,
         Result.SuboptimalKhr => SwapChainStatus.Suboptimal,
         Result.ErrorOutOfDateKhr => SwapChainStatus.OutOfDate,

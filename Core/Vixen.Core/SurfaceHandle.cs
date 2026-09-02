@@ -54,7 +54,34 @@ public enum SurfaceKind : byte {
     Android = 5,
 
     /// <summary>A browser canvas, identified by its element id rather than by a pointer.</summary>
-    Web = 6
+    Web = 6,
+
+    /// <summary>A presentable surface with no window behind it. Neither handle is read.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="None" />, and the difference is the whole point.</b>
+    ///         <see cref="None" /> says "there is nothing to present to", and a backend that sees it
+    ///         renders offscreen and never builds a swapchain. This says "build the real swapchain;
+    ///         the images simply go nowhere" — every image is acquired, presented and recycled by an
+    ///         actual presentation engine, so <c>vkAcquireNextImageKHR</c> and
+    ///         <c>vkQueuePresentKHR</c> are exercised rather than stubbed.
+    ///     </para>
+    ///     <para>
+    ///         It exists because presentation was the one path in the RHI with no automated coverage
+    ///         at all, and the stated reason was that it needs a window — which on macOS means the
+    ///         main thread, because AppKit aborts a process that makes a window anywhere else. That
+    ///         reason turned out not to hold: <c>VK_EXT_headless_surface</c> is an ordinary
+    ///         <c>VkSurfaceKHR</c>, and MoltenVK and lavapipe both carry it. Nothing a platform
+    ///         reports is ever this kind; it is asked for by a test, a benchmark or a CI leg that
+    ///         wants the presenting path and has no display server.
+    ///     </para>
+    ///     <para>
+    ///         Only the Vulkan backend answers it. WebGPU and OpenGL refuse it the way they refuse
+    ///         any surface kind they have no descriptor for — WebGPU's swapchain <em>is</em> its
+    ///         surface, and OpenGL presents by swapping a window's own buffers.
+    ///     </para>
+    /// </remarks>
+    Headless = 7
 }
 
 /// <summary>The native handles a graphics backend needs to present to a window.</summary>
@@ -78,6 +105,16 @@ public readonly record struct SurfaceHandle(SurfaceKind Kind, nint Display, nint
     /// <summary>The handle a headless platform reports: nothing to present to.</summary>
     public static SurfaceHandle None => default;
 
+    /// <summary>A surface with no window behind it, for a run that wants the presenting path anyway.</summary>
+    /// <remarks>See <see cref="SurfaceKind.Headless" />. Both handles are zero and neither is read.</remarks>
+    public static SurfaceHandle Windowless => new(SurfaceKind.Headless, Display: 0, Handle: 0);
+
     /// <summary>Whether this handle can back a swapchain.</summary>
+    /// <remarks>
+    ///     ⚠ <b>True for <see cref="SurfaceKind.Headless" />, which has no window.</b> The question
+    ///     this answers is "is there something a swapchain can be built on", not "is there something
+    ///     a person can see" — a headless surface answers the first and not the second, and it is the
+    ///     first that every caller here is asking.
+    /// </remarks>
     public bool CanPresent => Kind != SurfaceKind.None;
 }

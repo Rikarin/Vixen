@@ -327,6 +327,7 @@ Vixen.Core.SurfaceHandle.SurfaceHandle() -> void
 Vixen.Core.SurfaceHandle.SurfaceHandle(Vixen.Core.SurfaceKind Kind, nint Display, nint Handle) -> void
 Vixen.Core.SurfaceKind -> enum : byte
 Vixen.Core.SurfaceKind.Android = 5 -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceKind.Headless = 7 -> Vixen.Core.SurfaceKind
 Vixen.Core.SurfaceKind.Metal = 4 -> Vixen.Core.SurfaceKind
 Vixen.Core.SurfaceKind.None = 0 -> Vixen.Core.SurfaceKind
 Vixen.Core.SurfaceKind.SurfaceKind() -> void
@@ -471,5 +472,6 @@ static Vixen.Core.SubAssetId.operator <=(Vixen.Core.SubAssetId left, Vixen.Core.
 static Vixen.Core.SubAssetId.operator >(Vixen.Core.SubAssetId left, Vixen.Core.SubAssetId right) -> bool
 static Vixen.Core.SubAssetId.operator >=(Vixen.Core.SubAssetId left, Vixen.Core.SubAssetId right) -> bool
 static Vixen.Core.SurfaceHandle.None.get -> Vixen.Core.SurfaceHandle
+static Vixen.Core.SurfaceHandle.Windowless.get -> Vixen.Core.SurfaceHandle
 static Vixen.Core.Symbol.Intern(string? name) -> Vixen.Core.Symbol
 static Vixen.Core.Symbol.None.get -> Vixen.Core.Symbol

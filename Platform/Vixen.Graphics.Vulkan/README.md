@@ -111,6 +111,22 @@ Present support is then re-asked *for that surface*: every desktop driver in pra
 is exactly why finding out by way of undefined behaviour on the one that does not would be finding it
 out the hard way. This is what an editor tearing a dock panel out onto the desktop needs.
 
+**Presentation is tested on a surface with no window, and that is not a stand-in for one.**
+`SurfaceKind.Headless` maps to `VK_EXT_headless_surface`: an ordinary `VkSurfaceKHR` that reports
+capabilities, formats and present modes, carries a real swapchain, and hands images back round
+through an actual presentation engine — there is simply nothing on the other end of the present. So
+`VulkanPresentationTests` runs the production `VulkanSwapChain`, not a double and not the offscreen
+chain, and the validation layers watch it: sharing one present semaphore between images, or acquiring
+the same image twice, both go red there.
+
+⚠ **This corrects a claim the tests used to make** — that acquire and present cannot be covered
+because they need a window and AppKit aborts a process that makes one off the main thread. What
+genuinely needs a window is turning a real `CAMetalLayer` into a `VkSurfaceKHR`; everything built on
+the surface does not care which kind it was. What a headless surface still cannot produce is
+`VK_ERROR_OUT_OF_DATE_KHR` or `VK_SUBOPTIMAL_KHR`, which come from a window server resizing a surface
+underneath the swapchain — their translation is asserted directly instead, because a rebuild loop that
+never converges is what collapsing those two costs.
+
 **A stated sample type is checked here, and an unstated one is not.** `DescriptorBinding.SampleType`
 is WebGPU's requirement — Vulkan takes any view a layout's "sampled image" binding is given, and the
 shader's own type decides how it is read. But a layout that *does* say `Depth`, and is then handed a

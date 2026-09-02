@@ -35,6 +35,12 @@ static unsafe class VulkanSurface {
         SurfaceKind.Wayland => [KhrSurface.ExtensionName, KhrWaylandSurface.ExtensionName],
         SurfaceKind.Metal => [KhrSurface.ExtensionName, ExtMetalSurface.ExtensionName],
         SurfaceKind.Android => [KhrSurface.ExtensionName, KhrAndroidSurface.ExtensionName],
+
+        // ⚠ A surface kind with no windowing system behind it, and the only one in this list that a
+        // platform never reports. It is asked for by a run that wants the presenting path and has no
+        // display server — which is what gave `vkAcquireNextImageKHR` and `vkQueuePresentKHR` their
+        // first automated coverage, the previous answer having been that they need a window.
+        SurfaceKind.Headless => [KhrSurface.ExtensionName, ExtHeadlessSurface.ExtensionName],
         _ => []
     };
 
@@ -128,6 +134,26 @@ static unsafe class VulkanSurface {
 
                 return Finish(
                     android.CreateAndroidSurface(instance.Handle, &info, null, out surface),
+                    out reason
+                );
+            }
+
+            // Neither handle is read: there is no window, and the extension's create-info carries
+            // nothing but its type. The surface is real in every other respect — it reports
+            // capabilities, formats and present modes, and a swapchain built on it acquires,
+            // presents and recycles images through an actual presentation engine.
+            case SurfaceKind.Headless: {
+                if (!api.TryGetInstanceExtension(instance.Handle, out ExtHeadlessSurface none)) {
+                    reason = Missing(ExtHeadlessSurface.ExtensionName);
+                    return false;
+                }
+
+                var info = new HeadlessSurfaceCreateInfoEXT {
+                    SType = StructureType.HeadlessSurfaceCreateInfoExt
+                };
+
+                return Finish(
+                    none.CreateHeadlessSurface(instance.Handle, &info, null, out surface),
                     out reason
                 );
             }

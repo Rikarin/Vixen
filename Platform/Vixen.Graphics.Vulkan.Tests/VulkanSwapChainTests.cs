@@ -14,12 +14,18 @@ namespace Vixen.Graphics.Vulkan.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>There is no end-to-end swapchain test, and that is a real gap.</b> Presenting needs a
-///         window; AppKit aborts the process when a window is created off the main thread, which is
-///         why <c>DesktopPlatformTests</c> forces SDL's dummy video driver on macOS
-///         ([10](../../docs/plan/10-platforms.md)). So the code that turns a <c>CAMetalLayer</c> into
-///         a <c>VkSurfaceKHR</c> and drives acquire/present has no automated coverage on this
-///         platform; <c>Samples/01</c> is what exercises it, by hand.
+///         ⚠ <b>This said there was no end-to-end swapchain test and that presenting needs a window,
+///         and the second half was wrong.</b> Acquire and present are covered by
+///         <see cref="VulkanPresentationTests" />, on a <c>VK_EXT_headless_surface</c> — a real
+///         <c>VkSurfaceKHR</c> with no window behind it, so no display server and no AppKit main
+///         thread are involved at all.
+///     </para>
+///     <para>
+///         What is still uncovered is the narrower claim: turning a <em>real window's</em>
+///         <c>CAMetalLayer</c> into a <c>VkSurfaceKHR</c>, which does need a window on the main
+///         thread — the reason <c>DesktopPlatformTests</c> forces SDL's dummy video driver on macOS
+///         ([10](../../docs/plan/10-platforms.md)). <c>Samples/01</c> is what exercises that, by
+///         hand. The swapchain built on the surface no longer depends on which kind it was.
 ///     </para>
 ///     <para>
 ///         What <em>is</em> testable is every decision made from the surface's report, and those are
