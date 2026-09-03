@@ -8,7 +8,7 @@ api: [T:Vixen.App.VixenApp, T:Vixen.App.AppBuilder, T:Vixen.App.Game, T:Vixen.Ap
 tags: [host, bootstrap, app, platform, backends]
 since: 0.1
 status: stable
-related: [assets/content-in-a-game, engine/world-serialisation, rendering/lit-path]
+related: [assets/content-in-a-game, engine/world-serialisation, rendering/lit-path, rendering/device-deny-list]
 ---
 
 ## What it is

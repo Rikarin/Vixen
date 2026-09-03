@@ -137,7 +137,8 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
             Properties.ApiVersion,
             Extensions.Contains(KhrSwapchain.ExtensionName),
             CanPresent,
-            HasGraphicsQueue
+            HasGraphicsQueue,
+            DriverVersion
         );
 
     internal required bool CanPresent { get; init; }
@@ -536,6 +537,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
     public static bool TrySelect(
         List<VulkanAdapter> adapters,
         bool presentRequired,
+        GpuDenyList denied,
         [NotNullWhen(true)] out VulkanAdapter? chosen,
         [NotNullWhen(false)] out string? reason
     ) {
@@ -546,7 +548,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
             candidates[index] = adapters[index].ToCandidate();
         }
 
-        if (!AdapterSelection.TrySelect(candidates, presentRequired, out var winner, out reason)) {
+        if (!AdapterSelection.TrySelect(candidates, presentRequired, denied, out var winner, out reason)) {
             return false;
         }
 

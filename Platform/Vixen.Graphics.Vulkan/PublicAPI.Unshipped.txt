@@ -50,6 +50,8 @@ Vixen.Graphics.Vulkan.VulkanDevice.WaitIdle() -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Write(Vixen.Graphics.BufferHandle buffer, long offset, System.ReadOnlySpan<byte> data) -> void
 Vixen.Graphics.Vulkan.VulkanDeviceOptions -> readonly struct
 Vixen.Graphics.Vulkan.VulkanDeviceOptions : System.IEquatable<Vixen.Graphics.Vulkan.VulkanDeviceOptions>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.DenyList.get -> Vixen.Graphics.GpuDenyList
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.DenyList.init -> Vixen.Graphics.GpuDenyList
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.FramesInFlight.get -> int
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.FramesInFlight.init -> int
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?

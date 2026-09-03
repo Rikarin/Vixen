@@ -19,6 +19,11 @@ namespace Vixen.Graphics.Vulkan;
 /// <param name="HasSwapchain">Whether it offers <c>VK_KHR_swapchain</c>.</param>
 /// <param name="CanPresent">Whether one of its queues can present to the surface we care about.</param>
 /// <param name="HasGraphicsQueue">Whether it has a queue family that can draw.</param>
+/// <param name="DriverVersion">
+///     The driver's version, formatted the way <see cref="IGraphicsAdapter.DriverVersion" /> is.
+///     Only <see cref="GpuDenyList" /> reads it, which is the one question here a capability query
+///     cannot answer.
+/// </param>
 readonly record struct AdapterCandidate(
     string Name,
     AdapterKind Kind,
@@ -26,7 +31,8 @@ readonly record struct AdapterCandidate(
     uint ApiVersion,
     bool HasSwapchain,
     bool CanPresent,
-    bool HasGraphicsQueue
+    bool HasGraphicsQueue,
+    string DriverVersion = ""
 );
 
 /// <summary>Choosing which GPU to run on, and saying why when none will do.</summary>
@@ -43,12 +49,25 @@ static class AdapterSelection {
     /// <param name="candidate">The device.</param>
     /// <param name="presentRequired">Whether it has to be able to present — false for a headless
     /// device doing offscreen work.</param>
+    /// <param name="denied">The devices this backend must not be used on.</param>
     /// <param name="reason">Why not, when it does not.</param>
+    /// <remarks>
+    ///     ⚠ <b>The deny-list is asked first, before the capability floor.</b> Every other refusal
+    ///     here is the device answering a question honestly; the deny-list exists precisely for the
+    ///     driver that answers every question and is wrong anyway, so a rule that fired second would
+    ///     be reported as "reports Vulkan 1.0" on a device that reports 1.3. Order is what makes the
+    ///     message name the real cause.
+    /// </remarks>
     public static bool IsUsable(
         in AdapterCandidate candidate,
         bool presentRequired,
+        GpuDenyList denied,
         [NotNullWhen(false)] out string? reason
     ) {
+        if (denied.IsDenied(candidate.Name, candidate.DriverVersion, out reason)) {
+            return false;
+        }
+
         if (candidate.ApiVersion < MinimumApiVersion) {
             reason = $"'{candidate.Name}' reports Vulkan {Describe(candidate.ApiVersion)}; Vixen needs 1.1.";
             return false;
@@ -104,6 +123,7 @@ static class AdapterSelection {
     /// <summary>Picks the best usable device.</summary>
     /// <param name="candidates">Everything the instance enumerated.</param>
     /// <param name="presentRequired">Whether the chosen device has to be able to present.</param>
+    /// <param name="denied">The devices this backend must not be used on.</param>
     /// <param name="index">Which candidate won.</param>
     /// <param name="reason">Why none did, when none did.</param>
     /// <returns>Whether a device was chosen.</returns>
@@ -115,6 +135,7 @@ static class AdapterSelection {
     public static bool TrySelect(
         ReadOnlySpan<AdapterCandidate> candidates,
         bool presentRequired,
+        GpuDenyList denied,
         out int index,
         [NotNullWhen(false)] out string? reason
     ) {
@@ -132,7 +153,7 @@ static class AdapterSelection {
         var rejections = new List<string>();
 
         for (var candidate = 0; candidate < candidates.Length; candidate++) {
-            if (!IsUsable(candidates[candidate], presentRequired, out var why)) {
+            if (!IsUsable(candidates[candidate], presentRequired, denied, out var why)) {
                 rejections.Add(why);
                 continue;
             }

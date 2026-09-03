@@ -69,6 +69,31 @@ public readonly record struct VulkanDeviceOptions() {
     ///     crosses the bus, when it works at all.
     /// </remarks>
     public nint PreferredPhysicalDevice { get; init; }
+
+    /// <summary>The GPUs and drivers this backend must not be used on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="../../docs/plan/10-platforms.md">Doc 10</a> § Android: a device reports
+    ///         Vulkan, answers every capability query the engine knows how to ask, and then fails on
+    ///         a specific extension in a specific driver branch. There is no query for that, so
+    ///         there is a list. Empty by default, which is every machine until content says
+    ///         otherwise.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is consulted before the logical device is created, not after.</b> Asking a
+    ///         device whether it should have been created means creating it on the driver the list
+    ///         exists to stay away from — see <c>AdapterSelection.IsUsable</c>, where the answer
+    ///         turns into a refusal with the rest of the rejection reasons, and the head's
+    ///         preference list falls through to whatever it named next.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="PreferredPhysicalDevice" /> overrules it and that is deliberate.</b>
+    ///         Naming a raw <c>VkPhysicalDevice</c> is an XR runtime saying which GPU the headset is
+    ///         wired to; there is no second choice to fall through to, and refusing it would leave a
+    ///         session with no device at all rather than with a discouraged one.
+    ///     </para>
+    /// </remarks>
+    public GpuDenyList DenyList { get; init; } = GpuDenyList.Empty;
 }
 
 /// <summary>The raw Vulkan objects something sharing a device is handed.</summary>
@@ -446,7 +471,8 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
                 return false;
             }
 
-            if (adapter is null && !VulkanAdapter.TrySelect(adapters, presenting, out adapter, out reason)) {
+            if (adapter is null
+                && !VulkanAdapter.TrySelect(adapters, presenting, options.DenyList, out adapter, out reason)) {
                 DestroySurface(khrSurface, instance, surface);
                 instance.Dispose();
                 return false;

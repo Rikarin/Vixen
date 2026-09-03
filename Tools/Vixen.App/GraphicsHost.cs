@@ -98,7 +98,7 @@ public static class GraphicsHost {
         var offscreen = options.Offscreen || options.CapturePath is { Length: > 0 };
 
         foreach (var backend in order) {
-            if (TryOpen(backend, window, logs, offscreen, out var device, out var refusal)) {
+            if (TryOpen(backend, window, logs, offscreen, options.DenyList, out var device, out var refusal)) {
                 // ⚠ Opening is not presenting. A device can be perfectly healthy and still have no
                 // surface — an application that asked for no window, or a window made without the
                 // backend's surface flag — and the host logs that as the reason a picture is not
@@ -181,6 +181,7 @@ public static class GraphicsHost {
         IWindow? window,
         ILoggerFactory? logs,
         bool offscreen,
+        GpuDenyList denied,
         out IGraphicsDevice? device,
         out string? reason
     ) {
@@ -237,7 +238,18 @@ public static class GraphicsHost {
         switch (backend) {
             case GraphicsBackend.Vulkan: {
                 var opened = VulkanDevice.TryCreate(
-                    new() { Surface = surface, Logger = logs?.CreateLogger("Vulkan") },
+                    new() {
+                        Surface = surface,
+                        Logger = logs?.CreateLogger("Vulkan"),
+
+                        // ⚠ The one place the deny-list has to be handed over rather than consulted
+                        // here. Which physical device a Vulkan instance ends up on is decided inside
+                        // the backend, between enumeration and device creation, and that is the only
+                        // moment at which "do not use this GPU" is still an answer rather than a
+                        // regret — asking afterwards would mean having created the device on the
+                        // driver the list exists to avoid.
+                        DenyList = denied
+                    },
                     out var vulkan,
                     out reason
                 );
