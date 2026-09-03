@@ -166,6 +166,80 @@ public sealed class NetworkRulesImporterTests {
         Assert.DoesNotContain(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
     }
 
+    /// <summary>
+    ///     ⚠ A misspelled field is said out loud, because the alternative is a policy that reads right
+    ///     and is not.
+    /// </summary>
+    /// <remarks>
+    ///     <b><c>YamlSerializer</c> ignores an unknown key unless the caller asks</b> — deliberately,
+    ///     and no importer in the tree asked. So <c>onOwnerDisconect</c> bound to nothing, the file
+    ///     imported clean, and the object stayed on <c>TransferToServer</c>: a game rule that does not
+    ///     work with no diagnostic anywhere. The value here is <c>Destroy</c> and the assertion is
+    ///     that the record does <i>not</i> carry it, so the test names the consequence rather than the
+    ///     message.
+    /// </remarks>
+    [Fact]
+    public async Task AMisspelledFieldIsWarnedAboutRatherThanDroppedInSilence() {
+        var (_, result) = await Import(
+            "typo.vxnetrules",
+            """
+            name: Typo
+            rules:
+              onOwnerDisconect: Destroy
+            """
+        );
+
+        Assert.True(result.Succeeded);
+
+        var written = Serializer.Read<NetworkRulesAsset>(Assert.Single(result.Artifacts).Content.Span);
+
+        Assert.Equal(DisconnectBehaviour.TransferToServer, written.Rules.OnOwnerDisconnect);
+        Assert.Contains(
+            result.Diagnostics,
+            message => message.Severity == ImportSeverity.Warning
+                && message.Message.Contains("onOwnerDisconect", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>And a file with nothing misspelled in it says nothing, so the warning means something.</summary>
+    [Fact]
+    public async Task AWellSpelledPolicyWarnsAboutNoField() {
+        var (_, result) = await Import(
+            "clean.vxnetrules",
+            """
+            name: Clean
+            rules:
+              changeOwner: Everyone
+              claim: WhenUnowned
+            """
+        );
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    /// <summary>
+    ///     ⚠ A value that is not a member of its enum is an error, which the guide's examples were not.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Enum.Parse</c> throws and <c>BindScalar</c> rewraps it as a <c>YamlBindingException</c>,
+    ///     so this half was never silent — but the shipped guide offered <c>claim: Never</c> and
+    ///     <c>onOwnerDisconnect: ReleaseToUnowned</c>, neither of which exists, so a reader copying an
+    ///     example got a file the importer refuses. Both are corrected; this is what holds the
+    ///     behaviour they were corrected against.
+    /// </remarks>
+    [Fact]
+    public async Task AValueThatIsNotAMemberOfItsEnumIsRefused() {
+        var (_, result) = await Import("invented.vxnetrules", "name: Invented\nrules:\n  claim: Never\n");
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(
+            result.Diagnostics,
+            message => message.Severity == ImportSeverity.Error
+                && message.Message.Contains("OwnershipClaim", StringComparison.Ordinal)
+        );
+    }
+
     [Fact]
     public async Task BrokenYamlIsReportedRatherThanThrown() {
         var (_, result) = await Import("broken.vxnetrules", "name: [unclosed\n");

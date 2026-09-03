@@ -35,6 +35,8 @@ public sealed class NetworkSpawner {
     readonly NetworkPrefabRegistry prefabs;
     readonly NetworkIdAllocator ids;
     readonly List<Entity> scratch = [];
+    readonly List<DisconnectAction> leaving = [];
+    readonly HashSet<uint> condemned = [];
 
     Entity[] created = [];
 
@@ -71,6 +73,17 @@ public sealed class NetworkSpawner {
     ///     <c>WaterZoneSystem.UnresolvedWaves</c> is the same counter for the same class of bug.
     /// </remarks>
     public int UnresolvedRules { get; private set; }
+
+    /// <summary>
+    ///     How many objects a departing owner's policy condemned that no entity answered to.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="UnresolvedRules" />' counter for the other end of the same story.</b> A
+    ///     policy that says <see cref="DisconnectBehaviour.Destroy" /> and destroys nothing is exactly
+    ///     as invisible as one that never loaded — see <see cref="OnOwnerLeft" /> for the two ways to
+    ///     get here, both of which are wiring rather than content.
+    /// </remarks>
+    public int UnresolvedDespawns { get; private set; }
 
     /// <summary>Creates a spawner.</summary>
     /// <param name="prefabs">What may be spawned.</param>
@@ -238,6 +251,96 @@ public sealed class NetworkSpawner {
         }
 
         return roots.Count;
+    }
+
+    /// <summary>Applies every departing player's objects' <see cref="DisconnectBehaviour" />.</summary>
+    /// <param name="world">The server's world.</param>
+    /// <param name="player">Who left.</param>
+    /// <returns>How many objects were destroyed. The transferred and persisted ones are not counted.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half <see cref="NetworkRulesRegistry.OnOwnerLeft" /> says is somebody else's</b>
+    ///         — "the <see cref="DisconnectBehaviour.Destroy" /> entries are for whoever owns spawning
+    ///         to act on, because destroying an entity is not this type's to do". This is whoever owns
+    ///         spawning, and until it existed nothing in the repository called the registry at all: a
+    ///         <c>.vxnetrules</c> could say <c>onOwnerDisconnect: Destroy</c> and the object outlived
+    ///         the session, owned by a player who was gone.
+    ///     </para>
+    ///     <para>
+    ///         Wire it to <c>NetworkSession.PlayerLeft</c>. ⚠ <b>Do not also call the registry's own
+    ///         <see cref="NetworkRulesRegistry.OnOwnerLeft" /></b>: this calls it, because the transfer
+    ///         half has to happen whether or not anything is destroyed, and the two halves reading one
+    ///         ownership table twice is how they come to disagree about who owns what.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Without <see cref="Rules" /> this does nothing at all, and says so by returning
+    ///         zero.</b> The registry is what holds both the policy and the ownership; a spawner with
+    ///         no registry has no way to know a player owned anything, and inventing a default here
+    ///         would be a second disconnect policy beside the one in the file.
+    ///     </para>
+    ///     <para>
+    ///         <b>One sweep of the networked world, not one lookup per object.</b> There is no
+    ///         id-to-entity index on the server — <c>ReplicationClient.TryGetEntity</c> is the
+    ///         receiving side's — and building one for the life of a session to serve an event that
+    ///         fires when somebody's connection drops is the wrong trade. A player who owned nothing
+    ///         costs no sweep at all.
+    ///     </para>
+    /// </remarks>
+    public int OnOwnerLeft(World world, PlayerId player) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        if (Rules is not { } registry) {
+            return 0;
+        }
+
+        // Transfers and persists are applied by this call; what comes back is every object they
+        // owned, with what its own policy said about it.
+        leaving.Clear();
+        registry.OnOwnerLeft(player, leaving);
+
+        condemned.Clear();
+
+        foreach (var action in leaving) {
+            if (action.Behaviour == DisconnectBehaviour.Destroy) {
+                condemned.Add(action.Object.Value);
+            }
+        }
+
+        if (condemned.Count == 0) {
+            return 0;
+        }
+
+        var roots = new List<Entity>();
+
+        foreach (var chunk in world.Chunks(new QueryDescription().WithAll<NetworkId>())) {
+            var ids = chunk.ReadValues<NetworkId>();
+            var entities = chunk.Entities;
+
+            for (var index = 0; index < chunk.Count; index++) {
+                if (condemned.Contains(ids[index].Value)) {
+                    roots.Add(entities[index]);
+                }
+            }
+        }
+
+        // ⚠ An id nothing in the world carries. Despawn forgets an id in the ownership table as it
+        // destroys it, so the only ways to be here are a spawner and a registry built over two
+        // different NetworkOwnership instances, or a game that destroyed the entity by hand. Both are
+        // wiring, both are silent, and both leave an object's policy having decided nothing.
+        UnresolvedDespawns += condemned.Count - roots.Count;
+
+        var destroyed = 0;
+
+        foreach (var root in roots) {
+            // A member of an instance whose root is condemned too is already gone — Despawn takes the
+            // subtree — and answers zero rather than being counted twice.
+            if (Despawn(world, root) > 0) {
+                destroyed++;
+            }
+        }
+
+        return destroyed;
     }
 
     /// <summary>Gives an instance's networked nodes their ids.</summary>

@@ -47,6 +47,21 @@ public sealed record NetworkRulesImportSettings : IImportSettings {
 ///         round-trips every field to prove it.
 ///     </para>
 ///     <para>
+///         ⚠ <b>A key this build does not know is a warning, and until it was one it was nothing at
+///         all.</b> <c>YamlSerializer</c> ignores an unknown key unless the caller asks — deliberately,
+///         because "the caller decides whether an unknown key is news" — and no importer in the tree
+///         asked. So <c>onOwnerDisconect: Destroy</c> imported cleanly, produced a chunk, resolved
+///         onto a spawned node, and left the object on <see cref="DisconnectBehaviour.TransferToServer" />:
+///         a policy file that reads exactly right and a rule that is not the one it says. That is the
+///         same silence <see cref="NetworkRulesAsset.Validate" /> exists to break, one field over.
+///     </para>
+///     <para>
+///         Warned rather than refused, on the same line <c>write: Everyone</c> is drawn on. A file
+///         written by a newer engine carries keys this one does not have, and refusing it would make
+///         an unknown field a downgrade failure rather than a typo — but a typo is by far the likelier
+///         of the two, so it has to be said out loud.
+///     </para>
+///     <para>
 ///         ⚠ <b>What cannot be checked here is whether anything names it.</b> A prefab naming a
 ///         policy no asset carries falls back to the registry's default and counts into
 ///         <c>NetworkSpawner.UnresolvedRules</c> — a running session with the wrong rules. The
@@ -85,9 +100,13 @@ public sealed class NetworkRulesImporter : AssetImporter<NetworkRulesImportSetti
         }
 
         NetworkRulesAsset policy;
+        var unknown = new List<string>();
 
         try {
-            policy = YamlSerializer.Parse<NetworkRulesAsset>(text);
+            policy = YamlSerializer.Parse<NetworkRulesAsset>(
+                text,
+                YamlSerializerOptions.Default with { OnUnknownKey = unknown.Add }
+            );
         } catch (Exception exception) when (exception is YamlBindingException or YamlParseException) {
             // Reported rather than thrown, so an author gets every broken file in one pass.
             context.Report(ImportSeverity.Error, exception.Message);
@@ -97,6 +116,15 @@ public sealed class NetworkRulesImporter : AssetImporter<NetworkRulesImportSetti
 
         if (policy.Name.Length == 0) {
             policy.Name = Path.GetFileNameWithoutExtension(context.SourcePath.Value);
+        }
+
+        foreach (var key in unknown) {
+            context.Report(
+                ImportSeverity.Warning,
+                $"'{key}' is not a field of a network policy, so nothing read it and the rule it was "
+                + "meant to set is on its default. The fields are name, and under rules: spawn, "
+                + "despawn, callServerRpc, write, changeOwner, claim and onOwnerDisconnect."
+            );
         }
 
         if (policy.Validate() is { } problem) {
