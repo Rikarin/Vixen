@@ -49,9 +49,28 @@ is the second line of defence.
 |---|---|
 | Input | UV, World Position, World Normal, Vertex Colour, Time, Constant, Colour Property, Float Property |
 | Math | Add, Subtract, Multiply, Divide, Lerp, Saturate, One Minus, Power, Absolute, Fraction, Sine, Smoothstep, Dot, Normalize |
-| Vector | Combine, Split, Tiling and Offset |
+| Vector | Combine, Split, Tiling and Offset, Rotate UV, Flipbook |
+| Procedural | Noise, Fractal Noise, Checker |
 | Texture | Sample 2D |
-| Master | Unlit, Sprite, PBR |
+| Master | Unlit, Sprite, PBR, **Surface** |
+
+⚠ **The Master row said three for as long as there were four.** `Master/Surface` landed in
+`5a5e6332` and is documented forty lines below, and this table was not updated with it.
+
+**The procedural and UV nodes add no shader code.** Each is a call into
+`Raven/Library/Material/ComputeColor.rvn`, whose procedural and UV sections were written as "the
+shader-graph node vocabulary" and ⚠ had no caller of any kind. They are the first nodes whose Raven
+is not self-contained, which is why `RavenEmitter.Import` exists — see *Two shapes, two preambles*
+below — and why they declare no preview.
+
+### Two shapes, two preambles
+
+A surface graph emits the four `Vixen.Shaders.*` imports unconditionally, because it is composed into
+a pass that has them. ⚠ **A standalone graph emitted none at all**, which is right for what compiles
+one — the node preview, which binds one uniform block and refuses a variant whose reflection asks for
+more. So an import is *asked for*, by `RavenEmitter.Import`, rather than written into both preambles:
+a graph that never calls into the library pays nothing, and the surface shape drops a request that
+duplicates one of its four, because Raven refuses a repeated import.
 
 **Most maths nodes are two dynamic inputs and a dynamic output**, so one `Add` works on floats, on
 colours and on positions. That is what `DynamicVector` is for and the reason there is no `AddFloat3`
@@ -201,11 +220,24 @@ and a change to one method when it is time to wire it into the engine's clustere
 
 ## What is not here yet
 
-- **Procedural nodes.** Noise, gradients, shapes. The `VfxNoise` transcription in `Vixen.Vfx` is the
-  obvious source for a value-noise node, and it is not wired up.
+- ~~**Procedural nodes.**~~ **Value noise, fractal noise and a checker are in**, over
+  `ComputeColor.rvn`'s own functions rather than a second transcription of them. ⚠ What is left is
+  Perlin, simplex and voronoi, and each of those is a change to a published `.rvn` — a regeneration
+  and a `CheckShaders` run — rather than a node. A gradient is `Math/Lerp`.
+- ⚠ **A preview of a node that calls the library.** `ShaderGraphPreviewRenderer` compiles the emitted
+  preview through `RavenEffectCompiler.FromSources` with exactly one source, so nothing in the shipped
+  library is in scope and the procedural nodes cannot declare `Preview`. It is a property of the
+  preview's compilation rather than of those nodes — the same graph compiles as a material, because
+  `EditorEffects` and the shader build both hand Raven the library's import closure.
 - **A custom-code node**, which doc 11 lists. It is a `[Input]`-less node holding a string of Raven,
   and the interesting part is not the node but what happens to a diagnostic inside it.
-- **Post and UI masters.** Unlit, Sprite and PBR are in; doc 11 names five.
+- **Post and UI masters.** ⚠ **Four masters are in, not three** — Unlit, Sprite, PBR and Surface —
+  and ⚠ **doc 11 is one table cell**: `master (PBR/unlit/sprite/UI/post)` at
+  `docs/plan/11-editor.md:486`, with no prose anywhere and nothing at all about what shape either
+  emits. `Master/Surface` emits `shader N : IMaterialSurface`; a post pass is a full-screen shader
+  with a source texture and `UiQuad.rvn` has its own vertex contract, so both are most likely a
+  *third* and *fourth* `ShaderGraphKind` rather than variations of the standalone preamble. That
+  decision is the work, and it is unmade.
 - ~~**Diagnostics mapped back to ports.**~~ **Done.** `RavenEmitter` counts the lines it writes, so
   this compiler records a `ShaderGraphSpan` for every node's statements and for every uniform
   declaration a node asked for; `ShaderGraphSource.NodeAt` turns a line of the emitted text back into

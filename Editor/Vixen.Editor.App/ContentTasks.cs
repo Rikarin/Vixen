@@ -369,6 +369,23 @@ sealed class ContentTasks {
     /// <summary>What to do when a task has finished and the panels are stale.</summary>
     public Action? Rescan { get; set; }
 
+    /// <summary>What rewrites the catalog a viewport draws through. ⚠ Called on a pool thread.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of "an import finished" that must not touch a panel.</b>
+    ///         <see cref="Rescan" /> is the frame-thread half and runs from <see cref="Pump" />; this
+    ///         one runs inside the task, because writing a catalog is a plan over every asset in the
+    ///         project and <c>EditorContent.Rebuild</c> says plainly that conflating the write with
+    ///         the reopen "would put the planner on the frame thread".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only on success.</b> A failed import leaves <c>Library/</c> half written, and a
+    ///         catalog over that is a catalog of an inconsistent tree — the viewport is better off
+    ///         still drawing the last good one.
+    ///     </para>
+    /// </remarks>
+    public Action? Cataloged { get; set; }
+
     /// <summary>What to do when work starts or stops, for a panel whose buttons say which.</summary>
     /// <remarks>
     ///     ⚠ <b>Raised from <see cref="Pump" /> by comparing, rather than from the two places that
@@ -417,6 +434,16 @@ sealed class ContentTasks {
                     var result = await work(task, diagnostics).ConfigureAwait(false);
 
                     succeeded = result.Severity is not NotificationSeverity.Error;
+
+                    // ⚠ Here — on the pool, before the frame thread is told anything — because
+                    // writing a catalog runs `BuildPlanner` over the whole project, and
+                    // `EditorContent.Rebuild`'s own remarks say what doing that on the frame thread
+                    // costs. Every task that reaches this point has written `Library/`, so every one
+                    // of them leaves the viewport's catalog a snapshot of the import before it.
+                    if (succeeded) {
+                        Cataloged?.Invoke();
+                    }
+
                     finished.Enqueue(result with { Detail = Detail(result, diagnostics) });
                 } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
                     finished.Enqueue(new(NotificationSeverity.Error, title + " failed", failure.Message));

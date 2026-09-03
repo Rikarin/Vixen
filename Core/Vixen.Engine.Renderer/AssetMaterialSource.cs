@@ -277,6 +277,41 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
         }
     }
 
+    /// <summary>Whether this has given up on a reference for good.</summary>
+    /// <param name="reference">The reference.</param>
+    /// <returns>
+    ///     Whether it was asked for and will never arrive. False for one that is still coming, and
+    ///     false for one nothing has asked about yet.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="TryGet" />'s false says "not yet" and cannot say "never", and the
+    ///         difference is a mesh that never draws.</b> <see cref="IMaterialSource" />'s contract is
+    ///         two-valued on purpose — <c>MeshExtractionSystem.Painted</c> reads false as "ask again
+    ///         next frame" and leaves the entity unsettled — so a reference this refused is one that
+    ///         entity waits on for the life of the process. It is not a stall: the object is never
+    ///         added, so what an author sees is geometry that is simply absent, with
+    ///         <c>MeshExtractionSystem.Waiting</c> stuck at a number nobody is looking at.
+    ///     </para>
+    ///     <para>
+    ///         So a host that would rather draw a wrong-looking mesh than no mesh asks this after a
+    ///         false and substitutes its own fallback. The editor does exactly that — its catalog
+    ///         resolves <em>less</em> than its import cache, deliberately, so a material excluded from
+    ///         the build would otherwise take its geometry off screen. See
+    ///         <c>Vixen.Editor.App.EditorMaterialSource</c>.
+    ///     </para>
+    ///     <para>
+    ///         A predicate rather than a widened <see cref="TryGet" />, because the interface is what
+    ///         a project implements and three-valued would make every implementation answer a
+    ///         question most of them have no way to know.
+    ///     </para>
+    /// </remarks>
+    public bool Refused(AssetReference reference) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        return entries.TryGetValue(reference, out var entry) && entry.Failed;
+    }
+
     /// <summary>Which textures a compiled material samples.</summary>
     /// <param name="material">One of the materials this compiled.</param>
     /// <returns>

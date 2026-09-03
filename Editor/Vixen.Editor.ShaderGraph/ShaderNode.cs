@@ -76,17 +76,21 @@ public sealed class RavenEmitter {
     readonly HashSet<ShaderStageInput> stage;
     readonly Dictionary<string, string> maps;
 
+    readonly SortedSet<string> imports;
+
     internal RavenEmitter(
         StringBuilder body,
         Dictionary<string, string> uniforms,
         HashSet<ShaderStageInput> stage,
         Dictionary<string, string> maps,
+        SortedSet<string> imports,
         ShaderGraphKind kind
     ) {
         this.body = body;
         this.uniforms = uniforms;
         this.stage = stage;
         this.maps = maps;
+        this.imports = imports;
         Kind = kind;
     }
 
@@ -127,6 +131,31 @@ public sealed class RavenEmitter {
     /// <param name="variable">The variable to write, which is an output port's name.</param>
     /// <param name="expression">What it is.</param>
     public void Assign(string variable, string expression) => Emit($"val {variable} = {expression}");
+
+    /// <summary>Asks for a Raven package to be in scope, for a node that calls a library function.</summary>
+    /// <param name="package">The package, as it would be written after <c>import</c>.</param>
+    /// <exception cref="ArgumentException"><paramref name="package" /> is null or blank.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Asked for rather than always emitted, because the two shapes had different
+    ///         answers and neither was right for the other.</b> A surface graph imports the four
+    ///         <c>Vixen.Shaders.*</c> packages unconditionally — it is composed into a pass that has
+    ///         them — while a standalone graph imported <em>nothing</em>, which is what a preview
+    ///         wants and what a node calling <c>ComputeColor.ValueNoise</c> cannot have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An import a graph does not use is not free in a preview.</b>
+    ///         <see cref="ShaderGraphPreviewRenderer" /> binds one uniform block and no resources at
+    ///         all, and refuses any variant whose reflection asks for more — so a preamble that
+    ///         imported the shading library into every graph would be paid for by every node that
+    ///         never called into it. Set-valued and sorted, so the same graph emits the same source.
+    ///     </para>
+    /// </remarks>
+    public void Import(string package) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(package);
+
+        imports.Add(package);
+    }
 
     /// <summary>Asks for a material uniform, and gets the name to read it by.</summary>
     /// <param name="name">What the author called the property.</param>

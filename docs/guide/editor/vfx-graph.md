@@ -4,7 +4,7 @@ slug: editor/vfx-graph
 kind: guide
 area: Editor
 summary: The node library a .vxvfx is authored against — spawners, initializers, updaters and outputs — and the compiler that turns one graph into both an effect the CPU runs and a shader a device runs.
-api: [T:Vixen.Editor.VfxGraph.VfxGraphCompiler, T:Vixen.Editor.VfxGraph.VfxGraphArtefact, T:Vixen.Editor.VfxGraph.VfxGraphBuilder, T:Vixen.Editor.VfxGraph.VfxNode, T:Vixen.Editor.VfxGraph.VfxNodeLibrary, T:Vixen.Editor.VfxGraph.NodeTypes, T:Vixen.Editor.VfxGraph.Nodes.VfxBlockNode, T:Vixen.Editor.VfxGraph.Nodes.EffectNode, T:Vixen.Editor.VfxGraph.Nodes.BurstNode, T:Vixen.Editor.VfxGraph.Nodes.RateNode, T:Vixen.Editor.VfxGraph.Nodes.PositionInBoxNode, T:Vixen.Editor.VfxGraph.Nodes.PositionInSphereNode, T:Vixen.Editor.VfxGraph.Nodes.RandomVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.SetVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.LifetimeNode, T:Vixen.Editor.VfxGraph.Nodes.SizeNode, T:Vixen.Editor.VfxGraph.Nodes.ColourNode, T:Vixen.Editor.VfxGraph.Nodes.GravityNode, T:Vixen.Editor.VfxGraph.Nodes.DragNode, T:Vixen.Editor.VfxGraph.Nodes.IntegrateNode, T:Vixen.Editor.VfxGraph.Nodes.AttractNode, T:Vixen.Editor.VfxGraph.Nodes.VortexNode, T:Vixen.Editor.VfxGraph.Nodes.TurbulenceNode, T:Vixen.Editor.VfxGraph.Nodes.CollidePlaneNode, T:Vixen.Editor.VfxGraph.Nodes.CollideSphereNode, T:Vixen.Editor.VfxGraph.Nodes.SizeOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.ColourOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.VfxCustomNode, T:Vixen.Editor.VfxGraph.Nodes.SetCustomNode, T:Vixen.Editor.VfxGraph.Nodes.RandomCustomNode, T:Vixen.Editor.VfxGraph.Nodes.CustomOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.BillboardOutputNode, T:Vixen.Editor.VfxGraph.Nodes.MeshOutputNode, T:Vixen.Editor.VfxGraph.Nodes.RibbonOutputNode, T:Vixen.Editor.VfxGraph.Nodes.LightOutputNode]
+api: [T:Vixen.Editor.VfxGraph.VfxGraphCompiler, T:Vixen.Editor.VfxGraph.VfxGraphArtefact, T:Vixen.Editor.VfxGraph.VfxGraphBuilder, T:Vixen.Editor.VfxGraph.VfxNode, T:Vixen.Editor.VfxGraph.VfxNodeLibrary, T:Vixen.Editor.VfxGraph.NodeTypes, T:Vixen.Editor.VfxGraph.Nodes.VfxBlockNode, T:Vixen.Editor.VfxGraph.Nodes.EffectNode, T:Vixen.Editor.VfxGraph.Nodes.BurstNode, T:Vixen.Editor.VfxGraph.Nodes.RateNode, T:Vixen.Editor.VfxGraph.Nodes.PositionNode, T:Vixen.Editor.VfxGraph.Nodes.PositionInBoxNode, T:Vixen.Editor.VfxGraph.Nodes.PositionInSphereNode, T:Vixen.Editor.VfxGraph.Nodes.RandomVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.VelocityInConeNode, T:Vixen.Editor.VfxGraph.Nodes.SetVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.LifetimeNode, T:Vixen.Editor.VfxGraph.Nodes.SizeNode, T:Vixen.Editor.VfxGraph.Nodes.ColourNode, T:Vixen.Editor.VfxGraph.Nodes.RotationNode, T:Vixen.Editor.VfxGraph.Nodes.AngularVelocityNode, T:Vixen.Editor.VfxGraph.Nodes.GravityNode, T:Vixen.Editor.VfxGraph.Nodes.DragNode, T:Vixen.Editor.VfxGraph.Nodes.IntegrateNode, T:Vixen.Editor.VfxGraph.Nodes.RotateNode, T:Vixen.Editor.VfxGraph.Nodes.AttractNode, T:Vixen.Editor.VfxGraph.Nodes.VortexNode, T:Vixen.Editor.VfxGraph.Nodes.TurbulenceNode, T:Vixen.Editor.VfxGraph.Nodes.CollidePlaneNode, T:Vixen.Editor.VfxGraph.Nodes.CollideSphereNode, T:Vixen.Editor.VfxGraph.Nodes.SizeOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.ColourOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.VfxCustomNode, T:Vixen.Editor.VfxGraph.Nodes.SetCustomNode, T:Vixen.Editor.VfxGraph.Nodes.RandomCustomNode, T:Vixen.Editor.VfxGraph.Nodes.CustomOverLifeNode, T:Vixen.Editor.VfxGraph.Nodes.BillboardOutputNode, T:Vixen.Editor.VfxGraph.Nodes.MeshOutputNode, T:Vixen.Editor.VfxGraph.Nodes.RibbonOutputNode, T:Vixen.Editor.VfxGraph.Nodes.LightOutputNode]
 tags: [editor, vfx, particles, node-graph]
 since: 0.1
 status: preview
@@ -35,8 +35,8 @@ to it every step, and what it is drawn as. Four categories, and the menu path is
 |---|---|
 | `Vfx/Effect` | the capacity and the renderer, as one node per graph |
 | `Vfx/Spawn/…` | `Burst`, `Rate` — what makes particles |
-| `Vfx/Initialize/…` | `Position in Box`, `Position in Sphere`, `Random Velocity`, `Set Velocity`, `Lifetime`, `Size`, `Colour`, `Set Custom`, `Random Custom` |
-| `Vfx/Update/…` | `Gravity`, `Drag`, `Integrate`, `Attract`, `Vortex`, `Turbulence`, `Collide Plane`, `Collide Sphere`, `Size over Life`, `Colour over Life`, `Custom over Life` |
+| `Vfx/Initialize/…` | `Position`, `Position in Box`, `Position in Sphere`, `Random Velocity`, `Velocity in Cone`, `Set Velocity`, `Lifetime`, `Size`, `Colour`, `Rotation`, `Angular Velocity`, `Set Custom`, `Random Custom` |
+| `Vfx/Update/…` | `Gravity`, `Drag`, `Integrate`, `Rotate`, `Attract`, `Vortex`, `Turbulence`, `Collide Plane`, `Collide Sphere`, `Size over Life`, `Colour over Life`, `Custom over Life` |
 | `Vfx/Output/…` | `Billboard`, `Mesh`, `Ribbon`, `Light` — one of these decides the renderer |
 
 It is **not** for saying which shader draws the particles or which texture they use. There is no
@@ -56,6 +56,13 @@ if no updater would have.
 | `Mesh` | an instance of a mesh per particle | `VfxEmitter.Mesh` on the entity |
 | `Ribbon` | a strip through the particles sharing a custom attribute | a block that writes the attribute it names |
 | `Light` | a point light per particle, and no geometry at all | a host that collects them |
+
+⚠ **Roll needs two blocks, exactly as movement does.** `Vfx/Initialize/Angular Velocity` sets the
+spin rate and nothing turns until `Vfx/Update/Rotate` integrates it — the same pairing as
+`Vfx/Initialize/Set Velocity` and `Vfx/Update/Integrate`, and the same first surprise. A graph with
+the rate and no `Rotate` draws still billboards; one with `Rotate` and no rate advances every
+particle by zero. `Vfx/Initialize/Rotation` is the starting angle, and its default range of nought to
+2π is what stops a burst of sprites all facing the same way.
 
 ⚠ **A graph with two output nodes in it is not an error and the last one wins.** `Contribute`
 assigns `VfxGraphBuilder.Renderer`, so a second output overwrites the first silently. One per graph.

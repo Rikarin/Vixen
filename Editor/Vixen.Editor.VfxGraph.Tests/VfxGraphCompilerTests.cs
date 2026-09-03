@@ -542,6 +542,105 @@ public class VfxGraphCompilerTests {
         Compiles(result.Value.Shader.Source);
     }
 
+    /// <summary>The last five opcodes reach the graph, and the spin they set actually advances.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>All five shipped in <em>both</em> backends with nothing able to author them</b> —
+    ///         <c>SetPosition</c>, <c>VelocityInCone</c>, <c>SetRotation</c>,
+    ///         <c>SetAngularVelocity</c> and <c>Rotate</c> are each implemented in
+    ///         <c>VfxSimulation</c> and in <c>VfxShaderEmitter</c>, and none had a node. The module
+    ///         README claimed one was left; there were five.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rotation assertion is behavioural rather than structural, and that is the
+    ///         point.</b> Three of these five write an attribute that only a fourth one moves and only
+    ///         <c>VfxGeometry</c> reads, so a graph carrying all three and turning nothing would
+    ///         satisfy every "the opcode is in the list" check there is — which is the shape of every
+    ///         built-and-never-fed defect in this tree. Roll is asserted to have <em>moved</em>, in the
+    ///         direction and roughly the amount a second of the authored rate gives.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_last_five_opcodes_reach_the_graph_and_the_spin_advances() {
+        var graph = new NodeGraphModel { Name = "Spun" };
+
+        graph.Add("Vfx/Spawn/Burst");
+        var life = graph.Add("Vfx/Initialize/Lifetime");
+
+        // ⚠ Long and fixed, because the default is a random one to two seconds and this steps for
+        // more than one — a particle that died mid-run would leave a shorter live span and the
+        // assertion below would be reading whatever the pool had not yet overwritten.
+        life.SetValue("Minimum", 30f);
+        life.SetValue("Maximum", 30f);
+
+        graph.Add("Vfx/Initialize/Position").SetValue("Position", 1f, 2f, 3f);
+
+        var cone = graph.Add("Vfx/Initialize/Velocity in Cone");
+
+        cone.SetValue("Axis", 0f, 0f, 1f);
+        cone.SetValue("Angle", 0.25f);
+        cone.SetValue("Minimum", 4f);
+        cone.SetValue("Maximum", 6f);
+
+        var roll = graph.Add("Vfx/Initialize/Rotation");
+
+        roll.SetValue("Minimum", 0.5f);
+        roll.SetValue("Maximum", 0.5f);
+
+        var spin = graph.Add("Vfx/Initialize/Angular Velocity");
+
+        // ⚠ A degenerate range on purpose: `SetRotation` and `SetAngularVelocity` randomize per
+        // particle, so a spread would make the assertion below a bound rather than a value, and a
+        // bound wide enough to hold is one a broken integration would also satisfy.
+        spin.SetValue("Minimum", 2f);
+        spin.SetValue("Maximum", 2f);
+
+        graph.Add("Vfx/Update/Rotate");
+        graph.Add("Vfx/Update/Integrate");
+
+        var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+        Assert.True(result.Succeeded, string.Join("\n", result.Diagnostics));
+
+        var initializers = result.Value.Graph.Initializers;
+
+        // A.xyz is the point.
+        Assert.Equal(new(1f, 2f, 3f, 0f), Assert.Single(initializers, one => one.Opcode == VfxOpcode.SetPosition).A);
+
+        // A.xyz is the axis and A.w the half-angle; B.x and B.y are the speed range.
+        var aimed = Assert.Single(initializers, one => one.Opcode == VfxOpcode.VelocityInCone);
+
+        Assert.Equal(new(0f, 0f, 1f, 0.25f), aimed.A);
+        Assert.Equal(4f, aimed.B.X);
+        Assert.Equal(6f, aimed.B.Y);
+
+        Assert.Equal(2f, Assert.Single(initializers, one => one.Opcode == VfxOpcode.SetAngularVelocity).A.X);
+        Assert.Single(result.Value.Graph.Updaters, one => one.Opcode == VfxOpcode.Rotate);
+
+        using var system = new VfxSystem(result.Value.Graph);
+
+        system.Step(1f / 60f);
+
+        Assert.True(system.Count > 0, "the burst spawned nothing.");
+
+        var spawned = system.Count;
+
+        // ⚠ Exactly the authored roll on the step it was born, and this is a fact about the runtime
+        // rather than a rounding allowance: the updaters run over the particles that were already
+        // alive, so one spawned this step is initialized and not yet advanced.
+        Assert.All(system.Particles.Rotation[..spawned].ToArray(), angle => Assert.Equal(0.5f, angle, 4));
+
+        // A whole second of it, so what is asserted is the rate rather than one step of it.
+        for (var step = 0; step < 60; step++) {
+            system.Step(1f / 60f);
+        }
+
+        Assert.Equal(spawned, system.Count);
+        Assert.All(system.Particles.Rotation[..spawned].ToArray(), angle => Assert.Equal(2.5f, angle, 3));
+
+        Compiles(result.Value.Shader.Source);
+    }
+
     /// <summary>Every block in the library, in one graph, through both halves.</summary>
     [Fact]
     public void Every_block_in_the_library_compiles_both_ways() {

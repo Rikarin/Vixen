@@ -96,6 +96,51 @@ public sealed class AssetMaterialSourceTests {
         Assert.Equal(1, source.Failed);
     }
 
+    /// <summary>"Never" and "not yet" are the same <see cref="AssetMaterialSource.TryGet" /> answer,
+    /// and <see cref="AssetMaterialSource.Refused" /> is what separates them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The distinction is a mesh that draws against a mesh that never does.</b>
+    ///         <c>IMaterialSource</c> is two-valued and <c>MeshExtractionSystem.Painted</c> reads its
+    ///         false as "ask again next frame", so a reference this refused takes its geometry off
+    ///         screen for the life of the process — silently, because every counter in the frame stays
+    ///         healthy and the object is simply never added.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are asserted against the <em>same</em> reference over the <em>same</em>
+    ///         source: false while the bundle has not arrived, and still false once it has. A test that
+    ///         only checked the missing reference would pass against a predicate that answered "yes"
+    ///         to everything that was not already compiled, which is exactly the mistake that would
+    ///         make a host substitute a fallback for a texture still on the wire.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AReferenceStillComingIsNotOneThisHasRefused() {
+        Arriving arriving = null!;
+
+        using var source = new AssetMaterialSource(Content(new(), local => arriving = new(local)));
+
+        var missing = new AssetReference(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+
+        // Nothing has been asked about, so nothing has been given up on.
+        Assert.False(source.Refused(Hero));
+        Assert.False(source.Refused(missing));
+
+        // Asked and unanswerable: the catalog has no address under that identity at all.
+        Assert.False(source.TryGet(missing, out _));
+        Assert.True(source.Refused(missing));
+
+        // Asked and on its way: the same false from TryGet, and the opposite answer from this.
+        Assert.False(source.TryGet(Hero, out _));
+        Assert.False(source.Refused(Hero));
+
+        arriving.Arrive();
+        Settles(source, out _);
+
+        Assert.False(source.Refused(Hero));
+        Assert.True(source.Refused(missing));
+    }
+
     /// <summary>
     ///     A material's textures are recorded as owed, and not waited for.
     /// </summary>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Assets;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.SceneView;
@@ -30,7 +31,15 @@ namespace Vixen.Editor.App;
 ///         checked is a pane whose first failure is attributed to the pane.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Mount</c> is not called, and the mesh source is set by hand instead.</b> This
+///         ⚠ <b><c>Mount</c> <em>is</em> called now, and the paragraphs below are the argument that
+///         decided how.</b> <see cref="Mount" /> mounts the project's catalog for everything only a
+///         mount can build — the material source, the texture source, the vfx source and the terrain
+///         seams — and then puts <c>ProjectMeshSource</c> straight back as the geometry, which is the
+///         arrangement the third paragraph names. What is left below is why, because every line of it
+///         is a thing that goes wrong quietly if a later change undoes it.
+///     </para>
+///     <para>
+///         ⚠ <b>Why the mesh source is set by hand rather than left to the mount.</b> This
 ///         paragraph used to say mounting means a catalog "a *content build* wrote" and cited
 ///         <c>ProjectMeshSource</c>'s "waiting for a build" line. Both are wrong: <c>EditorContent</c>
 ///         mounts a <c>LooseContent</c> catalog, which needs no build and reads the same import cache.
@@ -45,16 +54,20 @@ namespace Vixen.Editor.App;
 ///         over-reading it.</b> <c>Mount</c> is also the only thing that builds an
 ///         <c>IMaterialSource</c>, a texture source, a vfx source and the terrain seams, and
 ///         <c>Source</c> and <c>Painter</c> are both settable — so mounting and then restoring
-///         <c>ProjectMeshSource</c> as the geometry is what would close this without reopening that.
+///         <c>ProjectMeshSource</c> as the geometry is what closes this without reopening that, and
+///         is exactly what <see cref="Mount" /> does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which leaves <see cref="Engine.Renderer.WorldRenderer.Painter" /> null, and that is a
-///         real degrade rather than a detail.</b> There is no editor-side <see cref="IMaterialSource" />
-///         — <c>ProjectSurfaceSource</c> is the tool renderer's tint-and-style source and does not
-///         satisfy that interface — so every drawable in the scene is painted with
-///         <see cref="Fallback" /> whatever material it names. <see cref="Degraded" /> is the sentence
-///         that says so, and it exists because the alternative is a viewport where assigning a material
-///         appears to do nothing.
+///         ⚠ <b>Until a mount happens <see cref="Engine.Renderer.WorldRenderer.Painter" /> is null,
+///         and that is a real degrade rather than a detail.</b> There is no editor-side
+///         <see cref="IMaterialSource" /> of its own — <c>ProjectSurfaceSource</c> is the tool
+///         renderer's tint-and-style source and does not satisfy that interface — so before
+///         <see cref="Mount" /> every drawable in the scene is painted with <see cref="Fallback" />
+///         whatever material it names, and a project that has never been imported stays there. ⚠ And
+///         a mount does not make the sentence go away: a catalog omits what a project excluded, so
+///         <see cref="Degraded" /> then reports how many of the scene's materials the mount could not
+///         supply. Both readings exist because the alternative is a viewport where assigning a
+///         material appears to do nothing.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Not a <c>SceneRenderer.Degrade</c>, and it could not be.</b> That mechanism reports a
@@ -102,6 +115,17 @@ sealed class EditorWorldRenderer : IDisposable {
     readonly MorphWeightSystem weights;
     readonly IGraphicsDevice device;
 
+    /// <summary>The project's own geometry, kept so that <see cref="Mount" /> can put it back.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>WorldRenderer.Mount</c> overwrites <c>Source</c> with an <c>AssetMeshSource</c> over
+    ///     the catalog</b>, and that is the one thing about mounting the editor must undo — see
+    ///     <see cref="Mount" />.
+    /// </remarks>
+    readonly IMeshSource? geometry;
+
+    /// <summary>What the last <see cref="Mount" /> left the extraction reading, or null while none has.</summary>
+    EditorMaterialSource? painting;
+
     /// <summary>One view per pane, made before the build and never replaced.</summary>
     /// <inheritdoc cref="View" path="/remarks" />
     readonly RenderView[] views = new RenderView[MaxPanes];
@@ -145,6 +169,7 @@ sealed class EditorWorldRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(effects);
 
         this.device = device;
+        geometry = meshes;
 
         // ⚠ A tenth of the geometry budget a game's default reserves. A scene open in an editor is
         // one level, and the buffers are allocated for real on the device the moment this is built —
@@ -589,13 +614,75 @@ sealed class EditorWorldRenderer : IDisposable {
     public int LightCount => lights.LightCount;
 
     /// <summary>Why the picture is not what a game's would be, or null when it is.</summary>
-    /// <inheritdoc cref="EditorWorldRenderer" path="/remarks/para[3]" />
+    /// <inheritdoc cref="EditorWorldRenderer" path="/remarks/para[5]" />
     public string? Degraded => Fallback is null
         ? "No material would compile, so nothing in the scene is drawn at all."
         : Renderer.Painter is null
             ? "The editor has no material source, so every mesh is drawn in the fallback material "
             + "rather than the one it names."
-            : null;
+            : painting is { FellBack: > 0 } fell
+                ? $"{fell.FellBack} material(s) this scene names are not in the project's content "
+                + "catalog, so the things wearing them are drawn in the fallback material. Import the "
+                + "project, or check whether those assets are excluded from the build."
+                : null;
+
+    /// <summary>How many distinct materials the mount could not supply. Zero before one.</summary>
+    public int Unresolved => painting?.FellBack ?? 0;
+
+    /// <summary>Points the renderer at the project's content, so materials and their textures resolve.</summary>
+    /// <param name="assets">The catalog <see cref="EditorContent" /> opened.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="assets" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The call this type's own remarks have asked for since it was written, and the two
+    ///         lines that keep the argument they make about geometry.</b> <c>WorldRenderer.Mount</c> is
+    ///         the only thing in the engine that builds an <see cref="IMaterialSource" />, an
+    ///         <c>AssetTextureSource</c>, a vfx source and the terrain seams — and it also replaces
+    ///         <c>Source</c> with an <c>AssetMeshSource</c> over the catalog. A catalog resolves
+    ///         <em>less</em> than the import cache does (an excluded asset gets no address at all), so
+    ///         the geometry is put straight back: the game's answer where the editor has none, the
+    ///         project's answer where the catalog would silently narrow it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the extraction has to be told separately, because it is hand-assembled.</b>
+    ///         <c>WorldRenderer.Mount</c> fills in <c>Extraction</c> — the one <c>Register</c> builds
+    ///         — and the editor's <c>Register</c> never runs, so <see cref="Meshes" /> is a system
+    ///         <c>Mount</c> has never heard of. This is the same "two renderers and both must be
+    ///         wired" shape that left morphing out of the editor until somebody noticed a face at
+    ///         rest.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The material source is wrapped rather than used directly, and without the wrapper
+    ///         a mesh whose material is not in the catalog does not draw at all.</b> See
+    ///         <see cref="EditorMaterialSource" />: <c>TryGet</c>'s false means "not yet", so a
+    ///         reference the catalog refuses is one the extraction waits on for ever.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Renderer.Painter</c> is deliberately left as the mount's own source.</b> It is
+    ///         what <c>WorldRenderer.Draw</c>'s texture pump and <c>TextureDemand</c> were built
+    ///         around, and it is what <see cref="Degraded" /> reads to tell "no content at all" from
+    ///         "content with holes in it". Only the extraction gets the wrapper.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Mounting again is what an import finishing means, and it is not free.</b> The
+    ///         texture source, the material cache and the cluster registrations are all rebuilt, so
+    ///         every streamed texture in the scene is paged in again. That is the right cost after an
+    ///         import and the wrong one per frame — see <c>ContentTasks.Pump</c>, which is the only
+    ///         caller that repeats it.
+    ///     </para>
+    /// </remarks>
+    public void Mount(AssetManager assets) {
+        ArgumentNullException.ThrowIfNull(assets);
+
+        Renderer.Mount(assets);
+
+        // ⚠ Back to the project's import cache, immediately. Everything else `Mount` built is kept.
+        Renderer.Source = geometry;
+        Meshes.Meshes = geometry;
+
+        painting = Renderer.Painter is AssetMaterialSource source ? new(source, Fallback) : null;
+        Meshes.Materials = painting;
+    }
 
     /// <summary>Takes over everything a freshly built <see cref="Compositor" /> leaves for its host.</summary>
     /// <remarks>
