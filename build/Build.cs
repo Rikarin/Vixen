@@ -3,6 +3,7 @@
 
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
@@ -377,18 +378,166 @@ partial class Build : NukeBuild {
     ///         same on every target, which is why one leg per operating system in CI is coverage
     ///         rather than three-thirds of one check.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The publish succeeding is not the check, and until <see cref="AssertAotOutput" />
+    ///         existed it was the whole of it.</b> A publish that quietly stopped being ahead-of-time
+    ///         — <c>PublishAot</c> edited out of the project, a runtime identifier the ILC package
+    ///         does not cover, a future SDK that warns instead of failing — still exits 0 and still
+    ///         writes an output directory. What comes back is then a framework-dependent publish:
+    ///         managed <c>Vixen.*.dll</c> beside a launcher and a <c>.runtimeconfig.json</c>, which
+    ///         no NativeAOT publish emits. Nothing about the exit code tells the two apart, so the
+    ///         shape of the output is asserted rather than assumed. This is the same argument
+    ///         <see cref="SampleFrame" /> makes about the Null device: the leg has to name the thing
+    ///         that would have made it pass while measuring nothing.
+    ///     </para>
     /// </remarks>
     Target CheckAot => definition => definition
         .Description("Fails if any runtime assembly cannot be published ahead of time")
         .DependsOn(Restore)
-        .Executes(() =>
-            DotNetPublish(settings => settings
-                .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj")
-                .SetConfiguration(Configuration.Release)
-                .SetRuntime(RuntimeInformation.RuntimeIdentifier)
-                .SetOutput(ArtifactsDirectory / "aot")
-            )
+        .Executes(() => {
+                AssertProbeRootsEveryAssemblyItReferences();
+
+                DotNetPublish(settings => settings
+                    .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj")
+                    .SetConfiguration(Configuration.Release)
+                    .SetRuntime(RuntimeInformation.RuntimeIdentifier)
+                    .SetOutput(ArtifactsDirectory / "aot")
+                );
+
+                AssertAotOutput();
+            }
         );
+
+    AbsolutePath AotProbeProject => RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj";
+
+    /// <summary>One of the probe's project references, whose last path segment names the assembly.</summary>
+    [GeneratedRegex("""<ProjectReference\s+Include="(?<path>[^"]+)"\s*/>""")]
+    private static partial Regex ProbeReference();
+
+    /// <summary>One of the probe's rooted assemblies, named directly.</summary>
+    [GeneratedRegex("""<TrimmerRootAssembly\s+Include="(?<name>[^"]+)"\s*/>""")]
+    private static partial Regex ProbeRoot();
+
+    /// <summary>
+    ///     Fails unless what the publish wrote is a native binary with no managed assemblies beside
+    ///     it, and unless that binary is large enough to be the rooted probe rather than the
+    ///     reachable one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Three assertions, each naming a different way this gate could have gone on passing
+    ///         while measuring less.
+    ///     </para>
+    ///     <para>
+    ///         <b>No <c>.runtimeconfig.json</c>, and no managed <c>Vixen.*.dll</c>.</b> Both are
+    ///         emitted by an ordinary publish and by neither kind of NativeAOT one, so their absence
+    ///         is what says ILC ran at all. Native libraries beside the binary — <c>libSDL2</c>,
+    ///         <c>libjoltc</c>, <c>libopenal</c>, and their <c>.dll</c> spelling on Windows — are
+    ///         expected and are why the pattern is <c>Vixen.*.dll</c> rather than <c>*.dll</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The size floor is the one that catches rooting silently stopping.</b>
+    ///         <c>TrimmerRootAssembly</c> is what turns this from "is one path through these
+    ///         assemblies AOT-clean" into "is each of these assemblies publishable", and an
+    ///         <c>ItemGroup</c> that got emptied or renamed would leave a publish that still
+    ///         succeeds, still emits a native binary, and proves almost nothing. The probe's README
+    ///         records the measurement that makes the two distinguishable: rooted it is about 8 MB,
+    ///         and relying on reachability from <c>Main</c> it was 1.3 MB. Measured again on
+    ///         2026-09-03, arm64 macOS, rooted: 19.9 MB. The floor sits at 4 MB — three times the
+    ///         unrooted figure and a fifth of the rooted one — because it is a "the roots are gone"
+    ///         check and not a size budget, and a comment saying so is what keeps the next reader
+    ///         from tightening it into a flake.
+    ///     </para>
+    /// </remarks>
+    void AssertAotOutput() {
+        var output = ArtifactsDirectory / "aot";
+
+        var managed = output.GlobFiles("Vixen.*.dll").Concat(output.GlobFiles("*.runtimeconfig.json")).ToList();
+
+        foreach (var path in managed) {
+            Log.Error("{File} is in the AOT output; a NativeAOT publish emits neither.", path.Name);
+        }
+
+        Assert.True(
+            managed.Count == 0,
+            $"{managed.Count} managed artefact(s) are in {output.Name}/, so this was a framework-"
+            + "dependent publish and not an ahead-of-time one. PublishAot is declared in "
+            + "Tools/Vixen.AotProbe/Vixen.AotProbe.csproj; check that it survived, and that the ILC "
+            + "package covers this runtime identifier."
+        );
+
+        var binary = output.GlobFiles("vixen-aot-probe", "vixen-aot-probe.exe").FirstOrDefault();
+
+        Assert.True(binary != null, $"no native probe binary in {output.Name}/, so nothing was compiled ahead of time.");
+
+        var megabytes = new FileInfo(binary!).Length / 1024d / 1024d;
+
+        Assert.True(
+            megabytes > 4,
+            $"the probe binary is {megabytes:F1} MB, which is too small to be the rooted probe — "
+            + "rooted it measures 8-20 MB and relying on reachability from Main it measured 1.3 MB. "
+            + "The TrimmerRootAssembly items in Vixen.AotProbe.csproj are what make this gate ask "
+            + "'is each assembly publishable' rather than 'is one path through them clean'; check "
+            + "that they are still there."
+        );
+
+        Log.Information("AOT output is a {Size:F1} MB native binary with no managed assemblies beside it.", megabytes);
+    }
+
+    /// <summary>
+    ///     Fails when the probe references an assembly it does not root, or roots one it does not
+    ///     reference.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ A <c>ProjectReference</c> added without its <c>TrimmerRootAssembly</c> is the realistic
+    ///     edit, and it is silent: the assembly is then covered only by what <c>Main</c> happens to
+    ///     reach, which the probe's README says proves nothing about the rest of it. The gate would
+    ///     stay green and the coverage it claims would be false. Checked before the publish rather
+    ///     than after, because it costs milliseconds and the publish costs minutes.
+    /// </remarks>
+    void AssertProbeRootsEveryAssemblyItReferences() {
+        var project = AotProbeProject.ReadAllText();
+
+        var referenced = ProbeReference()
+            .Matches(project)
+            .Select(match => match.Groups["path"].Value.Split('\\', '/')[^1].Replace(".csproj", string.Empty))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var rooted = ProbeRoot()
+            .Matches(project)
+            .Select(match => match.Groups["name"].Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // The floor is the same instrument-check the licence and attribution gates carry: a regex
+        // that stopped matching how the project is written would otherwise compare two empty sets
+        // and call them equal, which is the failure mode where a gate reports success on the day it
+        // does not run.
+        Assert.True(
+            referenced.Count > 25,
+            $"found only {referenced.Count} ProjectReference entries in {AotProbeProject.Name}, which "
+            + "is too few to be the whole file — the regex no longer matches how they are written."
+        );
+
+        var problems = referenced
+            .Except(rooted)
+            .Select(name => $"{name} is referenced by the AOT probe and not rooted, so only what Main reaches is checked.")
+            .Concat(rooted.Except(referenced).Select(name => $"{name} is rooted by the AOT probe and not referenced."))
+            .OrderBy(problem => problem, StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var problem in problems) {
+            Log.Error("{Problem}", problem);
+        }
+
+        Assert.True(
+            problems.Count == 0,
+            $"{problems.Count} disagreement(s) between the AOT probe's ProjectReference and "
+            + "TrimmerRootAssembly lists. Every assembly the probe references is rooted, or the "
+            + "gate's coverage is smaller than it reads."
+        );
+
+        Log.Information("The AOT probe roots all {Count} assemblies it references.", referenced.Count);
+    }
 
     /// <summary>
     ///     The same gate for iOS, which is the target the phase's exit criterion is actually about.
