@@ -425,8 +425,10 @@ job system with the same content-addressed caching. Notable compilers:
   locality (Forsyth/`meshoptimizer`), LOD generation, bounds, tangent generation. **Meshlet
   generation is built**, and it subsumes LOD generation rather than sitting beside it: the cluster
   DAG of [virtualized-geometry.md](22-virtualized-geometry.md) phase 1 is every level of detail at
-  once, and the discrete chain is a cut through it at a fixed budget. Written as a `Meshlets`
-  sub-asset per mesh, refused rather than shipped if it would crack.
+  once, and the discrete chain is a cut through it at a fixed budget. Written as **two** sub-assets
+  per mesh — `Clusters`, the hierarchy, and `ClusterPages`, the blob it streams in — refused rather
+  than shipped if it would crack. (⚠ This said "a `Meshlets` sub-asset"; no sub-asset of that name
+  has ever existed. The two names are `VirtualGeometryContent`'s, written by `ModelImporter`.)
 - `MaterialCompiler` — resolves the material feature tree to a permutation set and emits the effect
   requests that `EffectCompiler` consumes.
 - `EffectCompiler` — the build-time permutation pre-generation from [06](06-rendering-pipeline.md)/[07](07-raven-shader-pipeline.md).
@@ -555,7 +557,22 @@ addresses, which is what "dependencies" was trying to say.
   with a dead band, because a wanted width that oscillates at a level boundary is an image swap on
   alternate frames.
 
-  ⚠ **Audio and mesh LODs still load whole.**
+  ⚠ **Audio still loads whole, and "mesh LODs" is the wrong unit for what is left.** A
+  *virtualized* mesh already streams: `MeshletPagePool` is a second `IPageStore` and
+  `VirtualGeometrySystem` drives its own `PageResidency` over it, so a cluster DAG — which is every
+  level of detail at once — arrives page by page under a byte budget. What loads whole is a mesh
+  with **no** cluster hierarchy, and that is not a streaming gap but the absence of a discrete LOD
+  chain: `MeshData` has no LOD field, `ModelImportSettings` has no `generateLods`, and the only cut
+  that exists is the single `MeshletMesh.Fallback` used for shadow casters. `LodRenderFeature`
+  exists, is tested, and is wired into neither `WorldRenderer` nor `EditorWorldRenderer`, so nothing
+  registers a `LodGroup` and nothing is ever switched by it.
+
+  ⚠ **And there is no one budget over all of them.** `PageResidency` takes exactly one `IPageStore`,
+  and five instances exist — textures, meshlets, virtual shadows, terrain tiles, foliage cells —
+  each with its own ceiling. The mechanism is shared; the budget is not. Anything added for audio
+  inherits a sixth, and would have to take a `Core/Vixen.Rendering` dependency from
+  `Core/Vixen.Audio` to reuse the class at all, which is a layering violation — audio wants the
+  pattern, not this type.
 
   **`streaming: true` has been withdrawn from the sketch above rather than implemented**, and the
   reasoning is worth keeping. There is no channel for it — `TextureImportSettings` has no such field
@@ -622,6 +639,25 @@ could see it. Every consumer of `Vixen.Shaders.Generators` in this repository is
 of it is green; none of that is a claim about the *package*. A consumer restoring `Vixen.Rendering`
 got the runtime assembly and no keys at all. `Vixen.Shaders` packs it now, asserted over the bytes of
 a real `.nupkg` by `Vixen.Shaders.Tests.PackagedGeneratorTests`.
+
+⚠ **And `Vixen.Net` was the same, found separately, which is what makes it a class of defect rather
+than an oversight.** `[Replicated]` and `[ServerRpc]` are declared there; `Vixen.Net.Generators`
+reads them out of *the consumer's* compilation. The package shipped the attributes and not the
+generator, so a project outside this repository wrote `[Replicated]`, compiled clean, emitted
+nothing, and was told nothing. `PackNetGenerators` and `Vixen.Net.Tests.PackagedGeneratorTests` fix
+and assert it. ⚠ Two independent agents reached this same package in the same week from opposite
+ends — one from the replication side, one from doc 08's step 3 — which is worth recording: **the
+defect is not findable from inside the repository at all**, so it is found by whoever happens to
+think about the archive.
+
+⚠ **What is still unasserted is the five packages in between.** `Vixen.Ui`, `Vixen.Engine`,
+`Vixen.Input`, `Vixen.Core.Reflection` and `Vixen.Core.Serialization` all carry a generator into
+`analyzers/dotnet/cs` and none has a test over the bytes — and an in-tree build provably cannot state
+the property, for the reason two paragraphs up. Not every generator belongs in a package:
+`Vixen.Ecs.Generators` is deliberately unpacked because `QueryArityGenerator`'s output depends on no
+input, so a second assembly referencing it would emit a second copy of the same partial. A rule
+demanding that every analyzer `ProjectReference` be packed would be wrong; the gate wanted is over
+the archive.
 
 One rule the implementation had to find by running a real build, recorded because it reads perfectly
 on the page and fails silently: **anything derived from another property belongs in the `.targets`,

@@ -79,13 +79,20 @@ public sealed class UnclaimedPlacementExtensionTests {
         Assert.IsType<RawImporter>(importer);
     }
 
-    /// <summary>And the import succeeds, silently, as a byte blob.</summary>
+    /// <summary>And the import succeeds as a byte blob — no longer silently.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The three assertions together are the failure.</b> Succeeded, so no build stops;
-    ///         no diagnostics, so no log names the file; and the type is <c>"Blob"</c>, which no typed
-    ///         reader resolves — so an address bound to this deserialises into nothing whatever asks
-    ///         for it. A green build and an address that binds to nothing.
+    ///         ⚠ <b>The assertions together are the failure, and one of them has been fixed.</b>
+    ///         Succeeded, so no build stops; and the type is <c>"Blob"</c>, which no typed reader
+    ///         resolves — so an address bound to this deserialises into nothing whatever asks for it.
+    ///         A green build and an address that binds to nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What changed: <c>Assert.Empty(result.Diagnostics)</c> used to be the third.</b>
+    ///         The extension is now in <c>UnimportedFormats</c>, so the fallback says out loud that
+    ///         nothing imports it — see <see cref="UnimportedFormatTests" />. The gap is unchanged and
+    ///         the invisibility is not, which is why this file stays and its middle assertion is
+    ///         inverted rather than deleted.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And it is one step worse here than it was for <c>.vxwaves</c>.</b> There, a runtime
@@ -96,7 +103,7 @@ public sealed class UnclaimedPlacementExtensionTests {
     ///     </para>
     /// </remarks>
     [Fact]
-    public async Task ItImportsSilentlyAsAByteBlob() {
+    public async Task ItImportsAsAByteBlobAndSaysSo() {
         var path = new VirtualPath("/Assets/Maps/queensdale" + Extension);
         var files = new MemoryFileProvider();
 
@@ -118,7 +125,11 @@ public sealed class UnclaimedPlacementExtensionTests {
         var result = await importer.ImportAsync(context, TestContext.Current.CancellationToken);
 
         Assert.True(result.Succeeded);
-        Assert.Empty(result.Diagnostics);
+
+        var said = Assert.Single(result.Diagnostics);
+
+        Assert.Equal(ImportSeverity.Warning, said.Severity);
+        Assert.Contains(Extension, said.Message, StringComparison.Ordinal);
 
         var artefact = Assert.Single(result.Artifacts);
 

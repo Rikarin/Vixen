@@ -17,8 +17,10 @@ namespace Vixen.Editor.Assets.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 08 § Exit criteria states the import budget as a clock — "incremental import of
-///         one asset &lt; 1 s" — and that number cannot be asserted here.</b> This suite runs ten test
+///         ⚠ <b>Doc 08 § Testing states the import budget as a clock — "incremental import of
+///         one asset &lt; 1 s" — and that number cannot be asserted here.</b> (This said "§ Exit
+///         criteria"; doc 08 has no such section, and the row is the <c>Scale</c> one in § Testing.)
+///         This suite runs ten test
 ///         hosts against one disk, and an import is almost entirely filesystem: a wall-clock ceiling
 ///         tight enough to mean anything would be a reading of the machine, which is the defect two
 ///         sweeps spent a week removing from this repository. What it would catch — the import
@@ -34,21 +36,72 @@ namespace Vixen.Editor.Assets.Tests;
 ///         them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Ten thousand and not a hundred thousand</b>, for the reason the scan's own budget
-///         test gives one directory along: at ten thousand the fixture's file writes do not dominate,
-///         and the assertions are exact counts, so the size is chosen to keep the test affordable
-///         rather than to reach a threshold.
+///         ⚠ <b>Ten thousand by default and not a hundred thousand</b>, for the reason the scan's own
+///         budget test gives one directory along: at ten thousand the fixture's file writes do not
+///         dominate, and the assertions are exact counts, so the size is chosen to keep the test
+///         affordable rather than to reach a threshold. Doc 08's own number is a hundred thousand,
+///         and <see cref="ScaleVariable" /> is how it is asked for — every assertion here is derived
+///         from <see cref="Files" />, so the larger fixture is the same test rather than a second
+///         one.
 ///     </para>
 /// </remarks>
 public sealed class ImportBudgetTests : IDisposable {
+    /// <summary>The variable that raises the fixture to the size doc 08 actually names.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 08 § Testing says a hundred thousand and this suite measures ten, which is an
+    ///         order of magnitude — and "the interesting failures in an index rebuild are usually the
+    ///         ones that appear between those two numbers" is exactly right.</b> A target nothing
+    ///         measures is not a target.
+    ///     </para>
+    ///     <para>
+    ///         <b>Why it is a variable rather than a raised constant.</b> Every assertion here is an
+    ///         exact integer computed from <see cref="Files" />, so the size is a one-line change
+    ///         functionally; what it costs is a hundred thousand <c>File.WriteAllText</c> calls and
+    ///         three full imports of them, on a real filesystem, on a machine already running ten
+    ///         other test hosts. At that point the fixture's own writes dominate the thing being
+    ///         measured, which is the trade the "ten thousand and not a hundred thousand" note below
+    ///         is about — so the default stays where a developer can run it and the full size is
+    ///         asked for by name, the way <c>VIXEN_FUZZ_SECONDS</c> is.
+    ///     </para>
+    ///     <para>
+    ///         <c>VIXEN_IMPORT_SCALE=100000 dotnet test Editor/Vixen.Editor.Assets.Tests --filter
+    ///         "FullyQualifiedName~ImportBudgetTests"</c>, and read the times out of the message.
+    ///     </para>
+    /// </remarks>
+    public const string ScaleVariable = "VIXEN_IMPORT_SCALE";
+
     /// <summary>How many source files the synthetic project has.</summary>
-    const int Files = 10_000;
+    /// <remarks>
+    ///     ⚠ <b>Read once into a static, not per call.</b> <see cref="Folders" /> and
+    ///     <see cref="Entries" /> are derived from it and are read by assertions in three phases of
+    ///     one test; a property re-reading the environment would let the fixture and the expectation
+    ///     disagree if anything ever set the variable mid-run.
+    /// </remarks>
+    static readonly int Files =
+        int.TryParse(
+            Environment.GetEnvironmentVariable(ScaleVariable),
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture,
+            out var asked
+        ) && asked >= 100
+            ? asked
+            : 10_000;
 
     /// <summary>How many folders they are spread over, plus the one containing those.</summary>
-    const int Folders = (Files / 100) + 1;
+    static readonly int Folders = (Files / 100) + 1;
 
     /// <summary>Every entry the scan finds: the files, and the folders, which import too.</summary>
-    const int Entries = Files + Folders;
+    static readonly int Entries = Files + Folders;
+
+    /// <summary>The index of the one asset the incremental phase edits.</summary>
+    /// <remarks>
+    ///     Derived rather than written down, because it used to be <c>asset4242.bin</c> — a name that
+    ///     is only in the project while <see cref="Files" /> is ten thousand, and a file that does not
+    ///     exist would be *created* by the edit rather than changing one, so the incremental phase
+    ///     would still see exactly one import and still pass while measuring something else.
+    /// </remarks>
+    static readonly int Edited = Files / 2;
 
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-import-budget-" + Guid.NewGuid().ToString("N"));
 
@@ -63,8 +116,9 @@ public sealed class ImportBudgetTests : IDisposable {
     }
 
     /// <summary>
-    ///     A ten-thousand-asset project imports every asset once, nothing at all the second time, and
-    ///     exactly the one file that changed the third.
+    ///     A synthetic project imports every asset once, nothing at all the second time, and exactly
+    ///     the one file that changed the third — at ten thousand assets by default, and at whatever
+    ///     <see cref="ScaleVariable" /> asks for.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -72,9 +126,9 @@ public sealed class ImportBudgetTests : IDisposable {
     ///         other two mean anything. A counter that reported zero imports would pass "only one
     ///         asset was imported" forever; a counter wired to the entry count would pass the cold
     ///         phase forever. Asked for all three readings in one run, the same counter has to say
-    ///         10 101, then 0, then 1 — so it is shown to move, in both directions, before it is
-    ///         believed. That is this test's own anti-vacuity control and it is why the phases are not
-    ///         separable.
+    ///         <see cref="Entries" /> — 10 101 at the default size — then 0, then 1, so it is shown to
+    ///         move, in both directions, before it is believed. That is this test's own anti-vacuity
+    ///         control and it is why the phases are not separable.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A new workspace per phase.</b> Reusing one keeps the import cache in memory and
@@ -84,7 +138,7 @@ public sealed class ImportBudgetTests : IDisposable {
     ///     </para>
     /// </remarks>
     [Fact]
-    public async Task TenThousandAssetsImportOnceAndThenOnlyTheOneThatChanged() {
+    public async Task EveryAssetImportsOnceThenNothingThenOnlyTheOneThatChanged() {
         var paths = Project();
 
         var cold = await ImportAsync(paths);
@@ -103,7 +157,19 @@ public sealed class ImportBudgetTests : IDisposable {
         Assert.Equal(0, warm.Imported);
         Assert.Equal(Entries, warm.Cached);
 
-        File.WriteAllText(Path.Combine(paths.Assets, "Bulk", "42", "asset4242.bin"), "edited", Encoding.UTF8);
+        var edited = Path.Combine(
+            paths.Assets,
+            "Bulk",
+            (Edited / 100).ToString(CultureInfo.InvariantCulture),
+            string.Create(CultureInfo.InvariantCulture, $"asset{Edited}.bin")
+        );
+
+        // ⚠ Asserted to exist before it is written. A path that had gone stale would be created by
+        // the write, which is still exactly one import — so this phase would pass while measuring an
+        // addition rather than a change, which is a different property with the same number.
+        Assert.True(File.Exists(edited), $"{edited} is not in the fixture, so editing it adds an asset instead.");
+
+        File.WriteAllText(edited, "edited", Encoding.UTF8);
 
         var incremental = await ImportAsync(paths);
 
@@ -270,7 +336,7 @@ public sealed class ImportBudgetTests : IDisposable {
     static string Report(ImportSummary cold, ImportSummary warm, ImportSummary incremental) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"cold {cold.Elapsed.TotalMilliseconds:0} ms for {cold.Imported}; "
+            $"{Files} files: cold {cold.Elapsed.TotalMilliseconds:0} ms for {cold.Imported}; "
             + $"unchanged {warm.Elapsed.TotalMilliseconds:0} ms for {warm.Cached} cached; "
             + $"one file changed {incremental.Elapsed.TotalMilliseconds:0} ms for {incremental.Imported}."
         );
