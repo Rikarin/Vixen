@@ -513,6 +513,86 @@ jobs:
           name: packages
           path: artifacts/packages/*.nupkg
 
+  # ── The NativeAOT leg ───────────────────────────────────────────────────────────────────────────
+  #
+  # `nuke CheckAot` has existed since Phase 3 and no workflow named it. docs/overview.md § 1.1 has
+  # carried the row — "Gate exists (`CheckAot`), leg does not — `ci.yml` names neither AOT target" —
+  # and this is that row. The gate was not broken; it was simply never run except by hand, which for
+  # a repository whose README calls NativeAOT a non-negotiable is the gap worth closing first.
+  #
+  # ⚠ THE MATRIX IS THE CHECK, NOT REDUNDANCY. `CheckAot` publishes for the HOST runtime identifier
+  # and nothing else, deliberately — ILC cross-compiles poorly, so `--runtime linux-x64` from a Mac
+  # is not the same question. One leg per operating system is therefore three different checks that
+  # share a name, and dropping one drops a platform's AOT coverage outright rather than a third of
+  # one run's. macos-14 is also the only arm64 leg, so it is the only place an ILC arm64 codegen
+  # difference can show up at all.
+  #
+  # ⚠ AND A GREEN PUBLISH IS NOT THE ASSERTION — build/Build.cs's AssertAotOutput is. Measured on
+  # 2026-09-03 on arm64 macOS: a real run writes a 19.9 MB Mach-O and ZERO managed assemblies. A
+  # publish that quietly stopped being ahead-of-time still exits 0 and still writes an output
+  # directory; what distinguishes it is `Vixen.*.dll` and a `.runtimeconfig.json` in there, which no
+  # NativeAOT publish emits. The target names both, plus a 4 MB floor on the binary, because the
+  # probe's README measured the rooted binary at ~8 MB against 1.3 MB for the same probe relying on
+  # reachability from Main — so an emptied TrimmerRootAssembly list is a publish that still succeeds
+  # and checks almost nothing. This leg would otherwise have been green forever, which is the same
+  # thing the sample-frame leg's Null-device note says about counting on an exit code.
+  #
+  # ⚠ NO ASSIMP, NO NATIVE-DEPENDENCY RESTORE, NO SDL, unlike every other job in this file. CheckAot
+  # depends on Restore and publishes one project graph; it runs no content build, boots no sample and
+  # never executes the binary it produces, so none of the native libraries the other legs install for
+  # their own reasons are reachable from here. Verified locally: a fresh worktree with no
+  # `nuke RestoreNativeDeps` publishes and asserts clean in 2 m 35 s.
+  #
+  # ⚠ CheckAotIos IS DELIBERATELY NOT ON THIS JOB, AND THAT IS A GAP RATHER THAN A DECISION.
+  # README.md § non-negotiables says "iOS is NativeAOT-only, and that is gated" — the target exists
+  # (`nuke CheckAotIos`, .Requires macOS) and no workflow runs it either, so today that sentence is
+  # true of a developer's Mac and of nothing else. It is not added here because it needs the `ios`
+  # workload and Xcode on top of RestoreNativeDeps for MoltenVK, none of which could be tried from
+  # the machine this leg was written on — no workload is installed there, so the step would have been
+  # committed unverified. #327 carries it.
+  aot:
+    name: aot-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Same argument as the test matrix: a failure on exactly one operating system is the most
+      # informative result there is, and cancelling the others hides which ones were fine.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+
+    # Measured at 2 m 35 s for the publish on an M1 Max with a warm restore. ILC is single-threaded
+    # over a 29-assembly rooted graph and a hosted runner is slower than that, so the cap is generous
+    # on purpose and is a hang check rather than a budget.
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-aot-${{ matrix.os }}-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-aot-${{ matrix.os }}-
+
+      # ILC links a native object file and needs a C toolchain to do it. The hosted Windows and macOS
+      # images carry one (MSVC, and the Xcode command-line tools); the Ubuntu image has clang but not
+      # the zlib headers ILC links against, and the failure without them is a linker error at the very
+      # end of a several-minute publish. Installed rather than hoped for.
+      - name: Install the native toolchain (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish every runtime assembly ahead of time
+        run: ./build.sh CheckAot --configuration Release
+        shell: bash
+
   # ── The leg that actually runs a sample ─────────────────────────────────────────────────────────
   #
   # Everything above builds and tests assemblies. Nothing above boots an application, and until this

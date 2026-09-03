@@ -29,9 +29,15 @@
     </PropertyGroup>
 
     <!--
-        Every RUNTIME-profile assembly that can be published ahead of time today. The two that are
-        missing are missing for a reason written down in README.md, and adding them back is how that
-        finding gets re-tested when the dependency moves.
+        The runtime-profile assemblies rooted today — 29 of them, and ⚠ NOT "every runtime assembly",
+        which is what this comment and README.md both used to claim. Measured 2026-09-03: 22 of the
+        80 net10.0 non-test projects under Core/ and 7 of the 15 under Platform/. The other 66 are
+        not a reasoned exclusion list; they are assemblies nobody added, and Vixen.Ui, Vixen.Rendering
+        and Vixen.Net are among them. See README.md § What it covers and issue #506.
+
+        ⚠ Every entry here needs a matching TrimmerRootAssembly below or it is covered only by what
+        Main happens to reach, which proves nothing about the rest of it. `nuke CheckAot` fails on
+        that mismatch rather than trusting an author to notice.
     -->
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
