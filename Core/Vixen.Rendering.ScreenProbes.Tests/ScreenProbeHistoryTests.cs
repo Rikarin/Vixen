@@ -215,8 +215,109 @@ public class ScreenProbeHistoryTests {
         Assert.Equal(1f, filtered[layout.ProbeIndex(new(0, 1))].Irradiance(up).X, 1e-5f);
     }
 
+    [Fact]
+    public void AStaticCameraGivesEachRowItsOwnAnswerBack() {
+        // ⚠ The one axis every other fixture in this file leaves invariant. `Seeded` builds its
+        // surfaces with `World(anchor.Y)`, which is y-DOWN — the same convention `TryReproject`
+        // used — so the two agreed with each other and with nothing else, and a vertical flip of
+        // the reprojection was invisible to all of them. Everything here that varies varies along
+        // x, or is uniform, or moves a plane in z.
+        //
+        // This one places surfaces by unprojecting each anchor pixel through the camera exactly as
+        // `ReconstructedScreenSurface` does — `Transform.UvToNdc`'s y negation and all, which is
+        // what the real pipeline feeds this — and gives every ROW its own constant. A static camera
+        // must then hand each probe its own row's number back, because the surface a probe stands
+        // on is the surface it stood on.
+        var layout = new ScreenProbeAtlas(new(new(64, 64))).Layout;
+        var history = new ScreenProbeHistory(layout);
+        var up = new Vector3(0f, 0f, 1f);
+
+        for (var frame = 0; frame < 2; frame++) {
+            history.Accumulate(Unprojected(layout, probe => probe.Y), Camera);
+        }
+
+        for (var y = 0; y < layout.GridSize.Y; y++) {
+            for (var x = 0; x < layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+
+                // A running mean of one constant is the constant. A row blended with the mirrored
+                // row is (y + (3 − y)) / 2 = 1.5 for every row — which is what a flipped
+                // reprojection reads as, and it is uniform, which is how it hides.
+                Assert.Equal(y, history.Resolved(probe).Irradiance(up).X, 1e-4f);
+            }
+        }
+
+        // And it reused history rather than starting over: the surfaces are coplanar, so the plane
+        // test cannot tell a mirrored row from the right one and never rejects. That is precisely
+        // why the value above is the assertion and `Rejected` is not.
+        Assert.Equal(layout.ProbeCount, history.Reprojected);
+        Assert.Equal(0, history.Rejected);
+    }
+
+    [Fact]
+    public void AStaticCameraOnATiltedFloorRejectsNothing() {
+        // The same claim with the plane test made able to speak. Each row stands on its own depth,
+        // so a probe that reprojects into a neighbouring row finds a surface off its own plane and
+        // rejects — which turns the flip into a rejection count instead of a blended value.
+        var layout = new ScreenProbeAtlas(new(new(64, 64))).Layout;
+        var history = new ScreenProbeHistory(layout);
+
+        for (var frame = 0; frame < 2; frame++) {
+            history.Accumulate(Unprojected(layout, _ => 1f, probe => -5f + (probe.Y * 0.5f)), Camera);
+        }
+
+        Assert.Equal(0, history.Rejected);
+        Assert.Equal(layout.ProbeCount, history.Reprojected);
+    }
+
     /// <summary>World coordinate of a pixel centre-ish under the test camera: one tile per unit.</summary>
     static float World(int pixel) => (pixel - 32) / 16f;
+
+    /// <summary>
+    ///     An atlas whose surfaces are the anchor pixels unprojected through the camera.
+    /// </summary>
+    /// <remarks>
+    ///     <c>ReconstructedScreenSurface.TrySurface</c>'s arithmetic, by construction rather than by
+    ///     copy: the UV of a pixel centre, <c>Transform.UvToNdc</c>'s y negation, the inverse camera
+    ///     and the clip divide. Seeding this way is what makes the round trip a round trip — a
+    ///     fixture that invents its own pixel-to-world map can only ever check the reprojection
+    ///     against itself.
+    /// </remarks>
+    static ScreenProbeAtlas Unprojected(
+        ScreenProbeLayout layout,
+        Func<Int2, float> radiance,
+        Func<Int2, float>? plane = null
+    ) {
+        var atlas = new ScreenProbeAtlas(layout);
+
+        Assert.True(Matrix4x4.Invert(Camera, out var inverse));
+
+        for (var y = 0; y < layout.GridSize.Y; y++) {
+            for (var x = 0; x < layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+                var anchor = layout.Anchor(probe);
+
+                // The depth of the plane this probe stands on, in the camera's own device depth.
+                var depth = Matrix4x4.TransformVector4(new(0f, 0f, plane?.Invoke(probe) ?? -5f, 1f), Camera);
+
+                var uv = new Vector2((anchor.X + 0.5f) / layout.Viewport.X, (anchor.Y + 0.5f) / layout.Viewport.Y);
+                var ndc = new Vector2((uv.X * 2f) - 1f, ((1f - uv.Y) * 2f) - 1f);
+                var clip = Matrix4x4.TransformVector4(new(ndc.X, ndc.Y, depth.Z / depth.W, 1f), inverse);
+
+                atlas.SetSurface(probe, new Vector3(clip.X, clip.Y, clip.Z) / clip.W, new(0f, 0f, 1f));
+
+                for (var ty = 0; ty < layout.MapResolution; ty++) {
+                    for (var tx = 0; tx < layout.MapResolution; tx++) {
+                        atlas[probe, new(tx, ty)] = new(radiance(probe));
+                    }
+                }
+            }
+        }
+
+        atlas.Resolve();
+
+        return atlas;
+    }
 
     /// <summary>An atlas of valid probes on the z = −5 plane, each map one constant.</summary>
     static ScreenProbeAtlas Seeded(Func<Int2, float> radiance) {

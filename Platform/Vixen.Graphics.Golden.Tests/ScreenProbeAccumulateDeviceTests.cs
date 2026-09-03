@@ -68,12 +68,20 @@ public sealed class ScreenProbeAccumulateDeviceTests {
 
         // Three constant frames converge, a flip follows the running mean, and a pan finds the
         // neighbour — every scenario the CPU recurrences pin, through the dispatch.
+        //
+        // ⚠ And one frame whose radiance varies down the SCREEN, which is the axis this comparison
+        // was blind to. Every other fixture here is uniform or varies along x, so for as long as the
+        // two halves reprojected to different ROWS — `ScreenProbeHistory` did not negate y and
+        // `ScreenProbeAccumulate.rvn` did — they still agreed on every number this asserted. A
+        // shader-versus-reference test can only see a disagreement, so a fixture constant along an
+        // axis cannot check that axis at all.
         var frames = new (Action<ScreenProbeAtlas> Fill, Matrix4x4 View)[] {
             (a => Seed(a, _ => 1f, 0f), Camera),
             (a => Seed(a, _ => 1f, 0f), Camera),
             (a => Seed(a, _ => 1f, 0f), Camera),
             (a => Seed(a, _ => 0f, 0f), Camera),
             (a => Seed(a, probe => probe.X, 0f), Camera),
+            (a => Seed(a, probe => probe.Y, 0f), Camera),
             (a => Seed(a, _ => 0f, -1f), Matrix4x4.FromTranslation(new(1f, 0f, 0f)) * Camera)
         };
 
