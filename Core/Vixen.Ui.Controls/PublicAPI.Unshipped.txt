@@ -681,6 +681,8 @@ Vixen.Ui.Controls.TextBox.TextBox() -> void
 Vixen.Ui.Controls.TextField -> abstract class
 Vixen.Ui.Controls.TextField : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.TextField.CaretAffinity.get -> Vixen.Ui.Text.CaretAffinity
+Vixen.Ui.Controls.TextField.CaretBlink.get -> System.TimeSpan
+Vixen.Ui.Controls.TextField.CaretBlink.set -> System.TimeSpan
 Vixen.Ui.Controls.TextField.CaretIndex.get -> int
 Vixen.Ui.Controls.TextField.ClearMaxLength() -> void
 Vixen.Ui.Controls.TextField.ClearPlaceholder() -> void

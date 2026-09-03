@@ -319,8 +319,19 @@ Said out loud rather than left to be discovered:
 - ~~**`TextArea` is a taller `TextBox`.**~~ The framework wraps a line now, and the theme is where
   the difference lives: `field-text` is `white-space: nowrap` so a field's long value scrolls
   sideways, and `textarea field-text` is `normal` so its text stays inside and the box grows
-  downwards. Still owed is the *editing* half — a caret that moves between lines, and Enter starting
-  one — which is the text editor's item.
+  downwards. ~~Still owed is the *editing* half — a caret that moves between lines, and Enter starting
+  one — which is the text editor's item.~~ ⚠ **That sentence outlived the work**: `AcceptsNewlines`,
+  Up/Down carrying the caret affinity, line-relative Home/End, Enter inserting a `\n` and Ctrl-Enter
+  still submitting are all in `TextField`, and `MarkupTests` pins the last of those because it is the
+  one collision between two claimants for the same key.
+- ~~**The caret does not blink.**~~ It does, and ⚠ **without a subscription**, which is the part worth
+  knowing. `UiDocument.Draw` rebuilds the draw list and diffs it every frame, so a caret only has to
+  read `Document.Now` where it is already being painted — and `OnDraw` returns before that on a field
+  without the focus, so an interface with forty fields on it costs exactly what it did. A
+  `UiDocument.Ticked` handler, which is what `Tooltip` needs and what this looked like it needed,
+  would have made every one of those frames differ. `CaretBlink` is the half period, the phase is
+  measured from the last time the caret moved so typing holds it solid, and `TimeSpan.Zero` is a solid
+  caret for a reduced-motion setting.
 - ~~**Timed behaviour needs a host tick.**~~ `Tooltip` and `ToastHost` subscribe to
   `UiDocument.Ticked` and unsubscribe in `OnRemoved`, so a host that drives `UiDocument.Tick` gets
   the delay and the lifetime without knowing that either control exists. Nothing here is told what

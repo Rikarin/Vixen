@@ -447,8 +447,18 @@ Said out loud rather than left to be discovered:
   row begins at, and is all zeroes while wrapping is off — which is what makes every formula reduce
   to the one it had before. Off by default: code is written with the column mattering, and a diff, a
   compiler's column number and a ruler all agree with the unwrapped one.
-- **`CodeEditor` has no caret blink.** Blinking needs a host tick, which `Tooltip` and `ToastHost`
-  get from `UiDocument.Ticked`.
+- ~~**`CodeEditor` has no caret blink.** Blinking needs a host tick, which `Tooltip` and `ToastHost`
+  get from `UiDocument.Ticked`.~~ It blinks, and ⚠ **not from `UiDocument.Ticked`, which is what this
+  bullet used to say it was waiting for.** A tooltip subscribes because the moment it is waiting for
+  arrives when nothing is happening; a caret is only interesting on a frame that is being drawn
+  anyway, and `UiDocument.Draw` rebuilds the list and diffs it every frame. So `DrawCaret` reads
+  `Document.Now` and decides, which costs nothing on the frames it is not reached — and it is not
+  reached at all unless the editor has the focus. A subscription would have made every frame of a
+  shell with an unfocused code pane on it differ, and `EditorStillnessTests` measures that it does
+  not. ⚠ **`TextField` did not blink either** and nothing had written that down; both do now, four
+  lines each rather than through a shared base. The phase is measured from the last time the caret
+  moved, so typing holds it solid; `CaretBlink` is the half period and `TimeSpan.Zero` is a solid
+  caret, which is what a reduced-motion setting wants.
 - **`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma. Real
   gamut mapping walks the chroma down until the colour fits; `IsInGamut` is how a picker can say so
   meanwhile.

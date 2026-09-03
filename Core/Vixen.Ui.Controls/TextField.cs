@@ -456,7 +456,9 @@ public abstract partial class TextField : Control {
     ///         whether this field has an insertion point at all, which is a fact about the field;
     ///         whether it is lit right now is a fact about the frame. Folding the second into the
     ///         first would make a subclass asking "does this field have a caret" get a different
-    ///         answer twice a second.
+    ///         answer twice a second — which is why <c>ShowsCaret</c> stays <c>protected</c> and this
+    ///         is private: no subclass draws its own caret, and one that started to would want the
+    ///         fact rather than the phase.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A period is <see cref="CaretBlink" /> twice over and the first half is on</b>, so
@@ -464,7 +466,7 @@ public abstract partial class TextField : Control {
     ///         that notices the move, and integer division of a zero elapsed gives an even quotient.
     ///     </para>
     /// </remarks>
-    protected bool CaretIsLit {
+    bool CaretIsLit {
         get {
             if (!ShowsCaret) {
                 return false;

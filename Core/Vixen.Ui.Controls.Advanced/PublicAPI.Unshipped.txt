@@ -62,6 +62,8 @@ Vixen.Ui.Controls.Advanced.CodeEditor.AutoIndent.set -> bool
 Vixen.Ui.Controls.Advanced.CodeEditor.Buffer.get -> Vixen.Ui.Controls.Advanced.CodeBuffer
 Vixen.Ui.Controls.Advanced.CodeEditor.Buffer.set -> Vixen.Ui.Controls.Advanced.CodeBuffer
 Vixen.Ui.Controls.Advanced.CodeEditor.Caret.get -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeEditor.CaretBlink.get -> System.TimeSpan
+Vixen.Ui.Controls.Advanced.CodeEditor.CaretBlink.set -> System.TimeSpan
 Vixen.Ui.Controls.Advanced.CodeEditor.CaretMoved -> System.Action<Vixen.Ui.Controls.Advanced.CodeEditor>?
 Vixen.Ui.Controls.Advanced.CodeEditor.CharacterWidth.get -> float
 Vixen.Ui.Controls.Advanced.CodeEditor.ClearAutoFold() -> void
