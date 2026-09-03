@@ -291,10 +291,21 @@ says the strings it was built to exercise: a window that announces nothing satis
   runs, taken from `UiLayer.KernelRadius` rather than written twice. ⚠ The claim that the two agree
   is not this file's to make: `Vixen.Graphics.Golden.Tests.UiCompositingTests` renders one frame both
   ways and requires the pictures to match, which is the only thing that can say so.
-- **A third finger.** Two pointers make a transform; a third arriving during one is ignored rather
-  than folded in. Three-finger gestures have no agreed meaning across platforms, and averaging an
-  arbitrary number of pointers into one scale is an approximation worse than the gap.
-- **Assertions on the layout box.** Width and height are on `UiElement` and a test reads them
-  directly; there is no `ShouldHaveSize` yet, and it is not obvious one earns its place.
+- **A third finger.** ⚠ **Not this assembly's, and refused where it does live.** `MovePointer`,
+  `PressPointer` and `ReleasePointer` already take any pointer id, so a test can put three fingers
+  down today; what ignores the third is `GestureRecognizer`, in `Vixen.Ui`, and it says why —
+  three-finger gestures have no agreed meaning across platforms, and averaging an arbitrary number
+  of pointers into one scale is an approximation worse than the gap. A harness cannot recognise a
+  gesture the framework does not.
+- <s>**Assertions on the layout box.**</s> **Done.** `ShouldHaveSize` and `ShouldHavePosition`, and
+  what they buy over reading `UiElement.Width` is two things rather than sugar. ⚠ **The cascade
+  cannot answer the question**: `flex-grow`, a percentage, `min-width` and a flex line's free space
+  are all decided by the layout pass, so `ShouldHaveLength("width", …)` on a flexed child reports
+  *no such property* rather than the wrong number. ⚠ **And layout is a pass, not a property setter**
+  — an element created by the line above is zero by zero until a frame runs, so a test reading the
+  property directly either sees the previous arrangement or carries a hand-written `Frames(n)`
+  guessing at *n*. The position pair is **absolute**, because the relative one is an offset inside
+  whatever the parent turned out to be and passes on a panel that slid sideways carrying the element
+  with it.
 
 Licensed under Apache-2.0.

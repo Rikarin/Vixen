@@ -51,6 +51,8 @@ Vixen.Ui.Testing.UiSubject.ShouldHaveClass(string className) -> Vixen.Ui.Testing
 Vixen.Ui.Testing.UiSubject.ShouldHaveColor(string property, Vixen.Core.Mathematics.Color4 expected, float tolerance = 0.004) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiSubject.ShouldHaveCount(int count) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiSubject.ShouldHaveLength(string property, float expected, float tolerance = 0.01) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHavePosition(float left, float top, float tolerance = 0.01) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHaveSize(float width, float height, float tolerance = 0.01) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiSubject.ShouldHaveState(Vixen.Ui.Styling.ElementState state) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiSubject.ShouldHaveStyle(string property, string value) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiSubject.ShouldHaveText(string text) -> Vixen.Ui.Testing.UiSubject

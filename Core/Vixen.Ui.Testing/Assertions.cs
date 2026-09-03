@@ -289,6 +289,62 @@ public sealed partial class UiSubject {
         );
     }
 
+    /// <summary>Every match is laid out this size.</summary>
+    /// <param name="width">The border box's width, in points.</param>
+    /// <param name="height">The border box's height, in points.</param>
+    /// <param name="tolerance">How far either may be out.</param>
+    /// <returns>This.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The layout box, not the declaration</b>, and that is the whole of what this buys
+    ///         over <see cref="ShouldHaveLength" />. A percentage, an <c>em</c>, <c>flex-grow</c>,
+    ///         <c>min-width</c> and a flex line's free space are all invisible to the cascade and all
+    ///         decided by the layout pass — so the one question a stylesheet cannot answer is how big
+    ///         the box came out, which is this one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it waits, which is why reading <see cref="UiElement.Width" /> is not the same
+    ///         thing.</b> Layout runs inside <see cref="UiTest.Frame" />, so an element created or
+    ///         restyled by the line above has a width of zero until a frame runs; a test reading the
+    ///         property directly either sees the previous arrangement or has a hand-written
+    ///         <c>Frames(n)</c> in front of it, guessing at <i>n</i>. This runs frames until the box
+    ///         is the size claimed, and fails saying what size it settled at.
+    ///     </para>
+    /// </remarks>
+    public UiSubject ShouldHaveSize(float width, float height, float tolerance = 0.01f) =>
+        Assert(
+            $"should be {width:0.##}×{height:0.##}",
+            matched => Every(
+                matched,
+                element => MathF.Abs(element.Width - width) <= tolerance
+                    && MathF.Abs(element.Height - height) <= tolerance,
+                element => $"is {element.Width:0.##}×{element.Height:0.##}"
+            )
+        );
+
+    /// <summary>Every match's border box starts at this point in document space.</summary>
+    /// <param name="left">The distance from the document's left edge, in points.</param>
+    /// <param name="top">The distance from the document's top edge, in points.</param>
+    /// <param name="tolerance">How far either may be out.</param>
+    /// <returns>This.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Absolute, not <see cref="UiElement.Left" />.</b> The relative pair is an offset within
+    ///     whatever the parent turned out to be, so an assertion on it passes on a panel that moved
+    ///     and took the element with it. Document space is the space a click, a hit test and a
+    ///     screenshot are all in — <see cref="Centre" /> is computed from these two — so an assertion
+    ///     here is an assertion about where the thing actually is.
+    /// </remarks>
+    public UiSubject ShouldHavePosition(float left, float top, float tolerance = 0.01f) =>
+        Assert(
+            $"should be at ({left:0.##}, {top:0.##})",
+            matched => Every(
+                matched,
+                element => MathF.Abs(element.AbsoluteLeft - left) <= tolerance
+                    && MathF.Abs(element.AbsoluteTop - top) <= tolerance,
+                element => $"is at ({element.AbsoluteLeft:0.##}, {element.AbsoluteTop:0.##})"
+            )
+        );
+
     /// <summary>Every match satisfies a predicate.</summary>
     /// <param name="predicate">What must hold.</param>
     /// <param name="description">How it reads in a log line and a failure.</param>
