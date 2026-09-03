@@ -232,24 +232,56 @@ public sealed class HandshakeTraceTests {
         return names;
     }
 
-    /// <summary>Every span the source emitted while this exists.</summary>
+    /// <summary>Every span this test's own sessions emitted.</summary>
     /// <remarks>
-    ///     ⚠ <c>Sample</c> returns <see cref="ActivitySamplingResult.AllData" /> and nothing less.
-    ///     <c>PropagationData</c> creates an <c>Activity</c> that records no tags and no events, so a
-    ///     listener written that way collects spans whose every assertion below would be a null
-    ///     compared with a null — the shape of a test that cannot fail.
+    ///     <para>
+    ///         ⚠ <c>Sample</c> returns <see cref="ActivitySamplingResult.AllData" /> and nothing less.
+    ///         <c>PropagationData</c> creates an <c>Activity</c> that records no tags and no events, so a
+    ///         listener written that way collects spans whose every assertion above would be a null
+    ///         compared with a null — the shape of a test that cannot fail.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it filters by trace, which is not tidiness — the first version of this was
+    ///         flaky and passed alone.</b> An <c>ActivityListener</c> subscribes to a source
+    ///         <i>process-wide</i> and by name, so every other test in this assembly that runs a
+    ///         session — and xunit runs classes in parallel — was dropping its handshakes into this
+    ///         list. <c>One("server")</c> insists on exactly one and would find two, at random,
+    ///         depending on what else happened to be running. That is this repository's own "a
+    ///         different test failing each run is one shared cause" in miniature.
+    ///     </para>
+    ///     <para>
+    ///         The fix is to give the test a root span of its own. <c>Activity.Current</c> is an
+    ///         <c>AsyncLocal</c>, so the sessions this test drives start their handshakes underneath
+    ///         it and inherit its trace id, while a session in a parallel test inherits a different
+    ///         one. Filtering on the trace id is therefore an exact answer rather than a heuristic.
+    ///     </para>
     /// </remarks>
     sealed class Recorder : IDisposable {
+        // ⚠ A const, and the predicate below closes over *it* rather than over `Own`. Constructing an
+        // `ActivitySource` calls every registered listener's `ShouldListenTo` — including the one a
+        // previous `Recorder` left behind — so a predicate that read `Own.Name` would be asked about
+        // `Own` while `Own` was the field being initialised, and would dereference null inside a
+        // class constructor. The first version did exactly that, and it presented as forty-five
+        // unrelated tests failing, because a listener that throws breaks every `ActivitySource` any
+        // of them creates.
+        const string OwnName = "Vixen.Net.Tests.HandshakeTraces";
+
+        static readonly ActivitySource Own = new(OwnName);
+
         readonly ActivityListener listener;
+        readonly Activity? root;
 
         public Recorder() {
             listener = new() {
-                ShouldListenTo = source => source.Name == NetworkActivity.SourceName,
+                ShouldListenTo = source => source.Name is NetworkActivity.SourceName or OwnName,
                 Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-                ActivityStopped = Finished.Add
+                ActivityStopped = Keep
             };
 
             ActivitySource.AddActivityListener(listener);
+            root = Own.StartActivity("one test");
+
+            Assert.NotNull(root);
         }
 
         public List<Activity> Finished { get; } = [];
@@ -261,6 +293,17 @@ public sealed class HandshakeTraceTests {
             return Assert.Single(matching);
         }
 
-        public void Dispose() => listener.Dispose();
+        public void Dispose() {
+            root?.Dispose();
+            listener.Dispose();
+        }
+
+        // Called on whatever thread stopped the activity, which for a parallel test is not this one —
+        // hence the filter before the add rather than after it.
+        void Keep(Activity activity) {
+            if (activity.Source.Name == NetworkActivity.SourceName && activity.TraceId == root?.TraceId) {
+                Finished.Add(activity);
+            }
+        }
     }
 }

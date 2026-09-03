@@ -464,8 +464,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             var local = LocalPlayer;
             LocalPlayer = null;
             clientPingOutstanding = false;
-        clientAllowance = 0;
-        allowance.Clear();
+            clientAllowance = 0;
+            allowance.Clear();
 
             if (Topology == SessionTopology.Client) {
                 State = SessionState.Stopped;
@@ -578,8 +578,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
                     && clientPingOutstanding
                     && id == clientPingId) {
                     clientPingOutstanding = false;
-        clientAllowance = 0;
-        allowance.Clear();
+                    clientAllowance = 0;
+                    allowance.Clear();
                     Clock.Synchronize(serverTick, TimeSpan.FromSeconds(Math.Max(0, now - clientPingSentAt)));
                 }
 
