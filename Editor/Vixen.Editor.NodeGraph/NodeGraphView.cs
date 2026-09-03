@@ -157,6 +157,8 @@ public sealed class NodeGraphView : Control {
             graph.Changed += OnGraphChanged;
 
             selection.Clear();
+            SelectedEdge = null;
+
             Project();
         }
     }
@@ -209,6 +211,22 @@ public sealed class NodeGraphView : Control {
     /// <summary>What is selected, by identity.</summary>
     public IReadOnlyCollection<NodeId> Selection => selection;
 
+    /// <summary>The connection that is selected, if one is rather than some nodes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A model edge and not the canvas's wire, because the canvas's wire does not
+    ///         survive a reprojection.</b> <see cref="Project" /> assigns a whole new
+    ///         <c>CanvasGraph</c>, so every <c>GraphWire</c> in it is replaced by an equal one at a
+    ///         different address; a view that remembered the object would lose the selection on every
+    ///         structural edit, including the undo of the one that made it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exclusive with <see cref="Selection" />.</b> Delete has to mean one thing, and
+    ///         <c>NodeCanvas</c> is what keeps the two exclusive — see <c>NodeCanvas.SelectWire</c>.
+    ///     </para>
+    /// </remarks>
+    public GraphEdge? SelectedEdge { get; private set; }
+
     /// <summary>Raised after the selection changes.</summary>
     public event Action<NodeGraphView>? SelectionChanged;
 
@@ -232,6 +250,7 @@ public sealed class NodeGraphView : Control {
 
         Canvas = Part<NodeCanvas>();
         Canvas.SelectionChanged += _ => Reselected();
+        Canvas.WireSelectionChanged += (_, wire) => Rewired(wire);
         Canvas.NodesMoved += _ => Dropped();
         Canvas.Connected += (_, wire) => Wired(wire);
         Canvas.Activated += (_, node) => Opened(node);
@@ -548,6 +567,24 @@ public sealed class NodeGraphView : Control {
     public bool DeleteSelection() =>
         selection.Count > 0 && Run(new RemoveNodesCommand(graph, [.. selection], edited));
 
+    /// <summary>Deletes the selected connection.</summary>
+    /// <returns>Whether one went.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Through the model and a reprojection, never by taking the wire out of the picture
+    ///     first.</b> <see cref="PulledOff" /> works out which connection the canvas has picked up by
+    ///     finding the model edge that the picture is missing, so a second reason for the two to
+    ///     disagree makes the *next* reroute blame the wrong edge — silently, with no diagnostic
+    ///     anywhere. <c>DisconnectCommand</c> writes the model, the model raises <c>Changed</c>, and
+    ///     the reprojection removes the wire, so the two are never out of step for a whole gesture.
+    /// </remarks>
+    public bool DeleteSelectedEdge() {
+        if (SelectedEdge is not { } edge || !graph.Edges.Contains(edge)) {
+            return false;
+        }
+
+        return Run(new DisconnectCommand(graph, edge.To, edited));
+    }
+
     /// <summary>Draws a box round what is selected.</summary>
     /// <param name="title">What the box is called.</param>
     /// <returns>Whether one was made.</returns>
@@ -710,6 +747,10 @@ public sealed class NodeGraphView : Control {
     public void Select(IEnumerable<NodeId> nodes) {
         ArgumentNullException.ThrowIfNull(nodes);
 
+        // Before `Reselect`, which would otherwise put the wire back on the canvas and take the nodes
+        // this call is about straight off again — the two are exclusive.
+        SelectedEdge = null;
+
         selection.Clear();
 
         foreach (var id in nodes) {
@@ -807,6 +848,60 @@ public sealed class NodeGraphView : Control {
                 Canvas.Select(node, ModifierKeys.Shift);
             }
         }
+
+        RechooseEdge();
+    }
+
+    /// <summary>Translates the canvas's chosen wire into the model edge it stands for.</summary>
+    /// <remarks>
+    ///     Silent during a reprojection, the way <see cref="Reselected" /> is: the canvas is being
+    ///     rebuilt from the model, so what it says about its own selection is an echo rather than a
+    ///     gesture, and <see cref="RechooseEdge" /> is what puts the answer back afterwards.
+    /// </remarks>
+    void Rewired(GraphWire? wire) {
+        if (projecting) {
+            return;
+        }
+
+        SelectedEdge = Edged(wire);
+        SelectionChanged?.Invoke(this);
+    }
+
+    GraphEdge? Edged(GraphWire? wire) =>
+        wire is not null
+        && sockets.TryGetValue(wire.From, out var from)
+        && sockets.TryGetValue(wire.To, out var to)
+            ? new GraphEdge(new PortRef(from.Node, from.Port), new PortRef(to.Node, to.Port))
+            : null;
+
+    /// <summary>Puts the chosen edge back on the rebuilt picture, or forgets it if it has gone.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The edge outlives the wire, and this is where the two are rejoined.</b> Reprojecting
+    ///     replaces every <c>GraphWire</c>, so without this an author who selected a wire and then
+    ///     moved a node — which touches the model, which reprojects — would find the selection gone
+    ///     and Delete doing nothing.
+    /// </remarks>
+    void RechooseEdge() {
+        if (SelectedEdge is not { } edge) {
+            return;
+        }
+
+        if (!anchors.TryGetValue(new(edge.From.Node, edge.From.Port, PortDirection.Output), out var from)
+            || !anchors.TryGetValue(new(edge.To.Node, edge.To.Port, PortDirection.Input), out var to)) {
+            SelectedEdge = null;
+
+            return;
+        }
+
+        foreach (var wire in Canvas.Graph.Wires) {
+            if (ReferenceEquals(wire.From, from) && ReferenceEquals(wire.To, to)) {
+                Canvas.SelectWire(wire);
+
+                return;
+            }
+        }
+
+        SelectedEdge = null;
     }
 
     /// <remarks>
@@ -1076,6 +1171,12 @@ public sealed class NodeGraphView : Control {
         switch (args.Key) {
             case InputKey.Delete or InputKey.Backspace when selection.Count > 0:
                 DeleteSelection();
+                break;
+
+            // Beside the nodes, not folded in with them: the canvas keeps the two exclusive, so at
+            // most one of the pair can match and Delete never removes a node and a connection at once.
+            case InputKey.Delete or InputKey.Backspace when SelectedEdge is not null:
+                DeleteSelectedEdge();
                 break;
 
             case InputKey.C when control:
