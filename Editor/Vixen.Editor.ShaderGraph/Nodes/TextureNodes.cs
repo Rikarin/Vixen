@@ -45,13 +45,16 @@ public sealed partial class SampleTexture2DNode : ShaderNode, IShaderPropertyNod
 
     /// <inheritdoc />
     protected internal override void Emit(RavenEmitter emitter) {
-        var texture = emitter.Uniform(PropertyName, "Texture2D");
-        var sampler = emitter.Uniform(PropertyName + "Sampler", "Sampler");
+        ArgumentNullException.ThrowIfNull(emitter);
 
         // An unconnected UV port carries the literal its default made, which is not a coordinate. The
         // node asks for the stage's own instead, which is what an author who did not wire one means.
         var coordinate = Binding.IsConnected("UV") ? Uv.Expression : emitter.Stage(ShaderStageInput.Uv);
 
-        emitter.Assign(Rgba.Expression, $"{texture}.Sample({sampler}, {coordinate})");
+        // ⚠ Asked for rather than declared here, because a standalone shader and a material feature
+        // reach a texture by mechanisms with nothing in common — a binding of its own against a slot
+        // of the frame's shared table. See <see cref="RavenEmitter.Sample" />. A node that knew the
+        // difference would be a node every plugin author had to write twice.
+        emitter.Assign(Rgba.Expression, emitter.Sample(PropertyName, coordinate));
     }
 }

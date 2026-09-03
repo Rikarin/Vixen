@@ -47,10 +47,33 @@ public sealed record ShaderGraphSource(
     string Name,
     string Source,
     ImmutableArray<ShaderGraphProperty> Properties = default,
-    ImmutableArray<ShaderGraphSpan> Spans = default
+    ImmutableArray<ShaderGraphSpan> Spans = default,
+    ShaderGraphKind Kind = ShaderGraphKind.Standalone,
+    ImmutableArray<ShaderGraphMap> Maps = default
 ) {
     /// <inheritdoc cref="ShaderGraphSource" />
     public ImmutableArray<ShaderGraphProperty> Properties { get; } = Properties.IsDefault ? [] : Properties;
+
+    /// <summary>What shape this is, which decides what can be done with it.</summary>
+    /// <remarks>
+    ///     A <see cref="ShaderGraphKind.Standalone" /> source is a whole shader an author can read and
+    ///     a preview can draw; a <see cref="ShaderGraphKind.Surface" /> one is the material feature a
+    ///     <c>.vxmat</c> composes, and is the only one of the two anything in the engine can put on a
+    ///     mesh.
+    /// </remarks>
+    public ShaderGraphKind Kind { get; } = Kind;
+
+    /// <summary>The textures a material has to assign, paired with the slot each is read through.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty for a standalone shader, and that is not an oversight.</b> A standalone shader
+    ///     declares its own <c>Texture2D</c>, which appears in <see cref="Properties" /> like every
+    ///     other declaration; nothing pairs it with anything, because nothing binds it. A feature
+    ///     declares a <c>uint</c> instead and the pairing is the whole content of this list — it is
+    ///     what a host feeds <c>MaterialRenderFeature.TextureIndices</c>, and it is explicit for the
+    ///     reason every other name-to-name join in the renderer is: the two names belong to different
+    ///     things, and a convention that stripped <c>Index</c> would guess silently.
+    /// </remarks>
+    public ImmutableArray<ShaderGraphMap> Maps { get; } = Maps.IsDefault ? [] : Maps;
 
     /// <inheritdoc cref="ShaderGraphSource" />
     /// <remarks>
@@ -121,12 +144,32 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
     readonly StringBuilder body = new();
     readonly Dictionary<string, string> uniforms = new(StringComparer.Ordinal);
     readonly HashSet<ShaderStageInput> stage = [];
+    readonly Dictionary<string, string> maps = new(StringComparer.Ordinal);
     readonly List<ShaderGraphSpan> spans = [];
     readonly Dictionary<string, NodeId> declaredBy = new(StringComparer.Ordinal);
+    readonly Dictionary<ShaderStageInput, NodeId> stagedBy = [];
 
     RavenEmitter emitter = null!;
     ShaderMasterNode? master;
     NodeId masterId;
+
+    /// <summary>What a feature may not read, and what to say about each.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A refusal rather than a substitution, and this is the decision the whole surface path
+    ///     turns on.</b> Neither value is on <c>MaterialData</c>, so the honest answers a feature
+    ///     could give are the origin and white — both of which compile, draw, and produce a surface
+    ///     lit as though the graph said something it did not. Doc 06's rule is that a feature is
+    ///     composed into a pass it has never seen; a graph that reads what no pass promises is a
+    ///     graph the author has to change, and saying so is the only way they find out.
+    /// </remarks>
+    static readonly (ShaderStageInput Input, string Reason)[] NotOnSurface = [
+        (ShaderStageInput.WorldPosition,
+            "a material feature is handed a point on a surface, not the pass's geometry, and "
+            + "MaterialData carries no position"),
+        (ShaderStageInput.VertexColour,
+            "a material feature cannot read the pass's vertex streams, and MaterialData carries no "
+            + "vertex colour")
+    ];
 
     /// <summary>Starts a compiler over a node library.</summary>
     /// <param name="registry">The node types the graph may contain.</param>
@@ -137,17 +180,44 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
 
     /// <inheritdoc />
     protected override void Begin(NodeGraphModel graph) {
+        ArgumentNullException.ThrowIfNull(graph);
+
         body.Clear();
         uniforms.Clear();
         stage.Clear();
+        maps.Clear();
         spans.Clear();
         declaredBy.Clear();
+        stagedBy.Clear();
 
         // ⚠ One emitter for the whole walk, where there used to be one per node. It is what counts
         // the body's lines, and a fresh one per node would count each node's from zero.
-        emitter = new(body, uniforms, stage);
+        //
+        // ⚠ And the shape has to be known before the first node emits, which is why the master is
+        // looked for here as well as met in the walk. A node asks the emitter for a coordinate or a
+        // texture read on the line it emits; the answer differs entirely between the two shapes, and
+        // a walk that learned which one it was in when it reached the master would already have
+        // written every node upstream of it in the wrong one.
+        emitter = new(body, uniforms, stage, maps, KindOf(graph));
         master = null;
         masterId = NodeId.None;
+    }
+
+    /// <summary>What shape the graph's master asks for, before anything has been emitted.</summary>
+    /// <remarks>
+    ///     The first master found, and no complaint about a second: the walk reports <c>SG0002</c>
+    ///     against a graph with two, and a second message here would be the same fault said twice in
+    ///     different words. A graph with none is <c>SG0003</c> for the same reason, and the shape it
+    ///     is given in the meantime never reaches a file.
+    /// </remarks>
+    ShaderGraphKind KindOf(NodeGraphModel graph) {
+        foreach (var node in graph.Nodes) {
+            if (Registry.TryGet(node.Type, out var definition) && definition.Create() is ShaderMasterNode found) {
+                return found.Kind;
+            }
+        }
+
+        return ShaderGraphKind.Standalone;
     }
 
     /// <inheritdoc />
@@ -200,6 +270,14 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         foreach (var name in uniforms.Keys) {
             declaredBy.TryAdd(name, node.Id);
         }
+
+        // ⚠ And the same bookkeeping for what a node read off the stage, which only matters for a
+        // surface: two of the four inputs do not exist there, and "this graph reads a world position"
+        // is a sentence an author cannot act on. The node that asked is the one to send them to, and
+        // it is knowable only here.
+        foreach (var input in stage) {
+            stagedBy.TryAdd(input, node.Id);
+        }
     }
 
     /// <inheritdoc />
@@ -216,6 +294,11 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         }
 
         var name = Identifier(graph.Name.Length > 0 ? graph.Name : DefaultName);
+
+        if (master.Kind == ShaderGraphKind.Surface) {
+            return Surface(name);
+        }
+
         var text = new StringBuilder();
 
         text.AppendLine("// Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not.")
@@ -231,23 +314,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
 
         List<ShaderGraphSpan> declarations = [];
 
-        // Where the next line will land, counted once and then carried. Every `AppendLine` adds
-        // exactly one line whatever the platform spells a newline as, so the cursor is arithmetic
-        // rather than a rescan of a builder that is getting longer.
-        var cursor = Lines(text) - 1;
-
-        foreach (var (uniform, type) in uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
-            text.AppendLine().AppendLine($"    var {uniform}: {type}");
-
-            // A blank line and then the declaration, so the declaration is the second of the two.
-            var declaration = cursor + 1;
-
-            cursor += 2;
-
-            if (declaredBy.TryGetValue(uniform, out var owner)) {
-                declarations.Add(new(Inlining.Resolve(owner), owner, new(declaration, 1)));
-            }
-        }
+        Declare(text, declarations);
 
         // Only the varyings the graph asked for. Ordered, so the same graph emits the same source.
         foreach (var input in stage.Order()) {
@@ -284,16 +351,128 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         return new(
             name,
             text.ToString(),
-            [
-                .. uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)
-                    .Select(entry => new ShaderGraphProperty(entry.Key, entry.Value))
-            ],
+            Properties(),
             [
                 .. declarations,
                 .. spans.Select(span => span with { Span = new(span.Span.Line + offset, span.Span.Lines) })
             ]
         );
     }
+
+    /// <summary>The graph as a material feature: no stages, no entry point, no <c>return</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The shape doc 08's material compiler needed, and the reason a graph could not draw
+    ///         before there was one.</b> A standalone shader declares its own transforms and its own
+    ///         bindings, and a draw in this engine supplies neither by those names — so putting one on
+    ///         a mesh would have meant a second render feature, a second pass and a second way of
+    ///         being lit. This is composed into <c>CompositeSurface</c> beside the hand-written
+    ///         features instead, so the transform, the lighting, the shadows and the bindless table
+    ///         are the ones every other material already gets.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>MaterialTextures</c> is inherited only when the graph samples.</b> Its own
+    ///         remarks say the whole economy of a table is that there is one of it; a graph with no
+    ///         texture in it inheriting the base anyway would put the shared declaration into a
+    ///         shader that reads nothing from it, which is a descriptor a material pays for and never
+    ///         uses.
+    ///     </para>
+    /// </remarks>
+    ShaderGraphSource? Surface(string name) {
+        // ⚠ Before anything is written, because a graph that reads what a feature cannot see is a
+        // graph whose author has to change it. See `NotOnSurface` for why this refuses rather than
+        // substituting a plausible value.
+        var refused = false;
+
+        foreach (var (input, reason) in NotOnSurface) {
+            if (!stage.Contains(input)) {
+                continue;
+            }
+
+            Report(new(
+                "SG0004",
+                $"A surface graph cannot read {Stream(input)}: {reason}. Take it out, or use a master "
+                + "that makes a standalone shader.",
+                stagedBy.TryGetValue(input, out var asker) ? Inlining.Resolve(asker) : NodeId.None
+            ));
+
+            refused = true;
+        }
+
+        if (refused) {
+            return null;
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine("// Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not.")
+            .AppendLine()
+            .AppendLine("package Vixen.ShaderGraph.Generated")
+            .AppendLine()
+            .AppendLine("import Vixen.Shaders.Core")
+            .AppendLine("import Vixen.Shaders.Geometry")
+            .AppendLine("import Vixen.Shaders.Shading")
+            .AppendLine("import Vixen.Shaders.Material")
+            .AppendLine()
+            .AppendLine($"shader {name} : {(maps.Count > 0 ? "MaterialTextures, " : "")}IMaterialSurface {{");
+
+        List<ShaderGraphSpan> declarations = [];
+
+        Declare(text, declarations);
+
+        text.AppendLine().AppendLine("    func Compute(inout d: MaterialData) {");
+
+        // ⚠ Read here for the reason the standalone path reads it here: the emitter counted the
+        // body's lines from zero, and everything above is the compiler's own text whose length
+        // depends on how many properties the graph asked for.
+        var offset = Lines(text) - 1;
+
+        text.Append(body).AppendLine("    }").AppendLine("}");
+
+        return new(
+            name,
+            text.ToString(),
+            Properties(),
+            [
+                .. declarations,
+                .. spans.Select(span => span with { Span = new(span.Span.Line + offset, span.Span.Lines) })
+            ],
+            ShaderGraphKind.Surface,
+            [.. maps.OrderBy(entry => entry.Key, StringComparer.Ordinal).Select(entry => new ShaderGraphMap(entry.Key, entry.Value))]
+        );
+    }
+
+    /// <summary>Writes every property the graph asked for, and records who asked.</summary>
+    /// <remarks>
+    ///     Shared by both shapes, because a declaration is a declaration: what differs between them is
+    ///     what a node was given to declare, and that decision was made in
+    ///     <see cref="RavenEmitter" /> before this runs.
+    /// </remarks>
+    void Declare(StringBuilder text, List<ShaderGraphSpan> declarations) {
+        // Where the next line will land, counted once and then carried. Every `AppendLine` adds
+        // exactly one line whatever the platform spells a newline as, so the cursor is arithmetic
+        // rather than a rescan of a builder that is getting longer.
+        var cursor = Lines(text) - 1;
+
+        foreach (var (uniform, type) in uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
+            text.AppendLine().AppendLine($"    var {uniform}: {type}");
+
+            // A blank line and then the declaration, so the declaration is the second of the two.
+            var declaration = cursor + 1;
+
+            cursor += 2;
+
+            if (declaredBy.TryGetValue(uniform, out var owner)) {
+                declarations.Add(new(Inlining.Resolve(owner), owner, new(declaration, 1)));
+            }
+        }
+    }
+
+    /// <summary>Every property the graph asked for, in the order they were declared in.</summary>
+    ImmutableArray<ShaderGraphProperty> Properties() => [
+        .. uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .Select(entry => new ShaderGraphProperty(entry.Key, entry.Value))
+    ];
 
     /// <summary>How many lines a builder holds, counting a trailing newline as ending one.</summary>
     static int Lines(StringBuilder text) {

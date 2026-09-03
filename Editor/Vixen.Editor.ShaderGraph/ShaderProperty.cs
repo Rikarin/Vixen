@@ -15,6 +15,21 @@ namespace Vixen.Editor.ShaderGraph;
 /// </remarks>
 public readonly record struct ShaderGraphProperty(string Name, string Type);
 
+/// <summary>A texture a material assigns, and the shader slot it is read through.</summary>
+/// <param name="Texture">What the author called it — the name a <c>.vxmat</c> assigns a texture under.</param>
+/// <param name="Slot">
+///     The <c>uint</c> parameter a host writes the table index into, which is
+///     <paramref name="Texture" /> with <c>Index</c> after it.
+/// </param>
+/// <remarks>
+///     ⚠ <b>Two names for one thing, kept apart on purpose.</b> This is
+///     <c>TexturedMetalRoughnessFeature</c>'s arrangement: an artist assigns <c>albedo</c>, and the
+///     shader reads <c>albedoIndex</c>, and the two are joined by <c>TextureIndices</c> rather than
+///     by a convention that strips a suffix. A guess there is a slot left at zero, which is a valid
+///     index holding some other material's texture — a wrong image with nothing to blame.
+/// </remarks>
+public readonly record struct ShaderGraphMap(string Texture, string Slot);
+
 /// <summary>A node that names a material property rather than computing a value.</summary>
 /// <remarks>
 ///     <para>

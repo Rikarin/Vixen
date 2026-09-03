@@ -6,6 +6,37 @@ using Vixen.Editor.NodeGraph;
 
 namespace Vixen.Editor.ShaderGraph;
 
+/// <summary>What shape of Raven a graph compiles to.</summary>
+/// <remarks>
+///     <para>
+///         <b>The one structural decision a node makes, and until doc 08's material compiler there
+///         was only one of them.</b> A standalone shader is a whole program — a vertex stage, a
+///         fragment stage and a <c>return</c> — which is what an author can read, hand to
+///         <c>raven compile</c> and draw a preview thumbnail with, and which nothing in the engine
+///         can put on a mesh: a draw binds transforms, lights, shadows and a bindless table by
+///         names that shader does not declare.
+///     </para>
+///     <para>
+///         ⚠ <b>A material feature is what actually draws</b>, and it is not a smaller shader — it
+///         is a different one. <c>IMaterialSurface</c> has no stages, no entry point and no
+///         <c>return</c>; it reads and writes the <c>MaterialData</c> a pass already interpolated,
+///         and <c>MaterialCompiler</c> composes it into <c>CompositeSurface</c> beside the
+///         hand-written features. That is why a graph that draws needs no new render feature, no new
+///         pass and no new binding convention: the whole of the engine's material path is already
+///         written for exactly this shape.
+///     </para>
+/// </remarks>
+public enum ShaderGraphKind {
+    /// <summary>A whole shader with its own stages. Readable, previewable, and not drawable.</summary>
+    Standalone,
+
+    /// <summary>
+    ///     A material feature: <c>shader N : IMaterialSurface</c>, composed into a pass by
+    ///     <c>MaterialCompiler</c>.
+    /// </summary>
+    Surface
+}
+
 /// <summary>Which stage a value comes from.</summary>
 public enum ShaderStageInput {
     /// <summary>The interpolated texture coordinate.</summary>
@@ -43,12 +74,30 @@ public sealed class RavenEmitter {
     readonly StringBuilder body;
     readonly Dictionary<string, string> uniforms;
     readonly HashSet<ShaderStageInput> stage;
+    readonly Dictionary<string, string> maps;
 
-    internal RavenEmitter(StringBuilder body, Dictionary<string, string> uniforms, HashSet<ShaderStageInput> stage) {
+    internal RavenEmitter(
+        StringBuilder body,
+        Dictionary<string, string> uniforms,
+        HashSet<ShaderStageInput> stage,
+        Dictionary<string, string> maps,
+        ShaderGraphKind kind
+    ) {
         this.body = body;
         this.uniforms = uniforms;
         this.stage = stage;
+        this.maps = maps;
+        Kind = kind;
     }
+
+    /// <summary>What shape the compiler is emitting, which decides what a node may reach.</summary>
+    /// <remarks>
+    ///     <b>Read by the emitter, not by a node</b> — that is the whole point of it being here. A
+    ///     node says "sample this property at this coordinate" and "give me the surface normal", and
+    ///     what those become differs entirely between the two shapes; a node that branched on this
+    ///     would be a node every plugin author had to write twice.
+    /// </remarks>
+    public ShaderGraphKind Kind { get; }
 
     /// <summary>How many lines have been written into the body so far.</summary>
     /// <remarks>
@@ -117,12 +166,72 @@ public sealed class RavenEmitter {
     public string Stage(ShaderStageInput input) {
         stage.Add(input);
 
+        if (Kind == ShaderGraphKind.Standalone) {
+            return input switch {
+                ShaderStageInput.Uv => "uv",
+                ShaderStageInput.WorldPosition => "worldPosition",
+                ShaderStageInput.WorldNormal => "worldNormal",
+                _ => "vertexColour"
+            };
+        }
+
+        // ⚠ A feature cannot read the pass's streams and must not try. It is composed into a shader
+        // it has never seen — `MaterialSurface.rvn` says so at length — so everything it may know
+        // about the point being shaded arrives on `MaterialData`. Two of the four are there; the
+        // other two are not, and `ShaderGraphCompiler` refuses the graph rather than substituting
+        // something plausible. What is returned for those is only what keeps the rest of the walk
+        // type-correct so that one refusal is reported instead of a cascade.
         return input switch {
-            ShaderStageInput.Uv => "uv",
-            ShaderStageInput.WorldPosition => "worldPosition",
-            ShaderStageInput.WorldNormal => "worldNormal",
-            _ => "vertexColour"
+            ShaderStageInput.Uv => "d.uv",
+            ShaderStageInput.WorldNormal => "d.tangentFrame.normal",
+            ShaderStageInput.WorldPosition => "float3(0f, 0f, 0f)",
+            _ => "float4(1f, 1f, 1f, 1f)"
         };
+    }
+
+    /// <summary>Reads a material's texture at a coordinate, however this shape reaches one.</summary>
+    /// <param name="name">What the author called the property.</param>
+    /// <param name="coordinate">The Raven expression to sample at.</param>
+    /// <returns>The expression that reads it, as a <c>float4</c>.</returns>
+    /// <exception cref="ArgumentException">The name is empty, or is already a different type.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two shapes bind a texture in ways that have nothing in common, and neither is
+    ///         a simplification of the other.</b> A standalone shader owns its bindings, so it
+    ///         declares the texture and a sampler beside it. A material feature owns none — which
+    ///         binding index a texture of its own would get is the composed shader's decision, and
+    ///         doc 06 records that as the reason a feature could not sample at all until there was a
+    ///         table. So it declares a <c>uint</c> slot instead and reads
+    ///         <c>MaterialTextures</c>'s shared array, which is what every hand-written textured
+    ///         feature in <c>Raven/Library/Material</c> does.
+    ///     </para>
+    ///     <para>
+    ///         <b>The array is indexed directly rather than through <c>SampleSurface</c>, and that is
+    ///         deliberate.</b> That helper samples at <c>d.uv</c> unconditionally, so a graph with a
+    ///         <c>Tiling and Offset</c> node feeding a texture's coordinate would silently sample
+    ///         somewhere the author did not ask for — a wrong image with nothing to blame, which is
+    ///         the exact defect class a generated shader is worst at surfacing.
+    ///     </para>
+    /// </remarks>
+    public string Sample(string name, string coordinate) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(coordinate);
+
+        if (Kind == ShaderGraphKind.Standalone) {
+            var texture = Uniform(name, "Texture2D");
+            var sampler = Uniform(name + "Sampler", "Sampler");
+
+            return $"{texture}.Sample({sampler}, {coordinate})";
+        }
+
+        // The name a host pairs with the material's texture of the same name — the join
+        // `MaterialRenderFeature.TextureIndices` makes, and the convention
+        // `TexturedMetalRoughnessSurface.baseColorIndex` already keeps.
+        var slot = Uniform(name + "Index", "uint");
+
+        maps[name] = slot;
+
+        return $"materialTextures[int({slot})].Sample(materialSampler, {coordinate})";
     }
 }
 
@@ -156,7 +265,18 @@ public abstract class ShaderMasterNode : ShaderNode {
     /// <summary>The expression the pixel stage returns.</summary>
     /// <remarks>
     ///     Read after <see cref="ShaderNode.Emit" /> has run, so a master may emit as many statements
-    ///     as it likes and then name the last one.
+    ///     as it likes and then name the last one. Empty for a <see cref="ShaderGraphKind.Surface" />
+    ///     master, which returns nothing — it has written into the surface it was handed.
     /// </remarks>
-    protected internal abstract string Result { get; }
+    protected internal virtual string Result => string.Empty;
+
+    /// <summary>What shape of shader this master makes the graph.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is what the class summary above used to claim and the code did not do.</b>
+    ///     <c>ShaderGraphCompiler.Finish</c> hard-coded one preamble, one vertex stage and one
+    ///     <c>float4</c> fragment whatever master the graph held, so "which master it is decides the
+    ///     shape of the emitted stage" was true of the design and false of the build. It is true now,
+    ///     and this property is the whole of the mechanism.
+    /// </remarks>
+    protected internal virtual ShaderGraphKind Kind => ShaderGraphKind.Standalone;
 }
