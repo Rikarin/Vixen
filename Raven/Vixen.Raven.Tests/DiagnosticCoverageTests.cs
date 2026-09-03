@@ -57,9 +57,9 @@ public class DiagnosticCoverageTests {
         "RVN1002", "RVN2002", "RVN2003", "RVN2004", "RVN2005", "RVN2006", "RVN2010", "RVN2013",
         "RVN2014", "RVN2015", "RVN2020", "RVN2021", "RVN2022", "RVN2023", "RVN2024", "RVN2025",
         "RVN2030", "RVN2031", "RVN2032", "RVN2034", "RVN2040", "RVN2041", "RVN2042", "RVN2043",
-        "RVN2045", "RVN2052", "RVN2070", "RVN2071", "RVN2074", "RVN2075", "RVN2080",
-        "RVN2081", "RVN2092", "RVN2093", "RVN2094", "RVN2095",
-        "RVN2113", "RVN2114", "RVN2122", "RVN2123", "RVN2131", "RVN2134", "RVN2135", "RVN3001",
+        "RVN2045", "RVN2070", "RVN2071", "RVN2074", "RVN2075", "RVN2080",
+        "RVN2081", "RVN2092", "RVN2093", "RVN2094",
+        "RVN2113", "RVN2114", "RVN2122", "RVN2131", "RVN3001",
         "RVN3003", "RVN3004", "RVN3007", "RVN3010", "RVN4001", "RVN4003", "RVN5003", "RVN5004",
         "RVN5005", "RVN5006"
     ];
@@ -157,6 +157,21 @@ public class DiagnosticCoverageTests {
         Assert.Equal(declared.Count, int.Parse(match.Groups[1].Value));
         Assert.Equal(covered.Count, int.Parse(match.Groups[2].Value));
         Assert.Equal(declared.Count - covered.Count, int.Parse(match.Groups[3].Value));
+
+        // ⚠ The row states two more numbers in the sentence after that one, and neither was read
+        // here — the ceiling was checked against Raven/README.md alone, and the owed count is
+        // repeated in the row's own prose. So the row could have gone on saying "two of the 54"
+        // after the 54 had become 49, in the one document that is supposed to be the state. That
+        // is this file's own failure mode in this file's own subject matter.
+        Assert.Equal(
+            declared.Count - covered.Count,
+            Number(overview, @"and two of the (\d+), `RVN2003` and `RVN2014`, cannot fire", "docs/overview.md")
+        );
+
+        Assert.Equal(
+            declared.Count - Unreachable.Length,
+            Number(overview, @"puts the reachable ceiling at (\d+)", "docs/overview.md")
+        );
     }
 
     // --- Deriving the two sets ---------------------------------------------
@@ -245,18 +260,26 @@ public class DiagnosticCoverageTests {
     static string RavenDirectory() =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
 
-    static int Number(string text, string pattern) {
+    /// <param name="text">The document.</param>
+    /// <param name="pattern">A regex whose first group is the figure.</param>
+    /// <param name="document">
+    ///     Which document, for the failure message. ⚠ Named rather than hard-coded because both of
+    ///     these read <c>docs/overview.md</c> now as well, and a message saying the wrong file is
+    ///     the kind of small lie that costs somebody an afternoon.
+    /// </param>
+    static int Number(string text, string pattern, string document = "Raven/README.md") {
         var match = Regex.Match(text, pattern);
 
-        Assert.True(match.Success, $"Nothing in Raven/README.md matches /{pattern}/ any more.");
+        Assert.True(match.Success, $"Nothing in {document} matches /{pattern}/ any more.");
 
         return int.Parse(match.Groups[1].Value);
     }
 
-    static (int First, int Second) Pair(string text, string pattern) {
+    /// <inheritdoc cref="Number" />
+    static (int First, int Second) Pair(string text, string pattern, string document = "Raven/README.md") {
         var match = Regex.Match(text, pattern);
 
-        Assert.True(match.Success, $"Nothing in Raven/README.md matches /{pattern}/ any more.");
+        Assert.True(match.Success, $"Nothing in {document} matches /{pattern}/ any more.");
 
         return (int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value));
     }

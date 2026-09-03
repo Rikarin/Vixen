@@ -3027,4 +3027,228 @@ public class NegativeDiagnosticTests {
                 """
             )
         );
+
+    // --- RVN2052: a stage attribute outside a shader ------------------------
+
+    /// <summary>
+    ///     All four stages where they belong, beside a <c>struct</c> whose methods have none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The rule turns on two facts at once — the member carries a stage, <em>and</em> the
+    ///         declaring type is not a <c>shader</c> — so the near miss holds each of them on its
+    ///         own: a shader declaring every stage there is, and a struct declaring methods that
+    ///         carry no stage.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ This one is on the README's expensive list by blast radius rather than by
+    ///         subtlety. It is a rule scoped to a whole declaration, and the thing it refuses is an
+    ///         <em>entry point</em>: keyed on anything but the declaring type's kind it refuses
+    ///         every shader in <c>Raven/Library</c> at once, and the message would name the
+    ///         attribute the author wrote correctly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_stage_is_legal_on_a_method_a_shader_declares() =>
+        Silent(
+            "RVN2052",
+            Semantic(
+                """
+                package A
+
+                // Not a shader, and its methods carry no stage — the other half of the predicate.
+                struct Helpers {
+                    static func Double(x: float): float {
+                        return x * 2f
+                    }
+                }
+
+                shader Graphics {
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        return float4(position, 1f)
+                    }
+
+                    [FragmentShader]
+                    func Fragment(): float4 {
+                        return float4(1f, 1f, 1f, 1f)
+                    }
+                }
+
+                shader Compute {
+                    var output: RWBuffer<float>
+
+                    [ComputeShader(64)]
+                    func Main([Semantic("SV_GroupIndex")] local: uint) {
+                        output[int(local)] = Helpers.Double(1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2095: attributes on a statement ---------------------------------
+
+    /// <summary>
+    ///     Attributes in every position the compiler <em>does</em> read one, and none on a
+    ///     statement.
+    /// </summary>
+    /// <remarks>
+    ///     The rule is one line — a statement whose syntax carries an attribute list — and what
+    ///     makes it worth a negative is that attributes are how nearly everything in this language
+    ///     is said. A rule that reached declarations, fields or parameters would warn on the
+    ///     <c>[Semantic]</c>, the <c>[PerFrame]</c>, the <c>[Permutation]</c> and the
+    ///     <c>[ComputeShader]</c> below — which is every shader in the library, several times each,
+    ///     with a message telling the author their attribute does nothing.
+    /// </remarks>
+    [Fact]
+    public void Attributes_on_declarations_fields_and_parameters_are_read() =>
+        Silent(
+            "RVN2095",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [Permutation] const val Tap = 4
+
+                    [PerFrame] var counts: RWBuffer<uint>
+
+                    [PushConstant] var offset: uint
+
+                    [ComputeShader(8, 8)]
+                    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                        var total = 0u
+
+                        for (i in 0 .. Tap) {
+                            total = total + id.x
+                        }
+
+                        counts[int(id.x)] = total + offset
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2123: a storage image with no format ----------------------------
+
+    /// <summary>
+    ///     Every storage image carries a <c>[Format]</c>; the sampled textures beside them carry
+    ///     none and must not be asked for one.
+    /// </summary>
+    /// <remarks>
+    ///     Two near misses in one fixture, because the raise site has two ways to be wrong. The
+    ///     rule fires when a field <em>is</em> a storage image and its format is absent, so the
+    ///     first miss is a storage image whose format is present — with the volume form too, since
+    ///     the arm is shared — and the second is a field with no format that is not a storage image
+    ///     at all. ⚠ A rule that skipped the type test would refuse every <c>Texture2D</c> and
+    ///     every <c>Sampler</c> in the language.
+    /// </remarks>
+    [Fact]
+    public void An_image_with_a_format_and_a_texture_without_one_are_both_fine() =>
+        Silent(
+            "RVN2123",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+                    [Format("r32ui")] var counters: RWTexture2D<uint4>
+
+                    [Format("rgba8")] var volume: RWTexture3D<float4>
+
+                    var albedo: Texture2D
+
+                    var albedoSampler: Sampler
+
+                    var scratch: RWBuffer<float>
+
+                    [ComputeShader(8, 8)]
+                    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                        val coord = int2(int(id.x), int(id.y))
+                        val colour = albedo.SampleLevel(albedoSampler, float2(0f, 0f), 0f)
+
+                        target.Store(coord, colour)
+                        counters.Store(coord, uint4(1u, 0u, 0u, 1u))
+                        volume.Store(int3(coord.x, coord.y, 0), colour)
+                        scratch[coord.x] = colour.x
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2134 and RVN2135: what group-shared storage may be --------------
+
+    /// <summary>
+    ///     Group-shared storage that is <c>var</c> and uninitialized, beside ordinary shader state
+    ///     that is neither.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         One source for two rules, because they share a raise site and the same near miss
+    ///         separates both: the <c>groupshared</c> declarations are the shape each rule refuses
+    ///         minus the one fact it turns on, and the members beside them carry exactly those
+    ///         facts — a <c>val</c> and an initializer — while not being group-shared.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Either rule losing its <c>groupshared</c> test refuses a great deal: a
+    ///         <c>const val</c> is how every constant in <c>Raven/Library/Core/Math.rvn</c> is
+    ///         written, and an initializer on a shader field is a <em>host</em> default rather than
+    ///         a store — dropping those made <c>exposure = 1f</c> reach the engine as zero once
+    ///         already.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two facts and not one <c>[Theory]</c>, and the reason is the counter rather
+    ///         than the fixtures.</b> <c>DiagnosticCoverageTests.SilentIds</c> reads coverage off
+    ///         this file with the regex <c>\bSilent\(\s*"(RVN\d{4})"</c>, so an id that arrives as
+    ///         a test parameter is invisible to it: written as a theory, both of these ran, both
+    ///         passed, and both ids stayed on the owed list. Which is the failure mode the whole
+    ///         suite exists to prevent, one level up — a fixture that proves something to a reader
+    ///         and nothing to the instrument.
+    ///     </para>
+    /// </remarks>
+    const string GroupSharedFixture = """
+                                      package A
+
+                                      shader S {
+                                          // Read-only and initialized, and neither is group-shared.
+                                          const val Scale = 2f
+
+                                          var exposure: float = 1f
+
+                                          var output: RWBuffer<float>
+
+                                          // Group-shared, and neither read-only nor initialized.
+                                          groupshared var partial: float
+
+                                          groupshared var histogram: float[64]
+
+                                          [ComputeShader(64)]
+                                          func Main([Semantic("SV_GroupIndex")] local: uint) {
+                                              partial = exposure * Scale
+                                              histogram[int(local)] = partial
+                                              barrier()
+
+                                              output[int(local)] = histogram[0]
+                                          }
+                                      }
+
+                                      """;
+
+    /// <inheritdoc cref="GroupSharedFixture" />
+    [Fact]
+    public void Group_shared_storage_that_is_not_read_only_is_allowed() =>
+        Silent("RVN2135", Semantic(GroupSharedFixture));
+
+    /// <inheritdoc cref="GroupSharedFixture" />
+    [Fact]
+    public void Group_shared_storage_with_no_initializer_is_allowed() =>
+        Silent("RVN2134", Semantic(GroupSharedFixture));
 }
