@@ -46,10 +46,45 @@ there can echo it back. The request is padded larger than the answer, so the exc
 to make this server flood somebody else either. It is a cookie, not cryptography — doc 16 is explicit
 that this plan does not claim a bespoke crypto layer, and DTLS is where confidentiality belongs.
 
+## The congestion window
+
+Reliable datagrams leave through an AIMD window per connection, counted in datagrams: additively wider
+per acknowledgement, halved per loss event, floored by `MinWindow` so a connection that lost a burst
+can still send the datagram whose acknowledgement reopens it. `MaxUnacknowledged` is still there and
+still bounds memory — but it is a number that does not move, so on its own it offered a failing link
+exactly as much traffic as a healthy one.
+
+⚠ **A datagram the window has no room for is held, not dropped and not refused.** Its sequence is
+already taken and its bytes are already in a pooled buffer, so the pending table is the send queue as
+well as the retransmission table and ordering falls out of the sequence it was given. Unreliable
+channels are never held back: a snapshot that waited for a window is a snapshot the next one has
+already replaced, which is also why the window measures reliable datagrams only.
+
+⚠ **The decrease is once per loss *event*, not once per lost datagram.** A retransmission pass
+routinely finds a whole window's worth due at the same moment — they were sent together and one outage
+covered all of them. Halving for each would reach the floor on the first hiccup of a match and stay
+there. `UdpCongestionTests` asserts the difference as a relation between two counters of the same run
+(strictly fewer halvings than retransmitted datagrams) rather than as a constant, because a constant
+bound was guessed wrong once and a per-datagram sabotage stayed green under it.
+
+⚠ **`RetransmitTimeout` cited RFC 6298 and did not implement § 5.5.** The timer did not consider how
+many times a datagram had already been sent, so one whose path had gone was offered again at a fixed
+interval for as long as the connection lived — the one behaviour a congested link cannot absorb. It
+doubles per retry now, under the existing `MaxRetransmitTimeout` ceiling: nine attempts in two seconds
+became three.
+
+⚠ **And giving up was silent.** `Trim` drops the *oldest* unacknowledged datagram when
+`MaxUnacknowledged` is reached, which is precisely the one the peer's ordered receiver is blocked
+behind — so a channel that had stopped delivering looked identical to a healthy one, and `SentCount`
+had already counted the datagram on its way in. `AbandonedCount` is that failure made visible. It
+should read zero; it is a broken promise rather than a bad link.
+
 ## Owed
 
-- **Adaptive congestion control.** There is a cap on unacknowledged datagrams, which bounds memory;
-  a window that responds to loss is a different thing and is not built.
+- **Ack piggybacking** and **path MTU discovery**. Both change the datagram header or what may be put
+  in one, so both are wire-format decisions rather than work — see
+  [#97](https://github.com/Rikarin/Vixen/issues/97).
+- **DTLS**, which is a dependency and a security review as much as it is code.
 
 **It counts what it lost, in both directions, and the two counts are not the same kind of number.**
 `ITransport.Loss` comes back as four cumulative totals. Outbound: `Sent`, reliable datagrams handed

@@ -129,9 +129,7 @@ public sealed class SessionBandwidthTests : IDisposable {
 
         var player = server.Players[0].Id;
 
-        while (server.SendToPlayer(player, Payload(1024), Channel.Unreliable)) {
-            // Drain it.
-        }
+        Drain(server, player, 1024);
 
         var shedWhenEmpty = server.ShedCount;
 
@@ -169,15 +167,27 @@ public sealed class SessionBandwidthTests : IDisposable {
         Assert.Equal(2, server.Players.Count);
 
         // Drain exactly one player's bucket.
-        var first = server.Players[0].Id;
-
-        while (server.SendToPlayer(first, Payload(256), Channel.Unreliable)) {
-            // Drain it.
-        }
+        Drain(server, server.Players[0].Id, 256);
 
         // The fan-out still reaches the other one, and says so.
         Assert.Equal(1, server.SendToAll(Payload(256), Channel.Unreliable));
     }
 
     static byte[] Payload(int bytes) => new byte[bytes];
+
+    /// <summary>Sends until the budget refuses, and gives up long before a hang.</summary>
+    /// <remarks>
+    ///     ⚠ The ceiling is a hang check and not a bound — it says nothing about how many sends a
+    ///     bucket should take, only that a bucket which never empties fails this suite in a second
+    ///     instead of holding a CI agent until it is killed. Nothing asserts against it being close.
+    /// </remarks>
+    static int Drain(NetworkSession server, PlayerId player, int bytes) {
+        var sent = 0;
+
+        while (server.SendToPlayer(player, Payload(bytes), Channel.Unreliable)) {
+            Assert.True(++sent < 10_000, "the budget never refused anything — this is a hang check, not a bound");
+        }
+
+        return sent;
+    }
 }
