@@ -57,6 +57,13 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     readonly Dictionary<string, PlayerId> reconnectTokens = new(StringComparer.Ordinal);
     readonly Dictionary<uint, Pending> pending = [];
     readonly List<NetworkPlayer> players = [];
+
+    // One bucket per player on a server, and one for the upstream direction on a client. Kept here
+    // rather than on NetworkPlayer because a budget is a property of this session's opinion about a
+    // player, not of the player — a listen server holds both and they are not the same number.
+    readonly Dictionary<uint, double> allowance = [];
+
+    double clientAllowance;
     readonly List<uint> expired = [];
     readonly List<Pending> deciding = [];
 
@@ -90,6 +97,22 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
     /// <summary>Where the session is in its life.</summary>
     public SessionState State { get; private set; }
+
+    /// <summary>How many of this session's own messages the bandwidth budget refused to send.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero unless <see cref="SessionOptions.BytesPerSecondPerPlayer" /> was set</b>, because
+    ///     an unset budget sheds nothing. A game that turns the budget on and never reads this has a
+    ///     game that quietly stops saying things.
+    /// </remarks>
+    public long ShedCount { get; private set; }
+
+    /// <summary>What those messages would have cost, framed, in bytes.</summary>
+    /// <remarks>
+    ///     The number that says whether the budget is doing something proportionate or strangling the
+    ///     game: a thousand shed pings and a thousand shed scene loads are the same
+    ///     <see cref="ShedCount" /> and very different amounts of trouble.
+    /// </remarks>
+    public long ShedByteCount { get; private set; }
 
     /// <summary>Whether this session is the authority.</summary>
     public bool IsServer => Topology is SessionTopology.Server or SessionTopology.Host or SessionTopology.Offline;
@@ -202,6 +225,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             var player = players[i];
             players.RemoveAt(i);
             playersById.Remove(player.Id.Value);
+            allowance.Remove(player.Id.Value);
             PlayerLeft?.Invoke(player, PlayerLeaveReason.SessionStopped);
         }
 
@@ -211,6 +235,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         LocalPlayer = null;
         reconnectToken = [];
         clientPingOutstanding = false;
+        clientAllowance = 0;
+        allowance.Clear();
         Topology = SessionTopology.None;
         State = SessionState.Stopped;
     }
@@ -244,6 +270,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         ResolvePendingConnections();
         RetireLostPlayers();
         SendPings();
+        Refill(elapsed);
 
         return Clock.Advance(elapsed);
     }
@@ -252,12 +279,31 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     /// <param name="payload">The bytes.</param>
     /// <param name="channel">The delivery guarantee wanted.</param>
     /// <returns>Whether it was sent — false if this session has no client half in the game.</returns>
-    public bool SendToServer(ReadOnlySpan<byte> payload, Channel channel) {
+    public bool SendToServer(ReadOnlySpan<byte> payload, Channel channel) =>
+        SendToServer(payload, channel, priority: 0);
+
+    /// <summary>Sends to the server, from a client, saying how much it matters.</summary>
+    /// <param name="payload">The bytes.</param>
+    /// <param name="channel">The delivery guarantee wanted.</param>
+    /// <param name="priority">
+    ///     Higher is more important. At or above <see cref="SessionOptions.ReservedPriority" /> it may
+    ///     spend the reserved part of the budget; below it, it is shed once the budget is down to the
+    ///     reserve.
+    /// </param>
+    /// <returns>
+    ///     Whether it was sent — false if this session has no client half in the game, or the budget
+    ///     shed it.
+    /// </returns>
+    public bool SendToServer(ReadOnlySpan<byte> payload, Channel channel, int priority) {
         if (!IsClient || LocalPlayer is null) {
             return false;
         }
 
         if (!TryFrame(SystemMessage.User, payload, out var framed)) {
+            return false;
+        }
+
+        if (!TrySpend(ref clientAllowance, framed.Length, priority)) {
             return false;
         }
 
@@ -271,12 +317,31 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     /// <param name="payload">The bytes.</param>
     /// <param name="channel">The delivery guarantee wanted.</param>
     /// <returns>Whether it was sent — false if they are not here, or not connected right now.</returns>
-    public bool SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) {
+    public bool SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) =>
+        SendToPlayer(player, payload, channel, priority: 0);
+
+    /// <summary>Sends to one player, from a server, saying how much it matters.</summary>
+    /// <param name="player">Who to send to.</param>
+    /// <param name="payload">The bytes.</param>
+    /// <param name="channel">The delivery guarantee wanted.</param>
+    /// <param name="priority">
+    ///     Higher is more important. At or above <see cref="SessionOptions.ReservedPriority" /> it may
+    ///     spend the reserved part of that player's budget.
+    /// </param>
+    /// <returns>
+    ///     Whether it was sent — false if they are not here, not connected right now, or their budget
+    ///     shed it.
+    /// </returns>
+    public bool SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel, int priority) {
         if (!IsServer || !playersById.TryGetValue(player.Value, out var target) || !target.IsConnected) {
             return false;
         }
 
         if (!TryFrame(SystemMessage.User, payload, out var framed)) {
+            return false;
+        }
+
+        if (!TrySpend(player.Value, framed.Length, priority)) {
             return false;
         }
 
@@ -289,7 +354,20 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     /// <param name="payload">The bytes.</param>
     /// <param name="channel">The delivery guarantee wanted.</param>
     /// <returns>How many players it went to.</returns>
-    public int SendToAll(ReadOnlySpan<byte> payload, Channel channel) {
+    public int SendToAll(ReadOnlySpan<byte> payload, Channel channel) => SendToAll(payload, channel, priority: 0);
+
+    /// <summary>Sends to every connected player, from a server, saying how much it matters.</summary>
+    /// <param name="payload">The bytes.</param>
+    /// <param name="channel">The delivery guarantee wanted.</param>
+    /// <param name="priority">Higher is more important.</param>
+    /// <returns>How many players it went to.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The budget is per player, so a fan-out can go to some of them and not others.</b>
+    ///     That is the point rather than a wrinkle: one player on a narrow link is not a reason to
+    ///     stop talking to the rest. The count returned is how many it actually reached, which is
+    ///     what it already meant for a player who had dropped.
+    /// </remarks>
+    public int SendToAll(ReadOnlySpan<byte> payload, Channel channel, int priority) {
         if (!IsServer || !TryFrame(SystemMessage.User, payload, out var framed)) {
             return 0;
         }
@@ -297,7 +375,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         var sent = 0;
 
         foreach (var player in players) {
-            if (player.IsConnected) {
+            if (player.IsConnected && TrySpend(player.Id.Value, framed.Length, priority)) {
                 transport.SendToClient(player.Connection, framed, channel);
                 sent++;
             }
@@ -368,6 +446,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             var local = LocalPlayer;
             LocalPlayer = null;
             clientPingOutstanding = false;
+        clientAllowance = 0;
+        allowance.Clear();
 
             if (Topology == SessionTopology.Client) {
                 State = SessionState.Stopped;
@@ -478,6 +558,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
                     && clientPingOutstanding
                     && id == clientPingId) {
                     clientPingOutstanding = false;
+        clientAllowance = 0;
+        allowance.Clear();
                     Clock.Synchronize(serverTick, TimeSpan.FromSeconds(Math.Max(0, now - clientPingSentAt)));
                 }
 
@@ -885,6 +967,65 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         } else {
             transport.SendToServer(packet, Channel.Unreliable);
         }
+    }
+
+    /// <summary>Adds a frame's worth of budget to every bucket.</summary>
+    void Refill(TimeSpan elapsed) {
+        if (Options.BytesPerSecondPerPlayer <= 0) {
+            return;
+        }
+
+        var added = Options.BytesPerSecondPerPlayer * elapsed.TotalSeconds;
+        var depth = (double)Math.Max(0, Options.BurstBytes);
+
+        clientAllowance = Math.Min(depth, clientAllowance + added);
+
+        foreach (var player in players) {
+            allowance[player.Id.Value] =
+                Math.Min(depth, allowance.GetValueOrDefault(player.Id.Value, depth) + added);
+        }
+    }
+
+    bool TrySpend(uint player, int cost, int priority) {
+        if (Options.BytesPerSecondPerPlayer <= 0) {
+            return true;
+        }
+
+        // A player who has never been charged starts full, so their first message is not shed for
+        // want of a bucket that no Update has filled yet.
+        var bucket = allowance.GetValueOrDefault(player, Math.Max(0, Options.BurstBytes));
+        var sent = TrySpend(ref bucket, cost, priority);
+        allowance[player] = bucket;
+
+        return sent;
+    }
+
+    /// <summary>Takes the cost out of a bucket, if what is left may be spent by this priority.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shedding here is refusing, not queueing.</b> The caller is told <c>false</c>, which is
+    ///     the same answer it already gets for a player who has gone — so a game that handles one
+    ///     handles both. A budget that quietly queued a reliable message would be the failure this
+    ///     stack has had twice, and a budget that quietly dropped it would be worse.
+    /// </remarks>
+    bool TrySpend(ref double bucket, int cost, int priority) {
+        if (Options.BytesPerSecondPerPlayer <= 0) {
+            return true;
+        }
+
+        var floor = priority >= Options.ReservedPriority
+            ? 0
+            : Math.Max(0, Options.BurstBytes) * Math.Clamp(Options.ReservedFraction, 0, 1);
+
+        if (bucket - cost < floor) {
+            ShedCount++;
+            ShedByteCount += cost;
+
+            return false;
+        }
+
+        bucket -= cost;
+
+        return true;
     }
 
     bool TryFrame(SystemMessage message, ReadOnlySpan<byte> payload, out ReadOnlySpan<byte> framed) {
