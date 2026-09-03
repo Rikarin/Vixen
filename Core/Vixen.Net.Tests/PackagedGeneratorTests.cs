@@ -100,7 +100,12 @@ public sealed class PackagedGeneratorTests : IDisposable {
 
         Assert.True(pack.Succeeded, pack.Output);
 
-        var package = Assert.Single(Directory.GetFiles(output, "Vixen.Net.[0-9]*.nupkg"));
+        // ⚠ "Vixen.Net.*.nupkg" and not a character class: Directory.GetFiles understands `*` and `?`
+        // and nothing else, so "Vixen.Net.[0-9]*.nupkg" is a literal name that matches no file — and
+        // the failure it produces is "the collection was empty", which reads as the pack having
+        // produced nothing rather than as the pattern being wrong. The symbol package beside it is
+        // ".snupkg" and does not end in ".nupkg", so it is not caught.
+        var package = Assert.Single(Directory.GetFiles(output, "Vixen.Net.*.nupkg"));
 
         using var archive = ZipFile.OpenRead(package);
 
