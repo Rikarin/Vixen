@@ -1102,6 +1102,14 @@ public sealed class AppGraphics : IDisposable {
         Overlays.Add(waterOverlay);
         Overlays.Add(waterMeshOverlay);
 
+        // A fourth on the same terms: `Renderer` is this class's property, and every number the panel
+        // reads hangs off it. ⚠ It takes the renderer rather than a streamer, and that is deliberate —
+        // `WorldRenderer.Painted` is null until `Mount` runs and its streamer is null again on a
+        // target with no bindless table, so a panel handed the streamer here would be handed nothing
+        // and would report an idle streamer for ever. It asks each frame instead, and says which of
+        // the two it found.
+        Overlays.Add(new StreamingOverlay(Renderer));
+
         Overlays.Add(new ConsoleOverlay(Console));
         Overlays.RegisterCommands(Console);
 

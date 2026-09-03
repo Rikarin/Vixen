@@ -128,6 +128,45 @@ public sealed class RenderView(string name) {
     public int Index { get; internal set; } = -1;
 
     /// <summary>
+    ///     Which part of the target this view draws into, as fractions of it — or null for the whole
+    ///     of it, which is what every view that is not a split screen wants.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What made split-screen simulate and not draw.</b> Two players already got two
+    ///         directors, two sets of shots and two cameras that update independently; what the frame
+    ///         had no way to say was that one of them owns the top half of the screen. A view is the
+    ///         right place for it and a camera is not: a shadow cascade and a probe face are views
+    ///         too, and a tile in an atlas is the same question with a different answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nullable, and that is the whole of why it is not a <c>Rectangle</c>.</b> A zeroed
+    ///         rectangle has a width and a height of zero, which is a viewport that rasterises
+    ///         nothing — so a plain struct field would have made "nobody set one" and "draw nothing"
+    ///         the same value, and every view in the engine defaults to not having set one. Null says
+    ///         the first out loud. <c>Camera.ViewportRect</c> is a struct on a serialised component
+    ///         and cannot do this, which is why it spells its own default as a zero <em>area</em>
+    ///         meaning the whole target, the way <c>Camera.AspectRatio</c>'s zero already means "ask
+    ///         the target".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Fractions rather than pixels, and the difference is a render scale.</b> The plane
+    ///         a scene is drawn into is <c>RenderResourceAsset.Scale</c> times the window, so a
+    ///         viewport in the window's pixels overshoots a target rendered at 70% — off the edge on
+    ///         the right and the bottom, which rasterises nothing and reports nothing.
+    ///         <see cref="Compositor.SingleStageRenderer" /> multiplies this by the pass's own
+    ///         viewport, so the same rect is right at every scale and every resolution.
+    ///     </para>
+    ///     <para>
+    ///         <b>It does not change the projection.</b> A half-width viewport is a half-width image
+    ///         of the same cone, which is a stretched picture — the aspect ratio has to be corrected
+    ///         as well, and that is <c>CameraExtractionSystem</c>'s job because the projection is
+    ///         built there. A host steering a view by hand does both itself.
+    ///     </para>
+    /// </remarks>
+    public Rectangle? ViewportRect { get; set; }
+
+    /// <summary>
     ///     Objects beyond this distance are culled, whatever the frustum says. Zero disables it.
     /// </summary>
     /// <remarks>

@@ -4,7 +4,7 @@ slug: rendering/diagnostic-overlays
 kind: guide
 area: Rendering
 summary: One flag puts the frame-stats panel, the console, the log tail and every subsystem's debug lines on the screen of a running game.
-api: [T:Vixen.Engine.Renderer.DebugOverlayRenderer, T:Vixen.Engine.Renderer.GpuOverlay, T:Vixen.Engine.Diagnostics.DebugDraw, T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays, T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay, T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands, T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay, T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay, T:Vixen.App.GraphicsOptions, T:Vixen.Rendering.LineShaders, L:13027]
+api: [T:Vixen.Engine.Renderer.DebugOverlayRenderer, T:Vixen.Engine.Renderer.GpuOverlay, T:Vixen.Engine.Renderer.StreamingOverlay, T:Vixen.Engine.Diagnostics.DebugDraw, T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays, T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay, T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands, T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay, T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay, T:Vixen.App.GraphicsOptions, T:Vixen.Rendering.LineShaders, L:13027]
 tags: [diagnostics, overlay, console, debug-draw, profiling]
 since: 0.2
 status: stable
@@ -71,8 +71,8 @@ services.Graphics?.Debug?.Arrow(muzzle, muzzle + aim * 5f, new(1f, 0.3f, 0.2f, 1
 
 ### Which panels are already there
 
-`--vixen-overlays` registers six. Only `stats` starts switched on; the rest are asked for by name, and
-`overlays` lists them.
+`--vixen-overlays` registers seven. Only `stats` starts switched on; the rest are asked for by name,
+and `overlays` lists them.
 
 | `overlay <name>` | Shows |
 |---|---|
@@ -81,10 +81,22 @@ services.Graphics?.Debug?.Arrow(muzzle, muzzle + aim * 5f, new(1f, 0.3f, 0.2f, 1
 | `gpu` | where the frame's GPU time went, pass by pass — needs `--vixen-gpu-profile` |
 | `water` | the zone fold: zones, bodies, and the three silent failures that draw a convincing wrong lake |
 | `watermesh` | the surface node: zones drawn, patches selected and dropped, vertices, draws |
+| `streaming` | what is resident against the budget, what is loading or queued, loads and evictions, meshes — and refusals |
 | `console` | the command prompt |
 
 `log` is added by `AppBuilder`, which owns the ring it reads. `audio` is **not** registered by the
 host — nothing in `AppGraphics` owns an `AudioEngine` — so a game that opens a device registers it.
+
+⚠ **`streaming`'s `refused` row is the one worth opening the panel for.** It is
+`PageResidency.Rejections`: a request dropped because nothing could be evicted to make room, which
+means the pool is too small for this scene rather than that anything is broken. Its only other
+symptom is a frame that samples a coarser texture than it asked for and looks very slightly soft —
+so unless somebody is watching this number, the fix is a mip bias nobody knew they needed.
+
+⚠ **And a panel of dashes there is not a panel of zeroes.** Texture streaming is only stood up where
+the target has a bindless table to put the textures in, so "no streamer" and "a streamer that has
+loaded nothing" are different answers and the panel says which. The mesh row is unconditional and is
+reported either way.
 
 ⚠ **A headless run has nobody to type `overlay gpu` at**, and that is the run a picture comes from.
 `--vixen-overlay gpu,water,watermesh,audio` switches them on by name and implies `--vixen-overlays`:

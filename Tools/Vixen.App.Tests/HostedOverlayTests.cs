@@ -68,6 +68,44 @@ public sealed class HostedOverlayTests : IDisposable {
     }
 
     /// <summary>
+    ///     Doc 13's streaming panel is registered by the host, and says "not streaming" rather than
+    ///     drawing zeroes on a target that has none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The claim that this overlay was blocked on an assembly boundary was wrong.</b>
+    ///         The overview said the streaming panel needed <c>Vixen.Assets</c> to report and that it
+    ///         may not reference <c>Vixen.Engine</c>, so it wanted a join assembly of its own. The
+    ///         numbers are not <c>Vixen.Assets</c>' — its own README points at
+    ///         <c>Vixen.Rendering</c>'s <c>PageResidency</c> — and the join assembly already exists
+    ///         and already holds <c>GpuOverlay</c>. No project reference was added for this.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The registration is the half worth asserting</b>, because the panel being
+    ///         complete and unreachable is precisely the shape this whole fixture was written for.
+    ///         The Null backend has no bindless table, so no texture streamer is stood up — and a
+    ///         panel of zeroes there would read as "streaming is idle and fine" rather than as "there
+    ///         is no streamer". <c>ResidentFraction</c> of −1 is that distinction, asserted.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheStreamingPanelIsRegisteredAndSaysWhenThereIsNothingToReport() {
+        using var application = Build(new SilentGame(), ["--vixen-overlays"]);
+        var graphics = application.Services.Graphics!;
+
+        var streaming = Assert.IsType<StreamingOverlay>(graphics.Overlays!.Find("streaming"));
+
+        streaming.Enabled = true;
+
+        application.Initialise();
+        application.RunFrame();
+        application.RunFrame();
+
+        Assert.Equal(5, streaming.DrawnRows);
+        Assert.Equal(-1f, streaming.ResidentFraction);
+    }
+
+    /// <summary>
     ///     ⚠ The instance the system pushes into is the instance the node drains.
     /// </summary>
     /// <remarks>

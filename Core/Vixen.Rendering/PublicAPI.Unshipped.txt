@@ -1489,6 +1489,8 @@ Vixen.Rendering.Ecs.CameraExtractionSystem.JitterPeriod.get -> int
 Vixen.Rendering.Ecs.CameraExtractionSystem.JitterPeriod.set -> int
 Vixen.Rendering.Ecs.CameraExtractionSystem.JitterTarget.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Ecs.CameraExtractionSystem.JitterTarget.set -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Ecs.CameraExtractionSystem.Rank.get -> int
+Vixen.Rendering.Ecs.CameraExtractionSystem.Rank.set -> int
 Vixen.Rendering.Ecs.CameraExtractionSystem.View.get -> Vixen.Rendering.RenderView
 Vixen.Rendering.Ecs.ClusterState -> enum : int
 Vixen.Rendering.Ecs.ClusterState.ClusterState() -> void
@@ -4134,6 +4136,8 @@ Vixen.Rendering.RenderDrawContext.Stage.get -> Vixen.Rendering.RenderStage?
 Vixen.Rendering.RenderDrawContext.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.RenderDrawContext.ViewConstants.get -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.RenderDrawContext.ViewConstants.set -> Vixen.Rendering.ViewConstants?
+Vixen.Rendering.RenderDrawContext.Viewport.get -> Vixen.Core.Mathematics.Viewport
+Vixen.Rendering.RenderDrawContext.Viewport.set -> Vixen.Core.Mathematics.Viewport
 Vixen.Rendering.RenderLight -> struct
 Vixen.Rendering.RenderLight.Colour -> Vixen.Core.Mathematics.Color3
 Vixen.Rendering.RenderLight.Direction -> Vixen.Core.Mathematics.Vector3
@@ -4273,6 +4277,8 @@ Vixen.Rendering.RenderView.Stages.get -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.RenderView.Stages.set -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.RenderView.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.RenderView.ViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.RenderView.ViewportRect.get -> Vixen.Core.Mathematics.Rectangle?
+Vixen.Rendering.RenderView.ViewportRect.set -> Vixen.Core.Mathematics.Rectangle?
 Vixen.Rendering.ResolveMaterial -> readonly struct
 Vixen.Rendering.ResolveMaterial : System.IEquatable<Vixen.Rendering.ResolveMaterial>
 Vixen.Rendering.ResolveMaterial.Index.get -> int

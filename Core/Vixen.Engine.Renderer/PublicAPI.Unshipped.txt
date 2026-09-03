@@ -168,6 +168,19 @@ Vixen.Engine.Renderer.SceneRenderHost.Import(string name, Vixen.Rendering.Compos
 Vixen.Engine.Renderer.SceneRenderHost.Load(Vixen.Rendering.Compositor.GraphicsCompositorAsset asset) -> void
 Vixen.Engine.Renderer.SceneRenderHost.SceneRenderHost(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects) -> void
 Vixen.Engine.Renderer.SceneRenderHost.System.get -> Vixen.Rendering.RenderSystem
+Vixen.Engine.Renderer.StreamingOverlay -> sealed class
+Vixen.Engine.Renderer.StreamingOverlay : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
+Vixen.Engine.Renderer.StreamingOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Renderer.StreamingOverlay.Anchor.set -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Renderer.StreamingOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Renderer.StreamingOverlay.DrawnRows.get -> int
+Vixen.Engine.Renderer.StreamingOverlay.Enabled.get -> bool
+Vixen.Engine.Renderer.StreamingOverlay.Enabled.set -> bool
+Vixen.Engine.Renderer.StreamingOverlay.Name.get -> string
+Vixen.Engine.Renderer.StreamingOverlay.ResidentFraction.get -> float
+Vixen.Engine.Renderer.StreamingOverlay.StreamingOverlay(Vixen.Engine.Renderer.WorldRenderer renderer) -> void
+Vixen.Engine.Renderer.StreamingOverlay.Width.get -> float
+Vixen.Engine.Renderer.StreamingOverlay.Width.set -> float
 Vixen.Engine.Renderer.TextureDemand -> sealed class
 Vixen.Engine.Renderer.TextureDemand.Demotions.get -> long
 Vixen.Engine.Renderer.TextureDemand.Hysteresis.get -> float

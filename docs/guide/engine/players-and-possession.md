@@ -213,17 +213,29 @@ public static class SplitScreen {
 
         // The camera channel comes from the slot, so neither director can see the other's shots and
         // neither player can lose their camera to the other's trigger volume.
-        return (PlayerCameras.ThirdPerson(world, one), PlayerCameras.ThirdPerson(world, two));
+        var top = PlayerCameras.ThirdPerson(world, one);
+        var bottom = PlayerCameras.ThirdPerson(world, two);
+
+        // Seat zero takes the top half, seat one the bottom. The rect is fractions of the target, so
+        // it survives a resize and a render scale; the projection's aspect ratio follows it.
+        PlayerCameras.SplitScreen(world, [top.Eye, bottom.Eye]);
+
+        return (top, bottom);
     }
 }
 ```
 
-⚠ **That simulates, and only seat zero is drawn.** Each player gets their own director, shots and
-camera, and all of it updates independently — but `CameraExtractionSystem` fills one `RenderView` from
-the lowest `Camera.Order` in the world, and a `RenderView` has no viewport rectangle. `PlayerCameras`
-sets each camera's order from its channel, so seat zero is on screen and swapping which player is
-watched is an order write. Showing both at once needs a view per player and a rect on each, which is
-the rendering pipeline's work rather than this subsystem's.
+⚠ **The two things that stopped this drawing are built; the frame document is not.**
+`CameraExtractionSystem` used to fill one `RenderView` from the lowest `Camera.Order`, and a
+`RenderView` had no viewport rectangle. Both are gone: `Camera.ViewportRect` is the rect,
+`CameraExtractionSystem.Rank` fills one view per seat, and `SingleStageRenderer` narrows the viewport
+and the scissor to each. The order still decides which seat is which, so swapping who is on top is
+still an order write.
+
+⚠ **What a game still has to do itself is the tree.** `!StandardFrame` binds one view throughout —
+shadows, the froxel grid, SSAO and every post effect — so there is no two-seat frame document to load
+yet, and a host wanting one assembles a compositor with a `RenderView` and a `CameraExtractionSystem`
+per seat. `PlayerCameras.SplitScreen` writes the rects and stops there.
 
 **Reading the intent.** Movement code sees a component, not a controller:
 

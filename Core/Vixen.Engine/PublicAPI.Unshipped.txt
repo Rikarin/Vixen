@@ -92,6 +92,7 @@ Vixen.Engine.Cameras.Camera.Sensitivity -> float
 Vixen.Engine.Cameras.Camera.SensorHeight -> float
 Vixen.Engine.Cameras.Camera.SensorWidth -> float
 Vixen.Engine.Cameras.Camera.ShutterTime -> float
+Vixen.Engine.Cameras.Camera.ViewportRect -> Vixen.Core.Mathematics.Rectangle
 Vixen.Engine.Cameras.CameraBinding -> enum : int
 Vixen.Engine.Cameras.CameraBinding.CameraBinding() -> void
 Vixen.Engine.Cameras.CameraBinding.SimpleFollow = 3 -> Vixen.Engine.Cameras.CameraBinding
@@ -968,6 +969,7 @@ const Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.MaxInputLength = 512 -> i
 const Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.MaxDepth = 8 -> int
 const Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.HistoryLength = 120 -> int
 const Vixen.Engine.Diagnostics.Overlays.LogOverlay.MaxLines = 40 -> int
+const Vixen.Engine.Players.PlayerCameras.MaxSeats = 4 -> int
 const Vixen.Engine.Scenes.PrefabAsset.Current = 1 -> int
 const Vixen.Engine.Scenes.SceneAsset.Current = 1 -> int
 const Vixen.Engine.Scenes.SceneManifest.Current = 1 -> int
@@ -994,6 +996,7 @@ override Vixen.Engine.Transforms.TransformSystem.Update(in Vixen.Ecs.Systems.Sys
 readonly Vixen.Engine.Cameras.Camera.CircleOfConfusion(float distance) -> float
 readonly Vixen.Engine.Cameras.Camera.Ev100.get -> float
 readonly Vixen.Engine.Cameras.Camera.HasLens.get -> bool
+readonly Vixen.Engine.Cameras.Camera.HasViewportRect.get -> bool
 readonly Vixen.Engine.Cameras.Camera.HorizontalFieldOfView.get -> float
 readonly Vixen.Engine.Cameras.Camera.SensorAspectRatio.get -> float
 readonly Vixen.Engine.Cameras.CameraBlend.Evaluate(float elapsed) -> float
@@ -1095,6 +1098,8 @@ static Vixen.Engine.Players.Player.Release(Vixen.Ecs.World world, Vixen.Core.Ent
 static Vixen.Engine.Players.Player.Unpossess(Vixen.Ecs.World world, Vixen.Core.Entity controller) -> Vixen.Core.Entity
 static Vixen.Engine.Players.PlayerCameras.CreateEye(Vixen.Ecs.World world, int channel = 0) -> Vixen.Core.Entity
 static Vixen.Engine.Players.PlayerCameras.FirstPerson(Vixen.Ecs.World world, Vixen.Core.Entity controller, float eyeHeight = 1.65) -> Vixen.Engine.Players.PlayerCamera
+static Vixen.Engine.Players.PlayerCameras.SeatRect(int seat, int seats) -> Vixen.Core.Mathematics.Rectangle
+static Vixen.Engine.Players.PlayerCameras.SplitScreen(Vixen.Ecs.World world, System.ReadOnlySpan<Vixen.Core.Entity> eyes) -> void
 static Vixen.Engine.Players.PlayerCameras.ThirdPerson(Vixen.Ecs.World world, Vixen.Core.Entity controller, float distance = 4, float shoulderHeight = 1.4, float damping = 0.3) -> Vixen.Engine.Players.PlayerCamera
 static Vixen.Engine.Players.PlayerController.Default.get -> Vixen.Engine.Players.PlayerController
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
