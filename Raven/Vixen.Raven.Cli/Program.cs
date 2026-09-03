@@ -2,13 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Raven.Cli;
-using Vixen.Raven.Transpile;
-
-// ⚠ Before the command is built, not inside the handler: `--target` is validated by
-// `AcceptOnlyFromAmong(TargetBackends.Names)`, which is read at construction. Registering later
-// leaves `essl` working and `--target essl` refused as an unknown value — a difference that shows
-// up only in the parse error.
-EsslBackend.Register();
 
 var parseResult = RavenCommand.Create().Parse(args);
 

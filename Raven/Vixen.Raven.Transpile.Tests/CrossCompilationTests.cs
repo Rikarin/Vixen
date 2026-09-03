@@ -278,9 +278,11 @@ public class CrossCompilationTests {
     ///         </item>
     ///         <item>
     ///             <description>
-    ///                 <b>A name used twice.</b> <c>AutoExposure</c> has a <c>groupshared</c>
-    ///                 variable and a function-scope one that SPIRV-Cross emits under one name; GLSL
-    ///                 ES's scoping rules make that a redefinition where Vulkan GLSL's do not.
+    ///                 <b>A name used twice.</b> SPIRV-Cross emits <c>average</c> twice in
+    ///                 <c>AutoExposure</c>, which declares one at <c>AutoExposure.rvn:68</c> —
+    ///                 <c>[Format("r32f")] var average: RWTexture2D&lt;float4&gt;</c>. ⚠ The second
+    ///                 one has <em>not</em> been identified, and saying which it is would be a guess;
+    ///                 what is measured is the message and the line.
     ///             </description>
     ///         </item>
     ///     </list>
