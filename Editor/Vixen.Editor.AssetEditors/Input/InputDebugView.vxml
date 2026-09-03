@@ -1,0 +1,266 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    doc 11 § Input system's second editor surface. Four lists over one `InputService`, refreshed from
+    the module's `OnUpdate` — so every element in here is written from a signal and an unchanged
+    frame moves nothing, which for a panel polled at frame rate is the whole of its cost.
+
+    ⚠ **The source line is first and is never empty.** The editor owns no `InputService`; a panel
+    that opened onto four empty lists would say "nothing is pressed" when what is true is "nothing in
+    this process is reading a device", and those two pictures are identical. This one says which.
+
+    ⚠ **`input-fact` versus `input-fact-live` is a tag and not a class**, so the choice is an `@if`
+    inside the loop body and `Active` has to be in the key — `AgentDebuggerView`'s rule, and the same
+    trap: a key that carried only the name and the value would leave the highlight on whichever key
+    was down when the panel opened, while the value beside it kept updating.
+-->
+@component InputDebugView
+@namespace Vixen.Editor.AssetEditors.Input
+@inherits Vixen.Ui.Controls.Control
+@tag input-debug
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Core.Mathematics
+@using Vixen.Input
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<InputSource Text="@Source" />
+
+<PanelTitle Text="Devices" />
+
+<input-facts ref="@Devices">
+    @for (var row in DeviceRows) {
+        @if (row.Active) {
+            <input-fact-live key="@row">
+                <InputName Text="@row.Name" />
+                <InputValue Text="@row.Value" />
+            </input-fact-live>
+        } else {
+            <input-fact key="@row">
+                <InputName Text="@row.Name" />
+                <InputValue Text="@row.Value" />
+            </input-fact>
+        }
+    }
+</input-facts>
+
+<PanelTitle Text="Actuated" />
+
+<input-facts ref="@Actuated">
+    @for (var row in ActuatedRows) {
+        <input-fact-live key="@row">
+            <InputName Text="@row.Name" />
+            <InputValue Text="@row.Value" />
+        </input-fact-live>
+    }
+</input-facts>
+
+<PanelTitle Text="Pointer" />
+
+<input-facts ref="@Pointer">
+    @for (var row in PointerRows) {
+        <input-fact key="@row">
+            <InputName Text="@row.Name" />
+            <InputValue Text="@row.Value" />
+        </input-fact>
+    }
+</input-facts>
+
+<PanelTitle Text="Actions" />
+
+<input-facts ref="@Actions">
+    @for (var row in ActionRows) {
+        @if (row.Active) {
+            <input-fact-live key="@row">
+                <InputName Text="@row.Name" />
+                <InputValue Text="@row.Value" />
+            </input-fact-live>
+        } else {
+            <input-fact key="@row">
+                <InputName Text="@row.Name" />
+                <InputValue Text="@row.Value" />
+            </input-fact>
+        }
+    }
+</input-facts>
+
+@code {
+    /// <summary>What is said before anything else: where the state below came from, or that it did not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="Signal{T}" /> and not a field.</b> A panel opened before a host published
+    ///     its service has to stop saying so on the frame one arrives, and a plain string would be
+    ///     read once while the region was built.
+    /// </remarks>
+    readonly Signal<string> source = new(Unpublished);
+
+    /// <summary>The device families and every gamepad, connected or not.</summary>
+    readonly Signal<ImmutableArray<InputFactRow>> devices = new([]);
+
+    /// <summary>Every control past its press point right now.</summary>
+    readonly Signal<ImmutableArray<InputFactRow>> actuated = new([]);
+
+    /// <summary>Where the pointer is and how far it moved, which `Actuated` deliberately omits.</summary>
+    readonly Signal<ImmutableArray<InputFactRow>> pointer = new([]);
+
+    /// <summary>What every action of every loaded asset reads.</summary>
+    readonly Signal<ImmutableArray<InputFactRow>> actions = new([]);
+
+    InputService? service;
+
+    /// <summary>What the source line says when nothing in this process reads a device.</summary>
+    internal const string Unpublished =
+        "No InputService is published — nothing in this process is reading a device.";
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The device families and every gamepad.</summary>
+    public UiElement Devices { get; private set; } = null!;
+
+    /// <summary>Every control past its press point right now.</summary>
+    public UiElement Actuated { get; private set; } = null!;
+
+    /// <summary>The pointer's place and motion.</summary>
+    public UiElement Pointer { get; private set; } = null!;
+
+    /// <summary>What every action reads.</summary>
+    public UiElement Actions { get; private set; } = null!;
+
+    /// <summary>The service it is showing, or null.</summary>
+    public InputService? Service => service;
+
+    /// <summary>Says where the state comes from, or that it comes from nowhere.</summary>
+    public string SourceLine => source.Value;
+
+    /// <summary>Shows a service — or that there is none.</summary>
+    /// <param name="value">The service a host published, or null for none.</param>
+    /// <remarks>
+    ///     ⚠ <b>Null is a state and not a refusal.</b> The panel is useful before a host exists: it
+    ///     is what tells somebody that the reason their gamepad does nothing is that this process
+    ///     never looked at it.
+    /// </remarks>
+    public void Show(InputService? value) {
+        service = value;
+
+        Refresh();
+    }
+
+    /// <summary>Re-reads everything the panel draws.</summary>
+    /// <remarks>
+    ///     Called from the module's <c>OnUpdate</c> every editor frame. Four signal writes; an
+    ///     unchanged device set produces four equal arrays, every key survives, and nothing is
+    ///     rebuilt.
+    /// </remarks>
+    public void Refresh() {
+        if (service is not { } reading) {
+            source.Value = Unpublished;
+            devices.Value = [];
+            actuated.Value = [];
+            pointer.Value = [];
+            actions.Value = [];
+
+            return;
+        }
+
+        var set = reading.Devices;
+
+        source.Value = string.Create(
+            CultureInfo.InvariantCulture,
+            $"InputService — last used {set.LastUsedDevice}, {reading.Assets.Count} action asset(s)."
+        );
+
+        devices.Value = [
+            .. Families(set),
+            .. set.Gamepads.Select(
+                (pad, slot) => new InputFactRow(
+                    slot + 4,
+                    pad.IsConnected,
+                    string.Create(CultureInfo.InvariantCulture, $"Gamepad {slot}"),
+                    pad.IsConnected ? pad.Name : $"{pad.Name} (disconnected)"
+                )
+            )
+        ];
+
+        // ⚠ Projected into rows on this line rather than kept, because `Actuated` hands back a buffer
+        // it reuses between calls — a list held across a frame is last frame's contents rewritten.
+        actuated.Value = [
+            .. set.Actuated()
+                .Select(
+                    (control, slot) => new InputFactRow(
+                        slot,
+                        true,
+                        InputControlPath.Describe(control),
+                        Number(set.ReadValue(control))
+                    )
+                )
+        ];
+
+        pointer.Value = [
+            new(0, false, "Position", Point(set.Mouse.Position)),
+            new(1, set.Mouse.Delta != Vector2.Zero, "Delta", Point(set.Mouse.Delta)),
+            new(2, set.Mouse.Scroll != Vector2.Zero, "Scroll", Point(set.Mouse.Scroll)),
+            new(3, set.Touch.ActiveTouches > 0, "Touches", Number(set.Touch.ActiveTouches))
+        ];
+
+        actions.Value = [.. Reading(reading)];
+    }
+
+    // ================================================================== What the markup reads
+
+    string Source => source.Value;
+
+    ImmutableArray<InputFactRow> DeviceRows => devices.Value;
+
+    ImmutableArray<InputFactRow> ActuatedRows => actuated.Value;
+
+    ImmutableArray<InputFactRow> PointerRows => pointer.Value;
+
+    ImmutableArray<InputFactRow> ActionRows => actions.Value;
+
+    /// <summary>The three families that are always reported present, and what each last said.</summary>
+    static IEnumerable<InputFactRow> Families(InputDeviceSet set) {
+        yield return new(0, set.LastUsedDevice == InputDeviceKind.Keyboard, "Keyboard", set.Keyboard.Name);
+        yield return new(1, set.LastUsedDevice == InputDeviceKind.Mouse, "Mouse", set.Mouse.Name);
+        yield return new(2, set.LastUsedDevice == InputDeviceKind.Touch, "Touch", set.Touch.Name);
+        yield return new(
+            3,
+            set.Has(InputDeviceKind.Gamepad),
+            "Gamepads",
+            Number(set.Gamepads.Count(static pad => pad.IsConnected))
+        );
+    }
+
+    /// <summary>Every action of every loaded asset, qualified enough to be unambiguous.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The asset and the map are in the name, because an action's own name is not unique.</b>
+    ///     Two maps both called <c>Fire</c> is the normal shape of a <c>.vxinput</c> — one for the
+    ///     player and one for the menu — and a list that showed only leaf names would be two rows
+    ///     nobody could tell apart, one of which is always disabled.
+    /// </remarks>
+    static IEnumerable<InputFactRow> Reading(InputService reading) {
+        var slot = 0;
+
+        foreach (var asset in reading.Assets) {
+            foreach (var map in asset.Maps) {
+                foreach (var action in map.Actions) {
+                    yield return new(
+                        slot++,
+                        action.IsPressed,
+                        string.Create(CultureInfo.InvariantCulture, $"{asset.Name}/{map.Name}/{action.Name}"),
+                        string.Create(
+                            CultureInfo.InvariantCulture,
+                            $"{action.Phase} {action.Magnitude.ToString("0.###", CultureInfo.InvariantCulture)}"
+                        )
+                    );
+                }
+            }
+        }
+    }
+
+    static string Number(float value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    static string Point(Vector2 value) => string.Create(CultureInfo.InvariantCulture, $"{Number(value.X)}, {Number(value.Y)}");
+}

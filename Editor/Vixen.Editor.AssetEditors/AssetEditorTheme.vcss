@@ -915,5 +915,45 @@ agent-planner, agent-asset, agent-action { flex-shrink: 0; font-weight: 600; }
 agent-origin, agent-reason { flex-shrink: 1; min-width: 0; color: var(--text-muted); overflow: hidden; }
 agent-symptom { flex-shrink: 0; color: var(--danger, #f2696e); font-weight: 600; }
 
+/* The input debug panel. ⚠ `flex-grow` and both `min-*: 0` on the host, which is the trap one level
+   up from the four lists: a panel element that only styles its rows lays out in a strip down the
+   side of the pane, because `flex-direction` is CSS-initial `row` and nothing told it to fill. */
+input-debug {
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0;
+    gap: 2px;
+    padding: 2px;
+    overflow-y: auto;
+}
+
+/* ⚠ Not muted, because it is the sentence that says whether anything below it is real. */
+input-source {
+    flex-shrink: 0;
+    min-width: 0;
+    padding: 2px 4px;
+    overflow: hidden;
+}
+
+input-facts { flex-direction: column; min-width: 0; gap: 1px; }
+
+input-fact, input-fact-live {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    min-height: 18px;
+    min-width: 0;
+    padding: 0px 4px;
+    overflow: hidden;
+}
+
+/* The same tint the agent debugger's live row uses, for the same reason: "this one is the one that
+   is happening" is one fact and should not read as two different ideas in two panels. */
+input-fact-live { background-color: var(--surface-sunken); color: var(--accent, #6ba4f2); }
+
+input-name { flex-grow: 1; min-width: 0; overflow: hidden; }
+input-value { flex-shrink: 1; min-width: 0; color: var(--text-muted); overflow: hidden; }
+
 
 }

@@ -183,12 +183,23 @@ frame and before anything that reacts to it.
 
 ## What is not here yet
 
-The **action-map editor** and the **input debug panel** ([doc 11](../../docs/plan/11-editor.md) §
-Input system) are editor UI. They were owed on the editor shell, and ⚠ **that reason has expired** —
-`Vixen.Editor.Ui` is a shell with a command registry, docking and panel registration, and
-`Vixen.Editor.App` is a running editor. So these are now two panels nobody has written rather than
-two panels with nowhere to go. The model they edit and the live state they show are both public and
-both tested.
+~~The **action-map editor** and the **input debug panel**~~ ([doc 11](../../docs/plan/11-editor.md) §
+Input system) are both built: `InputActionsView` over a `.vxinput`, and `InputDebugView` —
+`Editor/Vixen.Editor.AssetEditors/Input/` — showing the device families, what is actuated, the pointer
+and every action's phase.
+
+⚠ **The debug panel is dark in the shipping editor, and its first line says so.** The editor process
+routes platform events into its own interface document and never into an `InputDeviceSet`; nothing
+under `Editor/` constructs an `InputService`. So the panel looks for one in `PluginServices` and
+otherwise prints *"No InputService is published — nothing in this process is reading a device."* That
+sentence is the whole design: four empty lists are what the panel draws when nobody is pressing
+anything **and** what it draws when nothing in the process reads a device, and only one of those two
+is a bug. A host that reads devices publishes its service with `Services.Add(service)` and the panel
+goes live with no further wiring.
+
+⚠ Also still owed on the *editor* side: **the action-map editor records a control, not a chord.** A
+modifier is a composite part (`InputCompositeKind.ButtonWithModifiers`), never a segment of a path, so
+"press Ctrl+S while Listen is on" writes a path `InputControlPath.TryParse` refuses.
 
 Also owed: **sensors** (accelerometer, gyroscope), **pen/stylus**, **MIDI** and **custom HID**, which
 [doc 11](../../docs/plan/11-editor.md) lists on the device side and which need a platform contract
