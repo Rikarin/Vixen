@@ -142,9 +142,33 @@ the bit or it does not. A reference carries a `string` through `SceneContent.Cap
 bundle and `AssetManager`, so it can arrive *present and empty*, which resolves to nothing.
 `APolicyReferenceSurvivesTheContentBuild` reads it back off an instance for that reason.
 
-**Owed: filling the registry from the catalog by label**, the way `NetworkPrefabContent` fills the
-prefab registry. Until that lands a game calls `NetworkRulesRegistry.Load` itself.
+~~**Owed: filling the registry from the catalog by label**~~ — **built**, as
+`NetworkRulesContent` in [`Vixen.Net.Engine.Content`](../Vixen.Net.Engine.Content/README.md), the way
+`NetworkPrefabContent` fills the prefab registry.
 [Network rules as a file](../../docs/guide/engine/network-rules.md) is the authoring story.
+
+## What becomes of an owner's objects when they leave
+
+⚠ **`NetworkRulesRegistry.OnOwnerLeft` had exactly one caller in the repository and it was a test.**
+Its own remarks hand the `Destroy` entries to "whoever owns spawning, because destroying an entity is
+not this type's to do", and nothing was that — so `onOwnerDisconnect: Destroy` imported cleanly,
+resolved onto a spawned node, and then the object outlived the session owned by a player who was gone.
+
+`NetworkSpawner.OnOwnerLeft(world, player)` is the half that was missing. A server wires it to its
+session's `PlayerLeft` and one call does all three behaviours: the registry transfers and persists,
+and the spawner despawns what the policy condemned, subtree and ids included.
+
+- **One sweep of the networked world, not an id-to-entity index held for the session.** There is no
+  such index on the server — `ReplicationClient.TryGetEntity` is the receiving side's — and building
+  one to serve an event that fires when a connection drops is the wrong trade. A player who owned
+  nothing costs no sweep at all.
+- ⚠ **`UnresolvedDespawns` counts an id the policy condemned that no entity answered to.** That is a
+  spawner and a registry built over two different `NetworkOwnership` tables, or an entity a game
+  destroyed by hand — both wiring, both silent, and both indistinguishable from a policy that decided
+  nothing. `UnresolvedRules` is the same counter for the other end of the same story.
+- **`PlayerSpawner.Leave` deliberately does not ask.** A controller and its pawn are the session's
+  rather than the world's and go when the connection does; everything else the player owned is what
+  `OnOwnerLeft` answers for.
 
 ## Scenes
 

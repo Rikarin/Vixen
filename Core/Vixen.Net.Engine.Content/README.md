@@ -1,7 +1,8 @@
 # Vixen.Net.Engine.Content
 
-The step that finds a build's networked prefabs: addresses out of a content catalog, `PrefabAsset`s
-out of `Vixen.Assets`, and one `NetworkPrefabRegistry` filled.
+The step that finds what a build shipped for the network: addresses out of a content catalog,
+`PrefabAsset`s and `NetworkRulesAsset`s out of `Vixen.Assets`, and a `NetworkPrefabRegistry` and a
+`NetworkRulesRegistry` filled.
 
 Spec: [docs/plan/16](../../docs/plan/16-networking.md) § Spawning, and the line
 [`Vixen.Net.Engine`'s README](../Vixen.Net.Engine/README.md) owed — *"`Register(address, prefab)` is
@@ -10,12 +11,31 @@ something an asset* is *rather than something a start-up path remembers to say."
 
 ## State
 
-**Built: fill by label, fill by address, a problem list for a group that is too broad. 13 tests.**
+**Built: fill by label, fill by address, a problem list for a group that is too broad. 28 tests.**
 
 | | |
 |---|---|
 | `NetworkPrefabContent` | `LoadAsync` by label, `LoadFromAsync` by address. |
 | `NetworkPrefabLoad` | What went in, and what was labelled a networked prefab and is not. |
+| `NetworkRulesContent` | The same two doors onto `NetworkRulesRegistry`, under `network-rules`. |
+| `NetworkRulesLoad` | The policy names that went in, and the addresses that could not be policies. |
+
+### The rules half, and what it does not share with the prefab half
+
+A policy is six enums and a name; a prefab is a template world. So `NetworkRulesContent` holds no
+handle after the load and its label is not narrowed the way `networked-prefabs` is — a game that
+labels every policy file pays a dictionary entry each.
+
+⚠ **Three things a policy can be wrong about, and all three are reported rather than thrown.** A
+labelled address that is not a policy; a policy with no `name`, which is one nothing could refer to
+because `NetworkRulesReference` names policies by name and never by address; and a policy this build's
+importer would have refused, which means content built by something else.
+
+⚠ **And a fourth, which is the one worth knowing about.** `NetworkRulesRegistry.Load` is a dictionary
+assignment, so two files calling themselves `Pickup` would leave whichever came last governing every
+prefab that names it — chosen by address order, with nothing said anywhere. This is the one place with
+both addresses in hand, so it says both, the way `NetworkPrefabRegistry.Register` does for two prefabs
+that hash alike. Two files that agree are duplicated content and not a conflict.
 
 ## Why this is not in `Vixen.Net.Engine`
 
@@ -103,8 +123,8 @@ should not quietly drop every node in it.
 
 ## What is owed
 
-- **No shipped program fills a registry this way yet**, because no sample has a `.vxprefab` in a
-  wired content build: `Samples/08-Multiplayer` and `Samples/09-NetworkSoak` build their arenas in
+- **No shipped program fills either registry this way yet**, because no sample has a `.vxprefab` or a
+  `.vxnetrules` in a wired content build: `Samples/08-Multiplayer` and `Samples/09-NetworkSoak` build their arenas in
   code, and the two samples with a content build (`03-PbrShowcase`, `13-ThirdPersonShooter`) are not
   networked. The tests stand up a real in-memory build — importer-shaped chunks, a bundle, a catalog,
   `AssetManager` — so the path is exercised end to end, but a sample that spawns a labelled prefab

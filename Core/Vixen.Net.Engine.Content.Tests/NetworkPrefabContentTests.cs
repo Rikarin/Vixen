@@ -33,6 +33,13 @@ sealed class Shipped {
         return this;
     }
 
+    /// <summary>Ships a network policy at an address, as NetworkRulesImporter would.</summary>
+    public Shipped Rules(string address, NetworkRulesAsset asset, params string[] labels) {
+        planned.Add((address, asset, null, labels));
+
+        return this;
+    }
+
     /// <summary>Ships bytes that are not a prefab — a compressed texture, as far as this cares.</summary>
     public Shipped Raw(string address, byte[] payload, params string[] labels) {
         planned.Add((address, null, payload, labels));
@@ -52,9 +59,15 @@ sealed class Shipped {
         var entries = new List<CatalogEntry>();
 
         foreach (var (address, asset, payload, labels) in planned) {
-            var id = asset is PrefabAsset prefab
-                ? writing.Write(in prefab)
-                : writing.WriteRaw(ContentHash.TypeId(typeof(byte[])), [], payload!);
+            // ⚠ Write<T> stamps the chunk with ContentHash.TypeId(typeof(T)), and that is what the
+            // reader resolves — so the branch has to name the asset's own type, not `object`. A chunk
+            // written as `object` reads back as "the address is right and the type is not", which is
+            // the harness manufacturing the very failure the suite is trying to distinguish from.
+            var id = asset switch {
+                PrefabAsset prefab => writing.Write(in prefab),
+                NetworkRulesAsset rules => writing.Write(in rules),
+                _ => writing.WriteRaw(ContentHash.TypeId(typeof(byte[])), [], payload!)
+            };
 
             entries.Add(new(address, id, "Main", ContentProvider.Local, [], [.. labels], 0));
         }

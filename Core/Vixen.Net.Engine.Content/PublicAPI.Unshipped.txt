@@ -8,7 +8,20 @@ Vixen.Net.Engine.Content.NetworkPrefabLoad.Problems.get -> System.Collections.Im
 Vixen.Net.Engine.Content.NetworkPrefabLoad.Problems.init -> System.Collections.Immutable.ImmutableArray<string>
 Vixen.Net.Engine.Content.NetworkPrefabLoad.Registered.get -> System.Collections.Immutable.ImmutableArray<Vixen.Net.Engine.NetworkPrefab>
 Vixen.Net.Engine.Content.NetworkPrefabLoad.Registered.init -> System.Collections.Immutable.ImmutableArray<Vixen.Net.Engine.NetworkPrefab>
+Vixen.Net.Engine.Content.NetworkRulesContent -> static class
+Vixen.Net.Engine.Content.NetworkRulesLoad -> readonly struct
+Vixen.Net.Engine.Content.NetworkRulesLoad : System.IEquatable<Vixen.Net.Engine.Content.NetworkRulesLoad>
+Vixen.Net.Engine.Content.NetworkRulesLoad.Loaded.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Net.Engine.Content.NetworkRulesLoad.Loaded.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Net.Engine.Content.NetworkRulesLoad.NetworkRulesLoad() -> void
+Vixen.Net.Engine.Content.NetworkRulesLoad.NetworkRulesLoad(System.Collections.Immutable.ImmutableArray<string> Loaded, System.Collections.Immutable.ImmutableArray<string> Problems) -> void
+Vixen.Net.Engine.Content.NetworkRulesLoad.Problems.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Net.Engine.Content.NetworkRulesLoad.Problems.init -> System.Collections.Immutable.ImmutableArray<string>
 const Vixen.Net.Engine.Content.NetworkPrefabContent.Label = "networked-prefabs" -> string
+const Vixen.Net.Engine.Content.NetworkRulesContent.Label = "network-rules" -> string
 static Vixen.Net.Engine.Content.NetworkPrefabContent.LoadAsync(Vixen.Net.Engine.NetworkPrefabRegistry registry, Vixen.Assets.AssetManager assets, System.Collections.Generic.IEnumerable<string> labels, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Net.Engine.Content.NetworkPrefabLoad>
 static Vixen.Net.Engine.Content.NetworkPrefabContent.LoadAsync(Vixen.Net.Engine.NetworkPrefabRegistry registry, Vixen.Assets.AssetManager assets, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Net.Engine.Content.NetworkPrefabLoad>
 static Vixen.Net.Engine.Content.NetworkPrefabContent.LoadFromAsync(Vixen.Net.Engine.NetworkPrefabRegistry registry, Vixen.Assets.AssetManager assets, System.Collections.Generic.IEnumerable<string> addresses, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Net.Engine.Content.NetworkPrefabLoad>
+static Vixen.Net.Engine.Content.NetworkRulesContent.LoadAsync(Vixen.Net.Rules.NetworkRulesRegistry registry, Vixen.Assets.AssetManager assets, System.Collections.Generic.IEnumerable<string> labels, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Net.Engine.Content.NetworkRulesLoad>
+static Vixen.Net.Engine.Content.NetworkRulesContent.LoadAsync(Vixen.Net.Rules.NetworkRulesRegistry registry, Vixen.Assets.AssetManager assets, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Net.Engine.Content.NetworkRulesLoad>
+static Vixen.Net.Engine.Content.NetworkRulesContent.LoadFromAsync(Vixen.Net.Rules.NetworkRulesRegistry registry, Vixen.Assets.AssetManager assets, System.Collections.Generic.IEnumerable<string> addresses, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Net.Engine.Content.NetworkRulesLoad>

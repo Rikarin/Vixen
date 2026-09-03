@@ -493,7 +493,7 @@ which requires ownership unless a method says otherwise; the rule is the knob th
 |---|---|
 | `CallServerRpc` | `RpcRouter.Receive`, before dispatch |
 | `ChangeOwner` | `RpcRouter.TryTransferOwnership` |
-| `OnOwnerDisconnect` | `NetworkRulesRegistry.OnOwnerLeft` |
+| `OnOwnerDisconnect` | `NetworkRulesRegistry.OnOwnerLeft`, called by `NetworkSpawner.OnOwnerLeft` — ⚠ which nothing did until 2026-09-03 |
 | `Spawn`, `Despawn`, `Write` | declared and answered; **no enforcement point yet** — nothing can spawn or write from a client |
 
 The authoring shape is a `.vxnetrules` asset referenced per prefab, and it is built: a
@@ -509,9 +509,11 @@ resolve through generated code that is emitted per assembly, because analyzers d
 `ProjectReference`. Without them the nested `rules:` mapping binds to nothing, with the message that
 class of mistake always gives: "nothing in this build claims the name".
 
-⚠ **What is still owed is filling the registry from the catalog by label**, the way
-`NetworkPrefabContent` fills the prefab registry. Until that lands a game calls
-`NetworkRulesRegistry.Load` itself.
+~~⚠ **What is still owed is filling the registry from the catalog by label**~~ — **built**, as
+`NetworkRulesContent` in `Vixen.Net.Engine.Content`, the way `NetworkPrefabContent` fills the prefab
+registry. ⚠ It refuses two policy files that call themselves the same thing and disagree, because
+`NetworkRulesRegistry.Load` is a dictionary assignment and the loser would be chosen by address order
+with nothing said anywhere.
 
 [Network rules as a file](../../docs/guide/engine/network-rules.md) is the authoring story.
 

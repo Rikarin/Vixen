@@ -4,7 +4,7 @@ slug: engine/network-rules
 kind: guide
 area: Networking
 summary: Who may do what to a networked object, written down in a .vxnetrules and named by the prefabs it governs.
-api: [T:Vixen.Net.Engine.NetworkRulesAsset, T:Vixen.Net.Engine.NetworkRulesReference, T:Vixen.Editor.Assets.Net.NetworkRulesImporter, T:Vixen.Editor.Assets.Net.NetworkRulesImportSettings]
+api: [T:Vixen.Net.Engine.NetworkRulesAsset, T:Vixen.Net.Engine.NetworkRulesReference, T:Vixen.Net.Engine.Content.NetworkRulesContent, T:Vixen.Net.Engine.Content.NetworkRulesLoad, T:Vixen.Editor.Assets.Net.NetworkRulesImporter, T:Vixen.Editor.Assets.Net.NetworkRulesImportSettings]
 tags: [networking, rules, ownership, authority, assets, prefabs]
 since: 0.1
 status: preview
@@ -67,19 +67,26 @@ The reference governs the **node that carries it**, not the whole instance — t
 `NetworkObject` has, and for the same reason: a set piece where one thing is takeable should not make
 the other ninety-nine takeable too.
 
-Then load what the build shipped into the registry the server asks:
+Label the group your policies live in — `NetworkRulesContent.Label`, which is `network-rules` —
+and load the whole of it out of the build:
 
 ```csharp compile
-using Vixen.Net.Engine;
+using System;
+using System.Threading.Tasks;
+using Vixen.Assets;
+using Vixen.Net.Engine.Content;
 using Vixen.Net.Rpc;
 using Vixen.Net.Rules;
 
 public static class Policies {
-    public static NetworkRulesRegistry Load(NetworkOwnership ownership, NetworkRulesAsset[] shipped) {
+    public static async Task<NetworkRulesRegistry> LoadAsync(NetworkOwnership ownership, AssetManager assets) {
         var rules = new NetworkRulesRegistry(ownership);
+        var load = await NetworkRulesContent.LoadAsync(rules, assets);
 
-        foreach (var policy in shipped) {
-            rules.Load(policy.Name, policy.Rules);
+        if (load.Problems.Length > 0) {
+            // A policy nothing could load is a game rule that silently does not work. Refuse at
+            // start-up rather than at the moment a player cannot pick something up.
+            throw new InvalidOperationException(string.Join(Environment.NewLine, load.Problems));
         }
 
         return rules;
@@ -91,9 +98,14 @@ and hand that registry to the spawner. `NetworkSpawner` resolves each node's ref
 it allocates that node's `NetworkId`, which is the one instant at which the authored name and the
 runtime handle both exist.
 
-⚠ **Filling the registry from the content catalog by label — the way
-[networked prefabs](engine/networked-prefabs) are filled — is not written yet.** Until it is, a game
-loads its policies itself, which is what the snippet above is.
+The label is what makes *"this is a network policy"* something the asset **is**, rather than something
+a start-up path remembers to say — [networked prefabs](networked-prefabs.md) makes the same argument
+about prefabs. `LoadFromAsync` takes a list of addresses instead, for a game whose policies are not a
+group; an address that is not in the build throws there, because that list is the caller's.
+
+⚠ **Two files that call themselves the same thing come back as a problem rather than as one
+overwriting the other.** `NetworkRulesRegistry.Load` is a dictionary assignment, so without that check
+which of the two governed would depend on address order and nothing would say so.
 
 ## Why a name and not a handle
 
@@ -106,6 +118,30 @@ makes about a sea state, and it has the same consequence:
 `NetworkSpawner.UnresolvedRules` counts it. Check that counter when a game rule does not work: the
 symptom of a policy that never arrived is a weapon nobody can pick up, beside a file that reads
 exactly right.
+
+## What happens when an owner disconnects
+
+`onOwnerDisconnect` is the one field whose answer is an *action* rather than a permission, so
+something has to take it. On the server, wire the session's `PlayerLeft` to the spawner:
+
+```csharp
+session.PlayerLeft += (player, _) => spawner.OnOwnerLeft(world, player.Id);
+```
+
+That one call does all three behaviours: `TransferToServer` moves the object to the server (which is
+the *absence* of an owner, not an owner called "server"), `Persist` leaves owner and object exactly as
+they were so the same player resumes them inside the reconnect window, and `Destroy` despawns the
+object and its whole subtree.
+
+⚠ **Until that line exists, `onOwnerDisconnect` decides nothing.** A policy saying `Destroy` imports
+cleanly, resolves onto a spawned node, and then the object outlives the session owned by a player who
+is gone. `NetworkSpawner.UnresolvedDespawns` counts the other half of the same failure — an object a
+policy condemned that no entity answered to, which is a spawner and a registry built over two
+different `NetworkOwnership` tables.
+
+⚠ **`PlayerSpawner.Leave` does not consult the rules**, deliberately: a player's controller and pawn
+are the session's rather than the world's, and they go when the connection does. Everything *else*
+the player owned — a vehicle, a placed turret, a carried weapon — is what `OnOwnerLeft` answers for.
 
 ## What the importer refuses, and what it only warns about
 
@@ -125,7 +161,7 @@ nothing:
 name: ServerAuthoritative
 rules:
   changeOwner: ServerOnly
-  claim: Never
+  claim: Anytime
   onOwnerDisconnect: Destroy
 ```
 
@@ -137,7 +173,7 @@ name: Carryable
 rules:
   changeOwner: Everyone
   claim: WhenUnowned
-  onOwnerDisconnect: ReleaseToUnowned
+  onOwnerDisconnect: TransferToServer
 ```
 
 ⚠ The two differ in **three** fields rather than one, and that is the point of writing them down:

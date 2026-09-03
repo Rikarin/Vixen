@@ -112,6 +112,7 @@ Vixen.Net.Engine.NetworkSpawner.DespawnScene(Vixen.Ecs.World world, Vixen.Engine
 Vixen.Net.Engine.NetworkSpawner.DespawnedCount.get -> long
 Vixen.Net.Engine.NetworkSpawner.MaySpawn(Vixen.Net.Sessions.PlayerId requester) -> bool
 Vixen.Net.Engine.NetworkSpawner.NetworkSpawner(Vixen.Net.Engine.NetworkPrefabRegistry prefabs, Vixen.Net.Replication.NetworkIdAllocator ids) -> void
+Vixen.Net.Engine.NetworkSpawner.OnOwnerLeft(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player) -> int
 Vixen.Net.Engine.NetworkSpawner.Ownership.get -> Vixen.Net.Rpc.NetworkOwnership?
 Vixen.Net.Engine.NetworkSpawner.Ownership.set -> Vixen.Net.Rpc.NetworkOwnership?
 Vixen.Net.Engine.NetworkSpawner.Replication.get -> Vixen.Net.Replication.ReplicationServer?
@@ -125,6 +126,7 @@ Vixen.Net.Engine.NetworkSpawner.Scenes.set -> Vixen.Engine.Scenes.SceneManager?
 Vixen.Net.Engine.NetworkSpawner.Spawn(Vixen.Ecs.World world, Vixen.Net.Engine.NetworkPrefab prefab, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle), Vixen.Net.Sessions.PlayerId owner = default(Vixen.Net.Sessions.PlayerId)) -> Vixen.Core.Entity
 Vixen.Net.Engine.NetworkSpawner.Spawn(Vixen.Ecs.World world, string address, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle), Vixen.Net.Sessions.PlayerId owner = default(Vixen.Net.Sessions.PlayerId)) -> Vixen.Core.Entity
 Vixen.Net.Engine.NetworkSpawner.SpawnedCount.get -> long
+Vixen.Net.Engine.NetworkSpawner.UnresolvedDespawns.get -> int
 Vixen.Net.Engine.NetworkSpawner.UnresolvedRules.get -> int
 Vixen.Net.Engine.NetworkTeleport -> struct
 Vixen.Net.Engine.NetworkTeleport : Vixen.Ecs.ITagComponent
