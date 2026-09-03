@@ -47,6 +47,27 @@ public sealed class AppConfig {
     public int? WorkerCount { get; set; }
 
     /// <summary>
+    ///     Whether to pin each job worker to one logical processor, performance cores first.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off by default, and that is a decision rather than an oversight.</b> A pinned
+    ///         worker cannot be migrated off a core the operating system has given to something else,
+    ///         so on a machine running a browser, a compiler or another game it waits behind them —
+    ///         which is why <c>docs/plan/03</c> calls pinning a pessimisation on a shared machine.
+    ///         It earns its keep where the machine is the application's: a console, a dedicated
+    ///         server, a benchmark run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Setting it is not the same as getting it.</b> macOS offers quality-of-service
+    ///         classes rather than affinity masks and refuses every request, a browser has nothing to
+    ///         pin, and a container's mask is not the process's to set. <c>Services.Jobs.WorkersPlaced</c>
+    ///         is what says whether anything was actually pinned; it reads zero on all three.
+    ///     </para>
+    /// </remarks>
+    public bool PinWorkers { get; set; }
+
+    /// <summary>
     ///     Frames per second to aim for, or <c>0</c> for as fast as the machine will go.
     /// </summary>
     /// <remarks>
@@ -341,6 +362,11 @@ public sealed class AppConfig {
         if (arguments.WorkerCount is { } workers) {
             WorkerCount = workers;
         }
+
+        // Or-ed rather than assigned, so a game that asked for pinning in code is not un-asked by a
+        // command line that simply did not mention it. The flag can turn it on and never off, which
+        // is the shape every other opt-in switch here has.
+        PinWorkers |= arguments.PinWorkers;
 
         if (arguments.MaxFrames is { } total) {
             MaxFrames = total;

@@ -183,7 +183,13 @@ public sealed class AppBuilder {
         host.FileSystem.MountStandardLocations(fileSystem);
 
         var workers = config.WorkerCount ?? Math.Max(1, host.Processors.AvailableProcessors - 1);
-        var jobs = new JobScheduler(workers);
+
+        // The other half of `IProcessorTopology`, and until now the unused one: the count has been
+        // read from it since it existed, and nothing in the tree ever called TrySetAffinity. Null
+        // unless asked for — see AppConfig.PinWorkers for why pinning is not a default — and the
+        // placement itself answers false on every platform that has no affinity to give.
+        var placement = config.PinWorkers ? new ProcessorAffinityPlacement(host.Processors) : null;
+        var jobs = new JobScheduler(workers, placement);
         var mainThread = new MainThreadDispatcher();
 
         // Null rather than a hidden window when the application asked for none: a batch tool that

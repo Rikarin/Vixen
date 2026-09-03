@@ -3,6 +3,9 @@ Vixen.Core.Threading.IJob -> interface
 Vixen.Core.Threading.IJob.Execute() -> void
 Vixen.Core.Threading.IJobParallelFor -> interface
 Vixen.Core.Threading.IJobParallelFor.Execute(int index) -> void
+Vixen.Core.Threading.IWorkerPlacement -> interface
+Vixen.Core.Threading.IWorkerPlacement.Release() -> void
+Vixen.Core.Threading.IWorkerPlacement.TryPlace(int ordinal, int workerCount) -> bool
 Vixen.Core.Threading.JobAccess -> sealed class
 Vixen.Core.Threading.JobAccess.ConflictsWith(Vixen.Core.Threading.JobAccess other) -> bool
 Vixen.Core.Threading.JobAccess.IsEverything.get -> bool
@@ -42,6 +45,7 @@ Vixen.Core.Threading.JobScheduler.IsSingleThreaded.get -> bool
 Vixen.Core.Threading.JobScheduler.IsWorkerThread.get -> bool
 Vixen.Core.Threading.JobScheduler.JobScheduler() -> void
 Vixen.Core.Threading.JobScheduler.JobScheduler(int workerCount) -> void
+Vixen.Core.Threading.JobScheduler.JobScheduler(int workerCount, Vixen.Core.Threading.IWorkerPlacement? placement) -> void
 Vixen.Core.Threading.JobScheduler.OutstandingJobs.get -> int
 Vixen.Core.Threading.JobScheduler.ParallelFor<TJob>(in TJob job, int length, int batchSize = 0, Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> void
 Vixen.Core.Threading.JobScheduler.Schedule<TJob>(in TJob job, System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> dependsOn, Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> Vixen.Core.Threading.JobHandle
@@ -49,6 +53,7 @@ Vixen.Core.Threading.JobScheduler.Schedule<TJob>(in TJob job, Vixen.Core.Threadi
 Vixen.Core.Threading.JobScheduler.ScheduleParallel<TJob>(in TJob job, int length, int batchSize = 0, Vixen.Core.Threading.JobHandle dependsOn = default(Vixen.Core.Threading.JobHandle), Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> Vixen.Core.Threading.JobHandle
 Vixen.Core.Threading.JobScheduler.ScheduleParallel<TJob>(in TJob job, int length, int batchSize, System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> dependsOn, Vixen.Core.Threading.JobPriority priority = Vixen.Core.Threading.JobPriority.Frame) -> Vixen.Core.Threading.JobHandle
 Vixen.Core.Threading.JobScheduler.WorkerCount.get -> int
+Vixen.Core.Threading.JobScheduler.WorkersPlaced.get -> int
 Vixen.Core.Threading.MainThreadDispatcher -> sealed class
 Vixen.Core.Threading.MainThreadDispatcher.AssertMainThread() -> void
 Vixen.Core.Threading.MainThreadDispatcher.Drain() -> int
