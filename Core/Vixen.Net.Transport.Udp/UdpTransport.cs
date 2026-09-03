@@ -63,6 +63,8 @@ public sealed class UdpTransport : ITransport {
 
     // What connections that have gone counted before they went. See `Loss`.
     TransportLoss retired;
+    long retiredAbandoned;
+    long retiredShrinks;
 
     /// <inheritdoc />
     public TransportCapabilities Capabilities { get; } = new(UdpProtocol.MaxPayloadBytes, IsInProcess: false, IsLossy: true);
@@ -90,6 +92,48 @@ public sealed class UdpTransport : ITransport {
     ///     other totals together.
     /// </remarks>
     public long RetransmitCount => Total().Retransmitted;
+
+    /// <summary>
+    ///     Reliable datagrams this transport promised to deliver and then gave up on.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a measure of a bad link — a measure of a broken promise.</b> Retransmission
+    ///     handles loss; this counts what
+    ///     <see cref="UdpTransportOptions.MaxUnacknowledged" /> threw away to bound memory, which is
+    ///     a reliable message that was never delivered and never will be. It should be zero. It had
+    ///     no counter at all until the congestion window was built, which meant the one failure mode
+    ///     that silently breaks ordering was the one nothing could see: the datagram was already
+    ///     counted in <see cref="TransportLoss.Sent" /> on its way in.
+    /// </remarks>
+    public long AbandonedCount {
+        get {
+            var total = retiredAbandoned;
+
+            foreach (var connection in byId.Values) {
+                total += connection.AbandonedCount;
+            }
+
+            return upstream is null ? total : total + upstream.AbandonedCount;
+        }
+    }
+
+    /// <summary>How many times a connection's congestion window has halved.</summary>
+    /// <remarks>
+    ///     One per loss event rather than per lost datagram, so this is the number of times the
+    ///     transport decided the path was narrower than it had been offering. A counter rather than
+    ///     a rate: what a test can assert without asserting how long anything took.
+    /// </remarks>
+    public long CongestionShrinkCount {
+        get {
+            var total = retiredShrinks;
+
+            foreach (var connection in byId.Values) {
+                total += connection.Congestion.ShrinkCount;
+            }
+
+            return upstream is null ? total : total + upstream.Congestion.ShrinkCount;
+        }
+    }
 
     /// <inheritdoc />
     /// <remarks>
@@ -239,6 +283,7 @@ public sealed class UdpTransport : ITransport {
         Receive(clientSocket, TransportRole.Client);
         Handshake();
         Retransmit();
+        Drain();
         SendAcks();
         KeepAlive();
         Timeouts();
@@ -283,12 +328,24 @@ public sealed class UdpTransport : ITransport {
                 payload.Slice(offset, Math.Max(0, length))
             );
 
-            Send(connection.EndPoint, written, socket);
+            if (!channel.IsReliable()) {
+                // Never queued. A snapshot that waited for a window is a snapshot the next one has
+                // already replaced, so unreliable traffic is offered to the path whatever the path
+                // thinks of it — which is also why the window is measured over reliable datagrams
+                // only: those are the ones it can actually hold back.
+                Send(connection.EndPoint, written, socket);
 
-            if (channel.IsReliable()) {
-                sender.Remember(sequence, sendBuffer.AsSpan(0, written), now);
-                sender.Trim(options.MaxUnacknowledged);
+                continue;
             }
+
+            var room = connection.Congestion.Limit - InFlight(connection);
+
+            if (room > 0) {
+                Send(connection.EndPoint, written, socket);
+            }
+
+            sender.Remember(sequence, sendBuffer.AsSpan(0, written), now, room > 0);
+            sender.Trim(options.MaxUnacknowledged);
         }
 
         connection.NextKeepAlive = now + options.KeepAliveInterval.TotalSeconds;
@@ -414,8 +471,14 @@ public sealed class UdpTransport : ITransport {
             return;
         }
 
-        if (connection.Sender((Channel)rawChannel).Acknowledge(latest, history, now, out var sample) && sample >= 0) {
-            connection.RoundTrip.Add(TimeSpan.FromSeconds(sample));
+        var before = connection.Sender((Channel)rawChannel).InFlightCount;
+
+        if (connection.Sender((Channel)rawChannel).Acknowledge(latest, history, now, out var sample)) {
+            connection.Congestion.Acknowledged(before - connection.Sender((Channel)rawChannel).InFlightCount);
+
+            if (sample >= 0) {
+                connection.RoundTrip.Add(TimeSpan.FromSeconds(sample));
+            }
         }
     }
 
@@ -508,7 +571,7 @@ public sealed class UdpTransport : ITransport {
             return;
         }
 
-        var connection = new UdpConnection(new(nextConnection++), from.Clone()) { LastHeard = now };
+        var connection = new UdpConnection(new(nextConnection++), from.Clone(), options) { LastHeard = now };
         byEndPoint[connection.EndPoint] = connection;
         byId[connection.Id.Value] = connection;
 
@@ -524,7 +587,7 @@ public sealed class UdpTransport : ITransport {
             return;
         }
 
-        upstream = new(new(id), from.Clone()) { LastHeard = now };
+        upstream = new(new(id), from.Clone(), options) { LastHeard = now };
         ClientState = TransportState.Running;
         inbox.Enqueue(Queued.Connected(TransportRole.Client, upstream.Id));
     }
@@ -572,6 +635,8 @@ public sealed class UdpTransport : ITransport {
 
     void Retransmit(UdpConnection connection, IDatagramSocket? socket) {
         var timeout = RetransmitTimeout(connection);
+        var ceiling = options.MaxRetransmitTimeout.TotalSeconds;
+        var lost = false;
 
         foreach (var channel in Channels) {
             if (!channel.IsReliable()) {
@@ -579,12 +644,70 @@ public sealed class UdpTransport : ITransport {
             }
 
             due.Clear();
-            connection.Sender(channel).CollectDue(now, timeout, due);
+            connection.Sender(channel).CollectDue(now, timeout, ceiling, due);
+
+            foreach (var entry in due) {
+                Send(connection.EndPoint, entry.Datagram.AsSpan(0, entry.Length), socket);
+            }
+
+            lost |= due.Count > 0;
+        }
+
+        // Once for the pass, not once per datagram — see CongestionWindow. A whole window going
+        // unacknowledged is one outage, and halving per datagram would take the window to its floor
+        // and hold it there on the first hiccup of a match.
+        if (lost) {
+            connection.Congestion.Lost();
+        }
+    }
+
+    /// <summary>Puts out what the window had no room for when it was built.</summary>
+    /// <remarks>
+    ///     After <c>Retransmit</c>, deliberately: a retransmission is a datagram the peer's ordered
+    ///     receiver is already blocked on, so it has the better claim on a window that has just
+    ///     opened. New data behind it would arrive to be buffered and not delivered anyway.
+    /// </remarks>
+    void Drain() {
+        foreach (var connection in byId.Values) {
+            Drain(connection, serverSocket);
+        }
+
+        if (upstream is not null) {
+            Drain(upstream, clientSocket);
+        }
+    }
+
+    void Drain(UdpConnection connection, IDatagramSocket? socket) {
+        var room = connection.Congestion.Limit - InFlight(connection);
+
+        foreach (var channel in Channels) {
+            if (room <= 0) {
+                return;
+            }
+
+            if (!channel.IsReliable()) {
+                continue;
+            }
+
+            due.Clear();
+            room -= connection.Sender(channel).CollectWaiting(now, room, due);
 
             foreach (var entry in due) {
                 Send(connection.EndPoint, entry.Datagram.AsSpan(0, entry.Length), socket);
             }
         }
+    }
+
+    static int InFlight(UdpConnection connection) {
+        var count = 0;
+
+        foreach (var channel in Channels) {
+            if (channel.IsReliable()) {
+                count += connection.Sender(channel).InFlightCount;
+            }
+        }
+
+        return count;
     }
 
     double RetransmitTimeout(UdpConnection connection) {
@@ -784,6 +907,8 @@ public sealed class UdpTransport : ITransport {
     /// <summary>Drops a connection's state, keeping what it counted.</summary>
     void Forget(UdpConnection connection) {
         retired = Add(retired, connection.Loss);
+        retiredAbandoned += connection.AbandonedCount;
+        retiredShrinks += connection.Congestion.ShrinkCount;
         connection.Clear();
     }
 
@@ -847,13 +972,19 @@ sealed class UdpConnection {
 
     public RoundTripEstimator RoundTrip { get; } = new();
 
+    /// <summary>How much this connection's path will take, as the path keeps saying.</summary>
+    public CongestionWindow Congestion { get; }
+
     public double LastHeard { get; set; }
 
     public double NextKeepAlive { get; set; }
 
-    public UdpConnection(ConnectionId id, EndPoint endPoint) {
+    public UdpConnection(ConnectionId id, EndPoint endPoint, UdpTransportOptions options) {
+        ArgumentNullException.ThrowIfNull(options);
+
         Id = id;
         EndPoint = endPoint;
+        Congestion = new(options.InitialWindow, options.MinWindow, Math.Min(options.MaxWindow, options.MaxUnacknowledged));
 
         receivers = [
             new(Channel.Reliable),
@@ -887,6 +1018,19 @@ sealed class UdpConnection {
             }
 
             return new(sent, retransmitted, expected, missing);
+        }
+    }
+
+    /// <summary>Reliable datagrams this connection gave up on, across its four channels.</summary>
+    public long AbandonedCount {
+        get {
+            var total = 0L;
+
+            foreach (var sender in senders) {
+                total += sender.AbandonedCount;
+            }
+
+            return total;
         }
     }
 

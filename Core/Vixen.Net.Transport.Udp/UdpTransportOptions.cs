@@ -55,10 +55,50 @@ public sealed record UdpTransportOptions {
     ///     given up on.
     /// </summary>
     /// <remarks>
-    ///     A cap on memory rather than congestion control. A peer that has stopped acknowledging is
-    ///     about to time out anyway, and until it does this is what stops its connection's queue from
-    ///     growing without bound. Adaptive congestion control — a window that responds to loss — is
-    ///     owed and is not this.
+    ///     <para>
+    ///         A cap on memory rather than congestion control — that is
+    ///         <see cref="InitialWindow" /> and the two around it. A peer that has stopped
+    ///         acknowledging is about to time out anyway, and until it does this is what stops its
+    ///         connection's queue from growing without bound.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reaching it means a reliable message was not delivered and will not be sent
+    ///         again</b>, and the one dropped is the <i>oldest</i> — precisely the one the peer's
+    ///         ordered receiver is waiting on. It is counted now (<c>UdpTransport.AbandonedCount</c>);
+    ///         it used to happen silently, with every other counter reading healthy.
+    ///     </para>
     /// </remarks>
     public int MaxUnacknowledged { get; init; } = 1024;
+
+    /// <summary>How many reliable datagrams may be in flight before anything has been measured.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The congestion window's starting value: it opens additively as acknowledgements come
+    ///         back and halves on a loss event, between <see cref="MinWindow" /> and
+    ///         <see cref="MaxWindow" />. A datagram built while the window is full is not dropped and
+    ///         not refused — it is held with its sequence already taken and goes out in order as the
+    ///         window opens, so a burst is paced rather than lost.
+    ///     </para>
+    ///     <para>
+    ///         Thirty-two is a tick's worth of reliable traffic at the rates this engine sends at,
+    ///         which is the point: starting at one, as slow start would, rate-limits the first second
+    ///         of every match to discover a number that can simply be stated. Unreliable channels are
+    ///         never held back — see <c>UdpTransport.SendMessage</c>.
+    ///     </para>
+    /// </remarks>
+    public int InitialWindow { get; init; } = 32;
+
+    /// <summary>The smallest the congestion window may shrink to.</summary>
+    /// <remarks>
+    ///     Never zero, or a connection that lost a burst could never send the datagram whose
+    ///     acknowledgement would reopen the window.
+    /// </remarks>
+    public int MinWindow { get; init; } = 2;
+
+    /// <summary>The largest it may grow to.</summary>
+    /// <remarks>
+    ///     Held at <see cref="MaxUnacknowledged" />'s default, because a window wider than the memory
+    ///     cap would put the cap — which abandons messages — in charge of pacing.
+    /// </remarks>
+    public int MaxWindow { get; init; } = 1024;
 }

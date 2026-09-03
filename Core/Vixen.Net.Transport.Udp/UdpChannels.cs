@@ -6,12 +6,26 @@ using System.Numerics;
 
 namespace Vixen.Net.Transport.Udp;
 
-/// <summary>One datagram that has been sent and not yet acknowledged.</summary>
+/// <summary>One datagram that is on the wire, or waiting for room on it, and not yet acknowledged.</summary>
+/// <remarks>
+///     ⚠ <b>Remembered is not sent.</b> A datagram the congestion window had no room for is kept
+///     here unsent, so the pending table is the send queue as well as the retransmission table. That
+///     is deliberate: a reliable datagram is already copied into a pooled buffer the moment it is
+///     built, so holding it costs nothing that was not already spent, and its sequence was already
+///     taken — which is what keeps the queue in order without a second structure to keep in step
+///     with this one.
+/// </remarks>
 sealed class Unacked {
     public byte[] Datagram { get; set; } = [];
     public int Length { get; set; }
     public double SentAt { get; set; }
     public int Retries { get; set; }
+
+    /// <summary>Whether it has been on the wire at all. An unsent datagram cannot be overdue.</summary>
+    public bool Sent { get; set; }
+
+    /// <summary>Which sequence it is, so a drained entry can be found again.</summary>
+    public ushort Sequence { get; set; }
 }
 
 /// <summary>
@@ -27,11 +41,51 @@ sealed class ChannelSender {
     readonly Dictionary<ushort, Unacked> pending = [];
     readonly List<ushort> expired = [];
 
+    // In the order the sequences were taken, which is the order they must go out in. A queue rather
+    // than a sort over `pending`, because sequences wrap and "oldest" is then a comparison that has
+    // to know where `next` is; a FIFO filled at the moment the sequence is taken cannot get that
+    // wrong. Entries trimmed or acknowledged while queued are skipped on the way out.
+    readonly Queue<ushort> unsent = new();
+
     ushort next;
     ushort nextFragmentId;
 
-    /// <summary>How many datagrams are waiting to be acknowledged.</summary>
+    /// <summary>How many datagrams are waiting to be acknowledged, sent or not.</summary>
     public int PendingCount => pending.Count;
+
+    /// <summary>How many datagrams are actually on the wire and unacknowledged.</summary>
+    /// <remarks>What the congestion window limits. A datagram waiting for room is not in flight.</remarks>
+    public int InFlightCount {
+        get {
+            var count = 0;
+
+            foreach (var entry in pending.Values) {
+                if (entry.Sent) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>How many datagrams are built and waiting for the window to open.</summary>
+    public int WaitingCount => unsent.Count;
+
+    /// <summary>
+    ///     Reliable datagrams this channel gave up on, having promised to deliver them.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A broken promise, and it used to be silent.</b> <see cref="Trim" /> drops the oldest
+    ///     unacknowledged datagrams when the memory cap is reached — and the oldest is precisely the
+    ///     one the peer's ordered receiver is waiting on, so the channel stalls behind a message that
+    ///     will never be sent again. Nothing counted it, and every other counter still read healthy:
+    ///     <see cref="SentCount" /> was incremented when the datagram was first remembered. It is not
+    ///     an error — the alternative is unbounded memory against a peer that has stopped answering —
+    ///     but a connection reaching it is a connection whose reliability has failed, and that should
+    ///     be visible before the symptom is.
+    /// </remarks>
+    public long AbandonedCount { get; private set; }
 
     /// <summary>Datagrams sent again because no acknowledgement came.</summary>
     public long RetransmitCount { get; private set; }
@@ -54,12 +108,58 @@ sealed class ChannelSender {
     public ushort NextFragmentId() => nextFragmentId++;
 
     /// <summary>Remembers a datagram until it is acknowledged.</summary>
-    public void Remember(ushort sequence, ReadOnlySpan<byte> datagram, double now) {
+    /// <param name="sequence">Which sequence it took.</param>
+    /// <param name="datagram">The bytes, header and all.</param>
+    /// <param name="now">The clock, if it went out now.</param>
+    /// <param name="sent">
+    ///     Whether it has actually been put on the wire. False when the congestion window had no room
+    ///     for it, in which case it waits here until <see cref="CollectWaiting" /> is given some.
+    /// </param>
+    public void Remember(ushort sequence, ReadOnlySpan<byte> datagram, double now, bool sent) {
         var buffer = ArrayPool<byte>.Shared.Rent(datagram.Length);
         datagram.CopyTo(buffer);
 
-        pending[sequence] = new() { Datagram = buffer, Length = datagram.Length, SentAt = now };
-        SentCount++;
+        pending[sequence] = new() {
+            Datagram = buffer,
+            Length = datagram.Length,
+            SentAt = now,
+            Sent = sent,
+            Sequence = sequence
+        };
+
+        if (sent) {
+            SentCount++;
+        } else {
+            unsent.Enqueue(sequence);
+        }
+    }
+
+    /// <summary>Takes datagrams that have never been sent, oldest first, while there is room.</summary>
+    /// <param name="now">The clock, which becomes their send time.</param>
+    /// <param name="room">How many the congestion window will take.</param>
+    /// <param name="into">Where to put them.</param>
+    /// <returns>How many were taken.</returns>
+    public int CollectWaiting(double now, int room, List<Unacked> into) {
+        var taken = 0;
+
+        while (taken < room && unsent.Count > 0) {
+            var sequence = unsent.Dequeue();
+
+            // Acknowledged or trimmed while it waited. Both are ordinary: an acknowledgement cannot
+            // arrive for something never sent, but Trim can take it, and a queue that assumed
+            // otherwise would resurrect a freed buffer.
+            if (!pending.TryGetValue(sequence, out var entry) || entry.Sent) {
+                continue;
+            }
+
+            entry.Sent = true;
+            entry.SentAt = now;
+            SentCount++;
+            into.Add(entry);
+            taken++;
+        }
+
+        return taken;
     }
 
     /// <summary>
@@ -105,11 +205,22 @@ sealed class ChannelSender {
 
     /// <summary>Finds what has waited longer than the retransmission timeout.</summary>
     /// <param name="now">The clock.</param>
-    /// <param name="timeout">How long to wait before sending again.</param>
+    /// <param name="timeout">How long to wait before sending again, before backing off.</param>
+    /// <param name="ceiling">The longest that wait may become however many times it has backed off.</param>
     /// <param name="into">Where to put them.</param>
-    public void CollectDue(double now, double timeout, List<Unacked> into) {
+    public void CollectDue(double now, double timeout, double ceiling, List<Unacked> into) {
         foreach (var entry in pending.Values) {
-            if (now - entry.SentAt >= timeout) {
+            if (!entry.Sent) {
+                continue;
+            }
+
+            // RFC 6298 § 5.5: the timer doubles on each retransmission of the same datagram. Without
+            // it a datagram whose path has gone is offered again at a fixed interval for as long as
+            // the connection lives, which is the one behaviour a congested link cannot absorb — and
+            // the shift is capped so the doubling cannot overflow before the ceiling clamps it.
+            var backoff = Math.Min(ceiling, timeout * (1 << Math.Min(entry.Retries, 16)));
+
+            if (now - entry.SentAt >= backoff) {
                 entry.SentAt = now;
                 entry.Retries++;
                 RetransmitCount++;
@@ -135,6 +246,7 @@ sealed class ChannelSender {
 
         foreach (var sequence in expired) {
             if (pending.Remove(sequence, out var entry)) {
+                AbandonedCount++;
                 ArrayPool<byte>.Shared.Return(entry.Datagram);
             }
         }
@@ -147,6 +259,7 @@ sealed class ChannelSender {
         }
 
         pending.Clear();
+        unsent.Clear();
     }
 }
 
