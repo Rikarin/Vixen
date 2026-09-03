@@ -918,8 +918,13 @@ Vixen.Net.Sessions.NetworkSession.PresentReconnectToken(System.ReadOnlySpan<byte
 Vixen.Net.Sessions.NetworkSession.ReconnectToken.get -> System.ReadOnlySpan<byte>
 Vixen.Net.Sessions.NetworkSession.Rejected -> System.Action<Vixen.Net.Sessions.SessionRejectReason, string>?
 Vixen.Net.Sessions.NetworkSession.SendToAll(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> int
+Vixen.Net.Sessions.NetworkSession.SendToAll(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel, int priority) -> int
 Vixen.Net.Sessions.NetworkSession.SendToPlayer(Vixen.Net.Sessions.PlayerId player, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> bool
+Vixen.Net.Sessions.NetworkSession.SendToPlayer(Vixen.Net.Sessions.PlayerId player, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel, int priority) -> bool
 Vixen.Net.Sessions.NetworkSession.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> bool
+Vixen.Net.Sessions.NetworkSession.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel, int priority) -> bool
+Vixen.Net.Sessions.NetworkSession.ShedByteCount.get -> long
+Vixen.Net.Sessions.NetworkSession.ShedCount.get -> long
 Vixen.Net.Sessions.NetworkSession.StartClient() -> void
 Vixen.Net.Sessions.NetworkSession.StartHost() -> void
 Vixen.Net.Sessions.NetworkSession.StartOffline() -> void
@@ -959,6 +964,10 @@ Vixen.Net.Sessions.SessionOptions.AuthenticationPayload.get -> byte[]
 Vixen.Net.Sessions.SessionOptions.AuthenticationPayload.init -> byte[]
 Vixen.Net.Sessions.SessionOptions.AuthenticationTimeout.get -> System.TimeSpan
 Vixen.Net.Sessions.SessionOptions.AuthenticationTimeout.init -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.BurstBytes.get -> int
+Vixen.Net.Sessions.SessionOptions.BurstBytes.init -> int
+Vixen.Net.Sessions.SessionOptions.BytesPerSecondPerPlayer.get -> int
+Vixen.Net.Sessions.SessionOptions.BytesPerSecondPerPlayer.init -> int
 Vixen.Net.Sessions.SessionOptions.ContentHash.get -> ulong
 Vixen.Net.Sessions.SessionOptions.ContentHash.init -> ulong
 Vixen.Net.Sessions.SessionOptions.MaxAuthenticationPayloadBytes.get -> int
@@ -971,6 +980,10 @@ Vixen.Net.Sessions.SessionOptions.ProtocolVersion.get -> uint
 Vixen.Net.Sessions.SessionOptions.ProtocolVersion.init -> uint
 Vixen.Net.Sessions.SessionOptions.ReconnectWindow.get -> System.TimeSpan
 Vixen.Net.Sessions.SessionOptions.ReconnectWindow.init -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.ReservedFraction.get -> double
+Vixen.Net.Sessions.SessionOptions.ReservedFraction.init -> double
+Vixen.Net.Sessions.SessionOptions.ReservedPriority.get -> int
+Vixen.Net.Sessions.SessionOptions.ReservedPriority.init -> int
 Vixen.Net.Sessions.SessionOptions.SessionOptions() -> void
 Vixen.Net.Sessions.SessionOptions.TickRate.get -> Vixen.Net.Time.TickRate
 Vixen.Net.Sessions.SessionOptions.TickRate.init -> Vixen.Net.Time.TickRate
