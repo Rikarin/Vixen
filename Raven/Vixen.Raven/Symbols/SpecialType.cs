@@ -72,5 +72,37 @@ public enum SpecialType {
     ///     numbers — inserting one would silently retype every resource in every already-built
     ///     library.
     /// </remarks>
-    AccelerationStructure
+    AccelerationStructure,
+
+    /// <summary>
+    ///     A depth texture: a shadow map, read by comparison rather than by value.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Its own special type rather than a <c>Texture2D</c> a comparison sampler happens to
+    ///         be paired with, because <em>the texture binding</em> is what a host has to be told
+    ///         about. Vulkan lets a depth view sit behind a plain sampled image and the shipped
+    ///         library does exactly that; WebGPU does not — a bind group layout entry states
+    ///         <c>sampleType: "depth"</c>, and it comes from the reflection, so a type the
+    ///         reflection cannot tell apart is a layout the browser rejects.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Appended, for <see cref="AccelerationStructure" />'s reason: a <c>.rvnlib</c>
+    ///         carries these as numbers.
+    ///     </para>
+    /// </remarks>
+    DepthTexture2D,
+
+    /// <summary>
+    ///     A comparison sampler: the sampler state a depth texture is read through, which does the
+    ///     compare-and-filter in fixed function rather than returning a texel.
+    /// </summary>
+    /// <remarks>
+    ///     A separate type from <see cref="Sampler" /> because it is a separate GLSL type
+    ///     (<c>samplerShadow</c>, not <c>sampler</c>) and a separate WebGPU binding type
+    ///     (<c>comparison</c>, not <c>filtering</c>) — and because binding one where the other is
+    ///     expected is a pipeline every backend refuses. SPIR-V is the one target where they are
+    ///     the same <c>OpTypeSampler</c>; that is a fact about SPIR-V, not about the language.
+    /// </remarks>
+    ComparisonSampler
 }

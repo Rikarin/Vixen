@@ -89,6 +89,31 @@ public enum IrIntrinsic {
     /// </remarks>
     SampleTextureGrad,
 
+    /// <summary>
+    ///     Compare a depth image against a reference and filter the results, at the level of detail
+    ///     the derivatives imply.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Not <see cref="SampleTexture" /> with an extra argument. The value that comes back is
+    ///     the <em>filtered comparison</em> — one float, already averaged over the footprint by
+    ///     fixed function — where a plain sample returns the texels. That is the whole reason a
+    ///     hardware shadow lookup is worth having, and it is why this is a distinct instruction in
+    ///     both targets: <c>OpImageSampleDrefImplicitLod</c> and <c>texture(sampler2DShadow, …)</c>.
+    /// </remarks>
+    SampleTextureCompare,
+
+    /// <summary>
+    ///     Compare a depth image against a reference at level zero.
+    /// </summary>
+    /// <remarks>
+    ///     Level zero rather than a stated level, because a shadow map has one: an atlas page is
+    ///     rendered at a single resolution and a mip of a depth buffer is a depth nothing was ever
+    ///     at. Separate from <see cref="SampleTextureCompare" /> for
+    ///     <see cref="SampleTextureLevel" />'s reason — an implicit level of detail needs a quad,
+    ///     and this is the form a compute stage may use.
+    /// </remarks>
+    SampleTextureCompareLevelZero,
+
     /// <summary>Fetch a texel by integer coordinate.</summary>
     LoadTexture,
 

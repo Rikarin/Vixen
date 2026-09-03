@@ -954,7 +954,17 @@ sealed class GlslEmitter {
 
         // GLSL forbids locals of opaque type, so a texture, sampler, image or acceleration
         // structure value is never materialized: uses refer straight back to the uniform.
-        if (result.Type is IrSamplerType or IrTextureType or IrStorageImageType or IrAccelerationStructureType) {
+        //
+        // ⚠ Every opaque type, and the list is the whole rule — a type missing from it produces
+        // `texture2D _0 = shadowMap;`, which glslc refuses with "sampler/image types can only be
+        // used in uniform variables or function parameters". Adding an opaque IR type and not
+        // adding it here is a shader that compiles in this backend and in no GLSL front end.
+        if (result.Type is IrSamplerType
+            or IrTextureType
+            or IrStorageImageType
+            or IrAccelerationStructureType
+            or IrDepthTextureType
+            or IrComparisonSamplerType) {
             values[result.Id] = instruction is IrLoadInstruction opaque ? Place(opaque.Place) : "/* opaque */";
             return;
         }

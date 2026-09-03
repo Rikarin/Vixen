@@ -145,6 +145,16 @@ internal static class GlslTypes {
                 },
             IrSamplerType => "sampler",
 
+            // ⚠ The asymmetry is GL_KHR_vulkan_glsl's, not a slip. A separate *image* has no shadow
+            // spelling — `texture2D` is the declaration for a depth view as much as for a colour
+            // one — while a separate *sampler* does: `samplerShadow` is what carries the compare
+            // function, and `sampler2DShadow(texture2D, samplerShadow)` is the only constructor
+            // that accepts it. So the depth image looks exactly like a colour one here, and the
+            // pairing is what the shadow-ness is spelled by. What keeps the two apart for a host
+            // is the reflection, which is the point of them being separate IR types at all.
+            IrDepthTextureType => "texture2D",
+            IrComparisonSamplerType => "samplerShadow",
+
             // GL_EXT_ray_query's spelling; the emitter declares the extension whenever this
             // appears, because the word alone is one glslc rejects.
             IrAccelerationStructureType => "accelerationStructureEXT",
@@ -214,6 +224,16 @@ internal static class GlslTypes {
                 _ => "samplerCube"
             };
     }
+
+    /// <summary>
+    ///     The combined shadow-sampler type a depth image pairs into: <c>sampler2DShadow(t, s)</c>.
+    /// </summary>
+    /// <remarks>
+    ///     A constant rather than an arm of <see cref="Combined" /> because there is nothing to
+    ///     switch on — a depth image is its own IR type, with no dimension and no component class,
+    ///     and 2D is the only shape it has.
+    /// </remarks>
+    public const string CombinedShadow = "sampler2DShadow";
 
     /// <summary>
     ///     The component-class prefix a sampled texture's GLSL name carries: <c>u</c> for uint,

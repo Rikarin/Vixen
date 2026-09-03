@@ -263,6 +263,43 @@ sealed class SpirvTypes {
     }
 
     /// <summary>
+    ///     A depth image: <see cref="Image" />'s shape with the <c>Depth</c> operand set.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The sampled type is <c>float</c> and there is no choice about it — a comparison
+    ///         returns the filtered result of the compare, which is a float whatever the view's
+    ///         format stores.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>Depth</c> operand is a hint to Vulkan and load-bearing to everything
+    ///         downstream.</b> A driver will accept <c>OpImageSampleDref*</c> against an image
+    ///         declared <c>Depth = 0</c> — which is exactly what <c>glslc</c> emits for the GLSL
+    ///         this backend's sibling writes, since a separate image has no shadow spelling. But
+    ///         SPIRV-Cross reads this operand to decide between <c>texture_2d&lt;f32&gt;</c> and
+    ///         <c>texture_depth_2d</c> in WGSL, and a WebGPU bind group layout has to say
+    ///         <c>sampleType: "depth"</c> to bind a depth view at all. So the one target that can
+    ///         state it, states it.
+    ///     </para>
+    /// </remarks>
+    uint DepthImage() =>
+        module.Intern(
+            "depth image 2D",
+            () => module.AddDeclaration(
+                SpirvOp.TypeImage,
+                null,
+                SpirvOperand.Id(Float),
+                SpirvOperand.Enumerant(SpirvDim.Dim2D),
+                // Depth = 1. Not arrayed, not multisampled, used with a sampler.
+                SpirvOperand.Literal(1),
+                SpirvOperand.Literal(0),
+                SpirvOperand.Literal(0),
+                SpirvOperand.Literal(1),
+                SpirvOperand.Enumerant(SpirvImageFormat.Unknown)
+            )
+        );
+
+    /// <summary>
     ///     A storage image: <c>Sampled = 2</c> and a stated <c>ImageFormat</c>.
     /// </summary>
     /// <remarks>
@@ -359,7 +396,14 @@ sealed class SpirvTypes {
             case IrStorageImageType image:
                 return StorageImage(image);
 
-            case IrSamplerType:
+            case IrDepthTextureType:
+                return DepthImage();
+
+            // ⚠ The same interned id as a filtering sampler, deliberately. SPIR-V has one
+            // OpTypeSampler and the compare lives on the instruction and on the sampler object the
+            // host created — so emitting a second, distinct-but-identical type declaration would be
+            // a module that says something SPIR-V cannot mean.
+            case IrSamplerType or IrComparisonSamplerType:
                 return module.Intern("sampler", () => module.AddDeclaration(SpirvOp.TypeSampler, null));
 
             case IrAccelerationStructureType:

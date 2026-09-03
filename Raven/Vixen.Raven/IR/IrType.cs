@@ -30,7 +30,13 @@ public enum IrTypeKind {
     StorageImage,
 
     /// <summary>The ray-tracing hierarchy a ray query traverses. Optional hardware, so a reported capability.</summary>
-    AccelerationStructure
+    AccelerationStructure,
+
+    /// <summary>A shadow map: a depth image, read through a comparison sampler and never by texel.</summary>
+    DepthTexture,
+
+    /// <summary>The comparison sampler a <see cref="DepthTexture" /> is read through.</summary>
+    ComparisonSampler
 }
 
 /// <summary>How many coordinates a texture is sampled with.</summary>
@@ -304,6 +310,48 @@ public sealed class IrStorageImageType : IrType, IEquatable<IrStorageImageType> 
 
     public override bool Equals(object? obj) => Equals(obj as IrStorageImageType);
     public override int GetHashCode() => HashCode.Combine(Dimension, TexelType, Format);
+}
+
+/// <summary>An opaque depth image: a shadow map, read only by comparison.</summary>
+/// <remarks>
+///     <para>
+///         Its own IR type rather than a flag on <see cref="IrTextureType" />, for the reason
+///         <see cref="IrStorageImageType" /> is: the two are different <c>OpTypeImage</c>s — a depth
+///         image sets the <c>Depth</c> operand — and different GLSL types, <c>sampler2DShadow</c>
+///         against <c>sampler2D</c>. Being a separate class is also what makes every existing
+///         <c>is IrTextureType</c> pattern refuse one, so a plain <c>Sample</c> cannot reach a depth
+///         image and silently emit the non-comparing instruction.
+///     </para>
+///     <para>
+///         ⚠ There is no sampled type to parameterise. <c>OpTypeImage</c>'s sampled type for a
+///         depth image is <c>float</c> and nothing else is legal; the value a comparison returns is
+///         a single float that the filter has already averaged, not a texel of any format.
+///     </para>
+/// </remarks>
+public sealed class IrDepthTextureType : IrType {
+    public static readonly IrDepthTextureType Instance = new();
+
+    public override IrTypeKind Kind => IrTypeKind.DepthTexture;
+    public override string Name => "depthtexture2d";
+
+    IrDepthTextureType() { }
+}
+
+/// <summary>An opaque comparison sampler: the compare function a depth image is read through.</summary>
+/// <remarks>
+///     ⚠ In SPIR-V this is the same <c>OpTypeSampler</c> as <see cref="IrSamplerType" /> — the
+///     comparison lives on the <em>instruction</em>, <c>OpImageSampleDref*</c>, and on the sampler
+///     object the host created. It is a distinct type here because GLSL and WebGPU both spell it
+///     separately, and because the pairing rule — a depth image takes this and a colour image does
+///     not — is worth a compile error rather than a validation-layer message.
+/// </remarks>
+public sealed class IrComparisonSamplerType : IrType {
+    public static readonly IrComparisonSamplerType Instance = new();
+
+    public override IrTypeKind Kind => IrTypeKind.ComparisonSampler;
+    public override string Name => "comparisonsampler";
+
+    IrComparisonSamplerType() { }
 }
 
 /// <summary>An opaque sampler state.</summary>

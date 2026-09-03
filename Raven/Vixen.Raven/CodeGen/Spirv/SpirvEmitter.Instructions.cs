@@ -875,6 +875,10 @@ partial class SpirvEmitter {
             case IrIntrinsic.SampleTextureGrad:
                 return EmitSampleGrad(intrinsic, resultType, arguments);
 
+            case IrIntrinsic.SampleTextureCompare:
+            case IrIntrinsic.SampleTextureCompareLevelZero:
+                return EmitSampleCompare(intrinsic, resultType, arguments);
+
             case IrIntrinsic.LoadTexture:
                 return EmitFetch(intrinsic, resultType, arguments);
 
@@ -968,6 +972,61 @@ partial class SpirvEmitter {
     }
 
     /// <summary>
+    ///     Compares a depth image against a reference: <c>OpImageSampleDref*</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reference is its own operand, not a lane of the coordinate.</b> That is the
+    ///         one place this differs from the GLSL backend, which has to pack it into
+    ///         <c>P.z</c> — and packing it here would produce a module <c>spirv-val</c> rejects for
+    ///         the coordinate having one component too many.
+    ///     </para>
+    ///     <para>
+    ///         One method for both intrinsics rather than the three <see cref="EmitSample" />'s
+    ///         family needs, because there is only one choice to make: whether the level of detail
+    ///         comes from the quad. A depth image has one level, so the explicit form's level is
+    ///         always the constant zero and there is no author's number to thread through.
+    ///     </para>
+    /// </remarks>
+    uint EmitSampleCompare(IrIntrinsicInstruction intrinsic, uint resultType, SpirvOperand[] arguments) {
+        if (intrinsic.Arguments
+            is not [{ Type: IrDepthTextureType image }, { Type: IrComparisonSamplerType }, _, _]) {
+            return Unimplemented("This form of depth comparison", intrinsic.Result!.Type);
+        }
+
+        var combined = Emit(SpirvOp.SampledImage, types.SampledImage(types.Type(image)), arguments[0], arguments[1]);
+
+        // Implicit only where there are derivatives to imply it. Everywhere else — and for the
+        // level-zero form wherever it is written — the level is stated, which is the same
+        // substitution EmitSample makes and for the same reason.
+        if (intrinsic.Intrinsic == IrIntrinsic.SampleTextureCompare && entryPoint.Stage == ShaderStage.Fragment) {
+            return Emit(
+                SpirvOp.ImageSampleDrefImplicitLod,
+                resultType,
+                SpirvOperand.Id(combined),
+                arguments[2],
+                arguments[3]
+            );
+        }
+
+        return Emit(
+            SpirvOp.ImageSampleDrefExplicitLod,
+            resultType,
+            [
+                SpirvOperand.Id(combined),
+                arguments[2],
+                arguments[3],
+                // Image operands: bit 1 is Lod, and the level follows. ⚠ The mask comes after the
+                // D_ref operand, not after the coordinate — a Dref instruction has three fixed
+                // operands, and putting the mask where the non-comparing forms put it silently
+                // reads the reference as the mask.
+                SpirvOperand.Literal(0x2),
+                SpirvOperand.Id(types.ConstantFloat(0))
+            ]
+        );
+    }
+
+    /// <summary>
     ///     Samples at a stated level of detail. The same instruction the non-fragment path of
     ///     <see cref="EmitSample" /> uses, with the author's level instead of a fabricated zero.
     /// </summary>
@@ -1025,7 +1084,9 @@ partial class SpirvEmitter {
     ///     is why the GLSL side needs the samplerless-texture extension to say the same thing.
     /// </summary>
     uint EmitQuerySize(IrIntrinsicInstruction intrinsic, uint resultType, SpirvOperand[] arguments) {
-        if (intrinsic.Arguments is not [{ Type: IrTextureType }, _]) {
+        // A depth image answers the same instruction: OpImageQuerySizeLod asks the image, and the
+        // compare a depth image is otherwise read through has nothing to do with its extent.
+        if (intrinsic.Arguments is not [{ Type: IrTextureType or IrDepthTextureType }, _]) {
             return Unimplemented("This form of texture size query", intrinsic.Result!.Type);
         }
 

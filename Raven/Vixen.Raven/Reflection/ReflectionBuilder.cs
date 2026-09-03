@@ -245,6 +245,8 @@ public static class ReflectionBuilder {
             type switch {
                 IrSamplerType => DescriptorType.Sampler,
                 IrTextureType => DescriptorType.SampledTexture,
+                IrDepthTextureType => DescriptorType.DepthTexture,
+                IrComparisonSamplerType => DescriptorType.ComparisonSampler,
                 IrStorageImageType => DescriptorType.StorageImage,
                 IrAccelerationStructureType => DescriptorType.AccelerationStructure,
                 _ => kind switch {

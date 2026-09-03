@@ -1063,7 +1063,12 @@ public sealed partial class Lowerer {
     /// <summary>Whether a body reaches a derivative-implied sample anywhere, calls aside.</summary>
     static bool ContainsImplicitSample(IrStatement statement) =>
         statement switch {
-            IrIntrinsicInstruction { Intrinsic: IrIntrinsic.SampleTexture } => true,
+            // ⚠ Both, and the second is easy to forget: a shadow lookup takes its level of detail
+            // from the quad exactly as a colour sample does, so a `SampleCompare` in a compute
+            // stage is the same silently-level-zero module RVN3013 exists to name.
+            IrIntrinsicInstruction {
+                Intrinsic: IrIntrinsic.SampleTexture or IrIntrinsic.SampleTextureCompare
+            } => true,
             IrBlock block => block.Statements.Any(ContainsImplicitSample),
             IrIfStatement conditional => ContainsImplicitSample(conditional.Then)
                 || (conditional.Else is { } otherwise && ContainsImplicitSample(otherwise)),

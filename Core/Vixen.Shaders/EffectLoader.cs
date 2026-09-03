@@ -256,7 +256,9 @@ public sealed class EffectLoader(IGraphicsDevice device) {
 
         foreach (var binding in data.Bindings) {
             if (binding.Set == slot) {
-                bindings.Add(new(binding.Binding, KindOf(binding), binding.Stages, binding.Count));
+                bindings.Add(
+                    new(binding.Binding, KindOf(binding), binding.Stages, binding.Count, binding.SampleType)
+                );
             }
         }
 
@@ -346,7 +348,13 @@ public sealed class EffectLoader(IGraphicsDevice device) {
                 .Append(':')
                 .Append((int)binding.Stages)
                 .Append(':')
-                .Append(binding.Count);
+                .Append(binding.Count)
+                // ⚠ In the key, because it is in the layout. A shadow map and a colour map are the
+                // same kind, the same count and the same stages; leaving the sample type out means
+                // the first of the two to be loaded hands its layout to the second, and a
+                // comparison sampler is then bound through a filtering entry.
+                .Append(':')
+                .Append((int)binding.SampleType);
         }
 
         return builder.ToString();
