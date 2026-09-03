@@ -77,6 +77,104 @@ public sealed class TextureDemandTests : IDisposable {
     const int Height = 512;
 
     /// <summary>
+    ///     A camera path too big for the pool keeps evicting and keeps drawing, and the two bounds on
+    ///     residency agree on every frame of it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 08 § Testing's <c>Streaming</c> row, first half</b> — "memory budget respected
+    ///         under a synthetic camera path" — which had no test behind it. What existed asserted the
+    ///         residency <em>service</em>: <c>PageResidencyTests.The_budget_is_never_exceeded</c> over
+    ///         a <c>FakeStore</c> and a hand-written request sequence, and <c>TextureStreamingTests</c>
+    ///         calling <c>Want(texture, 64)</c> directly. Neither covers the chain from a camera moving
+    ///         to bytes being held.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And writing it found that the row's first half cannot be violated, which is worth
+    ///         more than the test.</b> <c>TextureStreamer</c> derives its slot count <em>from</em> the
+    ///         budget — <c>slots = ceil(budgetBytes / pageSize)</c> — and <c>PageResidency</c> then
+    ///         clamps <c>Budget</c> to <c>slots * pageSize</c>. Residency is a count of occupied slots,
+    ///         so <c>ResidentBytes &lt;= Budget</c> is enforced by the free-slot stack whatever the
+    ///         budget arithmetic does. Proved rather than reasoned: widening the eviction loop's test
+    ///         to <c>wanted &gt; Budget * 4</c> leaves this test green, and so does letting
+    ///         <c>Oldest</c> evict pinned pages. There is no configuration of <c>TextureStreamer</c> in
+    ///         which the byte budget is the binding constraint rather than the slot count.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the ceiling is asserted as a consistency check and is not what this test is
+    ///         for.</b> It is checked <em>every frame</em> rather than at the end, because the one way
+    ///         it could still break is a transient — pages placed before their victims are evicted —
+    ///         and a check after the loop would miss that. What carries the test is the other three:
+    ///         the path is a path, it evicted, and the frame came out of it still sampling a streamed
+    ///         image. Each of those has been shown to go red.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not asserted: "no visible pop beyond a tolerance", the row's other half — and it
+    ///         is now the only part of the row that is real work.</b> That needs a picture: no counter
+    ///         distinguishes a mip swapping at the right distance from one swapping in the viewer's
+    ///         face, and this suite draws to a <c>NullDevice</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void APoolTooSmallForTheSceneEvictsAlongACameraPathAndKeepsDrawing() {
+        using var loop = new EngineLoop();
+
+        // One megabyte against a 1024² R8 chain, which is over 1.3 MB of level data: the path cannot
+        // be walked without evicting.
+        using var renderer = Build(loop, out var view, pool: 1);
+
+        var entity = Place(loop, Near, Vector3.Zero);
+
+        Settle(loop, renderer);
+
+        var streaming = renderer.Painted!.Streaming!;
+        var radius = loop.World.Read<RenderHandle>(entity).Local.Radius;
+
+        // ⚠ Or the loop below would be sixty-four assertions about a pool with nothing in it. A
+        // budget "respected" by a streamer that never ran is the shape of instrument this repository
+        // keeps finding.
+        Resident(loop, renderer, level: 2);
+
+        Assert.True(streaming.ResidentBytes > 0, "nothing ever became resident, so the walk is vacuous");
+
+        // A camera travelling rather than breathing: in and out across four rungs, which is four mip
+        // levels of the chain and more than the pool can hold at once.
+        float[] path = [512f, 384f, 256f, 128f, 64f, 128f, 256f, 384f];
+
+        HashSet<int> widths = [];
+
+        for (var frame = 0; frame < 64; frame++) {
+            Move(loop, entity, DistanceFor(radius, path[frame % path.Length] * 1.05f));
+            Frame(loop, renderer);
+
+            Assert.True(
+                streaming.ResidentBytes <= streaming.Budget,
+                $"frame {frame}: {streaming.ResidentBytes} B resident against a budget of {streaming.Budget} B"
+            );
+
+            if (renderer.Demand!.TryGetWidth(Bark, out var width)) {
+                widths.Add(width);
+            }
+
+            // A page arrives on a task, and a loop that only records frames never yields to the one
+            // carrying the bytes — the same reason Resident sleeps.
+            Thread.Sleep(1);
+        }
+
+        // The path is a path. Without this the two assertions below are claims about sixty-four
+        // frames of a stationary camera, which is not what the row says.
+        Assert.True(widths.Count >= 4, $"the camera path asked for {widths.Count} distinct widths");
+
+        // It evicted, so the pool really was the binding constraint rather than roomy enough to hold
+        // everything the walk asked for.
+        Assert.True(streaming.Evictions > 0, "no page was ever evicted, so the pool was never under pressure");
+
+        // And the frame came out of the walk still sampling a streamed image rather than a texture
+        // the pool gave up on.
+        Assert.True(renderer.Painted.StreamedImageBytes > 0, "the texture stopped being streamed at all");
+    }
+
+    /// <summary>
     ///     A drawable's screen size is what its texture's wanted width is, and moving it away
     ///     narrows that.
     /// </summary>
