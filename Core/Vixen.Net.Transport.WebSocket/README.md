@@ -61,9 +61,21 @@ and a connection that had completed its handshake was never handed over. Nothing
 - **`wss`.** The client half will negotiate TLS because `ClientWebSocket` does; the listener here
   speaks plain `ws` only. A server behind a terminating proxy is the usual arrangement and works
   today; a listener that terminates TLS itself is not built.
-- **The browser path.** Doc 16 wants this to run over `Vixen.Platform.Web`'s `ISocket` when the
-  client *is* a browser, where `System.Net.WebSockets` is not available. The seam is the right shape
-  for it — one more `IWebSocketFactory` — and Phase 10 is where `Vixen.Platform.Web` lands.
+- ~~**The browser path.**~~ Built, as `Vixen.Net.Transport.WebSocket.Browser` — one more
+  `IWebSocketFactory`, which is the shape this section predicted.
+
+  ⚠ **Two claims it rested on were wrong.** This bullet said `System.Net.WebSockets` "is not
+  available" in a browser; the `browser-wasm` runtime pack ships
+  `System.Net.WebSockets.Client.dll` containing a real `System.Net.WebSockets.BrowserWebSocket`
+  built for `net10.0-browser` against `System.Runtime.InteropServices.JavaScript` — the page's own
+  `WebSocket` behind the ordinary `ClientWebSocket` API. And doc 16 routes the browser path through
+  a `Vixen.Platform.Web` `ISocket` that **has never existed in the tree**: those two documents are
+  its only two mentions anywhere. So the browser transport needs no `[JSImport]`, ships no
+  JavaScript, and does not depend on `Vixen.Platform.Web` at all.
+
+  Client only — a page cannot listen, and `Listen` refuses rather than returning something that
+  never accepts. A server that wants both browser and desktop clients is what
+  `Vixen.Net.Transport.Composite` is for.
 - **Permessage-deflate.** Snapshots are already bit-packed, so the win is small and the CPU is not
   free; worth measuring before assuming.
 

@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+          net10.0-browser, not net10.0, and for a narrower reason than the three browser projects
+          under Platform/: there is no [JSImport] in here at all.
+
+          What this needs from the browser TFM is which System.Net.WebSockets.Client the runtime
+          binds. The browser-wasm runtime pack ships a real System.Net.WebSockets.BrowserWebSocket
+          built against System.Runtime.InteropServices.JavaScript — the page's own WebSocket behind
+          the ordinary ClientWebSocket API. ⚠ That refutes this transport's own README, which says
+          the browser path is owed because "System.Net.WebSockets is not available" there, and
+          docs/plan/16, which routes it through a Vixen.Platform.Web `ISocket` that has never
+          existed in the tree.
+
+          ⚠ NOT in Vixen.slnx, like Vixen.Platform.Web, Vixen.Audio.Backend.WebAudio,
+          Vixen.Graphics.WebGPU.Browser and Tools/Vixen.WebProbe. The stated reason across those
+          files is that net10.0-browser cannot be *evaluated* without the wasm-tools workload; that
+          claim is disputed elsewhere and this project does not settle it. It is kept out because
+          the four that are out are out, and one project quietly disagreeing with the rule is worse
+          than the rule being wrong.
+
+          The consequence is the one those files already name: Test, CheckFormat, CheckApi and Pack
+          do not see this project. CheckArchitecture does, because it globs directories. It is
+          built by `nuke CompileWeb`, which names it explicitly in build/Build.cs's BrowserProjects.
+        -->
+        <TargetFramework>net10.0-browser</TargetFramework>
+
+        <!--
+          ⚠ The namespace is the transport's, not the project's. This is one more IWebSocketFactory
+          behind an existing seam — the shape Vixen.Net.Transport.WebSocket's README predicted — and
+          a game swapping SystemWebSocketFactory for BrowserWebSocketFactory should not also have to
+          change a using directive.
+        -->
+        <RootNamespace>Vixen.Net.Transport.WebSocket</RootNamespace>
+        <Description>
+            The browser half of the WebSocket transport: an IWebSocketFactory over ClientWebSocket,
+            which in a WebAssembly build is the page's own WebSocket. Client only — a browser cannot
+            listen. Everything above the seam comes from Vixen.Net.Transport.WebSocket unchanged.
+        </Description>
+        <PackageTags>networking;multiplayer;transport;websocket;wasm;browser;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net.Transport.WebSocket\Vixen.Net.Transport.WebSocket.csproj" />
+    </ItemGroup>
+
+</Project>

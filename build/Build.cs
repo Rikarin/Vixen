@@ -485,7 +485,14 @@ partial class Build : NukeBuild {
     IEnumerable<AbsolutePath> BrowserProjects => [
         RootDirectory / "Platform" / "Vixen.Platform.Web" / "Vixen.Platform.Web.csproj",
         RootDirectory / "Platform" / "Vixen.Graphics.WebGPU.Browser" / "Vixen.Graphics.WebGPU.Browser.csproj",
-        RootDirectory / "Platform" / "Vixen.Audio.Backend.WebAudio" / "Vixen.Audio.Backend.WebAudio.csproj"
+        RootDirectory / "Platform" / "Vixen.Audio.Backend.WebAudio" / "Vixen.Audio.Backend.WebAudio.csproj",
+
+        // ⚠ Under Core/ and not Platform/, because it is a transport rather than a platform
+        // binding — Vixen.Platform.Web's README says where it belongs, and it ships no JavaScript
+        // at all. It is here for the reason the list exists: the solution cannot contain a
+        // net10.0-browser project, so a browser project that is not named here is built by nothing.
+        RootDirectory / "Core" / "Vixen.Net.Transport.WebSocket.Browser"
+        / "Vixen.Net.Transport.WebSocket.Browser.csproj"
     ];
 
     /// <summary>
