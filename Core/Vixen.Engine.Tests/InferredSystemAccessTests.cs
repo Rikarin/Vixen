@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
@@ -37,7 +38,13 @@ public sealed class InferredSystemAccessTests {
         // ⚠ Both, and Tracked is only read by the body. QueryAction takes every component by `ref`
         // whether or not the lambda assigns through it, so there is no direction to read — and the
         // documented choice is to over-declare, because the other error is a data race.
-        Assert.Equal([ComponentType<Marked>.Id, ComponentType<Tracked>.Id], access.Writes.Order());
+        //
+        // ⚠ Both sides are ordered, and only one of them used to be. A component id is assigned when
+        // the type is first named, so which of these two is the lower number depends on which test in
+        // the assembly mentioned it first — this passed run alone and failed in the whole project.
+        ComponentTypeId[] wanted = [ComponentType<Marked>.Id, ComponentType<Tracked>.Id];
+
+        Assert.Equal(wanted.Order().ToArray(), access.Writes.Order().ToArray());
     }
 
     [Fact]
