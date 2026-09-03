@@ -149,6 +149,8 @@ the player owned — a vehicle, a placed turret, a carried weapon — is what `O
 |---|---|
 | `claim: WhenUnowned` with `changeOwner: ServerOnly` | **error** — the claim decides nothing, because it constrains clients and no client may ask. An author who wrote both lines meant the first to do something |
 | `write: Everyone` | **warning** — the one setting that gives up server authority completely. A trusted prototype is a real reason to want it; `Owner` is what a co-operative game usually means |
+| a key it does not know — `onOwnerDisconect:` | **warning** — ⚠ and nothing at all until 2026-09-03. `YamlSerializer` drops an unknown key unless the caller asks, so a misspelled field bound to nothing and the rule stayed on its default: a file that reads exactly right and a rule that is not the one it says |
+| a value that is not a member of its enum — `claim: Never` | **error**, from the binder rather than from the importer |
 | a policy with no `name:` | takes the file's own stem, because a prefab refers to it by name and a nameless asset is one nothing can refer to |
 
 ## Examples
