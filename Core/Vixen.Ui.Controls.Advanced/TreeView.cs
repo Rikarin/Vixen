@@ -194,10 +194,14 @@ public sealed partial class TreeRow : Control {
 ///         expanded nodes into a list, and binding a row to one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Rows are positioned absolutely, at a fixed height.</b> Virtualisation needs to know
-///         where row 40 000 is without having measured the 39 999 above it, and a fixed height is
-///         what makes that arithmetic instead of a walk. Variable-height rows need a running-sum
-///         index that is maintained as things expand; that is a different control and is owed.
+///         ⚠ <b>Rows are positioned absolutely, at a fixed height — this control's choice rather than
+///         the panel's limit.</b> Virtualisation needs to know where row 40 000 is without having
+///         measured the 39 999 above it, and a fixed height is what makes that arithmetic instead of a
+///         walk. ⚠ <b>The running-sum index this used to call a different control is
+///         <c>VirtualizingPanel</c>'s own</b>, so a tree that wants a row of its own height says so
+///         with <c>Panel.SetRowHeight</c> or turns <c>Panel.MeasureRows</c> on; nothing here needs to
+///         change and nothing here does, because a tree node is one line of text and uniform is both
+///         right and cheaper.
 ///     </para>
 ///     <para>
 ///         <b>A resize no longer needs telling, and this control no longer watches for one.</b> The

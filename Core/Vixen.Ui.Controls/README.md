@@ -343,7 +343,22 @@ Said out loud rather than left to be discovered:
   forces that — but removing the select now takes it, and the two capture handlers with it.
 - ~~**`VirtualizingPanel` is not here.**~~ It is, and it is the primitive doc 09 asks for: a count, a
   row height, a factory and a binder. A hundred thousand items is a hundred thousand of the caller's
-  own objects and about a dozen elements. ⚠ Fixed row heights only — virtualisation has to know where
+  own objects and about a dozen elements. ~~⚠ Fixed row heights only — virtualisation has to know where
   row 40 000 is without measuring the 39 999 above it, and variable heights need a running-sum index
-  that is a different control. Nothing has to call `Realise`: it runs on `UiDocument.LayoutFinished`,
-  which is the only place that knows how tall the viewport ended up.
+  that is a different control.~~ The index is here, and ⚠ **it is not a different control**: `TreeView`
+  delegates its pool to this one, so a second would have duplicated the pool, the parking, the
+  `LayoutFinished` subscription, `RowOf` and `ScrollIntoView` to gain one array — and a caller wanting
+  one row taller than the rest would have had to choose a control rather than set a property. A
+  Fenwick tree over each item's difference from `--row-height` makes an offset, the total and "which
+  item is at this offset" logarithmic; the uniform path is untouched and is what runs until something
+  calls `SetRowHeight` or turns `MeasureRows` on. Nothing has to call `Realise`: it runs on
+  `UiDocument.LayoutFinished`, which is the only place that knows how tall the viewport ended up.
+  - ⚠ **The heights are absolute and the tree holds the differences**, not the other way round. The
+    estimate comes out of the cascade, so a caller setting heights before the first style pass sets
+    them against `--row-height`'s *fallback* — and a delta-only index cannot be re-based when the
+    estimate arrives, because a stored zero is indistinguishable from an item nobody measured.
+  - ⚠ **`MeasureRows` is an estimate being corrected, so the scroll is anchored across a correction.**
+    Learning that the rows above the viewport are taller than the estimate moves everything below them
+    down on a frame the reader did nothing. It also has to *settle*: heights come from a layout that
+    depends on the heights, and a virtualiser that asks for another pass for ever draws a frame
+    permanently one pass stale with no sign of it but `UiDocument.Settled`.
