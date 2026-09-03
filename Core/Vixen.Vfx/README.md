@@ -616,7 +616,8 @@ ratios are what the threshold rests on. Absolute throughput from this table woul
 ## What is not here yet
 
 - ⚠ **A frame that takes the device path at all.** Everything above is real and device-tested, and
-  nothing outside `Platform/Vixen.Vfx.Gpu.Tests` constructs a `VfxGpuSimulation` or a `VfxGpuSort`:
+  nothing outside a test assembly constructs a `VfxGpuSimulation` or a `VfxGpuSort` —
+  `Platform/Vixen.Vfx.Gpu.Tests` and `Core/Vixen.Rendering.Tests` are the two that do.
   `Vixen.Rendering/Ecs/VfxExtractionSystem.cs` contains no occurrence of "Gpu", so every effect a
   scene runs is stepped by `VfxSimulation` and expanded by `VfxGeometryBuilder`. **Four things are
   missing and only the first of them is the dispatch**, which is why this is not a wiring job:
@@ -641,6 +642,18 @@ ratios are what the threshold rests on. Absolute throughput from this table woul
     **explicit opt-in with a stated refusal** rather than something a particle count could pick:
     routing an effect to a backend that silently drops its sub-emitters is worse than not having the
     backend.
+
+  ⚠ **And a fifth thing was missing that nobody had listed, because only a caller could have hit
+  it.** `VfxGpuSort` wrote its seed descriptor set once, in its constructor, from
+  `VfxGpuSimulation.Storage`. A reaping simulation double-buffers its attribute buffers and flips at
+  the end of every `Reap`, so that set named the generation that was current when the sort was
+  built and went on naming it for the rest of the sort's life: the order would have been right on
+  the first frame and computed from the dead half of the pair on every frame after, drawn as
+  alpha blending in the wrong order with nothing for a validation layer to say. It now keeps one
+  seed set per generation, written on first sight of that generation and never rewritten — the same
+  answer `VfxGpuSimulation` gives itself for `descriptorSets`, and the one that never touches a set
+  the device may still be reading. `VfxSortTests` could not see it because it never reaps;
+  `The_sort_seeds_from_the_generation_the_reap_left_current` is the fixture that does.
 
   What is *not* missing, and was claimed to be: the two backends' opcode sets are identical —
   twenty-five each, force fields, curl noise and both analytic colliders included — and
