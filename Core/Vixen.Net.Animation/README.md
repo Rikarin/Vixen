@@ -98,8 +98,16 @@ filter on the animation — a ragdoll that lands softly on every impact. Smoothi
 
 ## Owed
 
-- **Per-bone quantisation by importance.** Every bone gets ten bits a component today. A finger does
-  not need what a spine needs, and the selection is the natural place to say so.
+- ~~**Per-bone quantisation by importance.**~~ Built: `NetworkBonePrecision` is a per-slot table the
+  replicator takes, and `Uniform(6)` is 488 bits against 776 with a bone that did not move still
+  costing one. ⚠ **The suggestion this line used to make — that the selection is the natural place to
+  say so — is wrong, and worth keeping as the reason.** `NetworkBoneSelection` is per-entity, and a
+  per-entity precision is a wire format that varies per entity: the delta codec checks one fixed lane
+  width and the connection baselines are compared against one layout, so nothing on either side could
+  parse it. It is exactly the argument `NetworkTransformAxes` already makes for the mask belonging to
+  the replicator rather than to the entity. What the selection does own is the *ordering* the table is
+  read against, which is why the table is indexed by slot and a game using one has to order every
+  character's selection the same way. See `docs/guide/engine/pose-precision.md`.
 - **Interpolating a pose.** `SnapshotBuffer` interpolates a transform; a pose wants the same treatment
   and does not have it, so a received pose is applied at whatever rate it arrives.
 - **Layers past the first.** Only the base layer's state is sent; additive and masked layers are

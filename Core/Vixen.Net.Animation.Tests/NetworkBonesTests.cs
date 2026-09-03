@@ -202,6 +202,266 @@ public sealed class NetworkBonesTests {
         }
     }
 
+    /// <summary>The shipped replicator's bytes, pinned — a narrowing table must not move them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A length is not coverage and a round trip is not either.</b> Both halves of a
+    ///         round trip are compiled from this tree in this build, so anything that moves the write
+    ///         and the read together — a reordered lane list, a swapped pair of bones — leaves a
+    ///         round-trip test green and changes what a peer built yesterday decodes. Only bytes
+    ///         nobody can move on both sides at once say that.
+    ///     </para>
+    ///     <para>
+    ///         The name is pinned beside them for the same reason: it is what
+    ///         <c>ReplicationRegistry.ManifestHash</c> is computed from, so a peer whose table differs
+    ///         is refused at the handshake rather than decoding poses into plausible wrong rotations.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFullTableIsTheWireThatShipsToday() {
+        var replicator = new NetworkBonesReplicator();
+
+        Assert.True(replicator.Precision.IsFull);
+        Assert.Equal("Vixen.Net.Animation.NetworkBones", replicator.TypeName);
+        Assert.Equal(ReplicationRegistry.HashTypeName("Vixen.Net.Animation.NetworkBones"), replicator.TypeId);
+
+        // 8 bits of count and twenty-four whole rotations.
+        Assert.Equal(8 + (24 * 32), DeltaCodec.TotalBits(replicator.Lanes));
+
+        Assert.Equal(
+            "18C31826868F1AA59EE70BE0B3BF0959E1FB1A14EB220C2BEC820966D40058AABAD014B39F5E0BC583FAECF367EAED674CD2096032B69A1A1A3711F26D6B550B42BB74993E7705A0508BD7615EDB9760798768E191FFF9E78FB70BA0AC9BDC59BD",
+            Encode(replicator)
+        );
+    }
+
+    /// <summary>A narrowed table is a different type on the wire, and different bytes.</summary>
+    /// <remarks>
+    ///     The second string is the whole claim. It is not derivable from the first by any rule the
+    ///     reader of a diff has to trust — it is what the codec emitted, committed, so that a change
+    ///     to the packing, to the lane order or to the narrowing arithmetic is a failing test rather
+    ///     than a silent renegotiation with every build that already shipped.
+    /// </remarks>
+    [Fact]
+    public void ANarrowedTableIsADifferentTypeAndDifferentBytes() {
+        var narrowed = new NetworkBonesReplicator(Ragdoll);
+
+        Assert.False(narrowed.Precision.IsFull);
+        Assert.Equal("Vixen.Net.Animation.NetworkBones[AAAA88886666666666666666]", narrowed.TypeName);
+        Assert.NotEqual(new NetworkBonesReplicator().TypeId, narrowed.TypeId);
+
+        // Four bones at 32 bits, four at 26 and sixteen at 20, plus the count.
+        Assert.Equal(8 + (4 * 32) + (4 * 26) + (16 * 20), DeltaCodec.TotalBits(narrowed.Lanes));
+
+        Assert.Equal("18C31826868F1AA59EE70BE0B3BF0959E1BF42AD2BCCCA2E26263580A9BA4CF3695B80CE73E67D4E9E20A3AA1913F276B5404BD97305527BE1F5077A8B21F9798EBBE0BA9CBD", Encode(narrowed));
+    }
+
+    /// <summary>The record shrinks by the amount the table says, and the pose still arrives.</summary>
+    [Fact]
+    public void ANarrowedPoseIsSmallerAndStillArrives() {
+        using var world = new World("bones-narrow");
+        var full = new NetworkBonesReplicator();
+        var narrowed = new NetworkBonesReplicator(Ragdoll);
+
+        var spine = Quaternion.FromAxisAngle(Vector3.UnitY, 0.25f);
+        var finger = Quaternion.FromAxisAngle(Vector3.UnitX, -1f);
+        var entity = world.Create(new NetworkId(1), default(NetworkBones));
+
+        ref var bones = ref world.Get<NetworkBones>(entity);
+        bones.Count = 24;
+        bones.Rotations[0] = MathCodec.PackRotation(spine);
+        bones.Rotations[20] = MathCodec.PackRotation(finger);
+
+        Assert.Equal(776, DeltaCodec.TotalBits(full.Lanes));
+        Assert.Equal(560, DeltaCodec.TotalBits(narrowed.Lanes));
+
+        var buffer = new byte[256];
+        var writer = new BitWriter(buffer);
+        narrowed.Write(world, entity, ref writer);
+        Assert.True(writer.TryFinish(out var packet));
+
+        using var receiving = new World("bones-narrow-client");
+        var arrived = receiving.Create(new NetworkId(1));
+        var reader = new BitReader(packet);
+        Assert.True(narrowed.Apply(receiving, arrived, ref reader));
+
+        var got = receiving.Read<NetworkBones>(arrived);
+
+        // Slot 0 is at full precision, so it is exactly what was sent.
+        Assert.Equal(bones.Rotations[0], got.Rotations[0]);
+
+        // Slot 20 lost four bits a component. Six bits over ±1/√2 is a step of about 0.022, so the
+        // rotation is within a couple of degrees rather than within a tenth of one.
+        AssertRotationWithin(finger, MathCodec.UnpackRotation(got.Rotations[20]), 0.9995f);
+    }
+
+    /// <summary>A bone that did not move still costs one bit when its lane is narrower.</summary>
+    /// <remarks>
+    ///     The property the packed storage exists for, and the one narrowing could plausibly have
+    ///     broken: if the narrowing went through <c>UnpackRotation</c> and re-encoded, a re-normalised
+    ///     quaternion would come back with different bits from one tick to the next and every lane
+    ///     would look changed.
+    /// </remarks>
+    [Fact]
+    public void AStillBoneStillCostsOneBitWhenNarrowed() {
+        using var world = new World("bones-narrow-delta");
+        var narrowed = new NetworkBonesReplicator(NetworkBonePrecision.Uniform(NetworkBonePrecision.MinBits));
+        var entity = world.Create(new NetworkId(1), default(NetworkBones));
+
+        ref var bones = ref world.Get<NetworkBones>(entity);
+        bones.Count = 24;
+
+        for (var index = 0; index < 24; index++) {
+            bones.Rotations[index] = MathCodec.PackRotation(Quaternion.FromAxisAngle(Vector3.UnitY, index * 0.1f));
+        }
+
+        var first = Write(narrowed, world, entity);
+
+        world.Get<NetworkBones>(entity).Rotations[3] =
+            MathCodec.PackRotation(Quaternion.FromAxisAngle(Vector3.UnitX, 1.4f));
+
+        var second = Write(narrowed, world, entity);
+
+        var previous = new BitReader(first);
+        var now = new BitReader(second);
+        var delta = new BitWriter(new byte[256]);
+
+        Assert.True(DeltaCodec.TryEncode(narrowed.Lanes, ref previous, ref now, ref delta, default));
+
+        // Twenty-five lane bits, plus the one changed lane whole and its two-bit selector.
+        Assert.Equal(25 + 14, delta.BitsWritten);
+    }
+
+    /// <summary>Widening a narrowed rotation gives one that narrows back to itself.</summary>
+    /// <remarks>
+    ///     What lets a peer receive a pose and re-send it — a host, a listen server — without losing a
+    ///     second helping of precision each time it goes round.
+    /// </remarks>
+    [Fact]
+    public void NarrowingIsIdempotentThroughWidening() {
+        foreach (var rotation in Rotations()) {
+            var packed = MathCodec.PackRotation(rotation);
+
+            for (var bits = NetworkBonePrecision.MinBits; bits <= NetworkBonePrecision.MaxBits; bits++) {
+                var narrow = NetworkBonesReplicator.Narrow(packed, bits);
+                var wide = NetworkBonesReplicator.Widen(narrow, bits);
+
+                Assert.Equal(narrow, NetworkBonesReplicator.Narrow(wide, bits));
+            }
+        }
+    }
+
+    /// <summary>Widening picks the middle of the interval rather than its floor.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Measured against the alternative on the same inputs, not against a tolerance.</b> A
+    ///     tolerance loose enough for four bits is loose enough for the biased reconstruction too, so
+    ///     it would pass either way. Shifting back up alone picks the smallest of the run of
+    ///     full-precision levels a narrowed one stands for, every time and on all three components at
+    ///     once, which is a systematic lean and not noise.
+    /// </remarks>
+    [Fact]
+    public void WideningCentresTheIntervalRatherThanLeaningOnItsFloor() {
+        var centred = 0.0;
+        var floored = 0.0;
+        var count = 0;
+
+        for (var step = 0; step < 512; step++) {
+            var rotation = Quaternion.Normalize(
+                new(MathF.Sin(step * 0.37f), MathF.Cos(step * 0.11f), MathF.Sin(step * 0.53f), MathF.Cos(step * 0.29f))
+            );
+
+            var packed = MathCodec.PackRotation(rotation);
+            var narrow = NetworkBonesReplicator.Narrow(packed, 6);
+
+            centred += Error(rotation, MathCodec.UnpackRotation(NetworkBonesReplicator.Widen(narrow, 6)));
+            floored += Error(rotation, MathCodec.UnpackRotation(Floor(narrow, 6)));
+            count++;
+        }
+
+        Assert.True(
+            centred < floored * 0.8,
+            $"Centred reconstruction was {centred / count:F6} a rotation and the floored one {floored / count:F6}; "
+            + "centring is supposed to be substantially the better of the two."
+        );
+
+        // The same shift Widen does, without the half-step, which is the mistake being ruled out.
+        static uint Floor(uint narrow, int bits) {
+            var drop = NetworkBonePrecision.MaxBits - bits;
+            var mask = (1u << bits) - 1;
+            var result = narrow & 3u;
+
+            for (var level = 0; level < 3; level++) {
+                result |= ((narrow >> (2 + (level * bits))) & mask) << (drop + 2 + (level * NetworkBonePrecision.MaxBits));
+            }
+
+            return result;
+        }
+
+        static double Error(Quaternion expected, Quaternion actual) {
+            var dot = MathF.Abs(
+                (expected.X * actual.X) + (expected.Y * actual.Y) + (expected.Z * actual.Z) + (expected.W * actual.W)
+            );
+
+            return 1.0 - Math.Min(1.0, dot);
+        }
+    }
+
+    /// <summary>A width the codec cannot pack, or a table longer than a pose, is refused.</summary>
+    [Fact]
+    public void ATableTheCodecCannotPackIsRefused() {
+        Assert.Throws<ArgumentOutOfRangeException>(() => NetworkBonePrecision.Uniform(NetworkBonePrecision.MinBits - 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => NetworkBonePrecision.Uniform(NetworkBonePrecision.MaxBits + 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => NetworkBonePrecision.For(new int[NetworkBonesReplicator.MaxBones + 1]));
+
+        // A table shorter than the pose leaves the rest whole rather than guessing.
+        var partial = NetworkBonePrecision.For([4, 4]);
+
+        Assert.Equal(4, partial[0]);
+        Assert.Equal(NetworkBonePrecision.MaxBits, partial[NetworkBonesReplicator.MaxBones - 1]);
+    }
+
+    /// <summary>Four bones a spine and a head, four at eight bits, the rest of the ragdoll at six.</summary>
+    static NetworkBonePrecision Ragdoll { get; } = NetworkBonePrecision.For(
+        [10, 10, 10, 10, 8, 8, 8, 8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
+    );
+
+    /// <summary>Every slot distinct and none of them zero, which is what makes the pin say anything.</summary>
+    /// <remarks>
+    ///     ⚠ The first version of this filled three slots and left twenty-one at their default. Every
+    ///     unset slot packs to zero, zero narrows to zero at every width, and the narrowed listing came
+    ///     out byte-identical to the full one but shorter — so the pin was asserting a <i>length</i>,
+    ///     which is precisely the thing this repository has already been caught calling coverage.
+    /// </remarks>
+    static string Encode(NetworkBonesReplicator replicator) {
+        using var world = new World("bones-pin");
+        var entity = world.Create(new NetworkId(1), default(NetworkBones));
+
+        ref var bones = ref world.Get<NetworkBones>(entity);
+        bones.Count = NetworkBonesReplicator.MaxBones;
+
+        for (var slot = 0; slot < NetworkBonesReplicator.MaxBones; slot++) {
+            var axis = Vector3.Normalize(new(1f + (slot % 3), 2f - (slot % 5), 0.5f + (slot % 7)));
+            bones.Rotations[slot] = MathCodec.PackRotation(Quaternion.FromAxisAngle(axis, 0.31f * (slot + 1)));
+        }
+
+        return Convert.ToHexString(Write(replicator, world, entity));
+    }
+
+    static byte[] Write(NetworkBonesReplicator replicator, World world, Entity entity) {
+        var writer = new BitWriter(new byte[256]);
+        replicator.Write(world, entity, ref writer);
+        Assert.True(writer.TryFinish(out var packet));
+
+        return packet.ToArray();
+    }
+
+    static void AssertRotationWithin(Quaternion expected, Quaternion actual, float dot) {
+        var measured = MathF.Abs(
+            (expected.X * actual.X) + (expected.Y * actual.Y) + (expected.Z * actual.Z) + (expected.W * actual.W)
+        );
+
+        Assert.True(measured > dot, $"Expected {expected} and got {actual}; |dot| was {measured}.");
+    }
+
     static IEnumerable<Quaternion> Rotations() {
         yield return Quaternion.Identity;
         yield return Quaternion.FromAxisAngle(Vector3.UnitX, 1f);
