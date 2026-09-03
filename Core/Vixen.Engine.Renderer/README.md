@@ -25,6 +25,19 @@ does not reference a graphics API — which is what lets `Vixen.Physics`, `Vixen
 `Vixen.Audio` produce debug geometry without linking one. `Vixen.Rendering` draws lines without
 knowing what a debug overlay is. Putting the join in either would drag one into the other.
 
+**Which is also why the two diagnostic panels that need both sides live here.** `GpuOverlay` reads a
+`GpuFrame`, which is `Vixen.Graphics`', and implements `IDiagnosticOverlay`, which is
+`Vixen.Engine`'s; `StreamingOverlay` reads `WorldRenderer`'s residency and its texture streamer and
+implements the same interface.
+
+⚠ **`StreamingOverlay` is doc 13's third overlay, and the reason it was listed as blocked was
+wrong.** The overview said it needed `Vixen.Assets` to report and that `Vixen.Assets` may not
+reference `Vixen.Engine`, so it wanted a join assembly of its own. The numbers are not
+`Vixen.Assets`' at all — [its README](../Vixen.Assets/README.md) says there is no streaming manager
+there and points at `Vixen.Rendering`'s `PageResidency` — and the join assembly the blocker asked for
+is this one, which has held `GpuOverlay` since before the blocker was written. No project reference
+was added for it.
+
 ## A world, drawn
 
 `WorldRenderer` is the whole join: the standard features, the shared geometry buffer and its residency,

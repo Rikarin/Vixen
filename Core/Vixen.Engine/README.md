@@ -366,11 +366,18 @@ says gameplay is expected to write.
 is positive looking *up*, `OrbitBody`'s is positive riding *above* and looking down. Aiming up drops
 the camera and looks past the shoulder, which is what every third-person game does.
 
-⚠ **Split screen simulates; only seat zero is drawn.** Two players get two directors, two sets of
-shots and two cameras, all updating independently. `CameraExtractionSystem` fills one `RenderView`
-from the lowest `Camera.Order`, and a `RenderView` has no viewport rectangle — so `PlayerCameras` sets
-each camera's order from its channel, seat zero is on screen, and swapping who is watched is a
-component write. Two at once needs a view and a rect per player, which is the rendering pipeline's.
+⚠ **Split screen has both halves it was missing, and not yet a frame document.** Two players get two
+directors, two sets of shots and two cameras, all updating independently — and the two reasons only
+seat zero was ever drawn are gone: `RenderView.ViewportRect` is the rectangle, and
+`CameraExtractionSystem.Rank` is what fills one view per seat rather than one view from the lowest
+`Camera.Order`. `PlayerCameras.SeatRect` gives each seat its part of the screen and `SplitScreen`
+writes them; the order still decides which seat is which, so swapping who is on top is still a
+component write.
+
+⚠ **What is still owed is the frame, not the mechanism.** `!StandardFrame` binds one view at nineteen
+sites — the shadow atlas, the froxel grid, SSAO, the screen probes, every post effect — so a second
+seat is a second scene half with its own history planes rather than a second `!SingleStage`. Until
+that document exists, a game gets the rect and the rank and has to assemble the tree itself.
 
 ⚠ **Both systems run in `SystemPhase.Input`, and that is not a shortcut.** What reacts to the intent
 is a movement system in `FixedUpdate` — the next phase, and therefore across a hard sync where
