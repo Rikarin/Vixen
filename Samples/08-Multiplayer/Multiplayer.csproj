@@ -14,6 +14,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
+
+        <!--
+            ⚠ The reference that did not exist, and its absence was structural rather than
+            incidental: no sample in the tree named both `Vixen.Engine` and `Vixen.Net`, so nothing
+            had both a behaviour loop and a session, so `NetworkBehaviour` — with `SyncVar`,
+            `SyncList` and the sweep that marks them — had no subclass outside a test project. See
+            `FighterScore`, which is the first one.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Engine\Vixen.Net.Engine.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Udp\Vixen.Net.Transport.Udp.csproj" />
 

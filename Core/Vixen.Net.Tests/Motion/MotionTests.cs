@@ -76,6 +76,8 @@ public sealed class MotionTests {
 
     [Fact]
     public void TwoSamplesTooFarApartAreATeleportRatherThanAVeryFastWalk() {
+        // Opt-in now, and this test is the only place in the tree that opts in. See
+        // ADistanceThatIsAlsoASpeedNoLongerSnapsAnythingByItself for why it is not the default.
         var buffer = new SnapshotBuffer(options: new() { SnapDistance = 5f });
         buffer.Add(new(new(1), new(0, 0, 0), Quaternion.Identity));
         buffer.Add(new(new(2), new(100, 0, 0), Quaternion.Identity));
@@ -86,6 +88,81 @@ public sealed class MotionTests {
         Assert.Equal(100f, sample.Position.X, 3);
         Assert.Equal(1, buffer.SnappedCount);
         Assert.Equal(0, buffer.InterpolatedCount);
+    }
+
+    /// <summary>
+    ///     ⚠ The counter was written, quantised, sent and decoded, and the buffer never looked at it.
+    /// </summary>
+    [Fact]
+    public void AChangedTeleportCountSnaps_HoweverShortTheJump() {
+        var buffer = new SnapshotBuffer();
+
+        // Two metres: a door, a short blink. Far under any distance threshold that would not also
+        // catch a projectile, which is exactly why the distance cannot answer this.
+        buffer.Add(new(new(1), new(0, 0, 0), Quaternion.Identity, 4));
+        buffer.Add(new(new(2), new(2, 0, 0), Quaternion.Identity, 5));
+
+        Assert.True(buffer.TrySample(new(1), 0.5f, out var sample));
+
+        Assert.Equal(2f, sample.Position.X, 3);
+        Assert.Equal(1, buffer.SnappedCount);
+        Assert.Equal(0, buffer.InterpolatedCount);
+    }
+
+    /// <summary>The other half: a counter that does not change is not a teleport, however far it went.</summary>
+    [Fact]
+    public void ADistanceThatIsAlsoASpeedNoLongerSnapsAnythingByItself() {
+        var buffer = new SnapshotBuffer();
+
+        // A hundred metres in one 20 Hz snapshot interval is 2 km/s — absurd for a player and
+        // ordinary for a railgun round. The old five-metre default called it a teleport at 100 m/s.
+        buffer.Add(new(new(1), new(0, 0, 0), Quaternion.Identity, 3));
+        buffer.Add(new(new(2), new(100, 0, 0), Quaternion.Identity, 3));
+
+        Assert.True(buffer.TrySample(new(1), 0.5f, out var sample));
+
+        Assert.Equal(50f, sample.Position.X, 3);
+        Assert.Equal(0, buffer.SnappedCount);
+        Assert.Equal(1, buffer.InterpolatedCount);
+    }
+
+    /// <summary>
+    ///     ⚠ Extrapolating across a teleport does not merely fail to snap — it takes the jump as this
+    ///     tick's velocity and keeps travelling, so the object leaves the map rather than arriving.
+    /// </summary>
+    [Fact]
+    public void ATeleportIsNotAVelocity() {
+        var buffer = new SnapshotBuffer();
+        buffer.Add(new(new(10), new(0, 0, 0), Quaternion.Identity, 1));
+        buffer.Add(new(new(11), new(60, 0, 0), Quaternion.Identity, 2));
+
+        // Two ticks past the newest sample. Extrapolated from the pair, that is 180 metres away.
+        Assert.True(buffer.TrySample(new(13), 0f, out var ahead));
+
+        Assert.Equal(60f, ahead.Position.X, 3);
+        Assert.Equal(0, buffer.ExtrapolatedCount);
+        Assert.Equal(1, buffer.SnappedCount);
+    }
+
+    /// <summary>Wrapping is not a break in the sequence: 255 → 0 is a change like any other.</summary>
+    [Fact]
+    public void TheCounterWrapsAndTheWrapIsStillATeleport() {
+        var buffer = new SnapshotBuffer();
+        buffer.Add(new(new(1), new(0, 0, 0), Quaternion.Identity, 255));
+        buffer.Add(new(new(2), new(1, 0, 0), Quaternion.Identity, 0));
+
+        Assert.True(buffer.TrySample(new(1), 0.5f, out var sample));
+
+        Assert.Equal(1f, sample.Position.X, 3);
+        Assert.Equal(1, buffer.SnappedCount);
+    }
+
+    /// <summary>Zero would snap on every movement, which is the fallback's opposite.</summary>
+    [Fact]
+    public void ASnapDistanceOfZeroIsRefusedRatherThanTakenAsOff() {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotBufferOptions { SnapDistance = 0f });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotBufferOptions { SnapDistance = -1f });
+        Assert.Null(new SnapshotBufferOptions().SnapDistance);
     }
 
     [Fact]

@@ -4,6 +4,8 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Engine.Behaviors;
+using Vixen.Net.Engine;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
@@ -25,6 +27,9 @@ internal sealed class Fighter {
 
     /// <summary>Where its remote calls arrive and leave from.</summary>
     public required AvatarController Controller { get; init; }
+
+    /// <summary>Its scoreboard, which is a behaviour rather than a component. See <see cref="FighterScore" />.</summary>
+    public required FighterScore Score { get; init; }
 
     /// <summary>The last direction its owner asked for.</summary>
     public Vector3 Intent { get; set; }
@@ -99,6 +104,7 @@ internal sealed class Arena {
     readonly NetworkIdAllocator ids;
     readonly ReplicationServer replication;
     readonly RpcRouter router;
+    readonly BehaviorStore behaviors;
     readonly float step;
     readonly Dictionary<uint, Fighter> byNetworkId = [];
     readonly Dictionary<uint, Fighter> byPlayer = [];
@@ -118,23 +124,58 @@ internal sealed class Arena {
     /// <summary>How many fighters have died.</summary>
     public int Deaths { get; private set; }
 
+    /// <summary>The longest run of kills anybody has managed, off the behaviour rather than a component.</summary>
+    public int BestStreak {
+        get {
+            var best = 0;
+
+            foreach (var fighter in fighters) {
+                best = Math.Max(best, fighter.Score.Fields.Best.Value);
+            }
+
+            return best;
+        }
+    }
+
+    /// <summary>How many entries are in every fighter's killfeed, added up.</summary>
+    /// <remarks>
+    ///     Equal to <see cref="Deaths" /> for as long as nobody leaves mid-match, which is what makes
+    ///     it worth printing beside it: the two numbers are the same fact taken by two different
+    ///     routes — one a counter in this class, the other a <c>SyncList</c> that has crossed the wire
+    ///     and come back as an assertion in <c>LocalMatch</c>.
+    /// </remarks>
+    public int KillFeedLength {
+        get {
+            var total = 0;
+
+            foreach (var fighter in fighters) {
+                total += fighter.Score.Victims.Count;
+            }
+
+            return total;
+        }
+    }
+
     /// <summary>Creates the game.</summary>
     /// <param name="world">The server's world.</param>
     /// <param name="ids">Where networked ids come from.</param>
     /// <param name="replication">What is told when an entity stops existing.</param>
     /// <param name="router">Where remote calls arrive and leave from.</param>
     /// <param name="rate">How long one tick is worth.</param>
+    /// <param name="behaviors">Where a fighter's <see cref="FighterScore" /> is attached.</param>
     public Arena(
         World world,
         NetworkIdAllocator ids,
         ReplicationServer replication,
         RpcRouter router,
-        TickRate rate
+        TickRate rate,
+        BehaviorStore behaviors
     ) {
         this.world = world;
         this.ids = ids;
         this.replication = replication;
         this.router = router;
+        this.behaviors = behaviors;
         step = (float)rate.Duration.TotalSeconds;
     }
 
@@ -160,11 +201,16 @@ internal sealed class Arena {
         // the same the moment a vehicle changes hands.
         router.Ownership.SetOwner(id, player);
 
+        // The behaviour half of this fighter's state. `IsServer` is set by whoever attaches it —
+        // nothing in Vixen.Net.Engine infers it, because a listen server holds both roles at once.
+        var score = behaviors.Add(entity, new FighterScore { IsServer = true });
+
         var fighter = new Fighter {
             Player = player,
             Id = id,
             Entity = entity,
-            Controller = controller
+            Controller = controller,
+            Score = score
         };
 
         fighters.Add(fighter);
@@ -346,6 +392,11 @@ internal sealed class Arena {
 
             ref var credit = ref world.Get<Vitals>(shooter.Entity);
             credit.Score++;
+
+            // The same fact in the other authoring style, and it carries what a component cannot:
+            // *who*. Nothing calls MarkChanged — SyncStateSweepSystem does it at the end of the
+            // frame, once, for everything the behaviour touched.
+            shooter.Score.Record(victim.Id.Value);
         }
 
         // The effect, not the fact: the damage itself is in the Vitals above and arrives however

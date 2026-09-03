@@ -430,7 +430,7 @@ that the snapshots bracketing the moment being drawn have already arrived. `Snap
 delay, and the delay is what buys the interpolation something to interpolate between.
 
 ```csharp
-buffer.Add(new TransformSample(tick, position, rotation));
+buffer.Add(new TransformSample(tick, position, rotation, transform.TeleportCount));
 if (buffer.TrySample(clock.InterpolationTick, clock.Alpha, out var at)) { … }
 ```
 
@@ -439,9 +439,16 @@ Four behaviours, each with a counter:
 - **Interpolate** between the two samples bracketing the target — the ordinary case.
 - **Extrapolate** past the newest, from the velocity of the last two, **clamped**: a player who
   stopped a second ago should not still be crossing the map on everybody else's screen.
-- **Snap** when two consecutive samples are further apart than a walk — a respawn is not a very fast
-  run through everything in between.
+- **Snap** when `TeleportCount` changed between two consecutive samples — the sender saying the object
+  was put there rather than having moved there.
 - **Hold** when there is nothing to work with, rather than guessing.
+
+⚠ **The snap is told, not inferred, and it used to be inferred.** The counter reached the receiver and
+was dropped; the buffer decided from a five-metre threshold instead, which over a 20 Hz snapshot
+interval is a speed — 100 m/s — so a projectile was snapped for moving fast and a two-metre teleport
+was smoothed across the jump. `SnapshotBufferOptions.SnapDistance` still exists and is now **null by
+default**: a caller feeding samples from a source with no counter may set one knowing its own top
+speed, which the engine does not.
 
 Rotation is held rather than extrapolated. A position that overshoots comes back with the next
 snapshot and reads as momentum; a rotation that overshoots reads as a stumble.

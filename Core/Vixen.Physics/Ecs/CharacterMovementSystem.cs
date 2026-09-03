@@ -49,6 +49,10 @@ public sealed class CharacterMovementSystem(PhysicsScene scene) : SystemBase, ID
         .Write<CharacterBody>()
         .Write<LocalTransform>()
         .Write<PhysicsInterpolation>()
+
+        // Written, not read: StepCharacters consumes a teleport tag put on a character and takes it
+        // off again, exactly as PhysicsSyncSystem does for a rigid body.
+        .Write<PhysicsTeleport>()
         .Build();
 
     /// <inheritdoc />

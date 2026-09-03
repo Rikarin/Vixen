@@ -258,11 +258,21 @@ public struct PhysicsInterpolation {
 ///         threshold that catches one catches the other. Only the caller knows.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Inert on a character, and it stays on.</b> The bridge acts on this while walking the
-///         entities that have a <see cref="PhysicsBody" />, and a character has a
-///         <c>CharacterBody</c> instead — so a tag put on one is neither read nor taken off again.
-///         A character needs none of it: writing its <c>LocalTransform</c> <i>is</i> the teleport,
-///         and <c>PhysicsScene.Adopt</c> is what makes that true.
+///         <b>A character does not need it, and now consumes it anyway.</b> Writing a character's
+///         <c>LocalTransform</c> <i>is</i> the teleport — <c>PhysicsScene.Adopt</c> is what makes
+///         that true — so the tag adds nothing to the ordinary case. What it does add is certainty in
+///         the one case Adopt is unsure about: a teleport that lands exactly where the smoothing last
+///         drew the character is indistinguishable from the smoothing's own write, and is refused
+///         without it.
+///     </para>
+///     <para>
+///         ⚠ <b>It used to be inert there, which meant it stayed on for ever.</b> The bridge acts on
+///         this while walking the entities that have a <see cref="PhysicsBody" />, and a character has
+///         a <c>CharacterBody</c> instead — so a tag put on one was neither read nor taken off again,
+///         and every consumer that treats it as an event rather than a state then fired on every
+///         tick: <c>NetworkRigidBodyCaptureSystem</c> re-adds <c>NetworkTeleport</c>, the transform
+///         bridge bumps <c>NetworkTransform.TeleportCount</c>, and a receiver refuses to interpolate
+///         that entity again. <c>PhysicsScene.StepCharacters</c> takes it off.
 ///     </para>
 /// </remarks>
 public struct PhysicsTeleport : ITagComponent;

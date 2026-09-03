@@ -169,6 +169,15 @@ internal static class LocalMatch {
             + $"{arena.ShotsFired:N0} shots ({arena.ShotsHit:N0} hit, {arena.Deaths:N0} deaths)"
         );
 
+        // The behaviour-shaped half of the same match. A killfeed length that matches the death
+        // count says the SyncList went out; a best streak above zero says the SyncVars did — and
+        // neither is marked dirty by anything in this sample, so both are also SyncStateSweepSystem
+        // reporting for duty.
+        Write(
+            $"         scoreboard behaviour: {arena.KillFeedLength:N0} killfeed entries, "
+            + $"best streak {arena.BestStreak:N0}"
+        );
+
         Write(
             $"         {server.SnapshotCount:N0} snapshots, {server.SnapshotBytes / 1024d:N1} KiB, "
             + $"mean {Mean(server.SnapshotBytes, server.SnapshotCount):N0} B, "
@@ -303,6 +312,31 @@ internal static class LocalMatch {
                         $"client {name}: {fighter.Id} vitals disagree — "
                         + $"{seen.Health}/{seen.Score}/{seen.Deaths} against "
                         + $"{vitals.Health}/{vitals.Score}/{vitals.Deaths}"
+                    );
+
+                    failures++;
+                }
+
+                // And the same question of the behaviour, which is a different road to the client:
+                // the vitals above arrived as a component and this arrived as a SyncVar record and a
+                // SyncList record, applied into a behaviour the replicator attached. ⚠ The list is
+                // checked by length and by its last entry rather than by identity — an append is
+                // sent as an operation, so a feed that is right at the end and wrong in the middle
+                // is a replayed or reordered operation, which is exactly what would go unnoticed.
+                if (!client.TryScore(fighter.Id, out var board) || board is null) {
+                    Write($"client {name}: {fighter.Id} has no scoreboard behaviour at all");
+                    failures++;
+                } else if (board.Victims.Count != fighter.Score.Victims.Count
+                    || board.Fields.Best.Value != fighter.Score.Fields.Best.Value
+                    || board.Fields.Streak.Value != fighter.Score.Fields.Streak.Value
+                    || (board.Victims.Count > 0
+                        && board.Victims[^1] != fighter.Score.Victims[fighter.Score.Victims.Count - 1])) {
+                    Write(
+                        $"client {name}: {fighter.Id} scoreboard disagrees — "
+                        + $"{board.Victims.Count} kills / streak {board.Fields.Streak.Value} / "
+                        + $"best {board.Fields.Best.Value} against "
+                        + $"{fighter.Score.Victims.Count} / {fighter.Score.Fields.Streak.Value} / "
+                        + $"{fighter.Score.Fields.Best.Value}"
                     );
 
                     failures++;
