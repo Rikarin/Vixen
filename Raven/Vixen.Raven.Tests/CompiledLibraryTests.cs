@@ -104,6 +104,42 @@ public class CompiledLibraryTests {
         return (compilation, module, [.. semantic, .. bag.ToArray()]);
     }
 
+    /// <summary>
+    ///     <see cref="Consume" /> without the clean-compile assertion, for the fixtures whose
+    ///     subject <em>is</em> a diagnostic out of lowering or the verifier.
+    /// </summary>
+    /// <remarks>
+    ///     Separate rather than a flag on <see cref="Consume" />, so that every other caller keeps
+    ///     failing on the first error instead of carrying it silently into an assertion about
+    ///     something else. The semantic half is still checked here: a fixture that does not bind is
+    ///     not a fixture about lowering.
+    /// </remarks>
+    static (Compilation Compilation, IrModule Module, IReadOnlyList<Diagnostic> Diagnostics) ConsumeWithoutChecking(
+        string source,
+        params CompiledLibrary[] libraries
+    ) {
+        var references = libraries
+            .Select(library => RavenReference.FromLibrary(CompiledLibraryReader.Read(CompiledLibraryWriter.Write(library))))
+            .ToArray();
+
+        var tree = SyntaxTree.ParseText(source, path: "Consumer.rvn");
+        Assert.Empty(tree.Diagnostics);
+
+        var compilation = Compilation.Create("Consumer", references, [tree]);
+        var semantic = compilation.GetDiagnostics();
+
+        Assert.True(
+            !semantic.Any(d => d.IsError),
+            "Expected no semantic errors, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+        );
+
+        var bag = new DiagnosticBag();
+        var module = Lowerer.Lower(compilation, bag);
+        IrVerifier.Verify(module, bag);
+
+        return (compilation, module, [.. semantic, .. bag.ToArray()]);
+    }
+
     // --- The container ----------------------------------------------------
 
     /// <summary>
@@ -409,6 +445,217 @@ public class CompiledLibraryTests {
         Assert.NotSame(called[0], called[1]);
         Assert.Equal(IrIntrinsic.Sqrt, OnlyIntrinsic(called[0]));
         Assert.Equal(IrIntrinsic.Abs, OnlyIntrinsic(called[1]));
+    }
+
+    /// <summary>
+    ///     ⚠ Two libraries that each declare a <em>struct</em> of the same name collapse to the
+    ///     first, and this pins the defect rather than the fix.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of <see cref="SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody" />,
+    ///         and the half still open. A function crosses a library boundary by its artefact
+    ///         <em>key</em>, derived from the declaration; a struct crosses by its bare IR name. So
+    ///         two libraries' <c>Shape</c>s are one object with the first library's fields, and the
+    ///         second library's function returns a value whose members belong to somebody else.
+    ///         <c>LibraryIrCodec</c>'s decoder says so in its own remarks — "the cost is that two
+    ///         libraries exporting the same IR name collapse to the first" — and nothing executed
+    ///         that sentence until now.
+    ///     </para>
+    ///     <para>
+    ///         <b>Two fixtures, because the failure has two severities and only one is
+    ///         survivable.</b> Different field counts reach the IR verifier as <c>RVN3010</c>,
+    ///         which is a refusal an author can read. Equal counts do not — see
+    ///         <see cref="SameNamedStructsOfEqualWidthCollapseWithNoDiagnosticAtAll" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Why this is pinned rather than fixed, which is the part worth writing down.</b>
+    ///         Sharing structs by name is not simply wrong, and a fix that qualifies every struct
+    ///         name breaks two things that depend on it. A <em>tuple</em>'s name is derived from its
+    ///         element types, so the name <em>is</em> its structural identity and two libraries'
+    ///         <c>Tuple_f32_f32</c> have to stay one type — <c>Lowerer.LowerTuple</c> says in its
+    ///         own remarks that this is necessary and not an optimisation, because a library
+    ///         function returning <c>(float, float)</c> would otherwise return a different type from
+    ///         the one the caller's local holds. A monomorphised generic is named the same way. So
+    ///         the fix is a key beside the name, as functions already have, with structural identity
+    ///         exempted and the decoder routing a reference to the library it came from — which is
+    ///         more than one method. Filed as
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/504">#504</a>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void SameNamedStructsInTwoLibrariesCollapseToTheFirst() {
+        var geometry = BuildLibrary(
+            "Geometry",
+            """
+            package Geometry
+
+            struct Shape {
+                var radius: float
+            }
+
+            struct Shapes {
+                static func Make(a: float): Shape {
+                    var s: Shape
+                    s.radius = a
+                    return s
+                }
+            }
+
+            """
+        );
+
+        var physics = BuildLibrary(
+            "Physics",
+            """
+            package Physics
+
+            struct Shape {
+                var mass: float
+                var drag: float
+            }
+
+            struct Bodies {
+                static func Make(a: float): Shape {
+                    var s: Shape
+                    s.mass = a
+                    s.drag = a * 2f
+                    return s
+                }
+            }
+
+            """
+        );
+
+        // ⚠ Loud, and loud is the good case: Physics.Shape became Geometry.Shape, which has one
+        // field, so writing the second is an access the verifier refuses.
+        var (_, module, diagnostics) = ConsumeWithoutChecking(
+            """
+            package App
+
+            import Geometry
+            import Physics
+
+            shader Lit {
+                var amount: float
+
+                [FragmentShader]
+                func Shade(): float4 {
+                    val a = Shapes.Make(amount)
+                    val b = Bodies.Make(amount)
+                    return float4(a.radius, b.mass, 0f, 1f)
+                }
+            }
+
+            """,
+            geometry,
+            physics
+        );
+
+        Assert.Contains(diagnostics, d => d.Id == "RVN3010");
+
+        // And the collapse itself, so the assertion above cannot be satisfied by some other error:
+        // one struct object reached twice, carrying the first library's fields.
+        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var made = CallGraph.Calls(shade.Body).ToArray();
+
+        Assert.Equal(2, made.Length);
+        Assert.Same(made[0].ReturnType, made[1].ReturnType);
+        Assert.Equal(["radius"], Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(f => f.Name));
+    }
+
+    /// <summary>
+    ///     ⚠ The silent half of <see cref="SameNamedStructsInTwoLibrariesCollapseToTheFirst" />:
+    ///     equal field counts, so nothing complains and the shader reads the wrong member.
+    /// </summary>
+    /// <remarks>
+    ///     This is the case that makes the collapse worth fixing rather than documenting. There is
+    ///     no diagnostic, no verifier complaint and no invalid module — <c>b.height</c> lowers to a
+    ///     read of <c>Shape.drag</c>, and the only symptom is a number.
+    /// </remarks>
+    [Fact]
+    public void SameNamedStructsOfEqualWidthCollapseWithNoDiagnosticAtAll() {
+        var physics = BuildLibrary(
+            "Physics",
+            """
+            package Physics
+
+            struct Shape {
+                var mass: float
+                var drag: float
+            }
+
+            struct Bodies {
+                static func Make(a: float): Shape {
+                    var s: Shape
+                    s.mass = a
+                    s.drag = a * 2f
+                    return s
+                }
+            }
+
+            """
+        );
+
+        var terrain = BuildLibrary(
+            "Terrain",
+            """
+            package Terrain
+
+            struct Shape {
+                var width: float
+                var height: float
+            }
+
+            struct Plots {
+                static func Make(a: float): Shape {
+                    var s: Shape
+                    s.width = a
+                    s.height = a * 3f
+                    return s
+                }
+            }
+
+            """
+        );
+
+        var (_, module, diagnostics) = Consume(
+            """
+            package App
+
+            import Physics
+            import Terrain
+
+            shader Lit {
+                var amount: float
+
+                [FragmentShader]
+                func Shade(): float4 {
+                    val a = Bodies.Make(amount)
+                    val b = Plots.Make(amount)
+                    return float4(a.mass, b.width, b.height, 1f)
+                }
+            }
+
+            """,
+            physics,
+            terrain
+        );
+
+        // Nothing at all, which is the finding.
+        Assert.DoesNotContain(diagnostics, d => d.IsError);
+
+        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var made = CallGraph.Calls(shade.Body).ToArray();
+
+        Assert.Equal(2, made.Length);
+        Assert.Same(made[0].ReturnType, made[1].ReturnType);
+
+        // `Plots.Make` returns a Shape whose fields are Physics's, so `b.height` is `drag`.
+        Assert.Equal(
+            ["mass", "drag"],
+            Assert.IsType<IrStructType>(made[1].ReturnType).Fields.Select(f => f.Name)
+        );
     }
 
     static IrIntrinsic OnlyIntrinsic(IrFunction function) =>
