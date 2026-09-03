@@ -172,6 +172,8 @@ Vixen.App.GraphicsOptions.CapturePath.set -> string?
 Vixen.App.GraphicsOptions.CasterStages.get -> System.Collections.Generic.IList<string>
 Vixen.App.GraphicsOptions.Compositor.get -> string?
 Vixen.App.GraphicsOptions.Compositor.set -> string?
+Vixen.App.GraphicsOptions.DenyList.get -> Vixen.Graphics.GpuDenyList
+Vixen.App.GraphicsOptions.DenyList.set -> Vixen.Graphics.GpuDenyList
 Vixen.App.GraphicsOptions.Enabled.get -> bool
 Vixen.App.GraphicsOptions.Enabled.set -> bool
 Vixen.App.GraphicsOptions.EnabledOverlays.get -> System.Collections.Generic.IList<string>

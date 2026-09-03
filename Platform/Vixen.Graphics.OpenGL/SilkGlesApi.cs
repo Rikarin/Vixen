@@ -98,6 +98,42 @@ public sealed class SilkGlesApi : IGlApi, IDisposable {
         owned = true;
     }
 
+    /// <summary>Loads the entry points from a function that resolves them by name.</summary>
+    /// <param name="getProcAddress">What turns <c>glDrawArrays</c> into an address.</param>
+    /// <param name="profile">Which dialect the current context was created for.</param>
+    /// <returns>The entry points.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="getProcAddress" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The overload a platform can reach, and its absence is why nothing outside this
+    ///         assembly's own tests ever built a GLES binding.</b> <see cref="SilkGlApi" /> has had
+    ///         this since the desktop path was wired and this did not, so a windowing layer holding
+    ///         an <c>IGlContext</c> — which names no Silk type, deliberately, because
+    ///         <c>Vixen.Platform</c> is a Core assembly — had exactly one binding it could
+    ///         construct, and it was the desktop one. An embedded context loaded through it gets
+    ///         <c>libGL</c>'s table, which on a phone is not a wrong version of the right library
+    ///         but a library that is not installed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A context has to be current on this thread already</b>, for the reason
+    ///         <see cref="SilkGlApi.FromProcAddress" /> states: a table resolved with none current
+    ///         is a table of nulls that fails at the first draw rather than here.
+    ///     </para>
+    /// </remarks>
+    public static SilkGlesApi FromProcAddress(Func<string, nint> getProcAddress, GlProfile profile) {
+        ArgumentNullException.ThrowIfNull(getProcAddress);
+
+        // Owned, as in SilkGlApi: the GL this builds wraps a context loaded here, so nothing else
+        // can dispose it.
+        return new(GL.GetApi(getProcAddress), profile, owned: true);
+    }
+
+    SilkGlesApi(GL gl, GlProfile profile, bool owned) {
+        this.gl = gl;
+        Profile = Checked(profile);
+        this.owned = owned;
+    }
+
     /// <inheritdoc />
     public GlProfile Profile { get; }
 

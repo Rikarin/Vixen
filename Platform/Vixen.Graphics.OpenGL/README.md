@@ -134,6 +134,34 @@ then, if it refuses, for 3.0, because `GL_VERSION` can only be read through a co
 exists. Everything the renderer gates on — compute, storage buffers, indirect draws — follows from
 which rung answered.
 
+### Reaching them from a head, which is a second ladder one rung up
+
+`SilkGlesApi.FromProcAddress` is the overload a windowing layer can call. `Vixen.Platform`'s
+`IGlContext` deliberately names no Silk type — it is a `Core/` assembly — so the only thing a
+platform that has made a context current can hand over is `GetProcAddress`, and until this existed
+`SilkGlApi.FromProcAddress` was the only such overload in the assembly. ⚠ **That is why
+`Tools/Vixen.App` loaded every context through the desktop binding, including the ones its own
+`ProfileOf` had just called GLES**: `libGL` and `libGLESv2` are two libraries, and an embedded
+context resolved through the first is asking a library Android does not ship for entry points its
+own driver owns.
+
+`GraphicsHost` now asks its window for a 4.5 core context and then, if that is refused, for GLES
+3.0 — core first for the same reason `EglContext`'s ladder puts 3.2 first, because the profile with
+`glClipControl` is the one worth having and a machine that silently settled for less would take the
+fallback path forever. The binding follows the profile that came back.
+
+⚠ **A config `eglChooseConfig` matched is not yet a config a window will accept.** An
+`ANativeWindow` has a buffer format of its own and `eglCreateWindowSurface` answers `EGL_BAD_MATCH`
+when it disagrees with the config's `EGL_NATIVE_VISUAL_ID` — so the visual is read between the two
+and handed to `EglContextOptions.PrepareNativeWindow`, whose job on Android is
+`ANativeWindow_setBuffersGeometry(window, 0, 0, visual)`. It is a callback because that function is
+in `libandroid.so` and belongs to the platform that owns the window.
+
+That step was absent and every windowed test here passed, because `RecordingEglApi` returned a
+surface for any window. It now refuses a mismatch the way the driver does — which put fourteen
+existing tests red the moment it was added, and is the shape of test double this repository keeps
+being caught by: one that accepts a call order the runtime rejects.
+
 **There is no `Silk.NET.EGL` for Silk.NET 2**; the package stops at 1.9.0, and Silk.NET 2's GLES
 windowing reaches EGL through GLFW or SDL rather than binding it. So `NativeEglApi` loads nineteen
 entry points out of the platform's `libEGL` itself, through `Vixen.Platform.Native` — the same

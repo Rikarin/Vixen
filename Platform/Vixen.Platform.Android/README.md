@@ -115,13 +115,29 @@ surface arrives and the device is built.
 the assemblies separately — and without it the process aborts in `monodroid` with "No assemblies
 found".
 
-**No GLES fallback.** Doc 10 asks for one that is genuinely maintained rather than aspirational, plus
-a device-capability deny-list keyed on GPU and driver version. Neither exists; the Vulkan backend is
-the only one, and on a device that reports Vulkan and then fails an extension there is currently
-nowhere to go.
+**No GLES fallback from this assembly.** The deny-list half now exists and is reached —
+`GpuDenyList`, handed to the Vulkan backend through `GraphicsOptions.DenyList` and consulted between
+physical-device enumeration and device creation, so a denied GPU makes the head's preference list
+fall through. What is still missing is the half that lives here: nothing in this assembly implements
+`IGlContextSource`, so `[Vulkan, OpenGl, Null]` on Android falls from Vulkan straight to Null.
 
-**NativeAOT is not the target here.** `warning XA1040` calls it experimental and not suitable for
-production, and the plan only ever committed to NativeAOT for iOS. Android's gate should be its
-default runtime.
+The shape of the missing piece is known and small. `EglContext` in `Vixen.Graphics.OpenGL` is a GLES
+context over a hand-loaded `libEGL`; what it needs from here is an `IGlContext` adapter over it and
+one Android-only call — `ANativeWindow_setBuffersGeometry(window, 0, 0, visual)` with the config's
+`EGL_NATIVE_VISUAL_ID`, which `EglContextOptions.PrepareNativeWindow` exists to receive. ⚠ Without
+that call `eglCreateWindowSurface` answers `EGL_BAD_MATCH`; it is the one step no recorded call
+stream could have shown was missing.
+
+**NativeAOT is not the target here, and neither is CoreCLR.** ⚠ `XA1040` is narrower in this README
+than it is in the SDK. Its text is *"The **{0}** runtime on Android is an experimental feature and
+not yet suitable for production use"*, and `Xamarin.Android.Common.targets` raises it whenever
+`_AndroidRuntime != MonoVM` and `EnablePreviewFeatures != true` — so it names **CoreCLR** exactly as
+readily as NativeAOT. In Android SDK 36.1.69 (.NET 10) `UseMonoRuntime` defaults to true, so the
+*default* runtime is MonoVM, and `RunAOTCompilation` is already true there for a Release build.
+
+⚠ That has a consequence for the gate doc 10 owes, and it is the "instrument that never ran" shape:
+`SuppressTrimAnalysisWarnings` defaults to **true** unless `TrimMode` is `full` or `IsAotCompatible`
+is set, so an Android publish gate written the obvious way would report zero trim warnings on any
+amount of reflection debt. It has to set one of those two before its green means anything.
 
 Licensed under Apache-2.0.

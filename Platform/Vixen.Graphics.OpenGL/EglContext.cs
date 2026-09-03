@@ -27,6 +27,11 @@ namespace Vixen.Graphics.OpenGL;
 /// <param name="SwapInterval">
 ///     How many vertical intervals a present waits for — one for vsync, zero for none.
 /// </param>
+/// <param name="PrepareNativeWindow">
+///     Called with the native window and the chosen config's
+///     <see cref="EglConstants.NativeVisualId" />, between choosing the config and creating the
+///     surface, or <see langword="null" /> for a platform that needs nothing done.
+/// </param>
 public readonly record struct EglContextOptions(
     nint NativeWindow,
     Int2 OffscreenSize = default,
@@ -37,7 +42,8 @@ public readonly record struct EglContextOptions(
     int Samples = 1,
     bool Debug = false,
     nint ShareContext = 0,
-    int SwapInterval = 1
+    int SwapInterval = 1,
+    Action<nint, int>? PrepareNativeWindow = null
 );
 
 /// <summary>A GLES context on an EGL display, and the surface it presents to.</summary>
@@ -68,6 +74,18 @@ public readonly record struct EglContextOptions(
 ///         <see cref="EglContextOptions.Profile" /> gets one attempt and the driver's own error if it
 ///         fails, because "3.2 or nothing" is a legitimate thing to want and silently getting 3.0 —
 ///         with no compute, no storage buffers and no indirect draws — is not an answer to it.
+///     </para>
+///     <para>
+///         ⚠ <b>A config that matched is not yet a config a window will accept.</b> An
+///         <c>ANativeWindow</c> carries a buffer format of its own, chosen by the
+///         <c>SurfaceView</c>, and <c>eglCreateWindowSurface</c> answers <c>EGL_BAD_MATCH</c> when
+///         it disagrees with the config's <c>EGL_NATIVE_VISUAL_ID</c>. So the visual is read
+///         between choosing the config and creating the surface and handed to
+///         <see cref="EglContextOptions.PrepareNativeWindow" /> — a callback, because the call that
+///         acts on it is <c>ANativeWindow_setBuffersGeometry</c> in <c>libandroid.so</c>, which
+///         belongs to the platform that owns the window and not to a graphics backend. Nothing in
+///         the call stream said this was missing, which is why the recording fake now refuses a
+///         mismatch the way a driver does.
 ///     </para>
 ///     <para>
 ///         <b>Teardown is the construction sequence backwards, and it runs on a failed
@@ -132,7 +150,25 @@ public sealed class EglContext : IGLContext {
             }
 
             config = ChooseConfig(options, windowed);
+
+            // ⚠ Read before the surface and only for a window, because it is the surface it
+            // constrains. See NativeVisualId: on Android this is the step between a config that
+            // matched and a config a window will accept.
+            NativeVisualId = windowed && egl.GetConfigAttrib(
+                display,
+                config,
+                EglConstants.NativeVisualId,
+                out var visual
+            )
+                ? visual
+                : 0;
+
             (context, Profile) = CreateContext(ladder, options, minor);
+
+            if (windowed) {
+                options.PrepareNativeWindow?.Invoke(options.NativeWindow, NativeVisualId);
+            }
+
             surface = CreateSurface(options, windowed);
 
             if (!egl.MakeCurrent(display, surface, surface, context)) {
@@ -156,6 +192,18 @@ public sealed class EglContext : IGLContext {
 
     /// <summary>The EGL version the driver implements.</summary>
     public (int Major, int Minor) EglVersion { get; }
+
+    /// <summary>The chosen config's <c>EGL_NATIVE_VISUAL_ID</c>; zero for an offscreen context.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What an <c>ANativeWindow</c>'s buffer format has to be set to, and the reason
+    ///     <see cref="EglContextOptions.PrepareNativeWindow" /> is a callback rather than something
+    ///     done here.</b> The call that does it is <c>ANativeWindow_setBuffersGeometry</c> in
+    ///     <c>libandroid.so</c>, which is Android's and not EGL's — this assembly has no business
+    ///     naming it, and the platform that owns the window does. Zero means the driver would not
+    ///     say, which is not a failure: not every EGL implementation has a native visual to report,
+    ///     and none of the offscreen ones do.
+    /// </remarks>
+    public int NativeVisualId { get; }
 
     /// <summary>The EGL display.</summary>
     public nint Display => display;
@@ -347,7 +395,9 @@ public sealed class EglContext : IGLContext {
                 windowed
                     ? "the native window could not be made into a surface — on Android a window "
                     + "outlives its Surface by nothing at all, so check that surfaceDestroyed has "
-                    + "not already arrived"
+                    + "not already arrived, and on EGL_BAD_MATCH check that "
+                    + "EglContextOptions.PrepareNativeWindow set the window's buffer geometry to "
+                    + $"the config's EGL_NATIVE_VISUAL_ID, which is {NativeVisualId}"
                     : "an offscreen surface could not be created"
             );
         }

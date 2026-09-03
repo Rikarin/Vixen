@@ -98,7 +98,7 @@ public static class GraphicsHost {
         var offscreen = options.Offscreen || options.CapturePath is { Length: > 0 };
 
         foreach (var backend in order) {
-            if (TryOpen(backend, window, logs, offscreen, out var device, out var refusal)) {
+            if (TryOpen(backend, window, logs, offscreen, options.DenyList, out var device, out var refusal)) {
                 // ⚠ Opening is not presenting. A device can be perfectly healthy and still have no
                 // surface — an application that asked for no window, or a window made without the
                 // backend's surface flag — and the host logs that as the reason a picture is not
@@ -181,6 +181,7 @@ public static class GraphicsHost {
         IWindow? window,
         ILoggerFactory? logs,
         bool offscreen,
+        GpuDenyList denied,
         out IGraphicsDevice? device,
         out string? reason
     ) {
@@ -237,7 +238,18 @@ public static class GraphicsHost {
         switch (backend) {
             case GraphicsBackend.Vulkan: {
                 var opened = VulkanDevice.TryCreate(
-                    new() { Surface = surface, Logger = logs?.CreateLogger("Vulkan") },
+                    new() {
+                        Surface = surface,
+                        Logger = logs?.CreateLogger("Vulkan"),
+
+                        // ⚠ The one place the deny-list has to be handed over rather than consulted
+                        // here. Which physical device a Vulkan instance ends up on is decided inside
+                        // the backend, between enumeration and device creation, and that is the only
+                        // moment at which "do not use this GPU" is still an answer rather than a
+                        // regret — asking afterwards would mean having created the device on the
+                        // driver the list exists to avoid.
+                        DenyList = denied
+                    },
                     out var vulkan,
                     out reason
                 );
@@ -272,7 +284,7 @@ public static class GraphicsHost {
                     return false;
                 }
 
-                if (!source.TryCreateGlContext(new(), out var context, out reason)) {
+                if (!TryCreateContext(source, out var context, out reason)) {
                     return false;
                 }
 
@@ -294,7 +306,7 @@ public static class GraphicsHost {
                     return false;
                 }
 
-                var api = SilkGlApi.FromProcAddress(context.GetProcAddress, profile);
+                var api = BindingFor(profile, context.GetProcAddress);
 
                 // Present is the swap. GlDeviceOptions has carried this hook since the backend was
                 // written and nothing had one to give it — GL has no swapchain object, so
@@ -303,8 +315,8 @@ public static class GraphicsHost {
 
                 device = gl;
 
-                if (!opened) {
-                    api.Dispose();
+                if (!opened && api is IDisposable spent) {
+                    spent.Dispose();
                 }
 
                 return opened;
@@ -360,6 +372,82 @@ public static class GraphicsHost {
         // asked for first and could not load, so Vulkan is running".
         return refusals.Count > 0 ? string.Join(" ", refusals) + $" Using {Spell(backend)}." : null;
     }
+
+    /// <summary>Asks the window for a context: desktop core first, then GLES.</summary>
+    /// <param name="source">The window.</param>
+    /// <param name="context">The context, when one was made.</param>
+    /// <param name="reason">What was refused, when nothing was made.</param>
+    /// <returns>Whether a context was created.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One request was made and it was for 4.5 core, which is a request no phone,
+    ///         no ANGLE build and no GLES-only Mesa can satisfy.</b> <see cref="ProfileOf" /> has
+    ///         always been able to answer <c>Es30</c> or <c>Es32</c> and nothing could ever make it
+    ///         do so, because the only context ever asked for was a desktop one — so the GLES half
+    ///         of this backend, which is the half doc 10 makes mandatory on Android, was
+    ///         unreachable from a head rather than merely untested.
+    ///     </para>
+    ///     <para>
+    ///         <b>Core first, because a driver with both should give the profile with
+    ///         <c>glClipControl</c>.</b> That is the one thing that makes GL's clip space Vulkan's
+    ///         without the vertex-shader fixup, and a machine that has 4.5 core taking GLES instead
+    ///         would take the fallback path forever without saying so — the same argument
+    ///         <c>EglContext</c>'s version ladder makes one rung down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both refusals are reported, not just the second.</b> "SDL would not give GLES 3"
+    ///         on a machine that refused core for an unrelated reason sends the reader after the
+    ///         wrong driver.
+    ///     </para>
+    /// </remarks>
+    internal static bool TryCreateContext(
+        IGlContextSource source,
+        out IGlContext? context,
+        out string? reason
+    ) {
+        if (source.TryCreateGlContext(new(), out context, out var core)) {
+            reason = null;
+            return true;
+        }
+
+        if (source.TryCreateGlContext(
+                new() { MajorVersion = 3, MinorVersion = 0, UseEmbedded = true },
+                out context,
+                out var embedded
+            )) {
+            reason = null;
+            return true;
+        }
+
+        reason = $"no OpenGL 4.5 core context ({core}) and no OpenGL ES 3.0 context ({embedded}).";
+        return false;
+    }
+
+    /// <summary>The binding for a dialect: <c>libGL</c> for the desktop, <c>libGLESv2</c> for GLES.</summary>
+    /// <param name="profile">What <see cref="ProfileOf" /> read back from the context.</param>
+    /// <param name="getProcAddress">The context's loader.</param>
+    /// <returns>The entry points.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This was <see cref="SilkGlApi" /> unconditionally, and the profile it was handed
+    ///         could already be a GLES one.</b> The two bindings are over two libraries — libGL and
+    ///         libGLESv2 have different entry-point tables, which is why there are two Silk packages
+    ///         and two files — so an embedded context loaded through the desktop binding resolves
+    ///         its table out of a library that on Android is not installed at all, and on a desktop
+    ///         GLES driver is a different implementation from the one the context belongs to. The
+    ///         <see cref="GlProfile" /> carried into <c>GlDevice</c> was right the whole time; the
+    ///         library the calls actually went to was not.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="GlProfile.WebGl2" /> reaches <see cref="SilkGlesApi" /> too and never
+    ///         reaches here: a browser's context comes from <c>Vixen.Platform.Web</c>, which this
+    ///         package does not reference.
+    ///     </para>
+    /// </remarks>
+    internal static IGlApi BindingFor(GlProfile profile, Func<string, nint> getProcAddress) =>
+        profile is GlProfile.Core45
+            ? SilkGlApi.FromProcAddress(getProcAddress, profile)
+            : SilkGlesApi.FromProcAddress(getProcAddress, profile);
 
     /// <summary>Which dialect the context that was actually created speaks.</summary>
     /// <remarks>

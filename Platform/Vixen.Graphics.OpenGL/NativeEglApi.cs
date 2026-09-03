@@ -60,6 +60,7 @@ public sealed unsafe class NativeEglApi : IEglApi {
     readonly delegate* unmanaged<uint, int> bindApi;
     readonly delegate* unmanaged<nint, int, byte*> queryString;
     readonly delegate* unmanaged<nint, int*, nint*, int, int*, int> chooseConfig;
+    readonly delegate* unmanaged<nint, nint, int, int*, int> getConfigAttrib;
     readonly delegate* unmanaged<nint, nint, nint, int*, nint> createContext;
     readonly delegate* unmanaged<nint, nint, nint, int*, nint> createWindowSurface;
     readonly delegate* unmanaged<nint, nint, int*, nint> createPbufferSurface;
@@ -85,6 +86,10 @@ public sealed unsafe class NativeEglApi : IEglApi {
         bindApi = (delegate* unmanaged<uint, int>)Export(egl, "eglBindAPI");
         queryString = (delegate* unmanaged<nint, int, byte*>)Export(egl, "eglQueryString");
         chooseConfig = (delegate* unmanaged<nint, int*, nint*, int, int*, int>)Export(egl, "eglChooseConfig");
+
+        getConfigAttrib =
+            (delegate* unmanaged<nint, nint, int, int*, int>)Export(egl, "eglGetConfigAttrib");
+
         createContext = (delegate* unmanaged<nint, nint, nint, int*, nint>)Export(egl, "eglCreateContext");
 
         createWindowSurface =
@@ -188,6 +193,15 @@ public sealed unsafe class NativeEglApi : IEglApi {
 
         count = ok != EglConstants.False ? written : 0;
         return ok != EglConstants.False;
+    }
+
+    /// <inheritdoc />
+    public bool GetConfigAttrib(nint display, nint config, int attribute, out int value) {
+        int read;
+        var ok = getConfigAttrib(display, config, attribute, &read) != EglConstants.False;
+
+        value = ok ? read : 0;
+        return ok;
     }
 
     /// <inheritdoc />

@@ -254,6 +254,34 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public IList<GraphicsBackend> Backends { get; } = [];
 
+    /// <summary>GPUs and drivers a backend must not be selected on, whatever they claim.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of <see cref="Backends" />, and the half that decides <i>when</i>
+    ///         the fall-through happens.</b> A preference list says which APIs to try; this says
+    ///         which machines the first of them is a lie on.
+    ///         <a href="../../docs/plan/10-platforms.md">Doc 10</a> § Android is the case it was
+    ///         written for: a phone reports Vulkan, answers every capability query correctly, and
+    ///         fails on one extension in one driver branch. No query detects that, so a curated list
+    ///         does — and <c>[Vulkan, OpenGl, Null]</c> then means "Vulkan unless this device is
+    ///         known to be lying about it".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty denies nothing, and a deny-list is only ever as good as somebody's
+    ///         curation.</b> The failure it must not have is refusing hardware that works, because
+    ///         the symptom is a black screen or a downgraded backend on a machine nobody was
+    ///         thinking about — which is why <see cref="GpuDenyList.Parse" /> refuses a rule that
+    ///         matches everything and reports a malformed line instead of skipping it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Doc 10 wants this shipped as content and updatable, and it is not yet.</b> A
+    ///         head sets it in <c>OnConfigure</c>; nothing loads one from a bundle, so a device
+    ///         discovered broken after a build shipped cannot be fixed without a new build. That
+    ///         gap is real and is stated rather than papered over.
+    ///     </para>
+    /// </remarks>
+    public GpuDenyList DenyList { get; set; } = GpuDenyList.Empty;
+
     /// <summary>The format to ask the swapchain for.</summary>
     public PixelFormat Format { get; set; } = PixelFormat.Bgra8UNormSrgb;
 

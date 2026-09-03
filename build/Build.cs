@@ -434,10 +434,19 @@ partial class Build : NukeBuild {
     ///     </para>
     ///     <para>
     ///         <b>The cost is real and is worth stating.</b> Neither assembly is seen by
-    ///         <see cref="Test" />, <see cref="CheckFormat" />, <see cref="CheckArchitecture" /> or
+    ///         <see cref="Test" />, <see cref="CheckFormat" />, <see cref="CheckApi" /> or
     ///         <see cref="Pack" />. That is why the parts of them that can be tested off a device —
     ///         the touch bookkeeping and the lifecycle state machine — live in
     ///         <c>Vixen.Platform</c> instead, where the solution does see them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This paragraph named <see cref="CheckArchitecture" /> too, and that was wrong.</b>
+    ///         That gate globs <c>Platform/**/*.csproj</c> and <c>Samples/**/*.csproj</c> rather than
+    ///         reading the solution, so it is the one gate that <em>does</em> evaluate both mobile
+    ///         projects and the sample heads — which makes it the only layer check standing between
+    ///         an out-of-solution head and a reference nobody would allow in the solution.
+    ///         <see cref="PublishWeb" />'s own remarks have said so all along; these two disagreed
+    ///         with it.
     ///     </para>
     ///     <para>
     ///         Android builds anywhere the workload is installed; the iOS half is skipped elsewhere
@@ -525,8 +534,10 @@ partial class Build : NukeBuild {
     ///     <para>
     ///         <b>The cost is the same one <see cref="CompileMobile" /> names, and compiling is the
     ///         floor rather than the ceiling.</b> None of the three is seen by <see cref="Test" />,
-    ///         <see cref="CheckFormat" />, <see cref="CheckArchitecture" /> or <see cref="Pack" />,
-    ///         and a compiler cannot see a URL that will not resolve at run time, an emcc flag that
+    ///         <see cref="CheckFormat" />, <see cref="CheckApi" /> or <see cref="Pack" /> —
+    ///         <see cref="CheckArchitecture" /> does see them, because it globs
+    ///         <c>Platform/**/*.csproj</c> rather than reading the solution — and a compiler cannot
+    ///         see a URL that will not resolve at run time, an emcc flag that
     ///         was never applied, or a file that is not published where it is fetched from. Two
     ///         further gates cover those: <c>BrowserModuleUrlTests</c> under <see cref="Test" />, and
     ///         <see cref="PublishWeb" />, which puts a real head through the SDK.

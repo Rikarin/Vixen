@@ -438,6 +438,22 @@ Vixen.Graphics.GpuAccelerationStructure -> abstract class
 Vixen.Graphics.GpuAccelerationStructure.GpuAccelerationStructure() -> void
 Vixen.Graphics.GpuBuffer -> abstract class
 Vixen.Graphics.GpuBuffer.GpuBuffer() -> void
+Vixen.Graphics.GpuDenyList -> sealed class
+Vixen.Graphics.GpuDenyList.GpuDenyList(System.Collections.Generic.IEnumerable<Vixen.Graphics.GpuDenyRule> rules) -> void
+Vixen.Graphics.GpuDenyList.IsDenied(Vixen.Graphics.IGraphicsAdapter adapter, out string? reason) -> bool
+Vixen.Graphics.GpuDenyList.IsDenied(string name, string driverVersion, out string? reason) -> bool
+Vixen.Graphics.GpuDenyList.Rules.get -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.GpuDenyRule>
+Vixen.Graphics.GpuDenyRule -> readonly struct
+Vixen.Graphics.GpuDenyRule : System.IEquatable<Vixen.Graphics.GpuDenyRule>
+Vixen.Graphics.GpuDenyRule.Adapter.get -> string
+Vixen.Graphics.GpuDenyRule.Adapter.init -> string
+Vixen.Graphics.GpuDenyRule.DriverVersion.get -> string?
+Vixen.Graphics.GpuDenyRule.DriverVersion.init -> string?
+Vixen.Graphics.GpuDenyRule.GpuDenyRule() -> void
+Vixen.Graphics.GpuDenyRule.GpuDenyRule(string Adapter, string? DriverVersion, string Reason) -> void
+Vixen.Graphics.GpuDenyRule.Matches(string name, string driverVersion) -> bool
+Vixen.Graphics.GpuDenyRule.Reason.get -> string
+Vixen.Graphics.GpuDenyRule.Reason.init -> string
 Vixen.Graphics.GpuDescriptorSet -> abstract class
 Vixen.Graphics.GpuDescriptorSet.GpuDescriptorSet() -> void
 Vixen.Graphics.GpuDescriptorSetLayout -> abstract class
@@ -1138,6 +1154,7 @@ Vixen.Graphics.VertexStepMode.Instance = 1 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.Vertex = 0 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.VertexStepMode() -> void
 const Vixen.Graphics.BindlessTable.ConventionalCapacity = 4096 -> int
+const Vixen.Graphics.GpuDenyList.Any = "*" -> string
 const Vixen.Graphics.GpuProfiler.DefaultScopeCapacity = 256 -> int
 static Vixen.Graphics.AccelerationStructureHandle.Null.get -> Vixen.Graphics.AccelerationStructureHandle
 static Vixen.Graphics.AccelerationStructureInstance.FromRows(ulong bottomLevel, System.ReadOnlySpan<float> rows, int index = 0) -> Vixen.Graphics.AccelerationStructureInstance
@@ -1161,6 +1178,8 @@ static Vixen.Graphics.DescriptorWrite.Storage(uint binding, Vixen.Graphics.Buffe
 static Vixen.Graphics.DescriptorWrite.StorageImage(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Texture(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Uniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
+static Vixen.Graphics.GpuDenyList.Empty.get -> Vixen.Graphics.GpuDenyList
+static Vixen.Graphics.GpuDenyList.Parse(string text) -> Vixen.Graphics.GpuDenyList
 static Vixen.Graphics.GpuFrame.Empty.get -> Vixen.Graphics.GpuFrame
 static Vixen.Graphics.GpuTimestamps.ToMilliseconds(ulong ticks, float period) -> double
 static Vixen.Graphics.GpuTimestamps.ToNanoseconds(ulong ticks, float period) -> double

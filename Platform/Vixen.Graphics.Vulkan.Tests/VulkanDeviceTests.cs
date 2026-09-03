@@ -550,4 +550,53 @@ public sealed class VulkanDeviceTests {
             owned.Destroy(handle);
         }
     }
+
+    /// <summary>The deny-list refuses the device this machine actually has.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reachability half, and the one a pure-function test cannot make.</b>
+    ///         <c>AdapterSelectionTests</c> proves the policy refuses what it is told to; this
+    ///         proves <c>VulkanDevice.TryCreate</c> asks it at all, against a real driver, with a
+    ///         name read back from that driver a moment earlier. A deny-list wired nowhere would
+    ///         pass every test in the other file.
+    ///     </para>
+    ///     <para>
+    ///         The name comes from the device rather than from a constant, because a rule naming a
+    ///         GPU nobody here has is a rule that never fires — which is exactly the shape of an
+    ///         assertion that cannot fail.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ADeniedAdapterIsRefusedByDeviceCreation() {
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+
+        string name;
+
+        using (var owned = device!) {
+            name = owned.Adapter.Name;
+        }
+
+        var denied = new GpuDenyList([new(name, GpuDenyList.Any, "refused by this test on purpose")]);
+
+        Assert.False(VulkanDevice.TryCreate(new() { DenyList = denied }, out var refused, out var why));
+
+        Assert.Null(refused);
+        Assert.Contains("deny-list", why, StringComparison.Ordinal);
+        Assert.Contains("refused by this test on purpose", why, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a rule naming some other GPU leaves this machine's alone.</summary>
+    [Fact]
+    public void AnUnrelatedRuleDoesNotRefuseThisMachine() {
+        var denied = new GpuDenyList([
+            new("a gpu no machine in this repository has", GpuDenyList.Any, "not this one")
+        ]);
+
+        var opened = VulkanDevice.TryCreate(new() { DenyList = denied }, out var device, out var reason);
+
+        VulkanRequirement.Available(opened, reason ?? "no Vulkan");
+
+        using var owned = device!;
+        Assert.NotEmpty(owned.Adapter.Name);
+    }
 }
