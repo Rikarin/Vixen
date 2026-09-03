@@ -28,6 +28,23 @@
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+
+        <!--
+            The engine's shader library, beside the CLI, on exactly Vixen.Editor.Host's terms and for
+            a reason that had gone unnoticed: `vixen build` compiled a project's own *.rvn and nothing
+            else, so any project shader importing `Vixen.Shaders.Core` — which is every shader that
+            uses the engine's material model, and every shader a graph emits — could not be baked at
+            all. The editor compiled it and the build could not, which is the shape of gap that is
+            only found when somebody ships.
+
+            ⚠ Files rather than resources, because the source hash the artefacts carry is taken over
+            the texts: a resource written to a temp directory first would make the hash depend on
+            where that directory was.
+        -->
+        <None Include="..\..\Raven\Library\**\*.rvn"
+              Link="Shaders\Library\%(RecursiveDir)%(Filename)%(Extension)"
+              CopyToOutputDirectory="PreserveNewest"
+              Visible="false" />
     </ItemGroup>
 
 <!--

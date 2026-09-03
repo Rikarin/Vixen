@@ -4,6 +4,8 @@
 using System.Globalization;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
+using Vixen.Editor.Assets.Shading;
+using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 
@@ -138,13 +140,61 @@ public static class ShaderBuildRunner {
             return true;
         }
 
-        var sources = Sources(project);
+        List<(string Name, string Text)> sources = [];
 
-        if (sources.Length == 0) {
+        // ⚠ The engine's library first, and its absence is why this runner could not bake a shader
+        // that imports one. A package's declarations are visible to a sibling file only within one
+        // compilation, so a project shader — or a graph's generated surface, which always imports
+        // `Vixen.Shaders.Material` — needs the library's files in the same compilation rather than a
+        // reference to a built artefact. `EditorEffects` has done this since it was written; this
+        // enumerated `Assets/**/*.rvn` alone, so the editor could compile a shader the build could
+        // not.
+        foreach (var file in Library()) {
+            try {
+                sources.Add((file, File.ReadAllText(file)));
+            } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+                output.Project(ImportSeverity.Error, DiagnosticCode.Shaders, $"Could not read {file}: {failure.Message}");
+
+                return false;
+            }
+        }
+
+        foreach (var file in Sources(project)) {
+            try {
+                sources.Add((file, File.ReadAllText(file)));
+            } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+                output.Project(ImportSeverity.Error, DiagnosticCode.Shaders, $"Could not read {file}: {failure.Message}");
+
+                return false;
+            }
+        }
+
+        // ⚠ And the project's shader graphs, which are shader sources that are not files. A graph
+        // emitting a material surface was invisible to this runner for as long as it enumerated
+        // `*.rvn` alone, so a shipping build's bundle held every hand-written variant and none of
+        // the authored ones — and the miss surfaced at run time as a draw that does not happen.
+        foreach (var graph in ShaderGraphSources.All(project.Paths.Assets)) {
+            foreach (var diagnostic in graph.Diagnostics) {
+                // An error, unlike the manifest's missing-variant warning below: a graph that does
+                // not compile is a material that cannot draw, and a build is where that is cheap to
+                // find out.
+                output.Project(
+                    ImportSeverity.Error,
+                    DiagnosticCode.Shaders,
+                    $"{Path.GetFileName(graph.Path)}: {diagnostic}"
+                );
+            }
+
+            if (graph.Compiled) {
+                sources.Add((graph.Path, graph.Text));
+            }
+        }
+
+        if (sources.Count == 0) {
             output.Project(
                 ImportSeverity.Error,
                 DiagnosticCode.Shaders,
-                $"{ManifestFileName} names {manifest.Effects.Length} variant(s), and there are no .rvn files under Assets/ to compile them from."
+                $"{ManifestFileName} names {manifest.Effects.Length} variant(s), and there are no .rvn files or shader graphs under Assets/ to compile them from."
             );
 
             return false;
@@ -153,7 +203,20 @@ public static class ShaderBuildRunner {
         EffectBundleBuilder builder;
 
         try {
-            builder = new(new RavenEffectCompiler(sources, backend, References(project)));
+            // ⚠ With the library's own defaults, and without them nothing compiles at all once the
+            // library is in the compilation: every slot the sources declare has to be bound, so
+            // asking for a project's own `Tint` — which has no slots — still has to satisfy
+            // `ForwardPlus.shading` and the eight of `CompositeSurface`. A key's own bindings win
+            // over these, which is what keeps a material's chosen shading model its own.
+            // `EditorEffects` makes exactly this pairing and for exactly this reason.
+            builder = new(
+                RavenEffectCompiler.FromSources(
+                    sources,
+                    backend,
+                    References(project),
+                    MaterialCompiler.PassComposition()
+                )
+            );
             builder.Add(manifest);
         } catch (ShaderCompilationException failure) {
             // Every diagnostic, not the first: a shader that does not compile usually says several
@@ -211,6 +274,33 @@ public static class ShaderBuildRunner {
         Directory.Exists(project.Paths.Assets)
             ? [.. Directory.EnumerateFiles(project.Paths.Assets, "*.rvn", SearchOption.AllDirectories).Order(StringComparer.Ordinal)]
             : [];
+
+    /// <summary>Where the engine's shader library sits beside the CLI.</summary>
+    /// <inheritdoc cref="Library" path="/remarks" />
+    public const string LibraryFolder = "Shaders/Library";
+
+    /// <summary>Every <c>.rvn</c> of the engine's own library, in a stable order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The package directories, not the folder itself</b> — which is how
+    ///     <c>EditorEffects.Sources</c> and <c>LibraryReflectionTests</c> both enumerate it, and for
+    ///     the same reason: <c>Example1.rvn</c> sits at the library's root and imports packages the
+    ///     library does not have, so including it fails every variant in the compilation rather than
+    ///     only itself.
+    /// </remarks>
+    static IEnumerable<string> Library() {
+        var library = Path.Combine(AppContext.BaseDirectory, LibraryFolder.Replace('/', Path.DirectorySeparatorChar));
+
+        if (!Directory.Exists(library)) {
+            yield break;
+        }
+
+        foreach (var package in Directory.EnumerateDirectories(library).Order(StringComparer.Ordinal)) {
+            foreach (var file in Directory.EnumerateFiles(package, "*.rvn", SearchOption.AllDirectories)
+                         .Order(StringComparer.Ordinal)) {
+                yield return file;
+            }
+        }
+    }
 
     /// <summary>Compiled libraries to bind against, which a project may vendor beside its shaders.</summary>
     static string[] References(Project project) =>

@@ -3362,6 +3362,44 @@ Vixen.Rendering.Materials.EmissiveFeature.EmissiveFeature() -> void
 Vixen.Rendering.Materials.EmissiveFeature.Intensity.get -> float
 Vixen.Rendering.Materials.EmissiveFeature.Intensity.init -> float
 Vixen.Rendering.Materials.EmissiveFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.GraphSurfaceFeature -> sealed record
+Vixen.Rendering.Materials.GraphSurfaceFeature : System.IEquatable<Vixen.Rendering.Materials.GraphSurfaceFeature>
+Vixen.Rendering.Materials.GraphSurfaceFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.GraphSurfaceFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.GraphSurfaceFeature.GraphSurfaceFeature() -> void
+Vixen.Rendering.Materials.GraphSurfaceFeature.Maps.get -> Vixen.Rendering.Materials.GraphSurfaceMap[]
+Vixen.Rendering.Materials.GraphSurfaceFeature.Maps.init -> Vixen.Rendering.Materials.GraphSurfaceMap[]
+Vixen.Rendering.Materials.GraphSurfaceFeature.Numbers.get -> Vixen.Rendering.Materials.GraphSurfaceNumber[]
+Vixen.Rendering.Materials.GraphSurfaceFeature.Numbers.init -> Vixen.Rendering.Materials.GraphSurfaceNumber[]
+Vixen.Rendering.Materials.GraphSurfaceFeature.Shader.get -> string
+Vixen.Rendering.Materials.GraphSurfaceFeature.Shader.init -> string
+Vixen.Rendering.Materials.GraphSurfaceFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.GraphSurfaceFeature.Vectors.get -> Vixen.Rendering.Materials.GraphSurfaceVector[]
+Vixen.Rendering.Materials.GraphSurfaceFeature.Vectors.init -> Vixen.Rendering.Materials.GraphSurfaceVector[]
+Vixen.Rendering.Materials.GraphSurfaceMap -> sealed record
+Vixen.Rendering.Materials.GraphSurfaceMap : System.IEquatable<Vixen.Rendering.Materials.GraphSurfaceMap>
+Vixen.Rendering.Materials.GraphSurfaceMap.GraphSurfaceMap() -> void
+Vixen.Rendering.Materials.GraphSurfaceMap.GraphSurfaceMap(string Texture, string Slot) -> void
+Vixen.Rendering.Materials.GraphSurfaceMap.Slot.get -> string
+Vixen.Rendering.Materials.GraphSurfaceMap.Slot.init -> string
+Vixen.Rendering.Materials.GraphSurfaceMap.Texture.get -> string
+Vixen.Rendering.Materials.GraphSurfaceMap.Texture.init -> string
+Vixen.Rendering.Materials.GraphSurfaceNumber -> sealed record
+Vixen.Rendering.Materials.GraphSurfaceNumber : System.IEquatable<Vixen.Rendering.Materials.GraphSurfaceNumber>
+Vixen.Rendering.Materials.GraphSurfaceNumber.GraphSurfaceNumber() -> void
+Vixen.Rendering.Materials.GraphSurfaceNumber.GraphSurfaceNumber(string Name, float Value) -> void
+Vixen.Rendering.Materials.GraphSurfaceNumber.Name.get -> string
+Vixen.Rendering.Materials.GraphSurfaceNumber.Name.init -> string
+Vixen.Rendering.Materials.GraphSurfaceNumber.Value.get -> float
+Vixen.Rendering.Materials.GraphSurfaceNumber.Value.init -> float
+Vixen.Rendering.Materials.GraphSurfaceVector -> sealed record
+Vixen.Rendering.Materials.GraphSurfaceVector : System.IEquatable<Vixen.Rendering.Materials.GraphSurfaceVector>
+Vixen.Rendering.Materials.GraphSurfaceVector.GraphSurfaceVector() -> void
+Vixen.Rendering.Materials.GraphSurfaceVector.GraphSurfaceVector(string Name, Vixen.Core.Mathematics.Vector4 Value) -> void
+Vixen.Rendering.Materials.GraphSurfaceVector.Name.get -> string
+Vixen.Rendering.Materials.GraphSurfaceVector.Name.init -> string
+Vixen.Rendering.Materials.GraphSurfaceVector.Value.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.Materials.GraphSurfaceVector.Value.init -> Vixen.Core.Mathematics.Vector4
 Vixen.Rendering.Materials.HairShading -> sealed record
 Vixen.Rendering.Materials.HairShading : System.IEquatable<Vixen.Rendering.Materials.HairShading>
 Vixen.Rendering.Materials.HairShading : Vixen.Rendering.Materials.IMaterialShading
@@ -3429,6 +3467,7 @@ Vixen.Rendering.Materials.MaterialDiagnosticId.DuplicateFeature = 0 -> Vixen.Ren
 Vixen.Rendering.Materials.MaterialDiagnosticId.MaterialDiagnosticId() -> void
 Vixen.Rendering.Materials.MaterialDiagnosticId.NoFeatures = 2 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.TooManyFeatures = 1 -> Vixen.Rendering.Materials.MaterialDiagnosticId
+Vixen.Rendering.Materials.MaterialDiagnosticId.UnnamedShader = 3 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialKeys -> static class
 Vixen.Rendering.Materials.MaterialLayerValue -> readonly struct
 Vixen.Rendering.Materials.MaterialLayerValue : System.IEquatable<Vixen.Rendering.Materials.MaterialLayerValue>
@@ -6590,6 +6629,7 @@ static Vixen.Rendering.Lighting.SurfaceCardCapture.Output.get -> Vixen.Rendering
 static Vixen.Rendering.Lighting.SurfaceCardCapture.Projection(in Vixen.Rendering.SurfaceCache.SurfaceCard card) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.Lighting.SurfaceCardCapture.SinglePassOutput.get -> Vixen.Rendering.RenderOutput
 static Vixen.Rendering.LineShaders.Default(Vixen.Graphics.IGraphicsDevice device) -> Vixen.Rendering.LineShaders
+static Vixen.Rendering.Materials.GraphSurfaceFeature.IndexParameter(string path, string slot) -> string
 static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor, System.Collections.Generic.IReadOnlyDictionary<string, string>? slots = null) -> Vixen.Rendering.Materials.MaterialCompilation
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition() -> Vixen.Shaders.ShaderComposition
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(params System.ReadOnlySpan<(string Slot, string Filler)> overrides) -> Vixen.Shaders.ShaderComposition

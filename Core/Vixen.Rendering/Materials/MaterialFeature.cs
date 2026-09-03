@@ -69,7 +69,17 @@ public enum MaterialDiagnosticId {
     TooManyFeatures,
 
     /// <summary>The material has no features, so it is the default surface.</summary>
-    NoFeatures
+    NoFeatures,
+
+    /// <summary>A feature names no shader at all, so there is nothing to compose into the slot.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reachable only from a feature whose shader name is data</b>, which today is
+    ///     <see cref="GraphSurfaceFeature" /> alone — every hand-written feature returns a constant a
+    ///     compiler checked. Without this the empty name is bound into the composition, and what
+    ///     comes back is Raven complaining about a shader called nothing, about a material the
+    ///     message cannot name. The zeroed field whose zero looks valid, once more.
+    /// </remarks>
+    UnnamedShader
 }
 
 /// <summary>One thing the compiler has to say about a material.</summary>
@@ -181,6 +191,21 @@ public sealed class MaterialCompilationContext {
     public void Compose(string slot, IMaterialFeature feature) {
         ArgumentException.ThrowIfNullOrEmpty(slot);
         ArgumentNullException.ThrowIfNull(feature);
+
+        if (feature.ShaderName.Length == 0) {
+            // ⚠ Before the duplicate check, because two unnamed features would otherwise be reported
+            // as one shader filling two slots — a true sentence about a fault that is not the one
+            // the author has. Reachable only from a feature whose name is data; see
+            // `MaterialDiagnosticId.UnnamedShader`.
+            Report(
+                MaterialDiagnosticId.UnnamedShader,
+                $"A feature in slot '{slot}' names no shader. A graph-authored surface takes its name "
+                + "from the graph it was compiled from, so this is a material pointing at a graph that "
+                + "was never compiled, or one saved before it had a name."
+            );
+
+            return;
+        }
 
         if (!composed.Add(feature.ShaderName)) {
             // Not a warning. Two slots bound to one shader compile — into a material where both read

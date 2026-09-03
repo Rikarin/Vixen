@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.ShaderGraph.ShaderGraphPreview, T:Vixen.Editor.ShaderGraph.
 tags: [editor, shader-graph, node-graph, preview, raven]
 since: 0.1
 status: preview
-related: [editor/node-port-editing, editor/vfx-graph]
+related: [editor/node-port-editing, editor/vfx-graph, editor/shader-graph-materials]
 ---
 
 ## What it is
@@ -113,6 +113,8 @@ preview is not unlit, and it is not a special case in the code.
 
 ## See also
 
+- [A material that draws with a shader graph](shader-graph-materials.md) — the other shape a
+  graph compiles to, and the only one a mesh can be drawn with.
 - [Editing a node's ports](node-port-editing.md) — the inspector the preview hangs under.
 - [The VFX graph](vfx-graph.md) — the other node library over the same framework, whose live preview
   is a different problem: a spawner has no value to show.

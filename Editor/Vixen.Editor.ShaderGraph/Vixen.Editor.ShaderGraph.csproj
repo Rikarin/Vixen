@@ -41,6 +41,17 @@
         <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
 
         <!--
+          And the material model, for the one thing a graph cannot do on its own: say what it is as a
+          material. `Master/Surface` emits an `IMaterialSurface`, which is exactly what an
+          `IMaterialFeature` names, so turning a compiled graph into the feature a `.vxmat` composes
+          is a mechanical read of `ShaderGraphSource` — and it belongs beside the compiler that
+          produced those names rather than in whichever assembly happens to import a file. Editor to
+          Core, which is the direction CheckArchitecture allows; nothing here opens a device or knows
+          about a project.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
           The node generator, over this assembly's own [Node] classes. Analyzers do not flow through
           a ProjectReference, so every assembly declaring nodes references it directly — which is
           also what a third-party plugin does, and the reason the arrangement is worth keeping plain.

@@ -150,6 +150,15 @@
         -->
         <ProjectReference Include="..\Vixen.Editor.VfxGraph\Vixen.Editor.VfxGraph.csproj" />
 
+        <!--
+            And the shader graph's, on exactly the same argument, for ShaderGraphImporter and for
+            ShaderGraphSources. A .vxshadergraph is a node graph, so compiling one needs the node
+            library and the graph compiler; the heavy authoring-format knowledge lives above the
+            runtime and a player loads what the build produced. This one also produces Raven source
+            rather than a chunk, which is why ShaderGraphSources exists beside the importer.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
+
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />

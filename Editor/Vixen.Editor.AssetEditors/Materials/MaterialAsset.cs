@@ -108,10 +108,13 @@ public sealed class TextureParameter : IMaterialParameter {
 ///     <para>
 ///         <b>The authoring format, not <c>MaterialDescriptor</c>.</b> The runtime's material is a
 ///         tree of features with a shading model and a compiled pipeline; this is what a person
-///         edits and what git diffs, and turning one into the other is <c>MaterialCompiler</c>'s job
-///         — the one doc 08 names and nothing has written. <c>NativeFormatImporter</c> carries this
-///         document forward unchanged for exactly that reason, so the file the editor writes is the
-///         file the pipeline reads.
+///         edits and what git diffs, and turning one into the other is <c>MaterialCompiler</c>'s job.
+///         ⚠ This paragraph used to add "the one doc 08 names and nothing has written", which is
+///         false and has been for some time: <c>MaterialCompiler</c> is in <c>Vixen.Rendering</c>,
+///         <c>MaterialImporter</c> runs it over every <c>.vxmat</c> to find out whether it is a
+///         material, and <c>MaterialReflectionTests</c> holds its predicted names against Raven's own
+///         reflection. The sentence outlived the gap it described, and was still being cited as the
+///         reason a shader graph could not draw.
 ///     </para>
 ///     <para>
 ///         <b><see cref="Shading" /> is a name, not a type.</b> An <c>IMaterialShading</c> is a
