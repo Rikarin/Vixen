@@ -112,6 +112,37 @@ public class AgentFollowWiringTests {
         Assert.Equal(0.75f, view.LiveScore("Flee"));
     }
 
+    /// <summary>A closed editor stops being followed, so it is not tinted after it is gone.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Added because neutering the sweep left every other test in this file green.</b> The
+    ///     other three all assert on editors that are still open, so a panel that never drops a
+    ///     closed one satisfies all of them while re-tinting an element no longer in any document
+    ///     and growing its follower list for the life of the session. The observable is the tint
+    ///     itself rather than a count: this test is red the moment the sweep stops sweeping, and
+    ///     the first assertion is the negative that makes the second one mean something.
+    /// </remarks>
+    [Fact]
+    public void A_closed_editor_is_not_tinted_after_it_is_closed() {
+        using var session = EditorSession.Start();
+        var model = Debugger(session);
+
+        var view = Open<BehaviorTreeView>(session, $"Assets/{TreeName}.vxbt", string.Empty, out var id);
+
+        session.Frames(2);
+
+        Assert.DoesNotContain(view.Canvas.Graph.Nodes, node => node.Badge.StartsWith('●'));
+
+        session.Close(id);
+        session.Frames(2);
+
+        Assert.True(view.IsRemoved);
+        Assert.True(model.ToggleBreakpoint(Symbol.Intern(TreeName), 0));
+
+        session.Frames(2);
+
+        Assert.DoesNotContain(view.Canvas.Graph.Nodes, node => node.Badge.StartsWith('●'));
+    }
+
     /// <summary>The debugger's model, which is the one every followed editor has to be handed.</summary>
     static Vixen.Editor.Ai.AgentDebugModel Debugger(EditorSession session) {
         var model = session.Control<AgentDebuggerView>(AssetEditorsModule.AgentDebuggerPanelId).Model;
@@ -122,7 +153,12 @@ public class AgentFollowWiringTests {
     }
 
     /// <summary>Writes an asset and opens it the way a double-click in the project browser does.</summary>
-    static T Open<T>(EditorSession session, string relative, string content) where T : UiElement {
+    static T Open<T>(EditorSession session, string relative, string content) where T : UiElement =>
+        Open<T>(session, relative, content, out _);
+
+    /// <inheritdoc cref="Open{T}(EditorSession, string, string)" />
+    /// <param name="id">The workspace id the editor was opened under, which is what closes it.</param>
+    static T Open<T>(EditorSession session, string relative, string content, out string id) where T : UiElement {
         var absolute = session.Project.Paths.Absolute(relative);
 
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
@@ -135,6 +171,8 @@ public class AgentFollowWiringTests {
         session.Editor.OpenAsset(entry.Guid);
         session.Frames(2);
 
-        return session.Control<T>("asset." + entry.Guid);
+        id = "asset." + entry.Guid;
+
+        return session.Control<T>(id);
     }
 }
