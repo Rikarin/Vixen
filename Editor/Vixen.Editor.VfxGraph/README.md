@@ -46,13 +46,20 @@ hands over both forms for exactly this.
 
 ## The library
 
+⚠ **This table was wrong in both directions and nothing could catch it**, because no test asserted
+what the registry contains — only that whatever is in it compiles. It omitted seven shipped nodes
+(Vortex, Collide Sphere, Mesh, Ribbon, Set Custom, Random Custom, Custom over Life) and the section
+below undercounted the remaining opcodes by four. `VfxNodeLibraryTests` now pins the list to this one.
+
 | Category | Nodes |
 |---|---|
 | Effect | Effect — the capacity, which is the one number an author has to choose |
 | Spawn | Burst, Rate |
-| Initialize | Position in Box, Position in Sphere, Set Velocity, Random Velocity, Lifetime, Size, Colour |
-| Update | Gravity, Drag, Integrate, Attract, Turbulence, Collide Plane, Size over Life, Colour over Life |
-| Output | Billboard, Light |
+| Initialize | Position, Position in Box, Position in Sphere, Set Velocity, Random Velocity, Velocity in Cone, Lifetime, Size, Colour, Rotation, Angular Velocity, Set Custom, Random Custom |
+| Update | Gravity, Drag, Integrate, Rotate, Attract, Vortex, Turbulence, Collide Plane, Collide Sphere, Size over Life, Colour over Life, Custom over Life |
+| Output | Billboard, Mesh, Ribbon, Light |
+
+Thirty-two, which is every opcode in `VfxOpcode` reachable from a graph.
 
 ## The runtime's refusals arrive as diagnostics
 
@@ -82,12 +89,21 @@ nothing to search for.
 - **Operator nodes.** A `Sine` feeding a gravity's strength, as a shader graph's operators feed a
   master. The compiled form's parameters are constants, so an operator would have to be constant
   folded — which is a real feature and a different one.
-- ~~**Blocks for the opcodes that are not here.**~~ `Vortex` and `CollideSphere` landed with the mesh
-  output; `SetCustom`, `RandomCustom` and `CustomOverLife` landed once a node could hold a **name** —
-  see `[Setting]` in `Vixen.Editor.NodeGraph`. `Rotate` is what is left, and it is the one whose
-  parameter is a port like any other.
-- **Sub-emitters and trails.** `VfxSubEmitter` connects two systems, so authoring one is authoring a
-  relationship between two graphs — which the model can hold and the compiler has nothing to say
+- ~~**Blocks for the opcodes that are not here.**~~ **Done, and ⚠ this line said one was left when
+  five were.** `Vortex` and `CollideSphere` landed with the mesh output; `SetCustom`, `RandomCustom`
+  and `CustomOverLife` landed once a node could hold a **name** — see `[Setting]` in
+  `Vixen.Editor.NodeGraph`. The last five — `SetPosition`, `VelocityInCone`, `SetRotation`,
+  `SetAngularVelocity` and `Rotate` — were each implemented in `VfxSimulation` **and** in
+  `VfxShaderEmitter` with nothing able to author them, which is the built-and-never-fed shape rather
+  than a hole. ⚠ `VelocityInCone` is the one that cost something visible: without it the library's
+  only random emitter was a sphere, so every jet, fountain and muzzle flash was a sphere somebody had
+  aimed with a Gravity block.
+- **Sub-emitters and trails.** ⚠ **The runtime is done and tested** — `Core/Vixen.Vfx/VfxSubEmitter.cs`
+  drives `VfxEmitEvent.Birth`, `.Death` and `.Trail`, and `Core/Vixen.Vfx.Tests/VfxSubEmitterTests.cs`
+  exercises all three. What is missing is the other two thirds: `VfxEffectContent` has no row for one,
+  so a `.vxvfx` cannot express it, and nothing here mentions `VfxSubEmitter` — so this is a node, a
+  content field, and a host that steps the sub-emitter after both systems. Authoring one is authoring
+  a relationship between two graphs, which the model can hold and the compiler has nothing to say
   about yet.
 - ~~**A live preview.**~~ Closed by doc 20's E5, and in the other assembly. `VfxNodeLibrary.Create`
   is the one call a host needs from here; the document, the canvas and the preview are

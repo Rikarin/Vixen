@@ -643,3 +643,118 @@ public sealed partial class CustomOverLifeNode : VfxCustomNode {
     protected internal override void Contribute(VfxGraphBuilder builder) =>
         builder.Updaters.Add(new(VfxOpcode.CustomOverLife, 0u, Vector("Start"), Vector("End"), Custom(builder)));
 }
+
+/// <summary>Particles start at one point.</summary>
+/// <remarks>
+///     The degenerate emitter, and the one an author reaches for first: a shape block is what turns a
+///     point into a volume, and until there was one of these the only way to author a point source was
+///     a box with both corners in the same place.
+/// </remarks>
+[Node("Vfx/Initialize/Position", Summary = "One point, for every particle.")]
+public sealed partial class PositionNode : VfxBlockNode {
+    /// <summary>The point, in the effect's own space.</summary>
+    [Input(Name = "Position", Default = [0f, 0f, 0f])]
+    public Float3 Position;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) =>
+        builder.Initializers.Add(new(VfxOpcode.SetPosition, Vector("Position")));
+}
+
+/// <summary>Particles start moving somewhere inside a cone.</summary>
+/// <remarks>
+///     ⚠ <b>The jet, the fountain and the muzzle flash — and the opcode for it had shipped in both
+///     backends with nothing able to author it.</b> <c>Vfx/Initialize/Random Velocity</c> is this with
+///     a half-angle of π, which is a sphere, so every directional emitter in the library was a sphere
+///     somebody had aimed with a Gravity block.
+/// </remarks>
+[Node("Vfx/Initialize/Velocity in Cone", Summary = "A random direction inside a cone, at a speed in a range.")]
+public sealed partial class VelocityInConeNode : VfxBlockNode {
+    /// <summary>Which way the cone points. Normalized by the simulation, so any length will do.</summary>
+    [Input(Name = "Axis", Default = [0f, 1f, 0f])]
+    public Float3 Axis;
+
+    /// <summary>Half the cone's opening, in radians. π is a sphere.</summary>
+    [Input(Name = "Angle", Default = [0.4f])]
+    public Scalar Angle;
+
+    /// <summary>The slowest.</summary>
+    [Input(Name = "Minimum", Default = [1f])]
+    public Scalar Minimum;
+
+    /// <summary>The fastest.</summary>
+    [Input(Name = "Maximum", Default = [3f])]
+    public Scalar Maximum;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) {
+        var axis = Vector("Axis");
+
+        builder.Initializers.Add(
+            new(VfxOpcode.VelocityInCone, new Vector4(axis.X, axis.Y, axis.Z, Number("Angle"))) {
+                B = new(Number("Minimum"), Number("Maximum"), 0f, 0f)
+            }
+        );
+    }
+}
+
+/// <summary>What roll particles start at.</summary>
+/// <remarks>
+///     ⚠ <b>Roll only, and that is the whole rotation model rather than a first instalment of one.</b>
+///     A particle is a billboard or a ribbon segment, so it has one angle about the view axis rather
+///     than an orientation — <c>VfxAttribute.Rotation</c> is a single float and <c>VfxGeometry</c>
+///     spins the expanded quad by it. A mesh output reading a full orientation is a different feature.
+/// </remarks>
+[Node("Vfx/Initialize/Rotation", Summary = "A roll in a range, in radians.")]
+public sealed partial class RotationNode : VfxBlockNode {
+    /// <summary>The least.</summary>
+    [Input(Name = "Minimum", Default = [0f])]
+    public Scalar Minimum;
+
+    /// <summary>The most. Two π is "any angle".</summary>
+    [Input(Name = "Maximum", Default = [6.2831855f])]
+    public Scalar Maximum;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) =>
+        builder.Initializers.Add(
+            new(VfxOpcode.SetRotation, new Vector4(Number("Minimum"), Number("Maximum"), 0f, 0f))
+        );
+}
+
+/// <summary>How fast particles spin.</summary>
+/// <remarks>
+///     ⚠ <b>Sets the attribute; it does not apply it.</b> Nothing turns until a
+///     <c>Vfx/Update/Rotate</c> integrates it — exactly as a velocity does nothing without
+///     <c>Vfx/Update/Integrate</c>, which is the same arrangement and the same first surprise.
+/// </remarks>
+[Node("Vfx/Initialize/Angular Velocity", Summary = "A spin rate in a range, in radians per second.")]
+public sealed partial class AngularVelocityNode : VfxBlockNode {
+    /// <summary>The slowest. Negative spins the other way.</summary>
+    [Input(Name = "Minimum", Default = [-1f])]
+    public Scalar Minimum;
+
+    /// <summary>The fastest.</summary>
+    [Input(Name = "Maximum", Default = [1f])]
+    public Scalar Maximum;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) =>
+        builder.Initializers.Add(
+            new(VfxOpcode.SetAngularVelocity, new Vector4(Number("Minimum"), Number("Maximum"), 0f, 0f))
+        );
+}
+
+/// <summary>Roll following angular velocity.</summary>
+/// <remarks>
+///     <c>Vfx/Update/Integrate</c>'s counterpart for the other attribute pair, and parameterless for
+///     the same reason: what to advance by is on the particle. A graph with this and no
+///     <c>Vfx/Initialize/Angular Velocity</c> advances every particle by zero, which is a still
+///     billboard rather than an error.
+/// </remarks>
+[Node("Vfx/Update/Rotate", Summary = "Roll advances by angular velocity, every step.")]
+public sealed partial class RotateNode : VfxBlockNode {
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) =>
+        builder.Updaters.Add(new(VfxOpcode.Rotate));
+}
