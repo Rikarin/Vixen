@@ -403,10 +403,18 @@ public class SurfaceGraphTests {
         var lines = result.Value.Source.ReplaceLineEndings("\n").Split('\n');
 
         foreach (var node in (GraphNode[])[uv, tiling, sample]) {
-            var span = Assert.Single(result.Value.Spans, candidate => candidate.Node == node.Id);
+            // ⚠ `val n{id}_`, not `n{id}_`. The looser form matches a line that *reads* the
+            // variable as well as the one that writes it, and in a chain every node's output is read
+            // on the line below — so an offset one line out still satisfies it. Sabotaging the
+            // surface path's offset arithmetic left this test green until the predicate said
+            // "assigns" rather than "mentions".
+            var span = Assert.Single(
+                result.Value.Spans,
+                candidate => candidate.Node == node.Id
+                    && lines[candidate.Span.Line].Contains($"val n{node.Id.Value}_", StringComparison.Ordinal)
+            );
 
             Assert.Equal(1, span.Span.Lines);
-            Assert.Contains($"n{node.Id.Value}_", lines[span.Span.Line], StringComparison.Ordinal);
         }
 
         // The header belongs to nobody, so a complaint about the package line or an import is a line
