@@ -290,8 +290,15 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
         // in that snapshot. "It did not change" is as much a fact about where it is at that tick as
         // a new position would be, and the buffer drops anything that is not newer than what it
         // already holds, so re-adding is free.
+        //
+        // ⚠ The teleport counter travels with the sample, and dropping it here is what used to make
+        // Arena.Respawn's bump pointless: the arena said "put there", the wire carried it, and the
+        // buffer decided for itself from the distance instead.
         ref readonly var transform = ref world.Read<NetworkTransform>(entity);
-        buffer.Add(new(replication.AppliedTick, transform.Position, transform.Rotation));
+
+        buffer.Add(
+            new(replication.AppliedTick, transform.Position, transform.Rotation, transform.TeleportCount)
+        );
     }
 
     void Forget() {

@@ -9,7 +9,32 @@ namespace Vixen.Net.Motion;
 /// <param name="Tick">The tick the server stamped on it.</param>
 /// <param name="Position">Where it was.</param>
 /// <param name="Rotation">Which way it faced.</param>
-public readonly record struct TransformSample(Tick Tick, Vector3 Position, Quaternion Rotation);
+/// <param name="TeleportCount">
+///     <c>NetworkTransform.TeleportCount</c> as it stood when this sample was taken. A change between
+///     two consecutive samples means the object was <i>put</i> at the second one rather than having
+///     moved there, so nothing may interpolate or extrapolate across the pair.
+/// </param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The counter used to be written, quantised, sent, decoded — and dropped here.</b> The
+///         buffer inferred a teleport from the distance between two samples instead, which is the
+///         inference the counter exists to replace: at a 20 Hz snapshot rate the shipped five-metre
+///         threshold is a hundred metres a second, so a projectile, a launched vehicle or a fast lift
+///         was snapped as though it had teleported, and a two-metre teleport was smoothed across the
+///         jump. Carrying the counter on the sample is what lets the buffer be told rather than guess.
+///     </para>
+///     <para>
+///         Optional so that the three-argument form still compiles: a game sampling something that has
+///         no counter — a camera path, a replay — leaves it at zero, and a value that never changes
+///         never triggers a snap.
+///     </para>
+/// </remarks>
+public readonly record struct TransformSample(
+    Tick Tick,
+    Vector3 Position,
+    Quaternion Rotation,
+    byte TeleportCount = 0
+);
 
 /// <summary>How a buffer behaves when it runs out of what it needs.</summary>
 public sealed record SnapshotBufferOptions {
@@ -26,14 +51,48 @@ public sealed record SnapshotBufferOptions {
 
     /// <summary>
     ///     How far apart two consecutive samples have to be before the object is taken to have
-    ///     teleported rather than moved.
+    ///     teleported rather than moved. Null — the default — is off.
     /// </summary>
     /// <remarks>
-    ///     Without this, a respawn on the other side of the map is a very fast walk through
-    ///     everything in between. With it, the object is where it is on the next frame — which is
-    ///     also what actually happened.
+    ///     <para>
+    ///         ⚠ <b>This was five metres and unconditional, and that was a defect rather than a
+    ///         default.</b> Distance over a snapshot interval is a speed, and at the shipped 20 Hz
+    ///         that speed is 100 m/s: a projectile, a launched vehicle or a fast lift crossed the
+    ///         threshold while genuinely moving and was snapped, which is the un-smoothed-projectile
+    ///         failure <c>PhysicsTeleport</c>'s own remarks refuse for exactly the same reason. It
+    ///         also missed every teleport shorter than five metres, which is most doors and every
+    ///         short blink.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="TransformSample.TeleportCount" /> answers the question outright, so the
+    ///         guess is no longer needed and is off. It stays as something a caller may switch on
+    ///         because the buffer takes samples from anywhere: a source that carries no counter — a
+    ///         peer older than the counter's first use of it, a game's own component that never
+    ///         adopted it — has nothing else to go on, and a threshold it chose knowing its own top
+    ///         speed is a defensible answer where a threshold the engine chose knowing nothing is
+    ///         not.
+    ///     </para>
+    ///     <para>
+    ///         Nullable rather than zero-means-off: zero is a perfectly readable distance that would
+    ///         snap on every movement, which is the shape of half the bugs in this repository.
+    ///     </para>
     /// </remarks>
-    public float SnapDistance { get; init; } = 5f;
+    /// <exception cref="ArgumentOutOfRangeException">The value is not above zero.</exception>
+    public float? SnapDistance {
+        get;
+        init {
+            if (value is { } distance && !(distance > 0f)) {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    value,
+                    "A snap distance has to be above zero. Null turns the fallback off; zero would "
+                    + "snap on any movement at all."
+                );
+            }
+
+            field = value;
+        }
+    }
 }
 
 /// <summary>
@@ -78,7 +137,10 @@ public sealed class SnapshotBuffer {
     /// <summary>Times motion past the newest sample had to be guessed at.</summary>
     public long ExtrapolatedCount { get; private set; }
 
-    /// <summary>Times two samples were too far apart to move between, so the object jumped.</summary>
+    /// <summary>
+    ///     Times two samples were a jump rather than a movement, so the object was placed at the
+    ///     second one instead of being smoothed towards it.
+    /// </summary>
     public long SnappedCount { get; private set; }
 
     /// <summary>Times there was nothing to work with and the newest or oldest was held.</summary>
@@ -177,9 +239,9 @@ public sealed class SnapshotBuffer {
                 continue;
             }
 
-            if (Vector3.DistanceSquared(from.Position, to.Position) > Options.SnapDistance * Options.SnapDistance) {
-                // Too far to have walked. Whatever happened, it happened — so be where it ended up
-                // rather than sliding through everything in between.
+            if (IsDiscontinuous(in from, in to)) {
+                // Put there rather than moved there. Whatever happened, it happened — so be where it
+                // ended up rather than sliding through everything in between.
                 SnappedCount++;
                 sample = to with { Tick = tick };
 
@@ -213,6 +275,17 @@ public sealed class SnapshotBuffer {
             return true;
         }
 
+        // ⚠ The two samples a velocity would be measured from are the two ends of the jump, so
+        // extrapolating here does not merely fail to snap — it takes the whole teleport as this
+        // tick's speed and keeps going, sending the object as far again every tick until the next
+        // snapshot lands. Holding at the destination is what the jump actually said.
+        if (IsDiscontinuous(in previous, in newest)) {
+            SnappedCount++;
+            sample = newest with { Tick = tick };
+
+            return true;
+        }
+
         ExtrapolatedCount++;
 
         if (ahead > Options.MaxExtrapolationTicks) {
@@ -227,6 +300,21 @@ public sealed class SnapshotBuffer {
         sample = new(tick, newest.Position + (velocity * ahead), newest.Rotation);
 
         return true;
+    }
+
+    /// <summary>Whether the object was put at <paramref name="to" /> rather than having moved there.</summary>
+    /// <remarks>
+    ///     The counter first, because it is the only one of the two that is a statement rather than an
+    ///     inference — the sender said so. The distance is consulted only where a caller has asked for
+    ///     it, and <see cref="SnapshotBufferOptions.SnapDistance" /> says why that is off by default.
+    /// </remarks>
+    bool IsDiscontinuous(in TransformSample from, in TransformSample to) {
+        if (from.TeleportCount != to.TeleportCount) {
+            return true;
+        }
+
+        return Options.SnapDistance is { } distance
+            && Vector3.DistanceSquared(from.Position, to.Position) > distance * distance;
     }
 
     TransformSample At(int index) => samples[(oldest + index) % samples.Length];

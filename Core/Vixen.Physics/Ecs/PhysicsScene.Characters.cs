@@ -30,6 +30,7 @@ public sealed partial class PhysicsScene {
     readonly List<Entity> pendingCharacterCreate = [];
     readonly List<Entity> pendingCharacterDestroy = [];
     readonly List<Entity> pendingCharacterStage = [];
+    readonly List<Entity> pendingCharacterUntag = [];
 
     int nextCharacterHandle = 1;
 
@@ -95,6 +96,8 @@ public sealed partial class PhysicsScene {
             return;
         }
 
+        pendingCharacterUntag.Clear();
+
         foreach (var chunk in Entities.Chunks(HaveCharacter)) {
             var bodies = chunk.Values<CharacterBody>();
             var settings = chunk.ReadValues<CharacterMovement>();
@@ -117,14 +120,37 @@ public sealed partial class PhysicsScene {
                     ? interpolation.DrawnPosition
                     : (Vector3?)null;
 
-                if (Adopt(controller, in bodies[index], in transforms[index], in drawn)) {
+                // ⚠ The tag was inert here and therefore stuck for ever: only PushAuthoredState reads
+                // it, and that walks PhysicsBody, which a character does not have. Nothing crashed —
+                // the character was adopted anyway, because writing its transform *is* the teleport —
+                // but the tag stayed on, and anything downstream that treats it as an event rather
+                // than a state then fires every tick: NetworkRigidBodyCaptureSystem re-adds
+                // NetworkTeleport, the bridge bumps TeleportCount, and every receiver refuses to
+                // interpolate that entity again. Consumed here, so the idiom is one idiom.
+                var told = Entities.Has<PhysicsTeleport>(entity);
+
+                if (told) {
+                    // Structural, so recorded and done after the walk — the reason CommandBuffer
+                    // exists, and the same shape PushAuthoredState's pendingUntag has.
+                    pendingCharacterUntag.Add(entity);
+                }
+
+                // The caller saying so outranks the receipt: Adopt refuses a transform still exactly
+                // where the smoothing left it, and a teleport *back to* the drawn pose — a rollback
+                // that lands on its own guess, a respawn at the spot you died — is that case exactly.
+                // `drawn` itself is kept, because the collapse below still needs to know the entity
+                // is smoothed at all.
+                var receipt = told ? null : drawn;
+
+                if (Adopt(controller, in bodies[index], in transforms[index], in receipt)) {
                     CharacterAdoptionCount++;
 
                     // ⚠ The adopt *is* the teleport, so the smoothing has to be told about it here —
-                    // a rigid body is told by PhysicsTeleport and a character has no such tag by
-                    // design. Without this the pass draws between the pose the character left and the
-                    // pose it was put at, so a respawn slides back across the level it just left and
-                    // on a frame one fixed step long is drawn at the old spot outright.
+                    // a character needs no tag to be moved, which is why one is not required and why
+                    // one that is given only removes Adopt's doubt. Without this the pass draws
+                    // between the pose the character left and the pose it was put at, so a respawn
+                    // slides back across the level it just left and on a frame one fixed step long is
+                    // drawn at the old spot outright.
                     //
                     // Position only: rotation is never adopted — the controller owns it, which is why
                     // Adopt does not read it — so its two poses are already continuous and collapsing
@@ -142,6 +168,12 @@ public sealed partial class PhysicsScene {
                 WriteCharacterBack(controller, in bodies[index], ref transforms[index], entity);
             }
         }
+
+        foreach (var entity in pendingCharacterUntag) {
+            Entities.Remove<PhysicsTeleport>(entity);
+        }
+
+        pendingCharacterUntag.Clear();
     }
 
     /// <summary>How far a written transform must be from the controller before it counts as a move.</summary>

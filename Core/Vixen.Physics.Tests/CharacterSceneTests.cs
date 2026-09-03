@@ -553,6 +553,64 @@ public sealed class CharacterSceneTests {
         Assert.Equal(-8f, midway.Z, 1);
     }
 
+    /// <summary>
+    ///     ⚠ <b><c>PhysicsTeleport</c> on a character was inert, so it stayed on for ever.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Only <c>PhysicsScene.PushAuthoredState</c> read the tag, and it walks
+    ///         <c>WithAll&lt;PhysicsBody, LocalTransform&gt;</c> — a character has a
+    ///         <c>CharacterBody</c> instead. Nothing crashed, which is why it lasted: the character
+    ///         was adopted anyway, because writing its transform <i>is</i> the teleport. But the tag
+    ///         was never taken off, and every consumer that reads it as an event rather than a state
+    ///         then fires on every tick for ever.
+    ///     </para>
+    ///     <para>
+    ///         The other half is what the tag now buys: a teleport that lands exactly on the pose the
+    ///         smoothing last drew is indistinguishable from the smoothing's own write, and
+    ///         <c>Adopt</c> refuses it on that evidence. A rollback that lands on its own guess and a
+    ///         respawn at the spot you died are both that case.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void APhysicsTeleportOnACharacterIsObeyedAndThenTakenOff() {
+        using var entities = new EcsWorld("Test");
+        using var scene = new PhysicsScene(entities);
+
+        Ground(scene);
+
+        var walker = Walker(scene, Vector3.Zero);
+        Advance(scene, 2);
+
+        var elsewhere = new Vector3(12f, 0.1f, -8f);
+
+        // The write and the receipt agree, which is exactly the shape of the smoothing's own write.
+        entities.Add(walker, new PhysicsInterpolation { DrawnPosition = elsewhere });
+        entities.Get<LocalTransform>(walker).Position = elsewhere;
+
+        var refused = scene.CharacterAdoptionCount;
+        Advance(scene, 1);
+
+        Assert.Equal(refused, scene.CharacterAdoptionCount);
+        Assert.True(scene.TryGetCharacter(walker, out var held));
+        Assert.True(MathF.Abs(held!.Position.X) < 1f, $"Nothing said teleport, yet the controller moved to {held.Position}.");
+
+        // The same write, now with the caller saying so out loud.
+        entities.Get<PhysicsInterpolation>(walker).DrawnPosition = elsewhere;
+        entities.Get<LocalTransform>(walker).Position = elsewhere;
+        entities.Add<PhysicsTeleport>(walker);
+
+        Advance(scene, 1);
+
+        Assert.Equal(refused + 1, scene.CharacterAdoptionCount);
+        Assert.True(scene.TryGetCharacter(walker, out var moved));
+        Assert.Equal(12f, moved!.Position.X, 1);
+        Assert.Equal(-8f, moved.Position.Z, 1);
+
+        // And it is gone rather than left to fire again on the next tick, and the one after that.
+        Assert.False(entities.Has<PhysicsTeleport>(walker));
+    }
+
     [Fact]
     public void DisposingTheSceneDisposesEveryCharacter() {
         using var entities = new EcsWorld("Test");

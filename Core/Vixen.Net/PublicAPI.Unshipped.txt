@@ -291,8 +291,8 @@ Vixen.Net.Motion.SnapshotBufferOptions -> sealed record
 Vixen.Net.Motion.SnapshotBufferOptions : System.IEquatable<Vixen.Net.Motion.SnapshotBufferOptions>
 Vixen.Net.Motion.SnapshotBufferOptions.MaxExtrapolationTicks.get -> int
 Vixen.Net.Motion.SnapshotBufferOptions.MaxExtrapolationTicks.init -> int
-Vixen.Net.Motion.SnapshotBufferOptions.SnapDistance.get -> float
-Vixen.Net.Motion.SnapshotBufferOptions.SnapDistance.init -> float
+Vixen.Net.Motion.SnapshotBufferOptions.SnapDistance.get -> float?
+Vixen.Net.Motion.SnapshotBufferOptions.SnapDistance.init -> float?
 Vixen.Net.Motion.SnapshotBufferOptions.SnapshotBufferOptions() -> void
 Vixen.Net.Motion.TransformSample -> readonly struct
 Vixen.Net.Motion.TransformSample : System.IEquatable<Vixen.Net.Motion.TransformSample>
@@ -300,10 +300,12 @@ Vixen.Net.Motion.TransformSample.Position.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Net.Motion.TransformSample.Position.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Net.Motion.TransformSample.Rotation.get -> Vixen.Core.Mathematics.Quaternion
 Vixen.Net.Motion.TransformSample.Rotation.init -> Vixen.Core.Mathematics.Quaternion
+Vixen.Net.Motion.TransformSample.TeleportCount.get -> byte
+Vixen.Net.Motion.TransformSample.TeleportCount.init -> byte
 Vixen.Net.Motion.TransformSample.Tick.get -> Vixen.Net.Tick
 Vixen.Net.Motion.TransformSample.Tick.init -> Vixen.Net.Tick
 Vixen.Net.Motion.TransformSample.TransformSample() -> void
-Vixen.Net.Motion.TransformSample.TransformSample(Vixen.Net.Tick Tick, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Quaternion Rotation) -> void
+Vixen.Net.Motion.TransformSample.TransformSample(Vixen.Net.Tick Tick, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Quaternion Rotation, byte TeleportCount = 0) -> void
 Vixen.Net.Prediction.ClientPrediction<T> -> sealed class
 Vixen.Net.Prediction.ClientPrediction<T>.Clear() -> void
 Vixen.Net.Prediction.ClientPrediction<T>.ClientPrediction(Vixen.Net.Replication.ReplicationRegistry registry, Vixen.Net.Prediction.InputLog<T> log, Vixen.Net.Prediction.PredictedStep<T> step, int depth = 32) -> void
