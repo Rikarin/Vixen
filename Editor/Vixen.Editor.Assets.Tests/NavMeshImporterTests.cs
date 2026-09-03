@@ -357,6 +357,96 @@ public sealed class NavMeshImporterTests {
         Assert.False(connection.Bidirectional);
     }
 
+    /// <summary>A key the document does not have is said out loud rather than skipped over.</summary>
+    /// <remarks>
+    ///     ⚠ <c>area:</c> where <c>areas:</c> was meant is a whole list of authored areas that never
+    ///     reaches the bake — and because every list here is optional, the result is a mesh that bakes
+    ///     cleanly, reports success, and has no water in it.
+    /// </remarks>
+    [Fact]
+    public async Task AMisspeltRootKeyIsSaidRatherThanDropped() {
+        const string Document = """
+            geometry: floor.obj
+            area:
+              - area: 9
+                min: [8, -1, 0]
+                max: [12, 3, 20]
+            """;
+
+        var (_, result) = await Import(Document, Floor(20f));
+
+        // It still bakes: refusing the file outright would make one stray key a broken build.
+        Assert.True(result.Succeeded);
+
+        var warning = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+
+        Assert.Contains("'area'", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("areas", warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The sharpest of them, because the fallback is a legitimate number.</summary>
+    /// <remarks>
+    ///     ⚠ A link's <c>radius</c> falls back to one metre, so a misspelling does not fail to parse —
+    ///     it bakes a different ladder. The assertion is both halves: the warning, and the metre that
+    ///     is what the warning is about.
+    /// </remarks>
+    [Fact]
+    public async Task AMisspeltLinkFieldIsSaidRatherThanTakingItsFallback() {
+        const string Document = """
+            geometry: floor.obj
+            links:
+              - start: [2, 0, 2]
+                end: [8, 0, 8]
+                radious: 6
+            """;
+
+        var (_, result) = await Import(Document, Floor(20f));
+
+        Assert.True(result.Succeeded);
+
+        var warning = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+        Assert.Contains("'radious'", warning.Message, StringComparison.Ordinal);
+
+        var asset = Serializer.Read<NavMeshAsset>(Assert.Single(result.Artifacts).Content.Span)!;
+        var connection = Assert.Single(asset.Tiles[0].OffMeshConnections);
+
+        Assert.Equal(1f, connection.Radius);
+    }
+
+    /// <summary>Every field the importer reads, in one document, warning about none of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the half that makes the warning worth having.</b> A spelling check whose list
+    ///     of known keys has a typo in it warns about a correct document, and a warning an author
+    ///     learns to ignore is worse than the silence it replaced. It goes red if a field is renamed
+    ///     without the list following, which is the drift the other two tests cannot see.
+    /// </remarks>
+    [Fact]
+    public async Task ADocumentUsingEveryFieldWarnsAboutNothing() {
+        const string Document = """
+            geometry:
+              - source: floor.obj
+                position: [0, 0, 0]
+                rotation: [0, 0, 0]
+                scale: [1, 1, 1]
+            areas:
+              - area: 9
+                min: [8, -1, 0]
+                max: [12, 3, 20]
+            links:
+              - start: [2, 0, 2]
+                end: [8, 0, 8]
+                radius: 2
+                area: 9
+                bidirectional: true
+                userId: 42
+            """;
+
+        var (_, result) = await Import(Document, Floor(20f));
+
+        Assert.True(result.Succeeded);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+    }
+
     static string Floor(float size) {
         var value = size.ToString(CultureInfo.InvariantCulture);
 

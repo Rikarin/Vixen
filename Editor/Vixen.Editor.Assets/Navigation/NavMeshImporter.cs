@@ -77,6 +77,11 @@ namespace Vixen.Editor.Assets.Navigation;
 /// </example>
 [Importer(".vxnavmesh")]
 public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
+    static readonly string[] KnownRoot = ["geometry", "areas", "links"];
+    static readonly string[] KnownSource = ["source", "position", "rotation", "scale"];
+    static readonly string[] KnownArea = ["area", "min", "max"];
+    static readonly string[] KnownLink = ["start", "end", "radius", "area", "bidirectional", "userId"];
+
     /// <inheritdoc />
     public override int Version => 1;
 
@@ -108,6 +113,8 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
 
             return context.Finish();
         }
+
+        Unknown(root, context, "a navmesh asset", KnownRoot);
 
         if (!TryReadSources(root, context, out var sources)) {
             return context.Finish();
@@ -199,6 +206,35 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
     }
 
     static NavMeshAsset Single(NavMeshTileData? tile) => tile is null ? new() : NavMeshAsset.FromTile(tile);
+
+    /// <summary>Says so when a mapping carries a key nothing below reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This document is read key by key, so a key nobody asks for is simply never asked
+    ///         for.</b> Every field here has a fallback that is a legitimate value — <c>links</c> and
+    ///         <c>areas</c> are optional lists, a link's <c>radius</c> falls back to one metre and its
+    ///         <c>bidirectional</c> to true — so <c>area:</c> written where <c>areas:</c> was meant, or
+    ///         <c>radius</c> spelled <c>radious</c>, produces a mesh that bakes cleanly, reports
+    ///         success, and is not the one the file describes. The failure surfaces as an agent taking
+    ///         the long way round a ladder, weeks later.
+    ///     </para>
+    ///     <para>
+    ///         A warning rather than an error, for the same reason
+    ///         <c>NetworkRulesImporter</c> warns: the file still bakes, and refusing it outright would
+    ///         make a comment-shaped key in somebody's level a broken build.
+    ///     </para>
+    /// </remarks>
+    static void Unknown(YamlMapping mapping, ImportContext context, string what, string[] known) {
+        foreach (var key in mapping.Keys) {
+            if (Array.IndexOf(known, key) < 0) {
+                context.Report(
+                    ImportSeverity.Warning,
+                    $"'{key}' is not a field of {what}, so nothing read it and whatever it was meant to "
+                    + $"set is on its default. The fields are {string.Join(", ", known)}."
+                );
+            }
+        }
+    }
 
     /// <summary>The geometry path, which is relative to the asset that names it.</summary>
     static VirtualPath Resolve(VirtualPath source, string relative) {
@@ -311,6 +347,8 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
             return false;
         }
 
+        Unknown(entry, context, "a `geometry` entry", KnownSource);
+
         var position = Vector3.Zero;
         var rotation = Vector3.Zero;
         var scale = Vector3.One;
@@ -366,6 +404,8 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
                 return false;
             }
 
+            Unknown(entry, context, "an `areas` entry", KnownArea);
+
             if (!TryReadByte(entry, "area", "areas", context, out var area) ||
                 !TryReadVector(entry, "min", "areas", context, out var minimum) ||
                 !TryReadVector(entry, "max", "areas", context, out var maximum)) {
@@ -396,6 +436,8 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
 
                 return false;
             }
+
+            Unknown(entry, context, "a `links` entry", KnownLink);
 
             if (!TryReadVector(entry, "start", "links", context, out var start) ||
                 !TryReadVector(entry, "end", "links", context, out var end)) {
