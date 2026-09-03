@@ -616,24 +616,30 @@ warning would toast, log, toast, log.
   and no caller** — `ScenePicker`'s own remarks call the stage "written and tested", and only the
   first half is true. It is still what will be right the day a shader moves a vertex; it is a
   shader-and-mapping job, not a compositor one.
-- **The composed pane paints every drawable with the fallback material, and `EditorContent` is why
-  it does not have to.** `WorldRenderer.Mount` is the only thing in the engine that builds an
-  `IMaterialSource` — and with it a texture source, a vfx source and the two terrain seams — and it
-  takes exactly one argument, an `AssetManager`. `EditorContent` is that `AssetManager`, and it is
-  still constructed only in `EditorContentTests`. So `EditorWorldRenderer.Painter` is null and
-  `Degraded` says so, which is the honest sentence over a viewport where assigning a material appears
-  to do nothing.
-  ⚠ **What must not come with it is the geometry.** The loose catalog resolves strictly *less* than
-  the import cache: `BuildPlanner.AddressOf` gives an excluded asset no address, so it has no entry,
-  and a sub-asset the `.meta` does not name or two whose names collide refuse the whole asset — all
-  silently, with `Rebuild` returning true.
+- ~~**The composed pane paints every drawable with the fallback material.**~~ **Closed 2026-09-03,
+  and it was one uncalled method.** `WorldRenderer.Mount` is the only thing in the engine that builds
+  an `IMaterialSource` — and with it a texture source, a vfx source and the two terrain seams — and it
+  takes exactly one argument, an `AssetManager`. ⚠ `EditorContent` is that `AssetManager` and was
+  constructed only in `EditorContentTests`, so `EditorWorldRenderer.Painter` was null and `Degraded`
+  said so into a log nobody read.
+  ⚠ **What must not come with it is the geometry, and `EditorWorldRenderer.Mount` puts it straight
+  back.** The loose catalog resolves strictly *less* than the import cache: `BuildPlanner.AddressOf`
+  gives an excluded asset no address, so it has no entry, and a sub-asset the `.meta` does not name or
+  two whose names collide refuse the whole asset — all silently, with `Rebuild` returning true.
   `EditorContentTests.An_excluded_asset_is_absent_from_the_catalog_and_still_in_the_import_cache`
-  pins that. `WorldRenderer.Source` and `Painter` are both settable, so the shape that closes this is
-  to mount and then put `ProjectMeshSource` back as the geometry: the game's answer where the editor
-  has none, the project's answer where the catalog would narrow it. Two further costs to price in
-  first — `LooseContent.Write` runs `BuildPlanner`, which reads every `.meta` off disk and so belongs
-  on `ContentTasks`' background task rather than in `Pump`; and `AssetMeshSource`/`AssetMaterialSource`
-  have no `Invalidate`, so a re-import means re-`Mount`, which is a content teardown.
+  pins that.
+  ⚠ **And the extraction has to be told separately**, because `Mount` fills in the `Extraction` that
+  `Register` builds and the editor's `Register` never runs — the same "two renderers and both must be
+  wired" shape that left morphing out of the editor.
+  ⚠ **A material the catalog has not got does not draw the mesh in a fallback; it does not draw the
+  mesh at all.** `IMaterialSource.TryGet` is two-valued and its false means "not yet", so
+  `MeshExtractionSystem.Painted` leaves the entity unsettled for ever while `AssetMaterialSource` has
+  already given up — every counter healthy, the geometry simply absent. `AssetMaterialSource.Refused`
+  separates the two and `EditorMaterialSource` is the only caller; `Degraded` now counts what fell
+  back rather than claiming there is no source.
+  Both costs the old paragraph priced in were real and are paid: `LooseContent.Write` runs on
+  `ContentTasks`' pool thread through `Cataloged` rather than in `Pump`, and a re-import re-`Mount`s,
+  which is a content teardown and is why nothing else repeats it.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
