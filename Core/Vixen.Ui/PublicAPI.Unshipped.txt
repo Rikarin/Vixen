@@ -1015,9 +1015,12 @@ Vixen.Ui.TextInputEvent.Timestamp.get -> System.TimeSpan
 Vixen.Ui.TextInputEvent.Timestamp.init -> System.TimeSpan
 Vixen.Ui.TextLayout -> sealed class
 Vixen.Ui.TextLayout.CaretAt(int index) -> (float X, float Y)
+Vixen.Ui.TextLayout.CaretAt(int index, Vixen.Ui.Text.CaretAffinity affinity) -> (float X, float Y)
 Vixen.Ui.TextLayout.CaretIndexAt(float x, float y) -> int
+Vixen.Ui.TextLayout.CaretPositionAt(float x, float y) -> (int Index, Vixen.Ui.Text.CaretAffinity Affinity)
 Vixen.Ui.TextLayout.Height.get -> float
 Vixen.Ui.TextLayout.LineOf(int index) -> int
+Vixen.Ui.TextLayout.LineOf(int index, Vixen.Ui.Text.CaretAffinity affinity) -> int
 Vixen.Ui.TextLayout.Lines.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextLine>
 Vixen.Ui.TextLayout.TextLayout(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextLine> lines) -> void
 Vixen.Ui.TextLayout.TopOf(int line) -> float
@@ -1026,6 +1029,8 @@ Vixen.Ui.TextLine -> sealed class
 Vixen.Ui.TextLine.Baseline.get -> float
 Vixen.Ui.TextLine.CaretIndexAt(float x) -> int
 Vixen.Ui.TextLine.CaretOffset(int index) -> float
+Vixen.Ui.TextLine.CaretOffset(int index, Vixen.Ui.Text.CaretAffinity affinity) -> float
+Vixen.Ui.TextLine.CaretPositionAt(float x) -> (int Index, Vixen.Ui.Text.CaretAffinity Affinity)
 Vixen.Ui.TextLine.Height.get -> float
 Vixen.Ui.TextLine.Length.get -> int
 Vixen.Ui.TextLine.Offset.get -> float
@@ -1042,6 +1047,8 @@ Vixen.Ui.TextRun.Bars(Vixen.Ui.TextDecoration decoration, bool under) -> System.
 Vixen.Ui.TextRun.Baseline.get -> float
 Vixen.Ui.TextRun.CaretIndexAt(float x) -> int
 Vixen.Ui.TextRun.CaretOffset(int index) -> float
+Vixen.Ui.TextRun.CaretOffset(int index, Vixen.Ui.Text.CaretAffinity affinity) -> float
+Vixen.Ui.TextRun.CaretPositionAt(float x) -> (int Index, Vixen.Ui.Text.CaretAffinity Affinity)
 Vixen.Ui.TextRun.Clusters.get -> int
 Vixen.Ui.TextRun.Font.get -> Vixen.Ui.Text.FontFace
 Vixen.Ui.TextRun.Font.init -> Vixen.Ui.Text.FontFace

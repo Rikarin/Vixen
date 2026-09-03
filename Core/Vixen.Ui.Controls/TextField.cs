@@ -90,6 +90,27 @@ public abstract partial class TextField : Control {
     /// <summary>Where the caret is, as a UTF-16 index into <see cref="Value" />.</summary>
     public int CaretIndex { get; private set; }
 
+    /// <summary>Which of the two characters either side of <see cref="CaretIndex" /> the caret is on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>An index names a boundary, and a boundary is not always one place.</b> At a wrap it
+    ///         is the end of one row and the start of the next; where the direction changes it is at
+    ///         opposite ends of a run. This is the bit that says which, and it is <i>state the field
+    ///         carries</i> rather than something re-derived — a caret walked to the end of a line and
+    ///         a caret pressed Down onto the next arrive at the same number, and only how they got
+    ///         there tells them apart.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="CaretAffinity.Upstream" /> is the resting value, not
+    ///         <c>Downstream</c>.</b> It is what the index-only overloads of
+    ///         <see cref="TextLayout.CaretAt(int)" /> and <see cref="TextLine.CaretOffset(int)" />
+    ///         already answered, so a field that has never been clicked draws its caret exactly where
+    ///         it drew it before this existed. Defaulting the other way would move every caret sitting
+    ///         on a run boundary the first time the field was shown.
+    ///     </para>
+    /// </remarks>
+    public CaretAffinity CaretAffinity { get; private set; } = CaretAffinity.Upstream;
+
     /// <summary>Where the selection started, as a UTF-16 index. Equal to the caret when nothing is selected.</summary>
     public int SelectionAnchor { get; private set; }
 
@@ -228,10 +249,23 @@ public abstract partial class TextField : Control {
     /// <summary>Moves the caret, and either drops the selection or extends it.</summary>
     /// <param name="index">Where to put it.</param>
     /// <param name="extend">Whether Shift is held.</param>
-    public void MoveCaret(int index, bool extend = false) {
+    /// <remarks>
+    ///     ⚠ <b>Resets <see cref="CaretAffinity" /> to <see cref="CaretAffinity.Upstream" />.</b> A
+    ///     caller that says only where the caret goes has not said which side of it, and the resting
+    ///     value is the one every index-only caret answer already used. A caller that knows — a
+    ///     click, a vertical move — has <see cref="MoveCaret(int, CaretAffinity, bool)" />.
+    /// </remarks>
+    public void MoveCaret(int index, bool extend = false) => MoveCaret(index, CaretAffinity.Upstream, extend);
+
+    /// <summary>Moves the caret to one side of an index, and either drops the selection or extends it.</summary>
+    /// <param name="index">Where to put it.</param>
+    /// <param name="affinity">Which of the two characters either side of it the caret is on.</param>
+    /// <param name="extend">Whether Shift is held.</param>
+    public void MoveCaret(int index, CaretAffinity affinity, bool extend = false) {
         var length = Value?.Length ?? 0;
 
         CaretIndex = Math.Clamp(index, 0, length);
+        CaretAffinity = affinity;
 
         if (!extend) {
             SelectionAnchor = CaretIndex;
@@ -486,10 +520,10 @@ public abstract partial class TextField : Control {
         // ⚠ The caret is drawn even when there is a selection. Every editor does — the caret is the
         // end you are extending from, and hiding it during a Shift-Arrow leaves the user unable to
         // tell which way the next keystroke will grow the selection.
-        var (caretX, caretY) = block.CaretAt(DisplayCaret);
+        var (caretX, caretY) = block.CaretAt(DisplayCaret, CaretAffinity);
 
         context.FillRectangle(
-            new Rectangle(origin + caretX, top + caretY, 1f, block.Lines[block.LineOf(DisplayCaret)].Height),
+            new Rectangle(origin + caretX, top + caretY, 1f, block.Lines[block.LineOf(DisplayCaret, CaretAffinity)].Height),
             CaretColour(context)
         );
     }
@@ -601,7 +635,7 @@ public abstract partial class TextField : Control {
         // while an input method is composing, is the value with the pre-edit spliced into it. Read
         // from `CaretIndex` the field scrolls to where the caret would be if the pre-edit were not
         // there, so a long composition runs off the right-hand edge as it is typed.
-        var caret = line.CaretOffset(DisplayCaret);
+        var caret = line.CaretOffset(DisplayCaret, CaretAffinity);
         var shift = -text.OffsetX;
 
         // A margin of one caret width at each edge, so that the caret is never flush against the
@@ -642,7 +676,8 @@ public abstract partial class TextField : Control {
         switch (args.Action) {
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
                 Document.Focus(this);
-                MoveCaret(IndexAt(args.X, args.Y), args.Modifiers.HasFlag(ModifierKeys.Shift));
+                var pressed = PositionAt(args.X, args.Y);
+                MoveCaret(pressed.Index, pressed.Affinity, args.Modifiers.HasFlag(ModifierKeys.Shift));
 
                 // Captured, so that a selection drag that leaves the field keeps extending. Without
                 // it the drag stops at the border and the user has to make the selection twice.
@@ -653,7 +688,8 @@ public abstract partial class TextField : Control {
                 break;
 
             case PointerAction.Moved when dragging:
-                MoveCaret(IndexAt(args.X, args.Y), true);
+                var dragged = PositionAt(args.X, args.Y);
+                MoveCaret(dragged.Index, dragged.Affinity, true);
                 args.Handled = true;
                 break;
 
@@ -692,8 +728,19 @@ public abstract partial class TextField : Control {
     ///     run rather than out here. The <c>y</c> is what picks the line, and for a single-line field
     ///     it can only ever pick the one.
     /// </remarks>
-    int IndexAt(float x, float y) =>
-        text.Block() is { } block ? block.CaretIndexAt(x - text.AbsoluteLeft, y - text.AbsoluteTop) : 0;
+    /// <remarks>
+    ///     ⚠ <b>The affinity comes back with it, and is the reason this returns a pair.</b> A click
+    ///     at the start of a wrapped row lands on an index that also ends the row above; a click at
+    ///     a direction change lands on one that is also at the far end of the run. Keeping only the
+    ///     index throws away which of the two the user pointed at, and the caret is then drawn
+    ///     somewhere they did not click.
+    /// </remarks>
+    (int Index, CaretAffinity Affinity) PositionAt(float x, float y) =>
+        text.Block() is { } block
+            ? block.CaretPositionAt(x - text.AbsoluteLeft, y - text.AbsoluteTop)
+            : (0, CaretAffinity.Upstream);
+
+    int IndexAt(float x, float y) => PositionAt(x, y).Index;
 
     /// <summary>Where the line holding an index begins.</summary>
     int LineStart(int index) =>
@@ -718,23 +765,36 @@ public abstract partial class TextField : Control {
     ///     right across a line of commas. Off the top or the bottom, it goes to the ends — which is
     ///     what every editor does and what stops Up on the first line doing nothing at all.
     /// </remarks>
-    int Vertically(int delta) {
+    (int Index, CaretAffinity Affinity) Vertically(int delta) {
         if (text.Block() is not { } block) {
-            return CaretIndex;
+            return (CaretIndex, CaretAffinity);
         }
 
-        var line = block.LineOf(CaretIndex);
+        // ⚠ **The row the caret is leaving is the one its own affinity says it is on**, not the one
+        // the index alone would name. A caret that walked right off the end of a wrapped line and a
+        // caret that arrived at the same index from below are on different rows, so reading the row
+        // from the index would send Up and Down from the same number to different places — and one
+        // of them to the row it is already on.
+        var line = block.LineOf(CaretIndex, CaretAffinity);
         var wanted = line + delta;
 
         if (wanted < 0) {
-            return 0;
+            return (0, CaretAffinity.Upstream);
         }
 
         if (wanted >= block.Lines.Length) {
-            return Value?.Length ?? 0;
+            return (Value?.Length ?? 0, CaretAffinity.Upstream);
         }
 
-        return block.Lines[wanted].CaretIndexAt(block.Lines[line].CaretOffset(CaretIndex));
+        // ⚠ And the caret lands on the row it was sent to, whatever the index turns out to be. The
+        // first index of a continuation row also ends the row above, so taking the landing line's
+        // own reading would answer `Upstream` and draw the caret back on the row Down came from —
+        // a Down key that visibly does nothing.
+        var landed = block.Lines[wanted].CaretPositionAt(block.Lines[line].CaretOffset(CaretIndex, CaretAffinity));
+
+        return block.LineOf(landed.Index, landed.Affinity) == wanted
+            ? landed
+            : (landed.Index, CaretAffinity.Downstream);
     }
 
     void Typed(TextInputEvent args) {
@@ -857,11 +917,13 @@ public abstract partial class TextField : Control {
                 break;
 
             case InputKey.Up when AcceptsNewlines:
-                MoveCaret(Vertically(-1), shift);
+                var movedUp = Vertically(-1);
+                MoveCaret(movedUp.Index, movedUp.Affinity, shift);
                 break;
 
             case InputKey.Down when AcceptsNewlines:
-                MoveCaret(Vertically(1), shift);
+                var movedDown = Vertically(1);
+                MoveCaret(movedDown.Index, movedDown.Affinity, shift);
                 break;
 
             case InputKey.Backspace:
