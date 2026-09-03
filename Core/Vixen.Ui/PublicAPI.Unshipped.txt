@@ -1053,16 +1053,19 @@ Vixen.Ui.TextRun.Level.get -> int
 Vixen.Ui.TextRun.Level.init -> int
 Vixen.Ui.TextRun.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> into, float penX = 0) -> void
 Vixen.Ui.TextRun.Scale.get -> float
+Vixen.Ui.TextRun.Separators.get -> int
 Vixen.Ui.TextRun.Shaped.get -> Vixen.Ui.Text.ShapedText
 Vixen.Ui.TextRun.Shaped.init -> Vixen.Ui.Text.ShapedText
 Vixen.Ui.TextRun.Size.get -> float
 Vixen.Ui.TextRun.Size.init -> float
 Vixen.Ui.TextRun.Start.get -> int
 Vixen.Ui.TextRun.Start.init -> int
-Vixen.Ui.TextRun.TextRun(Vixen.Ui.Text.FontFace Font, Vixen.Ui.Text.ShapedText Shaped, float Size, float Tracking = 0, float Leading = NaN, int Start = 0, int Level = 0) -> void
+Vixen.Ui.TextRun.TextRun(Vixen.Ui.Text.FontFace Font, Vixen.Ui.Text.ShapedText Shaped, float Size, float Tracking = 0, float Leading = NaN, int Start = 0, int Level = 0, float WordSpacing = 0) -> void
 Vixen.Ui.TextRun.Tracking.get -> float
 Vixen.Ui.TextRun.Tracking.init -> float
 Vixen.Ui.TextRun.Width.get -> float
+Vixen.Ui.TextRun.WordSpacing.get -> float
+Vixen.Ui.TextRun.WordSpacing.init -> float
 Vixen.Ui.TransformEvent -> sealed class
 Vixen.Ui.TransformEvent : Vixen.Ui.UiEvent
 Vixen.Ui.TransformEvent.DeltaRotation.get -> float
@@ -1311,6 +1314,7 @@ Vixen.Ui.UiElement.Transform.get -> Vixen.Ui.Rendering.UiTransform?
 Vixen.Ui.UiElement.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
 Vixen.Ui.UiElement.UiElement() -> void
 Vixen.Ui.UiElement.Width.get -> float
+Vixen.Ui.UiElement.WordSpacing.get -> float
 Vixen.Ui.UiElement.ZIndex.get -> int
 Vixen.Ui.UiEvent -> abstract class
 Vixen.Ui.UiEvent.Current.get -> Vixen.Ui.UiElement?

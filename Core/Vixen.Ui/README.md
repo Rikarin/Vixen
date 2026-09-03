@@ -1201,10 +1201,10 @@ so `font-size` was removed from `InheritedProperties` and is inherited here in c
 An element that declares none simply keeps its parent's resolved pixel size, which is both what CSS
 means and simpler than what was there.
 
-**`line-height` and `letter-spacing` have since joined it**, computed and inherited by the same
-mechanism — `UiElement.LineHeight` and `UiElement.LetterSpacing` are the resolved pixels, and an
-element that declares neither passes its parent's straight through. Both are read by the text layout,
-so the bounded one-level error they used to carry was one the renderer could see.
+**`line-height`, `letter-spacing`, `word-spacing` and `text-indent` have since joined it**, computed
+and inherited by the same mechanism — `UiElement.LineHeight` and its three siblings are the resolved
+pixels, and an element that declares none passes its parent's straight through. All four are read by
+the text layout, so the bounded one-level error they used to carry was one the renderer could see.
 
 ⚠ **`line-height` is the one where computing is not simply resolving.** A *unitless* `1.5` inherits as
 the number and is multiplied by each descendant's own font size; `1.5em` and `150%` inherit as the
@@ -1222,8 +1222,20 @@ style. The pass's usual test passes, `SetStyle` is never reached, and the label 
 itself at the old height for the rest of its life. Only nodes that measure themselves are marked,
 which is what `MarkDirty` insists on and what having text means.
 
-The gap stays open for `word-spacing` and `text-indent`, which nothing reads yet. Computing a value
-no consumer looks at would be work with no way to be wrong.
+⚠ **That gap is closed, and `word-spacing` closing it was a *removal* from `InheritedProperties`
+rather than an addition to it.** The sentence here used to say the gap stayed open for `word-spacing`
+and `text-indent` because nothing read them, and that computing a value no consumer looks at would be
+work with no way to be wrong. The second half was true of `text-indent` and false of `word-spacing` —
+which was in the specified-value list the whole time. It takes relative units exactly as its three
+siblings do, so `word-spacing: 0.5em` on a panel would have re-resolved against every descendant's own
+font size and compounded down the tree, and it would have started doing so silently on the day a
+consumer landed. `TextRun` is that consumer now: CSS Text 3 § 8.2's word-separator characters, which
+are the space and the no-break space and deliberately not a tab.
+
+⚠ **`text-indent` still refuses a percentage**, which is the one value of it this engine cannot
+answer: CSS resolves one against the containing block's width, and that is a layout result the style
+pass does not have. See `UiDocument.ResolveText`, which lands on the initial value rather than
+guessing — and note that the refusal is *silent*, since nothing reports the dropped declaration.
 
 **And relative units belong in `StyleValue` after all.** They were deliberately left out, on the
 argument that resolving them needs a context that does not exist at parse time. That was right about

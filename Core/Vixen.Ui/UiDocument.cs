@@ -53,6 +53,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int breakAll;
     readonly int keepAll;
     readonly int letterSpacing;
+    readonly int wordSpacing;
     readonly int textIndent;
     readonly int fontFeatureSettings;
     readonly int fontVariantNumeric;
@@ -148,6 +149,7 @@ public sealed partial class UiDocument : IDisposable {
         breakAll = Styles.Values.Intern("break-all");
         keepAll = Styles.Values.Intern("keep-all");
         letterSpacing = Styles.Properties.Intern("letter-spacing");
+        wordSpacing = Styles.Properties.Intern("word-spacing");
         textIndent = Styles.Properties.Intern("text-indent");
         fontFeatureSettings = Styles.Properties.Intern("font-feature-settings");
         fontVariantNumeric = Styles.Properties.Intern("font-variant-numeric");
@@ -1232,6 +1234,10 @@ public sealed partial class UiDocument : IDisposable {
     ///     length the ancestor resolved once.
     /// </param>
     /// <param name="LetterSpacing">The ancestor's resolved letter spacing in pixels.</param>
+    /// <param name="WordSpacing">
+    ///     The ancestor's resolved word spacing in pixels. Last of the six because it is the newest,
+    ///     and a record struct's positional order is a layout the whole file is written against.
+    /// </param>
     /// <param name="TextIndent">
     ///     The ancestor's resolved <c>text-indent</c> in pixels.
     ///     <para>
@@ -1259,10 +1265,11 @@ public sealed partial class UiDocument : IDisposable {
         float LineHeightFactor,
         float LetterSpacing,
         float TextIndent,
-        FontFeatureSet Features
+        FontFeatureSet Features,
+        float WordSpacing
     ) {
         /// <summary>What the root starts with: the font's own line height, no tracking, no indent.</summary>
-        public static ComputedText Initial => new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None);
+        public static ComputedText Initial => new(float.NaN, float.NaN, 0f, 0f, FontFeatureSet.None, 0f);
     }
 
     void Apply(UiElement element, float parentFontSize, ComputedText parentText, LengthContext metrics) {
@@ -1298,6 +1305,7 @@ public sealed partial class UiDocument : IDisposable {
             : text.LineHeightFactor * element.FontSize;
 
         element.LetterSpacing = text.LetterSpacing;
+        element.WordSpacing = text.WordSpacing;
         element.TextIndent = text.TextIndent;
         element.FontFeatures = text.Features;
 
@@ -1398,6 +1406,7 @@ public sealed partial class UiDocument : IDisposable {
         var tracking = parent.LetterSpacing;
         var indent = parent.TextIndent;
         var features = parent.Features;
+        var words = parent.WordSpacing;
 
         if (style.TryGet(this.lineHeight, out var declared)) {
             var value = reader.Parse(declared);
@@ -1467,6 +1476,24 @@ public sealed partial class UiDocument : IDisposable {
             }
         }
 
+        // ⚠ <b>The same three outcomes as `letter-spacing`, because it is the same kind of property
+        // and the day it stopped being inert was the day that mattered.</b> `word-spacing` sat in
+        // `InheritedProperties` — specified-value inheritance — for as long as nothing read it,
+        // under a comment saying it could join the others when something wanted it. Nothing about
+        // that arrangement announces itself: the value inherits, it resolves, and it is only wrong
+        // by a factor of the font-size ratio, so `word-spacing: 0.5em` on a panel would have
+        // compounded down every descendant and looked plausible at each step. The move out of that
+        // list is not tidying beside this block; it is the half of this change that cannot be seen.
+        if (style.TryGet(wordSpacing, out var between)) {
+            var value = reader.Parse(between);
+
+            if (metrics.WithFontSize(fontSize).ToLength(value) is { Unit: LayoutUnit.Point } resolved) {
+                words = resolved.Value;
+            } else if (value.Kind != StyleValueKind.Length) {
+                words = 0f;
+            }
+        }
+
         // ⚠ <b>A percentage is refused rather than resolved, and it is the one value of this
         // property Vixen cannot answer.</b> CSS resolves a `text-indent` percentage against the
         // *containing block's* width, which is a layout result and is not known in the style pass —
@@ -1522,7 +1549,7 @@ public sealed partial class UiDocument : IDisposable {
             features = FontFeatureSet.None;
         }
 
-        return new ComputedText(lineHeight, factor, tracking, indent, features);
+        return new ComputedText(lineHeight, factor, tracking, indent, features, words);
     }
 
     /// <summary>The OpenType features CSS Fonts 4 § 6.6 gives each <c>font-variant-numeric</c> keyword.</summary>
