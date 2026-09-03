@@ -252,12 +252,35 @@ public sealed record TextRun(
     ///     today, and fixing it means counting clusters up to an index, which is a different walk
     ///     from the one the caret code does.
     /// </remarks>
-    public float CaretOffset(int index) => Shaped.CaretOffset(Math.Clamp(index - Start, 0, Shaped.Text.Length)) * Scale;
+    public float CaretOffset(int index) => CaretOffset(index, CaretAffinity.Downstream);
+
+    /// <summary>How far along the run a caret sits, given which side of the index it is on.</summary>
+    /// <param name="index">A UTF-16 index into the element's text, not into the run's.</param>
+    /// <param name="affinity">Which of the two characters either side of the index it belongs to.</param>
+    /// <returns>The distance from the run's own start.</returns>
+    /// <remarks>
+    ///     <see cref="CaretOffset(int)" />'s remark about <see cref="Tracking" /> applies here too.
+    /// </remarks>
+    public float CaretOffset(int index, CaretAffinity affinity) =>
+        Shaped.CaretOffset(Math.Clamp(index - Start, 0, Shaped.Text.Length), affinity) * Scale;
 
     /// <summary>Which caret index a distance from the run's start lands on.</summary>
     /// <param name="x">The distance, in pixels.</param>
     /// <returns>A UTF-16 index into the element's text.</returns>
-    public int CaretIndexAt(float x) => Shaped.CaretIndexAt(x / Scale) + Start;
+    public int CaretIndexAt(float x) => CaretPositionAt(x).Index;
+
+    /// <summary>Which caret a distance from the run's start lands on, and which side of it.</summary>
+    /// <param name="x">The distance, in pixels.</param>
+    /// <returns>A UTF-16 index into the element's text, and the affinity that puts it back here.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A run is one level throughout, so the affinity that comes back is about a cluster
+    ///     boundary inside it and never about this run's own edges.</b> Which run an index on a run
+    ///     boundary belongs to is <see cref="TextLine" />'s question, and it is a different one.
+    /// </remarks>
+    public (int Index, CaretAffinity Affinity) CaretPositionAt(float x) {
+        var (index, affinity) = Shaped.CaretPositionAt(x / Scale);
+        return (index + Start, affinity);
+    }
 
     /// <summary>Places every glyph relative to the start of the line.</summary>
     /// <param name="into">Where to put them.</param>

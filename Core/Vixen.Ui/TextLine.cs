@@ -156,7 +156,7 @@ public sealed class TextLine {
     /// <summary>Where the first glyph sits, in pixels from the start of the line box.</summary>
     /// <remarks>
     ///     <c>text-indent</c> on the first line of a block, and zero everywhere else. It is already
-    ///     inside <see cref="PenOf" />, <see cref="Place" />, <see cref="CaretOffset" /> and
+    ///     inside <see cref="PenOf" />, <see cref="Place" />, <see cref="CaretOffset(int)" /> and
     ///     <see cref="CaretIndexAt" />, so a consumer that goes through any of those needs to know
     ///     nothing about it — which is deliberate, and is the reason the caret cannot land a
     ///     character out on an indented line. A negative value is CSS's hanging indent and needs
@@ -196,18 +196,45 @@ public sealed class TextLine {
     /// <param name="index">A UTF-16 index into the element's text.</param>
     /// <returns>The distance from the start of the line.</returns>
     /// <remarks>
-    ///     ⚠ <b>An index on a run boundary belongs to the run that ends there.</b> Both answers are
-    ///     the same pixel, so the choice only shows in which font's metrics decide — and the earlier
-    ///     run is the one the character before the caret was drawn in, which is what a caret is
-    ///     conventionally attached to. Caret <i>affinity</i>, which is the general form of this
-    ///     question and matters at a wrap, is owed with the editor.
+    ///     ⚠ <b>An index on a run boundary belongs to the run that ends there</b>, which is the
+    ///     upstream reading and is what this overload keeps answering. Where the two runs face the
+    ///     same way both answers are the same pixel and the choice only shows in which font's
+    ///     metrics decide; where they face opposite ways they are at opposite ends of a run, and
+    ///     <see cref="CaretOffset(int, CaretAffinity)" /> is how a caller says which it meant.
     /// </remarks>
-    public float CaretOffset(int index) {
+    public float CaretOffset(int index) => CaretOffset(index, CaretAffinity.Upstream);
+
+    /// <summary>Where a caret sits, given which side of the index it belongs to.</summary>
+    /// <param name="index">A UTF-16 index into the element's text.</param>
+    /// <param name="affinity">Which of the two characters either side of the index it belongs to.</param>
+    /// <returns>The distance from the start of the line.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The affinity is asked twice on the way down and answers two different questions.</b>
+    ///         Here it decides <i>which run</i> an index on a run boundary belongs to; inside the run
+    ///         it decides which cluster. They agree in direction — downstream always means the
+    ///         character after the index — which is why one bit carries both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Runs are walked in logical order and the pens are visual</b>, so "the next run"
+    ///         is the next one <i>logically</i> and may be drawn to the left. That is the point: at a
+    ///         direction change the downstream answer is supposed to be somewhere else entirely.
+    ///     </para>
+    /// </remarks>
+    public float CaretOffset(int index, CaretAffinity affinity) {
         for (var i = 0; i < Runs.Length; i++) {
             var run = Runs[i];
+            var end = run.Start + run.Shaped.Text.Length;
 
-            if (index <= run.Start + run.Shaped.Text.Length || i == Runs.Length - 1) {
-                return PenOf(i) + run.CaretOffset(index);
+            // A downstream caret on a run boundary belongs to the character *after* it, which is the
+            // first character of the next run. Falling through to the earlier run would make the two
+            // affinities the same answer and quietly undo the distinction one line down.
+            if (affinity == CaretAffinity.Downstream && index == end && i + 1 < Runs.Length) {
+                continue;
+            }
+
+            if (index <= end || i == Runs.Length - 1) {
+                return PenOf(i) + run.CaretOffset(index, affinity);
             }
         }
 
@@ -223,14 +250,24 @@ public sealed class TextLine {
     ///     glyph on the line and comes back as its first index — the run clamps a negative distance —
     ///     which is what clicking in the white space at the start of a paragraph should do.
     /// </remarks>
-    public int CaretIndexAt(float x) {
+    public int CaretIndexAt(float x) => CaretPositionAt(x).Index;
+
+    /// <summary>Which caret a distance along the line lands on, and which side of it.</summary>
+    /// <param name="x">The distance from the start of the line, in pixels.</param>
+    /// <returns>A UTF-16 index into the element's text, and the affinity that puts it back here.</returns>
+    /// <remarks>
+    ///     <see cref="CaretIndexAt" />'s remark about <see cref="Offset" /> applies here too. Feeding
+    ///     the pair back to <see cref="CaretOffset(int, CaretAffinity)" /> gives the x again; feeding
+    ///     the index alone need not, which is the whole reason the pair exists.
+    /// </remarks>
+    public (int Index, CaretAffinity Affinity) CaretPositionAt(float x) {
         for (var i = 0; i < Runs.Length; i++) {
             if (x < PenOf(i) + Runs[i].Width || i == Runs.Length - 1) {
-                return Runs[i].CaretIndexAt(x - PenOf(i));
+                return Runs[i].CaretPositionAt(x - PenOf(i));
             }
         }
 
-        return 0;
+        return (0, CaretAffinity.Downstream);
     }
 
 }
