@@ -100,10 +100,11 @@ or a race, and neither shows up as anything but an intermittently wrong frame.
 
 ## What is not here yet
 
-The MSAA **depth** resolve, and SMAA's diagonal detection. Each needs a shader that does not exist
-yet rather than a pass over one that does — which is the difference between this list and the one
-above it. The depth one is a shader rather than a store action because averaging depth is
-meaningless: a resolved depth is a min or a max, and that is a pass.
+SMAA's diagonal detection, and nothing else on this list — ⚠ **the MSAA depth resolve was on it and
+its entry was wrong in the same way twice.** "Averaging depth is meaningless, so it needs a shader"
+gets the premise right and the conclusion backwards: a min-or-max resolve is exactly what
+`VK_KHR_depth_stencil_resolve` does in fixed function, so what it needed was a `DepthResolveMode` on
+the attachment, not a pass. It ships that way — see the paragraph on it below.
 
 ⚠ **SMAA was on that list and is now on the one above it, with one part of it still owed.** Diagonal
 pattern detection — the reference's second, optional detector for silhouettes near 45°, with a
