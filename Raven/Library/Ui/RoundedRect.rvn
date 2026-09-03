@@ -15,12 +15,24 @@ import Vixen.Shaders.Core
 // ⚠ **The engine's own UI does not draw through this shader, and the name is why that needs saying.**
 // A search for "rounded rect" finds this file first, and it is a self-contained library primitive: no
 // C# in the repository references it, and nothing in `Vixen.Ui.Renderer` binds it. The path a panel
-// actually takes is `UiShape` → `DrawListBuilder` → `UiRenderer`, whose fragment stage is a
-// hand-written GLSL file outside the Raven pipeline entirely — and there are three copies of it, in
-// `Platform/Vixen.Graphics.Golden.Tests/Shaders`, `Samples/02-HelloUi/Shaders` and
-// `Tools/Vixen.Templates/templates/vixen-app/Shaders`, only the first of which anything covers. Read
-// this shader as a reference implementation of the distance-field technique, not as the thing whose
-// behaviour you are debugging.
+// actually takes is `UiShape` → `DrawListBuilder` → `UiRenderer`, and the shader at the end of it is
+// `Shaders/Ui.rvn` under `Platform/Vixen.Ui.Desktop`. Read this file as a reference implementation of
+// the distance-field technique, not as the thing whose behaviour you are debugging.
+//
+// ⚠ **This paragraph used to say the shipped stage was hand-written GLSL "outside the Raven pipeline
+// entirely", in three copies, and every clause of that is now wrong** — it was written before Raven
+// took the UI over on 2026-08-23. The shipped stage is Raven's; the sample's and the template's copies
+// are gone with their `Shaders/` directories; the one hand-written copy left is
+// `Platform/Vixen.Graphics.Golden.Tests/Shaders`, kept because the reference images were rendered with
+// it, and `SharedUiShaderTests` says so.
+//
+// ⚠ **What is *not* a porting gap is the parameter convention, and that is the thing this note exists
+// to stop somebody closing.** This shader takes the box's size and radii as uniforms, so one draw is
+// one box; `Ui.rvn` takes them per vertex out of a `UiShape` storage buffer, so one draw is a whole
+// batch of boxes of different sizes — which is what an interface drawing hundreds of them a frame
+// needs, and it is the form that stays. Porting this file to the batched form would not reconcile the
+// two: it would make a second copy of `Ui.rvn` in a package nothing binds. See
+// `Core/Vixen.Ui.Renderer/README.md` § Three pipelines.
 //
 // It is compiled by `LibraryTreeTests`, which walks the library, but it is not in
 // `LibraryReflectionTests`' `Published` list, so no generated binding keys exist for it — that list

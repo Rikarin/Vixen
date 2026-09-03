@@ -12,6 +12,11 @@ import Vixen.Shaders.Core
 // gradient from red to green interpolated in sRGB goes through a muddy brown, and in linear space
 // through a brighter olive. `Perceptual` uses Oklab-style lightness weighting, which is what a design
 // tool means by "smooth".
+//
+// ⚠ **Not the shader a `background-image` reaches**, and this one is the easiest of the five to mistake
+// for it because it already has the modes: `UiBox` in `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn` reads
+// its stops out of the `UiShape` buffer, and nothing here reads that buffer. See `UiQuad.rvn`'s package
+// notice.
 
 shader Gradient {
     /// 0 linear, 1 radial, 2 angular.

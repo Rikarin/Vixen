@@ -12,6 +12,14 @@ import Vixen.Shaders.Core
 // The atlas is authored by msdfgen and is not a colour texture: it must be sampled with linear filtering
 // and no sRGB decode, because the values are distances. Sampling it as sRGB is the classic mistake and
 // shows as text that is too thin.
+//
+// ⚠ **The engine's own text does not draw through this shader**, and `RoundedRect.rvn`'s notice applies
+// here word for word. Nothing in `Vixen.Ui.Renderer` binds it and no C# references it; the label a
+// control shows goes through `UiShape` → `DrawListBuilder` → `UiRenderer` to `UiText` in
+// `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn`. The difference is the same one and it is deliberate: the
+// distance range and the tint are *uniforms* here, so one draw is one run, and per vertex there, so one
+// draw is every glyph in the frame. A batch is what a user interface needs and it is the form that
+// stays.
 
 shader Msdf {
     /// Whether to draw an outline behind the glyph.

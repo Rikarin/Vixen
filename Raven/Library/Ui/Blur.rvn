@@ -11,6 +11,12 @@ import Vixen.Shaders.Core
 // Linear-filtering taps rather than one tap per texel: sampling *between* two texels gets both for one
 // fetch, so a 9-tap Gaussian costs 5 samples. The weights and offsets below are precomputed for that,
 // which is why they are not the binomial coefficients they would otherwise be.
+//
+// ⚠ **Not the blur a `filter: blur()` runs.** That is `UiBlur` in
+// `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn`, which takes its standard deviation and its reach from
+// `UiLayer.KernelRadius` through a push constant and sums the *whole* kernel including the taps that
+// fall outside the surface — a difference with a visible consequence at a group's edge, so the two are
+// not interchangeable. See `UiQuad.rvn`'s package notice.
 
 shader Blur {
     /// Taps per side. 2 gives a 9-texel kernel for 5 samples, 3 gives 13 for 7.

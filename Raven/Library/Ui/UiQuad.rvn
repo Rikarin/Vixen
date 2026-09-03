@@ -15,6 +15,17 @@ import Vixen.Shaders.Geometry
 //
 // Vertex colour is a *tint* multiplied with the texture rather than a replacement, which is what lets
 // one white texture serve every solid-colour element in an atlas.
+//
+// ⚠ **Nothing in the engine draws its interface through this package, and every file in it is a
+// reference implementation.** Said here because this is the package header and four of the five files
+// used to say it nowhere. `Vixen.Ui.Renderer` binds `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn`, which
+// is a different shader by a deliberate decision rather than by neglect: **these shaders take a box's
+// size, radii, distance range and tint as uniforms, so one draw is one box**, and `Ui.rvn` takes them
+// **per vertex out of a `UiShape` storage buffer, so one draw is a whole batch**. An interface draws
+// hundreds of boxes of different sizes per frame, so the batched form is the one that ships. Porting
+// this package to it would produce a second copy of `Ui.rvn` that nothing binds, not a reconciliation.
+// `RoundedRect.rvn` carries the long version and `Core/Vixen.Ui.Renderer/README.md` § Three pipelines
+// carries the arithmetic.
 
 shader UiQuad {
     /// Whether to sample a texture. Off makes this a solid-colour quad with no texture binding at all.
