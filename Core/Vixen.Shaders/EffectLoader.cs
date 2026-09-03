@@ -336,7 +336,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///     in what they call it, and keying on the name would defeat the whole point of the cache
     ///     while looking like it worked.
     /// </remarks>
-    static string Shape(DescriptorSetSlot slot, List<DescriptorBinding> bindings, int capacity) {
+    internal static string Shape(DescriptorSetSlot slot, List<DescriptorBinding> bindings, int capacity) {
         var builder = new StringBuilder().Append((int)slot).Append('#').Append(capacity);
 
         foreach (var binding in bindings) {
