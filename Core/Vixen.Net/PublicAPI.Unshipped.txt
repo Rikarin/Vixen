@@ -45,8 +45,11 @@ Vixen.Net.Diagnostics.BandwidthLedger.TotalCount.get -> long
 Vixen.Net.Diagnostics.BandwidthLedger.TrackObjects.get -> bool
 Vixen.Net.Diagnostics.BandwidthLedger.TrackObjects.set -> bool
 Vixen.Net.Diagnostics.BandwidthLedger.WholeCount.get -> long
+Vixen.Net.Diagnostics.NetworkActivity -> static class
 Vixen.Net.Diagnostics.NetworkMetrics -> sealed class
 Vixen.Net.Diagnostics.NetworkMetrics : System.IDisposable
+Vixen.Net.Diagnostics.NetworkMetrics.Client.get -> Vixen.Net.Replication.ReplicationClient?
+Vixen.Net.Diagnostics.NetworkMetrics.Client.set -> Vixen.Net.Replication.ReplicationClient?
 Vixen.Net.Diagnostics.NetworkMetrics.Dispose() -> void
 Vixen.Net.Diagnostics.NetworkMetrics.Ledger.get -> Vixen.Net.Diagnostics.BandwidthLedger?
 Vixen.Net.Diagnostics.NetworkMetrics.Ledger.set -> Vixen.Net.Diagnostics.BandwidthLedger?
@@ -1157,6 +1160,8 @@ Vixen.Net.Transport.TransportState.Starting = 1 -> Vixen.Net.Transport.Transport
 Vixen.Net.Transport.TransportState.Stopped = 0 -> Vixen.Net.Transport.TransportState
 Vixen.Net.Transport.TransportState.Stopping = 3 -> Vixen.Net.Transport.TransportState
 Vixen.Net.Transport.TransportState.TransportState() -> void
+const Vixen.Net.Diagnostics.NetworkActivity.HandshakeName = "vixen.net.handshake" -> string
+const Vixen.Net.Diagnostics.NetworkActivity.SourceName = "Vixen.Net" -> string
 const Vixen.Net.Diagnostics.NetworkMetrics.MeterName = "Vixen.Net" -> string
 const Vixen.Net.Messaging.DeltaCodec.MinimumOffsetBits = 9 -> int
 const Vixen.Net.Messaging.DeltaCodec.SelectorBits = 2 -> int

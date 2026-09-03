@@ -1,0 +1,275 @@
+{
+  "title": "Vixen — dedicated server",
+  "uid": "vixen-net",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["vixen", "networking"],
+  "description": "Every instrument Vixen.Net publishes, in the order the questions are asked: is it up, is it keeping up, is the link healthy, is anything being refused. Names are the OpenTelemetry-to-Prometheus normalisation of the meter's own — dots become underscores, a unit becomes a suffix, and a monotonic counter gains _total. DashboardCoverageTests derives them from the live meter and fails if this file and the instruments disagree in either direction.",
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "label": "Server",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": "label_values(vixen_net_players, service_instance_id)",
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2
+      },
+      {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "prometheus"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Is it up",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Players connected",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(vixen_net_players{service_instance_id=~\"$instance\"})",
+          "legendFormat": "connected"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Holding a seat, not connected",
+      "description": "Inside their reconnect window. A number that climbs and never falls is a reconnect window nobody is coming back through.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(vixen_net_players_awaiting_reconnect{service_instance_id=~\"$instance\"})",
+          "legendFormat": "awaiting"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Tick",
+      "description": "Wraps, because a tick does — a fall to zero after about two years of uptime is the counter and not the server.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "vixen_net_tick{service_instance_id=~\"$instance\"}",
+          "legendFormat": "{{service_instance_id}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Is it keeping up",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Tick duration",
+      "description": "A histogram rather than a gauge, because the question is not what a tick costs on average — it is how often one goes over budget, and a mean cannot be asked that.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(vixen_net_tick_duration_seconds_bucket{service_instance_id=~\"$instance\"}[5m])))",
+          "legendFormat": "p99"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(vixen_net_tick_duration_seconds_bucket{service_instance_id=~\"$instance\"}[5m])))",
+          "legendFormat": "p50"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Snapshot size",
+      "description": "Whether the bandwidth budget is clipping snapshots. A p99 pinned flat at a round number is a budget, not a workload.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(vixen_net_snapshot_size_bytes_bucket{service_instance_id=~\"$instance\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Is the link healthy",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Round trip and jitter",
+      "description": "The mean is what the link is; the worst is the player who is complaining. The jitter is what sizes somebody's interpolation buffer.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg(vixen_net_rtt_mean_seconds{service_instance_id=~\"$instance\"})",
+          "legendFormat": "rtt mean"
+        },
+        {
+          "refId": "B",
+          "expr": "max(vixen_net_rtt_worst_seconds{service_instance_id=~\"$instance\"})",
+          "legendFormat": "rtt worst"
+        },
+        {
+          "refId": "C",
+          "expr": "max(vixen_net_jitter_worst_seconds{service_instance_id=~\"$instance\"})",
+          "legendFormat": "jitter worst"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Loss, both directions",
+      "description": "⚠ All four flat at zero on a server that is plainly sending is a transport that does not count, not a clean link — a cumulative counter has no way to say \"not measured\". Read them beside the datagrams-sent rate below.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(vixen_net_datagrams_retransmitted_total{service_instance_id=~\"$instance\"}[5m])) / clamp_min(sum(rate(vixen_net_datagrams_sent_total{service_instance_id=~\"$instance\"}[5m])), 1)",
+          "legendFormat": "outbound resent (an upper bound on loss)"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(vixen_net_datagrams_lost_total{service_instance_id=~\"$instance\"}[5m])) / clamp_min(sum(rate(vixen_net_datagrams_expected_total{service_instance_id=~\"$instance\"}[5m])), 1)",
+          "legendFormat": "inbound lost (observed)"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "What it is spending, and what it is refusing",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 }
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Bandwidth",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 25 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(vixen_net_bandwidth_bytes_total{service_instance_id=~\"$instance\"}[5m]))",
+          "legendFormat": "accounted"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Records, by how they went",
+      "description": "The ratio is the point, not the two series: a delta share that collapses means the baselines are not being acknowledged.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 25 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(vixen_net_snapshot_records_total{service_instance_id=~\"$instance\"}[5m]))",
+          "legendFormat": "{{kind}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(vixen_net_snapshot_suppressed_total{service_instance_id=~\"$instance\"}[5m]))",
+          "legendFormat": "suppressed"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Remote calls, by outcome",
+      "description": "Refusals are normal traffic — a client whose object was despawned a tick ago is refused and is not misbehaving. What matters is which refusal is climbing.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 25 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(vixen_net_rpc_calls_total{service_instance_id=~\"$instance\"}[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "row",
+      "title": "The players' own side",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 }
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "Snapshots a client could not use",
+      "description": "Reported by clients, not by the server. A rejection is two peers disagreeing about a wire format and should be zero; a stale one is reordering, which is normal in small amounts.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(vixen_net_client_snapshots_rejected_total[5m]))",
+          "legendFormat": "rejected"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(vixen_net_client_snapshots_stale_total[5m]))",
+          "legendFormat": "stale"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "Entities a client is holding",
+      "description": "What interest management left it. A number that tracks the whole world is a chain resolving to everything.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg(vixen_net_client_entities)",
+          "legendFormat": "mean held"
+        }
+      ]
+    }
+  ]
+}

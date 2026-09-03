@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using System.Security.Cryptography;
+using Vixen.Net.Diagnostics;
 using Vixen.Net.Messaging;
 using Vixen.Net.Time;
 using Vixen.Net.Transport;
@@ -79,6 +81,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     double clientNextPingAt;
     double clientLastHeardFrom;
     double handshakeSentAt;
+    Activity? clientHandshake;
 
     /// <summary>How the session behaves.</summary>
     public SessionOptions Options { get; }
@@ -231,7 +234,14 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
         playersByConnection.Clear();
         reconnectTokens.Clear();
+
+        foreach (var request in pending.Values) {
+            request.Handshake.Abandoned("session_stopped");
+        }
+
         pending.Clear();
+        clientHandshake.Abandoned("session_stopped");
+        clientHandshake = null;
         LocalPlayer = null;
         reconnectToken = [];
         clientPingOutstanding = false;
@@ -421,19 +431,24 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     void ITransportEvents.OnConnected(TransportRole role, ConnectionId connection) {
         if (role == TransportRole.Server) {
             // Nothing is a player yet — a connection is a request to be let in, not an arrival.
-            pending[connection.Value] = new(connection, now + Options.AuthenticationTimeout.TotalSeconds);
+            pending[connection.Value] = new(connection, now + Options.AuthenticationTimeout.TotalSeconds) {
+                Handshake = NetworkActivity.StartHandshake(TransportRole.Server, connection)
+            };
 
             return;
         }
 
         clientLastHeardFrom = now;
         handshakeSentAt = now;
+        clientHandshake = NetworkActivity.StartHandshake(TransportRole.Client, ConnectionId.None);
         SendConnectRequest();
     }
 
     void ITransportEvents.OnDisconnected(TransportRole role, ConnectionId connection, DisconnectReason reason) {
         if (role == TransportRole.Server) {
-            pending.Remove(connection.Value);
+            if (pending.Remove(connection.Value, out var dropped)) {
+                dropped.Handshake.Abandoned("connection_lost");
+            }
 
             if (playersByConnection.Remove(connection.Value, out var player)) {
                 LoseConnection(player, reason);
@@ -443,6 +458,9 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         }
 
         if (State != SessionState.Stopped) {
+            clientHandshake.Abandoned("connection_lost");
+            clientHandshake = null;
+
             var local = LocalPlayer;
             LocalPlayer = null;
             clientPingOutstanding = false;
@@ -540,6 +558,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
             case SystemMessage.ConnectRejected:
                 if (reader.TryReadByte(out var raw) && reader.TryReadString(MaxReasonBytes, out var reason)) {
+                    clientHandshake.Refused((SessionRejectReason)raw, reason);
+                    clientHandshake = null;
                     Rejected?.Invoke((SessionRejectReason)raw, reason);
                 }
 
@@ -612,6 +632,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             return;
         }
 
+        request.Handshake.Step("request_read");
+
         if (protocol != Options.ProtocolVersion) {
             RejectPending(
                 connection,
@@ -622,6 +644,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             return;
         }
 
+        request.Handshake.Step("protocol_agreed");
+
         if (contentHash != Options.ContentHash) {
             RejectPending(
                 connection,
@@ -631,6 +655,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
             return;
         }
+
+        request.Handshake.Step("content_agreed");
 
         var resuming = PlayerId.None;
 
@@ -688,6 +714,13 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             decision = authenticator.Authenticate(in ask);
         }
 
+        // Only on an acceptance. The events are the steps that *passed*, so the last one names where
+        // a handshake got to — and an authenticator that answered no did not pass this step, it is
+        // the step that refused. `Pending` has not answered at all.
+        if (decision.Outcome == AuthenticationOutcome.Accept) {
+            request.Handshake.Step("authenticated");
+        }
+
         switch (decision.Outcome) {
             case AuthenticationOutcome.Pending:
                 return false;
@@ -716,6 +749,12 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             player.Identity = identity.Length == 0 ? player.Identity : identity;
         } else {
             if (players.Count >= Options.MaxPlayers) {
+                // ⚠ Ended here rather than left to `RejectPending`, which cannot reach it: this
+                // method removed the request from the pending table on its first line, so by now
+                // there is nothing there to carry the span. A refusal whose span was silently
+                // dropped is the one refusal a trace would not show, and it is the one that means
+                // the fleet is out of room.
+                request.Handshake.Refused(SessionRejectReason.ServerFull, "This server is full.");
                 RejectPending(connection, SessionRejectReason.ServerFull, "This server is full.");
 
                 return;
@@ -738,6 +777,8 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
         IssueReconnectToken(player);
         SendAccepted(connection, player);
+
+        request.Handshake.Admitted(player.Id, request.Resuming.IsValid);
 
         if (request.Resuming.IsValid) {
             PlayerConnectionChanged?.Invoke(player);
@@ -854,6 +895,9 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             return;
         }
 
+        // Read before it is overwritten below: whether this acceptance resumed a seat is a fact
+        // about the token that was *sent*, and by the next line that token is gone.
+        var resumed = reconnectToken.Length != 0;
         reconnectToken = token.ToArray();
 
         if (!playersById.TryGetValue(playerId, out var player)) {
@@ -871,6 +915,9 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         // The handshake is itself a round trip, and it is the only one measured before the first
         // ping — without it a client would run a whole second on a clock that assumed zero latency.
         Clock.Synchronize(serverTick, TimeSpan.FromSeconds(Math.Max(0, now - handshakeSentAt)));
+
+        clientHandshake.Admitted(player.Id, resumed);
+        clientHandshake = null;
 
         Connected?.Invoke(player);
     }
@@ -926,7 +973,10 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     }
 
     void RejectPending(ConnectionId connection, SessionRejectReason reason, string text) {
-        pending.Remove(connection.Value);
+        if (pending.Remove(connection.Value, out var refused)) {
+            refused.Handshake.Refused(reason, text);
+        }
+
         SendReject(connection, reason, text);
         transport.Disconnect(connection);
     }
@@ -1040,5 +1090,15 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         public PlayerId Resuming { get; init; }
         public byte[] Payload { get; init; } = [];
         public bool Asked { get; init; }
+
+        /// <summary>The span this handshake is being timed by, or null when nothing is listening.</summary>
+        /// <remarks>
+        ///     ⚠ Carried here rather than opened and closed inside one call, because an authenticator
+        ///     may answer <c>Pending</c> and be asked again on a later frame — so the interesting
+        ///     handshake, the slow one, is exactly the one that does not fit in a single call. Every
+        ///     path that removes a request from the table has to end it: an <c>Activity</c> nobody
+        ///     stops is never exported, and no span reads as a handshake that never happened.
+        /// </remarks>
+        public Activity? Handshake { get; init; }
     }
 }

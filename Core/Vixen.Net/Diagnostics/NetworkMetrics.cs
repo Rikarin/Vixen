@@ -170,6 +170,27 @@ public sealed class NetworkMetrics : IDisposable {
             () => reading.Missing,
             description: "How many of those never arrived. Over the expected count, this is observed inbound loss."
         );
+
+        // The client's three, and they are the numbers that say a *player* is having a bad time
+        // rather than that a server is. A gauge for what it is holding, counters for what went
+        // wrong, on the same argument as everything above: a share cannot be re-aggregated.
+        meter.CreateObservableGauge(
+            "vixen.net.client.entities",
+            () => reading.ClientEntities,
+            description: "Networked entities this client is holding — what interest management left it."
+        );
+
+        meter.CreateObservableCounter(
+            "vixen.net.client.snapshots.rejected",
+            () => reading.SnapshotsRejected,
+            description: "Snapshots that failed to decode. Anything but zero is a peer disagreeing about a wire format."
+        );
+
+        meter.CreateObservableCounter(
+            "vixen.net.client.snapshots.stale",
+            () => reading.SnapshotsStale,
+            description: "Snapshots that arrived after a newer one and were dropped — reordering, which is normal in small amounts."
+        );
     }
 
     /// <summary>The session to read players and the tick from.</summary>
@@ -177,6 +198,28 @@ public sealed class NetworkMetrics : IDisposable {
 
     /// <summary>The replication server to read record counts from.</summary>
     public ReplicationServer? Replication { get; set; }
+
+    /// <summary>The client-side applier to read rejected and stale snapshot counts from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A client is worth measuring and it is a different question from a server.</b>
+    ///         Everything else here answers "is this server healthy"; these three answer "is this
+    ///         player being served", which no server-side number can — a snapshot that was budgeted,
+    ///         written and sent is a success on the server and a rejection on the client that could
+    ///         not decode it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The route out is the same one, and <c>Vixen.Net.Telemetry</c>'s README saying a
+    ///         client "wants a different route out than this one" is half right in a way worth
+    ///         correcting.</b> Its argument was that a client is not scrapeable — which is true, and
+    ///         is why that package pushes rather than being scraped, so the route it already has is
+    ///         precisely the one a client needs. What genuinely differs is volume: a hundred thousand
+    ///         clients exporting every fifteen seconds is a decision about interval, sampling and
+    ///         whether a game is willing to receive that at all, and those are deployment settings
+    ///         rather than a second exporter.
+    ///     </para>
+    /// </remarks>
+    public ReplicationClient? Client { get; set; }
 
     /// <summary>The router to read call outcomes from.</summary>
     public RpcRouter? Rpc { get; set; }
@@ -236,6 +279,12 @@ public sealed class NetworkMetrics : IDisposable {
             }
 
             next.MeanRoundTripSeconds = next.ConnectedPlayers == 0 ? 0 : total / next.ConnectedPlayers;
+        }
+
+        if (Client is not null) {
+            next.ClientEntities = Client.EntityCount;
+            next.SnapshotsRejected = Client.RejectedSnapshotCount;
+            next.SnapshotsStale = Client.StaleSnapshotCount;
         }
 
         if (Replication is not null) {
@@ -329,5 +378,8 @@ public sealed class NetworkMetrics : IDisposable {
         public long Retransmitted;
         public long Expected;
         public long Missing;
+        public int ClientEntities;
+        public long SnapshotsRejected;
+        public long SnapshotsStale;
     }
 }
