@@ -77,12 +77,15 @@ public sealed class VfxGpuSort : IDisposable {
     }
 
     readonly IGraphicsDevice device;
+    readonly VfxGpuSimulation simulation;
     readonly BufferHandle keys;
     readonly BufferHandle indices;
     readonly BufferHandle readback;
     readonly DescriptorSetLayoutHandle seedLayout;
     readonly DescriptorSetLayoutHandle stepLayout;
-    readonly DescriptorSetHandle seedSet;
+    readonly DescriptorSetHandle[] seedSets;
+    readonly BufferHandle[] boundPosition;
+    readonly BufferHandle[] boundAge;
     readonly DescriptorSetHandle stepSet;
     readonly BufferBarrier[] barriers;
 
@@ -100,6 +103,7 @@ public sealed class VfxGpuSort : IDisposable {
         ArgumentNullException.ThrowIfNull(simulation);
 
         this.device = device;
+        this.simulation = simulation;
         Mode = mode;
 
         var source = mode == VfxSortMode.ByAge
@@ -173,23 +177,26 @@ public sealed class VfxGpuSort : IDisposable {
             "vfx.sort.step"
         ));
 
-        seedSet = device.CreateDescriptorSet(seedLayout, "vfx.sort.seed");
+        // ⚠ One seed set per attribute generation, not one seed set. A reaping simulation
+        // double-buffers its attribute buffers and flips at the end of every `Reap`, so the handles
+        // `Storage` answers with are not the handles it answered with last frame. A set written once
+        // in this constructor names the generation that was current when the sort was built and goes
+        // on naming it forever — the sort then orders the pre-reap particles, which is an order that
+        // is right on frame one, wrong from frame two, and drawn as blending in the wrong order
+        // rather than as anything a validation layer would mention. Two sets, written on demand and
+        // never rewritten, is the same answer `VfxGpuSimulation` gives itself for `descriptorSets`,
+        // and it is the one that does not touch a set the device may still be reading.
+        seedSets = new DescriptorSetHandle[simulation.HasReap ? 2 : 1];
+        boundPosition = new BufferHandle[seedSets.Length];
+        boundAge = new BufferHandle[seedSets.Length];
+
+        for (var generation = 0; generation < seedSets.Length; generation++) {
+            seedSets[generation] = device.CreateDescriptorSet(seedLayout, $"vfx.sort.seed{generation}");
+        }
+
         stepSet = device.CreateDescriptorSet(stepLayout, "vfx.sort.step");
 
-        // ⚠ Both attribute buffers are bound whichever mode this is. A descriptor a shader declares
-        // and does not read still has to be bound — an incomplete set is not bound at all — and the
-        // one the mode does not use is the other attribute's buffer where the graph has it and the
-        // used one's where it does not, because binding an invalid handle is what a validation layer
-        // objects to rather than binding a buffer nothing reads.
-        var position = simulation.Storage(VfxAttribute.Position);
-        var age = simulation.Storage(VfxAttribute.Age);
-
-        device.UpdateDescriptorSet(seedSet, [
-            DescriptorWrite.Storage(0, position.IsValid ? position : source),
-            DescriptorWrite.Storage(1, age.IsValid ? age : source),
-            DescriptorWrite.Storage(2, keys),
-            DescriptorWrite.Storage(3, indices)
-        ]);
+        Bind();
 
         device.UpdateDescriptorSet(stepSet, [
             DescriptorWrite.Storage(0, keys),
@@ -285,7 +292,7 @@ public sealed class VfxGpuSort : IDisposable {
         };
 
         list.BindPipeline(seed);
-        list.BindDescriptorSet(DescriptorSetSlot.PerFrame, seedSet);
+        list.BindDescriptorSet(DescriptorSetSlot.PerFrame, Bind());
         list.PushConstants(ShaderStage.Compute, 0, Raw(constants));
         list.Dispatch(Groups(Capacity));
         Dispatches++;
@@ -353,7 +360,11 @@ public sealed class VfxGpuSort : IDisposable {
         disposed = true;
 
         device.Destroy(stepSet);
-        device.Destroy(seedSet);
+
+        foreach (var set in seedSets) {
+            device.Destroy(set);
+        }
+
         device.Destroy(StepLayout);
         device.Destroy(SeedLayout);
         device.Destroy(stepLayout);
@@ -376,6 +387,58 @@ public sealed class VfxGpuSort : IDisposable {
         }
 
         return size;
+    }
+
+    /// <summary>The seed set naming the simulation's <i>current</i> attribute buffers.</summary>
+    /// <remarks>
+    ///     ⚠ Written on first sight of a generation and never rewritten. A reaping simulation has
+    ///     exactly two, so the second call after the first reap claims the second set and every call
+    ///     after that finds one — which is what keeps this off the path of updating a descriptor set
+    ///     the device may still be reading from an earlier submission.
+    /// </remarks>
+    DescriptorSetHandle Bind() {
+        // Both attribute buffers are bound whichever mode this is. A descriptor a shader declares
+        // and does not read still has to be bound — an incomplete set is not bound at all — and the
+        // one the mode does not use is the other attribute's buffer where the graph has it and the
+        // used one's where it does not, because binding an invalid handle is what a validation layer
+        // objects to rather than binding a buffer nothing reads.
+        var position = simulation.Storage(VfxAttribute.Position);
+        var age = simulation.Storage(VfxAttribute.Age);
+        var source = Mode == VfxSortMode.ByAge ? age : position;
+
+        position = position.IsValid ? position : source;
+        age = age.IsValid ? age : source;
+
+        for (var generation = 0; generation < seedSets.Length; generation++) {
+            if (boundPosition[generation] == position && boundAge[generation] == age) {
+                return seedSets[generation];
+            }
+        }
+
+        for (var generation = 0; generation < seedSets.Length; generation++) {
+            if (boundPosition[generation].IsValid) {
+                continue;
+            }
+
+            boundPosition[generation] = position;
+            boundAge[generation] = age;
+
+            device.UpdateDescriptorSet(seedSets[generation], [
+                DescriptorWrite.Storage(0, position),
+                DescriptorWrite.Storage(1, age),
+                DescriptorWrite.Storage(2, keys),
+                DescriptorWrite.Storage(3, indices)
+            ]);
+
+            return seedSets[generation];
+        }
+
+        throw new InvalidOperationException(
+            $"The simulation has produced more than {seedSets.Length} attribute generation(s), which is "
+            + "more than it double-buffers. Either the sort is bound to a different simulation than the "
+            + "one it was built from, or VfxGpuSimulation grew a third copy without this growing a third "
+            + "seed set."
+        );
     }
 
     void Transition(ICommandList list, ResourceState next) {

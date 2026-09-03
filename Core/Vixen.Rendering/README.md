@@ -2182,16 +2182,32 @@ is the caller's, and is what the ring above is for.
 Blend shapes. Punctual shadows are not cached — only the directional cascades are, and a spot light
 over static geometry has the same argument waiting for it.
 
-**Light probes reach a frame.** The tetrahedralisation and the interpolation are built and tested —
-see [Light probes](#light-probes-and-the-predicates-they-turned-out-to-need) — and what is still owed
-is the GPU half: a buffer of coefficients, a per-object index or a compute lookup, and an ambient
-term in `ForwardLightingRenderFeature` that comes from a probe rather than from the environment.
-`LightProbeVolume.Sample` is a CPU call, which is enough for a bake and not enough for a frame.
+⚠ **Light probes do not reach a frame, and are not going to.** The sentence here used to open
+"Light probes reach a frame", which asserts the opposite of the paragraph it introduced. The
+tetrahedralisation and the interpolation are built and tested — see
+[Light probes](#light-probes-and-the-predicates-they-turned-out-to-need) — and `LightProbeVolume` has
+no caller outside `LightProbeTests`. But the missing GPU half is **withdrawn work, not owed work**:
+`docs/overview.md` § 1.9 marks the row ✂️, and `docs/plan/19` § 3 says plainly "no Delaunay, no
+predicates, no repeat". The indirect-diffuse answer this engine commits to is the brick lattice in
+`Vixen.Rendering.IrradianceFields` — L1 SH on a grid, uploaded by `IrradianceFieldTexture`, driven by
+the `!IrradianceField` node and sampled in `IrradianceField.rvn` — chosen precisely because a grid has
+none of a tetrahedralisation's ways to be wrong. Giving `LightProbeVolume` a GPU path would add a
+second, competing answer to "what is the indirect light here". It stays as a CPU bake primitive.
 
-Transmission has a surface feature's worth of channels and no shading model, deliberately: refraction
-needs either the scene colour or an environment sample, both of which belong to the pass rather than
-to the lobe, and inventing a `Shade` that could not reach them would be a feature that compiles and
-does nothing. Back-lit thin surfaces are covered — that is `SubsurfaceShading`.
+Transmission has no shading model, deliberately: refraction needs either the scene colour or an
+environment sample, both of which belong to the pass rather than to the lobe, and inventing a `Shade`
+that could not reach them would be a feature that compiles and does nothing. Back-lit thin surfaces
+are covered — that is `SubsurfaceShading`.
+
+⚠ **This paragraph used to open "a surface feature's worth of channels", and there are none.**
+`MaterialData` carries `thickness` and `scatterColor`, which are *subsurface's* and are written by
+`MaterialFeatures.rvn`'s `SubsurfaceSurface`; there is no `ior`, no `attenuationColor` and no
+`attenuationDistance` anywhere in the tree, in Raven or in C#. So `Transmission.Refract` and
+`Transmission.Absorb` have no authored inputs to read even if a `Shade` were written — the missing
+half is larger than "a pass", and the channels are the cheap part of it. Nothing references any of
+`Transmission.rvn`'s five functions; ⚠ note that "nothing *imports* it" is the wrong word, since
+Raven's `import` names a namespace and its ten siblings in `Raven/Library/Shading` have it in scope
+without importing anything.
 
 Indirect lighting does not go through the shading model. `Ambient` is the pass's, so a cel-shaded
 material still takes a physically-based IBL term, and a clear coat has no second lobe against the
