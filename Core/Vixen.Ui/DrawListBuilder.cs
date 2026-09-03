@@ -41,6 +41,7 @@ public sealed class DrawListBuilder {
 
     /// <summary>The four <c>border-*-color</c> longhands, clockwise from the top.</summary>
     readonly int[] borderColors;
+    readonly int[] borderStyles;
 
     /// <summary>The four <c>border-*-radius</c> longhands, clockwise from the top left.</summary>
     readonly int[] borderRadii;
@@ -66,6 +67,9 @@ public sealed class DrawListBuilder {
     readonly int outlineWidth;
 
     readonly int outlineStyle;
+    readonly int styleDashed;
+    readonly int styleDotted;
+    readonly int styleDouble;
     readonly int outlineColor;
     readonly int outlineOffset;
 
@@ -106,6 +110,20 @@ public sealed class DrawListBuilder {
     readonly NameTable values;
     readonly int textColor;
     readonly OverflowReader overflow;
+
+    /// <summary>Scratch for one broken line's marks, reused so a dashed frame allocates nothing.</summary>
+    /// <remarks>
+    ///     ⚠ One list rather than one per call site, and safe for the reason every other buffer here
+    ///     is: <c>Vixen.Ui</c>'s graph is single-threaded by contract, and a draw list is built by one
+    ///     walk. <c>Dashes.Along</c> clears it, so a caller cannot be handed the previous edge's marks.
+    /// </remarks>
+    readonly List<DashMark> marks = [];
+
+    /// <summary>Scratch for a broken ring's centre line, reused for the same reason.</summary>
+    readonly List<Vector2> outline = [];
+
+    /// <summary>Scratch for a broken ring's marks, as one path with a sub-path each.</summary>
+    readonly PathBuilder dashes = new();
     readonly int visibility;
     readonly int hidden;
     readonly int collapse;
@@ -157,6 +175,8 @@ public sealed class DrawListBuilder {
     readonly int keywordOverline;
     readonly int keywordLineThrough;
     readonly int keywordDouble;
+    readonly int keywordDashed;
+    readonly int keywordDotted;
     readonly int boxShadow;
     readonly int currentColor;
     readonly int alignedCenter;
@@ -219,6 +239,18 @@ public sealed class DrawListBuilder {
             properties.Intern("border-left-color")
         ];
 
+        // ⚠ <b>The four style longhands, which nothing read until doc 43 § A3.</b> `border-style`
+        // resolved into these four and moved no channel in any scene — measured, not assumed — which
+        // is why `border-solid`, `divide-<style>`, `decoration-dotted` and `outline-dashed` were all
+        // unregistered at once. Interned here in the same clockwise order as the colours above, so
+        // one index means one edge across both tables.
+        borderStyles = [
+            properties.Intern("border-top-style"),
+            properties.Intern("border-right-style"),
+            properties.Intern("border-bottom-style"),
+            properties.Intern("border-left-style")
+        ];
+
         borderRadii = [
             properties.Intern("border-top-left-radius"),
             properties.Intern("border-top-right-radius"),
@@ -240,14 +272,14 @@ public sealed class DrawListBuilder {
             properties.Intern("border-end-end-radius"),
             properties.Intern("border-end-start-radius")
         ];
-        // ⚠ <b>No <c>outline</c> shorthand, for the reason the border longhands above give — ExCSS
-        // expands it while parsing — and no <c>outline-style</c> *value* table beyond the two
-        // keywords that switch the ring off.</b> Every other keyword draws a solid ring, which is
-        // the same bargain `border-style` is not allowed to make and is allowed here for a reason
-        // worth stating: no utility can produce one. `outline-dashed`, `-dotted` and `-double` are
-        // not registered — there is no dash pattern in `Vixen.Ui` — so the only way to reach a
-        // refused keyword is to hand-write it in a `.vcss`, where drawing solid is CSS's own
-        // fallback behaviour for a style the UA cannot render rather than a family that lies.
+        // ⚠ <b>No <c>outline</c> shorthand, for the reason the border longhands above give: ExCSS
+        // expands it while parsing.</b> The style is read through the same `Stroke` the four border
+        // edges are, so an outline answers the same five keywords a border does — `solid`, `none`,
+        // `dashed`, `dotted` and `double` — and `outline-dashed`, `-dotted` and `-double` are
+        // registered classes rather than the refusals this comment used to record. What is left of
+        // that refusal is `groove` and its three siblings, which are two-tone and which `StrokeStyle`
+        // explains; they draw solid, which is CSS's own fallback for a style the user agent cannot
+        // render rather than a family that lies, and no utility can produce one.
         outlineWidth = properties.Intern("outline-width");
         outlineStyle = properties.Intern("outline-style");
         outlineColor = properties.Intern("outline-color");
@@ -257,6 +289,9 @@ public sealed class DrawListBuilder {
         // word. Reading `hidden` here rather than interning a second one is not a shortcut: a value
         // id is the text, and which property it was written on is the caller's business.
         styleNone = values.Intern("none");
+        styleDashed = values.Intern("dashed");
+        styleDotted = values.Intern("dotted");
+        styleDouble = values.Intern("double");
 
         textColor = properties.Intern("color");
         overflow = new OverflowReader(properties, values);
@@ -312,6 +347,8 @@ public sealed class DrawListBuilder {
         keywordOverline = keywords.Intern("overline");
         keywordLineThrough = keywords.Intern("line-through");
         keywordDouble = keywords.Intern("double");
+        keywordDashed = keywords.Intern("dashed");
+        keywordDotted = keywords.Intern("dotted");
 
         // ⚠ Neither `auto` nor `from-font` is interned, and that is a statement rather than an
         // omission. CSS distinguishes them because `auto` lets the user agent pick a thickness it
@@ -875,30 +912,106 @@ public sealed class DrawListBuilder {
         var bottomColor = Color(element, borderColors[2]);
         var leftColor = Color(element, borderColors[3]);
 
+        var topStyle = Stroke(element, borderStyles[0]);
+        var rightStyle = Stroke(element, borderStyles[1]);
+        var bottomStyle = Stroke(element, borderStyles[2]);
+        var leftStyle = Stroke(element, borderStyles[3]);
+
         var square = top == right && right == bottom && bottom == left;
         var oneColour = topColor == rightColor && rightColor == bottomColor && bottomColor == leftColor;
+        var oneStyle = topStyle == rightStyle && rightStyle == bottomStyle && bottomStyle == leftStyle;
 
-        if (square && oneColour) {
-            if (topColor is { } stroke) {
-                into.Add(
-                    Styled(
-                        new DrawCommand(
-                            DrawCommandKind.Border,
-                            x,
-                            y,
-                            width,
-                            height,
-                            Fade(stroke, alpha),
-                            radius,
-                            top
-                        ),
-                        into,
-                        corners
-                    )
-                );
+        if (square && oneColour && oneStyle) {
+            if (topStyle == StrokeStyle.None || topColor is not { } stroke) {
+                return;
             }
 
-            return;
+            var colour = Fade(stroke, alpha);
+
+            switch (topStyle) {
+                // ⚠ Byte for byte what this method emitted before there was a style at all, and that
+                // is the property the whole change is arranged around: `solid` is what an element
+                // that declares no style gets — see `StrokeStyle` — so every box in every theme in
+                // this repository still takes the one path that was here.
+                case StrokeStyle.Solid:
+                    into.Add(
+                        Styled(
+                            new DrawCommand(DrawCommandKind.Border, x, y, width, height, colour, radius, top),
+                            into,
+                            corners
+                        )
+                    );
+
+                    return;
+
+                // ⚠ Two rings and no new anything. CSS Backgrounds 3 § 4.2 splits the width into
+                // three, so the outer and inner thirds are two ordinary `Border` commands and the
+                // middle third is the gap between them — which the distance field draws exactly at
+                // any radius, because both rings are still rings.
+                case StrokeStyle.Double: {
+                    var third = top / 3f;
+                    var step = third * 2f;
+
+                    into.Add(
+                        Styled(
+                            new DrawCommand(DrawCommandKind.Border, x, y, width, height, colour, radius, third),
+                            into,
+                            corners
+                        )
+                    );
+
+                    var innerWidth = width - (step * 2f);
+                    var innerHeight = height - (step * 2f);
+
+                    if (innerWidth > 0f && innerHeight > 0f) {
+                        var inner = Shrink(corners, step, innerWidth * 0.5f, innerHeight * 0.5f);
+
+                        into.Add(
+                            Styled(
+                                new DrawCommand(
+                                    DrawCommandKind.Border,
+                                    x + step,
+                                    y + step,
+                                    innerWidth,
+                                    innerHeight,
+                                    colour,
+                                    inner.IsUniformCircular(out var uniform) ? uniform : 0f,
+                                    third
+                                ),
+                                into,
+                                inner
+                            )
+                        );
+                    }
+
+                    return;
+                }
+
+                // ⚠ A stroked path rather than a distance field, and the switch of machinery is
+                // forced. A ring's fragment shader knows how far a pixel is from the outline and not
+                // how far *along* it — and a dash is an arc length. `Rings` builds the centre line
+                // and `Dashes` breaks it up; the tessellator, the solid pipeline and the software
+                // rasteriser all draw the result already, so this costs no command kind and no
+                // shader. See `Rings`.
+                default: {
+                    Rings.Outline(x, y, width, height, corners, top * 0.5f, outline);
+
+                    dashes.Clear();
+
+                    if (Rings.Dash(outline, top, topStyle, marks, dashes)) {
+                        into.Add(
+                            new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, colour, 0f, top) {
+                                Offset = into.AddPath(dashes),
+                                Length = dashes.Count,
+                                Join = LineJoin.Round,
+                                Cap = LineCap.Butt
+                            }
+                        );
+                    }
+
+                    return;
+                }
+            }
         }
 
         // ⚠ The vertical bands are inset by the horizontal thicknesses and not the other way round,
@@ -907,13 +1020,14 @@ public sealed class DrawListBuilder {
         // and a border at 50% opacity is exactly what a focus ring is made of.
         var middle = MathF.Max(height - top - bottom, 0f);
 
-        Band(topColor, top, x, y, width, top, corners.TopLeft, corners.TopRight, default, default);
-        Band(bottomColor, bottom, x, y + height - bottom, width, bottom, default, default, corners.BottomRight, corners.BottomLeft);
-        Band(leftColor, left, x, y + top, left, middle, default, default, default, default);
-        Band(rightColor, right, x + width - right, y + top, right, middle, default, default, default, default);
+        Band(topColor, topStyle, top, x, y, width, top, corners.TopLeft, corners.TopRight, default, default);
+        Band(bottomColor, bottomStyle, bottom, x, y + height - bottom, width, bottom, default, default, corners.BottomRight, corners.BottomLeft);
+        Band(leftColor, leftStyle, left, x, y + top, left, middle, default, default, default, default);
+        Band(rightColor, rightStyle, right, x + width - right, y + top, right, middle, default, default, default, default);
 
         void Band(
             Color4? colour,
+            StrokeStyle style,
             float thickness,
             float bandX,
             float bandY,
@@ -924,8 +1038,61 @@ public sealed class DrawListBuilder {
             Vector2 bottomRight,
             Vector2 bottomLeft
         ) {
-            if (thickness <= 0f || bandWidth <= 0f || bandHeight <= 0f || colour is not { } fill) {
+            if (thickness <= 0f || bandWidth <= 0f || bandHeight <= 0f || colour is not { } fill
+                || style == StrokeStyle.None) {
                 return;
+            }
+
+            // ⚠ <b>A band is where `divide-dashed` lands, not the ring above.</b> `divide-*` writes a
+            // width on one edge and zero on the other three, so a divider is never the uniform case —
+            // which is why the broken styles have to be answered here as well and cannot be left to
+            // the path stroke. Along the band's long axis, as rectangles, for the reason a decoration
+            // bar is rectangles: this is breaking up a length.
+            //
+            // ⚠ <b>And a broken band drops the corner radii, which the solid one keeps.</b> A mark is
+            // a straight segment and an arc is not, so a dashed edge on a rounded box would need the
+            // ring's machinery — which the non-uniform case cannot use, because there is no single
+            // ring. Divider rules do not round their edges, so this is a divergence with no caller in
+            // the tree; it is written down rather than hidden, alongside the mitre one above.
+            if (Dashes.Broken(style)) {
+                var horizontal = bandWidth >= bandHeight;
+                Dashes.Along(horizontal ? bandWidth : bandHeight, thickness, style, marks);
+
+                foreach (var mark in marks) {
+                    into.Add(
+                        new DrawCommand(
+                            DrawCommandKind.Rectangle,
+                            horizontal ? bandX + mark.Start : bandX,
+                            horizontal ? bandY : bandY + mark.Start,
+                            horizontal ? mark.Length : bandWidth,
+                            horizontal ? bandHeight : mark.Length,
+                            Fade(fill, alpha),
+                            0f,
+                            0f
+                        )
+                    );
+                }
+
+                return;
+            }
+
+            // ⚠ Two strips of a third each, with the middle third left out — the same split the ring
+            // above makes, taken across the band rather than inwards from the box. It works on all
+            // four edges without knowing which way is out, because the gap is in the middle.
+            if (style == StrokeStyle.Double) {
+                var third = (bandWidth >= bandHeight ? bandHeight : bandWidth) / 3f;
+
+                if (third > 0f) {
+                    if (bandWidth >= bandHeight) {
+                        Strip(bandX, bandY, bandWidth, third);
+                        Strip(bandX, bandY + (third * 2f), bandWidth, third);
+                    } else {
+                        Strip(bandX, bandY, third, bandHeight);
+                        Strip(bandX + (third * 2f), bandY, third, bandHeight);
+                    }
+
+                    return;
+                }
             }
 
             // ⚠ A band is a *filled* rectangle, not a border one. Its thickness is already its height
@@ -947,7 +1114,72 @@ public sealed class DrawListBuilder {
                     new CornerRadii(topLeft, topRight, bottomRight, bottomLeft)
                 )
             );
+
+            // ⚠ Square, because a doubled band's two strips are a third of the band each and a corner
+            // radius on a strip a third of a hairline thick is a curve nothing can see. The solid
+            // band above keeps its radii; this is the same divergence the broken styles are written
+            // down under, one step milder.
+            void Strip(float stripX, float stripY, float stripWidth, float stripHeight) =>
+                into.Add(
+                    new DrawCommand(
+                        DrawCommandKind.Rectangle,
+                        stripX,
+                        stripY,
+                        stripWidth,
+                        stripHeight,
+                        Fade(fill, alpha),
+                        0f,
+                        0f
+                    )
+                );
         }
+    }
+
+    /// <summary>A set of corner radii moved inwards, clamped to the box that is left.</summary>
+    static CornerRadii Shrink(CornerRadii corners, float by, float halfWidth, float halfHeight) => new(
+        Pull(corners.TopLeft, by, halfWidth, halfHeight),
+        Pull(corners.TopRight, by, halfWidth, halfHeight),
+        Pull(corners.BottomRight, by, halfWidth, halfHeight),
+        Pull(corners.BottomLeft, by, halfWidth, halfHeight)
+    );
+
+    /// <summary>One corner radius moved inwards. A square corner stays square.</summary>
+    /// <remarks>
+    ///     ⚠ A corner with no curve does not grow one when the ring moves in, which is the same rule
+    ///     <see cref="EmitOutline" />'s <c>Grow</c> keeps going the other way. Without it, the inner
+    ///     ring of a <c>double</c> border on a square box would be a rounded rectangle inside a
+    ///     square one.
+    /// </remarks>
+    static Vector2 Pull(Vector2 corner, float by, float halfWidth, float halfHeight) => new(
+        corner.X > 0f ? Math.Clamp(corner.X - by, 0f, halfWidth) : 0f,
+        corner.Y > 0f ? Math.Clamp(corner.Y - by, 0f, halfHeight) : 0f
+    );
+
+    /// <summary>An element's <c>border-style</c> or <c>outline-style</c> on one edge.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An absent declaration is <see cref="StrokeStyle.Solid" /> and so is an unrecognised
+    ///     one</b>, which departs from CSS twice over and does so deliberately — see
+    ///     <see cref="StrokeStyle" /> for the first and for why <c>groove</c>, <c>ridge</c>,
+    ///     <c>inset</c> and <c>outset</c> are not listed.
+    /// </remarks>
+    StrokeStyle Stroke(UiElement element, int property) {
+        if (!element.Style.TryGet(property, out var value)) {
+            return StrokeStyle.Solid;
+        }
+
+        if (value == styleNone || value == hidden) {
+            return StrokeStyle.None;
+        }
+
+        if (value == styleDashed) {
+            return StrokeStyle.Dashed;
+        }
+
+        if (value == styleDotted) {
+            return StrokeStyle.Dotted;
+        }
+
+        return value == styleDouble ? StrokeStyle.Double : StrokeStyle.Solid;
     }
 
     /// <summary>Emits an element's outline: a ring outside the border box that costs the layout nothing.</summary>
@@ -1003,7 +1235,9 @@ public sealed class DrawListBuilder {
         CornerRadii corners,
         float alpha
     ) {
-        if (element.Style.TryGet(outlineStyle, out var style) && (style == styleNone || style == hidden)) {
+        var style = Stroke(element, outlineStyle);
+
+        if (style == StrokeStyle.None) {
             return;
         }
 
@@ -1041,6 +1275,34 @@ public sealed class DrawListBuilder {
             Grow(corners.BottomLeft, grow)
         );
 
+        var colour = Fade(stroke, alpha);
+
+        // ⚠ <b>The same three styles the border draws, by the same three mechanisms, because a ring
+        // is a ring.</b> `outline-double` is two `Border` commands a third as thick, and
+        // `outline-dashed` is a stroked centre line — and neither needed anything the border had not
+        // already built, which is the argument for `Rings` and `Dashes` being where they are rather
+        // than inside `EmitBorder`.
+        if (Dashes.Broken(style)) {
+            Rings.Outline(x - grow, y - grow, ringWidth, ringHeight, grown, thickness * 0.5f, outline);
+
+            dashes.Clear();
+
+            if (Rings.Dash(outline, thickness, style, marks, dashes)) {
+                into.Add(
+                    new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, colour, 0f, thickness) {
+                        Offset = into.AddPath(dashes),
+                        Length = dashes.Count,
+                        Join = LineJoin.Round,
+                        Cap = LineCap.Butt
+                    }
+                );
+            }
+
+            return;
+        }
+
+        var ringThickness = style == StrokeStyle.Double ? thickness / 3f : thickness;
+
         into.Add(
             Styled(
                 new DrawCommand(
@@ -1049,14 +1311,41 @@ public sealed class DrawListBuilder {
                     y - grow,
                     ringWidth,
                     ringHeight,
-                    Fade(stroke, alpha),
+                    colour,
                     grown.IsUniformCircular(out var uniform) ? uniform : 0f,
-                    thickness
+                    ringThickness
                 ),
                 into,
                 grown
             )
         );
+
+        if (style == StrokeStyle.Double) {
+            var step = ringThickness * 2f;
+            var innerWidth = ringWidth - (step * 2f);
+            var innerHeight = ringHeight - (step * 2f);
+
+            if (innerWidth > 0f && innerHeight > 0f) {
+                var inner = Shrink(grown, step, innerWidth * 0.5f, innerHeight * 0.5f);
+
+                into.Add(
+                    Styled(
+                        new DrawCommand(
+                            DrawCommandKind.Border,
+                            x - grow + step,
+                            y - grow + step,
+                            innerWidth,
+                            innerHeight,
+                            colour,
+                            inner.IsUniformCircular(out var innerUniform) ? innerUniform : 0f,
+                            ringThickness
+                        ),
+                        into,
+                        inner
+                    )
+                );
+            }
+        }
 
         // A square corner stays square, and only a corner that already had a curve grows one. The
         // component-wise max is what keeps a shrinking ring — a negative offset — from folding a
@@ -1235,7 +1524,7 @@ public sealed class DrawListBuilder {
     ///         up and move every element after it, for a mark that is not part of the text.
     ///     </para>
     /// </remarks>
-    static void EmitDecoration(
+    void EmitDecoration(
         DrawList into,
         TextLine line,
         TextDecoration decoration,
@@ -1257,18 +1546,51 @@ public sealed class DrawListBuilder {
                 continue;
             }
 
-            into.Add(
-                new DrawCommand(
-                    DrawCommandKind.Rectangle,
-                    x,
-                    y + bar.Top,
-                    line.Width,
-                    bar.Thickness,
-                    colour,
-                    0f,
-                    0f
-                )
-            );
+            // ⚠ A bar is the easy consumer of the dash pattern, and it is easy for a structural
+            // reason rather than a lucky one: it is an axis-aligned rectangle with no corner radius,
+            // so breaking it up is breaking up a *length*. No command kind, no shader, no second
+            // executor — the device and the software rasteriser draw the marks because they are
+            // drawing the same quad they already drew. A border's ring is the hard consumer, and it
+            // is hard at the corners rather than in the pattern.
+            var style = decoration.Style switch {
+                TextDecorationStyle.Dashed => StrokeStyle.Dashed,
+                TextDecorationStyle.Dotted => StrokeStyle.Dotted,
+                _ => StrokeStyle.Solid
+            };
+
+            if (!Dashes.Broken(style)) {
+                into.Add(
+                    new DrawCommand(
+                        DrawCommandKind.Rectangle,
+                        x,
+                        y + bar.Top,
+                        line.Width,
+                        bar.Thickness,
+                        colour,
+                        0f,
+                        0f
+                    )
+                );
+
+                continue;
+            }
+
+            Dashes.Along(line.Width, bar.Thickness, style, marks);
+
+            foreach (var mark in marks) {
+                into.Add(
+                    new DrawCommand(
+                        DrawCommandKind.Rectangle,
+                        x + mark.Start,
+                        y + bar.Top,
+                        mark.Length,
+                        bar.Thickness,
+                        colour,
+                        0f,
+                        0f
+                    )
+                );
+            }
         }
     }
 
@@ -1997,12 +2319,20 @@ public sealed class DrawListBuilder {
             return default;
         }
 
+        // ⚠ Four of CSS's five, and the three that are not `solid` all arrive the same way: one
+        // keyword compared against one interned id. `wavy` is the absent one and it is absent for a
+        // reason the dash pattern does not reach — see `TextDecorationStyle`.
+        var decorationStyleKeyword = element.Style.TryGet(decorationStyle, out var style)
+            && parser.Parse(style) is { Kind: StyleValueKind.Keyword } keyword
+                ? keyword.Keyword
+                : 0;
+
         return new TextDecoration(
             lines,
-            element.Style.TryGet(decorationStyle, out var style) && parser.Parse(style) is
-                { Kind: StyleValueKind.Keyword } keyword && keyword.Keyword == keywordDouble
-                    ? TextDecorationStyle.Double
-                    : TextDecorationStyle.Solid,
+            decorationStyleKeyword == keywordDouble ? TextDecorationStyle.Double
+            : decorationStyleKeyword == keywordDashed ? TextDecorationStyle.Dashed
+            : decorationStyleKeyword == keywordDotted ? TextDecorationStyle.Dotted
+            : TextDecorationStyle.Solid,
             Color(element, decorationColor),
             TextLength(element, decorationThickness, float.NaN),
             TextLength(element, underlineOffset, 0f)

@@ -27,20 +27,43 @@ public enum TextDecorationLine : byte {
 
 /// <summary>How <c>text-decoration-style</c> draws that line.</summary>
 /// <remarks>
-///     ⚠ <b>Two of CSS's five, and the other three are absent rather than approximated.</b>
-///     <c>dotted</c>, <c>dashed</c> and <c>wavy</c> need a stroke this engine cannot draw: there is
-///     no dash pattern anywhere in <c>Vixen.Ui</c> — <c>border-style</c> is emitted by nothing and
-///     read by nothing for exactly that reason, which is why <c>divide-dashed</c> is not a class
-///     either. A <c>decoration-dashed</c> that resolved cleanly and painted a solid line is the
-///     inert family <c>UtilityConsumptionGateTests</c> exists to keep out, and registering one to
-///     round the table out would be the same mistake with a nicer name.
+///     <para>
+///         ⚠ <b>Four of CSS's five, and this used to be two.</b> <c>dashed</c> and <c>dotted</c>
+///         were absent because there was no dash pattern anywhere in <c>Vixen.Ui</c> — the same
+///         measurement <c>border-style</c>, <c>divide-&lt;style&gt;</c> and <c>outline-&lt;style&gt;</c>
+///         were all recorded under, four families reading <c>partial</c> for one missing thing. There
+///         is one now: <c>Dashes</c> distributes the marks and <c>DrawListBuilder</c> emits a
+///         rectangle each.
+///     </para>
+///     <para>
+///         ⚠ <b>A bar is the easy consumer of that pattern and it is worth saying why.</b> A
+///         decoration is an axis-aligned rectangle with no corner radius, so breaking it up is
+///         breaking up a length — no path, no stroke, no tessellation, and the software rasteriser
+///         and the device draw the pieces because they are drawing the same quad they already drew.
+///         A border's ring is the hard one, and it is hard for the corners rather than for the
+///         pattern.
+///     </para>
+///     <para>
+///         ⚠ <b><c>wavy</c> stays absent, and it is absent for a reason the dash pattern does not
+///         touch.</b> A wave is a stroked path where every other decoration is a rectangle: it needs
+///         the tessellator, a thickness that is a stroke width rather than a height, and an
+///         amplitude and a period CSS does not state. A <c>decoration-wavy</c> that resolved and
+///         painted a straight line is the inert family <c>UtilityConsumptionGateTests</c> exists to
+///         keep out.
+///     </para>
 /// </remarks>
 public enum TextDecorationStyle : byte {
     /// <summary>One bar. CSS's initial value.</summary>
     Solid,
 
     /// <summary>Two bars, separated by a gap of the same thickness.</summary>
-    Double
+    Double,
+
+    /// <summary>One bar broken into marks three times the thickness, with gaps of twice it.</summary>
+    Dashed,
+
+    /// <summary>One bar broken into square marks one thickness long, with gaps of one.</summary>
+    Dotted
 }
 
 /// <summary>An element's resolved <c>text-decoration</c>, ready to draw.</summary>

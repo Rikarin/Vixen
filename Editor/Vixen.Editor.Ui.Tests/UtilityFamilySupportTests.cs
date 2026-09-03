@@ -663,6 +663,15 @@ public class UtilityFamilySupportTests {
     ///         disagree only about a scrollbar gutter, and nothing here draws one.
     ///     </para>
     ///     <para>
+    ///         <b>History: <c>overflow-clip</c> was the fourth case, and it was <c>auto</c>'s exactly.</b>
+    ///         The class was unregistered because <c>LayoutStyleBuilder</c> did not know the keyword,
+    ///         so an author who wrote <c>overflow: clip</c> by hand got a box that clipped in the draw
+    ///         list and kept the §4.5 content floor the <c>hidden</c> beside it drops. It maps onto
+    ///         <c>Overflow.Hidden</c> — not a fourth member: CSS separates <c>clip</c> from
+    ///         <c>hidden</c> by a scroll container and by programmatic scrolling, and the paragraph
+    ///         below is the reason this engine grants <c>hidden</c> neither.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>A clip is still not a scrollbar.</b> <c>overflow-y-auto</c> cuts the content off
     ///         and nothing offers to scroll it; scrolling in this engine is <c>ScrollView</c>, a
     ///         control that owns its bars and offsets its content.

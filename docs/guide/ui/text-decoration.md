@@ -110,11 +110,16 @@ of opt-out for `text-overflow`.
 decorating box's. Invisible for the pixel values every utility emits, and where it does show, scaling
 a mark with the text it marks is the answer somebody would have wanted.
 
-**`dotted`, `dashed` and `wavy` do not exist**, and they are absent rather than approximated. There is
-no dash pattern anywhere in `Vixen.Ui` and no stroke that could carry one — `border-style` is emitted
-by nothing and read by nothing for the same reason, which is why `divide-dashed` is not a class
-either. All three would resolve cleanly, compute a value, and paint a **solid** line, which is worse
-than not having them.
+**`dotted` and `dashed` are drawn, and `wavy` is not.** The first two used to be absent for a reason
+that is no longer true: there was no dash pattern anywhere in `Vixen.Ui`, which is the same finding
+`border-style` and `divide-dashed` were absent under. There is one now, and a decoration bar is the
+consumer that needs nothing else — it is an axis-aligned rectangle with no corner radius, so breaking
+it up is breaking up a length, and the marks are the same quad the whole bar was.
+
+**`wavy` is still absent, and the dash pattern does not touch its reason.** A wave is a stroked path
+where every other decoration is a rectangle: it needs the tessellator, a thickness that is a stroke
+width rather than a height, and an amplitude and a period CSS does not state. It would resolve
+cleanly, compute a value, and paint a **straight** line, which is worse than not having it.
 
 ### What is not here at all
 

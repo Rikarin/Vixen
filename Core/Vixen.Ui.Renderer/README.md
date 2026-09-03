@@ -89,15 +89,25 @@ rather than in the upload.
 
 `UiShaders` is handed over, not built. Compiling shader source belongs to `Vixen.Shaders` and to
 Raven; a caller supplies whatever it has. The golden fixture uses hand-written GLSL compiled by
-`glslc` and committed as SPIR-V, `Vixen.Editor.App` supplies Raven's output from its own
-`Shaders/Ui.rvn`, and a game will supply an effect. What this assembly must not grow is a compiler.
+`glslc` and committed as SPIR-V; `Vixen.Ui.Desktop.UiShaderLibrary` supplies Raven's output from
+`Shaders/Ui.rvn`, which is what an application gets; `Vixen.Editor.Host` builds its own table from a
+copy of that shader; and a game will supply an effect. What this assembly must not grow is a compiler.
 
 ⚠ **`Raven/Library/Ui/Msdf.rvn` and `RoundedRect.rvn` are not these shaders**, and the difference is
 not a porting gap. They take the box's size and radii as **uniforms**, so one draw is one box; these
 pipelines take them **per vertex** and out of a shape buffer, so one draw is a whole batch. A user
 interface draws hundreds of boxes of different sizes per frame, so the batched form is the one that
-stays — which is what the editor's `Ui.rvn` is, and what a library shader would have to become before
-it could be used here.
+stays — which is what `Ui.rvn` is, and what a library shader would have to become before it could be
+used here.
+
+⚠ **Which is the answer to "reconcile the two", and the answer is that they are not reconcilable into
+one file.** The blocker that row was filed under — Raven taking the UI shaders over — was discharged
+on 2026-08-23, and reconciliation did not follow from it, because the two parameter conventions are
+two different jobs rather than two spellings of one. Porting `Raven/Library/Ui` to the batched form
+would produce a second `Ui.rvn` in a package nothing binds; deleting it would take the reference
+implementations of the distance-field, MSDF and gradient techniques with it. What the five library
+files owed was a **notice**, and four of them carried none — a reader who opened `Msdf.rvn` to fix a
+glyph had nothing telling them it was the wrong file. They all carry one now.
 
 ### The four optional stages, and what their absence looks like
 
@@ -157,12 +167,21 @@ per frame in flight and never replaced. A frame asking for more composites the g
 unmasked, which is the fail-open answer `DrawListBuilder` already gives an unreadable mask.
 
 ⚠ **`Vixen.Editor.Host` supplies `Image` and neither of the other two**, so the editor composites,
-does not blur, and does not filter. The obstacle is the same for both and it is push-constant layout
-rather than the shader: a blur's kernel and a colour matrix both ride in a fragment-stage range at
-byte 16, past the vertex stage's projection, and Raven's `[PushConstant]` lays a shader's constants
-out from zero with no way to say otherwise. The hand-written GLSL says `layout(offset = 16)` and
-`Shaders/Ui.rvn` has no spelling for it. Giving Raven an offset — or these two pipelines a layout of
-their own, which is safe here because their passes bind nothing else — closes both at once.
+does not blur, does not filter and does not mask.
+
+⚠ **The obstacle this paragraph used to name is gone, and the missing stages are now a wiring gap
+rather than a shader one.** It said push-constant layout: a blur's kernel and a colour matrix ride in
+a fragment-stage range at byte 16, past the vertex stage's projection, and Raven's `[PushConstant]`
+lays a shader's constants out from zero with no way to say otherwise. That is still true of Raven and
+is no longer an obstacle — `Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn` declares a leading
+`reserved: float4` in each of `UiBlur`, `UiColour` and `UiMask`, which *is* the projection's sixteen
+bytes, and all three work. `UiShaderLibrary.Load` hands over the complete set of eight.
+
+⚠ So what is left is that `Vixen.Editor.Host` keeps its **own copy** of `Ui.rvn` — 488 lines against
+the desktop copy's 886, identical for the five shaders both have and simply missing the other three —
+and hand-rolls a five-module table beside a `UiShaderLibrary` it already references. That is the
+census `SharedUiShaderTests` was written to keep, recurred in the new language: its own remark says
+"there is one copy because the other two stopped being GLSL", and there are two.
 
 ### And where the numbers in a vertex layout come from
 

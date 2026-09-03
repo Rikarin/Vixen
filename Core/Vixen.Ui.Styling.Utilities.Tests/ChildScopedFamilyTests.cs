@@ -240,24 +240,44 @@ public class ChildScopedFamilyTests {
     ///         axis and multiplies each by a <c>--tw-*-reverse</c> flag, which needs
     ///         <c>calc()</c>. <c>StyleValueParser</c> has no <c>calc()</c>, so the flag would have
     ///         nothing to multiply and the reverse class would be a custom property nobody reads.</item>
-    ///         <item><c>divide-solid</c> and the other four style keywords — <c>border-style</c> is
-    ///         emitted by no family here and read by nothing either. Measured, not assumed: it
-    ///         resolves into four longhands and moves no channel in any of the probe's scenes. A
-    ///         <c>divide-dashed</c> that drew a solid line is the inert family
-    ///         <c>UtilityConsumptionGateTests</c> exists to keep out.</item>
     ///     </list>
+    ///     <para>
+    ///         ⚠ <b><c>divide-solid</c> and the other four style keywords used to be on this list and
+    ///         are not any more.</b> They were absent because <c>border-style</c> was emitted by no
+    ///         family and read by nothing — measured, not assumed — and doc 43 § A3 closed both halves
+    ///         at once: <c>DrawListBuilder</c> reads the four style longhands, and a divider's dashes
+    ///         are marks along its band. <c>A_dashed_divider_resolves</c> below is what that list entry
+    ///         turned into.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("space-x-reverse")]
     [InlineData("space-y-reverse")]
     [InlineData("divide-x-reverse")]
     [InlineData("divide-y-reverse")]
-    [InlineData("divide-solid")]
-    [InlineData("divide-dashed")]
-    [InlineData("divide-dotted")]
-    [InlineData("divide-double")]
     public void The_spellings_that_need_something_the_engine_has_not_got_are_absent(string utility) =>
         Assert.Null(new UtilityFixture().Declarations(utility));
+
+    /// <summary>A dashed divider is a real class, scoped to the same children the width is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The scope is the assertion worth making, not the declaration.</b> The style keywords
+    ///     are merged into the <c>divide</c> family by <c>Register</c> rather than registered as a
+    ///     family of their own, and a family of their own would have had no scope — so
+    ///     <c>divide-dashed</c> would have written <c>border-style</c> on the <i>container</i>, where
+    ///     it would dash a border the container did not have and leave the dividers solid.
+    /// </remarks>
+    [Theory]
+    [InlineData("divide-solid", "solid")]
+    [InlineData("divide-dashed", "dashed")]
+    [InlineData("divide-dotted", "dotted")]
+    [InlineData("divide-double", "double")]
+    [InlineData("divide-none", "none")]
+    public void A_dashed_divider_resolves_and_keeps_the_child_scope(string utility, string keyword) {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal([$"border-style: {keyword}"], fixture.Emits(utility));
+        Assert.Contains($".{utility} > :not(:last-child)", fixture.Generate(utility), StringComparison.Ordinal);
+    }
 
     /// <summary>The known divergence from v4, pinned so that fixing it fails here rather than silently.</summary>
     /// <remarks>

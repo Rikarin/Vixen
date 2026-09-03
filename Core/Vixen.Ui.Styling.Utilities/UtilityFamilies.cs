@@ -856,14 +856,18 @@ public static class UtilityFamilies {
         // registration comes first so that the family's `ValueKind` is the fallthrough, and
         // `Register` merges the two keyword tables into it.
         //
-        // ⚠ <b>`decoration-dotted`, `-dashed` and `-wavy` are deliberately absent — the same
-        // measurement `divide-solid` is absent under.</b> There is no dash pattern in `Vixen.Ui` and
-        // no stroke that could carry one: `border-style` is emitted by nothing and read by nothing,
-        // and a wave is a path where every other decoration is a rectangle. All three would resolve
-        // cleanly, compute a value and paint a solid line, which is the inert family
-        // `UtilityConsumptionGateTests` exists to keep out. `solid` and `double` are registered
-        // because both are genuinely drawn — see `TextRun.Bars`, where `double` is two bars — so
-        // `text-decoration-style` is a property the engine reads rather than one it stores.
+        // ⚠ <b>`decoration-dotted` and `-dashed` were absent under the same measurement
+        // `divide-solid` was, and that measurement has changed: there is a dash pattern in
+        // `Vixen.Ui` now.</b> `Dashes` distributes the marks and `DrawListBuilder.EmitDecoration`
+        // emits a rectangle each — which a bar can do and a border's ring cannot, because a bar is
+        // an axis-aligned rectangle with no corner radius, so breaking it up is breaking up a
+        // length. Four of CSS's five are drawn.
+        //
+        // ⚠ <b>`-wavy` stays absent, and the dash pattern does not touch its reason.</b> A wave is a
+        // stroked path where every other decoration is a rectangle: it needs the tessellator, a
+        // thickness that is a stroke width rather than a height, and an amplitude and a period CSS
+        // does not state. It would resolve cleanly, compute a value and paint a straight line, which
+        // is the inert family `UtilityConsumptionGateTests` exists to keep out.
         Color("decoration", "text-decoration-color");
 
         Keywords("decoration", "text-decoration-thickness", new() {
@@ -872,7 +876,7 @@ public static class UtilityFamilies {
         });
 
         Keywords("decoration", "text-decoration-style", new() {
-            ["solid"] = "solid", ["double"] = "double"
+            ["solid"] = "solid", ["double"] = "double", ["dashed"] = "dashed", ["dotted"] = "dotted"
         });
 
         // ── Colours ─────────────────────────────────────────────────────────────────────────
@@ -956,6 +960,27 @@ public static class UtilityFamilies {
         // and the right one. A border is a hairline or it is not; scaling it with the spacing base
         // would mean a theme with a larger base silently thickened every rule in the editor.
         BorderEdge("border", ["border-width"], ["border-color"]);
+
+        // ⚠ <b>All six style keywords, and they were all six absent until `DrawListBuilder` grew a
+        // reader for `border-style`.</b> Doc 43 § A3: nothing interned the four style longhands, so
+        // the property resolved into them and moved no channel in any scene — which is why this
+        // family, `divide-<style>`, `decoration-*` and `outline-*` all read `partial` at once and
+        // why they close together.
+        //
+        // ⚠ <b>`border-none` is the one with a consequence, because this engine paints from the
+        // width.</b> A browser needs `border-style` to be anything but `none` before a width paints,
+        // and Vixen has always painted from the width alone — so before this reader existed,
+        // `border-none` beside a `border-2` drew the ring anyway and the class was a lie. It is now
+        // the one keyword that takes a border *away*, which is what everybody writing it means.
+        //
+        // ⚠ <b>`groove`, `ridge`, `inset` and `outset` are not here, and Tailwind does not have them
+        // either.</b> All four are two-tone — CSS derives a lighter and a darker shade of the border
+        // colour and gives one to each pair of edges — which is a second colour the border record
+        // does not carry. See `Vixen.Ui.StrokeStyle`.
+        Keywords("border", "border-style", new() {
+            ["solid"] = "solid", ["dashed"] = "dashed", ["dotted"] = "dotted",
+            ["double"] = "double", ["none"] = "none", ["hidden"] = "hidden"
+        });
         BorderEdge("border-x", ["border-left-width", "border-right-width"], ["border-left-color", "border-right-color"]);
         BorderEdge("border-y", ["border-top-width", "border-bottom-width"], ["border-top-color", "border-bottom-color"]);
         BorderEdge("border-t", ["border-top-width"], ["border-top-color"]);
@@ -978,10 +1003,12 @@ public static class UtilityFamilies {
         // two `border-inline-*-color` lines in `InertProperties.txt`. Both physical colours are
         // painted, so these two are read on every longhand they set.
         //
-        // ⚠ No `border-block-start-style`. v4 emits one alongside the width and Vixen's physical
-        // edges do not, for the reason `divide-solid` is absent: `border-style` is emitted by
-        // nothing here and read by nothing either. Following `border-t` rather than following
-        // Tailwind is what keeps this from being one inert longhand out of two.
+        // ⚠ No `border-block-start-style`. v4 emits one alongside the width because a browser needs
+        // a style before a width paints; here an absent style reads as `solid` — see
+        // `Vixen.Ui.StrokeStyle` — so the extra longhand would be `solid` written on every edge
+        // utility, which is the value the reader already assumes. That is the same argument
+        // `outline` makes below: `Family.Alongside` is appended on *every* resolution of a family,
+        // so it would ride `border-bs-accent` too and out-specify a `border-dashed` beside it.
         BorderEdge("border-bs", ["border-top-width"], ["border-top-color"]);
         BorderEdge("border-be", ["border-bottom-width"], ["border-bottom-color"]);
 
@@ -1006,11 +1033,10 @@ public static class UtilityFamilies {
         // longhands through ExCSS's expansion. `TryBorderEdge` reports the unregistered spelling as
         // unknown rather than inventing an edge colour for it.
         //
-        // ⚠ <b>`divide-solid` and the rest of the style keywords are deliberately absent.</b>
-        // `border-style` is emitted by nothing here and read by nothing either — measured, not
-        // assumed: it resolves into four longhands and moves no channel in any scene. A
-        // `divide-dashed` that computed a value and drew a solid line is precisely the inert family
-        // `UtilityConsumptionGateTests` exists to keep out.
+        // ⚠ <b>`divide-solid` and the rest of the style keywords used to be deliberately absent and
+        // are registered below.</b> The measurement they were absent under — `border-style` emitted
+        // by nothing here and read by nothing either — was true and is not any more: doc 43 § A3 gave
+        // `DrawListBuilder` a reader for the four style longhands and `Vixen.Ui` a dash pattern.
         // ── The outline ─────────────────────────────────────────────────────────────────────
         //
         // ⚠ <b>An outline is not a thin border and it is not the ring either.</b> `ring-*` is a
@@ -1029,23 +1055,22 @@ public static class UtilityFamilies {
         // one place the table deliberately diverges from Tailwind rather than following it.</b> v4
         // writes `outline-style: var(--tw-outline-style)` on every width class because a browser
         // defaults `outline-style` to `none` and would paint nothing. This engine's border model has
-        // no style at all — `border-width` alone paints, because `border-style` is emitted by
-        // nothing and read by nothing — and `EmitOutline` is built to match it: a width is what
-        // makes a ring. Emitting the extra longhand would buy nothing and cost fidelity in the other
-        // direction, because `Family.Alongside` is appended on *every* resolution of a family, so
+        // no style at all — `border-width` alone paints, because an absent `border-style` reads as
+        // `solid` rather than as CSS's `none`, which `Vixen.Ui.StrokeStyle` argues — and
+        // `EmitOutline` is built to match it: a width is what makes a ring. Emitting the extra
+        // longhand would buy nothing and cost fidelity in the other direction, because
+        // `Family.Alongside` is appended on *every* resolution of a family, so
         // `outline-accent` would have carried a `solid` v4 does not emit for it and painted a ring
         // nobody asked for.
         //
-        // ⚠ <b>`outline-dashed`, `-dotted` and `-double` are absent, and they are absent under
-        // exactly the measurement `divide-solid` and `decoration-dotted` are.</b> There is no dash
-        // pattern in `Vixen.Ui` and a doubled ring is two rings; all three would resolve, compute a
-        // value and draw one solid ring, which is the inert family `UtilityConsumptionGateTests`
-        // exists to keep out. `solid` and `none` are here because `EmitOutline` genuinely reads both
-        // — `solid` is the ring and `none` is the absence of it — so `outline-style` is a property
-        // the engine acts on rather than one it stores. That is the same line `decoration-solid`
-        // and `decoration-double` are registered on and `decoration-wavy` is not.
+        // ⚠ <b>Five of five, and this used to be two.</b> `outline-dashed`, `-dotted` and `-double`
+        // were absent under the measurement `divide-solid` and `decoration-dotted` were: there was no
+        // dash pattern in `Vixen.Ui` and a doubled ring is two rings. Both exist now — `Dashes`
+        // distributes the marks, `Rings` walks the ring's centre line, and `EmitOutline` draws a
+        // doubled ring as two `Border` commands a third as thick.
         Keywords("outline", "outline-style", new() {
-            ["solid"] = "solid", ["none"] = "none"
+            ["solid"] = "solid", ["none"] = "none", ["dashed"] = "dashed",
+            ["dotted"] = "dotted", ["double"] = "double"
         });
 
         // ⚠ <b>`outline-hidden` is v4's spelling and here it is `outline-none` exactly, which is a
@@ -1070,6 +1095,18 @@ public static class UtilityFamilies {
         Between("divide-x", ValueKind.BorderEdge, ["border-inline-end-width"]);
         Between("divide-y", ValueKind.BorderEdge, ["border-bottom-width"]);
         Between("divide", ValueKind.Color, ["border-color"]);
+
+        // ⚠ <b>The five style keywords, scoped to the same children the widths are.</b> They were
+        // absent under the measurement above and are registered for the same reason it changed: a
+        // divider is a `border-bottom-width` or a `border-inline-end-width` on every child but the
+        // last, so `divide-dashed` lands on `DrawListBuilder`'s per-edge *band* path rather than on
+        // its ring — which is why that path had to answer the broken styles too and could not leave
+        // them to the stroked centre line. `Register` merges these into the family above and keeps
+        // its `> :not(:last-child)` scope, so the style reaches exactly the edges the width did.
+        Keywords("divide", "border-style", new() {
+            ["solid"] = "solid", ["dashed"] = "dashed", ["dotted"] = "dotted",
+            ["double"] = "double", ["none"] = "none"
+        });
 
         // ⚠ <b>Four of these names are prefixes of others — <c>rounded</c> of <c>rounded-t</c>, and
         // <c>rounded-t</c> of <c>rounded-tl</c> — and it is `SplitName`'s longest-first sort that
@@ -1461,16 +1498,23 @@ public static class UtilityFamilies {
 
         Keywords("pointer-events", "pointer-events", new() { ["none"] = "none", ["auto"] = "auto" });
 
+        // ⚠ `clip` is the fifth keyword and it was the one thing keeping all three of these roots off
+        // `works`. It reads as `hidden` — `LayoutStyleBuilder` maps it there and says why at length:
+        // CSS separates the two by a scroll container and by programmatic scrolling, and this engine
+        // grants `hidden` neither, so the pair cannot be told apart by any consumer. Registering it
+        // was not cosmetic: until `LayoutStyleBuilder` learned the keyword, `overflow-clip` clipped in
+        // the draw list and stayed `Visible` to the layout, which is the half-property `overflow-auto`
+        // used to be.
         Keywords("overflow", "overflow", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["visible"] = "visible", ["scroll"] = "scroll"
+            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
         });
 
         Keywords("overflow-x", "overflow-x", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["visible"] = "visible", ["scroll"] = "scroll"
+            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
         });
 
         Keywords("overflow-y", "overflow-y", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["visible"] = "visible", ["scroll"] = "scroll"
+            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
         });
 
         // ⚠ <b>Lengths where the web has keywords, because the two are answering different

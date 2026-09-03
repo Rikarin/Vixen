@@ -244,6 +244,83 @@ public class OverflowTests {
         Assert.Equal(100f, LabelWidth("overflow-x: auto;"), Tolerance);
     }
 
+    [Fact]
+    public void Clip_reaches_the_layout_and_reaches_it_as_hidden() {
+        // ⚠ `clip` was the fifth keyword and it fell out of the bridge's table exactly as `auto` had,
+        // with exactly the same consequence — see the class remark. It reads as `Hidden` rather than
+        // as a fourth member because CSS separates the two by a scroll container and by programmatic
+        // scrolling, and this engine grants `hidden` neither: `ScrollView` reads no `overflow` at all.
+        var shorthand = new BridgeFixture().Build("overflow: clip");
+
+        Assert.Equal(Overflow.Hidden, shorthand.OverflowX);
+        Assert.Equal(Overflow.Hidden, shorthand.OverflowY);
+
+        // ⚠ A fixture each, because `BridgeFixture.Build` *adds* a stylesheet rather than replacing
+        // one — two calls on one fixture leave the first rule still cascading, and the axis this line
+        // is about is exactly the one the previous declaration would have set.
+        var axis = new BridgeFixture().Build("overflow-x: clip");
+
+        Assert.Equal(Overflow.Hidden, axis.OverflowX);
+        Assert.Equal(Overflow.Visible, axis.OverflowY);
+    }
+
+    [Fact]
+    public void Clip_is_not_a_scroll_container() {
+        // The half `clip` shares with `hidden` and not with `auto`: no gutter is reserved, so a
+        // `scrollbar-width` beside it moves nothing. A fourth enum member would have had to reproduce
+        // this, and every consumer would have written `is Hidden or Clip` to get it.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .port { display: flex; flex-direction: column; width: 70px; height: 50px;
+                    overflow: clip; scrollbar-width: 10px; }
+            .fill { height: 8px; }
+            """,
+            document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
+        );
+
+        Assert.Equal(70f, document.Root.Children[0].Children[0].Width, Tolerance);
+    }
+
+    [Fact]
+    public void Clip_lets_a_flex_item_shrink_past_the_size_its_content_needs() {
+        // ⚠ **The half that was actually broken, and it is not the clip.** `overflow: clip` already
+        // clipped the draw list before this keyword existed anywhere — `OverflowReader` tests
+        // anything that is not `visible` — so the picture looked right and the box laid out as though
+        // it had said nothing, keeping the §4.5 content floor that the `hidden` beside it drops. Two
+        // boxes styled to do the same thing, laying out differently, with a correct picture of each.
+        Assert.True(LabelWidth("") > 100f, "without an opt-out the item stops at its content");
+        Assert.Equal(100f, LabelWidth("overflow: clip;"), Tolerance);
+        Assert.Equal(LabelWidth("overflow: hidden;"), LabelWidth("overflow: clip;"), Tolerance);
+    }
+
+    [Fact]
+    public void Clip_and_hidden_push_the_same_rectangle() {
+        using var clipped = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .clip { width: 80px; height: 60px; overflow: clip; background-color: #111; }
+            """,
+            document => document.Root.Add("div", classNames: "clip")
+        );
+
+        using var hidden = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .clip { width: 80px; height: 60px; overflow: hidden; background-color: #111; }
+            """,
+            document => document.Root.Add("div", classNames: "clip")
+        );
+
+        var a = Push(clipped);
+        var b = Push(hidden);
+
+        Assert.Equal(b.X, a.X, Tolerance);
+        Assert.Equal(b.Y, a.Y, Tolerance);
+        Assert.Equal(b.Width, a.Width, Tolerance);
+        Assert.Equal(b.Height, a.Height, Tolerance);
+    }
+
     /// <summary>A shrinking label in a hundred-point row, whose text is wider than that.</summary>
     static float LabelWidth(string declarations) {
         var document = new UiDocument(400f, 300f);

@@ -213,6 +213,60 @@ public class TextDecorationTests {
         Assert.Equal(pair[0].Y + 4f, pair[1].Y, Tolerance);
     }
 
+    /// <summary>A dashed underline is marks, and the ink is a closed form rather than a picture.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Judged by covered length, not by a reference image.</b> The marks are stretched to
+    ///     fit, so their total is exactly <c>count × 3 × thickness</c> for a dash and
+    ///     <c>count × thickness</c> for a dot — two identities that hold whatever the line turns out
+    ///     to be wide, which is what lets this assert something a solid bar cannot satisfy. Asserting
+    ///     "more than one rectangle" would pass on a bar sliced into touching pieces.
+    /// </remarks>
+    [Theory]
+    [InlineData("dashed", 3f)]
+    [InlineData("dotted", 1f)]
+    public void A_broken_underline_covers_a_whole_number_of_marks_and_spans_the_line(string style, float marks) {
+        using var solid = Documented("font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 2px;");
+        using var broken = Documented(
+            $"font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 2px; text-decoration-style: {style};"
+        );
+
+        var whole = Assert.Single(Bars(solid));
+        var pieces = Bars(broken);
+
+        Assert.True(pieces.Count > 1, $"a {style} underline is more than one rectangle");
+
+        var ink = pieces.Sum(piece => piece.Width);
+
+        Assert.Equal(pieces.Count * marks * 2f, ink, Tolerance);
+        Assert.True(ink < whole.Width, $"a {style} underline covers less than a solid one: {ink} of {whole.Width}");
+
+        // Both ends land on the solid bar's, so a dashed underline is not short of the text.
+        Assert.Equal(whole.X, pieces[0].X, Tolerance);
+        Assert.Equal(whole.X + whole.Width, pieces[^1].X + pieces[^1].Width, Tolerance);
+
+        // Every mark keeps the bar's thickness and its place — it is a broken bar, not a thinner one.
+        foreach (var piece in pieces) {
+            Assert.Equal(whole.Height, piece.Height, Tolerance);
+            Assert.Equal(whole.Y, piece.Y, Tolerance);
+        }
+    }
+
+    /// <summary>A dotted underline has more marks than a dashed one, because a dot is a third of a dash.</summary>
+    [Fact]
+    public void A_dotted_underline_is_finer_than_a_dashed_one() {
+        using var dashed = Documented(
+            "font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 2px; text-decoration-style: dashed;"
+        );
+
+        using var dotted = Documented(
+            "font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 2px; text-decoration-style: dotted;"
+        );
+
+        // ⚠ The assertion that tells the two keywords apart. Without it, a reader that mapped both
+        // onto one pattern would satisfy every other test in this file.
+        Assert.True(Bars(dotted).Count > Bars(dashed).Count);
+    }
+
     /// <summary><c>text-underline-offset</c> moves the underline down and nothing else.</summary>
     [Fact]
     public void The_offset_moves_the_underline_and_leaves_the_strikeout_alone() {

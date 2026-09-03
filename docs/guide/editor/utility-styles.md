@@ -117,13 +117,13 @@ disagrees with that ledger is this page being stale, not the ledger being wrong.
 | `w-`, `h-`, `size-`, `min-w-`, `min-h-`, `max-w-`, `max-h-` | |
 | `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, **`inset-s`/`-e`/`-bs`/`-be`**, `z-`, `box-border`/`box-content` | |
 | `text-<align>`, `text-<size>`, `text-<colour>`, `font-`, `leading-`, `tracking-`, `whitespace-`, **`align-`** | `align-middle`/`-text-top`/`-text-bottom`/`-sub`/`-super` — the property is read, those five values are refused at the bridge for want of a font strut |
-| **`underline`**, **`overline`**, **`line-through`**, **`no-underline`**, **`underline-offset-`**, **`decoration-<n>`**, **`decoration-auto`/`-from-font`**, **`decoration-solid`/`-double`**, **`decoration-<colour>`** | `decoration-dotted`/`-dashed`/`-wavy` — not registered, for `divide-dashed`'s reason: there is no dash pattern to draw one with, and all three would paint a solid line |
+| **`underline`**, **`overline`**, **`line-through`**, **`no-underline`**, **`underline-offset-`**, **`decoration-<n>`**, **`decoration-auto`/`-from-font`**, **`decoration-solid`/`-double`/`-dashed`/`-dotted`**, **`decoration-<colour>`** | `decoration-wavy` — not registered: a wave is a stroked path where every other decoration is a rectangle, and CSS states neither its amplitude nor its period, so it would paint a straight line |
 | `bg-`, `opacity-`, `shadow-`, `ring-`, `fill-`, `stroke-`, **`translate-x/y-`** | `blur-`, `scale-`, `rotate-` |
 | `rounded-`, and the per-corner `rounded-t`/`-r`/`-b`/`-l`/`-tl`/`-tr`/`-br`/`-bl`; **the logical `rounded-s`/`-e`/`-ss`/`-se`/`-ee`/`-es`** | |
-| **`outline`/`outline-<n>`**, **`outline-<colour>`**, **`outline-offset-<n>`**, **`outline-solid`/`-none`/`outline-hidden`** | `outline-dashed`/`-dotted`/`-double` — not registered, for `divide-dashed`’s reason: no dash pattern, and a doubled ring is two rings |
-| `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`, both widths and colours; **`border-bs`/`-be`**, both; `border-s`/`-e` widths | `border-s-<colour>` and `border-e-<colour>` — the *inline* logical pair never reached the draw list |
-| **`divide-x-`**, **`divide-y-`**, **`divide-<colour>`** | `divide-solid`/`-dashed`/`-dotted`/`-double`, `divide-x-reverse`, `divide-y-reverse` — not registered; nothing reads `border-style`, and the reverse pair needs `calc()` |
-| `overflow-hidden`, `overflow-scroll`, `overflow-auto`, **`overflow-x-*`**, **`overflow-y-*`**, `truncate` | |
+| **`outline`/`outline-<n>`**, **`outline-<colour>`**, **`outline-offset-<n>`**, **`outline-solid`/`-none`/`-dashed`/`-dotted`/`-double`**, **`outline-hidden`** | — all five keywords are drawn |
+| `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`, both widths and colours; **`border-bs`/`-be`**, both; `border-s`/`-e` widths; **`border-solid`/`-dashed`/`-dotted`/`-double`/`-none`/`-hidden`** | `border-s-<colour>` and `border-e-<colour>` — the *inline* logical pair never reached the draw list. `border-groove` and friends are not Tailwind classes and are not drawn: all four are two-tone and the border record carries one colour |
+| **`divide-x-`**, **`divide-y-`**, **`divide-<colour>`**, **`divide-solid`/`-dashed`/`-dotted`/`-double`/`-none`** | `divide-x-reverse`, `divide-y-reverse` — the reverse pair needs `calc()` |
+| `overflow-hidden`, `overflow-scroll`, `overflow-auto`, **`overflow-clip`**, **`overflow-x-*`**, **`overflow-y-*`**, `truncate` | |
 | `cursor-`, `caret-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
 | **`bg-linear-*`**, **`bg-radial`**, **`bg-conic`** with `from-`/`via-`/`to-` and stop positions | |
 
