@@ -143,6 +143,54 @@ moved emits nothing; a graph that changed but whose emitted text did not compile
 rather than replacing it, and `Created`/`Destroyed`/`Live` are public so the absence of a leak can be
 measured. See [the guide page](../../docs/guide/editor/shader-graph-previews.md).
 
+## Two shapes, and only one of them draws
+
+A master decides which — `ShaderGraphKind`, the one structural decision a node makes.
+
+**Standalone** is a whole shader: its own `worldViewProjection`, its own vertex stage, a `float4`
+return. `Master/Unlit`, `Master/Sprite` and `Master/PBR` make one. It is readable, it draws a preview
+thumbnail, an author can hand it to `raven compile` — and **nothing in this engine can put it on a
+mesh**, because a draw binds a transform record, a light cluster, a shadow atlas and a bindless table
+by names it does not declare.
+
+**Surface** is a material feature: `shader N : IMaterialSurface`, no stages, no entry point, no
+`return`. `Master/Surface` makes one. `MaterialCompiler` composes it into `CompositeSurface` beside
+the hand-written features, so a graph-authored material is transformed, lit and shadowed by the same
+path every other material takes. The whole of the engine's material model turns out to have been
+written for exactly this shape, which is why the drawing half needed no new render feature and no new
+pass.
+
+⚠ **A feature is composed into a pass it has never seen, so it may only read `MaterialData`.** `uv`
+becomes `d.uv` and a world normal becomes `d.tangentFrame.normal`; a **world position** and a
+**vertex colour** are not there at all, and `SG0004` refuses the graph rather than substituting the
+origin or white — both of which compile, draw, and produce a surface lit as though the graph said
+something it did not.
+
+⚠ **A texture is a slot, not a binding.** A standalone graph declares `albedo: Texture2D` and
+`albedoSampler: Sampler` and owns them. A surface declares `albedoIndex: uint` and indexes
+`MaterialTextures`'s shared table — the mechanism doc 06 named as the reason a feature could not
+sample at all until there was one. The array is indexed directly rather than through `SampleSurface`,
+because that helper samples at `d.uv` unconditionally and would silently ignore a `Tiling and Offset`
+node. `ShaderGraphSource.Maps` carries the `albedo` ⇄ `albedoIndex` pairing a host feeds
+`MaterialRenderFeature.TextureIndices`.
+
+`ShaderGraphMaterial.Feature` turns a compiled surface into the `GraphSurfaceFeature` a `.vxmat`
+composes — the only `IMaterialFeature` whose `ShaderName` is data rather than a constant.
+
+## How the emitted Raven reaches a compilation
+
+`Vixen.Editor.Assets`'s `ShaderGraphSources` compiles every `.vxshadergraph` under `Assets/` and
+hands the text over; `EditorEffects` and `ShaderBuildRunner` both enumerate it beside their `*.rvn`.
+
+⚠ **Nothing is written to disk.** A generated `.rvn` beside its graph would acquire a `.meta`, an
+address and a place in the browser, be committed by somebody, edited by somebody else, and silently
+overwritten by the next import. `RavenEffectCompiler.FromSources` has taken in-memory sources since
+the previews needed them.
+
+⚠ **A graph that will not compile contributes nothing rather than its text**, because
+`RavenEffectCompiler`'s constructor throws on a source that will not parse — so one unfinished graph
+would refuse every material in the project under a message about the library.
+
 ## The PBR master is honest about being half a job
 
 It emits a self-contained Lambert plus GGX with one directional light from uniforms. A master that
@@ -153,10 +201,6 @@ and a change to one method when it is time to wire it into the engine's clustere
 
 ## What is not here yet
 
-- **A material that draws with one.** The graph emits Raven and nothing consumes it: a `.vxmat` links
-  to the graph it was authored in — the editor's "Open shader graph" follows it — but turning the
-  emitted source into the shader a material names is doc 08's material compiler, which is not
-  written. Until it is, the output is text an author can read and hand to `raven compile`.
 - **Procedural nodes.** Noise, gradients, shapes. The `VfxNoise` transcription in `Vixen.Vfx` is the
   obvious source for a value-noise node, and it is not wired up.
 - **A custom-code node**, which doc 11 lists. It is a `[Input]`-less node holding a string of Raven,

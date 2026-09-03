@@ -175,17 +175,25 @@ public class CreateMenuTests {
     }
 
     /// <summary>
-    ///     Which Create ▸ lines write a file no importer claims — pinned, because five of them do.
+    ///     Which Create ▸ lines write a file no importer claims — pinned, because four of them do.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Every one of these breaks a contract this repository states in words.</b>
-    ///     <c>CreateAssetMenuAttribute</c>'s remarks describe a new asset as "a file with an extension
-    ///     that an importer claims", and these five are files with an extension nothing claims: the
-    ///     editor writes them, opens them, edits them and saves them, and the content build takes each
-    ///     one as a chunk called <c>Blob</c> that no typed reader resolves.
+    ///     <para>
+    ///         ⚠ <b>Every one of these breaks a contract this repository states in words.</b>
+    ///         <c>CreateAssetMenuAttribute</c>'s remarks describe a new asset as "a file with an
+    ///         extension that an importer claims", and these four are files with an extension nothing
+    ///         claims: the editor writes them, opens them, edits them and saves them, and the content
+    ///         build takes each one as a chunk called <c>Blob</c> that no typed reader resolves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>There were five, and <c>.vxshadergraph</c> is the one that left.</b>
+    ///         <c>ShaderGraphImporter</c> claims it and <c>ShaderGraphSources</c> is what the editor's
+    ///         and the build's shader compilations enumerate, so the Raven a graph emits now reaches
+    ///         one. Its row had to be deleted here as well as in the registry — which is exactly what
+    ///         the second paragraph below says an exact set is for.
+    ///     </para>
     /// </remarks>
     static readonly string[] AuthoredAndUnimported = [
-        ".vxshadergraph",
         ".vxanimgraph",
         ".vxseq",
         ".vxmixer",
@@ -198,12 +206,12 @@ public class CreateMenuTests {
     ///         <b>The half of the round trip nothing checked.</b>
     ///         <c>An_asset_kind_can_be_created_and_opens</c> above proves the editor can write one and
     ///         open it, and <c>AuthoringTests.EveryNewExtensionIsClaimedByExactlyOneEditor</c> proves
-    ///         an editor claims it. Neither asks whether the <em>importer</em> does, and five kinds
+    ///         an editor claims it. Neither asks whether the <em>importer</em> does, and four kinds
     ///         answer no — so an author makes an audio mixer, edits it, ships it, and nothing can load
     ///         it, with no diagnostic beyond the note <c>RawImporter</c> now writes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Written as an exact set rather than as "these five are allowed".</b> A test that
+    ///         ⚠ <b>Written as an exact set rather than as "these four are allowed".</b> A test that
     ///         only asserted the healthy kinds would stay green while a sixth was added, which is how
     ///         all five of these arrived. A test that only listed the sick ones would stay green after
     ///         somebody wrote the importer, and would then be a comment claiming a defect that no
