@@ -88,3 +88,64 @@ export class MemoryView {
         return this._viewType === 0 ? this._length : this._viewType === 1 ? this._length << 2 : this._length << 3;
     }
 }
+
+// ── ⚠ Verifying the instrument ───────────────────────────────────────────────────────────────
+//
+// This was added because sabotaging the double proved it was NOT covered. Every suite that uses
+// it stayed green when `set` stopped checking the source's constructor, and stayed green when the
+// double was given a `.buffer` — the two properties that are the entire reason it exists. So the
+// suites were testing the modules through an instrument nothing tested, which is the same shape
+// as the original defect one level up: a double more permissive than the runtime proves nothing
+// while looking thorough.
+//
+// ⚠ A permissive double is not a failing test. It is a PASSING one that has stopped asking the
+// question, which is why this throws at import time rather than counting assertions: a suite must
+// not be able to run at all against a double that has drifted.
+
+/** Fails loudly if the double has stopped refusing what the runtime refuses. */
+function selfCheck() {
+    const view = new MemoryView(new Uint8Array(4));
+
+    const refuses = (what, body) => {
+        try {
+            body();
+        } catch {
+            return;
+        }
+
+        throw new Error(
+            `memory-view.mjs is no longer faithful: it accepted ${what}, which the .NET runtime `
+            + "rejects. Every suite using it is now proving less than it appears to. See the "
+            + "class comment above."
+        );
+    };
+
+    // The constructor check, in both directions. These are the two that caught real defects:
+    // readClipboardImage passed a Uint8ClampedArray, onScreenKeyboardArea an array literal.
+    refuses("a plain Array in set()", () => view.set([1, 2, 3, 4], 0));
+    refuses("a Uint8ClampedArray in set()", () => view.set(Uint8ClampedArray.of(1, 2, 3, 4), 0));
+    refuses("a Float64Array in set()", () => view.set(Float64Array.of(1), 0));
+    refuses("a mismatched target in copyTo()", () => view.copyTo(new Float64Array(4), 0));
+
+    // ⚠ And the absences, which cannot be checked by catching: a MemoryView is an ordinary object,
+    // so reading a member it does not have yields `undefined` rather than throwing. That silence
+    // IS the defect — `new Float32Array(undefined, …)` builds an empty array and swallows every
+    // write — so the double must not have them.
+    for (const absent of ["buffer", "byteOffset", "fill", "subarray"]) {
+        if (view[absent] !== undefined) {
+            throw new Error(
+                `memory-view.mjs is no longer faithful: it has a '${absent}', which a .NET `
+                + "MemoryView does not. Reading one off the real thing yields undefined, and that "
+                + "is precisely the mistake these suites exist to catch."
+            );
+        }
+    }
+
+    // slice() must yield a REAL typed array, because that is the only member the fixed code can
+    // build a DataView over. A double returning another view would make the fix look unnecessary.
+    if (!(view.slice(0, 4) instanceof Uint8Array)) {
+        throw new Error("memory-view.mjs is no longer faithful: slice() must return a typed array.");
+    }
+}
+
+selfCheck();
