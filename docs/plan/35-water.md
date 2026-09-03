@@ -687,13 +687,19 @@ here only to record that it does not need a second mechanism.
 [31](31-terrain-grass-and-trees.md) needed a sculpt mode and a foliage mode because each owns the
 viewport and has an incompatible idea of what a click means. Water needs **one**, `WaterMode`, and
 most of the time it does not need that either: placing a lake is placing an entity, and editing its
-shape is editing a spline with the tools `SplineEdit` already provides.
+shape is editing a spline.
+
+> ⚠ **This section used to end "with the tools `SplineEdit` already provides", and it does not
+> provide any.** `SplineEdit` and `SplineCommand` are instantiated by nothing outside their own tests,
+> so no author can move a control point in any viewport —
+> [#118](https://github.com/Rikarin/Vixen/issues/118). The scope argument stands (shape editing is not
+> water's job); the capability it defers to has not been built.
 
 The mode exists for the three things that are not entity editing:
 
 | Verb | What it is |
 |---|---|
-| **Draw a body** | Click a series of points on the ground to lay a spline at the terrain's height, closing it for a lake or an ocean and leaving it open for a river. The one gesture that is not already served |
+| **Draw a body** | Click a series of points on the ground to lay a spline at the terrain's height, closing it for a lake or an ocean and leaving it open for a river. The gesture that stays this mode's even once #118 is fixed, because laying points *at the terrain's height* is a question about the terrain rather than about the curve |
 | **Edit the profile** | Drag width handles on each side of a river, drag a depth handle down, and see the velocity arrows — Unreal's three viewport visualisations, and they are the reason its river authoring is good |
 | **Preview the carve** | Toggle the reserved layer's contribution on and off, so an author can see what the water did to the ground |
 

@@ -342,7 +342,7 @@ Editor/
 │                                 #   zone panel's derived numbers (docs/plan/35 § W9; the kernel is
 │                                 #   Core/Vixen.Water). ⚠ One mode where terrain needs two, because
 │                                 #   placing a lake is placing an entity and editing its shape is
-│                                 #   editing a spline, and the editor already does both
+│                                 #   editing a spline — which nothing yet does in a viewport (#118)
 ├── Vixen.Editor.NodeGraph/       # reusable node-graph framework: model, layout, wiring, undo, groups
 │   └── Vixen.Editor.NodeGraph.Tests/
 ├── Vixen.Editor.ShaderGraph/     # nodes → Raven source generation
