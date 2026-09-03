@@ -76,6 +76,33 @@ public sealed class UiTest : IDisposable {
     /// <summary>How many frames have run.</summary>
     public int FrameCount { get; private set; }
 
+    /// <summary>How many of those frames <see cref="UiDocument.Update" /> reported work in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the document said, not what the harness inferred.</b> <c>Update</c> has always
+    ///     returned "did anything change" and every frame loop in the tree threw it away, so nothing
+    ///     could state "this interface is still" as a property. It is a count rather than a flag
+    ///     because the property worth asserting is over a run of frames — <c>Frames(30)</c> and this
+    ///     number unchanged — and a flag only ever describes the last one.
+    /// </remarks>
+    public int Updates { get; private set; }
+
+    /// <summary>How many of those frames produced a drawing that differed from the one before.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="UiDocument.Draw()" />'s return, which <c>DrawList</c> answers by comparing
+    ///         the rebuilt commands against the previous frame's rather than by trusting a flag — so a
+    ///         frame that rebuilt the same picture counts as no redraw, which is exactly the claim a
+    ///         redraw gate would have to make.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This counts frames that <i>needed</i> a redraw, not frames that were skipped.</b>
+    ///         Nothing downstream of the diff is conditional today — <c>Record</c>, <c>Upload</c>,
+    ///         <c>Compose</c> and the present all run every frame — so a flat count is evidence that a
+    ///         gate <i>could</i> skip and never evidence that anything did.
+    ///     </para>
+    /// </remarks>
+    public int Redraws { get; private set; }
+
     /// <summary>Where the first pointer is.</summary>
     /// <remarks>
     ///     The one every single-pointer command uses. <see cref="PointerAt" /> is how a multi-touch
@@ -221,9 +248,13 @@ public sealed class UiTest : IDisposable {
         // behaviour in the framework and calling the other half by hand in each test.
         Document.Tick(Now);
         Ticked?.Invoke();
-        Document.Update();
+
+        // ⚠ Both returns are read rather than discarded — see `Updates` and `Redraws`. Every other
+        // frame loop in the tree drops them, which is why "the editor is still" has never been a
+        // thing any test could say.
+        Updates += Document.Update() ? 1 : 0;
         Updated?.Invoke();
-        Document.Draw();
+        Redraws += Document.Draw() ? 1 : 0;
     }
 
     /// <summary>Runs several frames.</summary>
