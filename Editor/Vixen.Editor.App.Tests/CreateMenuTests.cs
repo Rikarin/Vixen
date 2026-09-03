@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets;
+using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
@@ -170,6 +171,74 @@ public class CreateMenuTests {
             await Import(path),
             entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("always passes", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>
+    ///     Which Create ▸ lines write a file no importer claims — pinned, because five of them do.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Every one of these breaks a contract this repository states in words.</b>
+    ///     <c>CreateAssetMenuAttribute</c>'s remarks describe a new asset as "a file with an extension
+    ///     that an importer claims", and these five are files with an extension nothing claims: the
+    ///     editor writes them, opens them, edits them and saves them, and the content build takes each
+    ///     one as a chunk called <c>Blob</c> that no typed reader resolves.
+    /// </remarks>
+    static readonly string[] AuthoredAndUnimported = [
+        ".vxshadergraph",
+        ".vxanimgraph",
+        ".vxseq",
+        ".vxmixer",
+        ".vxfont"
+    ];
+
+    /// <summary>Every kind the Create menu offers is a kind the build can read back.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of the round trip nothing checked.</b>
+    ///         <c>An_asset_kind_can_be_created_and_opens</c> above proves the editor can write one and
+    ///         open it, and <c>AuthoringTests.EveryNewExtensionIsClaimedByExactlyOneEditor</c> proves
+    ///         an editor claims it. Neither asks whether the <em>importer</em> does, and five kinds
+    ///         answer no — so an author makes an audio mixer, edits it, ships it, and nothing can load
+    ///         it, with no diagnostic beyond the note <c>RawImporter</c> now writes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written as an exact set rather than as "these five are allowed".</b> A test that
+    ///         only asserted the healthy kinds would stay green while a sixth was added, which is how
+    ///         all five of these arrived. A test that only listed the sick ones would stay green after
+    ///         somebody wrote the importer, and would then be a comment claiming a defect that no
+    ///         longer exists. Equality fails in both directions, and the message says which.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Contributed kinds are excluded by construction and that is not a loophole.</b> The
+    ///         session starts with no plugins and no project scripts, so
+    ///         <c>Extensions.All&lt;NewAssetKind&gt;()</c> is exactly the application's own list —
+    ///         <c>EditorArt</c>'s remarks already record that a plugin's kind may legitimately have no
+    ///         importer in this build.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_kind_the_create_menu_offers_is_claimed_by_an_importer() {
+        using var fixture = EditorSession.Start();
+
+        var importers = BuiltInImporters.Create();
+
+        List<string> unclaimed = [];
+
+        foreach (var kind in fixture.Extensions.All<NewAssetKind>().OrderBy(entry => entry.Extension, StringComparer.Ordinal)) {
+            // ⚠ Asserted as "the fallback claimed it", never as "TryGetForFile returned false".
+            // RawImporter takes anything, so the boolean is true either way — which is exactly how
+            // seven formats reached master unreachable.
+            Assert.True(importers.TryGetForFile("Assets/Thing" + kind.Extension, out var importer), kind.Extension);
+
+            if (importer is RawImporter) {
+                unclaimed.Add(kind.Extension);
+            }
+        }
+
+        Assert.Equal(
+            AuthoredAndUnimported.Order(StringComparer.Ordinal),
+            unclaimed.Order(StringComparer.Ordinal)
         );
     }
 
