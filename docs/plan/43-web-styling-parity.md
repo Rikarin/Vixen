@@ -92,8 +92,8 @@ Every one of those was right when it was written. The number is a denominator, s
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **181** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **46** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **183** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **44** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
 | **absent** | not emitted at all | **96** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
@@ -392,7 +392,7 @@ refusal block, which already says so for the same reason.
 | Interactivity | 39 | 27 | 0 | 1 | 11 | 0 | 0 |
 | Flexbox and Grid | 34 | 20 | 7 | 0 | 7 | 0 | 0 |
 | Typography | 34 | 14 | 6 | 0 | 14 | 0 | 0 |
-| Borders | 34 | 24 | 6 | 0 | 4 | 0 | 0 |
+| Borders | 34 | 26 | 4 | 0 | 4 | 0 | 0 |
 | Effects | 33 | 24 | 0 | 0 | 9 | 0 | 0 |
 | Spacing | 24 | 14 | 4 | 0 | 6 | 0 | 0 |
 | Transforms | 23 | 5 | 2 | 0 | 16 | 0 | 0 |
@@ -403,7 +403,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 1 | 1 | 0 | 1 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| **Total** | **328** | **181** | **46** | **1** | **96** | **3** | **1** |
+| **Total** | **328** | **183** | **44** | **1** | **96** | **3** | **1** |
 
 Effects is now the strongest category — 24 of 33, and with no `partial` left in it — followed by
 Interactivity at 26 of 39 and Flexbox and Grid at 20 of 34, up from 10, then Spacing, Borders and
