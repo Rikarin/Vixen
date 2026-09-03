@@ -3637,7 +3637,6 @@ T:Vixen.Ui.Text.AxisSegmentMap sweep-pending
 T:Vixen.Ui.Text.BidiAlgorithm sweep-pending
 T:Vixen.Ui.Text.BidiClass sweep-pending
 T:Vixen.Ui.Text.BidiResult sweep-pending
-T:Vixen.Ui.Text.CaretAffinity sweep-pending
 T:Vixen.Ui.Text.ClusterSpan sweep-pending
 T:Vixen.Ui.Text.EastAsianWidthClass sweep-pending
 T:Vixen.Ui.Text.ExtendedPictographicClass sweep-pending

@@ -25,7 +25,7 @@ Both suites were committed before their implementations, which is what those com
 | `ShapingCache` | Shaped paragraphs with LRU eviction. Keyed without the size. |
 | `FontFace.Decoration` | Where the face wants an underline and a line-through, and how thick. |
 | MSDF atlas, font fallback, rich-text runs | ⏳ |
-| `TextEditor` model with IME and caret affinity | IME ✅; affinity ✅ **here** and ⏳ in its callers — see below |
+| `TextEditor` model with IME and caret affinity | IME ✅, affinity ✅ — carried from `ShapedText` to `TextField`; see below |
 
 ## ⚠ A conformance suite says nothing about the caller
 
@@ -233,12 +233,16 @@ its affinity fails 3.
 with no grapheme boundary inside it fails nothing, because the only such span belongs to a glyphless
 run and its advance is zero, so both its edges are the same number.
 
-⚠ **The layout stack carries it; the control does not yet.** `TextRun`, `TextLine` and `TextLayout`
-each grew the pair beside the index-only form, so the bit is asked three times on the way down and
-answers a different question each time — which line (a wrap), which run (a direction change), which
-cluster — and they agree in direction, which is why one bit carries all three. **`TextField` still
-passes a bare index**, so a field's caret cannot yet sit at both ends of a boundary; that half is
-owed.
+**It is wired to a control.** `TextRun`, `TextLine` and `TextLayout` each grew the pair beside the
+index-only form, so the bit is asked three times on the way down and answers a different question
+each time — which line (a wrap), which run (a direction change), which cluster — and they agree in
+direction, which is why one bit carries all three. `TextField.CaretAffinity` is where it is *kept*,
+which it has to be: a caret walked off the end of a wrapped row and a caret pressed Down onto the
+next arrive at the same index, and only how they got there tells them apart. The click stores it,
+the drawing reads it, and Up/Down both read and produce one.
+
+⚠ **`Upstream` is the resting value throughout**, because that is what every index-only overload
+already answered — so nothing a caller has today moves.
 
 ⚠ **And the guard that kept the old round trip honest was doing nothing at all.** It read
 "only where the text runs one way" and was a bare `return` for a mixed-direction string — so
