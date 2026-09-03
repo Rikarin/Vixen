@@ -40,6 +40,13 @@ public sealed record CharacterControllerSettings {
     public Vector3 Up { get; init; } = Vector3.Up;
 
     /// <summary>The steepest slope it can stand on, in radians.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What it was <i>created</i> with, and not what it is now.</b>
+    ///     <see cref="CharacterController.MaxSlopeAngle" /> is live and this record is never rewritten
+    ///     when it changes — the same relationship <see cref="Shape" /> has with
+    ///     <c>CharacterBody.BuiltShape</c>, and for the same reason: a settings record that tracked the
+    ///     live value would be a second answer to a question the controller already answers.
+    /// </remarks>
     public float MaxSlopeAngle { get; init; } = MathUtil.PiOverFour;
 
     /// <summary>Its mass in kilograms, which is what it pushes bodies with.</summary>
@@ -54,6 +61,7 @@ public sealed record CharacterControllerSettings {
     /// <remarks>
     ///     Stair walking is a separate sweep, and turning it off — a zero here — makes a character
     ///     that catches on every 5 cm lip in the level. It is on by default for that reason.
+    ///     <see cref="CharacterController.StepHeight" /> is live; this is what it started at.
     /// </remarks>
     public float StepHeight { get; init; } = 0.4f;
 
@@ -106,8 +114,16 @@ public sealed record CharacterControllerSettings {
 public sealed class CharacterController : IDisposable {
     readonly PhysicsWorld world;
     readonly CharacterVirtual character;
-    readonly ExtendedUpdateSettings updateSettings;
     readonly ObjectLayer layer;
+
+    /// <summary>
+    ///     Handed to <c>ExtendedUpdate</c> every step, so a step height changed between two steps is
+    ///     honoured by the next one. Not <c>readonly</c> for exactly that reason.
+    /// </summary>
+    ExtendedUpdateSettings updateSettings;
+
+    float maxSlopeAngle;
+    float stepHeight;
 
     /// <summary>How it was configured.</summary>
     public CharacterControllerSettings Settings { get; }
@@ -140,6 +156,49 @@ public sealed class CharacterController : IDisposable {
     public Vector3 Velocity {
         get => JoltMath.ToVixen(character.LinearVelocity);
         set => character.LinearVelocity = JoltMath.ToJolt(value);
+    }
+
+    /// <summary>The steepest slope it can stand on, in radians. Changeable while it walks.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Jolt does <i>not</i> fix this at creation, and the belief that it does is what
+    ///         deferred per-character slope limits.</b> <c>CharacterBase</c> carries a setter, which
+    ///         recomputes the cosine the ground test actually uses; nothing has to be recreated and no
+    ///         contact state is lost. The claim this file and
+    ///         <c>Core/Vixen.Physics/README.md</c> used to make — that exposing it "means recreating
+    ///         the controller on an edit" — was wrong about the binding.
+    ///     </para>
+    ///     <para>
+    ///         It takes effect on the next sweep, because <see cref="Ground" /> is whatever the last
+    ///         one concluded. <see cref="RefreshContacts" /> is how to ask again without moving.
+    ///     </para>
+    /// </remarks>
+    public float MaxSlopeAngle {
+        get => maxSlopeAngle;
+        set {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+            maxSlopeAngle = value;
+            character.MaxSlopeAngle = value;
+        }
+    }
+
+    /// <summary>How tall a step it can walk up without jumping. Changeable while it walks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Fixed at creation by this class rather than by Jolt.</b> Stair walking is driven by
+    ///     <c>ExtendedUpdateSettings.WalkStairsStepUp</c>, which is an argument to
+    ///     <c>ExtendedUpdate</c> and therefore per <i>step</i> — the struct was simply held in a
+    ///     <c>readonly</c> field here. A crouching character that should not clear the same lip it
+    ///     clears standing needs nothing but this.
+    /// </remarks>
+    public float StepHeight {
+        get => stepHeight;
+        set {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+            stepHeight = value;
+            updateSettings = BuildUpdateSettings(Settings.Up, value, Settings.StickToFloorDistance);
+        }
     }
 
     /// <summary>What it is standing on, as of the last update.</summary>
@@ -188,24 +247,44 @@ public sealed class CharacterController : IDisposable {
         var rotation = JoltMath.ToJolt(settings.Rotation);
         character = new(characterSettings, in position, in rotation, 0ul, system);
 
-        // Stair walking and floor sticking are given as vectors along the character's up axis, so a
-        // character on a planet with a different up gets them in the right direction for free.
-        //
-        // Every field is set, including the three that look like tuning constants. The binding's
-        // parameterless constructor zeroes the struct rather than filling in Jolt's defaults, and a
-        // zero WalkStairsStepForwardTest makes the stair sweep test forward by nothing — which does
-        // not fail loudly, it just walks the character into the step and leaves it there. These are
-        // Jolt's own values: 2 cm minimum forward, 15 cm forward test, and a 75° cut-off for what
-        // counts as a wall rather than a stair.
-        updateSettings = new() {
-            WalkStairsStepUp = JoltMath.ToJolt(settings.Up * settings.StepHeight),
-            StickToFloorStepDown = JoltMath.ToJolt(-settings.Up * settings.StickToFloorDistance),
+        // The live copies of the two the component may edit. Kept here because CharacterBase offers a
+        // setter and no getter for the slope angle — it stores the cosine — so a caller reading back
+        // what it just wrote would otherwise get an angle that has been through two transcendentals.
+        maxSlopeAngle = settings.MaxSlopeAngle;
+        stepHeight = settings.StepHeight;
+
+        updateSettings = BuildUpdateSettings(settings.Up, settings.StepHeight, settings.StickToFloorDistance);
+    }
+
+    /// <summary>The whole <c>ExtendedUpdateSettings</c>, rebuilt because its properties are init-only.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Stair walking and floor sticking are given as vectors along the character's up axis, so
+    ///         a character on a planet with a different up gets them in the right direction for free.
+    ///     </para>
+    ///     <para>
+    ///         Every field is set, including the three that look like tuning constants. The binding's
+    ///         parameterless constructor zeroes the struct rather than filling in Jolt's defaults, and
+    ///         a zero <c>WalkStairsStepForwardTest</c> makes the stair sweep test forward by nothing —
+    ///         which does not fail loudly, it just walks the character into the step and leaves it
+    ///         there. These are Jolt's own values: 2 cm minimum forward, 15 cm forward test, and a 75°
+    ///         cut-off for what counts as a wall rather than a stair.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A whole function rather than one assignment because every property of the struct is
+    ///         <c>init</c>-only</b>, which is also the reason the step height looked fixed at creation:
+    ///         the value is per-update, but nothing could write it after the object initializer ran.
+    ///     </para>
+    /// </remarks>
+    static ExtendedUpdateSettings BuildUpdateSettings(Vector3 up, float stepHeight, float stickToFloorDistance) =>
+        new() {
+            WalkStairsStepUp = JoltMath.ToJolt(up * stepHeight),
+            StickToFloorStepDown = JoltMath.ToJolt(-up * stickToFloorDistance),
             WalkStairsMinStepForward = 0.02f,
             WalkStairsStepForwardTest = 0.15f,
             WalkStairsCosAngleForwardContact = MathF.Cos(MathUtil.DegreesToRadians(75f)),
             WalkStairsStepDownExtra = System.Numerics.Vector3.Zero
         };
-    }
 
     /// <summary>Moves the character by its velocity, sliding along whatever is in the way.</summary>
     /// <param name="deltaTime">How long the step is, in seconds.</param>

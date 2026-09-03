@@ -384,6 +384,10 @@ public sealed partial class PhysicsWorld : IDisposable {
         filters.Dispose();
         worldAnchorShape?.Dispose();
 
+        // After the system, for the reason every line above it is where it is: a group filter is
+        // referenced by every body that names one, and the bodies go with the system.
+        DisposeFilterTables();
+
         // After the system: removing the last body reads its shape.
         Shapes.Dispose();
 
@@ -407,6 +411,14 @@ public sealed partial class PhysicsWorld : IDisposable {
         public PhysicsLayer Layer;
         public ShapeId Shape;
         public ulong UserData;
+
+        /// <summary>This body's sub-group, or <see cref="NoSubGroup" /> if it is in no group.</summary>
+        /// <remarks>
+        ///     Handed out lazily by the first suppression that names the body, so a world that uses
+        ///     none never builds a table and every body here reads the sentinel. ⚠ The sentinel is
+        ///     <b>not</b> zero — see <see cref="NoSubGroup" />.
+        /// </remarks>
+        public int SubGroup;
     }
 
     bool IsSensorSlot(BodyHandle handle) {

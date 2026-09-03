@@ -211,11 +211,12 @@ the whole rule set is tested with no Jolt at all.
 
 | | |
 |---|---|
-| Modes | `Walking`, `Falling`, `Flying`. Swimming is absent because water volumes are, and a mode that could never be entered is a promise in an enum |
+| Modes | `Walking`, `Falling`, `Flying`, `Swimming`. ⚠ This row used to say swimming was absent "because water volumes are, and a mode that could never be entered is a promise in an enum" — they exist ([35 § D11](../../docs/plan/35-water.md)) and the promise was kept |
 | Jump | Coyote time, jump buffering, and variable height as a **clamp** — a multiplier applied once a step makes the apex depend on the step rate |
 | Crouch | `TrySetShape`, so standing up under a low ceiling is a refusal that needs no special case anywhere |
 | Speed | Linear acceleration towards an exact top speed. An exponential approach never quite reaches the number in the inspector |
 | Platforms | Velocity is stored relative to the ground, so standing still on a lift is a zero and is carried |
+| Slope and step | Per character, and **live** — see below |
 
 ⚠ **The achieved velocity is measured from the displacement, not read back.** `CharacterVirtual`
 leaves `LinearVelocity` as it was given — `CharacterSceneTests` pins that by walking into a wall — so
@@ -224,9 +225,27 @@ sweep can only ever take velocity away, so each component keeps its asked-for si
 magnitude; taking the displacement wholesale instead would read a 0.4 m stair step-up as 24 m/s and
 launch the character off it.
 
-What is **not** here: per-character slope and step limits. `CharacterControllerSettings` has both,
-with sensible values (45°, 0.4 m), and they are fixed at creation — exposing them on the component
-means recreating the controller on an edit, which is real work for a knob nobody has asked for yet.
+⚠ **Slope and step are per character, and this section used to say they could not be — wrongly, and
+about the binding rather than about the cost.** It read: "they are fixed at creation — exposing them
+on the component means recreating the controller on an edit, which is real work for a knob nobody has
+asked for yet." Neither half was true of Jolt. `CharacterBase` carries a `MaxSlopeAngle` **setter**,
+which recomputes the cosine the ground test actually uses; and the step height is a field of the
+`ExtendedUpdateSettings` handed to *every* `ExtendedUpdate`, so it was per-step all along and was
+fixed only by this project holding the struct in a `readonly` field. Nothing is recreated, no contact
+state is lost, and `CharacterSceneTests` asserts the controller is the same object across an edit.
+
+`CharacterMovement.MaxSlopeAngle` and `.StepHeight` are the authored half; `CharacterController` has
+both live. The bridge compares against **what it last pushed** rather than against what the
+controller holds — the contract `CharacterBody.BuiltShape` already gives a hand-driven `TrySetShape`,
+so a game that tunes a controller through `TryGetCharacter` keeps its tuning and only a *component*
+edit wins.
+
+⚠ **Zero takes the default for both.** A component is a struct in a zeroed column, so a scene naming
+`WalkSpeed` and nothing else would otherwise hand out a character that slides off flat ground and
+catches on every 5 cm lip — the guard `CharacterMotion.WadeScale` already made for `WadeSpeedScale`,
+promoted to `CharacterMovement.ResolveMaxSlopeAngle` / `.ResolveStepHeight` now that two callers need
+it. The price is that stair walking cannot be turned *off* through the component; it is off at
+`CharacterControllerSettings.StepHeight`, or on the controller itself.
 
 ## Determinism
 
@@ -277,13 +296,55 @@ own — but until that library exists, `Samples/05` cannot run on iOS.
 ## Known gaps
 
 - **iOS**, above.
-- **Per-pair collision suppression.** A joint's two bodies still collide with one another. Jolt does
-  this with a `CollisionGroup` and a shared `GroupFilterTable` rather than a flag on the constraint,
-  which is a body-level facility this project does not expose yet. Layers cover the common case.
 - **Vehicles, ragdolls and soft bodies.** Jolt has all three and the binding exposes them; none is in
   Phase 8's scope. `Vixen.Animation`'s ragdoll integration lands with the animation work.
-- **Double precision.** `Foundation.Init(doublePrecision: false)`. Large-world support is a separate
-  decision that touches the mathematics types, not just this project.
+- **Double precision.** `Foundation.Init(doublePrecision: false)`.
+  ⚠ **The first obstacle is not the mathematics types, which is what this line used to say.**
+  `JoltApi.DoublePrecision` selects a *different native library* — `libjoltc_double` — and
+  `JoltPhysics.Native` ships one only for `win-x64` and `win-arm64`. Flipping the flag today is a
+  `DllNotFoundException` from `JPH_Init` on macOS, Linux and Android, which makes it the same class of
+  problem as the iOS gap above rather than a precision decision. Behind that, `Vixen.Core.Mathematics`
+  has no double-precision vector, `JoltMath.ToJolt`/`ToVixen` stop being the bit-cast identity they
+  are documented as, and 1 781 `PublicAPI` lines across the repo name `Vector3`. It is also
+  process-global twice over — `JoltRuntime` and `JoltApi.DoublePrecision` are both static — so two
+  worlds at different precisions cannot exist even in principle.
+
+## Per-pair collision suppression
+
+Two named bodies that are never tested against one another, while both still collide with everything
+else. `PhysicsWorld.SetPairCollision` is the primitive; `ConstraintDescription.SuppressPairCollision`
+is the case that wanted it first — a joint's two bodies holding each other at a fixed distance while
+a contact pushes them apart.
+
+```csharp
+world.SetPairCollision(upperArm, forearm, false);        // no joint needed
+world.CreateConstraint(elbow with { SuppressPairCollision = true });
+```
+
+**Layers cannot express this, which is why it is not layers.** A layer is a statement about two
+*classes*: a ragdoll's upper arm and forearm are the same class as every other limb, must not push
+each other apart at the elbow, and must still hit the floor and the other ragdoll's forearm. Thirty-two
+layers cannot say that and a layer per limb runs out at the second character.
+
+Jolt's mechanism unchanged: every participating body gets a `CollisionGroup` naming one shared
+`GroupFilterTable`, one group id, and a sub-group of its own. A body never named in a suppression has
+no filter at all and is untouched — `PhysicsWorld.GroupedBodyCount` is zero in a world that uses none.
+
+⚠ **Two independent sources, one table.** A pair is suppressed in Jolt when `SetPairCollision` said so
+*or* at least one live constraint over it asked — so re-enabling a pair a joint still holds does
+nothing visible, and destroying the last such joint restores what the caller last said. Constraints
+refcount, because two joints over one pair (a hinge and a distance limiter on one door) are ordinary.
+
+⚠ **A body's group names one specific table, and the table's size is fixed at construction**, so
+outgrowing it rebuilds and re-points every member. `PhysicsWorld.StaleFilterCount` is the invariant —
+a body left naming a smaller table makes Jolt index a bitmask past its end, which does not throw and
+does not reliably give either answer. It exists because a behavioural test cannot see that: the growth
+test was written first with only a distance assertion and **passed against a build that re-pointed
+nothing**, on whatever the out-of-range bit happened to be.
+
+Old tables are kept until the world is disposed rather than freed on growth. A `GroupFilter` is a Jolt
+`RefTarget` and being wrong about a refcount across the interop boundary is a native abort with no
+managed frame; growth doubles, so a thousand grouped bodies keep seven small tables.
 
 ## Two bugs in the binding, worked around here
 

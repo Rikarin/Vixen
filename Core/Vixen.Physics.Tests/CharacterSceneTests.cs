@@ -611,6 +611,117 @@ public sealed class CharacterSceneTests {
         Assert.False(entities.Has<PhysicsTeleport>(walker));
     }
 
+    /// <summary>The component's limits reach the controller it is given, rather than Jolt's defaults.</summary>
+    [Fact]
+    public void ACharactersSlopeAndStepLimitsComeFromItsComponent() {
+        using var entities = new EcsWorld("Test");
+        using var scene = new PhysicsScene(entities);
+
+        Ground(scene);
+
+        var walker = Walker(
+            scene,
+            Vector3.Zero,
+            Human(scene) with { MaxSlopeAngle = MathUtil.DegreesToRadians(20f), StepHeight = 0.15f }
+        );
+
+        Advance(scene, 1);
+
+        Assert.True(scene.TryGetCharacter(walker, out var controller));
+        Assert.Equal(MathUtil.DegreesToRadians(20f), controller!.MaxSlopeAngle, 5);
+        Assert.Equal(0.15f, controller.StepHeight, 5);
+    }
+
+    /// <summary>
+    ///     ⚠ Zero takes the default rather than meaning "stands on nothing and trips on everything".
+    /// </summary>
+    /// <remarks>
+    ///     A component is a struct in a zeroed column, so a scene naming <c>WalkSpeed</c> and nothing
+    ///     else must not produce a character that slides off flat ground —
+    ///     <c>CharacterMotion.WadeScale</c>'s guard, applied to the two limits that arrived last.
+    /// </remarks>
+    [Fact]
+    public void AZeroedSlopeOrStepLimitTakesTheDefaultRatherThanRefusingEveryFloor() {
+        using var entities = new EcsWorld("Test");
+        using var scene = new PhysicsScene(entities);
+
+        Ground(scene);
+
+        // Everything the bridge needs and neither limit — the shape of a hand-authored component.
+        var walker = Walker(
+            scene,
+            Vector3.Zero,
+            new() { Shape = scene.Shapes.Capsule(0.6f, 0.3f), Layer = PhysicsLayer.Default, WalkSpeed = 4f }
+        );
+
+        Advance(scene, 30);
+
+        Assert.True(scene.TryGetCharacter(walker, out var controller));
+        Assert.Equal(CharacterMovement.Default.MaxSlopeAngle, controller!.MaxSlopeAngle, 5);
+        Assert.Equal(CharacterMovement.Default.StepHeight, controller.StepHeight, 5);
+
+        // And it is standing on the floor, which a zero slope limit would have made impossible.
+        Assert.Equal(CharacterGround.Grounded, entities.Read<CharacterState>(walker).Ground);
+    }
+
+    /// <summary>
+    ///     ⚠ Editing the component moves the live controller. This is the whole of what "Jolt fixes
+    ///     them at creation, so a component field means recreating the controller" claimed was
+    ///     impossible — and the controller is the same object throughout, which the handle proves.
+    /// </summary>
+    [Fact]
+    public void EditingTheComponentRetunesTheControllerWithoutRecreatingIt() {
+        using var entities = new EcsWorld("Test");
+        using var scene = new PhysicsScene(entities);
+
+        Ground(scene);
+        var walker = Walker(scene, Vector3.Zero);
+
+        Advance(scene, 1);
+
+        Assert.True(scene.TryGetCharacter(walker, out var before));
+
+        entities.Get<CharacterMovement>(walker).MaxSlopeAngle = MathUtil.DegreesToRadians(15f);
+        entities.Get<CharacterMovement>(walker).StepHeight = 0.05f;
+
+        Advance(scene, 1);
+
+        Assert.True(scene.TryGetCharacter(walker, out var after));
+        Assert.Same(before, after);
+        Assert.Equal(MathUtil.DegreesToRadians(15f), after!.MaxSlopeAngle, 5);
+        Assert.Equal(0.05f, after.StepHeight, 5);
+        Assert.Equal(1, scene.CharacterCount);
+    }
+
+    /// <summary>
+    ///     A controller a game tuned by hand keeps that tuning, because the bridge compares against
+    ///     what it last pushed rather than against what the controller holds.
+    /// </summary>
+    /// <remarks>
+    ///     The same contract <c>CharacterBody.BuiltShape</c> gives a hand-driven <c>TrySetShape</c>.
+    ///     Comparing against the live value instead would make every step overwrite the game's edit,
+    ///     which is the failure that would only ever show up as "the setter does not work".
+    /// </remarks>
+    [Fact]
+    public void AHandTunedControllerIsNotOverwrittenByAnUnchangedComponent() {
+        using var entities = new EcsWorld("Test");
+        using var scene = new PhysicsScene(entities);
+
+        Ground(scene);
+        var walker = Walker(scene, Vector3.Zero);
+
+        Advance(scene, 1);
+        Assert.True(scene.TryGetCharacter(walker, out var controller));
+
+        controller!.StepHeight = 0.05f;
+        controller.MaxSlopeAngle = MathUtil.DegreesToRadians(10f);
+
+        Advance(scene, 10);
+
+        Assert.Equal(0.05f, controller.StepHeight, 5);
+        Assert.Equal(MathUtil.DegreesToRadians(10f), controller.MaxSlopeAngle, 5);
+    }
+
     [Fact]
     public void DisposingTheSceneDisposesEveryCharacter() {
         using var entities = new EcsWorld("Test");

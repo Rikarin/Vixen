@@ -39,27 +39,41 @@ public sealed partial class PhysicsWorld {
         var localSecondAnchor = ToLocal(description.SecondAnchor, anchorBody);
         var localAxis = ToLocalDirection(description.Axis, description.First);
 
+        Constraint native;
+
         // One multi-lock rather than two single ones: it takes them in a canonical order, so two
         // threads building constraints over an overlapping pair cannot deadlock against each other.
         // Nothing in the engine does that today, and paying for it here costs nothing.
-        Span<BodyID> both = [first, second];
-        using var locked = system.BodyLockInterface.LockMultiWrite(both);
+        //
+        // ⚠ An explicit block rather than a `using var` over the whole method, so the lock is given
+        // back before the suppression below asks the *locking* body interface for anything — which
+        // would be this thread waiting on a mutex it already holds, the hang the anchor conversions
+        // above were moved out of the lock to avoid.
+        {
+            Span<BodyID> both = [first, second];
+            using var locked = system.BodyLockInterface.LockMultiWrite(both);
 
-        var bodyOne = locked.GetBody(0);
-        var bodyTwo = locked.GetBody(1);
+            var bodyOne = locked.GetBody(0);
+            var bodyTwo = locked.GetBody(1);
 
-        if (bodyOne is null || bodyTwo is null) {
-            throw new PhysicsHandleException(
-                $"Could not lock both bodies of a {description.Kind} constraint: "
-                + $"{description.First} and {description.Second}."
-            );
+            if (bodyOne is null || bodyTwo is null) {
+                throw new PhysicsHandleException(
+                    $"Could not lock both bodies of a {description.Kind} constraint: "
+                    + $"{description.First} and {description.Second}."
+                );
+            }
+
+            native = Build(description, in bodyOne, in bodyTwo);
+            native.Enabled = true;
+            system.AddConstraint(native);
         }
 
-        var native = Build(description, in bodyOne, in bodyTwo);
-        native.Enabled = true;
-        system.AddConstraint(native);
-
         var handle = new ConstraintHandle(nextConstraintId++);
+
+        // The world anchor is a shapeless static body, so there is no contact between it and anything
+        // to suppress — and giving it a sub-group would put every world-pinned joint's other body in
+        // a group for nothing.
+        var suppress = description.SuppressPairCollision && !description.Second.IsNone;
 
         // The anchors and the axis were converted to body-local above, the same way Jolt does it
         // internally. Keeping the local form is what lets the debug overlay draw the joint where it
@@ -74,11 +88,17 @@ public sealed partial class PhysicsWorld {
                 description.Kind,
                 localFirstAnchor,
                 localSecondAnchor,
-                localAxis
+                localAxis,
+                suppress
             )
         );
 
         constraintOrder.Add(handle);
+
+        if (suppress) {
+            SuppressForConstraint(description.First, description.Second);
+        }
+
         return handle;
     }
 
@@ -106,6 +126,14 @@ public sealed partial class PhysicsWorld {
         constraintOrder.Remove(handle);
         system.RemoveConstraint(constraint.Native);
         constraint.Native.Dispose();
+
+        // The pair goes back to whatever else still has an opinion about it — another joint over the
+        // same two bodies, or an explicit SetPairCollision. Leaving it suppressed would be a state
+        // outliving the only thing that asked for it, which is how a pair of bodies ends up passing
+        // through one another for the rest of a level with nothing left in the world to blame.
+        if (constraint.Suppresses) {
+            ReleaseForConstraint(constraint.First, constraint.Second);
+        }
     }
 
     /// <summary>Whether a handle still names a constraint in this world.</summary>
@@ -455,6 +483,7 @@ public sealed partial class PhysicsWorld {
     /// <param name="LocalFirstAnchor">The first anchor, in the first body's space.</param>
     /// <param name="LocalSecondAnchor">The second anchor, in the second body's space.</param>
     /// <param name="LocalAxis">The axis, in the first body's space. Zero for a kind with none.</param>
+    /// <param name="Suppresses">Whether this constraint is holding a pair suppression open.</param>
     sealed record JoltConstraint(
         Constraint Native,
         BodyHandle First,
@@ -462,6 +491,7 @@ public sealed partial class PhysicsWorld {
         ConstraintKind Kind,
         Vector3 LocalFirstAnchor,
         Vector3 LocalSecondAnchor,
-        Vector3 LocalAxis
+        Vector3 LocalAxis,
+        bool Suppresses
     );
 }
