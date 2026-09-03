@@ -176,6 +176,13 @@ public class UtilityFamilyTests {
     // not change — the worst shape a utility can have. See `Vixen.Ui.OverflowReader`.
     [InlineData("overflow-y-auto", "overflow-y: auto")]
     [InlineData("overflow-x-scroll", "overflow-x: scroll")]
+    // ⚠ The fifth keyword, and the one that kept all three roots at `partial`. It was unregistered
+    // because `LayoutStyleBuilder` did not know the word — and that is the shape the comment above
+    // is about, one keyword deeper: `overflow: clip` clipped the draw list and stayed `Visible` to
+    // the layout. It reads as `hidden` there, because nothing in this engine can tell the two apart.
+    [InlineData("overflow-clip", "overflow: clip")]
+    [InlineData("overflow-x-clip", "overflow-x: clip")]
+    [InlineData("overflow-y-clip", "overflow-y: clip")]
     [InlineData("pointer-events-none", "pointer-events: none")]
     // Aspect.
     [InlineData("aspect-1.5", "aspect-ratio: 1.5")]

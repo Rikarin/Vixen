@@ -1461,16 +1461,23 @@ public static class UtilityFamilies {
 
         Keywords("pointer-events", "pointer-events", new() { ["none"] = "none", ["auto"] = "auto" });
 
+        // ⚠ `clip` is the fifth keyword and it was the one thing keeping all three of these roots off
+        // `works`. It reads as `hidden` — `LayoutStyleBuilder` maps it there and says why at length:
+        // CSS separates the two by a scroll container and by programmatic scrolling, and this engine
+        // grants `hidden` neither, so the pair cannot be told apart by any consumer. Registering it
+        // was not cosmetic: until `LayoutStyleBuilder` learned the keyword, `overflow-clip` clipped in
+        // the draw list and stayed `Visible` to the layout, which is the half-property `overflow-auto`
+        // used to be.
         Keywords("overflow", "overflow", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["visible"] = "visible", ["scroll"] = "scroll"
+            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
         });
 
         Keywords("overflow-x", "overflow-x", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["visible"] = "visible", ["scroll"] = "scroll"
+            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
         });
 
         Keywords("overflow-y", "overflow-y", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["visible"] = "visible", ["scroll"] = "scroll"
+            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
         });
 
         // ⚠ <b>Lengths where the web has keywords, because the two are answering different

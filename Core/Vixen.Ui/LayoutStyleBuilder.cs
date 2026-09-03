@@ -1318,9 +1318,27 @@ public sealed class LayoutStyleBuilder {
             // clipped in the draw list, which tests anything that is not `visible`, and stayed
             // `Visible` to flexbox, which reads this — half a property, in four editor panels and
             // however many stylesheets follow. See `Overflow`.
+            // ⚠ `clip` maps onto `Hidden` for the same reason, and it is the same bug caught one
+            // keyword later: `overflow: clip` fell out of this table exactly as `auto` had, so a box
+            // that declared it clipped in the draw list — `OverflowReader` tests anything that is not
+            // `visible` — and stayed `Visible` to flexbox, keeping the automatic minimum size that
+            // `hidden` next to it opts out of. Two boxes styled to do the same thing, laying out
+            // differently.
+            //
+            // ⚠ **And it is `Hidden` rather than a fourth member, which is a refutation of what doc 43
+            // asked for and is measured rather than argued.** CSS separates the two by what `hidden`
+            // grants and `clip` does not — a scroll container, and programmatic scrolling — and in this
+            // engine `hidden` grants neither. `ScrollView` reads no `overflow` at all and says so at
+            // length; only `Overflow.Scroll` reserves a gutter or changes a fit-content size. So an
+            // `Overflow.Clip` member would split every `!= Visible` test in the flex, block, grid and
+            // inline algorithms into `is Hidden or Clip` and no consumer could ever tell them apart —
+            // a distinction with no reader, which is the thing this file already refused for `auto`.
+            // The author's own keyword survives in the computed style, so an engine that later grows a
+            // scroll container can separate them there, where the information is.
             Overflows = new Dictionary<int, Overflow> {
                 [table.Intern("visible")] = Overflow.Visible,
                 [table.Intern("hidden")] = Overflow.Hidden,
+                [table.Intern("clip")] = Overflow.Hidden,
                 [table.Intern("scroll")] = Overflow.Scroll,
                 [Auto] = Overflow.Scroll
             };

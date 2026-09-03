@@ -304,6 +304,17 @@ public enum Wrap : byte {
 ///         so an engine that later grows automatic gutters can still tell the two apart there.
 ///     </para>
 ///     <para>
+///         ⚠ <b>There is no <c>Clip</c> either, on the same argument and a stronger version of it.</b>
+///         CSS separates <c>clip</c> from <c>hidden</c> by what <c>hidden</c> grants and <c>clip</c>
+///         does not — a scroll container, and programmatic scrolling — and <see cref="Hidden" /> here
+///         grants neither. <c>ScrollView</c> reads no <c>overflow</c> of its own at all, and
+///         <c>ScrollTop</c> is a control's property that no stylesheet reaches. So the two keywords
+///         cannot be told apart by any consumer in this framework, and a fourth member would split
+///         every <c>!= Visible</c> test in the flex, block, grid and inline algorithms into
+///         <c>is Hidden or Clip</c> to no effect. <c>LayoutStyleBuilder</c> maps the keyword onto
+///         <see cref="Hidden" /> and the computed style keeps the author's own word.
+///     </para>
+///     <para>
 ///         Per axis, because <c>overflow-x</c> and <c>overflow-y</c> are separate properties and the
 ///         flexbox rules that read this — the §4.5 automatic minimum size, and the fit-content size of
 ///         a scroll container — are each about one axis. See <see cref="LayoutStyle.OverflowX" />.
@@ -313,7 +324,7 @@ public enum Overflow : byte {
     /// <summary>It spills out.</summary>
     Visible,
 
-    /// <summary>It is clipped.</summary>
+    /// <summary>It is clipped. Both <c>hidden</c> and <c>clip</c> arrive here — see the remark.</summary>
     Hidden,
 
     /// <summary>It is clipped and scrollable, which changes the minimum content size.</summary>
