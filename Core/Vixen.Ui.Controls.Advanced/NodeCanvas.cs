@@ -455,8 +455,8 @@ public sealed partial class NodeGroupView : Control {
 ///     </para>
 ///     <para>
 ///         It takes no pointer events. A wire is selected by clicking near it, which the canvas
-///         answers with arithmetic against the curve, and a full-canvas element that swallowed
-///         clicks would make everything under it unreachable.
+///         answers with arithmetic against the curve — <see cref="NodeCanvas.WireAt" /> — and a
+///         full-canvas element that swallowed clicks would make everything under it unreachable.
 ///     </para>
 /// </remarks>
 public sealed class NodeWireLayer : UiElement {
@@ -480,9 +480,20 @@ public sealed class NodeWireLayer : UiElement {
 
         foreach (var wire in canvas.Graph.Wires) {
             var lit = canvas.Selection.Contains(wire.From.Node) || canvas.Selection.Contains(wire.To.Node);
+            var chosen = ReferenceEquals(canvas.SelectedWire, wire);
 
             Curve(canvas, canvas.ToScreen(canvas.AnchorOf(wire.From)), canvas.ToScreen(canvas.AnchorOf(wire.To)));
-            context.Stroke(path, lit ? canvas.WireActiveColor : canvas.WireColor, thickness, cap: LineCap.Round);
+
+            // ⚠ Thickness is what says "selected", not colour. A wire is already drawn in the active
+            // colour when either end's node is selected, and the wire somebody is about to click is
+            // very often exactly that one — so a selected wire that only changed colour would be
+            // indistinguishable from its neighbour in the one situation that matters.
+            context.Stroke(
+                path,
+                lit || chosen ? canvas.WireActiveColor : canvas.WireColor,
+                chosen ? thickness * 2f : thickness,
+                cap: LineCap.Round
+            );
         }
 
         // The one being dragged, from its port to the pointer. Drawn last so it is over the rest,
@@ -495,27 +506,13 @@ public sealed class NodeWireLayer : UiElement {
 
     /// <summary>A cubic with horizontal handles, which is what makes a wire read as a wire.</summary>
     /// <remarks>
-    ///     ⚠ <b>The handle length grows with the horizontal gap and never shrinks below a
-    ///     minimum.</b> Proportional alone gives a straight line between two ports at the same
-    ///     height, so a wire that goes backwards — an output to the right of the input it feeds —
-    ///     passes straight through both nodes instead of looping out and round.
+    ///     The two handles come from <see cref="NodeCanvas.Handles" /> rather than being worked out
+    ///     here, because the hit test has to agree with the picture to the pixel — see there.
     /// </remarks>
     void Curve(NodeCanvas canvas, Vector2 from, Vector2 to) {
-        if (canvas.Orientation == GraphOrientation.Vertical) {
-            var drop = MathF.Max(canvas.WireCurvature * canvas.Zoom, MathF.Abs(to.Y - from.Y) * 0.5f);
+        var (first, second) = NodeCanvas.Handles(canvas, from, to);
 
-            path.Clear()
-                .MoveTo(from)
-                .CubicTo(new Vector2(from.X, from.Y + drop), new Vector2(to.X, to.Y - drop), to);
-
-            return;
-        }
-
-        var reach = MathF.Max(canvas.WireCurvature * canvas.Zoom, MathF.Abs(to.X - from.X) * 0.5f);
-
-        path.Clear()
-            .MoveTo(from)
-            .CubicTo(new Vector2(from.X + reach, from.Y), new Vector2(to.X - reach, to.Y), to);
+        path.Clear().MoveTo(from).CubicTo(first, second, to);
     }
 }
 
@@ -711,6 +708,11 @@ public sealed partial class NodeCanvas : Control {
             graph = value;
             graph.Changed += OnGraphChanged;
 
+            // The wire goes for the same reason the nodes do, and it is more urgent: a `GraphWire`
+            // holds two `GraphPort`s of the old graph, so a Delete against it would disconnect
+            // something in a graph that is no longer on screen.
+            SelectWire(null);
+
             selection.Clear();
             Refresh();
         }
@@ -806,6 +808,27 @@ public sealed partial class NodeCanvas : Control {
     /// <summary>How far a wire's handles reach at a zoom of one.</summary>
     [UiProperty(Default = 60f)]
     public partial float WireCurvature { get; set; }
+
+    /// <summary>How far from a wire a press still counts as a press on it, in screen pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor as well as a multiple of the thickness.</b> A wire is two units wide, so at a
+    ///     zoom of a tenth it is a fifth of a pixel — a target nobody can hit, which would make wire
+    ///     selection a feature that works only when zoomed in and reads as broken the rest of the
+    ///     time. The floor is roughly a pointer's own accuracy.
+    /// </remarks>
+    public float WireHitRadius => MathF.Max(6f, (WireThickness * Zoom * 0.5f) + 4f);
+
+    /// <summary>The wire the pointer chose, if one is chosen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A wire and a node are one selection with two shapes, not two selections.</b> Pressing
+    ///     a wire clears the nodes and pressing a node clears the wire, because Delete has to mean one
+    ///     thing — a canvas that held both would delete a node *and* a connection from one keypress,
+    ///     and the author would only have meant one of them.
+    /// </remarks>
+    public GraphWire? SelectedWire { get; private set; }
+
+    /// <summary>Raised after <see cref="SelectedWire" /> changes, with what is chosen now.</summary>
+    public event Action<NodeCanvas, GraphWire?>? WireSelectionChanged;
 
     /// <summary>The port a wire is being dragged from, if one is.</summary>
     public GraphPort? PendingPort { get; private set; }
@@ -1268,10 +1291,145 @@ public sealed partial class NodeCanvas : Control {
 
     // ── Selection ────────────────────────────────────────────────────────────
 
+    /// <summary>The two handles of the cubic a wire is drawn as, in the space its ends are in.</summary>
+    /// <param name="canvas">Whose curvature, zoom and orientation.</param>
+    /// <param name="from">Where the wire starts.</param>
+    /// <param name="to">Where it ends.</param>
+    /// <returns>The first and second control points.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The handle length grows with the gap and never shrinks below a minimum.</b>
+    ///         Proportional alone gives a straight line between two ports at the same height, so a
+    ///         wire that goes backwards — an output to the right of the input it feeds — passes
+    ///         straight through both nodes instead of looping out and round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here rather than in the layer that draws it, because two things need it.</b>
+    ///         <see cref="WireAt" /> measures against the same curve, and a hit test that recomputed
+    ///         the handles would be a second copy of this arithmetic — which is the shape of a bug
+    ///         that only shows up at one zoom or one orientation, where the picture and the target
+    ///         are a few pixels apart and nobody can say why the click missed.
+    ///     </para>
+    /// </remarks>
+    public static (Vector2 First, Vector2 Second) Handles(NodeCanvas canvas, Vector2 from, Vector2 to) {
+        ArgumentNullException.ThrowIfNull(canvas);
+
+        if (canvas.Orientation == GraphOrientation.Vertical) {
+            var drop = MathF.Max(canvas.WireCurvature * canvas.Zoom, MathF.Abs(to.Y - from.Y) * 0.5f);
+
+            return (new Vector2(from.X, from.Y + drop), new Vector2(to.X, to.Y - drop));
+        }
+
+        var reach = MathF.Max(canvas.WireCurvature * canvas.Zoom, MathF.Abs(to.X - from.X) * 0.5f);
+
+        return (new Vector2(from.X + reach, from.Y), new Vector2(to.X - reach, to.Y));
+    }
+
+    /// <summary>How many straight pieces a wire is measured as when it is hit-tested.</summary>
+    /// <remarks>
+    ///     A cubic has no closed form for "how far is this point from the curve", so it is flattened
+    ///     and the answer is the nearest of the pieces. Sixteen is enough that the error at the
+    ///     tightest bend a wire makes is well under the radius it is being compared against, and
+    ///     small enough that a graph of a thousand wires is sixteen thousand dot products — which is
+    ///     a press, not a frame.
+    /// </remarks>
+    const int WireSteps = 16;
+
+    /// <summary>The wire under a point, if the point is near enough to one.</summary>
+    /// <param name="x">Where, in document space.</param>
+    /// <param name="y">And vertically.</param>
+    /// <returns>The nearest wire within <see cref="WireHitRadius" />, or <c>null</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The nearest rather than the first, and that is not a nicety.</b> Wires bunch up where
+    ///     they enter a node, so the first one within the radius is very often not the one under the
+    ///     pointer — and a canvas that selected a different wire from the one the author aimed at is
+    ///     worse than one that selects none.
+    /// </remarks>
+    public GraphWire? WireAt(float x, float y) {
+        var point = new Vector2(x, y);
+        var radius = WireHitRadius;
+
+        GraphWire? nearest = null;
+        var best = radius * radius;
+
+        foreach (var wire in graph.Wires) {
+            var from = ToScreen(AnchorOf(wire.From));
+            var to = ToScreen(AnchorOf(wire.To));
+            var (first, second) = Handles(this, from, to);
+
+            var previous = from;
+
+            for (var step = 1; step <= WireSteps; step++) {
+                var next = Cubic(from, first, second, to, (float) step / WireSteps);
+                var distance = SegmentDistanceSquared(point, previous, next);
+
+                if (distance < best) {
+                    best = distance;
+                    nearest = wire;
+                }
+
+                previous = next;
+            }
+        }
+
+        return nearest;
+    }
+
+    static Vector2 Cubic(Vector2 a, Vector2 b, Vector2 c, Vector2 d, float t) {
+        var u = 1f - t;
+
+        return (u * u * u * a) + (3f * u * u * t * b) + (3f * u * t * t * c) + (t * t * t * d);
+    }
+
+    static float SegmentDistanceSquared(Vector2 point, Vector2 from, Vector2 to) {
+        var span = to - from;
+        var length = span.LengthSquared();
+
+        // A degenerate piece is a point, which happens whenever a wire's ends coincide — a node wired
+        // to itself is refused, but a wire drawn while the graph is mid-reprojection is not.
+        if (length <= float.Epsilon) {
+            return (point - from).LengthSquared();
+        }
+
+        var along = Math.Clamp(Vector2.Dot(point - from, span) / length, 0f, 1f);
+
+        return (point - (from + (span * along))).LengthSquared();
+    }
+
+    /// <summary>Chooses a wire, or chooses none.</summary>
+    /// <param name="wire">The wire, or <c>null</c> for none.</param>
+    /// <remarks>
+    ///     Selecting one clears the node selection, and it does so directly rather than through
+    ///     <see cref="Select" /> — which clears the wire, and would take this straight back off again.
+    /// </remarks>
+    public void SelectWire(GraphWire? wire) {
+        if (ReferenceEquals(SelectedWire, wire)) {
+            return;
+        }
+
+        if (wire is not null && selection.Count > 0) {
+            selection.Clear();
+            Restate();
+        }
+
+        SelectedWire = wire;
+
+        // The layer draws from `SelectedWire` and nothing about the tree changed, so the document has
+        // nothing else to notice — without this a wire is chosen and the picture says it is not until
+        // something unrelated happens to redraw.
+        Document.Invalidate();
+        WireSelectionChanged?.Invoke(this, wire);
+    }
+
+    /// <summary>Chooses no wire, without disturbing which nodes are chosen.</summary>
+    void ClearWire() => SelectWire(null);
+
     /// <summary>Selects a node, or adds it to or removes it from the selection.</summary>
     /// <param name="node">The node, or <c>null</c> to select nothing.</param>
     /// <param name="modifiers">What was held: Control toggles, Shift adds.</param>
     public void Select(GraphNode? node, ModifierKeys modifiers = ModifierKeys.None) {
+        ClearWire();
+
         if (node is null) {
             if (selection.Count == 0) {
                 return;
@@ -1315,6 +1473,7 @@ public sealed partial class NodeCanvas : Control {
             return;
         }
 
+        ClearWire();
         selection.Clear();
 
         foreach (var node in graph.Nodes) {
@@ -1379,7 +1538,16 @@ public sealed partial class NodeCanvas : Control {
 
     void OnViewChanged(float previous, float current) => Realise();
 
-    void OnGraphChanged(NodeGraph changed) => Refresh();
+    void OnGraphChanged(NodeGraph changed) {
+        // ⚠ A wire that has left the graph must stop being the selection, or Delete would run a
+        // second time against an edge that has already gone — and in the editor that is one undo
+        // entry disconnecting something the author never chose.
+        if (SelectedWire is { } wire && !graph.Wires.Contains(wire)) {
+            SelectWire(null);
+        }
+
+        Refresh();
+    }
 
     /// <summary>Zooms about the pointer, so the graph point under it stays under it.</summary>
     /// <remarks>
@@ -1428,6 +1596,14 @@ public sealed partial class NodeCanvas : Control {
 
                 break;
 
+            // Beside the nodes rather than in with them: `SelectWire` keeps the two exclusive, so at
+            // most one of these two cases can ever match and Delete means one thing.
+            case InputKey.Delete or InputKey.Backspace when SelectedWire is { } chosen:
+                SelectWire(null);
+                graph.Disconnect(chosen);
+
+                break;
+
             case InputKey.F:
                 ZoomToFit(selection.Count > 0);
                 break;
@@ -1464,8 +1640,13 @@ public sealed partial class NodeCanvas : Control {
     /// </remarks>
     void Pointed(PointerEvent args) {
         switch (args.Action) {
-            case PointerAction.Pressed
-                when args.Button == PointerButton.Primary && Under<NodePortEditor>(args.Source) is not null:
+            // ⚠ Any field, not only a port's boxes. `Begin` focuses the canvas, so a press inside a
+            // text field the canvas happens to contain — a port's number, a sticky note being
+            // written — would take the focus off the field being clicked into, which commits the
+            // edit and puts the caret nowhere. The field's own handlers are further along the same
+            // route, so this is left unhandled rather than swallowed.
+            case PointerAction.Pressed when args.Button == PointerButton.Primary
+                && (Under<NodePortEditor>(args.Source) is not null || Under<TextField>(args.Source) is not null):
                 return;
 
             case PointerAction.Pressed:
@@ -1544,6 +1725,18 @@ public sealed partial class NodeCanvas : Control {
 
             drag = CanvasDrag.Group;
             Document.CapturePointer(this);
+
+            return;
+        }
+
+        // ⚠ After the nodes and the group header, and before the marquee. A wire is drawn under the
+        // nodes, so a press over a node that a wire passes behind belongs to the node; and a press on
+        // empty canvas that happens to land within a few pixels of a wire is far more likely to mean
+        // "that wire" than "start a rubber band here", because a band that starts on a wire is a band
+        // the author could have started a pixel to either side.
+        if (WireAt(args.X, args.Y) is { } wire) {
+            Select(null);
+            SelectWire(wire);
 
             return;
         }

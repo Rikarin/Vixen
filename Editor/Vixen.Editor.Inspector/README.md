@@ -261,4 +261,9 @@ is missing is the row grouping and the decision about how a nested mixed value r
 resolves; the browser it opens belongs to the shell, as does the drop — this assembly has no
 project, so it cannot say what a field will take, only where a field is and how to write one.
 
+⚠ That is a statement about *this assembly*, and it reads as "no picker exists". One does:
+`Vixen.Editor.App`'s `AssetPicker` has answered `PickRequested` since doc 20's B3 landed, and it is a
+grid of thumbnails over the same `AssetGrid` the Project panel draws. The line above says where the
+seam is, not that the far side of it is empty.
+
 Licensed under Apache-2.0.

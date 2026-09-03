@@ -46,6 +46,13 @@
         <None Include="..\Vixen.Editor.Host\Shaders\*.spv"
               Link="ToolShaders\%(Filename)%(Extension)"
               CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+            The committed screenshots. Beside the binary, because `VisualBaseline` reads the reference
+            from the output directory and writes an accepted one back into the source tree — see its
+            remarks for why those are two different places.
+        -->
+        <None Include="__screenshots__\**" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>

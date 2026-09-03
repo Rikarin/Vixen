@@ -561,6 +561,26 @@ button.asset-picker-row {
 }
 
 button.asset-picker-row:hover { background-color: var(--surface-hover); }
+
+/* ⚠ A fixed height, for the reason the list above it had one and for one more: `asset-grid`
+   is `flex-grow: 1; min-height: 0`, which inside a dialog body that sizes itself to its
+   contents resolves to nothing at all — a grid that is there, is bound, and is zero pixels
+   tall. The width is wide enough for five tiles and the gaps between them. */
+asset-grid.asset-picker-grid {
+    flex-grow: 0;
+    height: 320px;
+    min-height: 320px;
+    width: 460px;
+}
+
+/* The picker's folder is invented — every match, wherever it lives — so the trail above it
+   would be one crumb saying "Results", which is a word for a thing the reader can already
+   see. Hidden rather than not built, because the grid is the browser's and the breadcrumbs
+   are what make it a browser there. */
+asset-grid.asset-picker-grid > asset-path { display: none; }
+
+.asset-picker-empty { padding: 8px 6px; color: var(--text-muted); }
+.asset-picker-empty.hidden { display: none; }
 dialog-header, dialog-footer { border-color: var(--border); }
 drawer-surface { box-shadow: var(--elevation); }
 

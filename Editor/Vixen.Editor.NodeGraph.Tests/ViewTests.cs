@@ -462,6 +462,282 @@ public class ViewTests : IDisposable {
         Assert.DoesNotContain(Commands(DrawCommandKind.Image), command => command.Image == 77UL);
     }
 
+    // ── Sticky notes, edited in place ────────────────────────────────────────
+
+    (GraphComment Comment, NodeCommentView Note) Noted(string text = "why this is here") {
+        var comment = View.AddComment(text, new(100f, 100f))!;
+        fixture.Update();
+
+        return (comment, Assert.Single(View.Canvas.Surface.Children.OfType<NodeCommentView>()));
+    }
+
+    [Fact]
+    public void Double_clicking_a_note_puts_a_caret_in_it_and_the_blur_writes_it_back() {
+        var (comment, note) = Noted();
+
+        fixture.Click(note);
+        fixture.Click(note);
+
+        Assert.True(note.IsEditing);
+        Assert.Same(comment, View.EditedComment);
+        Assert.Equal("why this is here", note.Editor.Value);
+
+        note.Editor.Value = "because the normal is flipped";
+        fixture.Update();
+
+        // Nothing is written while the caret is in it: `SetCommentCommand` does not merge, so a note
+        // written through per keystroke would be a paragraph's worth of undo entries.
+        Assert.Equal("why this is here", comment.Text);
+
+        fixture.Ui.Focus(fixture.Canvas);
+        fixture.Update();
+
+        Assert.False(note.IsEditing);
+        Assert.Equal("because the normal is flipped", comment.Text);
+        Assert.Equal("because the normal is flipped", note.Body.Text);
+
+        // The whole edit, as one thing to undo.
+        Assert.Equal(2, fixture.Stack.Depth.Value);
+
+        fixture.Stack.Undo();
+        Assert.Equal("why this is here", comment.Text);
+    }
+
+    [Fact]
+    public void Escape_leaves_a_note_as_it_was() {
+        var (comment, note) = Noted();
+
+        Assert.True(View.BeginEditingComment(comment));
+
+        note.Editor.Value = "typed and thought better of";
+        fixture.Update();
+
+        fixture.Type(InputKey.Escape);
+
+        Assert.False(note.IsEditing);
+        Assert.Equal("why this is here", comment.Text);
+        Assert.Equal("why this is here", note.Body.Text);
+
+        // Only the `AddComment` that made it: abandoning an edit records nothing.
+        Assert.Equal(1, fixture.Stack.Depth.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ A reprojection runs on every structural change and rebinds each note's text from the
+    ///     model. Under an open editor that would throw away everything typed since the caret went in,
+    ///     which for a note is the whole of what somebody is doing.
+    /// </summary>
+    [Fact]
+    public void A_reprojection_does_not_stomp_a_note_being_written() {
+        var (comment, note) = Noted();
+
+        Assert.True(View.BeginEditingComment(comment));
+
+        note.Editor.Value = "half a sentence";
+
+        // The ordinary cause: adding a node touches the model, and the model reprojects.
+        graph.Add("Test/Colour", new(400f, 400f));
+        fixture.Update();
+
+        Assert.True(note.IsEditing);
+        Assert.Equal("half a sentence", note.Editor.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ A caret that appears, takes a paragraph and then quietly discards it is worse than one
+    ///     that never appeared.
+    /// </summary>
+    [Fact]
+    public void A_read_only_view_refuses_the_caret() {
+        var (comment, note) = Noted();
+
+        View.EditedDocument = null;
+        View.Stack = null;
+
+        Assert.False(View.BeginEditingComment(comment));
+        Assert.False(note.IsEditing);
+        Assert.Null(View.EditedComment);
+    }
+
+    // ── Selectable wires ─────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     Where a wire is on screen, without asking the code that draws it. Both nodes are put at the
+    ///     same height and the ports are the first of their side, so the two anchors share a Y — and a
+    ///     cubic whose handles are horizontal and whose ends are level is a level line, so its middle
+    ///     is arithmetic rather than a curve evaluation.
+    /// </summary>
+    (float X, float Y) Between(NodeId source, string output, NodeId sink, string input) {
+        var from = fixture.Canvas.ToScreen(
+            fixture.Canvas.AnchorOf(fixture.Port(source, output, PortDirection.Output).Port!)
+        );
+
+        var to = fixture.Canvas.ToScreen(fixture.Canvas.AnchorOf(fixture.Port(sink, input, PortDirection.Input).Port!));
+
+        Assert.Equal(from.Y, to.Y, 2);
+
+        return ((from.X + to.X) * 0.5f, from.Y);
+    }
+
+    (NodeId Source, NodeId Sink) Wired() {
+        var source = graph.Add("Test/Colour", new(40f, 40f));
+        var sink = graph.Add("Test/Combine", new(320f, 40f));
+
+        graph.Connect(new(source.Id, "Out"), new(sink.Id, "A"));
+        fixture.Update();
+
+        return (source.Id, sink.Id);
+    }
+
+    [Fact]
+    public void Pressing_on_a_wire_selects_the_edge_it_stands_for() {
+        var (source, sink) = Wired();
+        var (x, y) = Between(source, "Out", sink, "A");
+
+        fixture.Press(x, y);
+        fixture.Release(x, y);
+
+        var edge = Assert.NotNull(View.SelectedEdge);
+
+        Assert.Equal(new PortRef(source, "Out"), edge.From);
+        Assert.Equal(new PortRef(sink, "A"), edge.To);
+
+        // Nothing was pulled off and nothing was recorded: choosing is not an edit.
+        Assert.Single(graph.Edges);
+        Assert.Equal(0, fixture.Stack.Depth.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ Delete has to mean one thing. A canvas that held a node selection and a wire selection at
+    ///     once would remove a node <i>and</i> a connection from one keypress, and the author meant one
+    ///     of them.
+    /// </summary>
+    [Fact]
+    public void A_wire_and_a_node_cannot_both_be_selected() {
+        var (source, sink) = Wired();
+        var (x, y) = Between(source, "Out", sink, "A");
+
+        fixture.Click(fixture.Item(source).Header);
+
+        Assert.Single(View.Selection);
+        Assert.Null(View.SelectedEdge);
+
+        fixture.Press(x, y);
+        fixture.Release(x, y);
+
+        Assert.NotNull(View.SelectedEdge);
+        Assert.Empty(View.Selection);
+
+        // And back the other way, which is the half a one-directional clear would leave broken. By the
+        // header, because the middle of a node with an unconnected input is one of its value boxes,
+        // and a press inside one of those is deliberately left alone by the canvas.
+        fixture.Click(fixture.Item(sink).Header);
+
+        Assert.Single(View.Selection);
+        Assert.Null(View.SelectedEdge);
+    }
+
+    [Fact]
+    public void Pressing_empty_canvas_lets_the_wire_go() {
+        var (source, sink) = Wired();
+        var (x, y) = Between(source, "Out", sink, "A");
+
+        fixture.Press(x, y);
+        fixture.Release(x, y);
+
+        Assert.NotNull(View.SelectedEdge);
+
+        fixture.Press(700f, 600f);
+        fixture.Release(700f, 600f);
+
+        Assert.Null(View.SelectedEdge);
+    }
+
+    [Fact]
+    public void Deleting_a_selected_wire_is_one_undo_step() {
+        var (source, sink) = Wired();
+        var (x, y) = Between(source, "Out", sink, "A");
+
+        fixture.Press(x, y);
+        fixture.Release(x, y);
+        fixture.Type(InputKey.Delete);
+
+        Assert.Empty(graph.Edges);
+        Assert.Equal(2, graph.Nodes.Count);
+        Assert.Equal(1, fixture.Stack.Depth.Value);
+
+        fixture.Stack.Undo();
+
+        var edge = Assert.Single(graph.Edges);
+        Assert.Equal(new PortRef(sink, "A"), edge.To);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The trap this feature had to be built around.</b> <c>NodeGraphView.PulledOff</c> works
+    ///     out which connection the canvas has picked up by returning the <i>first</i> model edge that
+    ///     the picture is missing. A wire deleted optimistically — out of the canvas's own graph, with
+    ///     the model left to catch up — is a second reason for the two to disagree, so the very next
+    ///     reroute blames whichever edge comes first in the model rather than the one the author
+    ///     dragged. Silently: there is no diagnostic anywhere, and both gestures look like they worked.
+    /// </summary>
+    [Fact]
+    public void A_reroute_straight_after_a_wire_delete_still_blames_the_edge_that_was_dragged() {
+        var first = graph.Add("Test/Colour", new(40f, 40f));
+        var second = graph.Add("Test/Colour", new(40f, 300f));
+        var sink = graph.Add("Test/Combine", new(320f, 40f));
+
+        // In this order, so the edge into "A" is the one `PulledOff` would reach first.
+        graph.Connect(new(first.Id, "Out"), new(sink.Id, "A"));
+        graph.Connect(new(second.Id, "Out"), new(sink.Id, "B"));
+        fixture.Update();
+
+        var (x, y) = Between(first.Id, "Out", sink.Id, "A");
+
+        fixture.Press(x, y);
+        fixture.Release(x, y);
+        fixture.Type(InputKey.Delete);
+
+        // Nothing is asserted about the delete itself here — `Deleting_a_selected_wire_is_one_undo_step`
+        // pins that — because the assertion this test exists for is the *next* gesture's.
+        //
+        // Now reroute the surviving wire onto the port the deleted one used. If the delete had left
+        // the model and the picture disagreeing, this drag would disconnect "A" — which is already
+        // gone — and leave the graph holding two edges instead of one.
+        var target = fixture.Port(sink.Id, "A", PortDirection.Input).Bounds;
+
+        fixture.DragFrom(
+            fixture.Port(sink.Id, "B", PortDirection.Input),
+            target.X + (target.Width * 0.5f),
+            target.Y + (target.Height * 0.5f)
+        );
+
+        var moved = Assert.Single(graph.Edges);
+
+        Assert.Equal(new PortRef(second.Id, "Out"), moved.From);
+        Assert.Equal(new PortRef(sink.Id, "A"), moved.To);
+    }
+
+    /// <summary>
+    ///     ⚠ A reprojection replaces every <c>GraphWire</c>, so a view that remembered the canvas's
+    ///     object rather than the model's edge would lose the selection to any structural edit — and
+    ///     moving a node is one.
+    /// </summary>
+    [Fact]
+    public void A_chosen_wire_survives_a_reprojection() {
+        var (source, sink) = Wired();
+        var (x, y) = Between(source, "Out", sink, "A");
+
+        fixture.Press(x, y);
+        fixture.Release(x, y);
+
+        View.Project();
+
+        var edge = Assert.NotNull(View.SelectedEdge);
+
+        Assert.Equal(new PortRef(sink, "A"), edge.To);
+        Assert.NotNull(fixture.Canvas.SelectedWire);
+    }
+
     IEnumerable<DrawCommand> Commands(DrawCommandKind kind) {
         foreach (var command in fixture.Ui.Drawing.Commands) {
             if (command.Kind == kind) {

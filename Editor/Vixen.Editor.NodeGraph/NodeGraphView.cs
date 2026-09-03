@@ -16,6 +16,12 @@ using CanvasPort = Vixen.Ui.Controls.Advanced.GraphPort;
 namespace Vixen.Editor.NodeGraph;
 
 /// <summary>A sticky note, as an element.</summary>
+/// <remarks>
+///     ⚠ <b>The label and the field both exist and one of them is hidden.</b> A note is pooled and
+///     rebound as the graph is reprojected, so building a field when editing starts would leave one
+///     behind per note ever edited — removal is final in this framework, which is why every pooled
+///     thing here parks rather than goes.
+/// </remarks>
 public sealed partial class NodeCommentView : Control {
     /// <inheritdoc />
     protected override string TagName => "graph-note";
@@ -26,14 +32,29 @@ public sealed partial class NodeCommentView : Control {
     /// <summary>The note it is showing, or <c>null</c> if it is parked.</summary>
     public GraphComment? Comment { get; internal set; }
 
-    /// <summary>Where the text goes.</summary>
+    /// <summary>Where the text goes when it is being read.</summary>
     public UiElement Body { get; private set; } = null!;
+
+    /// <summary>Where it goes when it is being written.</summary>
+    /// <remarks>
+    ///     A <see cref="TextArea" /> rather than a <see cref="TextBox" />, because a sticky note is
+    ///     the one place in a graph where somebody writes a paragraph — and a box whose Enter key
+    ///     submits is a note that can hold exactly one line.
+    /// </remarks>
+    public TextArea Editor { get; private set; } = null!;
+
+    /// <summary>Whether the caret is in it.</summary>
+    public bool IsEditing => !Editor.HasClass("hidden");
 
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
         Body = Part("graph-note-body");
+
+        Editor = Part<TextArea>();
+        Editor.AddClass("graph-note-editor");
+        Editor.AddClass("hidden");
     }
 }
 
@@ -157,6 +178,8 @@ public sealed class NodeGraphView : Control {
             graph.Changed += OnGraphChanged;
 
             selection.Clear();
+            SelectedEdge = null;
+
             Project();
         }
     }
@@ -209,6 +232,22 @@ public sealed class NodeGraphView : Control {
     /// <summary>What is selected, by identity.</summary>
     public IReadOnlyCollection<NodeId> Selection => selection;
 
+    /// <summary>The connection that is selected, if one is rather than some nodes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A model edge and not the canvas's wire, because the canvas's wire does not
+    ///         survive a reprojection.</b> <see cref="Project" /> assigns a whole new
+    ///         <c>CanvasGraph</c>, so every <c>GraphWire</c> in it is replaced by an equal one at a
+    ///         different address; a view that remembered the object would lose the selection on every
+    ///         structural edit, including the undo of the one that made it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exclusive with <see cref="Selection" />.</b> Delete has to mean one thing, and
+    ///         <c>NodeCanvas</c> is what keeps the two exclusive — see <c>NodeCanvas.SelectWire</c>.
+    ///     </para>
+    /// </remarks>
+    public GraphEdge? SelectedEdge { get; private set; }
+
     /// <summary>Raised after the selection changes.</summary>
     public event Action<NodeGraphView>? SelectionChanged;
 
@@ -232,6 +271,7 @@ public sealed class NodeGraphView : Control {
 
         Canvas = Part<NodeCanvas>();
         Canvas.SelectionChanged += _ => Reselected();
+        Canvas.WireSelectionChanged += (_, wire) => Rewired(wire);
         Canvas.NodesMoved += _ => Dropped();
         Canvas.Connected += (_, wire) => Wired(wire);
         Canvas.Activated += (_, node) => Opened(node);
@@ -254,6 +294,12 @@ public sealed class NodeGraphView : Control {
         // change nothing recorded and the next reprojection would silently undo.
         AddHandler<KeyEvent>(static (element, args) => ((NodeGraphView) element).Keyed(args), RoutingStrategy.Capture);
         AddHandler<PointerEvent>(static (element, args) => ((NodeGraphView) element).Pointed(args), RoutingStrategy.Capture);
+
+        // A double-click on a sticky note puts a caret in it. Bubbling, because the canvas's own tap
+        // handler claims a double-click on a *node* and a note is neither a node nor the canvas's to
+        // know about; and the blur is what commits, so an edit ends however the focus leaves.
+        AddHandler<TapEvent>(static (element, args) => ((NodeGraphView) element).Tapped(args));
+        AddHandler<FocusEvent>(static (element, args) => ((NodeGraphView) element).Refocused(args));
 
         // ⚠ Bubbling, so these run *after* the canvas has written Pan or Zoom, and before the frame's
         // layout. Nothing announces a pan — the two properties realise the canvas's own elements and
@@ -504,7 +550,15 @@ public sealed class NodeGraphView : Control {
 
             note.RemoveClass("parked");
             note.Comment = graph.Comments[index];
-            note.Body.Text = graph.Comments[index].Text;
+
+            // ⚠ Not while the caret is in it. A reprojection runs on every structural change, and
+            // rebinding the label under an open editor is harmless — but rebinding the *editor*
+            // would throw away what has been typed since the edit began, which for a note is the
+            // whole of what somebody is doing. The field is the truth for the length of the edit,
+            // the same bargain the canvas makes during a wire drag.
+            if (!note.IsEditing) {
+                note.Body.Text = graph.Comments[index].Text;
+            }
         }
     }
 
@@ -547,6 +601,24 @@ public sealed class NodeGraphView : Control {
     /// <returns>Whether anything went.</returns>
     public bool DeleteSelection() =>
         selection.Count > 0 && Run(new RemoveNodesCommand(graph, [.. selection], edited));
+
+    /// <summary>Deletes the selected connection.</summary>
+    /// <returns>Whether one went.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Through the model and a reprojection, never by taking the wire out of the picture
+    ///     first.</b> <see cref="PulledOff" /> works out which connection the canvas has picked up by
+    ///     finding the model edge that the picture is missing, so a second reason for the two to
+    ///     disagree makes the *next* reroute blame the wrong edge — silently, with no diagnostic
+    ///     anywhere. <c>DisconnectCommand</c> writes the model, the model raises <c>Changed</c>, and
+    ///     the reprojection removes the wire, so the two are never out of step for a whole gesture.
+    /// </remarks>
+    public bool DeleteSelectedEdge() {
+        if (SelectedEdge is not { } edge || !graph.Edges.Contains(edge)) {
+            return false;
+        }
+
+        return Run(new DisconnectCommand(graph, edge.To, edited));
+    }
 
     /// <summary>Draws a box round what is selected.</summary>
     /// <param name="title">What the box is called.</param>
@@ -591,6 +663,91 @@ public sealed class NodeGraphView : Control {
         var command = new AddCommentCommand(graph, text, position, edited);
 
         return Run(command) ? command.Comment : null;
+    }
+
+    /// <summary>The note the caret is in, if it is in one.</summary>
+    public GraphComment? EditedComment => editing?.Comment;
+
+    NodeCommentView? editing;
+
+    /// <summary>Puts a caret in a note.</summary>
+    /// <param name="comment">Which note.</param>
+    /// <returns>Whether it is now being edited.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Refused on a read-only view rather than accepted and dropped at the commit.</b> A
+    ///     caret that appears, takes a paragraph and then quietly discards it is worse than one that
+    ///     never appeared — and a view with no stack is showing a sub-graph or an asset that is not
+    ///     open for editing.
+    /// </remarks>
+    public bool BeginEditingComment(GraphComment comment) {
+        ArgumentNullException.ThrowIfNull(comment);
+
+        if (IsReadOnly) {
+            return false;
+        }
+
+        var note = notes.FirstOrDefault(candidate => ReferenceEquals(candidate.Comment, comment));
+
+        if (note is null) {
+            return false;
+        }
+
+        CommitComment();
+
+        editing = note;
+
+        note.Editor.Value = comment.Text;
+        note.Editor.RemoveClass("hidden");
+        note.Body.AddClass("hidden");
+
+        Document.Focus(note.Editor);
+
+        return true;
+    }
+
+    /// <summary>Writes what was typed into a note back on to the graph, and takes the caret out.</summary>
+    /// <returns>Whether the text changed.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One command for the whole edit rather than one per keystroke.</b>
+    ///     <c>SetCommentCommand</c> does not merge — unlike <c>SetPortValueCommand</c>, which folds a
+    ///     scrub into one entry — so a note written through on every change would be a paragraph's
+    ///     worth of undo entries. Committing when the caret leaves is what makes "I wrote this note"
+    ///     one thing to undo, and it is also what a field with no OK button has to do.
+    /// </remarks>
+    public bool CommitComment() {
+        if (editing is not { Comment: { } comment } note) {
+            return false;
+        }
+
+        var written = note.Editor.Value ?? string.Empty;
+
+        CancelEditingComment();
+
+        if (string.Equals(written, comment.Text, StringComparison.Ordinal)) {
+            return false;
+        }
+
+        return Run(new SetCommentCommand(graph, comment, written, edited));
+    }
+
+    /// <summary>Takes the caret out of a note without writing anything.</summary>
+    public void CancelEditingComment() {
+        if (editing is not { } note) {
+            return;
+        }
+
+        editing = null;
+
+        note.Editor.AddClass("hidden");
+        note.Body.RemoveClass("hidden");
+
+        if (note.Comment is { } comment) {
+            note.Body.Text = comment.Text;
+        }
+
+        if (ReferenceEquals(Document.Focused, note.Editor)) {
+            Document.Focus(Canvas);
+        }
     }
 
     /// <summary>Copies what is selected.</summary>
@@ -710,6 +867,10 @@ public sealed class NodeGraphView : Control {
     public void Select(IEnumerable<NodeId> nodes) {
         ArgumentNullException.ThrowIfNull(nodes);
 
+        // Before `Reselect`, which would otherwise put the wire back on the canvas and take the nodes
+        // this call is about straight off again — the two are exclusive.
+        SelectedEdge = null;
+
         selection.Clear();
 
         foreach (var id in nodes) {
@@ -807,6 +968,60 @@ public sealed class NodeGraphView : Control {
                 Canvas.Select(node, ModifierKeys.Shift);
             }
         }
+
+        RechooseEdge();
+    }
+
+    /// <summary>Translates the canvas's chosen wire into the model edge it stands for.</summary>
+    /// <remarks>
+    ///     Silent during a reprojection, the way <see cref="Reselected" /> is: the canvas is being
+    ///     rebuilt from the model, so what it says about its own selection is an echo rather than a
+    ///     gesture, and <see cref="RechooseEdge" /> is what puts the answer back afterwards.
+    /// </remarks>
+    void Rewired(GraphWire? wire) {
+        if (projecting) {
+            return;
+        }
+
+        SelectedEdge = Edged(wire);
+        SelectionChanged?.Invoke(this);
+    }
+
+    GraphEdge? Edged(GraphWire? wire) =>
+        wire is not null
+        && sockets.TryGetValue(wire.From, out var from)
+        && sockets.TryGetValue(wire.To, out var to)
+            ? new GraphEdge(new PortRef(from.Node, from.Port), new PortRef(to.Node, to.Port))
+            : null;
+
+    /// <summary>Puts the chosen edge back on the rebuilt picture, or forgets it if it has gone.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The edge outlives the wire, and this is where the two are rejoined.</b> Reprojecting
+    ///     replaces every <c>GraphWire</c>, so without this an author who selected a wire and then
+    ///     moved a node — which touches the model, which reprojects — would find the selection gone
+    ///     and Delete doing nothing.
+    /// </remarks>
+    void RechooseEdge() {
+        if (SelectedEdge is not { } edge) {
+            return;
+        }
+
+        if (!anchors.TryGetValue(new(edge.From.Node, edge.From.Port, PortDirection.Output), out var from)
+            || !anchors.TryGetValue(new(edge.To.Node, edge.To.Port, PortDirection.Input), out var to)) {
+            SelectedEdge = null;
+
+            return;
+        }
+
+        foreach (var wire in Canvas.Graph.Wires) {
+            if (ReferenceEquals(wire.From, from) && ReferenceEquals(wire.To, to)) {
+                Canvas.SelectWire(wire);
+
+                return;
+            }
+        }
+
+        SelectedEdge = null;
     }
 
     /// <remarks>
@@ -1066,8 +1281,62 @@ public sealed class NodeGraphView : Control {
     ///     The canvas has the same guard for the same reason; both are needed, because this handler
     ///     would otherwise take Delete out of a number box on a node and delete the node instead.
     /// </remarks>
+    void Tapped(TapEvent args) {
+        if (args.Count != 2) {
+            return;
+        }
+
+        for (var walk = args.Source; walk is not null; walk = walk.Parent) {
+            if (walk is NodeCommentView { Comment: { } comment } && BeginEditingComment(comment)) {
+                args.Handled = true;
+
+                return;
+            }
+        }
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>The blur is what commits, so an edit ends however the focus left.</b> A note has no OK
+    ///     button and its Enter key is a line break, so clicking anywhere else is the ordinary way to
+    ///     finish one — and a commit hung off a particular gesture would lose the text to every other
+    ///     way of leaving, including opening a different graph.
+    /// </remarks>
+    void Refocused(FocusEvent args) {
+        if (!args.Gained && editing is { } note && ReferenceEquals(args.Previous, note.Editor)) {
+            CommitComment();
+        }
+    }
+
     void Keyed(KeyEvent args) {
-        if (args.Action != KeyAction.Pressed || Document.Focused is TextField) {
+        if (args.Action != KeyAction.Pressed) {
+            return;
+        }
+
+        // ⚠ Claimed before the `TextField` guard below, and only these two keys. This handler is on
+        // the capture leg, so anything it claims never reaches the field — which for the plain Enter
+        // would be a note that cannot hold a second line, and for a character key a note that cannot
+        // be typed into at all.
+        if (editing is { } open && ReferenceEquals(Document.Focused, open.Editor)) {
+            switch (args.Key) {
+                case InputKey.Escape:
+                    CancelEditingComment();
+                    break;
+
+                case InputKey.Enter
+                    when args.Modifiers.HasFlag(ModifierKeys.Control) || args.Modifiers.HasFlag(ModifierKeys.Meta):
+                    CommitComment();
+                    break;
+
+                default:
+                    return;
+            }
+
+            args.Handled = true;
+
+            return;
+        }
+
+        if (Document.Focused is TextField) {
             return;
         }
 
@@ -1076,6 +1345,12 @@ public sealed class NodeGraphView : Control {
         switch (args.Key) {
             case InputKey.Delete or InputKey.Backspace when selection.Count > 0:
                 DeleteSelection();
+                break;
+
+            // Beside the nodes, not folded in with them: the canvas keeps the two exclusive, so at
+            // most one of the pair can match and Delete never removes a node and a connection at once.
+            case InputKey.Delete or InputKey.Backspace when SelectedEdge is not null:
+                DeleteSelectedEdge();
                 break;
 
             case InputKey.C when control:

@@ -13,7 +13,7 @@ using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 
-/// <summary>The list an asset field opens when its button is pressed.</summary>
+/// <summary>The grid of assets a field opens when its button is pressed.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>Doc 20's B3 calls this "small, and every asset field is dead without it", and both
@@ -23,11 +23,13 @@ namespace Vixen.Editor.App;
 ///         breaks the first time it is used, never mind the second.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A dialog rather than a panel, and that is not the end state.</b> Doc 20's B3 asks for
-///         an "asset picker browser" with thumbnails, which needs the thumbnail service that arrives
-///         with the grid view. What a field needs first is to be assignable at all, and a searchable
-///         list of the right assets is that — through the shell's own <c>DialogService</c>, so it is
-///         screenshottable and drivable like everything else.
+///         ⚠ <b>A dialog rather than a panel, which is still not doc 20's end state — but the
+///         thumbnails are in.</b> B3 asks for an "asset picker browser" with pictures in it, and the
+///         pictures were the half that had to wait for a device: <see cref="AssetGrid" /> and
+///         <c>ThumbnailCache</c> are the Project panel's, reused here rather than reimplemented.
+///         What remains a dialog is the frame round it, through the shell's own
+///         <c>DialogService</c> — which is what makes the picker screenshottable and drivable like
+///         everything else.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Filtered by importer, not by CLR type.</b> A member names a runtime type — through
@@ -44,16 +46,21 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class AssetPicker {
-    /// <summary>How many rows the list shows before it asks the user to type something.</summary>
+    /// <summary>What the synthetic folder the grid is shown is called.</summary>
     /// <remarks>
-    ///     A project has thousands of assets and a dialog is not a content browser. The search box is
-    ///     the way through a large project, and a list that tried to draw all of it would be slow to
-    ///     open for no benefit — the row somebody wants is not the four-hundredth.
+    ///     ⚠ <b>Never seen: the picker hides the breadcrumb bar.</b> <see cref="AssetGrid" /> shows a
+    ///     <i>folder</i>, because that is the question a browser answers — and the picker's question
+    ///     is "every asset of this kind, wherever it is", which is a flat list with no folder above
+    ///     it. Handing it one folder holding the filtered results is what makes the two the same
+    ///     control; inventing a second grid for the flat case would be two things to keep agreeing
+    ///     about what a tile looks like, which is exactly the disagreement F12 was.
     /// </remarks>
-    const int Limit = 200;
+    const string Results = "Results";
 
     readonly EditorProject project;
     readonly DialogService dialogs;
+    readonly ThumbnailCache? thumbnails;
+    readonly IEditorRegistry? extensions;
 
     /// <summary>Which importer claims which extension, for the assets no import has run over yet.</summary>
     /// <remarks>
@@ -70,12 +77,27 @@ sealed class AssetPicker {
     /// <summary>Prepares a picker over a project's assets.</summary>
     /// <param name="project">Whose assets.</param>
     /// <param name="dialogs">How the editor asks.</param>
-    public AssetPicker(EditorProject project, DialogService dialogs) {
+    /// <param name="thumbnails">
+    ///     Where the pictures come from, or <see langword="null" /> for a headless editor — which is
+    ///     the ordinary state in every test, and where the grid draws type glyphs.
+    /// </param>
+    /// <param name="extensions">
+    ///     Who has contributed an <c>AssetIcon</c>, so a plugin's asset kind gets its own glyph here
+    ///     as well as in the browser. Null falls back to the built-in set.
+    /// </param>
+    public AssetPicker(
+        EditorProject project,
+        DialogService dialogs,
+        ThumbnailCache? thumbnails = null,
+        IEditorRegistry? extensions = null
+    ) {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(dialogs);
 
         this.project = project;
         this.dialogs = dialogs;
+        this.thumbnails = thumbnails;
+        this.extensions = extensions;
     }
 
     /// <summary>What an asset is called in the picker and in the field.</summary>
@@ -109,18 +131,37 @@ sealed class AssetPicker {
         _ = Ask();
 
         async Task Ask() {
-            var chosen = await dialogs.ShowAsync<AssetId?>(
-                "Select " + field.Member.DisplayName,
-                session => Fill(session, candidates, field.Member.AllowNull, KindOf(field.Member))
-            ).ConfigureAwait(true);
+            AssetGrid? grid = null;
 
-            // ⚠ Through the drawer rather than straight into the field, because the member may hold
-            // an `AssetReference` rather than an `AssetId` — and `Write` boxes whatever it is handed
-            // for a generated setter that casts. An id written into a reference member is an
-            // `InvalidCastException` raised from inside a dialog's click handler, which kills the
-            // frame rather than refusing the edit.
-            if (chosen is { } asset && AssetDrawer.Assign(field, asset)) {
-                field.Seal();
+            // ⚠ Subscribed for as long as the dialog is open and dropped the moment it is not. A
+            // decode lands a few frames after the tile that asked for it was drawn, so without this
+            // the picker shows glyphs until something else happens to rebind — which, for a modal
+            // dialog nobody is scrolling, is never. And a subscription left behind would hold a
+            // removed grid alive for the rest of the session, once per asset field ever opened.
+            void Arrived() => grid?.Refresh();
+
+            if (thumbnails is { } cache) {
+                cache.Changed += Arrived;
+            }
+
+            try {
+                var chosen = await dialogs.ShowAsync<AssetId?>(
+                    "Select " + field.Member.DisplayName,
+                    session => grid = Fill(session, candidates, field.Member.AllowNull, KindOf(field.Member))
+                ).ConfigureAwait(true);
+
+                // ⚠ Through the drawer rather than straight into the field, because the member may
+                // hold an `AssetReference` rather than an `AssetId` — and `Write` boxes whatever it
+                // is handed for a generated setter that casts. An id written into a reference member
+                // is an `InvalidCastException` raised from inside a dialog's click handler, which
+                // kills the frame rather than refusing the edit.
+                if (chosen is { } asset && AssetDrawer.Assign(field, asset)) {
+                    field.Seal();
+                }
+            } finally {
+                if (thumbnails is { } watched) {
+                    watched.Changed -= Arrived;
+                }
             }
         }
     }
@@ -219,8 +260,29 @@ sealed class AssetPicker {
     static string? KindOf(InspectorMember member) =>
         ImporterFor(member.AssetType) is null ? null : InspectorMember.Humanise(member.AssetType!.Name);
 
-    /// <summary>Builds the dialog: a search box, a list, and the two ways out.</summary>
-    static void Fill(
+    /// <summary>Builds the dialog: a search box, a grid of tiles, and the two ways out.</summary>
+    /// <returns>The grid, so the caller can rebind it when a picture arrives.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 20's B3 asked for an "asset picker browser" with thumbnails and this is that
+    ///         half.</b> A name is what an asset is <i>called</i> and a picture is which one it is:
+    ///         choosing between <c>T_Crate_01</c> and <c>T_Crate_02</c> off a list of names is
+    ///         reading, guessing and undoing, which is exactly what a picker exists to avoid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same <see cref="AssetGrid" /> the Project panel uses, over a folder that is
+    ///         invented here.</b> A second grid for the flat case would be a second answer to "what
+    ///         does a tile look like", and F12 is what that costs: the same asset drawn two ways in
+    ///         two panes of one panel, which nobody reports and everybody notices.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every match is shown rather than the first two hundred.</b> The list this
+    ///         replaces drew a row per result and so had to stop somewhere; the grid is virtualised,
+    ///         so a folder of forty thousand costs about sixty tiles. The search box is still the way
+    ///         through a large project — it is just no longer the only way to see the last of it.
+    ///     </para>
+    /// </remarks>
+    AssetGrid Fill(
         DialogSession<AssetId?> session,
         IReadOnlyList<AssetEntry> candidates,
         bool allowNull,
@@ -229,13 +291,28 @@ sealed class AssetPicker {
         var search = session.Body.Add<SearchBox>();
         search.Placeholder = kind is null ? "Search assets…" : $"Search {kind.ToLowerInvariant()}s…";
 
-        var list = session.Body.Add<UiElement>("asset-picker-list");
-        var shown = new List<AssetEntry>(candidates);
+        var empty = session.Body.Add<TextBlock>();
+        empty.AddClass("asset-picker-empty");
 
-        Rebuild();
+        var grid = session.Body.Add<AssetGrid>();
+
+        grid.AddClass("asset-picker-grid");
+        grid.Art = Art;
+        grid.Picture = Pictured;
+
+        // ⚠ The tile answers the dialog rather than merely selecting: a picker where choosing is a
+        // click and then a second click on OK is one people click twice by mistake and once too few
+        // by habit. `Selected` is the press, which is the same gesture the list's rows answered on.
+        grid.Selected += node => {
+            if (node.IsIndexed) {
+                session.Answer(node.Guid);
+            }
+        };
+
+        Rebuild(candidates);
 
         search.ValueChanged += (_, value) => {
-            shown.Clear();
+            List<AssetEntry> shown = [];
 
             foreach (var entry in candidates) {
                 if (string.IsNullOrWhiteSpace(value)
@@ -244,7 +321,7 @@ sealed class AssetPicker {
                 }
             }
 
-            Rebuild();
+            Rebuild(shown);
         };
 
         if (allowNull) {
@@ -255,42 +332,53 @@ sealed class AssetPicker {
 
         session.AddButton(EditorStrings.DialogCancel.Text, () => null);
 
-        void Rebuild() {
-            while (list.Children.Count > 0) {
-                list.Children[^1].Remove();
-            }
+        return grid;
 
-            if (shown.Count == 0) {
-                // ⚠ Names the kind when there is one. "The project has no assets of this kind" over an
-                // empty list leaves the reader to work out which kind that was — and the two reasons
-                // a list is empty (there are none, or the filter is wrong) look identical until it
-                // says which type it was looking for.
-                list.Add<TextBlock>().Text = candidates.Count == 0
+        void Rebuild(IReadOnlyList<AssetEntry> shown) {
+            grid.Show(
+                new AssetTreeNode(
+                    Results,
+                    string.Empty,
+                    IsFolder: true,
+                    AssetId.Empty,
+                    [.. shown.Select(entry => new AssetTreeNode(entry.Name, entry.Path, false, entry.Guid, []))]
+                )
+            );
+
+            // ⚠ Names the kind when there is one. "The project has no assets of this kind" over an
+            // empty grid leaves the reader to work out which kind that was — and the two reasons a
+            // grid is empty (there are none, or the filter is wrong) look identical until it says
+            // which type it was looking for.
+            empty.Text = shown.Count > 0
+                ? string.Empty
+                : candidates.Count == 0
                     ? kind is null
                         ? "The project has no assets."
                         : $"The project has no {kind.ToLowerInvariant()} assets."
                     : "Nothing matches.";
 
-                return;
-            }
-
-            foreach (var entry in shown.Take(Limit)) {
-                var asset = entry.Guid;
-
-                var row = list.Add<Button>();
-                row.Label = entry.Name;
-                row.Variant = ControlVariant.Subtle;
-                row.AddClass("asset-picker-row");
-
-                // ⚠ The row answers the dialog rather than merely selecting: a picker where choosing
-                // is a click and then a second click on OK is one people click twice by mistake and
-                // once too few by habit.
-                row.Clicked += _ => session.Answer(asset);
-            }
-
-            if (shown.Count > Limit) {
-                list.Add<TextBlock>().Text = $"and {shown.Count - Limit} more — type to narrow it down";
+            if (shown.Count > 0) {
+                empty.AddClass("hidden");
+            } else {
+                empty.RemoveClass("hidden");
             }
         }
     }
+
+    /// <summary>Which glyph an asset gets, resolved the way the Project panel resolves it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through <c>EditorArt</c> and the <c>AssetIcon</c> contributions, not a switch of its
+    ///     own.</b> A picker with its own table is a picker that draws a plugin's asset kind as a
+    ///     blank page while the browser two panels away draws it properly.
+    /// </remarks>
+    IconArt Art(AssetTreeNode asset) =>
+        EditorArt.Of(
+            extensions?.All<AssetIcon>() ?? StandardIcons.Assets,
+            asset.IsIndexed && project.Assets.TryGetByGuid(asset.Guid, out var entry) ? ImporterOf(entry) : null,
+            asset.Name
+        ) ?? StandardIcons.Unknown;
+
+    /// <summary>The picture for an asset, asking for one if there is none yet.</summary>
+    ulong Pictured(AssetTreeNode asset) =>
+        asset.IsIndexed && thumbnails is { } cache && cache.TryGet(asset.Guid, out var image) ? image : 0;
 }
