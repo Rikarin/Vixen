@@ -430,4 +430,105 @@ public class SurfaceGraphTests {
 
         Assert.Equal(1, declaration.Span.Lines);
     }
+
+    /// <summary>Every procedural node binds against the shipped library it calls into.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>These five are the first nodes whose Raven is not self-contained</b>, and that is
+    ///         the point of testing them here rather than beside the other compiler tests.
+    ///         <c>ShaderGraphCompilerTests.Generates</c> compiles the emitted text on its own — which
+    ///         is enough for a node whose body is <c>a + b</c> and cannot say anything about one that
+    ///         calls <c>ComputeColor.ValueNoise</c>. <see cref="BindsIntoTheChain" /> parses the whole
+    ///         of <c>Raven/Library</c>, so a wrong argument count, a wrong argument type or a renamed
+    ///         library function is caught here and nowhere else in this suite.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The functions existed and nothing called them.</b> <c>ComputeColor.rvn</c>'s
+    ///         procedural and UV sections were written as "the shader-graph node vocabulary" and no
+    ///         node in the library reached any of them.
+    ///     </para>
+    ///     <para>
+    ///         All five in one graph, wired into the master, so the import is emitted once and the
+    ///         widths have to agree: three of them produce a <c>float</c> and two a <c>float2</c>, and
+    ///         a node returning the wrong one type-checks nowhere.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_procedural_nodes_bind_against_the_library_they_call() {
+        var graph = new NodeGraphModel { Name = "Procedural" };
+
+        var uv = graph.Add("Input/UV");
+        var rotate = graph.Add("Vector/Rotate UV");
+        var flipbook = graph.Add("Vector/Flipbook");
+        var noise = graph.Add("Procedural/Noise");
+        var fractal = graph.Add("Procedural/Fractal Noise");
+        var checker = graph.Add("Procedural/Checker");
+        var master = graph.Add("Master/Surface");
+
+        graph.Connect(new(uv.Id, "UV"), new(rotate.Id, "UV"));
+        graph.Connect(new(rotate.Id, "Out"), new(flipbook.Id, "UV"));
+        graph.Connect(new(flipbook.Id, "Out"), new(noise.Id, "UV"));
+        graph.Connect(new(flipbook.Id, "Out"), new(fractal.Id, "UV"));
+        graph.Connect(new(flipbook.Id, "Out"), new(checker.Id, "UV"));
+
+        // Scalars into scalar ports, so the master reads what the nodes produce rather than defaults.
+        graph.Connect(new(noise.Id, "Out"), new(master.Id, "Roughness"));
+        graph.Connect(new(fractal.Id, "Out"), new(master.Id, "Metallic"));
+        graph.Connect(new(checker.Id, "Out"), new(master.Id, "Occlusion"));
+
+        var result = new ShaderGraphCompiler(Library()).Compile(graph);
+
+        Assert.True(result.Succeeded, string.Join("\n", result.Diagnostics));
+
+        // Once, however many nodes asked. The surface shape already imports this package, so a node's
+        // request must not add a second line — Raven refuses a duplicate import and nothing else here
+        // would notice.
+        Assert.Equal(
+            1,
+            result.Value.Source.Split('\n').Count(line => line.Trim() == "import Vixen.Shaders.Material")
+        );
+
+        BindsIntoTheChain(result.Value);
+    }
+
+    /// <summary>A standalone graph imports what its nodes asked for, and only that.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The standalone shape emitted no imports at all, which is what a node preview needs and
+    ///     what a node calling a library function cannot have.</b> So the preamble is empty until
+    ///     something asks — <c>RavenEmitter.Import</c> — rather than the shading library being pulled
+    ///     into every graph: <c>ShaderGraphPreviewRenderer</c> binds one uniform block and refuses any
+    ///     variant whose reflection wants more, so an unused import is paid for by every node that
+    ///     never calls into it.
+    /// </remarks>
+    [Fact]
+    public void A_standalone_graph_imports_only_what_a_node_asked_for() {
+        var plain = new NodeGraphModel { Name = "Plain" };
+
+        plain.Add("Master/Unlit");
+        plain.Add("Math/Add");
+
+        var bare = new ShaderGraphCompiler(Library()).Compile(plain);
+
+        Assert.True(bare.Succeeded, string.Join("\n", bare.Diagnostics));
+        Assert.DoesNotContain("import ", bare.Value.Source, StringComparison.Ordinal);
+
+        var procedural = new NodeGraphModel { Name = "Grain" };
+        var noise = procedural.Add("Procedural/Noise");
+        var master = procedural.Add("Master/Unlit");
+
+        procedural.Connect(new(noise.Id, "Out"), new(master.Id, "Alpha"));
+
+        var asked = new ShaderGraphCompiler(Library()).Compile(procedural);
+
+        Assert.True(asked.Succeeded, string.Join("\n", asked.Diagnostics));
+        Assert.Contains("import Vixen.Shaders.Material", asked.Value.Source, StringComparison.Ordinal);
+
+        // ⚠ And the span map still points at the node rather than at the header, which is the thing
+        // an import silently breaks: the offset is the compiler's own line count, so a preamble that
+        // grew without the arithmetic following it blames whichever node happens to sit that far down.
+        var lines = asked.Value.Source.Split('\n');
+
+        Assert.True(asked.Value.NodeAt(Array.FindIndex(lines, line => line.Contains("ValueNoise", StringComparison.Ordinal)), out var span));
+        Assert.Equal(noise.Id, span.Node);
+    }
 }

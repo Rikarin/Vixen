@@ -145,6 +145,18 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
     readonly Dictionary<string, string> uniforms = new(StringComparer.Ordinal);
     readonly HashSet<ShaderStageInput> stage = [];
     readonly Dictionary<string, string> maps = new(StringComparer.Ordinal);
+
+    /// <summary>The packages nodes asked for, over whatever the shape imports anyway.</summary>
+    /// <remarks>See <see cref="RavenEmitter.Import" />: sorted, so the same graph emits the same source.</remarks>
+    readonly SortedSet<string> imports = new(StringComparer.Ordinal);
+
+    /// <summary>What the surface shape imports whatever the graph asked for.</summary>
+    static readonly string[] SurfaceImports = [
+        "Vixen.Shaders.Core",
+        "Vixen.Shaders.Geometry",
+        "Vixen.Shaders.Shading",
+        "Vixen.Shaders.Material"
+    ];
     readonly List<ShaderGraphSpan> spans = [];
     readonly Dictionary<string, NodeId> declaredBy = new(StringComparer.Ordinal);
     readonly Dictionary<ShaderStageInput, NodeId> stagedBy = [];
@@ -198,7 +210,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         // texture read on the line it emits; the answer differs entirely between the two shapes, and
         // a walk that learned which one it was in when it reached the master would already have
         // written every node upstream of it in the wrong one.
-        emitter = new(body, uniforms, stage, maps, KindOf(graph));
+        emitter = new(body, uniforms, stage, maps, imports, KindOf(graph));
         master = null;
         masterId = NodeId.None;
     }
@@ -304,8 +316,21 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         text.AppendLine("// Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not.")
             .AppendLine()
             .AppendLine("package Vixen.ShaderGraph.Generated")
-            .AppendLine()
-            .AppendLine($"shader {name} {{")
+            .AppendLine();
+
+        // ⚠ Only what a node asked for. A standalone graph is what the preview compiles, and
+        // `ShaderGraphPreviewRenderer` binds one uniform block and refuses a variant that reflects
+        // anything else — so an unconditional preamble of the shading library would be paid for by
+        // every graph that never reaches into it. See `RavenEmitter.Import`.
+        foreach (var package in imports) {
+            text.AppendLine($"import {package}");
+        }
+
+        if (imports.Count > 0) {
+            text.AppendLine();
+        }
+
+        text.AppendLine($"shader {name} {{")
             .AppendLine("    /// The object-to-clip transform. Every graph has one; none of them author it.")
             .AppendLine("    var worldViewProjection: mat4")
             .AppendLine()
@@ -412,8 +437,15 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             .AppendLine("import Vixen.Shaders.Core")
             .AppendLine("import Vixen.Shaders.Geometry")
             .AppendLine("import Vixen.Shaders.Shading")
-            .AppendLine("import Vixen.Shaders.Material")
-            .AppendLine()
+            .AppendLine("import Vixen.Shaders.Material");
+
+        // Whatever a node asked for beyond the four this shape has anyway — none of which is one of
+        // the four, because a set does not repeat itself.
+        foreach (var package in imports.Except(SurfaceImports, StringComparer.Ordinal)) {
+            text.AppendLine($"import {package}");
+        }
+
+        text.AppendLine()
             .AppendLine($"shader {name} : {(maps.Count > 0 ? "MaterialTextures, " : "")}IMaterialSurface {{");
 
         List<ShaderGraphSpan> declarations = [];
