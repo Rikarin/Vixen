@@ -737,7 +737,7 @@ criteria is met.** The modules are named in `Vixen.Editor.Host.EditorModules` an
 | Still referenced | Why | What would move it |
 |---|---|---|
 | `Assets` | the import pipeline — an editor that cannot import without a plugin is not an editor | nothing; ⚠ **the exit list is wrong to omit it**, and the criterion below is corrected |
-| `AssetEditors` | `AssetEditorRegistry`, and the arbitration each file already says is the application's: which scene a sequence drives, what analyses an addressable group, opening a shader graph from a material | the registry moving somewhere both ends see |
+| `AssetEditors` | ⚠ **ten names, measured** — not the registry alone; see the corrected row below | ⚠ **nothing that is worth doing today**; the registry is one tenth of it |
 | `Profiler` | the **diagnostics report**, which aggregates the project, the scene, the log ring *and* the last profile capture | publishing the log ring and the data directory, and moving the report into the module |
 | `Debugger` | the report, **and** device deploy in `EditorBuilds` — two reasons, not one | the report moving, *and* a deploy contribution |
 | `Diagnostics` | the joining assembly the moves created; the app activates the module | nothing — it is a module, and its reference is the `Activate` call |
@@ -818,11 +818,50 @@ asking for the interface.
 | ~~Blockout~~ | ✅ `BlockoutModule` | done — 120 lines out of the app, its mode already took `IMeshBaker`/`IMeshSource` so its assembly needed no new reference |
 | ~~Terrain~~ | ✅ `TerrainModule` | done — 1,340 lines out of the app, plus the two extension points above |
 | Profiler + Debugger | 🟡 `Vixen.Editor.Diagnostics` | the panels are out — seven of them and their commands — but ⚠ **the references are not, and calling this done was wrong**. The **report** stayed in the application because it aggregates the project's name, the scene's counts, the log ring and the memory arenas, and only the last is the module's; `Debugger` is additionally kept by device deploy in `EditorBuilds`. The app now names `Profiler`, `Debugger` *and* `Diagnostics` where it named two |
-| Asset editors | 🟡 `AssetEditorsModule` | the binder is out — `AnimationBinder`, 341 lines, plus `EditorApplication.Bound`. ⚠ **The rest stays and should**: which scene a sequence drives, what analyses an addressable group, and opening a shader graph from a material are the *application's* arbitration, and each file already says so. Dereferencing `Vixen.Editor.AssetEditors` therefore needs `AssetEditorRegistry` to move somewhere both can see, which is a separate decision |
+| Asset editors | 🟡 `AssetEditorsModule` | the binder is out — `AnimationBinder`, 341 lines, plus `EditorApplication.Bound`. ⚠ **The rest stays and should**: which scene a sequence drives, what analyses an addressable group, and opening a shader graph from a material are the *application's* arbitration, and each file already says so. ⚠⚠ **This row used to say the dereference needed only `AssetEditorRegistry` to move. That is refuted — see below** |
 | ~~Split the executable~~ | ✅ `Editor/Vixen.Editor.Host` | done — `EditorHost`, `Program`, `EditorPane`, `WindowPlacement`, the SPIR-V and the font. `Vixen.Editor.App` is a library that takes its modules as a constructor argument and knows only that some `IEditorPlugin`s exist and what they are called |
 | `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |
 | `EditorApplication.cs` under 800 lines | 3,787 today, and rising | the remainder — project opening, panels, selection, play mode — is a split of its own and not this phase's. ⚠ Each phase that gives the application something new to own adds tens of lines, so this criterion moves away from itself unless the split is scheduled |
 | `CheckArchitecture` rule | not built | ⚠ **The exit criterion nothing has touched.** Without it the rows above can be undone silently, which for F2 is the difference between a fix and a tidy-up |
+
+#### ⚠ What dereferencing `AssetEditors` actually costs, measured twice
+
+Two agents deleted the `ProjectReference` from `Vixen.Editor.App.csproj` and compiled, months apart.
+Seventeen errors across **five** files, naming **eight** things — and the table above used to say the
+whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
+
+| File | Names |
+|---|---|
+| `EditorApplication.cs:264` | `AssetEditorRegistry` |
+| `EditorApplication.cs:878` | `AssetEditorsModule` |
+| `EditorApplication.cs:11,12,40,41` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `Prefab` / `PrefabSource` aliases |
+| `ComponentsView.cs:21` | `PrefabSource` |
+| `EditorFrames.cs:6,254,264,289` | `StandardFrameDocument` |
+| `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
+
+⚠⚠ **And the compiler under-reports, so "remove the reference and count the errors" is a floor on the
+dependency list and never the list.** `EditorWorlds.cs:1082,1086` name
+`Vixen.Editor.AssetEditors.Vfx.VfxGraphView` and `…Sequencing.SequenceView` fully qualified, in live
+`case` patterns, and produce **no diagnostic at all** — confirmed independently by both agents, the
+second by checking that the file is compiled (a deliberate syntax error in it *is* reported) and that a
+definitively nonexistent type on that line is still silent. Cascading-error suppression, not dead code.
+Ten names, seven files. Anyone doing this refactor by chasing compiler errors will believe they are
+finished before they are.
+
+**And there is no home for the registry that is not worse than the problem.** `IAssetEditorFactory`
+carries `Open` and `CreateView` together, deliberately — "a document with no view is a model nobody can
+reach and a view with no document is a control with nothing behind it" — so the registry needs
+`EditorProject`, `EditorDocument` and `AssetId` from `Vixen.Editor.Core` **and** `UiElement` from
+`Vixen.Ui`. `Vixen.Editor.Core`'s README states it "deliberately references neither the interface
+framework nor the importers", and taking `UiElement` there spends the property that lets the asset
+database and the command stack be tested with no document, no stylesheet and no font;
+`Vixen.Editor.Ui.csproj` says in so many words "⚠ Deliberately *not* Vixen.Editor.Core". A new assembly
+for three types is the only structurally clean answer and it buys nothing today, because the other nine
+names stand. This is a **decided not to** rather than a thing waiting to be scheduled.
+
+The honest remaining question is a different and better one: **the plugin contract should not need
+`Vixen.Editor.AssetEditors` to register an editor.** That is about the seam a third party reaches,
+not about this csproj line.
 
 ### P3b — One authoring unit, and icons ✅
 
@@ -1115,7 +1154,7 @@ those two is the table above rather than an afternoon.
 | Owed | State |
 |---|---|
 | The `CheckArchitecture` rule | **Not started.** One rule in `build/Build.ArchitectureRules.cs`, and the cheapest item here. Without it every later row can be undone in silence |
-| `AssetEditors` dereferenced | Needs `AssetEditorRegistry` somewhere both ends see. A decision, then a move |
+| `AssetEditors` dereferenced | ⚠ **Refuted as stated, and recommended for "decided not to".** It was never `AssetEditorRegistry` alone — ten names across seven files, two of them invisible to the compiler; and both assemblies that could host the registry refuse the other half of what it needs, in writing, in their own csproj and README. See § P3's "What dereferencing `AssetEditors` actually costs" |
 | `Profiler` + `Debugger` dereferenced | Needs the diagnostics report to move into the module — which needs the log ring and the data directory published — *and* a deploy contribution for `EditorBuilds` |
 | `EditorApplication.cs` under 800 lines | 3,787 today. A split of its own, and it moves away from the target unless scheduled |
 

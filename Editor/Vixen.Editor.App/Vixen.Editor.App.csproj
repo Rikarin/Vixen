@@ -64,6 +64,15 @@
             double-click in the project browser into a document and a panel; which editor claims a
             file and what its view is made of are AssetEditors' business, and where the panel lands
             is this one's.
+
+            ⚠ Doc 36 § P3 used to say this line was waiting on `AssetEditorRegistry` moving somewhere
+            both ends could see. Measured twice, by deleting the line and compiling: ten names across
+            seven files — the registry, `AssetEditorsModule`, `StandardFrameDocument`,
+            `ShaderGraphDocument`, `ShaderGraphPreviewRenderer`, `IPreviewImages`,
+            `Prefab`/`PrefabSource`, the `.Content` namespace, and `VfxGraphView`/`SequenceView` at
+            `EditorWorlds.cs:1082,1086`, which produce *no diagnostic at all* under cascading-error
+            suppression. The registry is one tenth of it, and the arbitration the other names carry is
+            what § P3 itself says belongs here. The doc is corrected; the line stays.
         -->
         <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
 
