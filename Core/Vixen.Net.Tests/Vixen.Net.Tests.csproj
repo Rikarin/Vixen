@@ -27,5 +27,27 @@
             what every other transport's own test project runs the same suite to match.
         -->
         <ProjectReference Include="..\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+
+        <!--
+            ⚠ A build-order edge and nothing else, and PackagedGeneratorTests does not run without
+            it. That suite packs Vixen.Net, whose PackNetGenerators target asks the generator for
+            GetTargetPath — and Vixen.Net deliberately does *not* ProjectReference it, because it
+            does not run the generator over itself. So nothing in this project's build graph builds
+            the generator, and `dotnet pack -c Debug` fails NU5019 "File not found:
+            Vixen.Net.Generators.dll" on any tree where something else has not already built it.
+
+            ⚠ The test therefore passed by accident of build order, which is how it reads green in a
+            whole-solution run and red on its own — and NU5019 reads as the packaging target being
+            broken rather than as a missing build step. Vixen.Shaders.Tests, the suite this one was
+            modelled on, does not have the problem only because it references its generator for the
+            generator's own tests.
+
+            ReferenceOutputAssembly="false" on purpose: a plain reference would put a netstandard2.1
+            Roslyn assembly in this project's output for nothing, and OutputItemType="Analyzer"
+            would run the generator over this assembly — where Replication/ReplicatedComponents.cs
+            is hand-written and is the specification the generator is checked against.
+        -->
+        <ProjectReference Include="..\Vixen.Net.Generators\Vixen.Net.Generators.csproj"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>

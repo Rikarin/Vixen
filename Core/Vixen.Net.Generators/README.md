@@ -134,3 +134,15 @@ consumer named it itself and was green while a game restoring the *package* got 
 `ReplicatedComponents` and no `RpcMethods` at all, with no error. It is packed by
 `Vixen.Net.csproj`'s `PackNetGenerators` target now and asserted over the `.nupkg` bytes by
 `Vixen.Net.Tests.PackagedGeneratorTests`.
+
+⚠ **And that assertion did not run on its own until 2026-09-03, which is the second instrument bug
+in the same two tests.** `PackNetGenerators` asks this project for `GetTargetPath` and `Vixen.Net`
+deliberately does not `ProjectReference` it — so nothing in `Vixen.Net.Tests`' build graph built the
+generator, and `dotnet pack -c Debug` failed `NU5019: File not found: Vixen.Net.Generators.dll` on
+any tree where something else had not already built it. The suite therefore read green in a
+whole-solution run and red on its own, and the message read as the packaging target being broken
+rather than as a missing build step. `Vixen.Net.Tests.csproj` now carries a
+`ReferenceOutputAssembly="false"` edge to this project — build order and nothing else, because
+`OutputItemType="Analyzer"` would run the generator over the assembly that hand-writes the
+specification it is checked against. (The first was `Directory.GetFiles("Vixen.Net.[0-9]*.nupkg")`,
+which matches no file because that method understands `*` and `?` and nothing else.)
