@@ -682,3 +682,4 @@ static Vixen.Graphics.OpenGL.NativeEglApi.ResolvedClientPath.get -> string?
 static Vixen.Graphics.OpenGL.NativeEglApi.ResolvedEglPath.get -> string?
 static Vixen.Graphics.OpenGL.NativeEglApi.TryLoad(out Vixen.Graphics.OpenGL.NativeEglApi? api, out string? reason) -> bool
 static Vixen.Graphics.OpenGL.SilkGlApi.FromProcAddress(System.Func<string, nint> getProcAddress, Vixen.Graphics.OpenGL.GlProfile profile) -> Vixen.Graphics.OpenGL.SilkGlApi
+static Vixen.Graphics.OpenGL.SilkGlesApi.FromProcAddress(System.Func<string, nint> getProcAddress, Vixen.Graphics.OpenGL.GlProfile profile) -> Vixen.Graphics.OpenGL.SilkGlesApi

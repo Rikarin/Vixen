@@ -55,10 +55,16 @@
 
         <!--
           And the two a head can ask for by name. Neither is in GraphicsHost.Default — WebGPU opens
-          only where Dawn or wgpu-native is installed, and OpenGL cannot be opened by an app head at
-          all yet (no Vixen.Platform implementation creates a GL context). They are referenced so
+          only where Dawn or wgpu-native is installed, and OpenGL needs its window to have been made
+          for it, which means naming it first in GraphicsOptions.Backends. They are referenced so
           that asking for them is a reported refusal rather than a missing type, which is what makes
           the gap visible from a log instead of from reading a csproj.
+
+          ⚠ This used to say "OpenGL cannot be opened by an app head at all yet (no Vixen.Platform
+          implementation creates a GL context)", and that had stopped being true: DesktopWindow is
+          an IGlContextSource, DesktopGlContext is the context, and PlatformHost reads the
+          preference list to ask SDL for a GL window. GraphicsHost has opened a GlDevice through
+          that path since it landed.
         -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.WebGPU\Vixen.Graphics.WebGPU.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.OpenGL\Vixen.Graphics.OpenGL.csproj" />
