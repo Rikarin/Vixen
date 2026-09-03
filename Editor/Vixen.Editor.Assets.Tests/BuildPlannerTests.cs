@@ -790,6 +790,47 @@ public sealed class BuildPlannerTests {
         Assert.Equal(["terrain/valley"], project.Plan(forServer: true).Assets.Select(asset => asset.Address));
     }
 
+    /// <summary>And it says so when it left nothing out, which is the state nobody was told about.</summary>
+    /// <remarks>
+    ///     ⚠ <b>"Nothing was stripped" and "nobody has answered yet" are the same silence.</b> The
+    ///     safe default above is the right one — the test above it is why — but its cost is a realm
+    ///     image carrying its client's textures, and until this sentence existed the only evidence was
+    ///     that the server bundle happened to be the same size as the client's. This is the honest
+    ///     half of a default that cannot be flipped, not a substitute for choosing one.
+    /// </remarks>
+    [Fact]
+    public void AServerBuildThatLeftNothingOutSaysThatToo() {
+        var project = new PlannedProject();
+        project.Add("Terrain/valley.hmpng", address: "terrain/valley", group: "World");
+        project.Group("World");
+
+        var plan = project.Plan(forServer: true);
+
+        Assert.True(plan.Succeeded);
+
+        var note = Assert.Single(plan.Diagnostics, diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal));
+
+        Assert.Equal(ImportSeverity.Warning, note.Severity);
+        Assert.Contains("1 address(es)", note.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A client's build is not asked the question, so it is not told the answer.</summary>
+    /// <remarks>
+    ///     The half that keeps the warning above from being noise on every build there is: it is about
+    ///     the server profile, and a project that never builds a server should never see it.
+    /// </remarks>
+    [Fact]
+    public void AClientBuildIsNotToldAboutTheServerProfile() {
+        var project = new PlannedProject();
+        project.Add("Terrain/valley.hmpng", address: "terrain/valley", group: "World");
+        project.Group("World");
+
+        Assert.DoesNotContain(
+            project.Plan().Diagnostics,
+            diagnostic => diagnostic.Message.Contains("includeInServerBuild", StringComparison.Ordinal)
+        );
+    }
+
     /// <summary>The build says what it left out, per group, rather than simply being smaller.</summary>
     [Fact]
     public void AServerBuildSaysWhichGroupsItLeftOut() {

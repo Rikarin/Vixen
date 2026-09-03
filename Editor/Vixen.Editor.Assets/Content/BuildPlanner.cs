@@ -330,6 +330,28 @@ public static class BuildPlanner {
             ));
         }
 
+        // ⚠ And the case where that loop says nothing at all, which is what a server build looks like
+        // on every project that has not been told what a server does not need. The profile answers a
+        // group-membership question and IncludeInServerBuild defaults to true, so "nothing was
+        // stripped" and "nobody has answered yet" are the same silence — and the visible result is a
+        // realm image carrying its client's textures, which costs registry bandwidth and pod start-up
+        // rather than failing.
+        //
+        // ⚠ The default cannot simply be flipped, and that is the whole reason this is a sentence
+        // rather than a fix: stripping by default takes out a terrain heightmap a realm bakes its
+        // collision from and reports success — which is what
+        // AGroupThatSaysNothingIsShippedToAServer exists to pin. Safe by default, and loud about
+        // what the default cost.
+        if (forServer && strippedPerGroup.Count == 0) {
+            diagnostics.Add(new(
+                ImportSeverity.Warning,
+                $"This is a server build and no group is marked `includeInServerBuild: false`, so it packs the same "
+                + $"{planned.Count} address(es) a client's build does. A server profile is a group-membership "
+                + "question the project answers, not one the build can work out — mark the groups a dedicated "
+                + "server never asks for."
+            ));
+        }
+
         planned.Sort(static (left, right) => string.CompareOrdinal(left.Address, right.Address));
         diagnostics.Sort(static (left, right) => right.Severity.CompareTo(left.Severity));
 
