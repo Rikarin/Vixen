@@ -1724,6 +1724,7 @@ T:Vixen.Engine.Frames.EngineLoop sweep-pending
 T:Vixen.Engine.Frames.FixedStepAccumulator sweep-pending
 T:Vixen.Engine.Generators.BehaviorRegistrationGenerator sweep-pending
 T:Vixen.Engine.Generators.ComponentRegistrationGenerator sweep-pending
+T:Vixen.Engine.Generators.SystemAccessInferenceGenerator sweep-pending
 T:Vixen.Engine.Renderer.AssetTextureSource sweep-pending
 T:Vixen.Engine.Renderer.AssetVirtualGeometrySource sweep-pending
 T:Vixen.Engine.Renderer.DebugDrawRenderer sweep-pending

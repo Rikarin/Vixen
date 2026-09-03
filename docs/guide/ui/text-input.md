@@ -89,6 +89,23 @@ and the gap was invisible from both ends: the event existed, was documented, was
 desktop and web heads, and had a constructor test of its own — and the bridge dropped every one of
 them through its `default`. Both halves were tested and correct; the join was neither.
 
+## Examples
+
+Taking committed text and a pre-edit from the same field, which are two different events and must
+stay so:
+
+```csharp no-compile="a fragment; `field` is a control that takes text"
+field.On<TextInputEvent>((_, typed) => field.Insert(typed.Text));
+
+field.On<TextCompositionEvent>(
+    (_, editing) => field.ShowPreedit(editing.Text, editing.Start, editing.Length)
+);
+```
+
+⚠ A pre-edit is **not** typed text: it is what the input method is still deciding, it replaces
+whatever it showed last time, and committing it as input would leave every intermediate reading in
+the field. The two events exist to keep them apart.
+
 ## See also
 
 - `Core/Vixen.Platform/Input/ITextInput.cs` — activation, the on-screen keyboard, and the candidate

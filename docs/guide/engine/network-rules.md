@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Engine.NetworkRulesAsset, T:Vixen.Net.Engine.NetworkRulesRefer
 tags: [networking, rules, ownership, authority, assets, prefabs]
 since: 0.1
 status: preview
-related: [engine/networked-prefabs, engine/networked-players, assets/content-in-a-game]
+related: [engine/networked-prefabs, engine/networked-players, engine/parent-relative-transforms, assets/content-in-a-game]
 ---
 
 ## What it is
@@ -115,6 +115,35 @@ exactly right.
 | `write: Everyone` | **warning** — the one setting that gives up server authority completely. A trusted prototype is a real reason to want it; `Owner` is what a co-operative game usually means |
 | a policy with no `name:` | takes the file's own stem, because a prefab refers to it by name and a nameless asset is one nothing can refer to |
 
+## Examples
+
+A competitive shooter, where the server owns everything that matters and a client may ask for
+nothing:
+
+```yaml
+# Assets/Rules/ServerAuthoritative.vxnetrules
+name: ServerAuthoritative
+rules:
+  changeOwner: ServerOnly
+  claim: Never
+  onOwnerDisconnect: Destroy
+```
+
+A co-operative game's carried object, which the picker-up owns until they put it down or leave:
+
+```yaml
+# Assets/Rules/Carryable.vxnetrules
+name: Carryable
+rules:
+  changeOwner: Everyone
+  claim: WhenUnowned
+  onOwnerDisconnect: ReleaseToUnowned
+```
+
+⚠ The two differ in **three** fields rather than one, and that is the point of writing them down:
+"server-authoritative" is not a single switch, and a game that set only `changeOwner` would still
+hand a disconnected player's rifle to nobody.
+
 ## What rules cannot do
 
 **They never grant more than the code asked for.** Where a rule and an attribute have an opinion —
@@ -127,3 +156,11 @@ exists to avoid.
 answered by `NetworkRulesRegistry` and nothing calls those answers, because nothing can spawn a
 networked object from a client or write replicated state from one. When those arrive they ask this
 question rather than inventing a second policy.
+
+## See also
+
+- [Networked prefabs](networked-prefabs.md) — how a `NetworkObject` node becomes a spawnable, and
+  where the rules reference is resolved.
+- [Networked players](networked-players.md) — who a peer *is*, which is what `changeOwner` audiences
+  are stated against.
+- `Core/Vixen.Net/Rules/NetworkRules.cs` — the seven fields and their defaults.

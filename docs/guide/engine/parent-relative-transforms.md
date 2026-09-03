@@ -129,3 +129,23 @@ default keeps the bare name, so nothing that already ships moves.
 rotation has its position from the prefab that built it, and a receiver that rebuilt the component
 would put every door in the level at the world origin — a zeroed field whose zero is a perfectly
 valid position.
+
+## Examples
+
+A rider on a moving vehicle, sending only what a seat can change:
+
+```csharp no-compile="a fragment; `world`, `rider` and `vehicle` are entities the game already has"
+world.Add(rider, new NetworkParent { Parent = vehicle });
+world.Add(rider, new NetworkTransform { Axes = NetworkTransformAxes.PositionY | NetworkTransformAxes.RotationY });
+```
+
+The seat offset is what crosses the wire, so the rider stays put relative to the vehicle however far
+the vehicle has travelled since the snapshot was taken — and a rider who can only stand up and turn
+costs two components of the eight.
+
+## See also
+
+- [Networked prefabs](networked-prefabs.md) — how the parent entity itself is spawned and identified.
+- [Network rules as a file](network-rules.md) — who may move the parent, which decides whether the
+  rider's own authority means anything.
+- `Core/Vixen.Net/Motion/SnapshotBuffer.cs` — what the receiver does with the samples this produces.

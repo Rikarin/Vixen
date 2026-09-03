@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.AccessibleRole, T:Vixen.Ui.AccessibleStates, T:Vixen.Ui.Accessi
 tags: [ui, accessibility, aria, screen-reader, testing]
 since: 0.2
 status: preview
-related: [ui/commands, ui/strings, ui/markup-panels]
+related: [ui/commands, ui/strings, ui/markup-panels, ui/text-input]
 ---
 
 ## What it is
