@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Motion.NetworkParent, T:Vixen.Net.Motion.NetworkParentReplicat
 tags: [networking, replication, transforms, vehicles, bandwidth]
 since: 0.1
 status: preview
-related: [engine/networked-players, engine/networked-prefabs, gameplay/movement]
+related: [engine/networked-players, engine/networked-prefabs, engine/pose-precision, gameplay/movement]
 ---
 
 ## What it is
