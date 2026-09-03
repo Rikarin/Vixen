@@ -1116,6 +1116,7 @@ T:Vixen.Editor.AssetEditors.Importing.TextureMipLevel sweep-pending
 T:Vixen.Editor.AssetEditors.Input.InputActionsDocument sweep-pending
 T:Vixen.Editor.AssetEditors.Input.InputActionsEditorFactory sweep-pending
 T:Vixen.Editor.AssetEditors.Input.InputActionsView sweep-pending
+T:Vixen.Editor.AssetEditors.Input.InputDebugView sweep-pending
 T:Vixen.Editor.AssetEditors.Input.InputRow sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.ColourParameter sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.FlagParameter sweep-pending

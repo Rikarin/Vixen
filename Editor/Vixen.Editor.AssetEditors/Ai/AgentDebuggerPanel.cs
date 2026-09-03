@@ -41,12 +41,21 @@ namespace Vixen.Editor.AssetEditors;
 ///     <para>
 ///         ⚠ <b>Live needs an <see cref="AiSystem" /> and the editor does not have one.</b>
 ///         <see cref="AgentDebugModel.Refresh" /> photographs a system in this process, and nothing
-///         in the editor owns one — there is no play mode that steps agents. So the panel looks for
-///         one in <see cref="PluginServices" /> and shows an empty model when there is none, which is
-///         the honest reading of doc 20's first bar: a verb that is not implemented is
-///         <i>visibly</i> not implemented rather than absent. A host that does step agents — a game
-///         embedding the editor, or a play mode when there is one — publishes its system with
+///         in the editor owns one. So the panel looks for one in <see cref="PluginServices" /> and
+///         shows an empty model when there is none, which is the honest reading of doc 20's first
+///         bar: a verb that is not implemented is <i>visibly</i> not implemented rather than absent.
+///         A host that does step agents — a game embedding the editor — publishes its system with
 ///         <c>Services.Add(system)</c> and the panel goes live with no further wiring.
+///     </para>
+///     <para>
+///         ⚠ <b>This used to add "there is no play mode that steps agents", and that is false.</b>
+///         <c>PlayModeController</c> steps a real <c>EngineLoop</c>, and <c>IPlaySystems</c> is the
+///         declared seam for adding a system that needs a service the loop cannot invent —
+///         <c>PlayPhysics</c> is the worked example. What stops a <c>PlayAi</c> contribution is
+///         lifetime rather than scheduling: an <c>AiSystem</c> created on Play dies on Stop, and
+///         <see cref="PluginServices" /> has no removal, which is precisely why <c>PlayPhysics</c>
+///         calls <c>session.Provide</c> instead. Nothing here can see a play session.
+///         <see href="https://github.com/Rikarin/Vixen/issues/470">#470</see> carries that decision.
 ///     </para>
 /// </remarks>
 public sealed partial class AssetEditorsModule {

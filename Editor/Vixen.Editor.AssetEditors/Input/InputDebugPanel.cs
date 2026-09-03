@@ -33,6 +33,8 @@ namespace Vixen.Editor.AssetEditors;
 ///         was the hard part: four empty lists are what a panel draws when nobody is pressing
 ///         anything <i>and</i> what it draws when nothing in the process reads a device, and the
 ///         second is the one that would have been mistaken for the first for years.
+///         <see href="https://github.com/Rikarin/Vixen/issues/470">#470</see> is where the editor
+///         growing one of its own is decided; it is a lifetime question rather than a wiring one.
 ///     </para>
 /// </remarks>
 public sealed partial class AssetEditorsModule {
