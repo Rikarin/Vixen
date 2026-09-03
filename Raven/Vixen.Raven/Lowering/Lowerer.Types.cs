@@ -56,6 +56,8 @@ public sealed partial class Lowerer {
                     SpecialType.TextureCube => new IrTextureType(IrTextureDimension.Cube, Float4),
                     SpecialType.Sampler => IrSamplerType.Instance,
                     SpecialType.AccelerationStructure => IrAccelerationStructureType.Instance,
+                    SpecialType.DepthTexture2D => IrDepthTextureType.Instance,
+                    SpecialType.ComparisonSampler => IrComparisonSamplerType.Instance,
                     _ => NotRepresentable(type, syntax)
                 };
 

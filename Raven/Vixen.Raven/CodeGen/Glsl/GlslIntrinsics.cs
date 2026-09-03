@@ -113,6 +113,26 @@ internal static class GlslIntrinsics {
                     + $"{arguments[2]}, {arguments[3]}, {arguments[4]})"
                     : null;
 
+            case IrIntrinsic.SampleTextureCompare:
+                // ⚠ GLSL packs the reference into the coordinate's last lane — `texture` on a
+                // sampler2DShadow takes a vec3 of (u, v, reference) — where HLSL, WGSL and SPIR-V
+                // all keep it a separate operand. The repacking is here rather than in the IR so
+                // that one target's calling convention does not become the language's.
+                return arguments.Count == 4 && argumentTypes[0] is IrDepthTextureType
+                    ? $"texture({GlslTypes.CombinedShadow}({arguments[0]}, {arguments[1]}), "
+                    + $"vec3({arguments[2]}, {arguments[3]}))"
+                    : null;
+
+            case IrIntrinsic.SampleTextureCompareLevelZero:
+                // The same repacking, and `textureLod` because a stated level is what makes a
+                // shadow lookup legal outside a fragment stage. Zero is written rather than taken
+                // from the author: a shadow map has one level, which is why the language has no
+                // form that asks for another.
+                return arguments.Count == 4 && argumentTypes[0] is IrDepthTextureType
+                    ? $"textureLod({GlslTypes.CombinedShadow}({arguments[0]}, {arguments[1]}), "
+                    + $"vec3({arguments[2]}, {arguments[3]}), 0.0)"
+                    : null;
+
             case IrIntrinsic.TextureSize:
                 // Samplerless, like texelFetch: a size is a property of the image, and pairing a
                 // sampler in just to ask for it would need a sampler the shader may not have.

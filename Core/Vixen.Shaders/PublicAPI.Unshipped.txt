@@ -45,11 +45,13 @@ Vixen.Shaders.EffectBindingData.Binding.get -> uint
 Vixen.Shaders.EffectBindingData.Binding.init -> uint
 Vixen.Shaders.EffectBindingData.Count.get -> int
 Vixen.Shaders.EffectBindingData.Count.init -> int
-Vixen.Shaders.EffectBindingData.EffectBindingData(string Name = "", Vixen.Graphics.DescriptorSetSlot Set = Vixen.Graphics.DescriptorSetSlot.PerMaterial, uint Binding = 0, Vixen.Graphics.DescriptorKind Kind = Vixen.Graphics.DescriptorKind.UniformBuffer, Vixen.Graphics.ShaderStage Stages = Vixen.Graphics.ShaderStage.None, int Count = 1, int Size = 0) -> void
+Vixen.Shaders.EffectBindingData.EffectBindingData(string Name = "", Vixen.Graphics.DescriptorSetSlot Set = Vixen.Graphics.DescriptorSetSlot.PerMaterial, uint Binding = 0, Vixen.Graphics.DescriptorKind Kind = Vixen.Graphics.DescriptorKind.UniformBuffer, Vixen.Graphics.ShaderStage Stages = Vixen.Graphics.ShaderStage.None, int Count = 1, int Size = 0, Vixen.Graphics.DescriptorSampleType SampleType = Vixen.Graphics.DescriptorSampleType.Float) -> void
 Vixen.Shaders.EffectBindingData.Kind.get -> Vixen.Graphics.DescriptorKind
 Vixen.Shaders.EffectBindingData.Kind.init -> Vixen.Graphics.DescriptorKind
 Vixen.Shaders.EffectBindingData.Name.get -> string
 Vixen.Shaders.EffectBindingData.Name.init -> string
+Vixen.Shaders.EffectBindingData.SampleType.get -> Vixen.Graphics.DescriptorSampleType
+Vixen.Shaders.EffectBindingData.SampleType.init -> Vixen.Graphics.DescriptorSampleType
 Vixen.Shaders.EffectBindingData.Set.get -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Shaders.EffectBindingData.Set.init -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Shaders.EffectBindingData.Size.get -> int

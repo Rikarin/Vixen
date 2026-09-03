@@ -444,6 +444,11 @@ internal sealed class LibraryIrDecoder {
             // that way, and without this arm it would decode as void and corrupt every library
             // function that takes the scene as a parameter.
             IrTypeKind.AccelerationStructure => IrAccelerationStructureType.Instance,
+            // The comparison pair, kind-only for the same reason and with the same hazard: without
+            // these two arms a library function taking a shadow map decodes it as void, and the
+            // caller's binding quietly stops being a texture.
+            IrTypeKind.DepthTexture => IrDepthTextureType.Instance,
+            IrTypeKind.ComparisonSampler => IrComparisonSamplerType.Instance,
             _ => Scalar(type.Kind)
         };
 

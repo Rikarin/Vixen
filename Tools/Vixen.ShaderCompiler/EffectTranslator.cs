@@ -110,7 +110,8 @@ public static class EffectTranslator {
                     Kind(binding.Type),
                     Stages(binding.Stages),
                     binding.Count,
-                    binding.Size
+                    binding.Size,
+                    SampleType(binding.Type)
                 );
             }
         }
@@ -275,8 +276,32 @@ public static class EffectTranslator {
             // Spelled out rather than left to the fallback below, which would silently make the
             // scene's hierarchy a uniform buffer — a layout the driver refuses at best.
             DescriptorType.AccelerationStructure => DescriptorKind.AccelerationStructure,
+            // ⚠ The same *kind* as their filtering counterparts, and that is not a shortcut: a
+            // depth view behind a sampled image and a comparison sampler are ordinary
+            // COMBINED_IMAGE_SAMPLER halves in Vulkan. What separates them is the sample type,
+            // which travels on the binding beside this — see `SampleType` below. Spelled out here
+            // rather than left to the fallback, which would have made a shadow map a uniform
+            // buffer.
+            DescriptorType.DepthTexture => DescriptorKind.SampledTexture,
+            DescriptorType.ComparisonSampler => DescriptorKind.Sampler,
             _ => DescriptorKind.UniformBuffer
         };
+
+    /// <summary>
+    ///     How a binding is read: <see cref="DescriptorSampleType.Depth" /> for the comparison pair,
+    ///     and the default for everything else.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves carry it, texture and sampler.</b>
+    ///     <c>DescriptorBinding.IsComparisonSampler</c> is a sampler with
+    ///     <see cref="DescriptorSampleType.Depth" /> on it, so leaving the sampler at the default
+    ///     builds a layout that binds a filtering sampler to a shadow lookup — which WebGPU refuses
+    ///     and Vulkan accepts while returning the wrong number.
+    /// </remarks>
+    static DescriptorSampleType SampleType(DescriptorType type) =>
+        type is DescriptorType.DepthTexture or DescriptorType.ComparisonSampler
+            ? DescriptorSampleType.Depth
+            : DescriptorSampleType.Float;
 
     /// <summary>The CLR type a value has, by the rule the binding generator uses.</summary>
     /// <remarks>

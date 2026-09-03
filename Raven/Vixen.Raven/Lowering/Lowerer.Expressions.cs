@@ -780,7 +780,7 @@ public sealed partial class Lowerer {
         }
 
         // Where the level was left to the derivatives, so the stage check has somewhere to point.
-        if (intrinsic == IrIntrinsic.SampleTexture) {
+        if (intrinsic is IrIntrinsic.SampleTexture or IrIntrinsic.SampleTextureCompare) {
             implicitSamples.TryAdd(Function, invocation.Syntax);
         }
 
@@ -851,6 +851,16 @@ public sealed partial class Lowerer {
             },
             BuiltInNamedTypeSymbol { SpecialType: SpecialType.AccelerationStructure } => name switch {
                 "Trace" => IrIntrinsic.TraceRayQuery,
+                _ => null
+            },
+            // ⚠ Dispatched on the container for `GetDimensions`'s sake, exactly as a storage image
+            // is: the name means OpImageQuerySizeLod on both, but the depth image is a different
+            // SPIR-V type, and letting the free table answer would type the query against a
+            // sampled image the shader does not have.
+            BuiltInNamedTypeSymbol { SpecialType: SpecialType.DepthTexture2D } => name switch {
+                "SampleCompare" => IrIntrinsic.SampleTextureCompare,
+                "SampleCompareLevelZero" => IrIntrinsic.SampleTextureCompareLevelZero,
+                "GetDimensions" => IrIntrinsic.TextureSize,
                 _ => null
             },
             _ => MapIntrinsic(name)

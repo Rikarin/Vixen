@@ -120,6 +120,13 @@ public sealed record EffectStageData(ShaderStage Stage = ShaderStage.None, byte[
 ///     How many bytes a block binding is; 0 for a resource. Per binding rather than per effect
 ///     because a shader that marks its sets has a block in each of them.
 /// </param>
+/// <param name="SampleType">
+///     How the binding is read — <see cref="DescriptorSampleType.Depth" /> on both halves of a
+///     shadow lookup, the texture and its comparison sampler. ⚠ Last and defaulted so an effect
+///     serialized before this existed still loads, and <see cref="DescriptorSampleType.Float" /> is
+///     the right answer for every one of them: nothing could declare a depth texture until Raven
+///     had the type.
+/// </param>
 /// <remarks>
 ///     One record for two jobs: <see cref="Effect.Bindings" />, which answers "where does
 ///     <c>source</c> go", and the <see cref="DescriptorSetLayoutDescription" /> the device wants.
@@ -134,7 +141,8 @@ public sealed record EffectBindingData(
     DescriptorKind Kind = DescriptorKind.UniformBuffer,
     ShaderStage Stages = ShaderStage.None,
     int Count = 1,
-    int Size = 0
+    int Size = 0,
+    DescriptorSampleType SampleType = DescriptorSampleType.Float
 );
 
 /// <summary>

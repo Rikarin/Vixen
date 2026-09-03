@@ -12,7 +12,7 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-///     The thirteen diagnostics that nothing in this suite had ever made fire.
+///     The twelve diagnostics that nothing in this suite had ever made fire.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -24,9 +24,18 @@ namespace Tests;
 ///         repository would still be green.
 ///     </para>
 ///     <para>
-///         ⚠ Ten of the thirteen fire, and all ten are pinned below. The other three cannot be made
-///         to fire by any input, for three different reasons, and each is written down here rather
-///         than quietly left out — see <c>The_three_that_cannot_fire</c>.
+///         ⚠ Ten of the twelve fire, and all ten are pinned below. The other two cannot be made to
+///         fire by any input, for two different reasons, and each is written down here rather than
+///         quietly left out — see
+///         <see cref="The_two_that_cannot_fire_still_carry_a_usable_message" />.
+///     </para>
+///     <para>
+///         ⚠ <b>This paragraph said thirteen, ten and three, and pointed at a method called
+///         <c>The_three_that_cannot_fire</c> that does not exist.</b> The thirteenth was
+///         <c>RVN2012</c>, deleted for having no raise site at all — which is the finding this file
+///         was written to make possible, recorded in prose that then went one behind the code and
+///         stayed there. It is worth naming rather than silently correcting: this is a file about
+///         claims with no evidence behind them, and it was carrying three.
 ///     </para>
 /// </remarks>
 public class UnprovenDiagnosticTests {

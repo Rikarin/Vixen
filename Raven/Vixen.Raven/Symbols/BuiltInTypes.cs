@@ -79,6 +79,46 @@ public static class BuiltInTypes {
         new("TextureCube", SpecialType.TextureCube, TypeKind.Resource, ResourceKind.Texture);
 
     /// <summary>
+    ///     A shadow map: a depth texture, read only by comparison.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>No <c>Sample</c> and no <c>Load</c>, deliberately.</b> A depth texture's whole
+    ///         point is the fixed-function compare — <c>sampler2DShadow</c> in GLSL,
+    ///         <c>OpImageSampleDref*</c> in SPIR-V, <c>texture_depth_2d</c> in WGSL — and every one
+    ///         of those returns the <em>result of the comparison</em>, a float in [0, 1] that PCF
+    ///         has already averaged over the filter footprint. There is no texel to hand back, so a
+    ///         <c>Sample</c> here would be a member no target can implement. A shader that wants the
+    ///         stored depth itself binds the same view as a plain <c>Texture2D</c>, which stays
+    ///         legal and is what the library does today.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>SampleCompare</c> needs a fragment stage and <c>SampleCompareLevelZero</c>
+    ///         does not</b>, the same split <c>Sample</c>/<c>SampleLevel</c> has and for the same
+    ///         reason: an implicit level of detail is derived from the quad's derivatives, and only
+    ///         a fragment stage has a quad. A shadow lookup in a compute pass — a screen-space
+    ///         shadow mask, a probe bake — is the level-zero one.
+    ///     </para>
+    /// </remarks>
+    public static readonly BuiltInNamedTypeSymbol DepthTexture2D =
+        new("DepthTexture2D", SpecialType.DepthTexture2D, TypeKind.Resource, ResourceKind.Texture);
+
+    /// <summary>
+    ///     The sampler a <see cref="DepthTexture2D" /> is read through: a compare function and a
+    ///     filter, with no way to return a texel.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Not interchangeable with <see cref="Sampler" /> in either direction. The reference
+    ///     value a comparison sampler needs has no meaning to a filtering one, and Vulkan's
+    ///     <c>compareEnable</c>, WebGPU's <c>comparison</c> binding type and GLSL's
+    ///     <c>samplerShadow</c> are each a distinct object the host creates on purpose. Which is
+    ///     why the pairing is checked by the type system here rather than left to a validation
+    ///     layer three hours later.
+    /// </remarks>
+    public static readonly BuiltInNamedTypeSymbol ComparisonSampler =
+        new("ComparisonSampler", SpecialType.ComparisonSampler, TypeKind.Resource, ResourceKind.Sampler);
+
+    /// <summary>
     ///     The scene's ray-tracing hierarchy, opened with one method: <c>Trace</c>.
     /// </summary>
     /// <remarks>
@@ -120,7 +160,10 @@ public static class BuiltInTypes {
             Mat2, Mat2x3, Mat2x4, Mat3, Mat3x2, Mat3x4, Mat4, Mat4x2, Mat4x3
         ];
 
-        NamedTypeSymbol[] named = [Sampler, Texture2D, Texture3D, TextureCube, AccelerationStructure];
+        NamedTypeSymbol[] named = [
+            Sampler, Texture2D, Texture3D, TextureCube, AccelerationStructure,
+            DepthTexture2D, ComparisonSampler
+        ];
 
         ByName = new(StringComparer.Ordinal);
         BySpecialType = [];
@@ -294,6 +337,31 @@ public static class BuiltInTypes {
                 // A cube's faces are square and all six are the same size, so its size is two
                 // numbers, not three — which is also what textureSize(samplerCube) returns.
                 new SynthesizedMethodSymbol(TextureCube, "GetDimensions", Int2, [("lod", Int)])
+            ]
+        );
+
+        // The reference is the last argument rather than folded into the coordinate, which is what
+        // HLSL, WGSL and SPIR-V all do. ⚠ GLSL is the odd one out — `texture(sampler2DShadow, vec3)`
+        // packs the reference into P.z — and that repacking is the GLSL backend's business, not a
+        // shape the language should inherit from one target.
+        DepthTexture2D.SetMembers(
+            [
+                new SynthesizedMethodSymbol(
+                    DepthTexture2D,
+                    "SampleCompare",
+                    Float,
+                    [("sampler", ComparisonSampler), ("uv", Float2), ("reference", Float)]
+                ),
+                new SynthesizedMethodSymbol(
+                    DepthTexture2D,
+                    "SampleCompareLevelZero",
+                    Float,
+                    [("sampler", ComparisonSampler), ("uv", Float2), ("reference", Float)]
+                ),
+
+                // The one member shared with a plain Texture2D, and the one a shadow lookup cannot
+                // do without: a texel size is what a PCF kernel steps by.
+                new SynthesizedMethodSymbol(DepthTexture2D, "GetDimensions", Int2, [("lod", Int)])
             ]
         );
 

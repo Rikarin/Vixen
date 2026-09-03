@@ -39,7 +39,34 @@ public enum DescriptorType {
     ///     neither a buffer info nor an image info fits — and because a host has to gate on
     ///     hardware for it, which <c>RequiredCapabilities</c> reports as <c>RayQuery</c>.
     /// </remarks>
-    AccelerationStructure
+    AccelerationStructure,
+
+    /// <summary>
+    ///     A depth texture: a shadow map, read by comparison.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own value rather than <see cref="SampledTexture" /> with a flag beside it, and
+    ///     the reason is what a host does with an answer it does not understand.</b> A flag defaults
+    ///     to false, so a translator written before depth textures existed reports every shadow map
+    ///     as an ordinary sampled texture and the layout is wrong with nothing to read. A value the
+    ///     translator has no arm for reaches its fallback, and a fallback is a thing somebody
+    ///     notices. This is the same descriptor type as <see cref="SampledTexture" /> in Vulkan and
+    ///     a different bind group entry in WebGPU, which is precisely why the reflection has to
+    ///     carry the difference rather than let each host guess it from the view it happens to bind.
+    /// </remarks>
+    DepthTexture,
+
+    /// <summary>
+    ///     A comparison sampler: the compare function a <see cref="DepthTexture" /> is read
+    ///     through.
+    /// </summary>
+    /// <remarks>
+    ///     Distinct from <see cref="Sampler" /> for <see cref="DepthTexture" />'s reason. A host
+    ///     creates one with <c>compareEnable</c>, and binding a filtering sampler where a shader
+    ///     samples with a reference is a lookup that reads the wrong thing on every driver that
+    ///     allows it at all.
+    /// </remarks>
+    ComparisonSampler
 }
 
 /// <summary>Which stages reference a binding. Flags, because one binding often serves several.</summary>

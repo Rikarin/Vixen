@@ -2469,11 +2469,13 @@ T:Vixen.Raven.IR.IrBreakStatement sweep-pending
 T:Vixen.Raven.IR.IrCallInstruction sweep-pending
 T:Vixen.Raven.IR.IrCapabilities sweep-pending
 T:Vixen.Raven.IR.IrCapability sweep-pending
+T:Vixen.Raven.IR.IrComparisonSamplerType sweep-pending
 T:Vixen.Raven.IR.IrConstantInstruction sweep-pending
 T:Vixen.Raven.IR.IrConstructInstruction sweep-pending
 T:Vixen.Raven.IR.IrContinueStatement sweep-pending
 T:Vixen.Raven.IR.IrConversionKind sweep-pending
 T:Vixen.Raven.IR.IrConvertInstruction sweep-pending
+T:Vixen.Raven.IR.IrDepthTextureType sweep-pending
 T:Vixen.Raven.IR.IrDiscardStatement sweep-pending
 T:Vixen.Raven.IR.IrEntryPoint sweep-pending
 T:Vixen.Raven.IR.IrExtractInstruction sweep-pending

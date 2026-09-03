@@ -610,4 +610,46 @@ public class EffectCacheTests {
             EffectManifest.Of([keys[1], keys[0], keys[1]]).ToJson()
         );
     }
+    /// <summary>A shadow map and a colour map do not share one set layout.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Everything else about the two bindings is identical.</b> Same binding number, same
+    ///     <see cref="DescriptorKind" />, same stages, same count — a shadow map differs from a colour
+    ///     map only in its <see cref="DescriptorSampleType" />, which is exactly why leaving it out of
+    ///     the key looks harmless. The first of the two to be loaded would hand its layout to the
+    ///     second, and a comparison sampler would then be bound through a filtering entry: a
+    ///     validation failure at the draw rather than a slightly wrong picture.
+    ///     <para>
+    ///         The key is asserted rather than the layout, because the whole defect is that the two
+    ///         layouts <i>would be</i> the same object. There is nothing to compare downstream of the
+    ///         cache once it has answered.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_depth_binding_and_a_colour_binding_key_two_different_layouts() {
+        List<DescriptorBinding> colour = [
+            new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, 1, DescriptorSampleType.Float)
+        ];
+
+        List<DescriptorBinding> depth = [
+            new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, 1, DescriptorSampleType.Depth)
+        ];
+
+        Assert.NotEqual(
+            EffectLoader.Shape(DescriptorSetSlot.PerMaterial, colour, 1),
+            EffectLoader.Shape(DescriptorSetSlot.PerMaterial, depth, 1)
+        );
+
+        // And the same pair of samplers, which is the half that faults rather than merely reading
+        // the wrong texels.
+        List<DescriptorBinding> filtering = [new(1, DescriptorKind.Sampler, ShaderStage.Fragment)];
+        List<DescriptorBinding> comparison = [
+            new(1, DescriptorKind.Sampler, ShaderStage.Fragment, 1, DescriptorSampleType.Depth)
+        ];
+
+        Assert.NotEqual(
+            EffectLoader.Shape(DescriptorSetSlot.PerMaterial, filtering, 1),
+            EffectLoader.Shape(DescriptorSetSlot.PerMaterial, comparison, 1)
+        );
+    }
+
 }

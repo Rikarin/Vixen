@@ -700,7 +700,11 @@ sealed partial class SpirvEmitter {
             // so an opaque parameter keeps its value and reads of it resolve to that directly.
             // The one opaque type that *does* live in function storage is the ray query the
             // emitter synthesizes below — it is no parameter and no Raven value at all.
-            if (parameter.Type is IrTextureType or IrSamplerType or IrAccelerationStructureType) {
+            if (parameter.Type is IrTextureType
+                or IrSamplerType
+                or IrAccelerationStructureType
+                or IrDepthTextureType
+                or IrComparisonSamplerType) {
                 opaqueParameters[parameter] = parameterIds[i];
                 continue;
             }

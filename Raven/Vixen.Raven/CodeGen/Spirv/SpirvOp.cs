@@ -67,6 +67,11 @@ internal enum SpirvOp {
     SampledImage = 86,
     ImageSampleImplicitLod = 87,
     ImageSampleExplicitLod = 88,
+
+    // The comparing forms. Their result is a scalar float — the filtered comparison — where the
+    // two above return the sampled type's vector, which is why they cannot share an emitter.
+    ImageSampleDrefImplicitLod = 89,
+    ImageSampleDrefExplicitLod = 90,
     ImageFetch = 95,
     ImageRead = 98,
     ImageWrite = 99,
