@@ -211,11 +211,12 @@ the whole rule set is tested with no Jolt at all.
 
 | | |
 |---|---|
-| Modes | `Walking`, `Falling`, `Flying`. Swimming is absent because water volumes are, and a mode that could never be entered is a promise in an enum |
+| Modes | `Walking`, `Falling`, `Flying`, `Swimming`. ⚠ This row used to say swimming was absent "because water volumes are, and a mode that could never be entered is a promise in an enum" — they exist ([35 § D11](../../docs/plan/35-water.md)) and the promise was kept |
 | Jump | Coyote time, jump buffering, and variable height as a **clamp** — a multiplier applied once a step makes the apex depend on the step rate |
 | Crouch | `TrySetShape`, so standing up under a low ceiling is a refusal that needs no special case anywhere |
 | Speed | Linear acceleration towards an exact top speed. An exponential approach never quite reaches the number in the inspector |
 | Platforms | Velocity is stored relative to the ground, so standing still on a lift is a zero and is carried |
+| Slope and step | Per character, and **live** — see below |
 
 ⚠ **The achieved velocity is measured from the displacement, not read back.** `CharacterVirtual`
 leaves `LinearVelocity` as it was given — `CharacterSceneTests` pins that by walking into a wall — so
@@ -224,9 +225,27 @@ sweep can only ever take velocity away, so each component keeps its asked-for si
 magnitude; taking the displacement wholesale instead would read a 0.4 m stair step-up as 24 m/s and
 launch the character off it.
 
-What is **not** here: per-character slope and step limits. `CharacterControllerSettings` has both,
-with sensible values (45°, 0.4 m), and they are fixed at creation — exposing them on the component
-means recreating the controller on an edit, which is real work for a knob nobody has asked for yet.
+⚠ **Slope and step are per character, and this section used to say they could not be — wrongly, and
+about the binding rather than about the cost.** It read: "they are fixed at creation — exposing them
+on the component means recreating the controller on an edit, which is real work for a knob nobody has
+asked for yet." Neither half was true of Jolt. `CharacterBase` carries a `MaxSlopeAngle` **setter**,
+which recomputes the cosine the ground test actually uses; and the step height is a field of the
+`ExtendedUpdateSettings` handed to *every* `ExtendedUpdate`, so it was per-step all along and was
+fixed only by this project holding the struct in a `readonly` field. Nothing is recreated, no contact
+state is lost, and `CharacterSceneTests` asserts the controller is the same object across an edit.
+
+`CharacterMovement.MaxSlopeAngle` and `.StepHeight` are the authored half; `CharacterController` has
+both live. The bridge compares against **what it last pushed** rather than against what the
+controller holds — the contract `CharacterBody.BuiltShape` already gives a hand-driven `TrySetShape`,
+so a game that tunes a controller through `TryGetCharacter` keeps its tuning and only a *component*
+edit wins.
+
+⚠ **Zero takes the default for both.** A component is a struct in a zeroed column, so a scene naming
+`WalkSpeed` and nothing else would otherwise hand out a character that slides off flat ground and
+catches on every 5 cm lip — the guard `CharacterMotion.WadeScale` already made for `WadeSpeedScale`,
+promoted to `CharacterMovement.ResolveMaxSlopeAngle` / `.ResolveStepHeight` now that two callers need
+it. The price is that stair walking cannot be turned *off* through the component; it is off at
+`CharacterControllerSettings.StepHeight`, or on the controller itself.
 
 ## Determinism
 
