@@ -176,6 +176,49 @@ public class CompiledLibraryTests {
     }
 
     /// <summary>
+    ///     ⚠ Every enum in the artefact travels as its <em>name</em>, which refutes a claim the
+    ///     compiler carried in a doc comment for as long as it had one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>SpecialType.AccelerationStructure</c>'s remark said a <c>.rvnlib</c> carries these
+    ///         values as numbers, and that inserting an enum member would therefore silently retype
+    ///         every resource in every already-built library. It does not:
+    ///         <c>CompiledLibraryFormat.Json</c> registers a <c>JsonStringEnumConverter</c>, so the
+    ///         payload spells <c>Texture2D</c>, <c>Sampler</c> and <c>SampleTexture</c> out.
+    ///     </para>
+    ///     <para>
+    ///         Worth an assertion rather than a corrected sentence, because the correction points
+    ///         the wrong way round: what these formats actually break on is a <em>rename</em>, which
+    ///         the old reasoning would have called free. A test is what makes the next person's
+    ///         insertion safe and their rename loud.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void CarriesItsEnumsAsNamesRatherThanNumbers() {
+        var json = CompiledLibraryWriter.WriteJson(
+            BuildLibrary(
+                "Resources",
+                """
+                package Res
+
+                struct Taps {
+                    static func Tap(t: Texture2D, s: Sampler, uv: float2): float4 {
+                        return t.Sample(s, uv)
+                    }
+                }
+
+                """
+            )
+        );
+
+        // The SpecialType of the two parameters, and the IrIntrinsic of the body's one call.
+        Assert.Contains("Texture2D", json, StringComparison.Ordinal);
+        Assert.Contains("Sampler", json, StringComparison.Ordinal);
+        Assert.Contains("SampleTexture", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     A wrong magic number, an unknown version and a truncation are each reported rather than
     ///     half-read: a partly-loaded library surfaces as a missing member on a type whose source
     ///     nobody has.

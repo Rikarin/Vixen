@@ -68,9 +68,24 @@ public enum SpecialType {
     ///     against.
     /// </summary>
     /// <remarks>
-    ///     Appended after <see cref="Sampler" /> because a <c>.rvnlib</c> carries these values as
-    ///     numbers — inserting one would silently retype every resource in every already-built
-    ///     library.
+    ///     <para>
+    ///         Appended after <see cref="Sampler" /> rather than filed with the other resources.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The reason this remark used to give is wrong, and it is worth knowing that it
+    ///         is.</b> It said a <c>.rvnlib</c> carries these values as numbers, so inserting one
+    ///         would retype every resource in every already-built library. A <c>.rvnlib</c> carries
+    ///         them as <em>names</em>: <c>CompiledLibraryFormat.Json</c> registers a
+    ///         <c>JsonStringEnumConverter</c>, and the bytes of an emitted library contain the word
+    ///         <c>Texture2D</c>. The same is true of <c>.rvnfx</c> and of
+    ///         <see cref="IR.IrTypeKind" /> and <see cref="IR.IrIntrinsic" />, which are written
+    ///         through the same options — so a value may be inserted anywhere in any of the four
+    ///         without invalidating an artefact. Appending is still the habit worth keeping, since
+    ///         it costs nothing and the day a format goes binary the habit is already there; but a
+    ///         reader deciding where to add one should not believe the old reason, because it would
+    ///         also have them believe a renamed member is safe, and that is the change these
+    ///         formats actually break on.
+    ///     </para>
     /// </remarks>
     AccelerationStructure,
 
@@ -87,8 +102,8 @@ public enum SpecialType {
     ///         reflection cannot tell apart is a layout the browser rejects.
     ///     </para>
     ///     <para>
-    ///         ⚠ Appended, for <see cref="AccelerationStructure" />'s reason: a <c>.rvnlib</c>
-    ///         carries these as numbers.
+    ///         Appended, keeping <see cref="AccelerationStructure" />'s habit — though not for the
+    ///         reason that member's remark used to give, which turned out to be false.
     ///     </para>
     /// </remarks>
     DepthTexture2D,

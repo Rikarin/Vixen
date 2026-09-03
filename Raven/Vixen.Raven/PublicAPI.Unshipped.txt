@@ -590,6 +590,8 @@ Vixen.Raven.IR.IrCallInstruction.Function.get -> Vixen.Raven.IR.IrFunction
 Vixen.Raven.IR.IrCallInstruction.IrCallInstruction(Vixen.Raven.IR.IrValue? result, Vixen.Raven.IR.IrFunction function, Vixen.Raven.IR.IrArgument[] arguments) -> void
 Vixen.Raven.IR.IrCapabilities -> static class
 Vixen.Raven.IR.IrCapability -> static class
+Vixen.Raven.IR.IrComparisonSamplerType -> sealed class
+Vixen.Raven.IR.IrComparisonSamplerType : Vixen.Raven.IR.IrType
 Vixen.Raven.IR.IrConstantInstruction -> sealed class
 Vixen.Raven.IR.IrConstantInstruction : Vixen.Raven.IR.IrInstruction
 Vixen.Raven.IR.IrConstantInstruction.IrConstantInstruction(Vixen.Raven.IR.IrValue result, object? value) -> void
@@ -610,6 +612,8 @@ Vixen.Raven.IR.IrConvertInstruction : Vixen.Raven.IR.IrInstruction
 Vixen.Raven.IR.IrConvertInstruction.ConversionKind.get -> Vixen.Raven.IR.IrConversionKind
 Vixen.Raven.IR.IrConvertInstruction.IrConvertInstruction(Vixen.Raven.IR.IrValue result, Vixen.Raven.IR.IrConversionKind kind, Vixen.Raven.IR.IrValue operand) -> void
 Vixen.Raven.IR.IrConvertInstruction.Operand.get -> Vixen.Raven.IR.IrValue
+Vixen.Raven.IR.IrDepthTextureType -> sealed class
+Vixen.Raven.IR.IrDepthTextureType : Vixen.Raven.IR.IrType
 Vixen.Raven.IR.IrDiscardStatement -> sealed class
 Vixen.Raven.IR.IrDiscardStatement : Vixen.Raven.IR.IrStatement
 Vixen.Raven.IR.IrDiscardStatement.IrDiscardStatement() -> void
@@ -669,14 +673,14 @@ Vixen.Raven.IR.IrIntrinsic.Abs = 0 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Acos = 18 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.All = 41 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Any = 42 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.ArrayLength = 52 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.ArrayLength = 54 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Asin = 17 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Atan = 19 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Atan2 = 20 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.BitCast = 51 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.BitCast = 53 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Ceil = 3 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Clamp = 30 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.ControlBarrier = 53 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.ControlBarrier = 55 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Cos = 15 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Cross = 36 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.DdX = 23 -> Vixen.Raven.IR.IrIntrinsic
@@ -688,17 +692,17 @@ Vixen.Raven.IR.IrIntrinsic.Exp = 10 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Exp2 = 11 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Floor = 2 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Fract = 6 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.ImageSize = 50 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.ImageSize = 52 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.InverseSqrt = 9 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.IrIntrinsic() -> void
 Vixen.Raven.IR.IrIntrinsic.Length = 33 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Lerp = 31 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.LoadImage = 48 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.LoadTexture = 46 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.LoadImage = 50 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.LoadTexture = 48 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Log = 12 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Log2 = 13 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Max = 26 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.MemoryBarrierShared = 54 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.MemoryBarrierShared = 56 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Min = 25 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Mod = 28 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Normalize = 37 -> Vixen.Raven.IR.IrIntrinsic
@@ -708,6 +712,8 @@ Vixen.Raven.IR.IrIntrinsic.Reflect = 38 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Refract = 39 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Round = 4 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.SampleTexture = 43 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.SampleTextureCompare = 46 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.SampleTextureCompareLevelZero = 47 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.SampleTextureGrad = 45 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.SampleTextureLevel = 44 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Saturate = 7 -> Vixen.Raven.IR.IrIntrinsic
@@ -716,10 +722,10 @@ Vixen.Raven.IR.IrIntrinsic.Sin = 14 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.SmoothStep = 32 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Sqrt = 8 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Step = 29 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.StoreImage = 49 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.StoreImage = 51 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Tan = 16 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.TextureSize = 47 -> Vixen.Raven.IR.IrIntrinsic
-Vixen.Raven.IR.IrIntrinsic.TraceRayQuery = 55 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.TextureSize = 49 -> Vixen.Raven.IR.IrIntrinsic
+Vixen.Raven.IR.IrIntrinsic.TraceRayQuery = 57 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Transpose = 40 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsic.Truncate = 5 -> Vixen.Raven.IR.IrIntrinsic
 Vixen.Raven.IR.IrIntrinsicInstruction -> sealed class
@@ -867,6 +873,8 @@ Vixen.Raven.IR.IrTypeKind -> enum : int
 Vixen.Raven.IR.IrTypeKind.AccelerationStructure = 15 -> Vixen.Raven.IR.IrTypeKind
 Vixen.Raven.IR.IrTypeKind.Array = 10 -> Vixen.Raven.IR.IrTypeKind
 Vixen.Raven.IR.IrTypeKind.Bool = 1 -> Vixen.Raven.IR.IrTypeKind
+Vixen.Raven.IR.IrTypeKind.ComparisonSampler = 17 -> Vixen.Raven.IR.IrTypeKind
+Vixen.Raven.IR.IrTypeKind.DepthTexture = 16 -> Vixen.Raven.IR.IrTypeKind
 Vixen.Raven.IR.IrTypeKind.Double = 5 -> Vixen.Raven.IR.IrTypeKind
 Vixen.Raven.IR.IrTypeKind.Float = 4 -> Vixen.Raven.IR.IrTypeKind
 Vixen.Raven.IR.IrTypeKind.Int = 2 -> Vixen.Raven.IR.IrTypeKind
@@ -968,6 +976,8 @@ Vixen.Raven.Reflection.DescriptorSetInfo.Set.get -> int
 Vixen.Raven.Reflection.DescriptorSetInfo.Set.init -> int
 Vixen.Raven.Reflection.DescriptorType -> enum : int
 Vixen.Raven.Reflection.DescriptorType.AccelerationStructure = 5 -> Vixen.Raven.Reflection.DescriptorType
+Vixen.Raven.Reflection.DescriptorType.ComparisonSampler = 7 -> Vixen.Raven.Reflection.DescriptorType
+Vixen.Raven.Reflection.DescriptorType.DepthTexture = 6 -> Vixen.Raven.Reflection.DescriptorType
 Vixen.Raven.Reflection.DescriptorType.DescriptorType() -> void
 Vixen.Raven.Reflection.DescriptorType.SampledTexture = 2 -> Vixen.Raven.Reflection.DescriptorType
 Vixen.Raven.Reflection.DescriptorType.Sampler = 3 -> Vixen.Raven.Reflection.DescriptorType
@@ -1327,6 +1337,8 @@ Vixen.Raven.Symbols.SpecialType.Bool = 2 -> Vixen.Raven.Symbols.SpecialType
 Vixen.Raven.Symbols.SpecialType.Bool2 = 9 -> Vixen.Raven.Symbols.SpecialType
 Vixen.Raven.Symbols.SpecialType.Bool3 = 10 -> Vixen.Raven.Symbols.SpecialType
 Vixen.Raven.Symbols.SpecialType.Bool4 = 11 -> Vixen.Raven.Symbols.SpecialType
+Vixen.Raven.Symbols.SpecialType.ComparisonSampler = 39 -> Vixen.Raven.Symbols.SpecialType
+Vixen.Raven.Symbols.SpecialType.DepthTexture2D = 38 -> Vixen.Raven.Symbols.SpecialType
 Vixen.Raven.Symbols.SpecialType.Double = 6 -> Vixen.Raven.Symbols.SpecialType
 Vixen.Raven.Symbols.SpecialType.Double2 = 21 -> Vixen.Raven.Symbols.SpecialType
 Vixen.Raven.Symbols.SpecialType.Double3 = 22 -> Vixen.Raven.Symbols.SpecialType
@@ -2567,11 +2579,15 @@ override Vixen.Raven.IR.IrBinaryInstruction.Operands.get -> System.Collections.G
 override Vixen.Raven.IR.IrBinaryInstruction.Result.get -> Vixen.Raven.IR.IrValue
 override Vixen.Raven.IR.IrCallInstruction.Operands.get -> System.Collections.Generic.IEnumerable<Vixen.Raven.IR.IrValue>
 override Vixen.Raven.IR.IrCallInstruction.Result.get -> Vixen.Raven.IR.IrValue?
+override Vixen.Raven.IR.IrComparisonSamplerType.Kind.get -> Vixen.Raven.IR.IrTypeKind
+override Vixen.Raven.IR.IrComparisonSamplerType.Name.get -> string
 override Vixen.Raven.IR.IrConstantInstruction.Result.get -> Vixen.Raven.IR.IrValue
 override Vixen.Raven.IR.IrConstructInstruction.Operands.get -> System.Collections.Generic.IEnumerable<Vixen.Raven.IR.IrValue>
 override Vixen.Raven.IR.IrConstructInstruction.Result.get -> Vixen.Raven.IR.IrValue
 override Vixen.Raven.IR.IrConvertInstruction.Operands.get -> System.Collections.Generic.IEnumerable<Vixen.Raven.IR.IrValue>
 override Vixen.Raven.IR.IrConvertInstruction.Result.get -> Vixen.Raven.IR.IrValue
+override Vixen.Raven.IR.IrDepthTextureType.Kind.get -> Vixen.Raven.IR.IrTypeKind
+override Vixen.Raven.IR.IrDepthTextureType.Name.get -> string
 override Vixen.Raven.IR.IrExtractInstruction.Operands.get -> System.Collections.Generic.IEnumerable<Vixen.Raven.IR.IrValue>
 override Vixen.Raven.IR.IrExtractInstruction.Result.get -> Vixen.Raven.IR.IrValue
 override Vixen.Raven.IR.IrFieldAccess.ResultType(Vixen.Raven.IR.IrType input) -> Vixen.Raven.IR.IrType
@@ -3490,6 +3506,8 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.WrongTypeArgumentCou
 static readonly Vixen.Raven.Diagnostics.SyntaxDiagnostics.InvalidCharacter -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SyntaxDiagnostics.SyntaxError -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.IR.IrAccelerationStructureType.Instance -> Vixen.Raven.IR.IrAccelerationStructureType
+static readonly Vixen.Raven.IR.IrComparisonSamplerType.Instance -> Vixen.Raven.IR.IrComparisonSamplerType
+static readonly Vixen.Raven.IR.IrDepthTextureType.Instance -> Vixen.Raven.IR.IrDepthTextureType
 static readonly Vixen.Raven.IR.IrSamplerType.Instance -> Vixen.Raven.IR.IrSamplerType
 static readonly Vixen.Raven.IR.IrScalarType.Bool -> Vixen.Raven.IR.IrScalarType
 static readonly Vixen.Raven.IR.IrScalarType.Double -> Vixen.Raven.IR.IrScalarType
@@ -3505,6 +3523,8 @@ static readonly Vixen.Raven.Symbols.BuiltInTypes.Bool -> Vixen.Raven.Symbols.Pri
 static readonly Vixen.Raven.Symbols.BuiltInTypes.Bool2 -> Vixen.Raven.Symbols.PrimitiveTypeSymbol
 static readonly Vixen.Raven.Symbols.BuiltInTypes.Bool3 -> Vixen.Raven.Symbols.PrimitiveTypeSymbol
 static readonly Vixen.Raven.Symbols.BuiltInTypes.Bool4 -> Vixen.Raven.Symbols.PrimitiveTypeSymbol
+static readonly Vixen.Raven.Symbols.BuiltInTypes.ComparisonSampler -> Vixen.Raven.Symbols.BuiltInNamedTypeSymbol
+static readonly Vixen.Raven.Symbols.BuiltInTypes.DepthTexture2D -> Vixen.Raven.Symbols.BuiltInNamedTypeSymbol
 static readonly Vixen.Raven.Symbols.BuiltInTypes.Double -> Vixen.Raven.Symbols.PrimitiveTypeSymbol
 static readonly Vixen.Raven.Symbols.BuiltInTypes.Double2 -> Vixen.Raven.Symbols.PrimitiveTypeSymbol
 static readonly Vixen.Raven.Symbols.BuiltInTypes.Double3 -> Vixen.Raven.Symbols.PrimitiveTypeSymbol
