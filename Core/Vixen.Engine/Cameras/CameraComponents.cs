@@ -124,6 +124,49 @@ public struct Camera : IDefaultComponent<Camera> {
     public int Order;
 
     /// <summary>
+    ///     Which part of the target this camera draws into, as fractions of it. A rect with no area
+    ///     is the whole of it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What split-screen was missing.</b> Two players already got two directors, two sets
+    ///         of shots and two cameras updating independently; what nothing could say was that one
+    ///         of them owns the top half. <c>(0, 0, 1, 0.5)</c> and <c>(0, 0.5, 1, 0.5)</c> are a
+    ///         horizontal split, and <c>PlayerCameras.SplitScreen</c> writes exactly those.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A zero <em>area</em> is the whole target, on <see cref="AspectRatio" />'s own
+    ///         terms.</b> Nothing else was available: this is a struct on a serialised component, so
+    ///         its unset value is a zeroed <see cref="Rectangle" /> — and a viewport of zero width
+    ///         rasterises nothing at all. Reading that as "draw nothing" would mean every camera in
+    ///         every scene saved before this field existed silently stopped drawing, with no error
+    ///         anywhere and every counter healthy. <see cref="HasViewportRect" /> is what asks.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Fractions rather than pixels, because a component does not know what it is being
+    ///         drawn into</b> — the same reason <see cref="AspectRatio" /> of zero means "ask the
+    ///         target". It is also what makes the rect survive a render scale: the plane a scene is
+    ///         drawn into is smaller than the window, and a rect in the window's pixels lands off
+    ///         the edge of it.
+    ///     </para>
+    ///     <para>
+    ///         <b>It narrows the projection as well as the raster.</b> Half the width is half the
+    ///         image of the same cone, which is a stretched picture — so
+    ///         <c>CameraExtractionSystem</c> multiplies the aspect ratio by the rect's own. That is
+    ///         why this cannot simply be a viewport the compositor sets and nothing else reads.
+    ///     </para>
+    /// </remarks>
+    public Rectangle ViewportRect;
+
+    /// <summary>Whether <see cref="ViewportRect" /> names a region, rather than being unset.</summary>
+    /// <remarks>
+    ///     Area rather than a null check, and both dimensions rather than either: a rect with a width
+    ///     and no height is as unusable as a zeroed one, and treating it as a region would hand a
+    ///     projection an aspect ratio of infinity.
+    /// </remarks>
+    public readonly bool HasViewportRect => ViewportRect.Width > 0f && ViewportRect.Height > 0f;
+
+    /// <summary>
     ///     A sensible perspective camera: 60° vertical on full frame, from 0.1 to 1000, at f/2.8 and
     ///     1/60 at ISO 100.
     /// </summary>

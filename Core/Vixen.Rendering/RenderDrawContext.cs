@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Shaders;
 
@@ -89,4 +90,31 @@ public sealed class RenderDrawContext(ICommandList commandList, EffectSystem eff
     ///     silently mis-renders.
     /// </remarks>
     public RenderOutput Output { get; set; }
+
+    /// <summary>
+    ///     The region of the target the open pass is drawing into, in that target's own pixels.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Always the whole answer, never null, and that is what makes a per-view rect
+    ///         composable.</b> <see cref="Compositor.RenderPassRenderer" /> sets it to its own
+    ///         <c>Viewport</c> where a document named one and to the whole of its first attachment
+    ///         otherwise, so a node underneath can multiply <see cref="RenderView.ViewportRect" /> by
+    ///         it without asking anyone how big anything is. A nullable one would have pushed that
+    ///         question down to every consumer, and the honest fallback — the attachment's size — is
+    ///         only knowable where the attachments are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Restored by whoever narrows it</b>, the way <see cref="Output" /> and
+    ///         <see cref="SceneConstants" /> already are. Two split-screen halves are two sibling
+    ///         nodes in one pass, and a third sibling that wanted the whole target would otherwise
+    ///         inherit the second player's half — a frame that draws, reports nothing, and is wrong
+    ///         in a quarter of the screen.
+    ///     </para>
+    ///     <para>
+    ///         Zero-sized before any pass has opened, which is the state a context handed to a
+    ///         feature outside a pass is honestly in.
+    ///     </para>
+    /// </remarks>
+    public Viewport Viewport { get; set; }
 }

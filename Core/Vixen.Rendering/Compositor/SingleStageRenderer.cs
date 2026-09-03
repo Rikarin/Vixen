@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+
 namespace Vixen.Rendering.Compositor;
 
 /// <summary>
@@ -102,9 +104,73 @@ public sealed class SingleStageRenderer : SceneRenderer {
         var previous = context.ViewConstants;
         context.ViewConstants = Constants;
 
+        var narrowed = Narrow(context);
+
         compositor.System.Record(View, Stage, context);
+
+        // ⚠ Put back, and only where it was moved. Split-screen is two of these under one pass, and a
+        // sibling drawing the whole target — a sky, a UI stage — would otherwise inherit the last
+        // player's half: a frame that draws, keeps every counter healthy, and is wrong in half of the
+        // screen. Restoring unconditionally would be worse than not narrowing at all, because it
+        // would overwrite a viewport the *pass* deliberately set.
+        if (narrowed) {
+            Apply(context, context.Viewport);
+        }
+
         context.ViewConstants = previous;
         context.CommandList.PopDebugGroup();
+    }
+
+    /// <summary>Sets the command list to the view's slice of the pass, if it asked for one.</summary>
+    /// <returns>Whether the viewport was moved, and therefore has to be put back.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Here rather than on the pass, because a pass may draw several views and a viewport
+    ///         is one of them.</b> This node is the smallest thing that knows both which view and
+    ///         which command list — the same reason <see cref="Constants" /> is bound here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rect is a fraction of <see cref="RenderDrawContext.Viewport" />, not of the
+    ///         window.</b> See <see cref="RenderView.ViewportRect" />: the plane a scene is drawn into
+    ///         is a render scale times the window, so anything measured in the window's pixels is off
+    ///         the edge of a target rendered below one — with nothing anywhere to say so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The scissor moves with it, and it has to.</b> A viewport transforms clip space; it
+    ///         does not clip. Narrowing one without the other leaves a full-target scissor, and the
+    ///         second player's half is then drawn *over* the first's wherever geometry crosses the
+    ///         seam — which looks like a depth bug rather than a missing rectangle.
+    ///     </para>
+    /// </remarks>
+    bool Narrow(RenderDrawContext context) {
+        if (View.ViewportRect is not { } rect) {
+            return false;
+        }
+
+        var whole = context.Viewport;
+
+        Apply(
+            context,
+            new(
+                whole.X + (rect.X * whole.Width),
+                whole.Y + (rect.Y * whole.Height),
+                rect.Width * whole.Width,
+                rect.Height * whole.Height,
+                whole.MinDepth,
+                whole.MaxDepth
+            )
+        );
+
+        return true;
+    }
+
+    /// <summary>Sets the viewport and the scissor that has to travel with it.</summary>
+    static void Apply(RenderDrawContext context, in Viewport viewport) {
+        context.CommandList.SetViewport(viewport);
+
+        context.CommandList.SetScissor(
+            new((int)viewport.X, (int)viewport.Y, (int)viewport.Width, (int)viewport.Height)
+        );
     }
 
     /// <inheritdoc />

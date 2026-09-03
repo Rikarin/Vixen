@@ -294,6 +294,23 @@ public sealed class RenderPassRenderer : SceneRenderer {
             ? frame.Texture(ToString(), depthInto)
             : GraphTexture.None;
         var output = new RenderOutput(formats, depthFormat, SampleCount);
+
+        // ⚠ Captured here, at build, from the attachment the graph actually placed — not recomputed
+        // from anything at execute time and not taken from `CompositorFrame.Size`. The window's size
+        // is not this target's: a scene plane declared with a render scale below one is smaller, and
+        // a viewport measured in the window's pixels then runs off the right and bottom edges, which
+        // rasterises nothing and reports nothing. `SizeOf` asks the graph's own description, so it
+        // answers for an import and a transient alike.
+        //
+        // The first colour attachment, or the depth one for a pass that writes only depth — a shadow
+        // atlas is exactly that, and it is the case where being wrong is least visible.
+        var extent = ColourTargets.Count > 0
+            ? frame.SizeOf(ToString(), ColourTargets[0])
+            : DepthTarget is { Length: > 0 } sized
+                ? frame.SizeOf(ToString(), sized)
+                : Int2.Zero;
+
+        var whole = new Viewport(0f, 0f, extent.X, extent.Y);
         // Published resources are read resources, resolved once with the declared ones. A name in
         // only one of the two lists is the edge the graph would be missing, so there is one list.
         var textures = Reads.Concat(SceneTextures.Values)
@@ -352,9 +369,15 @@ public sealed class RenderPassRenderer : SceneRenderer {
                         var context = frame.Context(graphContext.CommandList);
                         var previous = context.Output;
                         var previousScene = context.SceneConstants;
+                        var previousViewport = context.Viewport;
 
                         context.Output = output;
                         context.SceneConstants = SceneConstants;
+
+                        // The pass's own region, and the whole attachment where a document named
+                        // none — so a child asking what it is drawing into always gets an answer
+                        // rather than a null it would have to fill in from somewhere.
+                        context.Viewport = Viewport ?? whole;
 
                         bound?.Bind(graphContext);
 
@@ -387,6 +410,7 @@ public sealed class RenderPassRenderer : SceneRenderer {
 
                         context.Output = previous;
                         context.SceneConstants = previousScene;
+                        context.Viewport = previousViewport;
                     }
                 );
             }

@@ -150,12 +150,13 @@ public static class PlayerCameras {
     ///         switching which player is watched writes an order rather than destroying a camera.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That is also the honest limit of split screen today.</b> Two players get two
-    ///         cameras, two directors and two independent sets of shots, and all of it simulates
-    ///         correctly — but the renderer draws one view, because a <c>RenderView</c> has no
-    ///         viewport rectangle and <c>CameraExtractionSystem</c> fills exactly one. Showing both at
-    ///         once needs a view per player and a rect on each, which is doc 06's work and not this
-    ///         document's.
+    ///         ⚠ <b>That used to be the honest limit of split screen, and it is not any more.</b> The
+    ///         renderer drew one view because a <c>RenderView</c> had no viewport rectangle and
+    ///         <c>CameraExtractionSystem</c> filled exactly one. Both halves exist now —
+    ///         <see cref="Camera.ViewportRect" /> is the rect and <c>CameraExtractionSystem.Rank</c>
+    ///         is what lets a host add one extraction per seat — and <see cref="SplitScreen" /> is
+    ///         what writes the rects. The order still decides which seat is which, so it is still
+    ///         what a game switching who is watched writes.
     ///     </para>
     /// </remarks>
     public static Entity CreateEye(World world, int channel = 0) {
@@ -167,6 +168,92 @@ public static class PlayerCameras {
         world.Add(eye, CameraDirector.Default with { Channel = channel });
 
         return eye;
+    }
+
+    /// <summary>The part of the screen one seat of a split screen owns, as fractions of it.</summary>
+    /// <param name="seat">Which seat, counting from zero in the order the cameras are ranked.</param>
+    /// <param name="seats">How many seats there are, from one to four.</param>
+    /// <returns>The rect to write to <see cref="Camera.ViewportRect" />.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="seats" /> is outside one to four, or <paramref name="seat" /> is not one of
+    ///     them.
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two seats split horizontally and three or four into quadrants</b>, which is the
+    ///         convention every console game of the form uses and for a reason worth writing down: a
+    ///         vertical split of a 16:9 screen gives each player 8:9, which is narrower than tall and
+    ///         frames a strip of floor with a person standing in it. Halving the height gives 32:9 —
+    ///         wide, which is what a third-person camera wants.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Seat zero is the <em>top</em>.</b> A viewport's Y is measured down from the top
+    ///         edge, unlike clip space, whose +1 is the top. That is the engine's stated convention
+    ///         and it is the one place a split screen can silently come out upside down.
+    ///     </para>
+    ///     <para>
+    ///         Three seats leave the fourth quadrant empty rather than giving one player a double-wide
+    ///         bottom half. Both are shipped conventions; this one is chosen because the three
+    ///         viewports then have the same shape, and a UI laid out for one seat is laid out for all
+    ///         of them.
+    ///     </para>
+    /// </remarks>
+    public static Rectangle SeatRect(int seat, int seats) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(seats, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(seats, MaxSeats);
+        ArgumentOutOfRangeException.ThrowIfNegative(seat);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(seat, seats);
+
+        return seats switch {
+            1 => new(0f, 0f, 1f, 1f),
+            2 => new(0f, seat * 0.5f, 1f, 0.5f),
+            _ => new((seat % 2) * 0.5f, (seat / 2) * 0.5f, 0.5f, 0.5f)
+        };
+    }
+
+    /// <summary>How many seats a split screen holds.</summary>
+    /// <remarks>
+    ///     Four, which is what <c>PlayerSlots</c> holds and what <c>AudioListenerSet</c> mixes. A
+    ///     fifth would be a quadrant split of a quadrant, and nothing else in the engine is built for
+    ///     one.
+    /// </remarks>
+    public const int MaxSeats = 4;
+
+    /// <summary>Gives each camera its own part of the screen, in the order they are listed.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="eyes">The cameras, one per seat, in seat order.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">There are more than <see cref="MaxSeats" />.</exception>
+    /// <exception cref="ArgumentException">One of them is not a live entity carrying a camera.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The rect is half of what a split screen needs and this writes only that half.</b> The
+    ///         other half is a <c>RenderView</c> per seat, which is the host's: a view's name is what a
+    ///         compositor document binds a node to, so how many there are is a property of the frame
+    ///         being drawn rather than of the world. <c>GraphicsOptions.Views</c> is where a game says
+    ///         how many, and the host then adds one <c>CameraExtractionSystem</c> per view at
+    ///         successive ranks.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Seat order is the order of this span, and the frame's order is
+    ///         <see cref="Camera.Order" />.</b> They agree when the cameras were made by
+    ///         <see cref="CreateEye" />, which sets the order from the channel — and a caller passing
+    ///         them out of order gets player two's picture in player one's half with nothing
+    ///         reporting it. Passing the span in channel order is the whole of the contract.
+    ///     </para>
+    /// </remarks>
+    public static void SplitScreen(World world, ReadOnlySpan<Entity> eyes) {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(eyes.Length, MaxSeats);
+
+        for (var seat = 0; seat < eyes.Length; seat++) {
+            if (!world.IsAlive(eyes[seat]) || !world.TryGet<Camera>(eyes[seat], out var camera)) {
+                throw new ArgumentException($"{eyes[seat]} is not a camera.", nameof(eyes));
+            }
+
+            camera.ViewportRect = SeatRect(seat, eyes.Length);
+            world.Set(eyes[seat], camera);
+        }
     }
 
     static int ChannelOf(World world, Entity controller) {

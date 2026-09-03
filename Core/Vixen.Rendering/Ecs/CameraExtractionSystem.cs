@@ -163,6 +163,42 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
     /// <summary>How many cameras the last pass saw, of which one was used.</summary>
     public int CameraCount { get; private set; }
 
+    /// <summary>
+    ///     Which camera this fills its view from, counting up from the lowest <see cref="Camera.Order" />.
+    ///     Zero is that lowest one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes split-screen draw, and the reason this type's "one view, not one per
+    ///         camera" rule survives intact.</b> The view is still handed in and this still decides
+    ///         only which entity fills the one it was given — what changes is that a host wanting two
+    ///         views adds two of these, at ranks 0 and 1, and gets the two lowest-ordered cameras in
+    ///         two views. A single-camera game never sets it and gets exactly what it always got.
+    ///     </para>
+    ///     <para>
+    ///         <b>A rank rather than an <see cref="Camera.Order" /> to match.</b> Order is a priority
+    ///         and priorities are not dense: <c>PlayerCameras</c> sets a camera's order from its
+    ///         channel, a cutscene camera slots in between, and a host asking for "order 1" would
+    ///         then draw the cutscene into player two's half. Rank asks the question the host
+    ///         actually has — the second camera, whichever it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A rank past the end leaves the view alone and reports
+    ///         <see cref="Found" /> false</b>, which is what a scene with one camera and a host
+    ///         expecting two is honestly in. The alternative — falling back to camera zero — is two
+    ///         halves of one screen showing the same picture, which reads as a broken split rather
+    ///         than as a missing camera.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">Set to a negative value.</exception>
+    public int Rank {
+        get;
+        set {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            field = value;
+        }
+    }
+
     /// <inheritdoc />
     /// <remarks>
     ///     Declared rather than attributed, for the reason <see cref="LightExtractionSystem" /> gives:
@@ -197,30 +233,61 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
         var chosen = default(Camera);
         var placement = default(WorldTransform);
 
-        foreach (var chunk in world.Chunks(cameras)) {
-            var authored = chunk.ReadValues<Camera>();
-            var transforms = chunk.ReadValues<WorldTransform>();
-            var entities = chunk.Entities;
+        // The rank-th smallest (Order, walk position), found by taking the smallest key above the one
+        // taken last, Rank + 1 times.
+        //
+        // ⚠ A walk per rank rather than a sorted list, and the cost is deliberate: Rank is one, two
+        // or three — a split screen holds at most four seats — and the alternative is either an
+        // allocation on the render path every frame or a stackalloc sized by a public property
+        // somebody can set to a million. The walk itself is over a handful of chunks.
+        //
+        // The position is in the key because Order is a priority and ties are allowed: without it two
+        // cameras at the same order are one key, rank 1 skips past both, and the second seat gets a
+        // black screen for a reason nothing reports. It is also what keeps this deterministic — ties
+        // go to the first the world walks, which is the rule the single-camera path already had.
+        var taken = (Order: int.MinValue, Position: -1);
 
-            for (var i = 0; i < chunk.Count; i++) {
-                CameraCount++;
+        for (var rank = 0; rank <= Rank; rank++) {
+            var next = (Order: 0, Position: -1);
+            var position = 0;
+            var found = false;
 
-                if (Found && authored[i].Order >= chosen.Order) {
-                    continue;
+            foreach (var chunk in world.Chunks(cameras)) {
+                var authored = chunk.ReadValues<Camera>();
+                var transforms = chunk.ReadValues<WorldTransform>();
+
+                for (var i = 0; i < chunk.Count; i++, position++) {
+                    if (rank == 0) {
+                        CameraCount++;
+                    }
+
+                    var key = (Order: authored[i].Order, Position: position);
+
+                    if (Compare(key, taken) <= 0 || (found && Compare(key, next) >= 0)) {
+                        continue;
+                    }
+
+                    next = key;
+                    chosen = authored[i];
+                    placement = transforms[i];
+                    found = true;
                 }
-
-                chosen = authored[i];
-                placement = transforms[i];
-                Found = true;
             }
+
+            if (!found) {
+                return;
+            }
+
+            taken = next;
         }
 
-        if (!Found) {
-            return;
-        }
-
+        Found = true;
         Apply(chosen, placement);
     }
+
+    /// <summary>Orders two cameras by <see cref="Camera.Order" />, ties by where the world walked them.</summary>
+    static int Compare(in (int Order, int Position) left, in (int Order, int Position) right) =>
+        left.Order != right.Order ? left.Order.CompareTo(right.Order) : left.Position.CompareTo(right.Position);
 
     /// <summary>Writes one camera's placement into the view.</summary>
     /// <remarks>
@@ -242,6 +309,23 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
     /// </remarks>
     void Apply(in Camera camera, in WorldTransform placement) {
         var aspect = camera.AspectRatio > 0f ? camera.AspectRatio : AspectRatio;
+
+        // ⚠ The rect narrows the *cone* as well as the raster, and forgetting this half is the whole
+        // of what a split screen looks like when it is wrong. A viewport of half the width draws the
+        // same field of view into half as many pixels, which is every character stretched to twice
+        // their width — a picture that draws, reports nothing, and is visibly broken. Multiplying by
+        // the rect's own ratio is exactly the correction, and it composes with a camera that named an
+        // aspect of its own: a letterboxed cutscene in a split screen is both.
+        //
+        // Written back onto a copy rather than applied twice below, so the projection built from the
+        // lens and the RenderCamera handed to the cascade fit cannot disagree about the shape of the
+        // frame — which they did once already, and the symptom was shadows fitted to a cone the
+        // camera did not have.
+        if (camera.HasViewportRect) {
+            aspect *= camera.ViewportRect.Width / camera.ViewportRect.Height;
+        }
+
+        var framed = camera with { AspectRatio = aspect };
 
         // ⚠ Before the matrix is replaced, so a motion-vector pass can ask where this pixel was. The
         // view holds one frame of history and nothing else does — the camera component is overwritten
@@ -265,6 +349,12 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
                 Jitter = offset
             };
 
+        // ⚠ Null and not a zeroed rectangle for the camera that named none. `RenderView` is a class,
+        // so it has the option `Camera` does not, and taking it is what stops "nobody asked for a
+        // region" from arriving downstream as a viewport of zero width — which rasterises nothing at
+        // all. See RenderView.ViewportRect.
+        View.ViewportRect = camera.HasViewportRect ? camera.ViewportRect : null;
+
         Chosen = camera;
         View.Position = placement.Position;
 
@@ -273,8 +363,13 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
         // field of view; a screen-space pass inverts the second to unproject a depth buffer the first
         // rasterised. `CameraMath.Jittered` is what makes those two agree — see its remarks for why
         // jittering a projection and jittering a view-projection give the same answer.
+        // ⚠ `framed` and not `camera`, so the viewport rect reaches the matrix a shader actually
+        // rasterises through. Both arguments were the authored camera until a rect existed, and
+        // handing this one the original while `RenderView.Camera` above got the corrected aspect is
+        // the exact disagreement that shape exists to prevent — the frame would draw stretched and
+        // the cascades would be fitted to the cone it *should* have had.
         View.ViewProjection = CameraMath.Jittered(
-            CameraMath.ViewProjection(in camera, in placement, AspectRatio),
+            CameraMath.ViewProjection(in framed, in placement, AspectRatio),
             offset
         );
 
