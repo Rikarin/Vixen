@@ -4,7 +4,9 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Engine.Behaviors;
 using Vixen.Net;
+using Vixen.Net.Engine;
 using Vixen.Net.Generated;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
@@ -42,6 +44,12 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
 
     readonly NetworkSession session;
     readonly World world = new("client");
+
+    // No EngineLoop here, and that is the honest shape of a receiving peer: nothing on this side
+    // runs a FighterScore's Update — the behaviour exists to hold the state the snapshot applies,
+    // and SyncStateReplicator attaches it the first time one arrives. A client that also *ran*
+    // gameplay behaviours would want a loop; this one does not have any.
+    readonly BehaviorStore behaviors;
     readonly ReplicationRegistry registry = new();
     readonly RpcManifest manifest = new();
     readonly ReplicationClient replication;
@@ -52,6 +60,7 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
     readonly Dictionary<uint, SnapshotBuffer> buffers = [];
     readonly HashSet<uint> present = [];
     readonly List<uint> departed = [];
+    readonly List<FighterScore> scores = [];
     readonly byte[] acknowledgement = new byte[MatchProtocol.MaxBytes];
     readonly byte[] envelope = new byte[MatchProtocol.MaxBytes + 1];
 
@@ -97,6 +106,43 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
     /// <summary>How many networked entities it is holding.</summary>
     public int EntityCount => replication.EntityCount;
 
+    /// <summary>The longest run of kills any fighter this client holds has managed.</summary>
+    /// <remarks>
+    ///     Read off <see cref="FighterScore" />, which arrived as a <c>SyncVar</c> record rather than
+    ///     as a <c>[Replicated]</c> component — the whole reason the behaviour is in this sample. A
+    ///     number that stays at zero while <see cref="KillFeedLength" /> climbs would say the fields
+    ///     record is arriving and the list record is not, which are separate records on purpose.
+    /// </remarks>
+    public int BestStreakSeen {
+        get {
+            var best = 0;
+
+            foreach (var score in Scores()) {
+                best = Math.Max(best, score.Fields.Best.Value);
+            }
+
+            return best;
+        }
+    }
+
+    /// <summary>How many kills this client has been told about, across every fighter it holds.</summary>
+    /// <remarks>
+    ///     The <c>SyncList</c> half. It is the same number the server's <c>Arena.Deaths</c> counts,
+    ///     arrived by a different route — a list replicated as the operations that changed it rather
+    ///     than as a value compared whole.
+    /// </remarks>
+    public int KillFeedLength {
+        get {
+            var total = 0;
+
+            foreach (var score in Scores()) {
+                total += score.Victims.Count;
+            }
+
+            return total;
+        }
+    }
+
     /// <summary>What the snapshot buffers did, added up across every object.</summary>
     public MotionCounters Motion {
         get {
@@ -119,8 +165,18 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
     /// <param name="transport">What it connects over. Disposed with the session.</param>
     /// <param name="options">The session's settings. The content hash is filled in as the server's is.</param>
     public GameClient(ITransport transport, SessionOptions? options = null) {
+        behaviors = new(world);
+
         ReplicatedComponents.RegisterAll(registry);
         registry.Register(new NetworkTransformReplicator());
+
+        // The same two records the server registers, over this world's store. ⚠ Both ends must
+        // register the same set in the same way or the manifest hashes differ and the handshake
+        // refuses the connection — which is the failure being wanted here, rather than two peers
+        // reading each other's records as something else.
+        registry.Register(new SyncStateReplicator<FighterScore>(behaviors));
+        registry.Register(new SyncListReplicator<FighterScore>(behaviors));
+
         RpcMethods.RegisterAll(manifest);
 
         var settings = (options ?? new()) with {
@@ -224,8 +280,45 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
             && world.TryGet(entity, out vitals);
     }
 
+    /// <summary>What the last snapshot said about somebody's scoreboard.</summary>
+    /// <param name="id">Which object.</param>
+    /// <param name="score">Their scoreboard.</param>
+    /// <returns>Whether this client holds one for them.</returns>
+    /// <remarks>
+    ///     The behaviour-shaped sibling of <see cref="TryVitals" />, and the difference between the
+    ///     two is the point of having both: vitals come out of the world as a component, this comes
+    ///     off a <c>BehaviorStore</c> the replicator attached to.
+    /// </remarks>
+    public bool TryScore(NetworkId id, out FighterScore? score) {
+        score = null;
+
+        return replication.TryGetEntity(id, out var entity)
+            && world.IsAlive(entity)
+            && (score = behaviors.Get<FighterScore>(entity)) is not null;
+    }
+
     /// <summary>Stops the session and the transport under it.</summary>
     public void Dispose() => session.Dispose();
+
+    /// <summary>Every scoreboard this client holds. Attached by the replicator, not by this class.</summary>
+    /// <remarks>
+    ///     Collected into a list rather than yielded, because a chunk hands out a
+    ///     <c>ReadOnlySpan&lt;Entity&gt;</c> and a span cannot cross a <c>yield</c>. The list is
+    ///     reused; this is a report, and it runs once at the end of a match.
+    /// </remarks>
+    List<FighterScore> Scores() {
+        scores.Clear();
+
+        foreach (var chunk in world.Chunks(networked)) {
+            foreach (var entity in chunk.Entities) {
+                if (behaviors.Get<FighterScore>(entity) is { } score) {
+                    scores.Add(score);
+                }
+            }
+        }
+
+        return scores;
+    }
 
     void Apply(ReadOnlySpan<byte> snapshot) {
         if (!replication.TryApply(world, snapshot)) {

@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ecs;
+using Vixen.Engine.Frames;
 using Vixen.Net;
 using Vixen.Net.Diagnostics;
+using Vixen.Net.Engine;
 using Vixen.Net.Generated;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
@@ -35,6 +37,10 @@ namespace Vixen.Samples.Multiplayer;
 internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     readonly NetworkSession session;
     readonly World world = new("server");
+
+    // The behaviour half. `EngineLoop` is given this world rather than making its own, because the
+    // arena writes into it directly and a second world would be a second copy of the match.
+    readonly EngineLoop loop;
     readonly ReplicationRegistry registry = new();
     readonly RpcManifest manifest = new();
     readonly ReplicationServer replication;
@@ -94,8 +100,23 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     ///     than at the first packet that means something different to each of them.
     /// </param>
     public GameServer(ITransport transport, SessionOptions? options = null) {
+        loop = new(world);
+
+        // ⚠ Added by hand, and it has to be: the sweep is what turns a SyncVar written from ordinary
+        // behaviour code into an entity the capture will look at, and without it the write stays on
+        // the server for ever with nothing saying so. It is not a default system because most games
+        // are not networked.
+        loop.Add(new SyncStateSweepSystem(loop.Behaviors));
+
         ReplicatedComponents.RegisterAll(registry);
         registry.Register(new NetworkTransformReplicator());
+
+        // The behaviour's two records: its fields, and its lists. Two replicators rather than one so
+        // that a killfeed appended to does not re-send a streak, and a streak does not re-send the
+        // feed — the same argument Combatant and Vitals make one layer down.
+        registry.Register(new SyncStateReplicator<FighterScore>(loop.Behaviors));
+        registry.Register(new SyncListReplicator<FighterScore>(loop.Behaviors));
+
         RpcMethods.RegisterAll(manifest);
 
         var settings = (options ?? new()) with {
@@ -106,7 +127,7 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         session = new(transport, settings, ownsTransport: true);
         replication = new(registry);
         router = new(manifest, new SessionRpcTransport(session), RpcRole.Server);
-        arena = new(world, ids, replication, router, settings.TickRate);
+        arena = new(world, ids, replication, router, settings.TickRate, loop.Behaviors);
         tickDuration = settings.TickRate.Duration;
 
         replication.Ledger = Ledger;
@@ -182,6 +203,14 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         leaving.Clear();
 
         arena.Step();
+
+        // ⚠ After the arena and before the capture, and neither half of that is arbitrary. The
+        // behaviours read state the arena has just written — FighterScore notices a fighter whose
+        // health reached zero — and the sweep at the end of LateUpdate is what marks what they wrote.
+        // A frame run after the capture would ship every behaviour change one tick late, which
+        // presents as a scoreboard that lags the kill rather than as a bug.
+        loop.Frame(tickDuration);
+
         Ledger.Advance(tickDuration);
 
         // Once, whatever the player count. What each connection gets is a copy of these bits minus

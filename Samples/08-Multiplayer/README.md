@@ -117,7 +117,12 @@ The exit criterion is convergence, and the check is not "the positions look clos
 - every position is within **3.1 cm** of the server's — twice the half-level of the position
   quantizer, which is the error a position is *supposed* to have and the only error allowed to
   survive;
-- every health, score and death count matches **exactly**.
+- every health, score and death count matches **exactly**;
+- every fighter's **scoreboard behaviour** matches exactly — its two `SyncVar`s and the length and
+  last entry of its `SyncList` killfeed. The list is checked by its end rather than by identity
+  because an append is sent as an *operation*: a feed that is right at the end and wrong in the
+  middle is a replayed or reordered operation, which is the failure that would otherwise go
+  unnoticed.
 
 It checks after a **settle phase**: input stops, and the match is pumped for a few more seconds
 before anything is compared. That is not a fudge. While fighters are moving a client is *meant* to
@@ -125,7 +130,7 @@ disagree, by its interpolation delay — what must not survive the quiet is a di
 corrects. Under 20 % loss the last snapshot describing the final position is dropped for somebody,
 and it is the unacknowledged baseline that sends it again.
 
-## Five things the sample exists to say
+## Six things the sample exists to say
 
 **The order inside a tick is load-bearing.** `ReplicationServer.Capture` takes everything written
 since the previous capture, so a write on the far side of `AdvanceVersion` is never sent — no error,
@@ -148,6 +153,16 @@ change-version filter is turned back into a full state sync by accident.
 unreliable and supersedes itself, so "keep going until told otherwise" means a player whose
 connection dies mid-stride walks into the sea.
 
+**There are two ways to author replicated state, and this sample now uses both.** `Combatant` and
+`Vitals` are `[Replicated]` structs, swept out of the world by a generated replicator. `FighterScore`
+is a `NetworkBehaviour`: `SyncVar`s and a `SyncList` declared once in a constructor, written from
+ordinary game code, and *never marked dirty by hand* — `SyncStateSweepSystem` walks them once at the
+end of the frame. ⚠ Until this sample adopted it, **that whole authoring style had no subclass
+outside a test project**, and the reason was structural: replicating this way needs `Vixen.Net.Engine`
+and therefore `Vixen.Engine`, and no sample referenced both, so nothing in the tree had a behaviour
+loop and a session at once. The killfeed is the thing the other style cannot do at all — a component
+in a chunk may not be a list.
+
 **The acknowledgement is the game's message, not the engine's.** `ReplicationServer` has to be told
 the newest tick a client applied cleanly, and `Vixen.Net` deliberately does not define how it gets
 there — the game already has a message channel. `MatchProtocol` is the whole of it: one opcode, one
@@ -164,6 +179,7 @@ backwards and an acknowledgement that is lost costs one tick.
 - **Interest management.** `ReplicateEverything`, deliberately, because the convergence check wants
   every client to hold every fighter. A distance resolver is a class and a `--interest` flag away,
   and the seam it plugs into is `IInterestResolver`.
-- **Anything drawn.** `Vixen.Engine` and `Vixen.Net` have not met yet: the system that copies between
-  `NetworkTransform` and the engine's transform hierarchy is owed, and it is the first place the two
-  will have to.
+- **Anything drawn.** There is an `EngineLoop` here now — it is what runs the behaviours — but no
+  renderer and no transform hierarchy: fighters live at a `NetworkTransform` and nothing copies that
+  into a `LocalTransform`. `NetworkTransformCaptureSystem` is the system that would, and wiring it
+  is a separate question from the one this sample answers.
