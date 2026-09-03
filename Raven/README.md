@@ -71,7 +71,7 @@ out/Lambert.frag.spv
 
 | | |
 |---|---|
-| `-t`, `--target` | Backend to generate for: `glsl` or `spirv`. |
+| `-t`, `--target` | Backend to generate for: `glsl`, `spirv` or `essl` — see [Cross-compilation](#cross-compilation). |
 | `-D`, `--define` | Set a `[Permutation]` key: `-D UseSkinning=true`, `-D TapCount=8`. A bare name means `true`. Repeatable. |
 | `-C`, `--compose` | Fill a `compose` slot: `-C diffuse=Lambert`, or `-C Lit.diffuse=Lambert` when two shaders declare the same slot name. Repeatable. |
 | `-r`, `--reference` | Bind against a compiled library: `-r Core/Math.rvnlib`. Its declarations and lowered bodies are linked in without its source being reparsed. Repeatable. |
@@ -785,3 +785,66 @@ reflection reports.
 
 A stream is not a binding — no descriptor, nothing the host writes — and it does not cross a `.rvnlib`
 boundary, because its location belongs to the shader that declares it.
+
+### Cross-compilation
+
+`--target essl` writes GLSL ES rather than Vulkan GLSL, through
+[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) in `Vixen.Raven.Transpile`:
+
+```
+./raven compile --target essl Lambert.rvn out/
+out/Lambert.vert.glsl        # #version 300 es
+out/Lambert.frag.glsl
+```
+
+**This is ADR-012 rather than a fourth emitter.** SPIR-V is the canonical output; every other dialect
+is a *translation* of it. One well-tested backend beats five half-tested ones, and SPIRV-Cross is
+Khronos's own — it is what MoltenVK runs underneath in any case.
+
+⚠ **`--target glsl` is not a GL dialect and never was.** It is Vulkan GLSL, and a GL or GLES front end
+rejects it three ways over. Measured with `glslangValidator` on this repository's own `lambert`
+golden:
+
+| What Raven writes | What a GL front end says |
+|---|---|
+| `uniform texture2D albedo;` + `uniform sampler s;`, read as `sampler2D(albedo, s)` | `syntax error, unexpected IDENTIFIER` — on **desktop** GLSL 450, not only on ES. These are `GL_KHR_vulkan_glsl` and there is no GL profile that parses them |
+| `layout(std140, set = 2, binding = 0)` | `'descriptor set' : only allowed when using GLSL for Vulkan` |
+| no `precision` line anywhere | `'float' : type requires declaration of default precision qualifier` |
+
+SPIRV-Cross fixes all three, and fixes them from the **module** rather than from the text — combining
+a texture and a sampler is a rewrite of the SPIR-V, which is why the transpiler can report which pairs
+it made and a regex over the source could not. ⚠ Each combined object is created **unnamed** and would
+otherwise be emitted as `_112`; every GL profile below 3.1 binds samplers by name after the link, so
+they are renamed after the texture they came from.
+
+**What it deliberately does not do** is the clip-space and depth-range fixup. The engine is +Y up with
+reversed depth in `[0, 1]` and GL is neither; that is a *convention* rather than a dialect, it lives in
+`Platform/Vixen.Graphics.OpenGL/GlslTranslator.cs`'s wrapped `main`, and doing it here as well would
+apply it twice on any profile that has `glClipControl`.
+
+#### The dialect gate
+
+The version is a knob, so `#version 310 es` and `320 es` come free — but what each version *has* is
+not, and a refusal is `RVN4001` naming the shader and the feature:
+
+| | 3.00 | 3.10 | 3.20 |
+|---|---|---|---|
+| vertex, fragment | ✅ | ✅ | ✅ |
+| compute, storage buffer, storage image | ⬜ | ✅ | ✅ |
+| geometry, an **array of textures** indexed by anything but a constant | ⬜ | ⬜ | ✅ |
+| `Int64`, `Float64`, `RayQuery`, a **bindless** `Texture2D[]` | ⬜ | ⬜ | ⬜ |
+
+⚠ **Asked by the backend rather than left to SPIRV-Cross, which does not ask.** It will emit a compute
+shader under `#version 300 es` quite happily, and a `layout(std430) buffer` under it too — files
+naming things the version does not define, which fail at `glCompileShader` on a device rather than at
+build time on a desk.
+
+The bottom row is the interesting one: `ClusterSoftwareRaster` needs a 64-bit atomic min for its
+depth-and-payload word, and GLSL ES has no 64-bit integer at any version. **Software rasterisation is
+a thing GLES does not get** — a fact about the profile, not a gap in the translator.
+
+**Owed:** HLSL, MSL and WGSL. Each is one `Backend` enum value away and none of them is done, because
+a target is not finished until something downstream will compile its output —
+`Raven/Vixen.Raven.Transpile.Tests` holds ESSL to `glslangValidator` over the whole of
+`Raven/Library`, and HLSL wants `dxc`, MSL wants `metal`, WGSL wants `naga` or `tint`. A dialect with
+no oracle is a string, not a shader.

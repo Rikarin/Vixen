@@ -3,12 +3,25 @@
 
 using System.CommandLine;
 using Vixen.Raven.CodeGen;
+using Vixen.Raven.Transpile;
 
 namespace Vixen.Raven.Cli;
 
 /// <summary>The <c>raven</c> command line.</summary>
 public static class RavenCommand {
     public static RootCommand Create(TextWriter? output = null, TextWriter? error = null) {
+        // ⚠ Here rather than in Program.cs, and before the subcommand is built.
+        //
+        // Before, because `--target` is validated by `AcceptOnlyFromAmong(TargetBackends.Names)`,
+        // which is read at construction: register afterwards and `essl` works while `--target essl`
+        // is refused as an unknown value, a difference visible only in the parse error.
+        //
+        // Here, because this is the method the tests call. The registration is the ONE thing that
+        // makes the ESSL backend reachable at all — `Vixen.Raven` does not reference the project it
+        // lives in — so putting it in `Program.cs` would leave it untested by construction, which is
+        // this repository's commonest defect wearing a different hat.
+        EsslBackend.Register();
+
         var root = new RootCommand("Raven — universal shader compiler");
         root.Subcommands.Add(Compile(output, error));
         return root;

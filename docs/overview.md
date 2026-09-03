@@ -287,8 +287,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | **Bindless texture arrays** (`Texture2D[]`) | ✅ | Raven/Vixen.Raven · Raven/Library | The only unsized array outside a storage block, and the one that is descriptors rather than memory: `OpTypeRuntimeArray` with no stride under… |
 | **String interpolation** | ✂️ | Raven/Vixen.Raven.Tests | ⚠ **Refused rather than owed, and doc [07](plan/07-raven-shader-pipeline.md) contradicted itself about it**: § I carried it as a syntax-fidelity gap needing lexer modes, while the paragraph retiring `Library/Example2.rvn` lists it among the *deliberately removed* constructs beside `class`, `string` as a type, `null` and `!`. The second follows from the language — an interpolation's value is a `string`, there is no such type, and a string literal in expression position is `RVN2025`. A lexer mode would buy syntax for a value nothing can hold. `$` is `RVN1002` and ⚠ carried as **trivia**, so in an attribute — the one place a literal is legal — `[Semantic($"SV_Target{0}")]` binds `SemanticName` to the braces verbatim; only `RVN1002` being an error stops it. Both pinned in `RemovedConstructsTests` |
 | **Workgroup-shared memory** | ✅ | Raven/Vixen.Raven · Raven/Library | `groupshared` is a parser modifier, a flag on `SourceFieldSymbol`, and a per-entry-point reachability pass in the `Lowerer` — ⚠ a stage declares only… |
-| `Vixen.Raven.Transpile` (SPIRV-Cross → ESSL/HLSL/MSL/WGSL) | ⬜ | — | ADR-012 says SPIRV-Cross owns these targets. **No SPIRV-Cross package in `Directory.Packages.props`**, and no such project under `Raven/` |
-| Cross-compilation test pass | ⬜ | — | Blocked on the row above |
+| `Vixen.Raven.Transpile` (SPIRV-Cross → **ESSL**/HLSL/MSL/WGSL) | 🟡 | Raven/Vixen.Raven.Transpile | **ESSL is built and proved; the other three are not started.** `raven compile --target essl` runs the SPIR-V backend and cross-compiles its output, at `#version 300/310/320 es`. ⚠ **The row this replaces implied the GLES head had shaders and only wanted better ones. It has none**: Raven emits Vulkan GLSL, and `glslangValidator` refuses it three ways — a separate `texture2D`+`sampler` is a *syntax error* in every GL profile, `layout(set = …)` is "only allowed when using GLSL for Vulkan", and there is no `precision` line. ⚠ And `GlslTranslator`'s regex does not even match `layout(std140, set = 2, binding = 0)` — it requires the layout to *begin* with `set` or `binding` — so the `set =` survives ([#475](https://github.com/Rikarin/Vixen/issues/475)). Dialect gating is by capability rather than by stage, because SPIRV-Cross will emit a compute shader under `#version 300 es` quite happily; a refusal is `RVN4001` naming the shader and the feature. **Owed:** HLSL, MSL and WGSL — the same `Backend` enum value away, and each needs its own oracle |
+| Cross-compilation test pass | 🟡 | Raven/Vixen.Raven.Transpile.Tests | Nine cases, `glslangValidator` as the oracle and **its absence a failure rather than a skip**. The whole of `Raven/Library` is swept at ES 3.00 and again at ES 3.20; every raster entry point is accepted. ⚠ Three findings the sweep made that reading a header would not: a `Texture.Load` is `OpImageFetch` on an unsampled image and SPIRV-Cross refuses the **whole module** for it without a dummy sampler; a combined sampler is created **unnamed** and falls back to `_112`, which every GL profile below 3.1 cannot bind; and `ClusterSoftwareRaster` needs `Int64`, which GLSL ES has at no version, so software rasterisation is a thing GLES does not get. **Owed:** four compute units still refused at ES 3.20 — three for a storage image Raven decorates with neither `NonReadable` nor `NonWritable` ([#476](https://github.com/Rikarin/Vixen/issues/476)), one for a name SPIRV-Cross emits twice ([#479](https://github.com/Rikarin/Vixen/issues/479)). The list is held in **both** directions |
 | Nuke `CompileShaderLibrary`; SPDX enforcement in `CheckFormat` | 🟡 | build/Build.Shaders.cs · build/Build.cs | `CheckShaders` is the half that matters and exists: it builds `Vixen.Raven.Cli`, recompiles each editor library shader from its whole import closure… |
 | Numeric BRDF gate (GPU compute readback vs. C# port) | ✅ | Platform/Vixen.Raven.Gpu.Tests | The shipped `Brdf.rvn` — not a copy — evaluated on a device over 256 (angle, roughness) samples against arithmetic *derived* from Walter 2007 and… |
 | Per-backend layout gate (reflection offsets vs. GPU readback) | ✅ | Platform/Vixen.Raven.Gpu.Tests | The host writes bytes at the offsets the reflection reports and the shader reads members by name, so a member the two disagree about arrives holding… |
@@ -720,7 +720,7 @@ Re-checked against `Directory.Packages.props`: all nine are still absent from it
 
 | Package | Planned for | Status | Blocks |
 |---|---|---|---|
-| `Silk.NET.SPIRV.Cross.Native` | `Vixen.Raven.Transpile` | ⬜ | HLSL/MSL/WGSL output (ADR-012) |
+| `Silk.NET.SPIRV.Cross.Native` | `Vixen.Raven.Transpile` | ✅ | Pinned at 2.23.0 with the bindings, and the project exists. ESSL is built and swept over the whole library; HLSL/MSL/WGSL are the same `Backend` enum value away and are owed ([#62](https://github.com/Rikarin/Vixen/issues/62)). ⚠ Tooling only: `Vixen.Raven.Transpile` is `IsPackable=false` and reached from the CLI, because `Vixen.Raven` is a shipped package — the same reasoning as the shaderc row below |
 | `Silk.NET.Shaderc` / `.Native` | Raven's differential oracle | ✂️ | **Declined, and the oracle runs without it.** `SpirvDifferentialTests` compares Raven's SPIR-V against `glslc`(Raven's GLSL) over 13 fixtures; `ReferenceCompiler` finds `glslc` and `spirv-dis` on PATH, because a native NuGet asset would put shaderc's binaries in the restore graph of a project that must never ship them (doc 07 § C, doc 12 § optional tools). `ci.yml` installs them on all three legs |
 | `Silk.NET.Direct3D.Compilers` | D3D12 backend | ✂️ | Postponed with the backend |
 | `Silk.NET.Maths` | interop shim | ⬜ | Never needed — ADR-003 types carry their own conversions |
@@ -831,7 +831,7 @@ what is left.
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is a matter of nodes now, not of a canvas |
 | ~~W0-20~~ | ~~Non-scene asset editors: texture · model · material · shader · UI · addressable groups · compositor~~ | All seven built, the UI one included (`MarkupDocument` lexes, parses and binds a `.vxml`). Owed is a **live** preview — a `.vxml` becomes a C# partial class, so running one is the hot-reload pipeline; the pane draws the static structure and says so |
 | W0-21 | Relay **scope decision** (host one? in-box or addon?) | The `Relay` transport + transport fallback. No decision recorded and no code; `Vixen.Net.Transport.Relay` does not exist |
-| W0-22 | `Vixen.Raven.Transpile` (SPIRV-Cross) | HLSL/MSL/WGSL targets + the cross-compilation test pass. The project does not exist |
+| W0-22 | `Vixen.Raven.Transpile` (SPIRV-Cross) | The project exists and **ESSL is done**: `--target essl`, every raster entry point in `Raven/Library` accepted by `glslangValidator` at `#version 300 es`. HLSL, MSL and WGSL are owed, and each needs an oracle of its own — a target with no downstream compiler to check it against is a string, not a shader |
 | W0-23 | ~~CSS Grid~~ · `Canvas2D` · ~~pinch/rotate~~ · ~~multi-window + DPI~~ | `Canvas2D` is the only one left. Grid is built (`LayoutTree.Grid`/`.GridTracks`/`GridPlacement`); pinch and rotate are one two-pointer transform gesture in `Vixen.Ui/Gestures.cs`, driveable from `Vixen.Ui.Testing` |
 
 ## 3.3 Wave 1 — one dependency deep
@@ -861,7 +861,7 @@ what is left.
 | Shader-graph procedural/custom-code nodes, Post + UI masters | — | Unblocked: `NodeGraphView` is in and its preview layer draws a render target. The library ships Input/Math/Texture/Vector nodes and Unlit/Sprite/PBR masters. Previews are built — `ShaderGraphPreviewRenderer` |
 | VFX-graph operator nodes, remaining opcode blocks, live preview | — | Unblocked: the GPU path landed. The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
-| Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |
+| Cross-compilation test pass (~~ESSL~~/HLSL/MSL/WGSL) | W0-22 | ESSL done — `Raven/Vixen.Raven.Transpile.Tests`, nine cases, the oracle’s absence a failure rather than a skip |
 | ~~`Vixen.Editor.Profiler` · `.Debugger` · editor console~~ | — | Built. The console reads `RingBufferSink` live and the profiler reads the sample rings; the GPU and memory *tracks* underneath are still owed (#10) |
 | ~~Editor network panel~~ | — | Built — `NetworkView.vxml` in `Vixen.Editor.Debugger`, which already referenced `Vixen.Net` for the remote inspector's transport. No new public surface on `Vixen.Net`; see §1.11 |
 | Prefab registry filled from the content catalog | W0-1 | |
@@ -1011,10 +1011,10 @@ the last generator or gate run and are older.
 
 | | |
 |---|---|
-| `.csproj` on disk *(measured)* | 395 — `Core` 170 · `Editor` 49 · `Gameplay` 44 · `Platform` 35 · `Live` 28 · `Samples` 28 · `Tools` 28 · `Benchmarks` 7 · `Raven` 3 · `build` 1 · doc spikes 2. Counting test siblings and generators per ADR-014, and excluding the seven `.csproj` inside `Tools/Vixen.Templates/templates/` |
-| Test projects *(measured)* | 172 |
-| Planned projects not created *(measured)* | `Vixen.Graphics.Direct3D12` (✂️ post-1.0), `Vixen.Net.Transport.Relay` (⛔ scope decision), `Vixen.Raven.Transpile` |
-| Pinned NuGet versions *(measured)* | 50, in [`Directory.Packages.props`](../Directory.Packages.props) |
+| `.csproj` on disk *(measured)* | 397 — `Core` 170 · `Editor` 49 · `Gameplay` 44 · `Platform` 35 · `Live` 28 · `Samples` 28 · `Tools` 28 · `Benchmarks` 7 · `Raven` 5 · `build` 1 · doc spikes 2. Counting test siblings and generators per ADR-014, and excluding the seven `.csproj` inside `Tools/Vixen.Templates/templates/` |
+| Test projects *(measured)* | 173 |
+| Planned projects not created *(measured)* | `Vixen.Graphics.Direct3D12` (✂️ post-1.0), `Vixen.Net.Transport.Relay` (⛔ scope decision) |
+| Pinned NuGet versions *(measured)* | 52, in [`Directory.Packages.props`](../Directory.Packages.props) |
 | Golden image fixtures *(measured)* | 49, in `Platform/Vixen.Graphics.Golden.Tests` |
 | Guide pages written *(measured)* | 155 across eleven areas ([`docs/guide/`](guide)) |
 | Plan documents *(measured)* | 46, numbered 00–45 |

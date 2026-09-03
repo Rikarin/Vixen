@@ -97,6 +97,8 @@ Rows marked **build/test only** do not reach a shipped game or editor; the reaso
 | `Silk.NET.Vulkan.Extensions.KHR` | 2.23.0 | MIT | `nuspec` | |
 | `Silk.NET.Vulkan.Extensions.EXT` | 2.23.0 | MIT | `nuspec` | |
 | `Silk.NET.WebGPU` | 2.23.0 | MIT | `nuspec` | Bindings only; the library is `wgpu-native`, below |
+| `Silk.NET.SPIRV.Cross` | 2.23.0 | MIT | `nuspec` | Bindings only; the library is `Silk.NET.SPIRV.Cross.Native`, the row below |
+| `Silk.NET.SPIRV.Cross.Native` | 2.23.0 | Apache-2.0 | `nuspec` | ⚠ **SPIRV-Cross itself, not bindings** — `<license type="expression">Apache-2.0</license>`, read from the restored `.nuspec`. Permissive, so unlike the OpenAL row there is nothing to discharge. It ships `libspirv-cross.{so,dylib}` / `spirv-cross.dll` for eight RIDs, and **no shipped game links it**: the only reference is `Vixen.Raven.Transpile`, which is `IsPackable=false` and is reached by the compiler CLI at content-build time |
 | `Silk.NET.OpenGL` | 2.23.0 | MIT | `nuspec` | |
 | `Silk.NET.OpenGLES` | 2.23.0 | MIT | `nuspec` | |
 | `Silk.NET.OpenXR` | 2.23.0 | MIT | `nuspec` | Bindings only; the loader belongs to the headset runtime |

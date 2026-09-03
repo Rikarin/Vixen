@@ -40,6 +40,29 @@ public class CliTests : IDisposable {
         Assert.StartsWith("#version 450", File.ReadAllText(At("Lambert.vert.glsl")));
     }
 
+    /// <summary>
+    ///     <c>--target essl</c> reaches <c>Vixen.Raven.Transpile</c> and writes GLSL ES.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the only test that proves the ESSL backend is reachable at all.</b> It lives
+    ///     in a different assembly and <c>Vixen.Raven</c> does not reference it — it exists in
+    ///     <c>TargetBackends</c> solely because <c>RavenCommand.Create</c> registers it, so its own
+    ///     suite, which constructs the backend directly, would stay green if that call were deleted.
+    ///     That is this repository's commonest defect exactly: a finished thing nothing calls.
+    ///     <para>
+    ///         The version line is the assertion rather than merely the file existing, because
+    ///         <c>essl</c> and <c>glsl</c> write the same <c>.glsl</c> extension: a registration that
+    ///         silently resolved to the wrong backend would still produce both files.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_essl_target_is_registered_and_writes_gles() {
+        Assert.Equal(0, Invoke("compile", "--target", "essl", Fixture("lambert.rvn"), At("")));
+
+        Assert.StartsWith("#version 300 es", File.ReadAllText(At("Lambert.vert.glsl")), StringComparison.Ordinal);
+        Assert.StartsWith("#version 300 es", File.ReadAllText(At("Lambert.frag.glsl")), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Glsl_is_the_default_target() {
         Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At("")));

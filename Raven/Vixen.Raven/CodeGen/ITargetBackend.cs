@@ -66,6 +66,24 @@ public interface ITargetBackend {
 }
 
 /// <summary>The backends this compiler knows about.</summary>
+/// <remarks>
+///     <para>
+///         Two are built in, and a third can be added from outside. That asymmetry is
+///         ADR-012's: SPIR-V is the canonical output and Vulkan GLSL is emitted beside it, but
+///         every <em>other</em> dialect — ESSL, HLSL, MSL, WGSL — is SPIRV-Cross's job, and
+///         SPIRV-Cross is a native library. <c>Vixen.Raven</c> is a shipped package; a reference
+///         to the project that hosts it would put those binaries in the restore graph of anything
+///         that consumes the compiler as a library, which is the shape docs/plan/01 already
+///         declined once for shaderc.
+///     </para>
+///     <para>
+///         So the table is open rather than closed, and <c>Vixen.Raven.Transpile</c> pushes
+///         <c>essl</c> into it from <c>Vixen.Raven.Cli</c>'s entry point. ⚠ <see cref="Names" />
+///         is therefore a property of the <em>process</em> and not of this assembly — a caller
+///         that builds a menu from it must register first, which is why the CLI registers before
+///         it builds its command rather than inside the handler.
+///     </para>
+/// </remarks>
 public static class TargetBackends {
     static readonly Dictionary<string, Func<ITargetBackend>> Factories = new(StringComparer.OrdinalIgnoreCase) {
         ["glsl"] = () => new GlslBackend(), ["spirv"] = () => new SpirvBackend()
@@ -77,4 +95,23 @@ public static class TargetBackends {
     /// <summary>Creates a backend by name, or null when there is no such target.</summary>
     public static ITargetBackend? Create(string name) =>
         Factories.TryGetValue(name, out var factory) ? factory() : null;
+
+    /// <summary>Adds a backend this assembly cannot reference.</summary>
+    /// <param name="name">The name <see cref="Create" /> will answer to.</param>
+    /// <param name="factory">Makes one. Called per compilation, not once.</param>
+    /// <remarks>
+    ///     Last registration wins, and registering the same name twice is deliberately not an
+    ///     error: a host that registers on every compile rather than once at startup should work,
+    ///     and a duplicate-name throw would make the difference between the two an exception in
+    ///     production rather than at the desk. ⚠ It follows that a name registered here can
+    ///     <em>replace</em> <c>glsl</c> or <c>spirv</c>; nothing needs that today, and nothing
+    ///     stops it either, because forbidding it would need a list of reserved names that would
+    ///     itself go stale.
+    /// </remarks>
+    public static void Register(string name, Func<ITargetBackend> factory) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(factory);
+
+        Factories[name] = factory;
+    }
 }

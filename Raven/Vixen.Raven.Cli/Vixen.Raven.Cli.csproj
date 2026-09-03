@@ -32,6 +32,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Raven\Vixen.Raven.csproj"/>
+        <!--
+          The SPIRV-Cross targets (ADR-012). This is the ONE reference to that project in the
+          repository, and it is deliberately from the tool rather than from the compiler library —
+          see Vixen.Raven.Transpile.csproj for why.
+        -->
+        <ProjectReference Include="..\Vixen.Raven.Transpile\Vixen.Raven.Transpile.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

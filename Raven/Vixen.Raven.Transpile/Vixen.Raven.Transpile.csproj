@@ -1,0 +1,52 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Vixen.Raven.Transpile</RootNamespace>
+
+        <!-- The SPIRV-Cross C API is pointers all the way down; there is no managed shape of it. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <!--
+      NOT packable, and that is the point rather than an oversight.
+
+      `Silk.NET.SPIRV.Cross.Native` ships SPIRV-Cross's binaries for eight RIDs.
+      docs/plan/01's shaderc row declined exactly this shape — a native NuGet asset in
+      the restore graph of a project that must never ship it — and the same reasoning
+      applies here, only more so: cross-compilation is an OFFLINE step. The content
+      build turns SPIR-V into ESSL once, on a developer's machine, and the device is
+      handed a string. A phone that carried this library would be carrying a compiler
+      to do work that was already done.
+
+      So the edge is: Vixen.Raven.Cli (a dotnet tool) -> this -> Vixen.Raven.
+      `Vixen.Raven` is a shipped package and does NOT reference this project; the
+      backend registers itself into `TargetBackends` from the CLI's entry point.
+    -->
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+          ⚠ `raven`, not `Vixen.Raven.Cli`. InternalsVisibleTo names an ASSEMBLY, and that project
+          sets <AssemblyName>raven</AssemblyName> so the tool's command is `raven` — its PackageId
+          is the only place the long name survives. Getting this wrong fails as CS0122 at the one
+          call site, which reads like a missing `public` rather than like a misspelt assembly.
+        -->
+        <InternalsVisibleTo Include="raven"/>
+        <InternalsVisibleTo Include="Vixen.Raven.Transpile.Tests"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Raven\Vixen.Raven.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Silk.NET.SPIRV.Cross"/>
+        <PackageReference Include="Silk.NET.SPIRV.Cross.Native"/>
+    </ItemGroup>
+
+</Project>

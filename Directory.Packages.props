@@ -33,6 +33,26 @@
     <PackageVersion Include="Antlr4.Runtime" Version="4.6.6" />
   </ItemGroup>
 
+  <!-- ===== SPIRV-Cross: the cross-compilation half of ADR-012 ===== -->
+  <ItemGroup Label="Transpile">
+    <!--
+      ADR-012 makes SPIR-V Raven's canonical output and names SPIRV-Cross as the owner
+      of every other dialect — ESSL, HLSL, MSL, WGSL. This is that tool: the bindings
+      are MIT, and `.Native` carries SPIRV-Cross itself (Apache-2.0) for eight RIDs.
+      2.23.0 to match every other Silk.NET pin above; the two move together.
+
+      ⚠ Tooling only, and enforced by where it is referenced rather than by intent:
+      the sole consumer is Raven/Vixen.Raven.Transpile, which is IsPackable=false and
+      reached only by the compiler CLI. `Vixen.Raven` itself does NOT reference it —
+      that project is a shipped package, and doc 01's shaderc row already declined a
+      native NuGet asset in the restore graph of something that must never ship it.
+      Cross-compilation is an offline content-build step; nothing loads this on a
+      device, which is the whole reason a phone can run an ESSL string it was handed.
+    -->
+    <PackageVersion Include="Silk.NET.SPIRV.Cross" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.SPIRV.Cross.Native" Version="2.23.0" />
+  </ItemGroup>
+
   <!-- ===== Logging (docs/plan/01 § Platform baseline, ADR-008) ===== -->
   <ItemGroup Label="Logging">
     <!--

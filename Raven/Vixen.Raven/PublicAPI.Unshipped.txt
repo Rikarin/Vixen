@@ -3202,6 +3202,7 @@ static Vixen.Raven.CodeGen.CallGraph.Reachable(Vixen.Raven.IR.IrFunction entry) 
 static Vixen.Raven.CodeGen.ShaderStageNames.Suffix(Vixen.Raven.Symbols.ShaderStage stage) -> string
 static Vixen.Raven.CodeGen.TargetBackends.Create(string name) -> Vixen.Raven.CodeGen.ITargetBackend?
 static Vixen.Raven.CodeGen.TargetBackends.Names.get -> System.Collections.Generic.IReadOnlyList<string>
+static Vixen.Raven.CodeGen.TargetBackends.Register(string name, System.Func<Vixen.Raven.CodeGen.ITargetBackend> factory) -> void
 static Vixen.Raven.Compilation.Create(string assemblyName, System.Collections.Generic.IEnumerable<Vixen.Raven.RavenReference> references, System.Collections.Generic.IEnumerable<Vixen.Raven.Syntax.SyntaxTree> syntaxTrees) -> Vixen.Raven.Compilation
 static Vixen.Raven.Compilation.Create(string assemblyName, System.Collections.Generic.IEnumerable<Vixen.Raven.Syntax.SyntaxTree> syntaxTrees) -> Vixen.Raven.Compilation
 static Vixen.Raven.Compilation.Create(string assemblyName, Vixen.Raven.PermutationValues permutationValues, System.Collections.Generic.IEnumerable<Vixen.Raven.Syntax.SyntaxTree> syntaxTrees) -> Vixen.Raven.Compilation
