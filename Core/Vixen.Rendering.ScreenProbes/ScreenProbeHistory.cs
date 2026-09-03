@@ -256,10 +256,22 @@ public sealed class ScreenProbeHistory {
 
     /// <summary>The probe that stood on a surface last frame, if the camera could see it.</summary>
     /// <remarks>
-    ///     Point reprojection into the tile that contained the surface — the nearest single probe.
-    ///     Bilinear history, blending the four around it, is an owed refinement with this as its
-    ///     baseline; it softens reprojection at the cost of smearing across the very edges the
-    ///     plane test guards.
+    ///     <para>
+    ///         Point reprojection into the tile that contained the surface — the nearest single
+    ///         probe. Bilinear history, blending the four around it, is an owed refinement with this
+    ///         as its baseline; it softens reprojection at the cost of smearing across the very edges
+    ///         the plane test guards.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>y is negated and x is not</b> — <c>Transform.NdcToUv</c>'s convention, which
+    ///         <see cref="ScreenSpaceTrace" />, <see cref="ReconstructedScreenSurface" /> and
+    ///         <c>ScreenProbeAccumulate.rvn</c> all already spelled out and this alone did not. The
+    ///         projection is built y-up and the backend lands it with a negative-height viewport, so
+    ///         clip y = +1 is the top of the screen while the top row of pixels is y = 0. Without the
+    ///         sign a surface reprojects into the vertically mirrored tile: every probe reads another
+    ///         row's history, and the plane test cannot object because a floor is coplanar with
+    ///         itself.
+    ///     </para>
     /// </remarks>
     bool TryReproject(Vector3 position, out Int2 probe) {
         probe = default;
@@ -277,7 +289,7 @@ public sealed class ScreenProbeHistory {
         }
 
         var x = (int)MathF.Floor(((ndc.X * 0.5f) + 0.5f) * Layout.Viewport.X);
-        var y = (int)MathF.Floor(((ndc.Y * 0.5f) + 0.5f) * Layout.Viewport.Y);
+        var y = (int)MathF.Floor(((ndc.Y * -0.5f) + 0.5f) * Layout.Viewport.Y);
 
         if (x < 0 || y < 0 || x >= Layout.Viewport.X || y >= Layout.Viewport.Y) {
             return false;
