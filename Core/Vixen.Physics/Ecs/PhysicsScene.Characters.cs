@@ -269,6 +269,7 @@ public sealed partial class PhysicsScene {
         // that was teleported onto a ledge is walking on the first step rather than the second.
         CharacterMotion.Step(settings, ref state, intent, controller.Ground, deltaTime);
 
+        Retune(controller, in settings, ref body);
         Reshape(controller, in settings, ref state, ref body);
 
         // Relative on the way in, absolute on the way out. A character standing still on a lift has a
@@ -321,6 +322,43 @@ public sealed partial class PhysicsScene {
         }
 
         return MathF.Abs(achieved) < MathF.Abs(asked) ? achieved : asked;
+    }
+
+    /// <summary>Moves the slope and step limits onto the controller when the component's have changed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Neither of these needs the controller recreated, and the belief that they did is
+    ///         the whole reason they were missing.</b> Jolt's <c>CharacterBase</c> carries a
+    ///         <c>MaxSlopeAngle</c> setter, and the step height is a field of the
+    ///         <c>ExtendedUpdateSettings</c> handed to <i>every</i> update — so both are live, and
+    ///         <c>Core/Vixen.Physics/README.md</c>'s "fixed at creation … which is real work" was
+    ///         wrong about the binding rather than about the cost.
+    ///     </para>
+    ///     <para>
+    ///         Guarded on the resolved value rather than pushed unconditionally, because a setter that
+    ///         ran every step for every character would be two native calls per character per step to
+    ///         write numbers that never change — the same reason <see cref="Reshape" /> compares
+    ///         against <c>CharacterBody.BuiltShape</c> instead of swapping the shape every step.
+    ///     </para>
+    /// </remarks>
+    static void Retune(CharacterController controller, in CharacterMovement settings, ref CharacterBody body) {
+        var slope = CharacterMovement.ResolveMaxSlopeAngle(settings.MaxSlopeAngle);
+        var step = CharacterMovement.ResolveStepHeight(settings.StepHeight);
+
+        if (slope != body.BuiltSlopeAngle) {
+            controller.MaxSlopeAngle = slope;
+            body.BuiltSlopeAngle = slope;
+
+            // The ground state is whatever the previous sweep concluded under the old limit, so a
+            // character told mid-walk that it can no longer stand where it is would spend one step
+            // believing otherwise — and one step of a rule reading the wrong mode is a visible hitch.
+            controller.RefreshContacts();
+        }
+
+        if (step != body.BuiltStepHeight) {
+            controller.StepHeight = step;
+            body.BuiltStepHeight = step;
+        }
     }
 
     /// <summary>Swaps the collision volume when the crouch state disagrees with it.</summary>
@@ -454,19 +492,33 @@ public sealed partial class PhysicsScene {
 
         var transform = Entities.Read<LocalTransform>(entity);
 
+        // Given at creation as well as pushed by Retune, so a character whose first step is on a ramp
+        // is walking or sliding on that step rather than on the one after it. Retune then finds them
+        // already agreed and makes no native call at all.
+        var slope = CharacterMovement.ResolveMaxSlopeAngle(settings.MaxSlopeAngle);
+        var step = CharacterMovement.ResolveStepHeight(settings.StepHeight);
+
         var controller = World.CreateCharacter(
             new() {
                 Shape = settings.Shape,
                 Layer = settings.Layer,
                 Position = transform.Position + settings.ShapeOffset,
-                Rotation = transform.Rotation
+                Rotation = transform.Rotation,
+                MaxSlopeAngle = slope,
+                StepHeight = step
             }
         );
 
         var handle = nextCharacterHandle++;
         charactersByHandle[handle] = controller;
 
-        return new() { Handle = handle, BuiltShape = settings.Shape, BuiltOffset = settings.ShapeOffset };
+        return new() {
+            Handle = handle,
+            BuiltShape = settings.Shape,
+            BuiltOffset = settings.ShapeOffset,
+            BuiltSlopeAngle = slope,
+            BuiltStepHeight = step
+        };
     }
 
     void RemoveCharacter(Entity entity) {

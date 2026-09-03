@@ -75,6 +75,12 @@ public enum CharacterMoveMode : byte {
 [Component]
 [DataContract]
 public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
+    /// <summary>45°, the same figure <see cref="CharacterControllerSettings" /> starts from.</summary>
+    const float DefaultMaxSlopeAngle = MathUtil.PiOverFour;
+
+    /// <summary>0.4 m, ditto.</summary>
+    const float DefaultStepHeight = 0.4f;
+
     /// <summary>The collision volume while standing.</summary>
     public ShapeId Shape;
 
@@ -110,6 +116,34 @@ public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
     ///     put, which is what a player means by standing up.
     /// </remarks>
     public Vector3 CrouchShapeOffset;
+
+    /// <summary>The steepest slope the character can stand on, in radians.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero takes the default rather than meaning "can stand on nothing".</b> The same
+    ///         rule <see cref="WadeSpeedScale" /> follows and for the same reason: a component is a
+    ///         struct in a zeroed column, so a scene naming <see cref="WalkSpeed" /> and nothing else
+    ///         would otherwise produce a character that slides off flat ground. A character meant to
+    ///         refuse every incline asks for a small positive angle, which is also the only honest
+    ///         answer — the sweep needs a tolerance whatever is written here.
+    ///     </para>
+    ///     <para>
+    ///         <b>Live, not fixed at creation.</b> Editing this moves the limit on the existing
+    ///         controller; see <see cref="CharacterController.MaxSlopeAngle" />, whose remarks record
+    ///         that the opposite was believed for as long as it was written down.
+    ///     </para>
+    /// </remarks>
+    public float MaxSlopeAngle;
+
+    /// <summary>How tall a step the character can walk up without jumping, in metres.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero takes the default</b>, for <see cref="MaxSlopeAngle" />'s reason. That does mean
+    ///     stair walking cannot be turned <i>off</i> through the component — it is off at
+    ///     <see cref="CharacterControllerSettings.StepHeight" /> or on the controller itself — and that
+    ///     is the deliberate trade: a character that catches on every 5 cm lip is a defect a zeroed
+    ///     column would hand out for free, and one nobody would think to look for here.
+    /// </remarks>
+    public float StepHeight;
 
     /// <summary>Top speed on the ground, in metres a second.</summary>
     public float WalkSpeed;
@@ -258,6 +292,8 @@ public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
         Layer = PhysicsLayer.Default,
         ShapeOffset = new(0f, 0.9f, 0f),
         CrouchShapeOffset = new(0f, 0.6f, 0f),
+        MaxSlopeAngle = DefaultMaxSlopeAngle,
+        StepHeight = DefaultStepHeight,
         WalkSpeed = 4f,
         SprintSpeed = 7f,
         CrouchSpeed = 2f,
@@ -288,6 +324,22 @@ public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
     /// </remarks>
     public static float JumpSpeedForHeight(float height, float gravity) =>
         height <= 0f || gravity >= 0f ? 0f : MathF.Sqrt(-2f * gravity * height);
+
+    /// <summary>The steepest slope a written <see cref="MaxSlopeAngle" /> actually asks for.</summary>
+    /// <param name="value">What the component holds.</param>
+    /// <returns>The angle in radians, with zero and anything negative taking the default.</returns>
+    /// <remarks>
+    ///     The one place the zeroed-column rule for this field is written, so the bridge and anything
+    ///     showing a character its effective limit cannot disagree about it. Same shape as
+    ///     <see cref="CharacterMotion.WadeScale" />'s guard, promoted to a named function because two
+    ///     callers now need it.
+    /// </remarks>
+    public static float ResolveMaxSlopeAngle(float value) => value > 0f ? value : DefaultMaxSlopeAngle;
+
+    /// <summary>The step a written <see cref="StepHeight" /> actually asks for.</summary>
+    /// <param name="value">What the component holds.</param>
+    /// <returns>The height in metres, with zero and anything negative taking the default.</returns>
+    public static float ResolveStepHeight(float value) => value > 0f ? value : DefaultStepHeight;
 
     /// <inheritdoc />
     static CharacterMovement IDefaultComponent<CharacterMovement>.DefaultValue => Default;
@@ -396,4 +448,18 @@ public struct CharacterBody {
 
     /// <summary>The offset that shape is centred by, so the writeback and the next swap agree.</summary>
     public Vector3 BuiltOffset;
+
+    /// <summary>The resolved slope limit last pushed into the controller.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What was pushed, not what the controller holds</b>, which is the difference between
+    ///     "the component changed" and "the two disagree". Comparing against the live controller would
+    ///     make the component win every step and quietly undo a game that set the limit itself —
+    ///     <c>PhysicsScene.TryGetCharacter</c> exists for exactly that. The same construction
+    ///     <see cref="BuiltShape" /> uses against a hand-driven <c>TrySetShape</c>.
+    /// </remarks>
+    public float BuiltSlopeAngle;
+
+    /// <summary>The resolved step height last pushed into the controller.</summary>
+    /// <remarks>See <see cref="BuiltSlopeAngle" />.</remarks>
+    public float BuiltStepHeight;
 }
