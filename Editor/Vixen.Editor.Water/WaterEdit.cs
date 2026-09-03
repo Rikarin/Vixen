@@ -15,7 +15,14 @@ namespace Vixen.Editor.Water;
 /// </remarks>
 public enum WaterTool {
     /// <summary>Click a series of points on the ground to lay a body's curve.</summary>
-    /// <remarks>The one gesture that is not already served by <c>SplineEdit</c>.</remarks>
+    /// <remarks>
+    ///     ⚠ <b>This used to say "the one gesture that is not already served by <c>SplineEdit</c>",
+    ///     and <c>SplineEdit</c> serves none of them.</b> It is instantiated by nothing outside its own
+    ///     tests, so no author can move a control point in any viewport — see
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/118">#118</see>. Draw is the gesture that
+    ///     would still be this mode's when that is fixed, because laying points <i>on the ground at the
+    ///     terrain's height</i> is a question about the terrain rather than about the curve.
+    /// </remarks>
     Draw,
 
     /// <summary>Drag the width, depth and velocity handles on an existing body.</summary>

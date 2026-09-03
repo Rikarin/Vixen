@@ -434,10 +434,15 @@ auto-tangents.
 both consumers — [26](26-virtual-cameras.md)'s dolly and this document's roads — already reference it,
 so it costs no new project reference in either direction.
 
-✅ **Serialisation as an asset and viewport editing landed with
-[T8](#t8--splines--15-em---built)** — `SplineAsset`, `ISplineSource` and `SplineEdit`. What was closed
-first is the part both consumers were actually blocked on: neither could start because there was no
-curve to read.
+✅ **Serialisation as an asset landed with [T8](#t8--splines--15-em---built)** — `SplineAsset`,
+`ISplineSource` and `SplineEdit`. What was closed first is the part both consumers were actually
+blocked on: neither could start because there was no curve to read.
+
+⚠ **"and viewport editing" used to be in that sentence, and it is false.** `SplineEdit` and
+`SplineCommand` are instantiated by nothing outside `SplineEditTests`; `SplineOverlay` got its first
+production caller in `0fa58d4a` and that is the drawing half only. Nobody can move a control point in
+a viewport, and there is no `.vxspline` asset editor to open one in —
+[#118](https://github.com/Rikarin/Vixen/issues/118).
 
 ✅ **And a spline is readable by the YAML binder.** `Vixen.Core.Mathematics` runs the reflection
 generator, so `SplineAsset` and `SplinePoint` have descriptors and a `.vxspline` binds by name like

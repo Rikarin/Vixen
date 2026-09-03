@@ -73,14 +73,24 @@ sealed partial class EditorApplication {
     /// </remarks>
     static DiagnosticsModule FindDiagnostics(
         IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> modules
-    ) {
+    ) => FindModule<DiagnosticsModule>(modules) ?? new();
+
+    /// <summary>The registered module of a kind, or null when the host did not name one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null rather than a fresh one, which is what the bug above argues for everywhere the
+    ///     fallback is not itself harmless.</b> A second <see cref="DiagnosticsModule" /> is inert; a
+    ///     second module that owns a panel's state is one the host never activated, so every hook it
+    ///     hands out is joined to nothing and looks joined.
+    /// </remarks>
+    static T? FindModule<T>(IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> modules)
+        where T : class, IEditorPlugin {
         foreach (var (_, _, module) in modules) {
-            if (module is DiagnosticsModule diagnostics) {
-                return diagnostics;
+            if (module is T found) {
+                return found;
             }
         }
 
-        return new();
+        return null;
     }
 
     /// <summary>The device the GPU timeline reads, when the host has one.</summary>

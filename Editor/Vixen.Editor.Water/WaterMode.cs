@@ -22,13 +22,21 @@ namespace Vixen.Editor.Water;
 ///         [35 § One mode, not two](../../docs/plan/35-water.md#one-mode-not-two). Doc 31 needed a
 ///         sculpt mode and a foliage mode because each owns the viewport and has an incompatible idea
 ///         of what a click means. Placing a lake is placing an <em>entity</em> and editing its shape
-///         is editing a <em>spline</em>, and the editor already does both — so this mode exists for
-///         the three things that are neither.
+///         is editing a <em>spline</em> — so this mode exists for the three things that are neither.
+///     </para>
+///     <para>
+///         ⚠ <b>That paragraph used to end "and the editor already does both", and the second half is
+///         false.</b> <c>SplineEdit</c> and <c>SplineCommand</c> are instantiated by nothing outside
+///         their own tests, so nobody can move a body's control point in any viewport — see
+///         <see href="https://github.com/Rikarin/Vixen/issues/118">#118</see>. The scope argument
+///         survives it (shape editing is not water's job) but the capability it leans on does not
+///         exist yet, and a reader of this file should not be told that it does.
 ///     </para>
 ///     <para>
 ///         <b>Draw</b> lays a body's curve by clicking points on the ground, at the ground's own
-///         height, closing it for a lake or an ocean and leaving it open for a river. It is the one
-///         gesture <c>SplineEdit</c> does not already serve. <b>Profile</b> drags the width handles on
+///         height, closing it for a lake or an ocean and leaving it open for a river — the gesture
+///         that would still be this mode's even once #118 is fixed, because laying points at the
+///         terrain's height is a question about the terrain. <b>Profile</b> drags the width handles on
 ///         each side of a river and the depth handle down, which is Unreal's three viewport
 ///         visualisations and the reason its river authoring is good. <b>Preview</b> toggles the
 ///         reserved layer's contribution, so an author can see what the water did to the ground.

@@ -59,6 +59,9 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
         // Doc 37 § P7's panel, which was built with tests and never registered — see
         // Ai/AgentDebuggerPanel.cs for why it is this module's and not the application's.
         AgentDebuggerPanel(context);
+
+        // And doc 11 § Input system's second editor surface, which was never written at all.
+        InputDebugPanel(context);
     }
 
     /// <summary>Doc 39's frame panel, bound to the four things it cannot reach for itself.</summary>

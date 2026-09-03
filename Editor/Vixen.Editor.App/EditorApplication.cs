@@ -463,6 +463,7 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ The registered module, not one of our own. See EditorDiagnostics for what a second
         // instance costs.
         diagnostics = FindDiagnostics(this.modules);
+        assetEditors = FindModule<AssetEditorsModule>(this.modules);
 
         // ⚠ Before the project, because whether this run is a first one — no history at all — is
         // what decides whether the startup Project Browser has anything to offer, and opening the
@@ -867,6 +868,14 @@ sealed partial class EditorApplication : IDisposable {
     ///     and the scene, which is exactly what a thumbnail renderer wants.
     /// </remarks>
     readonly IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> modules;
+
+    /// <summary>The registered asset-editors module, or null when this editor was built without it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The registered one, for <see cref="diagnostics" />' reason.</b> A second instance
+    ///     compiles, activates nothing, and hands every freshly-opened AI editor a debug model no
+    ///     panel is showing — which looks exactly like the wiring working.
+    /// </remarks>
+    readonly AssetEditorsModule? assetEditors;
 
     /// <summary>What this editor put in <see cref="Extensions" />, so shutting down takes it back out.</summary>
     readonly List<IDisposable> contributions = [];
@@ -2307,6 +2316,11 @@ sealed partial class EditorApplication : IDisposable {
         if (view is AssetEditors.Materials.MaterialView material) {
             material.OpenGraphRequested += (_, graph) => Open(graph);
         }
+
+        // ⚠ And the three AI editors, whose `Follow` methods had no non-test caller at all. The
+        // model belongs to the module that owns the agent debugger — see `AgentDebuggerPanel.Follow`
+        // for why the joining is there and the trigger is here.
+        assetEditors?.Follow(view);
     }
 
     /// <summary>What a panel showing an asset's editor is called in an arrangement.</summary>

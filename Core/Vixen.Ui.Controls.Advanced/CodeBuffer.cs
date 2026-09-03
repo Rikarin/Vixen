@@ -49,8 +49,10 @@ public readonly record struct TextPosition(int Line, int Column) : IComparable<T
 ///         ⚠ <b>No undo stack.</b> Undo belongs to the application, because it has to be interleaved
 ///         with everything else the editor does — a rename that touched three files, a refactor, a
 ///         move — and an undo stack inside the text control can only ever undo typing. What is here
-///         is <see cref="Changed" />, which is what such a stack subscribes to. Owed and said out
-///         loud rather than half-built.
+///         is <see cref="Changed" />, which is what such a stack subscribes to. ⚠ <b>And one
+///         does</b>: the editor's <c>CodeDocument</c> is on this event and turns each run of typing
+///         into a <c>TextEditCommand</c> on the document's <c>CommandStack</c>, alongside the command
+///         that renamed the asset — which is the arrangement this paragraph argues for, built.
 ///     </para>
 /// </remarks>
 public sealed class CodeBuffer {
