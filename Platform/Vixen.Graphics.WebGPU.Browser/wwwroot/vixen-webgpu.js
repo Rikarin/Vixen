@@ -163,12 +163,44 @@ const ALPHA_MODE = ["opaque", "opaque", "premultiplied", "premultiplied", "opaqu
 
 // ── The reader ──────────────────────────────────────────────────────────────────────────────
 
+// ── ⚠ Every `view`, `descriptor`, `entries` and `data` below is a .NET MemoryView ────────────
+//
+// Not a typed array. What the marshaller passes for a `[JSMarshalAs<JSType.MemoryView>]
+// Span<byte>` has FIVE members and no more:
+//
+//     set(source, offset)   source must be a Uint8Array for a byte span — the constructor is
+//                           compared by identity, so a Uint8ClampedArray throws rather than
+//                           converting: `Assert failed: Expected function Uint8Array`.
+//     copyTo(target, from)  the other direction, same rule.
+//     slice(start, end)     a REAL typed array holding a copy, taken out of WebAssembly memory.
+//     length / byteLength
+//
+// There is no indexer, no `fill`, no `.buffer` and no `.byteOffset`.
+//
+// ⚠ Four sites in this file got that wrong and every one of them was fatal on the first frame of
+// every browser build: this Reader (which nine entry points construct, so the whole descriptor
+// half of the backend), `readLimits`, `writeBuffer`, and `setBindGroup`'s dynamic-offset branch.
+// Three threw `TypeError: First argument to DataView constructor must be an ArrayBuffer`.
+//
+// ⚠ They survived every gate this repository has — the compiler sees a declaration, CompileWeb
+// compiles it, BrowserModuleUrlTests knows the module URL, PublishWeb sees a file land — because
+// none of them marshals a call. They were recorded as unfixable without a WebGPU adapter, and
+// that was wrong: not one of them reaches a GPU object before it fails, so a faithful MemoryView
+// under Node finds all four. See Platform/Vixen.Platform.Web.Tests/js/vixen-webgpu.test.mjs.
+
 /**
  * Walks a packed descriptor. Little-endian at every read, stated rather than assumed:
  * WebAssembly is little-endian by specification and DataView's default is not.
  */
 class Reader {
-    constructor(bytes) {
+    constructor(view) {
+        // ⚠ slice() first. `view` is a MemoryView, so `view.buffer` is `undefined` and
+        // `new DataView(undefined, …)` throws outright — which it did, on every packed descriptor
+        // this backend has ever sent. slice() is the one member that yields an ArrayBuffer to
+        // read through, and the copy it costs is one a descriptor of a few dozen bytes would not
+        // notice; the view is only valid for the duration of the call anyway.
+        const bytes = view.slice(0, view.length);
+
         this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
         this.at = 0;
     }
@@ -300,13 +332,23 @@ export function readLimits(destination) {
         limits.maxComputeWorkgroupSizeZ
     ];
 
-    const view = new DataView(destination.buffer, destination.byteOffset, destination.byteLength);
+    // ⚠ Staged in a real Uint8Array and handed over with one set(), because `destination` is a
+    // MemoryView over BrowserWebGpuBinding.ReadLimits's `stackalloc byte[14 * sizeof(double)]` and
+    // has no `.buffer` to lay a DataView over. This used to read it directly and threw on the ONE
+    // call that establishes what the device can do.
+    //
+    // ⚠ `Uint8Array` exactly: the span is `Span<byte>`, and set() compares constructors by
+    // identity. A Float64Array of the same bytes would throw.
+    const staged = new Uint8Array(values.length * 8);
+    const view = new DataView(staged.buffer);
 
     for (let index = 0; index < values.length; index++) {
         // Zero for anything this browser does not report; the C# side substitutes the
         // specification's floor rather than believing a zero limit.
         view.setFloat64(index * 8, Number(values[index]) || 0, true);
     }
+
+    destination.set(staged, 0);
 }
 
 export function readFeatures() {
@@ -672,9 +714,21 @@ export function release(handle) {
 // ── Queue ───────────────────────────────────────────────────────────────────────────────────
 
 export function writeBuffer(buffer, offset, data) {
-    // The view is only valid for the duration of the call — it is a window onto WebAssembly's
-    // memory, which moves. writeBuffer copies immediately, so there is nothing to keep.
-    queue.writeBuffer(get(buffer), offset, data, 0, data.byteLength);
+    // ⚠ A FOURTH MemoryView site, and one nobody had written down. `data` used to be passed to
+    // WebGPU directly, on the reasoning that the view is only valid for the duration of the call
+    // and writeBuffer copies immediately — true, and beside the point: GPUQueue.writeBuffer takes
+    // a BufferSource, and a MemoryView is an ordinary JavaScript object. Chrome rejects it with
+    // "parameter 3 is not of type 'BufferSource'", so EVERY buffer upload on this backend threw —
+    // every uniform, every vertex buffer, every index buffer, on frame one.
+    //
+    // ⚠ So the copy is not optional and it is not a defensive one; slice() is the only way to get
+    // the bytes out of WebAssembly memory at all. It is a per-upload allocation on the hot path,
+    // which is a real cost and is why BrowserWebGpuBinding.WriteBuffer goes to the trouble of
+    // un-consting its span to avoid a copy on the C# side. Removing it needs a mapped staging
+    // buffer, not a cleverer argument.
+    const bytes = data.slice(0, data.length);
+
+    queue.writeBuffer(get(buffer), offset, bytes, 0, bytes.byteLength);
 }
 
 export function submit(commandBuffer) {
@@ -852,12 +906,18 @@ export function setBindGroup(pass, group, bindGroup, dynamicOffsets) {
 
     // A fresh array rather than a view: setBindGroup takes a sequence and the view is a window onto
     // WebAssembly memory that may move the moment anything allocates.
-    const offsets = new Uint32Array(
-        dynamicOffsets.buffer.slice(
-            dynamicOffsets.byteOffset,
-            dynamicOffsets.byteOffset + dynamicOffsets.byteLength
-        )
-    );
+    //
+    // ⚠ Through slice(), not `.buffer`. `dynamicOffsets` is a MemoryView and has no `.buffer` —
+    // the version this replaces threw a TypeError here. `byteLength` DOES exist on a MemoryView,
+    // so the early return above worked and only this branch failed: a backend that bound fine
+    // until something used a dynamic uniform offset, which is the shape of bug that gets blamed
+    // on the shader.
+    //
+    // slice() returns a Uint8Array whose buffer is exactly these bytes and whose byteOffset is 0,
+    // so the Uint32Array can be laid straight over it. The C# side packs one int32 per offset
+    // (BrowserWebGpuBinding.SetBindGroup), so the length is a multiple of four by construction.
+    const bytes = dynamicOffsets.slice(0, dynamicOffsets.length);
+    const offsets = new Uint32Array(bytes.buffer, 0, bytes.byteLength / 4);
 
     get(pass).setBindGroup(group, get(bindGroup), offsets);
 }

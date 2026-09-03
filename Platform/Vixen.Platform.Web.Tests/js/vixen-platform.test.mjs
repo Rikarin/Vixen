@@ -22,6 +22,7 @@
 
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
+import { MemoryView } from "./memory-view.mjs";
 
 // ── A DOM stub, big enough to construct a canvas and fire events at it ───────────────────────
 
@@ -301,52 +302,14 @@ check(seen.every((value, index) => value === index), `…in order — got ${seen
 // ── ⚠ A faithful MemoryView, because a typed array is NOT one ────────────────────────────────
 //
 // Every assertion above hands these functions a real Float64Array or Uint8Array, and that is a
-// stub which is MORE PERMISSIVE THAN THE RUNTIME. What the marshaller actually passes for a
-// [JSMarshalAs<JSType.MemoryView>] Span<T> has four members and no more:
+// stub which is MORE PERMISSIVE THAN THE RUNTIME — which is why four defects in this module
+// survived this suite until `nuke BrowserSmoke` called them from a real head.
 //
-//     set(source, offset)   source must be a typed array of exactly the matching constructor
-//     copyTo(target, from)  same constructor rule
-//     slice(start, end)     a real typed array holding a copy
-//     length / byteLength
-//
-// No indexer. No fill. Not array-like, so `someTypedArray.set(view)` reads undefined at every
-// index and writes zeros.
-//
-// ⚠ FOUR functions in this module got that wrong and this suite passed on all four, because a
-// typed array supports everything they did. `nuke BrowserSmoke` found them by calling them from
-// the runtime: pollGamepads wrote through an indexer that reached WebAssembly memory with nothing
-// and then threw on view.fill, which killed the frame loop on frame one of every browser build;
-// stageBuffer stored a buffer of zeros of exactly the right length, so every IndexedDB write was
-// silently empty; onScreenKeyboardArea and readClipboardImage passed set() a source of the wrong
-// constructor. The stub below is what makes those findable here, in a second, without a browser.
-
-class MemoryView {
-    constructor(typed) {
-        this.typed = typed;
-    }
-
-    set(source, offset = 0) {
-        if (!source || source.constructor !== this.typed.constructor) {
-            throw new Error(`Assert failed: Expected ${this.typed.constructor.name}`);
-        }
-
-        this.typed.set(source, offset);
-    }
-
-    copyTo(target, from = 0) {
-        if (!target || target.constructor !== this.typed.constructor) {
-            throw new Error(`Assert failed: Expected ${this.typed.constructor.name}`);
-        }
-
-        target.set(this.typed.subarray(from));
-    }
-
-    slice(start, end) { return this.typed.slice(start, end); }
-
-    get length() { return this.typed.length; }
-
-    get byteLength() { return this.typed.byteLength; }
-}
+// ⚠ The double now lives in memory-view.mjs, imported at the top of this file, rather than here.
+// It was copied into two more suites when vixen-webgpu.js and vixen-audio.js got the same
+// treatment, and three copies of the one thing that defines what "faithful" means is exactly how
+// one of them drifts back into being permissive. That file carries the full explanation and the
+// transcription of the runtime class it stands in for.
 
 // ── Buffers: the way bytes cross an asynchronous boundary ────────────────────────────────────
 

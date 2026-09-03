@@ -155,6 +155,19 @@ export function stop(handle) {
  * marshaller defines memory views for byte, int and double and not for float, so the
  * floats travel as their own bytes and get a Float32Array put over them here. The
  * view is only valid for this call, hence the slice.
+ *
+ * ── ⚠ `samples` is a MemoryView, and that is NOT a typed array ─────────────────────────────────
+ *
+ * What a `[JSMarshalAs<JSType.MemoryView>] Span<byte>` arrives as has exactly five members —
+ * `set(source, offset)`, `copyTo(target, from)`, `slice(start, end)`, `length`, `byteLength` —
+ * and no more. No indexer, no `fill`, no `.buffer`, no `.byteOffset`, and `set` compares the
+ * source's constructor by identity rather than converting.
+ *
+ * ⚠ So `slice()` on the line below is load-bearing and not a defensive copy: it is the only
+ * member that yields something a `Float32Array` can be laid over, and `bytes` is a real typed
+ * array precisely because it came from one. Reading `samples.buffer` directly — which is what
+ * `captureRead` used to do — yields `undefined`, and `new Float32Array(undefined, …)` builds a
+ * ZERO-LENGTH array that swallows every write in silence.
  */
 export function enqueue(handle, samples, frames) {
     const state = contexts.get(handle);
@@ -338,7 +351,25 @@ export function captureStart(handle) {
     });
 }
 
-/** Copies up to `frames` frames into the caller's view. Returns how many it wrote. */
+/**
+ * Copies up to `frames` frames into the caller's view. Returns how many it wrote.
+ *
+ * ⚠ `samples` is a .NET MemoryView, NOT a typed array — see the note above `enqueue`. It has no
+ * `.buffer` and no `.byteOffset`, so this stages the floats in a real Float32Array and hands them
+ * over with one `set()`, whose source must be a `Uint8Array` because the span is `Span<byte>`.
+ *
+ * ⚠⚠ The version this replaces built `new Float32Array(samples.buffer, samples.byteOffset, …)`,
+ * and that did NOT throw. `Float32Array`'s constructor treats a non-object first argument as a
+ * *length*, and `Number(undefined)` is `NaN`, which becomes 0 — so it produced an EMPTY array,
+ * discarded every write into it without complaint, and returned a positive frame count saying it
+ * had filled the caller's buffer. Every microphone read on every browser build handed
+ * WebAudioCaptureDevice whatever was already in its transfer buffer, and reported success.
+ *
+ * ⚠ That is worse than the four sites in vixen-webgpu.js, which throw a visible TypeError out of
+ * `new DataView(...)`. Silence is what a microphone that is not recording sounds like, so this one
+ * had no symptom at all. It is the reason the assertions in vixen-audio.test.mjs check the sample
+ * VALUES and not just that the call returned.
+ */
 export function captureRead(handle, samples, frames) {
     const state = captures.get(handle);
 
@@ -354,13 +385,18 @@ export function captureRead(handle, samples, frames) {
         return 0;
     }
 
-    const floats = new Float32Array(samples.buffer, samples.byteOffset, taking * state.channels);
+    const count = taking * state.channels;
+    const floats = new Float32Array(count);
 
-    for (let i = 0; i < taking * state.channels; i++) {
+    for (let i = 0; i < count; i++) {
         floats[i] = state.ring[(state.read + i) % capacity];
     }
 
-    state.read += taking * state.channels;
+    // The floats travel as their own bytes, because the marshaller defines memory views for byte,
+    // int and double and not for float — the same reason `enqueue` receives bytes.
+    samples.set(new Uint8Array(floats.buffer, 0, floats.byteLength), 0);
+
+    state.read += count;
     return taking;
 }
 

@@ -85,20 +85,44 @@
         the check is worth having there; making it fatal would break `dotnet build` for somebody who
         has no reason to have installed it, over a file they did not touch.
     -->
+    <!--
+        ⚠ Three suites, not one, and the two newer ones exist because the same MemoryView mistake
+        that BrowserSmoke found four times in vixen-platform.js was left standing at four sites in
+        vixen-webgpu.js and one in vixen-audio.js — recorded as unfixable without a WebGPU adapter
+        and a headless microphone.
+
+        That was wrong, and these are the refutation: not one of those five reaches a GPU object or
+        a sample before it fails, so a faithful MemoryView under Node goes red on every one of them
+        in a second. js/memory-view.mjs is that double, shared by all three so it cannot drift back
+        into being more permissive than the runtime, which is how the original four hid.
+    -->
     <ItemGroup>
+        <None Include="js\memory-view.mjs" />
         <None Include="js\vixen-platform.test.mjs" />
+        <None Include="js\vixen-webgpu.test.mjs" />
+        <None Include="js\vixen-audio.test.mjs" />
     </ItemGroup>
 
     <Target Name="TestBrowserHalf" AfterTargets="Build">
+        <ItemGroup>
+            <BrowserHalfSuite Include="js\vixen-platform.test.mjs" Module="vixen-platform.js" />
+            <BrowserHalfSuite Include="js\vixen-webgpu.test.mjs" Module="vixen-webgpu.js" />
+            <BrowserHalfSuite Include="js\vixen-audio.test.mjs" Module="vixen-audio.js" />
+        </ItemGroup>
+
         <Exec Command="node --version" ContinueOnError="true" StandardOutputImportance="low" IgnoreExitCode="true">
             <Output TaskParameter="ExitCode" PropertyName="_NodeExitCode" />
         </Exec>
 
         <Warning Condition="'$(_NodeExitCode)' != '0'"
-                 Text="Node is not on PATH, so vixen-platform.js was not tested. Install Node, or run: node $(MSBuildProjectDirectory)/js/vixen-platform.test.mjs" />
+                 Text="Node is not on PATH, so the browser halves were not tested (@(BrowserHalfSuite->'%(Module)', ', ')). Install Node, or run each of: node $(MSBuildProjectDirectory)/js/*.test.mjs" />
 
+        <!--
+            One Exec per suite rather than one over the batch, so a failure names the file. Each
+            exits non-zero on its first failed assertion and prints its own count.
+        -->
         <Exec Condition="'$(_NodeExitCode)' == '0'"
-              Command="node &quot;$(MSBuildProjectDirectory)/js/vixen-platform.test.mjs&quot;"
+              Command="node &quot;$(MSBuildProjectDirectory)/%(BrowserHalfSuite.Identity)&quot;"
               StandardOutputImportance="normal" />
     </Target>
 
