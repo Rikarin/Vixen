@@ -173,6 +173,44 @@ row taller would be a port every wire on the node missed. So the boxes go *besid
 than under it, the name shrinks and is clipped before the number is, and a node is 240 units wide
 because three lanes and a port called "Base Colour" is the widest a row gets.
 
+## A wire is chosen, and a note is written in
+
+**A press near a wire selects it and Delete disconnects it.** `NodeCanvas.WireAt` flattens the same
+cubic the wire layer draws — `NodeCanvas.Handles` is shared by both, because two copies of that
+arithmetic is a bug that only appears at one zoom or one orientation, where the picture and the target
+are a few pixels apart and nobody can say why the click missed. The nearest wire wins rather than the
+first, since wires bunch up where they enter a node.
+
+**⚠ The editor remembers the model's `GraphEdge`, not the canvas's `GraphWire`.** A reprojection
+assigns a whole new `CanvasGraph`, so every wire in the picture is replaced by an equal one at a
+different address; a view holding the object would lose the selection to any structural edit — moving
+a node, and the undo of the edit that made the selection.
+
+**⚠ And deleting one never touches the picture first.** `PulledOff` decides which connection the canvas
+picked up by returning the *first* model edge the picture is missing, so an optimistic wire-delete is a
+second reason for the two to disagree and the next reroute blames the wrong edge, silently.
+`DisconnectCommand` writes the model and the reprojection removes the wire.
+
+**A wire and a node are one selection with two shapes.** Delete has to mean one thing, so the canvas
+keeps them exclusive rather than every consumer remembering to. The cue is *thickness*: a wire is
+already drawn in the active colour when either end's node is selected, which is very often the wire
+about to be clicked.
+
+**A note is edited by double-clicking it, and the blur is what commits.** `SetCommentCommand` does not
+merge — unlike `SetPortValueCommand`, which folds a scrub into one entry — so writing per keystroke
+would be a paragraph's worth of undo entries. A note has no OK button and its Enter key is a line
+break, so leaving is the ordinary way to finish one; Escape abandons and Ctrl+Enter commits without
+moving the focus.
+
+**⚠ The label and the field both exist and one is hidden**, the way a tile's glyph and its picture are,
+because a note is pooled and removal is final here. And the reprojection does *not* rebind a note whose
+caret is in it: the field is the truth for the length of the edit, which is the same bargain the canvas
+makes during a wire drag.
+
+**⚠ A press inside any text field leaves the canvas alone**, not just a port's number boxes. `Begin`
+focuses the canvas, so a press into a field it contains would take the focus off the very field being
+clicked into — which commits the note and puts the caret nowhere.
+
 **⚠ The canvas hides a connected port's editor; the projection does not remove it.** The canvas is
 the thing that knows a wire was dropped, a frame before anything above it has recorded it. It is also
 what makes pulling a wire off bring the old number back rather than a zero.
@@ -383,13 +421,14 @@ chain comes out as a line of centres.
   be a lot of targets to answer a question a rectangle answers.
 - **A node in two groups is drawn in one of them.** The canvas's group membership is a back-pointer on
   the node, so it holds one; the model does not, because a document should not lose an author's
-  grouping to a drawing limitation.
-- **Sticky notes are shown, not edited.** `SetCommentCommand` is the edit; nothing in the view puts a
-  caret in one yet.
-- **Wires are not selectable.** `NodeCanvas` has no notion of a selected wire, so deleting a connection
-  is pulling it off and dropping it on nothing.
-- **Diagnostics mapped back from Raven.** A `NodeDiagnostic` carries a node and a port, which is half
-  of doc 07's requirement. Mapping a *generated shader's* span back to the node that emitted it needs
-  the emitter to record spans as it writes, and nothing does yet.
+  grouping to a drawing limitation. It survives a save and a load intact — `GraphGroupAsset` writes the
+  membership on the *group* — so what is lost is the picture and never the file.
+
+⚠ **Two entries that stood here are done and are described above instead:** sticky notes are edited in
+place, and a wire can be selected and deleted. The third — mapping a *generated shader's* span back to
+the node that emitted it — was also listed here as "nothing does yet", and that has been false since
+`RavenEmitter` began counting the lines it writes: `ShaderGraphCompiler` records a `ShaderGraphSpan`
+per node, `ShaderGraphSource.NodeAt` looks a line up, and `ShaderGraphView.vxml` consumes
+`ShaderGraphDocument.SourceNodeDiagnostics`. `NodeDiagnostic` declares a `NodeSpan Span`.
 
 Licensed under Apache-2.0.

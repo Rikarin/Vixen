@@ -462,6 +462,103 @@ public class ViewTests : IDisposable {
         Assert.DoesNotContain(Commands(DrawCommandKind.Image), command => command.Image == 77UL);
     }
 
+    // ── Sticky notes, edited in place ────────────────────────────────────────
+
+    (GraphComment Comment, NodeCommentView Note) Noted(string text = "why this is here") {
+        var comment = View.AddComment(text, new(100f, 100f))!;
+        fixture.Update();
+
+        return (comment, Assert.Single(View.Canvas.Surface.Children.OfType<NodeCommentView>()));
+    }
+
+    [Fact]
+    public void Double_clicking_a_note_puts_a_caret_in_it_and_the_blur_writes_it_back() {
+        var (comment, note) = Noted();
+
+        fixture.Click(note);
+        fixture.Click(note);
+
+        Assert.True(note.IsEditing);
+        Assert.Same(comment, View.EditedComment);
+        Assert.Equal("why this is here", note.Editor.Value);
+
+        note.Editor.Value = "because the normal is flipped";
+        fixture.Update();
+
+        // Nothing is written while the caret is in it: `SetCommentCommand` does not merge, so a note
+        // written through per keystroke would be a paragraph's worth of undo entries.
+        Assert.Equal("why this is here", comment.Text);
+
+        fixture.Ui.Focus(fixture.Canvas);
+        fixture.Update();
+
+        Assert.False(note.IsEditing);
+        Assert.Equal("because the normal is flipped", comment.Text);
+        Assert.Equal("because the normal is flipped", note.Body.Text);
+
+        // The whole edit, as one thing to undo.
+        Assert.Equal(2, fixture.Stack.Depth.Value);
+
+        fixture.Stack.Undo();
+        Assert.Equal("why this is here", comment.Text);
+    }
+
+    [Fact]
+    public void Escape_leaves_a_note_as_it_was() {
+        var (comment, note) = Noted();
+
+        Assert.True(View.BeginEditingComment(comment));
+
+        note.Editor.Value = "typed and thought better of";
+        fixture.Update();
+
+        fixture.Type(InputKey.Escape);
+
+        Assert.False(note.IsEditing);
+        Assert.Equal("why this is here", comment.Text);
+        Assert.Equal("why this is here", note.Body.Text);
+
+        // Only the `AddComment` that made it: abandoning an edit records nothing.
+        Assert.Equal(1, fixture.Stack.Depth.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ A reprojection runs on every structural change and rebinds each note's text from the
+    ///     model. Under an open editor that would throw away everything typed since the caret went in,
+    ///     which for a note is the whole of what somebody is doing.
+    /// </summary>
+    [Fact]
+    public void A_reprojection_does_not_stomp_a_note_being_written() {
+        var (comment, note) = Noted();
+
+        Assert.True(View.BeginEditingComment(comment));
+
+        note.Editor.Value = "half a sentence";
+
+        // The ordinary cause: adding a node touches the model, and the model reprojects.
+        graph.Add("Test/Colour", new(400f, 400f));
+        fixture.Update();
+
+        Assert.True(note.IsEditing);
+        Assert.Equal("half a sentence", note.Editor.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ A caret that appears, takes a paragraph and then quietly discards it is worse than one
+    ///     that never appeared.
+    /// </summary>
+    [Fact]
+    public void A_read_only_view_refuses_the_caret() {
+        var (comment, note) = Noted();
+
+        View.EditedDocument = null;
+        View.Stack = null;
+
+        Assert.False(View.BeginEditingComment(comment));
+        Assert.False(note.IsEditing);
+        Assert.Null(View.EditedComment);
+    }
+
     // ── Selectable wires ─────────────────────────────────────────────────────
 
     /// <summary>

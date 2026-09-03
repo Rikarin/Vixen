@@ -1640,8 +1640,13 @@ public sealed partial class NodeCanvas : Control {
     /// </remarks>
     void Pointed(PointerEvent args) {
         switch (args.Action) {
-            case PointerAction.Pressed
-                when args.Button == PointerButton.Primary && Under<NodePortEditor>(args.Source) is not null:
+            // ⚠ Any field, not only a port's boxes. `Begin` focuses the canvas, so a press inside a
+            // text field the canvas happens to contain — a port's number, a sticky note being
+            // written — would take the focus off the field being clicked into, which commits the
+            // edit and puts the caret nowhere. The field's own handlers are further along the same
+            // route, so this is left unhandled rather than swallowed.
+            case PointerAction.Pressed when args.Button == PointerButton.Primary
+                && (Under<NodePortEditor>(args.Source) is not null || Under<TextField>(args.Source) is not null):
                 return;
 
             case PointerAction.Pressed:

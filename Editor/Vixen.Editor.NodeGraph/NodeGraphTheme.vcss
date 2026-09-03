@@ -45,6 +45,22 @@ graph-note {
 
 graph-note.parked { display: none; }
 graph-note-body { color: var(--foreground-muted); white-space: pre-wrap; }
+graph-note-body.hidden { display: none; }
+
+/* The field takes the label's place and its whole box, so a note does not change size or shape when
+   a caret goes into it — a note that grew as it was clicked would move the wires drawn under it.
+   Transparent and borderless for the same reason: the note is already a raised surface with a border
+   round it, and a second one inside it reads as two notes. */
+textarea.graph-note-editor {
+    flex-grow: 1;
+    align-self: stretch;
+    padding: 0px;
+    border-width: 0px;
+    background-color: transparent;
+    color: var(--foreground);
+}
+
+textarea.graph-note-editor.hidden { display: none; }
 
 /* ── Search to create ───────────────────────────────────────────────── */
 node-search {
