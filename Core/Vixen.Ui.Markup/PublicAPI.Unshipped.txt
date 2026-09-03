@@ -25,6 +25,7 @@ Vixen.Ui.Markup.Binding.BoundAttributeKind.Key = 3 -> Vixen.Ui.Markup.Binding.Bo
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Parameter = 0 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Ref = 4 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Refs = 6 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Slot = 9 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Tag = 7 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundAttributeKind.Use = 8 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
 Vixen.Ui.Markup.Binding.BoundBranch -> sealed record
@@ -586,12 +587,14 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpression
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InvalidParameterName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MismatchedEndTag -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MisplacedSelf -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MisplacedSlotAttribute -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingComponentDirective -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingKey -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.NamedSlotOnElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ProjectedKey -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.RefInLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.RefsOutsideLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.SlotFallbackContent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.SyntaxError -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.TagOnElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnbalancedDelimiter -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

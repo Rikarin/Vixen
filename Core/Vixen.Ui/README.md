@@ -1466,13 +1466,25 @@ and the animation quietly loses its middle.
 
 ### Owed
 
-Named slot projection (`slot="footer"` on a child), and a longest-increasing-subsequence pass so a
-reorder moves a minimal set rather than every surviving item. The last one is correctness-neutral: a
-move that changes nothing returns immediately, so an unchanged list already costs a walk and nothing
-else.
+A longest-increasing-subsequence pass so a reorder moves a minimal set rather than every surviving
+item. It is correctness-neutral: `Region.Reposition` calls `Document.Move` once per element and
+`Move` returns immediately when the index has not changed, so an unchanged list already costs a walk
+and nothing else. What it costs today is a real move per element on a list that *has* been reordered
+— a rotation by one changes nearly every index — and each of those is a layout remove-and-insert
+plus a style-tree move.
 
-*(Both of the items that used to be here — a component rooted by its caller, and no teardown hook —
-are done; see above and below.)*
+Also owed: **fallback content in a `<slot>`**. `<slot name="footer">Nothing yet</slot>` is how every
+other framework spells a default, and it is `VXML2017` here — refused rather than supported, because
+building the fallback and then removing it if the slot turns out to be filled needs an ordering the
+build does not have: whether a consumer filled a slot is not known until the consumer's own build has
+run, which is after the component's.
+
+*(Named slot projection was the third item here. ⚠ It was listed as owed on the consumer's side alone
+and the declaring side as built, which was true and misleading: `Component.Slots` was written by
+`BuildContext.Slot` and read by exactly one line, looking up `default`, so a `<slot name="footer">`
+compiled, ran, and could not be filled by anything. `BuildContext.Into` is the other end of it, and
+`slot="footer"` on a direct child of a component tag is how a consumer reaches it. Two further items
+that used to be here — a component rooted by its caller, and no teardown hook — are also done.)*
 
 ### A component leaves when its branch does
 

@@ -419,11 +419,88 @@ public sealed class ComponentEmitter {
         // an expander whose rows hung off the control would sit beside the part that collapsing
         // hides, and could not be shut. Which of the two overloads this is resolves at C# compile
         // time, the way `Target` does it.
-        EmitNodes(
-            element.Children,
-            context,
-            element.IsComponent ? $"{RuntimeNamespace}.BuildContext.Inner({name})" : name
-        );
+        if (!element.IsComponent) {
+            EmitNodes(element.Children, context, name);
+            return;
+        }
+
+        EmitProjected(element.Children, context, name);
+    }
+
+    /// <summary>A component tag's children, each into the slot it named or the default one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A partition and not a per-child parent expression, because grouping is what keeps
+    ///         document order inside each slot.</b> Two children of one slot have to arrive under it
+    ///         in the order they were written; emitting each against its own <c>Into</c> call would
+    ///         also do that, but at the cost of one call per child rather than one per slot, on the
+    ///         hot path every component tag in the file takes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The unnamed children go first and keep the exact call the emitter always
+    ///         wrote.</b> Almost every component tag in the tree has no <c>slot="…"</c> on anything,
+    ///         and for those this has to produce byte-for-byte what it produced before — <c>Inner</c>
+    ///         resolves the default slot through <c>Component.Content</c>, which is not the same
+    ///         thing as <c>Into(…, "default")</c>: a component that declares no slot at all has no
+    ///         dictionary, and <c>Content</c> falls back to its root where <c>Into</c> would throw.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The named groups are emitted in first-appearance order, not sorted.</b> Generated
+    ///         code is read by people and diffed by the build; ordering it by anything other than the
+    ///         source would make moving one child in the <c>.vxml</c> reorder unrelated blocks in the
+    ///         <c>.g.cs</c>.
+    ///     </para>
+    /// </remarks>
+    void EmitProjected(ImmutableArray<BoundNode> children, string context, string name) {
+        List<(string Slot, List<BoundNode> Nodes)>? named = null;
+        List<BoundNode>? unnamed = null;
+
+        foreach (var child in children) {
+            var slot = child is BoundElement element ? SlotOf(element) : null;
+
+            if (slot is null) {
+                (unnamed ??= []).Add(child);
+                continue;
+            }
+
+            named ??= [];
+            var group = named.Find(entry => string.Equals(entry.Slot, slot, StringComparison.Ordinal));
+
+            if (group.Nodes is null) {
+                group = (slot, []);
+                named.Add(group);
+            }
+
+            group.Nodes.Add(child);
+        }
+
+        // The whole of what this method did before there were named slots, and still the only branch
+        // any existing markup reaches.
+        if (named is null) {
+            EmitNodes(children, context, $"{RuntimeNamespace}.BuildContext.Inner({name})");
+            return;
+        }
+
+        if (unnamed is not null) {
+            EmitNodes([.. unnamed], context, $"{RuntimeNamespace}.BuildContext.Inner({name})");
+        }
+
+        foreach (var (slot, nodes) in named) {
+            EmitNodes([.. nodes], context, $"{RuntimeNamespace}.BuildContext.Into({name}, {Quote(slot)})");
+        }
+    }
+
+    /// <summary>The slot a child addressed itself to, or null for the default one.</summary>
+    static string? SlotOf(BoundElement element) {
+        foreach (var attribute in element.Attributes) {
+            if (attribute.Kind == BoundAttributeKind.Slot) {
+                // A bare `slot` with no value names the default one, which is what an author who
+                // wrote it meant and is also what `Inner` would have done anyway.
+                return attribute.Literal ?? BuildContextDefaultSlot;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Evaluates a computed <c>tag</c> into a local, and hands back the local's name.</summary>
@@ -471,6 +548,12 @@ public sealed class ComponentEmitter {
             case BoundAttributeKind.Tag:
                 // Consumed by `EmitElement`, for the same reason: it is an argument to the call that
                 // makes the element, not a statement after it.
+                break;
+
+            case BoundAttributeKind.Slot:
+                // Consumed by `EmitProjected`, which is the enclosing component tag's business
+                // rather than this element's: it decides which parent this child is written under,
+                // and by the time an attribute is emitted that has already happened.
                 break;
 
             case BoundAttributeKind.Use when attribute.Expression is { } action:

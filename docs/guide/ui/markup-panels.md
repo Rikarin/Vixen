@@ -136,6 +136,41 @@ tab's own content lands where it shows. A tab pairs itself with a panel in `OnCr
 in `OnRemoved`, which is what lets an `@if` or `@for` add and remove tabs — markup removes elements
 without calling `RemoveTab`.
 
+### `slot`, for a component with more than one place for content
+
+A control has one `ContentHost`. A *component* can declare as many holes as it likes and let the
+consumer say which one each child goes in:
+
+```vxml no-compile="Core/Vixen.Ui.Controls.Tests/Markup/ToolbarShell.vxml"
+<shell-root>
+    <shell-toolbar><slot name="toolbar" /></shell-toolbar>
+    <shell-body><slot /></shell-body>
+    <shell-status><slot name="status" /></shell-status>
+</shell-root>
+```
+
+```vxml no-compile="Core/Vixen.Ui.Controls.Tests/Markup/ShellConsumer.vxml"
+<ToolbarShell>
+    <shell-note slot="status">Ready</shell-note>
+    <Button slot="toolbar" Label="Reload" />
+    <body-first>One</body-first>
+</ToolbarShell>
+```
+
+The shell decides the order: the status line is written first and drawn last. Children with no
+`slot` go to the default `<slot />`, and they keep their source order relative to each other.
+
+| | |
+|---|---|
+| Declaring a *named* slot | Needs a plain component. `@inherits` makes the class an element, which has one `ContentHost` and therefore one slot — a second name is `VXML2012`. |
+| Filling one | Any tag may, from anywhere. The restriction is on the declaring side only. |
+| Where `slot="…"` may go | On a **direct child of a component tag** and nowhere else — `VXML2016`. A grandchild's name is addressed to a tag that is not listening. |
+| A name that matches no slot | Throws at compose, naming the slots the component does declare. Not dropped: the two sides are compiled together, so it is a typo you can fix. |
+| Fallback content | Not supported — `VXML2017`. `<slot>Nothing yet</slot>` refuses rather than silently drawing nothing. Put the default in the consumer. |
+
+⚠ `slot="…"` is consumed at placement, like `key` and `tag`. It never reaches the document, so a
+stylesheet rule written against `[slot]` matches nothing.
+
 ### Where a `ref` may go
 
 | | |

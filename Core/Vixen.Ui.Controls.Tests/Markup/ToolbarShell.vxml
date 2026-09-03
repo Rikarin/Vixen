@@ -1,0 +1,29 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component ToolbarShell
+@namespace Vixen.Ui.Controls.Tests
+
+<!--
+    The toolbar / body / status shell four editor panels reproduce by hand. Written as a component
+    with three holes in it rather than as a control with three parts, because the parts differ per
+    panel and a `[UiProperty]` cannot carry an element tree.
+
+    ⚠ The default slot is in the middle, and the order the slots are *declared* in is the order they
+    are drawn in. A consumer writes its content in whatever order suits it and the shell decides
+    where each piece lands — which is the whole of what projection buys over three parameters.
+-->
+<shell-root>
+    <shell-toolbar>
+        <slot name="toolbar" />
+    </shell-toolbar>
+
+    <shell-body>
+        <slot />
+    </shell-body>
+
+    <shell-status>
+        <slot name="status" />
+    </shell-status>
+</shell-root>

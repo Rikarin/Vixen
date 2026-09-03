@@ -165,6 +165,51 @@ public class BinderTests {
         Assert.Equal(["VXML2005"], Ids("@component A\n<div><slot name=\"a\" /><slot name=\"a\" /></div>"));
     }
 
+    /// <summary>The consumer's half: <c>slot="footer"</c> is an attribute of its own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The whole reason it is a kind rather than a parameter is that a parameter is what it
+    ///     used to be.</b> Left as one, <c>&lt;p slot="footer" /&gt;</c> inside a component tag became
+    ///     an assignment to a property called <c>slot</c>, so the error was Roslyn's "no such member"
+    ///     on generated code, naming a problem the author could not see from the markup.
+    /// </remarks>
+    [Fact]
+    public void A_slot_attribute_names_the_slot_a_child_fills() {
+        var attribute = Assert.Single(
+            BindClean("@component A\n<Shell><p slot=\"footer\" /></Shell>")
+                .Content.OfType<BoundElement>()
+                .Single()
+                .Children.OfType<BoundElement>()
+                .Single()
+                .Attributes
+        );
+
+        Assert.Equal(BoundAttributeKind.Slot, attribute.Kind);
+        Assert.Equal("footer", attribute.Literal);
+    }
+
+    /// <summary>What makes it legal is the parent, so what refuses it is the parent.</summary>
+    /// <remarks>
+    ///     ⚠ Both halves, because either alone passes against a rule that checked the wrong thing: a
+    ///     rule keyed on the attribute's name refuses the legal case too, and one that checks nothing
+    ///     accepts the illegal one. The second string differs from the first only in the parent tag.
+    /// </remarks>
+    [Fact]
+    public void A_slot_attribute_belongs_on_a_component_tags_own_child() {
+        Assert.Empty(Ids("@component A\n<Shell><p slot=\"footer\" /></Shell>"));
+        Assert.Equal(["VXML2016"], Ids("@component A\n<div><p slot=\"footer\" /></div>"));
+
+        // ⚠ A grandchild is refused too, and refused once — by its own parent rather than by the
+        // component two levels up, which is the element the author has to move it out of.
+        Assert.Equal(["VXML2016"], Ids("@component A\n<Shell><div><p slot=\"footer\" /></div></Shell>"));
+    }
+
+    /// <summary>Content inside a slot was discarded in silence, and is now refused out loud.</summary>
+    [Fact]
+    public void A_slot_cannot_carry_fallback_content() {
+        Assert.Equal(["VXML2017"], Ids("@component A\n<slot name=\"footer\">Nothing yet</slot>"));
+        Assert.Empty(Ids("@component A\n<slot name=\"footer\" />"));
+    }
+
     /// <summary>
     ///     A component whose whole markup sits inside an <c>@if</c> builds something, and an
     ///     emptiness check that only looked at the top level would say it did not.

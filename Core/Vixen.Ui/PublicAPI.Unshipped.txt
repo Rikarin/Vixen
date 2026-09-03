@@ -1428,6 +1428,8 @@ static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.Composition.Component com
 static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Into(Vixen.Ui.Composition.Component component, string name) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Into(Vixen.Ui.UiElement element, string name) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Subscribe(string name, System.Action<Vixen.Ui.UiElement, System.Action<Vixen.Ui.UiEvent>, Vixen.Ui.Composition.EventSubscription> subscribe) -> void
 static Vixen.Ui.Composition.Literals.Of(bool shape, string text) -> bool
 static Vixen.Ui.Composition.Literals.Of(bool? shape, string text) -> bool?

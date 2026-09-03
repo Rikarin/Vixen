@@ -315,4 +315,52 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary><c>slot="…"</c> on something that is not a direct child of a component tag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Position is the whole of what makes this attribute legal, so position is what the
+    ///         rule checks.</b> <c>slot="footer"</c> tells a component which of its holes to put this
+    ///         child in, and only the component's own tag can read it — a <c>&lt;div&gt;</c> has no
+    ///         slots, and a grandchild's is addressed to a tag that is not listening.
+    ///     </para>
+    ///     <para>
+    ///         An error rather than a warning because the two silent readings are both bad: dropped,
+    ///         the child appears in the wrong place; honoured, it appears in the right place for the
+    ///         wrong reason and stops working when the markup is nested one level deeper.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor MisplacedSlotAttribute = new(
+        "VXML2016",
+        "'slot' is not on a component's child",
+        "'slot=\"{0}\"' says which of a component's slots this content fills, so it belongs on a "
+        + "direct child of a component tag. '<{1}>' is not one.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>Content written inside a <c>&lt;slot&gt;</c>, which nothing would ever draw.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Reported because it was discarded in silence, which is the worse half of not
+    ///         having the feature.</b> <c>&lt;slot name="footer"&gt;Nothing yet&lt;/slot&gt;</c> is
+    ///         how every other framework writes fallback content, so it is what an author reaches for
+    ///         — and the binder ignored the children outright, so it compiled, ran, and drew a hole
+    ///         where the words were meant to be.
+    ///     </para>
+    ///     <para>
+    ///         The feature itself is owed rather than refused: real fallback content has to be built
+    ///         and then removed if the slot turns out to be filled, and which of those happened is
+    ///         not known until the consumer's own build has run. Until it is, an error is the only
+    ///         honest answer — see the guide, which says to put the default in the consumer.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor SlotFallbackContent = new(
+        "VXML2017",
+        "a slot cannot carry fallback content",
+        "'<slot>' is a hole a consumer fills, and content written inside one is not drawn when the "
+        + "slot is empty. Give the default to the consumer instead.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }
