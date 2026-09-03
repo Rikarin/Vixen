@@ -714,6 +714,8 @@ Vixen.Ui.Controls.Advanced.NodeCanvas.RectOf(Vixen.Ui.Controls.Advanced.GraphNod
 Vixen.Ui.Controls.Advanced.NodeCanvas.Refresh() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.Select(Vixen.Ui.Controls.Advanced.GraphNode? node, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.SelectAll() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.SelectWire(Vixen.Ui.Controls.Advanced.GraphWire? wire) -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.SelectedWire.get -> Vixen.Ui.Controls.Advanced.GraphWire?
 Vixen.Ui.Controls.Advanced.NodeCanvas.Selection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.GraphNode>
 Vixen.Ui.Controls.Advanced.NodeCanvas.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas>?
 Vixen.Ui.Controls.Advanced.NodeCanvas.SnapToGrid.get -> bool
@@ -725,10 +727,13 @@ Vixen.Ui.Controls.Advanced.NodeCanvas.View.get -> Vixen.Core.Mathematics.Rectang
 Vixen.Ui.Controls.Advanced.NodeCanvas.ViewOf(Vixen.Ui.Controls.Advanced.GraphGroup group) -> Vixen.Ui.Controls.Advanced.NodeGroupView?
 Vixen.Ui.Controls.Advanced.NodeCanvas.Visible.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphNode>
 Vixen.Ui.Controls.Advanced.NodeCanvas.WireActiveColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireAt(float x, float y) -> Vixen.Ui.Controls.Advanced.GraphWire?
 Vixen.Ui.Controls.Advanced.NodeCanvas.WireColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.Advanced.NodeCanvas.WireCurvature.get -> float
 Vixen.Ui.Controls.Advanced.NodeCanvas.WireCurvature.set -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireHitRadius.get -> float
 Vixen.Ui.Controls.Advanced.NodeCanvas.WireLayer.get -> Vixen.Ui.Controls.Advanced.NodeWireLayer
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireSelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphWire?>?
 Vixen.Ui.Controls.Advanced.NodeCanvas.WireThickness.get -> float
 Vixen.Ui.Controls.Advanced.NodeCanvas.WireThickness.set -> float
 Vixen.Ui.Controls.Advanced.NodeCanvas.Zoom.get -> float
@@ -1328,6 +1333,7 @@ static Vixen.Ui.Controls.Advanced.DockLayout.Load(string yaml) -> Vixen.Ui.Contr
 static Vixen.Ui.Controls.Advanced.DockNode.FromYaml(Vixen.Core.Yaml.YamlNode? node) -> Vixen.Ui.Controls.Advanced.DockNode?
 static Vixen.Ui.Controls.Advanced.DockPanel.Fills(Vixen.Ui.UiElement element) -> bool
 static Vixen.Ui.Controls.Advanced.Hsv.FromRgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.Hsv
+static Vixen.Ui.Controls.Advanced.NodeCanvas.Handles(Vixen.Ui.Controls.Advanced.NodeCanvas canvas, Vixen.Core.Mathematics.Vector2 from, Vixen.Core.Mathematics.Vector2 to) -> (Vixen.Core.Mathematics.Vector2 First, Vixen.Core.Mathematics.Vector2 Second)
 static Vixen.Ui.Controls.Advanced.OkLch.FromSrgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.OkLch
 static Vixen.Ui.Controls.Advanced.PlainTokenizer.Instance.get -> Vixen.Ui.Controls.Advanced.PlainTokenizer
 static Vixen.Ui.Controls.Advanced.TextPosition.operator <(Vixen.Ui.Controls.Advanced.TextPosition left, Vixen.Ui.Controls.Advanced.TextPosition right) -> bool
