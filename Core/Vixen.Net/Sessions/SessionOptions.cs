@@ -78,4 +78,53 @@ public sealed record SessionOptions {
 
     /// <summary>The most bytes a client's authentication payload may be.</summary>
     public int MaxAuthenticationPayloadBytes { get; init; } = 512;
+
+    /// <summary>What one peer's own messages may cost, in bytes a second. Zero is no budget at all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A token bucket refilled from the <c>elapsed</c> handed to
+    ///         <see cref="NetworkSession.Update" />, so it is spent against the session's clock and
+    ///         not against the wall's. It covers what a game sends through
+    ///         <see cref="NetworkSession.SendToPlayer(PlayerId, ReadOnlySpan{byte}, Channel, int)" />
+    ///         and the two beside it, per player and per direction — not replication, which has
+    ///         <c>BandwidthBudget</c> of its own one layer down, and not the session's own pings and
+    ///         handshakes, which are what tell a struggling connection from a dead one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero by default, which is unmetered.</b> A budget that arrived switched on would
+    ///         change what an existing game sends, and a message silently not sent is the worst
+    ///         failure this stack has. A game opts in and then reads <c>ShedCount</c>.
+    ///     </para>
+    /// </remarks>
+    public int BytesPerSecondPerPlayer { get; init; }
+
+    /// <summary>How much of the budget may be saved up and spent at once.</summary>
+    /// <remarks>
+    ///     The bucket's depth. Traffic here is bursty by nature — a round starting, a scene loading —
+    ///     so a bucket that could not hold a burst would shed the one thing the budget exists to let
+    ///     through.
+    /// </remarks>
+    public int BurstBytes { get; init; } = 64 * 1024;
+
+    /// <summary>How much of the bucket only important messages may spend.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the shedding, and it is a reserve rather than an ordering.</b> With no queue
+    ///         at this layer there is nothing to sort: a send either goes now or does not go at all.
+    ///         So the bucket keeps a floor that a message below
+    ///         <see cref="ReservedPriority" /> may not draw on, and chatter stops while the traffic
+    ///         that matters keeps going — which is the behaviour "priority shedding" names.
+    ///     </para>
+    ///     <para>A quarter by default. Zero disables the reserve and leaves a plain bucket.</para>
+    /// </remarks>
+    public double ReservedFraction { get; init; } = 0.25;
+
+    /// <summary>The priority a message needs before it may spend the reserve.</summary>
+    /// <remarks>
+    ///     Higher is more important, which is the convention <c>[Replicated(Priority = …)]</c> already
+    ///     uses — a repository with two directions of priority has one direction and one trap. The
+    ///     default send priority is zero, so by default nothing reaches the reserve and a game opts
+    ///     traffic in to it explicitly.
+    /// </remarks>
+    public int ReservedPriority { get; init; } = 1;
 }
