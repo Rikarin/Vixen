@@ -452,9 +452,14 @@ Said out loud rather than left to be discovered:
 - **`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma. Real
   gamut mapping walks the chroma down until the colour fits; `IsInGamut` is how a picker can say so
   meanwhile.
-- **`StyleTree.AppendChild` is O(children) per append**, so an element with tens of thousands of
-  children is quadratic. Every control here virtualises well clear of it, which is not the same as
-  the problem being fixed.
+- ~~**`StyleTree.AppendChild` is O(children) per append**, so an element with tens of thousands of
+  children is quadratic.~~ **Fixed, and this bullet outlived the fix.** A child run reserves capacity
+  beyond its count and doubles on overflow — a run that is last in the arena grows where it stands
+  with no copy at any size, and one that is boxed in relocates at twice the room — so the copies fall
+  off geometrically and the amortised cost is constant (`Vixen.Ui.Styling/StyleTree.cs`, `AppendChild`).
+  ⚠ **The field for it had been there the whole time**: `ChildCapacity` existed, was set to zero and
+  was read by nothing. `Vixen.Ui.Styling.Tests/ChildArenaTests.cs` counts arena slots rather than
+  timing the loop, because a clock would fail on a loaded machine and pass on an idle one.
 - ~~**Nested struct members are shown read-only in `PropertyGrid`.**~~ They are editable, and the
   `ref`-accessor argument this used to make was wrong. An accessor takes its instance as `object`, so
   writing into the box a struct member comes back in changes a copy — true, and not the end of it:
