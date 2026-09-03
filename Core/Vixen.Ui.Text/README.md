@@ -233,10 +233,12 @@ its affinity fails 3.
 with no grapheme boundary inside it fails nothing, because the only such span belongs to a glyphless
 run and its advance is zero, so both its edges are the same number.
 
-⚠ **The callers have not moved yet.** `TextRun`, `TextLine`, `TextLayout` and `TextField` still pass
-a bare index, so a field's caret still cannot sit at both ends of a boundary — and `TextLine` and
-`TextLayout` each carry a *second* affinity question of their own (a run boundary, and a wrap
-boundary, which is what a caret arriving by pressing Down needs).
+⚠ **The layout stack carries it; the control does not yet.** `TextRun`, `TextLine` and `TextLayout`
+each grew the pair beside the index-only form, so the bit is asked three times on the way down and
+answers a different question each time — which line (a wrap), which run (a direction change), which
+cluster — and they agree in direction, which is why one bit carries all three. **`TextField` still
+passes a bare index**, so a field's caret cannot yet sit at both ends of a boundary; that half is
+owed.
 
 ⚠ **And the guard that kept the old round trip honest was doing nothing at all.** It read
 "only where the text runs one way" and was a bare `return` for a mixed-direction string — so
