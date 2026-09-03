@@ -626,7 +626,10 @@ in that package's README; the roadmap has the whole of Phase 9 in one place.
 - **The predicted step is a delegate, not the scheduler.** `PredictedStep<T>` is a callback the game
   supplies. What it should be is a re-entrant run of `SystemPhase.FixedUpdate`, so "what is simulated"
   and "what is replayed" cannot drift apart — and that wants the scheduler to be re-entrant, which it
-  is not.
+  is not. ⚠ **And it does not say it is not.** `SystemRunner.RunPhase` shares one job-handle array per
+  phase, one command buffer, and advances the world version again, so a nested run corrupts the outer
+  one silently — where `LocalTransport.Poll`, facing the same question, refuses with a message. The
+  refusal is worth having whether or not the nested run is ever built. Issue 496.
 - **A producer for `NetworkParent`.** Per-axis enable and parent-relative replication are built —
   `NetworkTransformAxes` narrows a replicator's lanes, `NetworkParent` names the frame a transform is
   quoted in, and `NetworkTransformApplySystem` holds a rider still until that frame exists rather than
@@ -642,7 +645,11 @@ in that package's README; the roadmap has the whole of Phase 9 in one place.
   some calls are dearer than others.
 - **Interest rules a game writes.** The chain takes any `IInterestRule`, and the team, room and
   fog-of-war resolvers doc 16 names are deliberately not shipped — each is a game's own idea of who
-  may see what.
+  may see what, and doc 16 § Interest management says so itself: *"users can add resolvers"*. ⚠ **What
+  is genuinely owed on that row is one line down: nothing outside a test builds an `InterestChain`.**
+  `Samples/08` passes no resolver at all and `Samples/09` passes its own `SliceResolver`, so
+  `InterestGrid`'s hysteresis and its source-not-a-filter design — the whole scaling argument — have
+  never run in a program. Issue 497.
 - **Generated encoders in the bit-exactness corpus.** Their *source* is pinned by
   `Vixen.Net.Generators.Tests` and every arithmetic primitive they emit is pinned by `Wire`, so what
   is uncovered is the composition rather than either half. Closing it means referencing the generator
