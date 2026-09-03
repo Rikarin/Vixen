@@ -447,14 +447,29 @@ Said out loud rather than left to be discovered:
   row begins at, and is all zeroes while wrapping is off — which is what makes every formula reduce
   to the one it had before. Off by default: code is written with the column mattering, and a diff, a
   compiler's column number and a ruler all agree with the unwrapped one.
-- **`CodeEditor` has no caret blink.** Blinking needs a host tick, which `Tooltip` and `ToastHost`
-  get from `UiDocument.Ticked`.
+- ~~**`CodeEditor` has no caret blink.** Blinking needs a host tick, which `Tooltip` and `ToastHost`
+  get from `UiDocument.Ticked`.~~ It blinks, and ⚠ **not from `UiDocument.Ticked`, which is what this
+  bullet used to say it was waiting for.** A tooltip subscribes because the moment it is waiting for
+  arrives when nothing is happening; a caret is only interesting on a frame that is being drawn
+  anyway, and `UiDocument.Draw` rebuilds the list and diffs it every frame. So `DrawCaret` reads
+  `Document.Now` and decides, which costs nothing on the frames it is not reached — and it is not
+  reached at all unless the editor has the focus. A subscription would have made every frame of a
+  shell with an unfocused code pane on it differ, and `EditorStillnessTests` measures that it does
+  not. ⚠ **`TextField` did not blink either** and nothing had written that down; both do now, four
+  lines each rather than through a shared base. The phase is measured from the last time the caret
+  moved, so typing holds it solid; `CaretBlink` is the half period and `TimeSpan.Zero` is a solid
+  caret, which is what a reduced-motion setting wants.
 - **`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma. Real
   gamut mapping walks the chroma down until the colour fits; `IsInGamut` is how a picker can say so
   meanwhile.
-- **`StyleTree.AppendChild` is O(children) per append**, so an element with tens of thousands of
-  children is quadratic. Every control here virtualises well clear of it, which is not the same as
-  the problem being fixed.
+- ~~**`StyleTree.AppendChild` is O(children) per append**, so an element with tens of thousands of
+  children is quadratic.~~ **Fixed, and this bullet outlived the fix.** A child run reserves capacity
+  beyond its count and doubles on overflow — a run that is last in the arena grows where it stands
+  with no copy at any size, and one that is boxed in relocates at twice the room — so the copies fall
+  off geometrically and the amortised cost is constant (`Vixen.Ui.Styling/StyleTree.cs`, `AppendChild`).
+  ⚠ **The field for it had been there the whole time**: `ChildCapacity` existed, was set to zero and
+  was read by nothing. `Vixen.Ui.Styling.Tests/ChildArenaTests.cs` counts arena slots rather than
+  timing the loop, because a clock would fail on a loaded machine and pass on an idle one.
 - ~~**Nested struct members are shown read-only in `PropertyGrid`.**~~ They are editable, and the
   `ref`-accessor argument this used to make was wrong. An accessor takes its instance as `object`, so
   writing into the box a struct member comes back in changes a copy — true, and not the end of it:

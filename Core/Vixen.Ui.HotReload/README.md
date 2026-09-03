@@ -113,7 +113,13 @@ that is wrong when a save does nothing at all.
 
 ## Who uses it
 
-`Editor/Vixen.Editor.Host`, behind `--hot-reload DIR`, which is the only caller. See
+`Editor/Vixen.Editor.Host`, behind `--hot-reload DIR`. ⚠ **It used to be the only caller and is not
+any more**, which is the direction that matters: `Platform/Vixen.Ui.Desktop.HotReload` fills
+`UiDevelopment.Mount` and `UiDevelopment.Started` from a `[ModuleInitializer]`, so an ordinary
+`UiApplication.Run` mounts through a `HotReloadHost` and polls a `HotReloadWatcher` on its frame
+event **for a project reference and no bootstrap at all** — which is how `Samples/02-HelloUi` and the
+`vixen-app` template get it. `Vixen.Editor.Inspector`, `Vixen.Editor.AssetEditors` and
+`Vixen.Editor.Terrain` resolve the host out of the service container. See
 [its README](../../Editor/Vixen.Editor.Host/README.md) for what each channel delivers in a real
 application — including the measurement that says a `.vxml` edit reaches a running process in tens
 of milliseconds and that a stylesheet held in a C# `const` cannot reach one at all.

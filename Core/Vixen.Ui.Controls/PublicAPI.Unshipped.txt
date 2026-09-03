@@ -681,6 +681,8 @@ Vixen.Ui.Controls.TextBox.TextBox() -> void
 Vixen.Ui.Controls.TextField -> abstract class
 Vixen.Ui.Controls.TextField : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.TextField.CaretAffinity.get -> Vixen.Ui.Text.CaretAffinity
+Vixen.Ui.Controls.TextField.CaretBlink.get -> System.TimeSpan
+Vixen.Ui.Controls.TextField.CaretBlink.set -> System.TimeSpan
 Vixen.Ui.Controls.TextField.CaretIndex.get -> int
 Vixen.Ui.Controls.TextField.ClearMaxLength() -> void
 Vixen.Ui.Controls.TextField.ClearPlaceholder() -> void
@@ -781,17 +783,25 @@ Vixen.Ui.Controls.VirtualizingPanel : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.VirtualizingPanel.BindRow.get -> System.Action<Vixen.Ui.UiElement, int>?
 Vixen.Ui.Controls.VirtualizingPanel.BindRow.set -> System.Action<Vixen.Ui.UiElement, int>?
 Vixen.Ui.Controls.VirtualizingPanel.ClearCount() -> void
+Vixen.Ui.Controls.VirtualizingPanel.ClearRowHeights() -> void
 Vixen.Ui.Controls.VirtualizingPanel.Count.get -> int
 Vixen.Ui.Controls.VirtualizingPanel.Count.set -> int
 Vixen.Ui.Controls.VirtualizingPanel.CreateRow.get -> System.Func<Vixen.Ui.Controls.VirtualizingPanel, Vixen.Ui.UiElement>?
 Vixen.Ui.Controls.VirtualizingPanel.CreateRow.set -> System.Func<Vixen.Ui.Controls.VirtualizingPanel, Vixen.Ui.UiElement>?
 Vixen.Ui.Controls.VirtualizingPanel.FirstItem.get -> int
+Vixen.Ui.Controls.VirtualizingPanel.HeightOf(int item) -> float
+Vixen.Ui.Controls.VirtualizingPanel.ItemAt(float offset) -> int
+Vixen.Ui.Controls.VirtualizingPanel.MeasureRows.get -> bool
+Vixen.Ui.Controls.VirtualizingPanel.MeasureRows.set -> bool
+Vixen.Ui.Controls.VirtualizingPanel.OffsetOf(int item) -> float
 Vixen.Ui.Controls.VirtualizingPanel.Realise() -> void
 Vixen.Ui.Controls.VirtualizingPanel.RowHeight.get -> float
 Vixen.Ui.Controls.VirtualizingPanel.RowOf(int item) -> Vixen.Ui.UiElement?
 Vixen.Ui.Controls.VirtualizingPanel.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
 Vixen.Ui.Controls.VirtualizingPanel.ScrollIntoView(int item) -> void
 Vixen.Ui.Controls.VirtualizingPanel.Scroller.get -> Vixen.Ui.Controls.ScrollView
+Vixen.Ui.Controls.VirtualizingPanel.SetRowHeight(int item, float height) -> void
+Vixen.Ui.Controls.VirtualizingPanel.TotalHeight.get -> float
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 const Vixen.Ui.Controls.ScrollView.SmoothingConstant = 0.075 -> float

@@ -138,6 +138,26 @@ contract — and is now labelled as insurance rather than as a covered claim.
 
 ## Owed
 
-A `vixen` CLI path for the same compile, for a build that wants the generated C# on disk.
+~~A `vixen` CLI path for the same compile, for a build that wants the generated C# on disk.~~
+**Refused, and it had been refused elsewhere the whole time this bullet asked for it.**
+
+Three documents disagreed. `docs/overview.md` § 1.7 marks the CLI-emit row ✅ and says in the same
+breath that it **will never carry the VXML components or the shader parameter keys**, on ADR-002
+grounds; `docs/plan/08-asset-pipeline-and-addressables.md` § `Vixen.Sdk` gives the long form, which
+`ShaderBindingsGenerator`'s header repeats — a build task writing `.cs` into `obj/` is right
+eventually and wrong on the first build after the input changes, because the compile it feeds has
+already read the previous answer. This bullet was the only one of the three asking for the verb, and
+it named no purpose.
+
+⚠ **The purpose it would have named is already served, and not by a CLI.** ADR-002's motive for
+generated C# on disk is that it be steppable, and `Directory.Build.props` sets
+`EmitCompilerGeneratedFiles=true` for every project in the tree — so the output of this generator is
+on disk after an ordinary `dotnet build`, under `obj/`, with the `#line` spans that make it step back
+into the `.vxml`. A `vixen markup` verb would add a *second* producer of the same type from the same
+input, which is the one thing a single source of truth cannot survive.
+
+The pieces are all public, and `Vixen.Ui.Markup.Tests` drives them standalone —
+`SyntaxTree.ParseText` → `Binder.Bind` → `ComponentEmitter.Emit`. So the verb is a small thing to
+write on the day something needs it. What is missing is not the code; it is the need.
 
 Licensed under Apache-2.0.

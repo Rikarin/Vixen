@@ -51,6 +51,18 @@ public abstract partial class TextField : Control {
     string composition = string.Empty;
     int compositionCaret;
 
+    // When the caret last moved, on the document's clock, and where it was when it last drew. The
+    // blink's phase is measured from the first of these rather than from zero, so typing holds the
+    // caret solid — see `CaretBlink`.
+    //
+    // ⚠ Noticed at draw time rather than stamped from a setter, and the reason is that `CaretIndex`
+    // is written from `OnValueChanged`, which a `[UiProperty]` will run on a field that has been
+    // removed from its document. `Document` throws on such an element; `OnDraw` cannot be reached on
+    // one. So the safe place to read a clock is the only place that is certain there is one.
+    TimeSpan caretRestarted;
+    int caretDrawn = -1;
+    CaretAffinity caretDrawnAffinity;
+
     /// <inheritdoc />
     protected override string TagName => "textbox";
 
@@ -89,6 +101,31 @@ public abstract partial class TextField : Control {
 
     /// <summary>Where the caret is, as a UTF-16 index into <see cref="Value" />.</summary>
     public int CaretIndex { get; private set; }
+
+    /// <summary>How long the caret spends on, and then off. Zero draws it solid.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Half a period, not a whole one</b>, because that is the number every platform
+    ///         exposes and the number a person setting it is thinking of. The default is 530 ms,
+    ///         Windows' own, and the phase is measured from the last time the caret moved rather than
+    ///         from a free-running clock — so the caret is solid on the frame a key lands and stays
+    ///         solid for as long as somebody is typing. A shared phase would blink out mid-word.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="TimeSpan.Zero" /> is a solid caret and is the accessibility answer.</b>
+    ///         A blink is motion, and motion beside the thing a user is reading is exactly what
+    ///         <c>prefers-reduced-motion</c> is about; a control that could only blink would have to be
+    ///         worked around rather than configured. Nothing in the tree sets it yet.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It costs a redraw twice a period, and only while this field has the focus.</b>
+    ///         <see cref="OnDraw" /> returns before anything else when it does not, so an interface
+    ///         with forty fields on it and none of them focused is as still as it was — which is what
+    ///         <c>EditorStillnessTests</c> measures and what a blink built on a subscription rather
+    ///         than on the draw would have broken.
+    ///     </para>
+    /// </remarks>
+    public TimeSpan CaretBlink { get; set; } = TimeSpan.FromMilliseconds(530);
 
     /// <summary>Which of the two characters either side of <see cref="CaretIndex" /> the caret is on.</summary>
     /// <remarks>
@@ -412,6 +449,41 @@ public abstract partial class TextField : Control {
     /// </remarks>
     protected bool ShowsCaret => !ReadOnly && !Disabled;
 
+    /// <summary>Whether the caret is drawn on this frame, which is <see cref="ShowsCaret" /> and the blink.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two properties, and the draw asks this one.</b> <see cref="ShowsCaret" /> answers
+    ///         whether this field has an insertion point at all, which is a fact about the field;
+    ///         whether it is lit right now is a fact about the frame. Folding the second into the
+    ///         first would make a subclass asking "does this field have a caret" get a different
+    ///         answer twice a second — which is why <c>ShowsCaret</c> stays <c>protected</c> and this
+    ///         is private: no subclass draws its own caret, and one that started to would want the
+    ///         fact rather than the phase.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A period is <see cref="CaretBlink" /> twice over and the first half is on</b>, so
+    ///         a caret that has just moved is lit — <c>caretRestarted</c> is stamped in the same draw
+    ///         that notices the move, and integer division of a zero elapsed gives an even quotient.
+    ///     </para>
+    /// </remarks>
+    bool CaretIsLit {
+        get {
+            if (!ShowsCaret) {
+                return false;
+            }
+
+            if (CaretBlink <= TimeSpan.Zero) {
+                return true;
+            }
+
+            var since = Document.Now - caretRestarted;
+
+            // A clock that went backwards is a host that reset it, not a caret that is half-way
+            // through a period. Lit is the answer that cannot look broken.
+            return since < TimeSpan.Zero || since.Ticks / CaretBlink.Ticks % 2 == 0;
+        }
+    }
+
     /// <summary>What colour to draw the insertion point in.</summary>
     /// <remarks>
     ///     <para>
@@ -446,7 +518,20 @@ public abstract partial class TextField : Control {
         base.OnDraw(context);
 
         if (!IsFocused) {
+            // ⚠ Held at the start of a period rather than left where it was, so that a field
+            // refocused at the index it was last focused at gets a lit caret on the first frame
+            // instead of resuming half-way through an off half. A click has to show something.
+            caretRestarted = Document.Now;
+            caretDrawn = -1;
             return;
+        }
+
+        // The caret went somewhere since the last frame that drew it, so the blink starts again.
+        // See `caretRestarted` for why this is noticed here rather than stamped from a setter.
+        if (caretDrawn != DisplayCaret || caretDrawnAffinity != CaretAffinity) {
+            caretDrawn = DisplayCaret;
+            caretDrawnAffinity = CaretAffinity;
+            caretRestarted = Document.Now;
         }
 
         var origin = text.AbsoluteLeft;
@@ -462,7 +547,7 @@ public abstract partial class TextField : Control {
         // The height is the text element's own, which is a real number because the theme gives
         // `field-text` a `min-height` — the same declaration that stops an empty field collapsing.
         if (text.Block() is not { } block) {
-            if (ShowsCaret) {
+            if (CaretIsLit) {
                 context.FillRectangle(
                     new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
                     CaretColour(context)
@@ -513,7 +598,7 @@ public abstract partial class TextField : Control {
             PaintComposition(context, block, origin, top, text.Text?.Length ?? 0);
         }
 
-        if (!ShowsCaret) {
+        if (!CaretIsLit) {
             return;
         }
 

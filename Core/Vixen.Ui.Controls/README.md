@@ -319,8 +319,19 @@ Said out loud rather than left to be discovered:
 - ~~**`TextArea` is a taller `TextBox`.**~~ The framework wraps a line now, and the theme is where
   the difference lives: `field-text` is `white-space: nowrap` so a field's long value scrolls
   sideways, and `textarea field-text` is `normal` so its text stays inside and the box grows
-  downwards. Still owed is the *editing* half — a caret that moves between lines, and Enter starting
-  one — which is the text editor's item.
+  downwards. ~~Still owed is the *editing* half — a caret that moves between lines, and Enter starting
+  one — which is the text editor's item.~~ ⚠ **That sentence outlived the work**: `AcceptsNewlines`,
+  Up/Down carrying the caret affinity, line-relative Home/End, Enter inserting a `\n` and Ctrl-Enter
+  still submitting are all in `TextField`, and `MarkupTests` pins the last of those because it is the
+  one collision between two claimants for the same key.
+- ~~**The caret does not blink.**~~ It does, and ⚠ **without a subscription**, which is the part worth
+  knowing. `UiDocument.Draw` rebuilds the draw list and diffs it every frame, so a caret only has to
+  read `Document.Now` where it is already being painted — and `OnDraw` returns before that on a field
+  without the focus, so an interface with forty fields on it costs exactly what it did. A
+  `UiDocument.Ticked` handler, which is what `Tooltip` needs and what this looked like it needed,
+  would have made every one of those frames differ. `CaretBlink` is the half period, the phase is
+  measured from the last time the caret moved so typing holds it solid, and `TimeSpan.Zero` is a solid
+  caret for a reduced-motion setting.
 - ~~**Timed behaviour needs a host tick.**~~ `Tooltip` and `ToastHost` subscribe to
   `UiDocument.Ticked` and unsubscribe in `OnRemoved`, so a host that drives `UiDocument.Tick` gets
   the delay and the lifetime without knowing that either control exists. Nothing here is told what
@@ -332,7 +343,29 @@ Said out loud rather than left to be discovered:
   forces that — but removing the select now takes it, and the two capture handlers with it.
 - ~~**`VirtualizingPanel` is not here.**~~ It is, and it is the primitive doc 09 asks for: a count, a
   row height, a factory and a binder. A hundred thousand items is a hundred thousand of the caller's
-  own objects and about a dozen elements. ⚠ Fixed row heights only — virtualisation has to know where
+  own objects and about a dozen elements. ~~⚠ Fixed row heights only — virtualisation has to know where
   row 40 000 is without measuring the 39 999 above it, and variable heights need a running-sum index
-  that is a different control. Nothing has to call `Realise`: it runs on `UiDocument.LayoutFinished`,
-  which is the only place that knows how tall the viewport ended up.
+  that is a different control.~~ The index is here, and ⚠ **it is not a different control**: `TreeView`
+  delegates its pool to this one, so a second would have duplicated the pool, the parking, the
+  `LayoutFinished` subscription, `RowOf` and `ScrollIntoView` to gain one array — and a caller wanting
+  one row taller than the rest would have had to choose a control rather than set a property. A
+  Fenwick tree over each item's difference from `--row-height` makes an offset, the total and "which
+  item is at this offset" logarithmic; the uniform path is untouched and is what runs until something
+  calls `SetRowHeight` or turns `MeasureRows` on. Nothing has to call `Realise`: it runs on
+  `UiDocument.LayoutFinished`, which is the only place that knows how tall the viewport ended up.
+  - ⚠ **The heights are absolute and the tree holds the differences**, not the other way round. The
+    estimate comes out of the cascade, so a caller setting heights before the first style pass sets
+    them against `--row-height`'s *fallback* — and a delta-only index cannot be re-based when the
+    estimate arrives, because a stored zero is indistinguishable from an item nobody measured.
+  - ⚠ **`MeasureRows` is an estimate being corrected, so the scroll is anchored across a correction.**
+    Learning that the rows above the viewport are taller than the estimate moves everything below them
+    down on a frame the reader did nothing. It also has to *settle*: heights come from a layout that
+    depends on the heights, and a virtualiser that asks for another pass for ever draws a frame
+    permanently one pass stale with no sign of it but `UiDocument.Settled`.
+  - ⚠ **Nothing in the tree turns either on yet, and that is worth saying rather than hiding.** The
+    three virtualised lists here are uniform on purpose: a tree node is one line, an asset tile is a
+    square, and the console's long message goes to its *detail pane* rather than to a taller row —
+    which is what Unity does and what the pane exists for. So this is a primitive without a caller,
+    which is this repository's commonest defect; it is written down here and filed rather than left
+    to be discovered by somebody grepping for callers. What would change the answer is a list whose
+    rows genuinely differ — a diff view, an inspector with expandable rows, a chat log.
