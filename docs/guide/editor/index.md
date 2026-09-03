@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Ui.EditorShell, T:Vixen.Editor.Ui.EditorCommand, T:Vixen.Ed
 tags: [editor, shell, commands, keybindings]
 since: 0.1
 status: preview
-related: [ui/commands, ui/dialogs, ui/strings, ui/background-tasks, editor/modes, editor/play-mode-systems, editor/external-edits, editor/scene-menus, editor/prefab-overrides, editor/icons, editor/utility-styles, editor/editing-pipeline, editor/writing-a-plugin, editor/editor-scripts, editor/inspectors-in-markup, editor/frame-panel, editor/network-panel, editor/sub-object-picking, editor/selection-cage, editor/snapping, editor/precision, editor/mesh-editing, editor/element-selection, editor/shape-tool, editor/face-materials, editor/booleans, editor/retopology-and-uv-surfaces, editor/vfx-graph, editor/shader-graph-previews, editor/graph-diagnostics]
+related: [ui/commands, ui/dialogs, ui/strings, ui/background-tasks, editor/modes, editor/play-mode-systems, editor/external-edits, editor/scene-menus, editor/prefab-overrides, editor/icons, editor/utility-styles, editor/editing-pipeline, editor/writing-a-plugin, editor/editor-scripts, editor/inspectors-in-markup, editor/frame-panel, editor/network-panel, editor/sub-object-picking, editor/selection-cage, editor/snapping, editor/precision, editor/mesh-editing, editor/element-selection, editor/shape-tool, editor/face-materials, editor/booleans, editor/retopology-and-uv-surfaces, editor/vfx-graph, editor/shader-graph-previews, editor/shader-graph-materials, editor/graph-diagnostics]
 ---
 
 ## What it is
