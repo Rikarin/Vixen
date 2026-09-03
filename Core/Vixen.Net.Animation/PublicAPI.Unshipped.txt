@@ -61,6 +61,10 @@ Vixen.Net.Animation.NetworkAnimatorReplicator.Priority.get -> int
 Vixen.Net.Animation.NetworkAnimatorReplicator.TypeId.get -> uint
 Vixen.Net.Animation.NetworkAnimatorReplicator.TypeName.get -> string
 Vixen.Net.Animation.NetworkAnimatorReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Animation.NetworkBonePrecision -> sealed class
+Vixen.Net.Animation.NetworkBonePrecision.IsFull.get -> bool
+Vixen.Net.Animation.NetworkBonePrecision.Suffix.get -> string
+Vixen.Net.Animation.NetworkBonePrecision.this[int slot].get -> int
 Vixen.Net.Animation.NetworkBoneSelection -> struct
 Vixen.Net.Animation.NetworkBoneSelection.Joints -> int[]?
 Vixen.Net.Animation.NetworkBoneSelection.NetworkBoneSelection() -> void
@@ -105,6 +109,8 @@ Vixen.Net.Animation.NetworkBonesReplicator.ComponentType.get -> Vixen.Core.Compo
 Vixen.Net.Animation.NetworkBonesReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
 Vixen.Net.Animation.NetworkBonesReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
 Vixen.Net.Animation.NetworkBonesReplicator.NetworkBonesReplicator() -> void
+Vixen.Net.Animation.NetworkBonesReplicator.NetworkBonesReplicator(Vixen.Net.Animation.NetworkBonePrecision precision) -> void
+Vixen.Net.Animation.NetworkBonesReplicator.Precision.get -> Vixen.Net.Animation.NetworkBonePrecision
 Vixen.Net.Animation.NetworkBonesReplicator.Priority.get -> int
 Vixen.Net.Animation.NetworkBonesReplicator.TypeId.get -> uint
 Vixen.Net.Animation.NetworkBonesReplicator.TypeName.get -> string
@@ -112,6 +118,8 @@ Vixen.Net.Animation.NetworkBonesReplicator.Write(Vixen.Ecs.World world, Vixen.Co
 const Vixen.Net.Animation.NetworkAnimatorApplySystem.CorrectionCrossfade = 0.1 -> float
 const Vixen.Net.Animation.NetworkAnimatorReplicator.MaxParameters = 16 -> int
 const Vixen.Net.Animation.NetworkAnimatorReplicator.TimeBits = 8 -> int
+const Vixen.Net.Animation.NetworkBonePrecision.MaxBits = 10 -> int
+const Vixen.Net.Animation.NetworkBonePrecision.MinBits = 4 -> int
 const Vixen.Net.Animation.NetworkBonesReplicator.MaxBones = 24 -> int
 override Vixen.Net.Animation.NetworkAnimatorApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -119,3 +127,8 @@ override Vixen.Net.Animation.NetworkBonesApplySystem.Update(in Vixen.Ecs.Systems
 override Vixen.Net.Animation.NetworkBonesCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 static Vixen.Net.Animation.NetworkAnimatorReplicator.SpeedRange.get -> Vixen.Net.Messaging.QuantizeRange
 static Vixen.Net.Animation.NetworkAnimatorReplicator.TimeRange.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Animation.NetworkBonePrecision.For(System.ReadOnlySpan<int> bits) -> Vixen.Net.Animation.NetworkBonePrecision
+static Vixen.Net.Animation.NetworkBonePrecision.Full.get -> Vixen.Net.Animation.NetworkBonePrecision
+static Vixen.Net.Animation.NetworkBonePrecision.Uniform(int bits) -> Vixen.Net.Animation.NetworkBonePrecision
+static Vixen.Net.Animation.NetworkBonesReplicator.Narrow(uint packed, int bits) -> uint
+static Vixen.Net.Animation.NetworkBonesReplicator.Widen(uint narrow, int bits) -> uint

@@ -16,6 +16,18 @@
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+
+        <!--
+            The dashboard travels with the package that produces the numbers, and is copied to the
+            output of anything that references it — which is what lets `DashboardCoverageTests` read
+            it beside the live meter and fail when the two disagree. ⚠ A dashboard is the
+            observability artefact most likely to be silently wrong: a renamed metric leaves a panel
+            drawing "No data", which is what a healthy quiet server looks like.
+        -->
+        <Content Include="dashboards\**\*.json"
+                 Pack="true"
+                 PackagePath="dashboards"
+                 CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>

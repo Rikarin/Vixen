@@ -66,6 +66,33 @@ public sealed record TelemetryOptions {
     /// </remarks>
     public bool AlsoWriteToConsole { get; init; }
 
+    /// <summary>Whether to export a span per handshake alongside the metrics.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         On by default, because a handshake is rare and the question it answers is one no metric
+    ///         can: <i>which</i> step a failed connection died at. A busy server accepts a few players
+    ///         a minute, so this is not the instrument that costs anything — the tick is, and the tick
+    ///         is deliberately a histogram rather than a span.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Turning it off leaves the instrumentation in place and unlistened, which costs
+    ///         nothing measurable: <c>ActivitySource.StartActivity</c> returns null when no listener
+    ///         is registered, and the session is written to be handed that null.
+    ///     </para>
+    /// </remarks>
+    public bool IncludeTraces { get; init; } = true;
+
+    /// <summary>What share of handshakes are traced. One is all of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>All of them, which is the wrong default for a request trace and the right one here.</b>
+    ///     A web service samples because it serves thousands of requests a second; a match server
+    ///     handshakes a few dozen times a match, and a sampled trace of an event that rare is a trace
+    ///     that is missing exactly the connection somebody is asking about. A fleet large enough for
+    ///     that to add up sets this, and setting it is then a decision somebody made rather than a
+    ///     default they inherited.
+    /// </remarks>
+    public double TraceSampleRatio { get; init; } = 1.0;
+
     /// <summary>Extra resource attributes: region, cluster, game mode, whatever the fleet is cut by.</summary>
     public IReadOnlyDictionary<string, object>? Attributes { get; init; }
 }

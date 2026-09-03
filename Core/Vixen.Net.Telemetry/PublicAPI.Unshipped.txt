@@ -16,6 +16,8 @@ Vixen.Net.Telemetry.TelemetryOptions.ExportInterval.get -> System.TimeSpan
 Vixen.Net.Telemetry.TelemetryOptions.ExportInterval.init -> System.TimeSpan
 Vixen.Net.Telemetry.TelemetryOptions.IncludeRuntimeMetrics.get -> bool
 Vixen.Net.Telemetry.TelemetryOptions.IncludeRuntimeMetrics.init -> bool
+Vixen.Net.Telemetry.TelemetryOptions.IncludeTraces.get -> bool
+Vixen.Net.Telemetry.TelemetryOptions.IncludeTraces.init -> bool
 Vixen.Net.Telemetry.TelemetryOptions.ServiceInstanceId.get -> string?
 Vixen.Net.Telemetry.TelemetryOptions.ServiceInstanceId.init -> string?
 Vixen.Net.Telemetry.TelemetryOptions.ServiceName.get -> string
@@ -23,4 +25,6 @@ Vixen.Net.Telemetry.TelemetryOptions.ServiceName.init -> string
 Vixen.Net.Telemetry.TelemetryOptions.ServiceVersion.get -> string?
 Vixen.Net.Telemetry.TelemetryOptions.ServiceVersion.init -> string?
 Vixen.Net.Telemetry.TelemetryOptions.TelemetryOptions() -> void
+Vixen.Net.Telemetry.TelemetryOptions.TraceSampleRatio.get -> double
+Vixen.Net.Telemetry.TelemetryOptions.TraceSampleRatio.init -> double
 static Vixen.Net.Telemetry.NetworkTelemetry.Start(Vixen.Net.Telemetry.TelemetryOptions? options = null) -> Vixen.Net.Telemetry.NetworkTelemetry

@@ -4,6 +4,7 @@
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Vixen.Net.Diagnostics;
 
 namespace Vixen.Net.Telemetry;
@@ -36,9 +37,11 @@ namespace Vixen.Net.Telemetry;
 /// </remarks>
 public sealed class NetworkTelemetry : IDisposable {
     readonly MeterProvider provider;
+    readonly TracerProvider? tracing;
 
-    NetworkTelemetry(MeterProvider provider, NetworkMetrics metrics) {
+    NetworkTelemetry(MeterProvider provider, TracerProvider? tracing, NetworkMetrics metrics) {
         this.provider = provider;
+        this.tracing = tracing;
         Metrics = metrics;
     }
 
@@ -95,7 +98,42 @@ public sealed class NetworkTelemetry : IDisposable {
             );
         }
 
-        return new(builder.Build(), metrics);
+        return new(builder.Build(), Tracing(settings, resource), metrics);
+    }
+
+    /// <summary>Builds the span pipeline, or nothing when traces are off.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second provider rather than a second exporter on the first.</b> Metrics and traces
+    ///     are separate signals with separate pipelines in the OpenTelemetry SDK — they share the
+    ///     resource, which is why it is built once above and handed to both, and nothing else. A
+    ///     server that wants only one of them turns the other off and links the same package.
+    /// </remarks>
+    static TracerProvider? Tracing(TelemetryOptions settings, ResourceBuilder resource) {
+        if (!settings.IncludeTraces) {
+            return null;
+        }
+
+        var builder = Sdk.CreateTracerProviderBuilder()
+            .SetResourceBuilder(resource)
+            .AddSource(NetworkActivity.SourceName);
+
+        if (settings.TraceSampleRatio < 1.0) {
+            builder.SetSampler(new TraceIdRatioBasedSampler(Math.Max(0, settings.TraceSampleRatio)));
+        }
+
+        builder.AddOtlpExporter(
+            exporter => {
+                if (settings.Endpoint is not null) {
+                    exporter.Endpoint = settings.Endpoint;
+                }
+            }
+        );
+
+        if (settings.AlsoWriteToConsole) {
+            builder.AddConsoleExporter();
+        }
+
+        return builder.Build();
     }
 
     /// <summary>Flushes anything not yet exported.</summary>
@@ -105,11 +143,24 @@ public sealed class NetworkTelemetry : IDisposable {
     ///     Worth calling before a match server exits. The last export interval is the one that
     ///     covers how the match ended, which is the interval somebody is going to go looking for.
     /// </remarks>
-    public bool Flush(TimeSpan timeout) => provider.ForceFlush((int)timeout.TotalMilliseconds);
+    /// <remarks>
+    ///     ⚠ Both signals, and both are asked before either answer is returned rather than
+    ///     short-circuiting on the first failure. A metrics pipeline that cannot reach the collector
+    ///     is the ordinary case this whole type is written around, and letting it skip the trace
+    ///     flush would lose the spans for exactly the shutdown somebody is investigating.
+    /// </remarks>
+    public bool Flush(TimeSpan timeout) {
+        var milliseconds = (int)timeout.TotalMilliseconds;
+        var metrics = provider.ForceFlush(milliseconds);
+        var spans = tracing?.ForceFlush(milliseconds) ?? true;
+
+        return metrics && spans;
+    }
 
     /// <summary>Stops exporting and closes the meter.</summary>
     public void Dispose() {
         provider.Dispose();
+        tracing?.Dispose();
         Metrics.Dispose();
     }
 }

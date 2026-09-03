@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.Metrics;
+using Vixen.Ecs;
 using Vixen.Net.Diagnostics;
+using Vixen.Net.Messaging;
+using Vixen.Net.Replication;
 using Vixen.Net.Tests.Sessions;
 using Vixen.Net.Transport;
 using Vixen.Net.Transport.Local;
@@ -200,6 +203,42 @@ public sealed class NetworkMetricsTests {
 
         Assert.Equal(0.0025, collector.Value("vixen.net.tick.duration"), 6);
         Assert.Equal(480, collector.Value("vixen.net.snapshot.size"));
+    }
+
+    /// <summary>The client's three, which are the numbers no server-side one can answer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The rejection is produced rather than asserted about.</b> A test that set the fields
+    ///     by hand would be checking that a struct copies, which is not the claim — the claim is that
+    ///     a snapshot a client could not decode reaches a collector as a number somebody can alert
+    ///     on. So this feeds a real <c>ReplicationClient</c> a type id nothing registered, which is
+    ///     the shape of the failure that matters: two peers disagreeing about a wire format.
+    /// </remarks>
+    [Fact]
+    public void TheClientPublishesWhatWentWrongForThePlayer() {
+        using var world = new World("metrics-client");
+        var client = new ReplicationClient(new ReplicationRegistry());
+        var writer = new BitWriter(new byte[128]);
+
+        writer.WriteUInt32(7);
+        writer.WriteBool(false);
+        writer.WriteBool(true);
+        writer.WriteVariable(1);
+        writer.WriteVariable(0xDEAD);
+        writer.WriteUInt32(0);
+
+        Assert.True(writer.TryFinish(out var snapshot));
+        Assert.False(client.TryApply(world, snapshot));
+
+        using var metrics = new NetworkMetrics { Client = client };
+        using var collector = new Collector();
+
+        metrics.Sample();
+        collector.Collect();
+
+        Assert.Contains("vixen.net.client.entities", collector.Names);
+        Assert.Contains("vixen.net.client.snapshots.stale", collector.Names);
+        Assert.Equal(1, collector.Value("vixen.net.client.snapshots.rejected"));
+        Assert.Equal(0, collector.Value("vixen.net.client.entities"));
     }
 
     /// <summary>A transport that does nothing but count, which is all the meter asks of one.</summary>
