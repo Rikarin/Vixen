@@ -124,7 +124,7 @@ exactly right.
 `onOwnerDisconnect` is the one field whose answer is an *action* rather than a permission, so
 something has to take it. On the server, wire the session's `PlayerLeft` to the spawner:
 
-```csharp
+```csharp no-compile="one wiring line, against a session and spawner a page cannot construct"
 session.PlayerLeft += (player, _) => spawner.OnOwnerLeft(world, player.Id);
 ```
 
