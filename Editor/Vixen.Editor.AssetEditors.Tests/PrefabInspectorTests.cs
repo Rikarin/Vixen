@@ -451,6 +451,164 @@ public class PrefabInspectorTests : IDisposable {
         Assert.Equal("Turret (outer)", value);
     }
 
+    // ── The gizmo ───────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>⚠ A gizmo drag claims the member it moved, and only that one.</summary>
+    /// <remarks>
+    ///     <b>The drag is an edit and an edit is a claim.</b> The inspector's route through
+    ///     <c>InspectorField.Apply</c> was the only one that said so, and a viewport drag is the
+    ///     commonest edit an author makes — so an unclaimed one is the template's value by
+    ///     definition and the drag is discarded by the next reconcile.
+    ///     <para>
+    ///         ⚠ <b>Rotation and scale must stay unclaimed.</b> Claiming all three on every move would
+    ///         block the template's next change to them for ever, silently, which is a worse loss than
+    ///         the one being fixed.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AGizmoDragClaimsTheMemberItMoved() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
+        var asset = Publish(fixture, Template(new(5f, 0f, 0f), 7f));
+
+        Assert.True(Prefab.TryPlace(scene, fixture.Project.Assets, asset, Entity.Null, out var root, out _));
+        Settle(world);
+
+        Drag(scene, root, new(25f, 0f, 0f));
+
+        Assert.True(scene.Prefabs.IsOverridden(root, nameof(SceneEntityData.Position)));
+        Assert.False(scene.Prefabs.IsOverridden(root, nameof(SceneEntityData.Rotation)));
+        Assert.False(scene.Prefabs.IsOverridden(root, nameof(SceneEntityData.Scale)));
+    }
+
+    /// <summary>⚠ The dragged position is still there after a save and a reopen.</summary>
+    /// <remarks>
+    ///     The end-to-end shape of the loss: a reconcile writes the template's value over every member
+    ///     the instance does not claim, so a drag nobody claimed comes back where the prefab says.
+    /// </remarks>
+    [Fact]
+    public void AGizmoDragSurvivesSavingAndOpening() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
+        var asset = Publish(fixture, Template(new(5f, 0f, 0f), 7f));
+
+        Assert.True(Prefab.TryPlace(scene, fixture.Project.Assets, asset, Entity.Null, out var root, out _));
+        Settle(world);
+
+        Drag(scene, root, new(25f, 0f, 0f));
+
+        var level = AssetId.New();
+
+        var path = fixture.WriteAsset(
+            "Assets/level" + SceneFile.Extension,
+            SceneSerializer.ToYaml(scene),
+            $"guid: {level}\nmetaVersion: 1\n"
+        );
+
+        fixture.Project.Open();
+
+        using var reopened = new World("Reopened");
+        var again = (SceneDocument) new SceneEditorFactory(_ => reopened).Open(new(fixture.Project, level, path));
+
+        Assert.True(again.TryGetEntity(scene.IdOf(root), out var entity));
+        Assert.Equal(new Vector3(25f, 0f, 0f), reopened.Read<LocalTransform>(entity).Position);
+    }
+
+    /// <summary>⚠ Undo takes the claim back with the transform, in one step.</summary>
+    /// <remarks>
+    ///     <c>PrefabSource.Claim</c>'s reason, restated for the viewport: a Ctrl+Z that put the object
+    ///     back and left the instance still claiming its position would leave the level saying
+    ///     something its author never said, and would block the template for ever.
+    /// </remarks>
+    [Fact]
+    public void UndoingAGizmoDragTakesTheClaimBack() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
+        var asset = Publish(fixture, Template(new(5f, 0f, 0f), 7f));
+
+        Assert.True(Prefab.TryPlace(scene, fixture.Project.Assets, asset, Entity.Null, out var root, out _));
+        Settle(world);
+
+        Drag(scene, root, new(25f, 0f, 0f));
+
+        Assert.True(scene.Prefabs.IsOverridden(root, nameof(SceneEntityData.Position)));
+
+        // One entry, not two: the claim rides with the transform.
+        Assert.True(scene.Stack.Undo());
+        Assert.False(scene.Prefabs.IsOverridden(root, nameof(SceneEntityData.Position)));
+
+        Assert.True(scene.Stack.Redo());
+        Assert.True(scene.Prefabs.IsOverridden(root, nameof(SceneEntityData.Position)));
+    }
+
+    /// <summary>⚠ A child carried along by its parent's drag claims nothing.</summary>
+    /// <remarks>
+    ///     The counterpart of <see cref="AChildOfAMovedInstanceIsNotOverridden" /> on the writing side.
+    ///     Every child's world transform moves when the root does, so a rule that claimed "everything
+    ///     that ended up somewhere else" would mark the whole subtree on the first drag.
+    /// </remarks>
+    [Fact]
+    public void AChildCarriedByItsParentsDragClaimsNothing() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
+        var asset = Publish(fixture, Template(new(5f, 0f, 0f), 7f));
+
+        Assert.True(Prefab.TryPlace(scene, fixture.Project.Assets, asset, Entity.Null, out var root, out _));
+        Settle(world);
+
+        var child = OnlyChildOf(world, root);
+
+        Drag(scene, root, new(25f, 0f, 0f));
+
+        Assert.Empty(scene.Prefabs.OverridesOf(child));
+    }
+
+    /// <summary>An entity that came from nowhere claims nothing, and does not throw trying.</summary>
+    [Fact]
+    public void ADragOfSomethingThatIsNotAnInstanceClaimsNothing() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
+        var crate = scene.Create("Crate", LocalTransform.Identity);
+
+        Settle(world);
+        Drag(scene, crate, new(3f, 0f, 0f));
+
+        Assert.Empty(scene.Prefabs.OverridesOf(crate));
+        Assert.Equal(new Vector3(3f, 0f, 0f), new Transform(world, crate).Position);
+    }
+
+    /// <summary>Moves an entity the way the viewport does: apply, then record on mouse-up.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The drag is applied before <see cref="IGizmoTarget.Record" /> is asked for it</b> — the
+    ///     gizmo owns the live manipulation and the command owns the history, so the captured pose is
+    ///     the only place the before state still exists.
+    /// </remarks>
+    void Drag(SceneDocument scene, Entity entity, Vector3 to) {
+        var target = new EntityGizmoTarget(scene.World, entity);
+        (Vector3, Quaternion, Vector3)[] captured = [(target.Position, target.Rotation, target.Scale)];
+
+        target.Position = to;
+        Settle(scene.World);
+
+        var recorded = target.Record(new([target], GizmoMode.Translate, GizmoHandle.AxisX, captured, scene));
+
+        Assert.NotNull(recorded);
+        Assert.NotNull(recorded.Value.Stack);
+
+        recorded.Value.Stack.Execute(recorded.Value.Command);
+        Settle(scene.World);
+    }
+
     /// <summary>Runs the transform pass the way a frame does.</summary>
     /// <remarks>
     ///     ⚠ <b>Resolve, then advance, and the order is the whole of it.</b> A write stamps the chunk

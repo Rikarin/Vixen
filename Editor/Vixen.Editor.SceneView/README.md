@@ -447,6 +447,17 @@ one drag would be three undo steps that only make sense applied together. Escape
 immediately rather than through the stack, so the viewport is redrawn from the model the instant the key
 is pressed.
 
+⚠ **A drag of a prefab instance also claims what it moved**, in the same undo entry — `EntityGizmoTarget`
+pairs the transform command with the claim in a `CompositeCommand`, so the history still reads "Move". The
+override list is names and never a comparison (doc 47 § 4), so a member no instance claims *is* the
+template's and the next reconcile writes the template's value back over it: until this was wired, every
+gizmo drag of an instance was discarded by the next open of the level, always rather than occasionally.
+Only the members whose value actually changed are claimed — claiming all three on every move would block
+the template's next change to rotation and scale for ever — and only the drag's own targets, so a child
+carried along by its parent's drag claims nothing. The seam is `PrefabInstances`, the store, and not
+`IPrefabSource`, which is the inspector's mapping from an inspected object onto an entity and lives in an
+assembly this one cannot see.
+
 ## The floor grid
 
 The spacing is chosen, not fixed: the 1-2-5 step that puts the lines roughly `TargetSpacing` pixels

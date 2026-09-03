@@ -95,6 +95,7 @@ Vixen.Ui.Testing.UiTest.Pointer.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Testing.UiTest.PointerAt(int pointer) -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Testing.UiTest.PressKey(Vixen.Input.InputKey key) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTest.PressPointer(Vixen.Ui.PointerButton button = Vixen.Ui.PointerButton.Primary, int pointer = 1) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.Redraws.get -> int
 Vixen.Ui.Testing.UiTest.ReleasePointer(Vixen.Ui.PointerButton button = Vixen.Ui.PointerButton.Primary, int pointer = 1) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTest.Root.get -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiTest.Screenshot(string name, Vixen.Ui.Testing.Visual.ImageTolerance? tolerance = null) -> void
@@ -105,6 +106,7 @@ Vixen.Ui.Testing.UiTest.Tree() -> string
 Vixen.Ui.Testing.UiTest.Tree(Vixen.Ui.UiElement root) -> string
 Vixen.Ui.Testing.UiTest.TypeText(string text) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTest.Updated -> System.Action?
+Vixen.Ui.Testing.UiTest.Updates.get -> int
 Vixen.Ui.Testing.UiTest.Wheel(float deltaX, float deltaY) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTestException -> sealed class
 Vixen.Ui.Testing.UiTestException : System.Exception
