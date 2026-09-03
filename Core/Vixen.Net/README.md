@@ -606,6 +606,12 @@ gets, which is a function of the type *name*, because types are ordered by hashe
 builds agree without agreeing on start-up order. **Renaming a replicated component is a wire break**,
 and this is where that shows up.
 
+⚠ The components it pins here are **hand-written** — they are the specification the generator is
+checked against, not the thing that ships. What the generator actually emits is pinned by a second
+corpus in `Vixen.Net.Generators.Tests/Wire`, which is the only test project the generator runs in;
+[its README](../Vixen.Net.Generators/README.md) has the two sabotages that measured what the
+differential between the two was missing.
+
 ## Owed
 
 Where the other packages' `Owed` sections are about their own subject, these are the core's. Anything

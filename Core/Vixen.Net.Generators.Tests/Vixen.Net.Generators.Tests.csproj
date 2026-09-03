@@ -37,4 +37,14 @@
         <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Linked rather than copied, and linked rather than moved into a shared project: a
+            repository with two golden conventions has one convention and one trap, and the corpus
+            this drives has to live in the assembly the generator actually runs in. Same arrangement
+            as Vixen.Video.Codecs.Tests borrowing Vixen.Video.Tests's builders.
+        -->
+        <Compile Include="..\Vixen.Net.Tests\Wire\WireGolden.cs" Link="Wire\WireGolden.cs" />
+    </ItemGroup>
 </Project>

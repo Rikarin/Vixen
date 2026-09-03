@@ -105,8 +105,32 @@ registration file depends on the *set* of components, and only on the set — ad
 not invalidate it. `EditingSomethingElseReRunsNothing` asserts it against the reasons Roslyn records,
 because a generator that is incremental in name only looks exactly like one that is not.
 
+## The wire corpus
+
+`Vixen.Net.Generators.Tests/Wire` holds what the generator's output encodes to, as committed bytes —
+`generated-records`, `generated-registry`, `generated-snapshot` and `generated-rpc`. It lives here
+rather than beside `Vixen.Net.Tests/Wire` because this is the only test project the generator runs
+in: it is referenced as an `Analyzer` as well as a reference, so the code being pinned is emitted
+while the assembly compiles. `UPDATE_GOLDEN=1` regenerates the listings, and every line of the diff
+is a wire format change.
+
+⚠ **A differential is blind to anything that moves both halves at once.**
+`TheGeneratedReplicatorWritesExactlyWhatAHandWrittenOneWrites` compares the generated replicator with
+a hand-written one compiled from the same tree in the same build — so a change underneath *both*
+changes the wire and leaves the comparison green. And the hand-written half only ever existed for one
+of the three components; what held the other two, and every RPC in the assembly, was a length. Two
+sabotages measured the gap rather than assumed it: swapping the type and method varints in
+`RpcRouter.BeginCall` **and** in its receive path — a silent, symmetric break that mis-dispatches
+every call against a peer built a day earlier — left all 348 tests in `Vixen.Net.Tests` and 41 of the
+42 here green; folding `ReplicationRegistry.ManifestHash`'s bytes the other way round did the same.
+Both are the corpus's alone to catch, because the manifest hashes a handshake refuses a peer over
+were asserted only to be non-zero.
+
 ## Owed
 
-- **Packaging.** Today a project takes this generator through a `ProjectReference` with
-  `OutputItemType="Analyzer"`. Travelling inside the `Vixen.Net` package, the way `Vixen.Ui` carries
-  its generators through a `build/*.targets`, is the arrangement to copy and is not done.
+Nothing outstanding. ⚠ **Packaging is done and this section used to say it was not**: the generator
+travelled only through a `ProjectReference` with `OutputItemType="Analyzer"`, so every in-tree
+consumer named it itself and was green while a game restoring the *package* got no
+`ReplicatedComponents` and no `RpcMethods` at all, with no error. It is packed by
+`Vixen.Net.csproj`'s `PackNetGenerators` target now and asserted over the `.nupkg` bytes by
+`Vixen.Net.Tests.PackagedGeneratorTests`.
