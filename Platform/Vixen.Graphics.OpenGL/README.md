@@ -150,6 +150,18 @@ own driver owns.
 `glClipControl` is the one worth having and a machine that silently settled for less would take the
 fallback path forever. The binding follows the profile that came back.
 
+⚠ **A config `eglChooseConfig` matched is not yet a config a window will accept.** An
+`ANativeWindow` has a buffer format of its own and `eglCreateWindowSurface` answers `EGL_BAD_MATCH`
+when it disagrees with the config's `EGL_NATIVE_VISUAL_ID` — so the visual is read between the two
+and handed to `EglContextOptions.PrepareNativeWindow`, whose job on Android is
+`ANativeWindow_setBuffersGeometry(window, 0, 0, visual)`. It is a callback because that function is
+in `libandroid.so` and belongs to the platform that owns the window.
+
+That step was absent and every windowed test here passed, because `RecordingEglApi` returned a
+surface for any window. It now refuses a mismatch the way the driver does — which put fourteen
+existing tests red the moment it was added, and is the shape of test double this repository keeps
+being caught by: one that accepts a call order the runtime rejects.
+
 **There is no `Silk.NET.EGL` for Silk.NET 2**; the package stops at 1.9.0, and Silk.NET 2's GLES
 windowing reaches EGL through GLFW or SDL rather than binding it. So `NativeEglApi` loads nineteen
 entry points out of the platform's `libEGL` itself, through `Vixen.Platform.Native` — the same

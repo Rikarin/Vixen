@@ -11,6 +11,7 @@ Vixen.Graphics.OpenGL.EglContext.GetProcAddress(string proc, int? slot = null) -
 Vixen.Graphics.OpenGL.EglContext.Handle.get -> nint
 Vixen.Graphics.OpenGL.EglContext.IsCurrent.get -> bool
 Vixen.Graphics.OpenGL.EglContext.MakeCurrent() -> void
+Vixen.Graphics.OpenGL.EglContext.NativeVisualId.get -> int
 Vixen.Graphics.OpenGL.EglContext.Profile.get -> Vixen.Graphics.OpenGL.GlProfile
 Vixen.Graphics.OpenGL.EglContext.Size.get -> Vixen.Core.Mathematics.Int2
 Vixen.Graphics.OpenGL.EglContext.Source.get -> Silk.NET.Core.Contexts.IGLContextSource?
@@ -25,13 +26,15 @@ Vixen.Graphics.OpenGL.EglContextOptions.Debug.init -> bool
 Vixen.Graphics.OpenGL.EglContextOptions.DepthBits.get -> int
 Vixen.Graphics.OpenGL.EglContextOptions.DepthBits.init -> int
 Vixen.Graphics.OpenGL.EglContextOptions.EglContextOptions() -> void
-Vixen.Graphics.OpenGL.EglContextOptions.EglContextOptions(nint NativeWindow, Vixen.Core.Mathematics.Int2 OffscreenSize = default(Vixen.Core.Mathematics.Int2), nint NativeDisplay = 0, Vixen.Graphics.OpenGL.GlProfile? Profile = null, int DepthBits = 24, int StencilBits = 8, int Samples = 1, bool Debug = false, nint ShareContext = 0, int SwapInterval = 1) -> void
+Vixen.Graphics.OpenGL.EglContextOptions.EglContextOptions(nint NativeWindow, Vixen.Core.Mathematics.Int2 OffscreenSize = default(Vixen.Core.Mathematics.Int2), nint NativeDisplay = 0, Vixen.Graphics.OpenGL.GlProfile? Profile = null, int DepthBits = 24, int StencilBits = 8, int Samples = 1, bool Debug = false, nint ShareContext = 0, int SwapInterval = 1, System.Action<nint, int>? PrepareNativeWindow = null) -> void
 Vixen.Graphics.OpenGL.EglContextOptions.NativeDisplay.get -> nint
 Vixen.Graphics.OpenGL.EglContextOptions.NativeDisplay.init -> nint
 Vixen.Graphics.OpenGL.EglContextOptions.NativeWindow.get -> nint
 Vixen.Graphics.OpenGL.EglContextOptions.NativeWindow.init -> nint
 Vixen.Graphics.OpenGL.EglContextOptions.OffscreenSize.get -> Vixen.Core.Mathematics.Int2
 Vixen.Graphics.OpenGL.EglContextOptions.OffscreenSize.init -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.OpenGL.EglContextOptions.PrepareNativeWindow.get -> System.Action<nint, int>?
+Vixen.Graphics.OpenGL.EglContextOptions.PrepareNativeWindow.init -> System.Action<nint, int>?
 Vixen.Graphics.OpenGL.EglContextOptions.Profile.get -> Vixen.Graphics.OpenGL.GlProfile?
 Vixen.Graphics.OpenGL.EglContextOptions.Profile.init -> Vixen.Graphics.OpenGL.GlProfile?
 Vixen.Graphics.OpenGL.EglContextOptions.Samples.get -> int
@@ -119,6 +122,7 @@ Vixen.Graphics.OpenGL.IEglApi.CreateWindowSurface(nint display, nint config, nin
 Vixen.Graphics.OpenGL.IEglApi.DestroyContext(nint display, nint context) -> bool
 Vixen.Graphics.OpenGL.IEglApi.DestroySurface(nint display, nint surface) -> bool
 Vixen.Graphics.OpenGL.IEglApi.GetClientProcAddress(string name) -> nint
+Vixen.Graphics.OpenGL.IEglApi.GetConfigAttrib(nint display, nint config, int attribute, out int value) -> bool
 Vixen.Graphics.OpenGL.IEglApi.GetCurrentContext() -> nint
 Vixen.Graphics.OpenGL.IEglApi.GetDisplay(nint nativeDisplay) -> nint
 Vixen.Graphics.OpenGL.IEglApi.GetError() -> uint
@@ -241,6 +245,7 @@ Vixen.Graphics.OpenGL.NativeEglApi.CreateWindowSurface(nint display, nint config
 Vixen.Graphics.OpenGL.NativeEglApi.DestroyContext(nint display, nint context) -> bool
 Vixen.Graphics.OpenGL.NativeEglApi.DestroySurface(nint display, nint surface) -> bool
 Vixen.Graphics.OpenGL.NativeEglApi.GetClientProcAddress(string name) -> nint
+Vixen.Graphics.OpenGL.NativeEglApi.GetConfigAttrib(nint display, nint config, int attribute, out int value) -> bool
 Vixen.Graphics.OpenGL.NativeEglApi.GetCurrentContext() -> nint
 Vixen.Graphics.OpenGL.NativeEglApi.GetDisplay(nint nativeDisplay) -> nint
 Vixen.Graphics.OpenGL.NativeEglApi.GetError() -> uint
@@ -488,6 +493,7 @@ const Vixen.Graphics.OpenGL.EglConstants.Extensions = 12373 -> int
 const Vixen.Graphics.OpenGL.EglConstants.False = 0 -> int
 const Vixen.Graphics.OpenGL.EglConstants.GreenSize = 12323 -> int
 const Vixen.Graphics.OpenGL.EglConstants.Height = 12374 -> int
+const Vixen.Graphics.OpenGL.EglConstants.NativeVisualId = 12334 -> int
 const Vixen.Graphics.OpenGL.EglConstants.NoContext = 0 -> nint
 const Vixen.Graphics.OpenGL.EglConstants.NoDisplay = 0 -> nint
 const Vixen.Graphics.OpenGL.EglConstants.NoSurface = 0 -> nint

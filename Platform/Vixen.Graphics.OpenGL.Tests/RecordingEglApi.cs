@@ -68,6 +68,38 @@ public sealed class RecordingEglApi : IEglApi {
     /// <summary>What <c>eglCreateContext</c> should return when it does not refuse.</summary>
     public nint Context { get; set; } = 0x300;
 
+    /// <summary>What <c>eglGetConfigAttrib</c> should report, by attribute.</summary>
+    /// <remarks>
+    ///     <see cref="EglConstants.NativeVisualId" /> is <c>1</c> by default, which is
+    ///     <c>WINDOW_FORMAT_RGBA_8888</c> on Android and matches the RGBA8 config
+    ///     <c>EglAttributes.Config</c> asks for.
+    /// </remarks>
+    public Dictionary<int, int> ConfigAttributes { get; } = new() {
+        [EglConstants.NativeVisualId] = 1
+    };
+
+    /// <summary>Whether <c>eglGetConfigAttrib</c> should answer at all.</summary>
+    /// <remarks>A driver with no native visual to report is a legitimate one, and false is it.</remarks>
+    public bool ReportsConfigAttributes { get; set; } = true;
+
+    /// <summary>
+    ///     The buffer format the native window is in, which a window surface has to agree with.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the fake being as strict as the driver, which it previously was not.</b>
+    ///     <c>eglCreateWindowSurface</c> on Android answers <c>EGL_BAD_MATCH</c> when the
+    ///     <c>ANativeWindow</c>'s format disagrees with the config's
+    ///     <see cref="EglConstants.NativeVisualId" />, and the only way to make them agree is
+    ///     <c>ANativeWindow_setBuffersGeometry</c> before the call. A recorder that returned a
+    ///     surface regardless proved that the sequence compiled, not that it was the sequence a
+    ///     driver accepts — which is exactly the failure mode a test double is worth having rules
+    ///     about.
+    /// </remarks>
+    public int WindowFormat { get; set; }
+
+    /// <summary>Whether the window surface should be refused when the formats disagree.</summary>
+    public bool EnforcesWindowFormat { get; set; } = true;
+
     /// <summary>What the surface calls should return; zero makes them fail.</summary>
     public nint Surface { get; set; } = 0x400;
 
@@ -169,8 +201,29 @@ public sealed class RecordingEglApi : IEglApi {
     }
 
     /// <inheritdoc />
+    public bool GetConfigAttrib(nint display, nint config, int attribute, out int value) {
+        Record("GetConfigAttrib", display, config, attribute);
+
+        if (!ReportsConfigAttributes) {
+            value = 0;
+            return false;
+        }
+
+        return ConfigAttributes.TryGetValue(attribute, out value);
+    }
+
+    /// <inheritdoc />
     public nint CreateWindowSurface(nint display, nint config, nint window, ReadOnlySpan<int> attributes) {
         Record("CreateWindowSurface", display, config, window, attributes.ToArray());
+
+        // The refusal a real Android driver makes and this recorder used to not. See WindowFormat.
+        if (EnforcesWindowFormat
+            && ConfigAttributes.TryGetValue(EglConstants.NativeVisualId, out var visual)
+            && WindowFormat != visual) {
+            Fail(EglConstants.BadMatch);
+            return EglConstants.NoSurface;
+        }
+
         return Surface;
     }
 

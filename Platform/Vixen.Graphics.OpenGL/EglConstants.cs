@@ -120,6 +120,18 @@ public static class EglConstants {
     /// <summary><c>EGL_CONFIG_ID</c>.</summary>
     public const int ConfigId = 0x3028;
 
+    /// <summary><c>EGL_NATIVE_VISUAL_ID</c>, which on Android is a pixel format rather than a visual.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one config attribute a window surface cannot be created without on Android.</b>
+    ///     An <c>ANativeWindow</c> has a buffer format of its own, chosen by the
+    ///     <c>SurfaceView</c> and unrelated to any EGL config, and <c>eglCreateWindowSurface</c>
+    ///     answers <c>EGL_BAD_MATCH</c> when it disagrees with the config's. The fix is not an
+    ///     attribute in a list: it is <c>ANativeWindow_setBuffersGeometry(window, 0, 0, format)</c>
+    ///     with <em>this</em> value, called between choosing the config and creating the surface,
+    ///     which is why <c>EglContextOptions.PrepareNativeWindow</c> exists and takes it.
+    /// </remarks>
+    public const int NativeVisualId = 0x302E;
+
     /// <summary><c>EGL_SAMPLES</c>.</summary>
     public const int Samples = 0x3031;
 

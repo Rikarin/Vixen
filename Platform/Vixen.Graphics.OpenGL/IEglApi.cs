@@ -67,6 +67,23 @@ public interface IEglApi {
     /// <returns>Whether the query itself succeeded, which is not the same as it having matched anything.</returns>
     bool ChooseConfig(nint display, ReadOnlySpan<int> attributes, Span<nint> configs, out int count);
 
+    /// <summary><c>eglGetConfigAttrib</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="config">The config, as <see cref="ChooseConfig" /> handed it back.</param>
+    /// <param name="attribute">Which attribute.</param>
+    /// <param name="value">Its value.</param>
+    /// <returns>Whether it could be read.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Added because a config that matched is not yet a config a window will accept.</b>
+    ///     <c>eglChooseConfig</c> answers with something whose colour depth satisfies the request,
+    ///     and on Android the <c>ANativeWindow</c> behind the surface has a buffer format of its own
+    ///     that has to be set to this config's <see cref="EglConstants.NativeVisualId" /> before
+    ///     <see cref="CreateWindowSurface" /> is called — otherwise the driver answers
+    ///     <c>EGL_BAD_MATCH</c>. Nothing in the call stream said so, because the recording fake had
+    ///     no reason to refuse and neither did the interface.
+    /// </remarks>
+    bool GetConfigAttrib(nint display, nint config, int attribute, out int value);
+
     /// <summary><c>eglCreateContext</c>.</summary>
     /// <param name="display">The display.</param>
     /// <param name="config">The config.</param>

@@ -26,7 +26,7 @@ public sealed class EglContextTests {
     [Fact]
     public void BringsUpAContextInOrder() {
         var egl = new RecordingEglApi();
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         Assert.Equal(
             [
@@ -34,6 +34,7 @@ public sealed class EglContextTests {
                 "Initialise",
                 "BindApi",
                 "ChooseConfig",
+                "GetConfigAttrib",
                 "CreateContext",
                 "CreateWindowSurface",
                 "MakeCurrent",
@@ -57,7 +58,7 @@ public sealed class EglContextTests {
     [Fact]
     public void BindsTheClientApiBeforeChoosingAnything() {
         var egl = new RecordingEglApi();
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         Assert.True(egl.Precedes("BindApi", "ChooseConfig"));
         Assert.Equal(EglConstants.OpenGlEsApi, egl.Single("BindApi").Arguments[0]);
@@ -67,7 +68,7 @@ public sealed class EglContextTests {
     [Fact]
     public void TakesTheHighestProfileOnOffer() {
         var egl = new RecordingEglApi();
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         Assert.Equal(GlProfile.Es32, context.Profile);
         Assert.Equal(1, egl.Count("CreateContext"));
@@ -83,7 +84,7 @@ public sealed class EglContextTests {
     [Fact]
     public void FallsBackToEs30WhenThirtyTwoIsRefused() {
         var egl = new RecordingEglApi { RefusedMinorVersions = { 2 } };
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         Assert.Equal(GlProfile.Es30, context.Profile);
         Assert.Equal(2, egl.Count("CreateContext"));
@@ -100,7 +101,7 @@ public sealed class EglContextTests {
     [Fact]
     public void DrainsTheErrorBetweenAttempts() {
         var egl = new RecordingEglApi { RefusedMinorVersions = { 2 } };
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         var names = egl.Names.ToList();
         var first = names.IndexOf("CreateContext");
@@ -116,7 +117,7 @@ public sealed class EglContextTests {
         var egl = new RecordingEglApi { RefusedMinorVersions = { 2 } };
 
         var failure = Assert.Throws<InvalidOperationException>(
-            () => new EglContext(egl, new(0x900, Profile: GlProfile.Es32))
+            () => new EglContext(egl, Windowed(egl, GlProfile.Es32))
         );
 
         Assert.Equal(1, egl.Count("CreateContext"));
@@ -130,7 +131,7 @@ public sealed class EglContextTests {
     public void RefusesAProfileThatIsNotGles(GlProfile profile) {
         var egl = new RecordingEglApi();
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => new EglContext(egl, new(0x900, Profile: profile)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EglContext(egl, Windowed(egl, profile)));
         Assert.Empty(egl.Calls);
     }
 
@@ -164,7 +165,7 @@ public sealed class EglContextTests {
     public void StopsWhenNoConfigMatches() {
         var egl = new RecordingEglApi { ConfigCount = 0 };
 
-        var failure = Assert.Throws<InvalidOperationException>(() => new EglContext(egl, new(0x900)));
+        var failure = Assert.Throws<InvalidOperationException>(() => new EglContext(egl, Windowed(egl)));
 
         Assert.Equal(0, egl.Count("CreateContext"));
         Assert.Contains("eglChooseConfig", failure.Message, StringComparison.Ordinal);
@@ -180,7 +181,7 @@ public sealed class EglContextTests {
     public void UnwindsWhatItBuiltWhenAStepFails() {
         var egl = new RecordingEglApi { MakesCurrent = false };
 
-        Assert.Throws<InvalidOperationException>(() => new EglContext(egl, new(0x900)));
+        Assert.Throws<InvalidOperationException>(() => new EglContext(egl, Windowed(egl)));
 
         Assert.Equal(1, egl.Count("DestroySurface"));
         Assert.Equal(1, egl.Count("DestroyContext"));
@@ -194,7 +195,7 @@ public sealed class EglContextTests {
     public void DestroysNothingWhenThereIsNoDisplay() {
         var egl = new RecordingEglApi { Display = EglConstants.NoDisplay };
 
-        Assert.Throws<InvalidOperationException>(() => new EglContext(egl, new(0x900)));
+        Assert.Throws<InvalidOperationException>(() => new EglContext(egl, Windowed(egl)));
         Assert.Equal(["GetDisplay", "GetError"], egl.Names);
     }
 
@@ -206,7 +207,7 @@ public sealed class EglContextTests {
     [Fact]
     public void TearsDownInReverse() {
         var egl = new RecordingEglApi();
-        var context = new EglContext(egl, new(0x900));
+        var context = new EglContext(egl, Windowed(egl));
 
         context.Dispose();
 
@@ -221,7 +222,7 @@ public sealed class EglContextTests {
     [Fact]
     public void DisposesOnce() {
         var egl = new RecordingEglApi();
-        var context = new EglContext(egl, new(0x900));
+        var context = new EglContext(egl, Windowed(egl));
 
         context.Dispose();
         context.Dispose();
@@ -239,7 +240,7 @@ public sealed class EglContextTests {
     [Fact]
     public void AsksTheClientLibraryFirst() {
         var egl = new RecordingEglApi { ClientSymbols = { ["glDrawArrays"] = 0x1234 } };
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         Assert.Equal(0x1234, (int)context.GetProcAddress("glDrawArrays"));
         Assert.Equal(1, egl.Count("GetClientProcAddress"));
@@ -250,7 +251,7 @@ public sealed class EglContextTests {
     [Fact]
     public void FallsBackToEglForExtensions() {
         var egl = new RecordingEglApi { EglSymbols = { ["glDiscardFramebufferEXT"] = 0x5678 } };
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         Assert.True(context.TryGetProcAddress("glDiscardFramebufferEXT", out var address));
         Assert.Equal(0x5678, (int)address);
@@ -265,7 +266,7 @@ public sealed class EglContextTests {
     [Fact]
     public void QueriesTheSizeEveryTime() {
         var egl = new RecordingEglApi { SurfaceSize = (800, 600) };
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         Assert.Equal(new Int2(800, 600), context.Size);
 
@@ -277,7 +278,7 @@ public sealed class EglContextTests {
     [Fact]
     public void PresentsAndReportsAFailedPresent() {
         var egl = new RecordingEglApi();
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         context.SwapBuffers();
         Assert.Equal([egl.Display, egl.Surface], egl.Single("SwapBuffers").Arguments);
@@ -290,7 +291,7 @@ public sealed class EglContextTests {
     [Fact]
     public void RefusesUseAfterDispose() {
         var egl = new RecordingEglApi();
-        var context = new EglContext(egl, new(0x900));
+        var context = new EglContext(egl, Windowed(egl));
 
         context.Dispose();
 
@@ -303,13 +304,122 @@ public sealed class EglContextTests {
     [Fact]
     public void AsksEglWhatIsCurrent() {
         var egl = new RecordingEglApi();
-        using var context = new EglContext(egl, new(0x900));
+        using var context = new EglContext(egl, Windowed(egl));
 
         Assert.True(context.IsCurrent);
 
         context.Clear();
         Assert.False(context.IsCurrent);
     }
+
+    /// <summary>The config's native visual is read, and it is read before the surface is made.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing read it, and every windowed test in this file passed anyway.</b> A config
+    ///     that <c>eglChooseConfig</c> matched is not yet a config a window will accept: an
+    ///     <c>ANativeWindow</c> carries a buffer format of its own, and
+    ///     <c>eglCreateWindowSurface</c> answers <c>EGL_BAD_MATCH</c> when it disagrees with
+    ///     <c>EGL_NATIVE_VISUAL_ID</c>. The recorder now refuses the way the driver does, which is
+    ///     what turns "the sequence compiles" into "the sequence is one a driver accepts".
+    /// </remarks>
+    [Fact]
+    public void ReadsTheNativeVisualBeforeMakingAWindowSurface() {
+        var egl = new RecordingEglApi();
+
+        egl.ConfigAttributes[EglConstants.NativeVisualId] = 4;
+
+        using var context = new EglContext(egl, Windowed(egl));
+
+        Assert.Equal(4, context.NativeVisualId);
+        Assert.True(egl.Precedes("ChooseConfig", "GetConfigAttrib"));
+        Assert.True(egl.Precedes("GetConfigAttrib", "CreateWindowSurface"));
+
+        var read = egl.Single("GetConfigAttrib");
+
+        Assert.Equal(egl.Config, read.Arguments[1]);
+        Assert.Equal(EglConstants.NativeVisualId, read.Arguments[2]);
+    }
+
+    /// <summary>The window is prepared with that visual, between the context and the surface.</summary>
+    /// <remarks>
+    ///     A callback rather than a call, because the call is
+    ///     <c>ANativeWindow_setBuffersGeometry</c> in <c>libandroid.so</c> — Android's, not EGL's,
+    ///     and this assembly's business to ask for rather than to make.
+    /// </remarks>
+    [Fact]
+    public void PreparesTheNativeWindowWithTheVisualItWillNeed() {
+        var egl = new RecordingEglApi();
+        var prepared = new List<(nint Window, int Visual)>();
+
+        egl.ConfigAttributes[EglConstants.NativeVisualId] = 4;
+
+        using var context = new EglContext(
+            egl,
+            new(
+                0x900,
+                PrepareNativeWindow: (window, visual) => {
+                    prepared.Add((window, visual));
+                    egl.WindowFormat = visual;
+                }
+            )
+        );
+
+        Assert.Equal([((nint)0x900, 4)], prepared);
+    }
+
+    /// <summary>A window nobody prepared is refused, and the message says what to do about it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the case the old recorder could not express.</b> It returned a surface for
+    ///     any window, so an Android head that never set the buffer geometry would have gone green
+    ///     here and <c>EGL_BAD_MATCH</c> on the device.
+    /// </remarks>
+    [Fact]
+    public void RefusesAWindowWhoseFormatDoesNotMatchTheConfig() {
+        var egl = new RecordingEglApi();
+
+        egl.ConfigAttributes[EglConstants.NativeVisualId] = 4;
+        egl.WindowFormat = 1;
+
+        var failure = Assert.Throws<InvalidOperationException>(() => new EglContext(egl, new(0x900)));
+
+        Assert.Contains("eglCreateWindowSurface", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("PrepareNativeWindow", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("EGL_BAD_MATCH", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>An offscreen context asks for no visual, because a pbuffer has no window to match.</summary>
+    [Fact]
+    public void AnOffscreenContextReadsNoNativeVisual() {
+        var egl = new RecordingEglApi();
+        using var context = new EglContext(egl, new(0, new Int2(64, 64)));
+
+        Assert.Equal(0, egl.Count("GetConfigAttrib"));
+        Assert.Equal(0, context.NativeVisualId);
+    }
+
+    /// <summary>A driver with no native visual to report is not a failure.</summary>
+    /// <remarks>
+    ///     ⚠ Zero is an answer here, not an error — desktop EGL implementations routinely have no
+    ///     visual for a config, and refusing one would refuse every ANGLE and Mesa context on the
+    ///     strength of an attribute only Android needs.
+    /// </remarks>
+    [Fact]
+    public void ADriverWithNoNativeVisualStillBringsUpAContext() {
+        var egl = new RecordingEglApi { ReportsConfigAttributes = false, EnforcesWindowFormat = false };
+        using var context = new EglContext(egl, new(0x900));
+
+        Assert.Equal(0, context.NativeVisualId);
+        Assert.Equal(egl.Surface, context.Surface);
+    }
+
+    /// <summary>Options for a window surface, with the preparation a driver insists on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every windowed test here needs this now, and that is the finding rather than an
+    ///     inconvenience.</b> What it stands in for is the Android platform's
+    ///     <c>ANativeWindow_setBuffersGeometry</c>; a test that omits it is a head that omits it,
+    ///     and the recorder refuses both.
+    /// </remarks>
+    static EglContextOptions Windowed(RecordingEglApi egl, GlProfile? profile = null) =>
+        new(0x900, Profile: profile, PrepareNativeWindow: (_, visual) => egl.WindowFormat = visual);
 
     /// <summary>The GLES minor version a recorded <c>eglCreateContext</c> asked for.</summary>
     static int MinorOf(EglCall call) {
