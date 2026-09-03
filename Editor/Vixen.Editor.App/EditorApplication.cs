@@ -696,7 +696,12 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
         // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
         // written and nothing ever listened, so the button in an asset field did nothing at all.
-        assetPicker = new AssetPicker(project, Shell.Dialogs);
+        // ⚠ The cache and the registry as well as the project, because the picker draws tiles now.
+        // `thumbnails` is built above precisely so this line can have it: a picker handed no cache is
+        // a grid of type glyphs, which is what a headless run and every test see — and the glyph says
+        // what kind of thing a file is where a picture says which one, which is the whole point of a
+        // picker over a list.
+        assetPicker = new AssetPicker(project, Shell.Dialogs, thumbnails, Extensions);
 
         // The other way to fill an asset field, over the same answer about what each one takes: a
         // drop path with its own opinion is one that accepts what the picker would never have listed.

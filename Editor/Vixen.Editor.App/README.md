@@ -295,6 +295,33 @@ nothing read it — so a click in the Project panel moved a highlight and did no
 GUID, and putting `AssetId.Empty` in `EditorProject.Selection` would make every such folder select the
 same nothing and look like one asset.
 
+## The asset picker is the same grid, over a folder it invents
+
+`AssetPicker` is what an asset field opens, and it draws `AssetGrid` — the Project panel's own control —
+over a synthetic `AssetTreeNode` holding the filtered candidates. A name says what an asset is *called*
+and a picture says which one it is, which is the difference between choosing `T_Crate_01` and guessing
+between it and `T_Crate_02`.
+
+⚠ **One grid rather than a second one for the flat case.** The picker's question is "every asset of
+this kind, wherever it is", which is not a folder — so it is handed one. Writing a flat grid instead
+would be a second answer to "what does a tile look like", and F12 is what that costs: the same asset
+drawn two ways in two panes of one panel, which nobody reports and everybody notices. The breadcrumb
+bar is hidden by the theme, because the trail above an invented folder is one crumb saying a word the
+reader can already see.
+
+⚠ **The dialog subscribes to `ThumbnailCache.Changed` and drops it when it closes.** A decode lands a
+few frames after the tile that asked for it was drawn, and a modal dialog nobody is scrolling has
+nothing else that would make it rebind — so without the subscription the picker shows glyphs on a
+machine that has made every picture it needs. Dropping it matters as much: a subscription left behind
+holds a removed grid alive, once per asset field ever opened.
+
+⚠ **Every match is shown, where the list it replaced stopped at two hundred.** A row per result has to
+stop somewhere; a virtualised grid pools about sixty tiles whatever the folder holds. The search box is
+still the way through a large project — it is no longer the only way to see the last of it.
+
+**No cache means glyphs**, which is the state on a headless run and in every test, and which is why an
+asset field is still assignable on a build server.
+
 ## Plugins
 
 `Plugins/` under the project, then `Plugins/` under the user's data directory. The first id wins, so

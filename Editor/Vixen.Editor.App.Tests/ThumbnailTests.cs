@@ -4,6 +4,8 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
 using Vixen.Core;
+using Vixen.Editor.Core;
+using Vixen.Editor.Inspector;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -262,6 +264,96 @@ public class ThumbnailTests {
         cache.Pump();
 
         Assert.Equal(0, cache.Count);
+    }
+
+    /// <summary>
+    ///     <b>The picker is the second thing that draws pictures, and it was the reason to have
+    ///     them.</b> A name says what an asset is called and a picture says <i>which</i> one it is —
+    ///     which is the whole difference between choosing between <c>crate.png</c> and
+    ///     <c>crate2.png</c> and guessing between them.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The picture arrives after the dialog was built, which is why the subscription
+    ///     matters.</b> A decode lands a few frames later, and a modal dialog nobody is scrolling has
+    ///     nothing else that would make it rebind — so a picker that did not listen to
+    ///     <c>ThumbnailCache.Changed</c> would show glyphs for as long as it was open, on a machine
+    ///     that had made every picture it needed.
+    /// </remarks>
+    [Fact]
+    public void The_asset_picker_shows_a_picture_once_one_has_been_decoded() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var crate = Paint(editor, "Assets/Textures/crate.png", 32, 32, static (x, _) => (byte) (x * 8));
+        var surface = new Recording();
+        var cache = new ThumbnailCache(editor.Project) { Surface = surface };
+
+        Pick(editor, cache);
+
+        var grid = PickerGrid(editor);
+
+        Assert.Contains(grid.Items, item => item.Guid == crate);
+
+        // Bound once with no picture — the request is the bind — and then again when the decode
+        // lands, which is what the dialog's subscription to `Changed` is for.
+        Assert.All(grid.Tiles, tile => Assert.Equal(0UL, tile.Picture.Texture));
+
+        Assert.True(
+            Settle(cache, () => grid.Tiles.Any(tile => tile.Node?.Guid == crate && tile.Picture.Texture != 0)),
+            "the picker never showed a picture"
+        );
+
+        var pictured = Assert.Single(grid.Tiles, tile => tile.Node?.Guid == crate);
+
+        Assert.False(pictured.Picture.HasClass("hidden"));
+        Assert.True(pictured.Glyph.HasClass("hidden"));
+        Assert.NotEmpty(surface.Uploads);
+    }
+
+    /// <summary>
+    ///     ⚠ Null is the ordinary state on a headless run, so the picker has to be usable without a
+    ///     device — a grid of nothing at all would make every asset field unassignable on a machine
+    ///     with no GPU, which is what a build server is.
+    /// </summary>
+    [Fact]
+    public void With_no_surface_the_picker_falls_back_to_type_glyphs() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+        Paint(editor, "Assets/Textures/crate.png", 32, 32, static (_, _) => 10);
+
+        Pick(editor, thumbnails: null);
+
+        var tiles = PickerGrid(editor).Tiles;
+
+        Assert.NotEmpty(tiles);
+        Assert.All(tiles, tile => Assert.True(tile.Picture.HasClass("hidden")));
+        Assert.All(tiles, tile => Assert.False(tile.Glyph.HasClass("hidden")));
+    }
+
+    /// <summary>Opens the picker over a field that takes any asset.</summary>
+    static void Pick(EditorSession editor, ThumbnailCache? thumbnails) {
+        var descriptor = InspectorRegistry.Find(typeof(PickerFixture))
+            ?? throw editor.Fail("the generator registered no descriptor for PickerFixture");
+
+        var member = descriptor.Members.Single(candidate => candidate.Name == "Anything");
+        var field = new InspectorField(descriptor, member, [new PickerFixture()], editor.Scene);
+
+        new AssetPicker(editor.Project, editor.Shell.Dialogs, thumbnails).Open(field);
+        editor.Frames(2);
+    }
+
+    static AssetGrid PickerGrid(EditorSession editor) {
+        var dialog = editor.Shell.Dialogs.Current ?? throw editor.Fail("the picker did not open");
+
+        foreach (var element in Descendants(dialog.Body)) {
+            if (element is AssetGrid grid) {
+                return grid;
+            }
+        }
+
+        throw editor.Fail("the picker has no grid");
     }
 
     /// <summary>

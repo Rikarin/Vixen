@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Testing;
@@ -78,7 +79,7 @@ public class AssetPickerTests {
 
         Open(fixture, field);
 
-        Row(fixture, "Main.vxscene").Activate();
+        Choose(fixture, "Main.vxscene");
         fixture.Frames(2);
 
         Assert.Equal(Scene(fixture), target.Anything);
@@ -158,12 +159,42 @@ public class AssetPickerTests {
     static void Press(EditorSession fixture, string label) =>
         Buttons(fixture).First(button => button.Label == label).Activate();
 
-    static List<Button> Rows(EditorSession fixture) =>
-        [.. Descendants(Dialog(fixture).Body).OfType<Button>().Where(button => button.HasClass("asset-picker-row"))];
+    /// <summary>
+    ///     What the picker is offering. ⚠ The <i>items</i> rather than the tiles: the grid is
+    ///     virtualised, so the elements are a pool of about sixty that slides, and asking it what is on
+    ///     screen is a different question from asking what it has.
+    /// </summary>
+    static IReadOnlyList<AssetTreeNode> Rows(EditorSession fixture) => Grid(fixture).Items;
 
-    static Button Row(EditorSession fixture, string label) =>
-        Rows(fixture).FirstOrDefault(button => button.Label == label)
-        ?? throw new InvalidOperationException($"the picker has no '{label}' row");
+    static AssetGrid Grid(EditorSession fixture) =>
+        Find<AssetGrid>(Dialog(fixture).Body) ?? throw new InvalidOperationException("the picker has no grid");
+
+    /// <summary>Presses the tile for an asset, which is how the picker is answered.</summary>
+    static void Choose(EditorSession fixture, string name) {
+        var grid = Grid(fixture);
+        var index = -1;
+
+        for (var candidate = 0; candidate < grid.Items.Count; candidate++) {
+            if (grid.Items[candidate].Name == name) {
+                index = candidate;
+
+                break;
+            }
+        }
+
+        if (index < 0) {
+            throw new InvalidOperationException($"the picker has no '{name}' tile");
+        }
+
+        grid.ScrollIntoView(index);
+
+        var tile = grid.TileOf(index) ?? throw new InvalidOperationException($"'{name}' has no tile");
+        var bounds = tile.Bounds;
+
+        fixture.Ui.MovePointer(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        fixture.Ui.PressPointer();
+        fixture.Ui.ReleasePointer();
+    }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
         foreach (var child in element.Children) {
