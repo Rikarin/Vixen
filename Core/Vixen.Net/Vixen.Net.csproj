@@ -11,7 +11,42 @@
         </Description>
         <PackageTags>networking;multiplayer;transport;replication;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackNetGenerators
+        </TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
+
+    <!--
+        ⚠ The replication and RPC generators travel with the package, which until now they did not,
+        and the gap was silent in the way this one always is. Analyzers do not flow through a
+        `ProjectReference`, so every in-tree consumer — `Samples/08`, the test projects — names
+        `Vixen.Net.Generators` itself and everything is green; a project that restores the *package*
+        got the runtime assembly and no generator, so its `[Replicated]` components and its
+        `[ServerRpc]` methods were collected by nothing. No error: `ReplicatedComponents` and
+        `RpcMethods` simply do not exist, which reads as the attributes being the thing that is
+        missing. ⚠ `Vixen.Shaders`, `Vixen.Ui`, `Vixen.Input`, `Vixen.Engine`,
+        `Vixen.Core.Reflection` and `Vixen.Core.Serialization` all pack theirs; this was the last
+        exception, and `PackagedGeneratorTests` is what will now notice.
+
+        This project deliberately does *not* reference the generator as an analyzer — see
+        `NetworkTransformReplicator`, which is hand-written precisely because the engine does not run
+        the generator over itself — so the target names it and asks only for its path.
+        `GetTargetPath`, not `Build`: `NoBuild` is a global property, so asking for `Build` here
+        fails a no-build `dotnet pack` with NETSDK1085.
+    -->
+    <Target Name="PackNetGenerators">
+        <MSBuild Projects="..\Vixen.Net.Generators\Vixen.Net.Generators.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="NetGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(NetGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
