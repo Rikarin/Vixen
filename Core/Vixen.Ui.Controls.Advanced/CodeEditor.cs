@@ -232,6 +232,13 @@ public sealed partial class CodeEditor : Control {
     /// <summary>The tokenizer's state at the start of each line.</summary>
     readonly List<int> states = [];
 
+    // When the caret last moved, on the document's clock, and where it was on the last frame that
+    // drew it. ⚠ Noticed at draw time rather than stamped from `Caret`'s setter, because a caret is
+    // clamped from `SetBuffer` and from the reload path, where the element may not have a document
+    // to read a clock off — and `DrawCaret` cannot be reached on an element that does not.
+    TimeSpan caretRestarted;
+    TextPosition? caretDrawn;
+
     CodeBuffer buffer = new();
     ICodeTokenizer tokenizer = PlainTokenizer.Instance;
 
@@ -380,6 +387,42 @@ public sealed partial class CodeEditor : Control {
 
     /// <summary>The other end of the selection. Equal to the caret when nothing is selected.</summary>
     public TextPosition Anchor { get; private set; }
+
+    /// <summary>How long the caret spends on, and then off. Zero draws it solid.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same property <c>TextField.CaretBlink</c> is, deliberately spelled and defaulted
+    ///         the same way: half a period, 530 ms, and the phase measured from the last time the
+    ///         caret moved rather than from a free-running clock — so holding a key down does not
+    ///         make the caret flicker where the character is landing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not shared with the field through a base class, and that is the honest shape.</b>
+    ///         The two carets have nothing in common below the arithmetic: a field's is an index into
+    ///         a string positioned by <c>TextLayout</c>, and this one is a line and a column
+    ///         multiplied by a measured cell. What they share is a number and a rule about it, which
+    ///         is four lines each — and a base class holding four lines would have to be reached by
+    ///         <c>TextField</c>, which is in the assembly below this one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="TimeSpan.Zero" /> is a solid caret</b>, which is what a reduced-motion
+    ///         setting wants and what a screenshot test wants.
+    ///     </para>
+    /// </remarks>
+    public TimeSpan CaretBlink { get; set; } = TimeSpan.FromMilliseconds(530);
+
+    /// <summary>Whether the caret is drawn on this frame.</summary>
+    bool CaretIsLit {
+        get {
+            if (CaretBlink <= TimeSpan.Zero) {
+                return true;
+            }
+
+            var since = Document.Now - caretRestarted;
+
+            return since < TimeSpan.Zero || since.Ticks / CaretBlink.Ticks % 2 == 0;
+        }
+    }
 
     /// <summary>Whether anything is selected.</summary>
     public bool HasSelection => Caret != Anchor;
@@ -1134,6 +1177,21 @@ public sealed partial class CodeEditor : Control {
         var row = RowAt(Caret);
 
         if (!IsFocused || row < 0) {
+            // ⚠ Held at the start of a period, so a click into an editor lights the caret on the
+            // frame it arrives rather than resuming half-way through an off half.
+            caretRestarted = Document.Now;
+            caretDrawn = null;
+            return;
+        }
+
+        // The caret moved since the last frame that drew it, so the blink starts again — noticed
+        // here rather than stamped from `Caret`'s setter, for the reason `caretRestarted` gives.
+        if (caretDrawn != Caret) {
+            caretDrawn = Caret;
+            caretRestarted = Document.Now;
+        }
+
+        if (!CaretIsLit) {
             return;
         }
 
