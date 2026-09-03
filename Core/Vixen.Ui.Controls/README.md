@@ -362,3 +362,10 @@ Said out loud rather than left to be discovered:
     down on a frame the reader did nothing. It also has to *settle*: heights come from a layout that
     depends on the heights, and a virtualiser that asks for another pass for ever draws a frame
     permanently one pass stale with no sign of it but `UiDocument.Settled`.
+  - ⚠ **Nothing in the tree turns either on yet, and that is worth saying rather than hiding.** The
+    three virtualised lists here are uniform on purpose: a tree node is one line, an asset tile is a
+    square, and the console's long message goes to its *detail pane* rather than to a taller row —
+    which is what Unity does and what the pane exists for. So this is a primitive without a caller,
+    which is this repository's commonest defect; it is written down here and filed rather than left
+    to be discovered by somebody grepping for callers. What would change the answer is a list whose
+    rows genuinely differ — a diff view, an inspector with expandable rows, a chat log.
