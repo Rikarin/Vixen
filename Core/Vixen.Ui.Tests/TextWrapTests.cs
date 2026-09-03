@@ -316,6 +316,62 @@ public class TextWrapTests {
     }
 
     [Fact]
+    public void A_wrap_boundary_index_is_on_either_line_depending_which_side_the_caret_is_on() {
+        using var document = Documented("width: 40px;");
+        var block = Labelled(document, "aa bb cc dd").Block()!;
+
+        Assert.True(block.Lines.Length > 1);
+
+        // ⚠ **The wrap is the third place one index names two, and the one a reader meets daily.**
+        // Walking right off the end of a line and pressing Down onto the next both arrive at the
+        // same number, and they are not the same place: one is at the right edge of the row above,
+        // the other at the left edge of the row below. The break has to be one whose next line
+        // *starts* at the boundary index — a wrap that ate its space leaves nowhere to go, and the
+        // downstream answer is then honestly the same as the upstream one.
+        var crossing = Enumerable.Range(0, block.Lines.Length - 1)
+            .Where(line => block.Lines[line + 1].Start <= block.Lines[line].Start + block.Lines[line].Length)
+            .Select(line => (Line: line, Index: block.Lines[line].Start + block.Lines[line].Length))
+            .ToList();
+
+        Assert.NotEmpty(crossing);
+
+        foreach (var (line, index) in crossing) {
+            Assert.Equal(line, block.LineOf(index, CaretAffinity.Upstream));
+            Assert.Equal(line + 1, block.LineOf(index, CaretAffinity.Downstream));
+
+            // And the y follows the line, which is what makes this visible rather than academic:
+            // the same index is drawn a whole line apart.
+            var (_, above) = block.CaretAt(index, CaretAffinity.Upstream);
+            var (_, below) = block.CaretAt(index, CaretAffinity.Downstream);
+
+            Assert.Equal(block.TopOf(line), above, Tolerance);
+            Assert.Equal(block.TopOf(line + 1), below, Tolerance);
+            Assert.True(below > above, "the downstream caret is on the row underneath");
+        }
+
+        // ⚠ The one-argument overloads are unchanged and still answer the line that *ends* there —
+        // every existing caller keeps what it had.
+        Assert.Equal(crossing[0].Line, block.LineOf(crossing[0].Index));
+    }
+
+    [Fact]
+    public void A_click_on_a_continuation_line_puts_the_caret_on_the_row_that_was_clicked() {
+        using var document = Documented("width: 40px;");
+        var block = Labelled(document, "aa bb cc dd").Block()!;
+
+        Assert.True(block.Lines.Length > 1);
+
+        // ⚠ **The y settles the affinity before the line is asked anything.** Clicking at the very
+        // start of a continuation row lands on an index that also ends the row above, and reporting
+        // it upstream would draw the caret on the wrong row — a caret that jumps upward when you
+        // click at the start of a wrapped line. The pair has to put itself back where it was found.
+        var found = block.CaretPositionAt(0f, block.TopOf(1) + 1f);
+        var (_, y) = block.CaretAt(found.Index, found.Affinity);
+
+        Assert.Equal(block.TopOf(1), y, Tolerance);
+    }
+
+    [Fact]
     public void Hit_testing_picks_the_line_the_point_is_over() {
         using var document = Documented("width: 40px;");
         var block = Labelled(document, "aa bb cc dd").Block()!;

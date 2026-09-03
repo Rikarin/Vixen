@@ -3,6 +3,7 @@
 
 using System.Collections.Immutable;
 using Vixen.Ui.Layout;
+using Vixen.Ui.Text;
 
 namespace Vixen.Ui;
 
@@ -80,15 +81,46 @@ public sealed class TextLayout {
     /// <remarks>
     ///     ⚠ <b>An index on a break belongs to the line that ends there</b>, which is one of the two
     ///     answers and is the one a caret arriving from the left expects. The other — the start of
-    ///     the next line — is what a caret arriving by pressing Down expects, and telling those apart
-    ///     is <i>caret affinity</i>, which needs a bit of state this does not carry. Owed with the
-    ///     editor, and named here rather than left as a surprise.
+    ///     the next line — is what a caret arriving by pressing Down expects; that is the upstream
+    ///     and downstream readings of the same index, and <see cref="LineOf(int, CaretAffinity)" />
+    ///     is how a caller says which it meant. This overload keeps answering the first.
     /// </remarks>
-    public int LineOf(int index) {
+    public int LineOf(int index) => LineOf(index, CaretAffinity.Upstream);
+
+    /// <summary>Which line a caret falls on, given which side of the index it belongs to.</summary>
+    /// <param name="index">A UTF-16 index into the element's text.</param>
+    /// <param name="affinity">Which of the two characters either side of the index it belongs to.</param>
+    /// <returns>The line's index in <see cref="Lines" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A wrap is the third place one index names two, and the one a reader meets daily.</b>
+    ///         The character before the break ends line <i>n</i>; the character after begins line
+    ///         <i>n+1</i>; the index between them is a single number sitting at the end of one and
+    ///         the start of the next, which is why a caret pressed Down onto a wrapped line and a
+    ///         caret walked right off the end of one land in visibly different places.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Downstream only crosses to a line that actually starts at or before the index.</b>
+    ///         A wrap that consumed the space it broke at leaves the next line starting <i>after</i>
+    ///         the boundary index, and there the downstream reading has nowhere to go — the caret
+    ///         genuinely belongs to the line that ends there, and crossing anyway would put it in
+    ///         front of a character on the wrong row.
+    ///     </para>
+    /// </remarks>
+    public int LineOf(int index, CaretAffinity affinity) {
         for (var i = 0; i < Lines.Length; i++) {
-            if (index <= Lines[i].Start + Lines[i].Length) {
-                return i;
+            if (index > Lines[i].Start + Lines[i].Length) {
+                continue;
             }
+
+            if (affinity == CaretAffinity.Downstream
+                && index == Lines[i].Start + Lines[i].Length
+                && i + 1 < Lines.Length
+                && Lines[i + 1].Start <= index) {
+                return i + 1;
+            }
+
+            return i;
         }
 
         return Lines.Length - 1;
@@ -97,22 +129,53 @@ public sealed class TextLayout {
     /// <summary>Where a caret sits, in pixels from the top left of the block.</summary>
     /// <param name="index">A UTF-16 index into the element's text.</param>
     /// <returns>The offset along the line, and the top of the line it is on.</returns>
-    public (float X, float Y) CaretAt(int index) {
-        var line = LineOf(index);
-        return (Lines[line].CaretOffset(index), tops[line]);
+    public (float X, float Y) CaretAt(int index) => CaretAt(index, CaretAffinity.Upstream);
+
+    /// <summary>Where a caret sits, given which side of the index it belongs to.</summary>
+    /// <param name="index">A UTF-16 index into the element's text.</param>
+    /// <param name="affinity">Which of the two characters either side of the index it belongs to.</param>
+    /// <returns>The offset along the line, and the top of the line it is on.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One bit decides both coordinates, and it must be the same bit.</b> The affinity picks
+    ///     the line and is then handed to that line to pick the run and the cluster; deciding the row
+    ///     one way and the column the other puts the caret at the end of a line it is not on.
+    /// </remarks>
+    public (float X, float Y) CaretAt(int index, CaretAffinity affinity) {
+        var line = LineOf(index, affinity);
+        return (Lines[line].CaretOffset(index, affinity), tops[line]);
     }
 
     /// <summary>Which caret index a point in the block lands on.</summary>
     /// <param name="x">Distance from the left, in pixels.</param>
     /// <param name="y">Distance from the top, in pixels.</param>
-    public int CaretIndexAt(float x, float y) {
+    public int CaretIndexAt(float x, float y) => CaretPositionAt(x, y).Index;
+
+    /// <summary>Which caret a point in the block lands on, and which side of it.</summary>
+    /// <param name="x">Distance from the left, in pixels.</param>
+    /// <param name="y">Distance from the top, in pixels.</param>
+    /// <returns>A UTF-16 index into the element's text, and the affinity that puts it back here.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The y picks the line and therefore settles the wrap-boundary affinity before the
+    ///     line is asked anything.</b> A click on the second row of a wrapped word means the caret is
+    ///     on that row whatever the index turns out to be — so a hit at the very start of a
+    ///     continuation line comes back <c>Downstream</c>, which is what puts it back on that row
+    ///     rather than at the end of the row above.
+    /// </remarks>
+    public (int Index, CaretAffinity Affinity) CaretPositionAt(float x, float y) {
         var line = 0;
 
         while (line + 1 < Lines.Length && y >= tops[line + 1]) {
             line++;
         }
 
-        return Lines[line].CaretIndexAt(x);
+        var found = Lines[line].CaretPositionAt(x);
+
+        // The line was chosen by the y and is not up for renegotiation. If the index the line
+        // reported would be read onto the previous line at the affinity the line gave, the click
+        // decides: it landed on this row, so the caret is downstream of the break.
+        return line > 0 && found.Index == Lines[line].Start && LineOf(found.Index, found.Affinity) != line
+            ? (found.Index, CaretAffinity.Downstream)
+            : found;
     }
 
     /// <summary>Measures a leaf whose size is its text.</summary>

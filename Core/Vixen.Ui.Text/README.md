@@ -25,7 +25,7 @@ Both suites were committed before their implementations, which is what those com
 | `ShapingCache` | Shaped paragraphs with LRU eviction. Keyed without the size. |
 | `FontFace.Decoration` | Where the face wants an underline and a line-through, and how thick. |
 | MSDF atlas, font fallback, rich-text runs | ⏳ |
-| `TextEditor` model with IME and caret affinity | IME ✅, affinity ⏳ — see below |
+| `TextEditor` model with IME and caret affinity | IME ✅, affinity ✅ — carried from `ShapedText` to `TextField`; see below |
 
 ## ⚠ A conformance suite says nothing about the caller
 
@@ -209,9 +209,47 @@ rather than a gap.** In `abcلسان` the index 3 is both *after the c* and *bef
 letter*, and those are at opposite ends of the Arabic run — one index, two places. The same point on
 screen therefore answers to two indices. No function from an index to a position can return both, so
 this one answers with the leading edge of the character the index names, and drawing order breaks the
-tie in the other direction. Telling them apart needs a caret **affinity** carried beside the index,
-which is an editor's concern and is owed with `TextEditor`. Asserting the round trip everywhere would
-have meant deleting the mixed case or inventing a rule to make it pass; both would have buried this.
+tie in the other direction.
+
+**The bit that separates them now exists**: `CaretAffinity`, with `CaretOffset(index, affinity)` and
+`CaretPositionAt(x)` returning the pair. `Upstream` finds the cluster that *ends* at the index rather
+than the one that starts there, and the hit test reports which end of the cluster it landed on — so
+the two are inverses, at a direction boundary as well as inside a run. The one-argument overloads
+remain and mean `Downstream`, which is what every existing caller keeps getting.
+
+⚠ **And the property the suite asserts changed shape, because the obvious one is not true.** It is
+not "hit-testing an index gives the index back" — at a direction boundary two *different* indices
+share one point (the caret after the `c` and the caret at the end of the text are the same x), and
+no return value can be both. It is **"a caret is drawn where the click that found it was"**:
+`CaretOffset(CaretPositionAt(CaretOffset(i, a)))` must equal `CaretOffset(i, a)`. That holds
+everywhere, and without an affinity it is false — `CaretOffset(7)` is the Arabic run's left edge,
+hit-testing it answers 3, and `CaretOffset(3)` is the *right* edge, most of a line away. Verified by
+sabotage: a hit test that never reports `Upstream` fails the mixed case of that property and the
+affinity test **and nothing else** — 2 of 26, with all 24 single-direction cases green, which is the
+contrast that says the property is about bidi and not about clusters. A `CaretOffset` that ignores
+its affinity fails 3.
+
+⚠ One claim here is **insurance and is labelled as such**: the trailing-edge answer for a cluster
+with no grapheme boundary inside it fails nothing, because the only such span belongs to a glyphless
+run and its advance is zero, so both its edges are the same number.
+
+**It is wired to a control.** `TextRun`, `TextLine` and `TextLayout` each grew the pair beside the
+index-only form, so the bit is asked three times on the way down and answers a different question
+each time — which line (a wrap), which run (a direction change), which cluster — and they agree in
+direction, which is why one bit carries all three. `TextField.CaretAffinity` is where it is *kept*,
+which it has to be: a caret walked off the end of a wrapped row and a caret pressed Down onto the
+next arrive at the same index, and only how they got there tells them apart. The click stores it,
+the drawing reads it, and Up/Down both read and produce one.
+
+⚠ **`Upstream` is the resting value throughout**, because that is what every index-only overload
+already answered — so nothing a caller has today moves.
+
+⚠ **And the guard that kept the old round trip honest was doing nothing at all.** It read
+"only where the text runs one way" and was a bare `return` for a mixed-direction string — so
+`abcلسان` was in the theory's data, ran, asserted *nothing*, and reported as passing. A silent early
+return is not a skip: the count said six cases and five were tested. That is this repository's
+recurring shape, an instrument that does not run printing success, and it is why the guard now
+asserts which string it is excusing rather than trusting the reader of a comment.
 
 ## Glyph outlines, which HarfBuzz does not have
 

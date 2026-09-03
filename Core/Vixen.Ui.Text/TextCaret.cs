@@ -17,6 +17,44 @@ public readonly record struct ClusterSpan(int Start, int End, float X, float Adv
     public float Right => X + Advance;
 }
 
+/// <summary>Which of the two characters either side of an index a caret belongs to.</summary>
+/// <remarks>
+///     <para>
+///         <b>An index names a boundary between two characters, and a boundary is not a place.</b>
+///         Where both neighbours run the same way it may as well be — the character before ends
+///         exactly where the character after begins, so the two readings are the same point and
+///         nothing can tell them apart. At a <i>direction</i> boundary they are at opposite ends of
+///         a run, and often at opposite ends of the line.
+///     </para>
+///     <para>
+///         ⚠ <b>This is what makes <see cref="ShapedText.CaretOffset(int, CaretAffinity)" /> and
+///         <see cref="ShapedText.CaretPositionAt" /> inverses of each other.</b> Without it the
+///         first is a function from one index to two places and has to pick one, so hit-testing a
+///         caret's own offset can return a caret drawn somewhere else — which on screen is a caret
+///         that teleports across the line when the user clicks exactly where it already is.
+///     </para>
+///     <para>
+///         ⚠ <b>It does not make the relation a bijection, and no bit could.</b> Two <i>different</i>
+///         indices can share one point: in <c>abcلسان</c> the caret after the <c>c</c> and the caret
+///         at the end of the text are both at the left edge of the Arabic run. That direction of the
+///         ambiguity is irreducible — a point genuinely names two positions — and is resolved by an
+///         editor remembering where its caret was, never by asking the text.
+///     </para>
+/// </remarks>
+public enum CaretAffinity : byte {
+    /// <summary>
+    ///     The character <i>after</i> the index — the caret sits at that character's leading edge.
+    ///     The reading a caret arriving from the left, or from a click on the character itself, has.
+    /// </summary>
+    Downstream,
+
+    /// <summary>
+    ///     The character <i>before</i> the index — the caret sits at that character's trailing edge.
+    ///     The reading a caret that has just typed, or walked forward off the end of a run, has.
+    /// </summary>
+    Upstream
+}
+
 public sealed partial class ShapedText {
     List<ClusterSpan>? clusters;
     int[]? graphemes;
@@ -44,8 +82,39 @@ public sealed partial class ShapedText {
     ///         characters inside that reverse.
     ///     </para>
     /// </remarks>
-    public float CaretOffset(int index) {
+    public float CaretOffset(int index) => CaretOffset(index, CaretAffinity.Downstream);
+
+    /// <summary>Where a caret sits, given which side of the index it belongs to.</summary>
+    /// <param name="index">A UTF-16 index into the text, ideally on a grapheme boundary.</param>
+    /// <param name="affinity">Which of the two characters either side of the index it belongs to.</param>
+    /// <returns>The caret's x, in design units from the start of the line.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Everything <see cref="CaretOffset(int)" />'s remarks say about clusters and graphemes
+    ///         holds here; the affinity decides only <i>which cluster</i> is interpolated across.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two answers differ only at a direction boundary, and that is not a weakness
+    ///         of this design but the whole of the problem.</b> Clusters tile the text without gaps,
+    ///         so inside a run the trailing edge of one and the leading edge of the next are the same
+    ///         number. Where the direction changes the two clusters are at opposite ends of a run,
+    ///         and one index therefore names two places that can be most of a line apart.
+    ///     </para>
+    /// </remarks>
+    public float CaretOffset(int index, CaretAffinity affinity) {
         var clamped = Math.Clamp(index, 0, Text.Length);
+
+        // ⚠ Upstream is tried first and only for Upstream, rather than being folded into one loop
+        // with a flipped comparison: an index strictly inside a cluster is matched by both windows
+        // and must give the same answer either way, or every caret in the middle of a ligature
+        // would move when an editor changed its mind about which character it trails.
+        if (affinity == CaretAffinity.Upstream) {
+            foreach (var span in Clusters) {
+                if (clamped > span.Start && clamped <= span.End) {
+                    return Interpolate(span, Fraction(span, clamped, whenIndivisible: 1));
+                }
+            }
+        }
 
         foreach (var span in Clusters) {
             if (clamped >= span.Start && clamped < span.End) {
@@ -63,30 +132,50 @@ public sealed partial class ShapedText {
         return Advance;
     }
 
-    /// <summary>The caret position nearest a point.</summary>
+    /// <summary>The caret position nearest a point, without which side of it the caret is on.</summary>
     /// <param name="x">A distance in design units from the start of the line.</param>
     /// <returns>A UTF-16 index on a grapheme boundary.</returns>
     /// <remarks>
     ///     <para>
-    ///         Nearly the inverse of <see cref="CaretOffset" />, and tested as one: for every
-    ///         grapheme boundary in a string, hit-testing the caret's own offset lands back on a
-    ///         caret at the same place. That round trip is worth more than any hand-written
-    ///         expectation about where a caret goes, because it holds for scripts nobody thought to
-    ///         write a case for.
+    ///         Nearly the inverse of <see cref="CaretOffset(int)" />, and for a paragraph that runs
+    ///         one way it is one: for every grapheme boundary, hit-testing the caret's own offset
+    ///         lands back on the same index.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is not an inverse, and it cannot be.</b> Where a left-to-right run meets a
-    ///         right-to-left one, two different logical positions occupy the <i>same</i> x — in
-    ///         <c>abcلسان</c> the caret after the <c>c</c> and the caret at the end of the text are
-    ///         the same point on the screen. No function from a point to an index can return both,
-    ///         so this returns the one belonging to the run drawn first. Telling them apart needs a
-    ///         caret <i>affinity</i> carried alongside the index, which is an editor's concern and
-    ///         is owed with the rest of <c>TextEditor</c>.
+    ///         ⚠ <b>Where the direction changes it is not, and the missing half is exactly the
+    ///         affinity this drops.</b> <see cref="CaretPositionAt" /> returns both and round-trips
+    ///         at a direction boundary; this returns the index alone, so feeding it back to
+    ///         <see cref="CaretOffset(int)" /> can answer with the other end of the line. Prefer the
+    ///         pair anywhere a caret is being <i>placed</i> rather than merely counted — this
+    ///         overload is for callers that only want to know which character was clicked.
     ///     </para>
     /// </remarks>
-    public int CaretIndexAt(float x) {
+    public int CaretIndexAt(float x) => CaretPositionAt(x).Index;
+
+    /// <summary>The caret nearest a point: where it is in the text, and which side it belongs to.</summary>
+    /// <param name="x">A distance in design units from the start of the line.</param>
+    /// <returns>A UTF-16 index on a grapheme boundary, and the affinity that puts it back here.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The inverse of <see cref="CaretOffset(int, CaretAffinity)" />, which
+    ///         <see cref="CaretIndexAt" /> could not be.</b> The affinity is read off which end of
+    ///         the landed-on cluster the point fell at, so feeding the pair back gives the same x —
+    ///         at a direction boundary as well as inside a run. That round trip is the gate, and it
+    ///         is worth more than any hand-written expectation about where a caret goes, because it
+    ///         holds for scripts nobody thought to write a case for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The index alone is still not recoverable, and that is a property of bidi text
+    ///         rather than a gap here.</b> In <c>abcلسان</c> the caret after the <c>c</c> and the
+    ///         caret at the end of the text are the same point on the screen: a point names two
+    ///         positions, and no return value can be both. This answers with the one belonging to
+    ///         the cluster drawn first, so an editor that needs the other must carry it rather than
+    ///         re-derive it from a click.
+    ///     </para>
+    /// </remarks>
+    public (int Index, CaretAffinity Affinity) CaretPositionAt(float x) {
         if (Clusters.Count == 0) {
-            return 0;
+            return (0, CaretAffinity.Downstream);
         }
 
         var best = Clusters[0];
@@ -110,7 +199,7 @@ public sealed partial class ShapedText {
 
         var steps = Steps(best.Start, best.End);
         if (steps == 0 || best.Advance == 0) {
-            return best.Start;
+            return (best.Start, CaretAffinity.Downstream);
         }
 
         var fraction = Math.Clamp((x - best.X) / best.Advance, 0, 1);
@@ -119,15 +208,35 @@ public sealed partial class ShapedText {
         }
 
         var step = (int)Math.Round(fraction * steps, MidpointRounding.AwayFromZero);
-        return BoundaryAfter(best.Start, step);
+
+        // ⚠ The affinity is *which end of this cluster* the point landed at, not which direction the
+        // cluster runs. Landing on the trailing edge means the caret belongs to the character before
+        // the index — which is the reading that puts it back on this cluster rather than on whatever
+        // is drawn after the index, and at a direction boundary those are at opposite ends of a run.
+        return (BoundaryAfter(best.Start, step), step == steps ? CaretAffinity.Upstream : CaretAffinity.Downstream);
     }
 
     static float Interpolate(ClusterSpan span, float fraction) =>
         span.IsRightToLeft ? span.Right - (span.Advance * fraction) : span.X + (span.Advance * fraction);
 
-    float Fraction(ClusterSpan span, int index) {
+    /// <summary>How far across a cluster an index sits, counted in graphemes.</summary>
+    /// <param name="span">The cluster.</param>
+    /// <param name="index">A UTF-16 index inside it.</param>
+    /// <param name="whenIndivisible">
+    ///     What to answer for a cluster with no grapheme boundary inside it to interpolate against —
+    ///     the leading edge for a caret in front of it, the <i>trailing</i> edge for one behind it.
+    ///     <para>
+    ///         ⚠ <b>This parameter is insurance and is labelled as such: answering 0 for both fails
+    ///         nothing.</b> The only span reached with no grapheme step in it is the one a glyphless
+    ///         run gets — a string of deleted joiners — and that span's <c>Advance</c> is zero, so
+    ///         both edges are the same number and no assertion about an x can tell them apart. It is
+    ///         kept because the two callers genuinely want opposite ends and a future span that is
+    ///         indivisible *and* wide would be silently wrong at one of them.
+    ///     </para>
+    /// </param>
+    float Fraction(ClusterSpan span, int index, float whenIndivisible = 0) {
         var total = Steps(span.Start, span.End);
-        return total == 0 ? 0 : (float)Steps(span.Start, index) / total;
+        return total == 0 ? whenIndivisible : (float)Steps(span.Start, index) / total;
     }
 
     /// <summary>How many grapheme boundaries lie in <c>(from, to]</c>.</summary>

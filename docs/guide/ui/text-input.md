@@ -3,9 +3,9 @@ title: Text input and the input method
 slug: ui/text-input
 kind: guide
 area: Core
-summary: How typed text reaches a control, why an input method's pre-edit is a different event from typed text and what a field does with it, why the pre-edit is shown but is not the value, where the caret goes while a composition is running, and what a platform head has to do for any of it to arrive.
-api: [T:Vixen.Ui.TextInputEvent, T:Vixen.Ui.TextCompositionEvent]
-tags: [ui, input, text, keyboard, ime, composition, caret]
+summary: How typed text reaches a control, why an input method's pre-edit is a different event from typed text and what a field does with it, why the pre-edit is shown but is not the value, where the caret goes while a composition is running, what a platform head has to do for any of it to arrive, and why a caret index alone cannot say where the caret is at a wrap or a change of direction.
+api: [T:Vixen.Ui.TextInputEvent, T:Vixen.Ui.TextCompositionEvent, T:Vixen.Ui.Text.CaretAffinity]
+tags: [ui, input, text, keyboard, ime, composition, caret, affinity, bidi]
 since: 0.2
 status: preview
 related: [ui/commands, ui/accessibility]
@@ -89,6 +89,31 @@ and the gap was invisible from both ends: the event existed, was documented, was
 desktop and web heads, and had a constructor test of its own — and the bridge dropped every one of
 them through its `default`. Both halves were tested and correct; the join was neither.
 
+## Where the caret is, which is not only a number
+
+A caret index names a *boundary between two characters*, and a boundary is not always one place.
+Usually it may as well be — the character before ends exactly where the character after begins. Two
+situations break that, and a reader meets both:
+
+- **A soft wrap.** The index that ends one row also starts the next. A caret walked right off the end
+  of a line and a caret pressed Down onto that line arrive at the same number, a whole row apart.
+- **A change of direction.** In `abcلسان` the index 3 is *after the `c`* and *before the first Arabic
+  letter*, and those are at opposite ends of the Arabic run.
+
+<xref:Vixen.Ui.Text.CaretAffinity> is the bit that says which — `Upstream` for the character before
+the index, `Downstream` for the one after — and <xref:Vixen.Ui.Controls.TextField>'s `CaretAffinity`
+is where a field keeps it. It is **carried state, not a derivation**: nothing about the text can say
+how the caret got where it is, so a field that stored only `CaretIndex` cannot draw it in the right
+place.
+
+Every caret method has an index-only overload that means `Upstream`, so existing code is unaffected;
+reach for the pair when you are *placing* a caret rather than counting characters.
+
+⚠ **One index maps to two places, and that is fixed. Two indices can also share one place, and that
+is not.** The caret after the `c` and the caret at the end of `abcلسان` are the same x, so a click
+there must answer with one of them. An editor resolves that by remembering its caret, never by asking
+the text — which is exactly why the affinity lives on the field.
+
 ## Examples
 
 Taking committed text and a pre-edit from the same field, which are two different events and must
@@ -112,3 +137,5 @@ the field. The two events exist to keep them apart.
   area.
 - `Core/Vixen.Ui.Controls/TextField.cs` — the editing core under every field in the set.
 - [Accessibility](accessibility.md) — what a field reports about itself while it is being typed into.
+- `Core/Vixen.Ui.Text/README.md` — *The caret, and a function that cannot be inverted*: why the round
+  trip is stated as "a caret is drawn where the click that found it was" rather than as an inverse.

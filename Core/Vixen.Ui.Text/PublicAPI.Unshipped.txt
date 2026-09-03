@@ -43,6 +43,10 @@ Vixen.Ui.Text.BidiResult.ParagraphLevel.get -> int
 Vixen.Ui.Text.BidiResult.ParagraphLevel.init -> int
 Vixen.Ui.Text.BidiResult.VisualOrder.get -> int[]
 Vixen.Ui.Text.BidiResult.VisualOrder.init -> int[]
+Vixen.Ui.Text.CaretAffinity -> enum : byte
+Vixen.Ui.Text.CaretAffinity.CaretAffinity() -> void
+Vixen.Ui.Text.CaretAffinity.Downstream = 0 -> Vixen.Ui.Text.CaretAffinity
+Vixen.Ui.Text.CaretAffinity.Upstream = 1 -> Vixen.Ui.Text.CaretAffinity
 Vixen.Ui.Text.ClusterSpan -> readonly struct
 Vixen.Ui.Text.ClusterSpan : System.IEquatable<Vixen.Ui.Text.ClusterSpan>
 Vixen.Ui.Text.ClusterSpan.Advance.get -> float
@@ -610,6 +614,8 @@ Vixen.Ui.Text.ShapedText -> sealed class
 Vixen.Ui.Text.ShapedText.Advance.get -> float
 Vixen.Ui.Text.ShapedText.CaretIndexAt(float x) -> int
 Vixen.Ui.Text.ShapedText.CaretOffset(int index) -> float
+Vixen.Ui.Text.ShapedText.CaretOffset(int index, Vixen.Ui.Text.CaretAffinity affinity) -> float
+Vixen.Ui.Text.ShapedText.CaretPositionAt(float x) -> (int Index, Vixen.Ui.Text.CaretAffinity Affinity)
 Vixen.Ui.Text.ShapedText.Clusters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.ClusterSpan>
 Vixen.Ui.Text.ShapedText.Placements() -> System.Collections.Generic.IEnumerable<Vixen.Ui.Text.GlyphPlacement>
 Vixen.Ui.Text.ShapedText.Runs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.ShapedRun>

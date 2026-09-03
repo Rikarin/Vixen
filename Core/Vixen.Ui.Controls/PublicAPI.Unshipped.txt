@@ -680,6 +680,7 @@ Vixen.Ui.Controls.TextBox : Vixen.Ui.Controls.TextField
 Vixen.Ui.Controls.TextBox.TextBox() -> void
 Vixen.Ui.Controls.TextField -> abstract class
 Vixen.Ui.Controls.TextField : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.TextField.CaretAffinity.get -> Vixen.Ui.Text.CaretAffinity
 Vixen.Ui.Controls.TextField.CaretIndex.get -> int
 Vixen.Ui.Controls.TextField.ClearMaxLength() -> void
 Vixen.Ui.Controls.TextField.ClearPlaceholder() -> void
@@ -691,6 +692,7 @@ Vixen.Ui.Controls.TextField.HasSelection.get -> bool
 Vixen.Ui.Controls.TextField.IsComposing.get -> bool
 Vixen.Ui.Controls.TextField.MaxLength.get -> int
 Vixen.Ui.Controls.TextField.MaxLength.set -> int
+Vixen.Ui.Controls.TextField.MoveCaret(int index, Vixen.Ui.Text.CaretAffinity affinity, bool extend = false) -> void
 Vixen.Ui.Controls.TextField.MoveCaret(int index, bool extend = false) -> void
 Vixen.Ui.Controls.TextField.Placeholder.get -> string?
 Vixen.Ui.Controls.TextField.Placeholder.set -> string?
