@@ -97,14 +97,21 @@ public sealed class RavenEffectCompiler : IEffectSource {
     ///         not one — the graph passes <c>Preview.rvn</c>.
     ///     </para>
     /// </remarks>
+    /// <param name="composition">
+    ///     What fills a slot no key names. ⚠ Here rather than left to an object initializer because
+    ///     <see cref="Composition" /> is <c>init</c> and this is a factory: a caller cannot write
+    ///     <c>FromSources(…) { Composition = … }</c>, and without it the editor's own compilation
+    ///     silently loses the library defaults that every variant in it depends on.
+    /// </param>
     public static RavenEffectCompiler FromSources(
         IEnumerable<(string Name, string Text)> sources,
         string target = "spirv",
-        IEnumerable<string>? referencePaths = null
+        IEnumerable<string>? referencePaths = null,
+        ShaderComposition composition = default
     ) {
         ArgumentNullException.ThrowIfNull(sources);
 
-        return new(sources, target, referencePaths);
+        return new(sources, target, referencePaths) { Composition = composition };
     }
 
     /// <summary>Reads what the path constructor was given, so both share one body.</summary>

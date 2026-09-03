@@ -613,6 +613,112 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.False(File.Exists(bundle));
     }
 
+    /// <summary>
+    ///     A graph-authored material is compiled into the shipping bundle, which is the end of the
+    ///     graph story.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The "finished thing nothing calls" assertion, and the reason it lives in the
+    ///         CLI's suite.</b> <c>ShaderGraphSources</c> can be perfect and this runner never call
+    ///         it — which is exactly the state the shader graph shipped in for its whole life,
+    ///         emitting correct Raven that no compilation in the process had ever seen. Testing the
+    ///         enumerator proves the enumerator; only this proves the build asks it, and only this
+    ///         proves the answer reaches the bundle a shipping run loads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It also depends on the engine's library being beside the CLI, which it was
+    ///         not.</b> A graph's surface imports <c>Vixen.Shaders.Material</c>, and this runner
+    ///         compiled a project's own <c>*.rvn</c> and nothing else — so every project shader that
+    ///         imports the engine library was unbakeable, and the editor could compile a shader the
+    ///         build could not. That gap is older than the graph and this test is what holds it shut.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task ABuildCompilesAGraphAuthoredMaterialIntoTheBundle() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+
+        var graph = new Vixen.Editor.NodeGraph.NodeGraphModel { Name = "Painted" };
+
+        graph.Add("Master/Surface");
+
+        Asset(
+            "Painted.vxshadergraph",
+            YamlSerializer.ToYaml(Vixen.Editor.NodeGraph.NodeGraphDocument.Save(graph))
+        );
+
+        // The variant a material naming this graph would ask for: the forward pass, with the graph
+        // in the chain's first slot.
+        Manifest(
+            """
+            {
+              "Effects": [
+                {
+                  "Shader": "ForwardPlus",
+                  "Composition": { "CompositeSurface.first": "Painted" }
+                }
+              ]
+            }
+            """
+        );
+
+        var (code, output) = await Run("content", "build");
+
+        Assert.True(code == ExitCode.Success, output);
+        Assert.Contains("Compiled 1 shader variant", output, StringComparison.Ordinal);
+
+        var store = new EffectStore(
+            Serializer.Read<EffectBundle>(
+                File.ReadAllBytes(Path.Combine(Build(), ShaderBuildRunner.BundleFileName))
+            )
+        );
+
+        var key = Assert.Single(store.Keys);
+
+        Assert.Equal("ForwardPlus", key.ShaderName);
+
+        // ⚠ The graph's name in the composition, which is the whole claim: what was baked is the
+        // pass composed with a shader that exists only because a `.vxshadergraph` was compiled.
+        Assert.Equal("Painted", key.Composition.Resolve("CompositeSurface.first"));
+    }
+
+    /// <summary>
+    ///     A shader graph reaches the build's own shader compilation, and its complaints reach the
+    ///     build log.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Reported at import, before the shader step.</b> <c>ShaderGraphImporter</c> compiles
+    ///     the graph to find out whether it is one — <c>MaterialImporter</c>'s arrangement — so a
+    ///     graph with no master fails the build against the file that caused it rather than as a
+    ///     shader that mysteriously never appears.
+    /// </remarks>
+    [Fact]
+    public async Task ABuildReportsAShaderGraphThatDoesNotCompile() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+        Shader("Tint.rvn");
+        Manifest("""{ "Effects": [ { "Shader": "Tint", "Permutations": { "Tint.Bright": "true" } } ] }""");
+
+        // A graph the editor would have saved, with an input node and nothing to write it to.
+        // Written through the real document writer, so the fixture cannot pass by being a file the
+        // reader happens to reject for a different reason than the one under test.
+        var graph = new Vixen.Editor.NodeGraph.NodeGraphModel { Name = "Unfinished" };
+
+        graph.Add("Input/UV");
+
+        Asset(
+            "Unfinished.vxshadergraph",
+            YamlSerializer.ToYaml(Vixen.Editor.NodeGraph.NodeGraphDocument.Save(graph))
+        );
+
+        var (code, output) = await Run("content", "build");
+
+        Assert.True(code == ExitCode.Failed, output);
+        Assert.Contains("Unfinished.vxshadergraph", output, StringComparison.Ordinal);
+        Assert.Contains("SG0003", output, StringComparison.Ordinal);
+    }
+
     /// <summary>A project that has not got to a manifest yet still builds.</summary>
     /// <remarks>
     ///     It runs against a compiler in development, so it is not broken — it is early. Saying that

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Assets.Shading;
 using Vixen.Editor.Core;
 using Vixen.Graphics;
 using Vixen.Rendering.Materials;
@@ -100,8 +101,17 @@ sealed class EditorEffects : IDisposable {
     /// </remarks>
     public string? Refusal { get; private set; }
 
-    /// <summary>How many source files the compilation is over.</summary>
+    /// <summary>How many sources the compilation is over — files, plus the project's graphs.</summary>
     public int SourceCount { get; private set; }
+
+    /// <summary>What each shader graph that would not compile had to say, one line per graph.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="Refusal" />, because a broken graph is not a broken
+    ///     editor.</b> One graph an author is halfway through must not read as "there are no effects":
+    ///     the rest of the project compiles, the scene draws, and the material naming that graph is
+    ///     the only thing missing. Reported per graph so a panel can send an author to the file.
+    /// </remarks>
+    public IReadOnlyList<string> GraphRefusals { get; private set; } = [];
 
     /// <summary>Re-reads the sources, which is what a shader having been edited means.</summary>
     /// <remarks>
@@ -125,9 +135,35 @@ sealed class EditorEffects : IDisposable {
     }
 
     void Build() {
-        var sources = Sources().ToList();
+        var files = Sources().ToList();
+
+        // ⚠ The project's shader graphs, compiled to Raven and handed over as text. Without this a
+        // graph emitted a perfectly good `IMaterialSurface` that no compilation in the process had
+        // ever seen, so a material naming it resolved to an effect miss — a draw that does not
+        // happen, with nothing on screen and nothing in the log about a material.
+        var graphs = ShaderGraphSources.All(project.Paths.Assets);
+
+        List<(string Name, string Text)> sources = [];
+
+        foreach (var file in files) {
+            sources.Add((file, File.ReadAllText(file)));
+        }
+
+        foreach (var graph in graphs) {
+            if (graph.Compiled) {
+                sources.Add((graph.Path, graph.Text));
+            }
+        }
 
         SourceCount = sources.Count;
+
+        // A graph that did not compile is reported and skipped rather than added, for the reason
+        // `ShaderGraphSources` gives: unparseable text in a shared compilation is every material in
+        // the project refused, under a message about the library.
+        GraphRefusals = [
+            .. graphs.Where(graph => graph.Diagnostics.Count > 0)
+                .Select(graph => $"{Path.GetFileName(graph.Path)}: {string.Join("; ", graph.Diagnostics)}")
+        ];
 
         // ⚠ Cleared before the compilation rather than after it, and both lines are needed. Dropping
         // the provider is what stops a variant asked for during the rebuild being answered out of the
@@ -149,7 +185,10 @@ sealed class EditorEffects : IDisposable {
             // `CompositeSurface`, because those files are in the same compilation. A key's own
             // bindings win over these, which is what keeps a material's chosen shading model its
             // own.
-            var compiler = new RavenEffectCompiler(sources) { Composition = MaterialCompiler.PassComposition() };
+            var compiler = RavenEffectCompiler.FromSources(
+                sources,
+                composition: MaterialCompiler.PassComposition()
+            );
 
             // ⚠ The cache in front of the compiler, not behind it. `EffectDiskCache` takes the
             // compiler as its own source, so a miss falls through, compiles and is written back —

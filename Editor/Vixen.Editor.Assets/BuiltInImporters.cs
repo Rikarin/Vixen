@@ -63,6 +63,7 @@ public static class BuiltInImporters {
                 .Add(new SceneImporter())
                 .Add(new MaterialImporter())
                 .Add(new Vfx.VfxImporter())
+                .Add(new Shading.ShaderGraphImporter())
                 .Add(new Compositors.CompositorImporter())
                 .Add(new Terrain.TerrainAssetImporter())
                 .Add(new Terrain.HeightmapImporter())
@@ -192,11 +193,6 @@ static class UnimportedFormats {
             [".vxmixer"] = (ImportSeverity.Warning,
                 "The editor creates and opens a .vxmixer and nothing imports one. AudioEngine.LoadMixer takes a "
                 + "MixerAsset and nothing builds one from a file, so the two halves exist and do not meet."),
-
-            [".vxshadergraph"] = (ImportSeverity.Warning,
-                "Nothing imports a .vxshadergraph — see Vixen.Editor.AssetEditors/README.md § Known gaps. What a "
-                + "build needs from a graph is the compiled shader, which is ShaderGraphDocument.Compile handed "
-                + "to Raven."),
 
             [".vxplacement"] = (ImportSeverity.Warning,
                 "Nothing imports a .vxplacement. The extension belongs to Live/Vixen.Live.Orchestrator, which "
