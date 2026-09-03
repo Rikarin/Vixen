@@ -4,6 +4,7 @@
 using System.Buffers.Binary;
 using System.Runtime.Versioning;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace Vixen.Graphics.WebGPU.Browser;
 
@@ -24,6 +25,19 @@ public readonly record struct BrowserWebGpuOptions() {
 
     /// <summary>Where <c>vixen-webgpu.js</c> is fetched from.</summary>
     public string ModuleUrl { get; init; } = WebGpuInterop.DefaultModuleUrl;
+
+    /// <summary>Where the implementation's own complaints go.</summary>
+    /// <remarks>
+    ///     ⚠ Optional, and a binding created without one is deaf: WebGPU reports almost nothing
+    ///     through return values, so <c>uncapturederror</c> and <c>device lost</c> are the only
+    ///     account of why a backend is drawing nothing. The native surface takes a logger for the
+    ///     same reason — see <c>NativeWebGpuErrors</c>, whose remarks record the same lesson from
+    ///     <c>VulkanDiagnostics</c>: validation output that goes nowhere is not validation.
+    ///
+    ///     Null by default rather than required, because this is the boot path of a page and a
+    ///     head that has not built its logging yet should still be able to get a device.
+    /// </remarks>
+    public ILogger? Logger { get; init; }
 }
 
 /// <summary>WebGPU through <c>navigator.gpu</c>.</summary>
@@ -47,12 +61,19 @@ public readonly record struct BrowserWebGpuOptions() {
 public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     readonly WebGpuPacker packer = new();
     readonly HashSet<WgpuFeatureName> features;
+    readonly ILogger? logger;
 
     bool disposed;
 
-    BrowserWebGpuBinding(WebGpuLimits limits, HashSet<WgpuFeatureName> features, WebGpuAdapterInfo info) {
+    BrowserWebGpuBinding(
+        WebGpuLimits limits,
+        HashSet<WgpuFeatureName> features,
+        WebGpuAdapterInfo info,
+        ILogger? logger
+    ) {
         Limits = limits;
         this.features = features;
+        this.logger = logger;
         AdapterInfo = info;
         HasSurface = WebGpuInterop.HasSurface();
 
@@ -104,7 +125,12 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
             throw new PlatformNotSupportedException($"WebGPU could not start: {failure}");
         }
 
-        return new(ReadLimits(), ReadFeatures(), new(WebGpuInterop.AdapterName(), WgpuAdapterType.Unknown, "browser"));
+        return new(
+            ReadLimits(),
+            ReadFeatures(),
+            new(WebGpuInterop.AdapterName(), WgpuAdapterType.Unknown, "browser"),
+            options.Logger
+        );
     }
 
     // ── Resources ───────────────────────────────────────────────────────────────────────────
@@ -389,8 +415,38 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     public bool WaitIdle() => false;
 
     /// <inheritdoc />
-    /// <remarks>A browser has an event loop of its own and nothing to pump.</remarks>
-    public void Tick() { }
+    /// <remarks>
+    ///     <para>
+    ///         A browser has an event loop of its own and nothing to pump, so there is no work
+    ///         here — but it is called once a frame from <c>WebGpuDevice.BeginFrame</c>, and that
+    ///         makes it the place to collect what the implementation complained about since the
+    ///         last one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing collected them before.</b> <c>vixen-webgpu.js</c> has always recorded
+    ///         <c>uncapturederror</c> and <c>device lost</c> and always exported
+    ///         <c>lastErrorMessage</c>; no <c>[JSImport]</c> named it, so the messages went into a
+    ///         variable and stayed there. WebGPU has no return codes — a backend that is silently
+    ///         doing nothing looks exactly like one that works, which is the lesson
+    ///         <c>NativeWebGpuErrors</c> is written around on the other surface. This is the same
+    ///         wire, on this one.
+    ///     </para>
+    ///     <para>
+    ///         Once a frame and not once a call: a device that has started producing errors
+    ///         produces one per draw, and a logger is not a thing to put in that path.
+    ///     </para>
+    /// </remarks>
+    public void Tick() {
+        if (logger is not { } sink) {
+            return;
+        }
+
+        // Reading clears it, so a message is reported once and a quiet frame costs one interop call
+        // returning an empty string.
+        if (WebGpuInterop.LastErrorMessage() is { Length: > 0 } message) {
+            WebGpuLog.UncapturedError(sink, message);
+        }
+    }
 
     // ── Encoding ────────────────────────────────────────────────────────────────────────────
 

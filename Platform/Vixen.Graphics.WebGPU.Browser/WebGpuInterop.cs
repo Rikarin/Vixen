@@ -264,4 +264,24 @@ internal static partial class WebGpuInterop {
     /// <returns>Its handle, or <c>0</c> if the context had none to give.</returns>
     [JSImport("acquireSurfaceTexture", ModuleName)]
     public static partial int AcquireSurfaceTexture();
+
+    // ── Diagnostics ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Takes and clears whatever the implementation last complained about.</summary>
+    /// <returns>The message, or an empty string when there was nothing.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This declaration is the fix; the JavaScript side has always been there.</b>
+    ///     <c>vixen-webgpu.js</c> has recorded every <c>uncapturederror</c> and every
+    ///     <c>device lost</c> since it was written, and exported <c>lastErrorMessage</c> to hand
+    ///     them over — and no <c>[JSImport]</c> ever named it, so every one of them was recorded
+    ///     and thrown away. WebGPU has no return codes: almost everything is <see langword="void" />
+    ///     and what went wrong arrives only here, which is exactly the reason
+    ///     <c>NativeWebGpuErrors</c> exists on the other surface. The browser half had the same
+    ///     mechanism and no wire out of it.
+    ///
+    ///     Found by <c>InteropSurfaceTests</c>, which compares this file's import names against the
+    ///     module's exports in both directions.
+    /// </remarks>
+    [JSImport("lastErrorMessage", ModuleName)]
+    public static partial string LastErrorMessage();
 }

@@ -129,19 +129,48 @@ public sealed partial class WebGpuDevice {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Not yet, and the reason is that the feature is not free to ask for.</b> WebGPU has
-    ///     <c>timestamp-query</c>, and it is an <i>optional</i> feature a device must be created
-    ///     with — browsers gate it behind a flag for the same fingerprinting and timing-attack
-    ///     reasons they blur <c>performance.now</c>, so a device that asked for it unconditionally
-    ///     would fail to be created on the majority of the configurations this backend targets. It
-    ///     belongs with a device-creation option that says whether the caller wants a profileable
-    ///     device, which is a decision the editor's remote-inspector work has not needed yet.
+    ///     <para>
+    ///         ⚠ <b>Not yet — but not for the reason this comment used to give, which was wrong
+    ///         twice over.</b> It said <c>timestamp-query</c> is "not free to ask for" and that a
+    ///         device requesting it unconditionally "would fail to be created on the majority of
+    ///         the configurations this backend targets".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This backend already requests it.</b>
+    ///         <see cref="WebGpuCapabilities.Wanted" /> lists
+    ///         <see cref="WgpuFeatureName.TimestampQuery" /> among the features it asks for, and
+    ///         has since it was written. And it is not requested unconditionally: <c>Wanted</c>
+    ///         intersects its list with what the adapter reports, so on a device without the
+    ///         feature it is simply not asked for and creation cannot fail. The reasoning described
+    ///         a design that is not the one implemented.
+    ///     </para>
+    ///     <para>
+    ///         <b>What is actually missing is the plumbing.</b>
+    ///         <see cref="WebGpuCapabilities.Describe" /> never sets
+    ///         <c>HasTimestampQueries</c> or <c>TimestampPeriod</c>, so they keep
+    ///         <c>GraphicsDeviceFeatures.Minimum</c>'s <see langword="false" /> and zero even on a
+    ///         device where the feature is enabled — and <see cref="IWebGpuBinding" /> has no
+    ///         query-set member at all: no create, no resolve, no deferred readback. Those are the
+    ///         work, and the design does not fight it — <c>IWebGpuBinding.Tick</c> is already
+    ///         called once a frame, and <c>GpuProfiler</c>'s ring already tolerates
+    ///         <c>FramesInFlight</c> frames of latency, which is exactly what an asynchronous
+    ///         <c>mapAsync</c> readback needs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The one real obstacle is narrower than it looks: <c>Silk.NET.WebGPU</c> 2.23.0
+    ///         binds <c>wgpuCommandEncoderWriteTimestamp</c> but <b>not</b> the render- or
+    ///         compute-pass variants, so a timestamp cannot be written inside a pass — which
+    ///         <see cref="Vixen.Graphics.ICommandList.WriteTimestamp" /> says is allowed. No caller
+    ///         needs it: <c>RenderGraph</c> opens its scope before the pass encoder and closes it
+    ///         after, deliberately, so barrier stalls are charged to the pass that caused them.
+    ///     </para>
     /// </remarks>
     public QueryPoolHandle CreateQueryPool(in QueryPoolDescription description) =>
         throw new NotSupportedException(
-            $"Query pool '{description.Name}' was asked for on the WebGPU backend. `timestamp-query` is "
-            + "an optional device feature this backend does not request. Ask "
-            + "Features.HasTimestampQueries first."
+            $"Query pool '{description.Name}' was asked for on the WebGPU backend, which has no query "
+            + "sets yet — the `timestamp-query` feature is requested and may well be enabled, but "
+            + "nothing reports or resolves it. Ask Features.HasTimestampQueries first, which is "
+            + "false here and will stay false until that lands."
         );
 
     /// <inheritdoc />
@@ -153,7 +182,8 @@ public sealed partial class WebGpuDevice {
     /// <inheritdoc />
     public bool TryResolveQueries(QueryPoolHandle pool, int first, Span<ulong> results) =>
         throw new NotSupportedException(
-            "The WebGPU backend does not request `timestamp-query`, so no pool exists to resolve."
+            "The WebGPU backend has no query sets, so no pool exists to resolve — see "
+            + "CreateQueryPool, whose remarks correct what this message used to claim."
         );
 
     /// <inheritdoc />

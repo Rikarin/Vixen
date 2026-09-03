@@ -156,7 +156,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Android AOT gate (on its *default* runtime, not NativeAOT) | ⬜ | — | `XA1040` calls NativeAOT experimental on Android |
 | `Vixen.Platform.Web` — canvas, all input, IndexedDB, fetch + ranges, single-thread job mode, lazy assemblies | ✅ | Platform/Vixen.Platform.Web | Not in `Vixen.slnx` (needs `wasm-tools` to evaluate) |
 | Web: native dialogs, display enumeration, window position, thermal state, clipboard images | ⛔ | — | Absent by platform, not by omission — each documented with why |
-| Browser transport for `Vixen.Net` | ⬜ | — | A browser cannot open a UDP socket; the existing `Vixen.Net.Transport.WebSocket` is a server/desktop implementation |
+| Browser transport for `Vixen.Net` | ✅ | Core/Vixen.Net.Transport.WebSocket.Browser | One more `IWebSocketFactory`, client only — a page cannot listen. ⚠ Ships no JavaScript: `ClientWebSocket` on `browser-wasm` IS a real `BrowserWebSocket`, refuting this row's premise and doc 16's `ISocket`, which never existed. Tested on `net10.0` by source-linking against a real server |
 | `AudioWorklet` path (cross-origin-isolated pages) | ⬜ | — | `vixen-audio.js` is a `ScriptProcessorNode` and says so. Would cut WebAudio's 40 ms queue to ~2 ms; needs the page to be cross-origin isolated and… |
 
 ## 1.6 Asset pipeline
@@ -933,7 +933,7 @@ Detail, evidence and history live in the linked issue and the owning module `REA
 | 26 | `Vixen.Platform.Native` | R10's remaining five native dependencies | [#166](https://github.com/Rikarin/Vixen/issues/166) |
 | 27 | `Vixen.Platform.iOS` | Physical-device run; sensors, haptics, HDR layer; scene-delegate lifecycle | [#167](https://github.com/Rikarin/Vixen/issues/167) |
 | 28 | `Vixen.Platform.Android` | GLES fallback + deny-list; key translation; safe-area insets; sensors; default-runtime AOT gate | [#168](https://github.com/Rikarin/Vixen/issues/168) |
-| 29 | `Vixen.Platform.Web` | built as `nuke BrowserSmoke`, 37 checks, no Playwright and no npm; still owed: the `AudioWorklet` path, a browser… | [#169](https://github.com/Rikarin/Vixen/issues/169) |
+| 29 | `Vixen.Platform.Web` | built as `nuke BrowserSmoke`, 37 checks, no Playwright and no npm; the browser transport and all four `MemoryView` misuses are done (⚠ four, not three, and the audio one was silent rather than a `TypeError`); still owed: the `AudioWorklet` path… | [#169](https://github.com/Rikarin/Vixen/issues/169) |
 | 30 | `Vixen.Assets` / pipeline | Parallel import; persisted per-entry index; the import-budget gate | [#170](https://github.com/Rikarin/Vixen/issues/170) |
 | 32 | Asset pipeline | ✅ **Closed.** The `.cube` LUT importer was written, tested and unregistered, and so were the four AI importers; all… | [#171](https://github.com/Rikarin/Vixen/issues/171) |
 | 33 | `Vixen.Sdk` | CLI shipped in the package; platform packaging; diagnostic file paths | [#172](https://github.com/Rikarin/Vixen/issues/172) |

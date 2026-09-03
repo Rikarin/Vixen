@@ -1309,7 +1309,9 @@ export function deviceMemory() {
     return navigator.deviceMemory || 0;
 }
 
-export function startBatteryWatch() {
+// Not exported: `initialise` is the only caller and it is in this file. An `export` here would
+// claim a [JSImport] surface that does not exist, which InteropSurfaceTests now refuses.
+function startBatteryWatch() {
     // getBattery() is gone from Firefox and Safari, on purpose: it is a fingerprinting surface.
     // Absent means "this browser will not say", which IPowerInfo already models as null.
     navigator.getBattery?.().then(battery => {

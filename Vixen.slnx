@@ -306,6 +306,14 @@
     <Project Path="Core/Vixen.Net.Transport.Udp.Tests/Vixen.Net.Transport.Udp.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Transport.WebSocket/Vixen.Net.Transport.WebSocket.csproj" />
     <Project Path="Core/Vixen.Net.Transport.WebSocket.Tests/Vixen.Net.Transport.WebSocket.Tests.csproj" />
+    <!--
+      The tests, but not the project they test: Vixen.Net.Transport.WebSocket.Browser targets
+      net10.0-browser and is excluded for the same reason as the three browser projects below.
+      This one is net10.0 and links the browser factory's single source file, which contains no
+      [JSImport] and no conditional compilation — so the code a page will run is exercised here
+      against a real server over loopback. LinkedSourceTests is what keeps that true.
+    -->
+    <Project Path="Core/Vixen.Net.Transport.WebSocket.Browser.Tests/Vixen.Net.Transport.WebSocket.Browser.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Composite/Vixen.Net.Transport.Composite.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
