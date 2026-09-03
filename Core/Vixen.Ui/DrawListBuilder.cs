@@ -106,6 +106,14 @@ public sealed class DrawListBuilder {
     readonly NameTable values;
     readonly int textColor;
     readonly OverflowReader overflow;
+
+    /// <summary>Scratch for one broken line's marks, reused so a dashed frame allocates nothing.</summary>
+    /// <remarks>
+    ///     ⚠ One list rather than one per call site, and safe for the reason every other buffer here
+    ///     is: <c>Vixen.Ui</c>'s graph is single-threaded by contract, and a draw list is built by one
+    ///     walk. <c>Dashes.Along</c> clears it, so a caller cannot be handed the previous edge's marks.
+    /// </remarks>
+    readonly List<DashMark> marks = [];
     readonly int visibility;
     readonly int hidden;
     readonly int collapse;
@@ -157,6 +165,8 @@ public sealed class DrawListBuilder {
     readonly int keywordOverline;
     readonly int keywordLineThrough;
     readonly int keywordDouble;
+    readonly int keywordDashed;
+    readonly int keywordDotted;
     readonly int boxShadow;
     readonly int currentColor;
     readonly int alignedCenter;
@@ -312,6 +322,8 @@ public sealed class DrawListBuilder {
         keywordOverline = keywords.Intern("overline");
         keywordLineThrough = keywords.Intern("line-through");
         keywordDouble = keywords.Intern("double");
+        keywordDashed = keywords.Intern("dashed");
+        keywordDotted = keywords.Intern("dotted");
 
         // ⚠ Neither `auto` nor `from-font` is interned, and that is a statement rather than an
         // omission. CSS distinguishes them because `auto` lets the user agent pick a thickness it
@@ -1235,7 +1247,7 @@ public sealed class DrawListBuilder {
     ///         up and move every element after it, for a mark that is not part of the text.
     ///     </para>
     /// </remarks>
-    static void EmitDecoration(
+    void EmitDecoration(
         DrawList into,
         TextLine line,
         TextDecoration decoration,
@@ -1257,18 +1269,51 @@ public sealed class DrawListBuilder {
                 continue;
             }
 
-            into.Add(
-                new DrawCommand(
-                    DrawCommandKind.Rectangle,
-                    x,
-                    y + bar.Top,
-                    line.Width,
-                    bar.Thickness,
-                    colour,
-                    0f,
-                    0f
-                )
-            );
+            // ⚠ A bar is the easy consumer of the dash pattern, and it is easy for a structural
+            // reason rather than a lucky one: it is an axis-aligned rectangle with no corner radius,
+            // so breaking it up is breaking up a *length*. No command kind, no shader, no second
+            // executor — the device and the software rasteriser draw the marks because they are
+            // drawing the same quad they already drew. A border's ring is the hard consumer, and it
+            // is hard at the corners rather than in the pattern.
+            var style = decoration.Style switch {
+                TextDecorationStyle.Dashed => StrokeStyle.Dashed,
+                TextDecorationStyle.Dotted => StrokeStyle.Dotted,
+                _ => StrokeStyle.Solid
+            };
+
+            if (!Dashes.Broken(style)) {
+                into.Add(
+                    new DrawCommand(
+                        DrawCommandKind.Rectangle,
+                        x,
+                        y + bar.Top,
+                        line.Width,
+                        bar.Thickness,
+                        colour,
+                        0f,
+                        0f
+                    )
+                );
+
+                continue;
+            }
+
+            Dashes.Along(line.Width, bar.Thickness, style, marks);
+
+            foreach (var mark in marks) {
+                into.Add(
+                    new DrawCommand(
+                        DrawCommandKind.Rectangle,
+                        x + mark.Start,
+                        y + bar.Top,
+                        mark.Length,
+                        bar.Thickness,
+                        colour,
+                        0f,
+                        0f
+                    )
+                );
+            }
         }
     }
 
@@ -1997,12 +2042,20 @@ public sealed class DrawListBuilder {
             return default;
         }
 
+        // ⚠ Four of CSS's five, and the three that are not `solid` all arrive the same way: one
+        // keyword compared against one interned id. `wavy` is the absent one and it is absent for a
+        // reason the dash pattern does not reach — see `TextDecorationStyle`.
+        var decorationStyleKeyword = element.Style.TryGet(decorationStyle, out var style)
+            && parser.Parse(style) is { Kind: StyleValueKind.Keyword } keyword
+                ? keyword.Keyword
+                : 0;
+
         return new TextDecoration(
             lines,
-            element.Style.TryGet(decorationStyle, out var style) && parser.Parse(style) is
-                { Kind: StyleValueKind.Keyword } keyword && keyword.Keyword == keywordDouble
-                    ? TextDecorationStyle.Double
-                    : TextDecorationStyle.Solid,
+            decorationStyleKeyword == keywordDouble ? TextDecorationStyle.Double
+            : decorationStyleKeyword == keywordDashed ? TextDecorationStyle.Dashed
+            : decorationStyleKeyword == keywordDotted ? TextDecorationStyle.Dotted
+            : TextDecorationStyle.Solid,
             Color(element, decorationColor),
             TextLength(element, decorationThickness, float.NaN),
             TextLength(element, underlineOffset, 0f)

@@ -856,14 +856,18 @@ public static class UtilityFamilies {
         // registration comes first so that the family's `ValueKind` is the fallthrough, and
         // `Register` merges the two keyword tables into it.
         //
-        // ⚠ <b>`decoration-dotted`, `-dashed` and `-wavy` are deliberately absent — the same
-        // measurement `divide-solid` is absent under.</b> There is no dash pattern in `Vixen.Ui` and
-        // no stroke that could carry one: `border-style` is emitted by nothing and read by nothing,
-        // and a wave is a path where every other decoration is a rectangle. All three would resolve
-        // cleanly, compute a value and paint a solid line, which is the inert family
-        // `UtilityConsumptionGateTests` exists to keep out. `solid` and `double` are registered
-        // because both are genuinely drawn — see `TextRun.Bars`, where `double` is two bars — so
-        // `text-decoration-style` is a property the engine reads rather than one it stores.
+        // ⚠ <b>`decoration-dotted` and `-dashed` were absent under the same measurement
+        // `divide-solid` was, and that measurement has changed: there is a dash pattern in
+        // `Vixen.Ui` now.</b> `Dashes` distributes the marks and `DrawListBuilder.EmitDecoration`
+        // emits a rectangle each — which a bar can do and a border's ring cannot, because a bar is
+        // an axis-aligned rectangle with no corner radius, so breaking it up is breaking up a
+        // length. Four of CSS's five are drawn.
+        //
+        // ⚠ <b>`-wavy` stays absent, and the dash pattern does not touch its reason.</b> A wave is a
+        // stroked path where every other decoration is a rectangle: it needs the tessellator, a
+        // thickness that is a stroke width rather than a height, and an amplitude and a period CSS
+        // does not state. It would resolve cleanly, compute a value and paint a straight line, which
+        // is the inert family `UtilityConsumptionGateTests` exists to keep out.
         Color("decoration", "text-decoration-color");
 
         Keywords("decoration", "text-decoration-thickness", new() {
@@ -872,7 +876,7 @@ public static class UtilityFamilies {
         });
 
         Keywords("decoration", "text-decoration-style", new() {
-            ["solid"] = "solid", ["double"] = "double"
+            ["solid"] = "solid", ["double"] = "double", ["dashed"] = "dashed", ["dotted"] = "dotted"
         });
 
         // ── Colours ─────────────────────────────────────────────────────────────────────────
