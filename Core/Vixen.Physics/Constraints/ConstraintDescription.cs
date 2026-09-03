@@ -109,6 +109,31 @@ public record struct ConstraintDescription {
     /// </remarks>
     public BodyHandle Second { get; init; }
 
+    /// <summary>Whether the two bodies stop colliding with one another.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Off by default, which is what every existing joint in the engine already gets.</b>
+    ///         Turning it on is what a ragdoll's every joint wants, and a door's hinge usually: two
+    ///         bodies held a fixed distance apart by a solver, and also pushed apart by a contact,
+    ///         fight each other for as long as the joint exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is a suppression of the pair and not a property of the joint</b>, which is
+    ///         visible in two places. Destroying the constraint hands the pair back to whatever
+    ///         <see cref="PhysicsWorld.SetPairCollision" /> last said about it rather than to
+    ///         "colliding" — and a second joint over the same pair keeps it suppressed on its own.
+    ///         Both follow from Jolt doing this per body pair rather than per constraint, which is
+    ///         also why the pairs a ragdoll needs that have no joint at all —
+    ///         the two thighs, an upper arm and the chest — are reachable only through
+    ///         <see cref="PhysicsWorld.SetPairCollision" />.
+    ///     </para>
+    ///     <para>
+    ///         Ignored when <see cref="Second" /> is <see cref="BodyHandle.None" />: the world anchor
+    ///         is a static body with no shape, so there was never a contact to suppress.
+    ///     </para>
+    /// </remarks>
+    public bool SuppressPairCollision { get; init; }
+
     /// <summary>Where the joint is on the first body, in world space.</summary>
     public Vector3 FirstAnchor { get; init; }
 

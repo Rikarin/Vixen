@@ -478,7 +478,13 @@ public sealed partial class PhysicsWorld {
             IsSensor = description.IsSensor,
             Layer = description.Layer,
             Shape = description.Shape,
-            UserData = description.UserData
+            UserData = description.UserData,
+
+            // ⚠ Written explicitly because it is the one field whose zero is a valid value. A body
+            // reusing a destroyed body's index inherits its slot, and a slot left holding the old
+            // body's sub-group would make the new one silently a member of a group — and pass
+            // through whatever the old body was suppressed against.
+            SubGroup = NoSubGroup
         };
     }
 

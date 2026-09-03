@@ -296,13 +296,55 @@ own — but until that library exists, `Samples/05` cannot run on iOS.
 ## Known gaps
 
 - **iOS**, above.
-- **Per-pair collision suppression.** A joint's two bodies still collide with one another. Jolt does
-  this with a `CollisionGroup` and a shared `GroupFilterTable` rather than a flag on the constraint,
-  which is a body-level facility this project does not expose yet. Layers cover the common case.
 - **Vehicles, ragdolls and soft bodies.** Jolt has all three and the binding exposes them; none is in
   Phase 8's scope. `Vixen.Animation`'s ragdoll integration lands with the animation work.
-- **Double precision.** `Foundation.Init(doublePrecision: false)`. Large-world support is a separate
-  decision that touches the mathematics types, not just this project.
+- **Double precision.** `Foundation.Init(doublePrecision: false)`.
+  ⚠ **The first obstacle is not the mathematics types, which is what this line used to say.**
+  `JoltApi.DoublePrecision` selects a *different native library* — `libjoltc_double` — and
+  `JoltPhysics.Native` ships one only for `win-x64` and `win-arm64`. Flipping the flag today is a
+  `DllNotFoundException` from `JPH_Init` on macOS, Linux and Android, which makes it the same class of
+  problem as the iOS gap above rather than a precision decision. Behind that, `Vixen.Core.Mathematics`
+  has no double-precision vector, `JoltMath.ToJolt`/`ToVixen` stop being the bit-cast identity they
+  are documented as, and 1 781 `PublicAPI` lines across the repo name `Vector3`. It is also
+  process-global twice over — `JoltRuntime` and `JoltApi.DoublePrecision` are both static — so two
+  worlds at different precisions cannot exist even in principle.
+
+## Per-pair collision suppression
+
+Two named bodies that are never tested against one another, while both still collide with everything
+else. `PhysicsWorld.SetPairCollision` is the primitive; `ConstraintDescription.SuppressPairCollision`
+is the case that wanted it first — a joint's two bodies holding each other at a fixed distance while
+a contact pushes them apart.
+
+```csharp
+world.SetPairCollision(upperArm, forearm, false);        // no joint needed
+world.CreateConstraint(elbow with { SuppressPairCollision = true });
+```
+
+**Layers cannot express this, which is why it is not layers.** A layer is a statement about two
+*classes*: a ragdoll's upper arm and forearm are the same class as every other limb, must not push
+each other apart at the elbow, and must still hit the floor and the other ragdoll's forearm. Thirty-two
+layers cannot say that and a layer per limb runs out at the second character.
+
+Jolt's mechanism unchanged: every participating body gets a `CollisionGroup` naming one shared
+`GroupFilterTable`, one group id, and a sub-group of its own. A body never named in a suppression has
+no filter at all and is untouched — `PhysicsWorld.GroupedBodyCount` is zero in a world that uses none.
+
+⚠ **Two independent sources, one table.** A pair is suppressed in Jolt when `SetPairCollision` said so
+*or* at least one live constraint over it asked — so re-enabling a pair a joint still holds does
+nothing visible, and destroying the last such joint restores what the caller last said. Constraints
+refcount, because two joints over one pair (a hinge and a distance limiter on one door) are ordinary.
+
+⚠ **A body's group names one specific table, and the table's size is fixed at construction**, so
+outgrowing it rebuilds and re-points every member. `PhysicsWorld.StaleFilterCount` is the invariant —
+a body left naming a smaller table makes Jolt index a bitmask past its end, which does not throw and
+does not reliably give either answer. It exists because a behavioural test cannot see that: the growth
+test was written first with only a distance assertion and **passed against a build that re-pointed
+nothing**, on whatever the out-of-range bit happened to be.
+
+Old tables are kept until the world is disposed rather than freed on growth. A `GroupFilter` is a Jolt
+`RefTarget` and being wrong about a refcount across the interop boundary is a native abort with no
+managed frame; growth doubles, so a thousand grouped bodies keep seven small tables.
 
 ## Two bugs in the binding, worked around here
 
