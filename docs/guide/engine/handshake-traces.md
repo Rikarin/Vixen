@@ -28,17 +28,17 @@ and an authenticator that is often a network call to somebody else — and each 
 You do not want a span per tick. A tick is one number asked sixty times a second, which is what
 `vixen.net.tick.duration` is a histogram for; a trace of it would be a trace backend's bill.
 
-## Turning it on
+## Using it
 
 If your server already has an OpenTelemetry pipeline, add the source:
 
-```csharp
+```csharp no-compile="one line against a caller's own OpenTelemetry builder"
 builder.AddSource(NetworkActivity.SourceName);   // "Vixen.Net"
 ```
 
 If it does not, `Vixen.Net.Telemetry` builds one, and traces are on by default:
 
-```csharp
+```csharp no-compile="a host's startup, which a page cannot stand up around"
 using var telemetry = NetworkTelemetry.Start(
     new TelemetryOptions { ServiceName = "arena-server", IncludeTraces = true }
 );
@@ -88,3 +88,23 @@ look like a server nobody was connecting to.
 **The two sides are two roots.** A handshake carries no trace context, so a backend joins the
 client's span and the server's by time and address rather than by parentage. Propagating it would be
 a field in the connect request, which is a wire change and is not one this made.
+
+## Examples
+
+Finding the step a connection died on, which is what the spans are for:
+
+```csharp no-compile="a query against whatever backend collected the spans"
+// vixen.net.handshake  status=Error  vixen.net.step=Authenticate
+//   → the peer reached us and was refused, rather than never arriving
+```
+
+⚠ The contrast is the useful part. A handshake that never produced a span at all is a peer that never
+reached the transport; one that produced a span ending in `Error` reached it and was turned away. A
+refusal counter cannot tell those apart, which is why this is a span and not a number.
+
+## See also
+
+- [Measuring packet loss](measuring-loss.md) — the per-connection counters that say how a link is
+  behaving once the handshake has succeeded.
+- [Network sessions](network-sessions.md) — what the four handshake steps are, and what each one can
+  refuse for.

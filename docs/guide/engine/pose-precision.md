@@ -37,7 +37,7 @@ component exists for.
 
 Order the selection most-important-first, then say what each slot is worth.
 
-```csharp
+```csharp no-compile="a registration against a registry a page does not have"
 // Pelvis, spine, chest, head whole; the arms at eight bits; everything past them at six.
 var precision = NetworkBonePrecision.For(
     [10, 10, 10, 10, 8, 8, 8, 8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
@@ -92,3 +92,26 @@ decision about where the character is — that stays `NetworkTransform`'s answer
 One number does not change: **a bone that did not move still costs one bit.** The narrowing drops bits
 off the packed value in the integer domain rather than re-encoding the rotation, so two identical poses
 stay bit-identical and the delta codec still charges nothing for the still half of a pose.
+
+## Examples
+
+A humanoid whose arms carry the read and whose fingers do not:
+
+```csharp no-compile="a registration against a registry a page does not have"
+// 24 slots: four whole, four at eight bits, the rest at six.
+var precision = NetworkBonePrecision.For([10, 10, 10, 10, 8, 8, 8, 8, .. Enumerable.Repeat(6, 16)]);
+```
+
+`Uniform(6)` over the same pose is **488 bits against 776** — which is the whole argument for the
+table, and also the reason not to reach for it before the pose is settled.
+
+⚠ Narrowing a table **renames the type**, so a peer built against the old one is refused by
+`ManifestHash` at the handshake rather than reading the wrong bits later. That is why this is safe to
+change late.
+
+## See also
+
+- [Handshake traces](handshake-traces.md) — where a refused peer shows up, and how to tell a
+  mismatched manifest from a peer that never arrived.
+- [Parent-relative transforms](parent-relative-transforms.md) — the other half of sending less: which
+  axes an object bothers with at all.
