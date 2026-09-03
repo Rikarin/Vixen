@@ -2,12 +2,46 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Input;
+using Vixen.Ui.Text;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
 
 /// <summary>Caret motion, selection, editing, and the numeric field's arithmetic.</summary>
 public class TextFieldTests {
+    /// <summary>The field keeps the affinity it was moved with, rather than deriving one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Added because nothing asserted the storage, which is the whole argument for the
+    ///     field carrying a bit at all.</b> Forcing <see cref="TextField.MoveCaret(int, CaretAffinity, bool)" />
+    ///     to write <see cref="CaretAffinity.Upstream" /> regardless of its argument left every one
+    ///     of the 971 tests in <c>Vixen.Ui.Tests</c> green: those exercise the layout — <c>LineOf</c>,
+    ///     <c>CaretAt</c>, <c>CaretOffset</c> — which take the affinity as a parameter and so cannot
+    ///     see whether the control remembered it.
+    /// </remarks>
+    [Fact]
+    public void The_field_remembers_which_side_of_the_caret_it_was_moved_to() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+
+        field.Value = "abcd";
+
+        // Upstream is the resting value, so the downstream case is the one that can fail.
+        field.MoveCaret(2, CaretAffinity.Upstream);
+
+        Assert.Equal(CaretAffinity.Upstream, field.CaretAffinity);
+
+        field.MoveCaret(2, CaretAffinity.Downstream);
+
+        Assert.Equal(2, field.CaretIndex);
+        Assert.Equal(CaretAffinity.Downstream, field.CaretAffinity);
+
+        // And the plain overload resets it, which is what makes a typed character unambiguous.
+        field.MoveCaret(3);
+
+        Assert.Equal(CaretAffinity.Upstream, field.CaretAffinity);
+    }
+
     [Fact]
     public void Typing_inserts_at_the_caret() {
         using var fixture = new ControlFixture();
