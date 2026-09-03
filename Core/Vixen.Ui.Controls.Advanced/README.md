@@ -408,9 +408,23 @@ Said out loud rather than left to be discovered:
   size — `CodeEditor.Refresh` walks every line in the buffer, and a frame where nothing moved should
   cost two float comparisons. `Refresh()` stays public on all of them for the caller who has just
   filled a control and wants to read a box before the next pass.
-- **No undo, anywhere.** An undo stack inside a text control can only undo typing, and every
-  application that has one wants it to cover more. `CodeBuffer.Changed`, `NodeGraph.Changed`,
-  `AnimationCurve.Changed` and `Gradient.Changed` are the seams such a stack subscribes to.
+- **No undo, anywhere** — still true of *this* assembly, and ⚠ **the claim that used to follow it,
+  that nothing subscribes to the four seams, is refuted.** An undo stack inside a text control can
+  only undo typing, and every application that has one wants it to cover more; `CodeBuffer.Changed`,
+  `NodeGraph.Changed`, `AnimationCurve.Changed` and `Gradient.Changed` are the seams such a stack
+  subscribes to, and the editor's `CommandStack` reaches three of the four:
+  - `CodeBuffer.Changed` **is** subscribed, by `CodeDocument` — every keystroke becomes a
+    `TextEditCommand` on the document's stack, merged per line.
+  - `AnimationCurve.Changed` is not, and does not need to be: an edit reaches the stack through the
+    *control*'s `CurveChanged`, which `CurveDrawer` turns into one snapshot per edit session and
+    `AnimationClipView` into a `SetCurve`. ⚠ That is not an oversight — a curve is a reference type
+    edited in place, so the model event says "it changed" and cannot say what it was before.
+  - `NodeGraph.Changed` is subscribed only by `NodeCanvas` reprojecting itself. The editor's
+    *editable* graph is `NodeGraphModel`, a different type with a `CommandStack` of its own; this one
+    is reached in production only by the two read-only AI projections.
+  - ⚠ `Gradient.Changed` is the one real gap, and it is one layer up from undo: **`GradientEditor` has
+    no production consumer at all** and no type in the engine has a `Gradient`-typed member, so
+    nothing in the editor can edit a gradient, undoably or otherwise.
 - ~~**`Viewport` draws a placeholder.**~~ It draws `RenderTarget` through the draw list's image
   command, and falls back to the placeholder colour only when nothing has been rendered into it yet.
   ⚠ `FlipVertically` is **off** by default, and used to be on for a reason that was already handled
