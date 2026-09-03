@@ -207,6 +207,16 @@ sealed partial class EditorApplication : IDisposable {
 
     readonly ContentTasks content;
 
+    /// <summary>The project's own content, opened the way a player opens a build.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="EditorContent" /> had no caller outside its own tests.</b> It is what turns
+    ///     the artefacts an import left in <c>Library/</c> into an <c>AssetManager</c>, and an
+    ///     <c>AssetManager</c> is the single argument <c>WorldRenderer.Mount</c> takes — so without one
+    ///     the viewport had no material source at all and drew every mesh in the grey fallback,
+    ///     whatever material it named. See <see cref="MountContent" />.
+    /// </remarks>
+    readonly EditorContent projectContent;
+
     /// <summary>Where a viewport reads the geometry a scene's mesh references name.</summary>
     /// <remarks>
     ///     <b>The join that made <c>MeshRenderable</c> visible in the editor.</b> Picking and gizmos
@@ -676,6 +686,11 @@ sealed partial class EditorApplication : IDisposable {
         bridges = ComponentsView.Default(() => scene?.Behaviors, Extensions);
         code = new ProjectAssemblies(project.Paths);
 
+        // ⚠ Before the tasks, because one of their hooks closes over it. A project that has never
+        // been imported opens as a refusal rather than an exception — see the type — so this is
+        // never null and `Assets` is what says whether there is anything to mount.
+        projectContent = new(project);
+
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
             // was there before it ran. Assigned rather than called by the tasks directly, because
@@ -686,7 +701,16 @@ sealed partial class EditorApplication : IDisposable {
             Rescan = () => {
                 browser?.Rescan();
                 RefreshBuildPanel();
+
+                // ⚠ And the viewport's own content, which is the frame-thread half of what
+                // `Cataloged` began on the pool. A mount hands the renderer a whole new material and
+                // texture source, so it belongs where the panels are touched rather than beside the
+                // planner that wrote the catalog.
+                MountContent();
             },
+
+            // ⚠ On the pool. See the property: writing a catalog plans the whole project.
+            Cataloged = () => projectContent.Rebuild(),
 
             // And its two buttons are greyed while anything is running, which is a fact about the
             // task rather than about anything the panel did.
@@ -1353,6 +1377,10 @@ sealed partial class EditorApplication : IDisposable {
         // `GraphicsDevice` to null on the way down — this is the path a test that never had a device
         // takes, and the one a host that forgets takes.
         DisposeFrames();
+
+        // ⚠ After the frames, because the renderer they hold was mounted over this manager and its
+        // material and texture sources resolve through it on the way down.
+        projectContent.Dispose();
 
         // Before the world, because it holds a snapshot of it: a controller disposed after the world
         // would be releasing chunks into a world that had already released its own.

@@ -49,6 +49,10 @@ public sealed class EditorContentTests : IDisposable {
         Assert.True(content.Rebuild(), content.Refusal);
         Assert.NotNull(content.Assets);
 
+        // ⚠ Declared, cleared by `Close` and assigned by nothing until now, so it answered zero for
+        // every project that had one. A count nobody sets is a mount that reports itself empty.
+        Assert.True(content.Addresses > 0, "the catalog reports no addresses.");
+
         using var stream = content.Assets.Open("Assets/Textures/crate.txt", TestContext.Current.CancellationToken);
         using var reader = new StreamReader(stream);
 

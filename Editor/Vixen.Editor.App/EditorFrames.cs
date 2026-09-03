@@ -89,11 +89,47 @@ sealed partial class EditorApplication {
             log.Write(LogLevel.Warning, $"No shader variants: {refusal}");
         }
 
+        // ⚠ Before the degradation is read, because mounting is what decides which sentence it is —
+        // and before the view modes, because a pane registering a tree is the first thing that draws.
+        MountContent();
+
         if (frame.Degraded is { } degraded) {
             log.Write(LogLevel.Information, degraded);
         }
 
         RegisterViewModes();
+    }
+
+    /// <summary>Hands the renderer the project's content, so a material means what it names.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other end of <see cref="EditorContent" />, which nothing outside its own tests
+    ///         had ever constructed.</b> <c>WorldRenderer.Mount</c> is the only thing in the engine
+    ///         that builds an <c>IMaterialSource</c>, a texture source, a vfx source and the terrain
+    ///         seams, and it takes exactly one argument: an <c>AssetManager</c>. Nothing in the editor
+    ///         produced one, so the viewport painted every drawable with
+    ///         <c>EditorWorldRenderer.CompileFallback</c>'s grey metal-roughness surface whatever
+    ///         material it named — and reported it, honestly and unread, through
+    ///         <c>EditorWorldRenderer.Degraded</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A project with no import is not a failure and must not be treated as one.</b> It is
+    ///         the state every new project is in; <c>EditorContent.Refusal</c> says so and the viewport
+    ///         stays on the fallback until somebody imports. That is why this is a call that may do
+    ///         nothing rather than a precondition on the renderer being built at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called from two places and it has to be both.</b> The device can arrive before a
+    ///         project has ever been imported — cold start — and an import can finish long after the
+    ///         renderer was built. Either one alone leaves the case the other covers permanently grey.
+    ///     </para>
+    /// </remarks>
+    void MountContent() {
+        if (frame is null || projectContent.Assets is not { } assets) {
+            return;
+        }
+
+        frame.Mount(assets);
     }
 
     /// <summary>Tells every open pane which of its view modes a compositor draws.</summary>

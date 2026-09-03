@@ -185,6 +185,12 @@ sealed class EditorContent : IDisposable {
 
             Assets = LooseContentSource.Open(files, MountPoint, out var refusal);
             Refusal = refusal;
+
+            // ⚠ Assigned, which it never was. This property was declared, cleared by `Close` and set
+            // by nothing — so "how many addresses the catalog resolves" answered zero for a project
+            // whose catalog resolved thousands, and would have made a panel reporting it say a
+            // working mount was an empty one.
+            Addresses = Assets?.Catalog.Count ?? 0;
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             Assets = null;
             Refusal = failure.Message;
