@@ -170,6 +170,11 @@ public sealed class JobScheduler : IDisposable {
     int backgroundRunning;
     int backgroundQueued;
 
+    // Null unless a host supplied one, which is the default: pinning is a pessimisation on a machine
+    // that is running anything else, so it is asked for rather than assumed.
+    readonly IWorkerPlacement? placement;
+    int workersPlaced;
+
     int sleepingWorkers;
     volatile bool stopping;
     bool disposed;
@@ -200,6 +205,26 @@ public sealed class JobScheduler : IDisposable {
 
     /// <summary>Whether the calling thread is one of this scheduler's workers.</summary>
     public bool IsWorkerThread => ReferenceEquals(workerOf, this);
+
+    /// <summary>How many workers an <see cref="IWorkerPlacement" /> actually placed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read this before believing a machine is pinned.</b> Three different facts all
+    ///         look identical from outside: a scheduler given no placement, a scheduler given one on
+    ///         a platform that answers <see langword="false" /> to everything, and a scheduler whose
+    ///         workers are every one of them pinned. Nothing about the work that comes out
+    ///         distinguishes them — the same jobs finish, the same counters move — and a benchmark
+    ///         that concluded pinning did not help would be right about the number and wrong about
+    ///         why. This is the only thing that says which of the three happened, and zero is the
+    ///         answer on the day the feature does not run.
+    ///     </para>
+    ///     <para>
+    ///         Racy only while workers are starting or stopping. It rises as each worker places
+    ///         itself and falls as each releases, so it reads zero again after
+    ///         <see cref="Dispose" />.
+    ///     </para>
+    /// </remarks>
+    public int WorkersPlaced => Volatile.Read(ref workersPlaced);
 
     /// <summary>How many jobs are scheduled and not yet complete.</summary>
     /// <remarks>
@@ -329,9 +354,28 @@ public sealed class JobScheduler : IDisposable {
     ///         that runs at zero.
     ///     </para>
     /// </remarks>
-    public JobScheduler(int workerCount) {
+    public JobScheduler(int workerCount) : this(workerCount, placement: null) { }
+
+    /// <summary>Creates a scheduler whose workers place themselves as they start.</summary>
+    /// <param name="workerCount">How many worker threads to start.</param>
+    /// <param name="placement">
+    ///     Where each worker should run, asked of the worker itself, or <see langword="null" /> to
+    ///     leave the operating system to decide — which is the default and the right answer on a
+    ///     machine that is running anything else.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="workerCount" /> is negative.</exception>
+    /// <exception cref="InvalidOperationException">There are already <see cref="MaxSchedulers" /> schedulers.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Supplying a placement is not the same as being placed.</b> Every platform is entitled
+    ///     to answer "no" — macOS does, in a browser there is nothing to pin, and under a container
+    ///     CPU quota the mask is not ours to set — so a scheduler built with a placement can have
+    ///     pinned nothing at all and behave exactly like one built without. <see cref="WorkersPlaced" />
+    ///     is what tells the two apart, and it exists because nothing else does.
+    /// </remarks>
+    public JobScheduler(int workerCount, IWorkerPlacement? placement) {
         ArgumentOutOfRangeException.ThrowIfNegative(workerCount);
 
+        this.placement = placement;
         WorkerCount = workerCount;
         Id = Register(this);
 
@@ -1343,6 +1387,58 @@ public sealed class JobScheduler : IDisposable {
         stealSeed = (uint)(Environment.CurrentManagedThreadId * 2654435761u) | 1u;
         var spins = 0;
 
+        // Here rather than anywhere else, because every affinity primitive underneath pins the
+        // thread that calls it: this is the only line in the process running on the thread being
+        // placed. Before the loop, so a worker is not taking work from one core and finishing it on
+        // another.
+        var placed = TryPlaceWorker(ordinal);
+
+        try {
+            RunWorkerLoop(ref spins);
+        } finally {
+            if (placed) {
+                ReleaseWorker();
+            }
+
+            workerOf = null;
+        }
+    }
+
+    bool TryPlaceWorker(int ordinal) {
+        if (placement is null) {
+            return false;
+        }
+
+        bool placed;
+
+        // ⚠ Swallowed on purpose, and this is the one place in the scheduler where that is right.
+        // Placement is an optimisation; an unhandled exception on a worker thread takes the process
+        // down, and a frame must not be lost to a machine whose affinity mask was not ours to set.
+        // It is not silent either — the worker is simply not counted, and WorkersPlaced is short.
+        try {
+            placed = placement.TryPlace(ordinal, WorkerCount);
+        } catch (Exception) {
+            return false;
+        }
+
+        if (placed) {
+            Interlocked.Increment(ref workersPlaced);
+        }
+
+        return placed;
+    }
+
+    void ReleaseWorker() {
+        try {
+            placement!.Release();
+        } catch (Exception) {
+            // As above: a worker on its way out must not take the process with it.
+        }
+
+        Interlocked.Decrement(ref workersPlaced);
+    }
+
+    void RunWorkerLoop(ref int spins) {
         while (!stopping) {
             if (TryExecuteOneWorkItem(true)) {
                 spins = 0;
@@ -1375,8 +1471,6 @@ public sealed class JobScheduler : IDisposable {
             Interlocked.Decrement(ref sleepingWorkers);
             spins = 0;
         }
-
-        workerOf = null;
     }
 
     /// <remarks>

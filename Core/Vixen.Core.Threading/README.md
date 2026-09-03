@@ -215,11 +215,59 @@ on an asset import that overlapped a frame. `Everything` means *declared, and to
 An undeclared **system** maps onto `Everything`, because "I did not say" already means "conflicts
 with everything" in `SystemAccess`.
 
+## Thread affinity
+
+Doc 03 asks for workers pinned where the OS allows, and this module spent a long time saying that
+waited for `Vixen.Platform`. ⚠ **It had stopped waiting.** `IProcessorTopology` — available and
+physical processor counts, a performance/efficiency class per processor, `TrySetAffinity` and
+`ClearAffinity` — has been implemented on Windows and Linux for some time, and `AppBuilder` has read
+`AvailableProcessors` from it to size this pool for just as long. What nothing in the tree did was
+call `TrySetAffinity`. The contract was built and one half of it was never fed.
+
+`IWorkerPlacement` is the seam that feeds it:
+
+```csharp
+var jobs = new JobScheduler(workers, new ProcessorAffinityPlacement(host.Processors));
+```
+
+**It is asked of the worker, on the worker.** Every affinity primitive underneath — Windows's
+`SetThreadGroupAffinity`, Linux's `sched_setaffinity(0, …)` — pins *whoever calls it*. So a design
+that computed a table in the constructor and applied it there would pin the constructing thread
+`WorkerCount` times, leave every worker exactly where it was, and move no counter anywhere. That is
+the defect `EachWorkerPlacesItselfOnceOnTheThreadItNames` exists for, and it asserts the worker's own
+`Thread.Name` rather than a call count, because a call-count assertion is green against precisely it.
+
+**Performance cores first**, which is the whole of the policy `ProcessorAffinityPlacement` carries. A
+frame-critical worker on an efficiency core costs several milliseconds and reads as a random stall.
+No processor is reserved for the main thread: `AppBuilder` already asks for `AvailableProcessors - 1`
+workers, so the last one in the order has no worker on it, and reserving as well would be the same
+subtraction done twice.
+
+⚠ **It is off by default, and that is the decision rather than an unfinished edge.** A pinned worker
+cannot be migrated off a core the OS has given to something else, so on a machine running a browser
+or a compiler it waits behind them — doc 03's own words are that pinning is a pessimisation on a
+machine running anything else. `AppConfig.PinWorkers` and `--vixen-pin-workers` are how a console, a
+dedicated server or a benchmark asks for it.
+
+⚠ **And asking is not getting.** macOS offers quality-of-service classes instead of affinity masks and
+answers `false` to everything; a browser has no thread to pin; a container's mask is not the process's
+to set. So a scheduler *given* a placement and a scheduler given none can behave identically, and
+`JobScheduler.WorkersPlaced` is the only thing in the process that tells the two apart — the same
+reason `DeclaredJobsScheduled` exists next door. It reads zero on the day the feature does not run,
+which is the property a counter has to have to be worth reading.
+
 ## What is not here yet
 
-**Thread affinity.** Doc 03 asks for workers pinned where the OS allows. `Thread` has no portable
-affinity API, the per-platform ones differ in kind rather than in spelling, and pinning is a
-pessimisation on a machine that is running anything else. It waits for `Vixen.Platform`, which is
-where the per-OS calls will already live.
+**A third priority tier.** Doc 03's owed list names one for streaming and decode. ⚠ **The tier is not
+the missing piece — a consumer is.** A tier is a choice between two things a thread could pick up
+next, and every streaming and decode workload in this tree is somewhere that choice cannot be made:
+`PageResidency` dispatches through `Task.Run` onto the thread pool, and the audio pump and the video
+decoder each own a paced background thread of their own, for the same blocking reason importers do.
+Of the twelve scheduling call sites outside this module, eleven block on the handle they just
+scheduled, and `GlobalDistanceFieldRenderer` remains the only one that keeps a handle and asks
+`IsCompleted` on a later frame. A third tier added today would be a tier nothing could put work in.
+The first workload that would change the answer is a KTX2 supercompression transcode on the streaming
+path — batchable, CPU-bound, synchronous and pollable — and `Vixen.Core.Imaging` implements neither
+Basis Universal nor Zstd yet.
 
 Licensed under Apache-2.0.

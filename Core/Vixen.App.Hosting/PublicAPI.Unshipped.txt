@@ -15,6 +15,7 @@ Vixen.App.AppArguments.LooseContentPath.get -> string?
 Vixen.App.AppArguments.MaxFrames.get -> int?
 Vixen.App.AppArguments.Offscreen.get -> bool
 Vixen.App.AppArguments.Overlays.get -> bool
+Vixen.App.AppArguments.PinWorkers.get -> bool
 Vixen.App.AppArguments.Remaining.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.App.AppArguments.StartupScene.get -> string?
 Vixen.App.AppArguments.Unrecognised.get -> System.Collections.Generic.IReadOnlyList<string>
@@ -61,6 +62,8 @@ Vixen.App.AppConfig.Name.get -> string
 Vixen.App.AppConfig.Name.set -> string
 Vixen.App.AppConfig.Organisation.get -> string
 Vixen.App.AppConfig.Organisation.set -> string
+Vixen.App.AppConfig.PinWorkers.get -> bool
+Vixen.App.AppConfig.PinWorkers.set -> bool
 Vixen.App.AppConfig.StartupScene.get -> string?
 Vixen.App.AppConfig.StartupScene.set -> string?
 Vixen.App.AppConfig.UnfocusedFrameRateLimit.get -> int

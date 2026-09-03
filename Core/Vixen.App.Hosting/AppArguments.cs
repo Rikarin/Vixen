@@ -99,6 +99,15 @@ public sealed record AppArguments {
     /// <summary>The worker count from <c>--vixen-workers</c>, or <see langword="null" />.</summary>
     public int? WorkerCount { get; private init; }
 
+    /// <summary>Whether <c>--vixen-pin-workers</c> was given.</summary>
+    /// <remarks>
+    ///     ⚠ A flag rather than a default because pinning is a pessimisation on a machine that is
+    ///     running anything else: a pinned worker waits behind whatever the OS put on its core
+    ///     instead of being migrated off it. It is worth asking for on a console or a dedicated
+    ///     server, and on a desktop it is a measurement to take rather than an assumption to ship.
+    /// </remarks>
+    public bool PinWorkers { get; private init; }
+
     /// <summary>The frame cap from <c>--vixen-frame-limit</c>, or <see langword="null" />.</summary>
     public int? FrameRateLimit { get; private init; }
 
@@ -296,6 +305,10 @@ public sealed record AppArguments {
 
                 case "--vixen-workers" when Take(out var workers) && int.TryParse(workers, out var count):
                     parsed = parsed with { WorkerCount = Math.Max(0, count) };
+                    continue;
+
+                case "--vixen-pin-workers":
+                    parsed = parsed with { PinWorkers = true };
                     continue;
 
                 case "--vixen-frame-limit" when Take(out var limit) && int.TryParse(limit, out var frames):
