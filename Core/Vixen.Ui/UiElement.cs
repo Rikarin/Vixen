@@ -159,6 +159,22 @@ public partial class UiElement : Composition.IComposable {
     /// <remarks>Computed and inherited like <see cref="LineHeight" />. Zero when nothing said.</remarks>
     public float LetterSpacing { get; internal set; }
 
+    /// <summary>Its <c>word-spacing</c> in pixels: extra added to every word-separator character.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Computed and inherited like <see cref="LineHeight" />, and for the same reason — it
+    ///         takes relative units, so <c>0.5em</c> has to be resolved against the element that wrote
+    ///         it rather than against each descendant that inherits it. Zero when nothing said.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not <see cref="LetterSpacing" /> applied to spaces.</b> CSS Text 3 § 8.2
+    ///         names a closed list of word-separator characters — in practice the space and the
+    ///         no-break space — and a tab, a line separator and a zero-width space are all excluded
+    ///         from it. <c>TextRun</c> carries the list.
+    ///     </para>
+    /// </remarks>
+    public float WordSpacing { get; internal set; }
+
     /// <summary>Its <c>text-indent</c> in pixels: how far the <i>first</i> line is pushed in.</summary>
     /// <remarks>
     ///     <para>
@@ -599,6 +615,13 @@ public partial class UiElement : Composition.IComposable {
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
+
+            // ⚠ In the key because it changes the *width* of a run, which is what decides where the
+            // paragraph wraps. A property that reaches the shaping but not this test produces a
+            // paragraph that redraws at the new spacing and keeps the old line breaks until
+            // something else happens to invalidate it — a picture that is wrong only until it is
+            // touched, which is the hardest kind to see reported.
+            && lineWords.Equals(WordSpacing)
             && lineIndent.Equals(TextIndent)
             && ReferenceEquals(lineFeatures, FontFeatures)
             && lineDirection == ParagraphDirection
@@ -646,6 +669,7 @@ public partial class UiElement : Composition.IComposable {
         lineWidth = width;
         lineSize = FontSize;
         lineTracking = LetterSpacing;
+        lineWords = WordSpacing;
         lineIndent = TextIndent;
         lineFeatures = FontFeatures;
         lineDirection = ParagraphDirection;
@@ -908,7 +932,8 @@ public partial class UiElement : Composition.IComposable {
                         LetterSpacing,
                         LineHeight,
                         start + from,
-                        level.Level
+                        level.Level,
+                        WordSpacing
                     )
                 );
             }
@@ -1020,6 +1045,7 @@ public partial class UiElement : Composition.IComposable {
     float lineWidth;
     float lineSize;
     float lineTracking;
+    float lineWords;
     float lineIndent;
 
     // ⚠ Reference equality, not `Equals`, and it is sound because `ResolveText` produces one

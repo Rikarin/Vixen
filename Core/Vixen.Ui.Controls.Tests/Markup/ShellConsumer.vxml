@@ -1,0 +1,24 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component ShellConsumer
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+
+<!--
+    ⚠ The three pieces are written in an order that is not the order they are drawn in, deliberately.
+    The status line is written first and drawn last; the body's two children are written between the
+    two named ones and stay adjacent and in order under the default slot. A projection that merely
+    appended everything to one parent would pass an assertion about *which* elements exist and fail
+    every assertion below about where they are — which is why the fixture is shaped like this rather
+    than like the panel it is modelled on.
+-->
+<ToolbarShell>
+    <shell-note slot="status">Ready</shell-note>
+
+    <Button slot="toolbar" Label="Reload" />
+
+    <body-first>One</body-first>
+    <body-second>Two</body-second>
+</ToolbarShell>

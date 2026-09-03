@@ -92,7 +92,26 @@ public enum BoundAttributeKind {
     ///     it. Emitted as <c>BuildContext.Use</c>, which is an effect — so it re-runs when what it
     ///     read changes, and leaves with the region that declared it.
     /// </remarks>
-    Use
+    Use,
+
+    /// <summary>Which of a component's slots this child goes into, from <c>slot="footer"</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Consumed at placement, like <see cref="Key" /> and <see cref="Tag" /> and unlike
+    ///         every attribute that survives into the document.</b> It decides which parent the
+    ///         emitter writes the child under and then it is gone — it is not a style-tree attribute,
+    ///         and a rule written against <c>[slot]</c> matches nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read off the child and meaningful only to its parent</b>, which is the one shape
+    ///         no other kind here has. <c>&lt;slot name="footer"&gt;</c> declares the hole and lives
+    ///         inside the component; <c>slot="footer"</c> fills it and is written by the consumer, on
+    ///         a direct child of the component's tag. The two names have to agree and nothing but a
+    ///         compose-time failure can say when they do not — see <c>BuildContext.Into</c> for why
+    ///         that is a throw rather than a silent drop.
+    ///     </para>
+    /// </remarks>
+    Slot
 }
 
 /// <summary>One piece of an attribute's value.</summary>

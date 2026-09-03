@@ -385,6 +385,119 @@ public class RasterizerTests {
         Assert.True(Pixel(image, 39, 39).R > 200, "the bottom-right corner should be square");
     }
 
+    /// <summary>Four different corners, checked by the area they remove rather than by four pixels.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A closed-form oracle, because a picture is what this is about and a pixel probe is
+    ///         not enough.</b> A quarter disc of radius <i>r</i> cut out of the square corner it sits
+    ///         in removes exactly <c>r²(1 − π/4)</c>, so a box with four different radii covers
+    ///         <c>W·H − Σ rᵢ²(1 − π/4)</c> and nothing else — a number that moves when <i>any one</i>
+    ///         corner does. Four probe pixels say only that something is missing near each corner;
+    ///         this says how much, which is what separates four radii honoured from one radius applied
+    ///         four times.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sabotage this exists for is a consumer swallowing the side buffer.</b>
+    ///         <see cref="DrawCommand.Radius" /> is one <c>float</c> and a box whose corners differ
+    ///         carries a <i>zero</i> in it, so a consumer that reads only the command draws this box
+    ///         with square corners and its area comes out at the full 1600. One that took the top-left
+    ///         corner for all four would report about 1380. The true answer is neither, and only an
+    ///         area can tell the three apart.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Four_different_corner_radii_each_remove_their_own_area() {
+        using var ui = Opened(
+            """
+            .round {
+                position: absolute; left: 0; top: 0; width: 40px; height: 40px;
+                background-color: #ffffff;
+                border-top-left-radius: 16px;
+                border-top-right-radius: 8px;
+                border-bottom-right-radius: 4px;
+                border-bottom-left-radius: 0;
+            }
+            """
+        );
+
+        ui.Create("div", ui.Document.Root, null, "round");
+        ui.Frame();
+
+        var box = CommandOf(ui, DrawCommandKind.Rectangle);
+
+        // ⚠ The scalar is zero and the four corners are in the side buffer, which is the arrangement
+        // the oracle below measures the consequences of. Asserted here so that a failure downstream
+        // is not misread as the builder having stopped emitting them.
+        Assert.Equal(0f, box.Radius);
+        Assert.True(box.HasStyle, "four different corners need the side buffer");
+
+        var corners = ui.Document.Drawing.Boxes[box.Offset].Corners;
+
+        Assert.Equal(16f, corners.TopLeft.X);
+        Assert.Equal(8f, corners.TopRight.X);
+        Assert.Equal(4f, corners.BottomRight.X);
+        Assert.Equal(0f, corners.BottomLeft.X);
+
+        var expected = (40f * 40f) - (Cut(16f) + Cut(8f) + Cut(4f) + Cut(0f));
+
+        Assert.Equal(expected, Covered(ui.Capture()), 2f);
+    }
+
+    /// <summary>Changing one corner moves the area by exactly that corner's difference.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The differential, which is the half a single measurement cannot supply.</b> One area
+    ///     agreeing with a formula could be an accident of where the antialiasing rounds; the same box
+    ///     drawn twice with one corner changed must differ by <c>(r₂² − r₁²)(1 − π/4)</c> and by
+    ///     nothing else, and a consumer reading a single radius for all four corners would move it by
+    ///     four times that. Both boxes are rasterised by the same code in the same run, so the
+    ///     difference is the property and the absolute value is only the sanity check.
+    /// </remarks>
+    [Fact]
+    public void Changing_one_corner_moves_the_area_by_that_corner_alone() {
+        Assert.Equal(Cut(12f) - Cut(4f), Area(4f) - Area(12f), 2f);
+
+        static float Area(float bottomRight) {
+            using var ui = Opened(
+                $$"""
+                  .round {
+                      position: absolute; left: 0; top: 0; width: 40px; height: 40px;
+                      background-color: #ffffff;
+                      border-top-left-radius: 16px;
+                      border-top-right-radius: 8px;
+                      border-bottom-right-radius: {{bottomRight}}px;
+                      border-bottom-left-radius: 0;
+                  }
+                  """
+            );
+
+            ui.Create("div", ui.Document.Root, null, "round");
+            ui.Frame();
+
+            return Covered(ui.Capture());
+        }
+    }
+
+    /// <summary>How much area a quarter disc of this radius takes out of the corner it sits in.</summary>
+    static float Cut(float radius) => radius * radius * (1f - (MathF.PI / 4f));
+
+    /// <summary>The white box's area, summed from the coverage the rasteriser wrote.</summary>
+    /// <remarks>
+    ///     The background is black and the box is white, so the red channel <i>is</i> the coverage —
+    ///     summing it over the image is the box's area in pixels, antialiasing included. That is what
+    ///     makes the count comparable with a closed form rather than only with another picture.
+    /// </remarks>
+    static float Covered(in Bitmap image) {
+        var total = 0f;
+
+        for (var y = 0; y < image.Height; y++) {
+            for (var x = 0; x < image.Width; x++) {
+                total += image.Pixels[image.Offset(x, y)] / 255f;
+            }
+        }
+
+        return total;
+    }
+
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
             .GetManifestResourceStream("Vixen.Ui.Testing.Tests.Fonts.TestShapeLana.ttf")

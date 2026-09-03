@@ -295,12 +295,11 @@ public class UtilityConsumptionGateTests {
     /// <summary>The method distinguishes interned from acted on, proved on the two known cases.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The control experiment, and without it the gate is unfalsifiable.</b>
-    ///         <c>word-spacing</c> is interned by <c>LayoutStyleBuilder</c> — it has an id, the
-    ///         cascade carries it, it is in the name table — and <c>docs/plan/43</c> § Part 0 records
-    ///         that nothing in the repository reads it. It is also a property no utility family
-    ///         emits, so the gate never meets it in normal operation; it is here precisely because it
-    ///         is the case a cheaper method would get wrong.
+    ///         ⚠ <b>The control experiment, and without it the gate is unfalsifiable.</b> The row is
+    ///         a standard CSS property the cascade carries — it resolves, it is in the document's
+    ///         table — that no utility family emits and nothing in the engine reads. The gate never
+    ///         meets it in normal operation; it is here precisely because it is the case a cheaper
+    ///         method would get wrong.
     ///     </para>
     ///     <para>
     ///         The first assertion is what makes the second mean something: the property really is in
@@ -309,16 +308,26 @@ public class UtilityConsumptionGateTests {
     ///         remark above needs rewriting rather than the gate.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>text-indent</c> was the second row here and it was removed by being
-    ///         implemented, which is this test doing its job rather than a hole in it.</b> It sat
-    ///         beside <c>word-spacing</c> for exactly as long as Part 0's finding was true; the day
-    ///         <c>LineWrapper</c> learned a first-line width, the row started failing and had to go.
-    ///         That is what a control experiment is supposed to do when the thing it controls for
-    ///         stops being the case.
+    ///         ⚠ <b>Two properties have now been removed from this list by being implemented, and
+    ///         both times that was this test doing its job rather than a hole in it.</b>
+    ///         <c>text-indent</c> went the day <c>LineWrapper</c> learned a first-line width, and
+    ///         <c>word-spacing</c> the day <c>TextRun</c> learned which characters CSS separates words
+    ///         with. Each had sat here for exactly as long as <c>docs/plan/43</c> § Part 0's finding
+    ///         about it was true, and each started failing on the commit that made it false. That is
+    ///         what a control experiment is supposed to do when the thing it controls for stops being
+    ///         the case.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the replacement has to be found rather than the row simply deleted.</b> A
+    ///         <c>[Theory]</c> whose last <c>[InlineData]</c> is removed does not fail; it reports no
+    ///         tests, and the gate above it goes on passing with nothing left to say its method can
+    ///         tell "unread" from "not measured". <c>tab-size</c> is the third occupant on those
+    ///         terms: CSS Text 3 § 6.1, parsed and cascaded here, read by nothing, emitted by no
+    ///         family.
     ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("word-spacing", "6px")]
+    [InlineData("tab-size", "8")]
     public void An_interned_property_no_consumer_acts_on_reads_as_inert(string property, string value) {
         Assert.Contains(property, UtilityConsumptionProbe.Resolved($"{property}: {value}"), StringComparer.Ordinal);
         Assert.Empty(UtilityConsumptionProbe.Channels(property, value));

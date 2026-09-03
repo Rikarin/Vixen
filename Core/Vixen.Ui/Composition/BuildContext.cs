@@ -1102,6 +1102,71 @@ public sealed class BuildContext {
         return slot;
     }
 
+    /// <summary>Where content a consumer addressed to a named slot goes.</summary>
+    /// <param name="component">The component whose tag the content was written inside.</param>
+    /// <param name="name">The slot's name, from the consumer's <c>slot="…"</c>.</param>
+    /// <returns>The element that slot was declared on.</returns>
+    /// <exception cref="InvalidOperationException">The component declares no such slot.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The consumer half of <see cref="Slot" />, and until it existed the declaring half
+    ///         was write-only.</b> <see cref="Component.Declare" /> put every slot in the dictionary
+    ///         and one line read it back — <see cref="Component.Content" />, looking up
+    ///         <see cref="DefaultSlot" /> and nothing else. A <c>&lt;slot name="footer"&gt;</c>
+    ///         therefore parsed, bound, emitted, ran, and could not be filled by anything.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unknown name throws rather than falling back to the default slot, which is the
+    ///         opposite of what the web platform does.</b> HTML drops unmatched slotted content on the
+    ///         floor, and that reading is right for a document assembled from parts that do not know
+    ///         each other. Here the two sides are compiled together against one another, so a name
+    ///         that matches nothing is a typo the author can fix — and the two silent alternatives are
+    ///         both worse than an exception: dropping it makes a panel come up missing a section, and
+    ///         defaulting it puts the footer at the top of the body, which reads as a layout bug in the
+    ///         component rather than a misspelling in the consumer. The message names the slots the
+    ///         component does declare, which is the same bargain an unknown <c>on:</c> event is
+    ///         emitted under.
+    ///     </para>
+    /// </remarks>
+    public static UiElement Into(Component component, string name) {
+        ArgumentNullException.ThrowIfNull(component);
+        ArgumentNullException.ThrowIfNull(name);
+
+        if (component.Slots?.TryGetValue(name, out var slot) == true) {
+            return slot;
+        }
+
+        var declared = component.Slots is { Count: > 0 } slots
+            ? string.Join(", ", slots.Keys.Order(StringComparer.Ordinal))
+            : "none";
+
+        throw new InvalidOperationException(
+            $"'{component.GetType().Name}' declares no slot named '{name}'. It declares: {declared}."
+        );
+    }
+
+    /// <inheritdoc cref="Into(Component, string)" />
+    /// <param name="element">The control the content was written inside.</param>
+    /// <param name="name">The slot's name.</param>
+    /// <remarks>
+    ///     ⚠ <b>Present so that the failure is about slots rather than about overload resolution.</b>
+    ///     A capitalised tag names a component or a control and the emitter cannot tell which — the
+    ///     two <see cref="Inner(Component)" /> overloads exist for exactly that reason. Without this
+    ///     one, <c>slot="footer"</c> inside a <c>&lt;ScrollView&gt;</c> would be a Roslyn error about
+    ///     converting a <see cref="UiElement" /> to a <see cref="Component" />, on generated code the
+    ///     author never wrote, and the fix would not be visible in it. A control has no slots to name
+    ///     and never will; saying so is more useful than pointing at the conversion.
+    /// </remarks>
+    public static UiElement Into(UiElement element, string name) {
+        ArgumentNullException.ThrowIfNull(element);
+        ArgumentNullException.ThrowIfNull(name);
+
+        throw new InvalidOperationException(
+            $"'{element.Tag}' is a control rather than a component, so it declares no slots and "
+            + $"content inside it cannot be addressed to '{name}'."
+        );
+    }
+
     // ================================================================== Control flow
 
     /// <summary>Builds whichever arm a selector picks, and rebuilds when it picks another.</summary>

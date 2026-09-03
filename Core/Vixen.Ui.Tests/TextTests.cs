@@ -563,6 +563,123 @@ public class TextTests {
     }
 
     [Fact]
+    public void Word_spacing_widens_the_gaps_and_the_measurement_with_them() {
+        // The same argument tracking's own test makes about reaching the measure, and it is why the
+        // width is asserted against the *unspaced* label rather than against a literal.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            label { font-family: Test; }
+            .loose { word-spacing: 4px; }
+        """);
+
+        var tight = document.Root.Add("label");
+        var loose = document.Root.Add("label", null, "loose");
+
+        tight.Text = "A B C";
+        loose.Text = "A B C";
+
+        document.Update();
+
+        var run = loose.Block()!.Lines[0].Runs[0];
+
+        // Two spaces in "A B C", and nothing else in it counts.
+        Assert.Equal(2, run.Separators);
+        Assert.Equal(tight.Block()!.Lines[0].Width + 8f, run.Width, Tolerance);
+        Assert.True(loose.Width > tight.Width);
+    }
+
+    /// <summary>The distinction that makes this a property of its own rather than tracking.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The test that separates the two, and nothing cheaper does it.</b> A run with the same
+    ///     spacing added to every cluster is wider than one with none, so a "word spacing widens the
+    ///     text" assertion passes just as happily against an implementation that spaces every letter.
+    ///     Five characters and two spaces come out at 8px under the rule and 20px under the mistake,
+    ///     and only a string with more letters than spaces can tell them apart.
+    /// </remarks>
+    [Fact]
+    public void Word_spacing_is_charged_to_the_separators_and_not_to_every_character() {
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            label { font-family: Test; }
+            .loose { word-spacing: 4px; }
+            .wide { letter-spacing: 4px; }
+        """);
+
+        var tight = document.Root.Add("label");
+        var loose = document.Root.Add("label", null, "loose");
+        var wide = document.Root.Add("label", null, "wide");
+
+        tight.Text = "AB CD";
+        loose.Text = "AB CD";
+        wide.Text = "AB CD";
+
+        document.Update();
+
+        var plain = tight.Block()!.Lines[0].Width;
+
+        // One separator in five characters: 4px of word spacing, against 20px of tracking over the
+        // same string.
+        Assert.Equal(plain + 4f, loose.Block()!.Lines[0].Runs[0].Width, Tolerance);
+        Assert.Equal(plain + 20f, wide.Block()!.Lines[0].Runs[0].Width, Tolerance);
+    }
+
+    /// <summary>The half that was wrong for as long as the property was inert.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>word-spacing</c> sat in <c>InheritedProperties</c> — specified-value inheritance —
+    ///     until it gained a reader, and this is the assertion that would have caught it.</b> A child
+    ///     that inherits the <i>text</i> <c>0.5em</c> re-resolves it against its own font size, so a
+    ///     16px child under a 32px parent gets 8px where CSS gives it the 16px its parent computed.
+    ///     Every other observable is identical, which is why the bug could sit there indefinitely.
+    /// </remarks>
+    [Fact]
+    public void Word_spacing_inherits_the_length_the_ancestor_resolved_and_not_the_declaration() {
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
+            .parent { font-size: 32px; word-spacing: 0.5em; }
+            label { font-family: Test; font-size: 16px; }
+        """);
+
+        var parent = document.Root.Add("div", null, "parent");
+        var label = parent.Add("label");
+
+        label.Text = "A B";
+
+        document.Update();
+
+        // Half of the parent's 32, carried down as a length. Half of the label's own 16 would be 8.
+        Assert.Equal(16f, parent.WordSpacing, Tolerance);
+        Assert.Equal(16f, label.WordSpacing, Tolerance);
+        Assert.Equal(16f, label.Block()!.Lines[0].Runs[0].WordSpacing, Tolerance);
+    }
+
+    /// <summary>Sabotage: a keyword is zero, and a unit that is not a distance is left inherited.</summary>
+    /// <remarks>
+    ///     The three outcomes <c>letter-spacing</c> already distinguishes, asserted here because a
+    ///     property added by copying its sibling is exactly where the third one gets dropped. Read
+    ///     through a plain pixel conversion, <c>word-spacing: 90deg</c> would come out as zero — which
+    ///     is the initial value, so nothing about the frame could say the declaration was discarded.
+    /// </remarks>
+    [Fact]
+    public void A_word_spacing_that_is_not_a_distance_is_left_inherited_and_normal_is_zero() {
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
+            .parent { word-spacing: 6px; }
+            .nonsense { word-spacing: 90deg; }
+            .normal { word-spacing: normal; }
+        """);
+
+        var parent = document.Root.Add("div", null, "parent");
+        var nonsense = parent.Add("div", null, "nonsense");
+        var normal = parent.Add("div", null, "normal");
+
+        document.Update();
+
+        Assert.Equal(6f, parent.WordSpacing, Tolerance);
+        Assert.Equal(6f, nonsense.WordSpacing, Tolerance);
+        Assert.Equal(0f, normal.WordSpacing, Tolerance);
+    }
+
+    [Fact]
     public void A_line_height_replaces_the_fonts_own() {
         using var document = Documented("""
             root { width: 400px; height: 200px; align-items: flex-start; }

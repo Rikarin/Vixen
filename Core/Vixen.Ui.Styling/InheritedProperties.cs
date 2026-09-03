@@ -50,12 +50,13 @@ namespace Vixen.Ui.Styling;
 ///         is rather than collapsing both to pixels.
 ///     </para>
 ///     <para>
-///         The gap stays open for <c>word-spacing</c>, which nothing reads yet. Computing a value no
-///         consumer looks at would be work with no way to be wrong, and it can join the others on the
-///         day something wants it. ⚠ <c>text-indent</c> was in that sentence until
-///         <c>LineWrapper</c> learned a first-line width, and it did <i>not</i> join this list when
-///         it gained a reader: it takes relative units, so it is computed and inherited beside
-///         <c>line-height</c> and <c>letter-spacing</c> for the reason the note below gives.
+///         ⚠ <b>That gap is now closed, and closing it was a removal from this list rather than an
+///         addition to it.</b> <c>text-indent</c> left the sentence when <c>LineWrapper</c> learned a
+///         first-line width, and <c>word-spacing</c> left it when <c>TextRun</c> learned which
+///         characters CSS separates words with. Neither joined this list on gaining a reader: both
+///         take relative units, so both are computed and inherited beside <c>line-height</c> and
+///         <c>letter-spacing</c> for the reason the note below gives. <c>word-spacing</c> had been
+///         <i>in</i> this list all along, which was the more interesting half — see the note there.
 ///     </para>
 /// </remarks>
 public sealed class InheritedProperties {
@@ -81,12 +82,18 @@ public sealed class InheritedProperties {
         "font-feature-settings",
         "font-variant-numeric",
 
-        // ⚠ `line-height`, `letter-spacing` and `text-indent` are CSS-inherited and are deliberately
-        // *not* here, for the same reason `font-size` is not: all three take relative units, and
-        // inheriting the text `1.5em` would resolve it against the descendant's font size rather than
-        // the ancestor's. `Vixen.Ui` inherits their computed values instead — see
+        // ⚠ `line-height`, `letter-spacing`, `word-spacing` and `text-indent` are CSS-inherited and
+        // are deliberately *not* here, for the same reason `font-size` is not: all four take relative
+        // units, and inheriting the text `1.5em` would resolve it against the descendant's font size
+        // rather than the ancestor's. `Vixen.Ui` inherits their computed values instead — see
         // `UiElement.LineHeight` and `UiElement.TextIndent`.
-        "word-spacing",
+        //
+        // ⚠ `word-spacing` was in this list until it gained a reader, and being in it was wrong the
+        // whole time rather than merely premature. It takes relative units exactly as its three
+        // siblings do, so the list was a trap with a fuse on it: everything about the property looked
+        // correct while nothing read it, and the day a consumer landed `word-spacing: 0.5em` would
+        // have compounded down every descendant by the ratio of the font sizes — a defect visible
+        // only as text that is slightly too loose, in the one direction nobody measures.
         "text-align",
         "text-transform",
         "white-space",

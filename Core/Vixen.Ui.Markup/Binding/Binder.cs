@@ -344,14 +344,68 @@ public sealed class Binder {
         var children = BindContent(element.Content);
         inLoop = outer;
 
+        var component = SyntaxFacts.IsComponentName(tag);
+
+        // ⚠ Here rather than in the attribute binder, because `slot="footer"` is legal by virtue of
+        // its *parent* and an attribute cannot see one. This is the only place in the walk that holds
+        // a tag and its own children at once.
+        if (!component) {
+            RefuseSlotAttributes(element, tag);
+        }
+
         return new BoundElement(
             tag,
-            SyntaxFacts.IsComponentName(tag),
+            component,
             attributes,
             children,
             Position(element.StartTag.Name)
         );
     }
+
+    /// <summary>Reports every <c>slot="…"</c> written under a tag that has no slots.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the immediate children, and that is the rule rather than a shortcut.</b> A slot
+    ///     name is read by the tag it is written directly inside; a grandchild carrying one is
+    ///     addressed to nobody, and its own parent is the tag this runs for. So walking deeper would
+    ///     report the same attribute twice, once at each level, and reporting it at the level it was
+    ///     written is the one that names the element the author has to move.
+    /// </remarks>
+    void RefuseSlotAttributes(ElementSyntax parent, string tag) {
+        foreach (var child in parent.Content) {
+            if (child is not ElementSyntax element) {
+                continue;
+            }
+
+            foreach (var attribute in element.StartTag.Attributes) {
+                if (!string.Equals(attribute.Name.Text, "slot", StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                // ⚠ Reported against the *syntax* and not the bound attribute, which is what buys the
+                // squiggle its position. A `BoundAttribute` carries a `LinePositionSpan` for the
+                // emitter's benefit and `Report` wants a `TextSpan`; the only place both the tag and
+                // its children's real spans are in scope at once is here.
+                Report(
+                    MarkupDiagnostics.MisplacedSlotAttribute,
+                    attribute.Name.Span,
+                    Literal(attribute) ?? DefaultSlotName,
+                    tag
+                );
+            }
+        }
+    }
+
+    /// <summary>An attribute's value when it is one literal string, otherwise null.</summary>
+    static string? Literal(AttributeSyntax attribute) =>
+        attribute.Value is QuotedAttributeValueSyntax { } quoted ? quoted.ToString() : null;
+
+    /// <summary>What an unnamed slot is called, spelled here so the binder needs no runtime.</summary>
+    /// <remarks>
+    ///     ⚠ <c>BuildContext.DefaultSlot</c> is the same string and is the one that matters, but this
+    ///     project is a <c>netstandard2.1</c> analyser and does not reference <c>Vixen.Ui</c>. The two
+    ///     are held together by a test rather than by the compiler.
+    /// </remarks>
+    const string DefaultSlotName = "default";
 
     BoundSlot BindSlot(ElementSyntax element, ImmutableArray<BoundAttribute> attributes) {
         var name = "default";
@@ -367,6 +421,15 @@ public sealed class Binder {
 
         if (isElement && !string.Equals(name, "default", StringComparison.Ordinal)) {
             Report(MarkupDiagnostics.NamedSlotOnElement, element.StartTag.Name.Span, name);
+        }
+
+        // ⚠ <b>The children were being dropped without a word, and that is worse than not having
+        // fallback content at all.</b> Every other framework spells a default this way, so it is what
+        // an author writes first; `BindSlot` never looked at `element.Content`, so
+        // `<slot name="footer">Nothing yet</slot>` compiled clean and drew an empty hole. Refused
+        // out loud until a real fallback exists — see VXML2017.
+        if (element.Content.Count > 0) {
+            Report(MarkupDiagnostics.SlotFallbackContent, element.StartTag.Name.Span);
         }
 
         return new BoundSlot(name);
@@ -651,6 +714,17 @@ public sealed class Binder {
         // characters the author wrote.
         if (string.Equals(written, "use", StringComparison.Ordinal)) {
             return (BoundAttributeKind.Use, written, []);
+        }
+
+        // ⚠ Recognised here, on every tag, and refused later by *position* rather than by name. What
+        // makes `slot="footer"` legal is the parent being a component tag, and an attribute binder
+        // does not know its element's parent — so the check is in `BindElement`, where the children
+        // are already bound and the tag is in hand. Claiming the name unconditionally is what lets
+        // that check see the ones written in the wrong place at all: left as a `Parameter` it would
+        // reach the emitter as a property assignment and come back as Roslyn's "no such member",
+        // pointing at generated code and naming the wrong problem.
+        if (string.Equals(written, "slot", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Slot, written, []);
         }
 
         var colon = written.IndexOf(':', StringComparison.Ordinal);

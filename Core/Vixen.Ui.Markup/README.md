@@ -538,6 +538,58 @@ Two differences remain, and both are the base class being honest:
   declares because `Inner(Component)` reads a dictionary, and an element has one because
   `ContentHost` is one property. A second name would be an element nothing can address.
 
+  ⚠ **So a shell with named slots has to be a plain component**, and that is the constraint to know
+  before reaching for one. The panels in the editor that most want a toolbar/body/status shell —
+  `PluginManagerView`, `KeyBindingsView`, `DeviceManagerView`, `SettingsView` — all declare
+  `@inherits Vixen.Ui.Controls.Control`, so none of them can *declare* a named slot. They can fill
+  one: the restriction is on the declaring side only.
+
+## Named slots
+
+A component declares holes and a consumer fills them by name:
+
+```
+<!-- ToolbarShell.vxml -->
+<shell-root>
+    <shell-toolbar><slot name="toolbar" /></shell-toolbar>
+    <shell-body><slot /></shell-body>
+    <shell-status><slot name="status" /></shell-status>
+</shell-root>
+```
+
+```
+<ToolbarShell>
+    <shell-note slot="status">Ready</shell-note>
+    <Button slot="toolbar" Label="Reload" />
+    <grid />
+</ToolbarShell>
+```
+
+`slot="…"` is consumed at placement, like `key` and `tag`: it decides which parent the child is
+written under and never reaches the document, so a stylesheet rule written against `[slot]` matches
+nothing. Children that name no slot go to the default one, and they stay adjacent and in source
+order — the emitter partitions rather than emitting a call per child.
+
+⚠ **The order the slots are declared in is the order they are drawn in**, whatever order the
+consumer wrote its content in. That is the whole of what projection buys over three parameters.
+
+⚠ **`slot="…"` is legal by virtue of its parent**, so it is refused by position rather than by name:
+`VXML2016` on anything that is not a direct child of a component tag, reported against the attribute
+and naming the tag it was written under. A grandchild is refused too — its slot name is addressed to
+a tag that is not listening.
+
+⚠ **A name the component does not declare throws at compose**, naming the ones it does. That is the
+opposite of the web platform, which drops unmatched slotted content silently; the two sides are
+compiled together here, so a name that matches nothing is a typo somebody can fix. Both silent
+readings are worse than the throw: dropping brings a panel up with a section missing, and defaulting
+puts the footer at the top of the body — either reads as a bug in the component rather than as the
+misspelling in the consumer that it is.
+
+⚠ **`Inner(component)` and `Into(component, "default")` are not the same call.** `Inner` resolves the
+default slot through `Component.Content`, which falls back to the component's root when it declared
+no slot at all; `Into` reads the dictionary and throws. The unnamed children go through `Inner`, so
+markup that names no slot compiles to exactly what it always did.
+
 ## Whitespace
 
 **A whitespace run that crosses a line break is trivia; one that does not is text.** Indentation

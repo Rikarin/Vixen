@@ -53,6 +53,22 @@ public readonly record struct PositionedGlyph(ushort GlyphId, float X, float Y);
 ///     The computed <c>line-height</c> in pixels, or <see cref="float.NaN" /> for the font's own
 ///     recommendation. NaN rather than zero, because zero is a line height somebody might mean.
 /// </param>
+/// <param name="WordSpacing">
+///     <para>
+///         <c>word-spacing</c> in pixels, added to the advance of every word-separator character.
+///         Zero for almost all text, and the same shape as <paramref name="Tracking" /> so that zero
+///         costs nothing.
+///     </para>
+///     <para>
+///         ⚠ <b>It is not tracking on the space, and the difference is which characters count.</b>
+///         CSS Text 3 § 8.2 defines a closed list of <i>word-separator characters</i> — the ordinary
+///         space and the no-break space are the two any interface meets — and applies this to those
+///         and to nothing else. A tab is not one; nor is a zero-width space, which is a break
+///         opportunity rather than a separator. <see cref="IsWordSeparator" /> is that list, written
+///         out rather than approximated by <c>char.IsWhiteSpace</c>, which would space a tab and a
+///         line separator as well.
+///     </para>
+/// </param>
 /// <param name="Start">
 ///     Where this run's text begins in the element's, as a UTF-16 index. Zero for a line that is one
 ///     run, and what lets a caret index reach the run it belongs to.
@@ -78,7 +94,8 @@ public sealed record TextRun(
     float Tracking = 0f,
     float Leading = float.NaN,
     int Start = 0,
-    int Level = 0
+    int Level = 0,
+    float WordSpacing = 0f
 ) {
     /// <summary>Whether the run is drawn right to left.</summary>
     public bool IsRightToLeft => (Level & 1) != 0;
@@ -109,6 +126,46 @@ public sealed record TextRun(
         }
     }
 
+    /// <summary>How many of this run's clusters are word-separator characters.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Counted over clusters and keyed on the cluster's <i>first</i> character, for the
+    ///         same reason <see cref="Clusters" /> exists.</b> A cluster is a typographic character,
+    ///         and a space that shaping folded together with a neighbouring mark is still one
+    ///         separator rather than two. Counting glyphs would space a run by however many glyphs
+    ///         its spaces happened to produce.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cluster is an index into <see cref="ShapedText.Text" /> — this run's own
+    ///         substring — and not into the element's text.</b> <see cref="Start" /> is the offset
+    ///         between the two and adding it here would read the wrong character on every run but the
+    ///         first, which on a mixed-script line is the failure that spaces the wrong words.
+    ///     </para>
+    /// </remarks>
+    public int Separators {
+        get {
+            if (WordSpacing == 0f) {
+                return 0;
+            }
+
+            var count = 0;
+            var previous = int.MinValue;
+            var text = Shaped.Text;
+
+            foreach (var placement in Shaped.Placements()) {
+                if (placement.Cluster != previous) {
+                    previous = placement.Cluster;
+
+                    if ((uint) placement.Cluster < (uint) text.Length && IsWordSeparator(text[placement.Cluster])) {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+    }
+
     /// <summary>How wide the line is.</summary>
     /// <remarks>
     ///     ⚠ Tracking is added after the <i>last</i> character as well as between, which is what CSS
@@ -117,7 +174,36 @@ public sealed record TextRun(
     ///     rather than corrected, because a toolkit that quietly disagrees with the specification is
     ///     harder to reason about than one that reproduces a known wart.
     /// </remarks>
-    public float Width => Tracking == 0f ? Shaped.Advance * Scale : Shaped.Advance * Scale + Tracking * Clusters;
+    public float Width {
+        get {
+            var width = Shaped.Advance * Scale;
+
+            if (Tracking != 0f) {
+                width += Tracking * Clusters;
+            }
+
+            // ⚠ Not folded into the branch above. `word-spacing` without `letter-spacing` is the
+            // ordinary way either is used, and reaching `Separators` from inside a tracking test
+            // would make the width of `word-spacing: 4px` alone come out as if it were zero — a
+            // paragraph laid out at one width and drawn at another, which shows as text running past
+            // its own wrap point.
+            if (WordSpacing != 0f) {
+                width += WordSpacing * Separators;
+            }
+
+            return width;
+        }
+    }
+
+    /// <summary>Whether a character is one CSS adds <c>word-spacing</c> to.</summary>
+    /// <remarks>
+    ///     CSS Text 3 § 8.2's list, minus the four historic and archaic separators no font this
+    ///     engine loads has ever been asked for — Ethiopic word space and the three Aegean and
+    ///     Ugaritic ones — which are astral and so cannot be tested with a single <c>char</c> at all.
+    ///     Their absence is a gap in the same sense the surrogate pair is: reachable only from text
+    ///     this cannot currently express as one code unit.
+    /// </remarks>
+    static bool IsWordSeparator(char value) => value is '\u0020' or '\u00a0';
 
     /// <summary>How tall one line of it is.</summary>
     /// <remarks>
@@ -193,11 +279,26 @@ public sealed record TextRun(
         // entirely: text with no tracking runs the loop it always ran.
         var offset = penX;
         var previous = int.MinValue;
+        var text = Shaped.Text;
 
         foreach (var placement in Shaped.Placements()) {
-            if (Tracking != 0f) {
+            if (Tracking != 0f || WordSpacing != 0f) {
                 if (previous != int.MinValue && placement.Cluster != previous) {
                     offset += Tracking;
+
+                    // ⚠ <b>Charged to the separator the pen has just passed, not to the one it is
+                    // arriving at.</b> `word-spacing` widens a space's advance, so the extra belongs
+                    // after that space and before the word behind it. Reading the *incoming*
+                    // cluster instead moves the space itself away from the word in front of it and
+                    // leaves the gap behind it untouched — which at a glance looks like the same
+                    // picture shifted, and is the wrong word attached to the wrong gap. The run's
+                    // visual order is the loop's order in both directions, so this is right for
+                    // right-to-left text without a second case.
+                    if (WordSpacing != 0f
+                        && (uint) previous < (uint) text.Length
+                        && IsWordSeparator(text[previous])) {
+                        offset += WordSpacing;
+                    }
                 }
 
                 previous = placement.Cluster;
