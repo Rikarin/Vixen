@@ -373,4 +373,53 @@ public class SurfaceGraphTests {
         Assert.Contains("var albedoSampler: Sampler", result.Value.Source, StringComparison.Ordinal);
         Assert.DoesNotContain("materialTextures", result.Value.Source, StringComparison.Ordinal);
     }
+
+    /// <summary>A node's span still points at the line it wrote, in the surface shape too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The offset is different arithmetic in each shape and there is nothing to notice when
+    ///     it drifts.</b> Both count the compiler's own header and then add it to spans the emitter
+    ///     numbered from zero, but the surface header is four imports and no vertex stage while the
+    ///     standalone one is two transforms and every varying the graph asked for. A span off by a
+    ///     line still resolves to a node, and the squiggle lands on the statement above or below the
+    ///     one the compiler complained about — which reads as the diagnostic being vague rather than
+    ///     as a map being wrong.
+    /// </remarks>
+    [Fact]
+    public void A_span_points_at_the_written_line_in_a_surface_too() {
+        var graph = new NodeGraphModel { Name = "Mapped" };
+        var uv = graph.Add("Input/UV");
+        var tiling = graph.Add("Vector/Tiling and Offset");
+        var sample = graph.Add("Texture/Sample 2D");
+        var master = graph.Add("Master/Surface");
+
+        graph.Connect(new(uv.Id, "UV"), new(tiling.Id, "UV"));
+        graph.Connect(new(tiling.Id, "Out"), new(sample.Id, "UV"));
+        graph.Connect(new(sample.Id, "RGBA"), new(master.Id, "BaseColour"));
+
+        var result = new ShaderGraphCompiler(Library()).Compile(graph);
+
+        Assert.True(result.Succeeded, string.Join("\n", result.Diagnostics));
+
+        var lines = result.Value.Source.ReplaceLineEndings("\n").Split('\n');
+
+        foreach (var node in (GraphNode[])[uv, tiling, sample]) {
+            var span = Assert.Single(result.Value.Spans, candidate => candidate.Node == node.Id);
+
+            Assert.Equal(1, span.Span.Lines);
+            Assert.Contains($"n{node.Id.Value}_", lines[span.Span.Line], StringComparison.Ordinal);
+        }
+
+        // The header belongs to nobody, so a complaint about the package line or an import is a line
+        // number rather than the nearest node.
+        Assert.False(result.Value.NodeAt(0, out _));
+
+        // And a property's declaration is owned by the node that asked for it, which is where an
+        // author is sent when the name they typed is refused.
+        var declaration = Assert.Single(
+            result.Value.Spans,
+            candidate => candidate.Node == sample.Id && lines[candidate.Span.Line].Contains("var albedoIndex", StringComparison.Ordinal)
+        );
+
+        Assert.Equal(1, declaration.Span.Lines);
+    }
 }

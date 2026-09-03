@@ -95,6 +95,16 @@
             the architecture check says so by name.
         -->
         <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+
+        <!--
+            The shader graph, for the one test that photographs a graph-authored material through the
+            real forward pass. ⚠ Platform/ → Editor/ is an edge CheckArchitecture refuses for shipping
+            assemblies and exempts for test projects — the same basis on which this project already
+            reaches up into Tools/Vixen.ShaderCompiler. The alternative is re-creating Fixture,
+            TierScene and GoldenImage inside Vixen.Editor.ShaderGraph.Tests, which is a second copy of
+            the harness rather than a second test.
+        -->
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
     </ItemGroup>
 
     <ItemGroup>
